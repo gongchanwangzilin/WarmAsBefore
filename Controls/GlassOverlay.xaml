@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Controls.GlassOverlay"
+             InputTransparent="True"
+             IsVisible="False">
+
+    <Grid>
+        <!-- 磨砂层：轻透磨砂，内容仍清晰可读 -->
+        <Grid x:Name="FrostLayer">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#38FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#14FFFFFF" Offset="1.0" />
+                </LinearGradientBrush>
+            </Grid.Background>
+        </Grid>
+
+        <!-- 毛玻璃层：磨砂之上，叠加层 + 边缘高光 -->
+        <Grid x:Name="GlassLayer">
+            <!-- 半透明叠加层 -->
+            <Grid>
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#38FDF6EE" Offset="0.0" />
+                        <GradientStop Color="#12FDF6EE" Offset="0.55" />
+                        <GradientStop Color="#2EC9BFA8" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Grid.Background>
+            </Grid>
+            <!-- 边缘高光：左上亮边 + 右下暖暗边 -->
+            <Border x:Name="EdgeHighlight" StrokeThickness="1.2">
+                <Border.Stroke>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#99FFFFFF" Offset="0.0" />
+                        <GradientStop Color="#2E8B7D6B" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Border.Stroke>
+            </Border>
+        </Grid>
+
+        <!-- 液态玻璃层：高透光泽质感 -->
+        <Grid x:Name="LiquidLayer">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#96FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#3DFDF6EE" Offset="0.35" />
+                    <GradientStop Color="#14FDF6EE" Offset="0.7" />
+                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Grid.Background>
+            <!-- 斜向光泽：模拟液态表面反光 -->
+            <Ellipse Fill="#B8FFFFFF" Opacity="0.28"
+                     WidthRequest="360" HeightRequest="120"
+                     HorizontalOptions="Start" VerticalOptions="Start"
+                     Margin="-80,-40,0,0" Rotation="-24" InputTransparent="True" />
+            <Ellipse Fill="#22FFFFFF" Opacity="0.5"
+                     WidthRequest="300" HeightRequest="80"
+                     HorizontalOptions="End" VerticalOptions="Center"
+                     Margin="0,0,-60,0" Rotation="18" InputTransparent="True" />
+            <Border StrokeThickness="1">
+                <Border.Stroke>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                        <GradientStop Color="#CCFFFFFF" Offset="0.0" />
+                        <GradientStop Color="#30FFFFFF" Offset="0.5" />
+                        <GradientStop Color="#8CC9BFA8" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Border.Stroke>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentView>

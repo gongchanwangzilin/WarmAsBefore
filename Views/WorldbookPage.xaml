@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.WorldbookPage"
+             x:DataType="vm:WorldbookViewModel"
+             Title="世界书"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="0">
+
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
+                    <Label Text="世界书" Style="{StaticResource TxtSubhead}" FontSize="16" />
+                    <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                </VerticalStackLayout>
+                <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsThinking}"
+                                   IsVisible="{Binding IsThinking}" Color="{StaticResource PrimaryAction}"
+                                   WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Content -->
+        <ScrollView Grid.Row="1" Margin="0,4">
+            <VerticalStackLayout Spacing="12" Padding="12,8">
+
+                <!-- Description Input -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="描述你的世界" Style="{StaticResource TxtSubhead}" />
+                        <Editor Text="{Binding Description}"
+                                Placeholder="描述你想要的世界观、角色、剧情…"
+                                PlaceholderColor="{StaticResource WarmMuted}"
+                                BackgroundColor="{StaticResource InputBg}"
+                                TextColor="{StaticResource SurfaceFg}"
+                                FontSize="14" HeightRequest="100" />
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="生成封面" VerticalOptions="Center" FontSize="13" />
+                            <Switch Grid.Column="1" IsToggled="{Binding GenerateCover}" />
+                            <Label Grid.Column="2" Text="模式" VerticalOptions="Center" FontSize="13" />
+                            <Picker Grid.Column="3" ItemsSource="{Binding ModeChoices}"
+                                    SelectedItem="{Binding Mode}" FontSize="13" />
+                        </Grid>
+                        <Button Text="生成世界书" Command="{Binding GenerateCommand}"
+                                Style="{StaticResource BtnNeumorphAccent}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Result -->
+                <Border x:Name="ResultPanel" IsVisible="{Binding Result}"
+                        Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding Result.Worldbook.Title}" Style="{StaticResource TxtSubhead}" FontSize="18" />
+                        <Label Text="{Binding Result.Worldbook.Description}" Style="{StaticResource TxtBody}"
+                               TextColor="{StaticResource WarmDark}" />
+
+                        <!-- Cover Image -->
+                        <Image Source="{Binding Result.CoverImagePath}"
+                               IsVisible="{Binding Result.CoverGenerated}"
+                               Aspect="AspectFill" HeightRequest="200" />
+
+                        <!-- Characters -->
+                        <Label Text="角色" Style="{StaticResource TxtSubhead}" />
+                        <CollectionView ItemsSource="{Binding Result.Worldbook.Characters}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource CardNeumorph}" Padding="8">
+                                        <VerticalStackLayout Spacing="4">
+                                            <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="14" />
+                                            <Label Text="{Binding Description}" FontSize="12"
+                                                   TextColor="{StaticResource WarmDark}" />
+                                            <Label Text="{Binding Personality}" FontSize="11"
+                                                   TextColor="{StaticResource WarmMuted}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <!-- Actions -->
+                        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                            <Button Text="润色" Command="{Binding PolishCommand}"
+                                    Style="{StaticResource BtnNeumorphSm}" />
+                            <Button Text="转为纯文字" Command="{Binding ConvertToTextOnlyCommand}"
+                                    Style="{StaticResource BtnNeumorphSm}" />
+                            <Button Text="转立绘模式" Command="{Binding ConvertToSpriteModeCommand}"
+                                    Style="{StaticResource BtnNeumorphSm}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

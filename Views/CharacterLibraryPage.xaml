@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.CharacterLibraryPage"
+             x:Name="Page"
+             x:DataType="vm:CharacterLibraryViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="角色库" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
+                <Border Grid.Column="2" BackgroundColor="{StaticResource BeigeAccent50}"
+                        StrokeThickness="0" Padding="10,5">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="AI 也会用到她们" FontSize="11" TextColor="{StaticResource WarmDark}" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Library list -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Items}"
+                        Margin="24,16,24,0" SelectionMode="None">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                     Spacing="12" Padding="32">
+                    <Border BackgroundColor="{StaticResource SurfaceBg}"
+                            StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="96" HeightRequest="96">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
+                        <Label Text="♡" TextColor="{StaticResource WarmFaint}" FontSize="40"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
+                           HorizontalOptions="Center" />
+                    <Label Text="在角色选择页新建或导入角色后，她们会出现在这里" Style="{StaticResource TxtMuted}"
+                           HorizontalOptions="Center" FontSize="13" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:CharacterLibraryItem">
+                    <Border Style="{StaticResource CardNeumorph}" Margin="0,0,0,14"
+                            Padding="16,14">
+                        <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="16">
+                            <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                                    WidthRequest="64" HeightRequest="64"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
+                                <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
+                                       IsVisible="{Binding HasAvatar}"
+                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
+                                       TextColor="{StaticResource WarmDark}" FontSize="24"
+                                       HorizontalOptions="Center" VerticalOptions="Center"
+                                       FontAttributes="Bold"
+                                       IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
+                                <HorizontalStackLayout Spacing="8">
+                                    <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
+                                    <Label Text="{Binding IsMainLabel}"
+                                           TextColor="{StaticResource BeigeAccent300}" FontSize="11"
+                                           VerticalOptions="Center"
+                                           IsVisible="{Binding IsMain}" />
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
+                                <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtCaption}"
+                                       TextColor="{StaticResource BeigeAccent200}" FontSize="11" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="2" Text="···" TextColor="{StaticResource WarmMuted}"
+                                   FontSize="20" VerticalOptions="Center" />
+                        </Grid>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
+                                                  CommandParameter="{Binding Id}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Footer hint -->
+        <Border Grid.Row="2" BackgroundColor="{StaticResource PageBg}" Padding="24,4,24,20">
+            <Label Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开她让 AI 改写人设即可。"
+                   Style="{StaticResource TxtCaption}" FontSize="12" HorizontalTextAlignment="Center" />
+        </Border>
+    </Grid>
+</ContentPage>

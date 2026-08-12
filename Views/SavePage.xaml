@@ -1,0 +1,124 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.SavePage"
+             x:Name="Page"
+             x:DataType="vm:SaveViewModel"
+             Title=""
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="0">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <Label Grid.Column="1" Text="存档管理" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Save slots -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Slots}"
+                        Margin="16,8,16,0">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
+                                     Padding="32">
+                    <Label Text="暂无存档" TextColor="{StaticResource WarmFaint}" FontSize="18"
+                           HorizontalOptions="Center" />
+                    <Label Text="回到标题点击「创建新欢」开始新的一局吧" TextColor="{StaticResource WarmMuted}" FontSize="13"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:SaveSlotItem">
+                    <Border Style="{StaticResource CardNeumorph}"
+                            Margin="0,0,0,12" Padding="14,12">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto"
+                              RowSpacing="8">
+                            <!-- Character avatar circle -->
+                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                                    WidthRequest="44" HeightRequest="44"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="{StaticResource ShadowLight}"
+                                            Offset="-2,-2" Radius="4" Opacity="0.5" />
+                                </Border.Shadow>
+                                <Label Text="{Binding CharacterName, Converter={StaticResource CharInitials}}"
+                                       TextColor="{StaticResource WarmDark}" FontSize="16"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+
+                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                <Label Text="{Binding Label}" TextColor="{StaticResource WarmDark}" FontSize="14" FontAttributes="Bold" />
+                                <Label TextColor="{StaticResource WarmMuted}" FontSize="11">
+                                    <Label.FormattedText>
+                                        <FormattedString>
+                                            <Span Text="{Binding CharacterName}" FontAttributes="Bold" />
+                                            <Span Text=" · " />
+                                            <Span Text="{Binding Scene}" />
+                                            <Span Text=" · " />
+                                            <Span Text="{Binding SavedAt, StringFormat='{0:MM/dd HH:mm}'}" />
+                                        </FormattedString>
+                                    </Label.FormattedText>
+                                </Label>
+                            </VerticalStackLayout>
+
+                            <Button Grid.Column="2" Text="读取"
+                                    Style="{StaticResource BtnNeumorphSm}"
+                                    HeightRequest="34" WidthRequest="56"
+                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.LoadSlotCommand}"
+                                    CommandParameter="{Binding Id}" />
+
+                            <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="3"
+                                                   HorizontalOptions="End" Spacing="8">
+                                <Button Text="重命名" Style="{StaticResource BtnText}"
+                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        HeightRequest="30" Padding="10,0"
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.RenameSlotCommand}"
+                                        CommandParameter="{Binding Id}" />
+                                <Button Text="导出" Style="{StaticResource BtnText}"
+                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        HeightRequest="30" Padding="10,0"
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.ExportSlotCommand}"
+                                        CommandParameter="{Binding Id}" />
+                                <Button Text="删除" Style="{StaticResource BtnText}"
+                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        HeightRequest="30" Padding="10,0"
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteSlotCommand}"
+                                        CommandParameter="{Binding Id}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Bottom bar: import / backup / novel-test -->
+        <Border Grid.Row="2" BackgroundColor="{StaticResource PageBg}" Padding="16,10,16,16"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="8">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                    <Button Text="导入存档" Style="{StaticResource BtnNeumorph}"
+                            HeightRequest="44" FontSize="13"
+                            Command="{Binding ImportSaveCommand}" />
+                    <Button Grid.Column="1" Text="备份全部" Style="{StaticResource BtnNeumorph}"
+                            HeightRequest="44" FontSize="13"
+                            Command="{Binding BackupAllCommand}" />
+                </Grid>
+                <Button Text="导入小说（测试）" Style="{StaticResource BtnText}"
+                        FontSize="12" TextColor="{StaticResource WarmMuted}"
+                        HeightRequest="32"
+                        IsVisible="{Binding NovelTesting}"
+                        Command="{Binding ImportNovelCommand}" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

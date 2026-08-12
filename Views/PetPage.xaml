@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.PetPage"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="Transparent">
+
+    <Grid Padding="0">
+        <!-- 回复气泡（顶部）：桌宠对话时显示 AI 回复 / 思考中… -->
+        <Border x:Name="ReplyBubble" BackgroundColor="#CC4A3D2C" StrokeThickness="0"
+                Padding="10,6" HorizontalOptions="Fill" VerticalOptions="Start"
+                Margin="10,36,10,0" IsVisible="False">
+            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+            <Label x:Name="ReplyLabel" TextColor="White" FontSize="12"
+                   LineBreakMode="WordWrap" MaxLines="4" />
+        </Border>
+
+        <!-- 立绘区域：按下拖拽窗口 / 双击回主窗口（输入行与气泡不挂手势，避免抢焦点） -->
+        <Grid VerticalOptions="Fill" Margin="0,0,0,58">
+            <Grid.GestureRecognizers>
+                <PointerGestureRecognizer PointerPressed="OnPointerPressed" />
+                <TapGestureRecognizer Tapped="OnDoubleTapped" NumberOfTapsRequired="2" />
+            </Grid.GestureRecognizers>
+
+            <!-- 立绘（PNG 自带透明通道；窗口无边框置顶） -->
+            <Image x:Name="SpriteImage" Aspect="AspectFit"
+                   HorizontalOptions="Center" VerticalOptions="Center"
+                   Margin="6,0,6,30" />
+            <!-- 名字角标 -->
+            <Border BackgroundColor="#7A4A3D2C" StrokeThickness="0"
+                    Padding="14,5" HorizontalOptions="Center" VerticalOptions="End"
+                    Margin="0,0,0,6">
+                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                <Label x:Name="NameLabel" TextColor="White" FontSize="12" />
+            </Border>
+        </Grid>
+
+        <!-- 缩放控件（右上角）：缩小 / 放大 / 当前倍率 -->
+        <Border BackgroundColor="#7A4A3D2C" StrokeThickness="0"
+                Padding="6,4" HorizontalOptions="End" VerticalOptions="Start"
+                Margin="6">
+            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+            <HorizontalStackLayout Spacing="6">
+                <Button Text="−" FontSize="14" TextColor="White" BackgroundColor="#FFFFFF33"
+                        WidthRequest="26" HeightRequest="26" Padding="0" CornerRadius="13"
+                        Clicked="OnZoomOut" />
+                <Label x:Name="ZoomLabel" Text="100%" TextColor="White" FontSize="11"
+                       VerticalOptions="Center" WidthRequest="42" HorizontalTextAlignment="Center" />
+                <Button Text="+" FontSize="14" TextColor="White" BackgroundColor="#FFFFFF33"
+                        WidthRequest="26" HeightRequest="26" Padding="0" CornerRadius="13"
+                        Clicked="OnZoomIn" />
+            </HorizontalStackLayout>
+        </Border>
+
+        <!-- 带说明文字的提示条：滚轮缩放 / 双击恢复主窗口 -->
+        <Border BackgroundColor="#5A4A3D2C" StrokeThickness="0"
+                Padding="10,4" HorizontalOptions="Center" VerticalOptions="Start"
+                Margin="0,4,0,0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+            <Label Text="滚轮缩放 · 双击回主界面 · 拖拽移动" TextColor="#CCFFFFFF" FontSize="10" />
+        </Border>
+
+        <!-- 底部对话输入行：桌宠模式下直接和她说说话 -->
+        <Border BackgroundColor="#CC4A3D2C" StrokeThickness="0"
+                Padding="8,6" HorizontalOptions="Fill" VerticalOptions="End"
+                Margin="8,0,8,8">
+            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                <Entry x:Name="InputEntry" TextColor="White" PlaceholderColor="#AAFFFFFF"
+                       Placeholder="和她说点什么…" BackgroundColor="#22FFFFFF"
+                       FontSize="12" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="发送" FontSize="12" TextColor="White"
+                        BackgroundColor="#33FFFFFF" CornerRadius="10"
+                        Padding="12,4" Clicked="OnSend" />
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

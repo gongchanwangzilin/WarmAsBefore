@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:conv="clr-namespace:WarmAsBefore.Converters"
+             x:Class="WarmAsBefore.App">
+    <Application.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="DesignSystem/Theme/ColorPalette.xaml" />
+                <ResourceDictionary Source="DesignSystem/Styles/BaseStyles.xaml" />
+                <ResourceDictionary Source="DesignSystem/Styles/ButtonShapes.xaml" />
+                <ResourceDictionary Source="DesignSystem/Styles/CardShapes.xaml" />
+                <ResourceDictionary Source="DesignSystem/Styles/TextTypography.xaml" />
+                <ResourceDictionary Source="DesignSystem/Styles/GlassEffects.xaml" />
+                <ResourceDictionary Source="DesignSystem/Styles/NeumorphicStyles.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <conv:InverseBool x:Key="InverseBool" />
+            <conv:IsNotNull x:Key="IsNotNull" />
+            <conv:BoolOpacity x:Key="BoolOpacity" />
+            <conv:AffectionTint x:Key="AffectionTint" />
+            <conv:CharInitials x:Key="CharInitials" />
+            <conv:YesNoLabel x:Key="YesNoLabel" />
+            <conv:BoolGreenRed x:Key="BoolGreenRed" />
+            <conv:SelectedBg x:Key="SelectedBg" />
+            <conv:BoolToColor x:Key="SceneCurrentBg" True="{StaticResource BeigeAccent200}" False="{StaticResource SecondaryBg}" />
+            <conv:BoolToColor x:Key="SceneCurrentFg" True="{StaticResource WarmDark}" False="{StaticResource SurfaceFg}" />
+            <conv:StringNotEmpty x:Key="StringNotEmpty" />
+            <conv:GreaterThanZero x:Key="GreaterThanZero" />
+            <conv:TicketLabel x:Key="TicketLabel" />
+            <conv:BoolFontBold x:Key="BoolFontBold" />
+        </ResourceDictionary>
+    </Application.Resources>
+</Application>

@@ -1,0 +1,102 @@
+using CommunityToolkit.Maui;
+using WarmAsBefore.Services;
+using WarmAsBefore.ViewModels;
+using WarmAsBefore.Views;
+
+namespace WarmAsBefore;
+
+public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        App.WriteLog("CreateMauiApp: start");
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp<App>()
+            .UseMauiCommunityToolkit()
+            .UseMauiCommunityToolkitMediaElement();
+
+        // Design System
+        builder.Services.AddSingleton<DesignSystem.Theme.ThemeManager>();
+
+        // Core services
+        builder.Services.AddSingleton<GameEngine>();
+        builder.Services.AddSingleton<SettingsManager>();
+        builder.Services.AddSingleton<StorageProvider>();
+        builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<AudioController>();
+        builder.Services.AddSingleton<SpeechService>();
+        builder.Services.AddSingleton<GlassOverlayService>();
+        builder.Services.AddSingleton<CharacterLibrary>();
+        builder.Services.AddSingleton<PetService>();
+        builder.Services.AddSingleton<MapService>();
+
+        // Module services
+        builder.Services.AddSingleton<Modules.RealWorld.WeatherProvider>();
+        builder.Services.AddSingleton<Modules.RealWorld.TimeProvider>();
+        builder.Services.AddSingleton<Modules.RealWorld.PermissionBroker>();
+        builder.Services.AddSingleton<Modules.RealWorld.PhysiologicalTracker>();
+        builder.Services.AddSingleton<Modules.ApiManager.ApiGateway>();
+        builder.Services.AddSingleton<Modules.AiChat.ChatEngine>();
+        builder.Services.AddSingleton<Modules.AiChat.MemoryVault>();
+        builder.Services.AddSingleton<Modules.Automation.TaskOrchestrator>();
+        builder.Services.AddSingleton<Modules.Automation.DailyDiaryWriter>();
+        builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
+        builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
+        builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
+        builder.Services.AddSingleton<Modules.SaveSystem.SaveManager>();
+        builder.Services.AddSingleton<Modules.NovelImport.NovelAnalyzer>();
+builder.Services.AddSingleton<Modules.GameModule.MiniGameEngine>();
+builder.Services.AddSingleton<Modules.GameModule.ChessBrainService>();
+builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
+        builder.Services.AddSingleton<Modules.Market.ShopService>();
+        builder.Services.AddSingleton<Modules.Market.GiftPanelService>();
+
+        // 官方接入（真微信 / QQ）与运行时配置
+        builder.Services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
+        builder.Services.AddSingleton<RuntimeConfigurator>();
+        builder.Services.AddSingleton<Services.NovelLibrary>();
+
+        // ViewModels
+        builder.Services.AddTransient<TitleViewModel>();
+        builder.Services.AddTransient<MainGameViewModel>();
+        builder.Services.AddTransient<CharacterSelectViewModel>();
+        builder.Services.AddTransient<SettingsViewModel>();
+        builder.Services.AddTransient<PhoneViewModel>();
+        builder.Services.AddTransient<WeChatViewModel>();
+        builder.Services.AddTransient<MapViewModel>();
+        builder.Services.AddTransient<GalleryViewModel>();
+        builder.Services.AddTransient<OutfitViewModel>();
+        builder.Services.AddTransient<SaveViewModel>();
+        builder.Services.AddTransient<DeveloperViewModel>();
+        builder.Services.AddTransient<GameViewModel>();
+        builder.Services.AddTransient<WorldbookViewModel>();
+
+        // Pages
+        builder.Services.AddTransient<TitlePage>();
+        builder.Services.AddTransient<MainGamePage>();
+        builder.Services.AddTransient<CharacterSelectPage>();
+        builder.Services.AddTransient<SettingsPage>();
+        builder.Services.AddTransient<PhonePage>();
+        builder.Services.AddTransient<WeChatPage>();
+        builder.Services.AddTransient<MapPage>();
+        builder.Services.AddTransient<GalleryPage>();
+        builder.Services.AddTransient<OutfitPage>();
+        builder.Services.AddTransient<SavePage>();
+        builder.Services.AddTransient<DeveloperPage>();
+        builder.Services.AddTransient<GamePage>();
+        builder.Services.AddTransient<PetPage>();
+        builder.Services.AddTransient<NovelSelectPage>();
+        builder.Services.AddTransient<NovelWorldPage>();
+        builder.Services.AddTransient<WorldbookPage>();
+        builder.Services.AddTransient<CharacterLibraryPage>();
+        builder.Services.AddTransient<ShopPage>();
+        builder.Services.AddTransient<NovelSelectViewModel>();
+        builder.Services.AddTransient<NovelWorldViewModel>();
+        builder.Services.AddTransient<CharacterLibraryViewModel>();
+        builder.Services.AddTransient<ShopViewModel>();
+
+        App.WriteLog("CreateMauiApp: building");
+        return builder.Build();
+    }
+}

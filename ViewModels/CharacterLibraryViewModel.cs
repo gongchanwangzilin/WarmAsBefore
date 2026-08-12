@@ -1,0 +1,162 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Models;
+using WarmAsBefore.Modules.ApiManager;
+using WarmAsBefore.Modules.SaveSystem;
+using WarmAsBefore.Services;
+
+namespace WarmAsBefore.ViewModels;
+
+/// <summary>
+/// 角色库：所有已创建/导入的角色集中管理。
+/// 除主角外，AI 在对话里可以自由调用角色库中的其他角色；
+/// 觉得某个角色不合适，可以让 AI 帮她改写人设（AI 优化人设）。
+/// </summary>
+public sealed partial class CharacterLibraryViewModel : ObservableObject
+{
+    private readonly GameEngine _engine;
+    private readonly CharacterLibrary _library;
+    private readonly SaveManager _save;
+    private readonly StorageProvider _store;
+    private readonly ApiGateway _api;
+
+    [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
+
+    public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
+        SaveManager save, StorageProvider store, ApiGateway api)
+    {
+        _engine = engine;
+        _library = library;
+        _save = save;
+        _store = store;
+        _api = api;
+    }
+
+    [RelayCommand]
+    private async Task Refresh()
+    {
+        var list = await _library.ListAsync();
+        var allSaves = await _save.List();
+        var mainId = _engine.ActiveCharacter?.Profile.Id ?? _engine.State.CharacterId;
+        Items = new ObservableCollection<CharacterLibraryItem>(list.Select(ch =>
+        {
+            var saves = allSaves.Where(s => s.Character == ch.Profile.Id).ToList();
+            ImageSource? avatar = null;
+            if (!string.IsNullOrEmpty(ch.Avatar))
+            {
+                var full = Path.Combine(_store.Root, ch.Avatar);
+                if (File.Exists(full)) avatar = ImageSource.FromFile(full);
+            }
+            return new CharacterLibraryItem(ch, avatar,
+                isMain: ch.Profile.Id == mainId,
+                savesLabel: saves.Count == 0 ? "暂无存档" : $"存档 {saves.Count} 个");
+        }));
+    }
+
+    [RelayCommand]
+    private async Task Tap(string id)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == id);
+        if (item is null) return;
+        var act = await Shell.Current.DisplayActionSheet(
+            $"「{item.Name}」", "取消", null,
+            item.IsMain ? "移除主角标记" : "设为当前主角",
+            "AI 优化人设", "修改性格");
+        switch (act)
+        {
+            case "设为当前主角":
+                _engine.SetCharacter(id);
+                await Refresh();
+                await Shell.Current.DisplayAlert("角色库", $"「{item.Name}」现在是你的主角了。\n回到角色选择页可以和她开始新的一局。", "好");
+                break;
+            case "移除主角标记":
+                _engine.State.CharacterId = "";
+                await Refresh();
+                break;
+            case "AI 优化人设":
+                await OptimizeAsync(id);
+                break;
+            case "修改性格":
+                await EditPersonalityAsync(id);
+                break;
+        }
+    }
+
+    /// <summary>让 AI 依据现有设定给出改进版性格，确认后应用（不满意可以反复让 AI 改）。</summary>
+    private async Task OptimizeAsync(string id)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == id);
+        if (item is null) return;
+        var p = item.Data.Profile;
+        try
+        {
+            var history = new List<ChatMessage>
+            {
+                new() { Role = "system", Content = "你是角色设计助手。根据给出的角色现有设定，提出一版更鲜明、更有魅力的性格描述。只用中文输出改进后的性格描述本身（一到两句话，50 字以内），不要任何解释。" },
+                new() { Role = "user", Content = $"角色「{p.Name}」，性别 {p.Gender}。现有性格：{p.Personality}。背景：{p.Description}" }
+            };
+            var suggested = await _api.Chat(history);
+            if (string.IsNullOrWhiteSpace(suggested))
+            {
+                await Shell.Current.DisplayAlert("AI 优化人设", "AI 没有回应，请检查 AI 配置后重试。", "好");
+                return;
+            }
+            var apply = await Shell.Current.DisplayAlert("AI 优化人设",
+                $"AI 的建议（可用于「{p.Name}」）：\n\n「{suggested.Trim()}」\n\n应用这份新设定吗？", "应用", "放弃");
+            if (!apply) return;
+            var updated = item.Data with
+            {
+                Profile = p with { Personality = suggested.Trim() }
+            };
+            if (await _library.UpdateAsync(updated))
+            {
+                await Refresh();
+                await Shell.Current.DisplayAlert("角色库", $"「{p.Name}」的新人设已生效。", "好");
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterLibrary.Optimize -> " + ex);
+            await Shell.Current.DisplayAlert("AI 优化人设", "出错了：" + ex.Message, "好");
+        }
+    }
+
+    private async Task EditPersonalityAsync(string id)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == id);
+        if (item is null) return;
+        var p = item.Data.Profile;
+        var input = await Shell.Current.DisplayPromptAsync("修改性格",
+            $"「{p.Name}」的当前性格：{p.Personality}", "保存", "取消");
+        if (string.IsNullOrWhiteSpace(input)) return;
+        var updated = item.Data with { Profile = p with { Personality = input.Trim() } };
+        if (await _library.UpdateAsync(updated)) await Refresh();
+    }
+
+    [RelayCommand]
+    private async Task Back() => await Shell.Current.GoToAsync("..");
+}
+
+/// <summary>角色库展示项。</summary>
+public sealed class CharacterLibraryItem
+{
+    public CharacterLibraryItem(CharacterData ch, ImageSource? avatar, bool isMain, string savesLabel)
+    {
+        Data = ch;
+        AvatarSource = avatar;
+        IsMain = isMain;
+        SavesLabel = savesLabel;
+    }
+
+    public CharacterData Data { get; init; }
+    public string Id => Data.Profile.Id;
+    public string Name => Data.Profile.Name;
+    public string Personality => Data.Profile.Personality;
+    public string Description => Data.Profile.Description;
+    public ImageSource? AvatarSource { get; init; }
+    public bool HasAvatar => AvatarSource is not null;
+    public bool IsMain { get; init; }
+    public string IsMainLabel => IsMain ? "当前主角" : "";
+    public string SavesLabel { get; init; }
+}

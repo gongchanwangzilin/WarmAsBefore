@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="WarmAsBefore.DesignSystem.Styles.BaseStyles">
+
+    <!-- 语义色随主题切换，见 DesignSystem/Theme/ColorPalette*.xaml -->
+
+    <!-- Page Defaults -->
+    <Style TargetType="Page" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource PageBg}" />
+    </Style>
+
+    <Style TargetType="Shell" ApplyToDerivedTypes="True">
+        <Setter Property="BackgroundColor" Value="{StaticResource PageBg}" />
+        <Setter Property="ForegroundColor" Value="{StaticResource SurfaceFg}" />
+    </Style>
+
+    <Style TargetType="ActivityIndicator">
+        <Setter Property="Color" Value="{StaticResource PrimaryAction}" />
+    </Style>
+
+    <Style TargetType="ProgressBar">
+        <Setter Property="ProgressColor" Value="{StaticResource PrimaryAction}" />
+    </Style>
+
+</ResourceDictionary>

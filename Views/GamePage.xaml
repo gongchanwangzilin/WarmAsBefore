@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.GamePage"
+             x:DataType="vm:GameViewModel"
+             Title=""
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="0">
+
+        <!-- ========== Header ========== -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="8,6,12,6">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="13" Padding="8,0"
+                        Command="{Binding GoBackCommand}" />
+                <Label Grid.Column="1" Text="{Binding GameTitle}"
+                       Style="{StaticResource TxtSubhead}" FontSize="18"
+                       VerticalOptions="Center" />
+                <Label Grid.Column="2" Text="小雨"
+                       Style="{StaticResource TxtCaption}" FontSize="12"
+                       VerticalOptions="Center" />
+                <Border Grid.Column="3"
+                        BackgroundColor="{Binding Affection, Converter={StaticResource AffectionTint}}"
+                        StrokeThickness="0"
+                        WidthRequest="32" HeightRequest="20"
+                        VerticalOptions="Center">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Label Text="{Binding Affection, StringFormat='{0}'}"
+                           TextColor="White" FontSize="10"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- ========== Board (left) + Chat (right) ========== -->
+        <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Padding="0">
+
+            <!-- Board Area -->
+            <ScrollView Grid.Column="0" HorizontalOptions="Start" VerticalOptions="Center"
+                        Padding="8,0,0,0">
+                <VerticalStackLayout>
+                    <Label Text="{Binding BoardDisplay}"
+                           Style="{StaticResource TxtCaption}"
+                           HorizontalOptions="Center" Margin="0,0,0,6" />
+                    <GraphicsView x:Name="BoardView"
+                                  HorizontalOptions="Center" VerticalOptions="Center"
+                                  StartInteraction="OnBoardTouched" />
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- Chat Area -->
+            <Border Grid.Column="1" Style="{StaticResource CardFrost}"
+                    Padding="8" Margin="0,8,8,8">
+                <Grid RowDefinitions="*,Auto" RowSpacing="6">
+                    <!-- 消息列表：CollectionView 虚拟化，新消息自动滚到底部 -->
+                    <CollectionView x:Name="ChatList" Grid.Row="0"
+                                    ItemsSource="{Binding Messages}"
+                                    SelectionMode="None"
+                                    VerticalScrollBarVisibility="Default">
+                        <CollectionView.ItemsLayout>
+                            <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+                        </CollectionView.ItemsLayout>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ChatBubble">
+                                <Border BackgroundColor="{Binding BgColor}"
+                                        StrokeThickness="0"
+                                        Padding="8,6"
+                                        HorizontalOptions="{Binding Align}"
+                                        MaximumWidthRequest="260">
+                                    <Border.StrokeShape>
+                                        <RoundRectangle CornerRadius="8" />
+                                    </Border.StrokeShape>
+                                    <Label Text="{Binding Text}"
+                                           Style="{StaticResource TxtBodySm}"
+                                           FontSize="13"
+                                           TextColor="{Binding TextColor}" />
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <!-- 聊天输入框 -->
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="6"
+                          IsVisible="{Binding InGame}">
+                        <Border Style="{StaticResource CardNeumorph}" Padding="4,0">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <Entry x:Name="ChatEntry"
+                                   Text="{Binding ChatInput}"
+                                   Placeholder="和小雨说点什么…"
+                                   FontSize="13"
+                                   BackgroundColor="Transparent"
+                                   ReturnCommand="{Binding SendChatCommand}" />
+                        </Border>
+                        <Button Grid.Column="1" Text="发送" Style="{StaticResource BtnPrimary}"
+                                HeightRequest="36" Padding="14,0" FontSize="12"
+                                Command="{Binding SendChatCommand}" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <!-- ========== Control Bar ========== -->
+        <Border Grid.Row="2"
+                BackgroundColor="{StaticResource SurfaceBg}"
+                Padding="8,6,8,10"
+                IsVisible="{Binding InGame}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="6">
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="8">
+                    <Button Text="嘲讽" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" Padding="14,0" FontSize="12"
+                            Command="{Binding TauntCommand}" />
+                    <Button Text="投降" Style="{StaticResource BtnText}"
+                            TextColor="{StaticResource DangerTint}"
+                            HeightRequest="34" Padding="14,0" FontSize="12"
+                            Command="{Binding ConcedeCommand}" />
+                    <Button Text="朗读" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" Padding="14,0" FontSize="12"
+                            Command="{Binding SpeakLastCommand}" />
+                    <Button Text="语音" Style="{StaticResource BtnText}"
+                            BackgroundColor="{StaticResource Cream200}"
+                            CornerRadius="8"
+                            HeightRequest="34" WidthRequest="44" FontSize="11" Padding="0"
+                            Command="{Binding VoiceInputCommand}"
+                            IsEnabled="{Binding IsListening, Converter={StaticResource InverseBool}}" />
+                </HorizontalStackLayout>
+
+                <!-- 围棋：点目结算 -->
+                <HorizontalStackLayout IsVisible="{Binding IsGo}"
+                                       HorizontalOptions="Center" Spacing="8">
+                    <Button Text="⚪ 点目结算" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" Padding="16,0" FontSize="12"
+                            Command="{Binding SettleGoCommand}" />
+                    <Border BackgroundColor="{StaticResource Cream200}"
+                            StrokeThickness="0"
+                            HeightRequest="34" Padding="10,0"
+                            VerticalOptions="Center">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                        <Label Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
+                               FontSize="12" VerticalOptions="Center" />
+                    </Border>
+                </HorizontalStackLayout>
+
+                <!-- 飞行棋：掷骰子 -->
+                <HorizontalStackLayout IsVisible="{Binding IsLudo}"
+                                       HorizontalOptions="Center" Spacing="8">
+                    <Button Text="🎲 掷骰子" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" Padding="16,0" FontSize="12"
+                            Command="{Binding RollLudoCommand}" />
+                    <Border BackgroundColor="{StaticResource Cream200}"
+                            StrokeThickness="0"
+                            HeightRequest="34" Padding="10,0"
+                            VerticalOptions="Center">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                        <Label Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
+                               FontSize="12" VerticalOptions="Center" />
+                    </Border>
+                </HorizontalStackLayout>
+
+                <!-- 贪吃蛇：方向键 -->
+                <Grid IsVisible="{Binding IsSnake}"
+                      ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
+                      ColumnSpacing="6" HorizontalOptions="Center">
+                    <Button Grid.Column="1" Text="↑" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            Command="{Binding SnakeUpCommand}" />
+                    <Button Grid.Column="3" Text="←" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            Command="{Binding SnakeLeftCommand}" />
+                    <Button Grid.Column="4" Text="→" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            Command="{Binding SnakeRightCommand}" />
+                    <Button Grid.Column="6" Text="↓" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            Command="{Binding SnakeDownCommand}" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+    </Grid>
+</ContentPage>

@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.PhonePage"
+             x:Name="Page"
+             x:DataType="vm:PhoneViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- Status bar: time + weather + back -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+                Padding="16,12,16,10">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0" VerticalOptions="Center"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="{Binding StatusTime, StringFormat='{0} · 手机'}"
+                       Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                <Border Grid.Column="2" BackgroundColor="{StaticResource BeigeAccent50}"
+                        StrokeThickness="0" Padding="10,5" VerticalOptions="Center">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="{Binding WeatherText}" FontSize="11" TextColor="{StaticResource WarmDark}" />
+                </Border>
+                <Label Grid.Column="3" Text="{Binding TimeLabel}" TextColor="{StaticResource WarmMuted}"
+                       FontSize="13" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Phone home: wallpaper + app grid -->
+        <Grid Grid.Row="1">
+            <Grid.Background>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="{StaticResource Cream100}" Offset="0.0" />
+                    <GradientStop Color="{StaticResource PageBg}" Offset="0.5" />
+                    <GradientStop Color="{StaticResource Beige100}" Offset="1.0" />
+                </LinearGradientBrush>
+            </Grid.Background>
+
+            <ScrollView Margin="20,24">
+                <VerticalStackLayout Spacing="0">
+                    <!-- App grid (row 1): 微信 / 角色库 / 地图 / 相册 -->
+                    <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto"
+                          ColumnSpacing="0" RowSpacing="28">
+                        <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center" Spacing="6">
+                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                                    WidthRequest="58" HeightRequest="58" Padding="0"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="{StaticResource ShadowDim}" Offset="2,3"
+                                            Radius="8" Opacity="0.18" />
+                                </Border.Shadow>
+                                <Border BackgroundColor="#28A745" WidthRequest="40" HeightRequest="40"
+                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                    <Label Text="微信" TextColor="White" FontSize="13" FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
+                            </Border>
+                            <Label Text="{Binding WeChatLabel}" TextColor="{StaticResource WarmMuted}"
+                                   FontSize="9" HorizontalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenChatCommand}" />
+                            </Border.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                                    WidthRequest="58" HeightRequest="58" Padding="0"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="{StaticResource ShadowDim}" Offset="2,3"
+                                            Radius="8" Opacity="0.18" />
+                                </Border.Shadow>
+                                <Border BackgroundColor="{StaticResource BeigeAccent200}"
+                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                        HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                    <Label Text="角色库" TextColor="{StaticResource WarmDark}" FontSize="12" FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
+                            </Border>
+                            <Label Text="角色库" TextColor="{StaticResource WarmMuted}" FontSize="10" HorizontalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenLibraryCommand}" />
+                            </Border.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                                    WidthRequest="58" HeightRequest="58" Padding="0"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="{StaticResource ShadowDim}" Offset="2,3"
+                                            Radius="8" Opacity="0.18" />
+                                </Border.Shadow>
+                                <Border BackgroundColor="{StaticResource Cream200}"
+                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                        HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                    <Label Text="地图" TextColor="{StaticResource WarmDark}" FontSize="12" FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
+                            </Border>
+                            <Label Text="地图" TextColor="{StaticResource WarmMuted}" FontSize="10" HorizontalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenMapCommand}" />
+                            </Border.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center" Spacing="6">
+                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                                    WidthRequest="58" HeightRequest="58" Padding="0"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="{StaticResource ShadowDim}" Offset="2,3"
+                                            Radius="8" Opacity="0.18" />
+                                </Border.Shadow>
+                                <Border BackgroundColor="#AF52DE"
+                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                        HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                    <Label Text="回忆录" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
+                            </Border>
+                            <Label Text="回忆录" TextColor="{StaticResource WarmMuted}" FontSize="10" HorizontalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenGalleryCommand}" />
+                            </Border.GestureRecognizers>
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Opacity="0.5" Margin="4,26" />
+
+                    <Label Text="小游戏" TextColor="{StaticResource WarmMuted}" FontSize="12" Margin="4,0,0,14" />
+
+                    <!-- Game grid -->
+                    <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto"
+                          ColumnSpacing="0" RowSpacing="24">
+                        <VerticalStackLayout HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="五子棋" TextColor="{StaticResource WarmDark}" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="gobang" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="斗兽棋" TextColor="{StaticResource WarmDark}" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="animalchess" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="飞行棋" TextColor="{StaticResource WarmDark}" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="ludo" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="国际象棋" TextColor="{StaticResource WarmDark}" FontSize="10"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="chess" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="中国象棋" TextColor="{StaticResource WarmDark}" FontSize="10"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="chinesechess" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="贪吃蛇" TextColor="{StaticResource WarmDark}" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="snake" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="围棋" TextColor="{StaticResource WarmMuted}" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="go" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
+                            <Border Style="{StaticResource PressableCard}"
+                                    WidthRequest="54" HeightRequest="54" Padding="0">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                <Label Text="商店" TextColor="{StaticResource WarmMuted}" FontSize="11"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenShopCommand}" /></Grid.GestureRecognizers>
+                        </VerticalStackLayout>
+                    </Grid>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+
+        <!-- Bottom dock -->
+        <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+                Padding="0,10,0,16">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                <Label Text="{Binding StatusLine}" TextColor="{StaticResource WarmMuted}"
+                       FontSize="11" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

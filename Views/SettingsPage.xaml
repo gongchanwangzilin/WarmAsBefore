@@ -1,0 +1,462 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:mcp="clr-namespace:WarmAsBefore.Modules.Mcp"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.SettingsPage"
+             x:DataType="vm:SettingsViewModel"
+             Title="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*" Padding="0">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"
+                           VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,24">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="640"
+                                 HorizontalOptions="Center">
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Volume], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Bgm], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding BgmLevel}" Minimum="0" Maximum="1" /></Grid>
+                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Sfx], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding SfxLevel}" Minimum="0" Maximum="1" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_GlassFx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Frost], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_FrostHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding FrostOn}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Glass], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_GlassHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding GlassOn}" IsEnabled="{Binding CanGlass}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Liquid], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_LiquidHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding LiquidOn}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Interface], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Theme], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_ThemeHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="{Binding [Settings_Theme], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="130"
+                                    ItemsSource="{Binding ThemeChoices}" SelectedItem="{Binding ThemeDisplay}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_MenuRight], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_MenuRightHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding MenuRight}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Language], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_LanguageHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="{Binding [Settings_Language], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="120"
+                                    ItemsSource="{Binding Langs}" SelectedItem="{Binding LangDisplay}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_AutoSave], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_AutoSaveHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AutoSave}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 小游戏 AI 难度 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="小游戏 AI 聪明度" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label Text="AI 难度" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="简单=随机放水，普通=贪吃，困难=前瞻防反" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="AI 难度" WidthRequest="130" FontSize="12"
+                                    ItemsSource="{Binding GameDifficultyChoices}"
+                                    SelectedItem="{Binding GameDifficultyDisplay}"
+                                    IsEnabled="{Binding AiAutoDifficulty, Converter={StaticResource InverseBool}}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label Text="AI 自动调节" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="由 AI 按你的对局表现智能升降难度" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AiAutoDifficulty}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 云端棋力脑 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="云端棋力脑（可选）" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="默认使用内置本地棋力，不依赖网络。填写 OpenAI 兼容下棋 API 后可让 AI 更强。" Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="启用云端棋力" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding ChessApiEnabled}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="API 地址" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding ChessApiUrl}" Placeholder="https://api.openai.com/v1/chat/completions"
+                                   FontSize="12" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="API Key" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding ChessApiKey}" Placeholder="sk-…" IsPassword="True" FontSize="12" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="模型" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding ChessApiModel}" Placeholder="gpt-4o-mini" FontSize="12" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_TextSfx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_TextSpeed], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding TextSpeed}" Minimum="0.5" Maximum="2" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_KeySfx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_KeySfxHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="{Binding [Settings_KeySfx], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="120"
+                                    ItemsSource="{Binding KeySfxChoices}" SelectedItem="{Binding KeySfx}"
+                                    FontSize="13" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_AiTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding AiUrl}" Placeholder="https://api.openai.com/v1/chat/completions"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiKey], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding AiKey}" IsPassword="True" Placeholder="sk-…"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiModel], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding AiModel}" Placeholder="gpt-4o"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Temperature], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding AiTemperature}" Minimum="0" Maximum="1" /></Grid>
+                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_MaxToken], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding AiMaxTokens}" Minimum="100" Maximum="2000" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_DeepThink], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_DeepThinkHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding DeepThink}" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_DeepModel], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding DeepModel}" Placeholder="{Binding [Settings_DeepModelPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_MemoryTurns], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_MemoryTurnsHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="{Binding [Settings_TurnsTitle], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
+                                    ItemsSource="{Binding MemoryTurnsChoices}" SelectedItem="{Binding MemoryTurns}"
+                                    FontSize="13" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Voice], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Tts], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_TtsHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding TtsEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="朗读引擎" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="system=系统自带语音，api=外部 TTS API" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="朗读引擎" WidthRequest="100"
+                                    ItemsSource="{Binding VoiceEngineChoices}" SelectedItem="{Binding TtsEngine}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Stt], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_SttHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SttEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="识别引擎" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="system=系统自带识别，api=外部 STT API（录音 8 秒后识别）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="识别引擎" WidthRequest="100"
+                                    ItemsSource="{Binding VoiceEngineChoices}" SelectedItem="{Binding SttEngine}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_TtsRate], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding TtsRate}" Minimum="0.5" Maximum="2" /></Grid>
+
+                        <!-- API 语音配置（朗读或识别选了 api 时显示） -->
+                        <VerticalStackLayout Spacing="12" IsVisible="{Binding NeedsVoiceApi}">
+                            <Label Text="API 语音配置" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
+                            <Grid ColumnDefinitions="110,*"><Label Text="API 地址" VerticalOptions="Center" FontSize="13" />
+                                <Entry Grid.Column="1" Text="{Binding VoiceApiUrl}" Placeholder="https://api.openai.com/v1"
+                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                            <Grid ColumnDefinitions="110,*"><Label Text="API 密钥" VerticalOptions="Center" FontSize="13" />
+                                <Entry Grid.Column="1" Text="{Binding VoiceApiKey}" IsPassword="True" Placeholder="sk-…"
+                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                            <Grid ColumnDefinitions="110,*"><Label Text="TTS 模型" VerticalOptions="Center" FontSize="13" />
+                                <Entry Grid.Column="1" Text="{Binding VoiceTtsModel}" Placeholder="tts-1"
+                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                            <Grid ColumnDefinitions="110,*"><Label Text="TTS 音色" VerticalOptions="Center" FontSize="13" />
+                                <Entry Grid.Column="1" Text="{Binding VoiceName}" Placeholder="alloy / echo / nova / shimmer"
+                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                            <Grid ColumnDefinitions="110,*"><Label Text="STT 模型" VerticalOptions="Center" FontSize="13" />
+                                <Entry Grid.Column="1" Text="{Binding VoiceSttModel}" Placeholder="whisper-1"
+                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_NotifyTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Notify], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_NotifyHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Greeting], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_GreetingHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding GreetingEnabled}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_WeatherLife], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_City], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding WeatherCity}" Placeholder="{Binding [Settings_CityPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_CycleHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
+                                    ItemsSource="{Binding CycleChoices}" SelectedItem="{Binding CycleLength}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_Period], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_PeriodHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="{Binding [Settings_Period], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
+                                    ItemsSource="{Binding PeriodChoices}" SelectedItem="{Binding PeriodLength}"
+                                    FontSize="13" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Desktop], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_AlwaysOnTop], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_AlwaysOnTopHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AlwaysOnTop}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="桌宠闲置时长" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="0 关闭；闲置满时长自动进入桌宠，重新操作时自动恢复" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="桌宠闲置时长" WidthRequest="110"
+                                    ItemsSource="{Binding PetIdleChoices}" SelectedItem="{Binding PetIdleMinutes}"
+                                    FontSize="13" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Official], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="{Binding [Settings_OfficialHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
+
+                        <Label Text="{Binding [Settings_QqTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_QqEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_QqHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding QqBotEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppId], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding QqAppId}" Placeholder="{Binding [Settings_BotAppId], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppSecret], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding QqAppSecret}" IsPassword="True" Placeholder="{Binding [Settings_BotAppSecret], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+
+                        <Label Text="{Binding [Settings_WechatTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,10,0,0" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_WechatEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_WechatHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding WechatEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppId], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding WechatAppId}" Placeholder="{Binding [Settings_MpAppId], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppSecret], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding WechatAppSecret}" IsPassword="True" Placeholder="{Binding [Settings_MpAppSecret], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_Token], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding WechatToken}" Placeholder="{Binding [Settings_TokenPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_Port], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding WechatPort}" Placeholder="{Binding [Settings_PortPlaceholder], Source={x:Static i18n:LocalizationService.Current}}" Keyboard="Numeric"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding [Settings_ConnStatus], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="{Binding [Settings_TestConn], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding TestConnectionCommand}" />
+                        </Grid>
+                        <Label Text="{Binding [Settings_OfficialNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" Opacity="0.75" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- MCP 配置 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Mcp], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_McpEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_McpHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding McpEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="自动确认" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后脚本/AI 调用 MCP 工具无需逐次人工确认" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding McpAutoApprove}" /></Grid>
+
+                        <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Opacity="0.4" />
+
+                        <!-- 已接入服务器列表 -->
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="已接入服务器" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="＋ 新建" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding NewMcpServerCommand}" />
+                        </Grid>
+                        <CollectionView ItemsSource="{Binding McpServers}" HeightRequest="320"
+                                        SelectionMode="None">
+                            <CollectionView.EmptyView>
+                                <Label Text="还没有接入的服务器。点「＋ 新建」登记一个，或用下方功能导入数据包"
+                                       Style="{StaticResource TxtCaption}" Padding="4,6" />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="mcp:McpServerItem">
+                                    <Border BackgroundColor="{StaticResource SurfaceBg}" Stroke="{StaticResource BorderLine}"
+                                            StrokeThickness="0.8" Padding="10,8" Margin="0,4">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer>
+                                                <TapGestureRecognizer.Command>
+                                                    <Binding Source="{RelativeSource AncestorType={x:Type vm:SettingsViewModel}}" Path="ShowMcpServerDetailsCommand" />
+                                                </TapGestureRecognizer.Command>
+                                                <TapGestureRecognizer.CommandParameter>
+                                                    <Binding Path="." />
+                                                </TapGestureRecognizer.CommandParameter>
+                                            </TapGestureRecognizer>
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
+                                                       LineBreakMode="TailTruncation" MaxLines="1" />
+                                                <Label Text="{Binding SizeLine}" Style="{StaticResource TxtCaption}"
+                                                       FontSize="10" Opacity="0.7" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1" Text="简介/属性" Style="{StaticResource BtnText}" FontSize="11"
+                                                    VerticalOptions="Center"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ShowMcpServerDetailsCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_McpUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding McpNetworkUrl}" Placeholder="{Binding [Settings_McpUrlPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_GitHub], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding McpGitHubRepo}" Placeholder="{Binding [Settings_GitHubPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Button Text="{Binding [Settings_ImportGithub], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFromGitHubCommand}"
+                                Style="{StaticResource BtnNeumorphSm}" />
+
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_ZipImport], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding McpImportZipPath}" Placeholder="{Binding [Settings_ZipPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
+                        <Button Text="{Binding [Settings_ImportZip], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpZipCommand}"
+                                Style="{StaticResource BtnNeumorphSm}" />
+
+                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_FolderImport], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding McpImportFolderPath}" Placeholder="{Binding [Settings_FolderPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
+                        <Button Text="{Binding [Settings_ImportFolder], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFolderCommand}"
+                                Style="{StaticResource BtnNeumorphSm}" />
+                        <ProgressBar Progress="{Binding ImportProgress}" IsVisible="{Binding IsImporting}" />
+                        <Label Text="{Binding ImportStatus}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding IsImporting}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="{Binding [Settings_Experimental], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_DevMode], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_DevModeHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding DevMode}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_ComplexPlot], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_ComplexPlotHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding ComplexPlot}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="{Binding [Settings_NovelTesting], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding [Settings_NovelTestingHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding NovelTesting}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="{Binding [Settings_ShowAffection], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                            <Switch Grid.Column="1" IsToggled="{Binding ShowAffection}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding [Settings_AutoSaveNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
+                       HorizontalOptions="Center" FontSize="12" Margin="0,6,0,0" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

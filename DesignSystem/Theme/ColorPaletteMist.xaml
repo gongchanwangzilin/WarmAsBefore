@@ -1,0 +1,78 @@
+﻿<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="WarmAsBefore.DesignSystem.Theme.ColorPaletteMist">
+
+    <!-- ============ 晨雾蓝灰主题 Mist ============ -->
+    <!-- 奶油色 / Cream Base -->
+    <Color x:Key="Cream50">#FCFDFE</Color>
+    <Color x:Key="Cream100">#F1F4F7</Color>
+    <Color x:Key="Cream150">#E9EDF1</Color>
+    <Color x:Key="Cream200">#DDE3E9</Color>
+    <Color x:Key="Cream250">#D2D9E1</Color>
+    <Color x:Key="Cream300">#C7D0D9</Color>
+
+    <!-- 米白色 / Off-White Base -->
+    <Color x:Key="OffWhite50">#FAFBFC</Color>
+    <Color x:Key="OffWhite100">#F3F5F8</Color>
+    <Color x:Key="OffWhite200">#E9EDF1</Color>
+    <Color x:Key="OffWhite300">#DCE2E8</Color>
+
+    <!-- 米黄色 / Beige Base -->
+    <Color x:Key="Beige50">#FBFCFD</Color>
+    <Color x:Key="Beige100">#E9EEF3</Color>
+    <Color x:Key="Beige150">#DEE5EC</Color>
+    <Color x:Key="Beige200">#D2DBE4</Color>
+    <Color x:Key="Beige250">#C6D0DB</Color>
+    <Color x:Key="Beige300">#B8C4D1</Color>
+
+    <!-- 暖中性色 / Warm Neutrals -->
+    <Color x:Key="WarmWhite">#FBFCFD</Color>
+    <Color x:Key="WarmDark">#4A5563</Color>
+    <Color x:Key="WarmBody">#5D6A78</Color>
+    <Color x:Key="WarmMuted">#8C98A5</Color>
+    <Color x:Key="WarmFaint">#BCC6D0</Color>
+
+    <!-- 米色强调色 / Beige Accents -->
+    <Color x:Key="BeigeAccent50">#EAF0F5</Color>
+    <Color x:Key="BeigeAccent100">#C9D6E2</Color>
+    <Color x:Key="BeigeAccent200">#A9BDCE</Color>
+    <Color x:Key="BeigeAccent300">#8AA4BA</Color>
+
+    <!-- 功能色 / Functional -->
+    <Color x:Key="GreenSoft">#9DB8A8</Color>
+    <Color x:Key="RedSoft">#EF9A9A</Color>
+    <Color x:Key="BlueSoft">#90CAF9</Color>
+
+    <!-- 阴影色 / Shadows -->
+    <Color x:Key="ShadowLight">#FFFFFF</Color>
+    <Color x:Key="ShadowDim">#D8E0E8</Color>
+    <Color x:Key="ShadowDeep">#CBD5DE</Color>
+
+    <!-- 气泡色 / Bubble Colors -->
+    <Color x:Key="BubbleMine">#C9D6E2</Color>
+    <Color x:Key="BubbleTheirs">#F3F5F8</Color>
+
+    <!-- ============ Semantic Palette ============ -->
+    <Color x:Key="PageBg">#EFF2F5</Color>
+    <Color x:Key="SurfaceBg">#F7F9FB</Color>
+    <Color x:Key="SurfaceFg">#4A5563</Color>
+    <Color x:Key="PrimaryAction">#A9BDCE</Color>
+    <Color x:Key="PrimaryHover">#8AA4BA</Color>
+    <Color x:Key="PrimaryFg">#4A5563</Color>
+    <Color x:Key="SecondaryBg">#E4EAF0</Color>
+    <Color x:Key="MutedFg">#8C98A5</Color>
+    <Color x:Key="BorderLine">#D2DBE4</Color>
+    <Color x:Key="InputBg">#EFF2F5</Color>
+    <Color x:Key="SuccessTint">#A5D6A7</Color>
+    <Color x:Key="DangerTint">#EF9A9A</Color>
+    <Color x:Key="InfoTint">#90CAF9</Color>
+    <Color x:Key="OverlayDim">#C84A5563</Color>
+    <Color x:Key="TabActive">#C9D6E2</Color>
+    <Color x:Key="TabInactive">#EFF2F5</Color>
+
+    <!-- 粉调强调色 / Pink Accent（发送胶囊、心情等） -->
+    <Color x:Key="AccentWarm">#E8E0D2</Color>
+    <Color x:Key="AccentWarmFg">#5A5E66</Color>
+
+</ResourceDictionary>

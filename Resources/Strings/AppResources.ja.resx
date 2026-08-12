@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title_Save" xml:space="preserve"><value>セーブ</value></data>
+  <data name="Title_Novels" xml:space="preserve"><value>パラレルワールド</value></data>
+  <data name="Title_Roster" xml:space="preserve"><value>キャラクター</value></data>
+  <data name="Title_Settings" xml:space="preserve"><value>設定</value></data>
+  <data name="Title_Exit" xml:space="preserve"><value>ゲームを終了</value></data>
+  <data name="Title_Start" xml:space="preserve"><value>新しい出会い</value></data>
+  <data name="Title_Continue" xml:space="preserve"><value>続きから</value></data>
+  <data name="Title_Tagline" xml:space="preserve"><value>すべての再会が、初めての出会いのように温かく</value></data>
+  <data name="Title_ThemePrefix" xml:space="preserve"><value>テーマ</value></data>
+  <data name="Title_Identity" xml:space="preserve"><value>あなたの立場を選んで</value></data>
+  <data name="Title_IdentityHint" xml:space="preserve"><value>この温もりは、ずっとあなたと共に</value></data>
+  <data name="Title_Brother" xml:space="preserve"><value>お兄ちゃん</value></data>
+  <data name="Title_BrotherDesc" xml:space="preserve"><value>優しく頼れる守護者</value></data>
+  <data name="Title_Sister" xml:space="preserve"><value>お姉ちゃん</value></data>
+  <data name="Title_SisterDesc" xml:space="preserve"><value>細やかで思いやりのある世話役</value></data>
+  <data name="Title_Coexist" xml:space="preserve"><value>✦ 同居体験</value></data>
+  <data name="Title_CoexistDesc" xml:space="preserve"><value>毎日彼女・彼と一緒に、おしゃべり、生活、ミニゲーム。温かさはそのままに。</value></data>
+  <data name="Title_ThemeClassic" xml:space="preserve"><value>クラシック</value></data>
+  <data name="Title_ThemeGlass" xml:space="preserve"><value>すりガラス</value></data>
+  <data name="Title_ThemeFrost" xml:space="preserve"><value>マットガラス</value></data>
+  <data name="Title_ThemeLiquid" xml:space="preserve"><value>リキッドガラス</value></data>
+  <data name="Settings_Interface" xml:space="preserve"><value>インターフェース</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>カラーテーマ</value></data>
+  <data name="Settings_ThemeHint" xml:space="preserve"><value>クラシック／桜／竹／もや。タイトルに戻ると全ページに反映されます</value></data>
+  <data name="Settings_MenuRight" xml:space="preserve"><value>テーマを左、ボタンを右に</value></data>
+  <data name="Settings_MenuRightHint" xml:space="preserve"><value>PCではメニューボタンとテーマ装飾列を入れ替えます（初期はボタンが左）</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>言語</value></data>
+  <data name="Settings_LanguageHint" xml:space="preserve"><value>表示言語</value></data>
+  <data name="Settings_AutoSave" xml:space="preserve"><value>自動保存</value></data>
+  <data name="Settings_AutoSaveHint" xml:space="preserve"><value>設定変更を即時保存します</value></data>
+  <data name="Settings_TextSfx" xml:space="preserve"><value>テキストとサウンド</value></data>
+  <data name="Settings_TextSpeed" xml:space="preserve"><value>テキスト速度</value></data>
+  <data name="Settings_KeySfx" xml:space="preserve"><value>キーサウンド</value></data>
+  <data name="Settings_KeySfxHint" xml:space="preserve"><value>ボタンクリック時のフィードバック音</value></data>
+  <data name="Settings_WeatherLife" xml:space="preserve"><value>天気と生活</value></data>
+  <data name="Settings_City" xml:space="preserve"><value>都市</value></data>
+  <data name="Settings_CityPlaceholder" xml:space="preserve"><value>例：杭州（空欄は北京）</value></data>
+  <data name="Settings_Cycle" xml:space="preserve"><value>生理周期の日数</value></data>
+  <data name="Settings_CycleHint" xml:space="preserve"><value>一周期の長さ</value></data>
+  <data name="Settings_Period" xml:space="preserve"><value>生理の日数</value></data>
+  <data name="Settings_PeriodHint" xml:space="preserve"><value>毎月の期間の長さ</value></data>
+  <data name="Settings_Desktop" xml:space="preserve"><value>PC</value></data>
+  <data name="Settings_AlwaysOnTop" xml:space="preserve"><value>常に手前に表示</value></data>
+  <data name="Settings_AlwaysOnTopHint" xml:space="preserve"><value>ゲームウィンドウを常に最前面に表示します</value></data>
+  <data name="Settings_Official" xml:space="preserve"><value>公式連携（WeChat / QQ）</value></data>
+  <data name="Settings_OfficialHint" xml:space="preserve"><value>設定すると、ゲーム内のWeChat／QQがあなたの本物のアカウントに接続され、友達からのメッセージに彼女が直接返信します。公式連携は単独チャットのみ対応で、マウス・キーボードを使わず、追加ソフトも不要です。</value></data>
+  <data name="Settings_QqTitle" xml:space="preserve"><value>QQ公式ボット</value></data>
+  <data name="Settings_QqEnable" xml:space="preserve"><value>QQ連携を有効化</value></data>
+  <data name="Settings_QqHint" xml:space="preserve"><value>q.qq.com オープンプラットフォームでボットを作成</value></data>
+  <data name="Settings_WechatTitle" xml:space="preserve"><value>WeChat公式アカウント</value></data>
+  <data name="Settings_WechatEnable" xml:space="preserve"><value>WeChat連携を有効化</value></data>
+  <data name="Settings_WechatHint" xml:space="preserve"><value>アカウント管理画面でサーバーURL（トンネル可）をこのPCに設定</value></data>
+  <data name="Settings_AppId" xml:space="preserve"><value>AppID</value></data>
+  <data name="Settings_AppSecret" xml:space="preserve"><value>AppSecret</value></data>
+  <data name="Settings_BotAppId" xml:space="preserve"><value>ボット AppID</value></data>
+  <data name="Settings_BotAppSecret" xml:space="preserve"><value>ボット AppSecret</value></data>
+  <data name="Settings_MpAppId" xml:space="preserve"><value>アカウント AppID</value></data>
+  <data name="Settings_MpAppSecret" xml:space="preserve"><value>アカウント AppSecret</value></data>
+  <data name="Settings_Token" xml:space="preserve"><value>Token</value></data>
+  <data name="Settings_TokenPlaceholder" xml:space="preserve"><value>サーバー設定 Token</value></data>
+  <data name="Settings_Port" xml:space="preserve"><value>コールバックポート</value></data>
+  <data name="Settings_PortPlaceholder" xml:space="preserve"><value>8012</value></data>
+  <data name="Settings_ConnStatus" xml:space="preserve"><value>接続状態</value></data>
+  <data name="Settings_TestConn" xml:space="preserve"><value>接続テスト</value></data>
+  <data name="Settings_OfficialNote" xml:space="preserve"><value>注意：公式連携はグループチャット非対応。グループチャットが必要な場合はMCPサーバーを別途設定してください。</value></data>
+  <data name="Settings_Mcp" xml:space="preserve"><value>MCP設定</value></data>
+  <data name="Settings_McpEnable" xml:space="preserve"><value>MCPを有効化</value></data>
+  <data name="Settings_McpHint" xml:space="preserve"><value>有効にすると、ネットワークMCP、GitHub／ZIP／フォルダからデータパックをインポートできます</value></data>
+  <data name="Settings_McpUrl" xml:space="preserve"><value>ネットワークMCP URL</value></data>
+  <data name="Settings_McpUrlPlaceholder" xml:space="preserve"><value>https://mcp.example.com/api</value></data>
+  <data name="Settings_GitHub" xml:space="preserve"><value>GitHubリポジトリ</value></data>
+  <data name="Settings_GitHubPlaceholder" xml:space="preserve"><value>https://github.com/user/repo</value></data>
+  <data name="Settings_ImportGithub" xml:space="preserve"><value>GitHubからインポート</value></data>
+  <data name="Settings_ZipImport" xml:space="preserve"><value>ZIPインポート</value></data>
+  <data name="Settings_ZipPlaceholder" xml:space="preserve"><value>ZIPファイルを選択</value></data>
+  <data name="Settings_ImportZip" xml:space="preserve"><value>ZIPからインポート</value></data>
+  <data name="Settings_FolderImport" xml:space="preserve"><value>フォルダインポート</value></data>
+  <data name="Settings_FolderPlaceholder" xml:space="preserve"><value>フォルダを選択</value></data>
+  <data name="Settings_ImportFolder" xml:space="preserve"><value>フォルダからインポート</value></data>
+  <data name="Settings_Experimental" xml:space="preserve"><value>実験的機能</value></data>
+  <data name="Settings_DevMode" xml:space="preserve"><value>開発者モード</value></data>
+  <data name="Settings_DevModeHint" xml:space="preserve"><value>AIプロンプトとツール呼び出しを表示</value></data>
+  <data name="Settings_ComplexPlot" xml:space="preserve"><value>複雑なストーリーモード</value></data>
+  <data name="Settings_ComplexPlotHint" xml:space="preserve"><value>深い思考を有効にし、伏線を追加します</value></data>
+  <data name="Settings_NovelTesting" xml:space="preserve"><value>小説機能（テスト）</value></data>
+  <data name="Settings_NovelTestingHint" xml:space="preserve"><value>テスト用：小説をインポートしてあらすじを生成。正式なフローには含まれません</value></data>
+  <data name="Settings_ShowAffection" xml:space="preserve"><value>攻略対象外の好感度を表示</value></data>
+  <data name="Settings_AutoSaveNote" xml:space="preserve"><value>設定は自動保存されます</value></data>
+  <data name="Settings_StatusDisabled" xml:space="preserve"><value>無効</value></data>
+  <data name="Settings_ImportReady" xml:space="preserve"><value>インポート準備中…</value></data>
+  <data name="Settings_ImportUnzip" xml:space="preserve"><value>解凍中…</value></data>
+  <data name="Settings_ImportCopy" xml:space="preserve"><value>ファイルをコピー中…</value></data>
+  <data name="Common_Back" xml:space="preserve"><value>＜ 戻る</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>設定</value></data>
+  <data name="Settings_Volume" xml:space="preserve"><value>音量</value></data>
+  <data name="Settings_Bgm" xml:space="preserve"><value>BGM</value></data>
+  <data name="Settings_Sfx" xml:space="preserve"><value>効果音</value></data>
+  <data name="Settings_GlassFx" xml:space="preserve"><value>ガラス効果</value></data>
+  <data name="Settings_Frost" xml:space="preserve"><value>マットガラス</value></data>
+  <data name="Settings_FrostHint" xml:space="preserve"><value>半透明のマット効果</value></data>
+  <data name="Settings_Glass" xml:space="preserve"><value>すりガラス</value></data>
+  <data name="Settings_GlassHint" xml:space="preserve"><value>マットの上位版：半透明オーバーレイ、エッジのハイライト、背景ぼかし（マット必須）</value></data>
+  <data name="Settings_Liquid" xml:space="preserve"><value>リキッドガラス</value></data>
+  <data name="Settings_LiquidHint" xml:space="preserve"><value>高透過の光沢質感</value></data>
+  <data name="Settings_AiTitle" xml:space="preserve"><value>AI対話</value></data>
+  <data name="Settings_AiUrl" xml:space="preserve"><value>API URL</value></data>
+  <data name="Settings_AiKey" xml:space="preserve"><value>APIキー</value></data>
+  <data name="Settings_AiModel" xml:space="preserve"><value>モデル</value></data>
+  <data name="Settings_Temperature" xml:space="preserve"><value>温度</value></data>
+  <data name="Settings_MaxToken" xml:space="preserve"><value>最大トークン</value></data>
+  <data name="Settings_DeepThink" xml:space="preserve"><value>深い思考</value></data>
+  <data name="Settings_DeepThinkHint" xml:space="preserve"><value>複雑なストーリーではより強力なモデルを使用</value></data>
+  <data name="Settings_DeepModel" xml:space="preserve"><value>深層モデル</value></data>
+  <data name="Settings_DeepModelPlaceholder" xml:space="preserve"><value>o3／推論モデル</value></data>
+  <data name="Settings_MemoryTurns" xml:space="preserve"><value>記憶コンテキストのターン数</value></data>
+  <data name="Settings_MemoryTurnsHint" xml:space="preserve"><value>AIが毎回の返信で思い出せる過去メッセージ数</value></data>
+  <data name="Settings_TurnsTitle" xml:space="preserve"><value>ターン数</value></data>
+  <data name="Settings_Voice" xml:space="preserve"><value>音声</value></data>
+  <data name="Settings_Tts" xml:space="preserve"><value>返信を読み上げ</value></data>
+  <data name="Settings_TtsHint" xml:space="preserve"><value>返信を受信したら読み上げる</value></data>
+  <data name="Settings_Stt" xml:space="preserve"><value>音声入力</value></data>
+  <data name="Settings_SttHint" xml:space="preserve"><value>音声入力ボタンを表示（マイク権限が必要）</value></data>
+  <data name="Settings_TtsRate" xml:space="preserve"><value>読み上げ速度</value></data>
+  <data name="Settings_NotifyTitle" xml:space="preserve"><value>通知とおとも</value></data>
+  <data name="Settings_Notify" xml:space="preserve"><value>メッセージ通知</value></data>
+  <data name="Settings_NotifyHint" xml:space="preserve"><value>実際のWeChat／QQメッセージが届いたら通知</value></data>
+  <data name="Settings_Greeting" xml:space="preserve"><value>アイドル時の挨拶</value></data>
+  <data name="Settings_GreetingHint" xml:space="preserve"><value>彼女がアイドル時に自ら挨拶する</value></data>
+</root>

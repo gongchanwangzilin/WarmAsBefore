@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.NovelSelectPage"
+             x:Name="Page"
+             x:DataType="vm:NovelSelectViewModel"
+             Title=""
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" Padding="0">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <Label Grid.Column="1" Text="平行宇宙" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Novel list -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Novels}"
+                        Margin="16,8,16,0">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
+                                     Padding="32">
+                    <Label Text="还没有平行宇宙" TextColor="{StaticResource WarmFaint}" FontSize="18"
+                           HorizontalOptions="Center" />
+                    <Label Text="导入一部小说，它就会变成一个可以进入的世界" TextColor="{StaticResource WarmMuted}" FontSize="13"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:NovelItem">
+                    <Border Style="{StaticResource CardNeumorph}"
+                            Margin="0,0,0,12" Padding="16,14">
+                        <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Label Text="{Binding Title}" TextColor="{StaticResource WarmDark}"
+                                       FontSize="16" FontAttributes="Bold"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Text="{Binding ImportedAt, StringFormat='{0:MM/dd}'}"
+                                       TextColor="{StaticResource WarmFaint}" FontSize="11"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                            <Label Text="{Binding Summary}" TextColor="{StaticResource WarmMuted}"
+                                   FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
+                            <Label Text="{Binding CharactersLabel}" TextColor="{StaticResource WarmFaint}"
+                                   FontSize="11" LineBreakMode="TailTruncation" />
+                            <HorizontalStackLayout HorizontalOptions="End" Spacing="8" Margin="0,4,0,0">
+                                <Button Text="删除" Style="{StaticResource BtnText}"
+                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        HeightRequest="30" Padding="10,0"
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteNovelCommand}"
+                                        CommandParameter="{Binding Id}" />
+                                <Button Text="进入世界" Style="{StaticResource BtnNeumorphSm}"
+                                        HeightRequest="32" WidthRequest="96"
+                                        FontSize="12"
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.EnterNovelCommand}"
+                                        CommandParameter="{Binding Id}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Bottom bar -->
+        <Border Grid.Row="2" BackgroundColor="{StaticResource PageBg}" Padding="16,10,16,16"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Button Text="导入小说，创建新世界" Style="{StaticResource BtnNeumorph}"
+                    HeightRequest="46" FontSize="14"
+                    Command="{Binding ImportNovelCommand}" />
+        </Border>
+    </Grid>
+</ContentPage>

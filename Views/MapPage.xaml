@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.MapPage"
+             x:Name="MapPageRoot"
+             x:DataType="vm:MapViewModel"
+             Title="地图"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid Padding="0" RowDefinitions="Auto,*,Auto">
+
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource WarmDark}" StrokeThickness="0" Padding="16,10">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
+                <!-- 第一行：标题 + 模式切换 + 工具 -->
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                    <VerticalStackLayout Spacing="4" VerticalOptions="Center">
+                        <Label Text="🗺️ 地图编辑器" TextColor="{StaticResource OffWhite50}" FontSize="18" FontAttributes="Bold" />
+                        <Label Text="{Binding StatusText}" TextColor="{StaticResource BeigeAccent200}" FontSize="12"
+                               LineBreakMode="TailTruncation" MaxLines="1" />
+                        <Label Text="{Binding LocationLabel, StringFormat='📍 当前位置：{0}'}"
+                               TextColor="{StaticResource Cream200}" FontSize="12" FontAttributes="Bold" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="{Binding ViewModeLabel}" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetModeCommand}" CommandParameter="view" />
+                    <Button Grid.Column="2" Text="{Binding EditModeLabel}" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetModeCommand}" CommandParameter="edit" />
+                    <Button Grid.Column="3" Text="{Binding LinkModeLabel}" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetModeCommand}" CommandParameter="link" />
+                    <Button Grid.Column="4" Text="{Binding LinkKindText}" TextColor="{StaticResource WarmDark}"
+                            BackgroundColor="{StaticResource Cream200}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding ToggleLinkKindCommand}"
+                            IsVisible="{Binding IsLinkMode}" />
+                    <Button Grid.Column="5" Text="{Binding DoodleModeLabel}" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetModeCommand}" CommandParameter="doodle" />
+                    <Button Grid.Column="6" Text="↻ 重置布局" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="12,0"
+                            CornerRadius="6" HeightRequest="34" Command="{Binding ResetLayoutCommand}" />
+                    <Button Grid.Column="7" Text="导出" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="12,0"
+                            CornerRadius="6" HeightRequest="34" Command="{Binding ExportMapCommand}" />
+                    <Button Grid.Column="8" Text="返回" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34" Command="{Binding BackCommand}" />
+                    <Button Grid.Column="9" Text="ℹ 帮助" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmDark}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34" Command="{Binding HelpCommand}" />
+                </Grid>
+
+                <!-- 编辑模式提示行 -->
+                <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Label Text="编辑：拖卡片=移动 · 空白拖动=平移 · 按住空白 0.6秒再拖=框选地点 · 右键=菜单" 
+                           TextColor="{StaticResource BeigeAccent200}" FontSize="12" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="＋ 新地点" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="12,0"
+                            CornerRadius="6" HeightRequest="32"
+                            Command="{Binding AddLocationCommand}" />
+                    <Button Grid.Column="2" Text="＋ 新场景 / 临时节点" TextColor="{StaticResource OffWhite50}"
+                            BackgroundColor="{StaticResource WarmBody}" FontSize="12" Padding="12,0"
+                            CornerRadius="6" HeightRequest="32"
+                            Command="{Binding AddSceneCommand}" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 画布：占满窗口，平移缩放由内部视图实现 -->
+        <GraphicsView Grid.Row="1" x:Name="MapCanvas"
+                      StartInteraction="OnCanvasStart"
+                      DragInteraction="OnCanvasDrag"
+                      EndInteraction="OnCanvasEnd"
+                      BackgroundColor="Transparent" />
+
+        <!-- 底部：模式操作提示 -->
+        <Border Grid.Row="2" IsVisible="{Binding IsEditMode}"
+                BackgroundColor="{StaticResource SurfaceBg}"
+                StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                Padding="16,10" Margin="12,0,12,12" VerticalOptions="End">
+            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
+                <Border BackgroundColor="{StaticResource Cream200}" StrokeThickness="0" Padding="12,0">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Label Text="{Binding SelectedNodeLabel}" TextColor="{StaticResource WarmDark}" FontSize="13"
+                           VerticalOptions="Center" />
+                </Border>
+                <Label Grid.Column="1" Text="拖拽卡片调整位置" TextColor="{StaticResource WarmMuted}" FontSize="12"
+                       VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="🗑 删除" TextColor="{StaticResource RedSoft}"
+                        BackgroundColor="{StaticResource SecondaryBg}" FontSize="12" Padding="12,0"
+                        CornerRadius="8" HeightRequest="36" Command="{Binding RemoveSceneCommand}"
+                        IsVisible="{Binding HasSelection}" />
+                <Button Grid.Column="3" Text="返回" TextColor="{StaticResource WarmDark}"
+                        BackgroundColor="{StaticResource Cream200}" FontSize="12" Padding="14,0"
+                        CornerRadius="8" HeightRequest="36" Command="{Binding BackCommand}" />
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

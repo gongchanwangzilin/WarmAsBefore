@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.TitlePage"
+             x:DataType="vm:TitleViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid>
+        <!-- Soft vertical gradient background -->
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="{StaticResource Cream100}" Offset="0.0" />
+                <GradientStop Color="{StaticResource PageBg}" Offset="0.55" />
+                <GradientStop Color="{StaticResource Beige100}" Offset="1.0" />
+            </LinearGradientBrush>
+        </Grid.Background>
+
+        <!-- Decorative warm glow (top) -->
+        <Ellipse Fill="{StaticResource BeigeAccent50}" Opacity="0.55"
+                 WidthRequest="460" HeightRequest="460"
+                 HorizontalOptions="Center" VerticalOptions="Start"
+                 Margin="0,-200,0,0" />
+
+        <!-- Decorative soft glow (bottom) -->
+        <Ellipse Fill="{StaticResource Cream200}" Opacity="0.35"
+                 WidthRequest="380" HeightRequest="380"
+                 HorizontalOptions="Center" VerticalOptions="End"
+                 Margin="0,0,-120,-190" />
+
+        <!-- 装饰层模糊（毛玻璃的「背景模糊」）：只作用于装饰光斑，不覆盖任何内容；
+             由 GlassOverlayService 在开启毛玻璃时套上合成模糊画笔 -->
+        <Border x:Name="DecorBlur" InputTransparent="True" IsVisible="False" />
+
+        <!-- Two-column main layout: menu column + theme/decor column -->
+        <Grid ColumnDefinitions="1*,1*" Padding="40,24"
+              VerticalOptions="Fill">
+
+            <!-- MENU column (buttons) -->
+            <VerticalStackLayout Grid.Column="{Binding MenuColumn}"
+                                 VerticalOptions="Center" HorizontalOptions="Center"
+                                 Spacing="8" MaximumWidthRequest="340">
+                <Border BackgroundColor="{StaticResource SurfaceBg}"
+                        StrokeThickness="1.5" Stroke="{StaticResource BorderLine}"
+                        WidthRequest="118" HeightRequest="118"
+                        HorizontalOptions="Center" Margin="0,0,0,22">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="59" />
+                    </Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="{StaticResource ShadowDim}"
+                                Offset="5,6" Radius="18" Opacity="0.4" />
+                    </Border.Shadow>
+                    <Image Source="titlelogo.png" WidthRequest="104" HeightRequest="104"
+                           Aspect="AspectFill"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+
+                <Button Text="{Binding StartLabel}" Style="{StaticResource BtnNeumorph}"
+                        WidthRequest="290" MinimumHeightRequest="56"
+                        Margin="0,4"
+                        Command="{Binding StartGameCommand}"
+                        IsEnabled="{Binding ShowGenderSelect, Converter={StaticResource InverseBool}}" />
+
+                <Button Text="{Binding [Title_Save], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                        WidthRequest="290" MinimumHeightRequest="56"
+                        Margin="0,4"
+                        Command="{Binding OpenSaveCommand}" />
+
+                <Button Text="{Binding [Title_Novels], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                        WidthRequest="290" MinimumHeightRequest="56"
+                        Margin="0,4"
+                        Command="{Binding OpenNovelsCommand}" />
+
+                <Button Text="{Binding [Title_Roster], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                        WidthRequest="290" MinimumHeightRequest="56"
+                        Margin="0,4"
+                        Command="{Binding OpenRosterCommand}" />
+
+                <Button Text="{Binding [Title_Settings], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                        WidthRequest="290" MinimumHeightRequest="56"
+                        Margin="0,4"
+                        Command="{Binding OpenSettingsCommand}" />
+
+                <Button Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
+                        TextColor="{StaticResource WarmMuted}"
+                        FontSize="13" WidthRequest="290" HeightRequest="42"
+                        Margin="0,14,0,0"
+                        Command="{Binding ExitGameCommand}" />
+            </VerticalStackLayout>
+
+            <!-- THEME/DECOR column -->
+            <VerticalStackLayout Grid.Column="{Binding DecorColumn}"
+                                 VerticalOptions="Center" HorizontalOptions="Center"
+                                 Spacing="16" MaximumWidthRequest="380">
+
+                <Border Style="{StaticResource CardNeumorph}"
+                        Padding="30,26" HorizontalOptions="Fill">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="温暖如初" Style="{StaticResource TxtDisplay}"
+                               HorizontalOptions="Center" FontSize="40" />
+                        <Label Text="WARM AS BEFORE" Style="{StaticResource TxtMuted}"
+                               FontSize="13" HorizontalOptions="Center"
+                               CharacterSpacing="3" />
+
+                        <BoxView Color="{StaticResource BorderLine}" HeightRequest="1.5"
+                                 WidthRequest="200" HorizontalOptions="Center"
+                                 Margin="0,10,0,4" Opacity="0.9" />
+
+                        <Label Text="{Binding [Title_Tagline], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}"
+                               FontSize="13" HorizontalOptions="Center"
+                               Opacity="0.9" />
+
+                        <!-- Current theme effect chip -->
+                        <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                                StrokeThickness="0"
+                                Padding="16,8" HorizontalOptions="Center"
+                                Margin="0,10,0,0">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
+                            <Label Text="{Binding ThemeEffectName}"
+                                   FontSize="12" TextColor="{StaticResource WarmDark}" />
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- Decorative hint panel -->
+                <Border BackgroundColor="{StaticResource Cream100}"
+                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        Padding="24,18" HorizontalOptions="Fill">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="{Binding [Title_Coexist], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}"
+                               FontSize="13" TextColor="{StaticResource WarmDark}" />
+                        <Label Text="{Binding [Title_CoexistDesc], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}" FontSize="12" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- Footer -->
+        <Label Text="· 温暖如初 ·" Style="{StaticResource TxtMuted}"
+               FontSize="12" HorizontalOptions="Center" VerticalOptions="End"
+               Margin="0,0,0,22" Opacity="0.6" />
+
+        <!-- Gender selection overlay -->
+        <Grid IsVisible="{Binding ShowGenderSelect}"
+              BackgroundColor="{StaticResource OverlayDim}">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                 Spacing="20" Padding="32">
+                <Border Style="{StaticResource CardNeumorph}"
+                        Padding="32,26" MaximumWidthRequest="440">
+                    <VerticalStackLayout Spacing="20">
+                        <Label Text="{Binding [Title_Identity], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
+                               HorizontalOptions="Center" />
+                        <Label Text="{Binding [Title_IdentityHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
+                               HorizontalOptions="Center" FontSize="14" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                            <Border Style="{StaticResource CardNeumorph}"
+                                    Padding="22,18" HorizontalOptions="Fill">
+                                <VerticalStackLayout HorizontalOptions="Center" Spacing="8">
+                                    <Label Text="{Binding [Title_Brother], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}"
+                                           FontSize="20" HorizontalOptions="Center" />
+                                    <Label Text="{Binding [Title_BrotherDesc], Source={x:Static i18n:LocalizationService.Current}}"
+                                           Style="{StaticResource TxtCaption}"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SelectGenderCommand}"
+                                                          CommandParameter="MALE" />
+                                </Border.GestureRecognizers>
+                            </Border>
+
+                            <Border Grid.Column="1" Style="{StaticResource CardNeumorph}"
+                                    Padding="22,18" HorizontalOptions="Fill">
+                                <VerticalStackLayout HorizontalOptions="Center" Spacing="8">
+                                    <Label Text="{Binding [Title_Sister], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}"
+                                           FontSize="20" HorizontalOptions="Center" />
+                                    <Label Text="{Binding [Title_SisterDesc], Source={x:Static i18n:LocalizationService.Current}}"
+                                           Style="{StaticResource TxtCaption}"
+                                           HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding SelectGenderCommand}"
+                                                          CommandParameter="FEMALE" />
+                                </Border.GestureRecognizers>
+                            </Border>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.OutfitPage"
+             x:DataType="vm:OutfitViewModel"
+             Title="换装"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid Padding="16">
+        <Label Text="换装" Style="{StaticResource TxtTitle}" />
+    </Grid>
+</ContentPage>

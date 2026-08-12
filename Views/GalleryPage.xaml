@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.GalleryPage"
+             x:DataType="vm:GalleryViewModel"
+             Title="回忆录"
+             BackgroundColor="{StaticResource PageBg}"
+             Shell.NavBarIsVisible="False">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="20,24" Spacing="14">
+
+            <Label Text="回忆录" Style="{StaticResource TxtTitle}" />
+            <Label Text="全部好感时刻与全部对话都在这里，可搜索；日记是每天自动生成的陪伴总结（核心机制，无需开启）"
+                   Style="{StaticResource TxtCaption}" />
+
+            <!-- Tab switch -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Border BackgroundColor="{Binding IsMemoirSelected, Converter={StaticResource SelectedBg}}"
+                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        Padding="0,10" HorizontalOptions="Fill">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="回忆录" HorizontalOptions="Center" FontSize="14"
+                           TextColor="{StaticResource WarmDark}" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="memoir" />
+                    </Border.GestureRecognizers>
+                </Border>
+                <Border Grid.Column="1" BackgroundColor="{Binding IsDiarySelected, Converter={StaticResource SelectedBg}}"
+                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        Padding="0,10" HorizontalOptions="Fill">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="日记" HorizontalOptions="Center" FontSize="14"
+                           TextColor="{StaticResource WarmDark}" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="diary" />
+                    </Border.GestureRecognizers>
+                </Border>
+            </Grid>
+
+            <!-- MEMOIR tab -->
+            <VerticalStackLayout IsVisible="{Binding IsMemoirSelected}" Spacing="12">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Entry Grid.Column="0" Text="{Binding SearchText}" Placeholder="搜索对话回忆…"
+                           BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
+                           PlaceholderColor="{StaticResource MutedFg}" FontSize="13" />
+                    <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}"
+                            FontSize="13" Command="{Binding ClearSearchCommand}" />
+                </Grid>
+
+                <Label Text="好感时刻（全部）" Style="{StaticResource TxtBodySm}" />
+                <Border Style="{StaticResource CardNeumorph}" Padding="16,12">
+                    <VerticalStackLayout Spacing="8">
+                        <Label IsVisible="{Binding HasAffection, Converter={StaticResource InverseBool}}"
+                               Text="还没有好感时刻，去和她互动吧~" Style="{StaticResource TxtCaption}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding AffectionItems}" Spacing="6">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AffectionMemoryItem">
+                                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0.8"
+                                            Stroke="{StaticResource BorderLine}" Padding="8" Margin="0,2">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                        <VerticalStackLayout Spacing="4">
+                                            <Label Text="{Binding Display}" Style="{StaticResource TxtBodySm}" FontSize="13" />
+                                            <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
+                                                   HeightRequest="150" Aspect="AspectFill" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="对话回忆（可搜索）" Style="{StaticResource TxtBodySm}" />
+                <Border Style="{StaticResource CardNeumorph}" Padding="16,12">
+                    <VerticalStackLayout Spacing="8">
+                        <Label IsVisible="{Binding HasMemory, Converter={StaticResource InverseBool}}"
+                               Text="还没有对话回忆" Style="{StaticResource TxtCaption}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding MemoryItems}" Spacing="6">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:DialogueMemoryItem">
+                                    <Label Text="{Binding Display}" Style="{StaticResource TxtBodySm}" FontSize="13" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+
+            <!-- DIARY tab -->
+            <VerticalStackLayout IsVisible="{Binding IsDiarySelected}" Spacing="10">
+                <Label IsVisible="{Binding HasDiary, Converter={StaticResource InverseBool}}"
+                       Text="还没有日记，今天多陪陪她，明天早上就会有一篇总结啦~"
+                       Style="{StaticResource TxtCaption}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding DiaryItems}" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DiaryDayItem">
+                            <Border Style="{StaticResource CardNeumorph}" Padding="16,12">
+                                <VerticalStackLayout Spacing="6">
+                                    <Label Text="{Binding Header}" Style="{StaticResource TxtBodySm}"
+                                           FontSize="13" TextColor="{StaticResource WarmDark}" />
+                                    <Label Text="{Binding Content}" Style="{StaticResource TxtBodySm}"
+                                           FontSize="13" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

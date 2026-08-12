@@ -1,0 +1,31 @@
+namespace WarmAsBefore;
+
+public partial class AppShell : Shell
+{
+    public AppShell()
+    {
+        InitializeComponent();
+        RegisterRoutes();
+        App.WriteLog("AppShell: initialized, routes registered");
+    }
+
+    private void RegisterRoutes()
+    {
+        Routing.RegisterRoute("main", typeof(Views.MainGamePage));
+        Routing.RegisterRoute("select", typeof(Views.CharacterSelectPage));
+        Routing.RegisterRoute("settings", typeof(Views.SettingsPage));
+        Routing.RegisterRoute("phone", typeof(Views.PhonePage));
+        Routing.RegisterRoute("chat", typeof(Views.WeChatPage));
+        Routing.RegisterRoute("map", typeof(Views.MapPage));
+        Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
+        Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
+        Routing.RegisterRoute("save", typeof(Views.SavePage));
+        Routing.RegisterRoute("dev", typeof(Views.DeveloperPage));
+        Routing.RegisterRoute("game", typeof(Views.GamePage));
+        Routing.RegisterRoute("novelselect", typeof(Views.NovelSelectPage));
+        Routing.RegisterRoute("novelworld", typeof(Views.NovelWorldPage));
+        Routing.RegisterRoute("worldbook", typeof(Views.WorldbookPage));
+        Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
+        Routing.RegisterRoute("shop", typeof(Views.ShopPage));
+    }
+}

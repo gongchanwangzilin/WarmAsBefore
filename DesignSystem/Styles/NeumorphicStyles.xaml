@@ -1,0 +1,166 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="WarmAsBefore.DesignSystem.Styles.NeumorphicStyles">
+
+    <!--
+    Neumorphism Design System
+    - Background & components share the same color (SurfaceBg)
+    - Raised: dark shadow (bottom-right) + light stroke (top-left)
+    - Inset/Pressed: removed shadow, inset border, slight offset
+    - CornerRadius: 20px
+    -->
+
+    <!-- Neumorphic Card (raised) -->
+    <Style x:Key="CardNeumorph" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="#80FFFFFF" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="20" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{StaticResource ShadowDim}"
+                        Offset="6,6" Radius="16" Opacity="0.3" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Neumorphic Card (inset / depressed) -->
+    <Style x:Key="CardNeumorphInset" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{StaticResource ShadowDim}" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="20" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{StaticResource ShadowLight}"
+                        Offset="-3,-3" Radius="8" Opacity="0.3" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Neumorphic Button (raised) -->
+    <Style x:Key="BtnNeumorph" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="TextColor" Value="{StaticResource SurfaceFg}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CornerRadius" Value="22" />
+        <Setter Property="HeightRequest" Value="54" />
+        <Setter Property="Padding" Value="28,0" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="#70FFFFFF" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{StaticResource ShadowDim}"
+                        Offset="4,5" Radius="12" Opacity="0.35" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
+                            <Setter Property="BorderColor" Value="#90F5EBDA" />
+                            <Setter Property="Scale" Value="1.02" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Neumorphic Button (small, for inline use) -->
+    <Style x:Key="BtnNeumorphSm" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
+
+    <!-- Neumorphic Button (accent — beige tint, raised) -->
+    <Style x:Key="BtnNeumorphAccent" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
+        <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+        <Setter Property="TextColor" Value="{StaticResource WarmDark}" />
+        <Setter Property="BorderColor" Value="#90F5EBDA" />
+    </Style>
+
+    <!-- 可点击卡片（游戏入口/功能块）：悬停微浮起，按下回弹，交互反馈 -->
+    <Style x:Key="PressableCard" TargetType="Border" BasedOn="{StaticResource CardNeumorph}">
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
+                            <Setter Property="Scale" Value="1.06" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+                            <Setter Property="Scale" Value="0.92" />
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- 分类/标签选择块：选中态米黄填充 -->
+    <Style x:Key="TagChip" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource Cream200}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="#30C9A96B" />
+        <Setter Property="Padding" Value="12,5" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="14" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
+                            <Setter Property="Scale" Value="1.04" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+                            <Setter Property="Scale" Value="0.94" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

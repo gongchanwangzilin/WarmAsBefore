@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title_Save" xml:space="preserve"><value>Save Files</value></data>
+  <data name="Title_Novels" xml:space="preserve"><value>Parallel Worlds</value></data>
+  <data name="Title_Roster" xml:space="preserve"><value>Characters</value></data>
+  <data name="Title_Settings" xml:space="preserve"><value>Settings</value></data>
+  <data name="Title_Exit" xml:space="preserve"><value>Exit Game</value></data>
+  <data name="Title_Start" xml:space="preserve"><value>New Companion</value></data>
+  <data name="Title_Continue" xml:space="preserve"><value>Continue</value></data>
+  <data name="Title_Tagline" xml:space="preserve"><value>Let every reunion feel as warm as the first meeting</value></data>
+  <data name="Title_ThemePrefix" xml:space="preserve"><value>Theme</value></data>
+  <data name="Title_Identity" xml:space="preserve"><value>Choose Your Role</value></data>
+  <data name="Title_IdentityHint" xml:space="preserve"><value>This warmth will always be with you</value></data>
+  <data name="Title_Brother" xml:space="preserve"><value>Brother</value></data>
+  <data name="Title_BrotherDesc" xml:space="preserve"><value>A gentle and reliable guardian</value></data>
+  <data name="Title_Sister" xml:space="preserve"><value>Sister</value></data>
+  <data name="Title_SisterDesc" xml:space="preserve"><value>A caring and attentive caretaker</value></data>
+  <data name="Title_Coexist" xml:space="preserve"><value>✦ Co-living Experience</value></data>
+  <data name="Title_CoexistDesc" xml:space="preserve"><value>Every day with her / him — chatting, living, mini-games — warm as before.</value></data>
+  <data name="Title_ThemeClassic" xml:space="preserve"><value>Classic</value></data>
+  <data name="Title_ThemeGlass" xml:space="preserve"><value>Frosted Glass</value></data>
+  <data name="Title_ThemeFrost" xml:space="preserve"><value>Matte Glass</value></data>
+  <data name="Title_ThemeLiquid" xml:space="preserve"><value>Liquid Glass</value></data>
+  <data name="Settings_Interface" xml:space="preserve"><value>Interface</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>Color Theme</value></data>
+  <data name="Settings_ThemeHint" xml:space="preserve"><value>Classic / Sakura / Bamboo / Mist — applies to all pages after returning to title</value></data>
+  <data name="Settings_MenuRight" xml:space="preserve"><value>Theme left, buttons right</value></data>
+  <data name="Settings_MenuRightHint" xml:space="preserve"><value>On desktop, swap the menu buttons and the theme column (default: buttons on left)</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>Language</value></data>
+  <data name="Settings_LanguageHint" xml:space="preserve"><value>UI display language</value></data>
+  <data name="Settings_AutoSave" xml:space="preserve"><value>Auto-save</value></data>
+  <data name="Settings_AutoSaveHint" xml:space="preserve"><value>Setting changes are saved immediately</value></data>
+  <data name="Settings_TextSfx" xml:space="preserve"><value>Text &amp; Sound</value></data>
+  <data name="Settings_TextSpeed" xml:space="preserve"><value>Text Speed</value></data>
+  <data name="Settings_KeySfx" xml:space="preserve"><value>Key Sound</value></data>
+  <data name="Settings_KeySfxHint" xml:space="preserve"><value>Feedback sound when clicking buttons</value></data>
+  <data name="Settings_WeatherLife" xml:space="preserve"><value>Weather &amp; Life</value></data>
+  <data name="Settings_City" xml:space="preserve"><value>City</value></data>
+  <data name="Settings_CityPlaceholder" xml:space="preserve"><value>e.g., Hangzhou (blank = Beijing)</value></data>
+  <data name="Settings_Cycle" xml:space="preserve"><value>Cycle Length</value></data>
+  <data name="Settings_CycleHint" xml:space="preserve"><value>Length of one physiological cycle</value></data>
+  <data name="Settings_Period" xml:space="preserve"><value>Period Days</value></data>
+  <data name="Settings_PeriodHint" xml:space="preserve"><value>Length of the monthly period</value></data>
+  <data name="Settings_Desktop" xml:space="preserve"><value>Desktop</value></data>
+  <data name="Settings_AlwaysOnTop" xml:space="preserve"><value>Always on Top</value></data>
+  <data name="Settings_AlwaysOnTopHint" xml:space="preserve"><value>Keep the game window always in front</value></data>
+  <data name="Settings_Official" xml:space="preserve"><value>Official Integration (WeChat / QQ)</value></data>
+  <data name="Settings_OfficialHint" xml:space="preserve"><value>Once configured, the in-game WeChat / QQ connects to your real accounts: messages from friends are replied by her personally. Official support is single-chat only, does not use mouse/keyboard, and requires no extra software.</value></data>
+  <data name="Settings_QqTitle" xml:space="preserve"><value>QQ Bot</value></data>
+  <data name="Settings_QqEnable" xml:space="preserve"><value>Enable QQ</value></data>
+  <data name="Settings_QqHint" xml:space="preserve"><value>Create a bot at the q.qq.com open platform</value></data>
+  <data name="Settings_WechatTitle" xml:space="preserve"><value>WeChat Official Account</value></data>
+  <data name="Settings_WechatEnable" xml:space="preserve"><value>Enable WeChat</value></data>
+  <data name="Settings_WechatHint" xml:space="preserve"><value>Set a server URL (e.g. via tunnel) in the account backend pointing to this machine</value></data>
+  <data name="Settings_AppId" xml:space="preserve"><value>AppID</value></data>
+  <data name="Settings_AppSecret" xml:space="preserve"><value>AppSecret</value></data>
+  <data name="Settings_BotAppId" xml:space="preserve"><value>Bot AppID</value></data>
+  <data name="Settings_BotAppSecret" xml:space="preserve"><value>Bot AppSecret</value></data>
+  <data name="Settings_MpAppId" xml:space="preserve"><value>Account AppID</value></data>
+  <data name="Settings_MpAppSecret" xml:space="preserve"><value>Account AppSecret</value></data>
+  <data name="Settings_Token" xml:space="preserve"><value>Token</value></data>
+  <data name="Settings_TokenPlaceholder" xml:space="preserve"><value>Server config Token</value></data>
+  <data name="Settings_Port" xml:space="preserve"><value>Callback Port</value></data>
+  <data name="Settings_PortPlaceholder" xml:space="preserve"><value>8012</value></data>
+  <data name="Settings_ConnStatus" xml:space="preserve"><value>Connection Status</value></data>
+  <data name="Settings_TestConn" xml:space="preserve"><value>Test Connection</value></data>
+  <data name="Settings_OfficialNote" xml:space="preserve"><value>Note: official integration does not support group chats; for group chat support, set up your own MCP server independently.</value></data>
+  <data name="Settings_Mcp" xml:space="preserve"><value>MCP Config</value></data>
+  <data name="Settings_McpEnable" xml:space="preserve"><value>Enable MCP</value></data>
+  <data name="Settings_McpHint" xml:space="preserve"><value>When enabled, import data packs via network MCP, GitHub / ZIP / folder</value></data>
+  <data name="Settings_McpUrl" xml:space="preserve"><value>Network MCP URL</value></data>
+  <data name="Settings_McpUrlPlaceholder" xml:space="preserve"><value>https://mcp.example.com/api</value></data>
+  <data name="Settings_GitHub" xml:space="preserve"><value>GitHub Repo</value></data>
+  <data name="Settings_GitHubPlaceholder" xml:space="preserve"><value>https://github.com/user/repo</value></data>
+  <data name="Settings_ImportGithub" xml:space="preserve"><value>Import from GitHub</value></data>
+  <data name="Settings_ZipImport" xml:space="preserve"><value>ZIP Import</value></data>
+  <data name="Settings_ZipPlaceholder" xml:space="preserve"><value>Choose ZIP file</value></data>
+  <data name="Settings_ImportZip" xml:space="preserve"><value>Import from ZIP</value></data>
+  <data name="Settings_FolderImport" xml:space="preserve"><value>Folder Import</value></data>
+  <data name="Settings_FolderPlaceholder" xml:space="preserve"><value>Choose folder</value></data>
+  <data name="Settings_ImportFolder" xml:space="preserve"><value>Import from Folder</value></data>
+  <data name="Settings_Experimental" xml:space="preserve"><value>Experimental</value></data>
+  <data name="Settings_DevMode" xml:space="preserve"><value>Developer Mode</value></data>
+  <data name="Settings_DevModeHint" xml:space="preserve"><value>View AI prompts and tool calls</value></data>
+  <data name="Settings_ComplexPlot" xml:space="preserve"><value>Complex Plot Mode</value></data>
+  <data name="Settings_ComplexPlotHint" xml:space="preserve"><value>Enables deep thinking and foreshadowing</value></data>
+  <data name="Settings_NovelTesting" xml:space="preserve"><value>Novel Feature (Beta)</value></data>
+  <data name="Settings_NovelTestingHint" xml:space="preserve"><value>Testing: import a novel to generate a plot summary; not part of the main flow</value></data>
+  <data name="Settings_ShowAffection" xml:space="preserve"><value>Show Affection for Non-Route Characters</value></data>
+  <data name="Settings_AutoSaveNote" xml:space="preserve"><value>Settings are saved automatically</value></data>
+  <data name="Settings_StatusDisabled" xml:space="preserve"><value>Disabled</value></data>
+  <data name="Settings_ImportReady" xml:space="preserve"><value>Preparing import…</value></data>
+  <data name="Settings_ImportUnzip" xml:space="preserve"><value>Extracting…</value></data>
+  <data name="Settings_ImportCopy" xml:space="preserve"><value>Copying files…</value></data>
+  <data name="Common_Back" xml:space="preserve"><value>&lt; Back</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
+  <data name="Settings_Volume" xml:space="preserve"><value>Volume</value></data>
+  <data name="Settings_Bgm" xml:space="preserve"><value>BGM</value></data>
+  <data name="Settings_Sfx" xml:space="preserve"><value>Sound Effects</value></data>
+  <data name="Settings_GlassFx" xml:space="preserve"><value>Glass Effects</value></data>
+  <data name="Settings_Frost" xml:space="preserve"><value>Matte Glass</value></data>
+  <data name="Settings_FrostHint" xml:space="preserve"><value>Semi-transparent matte effect</value></data>
+  <data name="Settings_Glass" xml:space="preserve"><value>Frosted Glass</value></data>
+  <data name="Settings_GlassHint" xml:space="preserve"><value>Advanced matte: translucent overlay, edge highlights, background blur (requires matte)</value></data>
+  <data name="Settings_Liquid" xml:space="preserve"><value>Liquid Glass</value></data>
+  <data name="Settings_LiquidHint" xml:space="preserve"><value>High-clarity glossy texture</value></data>
+  <data name="Settings_AiTitle" xml:space="preserve"><value>AI Chat</value></data>
+  <data name="Settings_AiUrl" xml:space="preserve"><value>API URL</value></data>
+  <data name="Settings_AiKey" xml:space="preserve"><value>API Key</value></data>
+  <data name="Settings_AiModel" xml:space="preserve"><value>Model</value></data>
+  <data name="Settings_Temperature" xml:space="preserve"><value>Temperature</value></data>
+  <data name="Settings_MaxToken" xml:space="preserve"><value>Max Tokens</value></data>
+  <data name="Settings_DeepThink" xml:space="preserve"><value>Deep Thinking</value></data>
+  <data name="Settings_DeepThinkHint" xml:space="preserve"><value>Uses a stronger model for complex plots</value></data>
+  <data name="Settings_DeepModel" xml:space="preserve"><value>Deep Model</value></data>
+  <data name="Settings_DeepModelPlaceholder" xml:space="preserve"><value>o3 / reasoning model</value></data>
+  <data name="Settings_MemoryTurns" xml:space="preserve"><value>Memory Context Turns</value></data>
+  <data name="Settings_MemoryTurnsHint" xml:space="preserve"><value>Past messages the AI recalls per reply</value></data>
+  <data name="Settings_TurnsTitle" xml:space="preserve"><value>Turns</value></data>
+  <data name="Settings_Voice" xml:space="preserve"><value>Voice</value></data>
+  <data name="Settings_Tts" xml:space="preserve"><value>Read Replies Aloud</value></data>
+  <data name="Settings_TtsHint" xml:space="preserve"><value>Read replies out loud</value></data>
+  <data name="Settings_Stt" xml:space="preserve"><value>Voice Input</value></data>
+  <data name="Settings_SttHint" xml:space="preserve"><value>Show voice input button (mic permission required)</value></data>
+  <data name="Settings_TtsRate" xml:space="preserve"><value>Reading Speed</value></data>
+  <data name="Settings_NotifyTitle" xml:space="preserve"><value>Notifications &amp; Company</value></data>
+  <data name="Settings_Notify" xml:space="preserve"><value>Message Notifications</value></data>
+  <data name="Settings_NotifyHint" xml:space="preserve"><value>Notify when real WeChat / QQ messages arrive</value></data>
+  <data name="Settings_Greeting" xml:space="preserve"><value>Idle Greetings</value></data>
+  <data name="Settings_GreetingHint" xml:space="preserve"><value>She greets you when idle</value></data>
+</root>

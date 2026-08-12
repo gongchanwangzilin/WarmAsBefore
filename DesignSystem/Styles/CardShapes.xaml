@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="WarmAsBefore.DesignSystem.Styles.CardShapes">
+
+    <Style x:Key="CardSolid" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="16" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CardGlass" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="#B3FDF6EE" />
+        <Setter Property="Stroke" Value="#4DF5DFC0" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="16" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CardFrost" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="#80FEFCF8" />
+        <Setter Property="Stroke" Value="#30FFFFFF" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="16" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="16" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CardLiquid" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="#CCFDF6EE" />
+        <Setter Property="Stroke" Value="#60F5DFC0" />
+        <Setter Property="StrokeThickness" Value="1.5" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="20" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="CardDialog" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="24" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="24" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>

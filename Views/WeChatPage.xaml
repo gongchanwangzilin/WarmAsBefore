@@ -1,0 +1,341 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:mdl="clr-namespace:WarmAsBefore.Models"
+             x:Class="WarmAsBefore.Views.WeChatPage"
+             x:Name="Page"
+             x:DataType="vm:WeChatViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
+        <!-- Header: back + avatar + name + mode chip -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+                Padding="12,10,16,10">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                <Button Text="&lt;" Style="{StaticResource BtnText}" FontSize="18" Padding="0"
+                        WidthRequest="28" VerticalOptions="Center"
+                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.BackCommand}" />
+                <Border Grid.Column="1" BackgroundColor="{StaticResource BeigeAccent50}"
+                        WidthRequest="38" HeightRequest="38" StrokeThickness="1"
+                        Stroke="{StaticResource BorderLine}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="19" /></Border.StrokeShape>
+                    <Image Source="{Binding PartnerAvatar}" Aspect="AspectFill"
+                           IsVisible="{Binding HasPartnerAvatar}"
+                           HorizontalOptions="Fill" VerticalOptions="Fill" />
+                    <Label Text="{Binding PartnerName, Converter={StaticResource CharInitials}}"
+                           TextColor="{StaticResource WarmDark}" FontSize="15"
+                           HorizontalOptions="Center" VerticalOptions="Center" FontAttributes="Bold"
+                           IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" />
+                </Border>
+                <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="1">
+                    <Label Text="{Binding PartnerName}" Style="{StaticResource TxtSubhead}" FontSize="15" />
+                    <Label Text="{Binding ModeLabel}" Style="{StaticResource TxtCaption}" FontSize="10" />
+                </VerticalStackLayout>
+                <Border Grid.Column="3" BackgroundColor="{StaticResource BeigeAccent50}"
+                        StrokeThickness="0" Padding="10,5" VerticalOptions="Center">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="微信" FontSize="11" TextColor="{StaticResource WarmDark}" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Chat messages: 文字 / 图片(表情包) / 视频内联 / 文件卡片 四态 -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}"
+                        ItemsUpdatingScrollMode="KeepLastItemInView"
+                        Margin="10,8,10,4">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="mdl:ChatItem">
+                    <Grid Padding="0,3">
+                        <!-- User message (right) -->
+                        <Border IsVisible="{Binding IsUser}"
+                                BackgroundColor="{StaticResource BubbleMine}"
+                                StrokeThickness="0"
+                                Padding="10,8"
+                                HorizontalOptions="End"
+                                MaximumWidthRequest="300">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
+                            <Grid>
+                                <Label Text="{Binding DisplayText}"
+                                       TextColor="{StaticResource WarmDark}"
+                                       FontSize="14" LineBreakMode="WordWrap"
+                                       IsVisible="{Binding IsText}" />
+                                <Image Source="{Binding ImageSource}" Aspect="AspectFit"
+                                       WidthRequest="150" HeightRequest="150"
+                                       IsVisible="{Binding HasImage}" />
+                                <toolkit:MediaElement Source="{Binding VideoPath}"
+                                       IsVisible="{Binding IsVideo}"
+                                       WidthRequest="240" HeightRequest="160"
+                                       ShouldAutoPlay="False" ShouldShowPlaybackControls="True"
+                                       BackgroundColor="Black" />
+                                <Border IsVisible="{Binding IsFile}"
+                                        BackgroundColor="{StaticResource SurfaceBg}"
+                                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                                        Padding="10,8">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                    <Label Text="{Binding FileName}" TextColor="{StaticResource WarmDark}"
+                                           FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenFileCommand}"
+                                            CommandParameter="{Binding FileName}" />
+                                    </Border.GestureRecognizers>
+                                </Border>
+                            </Grid>
+                        </Border>
+
+                        <!-- AI message (left) -->
+                        <HorizontalStackLayout IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}"
+                                               Spacing="8">
+                            <Border BackgroundColor="{StaticResource BubbleTheirs}"
+                                    StrokeThickness="0"
+                                    Padding="10,8"
+                                    HorizontalOptions="Start"
+                                    MaximumWidthRequest="300">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
+                                <Grid>
+                                    <Label Text="{Binding DisplayText}"
+                                           TextColor="{StaticResource WarmDark}"
+                                           FontSize="14" LineBreakMode="WordWrap"
+                                           IsVisible="{Binding IsText}" />
+                                    <Image Source="{Binding ImageSource}" Aspect="AspectFit"
+                                           WidthRequest="150" HeightRequest="150"
+                                           IsVisible="{Binding HasImage}" />
+                                    <toolkit:MediaElement Source="{Binding VideoPath}"
+                                           IsVisible="{Binding IsVideo}"
+                                           WidthRequest="240" HeightRequest="160"
+                                           ShouldAutoPlay="False" ShouldShowPlaybackControls="True"
+                                           BackgroundColor="Black" />
+                                    <Border IsVisible="{Binding IsFile}"
+                                            BackgroundColor="{StaticResource SurfaceBg}"
+                                            StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                                            Padding="10,8">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                        <Label Text="{Binding FileName}" TextColor="{StaticResource WarmDark}"
+                                               FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenFileCommand}"
+                                                CommandParameter="{Binding FileName}" />
+                                        </Border.GestureRecognizers>
+                                    </Border>
+                                </Grid>
+                            </Border>
+                        </HorizontalStackLayout>
+                    </Grid>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Typing indicator -->
+        <Border Grid.Row="2" IsVisible="{Binding IsTyping}"
+                BackgroundColor="Transparent" StrokeThickness="0"
+                Padding="16,2,0,2">
+            <HorizontalStackLayout Spacing="6">
+                <Border BackgroundColor="{StaticResource BubbleTheirs}"
+                        StrokeThickness="0"
+                        Padding="10,6">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                    <Label Text="{Binding TypingLabel}"
+                           TextColor="{StaticResource WarmMuted}"
+                           FontSize="12" FontAttributes="Italic" />
+                </Border>
+            </HorizontalStackLayout>
+        </Border>
+
+        <!-- Sticker panel: 用户导入的表情库 -->
+        <Border Grid.Row="3" IsVisible="{Binding IsStickerPanelVisible}"
+                BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+                Padding="10,6">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid RowDefinitions="Auto,*" RowSpacing="4">
+                <Grid ColumnDefinitions="*,Auto">
+                    <Label Text="我的表情包" FontSize="11"
+                           TextColor="{StaticResource MutedFg}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="📥 导入表情" FontSize="11"
+                            BackgroundColor="{StaticResource BeigeAccent200}"
+                            TextColor="{StaticResource WarmDark}"
+                            CornerRadius="10" Padding="10,4"
+                            Command="{Binding ImportStickerCommand}" />
+                </Grid>
+                <ScrollView Grid.Row="1" Orientation="Horizontal"
+                            HorizontalScrollBarVisibility="Never">
+                    <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
+                        <BindableLayout.ItemsSource>
+                            <Binding Path="Stickers" />
+                        </BindableLayout.ItemsSource>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Image Source="{Binding}" WidthRequest="52" HeightRequest="52"
+                                       Aspect="AspectFit">
+                                    <Image.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.SendStickerCommand}"
+                                            CommandParameter="{Binding}" />
+                                    </Image.GestureRecognizers>
+                                </Image>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </ScrollView>
+                <Label Grid.Row="1" Text="还没有表情，点右上角「📥 导入表情」添加（图片/动图/视频/任意文件均可）"
+                       FontSize="11" TextColor="{StaticResource MutedFg}"
+                       IsVisible="{Binding HasStickers, Converter={StaticResource InverseBool}}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- Input bar: 多行输入框 + 表情 + 文件 + 发送 -->
+        <Border Grid.Row="4" BackgroundColor="{StaticResource SurfaceBg}"
+                Padding="8,8,8,10" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                <Button Grid.Column="0" Text="语音"
+                        Style="{StaticResource BtnText}"
+                        FontSize="12"
+                        HeightRequest="40" WidthRequest="40"
+                        Command="{Binding VoiceInputCommand}" />
+                <Button Grid.Column="1" Text="🎁"
+                        Style="{StaticResource BtnText}"
+                        FontSize="14"
+                        HeightRequest="40" WidthRequest="40"
+                        Command="{Binding ToggleGiftPanelCommand}" />
+                <Border Grid.Column="2" BackgroundColor="{StaticResource InputBg}" StrokeThickness="0" Padding="12,4">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                    <Editor x:Name="TextEditor" Placeholder="输入…" Text="{Binding InputText}"
+                            BackgroundColor="Transparent"
+                            TextColor="{StaticResource SurfaceFg}"
+                            PlaceholderColor="{StaticResource MutedFg}"
+                            FontSize="13"
+                            AutoSize="TextChanges"
+                            MinimumHeightRequest="32" MaximumHeightRequest="96"
+                            Completed="OnEditorCompleted"
+                            VerticalOptions="Center" />
+                </Border>
+                <Button Grid.Column="3" Text="🙂"
+                        BackgroundColor="Transparent"
+                        FontSize="18" Padding="6"
+                        HeightRequest="40" WidthRequest="40"
+                        Command="{Binding ToggleStickerPanelCommand}" />
+                <Button Grid.Column="4" Text="📎"
+                        BackgroundColor="Transparent"
+                        FontSize="16" Padding="6"
+                        HeightRequest="40" WidthRequest="40"
+                        Command="{Binding PickFileCommand}" />
+                <Button Grid.Column="5" Text="发送"
+                        BackgroundColor="{StaticResource BeigeAccent200}"
+                        TextColor="{StaticResource WarmDark}"
+                        FontSize="12" FontAttributes="Bold"
+                        CornerRadius="18" HeightRequest="40" WidthRequest="56" Padding="0"
+                        Command="{Binding SendCommand}" />
+            </Grid>
+        </Border>
+
+        <!-- 送礼 / 使用面板 -->
+        <Grid Grid.RowSpan="5" IsVisible="{Binding IsGiftPanelVisible}"
+              BackgroundColor="{StaticResource OverlayDim}">
+            <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+                    Padding="0" Margin="30" VerticalOptions="Center"
+                    MaximumWidthRequest="400">
+                <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                <Border.Shadow>
+                    <Shadow Brush="{StaticResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
+                </Border.Shadow>
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="18,16" RowSpacing="12">
+                    <!-- 标题 -->
+                    <Label Text="礼物箱 🎁" TextColor="{StaticResource SurfaceFg}" FontSize="16"
+                           FontAttributes="Bold" HorizontalOptions="Center" />
+                    <Label Text="点一下送出心意，小雨会收下并回应" TextColor="{StaticResource MutedFg}" FontSize="11"
+                           HorizontalOptions="Center" />
+
+                    <!-- 模式切换：送礼 / 使用 -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Button Text="🎁 送礼" FontSize="13" HeightRequest="34" CornerRadius="10" Padding="0"
+                                BackgroundColor="{StaticResource PrimaryAction}" TextColor="{StaticResource PrimaryFg}"
+                                Command="{Binding ToggleGiftModeCommand}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsGiftMode}" Value="False">
+                                    <Setter Property="BackgroundColor" Value="Transparent" />
+                                    <Setter Property="TextColor" Value="{StaticResource MutedFg}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Grid.Column="1" Text="✨ 使用" FontSize="13" HeightRequest="34" CornerRadius="10" Padding="0"
+                                BackgroundColor="Transparent" TextColor="{StaticResource MutedFg}"
+                                Command="{Binding ToggleGiftModeCommand}">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsGiftMode}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentWarm}" />
+                                    <Setter Property="TextColor" Value="{StaticResource AccentWarmFg}" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </Grid>
+
+                    <!-- 商品列表（有已购时显示） -->
+                    <ScrollView Grid.Row="3" MaximumHeightRequest="300" IsVisible="{Binding HasGiftItems}">
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding GiftItems}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="mdl:ShopItem">
+                                    <VerticalStackLayout>
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,8">
+                                            <Border BackgroundColor="{StaticResource SecondaryBg}" StrokeThickness="0"
+                                                    WidthRequest="40" HeightRequest="40" Padding="0">
+                                                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                                                <Label Text="{Binding Emoji}" FontSize="20"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                                                <Label Text="{Binding Name}" TextColor="{StaticResource SurfaceFg}"
+                                                       FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Desc}" TextColor="{StaticResource MutedFg}"
+                                                       FontSize="11" MaxLines="1" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Grid.Column="2" HorizontalOptions="End"
+                                                                 VerticalOptions="Center" Spacing="6">
+                                                <Border BackgroundColor="{StaticResource Beige100}" StrokeThickness="0"
+                                                        Padding="9,2" HorizontalOptions="End">
+                                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                                    <Label Text="{Binding Owned, StringFormat='×{0}'}"
+                                                           TextColor="{StaticResource WarmMuted}" FontSize="10" />
+                                                </Border>
+                                                <!-- 送礼（送礼模式下可见） -->
+                                                <Button Text="送礼" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
+                                                        BackgroundColor="{StaticResource PrimaryAction}" TextColor="{StaticResource PrimaryFg}"
+                                                        IsVisible="{Binding IsGiftMode, Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}, Path=GiftItemCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <!-- 使用（使用模式下可见） -->
+                                                <Button Text="使用" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
+                                                        BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                                                        IsVisible="{Binding IsGiftMode, Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}, Converter={StaticResource InverseBool}}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}, Path=UseItemCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                        <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Margin="4,0" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </ScrollView>
+
+                    <!-- 空态 -->
+                    <VerticalStackLayout Grid.Row="3" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8"
+                                         IsVisible="{Binding HasGiftItems, Converter={StaticResource InverseBool}}">
+                        <Label Text="🎁" FontSize="34" HorizontalOptions="Center" />
+                        <Label Text="还没有已购商品，先去商店逛逛吧～" TextColor="{StaticResource MutedFg}" FontSize="12" />
+                    </VerticalStackLayout>
+
+                    <!-- 关闭 -->
+                    <Button Grid.Row="4" Text="关闭" FontSize="13" HeightRequest="40" CornerRadius="12"
+                            BackgroundColor="Transparent" TextColor="{StaticResource WarmMuted}"
+                            Command="{Binding ToggleGiftPanelCommand}" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>
