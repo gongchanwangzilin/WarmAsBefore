@@ -69,14 +69,15 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
                        IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
                        Opacity="0.5" />
-                <!-- 立绘支持位置、透明度、缩放 -->
+                <!-- 立绘支持位置、透明度、缩放，手机模式更大 -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
                        Aspect="AspectFit" Margin="16,8"
                        Opacity="{Binding SpriteOpacity}"
                        TranslationX="{Binding SpriteX}"
                        TranslationY="{Binding SpriteY}"
                        Scale="{Binding SpriteScale}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
+                       HorizontalOptions="Center" VerticalOptions="Center"
+                       MaximumHeightRequest="600" />
                 <!-- 无立绘时的占位 -->
                 <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
                         Stroke="{StaticResource BorderLine}" StrokeThickness="1.5"
@@ -335,7 +336,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                        TranslationY="{Binding SpriteY}"
                        Scale="{Binding SpriteScale}"
                        HorizontalOptions="Center" VerticalOptions="Center"
-                       MaximumHeightRequest="500" />
+                       MaximumHeightRequest="600" />
                 <Border BackgroundColor="{StaticResource SurfaceBg}" Opacity="0.7" Stroke="{StaticResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
