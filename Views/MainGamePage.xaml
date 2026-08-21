@@ -482,12 +482,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             </Border>
 
             <!-- ============ Galgame Bottom Card (Desktop, default mode) ============ -->
+            <!-- 兜底：始终可见，不依赖 IsGalgamePanelVisible -->
             <Border Grid.Row="2" Grid.ColumnSpan="3"
-                    IsVisible="{Binding IsGalgamePanelVisible}"
                     BackgroundColor="#CCFCF8F0"
                     Padding="0" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                    Margin="0,12,0,14" HorizontalOptions="Fill"
-                    HeightRequest="120">
+                    Margin="0,8,0,8" HorizontalOptions="Fill"
+                    HeightRequest="100">
                 <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12"
                       Padding="16,10">
