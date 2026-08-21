@@ -262,58 +262,32 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
         <!-- ============ Desktop Layout (horizontal) ============ -->
         <Grid IsVisible="{OnIdiom Phone=False, Desktop=True}"
-              RowDefinitions="Auto,*,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
-            <!-- Status bar (spans all columns) -->
+              RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
+            <!-- Status bar -->
             <Border Grid.ColumnSpan="3" BackgroundColor="#CFF9F5EC" Padding="16,8,16,10"
                     StrokeThickness="0" Stroke="{StaticResource BorderLine}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14">
-                    <!-- 大时间 + 小日期（参考图机制） -->
-                    <Label Text="{Binding CurrentTimeStr}"
-                           TextColor="{StaticResource WarmDark}" FontSize="24" FontAttributes="Bold"
-                           VerticalOptions="Center" />
+                    <Label Text="{Binding CurrentTimeStr}" TextColor="{StaticResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                        <Label Text="{Binding DateLabel}"
-                               TextColor="{StaticResource MutedFg}" FontSize="10" />
-                        <Label Text="{Binding WeatherDesc}"
-                               TextColor="{StaticResource MutedFg}" FontSize="10" />
+                        <Label Text="{Binding DateLabel}" TextColor="{StaticResource MutedFg}" FontSize="10" />
+                        <Label Text="{Binding WeatherDesc}" TextColor="{StaticResource MutedFg}" FontSize="10" />
                     </VerticalStackLayout>
-                    <Label Grid.Column="2" Text="{Binding LocationLabel}"
-                           TextColor="{StaticResource SurfaceFg}" FontSize="12"
-                           VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                    <!-- 精力胶囊 -->
-                    <Border Grid.Column="3" BackgroundColor="{StaticResource AccentWarm}" StrokeThickness="0"
-                            Padding="10,4" VerticalOptions="Center">
+                    <Label Grid.Column="2" Text="{Binding LocationLabel}" TextColor="{StaticResource SurfaceFg}" FontSize="12" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <Border Grid.Column="3" BackgroundColor="{StaticResource AccentWarm}" StrokeThickness="0" Padding="10,4" VerticalOptions="Center">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                        <Label Text="{Binding Energy, StringFormat='精力 {0}%'}"
-                               TextColor="{StaticResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
+                        <Label Text="{Binding Energy, StringFormat='精力 {0}%'}" TextColor="{StaticResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
                     </Border>
-                    <Button Grid.Column="4" Text="存档" TextColor="{StaticResource SurfaceFg}"
-                            BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0"
-                            CornerRadius="16" HeightRequest="32"
-                            Command="{Binding QuickSaveCommand}" />
-                    <Button Grid.Column="5" Text="设置" TextColor="{StaticResource SurfaceFg}"
-                            BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0"
-                            CornerRadius="16" HeightRequest="32"
-                            Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="6" Text="手机" TextColor="{StaticResource SurfaceFg}"
-                            BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0"
-                            CornerRadius="16" HeightRequest="32"
-                            Command="{Binding OpenPhoneCommand}" />
-                    <Button Grid.Column="7" Text="地图" TextColor="{StaticResource SurfaceFg}"
-                            BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0"
-                            CornerRadius="16" HeightRequest="32"
-                            Command="{Binding OpenMapCommand}" />
-                    <Button Grid.Column="8" Text="世界书" TextColor="{StaticResource SurfaceFg}"
-                            BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0"
-                            CornerRadius="16" HeightRequest="32"
-                            Command="{Binding OpenWorldbookCommand}" />
+                    <Button Grid.Column="4" Text="存档" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding QuickSaveCommand}" />
+                    <Button Grid.Column="5" Text="设置" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenSettingsCommand}" />
+                    <Button Grid.Column="6" Text="手机" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenPhoneCommand}" />
+                    <Button Grid.Column="7" Text="地图" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenMapCommand}" />
+                    <Button Grid.Column="8" Text="世界书" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenWorldbookCommand}" />
                 </Grid>
             </Border>
 
             <!-- Left: Info panel -->
-            <Border Grid.Row="1" BackgroundColor="#D9FCF8F0" WidthRequest="180"
-                    StrokeThickness="0" Margin="0">
+            <Border Grid.Row="1" BackgroundColor="#D9FCF8F0" WidthRequest="180" StrokeThickness="0" Margin="0">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
                     <Label Text="信息" TextColor="{StaticResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
@@ -324,38 +298,22 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{StaticResource MutedFg}" FontSize="11">好感度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <ProgressBar Progress="{Binding AffectionPct}"
-                                         ProgressColor="{StaticResource AccentWarm}"
-                                         BackgroundColor="{StaticResource BeigeAccent100}"
-                                         HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0}/100'}"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding AffectionPct}" ProgressColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{StaticResource MutedFg}" FontSize="11">信任度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <ProgressBar Progress="{Binding TrustPct}"
-                                         ProgressColor="{StaticResource PrimaryAction}"
-                                         BackgroundColor="{StaticResource BeigeAccent100}"
-                                         HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0}/100'}"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding TrustPct}" ProgressColor="{StaticResource PrimaryAction}" BackgroundColor="{StaticResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">天气</Label>
-                        <Label Text="{Binding WeatherDesc}" TextColor="{StaticResource SurfaceFg}" FontSize="14" />
-                    </VerticalStackLayout>
-                    <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">精力（清醒时长）</Label>
+                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">精力</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <ProgressBar Progress="{Binding EnergyPct}"
-                                         ProgressColor="{StaticResource AccentWarm}"
-                                         BackgroundColor="{StaticResource BeigeAccent100}"
-                                         HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0}/100'}"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding EnergyPct}" ProgressColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
@@ -368,219 +326,146 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <!-- Center: Character area -->
             <Grid Grid.Row="1" Grid.Column="1">
                 <BoxView Color="{Binding SceneBg}" />
-                <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
-                       IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
-                       Opacity="0.55" />
-                <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
-                       Aspect="AspectFit" Margin="24,10"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
-                <Border BackgroundColor="{StaticResource SurfaceBg}" Opacity="0.7"
-                        Stroke="{StaticResource BorderLine}" StrokeThickness="1"
-                        WidthRequest="280" HeightRequest="360"
-                        HorizontalOptions="Center" VerticalOptions="Center"
-                        IsVisible="{Binding NoSpriteVisible}">
+                <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
+                <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}" Aspect="AspectFit" Margin="24,10" HorizontalOptions="Center" VerticalOptions="Center" />
+                <Border BackgroundColor="{StaticResource SurfaceBg}" Opacity="0.7" Stroke="{StaticResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
                         <Label Text="🎭" FontSize="64" HorizontalOptions="Center" />
-                        <Label Text="{Binding CharacterName}" TextColor="{StaticResource MutedFg}" FontSize="24"
-                               HorizontalOptions="Center" FontAttributes="Bold" />
+                        <Label Text="{Binding CharacterName}" TextColor="{StaticResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" />
                     </VerticalStackLayout>
                 </Border>
-                <!-- 角色名胶囊 -->
-                <Border IsVisible="{Binding SpriteVisible}"
-                        BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                        Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
+                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{StaticResource BorderLine}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                    <Label Text="{Binding CharacterName}"
-                           TextColor="{StaticResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
+                    <Label Text="{Binding CharacterName}" TextColor="{StaticResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                 </Border>
             </Grid>
 
-            <!-- Right: Action panel + dialogue (仅小游戏模式显示) -->
-            <Border Grid.Row="1" Grid.Column="2" BackgroundColor="#D9FCF8F0"
-                    WidthRequest="300" StrokeThickness="0"
-                    IsVisible="{Binding ShowRightChat}">
+            <!-- Right: Mini-game chat panel (only visible in mini-game mode) -->
+            <Border Grid.Row="1" Grid.Column="2" BackgroundColor="#D9FCF8F0" WidthRequest="300" StrokeThickness="0" IsVisible="{Binding ShowRightChat}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">
                     <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                        <Button Text="摸摸头" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}"
-                                FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34"
-                                Command="{Binding HeadpatCommand}" />
-                        <Button Text="抱抱" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}"
-                                FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34"
-                                Command="{Binding HugCommand}" />
-                        <Button Text="亲吻" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}"
-                                FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34"
-                                Command="{Binding KissCommand}" />
-                        <Button Text="{Binding GalgameModeLabel}"
-                                TextColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource SurfaceBg}"
-                                FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34"
-                                Command="{Binding ToggleGalgameModeCommand}" />
+                        <Button Text="摸摸头" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
+                        <Button Text="抱抱" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
+                        <Button Text="亲吻" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
+                        <Button Text="{Binding GalgameModeLabel}" TextColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
                     </HorizontalStackLayout>
-
-                    <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}"
-                                    ItemsUpdatingScrollMode="KeepLastItemInView"
-                                    Margin="0,8" SelectionMode="None">
+                    <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView" Margin="0,8" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:DialogueMessage">
                                 <Grid Padding="0,3">
-                                    <Border IsVisible="{Binding IsUser}"
-                                            BackgroundColor="{StaticResource BubbleMine}"
-                                            StrokeThickness="0"
-                                            Padding="12,8"
-                                            HorizontalOptions="End"
-                                            MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding IsUser}" BackgroundColor="{StaticResource BubbleMine}" StrokeThickness="0" Padding="12,8" HorizontalOptions="End" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
-                                        <Label Text="{Binding Text}"
-                                               TextColor="{StaticResource SurfaceFg}"
-                                               FontSize="13" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Text}" TextColor="{StaticResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
-                                    <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}"
-                                            BackgroundColor="{StaticResource BubbleTheirs}"
-                                            Stroke="{StaticResource BorderLine}" StrokeThickness="1"
-                                            Padding="12,8"
-                                            HorizontalOptions="Start"
-                                            MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}" BackgroundColor="{StaticResource BubbleTheirs}" Stroke="{StaticResource BorderLine}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
-                                        <Label Text="{Binding Text}"
-                                               TextColor="{StaticResource SurfaceFg}"
-                                               FontSize="13" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Text}" TextColor="{StaticResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-
-                    <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"
-                            Stroke="{StaticResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
+                    <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-                            <Entry Text="{Binding InputText}"
-                                   Placeholder="输入..."
-                                   PlaceholderColor="{StaticResource MutedFg}"
-                                   BackgroundColor="Transparent"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="13"
-                                   ReturnCommand="{Binding SendMessageCommand}"
-                                   HeightRequest="36" />
-                            <Button Grid.Column="1" Text="🎁" TextColor="{StaticResource MutedFg}"
-                                    BackgroundColor="Transparent" FontSize="12"
-                                    Padding="2,0" HeightRequest="36" WidthRequest="32"
-                                    Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="2" Text="语音" TextColor="{StaticResource MutedFg}"
-                                    BackgroundColor="Transparent" FontSize="11"
-                                    Padding="4,0" HeightRequest="36"
-                                    Command="{Binding VoiceInputCommand}" />
-                            <Button Grid.Column="3" Text="发送"
-                                    BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
-                                    FontSize="12" FontAttributes="Bold"
-                                    CornerRadius="18" HeightRequest="36" WidthRequest="52"
-                                    Padding="0"
-                                    Command="{Binding SendMessageCommand}" />
+                            <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{StaticResource MutedFg}" BackgroundColor="Transparent" TextColor="{StaticResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
+                            <Button Grid.Column="1" Text="🎁" TextColor="{StaticResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
+                            <Button Grid.Column="2" Text="语音" TextColor="{StaticResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
+                            <Button Grid.Column="3" Text="发送" BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
                         </Grid>
                     </Border>
                 </Grid>
             </Border>
 
-            <!-- ============ Galgame Bottom Card (Desktop, default mode) ============ -->
-            <!-- 兜底：始终可见，不依赖 IsGalgamePanelVisible -->
+            <!-- ============ Input Bar (始终可见，不依赖任何IsVisible绑定) ============ -->
             <Border Grid.Row="2" Grid.ColumnSpan="3"
-                    BackgroundColor="#CCFCF8F0"
-                    Padding="0" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                    Margin="0,8,0,8" HorizontalOptions="Fill"
-                    HeightRequest="100">
-                <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="12"
-                      Padding="16,10">
+                    BackgroundColor="#F7FDF8F0"
+                    Padding="16,10" StrokeThickness="0">
+                <Border.StrokeShape><RoundRectangle CornerRadius="16,16,0,0" /></Border.StrokeShape>
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8">
                     <!-- 角色名 -->
-                    <VerticalStackLayout Grid.RowSpan="2" VerticalOptions="Center" Spacing="2" WidthRequest="80">
-                        <Label Text="{Binding CharacterName}"
-                               TextColor="{StaticResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
-                        <Border BackgroundColor="{StaticResource AccentWarm}" StrokeThickness="0"
-                                Padding="6,1" HorizontalOptions="Start">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                            <Label Text="{Binding GalgameModeLabel}" TextColor="{StaticResource AccentWarmFg}"
-                                   FontSize="8" HorizontalOptions="Center" />
-                        </Border>
-                    </VerticalStackLayout>
-
-                    <!-- 剧情文本区 + 输入行 -->
-                    <Grid Grid.Column="1" RowDefinitions="Auto,Auto" RowSpacing="6">
-                        <Border IsVisible="{Binding IsThinking}" BackgroundColor="{StaticResource SurfaceBg}"
-                                Stroke="{StaticResource BorderLine}" StrokeThickness="1"
-                                Padding="8,4" HorizontalOptions="Start">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                            <Label Text="思考中…" TextColor="{StaticResource MutedFg}"
-                                   FontSize="11" FontAttributes="Italic" />
-                        </Border>
-                        <VerticalStackLayout IsVisible="{Binding IsThinking, Converter={StaticResource InverseBool}}" Spacing="2">
-                            <Label Text="{Binding LastSpeakerName}"
-                                   TextColor="{StaticResource AccentWarm}" FontSize="10" FontAttributes="Bold" />
-                            <Label Text="{Binding LastMessageText}"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="12"
-                                   LineBreakMode="WordWrap" MaxLines="2" />
-                        </VerticalStackLayout>
-
-                        <Border Grid.Row="1" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"
-                                Stroke="{StaticResource BorderLine}" Padding="8,0" Margin="0,4,0,0">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
-                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="4">
-                                <Entry Text="{Binding InputText}"
-                                       Placeholder="输入..."
-                                       PlaceholderColor="{StaticResource MutedFg}"
-                                       BackgroundColor="Transparent"
-                                       TextColor="{StaticResource SurfaceFg}" FontSize="12"
-                                       ReturnCommand="{Binding SendMessageCommand}"
-                                       HeightRequest="32"
-                                       MaximumWidthRequest="200" />
-                                <Button Grid.Column="1" Text="🎁" TextColor="{StaticResource MutedFg}"
-                                        BackgroundColor="Transparent" FontSize="11"
-                                        Padding="0" HeightRequest="32" WidthRequest="28"
-                                        Command="{Binding ToggleGiftPanelCommand}" />
-                                <Button Grid.Column="2" Text="🎤" TextColor="{StaticResource MutedFg}"
-                                        BackgroundColor="Transparent" FontSize="11"
-                                        Padding="0" HeightRequest="32" WidthRequest="28"
-                                        Command="{Binding VoiceInputCommand}" />
-                                <Button Grid.Column="3" Text="发"
-                                        BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
-                                        FontSize="11" FontAttributes="Bold"
-                                        CornerRadius="14" HeightRequest="32" WidthRequest="36"
-                                        Padding="0"
-                                        Command="{Binding SendMessageCommand}" />
-                            </Grid>
-                        </Border>
-                    </Grid>
-
-                    <!-- 右列：动作按钮 -->
-                    <HorizontalStackLayout Grid.Column="2" Grid.RowSpan="2" Spacing="6" VerticalOptions="Center">
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"
-                                Stroke="{StaticResource BorderLine}" Padding="8,4">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                            <Label Text="摸" TextColor="{StaticResource SurfaceFg}" FontSize="10">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding HeadpatCommand}" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                        </Border>
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"
-                                Stroke="{StaticResource BorderLine}" Padding="8,4">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                            <Label Text="抱" TextColor="{StaticResource SurfaceFg}" FontSize="10">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding HugCommand}" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                        </Border>
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"
-                                Stroke="{StaticResource BorderLine}" Padding="8,4">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                            <Label Text="吻" TextColor="{StaticResource SurfaceFg}" FontSize="10">
-                                <Label.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding KissCommand}" />
-                                </Label.GestureRecognizers>
-                            </Label>
-                        </Border>
-                    </HorizontalStackLayout>
+                    <Border BackgroundColor="{StaticResource SurfaceBg}" Stroke="{StaticResource BorderLine}" StrokeThickness="1"
+                            WidthRequest="80" HeightRequest="36">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                        <Label Text="{Binding CharacterName}" TextColor="{StaticResource SurfaceFg}" FontSize="12" FontAttributes="Bold"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <!-- 输入框 -->
+                    <Border Grid.Column="1" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}" Padding="10,0">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                        <Entry Text="{Binding InputText}"
+                               Placeholder="输入你想说的话..."
+                               PlaceholderColor="{StaticResource MutedFg}"
+                               BackgroundColor="Transparent"
+                               TextColor="{StaticResource SurfaceFg}" FontSize="13"
+                               ReturnCommand="{Binding SendMessageCommand}"
+                               HeightRequest="36"
+                               VerticalOptions="Center" />
+                    </Border>
+                    <!-- 按钮 -->
+                    <Button Grid.Column="2" Text="🎁" TextColor="{StaticResource MutedFg}"
+                            BackgroundColor="{StaticResource SurfaceBg}" FontSize="13"
+                            CornerRadius="18" HeightRequest="36" WidthRequest="40"
+                            Padding="0"
+                            Command="{Binding ToggleGiftPanelCommand}" />
+                    <Button Grid.Column="3" Text="🎤" TextColor="{StaticResource MutedFg}"
+                            BackgroundColor="{StaticResource SurfaceBg}" FontSize="11"
+                            CornerRadius="18" HeightRequest="36" WidthRequest="40"
+                            Padding="0"
+                            Command="{Binding VoiceInputCommand}" />
+                    <Button Grid.Column="4" Text="发送"
+                            BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                            FontSize="12" FontAttributes="Bold"
+                            CornerRadius="18" HeightRequest="36" WidthRequest="56"
+                            Padding="0"
+                            Command="{Binding SendMessageCommand}" />
                 </Grid>
+            </Border>
+
+            <!-- ============ Action Bar (始终可见，在输入框下方) ============ -->
+            <Border Grid.Row="3" Grid.ColumnSpan="3"
+                    BackgroundColor="#CCFCF8F0"
+                    Padding="0,6,0,10" StrokeThickness="0">
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="16">
+                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="44" HeightRequest="44">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
+                        <Label Text="摸" TextColor="{StaticResource SurfaceFg}" FontSize="16"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding HeadpatCommand}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="44" HeightRequest="44">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
+                        <Label Text="抱" TextColor="{StaticResource SurfaceFg}" FontSize="16"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding HugCommand}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="44" HeightRequest="44">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
+                        <Label Text="吻" TextColor="{StaticResource SurfaceFg}" FontSize="16"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding KissCommand}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="44" HeightRequest="44">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
+                        <Label Text="存" TextColor="{StaticResource SurfaceFg}" FontSize="16"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding QuickSaveCommand}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                </HorizontalStackLayout>
             </Border>
         </Grid>
 
