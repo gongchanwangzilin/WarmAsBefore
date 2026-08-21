@@ -52,6 +52,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private double _trustPct;
     [ObservableProperty] private ImageSource? _spriteSource;
     [ObservableProperty] private bool _spriteVisible;
+    [ObservableProperty] private double _spriteOpacity = 1.0;
+    [ObservableProperty] private double _spriteX = 0;
+    [ObservableProperty] private double _spriteY = 0;
+    [ObservableProperty] private double _spriteScale = 1.0;
     [ObservableProperty] private ImageSource? _sceneBackdrop;
     [ObservableProperty] private bool _isWalking;
     [ObservableProperty] private double _spriteLoadingProgress = 0;
@@ -60,6 +64,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _characterName = "小雨";
     [ObservableProperty] private bool _isThinking;
     [ObservableProperty] private ObservableCollection<DialogueMessage> _messages = new();
+    // ============ 多角色位置：left / center / right ============
+    [ObservableProperty] private string _spritePosition = "center";
+    // ============ 说话者高亮 ============
+    [ObservableProperty] private bool _isSpeaking;
 
     [ObservableProperty] private bool _isInMiniGame;
     // ============ 送礼 / 使用面板（主界面聊天时显示） ============
@@ -406,6 +414,16 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             SpriteSource = ImageSource.FromFile(full);
             SpriteVisible = true;
+            // 根据位置设置偏移
+            SpriteX = SpritePosition switch
+            {
+                "left" => -150,
+                "right" => 150,
+                _ => 0
+            };
+            SpriteY = 0;
+            SpriteOpacity = IsSpeaking ? 1.0 : 0.5;
+            SpriteScale = IsSpeaking ? 1.0 : 0.95;
             SpriteLoadingProgress = 1.0;
             StatusText = "";
         }
@@ -415,6 +433,44 @@ public sealed partial class MainGameViewModel : ObservableObject
             SpriteLoadingProgress = 0;
             StatusText = "立绘加载失败";
         }
+    }
+
+    /// <summary>设置当前说话角色并更新立绘高亮。</summary>
+    public void SetSpeakingCharacter(bool isSpeaking)
+    {
+        IsSpeaking = isSpeaking;
+        if (SpriteVisible)
+        {
+            SpriteOpacity = isSpeaking ? 1.0 : 0.5;
+            SpriteScale = isSpeaking ? 1.0 : 0.95;
+        }
+    }
+
+    /// <summary>执行基础动作：下沉。</summary>
+    public async Task SinkAnimationAsync()
+    {
+        SpriteY = 15;
+        await Task.Delay(300);
+        SpriteY = 0;
+    }
+
+    /// <summary>执行基础动作：跳跃。</summary>
+    public async Task JumpAnimationAsync()
+    {
+        SpriteY = -30;
+        await Task.Delay(400);
+        SpriteY = 0;
+    }
+
+    /// <summary>执行基础动作：颤抖。</summary>
+    public async Task ShakeAnimationAsync()
+    {
+        for (int i = 0; i < 5; i++)
+        {
+            SpriteX = i % 2 == 0 ? 3 : -3;
+            await Task.Delay(50);
+        }
+        SpriteX = 0;
     }
 
     /// <summary>从回复文本中匹配表情：命中任一表情词（取最长）则切过去；否则按常用情绪词兜底。</summary>
@@ -741,7 +797,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         UpdateStats();
         SetEmotionAny("害羞", "闭眼微笑", "开心");
         CaptureMoment(_engine.State.CharacterId, 2, "摸头");
-        _ = AutoSave();
+        _ = SinkAnimationAsync();
+        await AutoSave();
     }
 
     [RelayCommand]
@@ -753,7 +810,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         UpdateStats();
         SetEmotionAny("温柔", "闭眼微笑", "开心");
         CaptureMoment(_engine.State.CharacterId, 3, "拥抱");
-        _ = AutoSave();
+        _ = JumpAnimationAsync();
+        await AutoSave();
     }
 
     [RelayCommand]
@@ -770,7 +828,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         UpdateStats();
         SetEmotionAny("害羞", "惊讶", "开心");
         CaptureMoment(_engine.State.CharacterId, 5, "亲吻");
-        _ = AutoSave();
+        _ = ShakeAnimationAsync();
+        await AutoSave();
     }
 
     [RelayCommand]
@@ -855,6 +914,13 @@ public sealed partial class MainGameViewModel : ObservableObject
         LastMessageText = text;
         _save.ChatLog.Add(new ChatRecord { Role = role, Text = text, At = DateTime.Now });
         if (_save.ChatLog.Count > 80) _save.ChatLog.RemoveRange(0, _save.ChatLog.Count - 80);
+        // 更新说话者高亮：assistant说话时高亮立绘
+        IsSpeaking = role != "user";
+        if (SpriteVisible)
+        {
+            SpriteOpacity = IsSpeaking ? 1.0 : 0.5;
+            SpriteScale = IsSpeaking ? 1.0 : 0.95;
+        }
     }
 
     private void UpdateStats()

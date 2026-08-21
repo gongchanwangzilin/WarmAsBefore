@@ -69,8 +69,13 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
                        IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
                        Opacity="0.5" />
+                <!-- 立绘支持位置、透明度、缩放 -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
                        Aspect="AspectFit" Margin="16,8"
+                       Opacity="{Binding SpriteOpacity}"
+                       TranslationX="{Binding SpriteX}"
+                       TranslationY="{Binding SpriteY}"
+                       Scale="{Binding SpriteScale}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
                 <!-- 无立绘时的占位 -->
                 <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
@@ -482,7 +487,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     BackgroundColor="#CCFCF8F0"
                     Padding="0" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
                     Margin="0,12,0,14" HorizontalOptions="Center"
-                    MinimumWidthRequest="760" MaximumWidthRequest="960">
+                    MinimumWidthRequest="500" MaximumWidthRequest="800">
                 <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,*,Auto" RowDefinitions="Auto,Auto" ColumnSpacing="14"
                       Padding="18,12,18,10">
