@@ -44,6 +44,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Automation.TaskOrchestrator>();
         builder.Services.AddSingleton<Modules.Automation.DailyDiaryWriter>();
         builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
+        builder.Services.AddSingleton<Modules.Plugin.PluginManager>();
         builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
         builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
         builder.Services.AddSingleton<Modules.SaveSystem.SaveManager>();
