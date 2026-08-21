@@ -6,7 +6,7 @@
              xmlns:mdl="clr-namespace:WarmAsBefore.Models"
              x:Class="WarmAsBefore.Views.WeChatPage"
              x:Name="Page"
-             x:DataType="vm:WeChatViewModel"
+
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBg}">
 
@@ -279,7 +279,7 @@
                     <ScrollView Grid.Row="3" MaximumHeightRequest="300" IsVisible="{Binding HasGiftItems}">
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding GiftItems}">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="mdl:ShopItem">
+                                <DataTemplate>
                                     <VerticalStackLayout>
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,8">
                                             <Border BackgroundColor="{StaticResource SecondaryBg}" StrokeThickness="0"
@@ -305,14 +305,14 @@
                                                 <!-- 送礼（送礼模式下可见） -->
                                                 <Button Text="送礼" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
                                                         BackgroundColor="{StaticResource PrimaryAction}" TextColor="{StaticResource PrimaryFg}"
-                                                        IsVisible="{Binding IsGiftMode, Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}}"
-                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}, Path=GiftItemCommand}"
+                                                        IsVisible="{Binding Path=BindingContext.IsGiftMode, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                        Command="{Binding Path=BindingContext.GiftItemCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
                                                 <!-- 使用（使用模式下可见） -->
                                                 <Button Text="使用" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
                                                         BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
-                                                        IsVisible="{Binding IsGiftMode, Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}, Converter={StaticResource InverseBool}}"
-                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WeChatViewModel}}, Path=UseItemCommand}"
+                                                        IsVisible="{Binding Path=BindingContext.IsGiftMode, Source={RelativeSource AncestorType={x:Type ContentPage}}, Converter={StaticResource InverseBool}}"
+                                                        Command="{Binding Path=BindingContext.UseItemCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
                                             </VerticalStackLayout>
                                         </Grid>

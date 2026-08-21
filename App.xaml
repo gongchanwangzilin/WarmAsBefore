@@ -2,10 +2,12 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:conv="clr-namespace:WarmAsBefore.Converters"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.App">
     <Application.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
+                <!-- 主题色板（ColorPalette*.xaml，文件名保持 ASCII 才能被 XamlC 编译期解析） -->
                 <ResourceDictionary Source="DesignSystem/Theme/ColorPalette.xaml" />
                 <ResourceDictionary Source="DesignSystem/Styles/BaseStyles.xaml" />
                 <ResourceDictionary Source="DesignSystem/Styles/ButtonShapes.xaml" />
@@ -29,6 +31,8 @@
             <conv:GreaterThanZero x:Key="GreaterThanZero" />
             <conv:TicketLabel x:Key="TicketLabel" />
             <conv:BoolFontBold x:Key="BoolFontBold" />
+            <!-- 本地化服务实例，供 XAML 绑定使用（避免 x:Static 在 XAML 编译时实例化静态属性） -->
+            <i18n:LocalizationService x:Key="I18n" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

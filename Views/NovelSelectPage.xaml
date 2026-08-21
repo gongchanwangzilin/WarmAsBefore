@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.NovelSelectPage"
              x:Name="Page"
-             x:DataType="vm:NovelSelectViewModel"
+
              Title=""
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBg}">
@@ -56,12 +56,12 @@
                                 <Button Text="删除" Style="{StaticResource BtnText}"
                                         TextColor="{StaticResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteNovelCommand}"
+                                        Command="{Binding Path=BindingContext.DeleteNovelCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                                 <Button Text="进入世界" Style="{StaticResource BtnNeumorphSm}"
                                         HeightRequest="32" WidthRequest="96"
                                         FontSize="12"
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.EnterNovelCommand}"
+                                        Command="{Binding Path=BindingContext.EnterNovelCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                             </HorizontalStackLayout>
                         </Grid>

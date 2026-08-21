@@ -54,6 +54,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private bool _spriteVisible;
     [ObservableProperty] private ImageSource? _sceneBackdrop;
     [ObservableProperty] private bool _isWalking;
+    [ObservableProperty] private double _spriteLoadingProgress = 0;
+    [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private ObservableCollection<MapSceneOption> _sceneOptions = new();
     [ObservableProperty] private string _characterName = "小雨";
     [ObservableProperty] private bool _isThinking;
@@ -192,11 +194,19 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private string BuildMapContext()
     {
-        var scenes = string.Join("、", _map.Map.AllScenes.Select(s => s.Name));
-        if (string.IsNullOrWhiteSpace(scenes)) return "";
-        return $"你生活在一座城市里，可以前往这些场景：{scenes}。" +
+        if (!_map.IsLoaded || _map.Map.AllScenes.Count() == 0) return "";
+        var scenes = string.Join("、", _map.Map.AllScenes.Select(s =>
+        {
+            var loc = _map.Map.LocationNameOf(s.Id);
+            return string.IsNullOrEmpty(loc) ? s.Name : $"{loc}·{s.Name}";
+        }));
+        var distanceContext = _map.BuildDistanceContext();
+        return $"你生活在一座城市里，当前可以前往的场景：{scenes}。" +
+               distanceContext +
                "当你觉得应该换个地方（回家、散步、喝咖啡等）时，" +
-               "在回复的开头或结尾加上【移动:场景名】标记（场景名必须严格来自上面的列表）。" +
+               "在回复的开头或结尾加上【移动:场景名】标记（场景名必须严格来自上面的列表，含地点前缀如'家·温馨住所'）。" +
+               "注意：【移动:场景名】会真实消耗时间与体力，远距离移动（超过1公里）需要较长时间，" +
+               "请根据实际距离合理选择目的地，不要短时间内出现在数千公里外的地方。" +
                "这个标记会被自动执行，你无需真的描述路线。";
     }
 
@@ -291,18 +301,30 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (string.IsNullOrEmpty(charId)) return;
         var chars = await _chars.ListAsync();
         var ch = chars.FirstOrDefault(c => c.Profile.Id == charId);
-        if (ch is null || ch.SpriteMap.Count == 0) return;
+        if (ch is null) return;
         _char = ch;
         Affection = ch.State.Affection;
         Trust = ch.State.Trust;
         Balance = Math.Max(0, ch.State.Energy);
         UpdateStats();
-        var outfit = ch.State.CurrentOutfit;
-        if (!ch.SpriteMap.Keys.Any(k => k.StartsWith(outfit + "/", StringComparison.Ordinal)))
-            outfit = ch.SpriteMap.Keys.First().Split('/')[0];
-        _outfitKey = outfit;
-        _defaultEmotion = ch.SpriteMap.Keys.First(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal)).Split('/')[1];
-        SetEmotion(_defaultEmotion);
+
+        // 随机选择初始服装和表情
+        var outfits = ch.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList();
+        if (outfits.Count > 0)
+            _outfitKey = outfits[Random.Shared.Next(outfits.Count)];
+        else
+            _outfitKey = ch.State.CurrentOutfit;
+
+        var emotions = ch.SpriteMap.Keys
+            .Where(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal))
+            .Select(k => k.Split('/')[1])
+            .Distinct()
+            .ToList();
+        if (emotions.Count > 0)
+            _defaultEmotion = emotions[Random.Shared.Next(emotions.Count)];
+        _currentEmotion = _defaultEmotion;
+
+        SetEmotion(_currentEmotion);
         MainThread.BeginInvokeOnMainThread(() =>
         {
             CharacterName = ch.Profile.Name;
@@ -310,6 +332,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             _chat.SetRoster(_chars.RosterContext(ch.Profile.Id));
             RestoreSession();
         });
+        App.WriteLog($"LoadCharacterAsync: char={ch.Profile.Name}, outfit={_outfitKey}, emotion={_currentEmotion}, sprites={ch.SpriteMap.Count}");
     }
 
     /// <summary>读档后恢复聊天界面（消息来自存档里保存的会话记录）。</summary>
@@ -329,20 +352,69 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void ApplySprite()
     {
-        if (_char is null || string.IsNullOrEmpty(_outfitKey)) return;
+        if (_char is null || string.IsNullOrEmpty(_outfitKey)) { SpriteVisible = false; return; }
         var key = $"{_outfitKey}/{_currentEmotion}";
         if (!_char.SpriteMap.TryGetValue(key, out var rel))
-            rel = _char.SpriteMap[$"{_outfitKey}/{_defaultEmotion}"];
-        var full = Path.Combine(_store.Root, rel);
-        if (!File.Exists(full)) { SpriteVisible = false; return; }
-        if (MainThread.IsMainThread) ApplySpriteCore(full);
-        else MainThread.BeginInvokeOnMainThread(() => ApplySpriteCore(full));
+            rel = _char.SpriteMap.ContainsKey($"{_outfitKey}/{_defaultEmotion}")
+                ? _char.SpriteMap[$"{_outfitKey}/{_defaultEmotion}"]
+                : _char.SpriteMap.Values.FirstOrDefault();
+        string? full = null;
+        if (!string.IsNullOrEmpty(rel))
+        {
+            // 尝试多种路径组合
+            var candidates = new List<string>();
+            // rel 本身可能带 assets/ 前缀或不带
+            candidates.Add(Path.Combine(_store.Root, rel));
+            candidates.Add(Path.Combine(App.RootDirectory, rel));
+            candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), rel));
+            // 如果 rel 没有 assets/ 前缀，添加它
+            if (!rel.StartsWith("assets/", StringComparison.Ordinal)
+                && !rel.StartsWith(Path.DirectorySeparatorChar.ToString()))
+                candidates.Add(Path.Combine(_store.Root, "assets", rel));
+            // 去掉可能的 assets/ 前缀再试
+            if (rel.StartsWith("assets/", StringComparison.Ordinal))
+                candidates.Add(Path.Combine(_store.Root, rel["assets/".Length..]));
+            // 如果 rel 是绝对路径
+            if (rel.StartsWith(Path.DirectorySeparatorChar.ToString()) || rel.StartsWith("/"))
+                candidates.Add(rel);
+            // 也尝试原始路径不带 assets 前缀
+            if (!rel.StartsWith("assets/", StringComparison.Ordinal) && !rel.StartsWith(Path.DirectorySeparatorChar.ToString()))
+            {
+                var withoutAssets = rel;
+                if (withoutAssets.StartsWith("characters/", StringComparison.Ordinal))
+                    candidates.Add(Path.Combine(_store.Root, "assets", withoutAssets));
+            }
+            full = candidates
+                .Where(p => !string.IsNullOrEmpty(p) && File.Exists(p))
+                .FirstOrDefault();
+            if (full is null)
+                App.WriteLog($"ApplySprite: 未找到立绘 {rel}, 尝试了 {candidates.Count} 条路径");
+        }
+        if (string.IsNullOrEmpty(full)) { SpriteVisible = false; return; }
+        if (MainThread.IsMainThread)
+            _ = ApplySpriteCoreAsync(full);
+        else
+            MainThread.BeginInvokeOnMainThread(() => _ = ApplySpriteCoreAsync(full));
     }
 
-    private void ApplySpriteCore(string full)
+    private async Task ApplySpriteCoreAsync(string full)
     {
-        SpriteSource = ImageSource.FromFile(full);
-        SpriteVisible = true;
+        SpriteLoadingProgress = 0.1;
+        StatusText = "加载立绘...";
+        await Task.Delay(50);
+        try
+        {
+            SpriteSource = ImageSource.FromFile(full);
+            SpriteVisible = true;
+            SpriteLoadingProgress = 1.0;
+            StatusText = "";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"ApplySpriteCoreAsync: {ex.Message}");
+            SpriteLoadingProgress = 0;
+            StatusText = "立绘加载失败";
+        }
     }
 
     /// <summary>从回复文本中匹配表情：命中任一表情词（取最长）则切过去；否则按常用情绪词兜底。</summary>
@@ -554,7 +626,15 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         IsListening = true;
         _speech.OnRecognized += OnSpeechResult;
-        await _speech.StartListening();
+        try
+        {
+            await _speech.StartListening();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameViewModel.VoiceInput -> " + ex);
+            IsListening = false;
+        }
     }
 
     private void OnSpeechResult(string text)
@@ -576,11 +656,23 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         try
         {
-            string? img = null;
 #if WINDOWS
-            img = Task.Run(() => CaptureWindowSnapshot()).Result;
+            // 性能优化：延迟500ms后异步截屏，避免阻塞主线程
+            _ = Task.Delay(500).ContinueWith(_ =>
+            {
+                try
+                {
+                    var img = CaptureWindowSnapshot();
+                    _ = _memory.LogAffection(charId, delta, reason, img);
+                }
+                catch (Exception ex)
+                {
+                    App.WriteLog("MainGameViewModel.CaptureMoment -> " + ex);
+                }
+            }, TaskScheduler.Default);
+#else
+            _ = _memory.LogAffection(charId, delta, reason, null);
 #endif
-            _ = _memory.LogAffection(charId, delta, reason, img);
         }
         catch (Exception ex)
         {

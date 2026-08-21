@@ -82,8 +82,13 @@ public sealed class StringNotEmpty : IValueConverter
 /// <summary>int → 是否 &gt; 0（控制"已购 N 件"显隐）。</summary>
 public sealed class GreaterThanZero : IValueConverter
 {
-    public object Convert(object? v, Type t, object? p, CultureInfo c) =>
-        v is int n && n > 0;
+    public object Convert(object? v, Type t, object? p, CultureInfo c)
+    {
+        if (v is int n) return n > 0;
+        if (v is double d) return d > 0;
+        if (v is float f) return f > 0;
+        return false;
+    }
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
 }
 

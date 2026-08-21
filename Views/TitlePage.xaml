@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.TitlePage"
-             x:DataType="vm:TitleViewModel"
+
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBg}">
 
@@ -64,27 +64,27 @@
                         Command="{Binding StartGameCommand}"
                         IsEnabled="{Binding ShowGenderSelect, Converter={StaticResource InverseBool}}" />
 
-                <Button Text="{Binding [Title_Save], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                <Button Text="{Binding [Title_Save], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
                         WidthRequest="290" MinimumHeightRequest="56"
                         Margin="0,4"
                         Command="{Binding OpenSaveCommand}" />
 
-                <Button Text="{Binding [Title_Novels], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                <Button Text="{Binding [Title_Novels], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
                         WidthRequest="290" MinimumHeightRequest="56"
                         Margin="0,4"
                         Command="{Binding OpenNovelsCommand}" />
 
-                <Button Text="{Binding [Title_Roster], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                <Button Text="{Binding [Title_Roster], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
                         WidthRequest="290" MinimumHeightRequest="56"
                         Margin="0,4"
                         Command="{Binding OpenRosterCommand}" />
 
-                <Button Text="{Binding [Title_Settings], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorph}"
+                <Button Text="{Binding [Title_Settings], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
                         WidthRequest="290" MinimumHeightRequest="56"
                         Margin="0,4"
                         Command="{Binding OpenSettingsCommand}" />
 
-                <Button Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
+                <Button Text="{Binding [Title_Exit], Source={StaticResource I18n}}" Style="{StaticResource BtnText}"
                         TextColor="{StaticResource WarmMuted}"
                         FontSize="13" WidthRequest="290" HeightRequest="42"
                         Margin="0,14,0,0"
@@ -109,7 +109,7 @@
                                  WidthRequest="200" HorizontalOptions="Center"
                                  Margin="0,10,0,4" Opacity="0.9" />
 
-                        <Label Text="{Binding [Title_Tagline], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Label Text="{Binding [Title_Tagline], Source={StaticResource I18n}}"
                                Style="{StaticResource TxtCaption}"
                                FontSize="13" HorizontalOptions="Center"
                                Opacity="0.9" />
@@ -132,9 +132,9 @@
                         Padding="24,18" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <VerticalStackLayout Spacing="8">
-                        <Label Text="{Binding [Title_Coexist], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}"
+                        <Label Text="{Binding [Title_Coexist], Source={StaticResource I18n}}" Style="{StaticResource TxtBodySm}"
                                FontSize="13" TextColor="{StaticResource WarmDark}" />
-                        <Label Text="{Binding [Title_CoexistDesc], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Label Text="{Binding [Title_CoexistDesc], Source={StaticResource I18n}}"
                                Style="{StaticResource TxtCaption}" FontSize="12" />
                     </VerticalStackLayout>
                 </Border>
@@ -163,9 +163,9 @@
                             <Border Style="{StaticResource CardNeumorph}"
                                     Padding="22,18" HorizontalOptions="Fill">
                                 <VerticalStackLayout HorizontalOptions="Center" Spacing="8">
-                                    <Label Text="{Binding [Title_Brother], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}"
+                                    <Label Text="{Binding [Title_Brother], Source={StaticResource I18n}}" Style="{StaticResource TxtSubhead}"
                                            FontSize="20" HorizontalOptions="Center" />
-                                    <Label Text="{Binding [Title_BrotherDesc], Source={x:Static i18n:LocalizationService.Current}}"
+                                    <Label Text="{Binding [Title_BrotherDesc], Source={StaticResource I18n}}"
                                            Style="{StaticResource TxtCaption}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
@@ -178,9 +178,9 @@
                             <Border Grid.Column="1" Style="{StaticResource CardNeumorph}"
                                     Padding="22,18" HorizontalOptions="Fill">
                                 <VerticalStackLayout HorizontalOptions="Center" Spacing="8">
-                                    <Label Text="{Binding [Title_Sister], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}"
+                                    <Label Text="{Binding [Title_Sister], Source={StaticResource I18n}}" Style="{StaticResource TxtSubhead}"
                                            FontSize="20" HorizontalOptions="Center" />
-                                    <Label Text="{Binding [Title_SisterDesc], Source={x:Static i18n:LocalizationService.Current}}"
+                                    <Label Text="{Binding [Title_SisterDesc], Source={StaticResource I18n}}"
                                            Style="{StaticResource TxtCaption}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>

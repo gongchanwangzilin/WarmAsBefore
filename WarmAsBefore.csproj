@@ -37,6 +37,14 @@
     <MauiAsset Include="Resources\Raw\**" Exclude="Resources\Raw\**\*.gitkeep" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- 主题 XAML 嵌入为资源 -->
+  <ItemGroup>
+    <EmbeddedResource Include="DesignSystem\Theme\ColorPalette.xaml" LogicalName="DesignSystem.Theme.ColorPalette.xaml" />
+    <EmbeddedResource Include="DesignSystem\Theme\ColorPaletteSakura.xaml" LogicalName="DesignSystem.Theme.ColorPaletteSakura.xaml" />
+    <EmbeddedResource Include="DesignSystem\Theme\ColorPaletteBamboo.xaml" LogicalName="DesignSystem.Theme.ColorPaletteBamboo.xaml" />
+    <EmbeddedResource Include="DesignSystem\Theme\ColorPaletteMist.xaml" LogicalName="DesignSystem.Theme.ColorPaletteMist.xaml" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="CommunityToolkit.Maui" Version="9.*" />

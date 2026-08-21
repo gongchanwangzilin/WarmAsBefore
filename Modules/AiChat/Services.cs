@@ -56,20 +56,94 @@ public sealed class ChatEngine
         var payload = string.IsNullOrWhiteSpace(buff) ? text : $"{buff}\n{text}";
 
         session.Add(new ChatMessage { Role = "user", Content = $"[{ctx}]\n{payload}" });
-        var reply = await _api.Chat(session, _cfg) ?? Fallback(text);
-        session.Add(new ChatMessage { Role = "assistant", Content = reply });
-        Trim(session);
 
-        await _memory.Store(new MemoryEntry
+        // 检查 API 是否已配置
+        if (string.IsNullOrWhiteSpace(_cfg.Key))
         {
-            CharacterId = charId,
-            Content = $"{text} → {reply}",
-            Category = "dialogue"
-        });
-        try { AfterSend?.Invoke(); }
-        catch (Exception ex) { App.WriteLog("ChatEngine.AfterSend -> " + ex.Message); }
-        return reply;
+            // AI 未配置：返回友好的提示
+            var offlineReply = GenerateOfflineReply(text);
+            session.Add(new ChatMessage { Role = "assistant", Content = offlineReply });
+            Trim(session);
+            return offlineReply;
+        }
+
+        // API 已配置：调用 API
+        try
+        {
+            var reply = await _api.Chat(session, _cfg);
+            // ApiGateway 现在返回详细错误信息（不以null结尾）
+            if (reply is null)
+            {
+                reply = "（AI 暂时无法回应，请检查 API 配置或网络连接）";
+            }
+            else if (reply.StartsWith("[", StringComparison.Ordinal))
+            {
+                // API 返回了错误信息，直接显示给用户（不存会话历史）
+                App.WriteLog("ChatEngine: API error: " + reply);
+                return reply;
+            }
+            session.Add(new ChatMessage { Role = "assistant", Content = reply });
+            Trim(session);
+
+            await _memory.Store(new MemoryEntry
+            {
+                CharacterId = charId,
+                Content = $"{text} → {reply}",
+                Category = "dialogue"
+            });
+            try { AfterSend?.Invoke(); }
+            catch (Exception ex) { App.WriteLog("ChatEngine.AfterSend -> " + ex.Message); }
+            return reply;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.Send -> " + ex.Message);
+            var errorMsg = $"（AI 调用出错：{ex.Message}）";
+            session.Add(new ChatMessage { Role = "assistant", Content = errorMsg });
+            Trim(session);
+            return errorMsg;
+        }
     }
+
+    /// <summary>AI 离线时的友好回复：根据用户消息生成自然的回应。</summary>
+    private static string GenerateOfflineReply(string input)
+    {
+        // 根据输入内容生成不同回复
+        var lower = input.ToLowerInvariant();
+        if (lower.Contains("你好") || lower.Contains("您好") || lower.Contains("hi") || lower.Contains("hello"))
+            return "你好呀！今天过得怎么样？有什么想和我聊的吗？";
+        if (lower.Contains("再见") || lower.Contains("拜拜") || lower.Contains("bye"))
+            return "再见！记得常来找我聊天哦~";
+        if (lower.Contains("喜欢") || lower.Contains("爱"))
+            return "谢谢你这么说，我心里暖暖的~";
+        if (lower.Contains("今天"))
+            return "今天呢...希望能和你一起度过愉快的时光！";
+        if (lower.Contains("天气") || lower.Contains("下雨") || lower.Contains("晴天"))
+            return "天气变化会影响心情呢，你那边现在怎么样？";
+        if (lower.Contains("吃饭") || lower.Contains("饿") || lower.Contains("吃"))
+            return "要好好吃饭哦！你想吃什么？我可以陪你一起 '吃'~";
+        if (lower.Contains("困") || lower.Contains("累") || lower.Contains("睡"))
+            return "辛苦了！要注意休息哦，我会一直陪着你的。";
+        if (lower.Contains("开心") || lower.Contains("高兴") || lower.Contains("快乐"))
+            return "看到你开心我也很开心呢！有什么好事想和我分享吗？";
+        if (lower.Contains("难过") || lower.Contains("伤心") || lower.Contains("哭"))
+            return "别难过，我会一直在这里陪着你。想说说发生了什么吗？";
+        if (lower.Contains("工作") || lower.Contains("学习") || lower.Contains("考试"))
+            return "加油！你努力的样子一定很耀眼，我会为你加油的！";
+        if (lower.Contains("游戏") || lower.Contains("玩"))
+            return "想玩游戏吗？我们可以一起玩游戏，或者就随便聊聊~";
+        if (lower.Contains("名字") || lower.Contains("叫什么"))
+            return "我是小雨呀，是你的陪伴者~ 你叫什么名字呢？";
+        if (lower.Contains("可爱") || lower.Contains("漂亮") || lower.Contains("好看"))
+            return "嘿嘿，谢谢你夸我！你也很可爱呢~";
+        if (lower.Contains("谢谢"))
+            return "不客气！能帮到你是我最大的荣幸~";
+        if (lower.Contains("喜欢"))
+            return "我也很喜欢和你在一起呢~";
+        return $"{input}…嗯，我在听呢。有什么想和我说的吗？";
+    }
+
+    private static string Fallback(string input) => $"{input}…嗯，我在听。";
 
     public async Task<string> Greet(string charId)
     {
@@ -108,8 +182,6 @@ public sealed class ChatEngine
         if (msgs.Count > 2 * ChatSession.KeepTurns + 1)
             msgs.RemoveRange(1, msgs.Count - 2 * ChatSession.KeepTurns - 1);
     }
-
-    private static string Fallback(string input) => $"{input}…嗯，我在听。";
 }
 
 public sealed class MemoryVault

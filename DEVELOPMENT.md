@@ -207,18 +207,18 @@ public void AddRange(IEnumerable<T> items)      // 单次 Add 事件，分页追
 ## 7. 构建 / 运行 / 发布
 
 ```powershell
-# 构建（Release，Win10 x64，非自包含，增量）
-dotnet build WarmAsBefore.csproj `
+# 始终用绝对路径（不要依赖当前目录）
+dotnet build E:\WarmAsBefore\src\WarmAsBefore\WarmAsBefore.csproj `
   -c Release -f net9.0-windows10.0.19041.0 `
   -p:RuntimeIdentifierOverride=win10-x64 --self-contained false -v q -nologo
 
 # 发布（自包含，多文件）
-dotnet publish WarmAsBefore.csproj `
+dotnet publish E:\WarmAsBefore\src\WarmAsBefore\WarmAsBefore.csproj `
   -c Release -f net9.0-windows10.0.19041.0 `
   -p:RuntimeIdentifierOverride=win10-x64 --self-contained true -p:PublishSingleFile=false -v q -nologo
 
 # EXE 位置
-bin\Release\net9.0-windows10.0.19041.0\win10-x64\publish\WarmAsBefore.exe
+E:\WarmAsBefore\src\WarmAsBefore\bin\Release\net9.0-windows10.0.19041.0\win10-x64\publish\WarmAsBefore.exe
 
 # 重启验证
 Get-Process -Name WarmAsBefore -ErrorAction SilentlyContinue | Stop-Process -Force

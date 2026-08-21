@@ -83,20 +83,75 @@ public class ThemeManager
                 "mist" => "DesignSystem/Theme/ColorPaletteMist.xaml",
                 _ => "DesignSystem/Theme/ColorPalette.xaml"
             };
+            // 找到当前的主题字典
             var dicts = app.Resources.MergedDictionaries;
-            var list = dicts.ToList();
-            var old = list.FirstOrDefault(d =>
-                d.Source?.OriginalString.Contains("ColorPalette", StringComparison.OrdinalIgnoreCase) == true);
-            var idx = old is not null ? list.IndexOf(old) : 0;
-            if (old is not null) list.Remove(old);
-            var fresh = new ResourceDictionary { Source = new Uri($"ms-appx:///{file}") };
-            list.Insert(Math.Min(idx, list.Count), fresh);
-            dicts.Clear();
-            foreach (var d in list) dicts.Add(d);
+            var themeDict = dicts.FirstOrDefault(d => d.Source?.OriginalString?.Contains("ColorPalette") == true);
+            if (themeDict is null)
+            {
+                App.WriteLog("ThemeManager: 找不到主题字典");
+                return;
+            }
+            // 尝试从文件加载
+            var candidates = new[]
+            {
+                Path.Combine(AppContext.BaseDirectory, file.Replace('/', Path.DirectorySeparatorChar)),
+                Path.Combine(Directory.GetCurrentDirectory(), file.Replace('/', Path.DirectorySeparatorChar)),
+                Path.Combine(Path.GetDirectoryName(AppContext.BaseDirectory) ?? "", file.Replace('/', Path.DirectorySeparatorChar))
+            };
+            var filePath = candidates.FirstOrDefault(File.Exists);
+            if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
+            {
+                UpdateColorsFromXaml(themeDict, File.ReadAllText(filePath));
+                App.WriteLog("ThemeManager.Loaded from file: " + filePath);
+                return;
+            }
+            // 尝试从嵌入资源加载
+            try
+            {
+                var asm = typeof(ThemeManager).Assembly;
+                var resName = asm.GetManifestResourceNames()
+                    .FirstOrDefault(n => n.EndsWith("DesignSystem.Theme." + name + ".xaml", StringComparison.OrdinalIgnoreCase));
+                if (resName is not null)
+                {
+                    using var stream = asm.GetManifestResourceStream(resName);
+                    if (stream is not null)
+                    {
+                        using var reader = new StreamReader(stream);
+                        var xaml = reader.ReadToEnd();
+                        UpdateColorsFromXaml(themeDict, xaml);
+                        App.WriteLog("ThemeManager.Loaded from embedded: " + resName);
+                    }
+                }
+            }
+            catch { }
         }
         catch (Exception ex)
         {
             App.WriteLog("ThemeManager.ApplyThemeResources -> " + ex);
+        }
+    }
+
+    private static void UpdateColorsFromXaml(ResourceDictionary dict, string xaml)
+    {
+        var keys = new[] { "PageBg", "SurfaceBg", "SurfaceFg", "PrimaryAction", "PrimaryHover", "PrimaryFg",
+            "SecondaryBg", "MutedFg", "BorderLine", "InputBg", "WarmDark", "WarmBody", "WarmMuted", "WarmFaint",
+            "AccentWarm", "AccentWarmFg", "BubbleMine", "BubbleTheirs", "OverlayDim",
+            "Cream50", "Cream100", "Cream200", "Beige100", "Beige200", "BeigeAccent50", "BeigeAccent100",
+            "BeigeAccent200", "BeigeAccent300", "OffWhite50", "OffWhite100", "OffWhite200", "ShadowLight",
+            "ShadowDim", "ShadowDeep", "GreenSoft", "RedSoft", "BlueSoft", "TabActive", "TabInactive" };
+        foreach (var key in keys)
+        {
+            var match = System.Text.RegularExpressions.Regex.Match(xaml, $"<Color x:Key=\"{key}\"[^>]*>([^<]+)</Color>");
+            if (match.Success)
+            {
+                try
+                {
+                    var colorStr = match.Groups[1].Value.Trim();
+                    if (Color.TryParse(colorStr, out var color))
+                        dict[key] = color;
+                }
+                catch { }
+            }
         }
     }
 

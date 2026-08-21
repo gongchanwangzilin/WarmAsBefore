@@ -40,13 +40,43 @@ public sealed class CharacterLibrary
             var saved = await _store.Load<List<CharacterData>>("characters");
             if (saved is null) return;
             foreach (var ch in saved)
-                if (!_engine.Roster.ContainsKey(ch.Profile.Id))
-                    _engine.Register(ch);
+            {
+                // 修复已有的 SpriteMap 路径：确保带 assets/ 前缀
+                var fixedCh = ch;
+                if (ch.SpriteMap.Count > 0)
+                {
+                    var fixedMap = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                    foreach (var (k, v) in ch.SpriteMap)
+                    {
+                        var fixedPath = FixSpritePath(v);
+                        fixedMap[k] = fixedPath;
+                        if (fixedPath != v)
+                            App.WriteLog($"CharacterLibrary: 修复立绘路径 {k} -> {fixedPath}");
+                    }
+                    fixedCh = ch with { SpriteMap = fixedMap };
+                }
+                if (!_engine.Roster.ContainsKey(fixedCh.Profile.Id))
+                    _engine.Register(fixedCh);
+            }
         }
         catch (Exception ex)
         {
             App.WriteLog("CharacterLibrary.Load -> " + ex);
         }
+    }
+
+    /// <summary>修复立绘路径：确保带 assets/ 前缀。</summary>
+    private static string FixSpritePath(string rel)
+    {
+        if (string.IsNullOrEmpty(rel)) return rel;
+        // 已经是绝对路径则原样返回
+        if (Path.IsPathRooted(rel)) return rel;
+        // 已有 assets/ 前缀则原样返回
+        if (rel.StartsWith("assets/", StringComparison.Ordinal)) return rel;
+        // 添加 assets/ 前缀
+        return rel.StartsWith("characters/", StringComparison.Ordinal)
+            ? $"assets/{rel}"
+            : rel;
     }
 
     public async Task<List<CharacterData>> ListAsync()
@@ -228,15 +258,16 @@ public sealed class CharacterLibrary
             foreach (var outfitRaw in outfitDirs)
             {
                 var outfitKey = NormalizeOutfit(outfitRaw);
-                var outfitFiles = entries
-                    .Where(e => e.FullName.StartsWith(prefix + outfitRaw + "/", StringComparison.Ordinal))
-                    .ToList();
-                foreach (var f in outfitFiles)
+                // 优先使用原始目录名（因为文件实际在那里），找不到再用归一化名
+                var actualDir = Directory.Exists(Path.Combine(_store.Root, "assets", "characters", ch.Profile.Id, outfitRaw))
+                    ? outfitRaw
+                    : (Directory.Exists(Path.Combine(_store.Root, "assets", "characters", ch.Profile.Id, outfitKey)) ? outfitKey : outfitRaw);
+                foreach (var entry in entries.Where(e => e.FullName.StartsWith(prefix + actualDir + "/", StringComparison.Ordinal)))
                 {
-                    var fileName = Path.GetFileName(f.FullName);
+                    var fileName = Path.GetFileName(entry.FullName);
                     if (string.IsNullOrEmpty(fileName)) continue;
-                    var relPath = $"characters/{ch.Profile.Id}/{outfitRaw}/{fileName}";
-                    CopyEntry(f, Path.Combine(_store.Root, "assets", "characters", ch.Profile.Id, outfitRaw, fileName));
+                    var relPath = $"assets/characters/{ch.Profile.Id}/{actualDir}/{fileName}";
+                    CopyEntry(entry, Path.Combine(_store.Root, "assets", "characters", ch.Profile.Id, actualDir, fileName));
                     foreach (var emotion in EmotionsOf(Path.GetFileNameWithoutExtension(fileName)))
                         spriteMap[$"{outfitKey}/{emotion}"] = relPath;
                 }

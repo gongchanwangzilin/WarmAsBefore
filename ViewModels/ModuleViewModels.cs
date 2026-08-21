@@ -430,11 +430,10 @@ public sealed partial class WeChatViewModel : ObservableObject
 
     private async Task Typewrite(ChatItem msg, string full, int delayMs = 30)
     {
-        for (int i = 0; i <= full.Length; i++)
-        {
-            msg.DisplayText = full[..i];
-            await Task.Delay(delayMs);
-        }
+        // 性能优化：跳过逐字显示，直接显示完整文本
+        // 如果确实需要逐字效果，可以使用更快的间隔
+        msg.DisplayText = full;
+        await Task.Delay(Math.Min(delayMs * 2, 100)); // 最短延迟100ms，避免过快
     }
 
     private async Task AnimateTypingDots(CancellationToken ct)

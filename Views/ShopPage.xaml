@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:model="clr-namespace:WarmAsBefore.Models"
              x:Class="WarmAsBefore.Views.ShopPage"
-             x:DataType="vm:ShopViewModel"
+
              Title=""
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBg}">
@@ -158,8 +158,8 @@
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
                     </CollectionView.ItemsLayout>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="model:ShopItem">
+                        <CollectionView.ItemTemplate>
+                <DataTemplate>
                             <Border Style="{StaticResource CardFrost}" Padding="10">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                                     <Border BackgroundColor="#FFFDF5"
@@ -202,17 +202,17 @@
                                         <Button Text="{Binding IsTicket, Converter={StaticResource TicketLabel}}"
                                                 Style="{StaticResource BtnNeumorphic}"
                                                 HeightRequest="30" Padding="10,0" FontSize="11"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShopViewModel}}, Path=BuyCommand}"
+                                                Command="{Binding Path=BindingContext.BuyCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                 CommandParameter="{Binding .}" />
                                         <!-- 送礼 / 使用（始终可见，无库存时点击有提示） -->
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
                                             <Button Grid.Column="0" Text="🎁送礼" Style="{StaticResource BtnNeumorphic}"
                                                     HeightRequest="26" Padding="4,0" FontSize="10"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShopViewModel}}, Path=GiftCommand}"
+                                                    Command="{Binding Path=BindingContext.GiftCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                     CommandParameter="{Binding .}" />
                                             <Button Grid.Column="1" Text="✨使用" Style="{StaticResource BtnNeumorphic}"
                                                     HeightRequest="26" Padding="4,0" FontSize="10"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShopViewModel}}, Path=UseCommand}"
+                                                    Command="{Binding Path=BindingContext.UseCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                     CommandParameter="{Binding .}" />
                                         </Grid>
                                     </VerticalStackLayout>

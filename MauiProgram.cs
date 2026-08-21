@@ -18,6 +18,8 @@ public static class MauiProgram
 
         // Design System
         builder.Services.AddSingleton<DesignSystem.Theme.ThemeManager>();
+        // 中文别名包装：将已有的 ThemeManager 注入到 主题管理器（中文）中，便于中文标识符调用
+        builder.Services.AddSingleton<DesignSystem.Theme.主题管理器>(sp => new DesignSystem.Theme.主题管理器(sp.GetRequiredService<DesignSystem.Theme.ThemeManager>()));
 
         // Core services
         builder.Services.AddSingleton<GameEngine>();
@@ -91,10 +93,12 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<WorldbookPage>();
         builder.Services.AddTransient<CharacterLibraryPage>();
         builder.Services.AddTransient<ShopPage>();
+        // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
         builder.Services.AddTransient<NovelSelectViewModel>();
         builder.Services.AddTransient<NovelWorldViewModel>();
         builder.Services.AddTransient<CharacterLibraryViewModel>();
         builder.Services.AddTransient<ShopViewModel>();
+        // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
         App.WriteLog("CreateMauiApp: building");
         return builder.Build();

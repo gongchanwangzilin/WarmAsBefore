@@ -288,6 +288,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _deepModel = "";
     [ObservableProperty] private int _memoryTurns = 5;
 
+    /// <summary>API 可用的模型列表（由 FetchModelsAsync 填充）。</summary>
+    public ObservableCollection<string> AiModelChoices { get; } = new();
+    [ObservableProperty] private bool _isLoadingModels;
+    [ObservableProperty] private string _modelListStatus = "";
+
     [ObservableProperty] private bool _ttsEnabled = true;
     [ObservableProperty] private double _ttsRate = 1.0;
     [ObservableProperty] private bool _sttEnabled = true;
@@ -402,8 +407,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnAutoSaveChanged(bool value) => PersistSettings();
     partial void OnKeySfxChanged(string value) => PersistSettings();
 
-    partial void OnAiUrlChanged(string value) => PersistSettings();
-    partial void OnAiKeyChanged(string value) => PersistSettings();
+    partial void OnAiUrlChanged(string value)
+    {
+        PersistSettings();
+        _ = FetchModelsAsync();
+    }
+    partial void OnAiKeyChanged(string value)
+    {
+        PersistSettings();
+        _ = FetchModelsAsync();
+    }
     partial void OnAiModelChanged(string value) => PersistSettings();
     partial void OnAiTemperatureChanged(double value) => PersistSettings();
     partial void OnAiMaxTokensChanged(double value) => PersistSettings();
@@ -557,6 +570,63 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             App.WriteLog("SettingsViewModel.PersistSettings EX -> " + ex);
+        }
+    }
+
+    /// <summary>检测 API 并获取可用模型列表。</summary>
+    [RelayCommand]
+    private async Task FetchModelsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(AiUrl) || string.IsNullOrWhiteSpace(AiKey))
+        {
+            AiModelChoices.Clear();
+            ModelListStatus = "请先填写 API 地址和密钥";
+            return;
+        }
+        IsLoadingModels = true;
+        ModelListStatus = "检测中...";
+        try
+        {
+            var services = Application.Current?.Handler?.MauiContext?.Services;
+            if (services is null) { ModelListStatus = "无法获取服务"; return; }
+            var api = services.GetService(typeof(Modules.ApiManager.ApiGateway)) as Modules.ApiManager.ApiGateway;
+            if (api is null) { ModelListStatus = "API 服务不可用"; return; }
+
+            // 先配置 API
+            api.Configure(new AiEndpoint
+            {
+                Url = AiUrl.Trim(),
+                Key = AiKey.Trim(),
+                Model = AiModel.Trim(),
+                Temperature = AiTemperature,
+                MaxTokens = (int)AiMaxTokens
+            });
+
+            var models = await api.ListModels();
+            if (models is not null && models.Count > 0)
+            {
+                AiModelChoices.Clear();
+                foreach (var m in models.OrderBy(x => x))
+                    AiModelChoices.Add(m);
+                ModelListStatus = $"已加载 {models.Count} 个模型";
+                // 如果当前模型不在列表中，自动选择第一个
+                if (!AiModelChoices.Contains(AiModel))
+                    AiModel = AiModelChoices[0];
+            }
+            else
+            {
+                AiModelChoices.Clear();
+                ModelListStatus = "无法获取模型列表（可能 API 密钥无效或端点不支持）";
+            }
+        }
+        catch (Exception ex)
+        {
+            AiModelChoices.Clear();
+            ModelListStatus = $"检测失败: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingModels = false;
         }
     }
 

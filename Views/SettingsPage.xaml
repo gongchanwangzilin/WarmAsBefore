@@ -1,11 +1,10 @@
-<?xml version="1.0" encoding="utf-8" ?>
+﻿<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:mcp="clr-namespace:WarmAsBefore.Modules.Mcp"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.SettingsPage"
-             x:DataType="vm:SettingsViewModel"
              Title="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBg}">
@@ -34,10 +33,14 @@
                 <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="14">
                         <Label Text="{Binding [Settings_Volume], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Bgm], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                            <Slider Grid.Column="1" Value="{Binding BgmLevel}" Minimum="0" Maximum="1" /></Grid>
-                        <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Sfx], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                            <Slider Grid.Column="1" Value="{Binding SfxLevel}" Minimum="0" Maximum="1" /></Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="{Binding [Settings_Bgm], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding BgmLevel}" Minimum="0" Maximum="1" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="{Binding [Settings_Sfx], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Value="{Binding SfxLevel}" Minimum="0" Maximum="1" />
+                        </Grid>
                     </VerticalStackLayout>
                 </Border>
 
@@ -159,10 +162,21 @@
                             <Entry Grid.Column="1" Text="{Binding AiKey}" IsPassword="True" Placeholder="sk-…"
                                    BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
                                    PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
-                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiModel], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
-                            <Entry Grid.Column="1" Text="{Binding AiModel}" Placeholder="gpt-4o"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*,Auto" VerticalOptions="Center">
+                            <Label Text="{Binding [Settings_AiModel], Source={x:Static i18n:LocalizationService.Current}}" FontSize="13" />
+                            <Picker Grid.Column="1" ItemsSource="{Binding AiModelChoices}"
+                                    SelectedItem="{Binding AiModel}"
+                                    FontSize="13" HeightRequest="36"
+                                    IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
+                            <Button Grid.Column="2" Text="检测"
+                                    BackgroundColor="{StaticResource SurfaceBg}" TextColor="{StaticResource MutedFg}"
+                                    FontSize="11" Padding="10,0" HeightRequest="36" CornerRadius="10"
+                                    Command="{Binding FetchModelsCommand}"
+                                    IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
+                        </Grid>
+                        <Label Text="{Binding ModelListStatus}" Style="{StaticResource TxtCaption}"
+                               TextColor="{StaticResource MutedFg}" FontSize="11"
+                               IsVisible="{Binding ModelListStatus, Converter={StaticResource StringNotEmpty}}" />
                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Temperature], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                             <Slider Grid.Column="1" Value="{Binding AiTemperature}" Minimum="0" Maximum="1" /></Grid>
                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_MaxToken], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />

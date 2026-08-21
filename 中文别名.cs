@@ -1,0 +1,64 @@
+global using 角色资料 = WarmAsBefore.Models.CharacterProfile;
+global using 角色状态 = WarmAsBefore.Models.CharacterState;
+global using 角色数据 = WarmAsBefore.Models.CharacterData;
+global using 聊天消息 = WarmAsBefore.Models.ChatMessage;
+global using 聊天会话 = WarmAsBefore.Models.ChatSession;
+global using 应用状态 = WarmAsBefore.Models.GameState;
+global using 棋盘单元 = WarmAsBefore.Models.BoardCell;
+global using 地图定义 = WarmAsBefore.Models.MapDefinition;
+global using 商店物品 = WarmAsBefore.Models.ShopItem;
+global using 世界志条目 = WarmAsBefore.Models.WorldbookEntry;
+global using 世界志角色 = WarmAsBefore.Models.WorldbookCharacter;
+global using 世界志生成结果 = WarmAsBefore.Models.WorldbookGenerationResult;
+
+global using 游戏引擎 = WarmAsBefore.Services.GameEngine;
+global using 设置管理器 = WarmAsBefore.Services.SettingsManager;
+global using 存储提供者 = WarmAsBefore.Services.StorageProvider;
+global using 通知服务 = WarmAsBefore.Services.NotificationService;
+global using 音频控制器 = WarmAsBefore.Services.AudioController;
+global using 语音服务 = WarmAsBefore.Services.SpeechService;
+global using 毛玻璃服务 = WarmAsBefore.Services.GlassOverlayService;
+
+global using 迷你游戏引擎 = WarmAsBefore.Modules.GameModule.MiniGameEngine;
+global using 国际象棋智能 = WarmAsBefore.Modules.GameModule.ChessBrainService;
+global using 商店服务 = WarmAsBefore.Modules.Market.ShopService;
+global using 礼物面板服务 = WarmAsBefore.Modules.Market.GiftPanelService;
+global using 官方聊天桥 = WarmAsBefore.Modules.RealChat.OfficialChatBridge;
+global using 存档管理器 = WarmAsBefore.Modules.SaveSystem.SaveManager;
+global using 小说库 = WarmAsBefore.Services.NovelLibrary;
+
+// 页面与视图模型别名（使用类型别名以避免继承封闭类型）
+global using 标题页面 = WarmAsBefore.Views.TitlePage;
+global using 主游戏页面 = WarmAsBefore.Views.MainGamePage;
+global using 角色选择页面 = WarmAsBefore.Views.CharacterSelectPage;
+global using 设置页面 = WarmAsBefore.Views.SettingsPage;
+global using 手机页面 = WarmAsBefore.Views.PhonePage;
+global using 微信页面 = WarmAsBefore.Views.WeChatPage;
+global using 地图页面 = WarmAsBefore.Views.MapPage;
+global using 画廊页面 = WarmAsBefore.Views.GalleryPage;
+global using 装扮页面 = WarmAsBefore.Views.OutfitPage;
+global using 存档页面 = WarmAsBefore.Views.SavePage;
+global using 开发者页面 = WarmAsBefore.Views.DeveloperPage;
+global using 游戏页面 = WarmAsBefore.Views.GamePage;
+global using 宠物页面 = WarmAsBefore.Views.PetPage;
+global using 小说选择页面 = WarmAsBefore.Views.NovelSelectPage;
+global using 小说世界页面 = WarmAsBefore.Views.NovelWorldPage;
+global using 世界志页面 = WarmAsBefore.Views.WorldbookPage;
+global using 角色库页面 = WarmAsBefore.Views.CharacterLibraryPage;
+global using 商店页面 = WarmAsBefore.Views.ShopPage;
+
+global using 标题视图模型 = WarmAsBefore.ViewModels.TitleViewModel;
+global using 主游戏视图模型 = WarmAsBefore.ViewModels.MainGameViewModel;
+global using 角色选择视图模型 = WarmAsBefore.ViewModels.CharacterSelectViewModel;
+global using 设置视图模型 = WarmAsBefore.ViewModels.SettingsViewModel;
+global using 手机视图模型 = WarmAsBefore.ViewModels.PhoneViewModel;
+global using 微信视图模型 = WarmAsBefore.ViewModels.WeChatViewModel;
+global using 地图视图模型 = WarmAsBefore.ViewModels.MapViewModel;
+global using 画廊视图模型 = WarmAsBefore.ViewModels.GalleryViewModel;
+global using 装扮视图模型 = WarmAsBefore.ViewModels.OutfitViewModel;
+global using 存档视图模型 = WarmAsBefore.ViewModels.SaveViewModel;
+global using 开发者视图模型 = WarmAsBefore.ViewModels.DeveloperViewModel;
+global using 游戏视图模型 = WarmAsBefore.ViewModels.GameViewModel;
+global using 世界志视图模型 = WarmAsBefore.ViewModels.WorldbookViewModel;
+global using 角色库视图模型 = WarmAsBefore.ViewModels.CharacterLibraryViewModel;
+global using 商店视图模型 = WarmAsBefore.ViewModels.ShopViewModel;

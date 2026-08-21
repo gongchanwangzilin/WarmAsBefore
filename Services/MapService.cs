@@ -211,6 +211,42 @@ public sealed class MapService
     /// <summary>该边是否以虚线绘制（长度=0 → 未丈量）。</summary>
     public bool IsDashed(MapEdge e) => e.Length == 0;
 
+    /// <summary>计算从当前场景到指定场景的最短路径（按米）。不可达返回 null。</summary>
+    public double? DistanceTo(string targetSceneId)
+    {
+        if (!_isLoaded) return null;
+        var path = FindShortest(_currentSceneId, targetSceneId);
+        if (path is null || path.Count < 2) return null;
+        double total = 0;
+        for (int i = 0; i + 1 < path.Count; i++)
+        {
+            var from = path[i].Id;
+            var to = path[i + 1].Id;
+            var edge = _map.Edges.FirstOrDefault(e =>
+                (e.A == from && e.B == to) || (e.A == to && e.B == from));
+            if (edge is not null) total += DisplayLengthMeters(edge);
+        }
+        return total > 0 ? total : null;
+    }
+
+    /// <summary>获取当前场景到其他所有场景的距离摘要（供 AI 上下文使用）。</summary>
+    public string BuildDistanceContext()
+    {
+        if (!_isLoaded || _map.AllScenes.Count() <= 1) return "";
+        var parts = new List<string>();
+        foreach (var sc in _map.AllScenes)
+        {
+            if (sc.Id == _currentSceneId) continue;
+            var dist = DistanceTo(sc.Id);
+            var locName = _map.LocationNameOf(sc.Id);
+            if (dist is double d && d > 0)
+                parts.Add($"{locName}·{sc.Name}({(d >= 1000 ? $"{d / 1000:F1}公里" : $"{(int)d}米")})");
+            else if (dist is null)
+                parts.Add($"{locName}·{sc.Name}(无法到达)");
+        }
+        return parts.Count > 0 ? $"当前位置距离：{string.Join("，", parts)}。" : "";
+    }
+
     // ==================== 编辑 ====================
 
     public MapLocation AddLocation(string name, string parentId = "")
@@ -321,10 +357,24 @@ public sealed class MapService
     public string? ResolveBackground(MapScene scene)
     {
         if (string.IsNullOrWhiteSpace(scene.Background)) return null;
-        var full = Path.IsPathRooted(scene.Background)
-            ? scene.Background
-            : Path.Combine(_store.Root, scene.Background);
-        return File.Exists(full) ? full : null;
+        var paths = new List<string>();
+        var rel = scene.Background;
+        // 直接尝试
+        if (Path.IsPathRooted(rel)) { paths.Add(rel); }
+        else
+        {
+            paths.Add(Path.Combine(_store.Root, rel));
+            paths.Add(Path.Combine(App.RootDirectory, rel));
+            paths.Add(Path.Combine(Directory.GetCurrentDirectory(), rel));
+            // 添加 assets/ 前缀
+            if (!rel.StartsWith("assets/", StringComparison.Ordinal))
+                paths.Add(Path.Combine(_store.Root, "assets", rel));
+            paths.Add(Path.Combine(App.RootDirectory, "assets", rel));
+            // 去掉 assets/ 前缀
+            if (rel.StartsWith("assets/", StringComparison.Ordinal))
+                paths.Add(Path.Combine(_store.Root, rel["assets/".Length..]));
+        }
+        return paths.Where(p => !string.IsNullOrEmpty(p) && File.Exists(p)).FirstOrDefault();
     }
 
     // ==================== 导出 / 导入 ====================

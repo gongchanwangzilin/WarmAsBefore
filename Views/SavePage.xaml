@@ -4,7 +4,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.SavePage"
              x:Name="Page"
-             x:DataType="vm:SaveViewModel"
+
              Title=""
              Shell.NavBarIsVisible="False"
              BackgroundColor="{StaticResource PageBg}">
@@ -73,7 +73,7 @@
                             <Button Grid.Column="2" Text="读取"
                                     Style="{StaticResource BtnNeumorphSm}"
                                     HeightRequest="34" WidthRequest="56"
-                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.LoadSlotCommand}"
+                                    Command="{Binding Path=BindingContext.LoadSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                     CommandParameter="{Binding Id}" />
 
                             <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="3"
@@ -81,17 +81,17 @@
                                 <Button Text="重命名" Style="{StaticResource BtnText}"
                                         TextColor="{StaticResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.RenameSlotCommand}"
+                                        Command="{Binding Path=BindingContext.RenameSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                                 <Button Text="导出" Style="{StaticResource BtnText}"
                                         TextColor="{StaticResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.ExportSlotCommand}"
+                                        Command="{Binding Path=BindingContext.ExportSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                                 <Button Text="删除" Style="{StaticResource BtnText}"
                                         TextColor="{StaticResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
-                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteSlotCommand}"
+                                        Command="{Binding Path=BindingContext.DeleteSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                             </HorizontalStackLayout>
                         </Grid>
