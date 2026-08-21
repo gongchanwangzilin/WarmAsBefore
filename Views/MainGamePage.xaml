@@ -327,7 +327,15 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Grid Grid.Row="1" Grid.Column="1">
                 <BoxView Color="{Binding SceneBg}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
-                <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}" Aspect="AspectFit" Margin="24,10" HorizontalOptions="Center" VerticalOptions="Center" />
+                <!-- 立绘支持位置、透明度、缩放，限制最大高度防止溢出 -->
+                <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
+                       Aspect="AspectFit"
+                       Opacity="{Binding SpriteOpacity}"
+                       TranslationX="{Binding SpriteX}"
+                       TranslationY="{Binding SpriteY}"
+                       Scale="{Binding SpriteScale}"
+                       HorizontalOptions="Center" VerticalOptions="Center"
+                       MaximumHeightRequest="500" />
                 <Border BackgroundColor="{StaticResource SurfaceBg}" Opacity="0.7" Stroke="{StaticResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
