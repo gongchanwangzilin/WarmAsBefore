@@ -470,6 +470,26 @@
 
                 <Label Text="{Binding [Settings_AutoSaveNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
                        HorizontalOptions="Center" FontSize="12" Margin="0,6,0,0" />
+
+                <!-- 赞助作者 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="支持作者 ❤️" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
+                        <Label Text="如果您喜欢这个项目，欢迎赞助作者支持 continued development" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+                            <Button Text="☕ 爱发电赞助" BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                                    FontSize="13" HeightRequest="44" CornerRadius="12"
+                                    Command="{Binding OpenSponsorCommand}" />
+                            <Button Grid.Column="1" Text="📺 B站主页" BackgroundColor="{StaticResource SurfaceBg}" TextColor="{StaticResource SurfaceFg}"
+                                    BorderColor="{StaticResource BorderLine}" BorderWidth="1"
+                                    FontSize="13" HeightRequest="44" CornerRadius="12"
+                                    Command="{Binding OpenBilibiliCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding [Settings_AutoSaveNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
+                       HorizontalOptions="Center" FontSize="12" Margin="0,6,0,0" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

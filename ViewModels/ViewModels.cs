@@ -811,4 +811,34 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private async Task GoBack() => await Shell.Current.GoToAsync("..");
+
+    /// <summary>打开爱发电赞助页面。</summary>
+    [RelayCommand]
+    private async Task OpenSponsor()
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync("https://ifdian.net/a/jqyhxkxt1145141026");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.OpenSponsor -> " + ex);
+            await Shell.Current.DisplayAlert("赞助", "无法打开赞助页面：" + ex.Message, "好");
+        }
+    }
+
+    /// <summary>打开B站作者主页。</summary>
+    [RelayCommand]
+    private async Task OpenBilibili()
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync("https://space.bilibili.com/3546745275419060?spm_id_from=333.1007.0.0");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.OpenBilibili -> " + ex);
+            await Shell.Current.DisplayAlert("B站", "无法打开B站主页：" + ex.Message, "好");
+        }
+    }
 }
