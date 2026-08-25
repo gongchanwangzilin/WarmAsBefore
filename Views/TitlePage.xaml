@@ -114,14 +114,18 @@
                                FontSize="13" HorizontalOptions="Center"
                                Opacity="0.9" />
 
-                        <!-- Current theme effect chip -->
+                        <!-- Current theme info: color theme + effect -->
                         <Border BackgroundColor="{StaticResource BeigeAccent50}"
                                 StrokeThickness="0"
                                 Padding="16,8" HorizontalOptions="Center"
                                 Margin="0,10,0,0">
                             <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
-                            <Label Text="{Binding ThemeEffectName}"
-                                   FontSize="12" TextColor="{StaticResource WarmDark}" />
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding ThemeColorName}"
+                                       FontSize="13" FontAttributes="Bold" TextColor="{StaticResource WarmDark}" />
+                                <Label Text="{Binding ThemeEffectName}"
+                                       FontSize="11" TextColor="{StaticResource WarmMuted}" />
+                            </VerticalStackLayout>
                         </Border>
                     </VerticalStackLayout>
                 </Border>

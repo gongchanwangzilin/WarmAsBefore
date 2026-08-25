@@ -9,5 +9,6 @@
 
     <ShellContent ContentTemplate="{DataTemplate views:TitlePage}" Route="title" />
     <ShellContent ContentTemplate="{DataTemplate views:WorldbookPage}" Route="worldbook" />
+    <ShellContent ContentTemplate="{DataTemplate views:PetPage}" Route="pet" />
 
 </Shell>

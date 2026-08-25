@@ -69,7 +69,6 @@ public sealed partial class TitleViewModel : ObservableObject
             _ => LocalizationService.Current["Title_ThemeClassic"]
         };
         ThemeEffectName = $"{LocalizationService.Current["Title_ThemePrefix"]} · {effect}";
-        ThemeColorName = DesignSystem.Theme.ThemeManager.ThemeDisplay(_theme.ThemeName);
     }
 
     [RelayCommand]

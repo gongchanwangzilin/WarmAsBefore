@@ -454,56 +454,9 @@ public sealed class PetService
         if (_msgWnd != IntPtr.Zero) { _ = DestroyWindow(_msgWnd); _msgWnd = IntPtr.Zero; }
     }
 #else
-    // 移动端：桌宠模式 = 全屏问答模式（进入PetPage）
-    private readonly Shell _shell;
-    
-    public PetService(SettingsManager settings, Shell shell)
-    {
-        _instance = this;
-        _settings = settings;
-        _shell = shell;
-    }
-    
-    /// <summary>静态入口：进入/退出全屏问答模式。</summary>
-    public static void TogglePetModeStatic() => _instance?.TogglePetMode();
-    public static void ShowMainWindowStatic() => _instance?.ShowMainWindow();
-    
-    public void TogglePetMode()
-    {
-        if (_petMode) { ShowMainWindow(); return; }
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            try
-            {
-                await _shell.GoToAsync("pet");
-                _petMode = true;
-                App.WriteLog("PetService: pet mode (fullscreen chat) on");
-            }
-            catch (Exception ex)
-            {
-                App.WriteLog("PetService.TogglePetMode -> " + ex);
-            }
-        });
-    }
-    
-    public void ShowMainWindow()
-    {
-        if (!_petMode) return;
-        MainThread.BeginInvokeOnMainThread(async () =>
-        {
-            try
-            {
-                await _shell.GoToAsync("main");
-                _petMode = false;
-                App.WriteLog("PetService: main window restored");
-            }
-            catch (Exception ex)
-            {
-                App.WriteLog("PetService.ShowMainWindow -> " + ex);
-            }
-        });
-    }
-    
+    // 非 Windows：桌宠模式不支持，保持空实现
+    public void TogglePetMode() { }
+    public void ShowMainWindow() { }
     public void WatchMinimize() { }
     public void WatchIdle() { }
     public void Shutdown() { }
