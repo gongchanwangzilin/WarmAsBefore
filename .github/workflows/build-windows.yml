@@ -32,7 +32,7 @@ jobs:
       run: dotnet restore
       
     - name: Publish Windows ${{ matrix.rid }}
-      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-windows10.0.19041.0 -r ${{ matrix.rid }} --self-contained true -p:RuntimeIdentifierOverride=${{ matrix.rid }}
+      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-windows10.0.19041.0 -r ${{ matrix.rid }} --self-contained true -p:WindowsPackageType=None
       
     - name: Get version
       id: version
@@ -61,5 +61,5 @@ jobs:
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
         asset_path: bin/Release/net9.0-windows10.0.19041.0/${{ matrix.rid }}/publish/WarmAsBefore.exe
-        asset_name: WarmAsBefore-${{ steps.version.outputs.version }}-${{ matrix.rid }}.exe
+        asset_name: WarmAsBefore-${{ steps.version.outputs.version }}-win-${{ matrix.rid }}.exe
         asset_content_type: application/octet-stream
