@@ -17,7 +17,7 @@ jobs:
     
     strategy:
       matrix:
-        rid: [win10-x64, win10-arm64]
+        rid: [win-x64, win-arm64]
       
     steps:
     - name: Checkout
@@ -32,7 +32,7 @@ jobs:
       run: dotnet restore
       
     - name: Publish Windows ${{ matrix.rid }}
-      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-windows10.0.19041.0 -r ${{ matrix.rid }} --self-contained true -p:WindowsPackageType=None -p:RuntimeIdentifierOverride=${{ matrix.rid }}
+      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-windows10.0.19041.0 -r ${{ matrix.rid }} --self-contained true -p:RuntimeIdentifierOverride=${{ matrix.rid }}
       
     - name: Get version
       id: version
