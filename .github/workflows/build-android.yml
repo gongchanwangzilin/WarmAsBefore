@@ -30,17 +30,11 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
         
-    - name: Setup Android SDK
-      uses: android-actions/setup-android@v3
-      
     - name: Install Android workloads
       run: dotnet workload install android --ignore-failed-sources
       
     - name: Restore dependencies
       run: dotnet restore
-      
-    - name: Build for Android
-      run: dotnet build WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-android
       
     - name: Publish Android APK (ARM64)
       run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-android -p:RuntimeIdentifier=android-arm64 -p:AndroidPackageFormat=apk
