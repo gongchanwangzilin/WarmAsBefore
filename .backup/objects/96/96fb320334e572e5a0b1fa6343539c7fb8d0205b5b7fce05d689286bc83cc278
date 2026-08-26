@@ -32,7 +32,7 @@ jobs:
       run: dotnet restore WarmAsBefore.csproj
       
     - name: Publish Windows ${{ matrix.rid }}
-      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net10.0-windows10.0.19041.0 -r ${{ matrix.rid }} --self-contained true -p:WindowsPackageType=None
+      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-windows10.0.19041.0 -r ${{ matrix.rid }} --self-contained true -p:WindowsPackageType=None
       
     - name: Get version
       id: version
@@ -60,6 +60,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: bin/Release/net10.0-windows10.0.19041.0/${{ matrix.rid }}/publish/WarmAsBefore.exe
+        asset_path: bin/Release/net9.0-windows10.0.19041.0/${{ matrix.rid }}/publish/WarmAsBefore.exe
         asset_name: WarmAsBefore-${{ steps.version.outputs.version }}-win-${{ matrix.rid }}.exe
         asset_content_type: application/octet-stream
