@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFrameworks>net10.0-android;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks>net9.0-android;net9.0-windows10.0.19041.0</TargetFrameworks>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
     <OutputType>Exe</OutputType>
     <RootNamespace>WarmAsBefore</RootNamespace>
@@ -50,13 +50,13 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="CommunityToolkit.Maui" Version="9.*" />
     <PackageReference Include="CommunityToolkit.Maui.MediaElement" Version="4.*" />
-    <PackageReference Include="Microsoft.Maui.Controls" Version="10.*" />
-    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="10.*" />
+    <PackageReference Include="Microsoft.Maui.Controls" Version="9.*" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.*" />
   </ItemGroup>
 
   <!-- 桌面端截图（好感瞬间）仅 Windows 可用 -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
-    <PackageReference Include="System.Drawing.Common" Version="10.*" />
+    <PackageReference Include="System.Drawing.Common" Version="9.*" />
   </ItemGroup>
 
 </Project>
