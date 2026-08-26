@@ -30,11 +30,8 @@ jobs:
         distribution: 'temurin'
         java-version: '17'
         
-    - name: Restore workloads
-      run: dotnet workload restore
-      
-    - name: Restore dependencies
-      run: dotnet restore
+    - name: Restore Android dependencies
+      run: dotnet restore WarmAsBefore.csproj -p:TargetFramework=net9.0-android
       
     - name: Publish Android APK (ARM64)
       run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net9.0-android -p:RuntimeIdentifier=android-arm64 -p:AndroidPackageFormat=apk
