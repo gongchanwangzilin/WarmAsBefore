@@ -510,3 +510,4 @@ public sealed class PetService
     public static void BeginDrag(Microsoft.Maui.Controls.Page? page) { }
 #endif
 }
+}
