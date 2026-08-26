@@ -28,6 +28,9 @@ jobs:
       with:
         dotnet-version: '9.0.x'
         
+    - name: Install Windows workload
+      run: dotnet workload install maui-windows --ignore-failed-sources
+      
     - name: Restore dependencies
       run: dotnet restore WarmAsBefore.csproj
       
