@@ -24,8 +24,6 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly ApiGateway _api;
     private readonly LingshuImporter _lingshu;
 
-    [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
-
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
         SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu)
     {

@@ -22,19 +22,17 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly SaveManager _save;
     private readonly StorageProvider _store;
     private readonly ApiGateway _api;
-    private readonly LingshuImporter _lingshu;
 
     [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
 
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
-        SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu)
+        SaveManager save, StorageProvider store, ApiGateway api)
     {
         _engine = engine;
         _library = library;
         _save = save;
         _store = store;
         _api = api;
-        _lingshu = lingshu;
     }
 
     [RelayCommand]

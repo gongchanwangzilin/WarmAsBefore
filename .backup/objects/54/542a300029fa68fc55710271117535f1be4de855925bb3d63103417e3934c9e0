@@ -22,19 +22,17 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly SaveManager _save;
     private readonly StorageProvider _store;
     private readonly ApiGateway _api;
-    private readonly LingshuImporter _lingshu;
 
     [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
 
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
-        SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu)
+        SaveManager save, StorageProvider store, ApiGateway api)
     {
         _engine = engine;
         _library = library;
         _save = save;
         _store = store;
         _api = api;
-        _lingshu = lingshu;
     }
 
     [RelayCommand]
@@ -144,51 +142,6 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
 
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");
-
-    /// <summary>导入灵枢 AI 记忆 JSON 到角色世界书。</summary>
-    private async Task ImportLingshuAsync(string charId, string charName)
-    {
-        try
-        {
-            var file = await FilePicker.PickAsync(new PickOptions
-            {
-                FileTypes = FileContentType.Create(".json"),
-                PickerTitle = "选择灵枢记忆 JSON 文件"
-            });
-            
-            if (file == null) return;
-            
-            var valid = await _lingshu.ValidateAsync(file.Path);
-            if (!valid)
-            {
-                await Shell.Current.DisplayAlert("导入失败", "文件格式不正确，请选择灵枢导出的 JSON 文件。", "好");
-                return;
-            }
-            
-            var mode = await Shell.Current.DisplayActionSheet(
-                $"导入到「{charName}」", "取消", null,
-                "追加到现有记忆", "替换所有记忆");
-            
-            if (mode == "取消") return;
-            
-            var result = await _lingshu.ImportToCharacterAsync(
-                charId, 
-                file.Path, 
-                mode == "替换所有记忆" ? "replace" : "append");
-            
-            await Shell.Current.DisplayAlert(
-                result.ok ? "导入成功" : "导入失败", 
-                result.message, 
-                "好");
-            
-            if (result.ok) await Refresh();
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("CharacterLibrary.ImportLingshu -> " + ex);
-            await Shell.Current.DisplayAlert("导入失败", ex.Message, "好");
-        }
-    }
 }
 
 /// <summary>角色库展示项。</summary>
