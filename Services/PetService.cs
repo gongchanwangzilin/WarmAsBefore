@@ -1,18 +1,7 @@
 using System.Runtime.InteropServices;
 
-#if WINDOWS
-using Microsoft.UI.Windowing;
-using Windows.Graphics;
-using WinRT.Interop;
-#endif
-
 namespace WarmAsBefore.Services;
 
-/// <summary>
-/// 桌宠模式（仅 Windows）：把主窗口收纳隐藏，桌面只保留一个显示角色立绘的置顶小窗（桌宠），
-/// 系统托盘出现图标：单击恢复主窗口，右键菜单可恢复/退出。
-/// 主窗口最小化时也会自动收纳成桌宠。
-/// </summary>
 public sealed class PetService
 {
 #if WINDOWS
@@ -38,13 +27,11 @@ public sealed class PetService
     private bool _petMode;
     private bool _listening;
     private Window? _petWindow;
-
     private readonly SettingsManager _settings;
     private IDispatcherTimer? _idleTimer;
-    private bool _autoPetEntered;   // 是否因闲置自动进入（此时要监听输入自动恢复）
+    private bool _autoPetEntered;
     private bool _idleWatchStarted;
 
-    // ============ 闲置检测（GetLastInputInfo）============
     [StructLayout(LayoutKind.Sequential)]
     private struct LASTINPUTINFO
     {
@@ -63,7 +50,6 @@ public sealed class PetService
             : 0;
     }
 
-    /// <summary>开始闲置监听：SetPetWatchIdle（后台 10 秒一次）。挂接一次即可。</summary>
     public void WatchIdle()
     {
         if (_idleWatchStarted) return;
@@ -91,10 +77,8 @@ public sealed class PetService
             var minutes = _settings.Current.PetIdleMinutes;
             if (minutes <= 0) { _autoPetEntered = false; return; }
             var idle = IdleSeconds();
-
             if (_petMode)
             {
-                // 闲置自动进入的桌宠：用户恢复使用（回到屏幕前）应立即回到主窗口
                 if (_autoPetEntered && idle < 60)
                 {
                     _autoPetEntered = false;
@@ -102,10 +86,8 @@ public sealed class PetService
                 }
                 return;
             }
-
             if (idle >= minutes * 60)
             {
-                // 达到闲置时长：自动收纳为桌宠（仅 Windows；托盘已就绪可恢复）
                 _autoPetEntered = true;
                 MainThread.BeginInvokeOnMainThread(() =>
                 {
@@ -120,54 +102,12 @@ public sealed class PetService
         }
     }
 
-#if WINDOWS
-    // ============ Win32 P/Invoke ============
-    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
-    private struct NOTIFYICONDATA
-    {
-        public int cbSize;
-        public IntPtr hWnd;
-        public int uID;
-        public uint uFlags;
-        public uint uCallbackMessage;
-        public IntPtr hIcon;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
-        public string szTip;
-        public int dwState;
-        public int dwStateMask;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
-        public string szInfo;
-        public int uVersion;
-        public int uTimeout;
-        public long hBalloonIcon;
-    }
-
-    private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
-
-    [StructLayout(LayoutKind.Sequential)]
-    private struct WNDCLASS
-    {
-        public uint style;
-        public IntPtr lpfnWndProc;
-        public int cbClsExtra;
-        public int cbWndExtra;
-        public IntPtr hInstance;
-        public IntPtr hIcon;
-        public IntPtr hCursor;
-        public IntPtr hbrBackground;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
-        public string lpszMenuName;
-        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
-        public string lpszClassName;
-    }
-
     [DllImport("user32.dll")]
     private static extern IntPtr DefWindowProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
     [DllImport("user32.dll")]
     private static extern ushort RegisterClassW(ref WNDCLASS lpWndClass);
     [DllImport("user32.dll", CharSet = CharSet.Unicode)]
-    private static extern IntPtr CreateWindowExW(int exStyle, string className, string windowName, int style,
-        int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
+    private static extern IntPtr CreateWindowExW(int exStyle, string className, string windowName, int style, int x, int y, int w, int h, IntPtr parent, IntPtr menu, IntPtr instance, IntPtr param);
     [DllImport("user32.dll")]
     private static extern bool DestroyWindow(IntPtr hWnd);
     [DllImport("shell32.dll", CharSet = CharSet.Unicode)]
@@ -194,6 +134,45 @@ public sealed class PetService
     private static extern bool SetForegroundWindow(IntPtr hWnd);
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
+    [DllImport("user32.dll")]
+    private static extern bool ReleaseCapture();
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct NOTIFYICONDATA
+    {
+        public int cbSize;
+        public IntPtr hWnd;
+        public int uID;
+        public uint uFlags;
+        public uint uCallbackMessage;
+        public IntPtr hIcon;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 128)]
+        public string szTip;
+        public int dwState;
+        public int dwStateMask;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string szInfo;
+        public int uVersion;
+        public int uTimeout;
+        public long hBalloonIcon;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WNDCLASS
+    {
+        public uint style;
+        public IntPtr lpfnWndProc;
+        public int cbClsExtra;
+        public int cbWndExtra;
+        public IntPtr hInstance;
+        public IntPtr hIcon;
+        public IntPtr hCursor;
+        public IntPtr hbrBackground;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string lpszMenuName;
+        [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 256)]
+        public string lpszClassName;
+    }
 
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }
@@ -205,6 +184,7 @@ public sealed class PetService
 
     private static PetService? _instance;
     private static WndProc? _procDelegate;
+    private delegate IntPtr WndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     public PetService(SettingsManager settings)
     {
@@ -212,7 +192,6 @@ public sealed class PetService
         _settings = settings;
     }
 
-    /// <summary>静态入口：桌宠页双击回到主窗口。</summary>
     public static void ShowMainWindowStatic() => _instance?.ShowMainWindow();
 
     public static void BeginDrag(Microsoft.Maui.Controls.Page? page)
@@ -221,20 +200,16 @@ public sealed class PetService
         var win = page.Window;
         if (win?.Handler?.PlatformView is Microsoft.UI.Xaml.Window xw)
         {
-            var hwnd = WindowNative.GetWindowHandle(xw);
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(xw);
             ReleaseCapture();
-            _ = PostMessage(hwnd, 0x00A1 /* WM_NCLBUTTONDOWN */, new IntPtr(2 /* HTCAPTION */), IntPtr.Zero);
+            _ = PostMessage(hwnd, 0x00A1, new IntPtr(2), IntPtr.Zero);
         }
     }
 
-    [DllImport("user32.dll")]
-    private static extern bool ReleaseCapture();
-
-    /// <summary>进入/退出桌宠模式：收纳主窗口并显示桌宠（或相反）。</summary>
     public void TogglePetMode()
     {
         if (_petMode) { ShowMainWindow(); return; }
-        _autoPetEntered = false;   // 手动进入：不参与闲置自动恢复
+        _autoPetEntered = false;
         EnterPetMode();
     }
 
@@ -256,7 +231,6 @@ public sealed class PetService
         }
     }
 
-    /// <summary>从桌宠/收纳状态回到主窗口。</summary>
     public void ShowMainWindow()
     {
         try
@@ -278,7 +252,6 @@ public sealed class PetService
         }
     }
 
-    /// <summary>主窗口最小化时自动收纳为桌宠（挂接一次监听）。</summary>
     public void WatchMinimize()
     {
         if (_listening) return;
@@ -319,13 +292,11 @@ public sealed class PetService
         };
         Application.Current.OpenWindow(win);
         _petWindow = win;
-        // 无边框 + 置顶 + 右下角摆放
         if (win.Handler?.PlatformView is Microsoft.UI.Xaml.Window xw && xw.AppWindow is { } app)
         {
             app.Resize(new SizeInt32(320, 460));
             var area = DisplayArea.GetFromWindowId(app.Id, DisplayAreaFallback.Nearest);
-            app.Move(new PointInt32(area.WorkArea.X + area.WorkArea.Width - 340,
-                area.WorkArea.Y + area.WorkArea.Height - 480));
+            app.Move(new PointInt32(area.WorkArea.X + area.WorkArea.Width - 340, area.WorkArea.Y + area.WorkArea.Height - 480));
             if (app.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
@@ -343,7 +314,6 @@ public sealed class PetService
         _petWindow = null;
     }
 
-    /// <summary>主窗口关闭时调用：收起桌宠窗口并移除托盘图标，确保干净退出。</summary>
     public void Shutdown()
     {
         try
@@ -358,13 +328,11 @@ public sealed class PetService
         }
     }
 
-    // ============ 托盘 ============
     private void EnsureTray()
     {
         if (_iconAdded) return;
         _procDelegate ??= WndProcHandler;
         var hInstance = GetModuleHandle(null);
-
         var wc = new WNDCLASS
         {
             style = 0,
@@ -373,13 +341,10 @@ public sealed class PetService
             lpszClassName = "WarmAsBeforeTrayWnd"
         };
         _ = RegisterClassW(ref wc);
-        _msgWnd = CreateWindowExW(0, "WarmAsBeforeTrayWnd", "WarmAsBeforeTray", 0,
-            0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, hInstance, IntPtr.Zero);
+        _msgWnd = CreateWindowExW(0, "WarmAsBeforeTrayWnd", "WarmAsBeforeTray", 0, 0, 0, 0, 0, IntPtr.Zero, IntPtr.Zero, hInstance, IntPtr.Zero);
         if (_msgWnd == IntPtr.Zero) return;
-
         _trayIcon = ExtractIcon(hInstance, Environment.ProcessPath ?? "", 0);
         if (_trayIcon == IntPtr.Zero) _trayIcon = LoadIcon(IntPtr.Zero, "APPICON");
-
         var data = new NOTIFYICONDATA
         {
             cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
@@ -444,31 +409,24 @@ public sealed class PetService
     private void RemoveTray()
     {
         if (!_iconAdded) return;
-        var data = new NOTIFYICONDATA
-        {
-            cbSize = Marshal.SizeOf<NOTIFYICONDATA>(),
-            hWnd = _msgWnd,
-            uID = ID_TRAY
-        };
+        var data = new NOTIFYICONDATA { cbSize = Marshal.SizeOf<NOTIFYICONDATA>(), hWnd = _msgWnd, uID = ID_TRAY };
         Shell_NotifyIcon(NIM_DELETE, ref data);
         _iconAdded = false;
         if (_msgWnd != IntPtr.Zero) { _ = DestroyWindow(_msgWnd); _msgWnd = IntPtr.Zero; }
     }
 #else
-    // 移动端：桌宠模式 = 全屏问答模式（进入PetPage）
     private readonly Shell _shell;
-    
+
     public PetService(SettingsManager settings, Shell shell)
     {
         _instance = this;
         _settings = settings;
         _shell = shell;
     }
-    
-    /// <summary>静态入口：进入/退出全屏问答模式。</summary>
+
     public static void TogglePetModeStatic() => _instance?.TogglePetMode();
     public static void ShowMainWindowStatic() => _instance?.ShowMainWindow();
-    
+
     public void TogglePetMode()
     {
         if (_petMode) { ShowMainWindow(); return; }
@@ -478,7 +436,7 @@ public sealed class PetService
             {
                 await _shell.GoToAsync("pet");
                 _petMode = true;
-                App.WriteLog("PetService: pet mode (fullscreen chat) on");
+                App.WriteLog("PetService: pet mode on");
             }
             catch (Exception ex)
             {
@@ -486,7 +444,7 @@ public sealed class PetService
             }
         });
     }
-    
+
     public void ShowMainWindow()
     {
         if (!_petMode) return;
@@ -504,6 +462,7 @@ public sealed class PetService
             }
         });
     }
+
     public void WatchMinimize() { }
     public void WatchIdle() { }
     public void Shutdown() { }
