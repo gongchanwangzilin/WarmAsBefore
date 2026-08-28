@@ -95,7 +95,6 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<WorldbookPage>();
         builder.Services.AddTransient<CharacterLibraryPage>();
         builder.Services.AddTransient<ShopPage>();
-        builder.Services.AddTransient<LingshuImportPage>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
         builder.Services.AddTransient<NovelSelectViewModel>();
         builder.Services.AddTransient<NovelWorldViewModel>();

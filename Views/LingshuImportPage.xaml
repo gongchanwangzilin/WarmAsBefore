@@ -1,0 +1,121 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.LingshuImportPage"
+             Title="导入灵枢记忆">
+    <ScrollView>
+        <VerticalStackLayout Spacing="16" Padding="20">
+            <!-- 标题 -->
+            <Label Text="导入灵枢 AI 记忆" 
+                   FontSize="24" 
+                   FontAttributes="Bold"
+                   HorizontalOptions="Center"
+                   TextColor="#FF6B9D"/>
+            
+            <!-- 文件选择 -->
+            <Frame BorderColor="#FF6B9D" 
+                   BackgroundColor="#FFF0F5"
+                   CornerRadius="12"
+                   Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="选择 JSON 文件" 
+                           FontSize="16" 
+                           FontAttributes="Bold"
+                           TextColor="#333"/>
+                    
+                    <Button x:Name="SelectFileButton"
+                            Text="选择文件"
+                            BackgroundColor="#FF6B9D"
+                            Clicked="OnSelectFileClicked"
+                            HeightRequest="48"/>
+                    
+                    <Label x:Name="FilePathLabel"
+                           Text="未选择文件"
+                           FontSize="14"
+                           TextColor="#666"
+                           FontAttributes="Italic"/>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- 导入模式 -->
+            <Frame BorderColor="#FF6B9D" 
+                   BackgroundColor="#FFF0F5"
+                   CornerRadius="12"
+                   Padding="16">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="导入模式" 
+                           FontSize="16" 
+                           FontAttributes="Bold"
+                           TextColor="#333"/>
+                    
+                    <Picker x:Name="ModePicker"
+                            Title="选择导入模式"
+                            BackgroundColor="White"
+                            HeightRequest="48">
+                        <Picker.Items>
+                            <x:String>创建新角色</x:String>
+                            <x:String>覆盖当前角色</x:String>
+                            <x:String>追加到同名角色</x:String>
+                        </Picker.Items>
+                    </Picker>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- 预览信息 -->
+            <Frame x:Name="PreviewFrame"
+                   BorderColor="#FF6B9D" 
+                   BackgroundColor="#FFF0F5"
+                   CornerRadius="12"
+                   Padding="16"
+                   IsVisible="False">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="文件预览" 
+                           FontSize="16" 
+                           FontAttributes="Bold"
+                           TextColor="#333"/>
+                    
+                    <Label x:Name="PreviewNameLabel"
+                           Text=""
+                           FontSize="14"
+                           TextColor="#333"/>
+                    
+                    <Label x:Name="PreviewMemoriesLabel"
+                           Text=""
+                           FontSize="14"
+                           TextColor="#666"/>
+                    
+                    <Label x:Name="PreviewDialoguesLabel"
+                           Text=""
+                           FontSize="14"
+                           TextColor="#666"/>
+                </VerticalStackLayout>
+            </Frame>
+
+            <!-- 操作按钮 -->
+            <HorizontalStackLayout Spacing="12" HorizontalOptions="Center">
+                <Button x:Name="ValidateButton"
+                        Text="验证文件"
+                        BackgroundColor="#888"
+                        Clicked="OnValidateClicked"
+                        HeightRequest="48"
+                        WidthRequest="120"/>
+                
+                <Button x:Name="ImportButton"
+                        Text="开始导入"
+                        BackgroundColor="#FF6B9D"
+                        Clicked="OnImportClicked"
+                        HeightRequest="48"
+                        WidthRequest="120"
+                        IsEnabled="False"/>
+            </HorizontalStackLayout>
+
+            <!-- 状态信息 -->
+            <Label x:Name="StatusLabel"
+                   Text=""
+                   FontSize="14"
+                   HorizontalOptions="Center"
+                   TextColor="#666"/>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>

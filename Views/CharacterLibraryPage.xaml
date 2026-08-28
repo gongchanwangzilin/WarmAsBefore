@@ -13,18 +13,23 @@
         <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12"
                 StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="角色库" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" />
-                <Border Grid.Column="2" BackgroundColor="{StaticResource BeigeAccent50}"
-                        StrokeThickness="0" Padding="10,5">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="AI 也会用到她们" FontSize="11" TextColor="{StaticResource WarmDark}" />
-                </Border>
-            </Grid>
+             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                         FontSize="14" Padding="0"
+                         Command="{Binding BackCommand}" />
+                 <Label Grid.Column="1" Text="角色库" Style="{StaticResource TxtTitle}"
+                        VerticalOptions="Center" />
+                 <HorizontalStackLayout Grid.Column="2" Spacing="8">
+                     <Button Text="灵枢导入" Style="{StaticResource BtnText}"
+                             FontSize="12" Padding="8,4"
+                             Clicked="OnLingshuImportClicked" />
+                     <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                             StrokeThickness="0" Padding="10,5">
+                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                         <Label Text="AI 也会用到她们" FontSize="11" TextColor="{StaticResource WarmDark}" />
+                     </Border>
+                 </HorizontalStackLayout>
+             </Grid>
         </Border>
 
         <!-- Library list -->
