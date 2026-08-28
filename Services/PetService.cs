@@ -504,7 +504,6 @@ public sealed class PetService
             }
         });
     }
-    
     public void WatchMinimize() { }
     public void WatchIdle() { }
     public void Shutdown() { }
