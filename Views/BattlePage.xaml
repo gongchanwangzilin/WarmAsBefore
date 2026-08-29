@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:viewmodels="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:converters="clr-namespace:WarmAsBefore.Converters"
+             x:Class="WarmAsBefore.Views.BattlePage"
+             Title="回合制战斗"
+             BackgroundColor="#1a1a2e">
+    
+    <ContentPage.Resources>
+        <ResourceDictionary>
+            <converters:HpColorConverter x:Key="HpColorConverter" />
+            <converters:SkillTypeColorConverter x:Key="SkillTypeColorConverter" />
+            <converters:CriticalColorConverter x:Key="CriticalColorConverter" />
+            <converters:StringNotEmptyConverter x:Key="StringNotEmptyConverter" />
+            <converters:StringEmptyConverter x:Key="StringEmptyConverter" />
+        </ResourceDictionary>
+    </ContentPage.Resources>
+
+    <ContentPage.BindingContext>
+        <viewmodels:BattleViewModel />
+    </ContentPage.BindingContext>
+
+    <Grid RowDefinitions="Auto,*,Auto" 
+          ColumnDefinitions="*,*"
+          Padding="10">
+        
+        <!-- 顶部状态栏 -->
+        <Border Grid.Row="0" Grid.ColumnSpan="2"
+                BackgroundColor="#16213e"
+                StrokeThickness="0"
+                Padding="10"
+                Margin="0,0,0,10">
+            <StackLayout Orientation="Horizontal" HorizontalOptions="Center">
+                <Label Text="{Binding Round, StringFormat='第 {0} 回合'}" 
+                       TextColor="#e94560"
+                       FontSize="18"
+                       FontAttributes="Bold"/>
+                <Label Text="  |  " TextColor="#ffffff"/>
+                <Label Text="{Binding StatusText}" 
+                       TextColor="#ffffff"
+                       FontSize="16"/>
+            </StackLayout>
+        </Border>
+
+        <!-- 左侧：玩家区域 -->
+        <StackLayout Grid.Row="1" Grid.Column="0"
+                     Padding="5">
+            <Label Text="我方角色" 
+                   TextColor="#4ecca3"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   Margin="0,0,0,10"/>
+            
+            <ScrollView>
+                <StackLayout BindableLayout.ItemsSource="{Binding PlayerCharacters}">
+                    <DataTemplate>
+                         <Border StrokeThickness="2"
+                                 Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
+                                 BackgroundColor="#16213e"
+                                 Padding="10"
+                                 Margin="0,5"
+                                 HeightRequest="100">
+                             <Border.GestureRecognizers>
+                                 <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:BattleViewModel}}, Path=SelectPlayerCommand}"
+                                                       CommandParameter="{Binding}"/>
+                             </Border.GestureRecognizers>
+                             <StackLayout Orientation="Horizontal" VerticalOptions="Center">
+                                 <Image Source="{Binding AvatarImage, TargetNullValue='placeholder.png'}"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        Margin="0,0,10,0"
+                                        IsVisible="{Binding AvatarImage, Converter={StaticResource StringNotEmptyConverter}}"/>
+                                 <Label Text="{Binding AvatarEmoji}"
+                                        FontSize="32"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center"
+                                        IsVisible="{Binding AvatarImage, Converter={StaticResource StringEmptyConverter}}"/>
+                                 <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
+                                     <Label Text="{Binding DisplayName}" TextColor="#ffffff" FontSize="14" FontAttributes="Bold"/>
+                                     <ProgressBar Progress="{Binding CurrentHpPercentage, Mode=OneWay}"
+                                                  ProgressColor="#4ecca3"
+                                                  HeightRequest="8"
+                                                  Margin="0,2"/>
+                                     <Label Text="{Binding CurrentHp, StringFormat='HP: {0}'}" 
+                                            TextColor="#aaaaaa"
+                                            FontSize="12"/>
+                                 </StackLayout>
+                             </StackLayout>
+                         </Border>
+                     </DataTemplate>
+                </StackLayout>
+            </ScrollView>
+        </StackLayout>
+
+        <!-- 右侧：敌方区域 -->
+        <StackLayout Grid.Row="1" Grid.Column="1"
+                     Padding="5">
+            <Label Text="敌方角色" 
+                   TextColor="#e94560"
+                   FontSize="18"
+                   FontAttributes="Bold"
+                   Margin="0,0,0,10"/>
+            
+            <ScrollView>
+                <StackLayout BindableLayout.ItemsSource="{Binding EnemyCharacters}">
+                    <DataTemplate>
+                         <Border StrokeThickness="2"
+                                 Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
+                                 BackgroundColor="#16213e"
+                                 Padding="10"
+                                 Margin="0,5"
+                                 HeightRequest="100">
+                             <Border.GestureRecognizers>
+                                 <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:BattleViewModel}}, Path=SelectEnemyCommand}"
+                                                       CommandParameter="{Binding}"/>
+                             </Border.GestureRecognizers>
+                             <StackLayout Orientation="Horizontal" VerticalOptions="Center">
+                                 <Image Source="{Binding AvatarImage, TargetNullValue='placeholder.png'}"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        Margin="0,0,10,0"
+                                        IsVisible="{Binding AvatarImage, Converter={StaticResource StringNotEmptyConverter}}"/>
+                                 <Label Text="{Binding AvatarEmoji}"
+                                        FontSize="32"
+                                        WidthRequest="50"
+                                        HeightRequest="50"
+                                        HorizontalOptions="Center"
+                                        VerticalOptions="Center"
+                                        IsVisible="{Binding AvatarImage, Converter={StaticResource StringEmptyConverter}}"/>
+                                 <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
+                                     <Label Text="{Binding DisplayName}" TextColor="#ffffff" FontSize="14" FontAttributes="Bold"/>
+                                     <ProgressBar Progress="{Binding CurrentHpPercentage, Mode=OneWay}"
+                                                  ProgressColor="#e94560"
+                                                  HeightRequest="8"
+                                                  Margin="0,2"/>
+                                     <Label Text="{Binding CurrentHp, StringFormat='HP: {0}'}" 
+                                            TextColor="#aaaaaa"
+                                            FontSize="12"/>
+                                 </StackLayout>
+                             </StackLayout>
+                         </Border>
+                     </DataTemplate>
+                </StackLayout>
+            </ScrollView>
+        </StackLayout>
+
+        <!-- 底部：日志和操作区 -->
+        <StackLayout Grid.Row="2" Grid.ColumnSpan="2"
+                     Margin="0,10">
+            
+            <!-- 技能选择区（选中角色后显示） -->
+            <StackLayout IsVisible="{Binding SelectedPlayerForAction}"
+                         Padding="10"
+                         BackgroundColor="#16213e">
+                <Label Text="选择技能：" 
+                       TextColor="#e94560"
+                       FontSize="14"
+                       FontAttributes="Bold"/>
+                <ScrollView Orientation="Horizontal">
+                    <StackLayout Orientation="Horizontal"
+                                 BindableLayout.ItemsSource="{Binding SelectedPlayerForAction.Skills}">
+                        <DataTemplate>
+                            <Button Text="{Binding Name}"
+                                    BackgroundColor="{Binding IsHeal, Converter={StaticResource SkillTypeColorConverter}}"
+                                    TextColor="#ffffff"
+                                    Padding="15,5"
+                                    Margin="5"
+                                    HeightRequest="40"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:BattleViewModel}}, Path=SelectSkillCommand}"
+                                    CommandParameter="{Binding}"/>
+                        </DataTemplate>
+                    </StackLayout>
+                </ScrollView>
+                <Button Text="⚔️ 普通攻击"
+                        BackgroundColor="#533483"
+                        TextColor="#ffffff"
+                        Padding="20,10"
+                        Margin="5"
+                        Command="{Binding ExecuteAttackCommand}"/>
+            </StackLayout>
+
+            <!-- 战斗日志 -->
+            <Border BackgroundColor="#16213e"
+                    StrokeThickness="0"
+                    Padding="10"
+                    Margin="0,5">
+                <ScrollView>
+                    <StackLayout BindableLayout.ItemsSource="{Binding BattleLog}">
+                        <DataTemplate>
+                            <Label Text="{Binding Action}"
+                                   TextColor="{Binding IsCritical, Converter={StaticResource CriticalColorConverter}}"
+                                   FontSize="12"
+                                   Margin="0,2"/>
+                        </DataTemplate>
+                    </StackLayout>
+                </ScrollView>
+            </Border>
+
+            <!-- 返回按钮 -->
+            <Button Text="← 返回"
+                    BackgroundColor="#533483"
+                    TextColor="#ffffff"
+                    Padding="20,10"
+                    Command="{Binding GoBackCommand}"
+                    Margin="0,10"/>
+        </StackLayout>
+
+        <!-- 战斗总结弹窗 -->
+        <Border IsVisible="{Binding ShowSummary}"
+                BackgroundColor="#16213e"
+                StrokeThickness="2"
+                Stroke="#e94560"
+                HorizontalOptions="Center"
+                VerticalOptions="Center"
+                WidthRequest="300"
+                HeightRequest="400"
+                Padding="20">
+            <StackLayout>
+                <Label Text="战斗总结"
+                       TextColor="#e94560"
+                       FontSize="20"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center"/>
+                <ScrollView>
+                    <Label Text="{Binding BattleSummary}"
+                           TextColor="#ffffff"
+                           FontSize="14"
+                           Margin="0,10"/>
+                </ScrollView>
+                <Button Text="继续"
+                        BackgroundColor="#533483"
+                        TextColor="#ffffff"
+                        Command="{Binding CloseSummaryCommand}"/>
+            </StackLayout>
+        </Border>
+
+    </Grid>
+</ContentPage>

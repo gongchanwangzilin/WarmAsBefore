@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="UTF-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:views="clr-namespace:WarmAsBefore.Views"
@@ -10,5 +10,6 @@
     <ShellContent ContentTemplate="{DataTemplate views:TitlePage}" Route="title" />
     <ShellContent ContentTemplate="{DataTemplate views:WorldbookPage}" Route="worldbook" />
     <ShellContent ContentTemplate="{DataTemplate views:PetPage}" Route="pet" />
+    <ShellContent ContentTemplate="{DataTemplate views:BattlePage}" Route="battle" />
 
 </Shell>
