@@ -1,0 +1,72 @@
+name: Build and Publish Windows X64
+
+on:
+  push:
+    branches: [master]
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release -f net10.0-windows10.0.19041.0 -r win-x64
+
+      - name: Publish
+        run: dotnet publish -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:RuntimeIdentifierOverride=win-x64 -o ./publish/win-x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WarmAsBefore-win-x64
+          path: publish/win-x64
+          retention-days: 7
+
+      - name: Create ZIP package
+        run: |
+          $version = "${{ github.ref_name }}"
+          if ($version -notmatch '^v') { $version = 'v' + (git describe --tags --always) }
+          Compress-Archive -Path ./publish/win-x64/* -DestinationPath "./WarmAsBefore_${version}.zip" -Force
+
+      - name: Upload to GitHub Releases
+        if: startsWith(github.ref, 'refs/tags/')
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $asset = "./WarmAsBefore_${tag}.zip"
+          if (Test-Path $asset) {
+            gh release upload "$tag" $asset --clobber
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create or update release (latest tag)
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          $tag = "${{ github.ref_name }}"
+          $assets = @(./WarmAsBefore_${tag}.zip)
+          $existingRelease = gh release view "$tag" --json id --jq '.id' 2>$null
+          if (-not $existingRelease) {
+            gh release create "$tag" --title "$tag" --notes "Release $tag"
+          }
+          foreach ($asset in $assets) {
+            if (Test-Path $asset) {
+              gh release upload "$tag" $asset --clobber
+            }
+          }
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
