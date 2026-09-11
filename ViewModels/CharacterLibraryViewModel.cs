@@ -2,7 +2,6 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
-using Microsoft.Maui.Essentials;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.ApiManager;
 using WarmAsBefore.Modules.SaveSystem;
@@ -152,13 +151,18 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         {
             var file = await FilePicker.PickAsync(new PickOptions
             {
-                FileTypes = FileContentType.Create(".json"),
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".json" } },
+                    { DevicePlatform.Android, new[] { "application/json" } },
+                    { DevicePlatform.iOS, new[] { "public.json" } }
+                }),
                 PickerTitle = "选择灵枢记忆 JSON 文件"
             });
             
             if (file == null) return;
             
-            var valid = await _lingshu.ValidateAsync(file.Path);
+            var valid = await _lingshu.ValidateAsync(file.FullPath);
             if (!valid)
             {
                 await Shell.Current.DisplayAlert("导入失败", "文件格式不正确，请选择灵枢导出的 JSON 文件。", "好");
@@ -173,7 +177,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             
             var result = await _lingshu.ImportToCharacterAsync(
                 charId, 
-                file.Path, 
+                file.FullPath, 
                 mode == "替换所有记忆" ? "replace" : "append");
             
             await Shell.Current.DisplayAlert(

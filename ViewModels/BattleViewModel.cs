@@ -42,8 +42,7 @@ namespace WarmAsBefore.ViewModels
         /// <summary>
         /// 开始战斗 - 创建玩家和敌方角色
         /// </summary>
-        [RelayCommand]
-        private void StartBattle(List<BattleCharacter> players, List<BattleCharacter> enemies)
+        public void StartBattle(List<BattleCharacter> players, List<BattleCharacter> enemies)
         {
             _battle = new BattleState
             {

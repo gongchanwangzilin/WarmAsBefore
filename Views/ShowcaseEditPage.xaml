@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.ShowcaseEditPage"
+             Title="编辑展示案"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <Label Text="编辑展示案" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                <Button Grid.Column="1" Text="保存" Style="{StaticResource BtnNeumorphSm}"
+                        BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                        FontAttributes="Bold" Command="{Binding SaveCommand}" />
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="16,8">
+            <VerticalStackLayout Spacing="12">
+                <!-- 基本信息 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="基本信息" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="名称" VerticalOptions="Center" Style="{StaticResource TxtBodySm}" />
+                            <Entry Grid.Column="1" Text="{Binding ScriptName}" BackgroundColor="{StaticResource InputBg}"
+                                   TextColor="{StaticResource SurfaceFg}" FontSize="13" />
+                        </Grid>
+                        <Grid ColumnDefinitions="80,*">
+                            <Label Text="主角" VerticalOptions="Center" Style="{StaticResource TxtBodySm}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                <Label Text="{Binding CharacterName}" VerticalOptions="Center" Style="{StaticResource TxtCaption}" FontSize="12" />
+                                <Button Text="选择角色" Style="{StaticResource BtnNeumorphSm}" FontSize="11" Command="{Binding PickCharacterCommand}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 步骤列表 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="步骤列表" Style="{StaticResource TxtSubhead}" />
+                        <CollectionView ItemsSource="{Binding Steps}" SelectionMode="None" HeightRequest="260">
+                            <CollectionView.EmptyView>
+                                <Label Text="暂无步骤，点击下方按钮添加" Style="{StaticResource TxtCaption}" Padding="4,8" />
+                            </CollectionView.EmptyView>
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ShowcaseStepDisplay">
+                                    <Border BackgroundColor="{StaticResource SurfaceBg}" Stroke="{StaticResource BorderLine}"
+                                            StrokeThickness="0.5" Padding="10,6" Margin="0,2">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" FontSize="12" />
+                                                <Label Text="{Binding Sub}" Style="{StaticResource TxtCaption}" FontSize="10" IsVisible="{Binding Sub, Converter={StaticResource StringNotEmpty}}" />
+                                            </VerticalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                                <Button Text="↑" Style="{StaticResource BtnText}" FontSize="12"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=MoveUpCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Text="↓" Style="{StaticResource BtnText}" FontSize="12"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=MoveDownCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Text="×" TextColor="#E94560" Style="{StaticResource BtnText}" FontSize="12"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=DeleteStepCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 操作区 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="添加步骤" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Button Text="💬 添加对话" Style="{StaticResource BtnNeumorphSm}" Command="{Binding AddDialogueCommand}" />
+                            <Button Grid.Column="1" Text="🖼️ 插入CG" Style="{StaticResource BtnNeumorphSm}" Command="{Binding InsertCgCommand}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Button Text="✨ 添加立绘" Style="{StaticResource BtnNeumorphSm}" Command="{Binding AddSpriteCommand}" />
+                            <Button Grid.Column="1" Text="🚫 清空立绘" Style="{StaticResource BtnNeumorphSm}" Command="{Binding ClearSpritesCommand}" />
+                        </Grid>
+                        <Button Text="📁 导入临时素材" Style="{StaticResource BtnNeumorphSm}" Command="{Binding ImportTempMaterialCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="返回" Style="{StaticResource BtnNeumorphSm}" Command="{Binding BackCommand}" Margin="0,12,0,24" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

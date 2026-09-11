@@ -81,27 +81,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private int _energy = 100;
     [ObservableProperty] private double _energyPct = 1.0;
 
-    // ============ 开发者测试向导（右下角文字指挥，逐步验证全功能） ============
-    [ObservableProperty] private bool _testWizardVisible;
-    [ObservableProperty] private string _testWizardTitle = "开发者测试向导";
-    [ObservableProperty] private string _testWizardPrompt = "";   // 当前步骤要求用户做的动作
-    [ObservableProperty] private string _testWizardDetail = "";   // 当前检测的实时反馈
-    [ObservableProperty] private bool _testWizardDone;            // 全部步骤完成
-    [ObservableProperty] private int _testWizardStep;             // 当前步骤号
-    [ObservableProperty] private int _testWizardTotal;            // 总步骤数
-    [ObservableProperty] private string _testWizardResult = "";   // 汇总：通过/失败列表
-    private int _wizardPassed, _wizardFailed;
-    private readonly List<string> _wizardChecks = new();
-    private SemaphoreSlim _wizardLock = new(1, 1);
-
     public bool NoSpriteVisible => !SpriteVisible;
 
     public bool IsGalgamePanelVisible => !IsInMiniGame;
-
-    public double TestWizardProgress => TestWizardTotal == 0 ? 0 : (double)TestWizardStep / TestWizardTotal;
-    public string TestWizardProgressText => $"{TestWizardStep}/{TestWizardTotal} · 已通过 {_wizardPassed} · 失败 {_wizardFailed}";
-    partial void OnTestWizardStepChanged(int value) { OnPropertyChanged(nameof(TestWizardProgress)); OnPropertyChanged(nameof(TestWizardProgressText)); }
-    partial void OnTestWizardTotalChanged(int value) { OnPropertyChanged(nameof(TestWizardProgress)); OnPropertyChanged(nameof(TestWizardProgressText)); }
 
     partial void OnIsInMiniGameChanged(bool value)
     {
@@ -870,7 +852,6 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task QuickSave()
     {
-        _saveCheckCount++;                       // 开发者测试向导步骤 13 检测
         var ok = await _save.Commit("快速存档");
         if (ok) await Shell.Current.DisplayAlert("", "已保存", "好");
     }
@@ -888,12 +869,11 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task Menu()
     {
-        var act = await Shell.Current.DisplayActionSheet("菜单", "取消", null, "设置", "存档管理", "开发者模式", "回标题");
+        var act = await Shell.Current.DisplayActionSheet("菜单", "取消", null, "设置", "存档管理", "回标题");
         switch (act)
         {
             case "设置": await Shell.Current.GoToAsync("settings"); break;
             case "存档管理": await Shell.Current.GoToAsync("save"); break;
-            case "开发者模式": await Shell.Current.GoToAsync("dev"); break;
             case "回标题": await _save.Commit("存档"); _auto.Stop(); await Shell.Current.GoToAsync(".."); break;
         }
     }
@@ -976,164 +956,6 @@ public sealed partial class MainGameViewModel : ObservableObject
         var w = await _weather.Fetch();
         if (w is not null) WeatherDesc = w.Description;
     }
-
-    // ==================== 开发者测试向导 ====================
-
-    /// <summary>页面键盘密令 wzlnb → 启动。逐步骤在右下角用文字指挥用户操作，自动核对状态。</summary>
-    public void StartTestWizard()
-    {
-        if (TestWizardVisible) return;          // 已在跑，防重复
-        if (!_wizardLock.Wait(0)) return;
-        try
-        {
-            TestWizardVisible = true;
-            TestWizardDone = false;
-            TestWizardResult = "";
-            _wizardPassed = 0;
-            _wizardFailed = 0;
-            _wizardChecks.Clear();
-            _ = RunWizardAsync();
-        }
-        finally { _wizardLock.Release(); }
-    }
-
-    [RelayCommand]
-    private void CloseTestWizard()
-    {
-        TestWizardVisible = false;
-        TestWizardDone = false;
-        _wizardRunId++;                          // 使跑动的向导循环作废
-    }
-
-    private int _wizardRunId;
-
-    /// <summary>读取属性的线程安全包装（ObservableCollection 不能跨线程读，统一走主线程）。</summary>
-    private T ReadUi<T>(Func<T> get) =>
-        MainThread.IsMainThread ? get() : MainThread.InvokeOnMainThreadAsync(get).GetAwaiter().GetResult();
-
-    private async Task<bool> WaitForAsync(Func<bool> condition, int timeoutSec, string what)
-    {
-        var sw = System.Diagnostics.Stopwatch.StartNew();
-        while (sw.Elapsed.TotalSeconds < timeoutSec)
-        {
-            if (ReadUi(condition)) return true;
-            await Task.Delay(300);
-        }
-        TestWizardDetail = $"超时：{what}（{timeoutSec}s 内未达成）";
-        return false;
-    }
-
-    /// <summary>向导主循环：每步 = 文字指令 + 状态核对，全部通过 = 全功能正常。</summary>
-    private async Task RunWizardAsync()
-    {
-        var runId = ++_wizardRunId;
-        var steps = new (string Title, string Prompt, Func<bool> Check, int TimeoutSec)[]
-        {
-            // index 0：时钟
-            ("时钟显示", "观察：顶部显示当前时间（HH:mm）与日期（M月d日 周X）。",
-                () => !string.IsNullOrEmpty(CurrentTimeStr) && CurrentTimeStr.Contains(":") && !string.IsNullOrEmpty(DateLabel), 5),
-            // 1：精力值
-            ("精力值机制", "观察：顶部/侧栏有「精力 x%」胶囊与进度条，数值 0-100。",
-                () => Energy is >= 0 and <= 100 && Math.Abs(EnergyPct - Energy / 100.0) < 0.02, 5),
-            // 2：好感度
-            ("好感度与信任度", "观察：左侧栏好感度/信任度进度条，数值 0-100。",
-                () => Affection is >= 0 and <= 100 && Trust is >= 0 and <= 100, 5),
-            // 3：发送消息
-            ("发送消息", "请在聊天输入框输入一句话（如：你好呀），然后点击【发送】。",
-                () => Messages.Count > _msgsBeforeSend && !string.IsNullOrEmpty(LastMessageText), 90),
-            // 4：AI 回复
-            ("AI 回复", "等待角色回复：发送的内容应得到一条助手消息（对话卡显示最近发言）。",
-                () => Messages.Count > _msgsAfterSend && Messages[^1].Role == "assistant", 120),
-            // 5：摸头
-            ("摸头互动", "请点击动作区的【摸头】按钮。", () => Messages.Count > _msgsAfterAction, 60),
-            // 6：抱抱
-            ("抱抱互动", "请点击动作区的【抱抱】按钮。", () => Messages.Count > _msgsAfterHug, 60),
-            // 7：亲吻
-            ("亲吻互动", "请点击动作区的【亲吻】按钮（若提示好感不足属正常分支）。", () => Messages.Count > _msgsAfterKiss, 60),
-            // 8：收起面板
-            ("收起对话面板", "请点击 Galgame 卡的【收起对话】按钮。", () => !ShowRightChat, 60),
-            // 9：展开面板
-            ("展开对话面板", "请点击 Galgame 卡的【展开对话】按钮。", () => ShowRightChat, 60),
-            // 10：模式切换
-            ("模式切换", "请点击右上角 Galgame 卡区域的【切到聊天模式】按钮，再点回【切回 Galgame】。",
-                () => ReadUi(() => IsInMiniGame) == _miniGameOrigi && _miniGameToggled, 60),
-            // 11：打开设置
-            ("打开设置", "请点击顶栏【设置】按钮，面板应弹出。", () => ShowSettings, 60),
-            // 12：关闭设置
-            ("关闭设置", "请点击设置面板里的【关闭】按钮。", () => !ShowSettings, 60),
-            // 13：快速存档
-            ("快速存档", "请点击顶栏【存档】：应弹出「已保存」提示，点击【好】。", () => _saveCheckCount >= 1, 60)
-        };
-        TestWizardTotal = steps.Length;
-
-        var baseMsgs = ReadUi(() => Messages.Count);
-        _msgsBeforeSend = baseMsgs;
-        _msgsAfterSend = baseMsgs;
-        _msgsAfterAction = baseMsgs;
-        _msgsAfterHug = baseMsgs;
-        _msgsAfterKiss = baseMsgs;
-        _saveCheckCount = 0;
-        _settingsOpened = false;
-        _miniGameToggled = false;
-        _miniGameOrigi = ReadUi(() => IsInMiniGame);
-
-        for (var i = 0; i < steps.Length; i++)
-        {
-            if (runId != _wizardRunId) return;   // 被关闭
-            // 每步执行前刷新基准快照
-            switch (i)
-            {
-                case 0: break;
-                case 3: _msgsBeforeSend = ReadUi(() => Messages.Count); break;
-                case 4: _msgsAfterSend = ReadUi(() => Messages.Count); break;
-                case 5: _msgsAfterAction = ReadUi(() => Messages.Count); break;
-                case 6: _msgsAfterHug = ReadUi(() => Messages.Count); break;
-                case 7: _msgsAfterKiss = ReadUi(() => Messages.Count); break;
-                case 8: break;
-                case 9: break;
-                case 10: break;
-                case 11: break;
-                case 12: _saveCheckCount = 0; break;
-            }
-            // 随时观察设置是否已被打开过（供第 12 步判定）
-            if (i == 11 && ReadUi(() => ShowSettings)) _settingsOpened = true;
-            // 模式切换：出现一次翻转即认为用户执行过
-            if (i == 10 && ReadUi(() => IsInMiniGame) != _miniGameOrigi) _miniGameToggled = true;
-
-            var (title, prompt, check, timeout) = steps[i];
-            TestWizardStep = i + 1;
-            TestWizardTitle = $"第 {i + 1}/{steps.Length} 步 · {title}";
-            TestWizardPrompt = prompt;
-            TestWizardDetail = "等待操作…";
-
-            var ok = await WaitForAsync(check, timeout, title);
-            if (runId != _wizardRunId) return;
-            if (ok)
-            {
-                _wizardPassed++;
-                _wizardChecks.Add($"✓ {title}");
-                TestWizardDetail = "通过";
-            }
-            else
-            {
-                _wizardFailed++;
-                _wizardChecks.Add($"✗ {title}");
-                TestWizardDetail = "超时/失败";
-            }
-            OnPropertyChanged(nameof(TestWizardProgressText));
-            await Task.Delay(400);
-        }
-
-        TestWizardResult = _wizardFailed == 0
-            ? $"全部测试通过（{_wizardPassed}/{steps.Length}）—— 全功能正常 ✓"
-            : $"通过 {_wizardPassed}/{steps.Length}，失败 {_wizardFailed} 项：\n{string.Join("\n", _wizardChecks.Where(c => c.StartsWith("✗")))}";
-        TestWizardDone = true;
-        TestWizardPrompt = _wizardFailed == 0 ? "全部功能验证完毕！" : "有失败项，见右侧结果。";
-    }
-
-    private int _msgsBeforeSend, _msgsAfterSend, _msgsAfterAction, _msgsAfterHug, _msgsAfterKiss;
-    private bool _miniGameOrigi, _miniGameToggled, _settingsOpened;
-    private int _saveCheckCount;
 }
 
 public sealed class DialogueMessage

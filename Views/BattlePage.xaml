@@ -54,7 +54,8 @@
             
             <ScrollView>
                 <StackLayout BindableLayout.ItemsSource="{Binding PlayerCharacters}">
-                    <DataTemplate>
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
                          <Border StrokeThickness="2"
                                  Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
                                  BackgroundColor="#16213e"
@@ -91,6 +92,7 @@
                              </StackLayout>
                          </Border>
                      </DataTemplate>
+                    </BindableLayout.ItemTemplate>
                 </StackLayout>
             </ScrollView>
         </StackLayout>
@@ -106,7 +108,8 @@
             
             <ScrollView>
                 <StackLayout BindableLayout.ItemsSource="{Binding EnemyCharacters}">
-                    <DataTemplate>
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
                          <Border StrokeThickness="2"
                                  Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
                                  BackgroundColor="#16213e"
@@ -143,6 +146,7 @@
                              </StackLayout>
                          </Border>
                      </DataTemplate>
+                    </BindableLayout.ItemTemplate>
                 </StackLayout>
             </ScrollView>
         </StackLayout>
@@ -162,7 +166,8 @@
                 <ScrollView Orientation="Horizontal">
                     <StackLayout Orientation="Horizontal"
                                  BindableLayout.ItemsSource="{Binding SelectedPlayerForAction.Skills}">
-                        <DataTemplate>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
                             <Button Text="{Binding Name}"
                                     BackgroundColor="{Binding IsHeal, Converter={StaticResource SkillTypeColorConverter}}"
                                     TextColor="#ffffff"
@@ -172,6 +177,7 @@
                                     Command="{Binding Source={RelativeSource AncestorType={x:Type viewmodels:BattleViewModel}}, Path=SelectSkillCommand}"
                                     CommandParameter="{Binding}"/>
                         </DataTemplate>
+                        </BindableLayout.ItemTemplate>
                     </StackLayout>
                 </ScrollView>
                 <Button Text="⚔️ 普通攻击"
@@ -189,12 +195,14 @@
                     Margin="0,5">
                 <ScrollView>
                     <StackLayout BindableLayout.ItemsSource="{Binding BattleLog}">
-                        <DataTemplate>
-                            <Label Text="{Binding Action}"
-                                   TextColor="{Binding IsCritical, Converter={StaticResource CriticalColorConverter}}"
-                                   FontSize="12"
-                                   Margin="0,2"/>
-                        </DataTemplate>
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Label Text="{Binding Action}"
+                                       TextColor="{Binding IsCritical, Converter={StaticResource CriticalColorConverter}}"
+                                       FontSize="12"
+                                       Margin="0,2"/>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
                     </StackLayout>
                 </ScrollView>
             </Border>

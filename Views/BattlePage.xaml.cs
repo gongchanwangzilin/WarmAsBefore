@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls;
 using Microsoft.Maui.Graphics;
+using WarmAsBefore.Models;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;

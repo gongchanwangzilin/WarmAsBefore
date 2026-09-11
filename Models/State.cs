@@ -46,7 +46,6 @@ public sealed record UserSettings
     public double TextSpeed { get; init; } = 1.0;
     public double BgmLevel { get; init; } = 0.7;
     public double SfxLevel { get; init; } = 0.8;
-    public bool DeveloperMode { get; init; }
     public bool ComplexPlot { get; init; }
     public bool NovelTestingEnabled { get; init; }   // 小说功能为测试：默认关闭，仅在设置中打开后才显示入口
     public bool ShowAllAffection { get; init; }
@@ -132,4 +131,11 @@ public sealed record UserSettings
     public string ChessApiUrl { get; init; } = "";
     public string ChessApiKey { get; init; } = "";
     public string ChessApiModel { get; init; } = "gpt-4o-mini";
+
+    // 工具模式运行时（手动配置的 Java / Python 路径；空则自动在 PATH/便携目录中查找）
+    public string PythonPath { get; init; } = "";
+    public string JavaPath { get; init; } = "";
+
+    // 开发者展示模式：设置页底部输入 114514 后解锁
+    public bool DeveloperShowcaseUnlocked { get; init; }
 }

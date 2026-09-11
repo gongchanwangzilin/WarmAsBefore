@@ -215,6 +215,9 @@ public sealed class PetService
     /// <summary>静态入口：桌宠页双击回到主窗口。</summary>
     public static void ShowMainWindowStatic() => _instance?.ShowMainWindow();
 
+    /// <summary>静态入口：进入/退出桌宠模式。</summary>
+    public static void TogglePetModeStatic() => _instance?.TogglePetMode();
+
     public static void BeginDrag(Microsoft.Maui.Controls.Page? page)
     {
         if (page?.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.Panel) return;
@@ -454,6 +457,7 @@ public sealed class PetService
         _iconAdded = false;
         if (_msgWnd != IntPtr.Zero) { _ = DestroyWindow(_msgWnd); _msgWnd = IntPtr.Zero; }
     }
+#endif
 #else
     // 移动端：桌宠模式 = 全屏问答模式（进入PetPage）
     private readonly Shell _shell;

@@ -776,16 +776,3 @@ public sealed class SaveSlotItem
     public string Scene => Slot.Scene;
     public DateTime SavedAt => Slot.SavedAt;
 }
-
-public sealed partial class DeveloperViewModel : ObservableObject
-{
-    [ObservableProperty] private string _promptLog = "等待 AI 请求…";
-    [ObservableProperty] private string _toolLog = "等待工具调用…";
-
-    [RelayCommand]
-    private void Clear()
-    {
-        PromptLog = "";
-        ToolLog = "";
-    }
-}

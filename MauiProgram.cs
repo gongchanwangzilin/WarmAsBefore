@@ -45,7 +45,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Automation.TaskOrchestrator>();
         builder.Services.AddSingleton<Modules.Automation.DailyDiaryWriter>();
         builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
-        builder.Services.AddSingleton<Modules.Plugin.PluginManager>();
+        builder.Services.AddSingleton<Modules.Tools.RuntimeManager>();
+        builder.Services.AddSingleton<Modules.Tools.ToolManager>();
+        builder.Services.AddSingleton<Modules.Showcase.ShowcaseStore>();
         builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
         builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
         builder.Services.AddSingleton<Modules.SaveSystem.SaveManager>();
@@ -72,7 +74,6 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<GalleryViewModel>();
         builder.Services.AddTransient<OutfitViewModel>();
         builder.Services.AddTransient<SaveViewModel>();
-        builder.Services.AddTransient<DeveloperViewModel>();
         builder.Services.AddTransient<GameViewModel>();
         builder.Services.AddTransient<WorldbookViewModel>();
 
@@ -87,7 +88,6 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<GalleryPage>();
         builder.Services.AddTransient<OutfitPage>();
         builder.Services.AddTransient<SavePage>();
-        builder.Services.AddTransient<DeveloperPage>();
         builder.Services.AddTransient<GamePage>();
         builder.Services.AddTransient<PetPage>();
         builder.Services.AddTransient<NovelSelectPage>();
@@ -95,11 +95,17 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<WorldbookPage>();
         builder.Services.AddTransient<CharacterLibraryPage>();
         builder.Services.AddTransient<ShopPage>();
+        builder.Services.AddTransient<ShowcaseListPage>();
+        builder.Services.AddTransient<ShowcaseEditPage>();
+        builder.Services.AddTransient<ShowcasePlayPage>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
         builder.Services.AddTransient<NovelSelectViewModel>();
         builder.Services.AddTransient<NovelWorldViewModel>();
         builder.Services.AddTransient<CharacterLibraryViewModel>();
         builder.Services.AddTransient<ShopViewModel>();
+        builder.Services.AddTransient<ShowcaseListViewModel>();
+        builder.Services.AddTransient<ShowcaseEditViewModel>();
+        builder.Services.AddTransient<ShowcasePlayViewModel>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
         App.WriteLog("CreateMauiApp: building");

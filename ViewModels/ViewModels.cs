@@ -162,14 +162,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.Mcp.McpOrchestrator _mcp;
+    private readonly Modules.Tools.RuntimeManager _runtimes;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
-        Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp)
+        Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
+        Modules.Tools.RuntimeManager runtimes)
     {
         _settings = settings;
         _theme = theme;
         _bridge = bridge;
         _mcp = mcp;
+        _runtimes = runtimes;
+        _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
+        PythonManualPath = _runtimes.ManualPythonPath;
+        JavaManualPath = _runtimes.ManualJavaPath;
 
         var s = settings.Current;
         _bgmLevel = s.BgmLevel;
@@ -179,7 +185,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _liquidOn = s.LiquidEnabled;
         _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
         _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
-        _devMode = s.DeveloperMode;
         _complexPlot = s.ComplexPlot;
         _novelTesting = s.NovelTestingEnabled;
         _showAffection = s.ShowAllAffection;
@@ -268,7 +273,6 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>毛玻璃是磨砂的高级版：必须开启磨砂后才能开启毛玻璃。</summary>
     public bool CanGlass => FrostOn;
-    [ObservableProperty] private bool _devMode;
     [ObservableProperty] private bool _complexPlot;
     [ObservableProperty] private bool _novelTesting;
     [ObservableProperty] private bool _showAffection;
@@ -366,6 +370,26 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>MCP 数据包列表（已导入 / 新建）。</summary>
     public ObservableCollection<Modules.Mcp.McpServerItem> McpServers { get; } = new();
 
+    // ---- 工具模式运行时（Java / Python）----
+    [ObservableProperty] private string _pythonStatus = "未检测（点击下方「检测运行时」）";
+    [ObservableProperty] private string _javaStatus = "未检测（点击下方「检测运行时」）";
+    [ObservableProperty] private string _pythonManualPath = "";
+    [ObservableProperty] private string _javaManualPath = "";
+    [ObservableProperty] private bool _isRuntimeBusy;
+    [ObservableProperty] private string _runtimeBusyText = "";
+    public bool RuntimeOsSupported => _runtimes is { } r && r.IsDesktop;
+
+    // ---- 开发者展示模式 ----
+    [ObservableProperty] private bool _showcaseUnlocked;
+    /// <summary>设置页是否已滚动到底部（隐藏入口只在该状态显示）。</summary>
+    [ObservableProperty] private bool _atScrollBottom;
+    [ObservableProperty] private string _secretText = "";
+
+    /// <summary>展示区可见：滚到底部出现隐藏入口；解锁后入口常驻。</summary>
+    public bool ShowShowcaseArea => AtScrollBottom || ShowcaseUnlocked;
+    partial void OnAtScrollBottomChanged(bool value) => OnPropertyChanged(nameof(ShowShowcaseArea));
+    partial void OnShowcaseUnlockedChanged(bool value) => OnPropertyChanged(nameof(ShowShowcaseArea));
+
     public List<string> Langs { get; } = new() { "简体中文", "繁體中文", "English", "日本語" };
     public List<string> KeySfxChoices { get; } = new() { "default", "soft", "typewriter", "none" };
     public List<int> MemoryTurnsChoices { get; } = new() { 3, 5, 8, 10, 12, 15, 20 };
@@ -391,7 +415,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
     partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings(); }
     partial void OnThemeDisplayChanged(string value) { ThemeName = ThemeKeyOf(value); _theme.ThemeName = ThemeName; PersistSettings(); }
-    partial void OnDevModeChanged(bool value) => PersistSettings();
     partial void OnComplexPlotChanged(bool value) => PersistSettings();
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
     partial void OnShowAffectionChanged(bool value) => PersistSettings();
@@ -497,7 +520,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             {
                 BgmLevel = BgmLevel,
                 SfxLevel = SfxLevel,
-                DeveloperMode = DevMode,
                 ComplexPlot = ComplexPlot,
                 NovelTestingEnabled = NovelTesting,
                 ShowAllAffection = ShowAffection,
@@ -562,7 +584,11 @@ public sealed partial class SettingsViewModel : ObservableObject
                  ChessApiEnabled = ChessApiEnabled,
                  ChessApiUrl = ChessApiUrl.Trim(),
                  ChessApiKey = ChessApiKey.Trim(),
-                 ChessApiModel = string.IsNullOrWhiteSpace(ChessApiModel) ? "gpt-4o-mini" : ChessApiModel.Trim()
+                 ChessApiModel = string.IsNullOrWhiteSpace(ChessApiModel) ? "gpt-4o-mini" : ChessApiModel.Trim(),
+
+                 DeveloperShowcaseUnlocked = ShowcaseUnlocked,
+                 PythonPath = _runtimes.ManualPythonPath,
+                 JavaPath = _runtimes.ManualJavaPath
              };
             _settings.Apply(s);
             await _settings.Persist();
@@ -811,6 +837,138 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private async Task GoBack() => await Shell.Current.GoToAsync("..");
+
+    // ============ 工具模式运行时 ============
+
+    /// <summary>检测 Python / Java 运行时，并回填手动路径。</summary>
+    [RelayCommand]
+    private async Task DetectRuntimes()
+    {
+        if (!_runtimes.IsDesktop)
+        {
+            await Shell.Current.DisplayAlert("工具模式", "外部 Java/Python 工具仅桌面端可用（当前设备为移动端）。", "好");
+            return;
+        }
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "正在检测…";
+        PythonStatus = "检测中…";
+        JavaStatus = "检测中…";
+        try
+        {
+            var st = await _runtimes.DetectAsync();
+            PythonManualPath = _runtimes.ManualPythonPath;
+            JavaManualPath = _runtimes.ManualJavaPath;
+            PythonStatus = st.PythonOk ? "✅ " + st.PythonDetail : "❌ " + st.PythonDetail;
+            JavaStatus = st.JavaOk ? "✅ " + st.JavaDetail : "❌ " + st.JavaDetail;
+            if (string.IsNullOrEmpty(st.WindowsOnlyNote))
+                RuntimeBusyText = "检测完成";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DetectRuntimes -> " + ex);
+            RuntimeBusyText = "检测出错：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SetPythonPath()
+    {
+        var input = await Shell.Current.DisplayPromptAsync("Python 路径",
+            "输入 python.exe 的完整路径，或包含 python.exe 的目录（清空可解除）：", "确定", "取消", _runtimes.ManualPythonPath);
+        if (input is null) return;
+        _runtimes.SetManualPythonPath(input);
+        PythonManualPath = _runtimes.ManualPythonPath;
+        await DetectRuntimes();
+    }
+
+    [RelayCommand]
+    private async Task SetJavaPath()
+    {
+        var input = await Shell.Current.DisplayPromptAsync("Java 路径",
+            "输入 java.exe 的完整路径，或包含 bin/java.exe 的目录（清空可解除）：", "确定", "取消", _runtimes.ManualJavaPath);
+        if (input is null) return;
+        _runtimes.SetManualJavaPath(input);
+        JavaManualPath = _runtimes.ManualJavaPath;
+        await DetectRuntimes();
+    }
+
+    [RelayCommand]
+    private async Task DownloadPython()
+    {
+        if (IsRuntimeBusy) return;
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "准备下载 Python 便携版…";
+        try
+        {
+            var progress = new Progress<string>(s =>
+                MainThread.BeginInvokeOnMainThread(() => RuntimeBusyText = s));
+            var result = await _runtimes.DownloadPythonAsync(progress);
+            RuntimeBusyText = result;
+            await DetectRuntimes();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DownloadPython -> " + ex);
+            RuntimeBusyText = "下载失败：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadJava()
+    {
+        if (IsRuntimeBusy) return;
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "准备下载 Java 便携版…";
+        try
+        {
+            var progress = new Progress<string>(s =>
+                MainThread.BeginInvokeOnMainThread(() => RuntimeBusyText = s));
+            var result = await _runtimes.DownloadJavaAsync(progress);
+            RuntimeBusyText = result;
+            await DetectRuntimes();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DownloadJava -> " + ex);
+            RuntimeBusyText = "下载失败：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    /// <summary>点击「检测运行时」按钮的包装（XAML 里也行，但保留同步调用的快捷入口）。</summary>
+    [RelayCommand]
+    private async Task RefreshRuntimes() => await DetectRuntimes();
+
+    // ============ 开发者展示模式（114514 解锁） ============
+
+    /// <summary>设置页滚动到底部时显示隐藏入口；输入 114514 解锁。</summary>
+    [RelayCommand]
+    private void CheckSecret(string? input)
+    {
+        if (string.IsNullOrWhiteSpace(input)) return;
+        if (input.Trim() == "114514")
+        {
+            ShowcaseUnlocked = true;
+            _settings.Apply(_settings.Current with { DeveloperShowcaseUnlocked = true });
+            _ = _settings.Persist();
+            SecretText = "";
+            Shell.Current.DisplayAlert("🔓 已解锁", "开发者展示模式已开启：新增「开发者展示」入口（可编辑 / 播放展示案，含多立绘支持）。", "好");
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenShowcase() => await Shell.Current.GoToAsync("showcase-list");
 
     /// <summary>打开爱发电赞助页面。</summary>
     [RelayCommand]

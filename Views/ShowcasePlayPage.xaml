@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:conv="clr-namespace:WarmAsBefore.Converters"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.ShowcasePlayPage"
+             Title="播放展示案"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="Black">
+
+    <ContentPage.Resources>
+        <conv:SpritePathToImageSourceConverter x:Key="PathConv" />
+        <conv:InvertedBoolConverter x:Key="InvertedBool" />
+        <conv:ZeroToFalseConverter x:Key="ZeroToFalse" />
+    </ContentPage.Resources>
+
+    <Grid>
+        <ContentPage.GestureRecognizers>
+            <TapGestureRecognizer Tapped="OnTap" />
+        </ContentPage.GestureRecognizers>
+
+        <!-- 背景 -->
+        <Image Source="{Binding BgSource}" IsVisible="{Binding BgVisible}" Aspect="AspectFill" />
+
+        <!-- 立绘舞台 -->
+        <Grid>
+            <!-- 左 -->
+            <Image Source="{Binding LeftSprites[0].Path, Converter={StaticResource PathConv}}"
+                   IsVisible="{Binding LeftSprites.Count, Converter={StaticResource ZeroToFalse}}"
+                   Aspect="AspectFit" HorizontalOptions="Start" VerticalOptions="End" HeightRequest="480" WidthRequest="280" />
+            <!-- 中 -->
+            <Image Source="{Binding CenterSprites[0].Path, Converter={StaticResource PathConv}}"
+                   IsVisible="{Binding CenterSprites.Count, Converter={StaticResource ZeroToFalse}}"
+                   Aspect="AspectFit" HorizontalOptions="Center" VerticalOptions="End" HeightRequest="520" WidthRequest="300" />
+            <!-- 右 -->
+            <Image Source="{Binding RightSprites[0].Path, Converter={StaticResource PathConv}}"
+                   IsVisible="{Binding RightSprites.Count, Converter={StaticResource ZeroToFalse}}"
+                   Aspect="AspectFit" HorizontalOptions="End" VerticalOptions="End" HeightRequest="480" WidthRequest="280" />
+        </Grid>
+
+        <!-- 顶栏 -->
+        <Border BackgroundColor="#88000000" Padding="12,4" VerticalOptions="Start" StrokeThickness="0">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="◀ 退出" TextColor="#FFF" BackgroundColor="#44000000" FontSize="12"
+                        CornerRadius="14" Padding="14,6" Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="{Binding ProgressText}" TextColor="#FFF" FontSize="13"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <Label Grid.Column="2" Text="{Binding Script.Name}" TextColor="#FFF" FontSize="12"
+                       HorizontalOptions="End" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- CG 全屏覆盖 -->
+        <Image Source="{Binding CgSource}" IsVisible="{Binding CgVisible}" Aspect="AspectFit" />
+
+        <!-- 底部对话 -->
+        <Border IsVisible="{Binding DialogueVisible}" BackgroundColor="#E6000000"
+                Padding="20,18" Margin="0,0,0,36"
+                VerticalOptions="End" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="6">
+                <Label Text="{Binding SpeakerName}" TextColor="{StaticResource AccentWarm}" FontSize="15" FontAttributes="Bold" />
+                <Label Text="{Binding DialogueText}" TextColor="#FFF" FontSize="16" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- 播放结束 -->
+        <Border IsVisible="{Binding IsFinished}" BackgroundColor="#C0000000"
+                Padding="40,28" HorizontalOptions="Center" VerticalOptions="Center"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
+                <Label Text="🎉 播放结束" TextColor="#FFF" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center" />
+                <Button Text="返回列表" Style="{StaticResource BtnNeumorphSm}" Command="{Binding BackCommand}" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

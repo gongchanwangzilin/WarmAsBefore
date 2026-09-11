@@ -27,7 +27,7 @@
             </Grid>
         </Border>
 
-        <ScrollView Grid.Row="1" Padding="24,16,24,24">
+        <ScrollView Grid.Row="1" Padding="24,16,24,24" Scrolled="OnScrollViewScrolled">
             <VerticalStackLayout Spacing="16" MaximumWidthRequest="640"
                                  HorizontalOptions="Center">
                 <Border Style="{StaticResource CardNeumorph}">
@@ -447,13 +447,71 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- 工具模式运行时（Java / Python） -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="工具模式运行时（Java / Python）" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="外部工具使用统一的 JSON-RPC 协议，由 Java / Python 解释器执行。策略：先检测本机 → 手动指定路径 → 必要时自动下载便携运行时。"
+                               Style="{StaticResource TxtCaption}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Python" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                <Label Text="{Binding PythonStatus}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                       IsVisible="{Binding RuntimeOsSupported}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}"
+                                    IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding DetectRuntimesCommand}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="Java" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                <Label Text="{Binding JavaStatus}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                       IsVisible="{Binding RuntimeOsSupported}" />
+                                <Label Text="外部工具仅桌面端可用" Style="{StaticResource TxtCaption}" FontSize="11"
+                                       IsVisible="{Binding RuntimeOsSupported, Converter={StaticResource InverseBool}}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}"
+                                    IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding DetectRuntimesCommand}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Button Text="⬇️ 下载 Python 便携版" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                    IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding DownloadPythonCommand}" />
+                            <Button Grid.Column="1" Text="⬇️ 下载 Java 便携版" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                    IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding DownloadJavaCommand}" />
+                        </Grid>
+
+                        <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Opacity="0.4" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding PythonManualPath, StringFormat='Python 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                            <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}" FontSize="11"
+                                    Command="{Binding SetPythonPathCommand}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding JavaManualPath, StringFormat='Java 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                   VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                            <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}" FontSize="11"
+                                    Command="{Binding SetJavaPathCommand}" />
+                        </Grid>
+
+                        <ActivityIndicator IsRunning="{Binding IsRuntimeBusy}" IsVisible="{Binding IsRuntimeBusy}"
+                                           HorizontalOptions="Center" Color="{StaticResource AccentWarm}" />
+                        <Label Text="{Binding RuntimeBusyText}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding RuntimeBusyText, Converter={StaticResource StringNotEmpty}}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="14">
                         <Label Text="{Binding [Settings_Experimental], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
-                            <Label Text="{Binding [Settings_DevMode], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                            <Label Text="{Binding [Settings_DevModeHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding DevMode}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_ComplexPlot], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_ComplexPlotHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
@@ -487,6 +545,31 @@
                         </Grid>
                     </VerticalStackLayout>
                 </Border>
+
+                <!-- 开发者展示模式（隐藏入口：滚动到底出现，输入 114514 解锁） -->
+                <Border Style="{StaticResource CardNeumorph}" IsVisible="{Binding ShowShowcaseArea}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="开发者展示模式" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" Opacity="0.9" />
+                        <Entry Text="{Binding SecretText}" Placeholder="输入解锁码…" BackgroundColor="{StaticResource InputBg}"
+                               TextColor="{StaticResource SurfaceFg}" PlaceholderColor="{StaticResource MutedFg}"
+                               FontSize="13" MaxLength="16" />
+                        <Button Text="解锁" Style="{StaticResource BtnNeumorphSm}"
+                                Command="{Binding CheckSecretCommand}" CommandParameter="{Binding SecretText}" />
+
+                        <!-- 解锁后显示展示案入口 -->
+                        <Button Text="🎬 开发者展示（编辑 / 播放）" Style="{StaticResource BtnNeumorphSm}"
+                                BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                                FontAttributes="Bold"
+                                IsVisible="{Binding ShowcaseUnlocked}"
+                                Command="{Binding OpenShowcaseCommand}" />
+                        <Label Text="已解锁：可编辑 / 播放展示案，含多立绘支持"
+                               Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
+                               IsVisible="{Binding ShowcaseUnlocked}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Button Text="↩ 返回" Style="{StaticResource BtnNeumorphSm}" HorizontalOptions="Center"
+                        WidthRequest="180" Command="{Binding GoBackCommand}" />
 
                 <Label Text="{Binding [Settings_AutoSaveNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
                        HorizontalOptions="Center" FontSize="12" Margin="0,6,0,0" />

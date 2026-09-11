@@ -460,39 +460,6 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
         <!-- ============ Overlays (shared by phone & desktop) ============ -->
 
-        <!-- 开发者测试向导（键盘密令 wzlnb 触发）：右下角文字指挥逐步验证 -->
-        <Border IsVisible="{Binding TestWizardVisible}"
-                BackgroundColor="#F2FAF5EC" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                Padding="16,12" Margin="14" WidthRequest="330"
-                HorizontalOptions="End" VerticalOptions="End">
-            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-            <VerticalStackLayout Spacing="8">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <Label Text="{Binding TestWizardTitle}"
-                           TextColor="{StaticResource WarmDark}" FontSize="14" FontAttributes="Bold"
-                           LineBreakMode="TailTruncation" MaxLines="1" />
-                    <Label Grid.Column="1" Text="开发者" TextColor="{StaticResource MutedFg}" FontSize="10" />
-                </Grid>
-                <Label Text="{Binding TestWizardPrompt}" TextColor="{StaticResource SurfaceFg}"
-                       FontSize="13" LineBreakMode="WordWrap" />
-                <Label Text="{Binding TestWizardDetail}" TextColor="{StaticResource BeigeAccent200}"
-                       FontSize="12" LineBreakMode="WordWrap" />
-                <!-- 进度 -->
-                <ProgressBar Progress="{Binding TestWizardProgress}"
-                             ProgressColor="{StaticResource AccentWarm}"
-                             BackgroundColor="{StaticResource BeigeAccent100}"
-                             HeightRequest="5" />
-                <Label Text="{Binding TestWizardProgressText}" TextColor="{StaticResource MutedFg}" FontSize="10" />
-                <!-- 结果汇总 -->
-                <Label IsVisible="{Binding TestWizardDone}" Text="{Binding TestWizardResult}"
-                       TextColor="{StaticResource SurfaceFg}" FontSize="12" LineBreakMode="WordWrap" />
-                <Button IsVisible="{Binding TestWizardDone}" Text="关闭"
-                        TextColor="{StaticResource AccentWarmFg}" BackgroundColor="{StaticResource AccentWarm}"
-                        FontSize="12" HeightRequest="32" CornerRadius="16"
-                        Command="{Binding CloseTestWizardCommand}" />
-            </VerticalStackLayout>
-        </Border>
-
         <!-- Settings overlay -->
         <Grid IsVisible="{Binding ShowSettings}" BackgroundColor="{StaticResource OverlayDim}">
             <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"

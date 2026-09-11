@@ -102,9 +102,6 @@ public partial class PetPage : ContentPage
     {
         _scale = Math.Clamp(_scale + delta, MinScale, MaxScale);
         SpriteImage.Scale = _scale;
-#if WINDOWS
-        ZoomLabel.Text = $"{_scale:P0}";
-#endif
     }
 
 #if WINDOWS

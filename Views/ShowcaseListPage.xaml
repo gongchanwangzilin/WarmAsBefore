@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:models="clr-namespace:WarmAsBefore.Models"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.ShowcaseListPage"
+             Title="开发者展示模式"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*">
+                <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="开发者展示模式" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1" RowDefinitions="*,Auto" Padding="16,8">
+            <CollectionView ItemsSource="{Binding Scripts}" SelectionMode="None"
+                            EmptyView="{Binding [Common_Empty], Source={x:Static i18n:LocalizationService.Current}}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ShowcaseScript">
+                        <Border Style="{StaticResource CardNeumorph}" Padding="12,8" Margin="0,4">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" FontAttributes="Bold" />
+                                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                                    <Label Text="{Binding Steps.Count, StringFormat='步骤 {0}'}" Style="{StaticResource TxtCaption}" FontSize="10" />
+                                </VerticalStackLayout>
+                                <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                    <Button Text="编辑" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=EditCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Text="▶" Style="{StaticResource BtnNeumorphSm}" FontSize="11" BackgroundColor="{StaticResource AccentWarm}"
+                                            TextColor="{StaticResource AccentWarmFg}"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=PlayCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    <Button Text="×" Style="{StaticResource BtnNeumorphSm}" FontSize="11" BackgroundColor="#E94560" TextColor="#FFF"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=DeleteCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout>
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <Button Grid.Row="1" Text="＋ 新建展示案"
+                    Style="{StaticResource BtnNeumorph}" HorizontalOptions="FillAndExpand"
+                    FontAttributes="Bold" Margin="0,8,0,0"
+                    Command="{Binding NewCommand}" />
+        </Grid>
+    </Grid>
+</ContentPage>

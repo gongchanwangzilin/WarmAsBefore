@@ -20,12 +20,14 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
         Routing.RegisterRoute("save", typeof(Views.SavePage));
-        Routing.RegisterRoute("dev", typeof(Views.DeveloperPage));
         Routing.RegisterRoute("game", typeof(Views.GamePage));
         Routing.RegisterRoute("novelselect", typeof(Views.NovelSelectPage));
         Routing.RegisterRoute("novelworld", typeof(Views.NovelWorldPage));
         Routing.RegisterRoute("worldbook", typeof(Views.WorldbookPage));
         Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
         Routing.RegisterRoute("shop", typeof(Views.ShopPage));
+        Routing.RegisterRoute("showcase-list", typeof(Views.ShowcaseListPage));
+        Routing.RegisterRoute("showcase-edit", typeof(Views.ShowcaseEditPage));
+        Routing.RegisterRoute("showcase-play", typeof(Views.ShowcasePlayPage));
     }
 }
