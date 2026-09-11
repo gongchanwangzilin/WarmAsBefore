@@ -24,7 +24,7 @@ jobs:
         run: dotnet restore
 
       - name: Build
-        run: dotnet build -c Release -f net10.0-windows10.0.19041.0 -r win-x64
+        run: dotnet build -c Release -f net10.0-windows10.0.19041.0 -r win-x64 -p:UseMonoRuntime=false
 
       - name: Publish
         run: dotnet publish -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:UseMonoRuntime=false -p:RuntimeIdentifierOverride=win-x64 -o ./publish/win-x64
