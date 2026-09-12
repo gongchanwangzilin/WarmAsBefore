@@ -383,14 +383,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     // ---- 开发者展示模式 ----
     [ObservableProperty] private bool _showcaseUnlocked;
-    /// <summary>设置页是否已滚动到底部（隐藏入口只在该状态显示）。</summary>
+    /// <summary>设置页是否已滚动到底部（隐藏入口只在最底部生效）。</summary>
     [ObservableProperty] private bool _atScrollBottom;
-    [ObservableProperty] private string _secretText = "";
-
-    /// <summary>展示区可见：滚到底部出现隐藏入口；解锁后入口常驻。</summary>
-    public bool ShowShowcaseArea => AtScrollBottom || ShowcaseUnlocked;
-    partial void OnAtScrollBottomChanged(bool value) => OnPropertyChanged(nameof(ShowShowcaseArea));
-    partial void OnShowcaseUnlockedChanged(bool value) => OnPropertyChanged(nameof(ShowShowcaseArea));
+    /// <summary>连击点按计数：翻到设置最底部连续点按 114514 次后解锁。</summary>
+    [ObservableProperty] private int _secretTapCount;
+    private const int SecretTapsNeeded = 114514;
+    private int _secretStamp;
+    private readonly object SecretGate = new();
 
     public List<string> Langs { get; } = new() { "简体中文", "繁體中文", "English", "日本語" };
     public List<string> KeySfxChoices { get; } = new() { "default", "soft", "typewriter", "none" };
@@ -954,25 +953,60 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshRuntimes() => await DetectRuntimes();
 
-    // ============ 开发者展示模式（114514 解锁） ============
+    // ============ 开发者展示模式（114514 连击解锁） ============
 
-    /// <summary>设置页滚动到底部时显示隐藏入口；输入 114514 解锁。</summary>
+    /// <summary>
+    /// 翻到设置最底部后，对解锁按钮连续点按 114514 次即解锁（无需输入框，不弹密码框）。
+    /// 达成开启成功提示；连击被打断（超过 4 秒未继续）则提示密码是错误并重置。
+    /// </summary>
     [RelayCommand]
-    private void CheckSecret(string? input)
+    private async Task SecretTap()
     {
-        if (string.IsNullOrWhiteSpace(input)) return;
-        if (input.Trim() == "114514")
+        if (ShowcaseUnlocked) return;
+        if (!AtScrollBottom) return;   // 隐藏入口：只有滚到最底部才计数
+        SecretTapCount++;
+        RestartSecretTimer();
+        if (SecretTapCount >= SecretTapsNeeded)
         {
+            lock (SecretGate) { _secretStamp++; }
             ShowcaseUnlocked = true;
             _settings.Apply(_settings.Current with { DeveloperShowcaseUnlocked = true });
-            _ = _settings.Persist();
-            SecretText = "";
-            Shell.Current.DisplayAlert("🔓 已解锁", "开发者展示模式已开启：新增「开发者展示」入口（可编辑 / 播放展示案，含多立绘支持）。", "好");
+            await _settings.Persist();
+            SecretTapCount = 0;
+            await Shell.Current.DisplayAlert("🔓 开启成功", "开发者展示模式已开启：新增「开发者展示」入口（可编辑 / 播放展示案，含多立绘支持）。", "好");
+        }
+    }
+
+    private void RestartSecretTimer()
+    {
+        int stamp;
+        lock (SecretGate) stamp = ++_secretStamp;
+        _ = CountSecretTimeoutAsync(stamp);
+    }
+
+    /// <summary>连击计数超过 4 秒未续按：视为密码输入中断，提示错误并重置。</summary>
+    private async Task CountSecretTimeoutAsync(int stamp)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(4));
+            if (stamp != _secretStamp) return;
+            if (ShowcaseUnlocked || SecretTapCount <= 0) return;
+            SecretTapCount = 0;
+            await Shell.Current.DisplayAlert("密码是错误", "连击中断，未达到 114514 次，计数已重置。", "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.CountSecretTimeout -> " + ex.Message);
         }
     }
 
     [RelayCommand]
     private async Task OpenShowcase() => await Shell.Current.GoToAsync("showcase-list");
+
+    /// <summary>打开素材库（背景 / 音乐管理）。</summary>
+    [RelayCommand]
+    private async Task OpenMaterials() => await Shell.Current.GoToAsync("materials");
 
     /// <summary>打开爱发电赞助页面。</summary>
     [RelayCommand]

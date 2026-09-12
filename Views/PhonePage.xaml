@@ -132,6 +132,30 @@
                                 <TapGestureRecognizer Command="{Binding OpenGalleryCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
+
+                        <!-- App grid (row 2): 素材库 -->
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
+                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                                    WidthRequest="58" HeightRequest="58" Padding="0"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
+                                <Border.Shadow>
+                                    <Shadow Brush="{StaticResource ShadowDim}" Offset="2,3"
+                                            Radius="8" Opacity="0.18" />
+                                </Border.Shadow>
+                                <Border BackgroundColor="{StaticResource BeigeAccent300}"
+                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
+                                        HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                    <Label Text="素材库" TextColor="{StaticResource SurfaceBg}" FontSize="10" FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
+                            </Border>
+                            <Label Text="背景 · 音乐" TextColor="{StaticResource WarmMuted}" FontSize="9" HorizontalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding OpenMaterialsCommand}" />
+                            </Border.GestureRecognizers>
+                        </VerticalStackLayout>
                     </Grid>
 
                     <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Opacity="0.5" Margin="4,26" />

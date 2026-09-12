@@ -63,6 +63,9 @@ public sealed partial class PhoneViewModel : ObservableObject
     private async Task OpenLibrary() => await SafeNav("roster");
 
     [RelayCommand]
+    private async Task OpenMaterials() => await SafeNav("materials");
+
+    [RelayCommand]
     private async Task OpenShop() => await SafeNav("shop");
 
     [RelayCommand]

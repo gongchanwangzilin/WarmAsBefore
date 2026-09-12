@@ -533,6 +533,17 @@
                 <Label Text="{Binding [Settings_AutoSaveNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
                        HorizontalOptions="Center" FontSize="12" Margin="0,6,0,0" />
 
+                <!-- 素材库 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="素材库（背景 · 音乐）" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
+                        <Label Text="导入 / 管理背景图与音乐，并把音乐设为左键音、右键音、按键音或背景音轮播"
+                               Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                        <Button Text="🎨 进入素材库" Style="{StaticResource BtnNeumorphSm}"
+                                HeightRequest="44" Command="{Binding OpenMaterialsCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- 赞助作者 -->
                 <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="12">
@@ -550,25 +561,33 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- 开发者展示模式（隐藏入口：滚动到底出现，输入 114514 解锁） -->
-                <Border Style="{StaticResource CardNeumorph}" IsVisible="{Binding ShowShowcaseArea}">
+                <!-- 开发者展示模式（隐藏入口：滚到设置最底部后连续点按 114514 次解锁，无输入框） -->
+                <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="12">
-                        <Label Text="开发者展示模式" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" Opacity="0.9" />
-                        <Entry Text="{Binding SecretText}" Placeholder="输入解锁码…" BackgroundColor="{StaticResource InputBg}"
-                               TextColor="{StaticResource SurfaceFg}" PlaceholderColor="{StaticResource MutedFg}"
-                               FontSize="13" MaxLength="16" />
-                        <Button Text="解锁" Style="{StaticResource BtnNeumorphSm}"
-                                Command="{Binding CheckSecretCommand}" CommandParameter="{Binding SecretText}" />
+                        <Label Text="开发者展示模式" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
+                        <Label Text="隐藏模式：为创作者提供的展示案编辑 / 播放功能（含多立绘支持）"
+                               Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
 
-                        <!-- 解锁后显示展示案入口 -->
+                        <Label Text="已解锁：可编辑 / 播放展示案"
+                               Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
+                               TextColor="{StaticResource AccentWarm}"
+                               IsVisible="{Binding ShowcaseUnlocked}" />
                         <Button Text="🎬 开发者展示（编辑 / 播放）" Style="{StaticResource BtnNeumorphSm}"
                                 BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
                                 FontAttributes="Bold"
                                 IsVisible="{Binding ShowcaseUnlocked}"
                                 Command="{Binding OpenShowcaseCommand}" />
-                        <Label Text="已解锁：可编辑 / 播放展示案，含多立绘支持"
+
+                        <Label Text="滚到设置最底部后，连续点按“连击解锁”按钮 114514 次可开启"
                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
-                               IsVisible="{Binding ShowcaseUnlocked}" />
+                               IsVisible="{Binding ShowcaseUnlocked, Converter={StaticResource InverseBool}}" />
+                        <Button Text="🔒 连击解锁"
+                                Style="{StaticResource BtnNeumorphSm}"
+                                IsVisible="{Binding ShowcaseUnlocked, Converter={StaticResource InverseBool}}"
+                                Command="{Binding SecretTapCommand}" />
+                        <Label Text="{Binding SecretTapCount, StringFormat='已点按 {0} 次'}"
+                               Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
+                               IsVisible="{Binding ShowcaseUnlocked, Converter={StaticResource InverseBool}}" />
                     </VerticalStackLayout>
                 </Border>
 
