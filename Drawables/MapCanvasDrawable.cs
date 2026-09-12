@@ -50,8 +50,10 @@ public sealed class MapCanvasDrawable : IDrawable
     // ---- 右键菜单 ----
     public ContextMenuState? Menu { get; set; }
 
-    // ---- 图片缓存 ----
+    // ---- 背景图缓存 ----
     private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage?> _imgCache = new();
+    // ---- 地点缩略图缓存 ----
+    private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage?> _locThumbCache = new();
     private Action? _onInvalidate;
     public void AttachInvalidate(Action a) => _onInvalidate = a;
     private void NeedRedraw() => _onInvalidate?.Invoke();
@@ -213,6 +215,23 @@ public sealed class MapCanvasDrawable : IDrawable
             canvas.DrawString(loc.Name + (isChild ? " ▸" : ""), (float)(sp.X + 8 * Scale), (float)(sp.Y + 2 * Scale),
                 (float)(sp.Width - 16 * Scale), titleH,
                 HorizontalAlignment.Left, VerticalAlignment.Center);
+
+            // 地点缩略图（名字下方的方框内；有场景背景才显示）
+            var thumb = GetLocationThumbImg(loc);
+            if (thumb is not null)
+            {
+                var availW = sp.Width - 14 * Scale;
+                var availH = sp.Height - titleH - 8 * Scale;
+                if (availW > 0 && availH > 0)
+                {
+                    var iw = thumb.Width > 0 ? thumb.Width : 300;
+                    var ih = thumb.Height > 0 ? thumb.Height : 160;
+                    var ratio = Math.Min((float)(availW / iw), (float)(availH / ih));
+                    var w = Math.Max(10f, (float)(iw * ratio));
+                    var h = Math.Max(10f, (float)(ih * ratio));
+                    canvas.DrawImage(thumb, (float)(sp.X + 7 * Scale), (float)(sp.Y + titleH + 4 * Scale), w, h);
+                }
+            }
 
             // 空地点提示
             var hasCard = Nodes.Any(n => n.Location.Id == loc.Id);
@@ -783,6 +802,12 @@ private Func<MapCanvasNode, string?>? _bgResolver;
 
     private string? _resolveBg(MapCanvasNode n) => _bgResolver?.Invoke(n);
 
+    // ---- 地点缩略图 ----
+    private Func<MapLocation, string?>? _locThumbResolver;
+
+    /// <summary>地点缩略图绝对路径解析器（返回视频首帧PNG/图片路径；由 MapViewModel 注入）。</summary>
+    public void AttachLocationThumbResolver(Func<MapLocation, string?> resolver) => _locThumbResolver = resolver;
+
     private void LoadImageAsync(MapCanvasNode n)
     {
         var path = n.Scene.Background;   // 相对路径，由 ResolveBackground 解析
@@ -800,6 +825,39 @@ private Func<MapCanvasNode, string?>? _bgResolver;
                     _imgCache[n.Id] = Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms);
                 }
                 catch { _imgCache[n.Id] = null; }
+                NeedRedraw();
+            });
+        });
+    }
+
+    // ==================== 地点缩略图加载 ====================
+
+    public Microsoft.Maui.Graphics.IImage? GetLocationThumbImg(MapLocation loc)
+    {
+        if (_locThumbResolver is null) return null;
+        if (_locThumbCache.TryGetValue(loc.Id, out var img)) return img;
+        _locThumbCache[loc.Id] = null; // 防重复加载
+        LoadLocationThumbAsync(loc);
+        return null;
+    }
+
+    private void LoadLocationThumbAsync(MapLocation loc)
+    {
+        var path = _locThumbResolver(loc);
+        if (string.IsNullOrEmpty(path)) return;
+        _ = Task.Run(() =>
+        {
+            byte[] bytes;
+            try { bytes = File.ReadAllBytes(path); }
+            catch { return; }
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                try
+                {
+                    using var ms = new MemoryStream(bytes);
+                    _locThumbCache[loc.Id] = Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms);
+                }
+                catch { _locThumbCache[loc.Id] = null; }
                 NeedRedraw();
             });
         });

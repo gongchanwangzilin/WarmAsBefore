@@ -65,7 +65,8 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         var act = await Shell.Current.DisplayActionSheet(
             $"「{item.Name}」", "取消", null,
             item.IsMain ? "移除主角标记" : "设为当前主角",
-            "AI 优化人设", "修改性格",
+            "AI 优化人设", "修改性格", "编辑设定",
+            "复制角色", "补充素材",
             "导入灵枢记忆");
         switch (act)
         {
@@ -83,6 +84,15 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
                 break;
             case "修改性格":
                 await EditPersonalityAsync(id);
+                break;
+            case "编辑设定":
+                await EditProfileAsync(id);
+                break;
+            case "复制角色":
+                await DuplicateCharacterAsync(id, item.Name);
+                break;
+            case "补充素材":
+                await ImportSupplementAsync(id, item.Name);
                 break;
             case "导入灵枢记忆":
                 await ImportLingshuAsync(id, item.Name);
@@ -139,6 +149,99 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(input)) return;
         var updated = item.Data with { Profile = p with { Personality = input.Trim() } };
         if (await _library.UpdateAsync(updated)) await Refresh();
+    }
+
+    /// <summary>编辑角色主设定/副设定（性格、背景描述、用户称呼、昵称、问候语等）。</summary>
+    private async Task EditProfileAsync(string id)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == id);
+        if (item is null) return;
+        var p = item.Data.Profile;
+        var field = await Shell.Current.DisplayActionSheet(
+            $"编辑「{p.Name}」设定", "取消", null,
+            "修改性格（外在表现/内在坚定）", "修改背景/前情提要（主设定）",
+            "修改用户称呼", "修改昵称", "修改问候语");
+        if (field is null || field == "取消") return;
+
+        string? promptTitle = null, initialValue = null;
+        if (field.Contains("性格")) { promptTitle = "修改性格"; initialValue = p.Personality; }
+        else if (field.Contains("背景")) { promptTitle = "修改背景设定"; initialValue = p.Description; }
+        else if (field.Contains("称呼")) { promptTitle = "修改用户称呼"; initialValue = p.UserAddress; }
+        else if (field.Contains("昵称")) { promptTitle = "修改昵称"; initialValue = p.Nickname; }
+        else if (field.Contains("问候")) { promptTitle = "修改问候语"; initialValue = p.Greeting; }
+        if (promptTitle is null) return;
+
+        var input = await Shell.Current.DisplayPromptAsync(promptTitle,
+            $"「{p.Name}」的{promptTitle}：", initialValue: initialValue, maxLength: 2000);
+        if (input is null) return;
+
+        var updated = item.Data with
+        {
+            Profile = p with
+            {
+                Personality = field.Contains("性格") ? input.Trim() : p.Personality,
+                Description = field.Contains("背景") ? input.Trim() : p.Description,
+                UserAddress = field.Contains("称呼") ? input.Trim() : p.UserAddress,
+                Nickname = field.Contains("昵称") ? input.Trim() : p.Nickname,
+                Greeting = field.Contains("问候") ? input.Trim() : p.Greeting
+            }
+        };
+        if (await _library.UpdateAsync(updated)) await Refresh();
+    }
+
+    /// <summary>复制角色（共享引用所有立绘，不重复保存素材文件）。</summary>
+    private async Task DuplicateCharacterAsync(string sourceId, string sourceName)
+    {
+        var newName = await Shell.Current.DisplayPromptAsync("复制角色",
+            $"为「{sourceName}」的副本命名：", initialValue: sourceName + "（副本）", maxLength: 30);
+        if (string.IsNullOrWhiteSpace(newName)) return;
+        var (ok, msg, _, _) = await _library.DuplicateAsync(sourceId, newName);
+        await Shell.Current.DisplayAlert("复制角色", msg, "好");
+        if (ok) await Refresh();
+    }
+
+    /// <summary>补充导入角色素材（zip 中的图片自动归入服装目录并解析表情标签）。</summary>
+    private async Task ImportSupplementAsync(string charId, string charName)
+    {
+        try
+        {
+            var file = await FilePicker.PickAsync(new PickOptions
+            {
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                }),
+                PickerTitle = $"选择「{charName}」的补充素材包（zip）"
+            });
+            if (file is null) return;
+            var (ok, msg) = await _library.ImportSupplementaryZipAsync(charId, file.FullPath);
+            await Shell.Current.DisplayAlert("补充素材", msg, "好");
+            if (ok) await Refresh();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterLibraryVM.ImportSupplement -> " + ex);
+            await Shell.Current.DisplayAlert("补充素材", "导入失败：" + ex.Message, "好");
+        }
+    }
+
+    /// <summary>新建角色（无需素材包，仅创建角色资料，之后可随时补充立绘）。</summary>
+    [RelayCommand]
+    private async Task CreateCharacter()
+    {
+        var name = await Shell.Current.DisplayPromptAsync("新建角色", "角色姓名：", maxLength: 30);
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var gender = await Shell.Current.DisplayActionSheet("角色性别", "取消", null, "女", "男", "其他");
+        if (gender is null || gender == "取消") return;
+        var personality = await Shell.Current.DisplayPromptAsync("新建角色", "性格描述（一句话）：", maxLength: 100);
+        if (personality is null) return;
+        var ch = _library.CreateDefault(name.Trim(), gender, string.IsNullOrWhiteSpace(personality) ? "温柔可爱" : personality.Trim());
+        var ok = await _library.AddAsync(ch);
+        await Shell.Current.DisplayAlert("新建角色",
+            ok ? $"「{name.Trim()}」已创建（暂无立绘，可在角色库右键补充素材）" : "创建失败", "好");
+        if (ok) await Refresh();
     }
 
     [RelayCommand]

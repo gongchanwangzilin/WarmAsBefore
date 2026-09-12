@@ -152,6 +152,107 @@ public sealed class CharacterLibrary
         return new CharacterData { Profile = profile, State = new CharacterState() };
     }
 
+    /// <summary>
+    /// 复制角色：仅复制资料（新 ID），共享引用所有立绘/头像文件，不重复保存素材。
+    /// 可选重命名；返回新角色 ID 与显示名称。
+    /// </summary>
+    public async Task<(bool ok, string message, string newId, string newName)> DuplicateAsync(string sourceId, string? newName = null)
+    {
+        try
+        {
+            await LoadAsync();
+            if (!_engine.Roster.TryGetValue(sourceId, out var src))
+                return (false, "源角色不存在", "", "");
+            var newId = Guid.NewGuid().ToString("N")[..10];
+            var displayName = string.IsNullOrWhiteSpace(newName) ? src.Profile.Name : newName.Trim();
+            var destProfile = src.Profile with { Id = newId, Name = displayName };
+            // 立绘/头像共享引用（路径不变，同一份文件）
+            var dest = src with
+            {
+                Profile = destProfile,
+                State = new CharacterState(),
+                SpriteMap = new Dictionary<string, string>(src.SpriteMap),
+                Avatar = src.Avatar
+            };
+            var ok = await AddAsync(dest);
+            return ok
+                ? (true, $"已复制为「{displayName}」（共用素材，不重复保存）", newId, displayName)
+                : (false, "保存失败", "", "");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterLibrary.Duplicate -> " + ex);
+            return (false, "复制失败：" + ex.Message, "", "");
+        }
+    }
+
+    private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
+        { ".png", ".jpg", ".jpeg", ".bmp", ".webp" };
+
+    /// <summary>
+    /// 补充导入素材：从 zip 中提取图片追加到角色的立绘目录，不删除已有文件。
+    /// zip 内图片按路径第一段（或 default）归入服装目录，文件名中的表情标签自动解析合并。
+    /// </summary>
+    public async Task<(bool ok, string message)> ImportSupplementaryZipAsync(string charId, string zipPath)
+    {
+        try
+        {
+            await LoadAsync();
+            if (!_engine.Roster.TryGetValue(charId, out var ch))
+                return (false, "角色不存在");
+            if (!File.Exists(zipPath))
+                return (false, "文件不存在");
+            using var zip = ZipFile.OpenRead(zipPath);
+            var images = zip.Entries
+                .Where(e => !e.FullName.EndsWith('/') && ImageExtensions.Contains(Path.GetExtension(e.FullName)))
+                .ToList();
+            if (images.Count == 0)
+                return (false, "未找到图片文件（png/jpg/jpeg/bmp/webp）");
+
+            var spriteMap = new Dictionary<string, string>(ch.SpriteMap);
+            var assetsRoot = Path.Combine(_store.Root, "assets", "characters", charId);
+            string? avatarRel = null;
+
+            foreach (var entry in images)
+            {
+                var parts = entry.FullName.Split('/', StringSplitOptions.RemoveEmptyEntries);
+                var outfitRaw = parts.Length >= 2 ? parts[0] : "default";
+                var outfitKey = NormalizeOutfit(outfitRaw);
+                var fileName = Path.GetFileName(entry.FullName);
+                if (string.IsNullOrEmpty(fileName)) continue;
+
+                var destDir = Path.Combine(assetsRoot, outfitKey);
+                Directory.CreateDirectory(destDir);
+                var destPath = Path.Combine(destDir, fileName);
+                CopyEntry(entry, destPath);
+
+                var relPath = $"assets/characters/{charId}/{outfitKey}/{fileName}";
+                foreach (var emo in EmotionsOf(Path.GetFileNameWithoutExtension(fileName)))
+                    spriteMap[$"{outfitKey}/{emo}"] = relPath;
+
+                // 自动识别头像
+                var nameNoExt = Path.GetFileNameWithoutExtension(fileName);
+                if (nameNoExt.Equals("avatar", StringComparison.OrdinalIgnoreCase)
+                    || nameNoExt.Contains("头像"))
+                    avatarRel = relPath;
+            }
+
+            var updated = ch with { SpriteMap = spriteMap };
+            if (!string.IsNullOrEmpty(avatarRel))
+                updated = updated with { Avatar = avatarRel };
+
+            var ok = await UpdateAsync(updated);
+            return ok
+                ? (true, $"已补充 {images.Count} 张立绘到「{ch.Profile.Name}」")
+                : (false, "保存失败");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterLibrary.ImportSupplementary -> " + ex);
+            return (false, "导入失败：" + ex.Message);
+        }
+    }
+
     /// <summary>导入角色 zip：支持 character.json / 角色主设定.txt / 数据包 manifest 三种来源。</summary>
     public async Task<(bool ok, string message)> ImportFromZipAsync(string zipPath)
     {

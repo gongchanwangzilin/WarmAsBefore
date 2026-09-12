@@ -9,7 +9,7 @@ namespace WarmAsBefore.Services;
 /// - 持久化地图定义（地点→场景，场景间连线）
 /// - 寻路：BFS 找出所有最短路径，多条时随机选择一条
 /// - 行走：按路线逐段行进，每段耗时后切换"当前场景"，通过事件通知 UI
-/// - 背景图管理：用户选择的图片复制到本地 maps/ 目录，存相对路径
+/// - 背景图管理：用户选择的图片/视频复制到本地 maps/ 目录，视频自动生成首帧缩略图
 /// - 导出 / 导入：JSON 文件（FileSaver / FilePicker）
 /// 另：对话中 AI 通过【移动:场景名】标记请求移动，经本服务执行。
 /// </summary>
@@ -333,7 +333,8 @@ public sealed class MapService
     public void RemoveEdge(string a, string b) =>
         _map.Edges.RemoveAll(e => (e.A == a && e.B == b) || (e.A == b && e.B == a));
 
-    /// <summary>把用户选择的背景图复制进 maps/ 目录，返回相对路径（失败返回原路径兜底颜色方案）。</summary>
+    /// <summary>把用户选择的背景图/视频复制进 maps/ 目录；视频自动生成首帧缩略图。
+    /// 返回相对路径（用于 scene.Background）；失败返回 null。</summary>
     public string? ImportBackground(string srcPath, string sceneId)
     {
         try
@@ -344,6 +345,9 @@ public sealed class MapService
             if (string.IsNullOrEmpty(ext)) ext = ".png";
             var dest = Path.Combine(dir, sceneId + ext);
             File.Copy(srcPath, dest, true);
+            // 视频自动生成首帧缩略图（卡片绘制时显示）
+            if (IsVideoExt(ext))
+                _ = TryGenerateVideoThumb(dest, sceneId);
             return $"maps/{sceneId}{ext}";
         }
         catch (Exception ex)
@@ -353,7 +357,7 @@ public sealed class MapService
         }
     }
 
-    /// <summary>把相对背景路径解析为绝对路径（图片不存在返回 null，UI 用颜色兜底）。</summary>
+    /// <summary>从相对背景路径解析为绝对路径（图片不存在返回 null，UI 用颜色兜底）。</summary>
     public string? ResolveBackground(MapScene scene)
     {
         if (string.IsNullOrWhiteSpace(scene.Background)) return null;
@@ -376,6 +380,50 @@ public sealed class MapService
         }
         return paths.Where(p => !string.IsNullOrEmpty(p) && File.Exists(p)).FirstOrDefault();
     }
+
+    public static bool IsVideoExt(string ext) =>
+        ext.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
+        || ext.Equals(".mov", StringComparison.OrdinalIgnoreCase)
+        || ext.Equals(".m4v", StringComparison.OrdinalIgnoreCase)
+        || ext.Equals(".webm", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>视频背景的首帧缩略图绝对路径（{场景名}_thumb.png）；视频不存在/未生成则返回 null。</summary>
+    public string? ThumbnailAbsFor(MapScene scene)
+    {
+        if (string.IsNullOrWhiteSpace(scene?.Background)) return null;
+        var abs = ResolveBackground(scene);
+        if (abs is null) return null;
+        if (!IsVideoExt(Path.GetExtension(abs))) return abs;   // 图片直接用作缩略图
+        var thumb = Path.Combine(Path.GetDirectoryName(abs) ?? "", Path.GetFileNameWithoutExtension(abs) + "_thumb.png");
+        return File.Exists(thumb) ? thumb : null;
+    }
+
+    /// <summary>生成视频首帧缩略图（仅映射目录内已有视频；WINDOWS 用 MediaComposition，其它平台忽略）。</summary>
+    private Task TryGenerateVideoThumb(string videoAbsPath, string sceneId)
+        => Task.Run(async () =>
+        {
+            try
+            {
+                var thumb = Path.Combine(Path.GetDirectoryName(videoAbsPath) ?? "", sceneId + "_thumb.png");
+                if (File.Exists(thumb)) return;
+#if WINDOWS
+                var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(videoAbsPath);
+                var clip = await Windows.Media.Editing.MediaClip.CreateFromFileAsync(file);
+                var comp = new Windows.Media.Editing.MediaComposition();
+                comp.Clips.Add(clip);
+                using var stream = await comp.GetThumbnailAsync(TimeSpan.Zero, 360, 210, Windows.Media.Editing.VideoFramePrecision.NearestFrame);
+                if (stream is null) return;
+                stream.Seek(0);
+                await using var fs = File.Create(thumb);
+                await stream.AsStreamForRead().CopyToAsync(fs);
+                App.WriteLog($"MapService: video thumb {thumb}");
+#endif
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("MapService.TryGenerateVideoThumb -> " + ex.Message);
+            }
+        });
 
     // ==================== 导出 / 导入 ====================
 

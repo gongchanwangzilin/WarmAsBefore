@@ -1,0 +1,180 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.MaterialsPage"
+             x:Name="Page"
+             x:DataType="vm:MaterialsViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <ContentPage.Resources>
+        <Style x:Key="TabOn" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent300}" />
+            <Setter Property="TextColor" Value="{StaticResource SurfaceBg}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="10,6" />
+        </Style>
+        <Style x:Key="TabOff" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+            <Setter Property="TextColor" Value="{StaticResource WarmMuted}" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Padding" Value="10,6" />
+        </Style>
+        <Style x:Key="TabBackgrounds" TargetType="Button" BasedOn="{StaticResource TabOff}">
+            <Style.Triggers>
+                <DataTrigger TargetType="Button" Binding="{Binding IsMusicTab}" Value="False">
+                    <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent300}" />
+                    <Setter Property="TextColor" Value="{StaticResource SurfaceBg}" />
+                    <Setter Property="FontAttributes" Value="Bold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="TabMusic" TargetType="Button" BasedOn="{StaticResource TabOff}">
+            <Style.Triggers>
+                <DataTrigger TargetType="Button" Binding="{Binding IsMusicTab}" Value="True">
+                    <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent300}" />
+                    <Setter Property="TextColor" Value="{StaticResource SurfaceBg}" />
+                    <Setter Property="FontAttributes" Value="Bold" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <!-- Header -->
+        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12,16,12"
+                StrokeThickness="0">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="素材库" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
+                <Border Grid.Column="2" BackgroundColor="{StaticResource BeigeAccent50}"
+                        StrokeThickness="0" Padding="10,5">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="背景 · 音乐" FontSize="11" TextColor="{StaticResource WarmDark}" />
+                </Border>
+            </Grid>
+        </Border>
+
+        <!-- Tabs -->
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="24,12,24,4">
+            <Button Text="背景库" Style="{StaticResource TabBackgrounds}"
+                    Command="{Binding ShowBackgroundsCommand}" />
+            <Button Grid.Column="1" Text="音乐库" Style="{StaticResource TabMusic}"
+                    Command="{Binding ShowMusicCommand}" />
+        </Grid>
+
+        <!-- Background grid -->
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Backgrounds}"
+                        Margin="20,8,20,0"
+                        IsVisible="{Binding IsMusicTab, Converter={StaticResource InverseBool}}"
+                        ItemsLayout="VerticalGrid, 3">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                     Spacing="12" Padding="32">
+                    <Border BackgroundColor="{StaticResource SurfaceBg}"
+                            StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="96" HeightRequest="96">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
+                        <Label Text="🖼" FontSize="40" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <Label Text="背景库还是空的" Style="{StaticResource TxtTitle}"
+                           HorizontalOptions="Center" />
+                    <Label Text="导入 JPG / PNG / MP4 背景，可在地图里选用" Style="{StaticResource TxtMuted}"
+                           HorizontalOptions="Center" FontSize="13" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:BackgroundGridItem">
+                    <Border Style="{StaticResource CardNeumorph}" Margin="0,0,10,12">
+                        <Grid RowDefinitions="64,*,Auto" Padding="6">
+                            <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                <Image Source="{Binding Thumb}" Aspect="AspectFill"
+                                       IsVisible="{Binding HasThumb}"
+                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                <Label Text="🖼" TextColor="{StaticResource WarmFaint}" FontSize="22"
+                                       HorizontalOptions="Center" VerticalOptions="Center"
+                                       IsVisible="{Binding HasThumb, Converter={StaticResource InverseBool}}" />
+                            </Border>
+                            <Label Grid.Row="1" Text="{Binding Name}" Style="{StaticResource TxtCaption}"
+                                   FontSize="12" LineBreakMode="TailTruncation"
+                                   HorizontalOptions="Center" Margin="0,6,0,0" />
+                            <Label Grid.Row="2" Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
+                                   FontSize="10" TextColor="{StaticResource WarmMuted}"
+                                   HorizontalOptions="Center" />
+                        </Grid>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapBackgroundCommand}"
+                                                  CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Music grid -->
+        <CollectionView Grid.Row="2" ItemsSource="{Binding Musics}"
+                        Margin="20,8,20,0"
+                        IsVisible="{Binding IsMusicTab}"
+                        ItemsLayout="VerticalGrid, 3">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                     Spacing="12" Padding="32">
+                    <Border BackgroundColor="{StaticResource SurfaceBg}"
+                            StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                            WidthRequest="96" HeightRequest="96">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
+                        <Label Text="🎵" FontSize="40" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <Label Text="音乐库还是空的" Style="{StaticResource TxtTitle}"
+                           HorizontalOptions="Center" />
+                    <Label Text="导入音乐后可设为左键音/右键音/按键音/背景音" Style="{StaticResource TxtMuted}"
+                           HorizontalOptions="Center" FontSize="13" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:MusicGridItem">
+                    <Border Style="{StaticResource CardNeumorph}" Margin="0,0,10,12">
+                        <Grid RowDefinitions="64,*,Auto" Padding="6">
+                            <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                <Label Text="🎵" TextColor="{StaticResource WarmFaint}" FontSize="26"
+                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                            </Border>
+                            <Label Grid.Row="1" Text="{Binding Name}" Style="{StaticResource TxtCaption}"
+                                   FontSize="12" LineBreakMode="TailTruncation"
+                                   HorizontalOptions="Center" Margin="0,6,0,0" />
+                            <Label Grid.Row="2" Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
+                                   FontSize="10" TextColor="{StaticResource WarmMuted}"
+                                   HorizontalOptions="Center" />
+                        </Grid>
+                        <Border.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapMusicCommand}"
+                                                  CommandParameter="{Binding .}" />
+                        </Border.GestureRecognizers>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <!-- Footer: import buttons -->
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="12" Padding="24,8,24,20">
+            <Button Text="导入背景" Style="{StaticResource BtnPrimary}"
+                    Command="{Binding ImportBackgroundCommand}"
+                    IsVisible="{Binding IsMusicTab, Converter={StaticResource InverseBool}}" />
+            <Button Grid.Column="1" Text="导入音乐" Style="{StaticResource BtnPrimary}"
+                    Command="{Binding ImportMusicCommand}"
+                    IsVisible="{Binding IsMusicTab}" />
+        </Grid>
+    </Grid>
+</ContentPage>

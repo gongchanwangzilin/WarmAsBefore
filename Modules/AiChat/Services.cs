@@ -24,6 +24,16 @@ public sealed class ChatEngine
     /// <summary>告诉 AI 当前陪伴的主角是谁（名字/性格/称呼/背景设定）。</summary>
     public void ConfigureCharacter(CharacterProfile profile) => _active = profile;
 
+    /// <summary>
+    /// 动作标记协议：每条回复必须以一个动作标记结尾。
+    /// 【下沉】低落/害羞低头 【雀跃】开心跳起 【颤抖】害怕/激动发抖。
+    /// </summary>
+    public const string ActionProtocol =
+        "你的每条回复，在最末尾都要带一个动作标记，表示你是怎样表现这句话的：" +
+        "【下沉】（情绪低落、丧气或害羞地低下头）、【雀跃】（开心雀跃、惊喜地跳起来）、【颤抖】（害怕、激动或感动得发抖）。" +
+        "标记必须放在回复的最末尾、紧挨正文之后，格式如“……真的好开心！【雀跃】”。" +
+        "即使情节不适合明显的动作，也要选最接近的一个，不要省略、不要单独成段、不要加解释。";
+
     /// <summary>注入角色库：世界中还有其他角色时，AI 可在剧情里自由调用/扮演她们。</summary>
     public void SetRoster(string roster) => _rosterContext = roster ?? "";
 
@@ -173,6 +183,60 @@ public sealed class ChatEngine
         }
     }
 
+    /// <summary>
+    /// 动作标记补正（System 提示，不会以用户身份要求）。
+    /// 自动判别：回复有实质内容 → 重输出（要求 AI 完整重写并以标记结尾）；
+    /// 回复为空/近乎为空 → 补输出（要求一句简短回应 + 标记）。
+    /// 返回补正后的回复；失败或未配置时原样返回。
+    /// </summary>
+    public async Task<string> RetryActionMarkerAsync(string charId, string userText, string assistantText, bool isReOutput)
+    {
+        if (string.IsNullOrWhiteSpace(_cfg.Key)) return assistantText;
+        try
+        {
+            var session = Session(charId);
+            var persona = session[0].Content + "\n" + ActionProtocol;
+            var note = isReOutput
+                ? "你的上一条回复没有以动作标记结尾（见下方 assistant 消息）。" +
+                  "请完整重新输出那段回复，并在最末尾追加动作标记【下沉】/【雀跃】/【颤抖】之一。" +
+                  "只输出修正后的回复正文本身，不要任何解释。"
+                : "你的上一条回复没有给出动作标记。请输出一句简短自然的回应，并在最末尾追加动作标记【下沉】/【雀跃】/【颤抖】之一。" +
+                  "只输出这句回应本身，不要任何解释。";
+            var msgs = new List<ChatMessage>
+            {
+                new() { Role = "system", Content = "以下是系统提示，补充给你（不是用户提出的新要求），请照做并继续保持人设：" + note },
+                new() { Role = "user", Content = userText },
+                new() { Role = "assistant", Content = assistantText },
+                new() { Role = "user", Content = "（请按系统提示，以修正后的完整回复收尾，不再附加其它内容）" }
+            };
+            var reply = await _api.Chat(msgs, _cfg);
+            if (string.IsNullOrWhiteSpace(reply) || reply.StartsWith("[", StringComparison.Ordinal))
+                return assistantText;
+            return reply;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.RetryActionMarker -> " + ex.Message);
+            return assistantText;
+        }
+    }
+
+    /// <summary>把会话里最后一条 assistant 回复替换为补正后的文本（保持后续上下文一致）。</summary>
+    public void ReplaceLastAssistant(string charId, string newText)
+    {
+        if (_sessions.TryGetValue(charId, out var s))
+        {
+            for (var i = s.Count - 1; i >= 0; i--)
+            {
+                if (s[i].Role == "assistant")
+                {
+                    s[i] = s[i] with { Content = newText };
+                    return;
+                }
+            }
+        }
+    }
+
     public async Task<string> Greet(string charId)
     {
         var time = DateTime.Now.Hour switch
@@ -197,6 +261,7 @@ public sealed class ChatEngine
                            "当剧情合适时，你可以自然地提到她们、让她们出场，甚至用【名字】标记来短暂扮演她们说话，让生活更热闹。";
             if (!string.IsNullOrWhiteSpace(_mapContext))
                 persona += "\n" + _mapContext;
+            persona += "\n" + ActionProtocol;
             _sessions[charId] = new List<ChatMessage>
             {
                 new() { Role = "system", Content = persona }

@@ -18,6 +18,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     private readonly GameEngine _engine;
     private readonly MapService _maps;
+    private readonly MaterialLibrary _materials;
+    private readonly AudioController _audio;
     public MapCanvasDrawable Drawable { get; } = new();
 
     [ObservableProperty] private ModeKind _mode = ModeKind.View;
@@ -75,12 +77,19 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     // 长按左键框选（编辑模式）：空白处按下并拖动即进入框选，松开结算。点击（未拖动）= 仅取消选择
 
-    public MapViewModel(GameEngine engine, MapService maps)
+    public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio)
     {
         _engine = engine;
         _maps = maps;
+        _materials = materials;
+        _audio = audio;
         _maps.SceneChanged += OnSceneChanged;
         Drawable.AttachBgResolver(node => _maps.ResolveBackground(node.Scene));
+        Drawable.AttachLocationThumbResolver(loc =>
+        {
+            var firstBg = loc.Scenes?.FirstOrDefault(s => !string.IsNullOrWhiteSpace(s.Background));
+            return firstBg is null ? null : _maps.ThumbnailAbsFor(firstBg);
+        });
         _ = InitAsync();
     }
 
@@ -655,6 +664,7 @@ await Shell.Current.DisplayAlert("使用说明",
             // 纯点击：仅取消选择
             _marqueePending = false;
             Drawable.MarqueeSelected.Clear();
+            _audio.PlayAssigned("left");
             Touch();
             return;
         }
@@ -732,6 +742,7 @@ await Shell.Current.DisplayAlert("使用说明",
     {
         var world = Drawable.ScreenToWorld(new Point(screen.X, screen.Y));
         _menuOpenedAt = DateTime.Now;   // 标记本次右键将打开菜单，抑制随后的 Touch 回声
+        _audio.PlayAssigned("right");
         if (Drawable.Menu is not null) { Drawable.Menu = null; Touch(); return; }
         if ((Mode == ModeKind.Link || Mode == ModeKind.Doodle)
             && (Drawable.LinkStartNode is not null || Drawable.LinkStartTransit is not null))
@@ -755,7 +766,9 @@ await Shell.Current.DisplayAlert("使用说明",
                 {
                     ("🚶 出发", "go"),
                     ("✎ 编辑名称", "rename"),
-                    ("🖼 背景图", "bg"),
+                    ("🖼 背景图（素材库）", "bg-lib"),
+                    ("🖼 背景图（电脑导入）", "bg"),
+                    ("🗑 清除背景", "bg-clear"),
                     ("📝 备注", "note"),
                     ("ℹ 详细信息", "info"),
                     ("🗑 删除", "del")
@@ -1147,6 +1160,19 @@ await Shell.Current.DisplayAlert("使用说明",
             case "bg":
                 await PickSceneBackgroundAsync(scene);
                 Refresh();
+                break;
+            case "bg-lib":
+                await PickBackgroundFromLibraryAsync(scene);
+                Refresh();
+                break;
+            case "bg-clear":
+                if (scene is not null)
+                {
+                    scene.Background = "";
+                    await _maps.SaveAsync();
+                    StatusText = $"已清除「{scene.Name}」背景";
+                    Refresh();
+                }
                 break;
             case "note":
                 if (scene is null) return;
@@ -1723,24 +1749,56 @@ await _maps.SaveAsync();
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = $"为「{scene?.Name}」选择背景图",
+                PickerTitle = $"为「{scene?.Name}」选择背景图/视频",
                 FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                 {
-                    { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp" } },
-                    { DevicePlatform.Android, new[] { "image/*" } },
-                    { DevicePlatform.iOS, new[] { "public.image" } }
+                    { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".bmp", ".webp", ".mp4", ".mov", ".m4v", ".webm" } },
+                    { DevicePlatform.Android, new[] { "image/*", "video/*" } },
+                    { DevicePlatform.iOS, new[] { "public.image", "public.movie" } }
                 })
             });
             if (pick is null || scene is null) return;
             var rel = _maps.ImportBackground(pick.FullPath, scene.Id);
-            if (rel is null) { StatusText = "背景图复制失败"; return; }
+            if (rel is null) { StatusText = "背景复制失败"; return; }
             scene.Background = rel;
             await _maps.SaveAsync();
-            StatusText = $"已更新「{scene.Name}」背景图";
+            StatusText = $"已更新「{scene.Name}」背景";
         }
         catch (Exception ex)
         {
             App.WriteLog("MapViewModel.PickBackground -> " + ex);
+        }
+    }
+
+    /// <summary>从素材库（背景库）选择背景应用到场景：直接复制素材文件进 maps/ 目录。</summary>
+    private async Task PickBackgroundFromLibraryAsync(MapScene scene)
+    {
+        try
+        {
+            if (scene is null) return;
+            await _materials.EnsureLoadedAsync();
+            var items = _materials.BackgroundItems;
+            if (items.Count == 0)
+            {
+                await Shell.Current.DisplayAlert("背景库", "背景素材库是空的，可先到「素材库」页导入。", "好");
+                return;
+            }
+            var picked = await Shell.Current.DisplayActionSheet($"为「{scene.Name}」选择背景",
+                "取消", null, items.Select(b => b.Name).ToArray());
+            if (picked is null || picked == "取消") return;
+            var item = items.FirstOrDefault(b => b.Name == picked);
+            if (item is null) return;
+            var abs = _materials.ResolveAbs(item.RelPath);
+            if (!File.Exists(abs)) { StatusText = "背景文件缺失"; return; }
+            var rel = _maps.ImportBackground(abs, scene.Id);
+            if (rel is null) { StatusText = "背景复制失败"; return; }
+            scene.Background = rel;
+            await _maps.SaveAsync();
+            StatusText = $"已应用素材库背景「{item.Name}」";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapViewModel.PickBgFromLibrary -> " + ex);
         }
     }
 }

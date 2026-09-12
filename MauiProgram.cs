@@ -28,6 +28,7 @@ public static class MauiProgram
         builder.Services.AddSingleton<NotificationService>();
         builder.Services.AddSingleton<AudioController>();
         builder.Services.AddSingleton<SpeechService>();
+        builder.Services.AddSingleton<MaterialLibrary>();
         builder.Services.AddSingleton<GlassOverlayService>();
         builder.Services.AddSingleton<CharacterLibrary>();
         builder.Services.AddSingleton<PetService>();
@@ -105,6 +106,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<AffectionLevelUpPage>();
         builder.Services.AddTransient<CgViewPage>();
         builder.Services.AddTransient<BattlePage>();
+        builder.Services.AddTransient<MaterialsPage>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
         builder.Services.AddTransient<NovelSelectViewModel>();
         builder.Services.AddTransient<NovelWorldViewModel>();
@@ -115,6 +117,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<ShowcasePlayViewModel>();
         builder.Services.AddTransient<AffectionLevelUpViewModel>();
         builder.Services.AddTransient<CgViewViewModel>();
+        builder.Services.AddTransient<MaterialsViewModel>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
         App.WriteLog("CreateMauiApp: building");

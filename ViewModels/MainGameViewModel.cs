@@ -66,6 +66,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private double _spriteY = 0;
     [ObservableProperty] private double _spriteScale = 1.0;
     [ObservableProperty] private ImageSource? _sceneBackdrop;
+    [ObservableProperty] private string _sceneVideoPath = "";
+    [ObservableProperty] private bool _sceneVideoOn;
     [ObservableProperty] private bool _isWalking;
     [ObservableProperty] private double _spriteLoadingProgress = 0;
     [ObservableProperty] private string _statusText = "";
@@ -230,6 +232,8 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void ApplyScene(MapScene? scene)
     {
+        SceneVideoOn = false;
+        SceneVideoPath = "";
         if (scene is null)
         {
             SceneBackdrop = null;
@@ -237,7 +241,16 @@ public sealed partial class MainGameViewModel : ObservableObject
         }
         var bg = _map.ResolveBackground(scene);
         if (bg is not null)
-            SceneBackdrop = ImageSource.FromFile(bg);
+        {
+            if (MapService.IsVideoExt(Path.GetExtension(bg)))
+            {
+                SceneBackdrop = null;
+                SceneVideoPath = bg;
+                SceneVideoOn = true;
+            }
+            else
+                SceneBackdrop = ImageSource.FromFile(bg);
+        }
         else
             SceneBackdrop = null;
         SceneBg = scene.BackgroundColor;
@@ -395,6 +408,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             RestoreSession();
         });
         App.WriteLog($"LoadCharacterAsync: char={ch.Profile.Name}, outfit={_outfitKey}, emotion={_currentEmotion}, sprites={ch.SpriteMap.Count}");
+        _ = _audio.StartBgmRotationAsync();
     }
 
     /// <summary>读档后恢复聊天界面（消息来自存档里保存的会话记录）。</summary>
@@ -591,6 +605,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private async Task SendMessage()
     {
         if (string.IsNullOrWhiteSpace(InputText)) return;
+        _audio.PlayAssigned("key");
         var msg = InputText;
         InputText = "";
         AddMessage("user", msg);
@@ -598,31 +613,45 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (!string.IsNullOrEmpty(charId))
         {
             IsThinking = true;
-            string reply;
+            var segments = new List<string>();
+            var display = "";
             try
             {
-                reply = await _chat.Send(charId, msg);
-                reply = await ExecuteMoveMarkersAsync(reply);
-                reply = await HandleCgMarkersAsync(reply);
+                var reply = await _chat.Send(charId, msg);
+                var (segs, hasReaction) = await ProcessReplyAsync(reply);
+                // 动作标记缺失 → System 级补正：有正文=重输出，近乎为空=补输出
+                if (!hasReaction && !string.IsNullOrWhiteSpace(_settings.Current.AiUrl))
+                {
+                    var corrected = await _chat.RetryActionMarkerAsync(
+                        charId, msg, reply, isReOutput: !string.IsNullOrWhiteSpace(reply.Trim()));
+                    if (!ReferenceEquals(corrected, reply) && corrected != reply)
+                    {
+                        _chat.ReplaceLastAssistant(charId, corrected);
+                        (segs, hasReaction) = await ProcessReplyAsync(corrected);
+                        reply = corrected;
+                    }
+                }
+                segments = segs;
+                if (segments.Count == 0) segments.Add(reply.Trim());
+                display = string.Join(" ", segments);
             }
             catch (Exception ex)
             {
                 // AI 未连接：不崩溃、不空白，自动选一张立绘陪伴，并点明没收到
                 App.WriteLog("MainGameViewModel.SendMessage -> " + ex);
-                AddMessage("assistant", "……");
-                SetEmotionAny("委屈", "难过", "伤心", "低头");
-                return;
+                segments.Add("……");
+                display = "……";
             }
             finally { IsThinking = false; }
-            AddMessage("assistant", reply);
+            foreach (var seg in segments) AddMessage("assistant", seg);
             Affection = Math.Min(100, Affection + 1);
             Trust = Math.Min(100, Trust + 1);
             UpdateStats();
             AddAffectionPoints(1, true);
             CaptureMoment(charId, 1, "聊天");
-            var e = ResolveEmotion(reply);
+            var e = ResolveEmotion(display);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
-            _ = _speech.Speak(reply);
+            _ = _speech.Speak(StripActionMarkers(display));
             _ = AutoSave();
         }
     }
@@ -773,6 +802,123 @@ public sealed partial class MainGameViewModel : ObservableObject
         }
         return result;
     }
+
+    // ============ 多段回答：按工具标记 / 动作标记切段 ============
+
+    private static readonly HashSet<string> ActionMarkerNames = new() { "下沉", "雀跃", "颤抖" };
+
+    private static readonly Regex ReplyMarkersRegex = new(@"【(移动:[^】]+|CG:[^】]+|下沉|雀跃|颤抖)】", RegexOptions.Compiled);
+
+    private static readonly Regex ActionMarkerRegex = new(@"【(下沉|雀跃|颤抖)】", RegexOptions.Compiled);
+
+    /// <summary>
+    /// 把 AI 回复拆成多段：正文按标记位置切段，移动/CG 工具调用就地执行（各自算一段），
+    /// 动作标记直接执行动画；开发者展示模式保留动作标记文本，普通模式隐藏。
+    /// </summary>
+    private async Task<(List<string> Segments, bool HasReaction)> ProcessReplyAsync(string reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply))
+            return (new List<string>(), false);
+
+        var matches = ReplyMarkersRegex.Matches(reply).Cast<Match>().ToList();
+        var hasReaction = matches.Any(m => ActionMarkerNames.Contains(m.Groups[1].Value));
+        var segments = new List<string>();
+        if (matches.Count == 0)
+        {
+            segments.Add(reply.Trim());
+            return (segments, false);
+        }
+
+        var devShow = _settings.Current.DeveloperShowcaseUnlocked;
+        var last = 0;
+        foreach (var m in matches)
+        {
+            var head = reply[last..m.Index];
+            if (!string.IsNullOrWhiteSpace(head)) segments.Add(head.Trim());
+            last = m.Index + m.Length;
+            var inner = m.Groups[1].Value;
+
+            if (inner.StartsWith("移动:", StringComparison.Ordinal))
+            {
+                var note = await ExecuteSingleMoveAsync(inner[3..].Trim());
+                if (!string.IsNullOrWhiteSpace(note)) segments.Add(note.Trim());
+            }
+            else if (inner.StartsWith("CG:", StringComparison.Ordinal))
+            {
+                await TriggerSingleCgAsync(inner[3..].Trim());
+            }
+            else if (ActionMarkerNames.Contains(inner))
+            {
+                RunActionMarker(inner);
+                if (devShow)
+                {
+                    if (segments.Count == 0) segments.Add($"【{inner}】");
+                    else segments[^1] += $"【{inner}】";
+                }
+            }
+        }
+        var tail = reply[last..];
+        if (!string.IsNullOrWhiteSpace(tail)) segments.Add(tail.Trim());
+        return (segments, hasReaction);
+    }
+
+    /// <summary>执行一次【移动:场景名】，返回移动过程描述（作为一段回答展示）。</summary>
+    private async Task<string?> ExecuteSingleMoveAsync(string sceneName)
+    {
+        if (string.IsNullOrEmpty(sceneName)) return null;
+        try
+        {
+            IsWalking = true;
+            return await _map.MoveToAsync(sceneName);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGame.ExecuteSingleMoveAsync -> " + ex);
+            return null;
+        }
+        finally { IsWalking = false; }
+    }
+
+    /// <summary>触发单个 CG 标记：解锁 + 全屏播放 + 好感积分询问。</summary>
+    private async Task TriggerSingleCgAsync(string file)
+    {
+        if (string.IsNullOrEmpty(file)) return;
+        try
+        {
+            var rec = await _cg.UnlockAsync(file, Path.GetFileNameWithoutExtension(file));
+            if (rec is null) return;
+            var title = rec.Title ?? Path.GetFileNameWithoutExtension(file);
+            var path = _cg.ResolvePath(new Models.CgRecord { File = file });
+            _cgView.ImagePath = path ?? "";
+            _cgView.Title = title;
+            _cgView.HasPayload = path is not null;
+            _ = AskCgAffectionAsync(file, title);
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try { await Shell.Current.GoToAsync("cg-view"); }
+                catch (Exception ex) { App.WriteLog("TriggerSingleCg cg-view -> " + ex); }
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGame.TriggerSingleCg -> " + ex);
+        }
+    }
+
+    /// <summary>执行动作标记的动画（三种反应即时触发，不占展示文本）。</summary>
+    private void RunActionMarker(string name)
+    {
+        switch (name)
+        {
+            case "下沉": _ = SinkAnimationAsync(); break;
+            case "雀跃": _ = JumpAnimationAsync(); break;
+            case "颤抖": _ = ShakeAnimationAsync(); break;
+        }
+    }
+
+    /// <summary>从语音朗读文本里去掉动作标记。</summary>
+    private static string StripActionMarkers(string text)
+        => ActionMarkerRegex.Replace(text, "");
 
     /// <summary>CG 好感增量：AI 评定 → 累加积分 → 写入回忆录。</summary>
     private async Task AskCgAffectionAsync(string file, string title)
@@ -974,6 +1120,9 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     [RelayCommand]
     private async Task OpenRoster() => await Shell.Current.GoToAsync("roster");
+
+    [RelayCommand]
+    private async Task OpenMaterials() => await Shell.Current.GoToAsync("materials");
 
     /// <summary>进入战斗页面</summary>
     [RelayCommand]

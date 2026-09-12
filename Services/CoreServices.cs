@@ -150,16 +150,216 @@ public sealed class NotificationService
 
 public sealed class AudioController
 {
+    private readonly MaterialLibrary _materials;
     private double _bgm = 0.7;
     private double _sfx = 0.8;
+    private bool _bgmMuted;
 
-    public double Bgm { get => _bgm; set => _bgm = Math.Clamp(value, 0, 1); }
-    public double Sfx { get => _sfx; set => _sfx = Math.Clamp(value, 0, 1); }
+    public AudioController(MaterialLibrary materials) => _materials = materials;
 
-    public void PlayBgm(string name) => Trace($"[BGM] {name}");
-    public void PlaySfx(string name) => Trace($"[SFX] {name}");
-    public void StopAll() => Trace("[AUDIO] stop");
+    public double Bgm
+    {
+        get => _bgm;
+        set { _bgm = Math.Clamp(value, 0, 1); ApplyBgmVolume(); }
+    }
 
-    private static void Trace(string msg) =>
-        System.Diagnostics.Debug.WriteLine(msg);
+    public double Sfx
+    {
+        get => _sfx;
+        set => _sfx = Math.Clamp(value, 0, 1);
+    }
+
+    /// <summary>按分配方案播放：left=左键音，right=右键音，key=按键音。</summary>
+    public void PlayAssigned(string kind)
+    {
+        _ = PlayAssignedAsync(kind);
+    }
+
+    private async Task PlayAssignedAsync(string kind)
+    {
+        try
+        {
+            await _materials.EnsureLoadedAsync();
+            var a = _materials.Assign;
+            var id = kind switch
+            {
+                "left" => a.LeftClickId,
+                "right" => a.RightClickId,
+                _ => a.KeyPressId
+            };
+            if (string.IsNullOrEmpty(id)) return;
+            var item = await _materials.FindMusicAsync(id);
+            if (item is null) return;
+            PlaySfxFile(_materials.ResolveAbs(item.RelPath));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("AudioController.PlayAssigned -> " + ex.Message);
+        }
+    }
+
+    public void PlaySfxFile(string filePath)
+    {
+        if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return;
+#if WINDOWS
+        try
+        {
+            var p = new Windows.Media.Playback.MediaPlayer { Volume = _sfx };
+            p.MediaEnded += (_, _) => { try { p.Dispose(); } catch { } };
+            p.MediaFailed += (_, _) => { try { p.Dispose(); } catch { } };
+            p.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(filePath));
+            p.Play();
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[SFX] {filePath}: {ex.Message}"); }
+#else
+        System.Diagnostics.Debug.WriteLine($"[SFX] {filePath}");
+#endif
+    }
+
+    // ==================== 背景音乐轮播 ====================
+
+    /// <summary>启动/刷新背景音乐轮播（内容来自声音分配的 BgmList，未分配则不播放）。</summary>
+    public async Task StartBgmRotationAsync()
+    {
+        try
+        {
+            await _materials.EnsureLoadedAsync();
+            var a = _materials.Assign;
+            var files = new List<string>();
+            foreach (var id in a.BgmList)
+            {
+                var item = await _materials.FindMusicAsync(id);
+                if (item is null) continue;
+                var abs = _materials.ResolveAbs(item.RelPath);
+                if (File.Exists(abs)) files.Add(abs);
+            }
+            SetBgmPlaylist(files);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("AudioController.StartBgmRotation -> " + ex.Message);
+        }
+    }
+
+    private readonly List<string> _bgmFiles = new();
+    private int _bgmIndex;
+
+#if WINDOWS
+    private Windows.Media.Playback.MediaPlayer? _bgmPlayer;
+#else
+    private object? _bgmPlayer;
+#endif
+
+    public void SetBgmPlaylist(IReadOnlyList<string> files)
+    {
+        lock (_bgmFiles)
+        {
+            _bgmFiles.Clear();
+            if (files is not null) _bgmFiles.AddRange(files);
+            _bgmIndex = 0;
+        }
+        if (_bgmFiles.Count == 0)
+        {
+            StopBgm();
+            return;
+        }
+        PlayBgmFile(_bgmFiles[0]);
+    }
+
+    public void BgmNext()
+    {
+        lock (_bgmFiles)
+        {
+            if (_bgmFiles.Count == 0) return;
+            _bgmIndex = (_bgmIndex + 1) % _bgmFiles.Count;
+            PlayBgmFile(_bgmFiles[_bgmIndex]);
+        }
+    }
+
+    public void BgmPrev()
+    {
+        lock (_bgmFiles)
+        {
+            if (_bgmFiles.Count == 0) return;
+            _bgmIndex = (_bgmIndex - 1 + _bgmFiles.Count) % _bgmFiles.Count;
+            PlayBgmFile(_bgmFiles[_bgmIndex]);
+        }
+    }
+
+    /// <summary>CG 等全屏页：静音当前背景音乐；退出后调用恢复。</summary>
+    public void SetBgmMuted(bool muted)
+    {
+        _bgmMuted = muted;
+#if WINDOWS
+        if (_bgmPlayer is not null) _bgmPlayer.IsMuted = muted;
+#endif
+    }
+
+    public void StopBgm()
+    {
+#if WINDOWS
+        try
+        {
+            _bgmPlayer?.Pause();
+            _bgmPlayer?.Dispose();
+            _bgmPlayer = null;
+        }
+        catch { }
+#endif
+    }
+
+    public void StopAll()
+    {
+        StopBgm();
+        #if WINDOWS
+        System.Diagnostics.Debug.WriteLine("[AUDIO] stop");
+        #endif
+    }
+
+    private void PlayBgmFile(string file)
+    {
+        #if WINDOWS
+        try
+        {
+            StopBgm();
+            var p = new Windows.Media.Playback.MediaPlayer { Volume = _bgm, IsMuted = _bgmMuted };
+            p.MediaEnded += (_, _) => AdvanceInner(p);
+            p.MediaFailed += (_, _) => AdvanceInner(p);
+            p.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(file));
+            p.Play();
+            _bgmPlayer = p;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[BGM] {file}: {ex.Message}");
+        }
+        #else
+        System.Diagnostics.Debug.WriteLine($"[BGM] {file}");
+        #endif
+    }
+
+#if WINDOWS
+    /// <summary>当前曲目自然结束/失败：同一播放器直接切换到下一首（避免在事件里 Dispose 自己）。</summary>
+    private void AdvanceInner(Windows.Media.Playback.MediaPlayer p)
+    {
+        try
+        {
+            lock (_bgmFiles)
+            {
+                if (_bgmFiles.Count == 0) { p.Source = null; return; }
+                _bgmIndex = (_bgmIndex + 1) % _bgmFiles.Count;
+                p.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(_bgmFiles[_bgmIndex]));
+                p.Play();
+            }
+        }
+        catch { }
+    }
+#endif
+
+    private void ApplyBgmVolume()
+    {
+        #if WINDOWS
+        try { if (_bgmPlayer is not null) _bgmPlayer.Volume = _bgm; } catch { }
+        #endif
+    }
 }

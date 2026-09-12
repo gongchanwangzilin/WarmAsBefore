@@ -32,5 +32,6 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("affection-level-up", typeof(Views.AffectionLevelUpPage));
         Routing.RegisterRoute("cg-view", typeof(Views.CgViewPage));
         Routing.RegisterRoute("battle", typeof(Views.BattlePage));
+        Routing.RegisterRoute("materials", typeof(Views.MaterialsPage));
     }
 }

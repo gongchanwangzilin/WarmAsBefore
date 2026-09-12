@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
 xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
+xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
 xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
 xmlns:model="clr-namespace:WarmAsBefore.Models"
              x:Class="WarmAsBefore.Views.MainGamePage"
@@ -69,6 +70,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
                        IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
                        Opacity="0.5" />
+                <toolkit:MediaElement x:Name="SceneVideoPhone"
+                                      Source="{Binding SceneVideoPath}"
+                                      IsVisible="{Binding SceneVideoOn}"
+                                      Aspect="AspectFill" Opacity="0.5"
+                                      ShouldAutoPlay="True" ShouldLoopPlayback="True"
+                                      HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 立绘支持位置、透明度、缩放，手机模式更大 -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
                        Aspect="AspectFit" Margin="16,8"
@@ -332,6 +339,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Grid Grid.Row="1" Grid.Column="1">
                 <BoxView Color="{Binding SceneBg}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
+                <toolkit:MediaElement x:Name="SceneVideoDesktop"
+                                      Source="{Binding SceneVideoPath}"
+                                      IsVisible="{Binding SceneVideoOn}"
+                                      Aspect="AspectFill" Opacity="0.55"
+                                      ShouldAutoPlay="True" ShouldLoopPlayback="True"
+                                      HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 立绘支持位置、透明度、缩放，限制最大高度防止溢出 -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
                        Aspect="AspectFit"
@@ -482,6 +495,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Button Text="角色库" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenRosterCommand}" />
+                    <Button Text="素材库" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                            CornerRadius="8" HeightRequest="40"
+                            Command="{Binding OpenMaterialsCommand}" />
                     <Button Text="相册" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenGalleryCommand}" />
