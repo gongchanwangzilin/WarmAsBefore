@@ -16,12 +16,12 @@
                    Style="{StaticResource TxtCaption}" />
 
             <!-- Tab switch -->
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
                 <Border BackgroundColor="{Binding IsMemoirSelected, Converter={StaticResource SelectedBg}}"
                         StrokeThickness="1" Stroke="{StaticResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="回忆录" HorizontalOptions="Center" FontSize="14"
+                    <Label Text="回忆录" HorizontalOptions="Center" FontSize="13"
                            TextColor="{StaticResource WarmDark}" />
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="memoir" />
@@ -31,10 +31,20 @@
                         StrokeThickness="1" Stroke="{StaticResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="日记" HorizontalOptions="Center" FontSize="14"
+                    <Label Text="日记" HorizontalOptions="Center" FontSize="13"
                            TextColor="{StaticResource WarmDark}" />
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="diary" />
+                    </Border.GestureRecognizers>
+                </Border>
+                <Border Grid.Column="2" BackgroundColor="{Binding IsCgSelected, Converter={StaticResource SelectedBg}}"
+                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        Padding="0,10" HorizontalOptions="Fill">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="CG收藏册" HorizontalOptions="Center" FontSize="13"
+                           TextColor="{StaticResource WarmDark}" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="cg" />
                     </Border.GestureRecognizers>
                 </Border>
             </Grid>
@@ -102,6 +112,31 @@
                                            FontSize="13" TextColor="{StaticResource WarmDark}" />
                                     <Label Text="{Binding Content}" Style="{StaticResource TxtBodySm}"
                                            FontSize="13" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- CG 收藏册 tab -->
+            <VerticalStackLayout IsVisible="{Binding IsCgSelected}" Spacing="10">
+                <Label IsVisible="{Binding HasCg, Converter={StaticResource InverseBool}}"
+                       Text="还没有收藏的 CG。当她在对话里引用【CG:文件名】时就会解锁收藏~"
+                       Style="{StaticResource TxtCaption}" />
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding CgItems}" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:CgCollectionItem">
+                            <Border Style="{StaticResource CardNeumorph}" Padding="12">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:GalleryViewModel}}, Path=OpenCgCommand}"
+                                                          CommandParameter="{Binding}" />
+                                </Border.GestureRecognizers>
+                                <VerticalStackLayout Spacing="6">
+                                    <Image Source="{Binding Image}" HeightRequest="210" Aspect="AspectFit" />
+                                    <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}"
+                                           FontSize="13" TextColor="{StaticResource WarmDark}"
+                                           HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>

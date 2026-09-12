@@ -17,6 +17,10 @@ public sealed record CharacterProfile
 public sealed record CharacterState
 {
     public int Affection { get; set; }
+
+    /// <summary>累计好感积分（独立于 0-100 好感度）：每 500 分升 1 级，共 10 级（上限 5000）。</summary>
+    public int AffectionPoints { get; set; }
+
     public int Trust { get; set; }
     public int Energy { get; set; } = 100;
     public string Mood { get; set; } = "normal";

@@ -29,5 +29,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("showcase-list", typeof(Views.ShowcaseListPage));
         Routing.RegisterRoute("showcase-edit", typeof(Views.ShowcaseEditPage));
         Routing.RegisterRoute("showcase-play", typeof(Views.ShowcasePlayPage));
+        Routing.RegisterRoute("affection-level-up", typeof(Views.AffectionLevelUpPage));
+        Routing.RegisterRoute("cg-view", typeof(Views.CgViewPage));
+        Routing.RegisterRoute("battle", typeof(Views.BattlePage));
     }
 }

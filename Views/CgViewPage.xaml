@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.CgViewPage"
+             x:DataType="vm:CgViewViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="Black">
+
+    <Grid>
+        <Image Source="{Binding ImagePath, TargetNullValue=''}"
+               Aspect="AspectFit"
+               HorizontalOptions="Fill"
+               VerticalOptions="Fill" />
+
+        <Label Text="{Binding Title}"
+               TextColor="#CCFFFFFF"
+               FontSize="16"
+               HorizontalOptions="Center"
+               VerticalOptions="End"
+               Margin="0,0,0,30" />
+
+        <!-- 左上角半透明白色跳过按钮 -->
+        <Button Text="✕"
+                Command="{Binding SkipCommand}"
+                FontSize="22"
+                TextColor="White"
+                BackgroundColor="#80FFFFFF"
+                BorderWidth="0"
+                Padding="18,10"
+                CornerRadius="24"
+                HorizontalOptions="Start"
+                VerticalOptions="Start"
+                Margin="18,54,0,0" />
+    </Grid>
+</ContentPage>

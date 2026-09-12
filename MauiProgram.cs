@@ -47,6 +47,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
         builder.Services.AddSingleton<Modules.Tools.RuntimeManager>();
         builder.Services.AddSingleton<Modules.Tools.ToolManager>();
+        builder.Services.AddSingleton<Modules.Affection.AffectionLevelUpService>();
+        builder.Services.AddSingleton<Modules.Battle.BattleDriverManager>();
+        builder.Services.AddSingleton<Modules.Cg.CgStore>();
+        builder.Services.AddSingleton<Modules.Cg.CgViewPayload>();
         builder.Services.AddSingleton<Modules.Showcase.ShowcaseStore>();
         builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
         builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
@@ -98,6 +102,9 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<ShowcaseListPage>();
         builder.Services.AddTransient<ShowcaseEditPage>();
         builder.Services.AddTransient<ShowcasePlayPage>();
+        builder.Services.AddTransient<AffectionLevelUpPage>();
+        builder.Services.AddTransient<CgViewPage>();
+        builder.Services.AddTransient<BattlePage>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
         builder.Services.AddTransient<NovelSelectViewModel>();
         builder.Services.AddTransient<NovelWorldViewModel>();
@@ -106,6 +113,8 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<ShowcaseListViewModel>();
         builder.Services.AddTransient<ShowcaseEditViewModel>();
         builder.Services.AddTransient<ShowcasePlayViewModel>();
+        builder.Services.AddTransient<AffectionLevelUpViewModel>();
+        builder.Services.AddTransient<CgViewViewModel>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
         App.WriteLog("CreateMauiApp: building");

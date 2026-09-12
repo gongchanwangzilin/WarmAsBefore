@@ -30,6 +30,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly PetService _pet;
     private readonly MapService _map;
     private readonly Modules.Market.GiftPanelService _gifts;
+    private readonly SettingsManager _settings;
+    private readonly Modules.Affection.AffectionLevelUpService _levelUp;
+    private readonly Modules.Cg.CgStore _cg;
+    private readonly Modules.Cg.CgViewPayload _cgView;
 
     [ObservableProperty] private string _locationLabel = "家";
     [ObservableProperty] private string _timeLabel = "";
@@ -37,6 +41,11 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _dialogue = "";
     [ObservableProperty] private bool _isAuto;
     [ObservableProperty] private int _affection = 30;
+    [ObservableProperty] private int _affectionLevel = 1;
+    [ObservableProperty] private string _affectionLevelTitle = "初识";
+    public string AffectionLevelLabel => $"Lv.{AffectionLevel} {AffectionLevelTitle}";
+    partial void OnAffectionLevelChanged(int value) => OnPropertyChanged(nameof(AffectionLevelLabel));
+    partial void OnAffectionLevelTitleChanged(string value) => OnPropertyChanged(nameof(AffectionLevelLabel));
     [ObservableProperty] private int _trust = 30;
     [ObservableProperty] private int _attachment;
     [ObservableProperty] private int _balance = 1000;
@@ -116,7 +125,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         TaskOrchestrator auto, SaveManager save, WeatherProvider weather, RealTimeProvider time,
         PhysiologicalTracker phys, AudioController audio, SpeechService speech,
         CharacterLibrary chars, StorageProvider store, PetService pet, MapService map,
-        Modules.Market.GiftPanelService gifts)
+        Modules.Market.GiftPanelService gifts, SettingsManager settings,
+        Modules.Affection.AffectionLevelUpService levelUp,
+        Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView)
     {
         _engine = engine;
         _chat = chat;
@@ -133,6 +144,10 @@ public sealed partial class MainGameViewModel : ObservableObject
         _pet = pet;
         _map = map;
         _gifts = gifts;
+        _settings = settings;
+        _levelUp = levelUp;
+        _cg = cg;
+        _cgView = cgView;
 
         _auto.GreetingReady += OnGreet;
         _auto.Start();
@@ -285,6 +300,61 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     partial void OnSpriteVisibleChanged(bool value) => OnPropertyChanged(nameof(NoSpriteVisible));
 
+    /// <summary>
+    /// 累计好感积分（独立于 0-100 好感度）：跨过整 500 边界时触发好感等级提升动画。
+    /// 开关：设置 › 好感度 › 等级提升动画。
+    /// </summary>
+    private void AddAffectionPoints(int delta, bool withAnimation)
+    {
+        if (_char is null) return;
+        var before = _char.State.AffectionPoints;
+        var after = Math.Min(Modules.Affection.AffectionLevel.MaxPoints, before + Math.Max(0, delta));
+        _char.State.AffectionPoints = after;
+
+        var newLevel = Modules.Affection.AffectionLevel.LevelOf(after);
+        if (AffectionLevel != newLevel)
+        {
+            AffectionLevel = newLevel;
+            AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(newLevel);
+        }
+        if (withAnimation
+            && after > 0
+            && newLevel > Modules.Affection.AffectionLevel.LevelOf(before)
+            && _settings.Current.AffectionLevelUpEnabled)
+        {
+            TriggerAffectionLevelUp(newLevel);
+        }
+    }
+
+    /// <summary>好感等级提升：在后台组装动画页数据，主线程导航播放。</summary>
+    private void TriggerAffectionLevelUp(int newLevel)
+    {
+        if (_char is null) return;
+        try
+        {
+            _levelUp.Level = newLevel;
+            _levelUp.CharacterName = _char.Profile.Name;
+            _levelUp.Title = Modules.Affection.AffectionLevel.TitleOf(newLevel);
+            _levelUp.SpritePath = Modules.Affection.SpritePathResolver.Resolve(
+                _char, _outfitKey, _currentEmotion, _defaultEmotion, _store.Root);
+            _levelUp.BackgroundPath = _map is { IsLoaded: true } && _map.CurrentScene is { } sc
+                ? _map.ResolveBackground(sc)
+                : null;
+            _levelUp.BackgroundColor = SceneBg;
+            _levelUp.HasPayload = true;
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try { await Shell.Current.GoToAsync("affection-level-up"); }
+                catch (Exception ex) { App.WriteLog("TriggerAffectionLevelUp -> " + ex); }
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("TriggerAffectionLevelUp -> " + ex);
+        }
+    }
+
     private async Task LoadCharacterAsync()
     {
         var charId = _engine.State.CharacterId;
@@ -296,6 +366,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Affection = ch.State.Affection;
         Trust = ch.State.Trust;
         Balance = Math.Max(0, ch.State.Energy);
+        AffectionLevel = Modules.Affection.AffectionLevel.LevelOf(ch.State.AffectionPoints);
+        AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(AffectionLevel);
         UpdateStats();
 
         // 随机选择初始服装和表情
@@ -531,6 +603,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             {
                 reply = await _chat.Send(charId, msg);
                 reply = await ExecuteMoveMarkersAsync(reply);
+                reply = await HandleCgMarkersAsync(reply);
             }
             catch (Exception ex)
             {
@@ -545,6 +618,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             Affection = Math.Min(100, Affection + 1);
             Trust = Math.Min(100, Trust + 1);
             UpdateStats();
+            AddAffectionPoints(1, true);
             CaptureMoment(charId, 1, "聊天");
             var e = ResolveEmotion(reply);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
@@ -591,6 +665,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             reply = await ExecuteMoveMarkersAsync(reply);
             AddMessage("assistant", reply);
             CaptureMoment(_engine.State.CharacterId, item.Price >= 50 ? 5 : 3, $"送礼：{item.Name}");
+            AddAffectionPoints(item.Price >= 50 ? 5 : 3, true);
             var e = ResolveEmotion(reply);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
             _ = _speech.Speak(reply);
@@ -657,6 +732,62 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (notes.Count > 0)
             result = $"{result}\n{string.Join("\n", notes)}";
         return result;
+    }
+
+    /// <summary>
+    /// CG 触发协议：AI 回复含【CG:文件名】→ 解锁并全屏播放该 CG。
+    /// 每个 CG 标记解锁后都会向 AI 结构化询问这一幕带来的好感积分增量。
+    /// </summary>
+    private async Task<string> HandleCgMarkersAsync(string reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply) || !reply.Contains("【CG:", StringComparison.Ordinal))
+            return reply;
+
+        var triggered = new List<(string File, string Title)>();
+        foreach (Match m in Regex.Matches(reply, @"【CG:([^】]+)】"))
+        {
+            var file = m.Groups[1].Value.Trim();
+            if (string.IsNullOrEmpty(file) || triggered.Any(t => t.File == file)) continue;
+            var rec = await _cg.UnlockAsync(file, Path.GetFileNameWithoutExtension(file));
+            triggered.Add((file, rec?.Title ?? Path.GetFileNameWithoutExtension(file)));
+        }
+        var result = Regex.Replace(reply, @"【CG:[^】]+】", "").Trim();
+
+        if (triggered.Count > 0)
+        {
+            var first = triggered[0];
+            var path = _cg.ResolvePath(new Models.CgRecord { File = first.File });
+            _cgView.ImagePath = path ?? "";
+            _cgView.Title = first.Title;
+            _cgView.HasPayload = path is not null;
+
+            // 问 AI：这一幕好感积分增加多少（结构化请求）
+            foreach (var (file, title) in triggered)
+                _ = AskCgAffectionAsync(file, title);
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try { await Shell.Current.GoToAsync("cg-view"); }
+                catch (Exception ex) { App.WriteLog("HandleCgMarkers cg-view -> " + ex); }
+            });
+        }
+        return result;
+    }
+
+    /// <summary>CG 好感增量：AI 评定 → 累加积分 → 写入回忆录。</summary>
+    private async Task AskCgAffectionAsync(string file, string title)
+    {
+        try
+        {
+            var delta = Math.Clamp(await _chat.AskAffectionDeltaAsync(title), 0, 20);
+            AddAffectionPoints(delta, true);
+            if (_engine.ActiveCharacter is { } ch)
+                _ = _memory.LogAffection(ch.Profile.Id, delta, $"CG「{title}」");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGame.AskCgAffection -> " + ex);
+        }
     }
 
     [RelayCommand]
@@ -777,6 +908,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Affection = Math.Min(100, Affection + 2);
         AddMessage("assistant", "小雨被摸了摸头，害羞地笑了~");
         UpdateStats();
+        AddAffectionPoints(2, true);
         SetEmotionAny("害羞", "闭眼微笑", "开心");
         CaptureMoment(_engine.State.CharacterId, 2, "摸头");
         _ = SinkAnimationAsync();
@@ -790,6 +922,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Trust = Math.Min(100, Trust + 2);
         AddMessage("assistant", "小雨轻轻抱住了你，感觉很温暖。");
         UpdateStats();
+        AddAffectionPoints(3, true);
         SetEmotionAny("温柔", "闭眼微笑", "开心");
         CaptureMoment(_engine.State.CharacterId, 3, "拥抱");
         _ = JumpAnimationAsync();
@@ -808,6 +941,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Trust = Math.Min(100, Trust + 3);
         AddMessage("assistant", "小雨踮起脚尖，在你脸颊上轻轻一吻~");
         UpdateStats();
+        AddAffectionPoints(5, true);
         SetEmotionAny("害羞", "惊讶", "开心");
         CaptureMoment(_engine.State.CharacterId, 5, "亲吻");
         _ = ShakeAnimationAsync();

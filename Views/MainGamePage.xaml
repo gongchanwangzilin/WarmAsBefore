@@ -303,6 +303,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                             <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
+                    <VerticalStackLayout Spacing="2">
+                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">好感等级</Label>
+                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{StaticResource AccentWarm}" FontSize="13" FontAttributes="Bold" />
+                    </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{StaticResource MutedFg}" FontSize="11">信任度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">

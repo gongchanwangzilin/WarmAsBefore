@@ -188,6 +188,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _complexPlot = s.ComplexPlot;
         _novelTesting = s.NovelTestingEnabled;
         _showAffection = s.ShowAllAffection;
+        _affectionLevelUp = s.AffectionLevelUpEnabled;
         _menuRight = s.MenuSide == "right";
         _lang = s.Lang;
         _langDisplay = LangDisplayOf(s.Lang);
@@ -276,6 +277,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _complexPlot;
     [ObservableProperty] private bool _novelTesting;
     [ObservableProperty] private bool _showAffection;
+    [ObservableProperty] private bool _affectionLevelUp = true;
     [ObservableProperty] private bool _menuRight;
     [ObservableProperty] private string _lang = "zh-CN";
     [ObservableProperty] private string _langDisplay = "简体中文";
@@ -418,6 +420,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnComplexPlotChanged(bool value) => PersistSettings();
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
     partial void OnShowAffectionChanged(bool value) => PersistSettings();
+    partial void OnAffectionLevelUpChanged(bool value) => PersistSettings();
     partial void OnMenuRightChanged(bool value) => PersistSettings();
     partial void OnLangChanged(string value)
     {
@@ -523,6 +526,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 ComplexPlot = ComplexPlot,
                 NovelTestingEnabled = NovelTesting,
                 ShowAllAffection = ShowAffection,
+                AffectionLevelUpEnabled = AffectionLevelUp,
                 FrostEnabled = FrostOn,
                 GlassEnabled = GlassOn,
                 LiquidEnabled = LiquidOn,

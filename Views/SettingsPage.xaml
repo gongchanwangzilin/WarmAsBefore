@@ -523,6 +523,10 @@
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="{Binding [Settings_ShowAffection], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
                             <Switch Grid.Column="1" IsToggled="{Binding ShowAffection}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="好感等级提升动画" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="每累计 500 好感积分升 1 级（共10级），跨越等级时全屏播放爱心动画" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AffectionLevelUp}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
 

@@ -145,6 +145,34 @@ public sealed class ChatEngine
 
     private static string Fallback(string input) => $"{input}…嗯，我在听。";
 
+    /// <summary>
+    /// 结构化询问：刚才这一幕（CG）让女主的累计好感积分增加多少。
+    /// 返回 0-20 的整数；AI 未配置或调用失败时回退默认 8。
+    /// </summary>
+    public async Task<int> AskAffectionDeltaAsync(string cgTitle)
+    {
+        if (string.IsNullOrWhiteSpace(_cfg.Key)) return 8;
+        try
+        {
+            var msgs = new List<ChatMessage>
+            {
+                new() { Role = "system", Content = "你是好感度数值评定器。只能输出一个整数，不要输出任何其它文字或标点。" },
+                new() { Role = "user", Content = $"刚才发生了一幕名为「{cgTitle}」的浪漫时刻。请评定这次经历让女主对用户的累计好感积分增加多少，取 1 到 20 的整数。只输出数字。" }
+            };
+            var reply = await _api.Chat(msgs, _cfg);
+            if (reply is null) return 8;
+            var match = Regex.Match(reply, @"\d{1,2}");
+            if (match.Success && int.TryParse(match.Value, out var v))
+                return Math.Clamp(v, 0, 20);
+            return 8;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.AskAffectionDelta -> " + ex.Message);
+            return 8;
+        }
+    }
+
     public async Task<string> Greet(string charId)
     {
         var time = DateTime.Now.Hour switch

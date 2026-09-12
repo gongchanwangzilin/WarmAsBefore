@@ -21,7 +21,7 @@
         <viewmodels:BattleViewModel />
     </ContentPage.BindingContext>
 
-    <Grid RowDefinitions="Auto,*,Auto" 
+    <Grid RowDefinitions="Auto,*,*,Auto" 
           ColumnDefinitions="*,*"
           Padding="10">
         
@@ -31,16 +31,22 @@
                 StrokeThickness="0"
                 Padding="10"
                 Margin="0,0,0,10">
-            <StackLayout Orientation="Horizontal" HorizontalOptions="Center">
-                <Label Text="{Binding Round, StringFormat='第 {0} 回合'}" 
-                       TextColor="#e94560"
-                       FontSize="18"
-                       FontAttributes="Bold"/>
-                <Label Text="  |  " TextColor="#ffffff"/>
-                <Label Text="{Binding StatusText}" 
-                       TextColor="#ffffff"
-                       FontSize="16"/>
-            </StackLayout>
+            <VerticalStackLayout Spacing="2">
+                <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="10">
+                    <Label Text="{Binding Round, StringFormat='第 {0} 回合'}"
+                           TextColor="#e94560"
+                           FontSize="18"
+                           FontAttributes="Bold"/>
+                    <Label Text="  |  " TextColor="#ffffff"/>
+                    <Label Text="{Binding StatusText}" 
+                           TextColor="#ffffff"
+                           FontSize="16"/>
+                </StackLayout>
+                <Label Text="{Binding DriverName, StringFormat='战斗引擎: {0}'}"
+                       TextColor="#7a7a9a"
+                       FontSize="11"
+                       HorizontalOptions="Center"/>
+            </VerticalStackLayout>
         </Border>
 
         <!-- 左侧：玩家区域 -->
@@ -81,7 +87,7 @@
                                         IsVisible="{Binding AvatarImage, Converter={StaticResource StringEmptyConverter}}"/>
                                  <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
                                      <Label Text="{Binding DisplayName}" TextColor="#ffffff" FontSize="14" FontAttributes="Bold"/>
-                                     <ProgressBar Progress="{Binding CurrentHpPercentage, Mode=OneWay}"
+                                     <ProgressBar Progress="{Binding HpPercentage, Mode=OneWay}"
                                                   ProgressColor="#4ecca3"
                                                   HeightRequest="8"
                                                   Margin="0,2"/>
@@ -135,7 +141,7 @@
                                         IsVisible="{Binding AvatarImage, Converter={StaticResource StringEmptyConverter}}"/>
                                  <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
                                      <Label Text="{Binding DisplayName}" TextColor="#ffffff" FontSize="14" FontAttributes="Bold"/>
-                                     <ProgressBar Progress="{Binding CurrentHpPercentage, Mode=OneWay}"
+                                     <ProgressBar Progress="{Binding HpPercentage, Mode=OneWay}"
                                                   ProgressColor="#e94560"
                                                   HeightRequest="8"
                                                   Margin="0,2"/>
@@ -185,8 +191,21 @@
                         TextColor="#ffffff"
                         Padding="20,10"
                         Margin="5"
+                        IsEnabled="{Binding CanAct}"
                         Command="{Binding ExecuteAttackCommand}"/>
             </StackLayout>
+
+            <!-- 敌方回合等待层 -->
+            <Border IsVisible="{Binding IsBusy}"
+                    BackgroundColor="#19000000"
+                    StrokeThickness="0"
+                    Padding="20"
+                    Margin="0,5">
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="12">
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" Color="#ffffff" WidthRequest="24" HeightRequest="24" />
+                    <Label Text="敌方回合..." TextColor="#ffffff" FontSize="15" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
 
             <!-- 战斗日志 -->
             <Border BackgroundColor="#16213e"
@@ -241,7 +260,7 @@
                 <Button Text="继续"
                         BackgroundColor="#533483"
                         TextColor="#ffffff"
-                        Command="{Binding CloseSummaryCommand}"/>
+                        Command="{Binding GoBackCommand}"/>
             </StackLayout>
         </Border>
 

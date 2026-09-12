@@ -476,23 +476,31 @@ public sealed partial class GalleryViewModel : ObservableObject
     private readonly Modules.AiChat.MemoryVault _memory;
     private readonly GameEngine _engine;
     private readonly Modules.Automation.DailyDiaryWriter _diary;
+    private readonly Modules.Cg.CgStore _cg;
+    private readonly Modules.Cg.CgViewPayload _cgView;
 
     [ObservableProperty] private bool _isMemoirSelected = true;
     [ObservableProperty] private bool _isDiarySelected;
+    [ObservableProperty] private bool _isCgSelected;
     [ObservableProperty] private string _searchText = "";
     [ObservableProperty] private ObservableCollection<AffectionMemoryItem> _affectionItems = new();
     [ObservableProperty] private ObservableCollection<DialogueMemoryItem> _memoryItems = new();
     [ObservableProperty] private ObservableCollection<DiaryDayItem> _diaryItems = new();
+    [ObservableProperty] private ObservableCollection<CgCollectionItem> _cgItems = new();
     [ObservableProperty] private bool _hasAffection;
     [ObservableProperty] private bool _hasMemory;
     [ObservableProperty] private bool _hasDiary;
+    [ObservableProperty] private bool _hasCg;
 
     public GalleryViewModel(Modules.AiChat.MemoryVault memory, GameEngine engine,
-        Modules.Automation.DailyDiaryWriter diary)
+        Modules.Automation.DailyDiaryWriter diary, Modules.Cg.CgStore cg,
+        Modules.Cg.CgViewPayload cgView)
     {
         _memory = memory;
         _engine = engine;
         _diary = diary;
+        _cg = cg;
+        _cgView = cgView;
     }
 
     private string CharacterId
@@ -511,6 +519,7 @@ public sealed partial class GalleryViewModel : ObservableObject
         await _diary.EnsureTodayAsync();
         await ReloadDiaryAsync();
         await ReloadMemoirAsync();
+        await ReloadCgAsync();
     }
 
     [RelayCommand]
@@ -518,6 +527,7 @@ public sealed partial class GalleryViewModel : ObservableObject
     {
         IsMemoirSelected = tab == "memoir";
         IsDiarySelected = tab == "diary";
+        IsCgSelected = tab == "cg";
     }
 
     partial void OnSearchTextChanged(string value) => _ = ReloadMemoirAsync();
@@ -574,6 +584,50 @@ public sealed partial class GalleryViewModel : ObservableObject
             }));
         HasDiary = DiaryItems.Count > 0;
     }
+
+    private async Task ReloadCgAsync()
+    {
+        await _cg.RefreshAsync();
+        var items = new List<CgCollectionItem>();
+        foreach (var cg in _cg.AllUnlocked())
+        {
+            var path = _cg.ResolvePath(cg);
+            ImageSource? img = null;
+            if (!string.IsNullOrEmpty(path) && File.Exists(path))
+            {
+                try { img = ImageSource.FromFile(path); } catch { img = null; }
+            }
+            items.Add(new CgCollectionItem
+            {
+                Title = string.IsNullOrWhiteSpace(cg.Title) ? "CG" : cg.Title,
+                File = cg.File,
+                Path = path ?? "",
+                Image = img
+            });
+        }
+        CgItems = new ObservableCollection<CgCollectionItem>(items);
+        HasCg = CgItems.Count > 0;
+    }
+
+    /// <summary>收藏册点开一张 CG：全屏回看（左上角可跳过）。</summary>
+    [RelayCommand]
+    private async Task OpenCg(CgCollectionItem item)
+    {
+        if (item?.HasImage is not true) return;
+        _cgView.ImagePath = item.Path;
+        _cgView.Title = item.Title;
+        _cgView.HasPayload = true;
+        await Shell.Current.GoToAsync("cg-view");
+    }
+}
+
+public sealed class CgCollectionItem
+{
+    public string Title { get; init; } = "";
+    public string File { get; init; } = "";
+    public string Path { get; init; } = "";
+    public ImageSource? Image { get; init; }
+    public bool HasImage => Image is not null;
 }
 
 public sealed class AffectionMemoryItem

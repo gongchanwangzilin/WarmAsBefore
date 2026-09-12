@@ -49,6 +49,8 @@ public sealed record UserSettings
     public bool ComplexPlot { get; init; }
     public bool NovelTestingEnabled { get; init; }   // 小说功能为测试：默认关闭，仅在设置中打开后才显示入口
     public bool ShowAllAffection { get; init; }
+    /// <summary>好感等级提升动画：满 500 好感积分升 1 级时播放全屏动画。</summary>
+    public bool AffectionLevelUpEnabled { get; init; } = true;
     public string GlassStyle { get; init; } = "none";   // 旧版单一效果字段（仅用于迁移，不再写入）
     public bool FrostEnabled { get; init; }             // 磨砂玻璃（半透明磨砂）
     public bool GlassEnabled { get; init; }             // 毛玻璃（磨砂的高级版）
