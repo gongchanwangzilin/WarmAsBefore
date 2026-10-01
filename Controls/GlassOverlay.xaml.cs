@@ -4,14 +4,14 @@ namespace WarmAsBefore.Controls;
 /// Apple Liquid Glass 标准玻璃叠加层（iOS 26）。
 /// 三档：Frost（磨砂）/ Glass（毛玻璃）/ Liquid（液态玻璃）。
 /// · Translucency（0-1）：自适应透明度，控制叠加层 Alpha；
-/// · ReducedTransparency（true）：减弱透明降级 → 切不透明磨砂层，保证正文 4.5:1 对比；
-/// · 液态档含 2 条斜向折射光带，OnHandlerChanged 时做一次 6dp 微位移动画（尊重 reduced-motion）。
+/// · ReducedTransparency（true）：减弱透明降级 → 且确有玻璃时切不透明磨砂层，保证正文 4.5:1 对比；
+/// · 液态档含 2 条斜向折射光带（静态高亮）。
+///
+/// 叠加层的挂载/可见性关键约束见 GlassOverlay.xaml 顶部注释（InputTransparent 必须配
+/// CascadeInputTransparent=False，否则整层不会被合成）。
 /// </summary>
-public partial class GlassOverlay : ContentView
+public partial class GlassOverlay : Grid
 {
-    private const int RefractionDriftMs = 1600;
-    private readonly bool _prefersReducedMotion;
-
     public static readonly BindableProperty FrostProperty =
         BindableProperty.Create(nameof(Frost), typeof(bool), typeof(GlassOverlay), false,
             propertyChanged: (b, _, _) => ((GlassOverlay)b).Refresh());
@@ -23,8 +23,8 @@ public partial class GlassOverlay : ContentView
             propertyChanged: (b, _, _) => ((GlassOverlay)b).Refresh());
 
     public static readonly BindableProperty TranslucencyProperty =
-        // 默认值与 UserSettings.GlassTranslucency 保持一致（1.0），避免叠加层初始状态
-        // 与设置页滑块显示的值不一致。
+        // 默认值与 UserSettings.GlassTranslucency 保持一致（1.0），
+        // 避免叠加层初始状态与设置页滑块显示的值不一致。
         BindableProperty.Create(nameof(Translucency), typeof(double), typeof(GlassOverlay), 1.0,
             propertyChanged: (b, _, _) => ((GlassOverlay)b).Refresh());
 
@@ -53,7 +53,9 @@ public partial class GlassOverlay : ContentView
     public GlassOverlay()
     {
         InitializeComponent();
-        _prefersReducedMotion = false;
+        // 叠加层常驻挂载，只切换各层的可见性。
+        // 不要让根元素跟着做 false→true 的显隐：导航过程中那一步容易被漏掉，整层就不显示。
+        IsVisible = true;
     }
 
     protected override void OnHandlerChanged()
@@ -77,21 +79,13 @@ public partial class GlassOverlay : ContentView
         FrostLayer.IsVisible = !reduced && (Frost || Glass);
         GlassLayer.IsVisible = !reduced && Glass;
         LiquidLayer.IsVisible = !reduced && Liquid;
-        IsVisible = any;
 
-        // 自适应透明度：按 Translucency 缩放液态层透明度
+        // 自适应透明度：按 Translucency 缩放各层透明度
         var t = Math.Clamp(Translucency, 0, 1);
-        if (LiquidLayer is not null)
-            LiquidLayer.Opacity = 0.35 + 0.65 * t;
-        if (GlassLayer is not null)
-            GlassLayer.Opacity = 0.5 + 0.5 * t;
-        // 液态档：折射光带更亮，强化「液态玻璃」观感
+        LiquidLayer.Opacity = 0.35 + 0.65 * t;
+        GlassLayer.Opacity = 0.5 + 0.5 * t;
+        // 液态档：折射光带点亮，强化「液态玻璃」观感
         if (RefractionBand is not null)
             RefractionBand.Opacity = Liquid ? (0.5 + 0.5 * t) : 0;
     }
-
-    // 折射光带保持静态（不做 fire-and-forget 位移动画）：
-    // TranslateTo/ScaleTo 在液态档下每次导航页面都会重放，动画完成事件与
-    // GlassOverlayService.Refresh 并发写 TranslationX/Scale 会造成 UI 线程布局争用，
-    // 是「按键卡死」的主要来源之一。视觉观感用椭圆光带本身已足够，无需动态漂移。
 }

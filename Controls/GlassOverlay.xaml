@@ -1,93 +1,101 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             x:Class="WarmAsBefore.Controls.GlassOverlay"
-             InputTransparent="True"
-             IsVisible="False">
+<!--
+    ⚠ 这一对属性是本控件能否被渲染的关键，改动前务必实测：
+      InputTransparent="True"        叠加层不能拦截点击（它盖在整页内容之上）
+      CascadeInputTransparent="False" 但绝不能把 InputTransparent 级联给子元素
+
+    默认的 CascadeInputTransparent=True 会把 InputTransparent 传进每个子 Grid，
+    在 Windows 上这条路径会让整棵子树根本不参与合成：实测叠加层与各层的
+    平台视图尺寸、Visibility、Opacity 全部正常，连设成不透明纯色也一个像素都不画。
+    这正是「开启液态玻璃看不到效果 / 开关没反应」的真正原因，
+    此前几轮调透明度、加深渐变之所以无效，就是因为整层压根没渲染。
+
+    根元素用 Grid：平台视图是 LayoutPanel，与应用里所有正常渲染的容器同类型。
+-->
+<Grid xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+      x:Class="WarmAsBefore.Controls.GlassOverlay"
+      InputTransparent="True"
+      CascadeInputTransparent="False">
 
     <!--
         Apple Liquid Glass 标准（iOS 26）落地：
         · 自适应透明（Translucency）：0=不透明磨砂，1=全液态玻璃
-        · 折射光带：2 条斜向动态光带，随 Liquid 档微位移动画
-        · 内发光描边：1px 渐变描边（左上亮 → 右下暖暗），替代旧 1.2px 硬描边
-        · 减弱透明降级：ReducedTransparency=true 时切不透明磨砂层，保证正文 4.5:1 对比
+        · 折射光带：2 条斜向光带，液态档点亮
+        · 内发光描边：渐变描边（左上亮 → 右下暖暗）
+        · 减弱透明降级：ReducedTransparency=true 且确有玻璃时切不透明磨砂层，保证正文 4.5:1 对比
     -->
-    <Grid>
-        <!-- 不透明磨砂降级层（减弱透明模式） -->
-        <Grid x:Name="OpaqueFrostLayer" IsVisible="False">
-            <Grid.Background>
-                <SolidColorBrush Color="#E8FDF6EE" />
-            </Grid.Background>
-        </Grid>
 
-        <!-- 磨砂层：轻透磨砂 -->
-        <Grid x:Name="FrostLayer">
-            <Grid.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#38FFFFFF" Offset="0.0" />
-                    <GradientStop Color="#14FFFFFF" Offset="1.0" />
-                </LinearGradientBrush>
-            </Grid.Background>
-        </Grid>
-
-        <!-- 毛玻璃层：叠加层 + 内发光描边 -->
-        <Grid x:Name="GlassLayer">
-            <Grid>
-                <Grid.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#30FDF6EE" Offset="0.0" />
-                        <GradientStop Color="#10FDF6EE" Offset="0.55" />
-                        <GradientStop Color="#26C9BFA8" Offset="1.0" />
-                    </LinearGradientBrush>
-                </Grid.Background>
-            </Grid>
-            <!-- 1px 内发光描边（Apple Liquid Glass 标准） -->
-            <Border x:Name="InnerGlowEdge" StrokeThickness="1">
-                <Border.Stroke>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#88FFFFFF" Offset="0.0" />
-                        <GradientStop Color="#1AFFFFFF" Offset="0.45" />
-                        <GradientStop Color="#2E8B7D6B" Offset="1.0" />
-                    </LinearGradientBrush>
-                </Border.Stroke>
-            </Border>
-        </Grid>
-
-        <!-- 液态玻璃层：折射光带 + 高透叠加。
-             叠加层渲染在页面内容之上，α 过高会直接压掉正文对比度（正文需 ≥4.5:1），
-             所以「看得见」交给折射光带与内发光描边，底噪只保留一层很薄的玻璃光泽。 -->
-        <Grid x:Name="LiquidLayer">
-            <Grid>
-                <Grid.Background>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                        <GradientStop Color="#2EFFFFFF" Offset="0.0" />
-                        <GradientStop Color="#14FDF6EE" Offset="0.35" />
-                        <GradientStop Color="#0AFDF6EE" Offset="0.7" />
-                        <GradientStop Color="#24C9BFA8" Offset="1.0" />
-                    </LinearGradientBrush>
-                </Grid.Background>
-            </Grid>
-            <!-- 斜向折射光带（静态高亮，强化液态玻璃观感） -->
-            <Grid x:Name="RefractionBand" Opacity="0">
-                <Ellipse Fill="#CCFFFFFF" Opacity="0.4"
-                         WidthRequest="460" HeightRequest="150"
-                         HorizontalOptions="Start" VerticalOptions="Start"
-                         Margin="-100,-52,0,0" Rotation="-24" InputTransparent="True" />
-                <Ellipse Fill="#33FFFFFF" Opacity="0.55"
-                         WidthRequest="360" HeightRequest="100"
-                         HorizontalOptions="End" VerticalOptions="Center"
-                         Margin="0,0,-80,0" Rotation="18" InputTransparent="True" />
-            </Grid>
-            <!-- 1.5px 内发光描边（液态玻璃标准：可见的玻璃边） -->
-            <Border x:Name="LiquidInnerEdge" StrokeThickness="1.5">
-                <Border.Stroke>
-                    <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#E6FFFFFF" Offset="0.0" />
-                        <GradientStop Color="#40FFFFFF" Offset="0.5" />
-                        <GradientStop Color="#99C9BFA8" Offset="1.0" />
-                    </LinearGradientBrush>
-                </Border.Stroke>
-            </Border>
-        </Grid>
+    <!-- 不透明磨砂降级层（减弱透明模式） -->
+    <Grid x:Name="OpaqueFrostLayer" IsVisible="False">
+        <Grid.Background>
+            <SolidColorBrush Color="#E8FDF6EE" />
+        </Grid.Background>
     </Grid>
-</ContentView>
+
+    <!-- 磨砂层：轻透磨砂 -->
+    <Grid x:Name="FrostLayer">
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#38FFFFFF" Offset="0.0" />
+                <GradientStop Color="#14FFFFFF" Offset="1.0" />
+            </LinearGradientBrush>
+        </Grid.Background>
+    </Grid>
+
+    <!-- 毛玻璃层：叠加层 + 内发光描边 -->
+    <Grid x:Name="GlassLayer">
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                <GradientStop Color="#30FDF6EE" Offset="0.0" />
+                <GradientStop Color="#10FDF6EE" Offset="0.55" />
+                <GradientStop Color="#26C9BFA8" Offset="1.0" />
+            </LinearGradientBrush>
+        </Grid.Background>
+        <!-- 1px 内发光描边（Apple Liquid Glass 标准） -->
+        <Border x:Name="InnerGlowEdge" StrokeThickness="1">
+            <Border.Stroke>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#88FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#1AFFFFFF" Offset="0.45" />
+                    <GradientStop Color="#2E8B7D6B" Offset="1.0" />
+                </LinearGradientBrush>
+            </Border.Stroke>
+        </Border>
+    </Grid>
+
+    <!-- 液态玻璃层：折射光带 + 高透叠加。
+         叠加层渲染在页面内容之上，α 过高会直接压掉正文对比度（正文需 ≥4.5:1），
+         所以「看得见」交给折射光带与内发光描边，底噪只保留一层很薄的玻璃光泽。 -->
+    <Grid x:Name="LiquidLayer" IsVisible="False">
+        <Grid.Background>
+            <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                <GradientStop Color="#2EFFFFFF" Offset="0.0" />
+                <GradientStop Color="#14FDF6EE" Offset="0.35" />
+                <GradientStop Color="#0AFDF6EE" Offset="0.7" />
+                <GradientStop Color="#24C9BFA8" Offset="1.0" />
+            </LinearGradientBrush>
+        </Grid.Background>
+        <!-- 斜向折射光带（静态高亮，强化液态玻璃观感） -->
+        <Grid x:Name="RefractionBand" Opacity="0">
+            <Ellipse Fill="#CCFFFFFF" Opacity="0.4"
+                     WidthRequest="460" HeightRequest="150"
+                     HorizontalOptions="Start" VerticalOptions="Start"
+                     Margin="-100,-52,0,0" Rotation="-24" InputTransparent="True" />
+            <Ellipse Fill="#33FFFFFF" Opacity="0.55"
+                     WidthRequest="360" HeightRequest="100"
+                     HorizontalOptions="End" VerticalOptions="Center"
+                     Margin="0,0,-80,0" Rotation="18" InputTransparent="True" />
+        </Grid>
+        <!-- 1.5px 内发光描边（液态玻璃标准：可见的玻璃边） -->
+        <Border x:Name="LiquidInnerEdge" StrokeThickness="1.5">
+            <Border.Stroke>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#E6FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#40FFFFFF" Offset="0.5" />
+                    <GradientStop Color="#99C9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Border.Stroke>
+        </Border>
+    </Grid>
+</Grid>
