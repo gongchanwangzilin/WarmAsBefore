@@ -65,6 +65,12 @@ public sealed record UserSettings
     public double GlassHeight { get; init; } = 0.5;
     /// <summary>页面背景：none=纯色 · image=自定义图片 · clear=透明透视到窗口下层。
     /// 玻璃需要有东西可透，纯色背景下无论怎么调都看不出玻璃。</summary>
+    /// <summary>光源：X/Y = 屏幕平面方向(-1..1)，Z = 离表面高度(0..1)，Width = 高光宽窄(0..1)。
+    /// 决定高光落在哪条边、影子投往哪边、反光是锐利还是漫射。</summary>
+    public double GlassLightX { get; init; } = -0.7;
+    public double GlassLightY { get; init; } = -0.7;
+    public double GlassLightZ { get; init; } = 0.3;
+    public double GlassLightWidth { get; init; } = 0.4;
     public string BackgroundMode { get; init; } = "none";
     public string BackgroundImagePath { get; init; } = "";
     public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist

@@ -90,6 +90,37 @@
                             <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassHeight}"
                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                         </Grid>
+                        <Label Text="光源" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="决定高光落在哪条边、影子投往哪边；光越高越柔。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="光源 · 水平" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="-1 = 光从左边来 · 1 = 从右边来" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightX}"
+                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="光源 · 垂直" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="-1 = 光从上方来 · 1 = 从下方来" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightY}"
+                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="光源 · 高度" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="0 = 贴着表面（锐利）· 1 = 高高在上（柔和、影子散）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightZ}"
+                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="光宽" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="0 = 一道锐利反光 · 1 = 整片漫射" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightWidth}"
+                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="减弱透明降级（无障碍）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开启后玻璃切不透明磨砂层，保证正文 4.5:1 对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>

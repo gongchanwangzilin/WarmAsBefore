@@ -196,6 +196,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundMode = string.IsNullOrEmpty(s.BackgroundMode) ? "none" : s.BackgroundMode;
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
+        _glassLightX = s.GlassLightX;
+        _glassLightY = s.GlassLightY;
+        _glassLightZ = s.GlassLightZ;
+        _glassLightWidth = s.GlassLightWidth;
         _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
         _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
         _complexPlot = s.ComplexPlot;
@@ -294,6 +298,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private double _glassHeight = 0.5;
 
     // 背景：玻璃需要有东西可透 —— 纯色窗口背景下永远看不出玻璃
+    // 光源：X/Y 方向、Z 高度、光宽
+    [ObservableProperty] private double _glassLightX = -0.7;
+    [ObservableProperty] private double _glassLightY = -0.7;
+    [ObservableProperty] private double _glassLightZ = 0.3;
+    [ObservableProperty] private double _glassLightWidth = 0.4;
+
     [ObservableProperty] private string _backgroundMode = "none";
     [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
     [ObservableProperty] private string _backgroundImagePath = "";
@@ -651,6 +661,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _theme.GlassHeight = value;
         PersistSettings();
     }
+    partial void OnGlassLightXChanged(double value) { _theme.GlassLightX = value; PersistSettings(); }
+    partial void OnGlassLightYChanged(double value) { _theme.GlassLightY = value; PersistSettings(); }
+    partial void OnGlassLightZChanged(double value) { _theme.GlassLightZ = value; PersistSettings(); }
+    partial void OnGlassLightWidthChanged(double value) { _theme.GlassLightWidth = value; PersistSettings(); }
     partial void OnThemeDisplayChanged(string value) { ThemeName = ThemeKeyOf(value); _theme.ThemeName = ThemeName; PersistSettings(); }
     partial void OnComplexPlotChanged(bool value) => PersistSettings();
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
@@ -813,6 +827,10 @@ GlassFrost = GlassFrost,
 GlassHeight = GlassHeight,
 BackgroundMode = BackgroundMode,
 BackgroundImagePath = BackgroundImagePath,
+GlassLightX = GlassLightX,
+GlassLightY = GlassLightY,
+GlassLightZ = GlassLightZ,
+GlassLightWidth = GlassLightWidth,
                 ThemeName = ThemeKeyOf(ThemeDisplay),
                 MenuSide = MenuRight ? "right" : "left",
                 Lang = Lang,

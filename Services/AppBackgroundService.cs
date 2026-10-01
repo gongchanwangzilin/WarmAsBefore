@@ -48,6 +48,9 @@ public static class AppBackgroundService
 
         _current = pageBrush;
         _transparent = transparent;
+        // Shell 自己也可能有底色，透明模式下必须一起让开，否则窗口层透不上来
+        if (Shell.Current is not null)
+            Shell.Current.Background = transparent ? new SolidColorBrush(Colors.Transparent) : null;
         Publish();
         ApplyPlatform();
     }

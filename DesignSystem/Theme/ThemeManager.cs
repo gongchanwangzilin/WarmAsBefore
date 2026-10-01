@@ -53,6 +53,22 @@ public class ThemeManager
     public double GlassHeight { get => _glassHeight; set { _glassHeight = Math.Clamp(value, 0, 1); OnChange(); } }
     private double _glassHeight = 0.5;
 
+    /// <summary>光源 X：屏幕平面内左右（-1 左 · 1 右）。</summary>
+    public double GlassLightX { get => _lx; set { _lx = Math.Clamp(value, -1, 1); OnChange(); } }
+    private double _lx = -0.7;
+
+    /// <summary>光源 Y：屏幕平面内上下（-1 上 · 1 下）。</summary>
+    public double GlassLightY { get => _ly; set { _ly = Math.Clamp(value, -1, 1); OnChange(); } }
+    private double _ly = -0.7;
+
+    /// <summary>光源 Z：离表面的高度 0-1 —— 越高高光越柔、影子越散。</summary>
+    public double GlassLightZ { get => _lz; set { _lz = Math.Clamp(value, 0, 1); OnChange(); } }
+    private double _lz = 0.3;
+
+    /// <summary>光宽 0-1：窄=一道锐利反光，宽=整片漫射。</summary>
+    public double GlassLightWidth { get => _lw; set { _lw = Math.Clamp(value, 0, 1); OnChange(); } }
+    private double _lw = 0.4;
+
     public string ActiveEffect =>
         (_liquid, _glass, _frost) switch
         {
@@ -255,7 +271,8 @@ public class ThemeManager
             {
                 // 先换调色板，再下发画刷 —— 顺序保证 GlassTokens 读到的是新配色
                 if (theme is not null) ApplyThemeResources(theme);
-                GlassTokens.Publish(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight, ReducedTransparency);
+                GlassTokens.Publish(new GlassParams(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight,
+                    GlassLightX, GlassLightY, GlassLightZ, GlassLightWidth, ReducedTransparency));
                 Services.AppBackgroundService.Publish();   // 换主题别把自定义背景冲掉
                 FadeCurrentPage();
             }

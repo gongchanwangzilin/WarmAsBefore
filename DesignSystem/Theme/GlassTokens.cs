@@ -1,23 +1,30 @@
 namespace WarmAsBefore.DesignSystem.Theme;
 
+/// <summary>一次玻璃下发所需的全部参数。</summary>
+public readonly record struct GlassParams(
+    string Tier,
+    double Translucency,
+    double Frost,
+    double Height,
+    double LightX,
+    double LightY,
+    double LightZ,
+    double LightWidth,
+    bool Reduced);
+
 /// <summary>
-/// 把玻璃档位 + 三个调制量换算成一组画刷/阴影资源，写进 Application.Resources。
+/// 把玻璃档位 + 各调制量换算成画刷/阴影资源，写进 Application.Resources。
 /// 组件样式（卡片 / 按钮 / 上下栏 / 弹窗）用 {DynamicResource ...} 引用这些键。
 ///
-/// 设计取向：玻璃 = 表面材质，长在 chrome 上（顶栏/底栏、按钮、卡片、弹窗）。
+/// 让玻璃成立的三件事：
+///   1. 高度感：投影随「液态高度」变化
+///   2. 光影感：**由三维光源决定的**渐变描边（上沿亮、背光侧暗）
+///   3. 通透度 + 磨砂浓度
 ///
-/// ⚠ 半透明本身**不足以**让人看出玻璃 —— 一块 45% 白压在同色页背景上，看起来和实心板一样。
-/// 真正让玻璃成立的是三件事，这里都做了：
-///   1. 高度感：随「液态高度」变化的投影（Offset/Radius/Opacity 一起长）
-///   2. 光影感：上沿亮、下沿暖暗的**渐变描边**（光从左上打过来）
-///   3. 通透度：由「透明度」统一控制的 alpha
-/// 另外「磨砂程度」控制奶白雾气浓度 —— 越高越浑，越低越像清玻璃。
-///
-/// 三个调制量（都由设置页滑杆控制）：
-///   translucency 0→1  0 = 表面拉回不透明（等同于关闭玻璃）
-///   frost        0→1  0 = 清玻璃，1 = 厚磨砂
-///   height       0→1  0 = 贴在页面上，1 = 明显浮起
-/// reduced=true（减弱透明降级）优先级最高：一律不透明，保证正文 4.5:1 对比。
+/// 光源 (LightX, LightY, LightZ) + 光宽 (LightWidth) 一起作用：
+///   · X/Y（-1..1，屏幕平面方向）→ 决定高光落在哪条边，以及投影往哪边投
+///   · Z（0..1，离表面的高度）    → 越高，高光越柔越淡、投影越散
+///   · LightWidth（0..1）         → 高光的宽窄：窄 = 一道锐利反光，宽 = 大面积漫射
 /// </summary>
 public static class GlassTokens
 {
@@ -32,65 +39,74 @@ public static class GlassTokens
     public const string CardShadow = "GlassCardShadow";
     public const string BarShadow = "GlassBarShadow";
 
-    /// <summary>透明度=0 时表面收缩到的 alpha（接近不透明）。</summary>
     private const double OpaqueAlpha = 0.94;
 
-    public static void Publish(string tier, double translucency, double frost, double height, bool reduced)
+    public static void Publish(GlassParams p)
     {
         var app = Application.Current;
         if (app is null) return;
 
         var res = app.Resources;
         var surface = ReadColor(res, "SurfaceBg", "#FDF8F0");
-        var t = Math.Clamp(translucency, 0, 1);
-        var f = Math.Clamp(frost, 0, 1);
-        var h = Math.Clamp(height, 0, 1);
 
-        // 底色：alpha 走透明度，RGB 往白里掺（磨砂雾气）
+        var t = Math.Clamp(p.Translucency, 0, 1);
+        var f = Math.Clamp(p.Frost, 0, 1);
+        var h = Math.Clamp(p.Height, 0, 1);
+        var w = Math.Clamp(p.LightWidth, 0, 1);
+        var z = Math.Clamp(p.LightZ, 0, 1);
+
+        // 光在屏幕平面内的方向（归一化）。默认左上 → 高光在左上、影子投右下。
+        var lx = Math.Clamp(p.LightX, -1, 1);
+        var ly = Math.Clamp(p.LightY, -1, 1);
+        var len = Math.Sqrt(lx * lx + ly * ly);
+        if (len < 0.001) { lx = -0.7; ly = -0.7; len = Math.Sqrt(lx * lx + ly * ly); }
+        var dx = lx / len;
+        var dy = ly / len;
+
         Color Bg(Color c)
         {
             var r = (float)(c.Red + (1 - c.Red) * f);
             var g = (float)(c.Green + (1 - c.Green) * f);
             var b = (float)(c.Blue + (1 - c.Blue) * f);
-            if (reduced) return new Color(r, g, b, 1f);
+            if (p.Reduced) return new Color(r, g, b, 1f);
             var a = c.Alpha * t + OpaqueAlpha * (1 - t);
             return new Color(r, g, b, (float)Math.Clamp(a, 0, 1));
         }
-        // 描边：只调 alpha，不改色（上沿的亮/下沿的暖要靠色相体现）
         Color Edge(Color c)
         {
-            if (reduced) return new Color(c.Red, c.Green, c.Blue, 1f);
-            var a = c.Alpha * t;
+            if (p.Reduced) return new Color(c.Red, c.Green, c.Blue, 1f);
+            var a = c.Alpha * t * (1 - 0.35 * z);   // 光越高，高光越柔
             return new Color(c.Red, c.Green, c.Blue, (float)Math.Clamp(a, 0, 1));
         }
 
-        res[BarBg] = BarBrush(tier, surface, Bg);
-        res[BarStroke] = EdgeBrush(tier, bar: true, Edge);
-        res[BarStrokeThickness] = StrokeWidth(tier, bar: true);
-        res[BarShadow] = ShadowFor(h, bar: true);
+        res[BarBg] = BarBrush(p.Tier, surface, Bg);
+        res[BarStroke] = EdgeBrush(p.Tier, bar: true, Edge, dx, dy, w);
+        res[BarStrokeThickness] = StrokeWidth(p.Tier, bar: true);
+        res[BarShadow] = ShadowFor(h, z, dx, dy, bar: true);
 
-        res[CardBg] = CardBrush(tier, surface, Bg);
-        res[CardStroke] = EdgeBrush(tier, bar: false, Edge);
-        res[CardStrokeThickness] = StrokeWidth(tier, bar: false);
-        res[CardShadow] = ShadowFor(h, bar: false);
+        res[CardBg] = CardBrush(p.Tier, surface, Bg);
+        res[CardStroke] = EdgeBrush(p.Tier, bar: false, Edge, dx, dy, w);
+        res[CardStrokeThickness] = StrokeWidth(p.Tier, bar: false);
+        res[CardShadow] = ShadowFor(h, z, dx, dy, bar: false);
 
-        res[ButtonBg] = ButtonBrush(tier, surface, Bg);
-        res[ButtonStroke] = Edge(ButtonStrokeColor(tier));
+        res[ButtonBg] = ButtonBrush(p.Tier, surface, Bg);
+        res[ButtonStroke] = Edge(ButtonStrokeColor(p.Tier));
     }
 
     /// <summary>
-    /// 高度感：投影随「液态高度」一起长。
-    /// h=0 几乎贴面（细而淡）；h=1 明显浮起（远而深）。
+    /// 高度感 + 光源方向：影子永远投向光的反方向。
+    /// 高度越高影子越远越深；光越高（z）影子越散越淡。
     /// </summary>
-    private static Shadow ShadowFor(double h, bool bar)
+    private static Shadow ShadowFor(double h, double z, double dx, double dy, bool bar)
     {
-        var scale = bar ? 0.6 : 1.0;            // 通栏阴影比卡片收敛一点
+        var scale = bar ? 0.6 : 1.0;
+        var reach = (1.5 + 7.5 * h) * scale;          // 影子长度
         return new Shadow
         {
             Brush = Colors.Black,
-            Offset = new Point(0, (float)((1.5 + 7.5 * h) * scale)),
-            Radius = (float)((4 + 20 * h) * scale),
-            Opacity = (float)((0.10 + 0.26 * h) * scale)
+            Offset = new Point((float)(-dx * reach), (float)(-dy * reach)),
+            Radius = (float)((4 + 20 * h) * (1 + 0.6 * z) * scale),
+            Opacity = (float)((0.10 + 0.26 * h) * (1 - 0.35 * z) * scale)
         };
     }
 
@@ -119,30 +135,34 @@ public static class GlassTokens
     };
 
     /// <summary>
-    /// 光影感：上沿亮 → 中段几乎无 → 下沿暖暗的**渐变**描边。
-    /// 这是让平面看起来有厚度、有光源的关键 —— 单色描边给不了这种「上下沿」。
+    /// 光影感：描边是**渐变**，方向由光源 X/Y 决定 —— 迎光的那条边亮，背光侧暖暗。
+    /// 光宽决定高光多集中：窄光是一道锐利反光，宽光是整片漫射。
     /// </summary>
-    private static Brush EdgeBrush(string tier, bool bar, Func<Color, Color> Edge)
+    private static Brush EdgeBrush(string tier, bool bar, Func<Color, Color> Edge,
+        double dx, double dy, double width)
     {
         if (tier == "none") return Solid(Colors.Transparent);
 
         var top = tier switch { "frost" => "#59FFFFFF", "glass" => "#B3FFFFFF", _ => "#E6FFFFFF" };
         var mid = tier switch { "frost" => "#14FFFFFF", "glass" => "#24FFFFFF", _ => "#33FFFFFF" };
         var bottom = tier switch { "frost" => "#1F8B7D6B", "glass" => "#3D8B7D6B", _ => "#668B7D6B" };
-        if (bar)
-        {
-            // 通栏只需要一条上沿高光，下沿用更淡的
-            bottom = "#1F8B7D6B";
-        }
+        if (bar) bottom = "#1F8B7D6B";
+
+        // 渐变沿光的方向铺开：起点在迎光侧，终点在背光侧
+        var start = new Point(0.5 - dx * 0.5, 0.5 - dy * 0.5);
+        var end = new Point(0.5 + dx * 0.5, 0.5 + dy * 0.5);
+
+        // 高光落点：窄光靠前（锐利），宽光铺开（漫射）
+        var highlightAt = (float)(0.12 + width * 0.6);
 
         return new LinearGradientBrush(
             new GradientStopCollection
             {
                 new() { Color = Edge(C(top)), Offset = 0f },
-                new() { Color = Edge(C(mid)), Offset = 0.5f },
+                new() { Color = Edge(C(mid)), Offset = highlightAt },
                 new() { Color = Edge(C(bottom)), Offset = 1f }
             },
-            new Point(0, 0), new Point(0.35, 1));
+            start, end);
     }
 
     private static double StrokeWidth(string tier, bool bar) => tier switch
@@ -152,7 +172,6 @@ public static class GlassTokens
         _ => 1
     };
 
-    /// <summary>按钮描边：关掉玻璃时保留原来的暖色描边，开启后转成白色反光。</summary>
     private static Color ButtonStrokeColor(string tier) => tier switch
     {
         "frost" => C("#59FFFFFF"),
@@ -173,7 +192,6 @@ public static class GlassTokens
         return b;
     }
 
-    /// <summary>从主题字典里取颜色（取不到就用兜底值），保证跟随配色主题。</summary>
     private static Color ReadColor(ResourceDictionary res, string key, string fallback)
         => res.TryGetValue(key, out var v) && v is Color c ? c : C(fallback);
 }
