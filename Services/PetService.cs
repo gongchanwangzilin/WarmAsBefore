@@ -15,6 +15,13 @@ namespace WarmAsBefore.Services;
 /// </summary>
 public sealed class PetService
 {
+    // 这两个平台都要用的字段必须放在 #if 之外：
+    // 它们原先声明在 #if WINDOWS 块里，而 Android 分支（#else 之后）也在引用，
+    // 于是 Android 目标一直编译不过（_instance / _settings / _petMode 找不到）。
+    private static PetService? _instance;
+    private readonly SettingsManager _settings;
+    private bool _petMode;
+
 #if WINDOWS
     private const int WM_USER = 0x0400;
     private const int WM_TRAYICON = WM_USER + 21;
@@ -35,11 +42,9 @@ public sealed class PetService
     private IntPtr _msgWnd;
     private IntPtr _trayIcon;
     private bool _iconAdded;
-    private bool _petMode;
     private bool _listening;
     private Window? _petWindow;
 
-    private readonly SettingsManager _settings;
     private IDispatcherTimer? _idleTimer;
     private bool _autoPetEntered;   // 是否因闲置自动进入（此时要监听输入自动恢复）
     private bool _idleWatchStarted;
@@ -203,7 +208,6 @@ public sealed class PetService
     private const uint TPM_RETURNCMD = 0x100;
     private const int SW_RESTORE = 9;
 
-    private static PetService? _instance;
     private static WndProc? _procDelegate;
 
     public PetService(SettingsManager settings)

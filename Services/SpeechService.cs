@@ -88,6 +88,26 @@ public sealed class SpeechService
     private Android.Speech.Tts.TextToSpeech? _tts;
     private Java.Util.Locale? _ttsLocale;
 
+    private const int SpeechRequestCode = 1001;
+    private static TaskCompletionSource<(Android.App.Result, Android.Content.Intent?)>? _speechResult;
+
+    /// <summary>由 MainActivity.OnActivityResult 转发（见 Platforms/Android/MainActivity.cs）。</summary>
+    internal static void HandleActivityResult(int requestCode, Android.App.Result code, Android.Content.Intent? data)
+    {
+        if (requestCode != SpeechRequestCode) return;
+        _speechResult?.TrySetResult((code, data));
+    }
+
+    /// <summary>TextToSpeech 初始化回调。
+    /// 现代 .NET Android 绑定里 IOnInitListener 是**接口**而非委托，lambda 转不过去
+    /// （旧 Xamarin 时代可以直接传 lambda），必须给一个实现类。</summary>
+    private sealed class TtsInitListener : Java.Lang.Object, Android.Speech.Tts.TextToSpeech.IOnInitListener
+    {
+        private readonly Action<Android.Speech.Tts.OperationResult> _onInit;
+        public TtsInitListener(Action<Android.Speech.Tts.OperationResult> onInit) => _onInit = onInit;
+        public void OnInit(Android.Speech.Tts.OperationResult status) => _onInit(status);
+    }
+
     private Task SpeakAndroid(string text)
     {
         var tcs = new TaskCompletionSource();
@@ -95,7 +115,7 @@ public sealed class SpeechService
 
         if (_tts is null)
         {
-            _tts = new Android.Speech.Tts.TextToSpeech(ctx, status =>
+            _tts = new Android.Speech.Tts.TextToSpeech(ctx, new TtsInitListener(status =>
             {
                 if (status == Android.Speech.Tts.OperationResult.Success)
                 {
@@ -106,7 +126,7 @@ public sealed class SpeechService
                     tcs.TrySetResult();
                 }
                 else tcs.TrySetResult();
-            });
+            }));
         }
         else
         {
@@ -126,18 +146,17 @@ public sealed class SpeechService
         intent.PutExtra(Android.Speech.RecognizerIntent.ExtraPrompt, "请说话…");
         intent.PutExtra(Android.Speech.RecognizerIntent.ExtraMaxResults, 1);
 
-        // Use MAUI's built-in StartActivityForResult via platform event
+        // StartActivityForResultAsync 这个 MAUI 扩展已被移除，
+        // 改回原生 StartActivityForResult，结果由 MainActivity.OnActivityResult 转发进来。
         if (Platform.CurrentActivity is Android.App.Activity activity)
         {
-            var result = await activity.StartActivityForResultAsync(intent, 1001);
-            if (result.ResultCode == Android.App.Result.Ok && result.Data is not null)
+            _speechResult = new TaskCompletionSource<(Android.App.Result, Android.Content.Intent?)>();
+            activity.StartActivityForResult(intent, SpeechRequestCode);
+            var (code, data) = await _speechResult.Task;
+            if (code == Android.App.Result.Ok && data is not null)
             {
-                var matches = result.Data.GetStringArrayListExtra(Android.Speech.RecognizerIntent.ExtraResults);
-                if (matches?.Count > 0)
-                {
-                    var text = matches[0] ?? "";
-                    OnRecognized?.Invoke(text);
-                }
+                var matches = data.GetStringArrayListExtra(Android.Speech.RecognizerIntent.ExtraResults);
+                if (matches?.Count > 0) OnRecognized?.Invoke(matches[0] ?? "");
             }
         }
     }

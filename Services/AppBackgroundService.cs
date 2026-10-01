@@ -24,14 +24,12 @@ public static class AppBackgroundService
     {
         var transparent = false;
         Brush pageBrush;
-        var paintImage = false;
 
         if (mode == "image" && !string.IsNullOrWhiteSpace(imagePath) && File.Exists(imagePath))
         {
             // 页面层让开，图片画在更下面的窗口层
             pageBrush = new SolidColorBrush(Colors.Transparent);
             _imagePath = imagePath;
-            paintImage = true;
             transparent = true;
         }
         else if (mode == "clear")

@@ -14,4 +14,12 @@ public class MainActivity : MauiAppCompatActivity
         // 默认横屏
         RequestedOrientation = ScreenOrientation.Landscape;
     }
+
+    /// <summary>把语音识别的结果转发给 SpeechService。
+    /// （旧的 Activity.StartActivityForResultAsync 扩展已被移除，改回原生回调。）</summary>
+    protected override void OnActivityResult(int requestCode, Result resultCode, global::Android.Content.Intent? data)
+    {
+        base.OnActivityResult(requestCode, resultCode, data);
+        global::WarmAsBefore.Services.SpeechService.HandleActivityResult(requestCode, resultCode, data);
+    }
 }
