@@ -25,8 +25,8 @@
             <conv:YesNoLabel x:Key="YesNoLabel" />
             <conv:BoolGreenRed x:Key="BoolGreenRed" />
             <conv:SelectedBg x:Key="SelectedBg" />
-            <conv:BoolToColor x:Key="SceneCurrentBg" True="{DynamicResource BeigeAccent200}" False="{DynamicResource SecondaryBg}" />
-            <conv:BoolToColor x:Key="SceneCurrentFg" True="{DynamicResource WarmDark}" False="{DynamicResource SurfaceFg}" />
+            <conv:BoolToColor x:Key="SceneCurrentBg" True="{StaticResource BeigeAccent200}" False="{StaticResource SecondaryBg}" />
+            <conv:BoolToColor x:Key="SceneCurrentFg" True="{StaticResource WarmDark}" False="{StaticResource SurfaceFg}" />
             <conv:StringNotEmpty x:Key="StringNotEmpty" />
             <conv:GreaterThanZero x:Key="GreaterThanZero" />
             <conv:TicketLabel x:Key="TicketLabel" />
