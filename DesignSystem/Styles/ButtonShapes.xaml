@@ -3,21 +3,46 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                     x:Class="WarmAsBefore.DesignSystem.Styles.ButtonShapes">
 
-    <!-- Neumorphic: raised surface with subtle shadow -->
-    <Style x:Key="BtnNeumorphic" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
-        <Setter Property="TextColor" Value="{StaticResource SurfaceFg}" />
-        <Setter Property="FontSize" Value="14" />
-        <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="14" />
-        <Setter Property="HeightRequest" Value="46" />
-        <Setter Property="Padding" Value="24,0" />
-        <Setter Property="BorderWidth" Value="1" />
-        <Setter Property="BorderColor" Value="#70FFFFFF" />
+    <!--
+    Apple Liquid Glass 按钮系统
+    - 全部视觉状态只用 BackgroundColor / Opacity / BorderColor，绝不用 Scale：
+      WinUI 下 Button.Scale 切换会改控件尺寸 → 触发重新布局 → 快速点按时「按键卡死」。
+    - 柔和按下动效：PointerOver 微提亮，Pressed 加深+透明度回落，150ms 内完成，
+      交互反馈即时（ui-ux-pro-max「active states」检查项）。
+    - 背景沿用半透明奶油渐变，保留液态玻璃观感；描边 1px 内发光。
+    -->
+
+    <!-- 圆形液态玻璃图标钮（主游戏互动按钮：摸/抱/吻/存） -->
+    <Style x:Key="BtnLiquidGlassIcon" TargetType="Border">
+        <Setter Property="WidthRequest" Value="56" />
+        <Setter Property="HeightRequest" Value="56" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <RadialGradientBrush>
+                    <GradientStop Color="#99FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#3DFDF6EE" Offset="0.7" />
+                    <GradientStop Color="#66C9BFA8" Offset="1.0" />
+                </RadialGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Stroke">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#CCFFFFFF" Offset="0.0" />
+                    <GradientStop Color="#24FFFFFF" Offset="0.5" />
+                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="28" />
+            </Setter.Value>
+        </Setter>
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource ShadowDim}"
-                        Offset="3,4" Radius="10" Opacity="0.3" />
+                <Shadow Brush="{StaticResource ShadowDim}" Offset="0,3" Radius="10" Opacity="0.28" />
             </Setter.Value>
         </Setter>
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -26,14 +51,55 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
-                            <Setter Property="Scale" Value="1.03" />
+                            <Setter Property="Opacity" Value="0.92" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
-                            <Setter Property="Scale" Value="0.94" />
+                            <Setter Property="Opacity" Value="0.72" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Neumorphic: raised surface with subtle shadow（液态玻璃底 + 柔和按下） -->
+    <Style x:Key="BtnNeumorphic" TargetType="Button">
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#66FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#2AFDF6EE" Offset="0.5" />
+                    <GradientStop Color="#33C9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="TextColor" Value="{StaticResource WarmDark}" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="HeightRequest" Value="46" />
+        <Setter Property="Padding" Value="24,0" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="#88FFFFFF" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{StaticResource ShadowDim}" Offset="0,3" Radius="10" Opacity="0.25" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.7" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -46,9 +112,16 @@
         </Setter>
     </Style>
 
-    <!-- Primary: solid accent -->
+    <!-- Primary: 液态玻璃主按钮（半透明暖金，最强调） -->
     <Style x:Key="BtnPrimary" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{StaticResource PrimaryAction}" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FFCA28" Offset="0.0" />
+                    <GradientStop Color="#FFB300" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
         <Setter Property="TextColor" Value="{StaticResource PrimaryFg}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="FontAttributes" Value="Bold" />
@@ -56,20 +129,23 @@
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="Padding" Value="24,0" />
         <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#88FFB300" Offset="0,4" Radius="12" Opacity="0.35" />
+            </Setter.Value>
+        </Setter>
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource PrimaryHover}" />
-                            <Setter Property="Scale" Value="1.03" />
+                            <Setter Property="Opacity" Value="0.92" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.85" />
-                            <Setter Property="Scale" Value="0.94" />
+                            <Setter Property="Opacity" Value="0.75" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -82,15 +158,23 @@
         </Setter>
     </Style>
 
-    <!-- Glass: translucent -->
+    <!-- Glass: translucent 液态玻璃按钮 -->
     <Style x:Key="BtnGlass" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="#B3FDF6EE" />
-        <Setter Property="TextColor" Value="{StaticResource SurfaceFg}" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#99FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#33FDF6EE" Offset="0.6" />
+                    <GradientStop Color="#55C9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="TextColor" Value="{StaticResource WarmDark}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="Padding" Value="24,0" />
-        <Setter Property="BorderColor" Value="#4DF5DFC0" />
+        <Setter Property="BorderColor" Value="#88FFFFFF" />
         <Setter Property="BorderWidth" Value="1" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -98,14 +182,17 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="#CCFDF6EE" />
-                            <Setter Property="Scale" Value="1.03" />
+                            <Setter Property="Opacity" Value="0.9" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.85" />
-                            <Setter Property="Scale" Value="0.94" />
+                            <Setter Property="Opacity" Value="0.72" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -113,7 +200,7 @@
         </Setter>
     </Style>
 
-    <!-- Text-only (ghost) -->
+    <!-- Text-only (ghost)：透明底，按下仅降透明度 -->
     <Style x:Key="BtnText" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{StaticResource WarmDark}" />
@@ -126,12 +213,58 @@
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
                             <Setter Property="TextColor" Value="{StaticResource WarmMuted}" />
+                            <Setter Property="Opacity" Value="0.8" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.6" />
-                            <Setter Property="Scale" Value="0.93" />
+                            <Setter Property="Opacity" Value="0.55" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- 柔和次要按钮：半透明奶油 + 描边 -->
+    <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnGlass}">
+        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- 危险操作（删除/移除）：暖红液态玻璃 -->
+    <Style x:Key="BtnDanger" TargetType="Button">
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#FF6B6B" Offset="0.0" />
+                    <GradientStop Color="#E5544B" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="TextColor" Value="#FFFFFF" />
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="#66E5544B" Offset="0,3" Radius="10" Opacity="0.35" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.9" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.72" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>

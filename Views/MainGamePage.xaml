@@ -221,11 +221,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.Row="4" BackgroundColor="#CCFCF8F0"
                     Padding="0,4,0,12" StrokeThickness="0">
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="16">
-                    <!-- 互动按钮：液态玻璃圆形材质（CardLiquidGlass 渐变 + 1px 内发光描边），按压 200ms ease-out 回弹 -->
+                    <!-- 互动按钮：液态玻璃圆形材质（BtnLiquidGlassIcon 径向渐变 + 1px 内发光描边 + 柔和按下），无 Scale 避免卡死 -->
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource PressableCardLiquidGlass}"
-                                WidthRequest="56" HeightRequest="56">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="摸" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -236,9 +234,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource PressableCardLiquidGlass}"
-                                WidthRequest="56" HeightRequest="56">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="抱" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -249,9 +245,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource PressableCardLiquidGlass}"
-                                WidthRequest="56" HeightRequest="56">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="吻" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -262,9 +256,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource PressableCardLiquidGlass}"
-                                WidthRequest="56" HeightRequest="56">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="存" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>

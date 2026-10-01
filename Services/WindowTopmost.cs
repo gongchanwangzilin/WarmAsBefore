@@ -34,6 +34,7 @@ public static class WindowTopmost
     /// <summary>
     /// 弹通知（DisplayAlert/DisplayActionSheet）前调用：临时把主窗口提到顶层，
     /// 让系统级通知/对话框不被其他窗口遮挡。结束后不自动回落。
+    /// 通知类应用弹窗时恒置顶层（与 AlwaysOnTop 设置无关）。
     /// </summary>
     public static void BringAllToTop()
     {
@@ -56,6 +57,13 @@ public static class WindowTopmost
         }
 #endif
     }
+
+    /// <summary>
+    /// 弹系统对话框前统一调用：通知恒置顶层。
+    /// App 层在 DisplayAlert/DisplayActionSheet/DisplayPromptAsync 前调此方法，
+    /// 保证对话框不被其他应用窗口遮挡（通知类应用的强需求）。
+    /// </summary>
+    public static void BeforeShowDialog() => BringAllToTop();
 
     /// <summary>当前是否「至少有一个窗口」处于置顶。</summary>
     public static bool AnyTopmost()

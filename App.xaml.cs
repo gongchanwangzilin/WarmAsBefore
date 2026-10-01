@@ -57,6 +57,13 @@ public partial class App : Application
                 _ = AutoSaveOnExitAsync();
                 ShutdownPetAsync();
             };
+            // 应用回到前台/获焦时重新置顶，保证通知栏与主界面不被其他窗口遮挡。
+            // 通知类应用：弹 Alert/对话框时恒置顶层（与 AlwaysOnTop 设置无关）。
+            win.Activated += (_, _) =>
+            {
+                try { Services.WindowTopmost.BeforeShowDialog(); }
+                catch { /* 早期焦点事件忽略 */ }
+            };
             _ = RestoreSettingsAsync();
             WriteLog("CreateWindow: ok");
             return win;
