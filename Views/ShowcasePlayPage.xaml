@@ -60,7 +60,7 @@
                 VerticalOptions="End" StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
             <VerticalStackLayout Spacing="6">
-                <Label Text="{Binding SpeakerName}" TextColor="{StaticResource AccentWarm}" FontSize="15" FontAttributes="Bold" />
+                <Label Text="{Binding SpeakerName}" TextColor="{DynamicResource AccentWarm}" FontSize="15" FontAttributes="Bold" />
                 <Label Text="{Binding DialogueText}" TextColor="#FFF" FontSize="16" LineBreakMode="WordWrap" />
             </VerticalStackLayout>
         </Border>

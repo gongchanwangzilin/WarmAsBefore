@@ -7,7 +7,7 @@
              x:Name="Page"
              x:DataType="vm:SceneLibraryViewModel"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -31,8 +31,8 @@
                                 SelectedItem="{Binding SelectedEntry}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="models:SceneLibraryEntry">
-                            <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" Margin="16,8,16,8"
-                                    Stroke="{StaticResource LineColor}" StrokeThickness="1">
+                            <Border BackgroundColor="{DynamicResource SurfaceBg}" Padding="16,12" Margin="16,8,16,8"
+                                    Stroke="{DynamicResource LineColor}" StrokeThickness="1">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                                 <Grid RowDefinitions="Auto,Auto">
                                     <Label Grid.Row="0" Text="{Binding Name}" Style="{StaticResource TxtTitle}" />

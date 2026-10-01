@@ -7,7 +7,7 @@
 
              Title=""
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
         <!-- Header -->
@@ -29,9 +29,9 @@
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
                                      Padding="32">
-                    <Label Text="还没有平行宇宙" TextColor="{StaticResource WarmFaint}" FontSize="18"
+                    <Label Text="还没有平行宇宙" TextColor="{DynamicResource WarmFaint}" FontSize="18"
                            HorizontalOptions="Center" />
-                    <Label Text="导入一部小说，它就会变成一个可以进入的世界" TextColor="{StaticResource WarmMuted}" FontSize="13"
+                    <Label Text="导入一部小说，它就会变成一个可以进入的世界" TextColor="{DynamicResource WarmMuted}" FontSize="13"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
@@ -41,20 +41,20 @@
                             Margin="0,0,0,12" Padding="16,14">
                         <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                <Label Text="{Binding Title}" TextColor="{StaticResource WarmDark}"
+                                <Label Text="{Binding Title}" TextColor="{DynamicResource WarmDark}"
                                        FontSize="16" FontAttributes="Bold"
                                        LineBreakMode="TailTruncation" />
                                 <Label Grid.Column="1" Text="{Binding ImportedAt, StringFormat='{0:MM/dd}'}"
-                                       TextColor="{StaticResource WarmFaint}" FontSize="11"
+                                       TextColor="{DynamicResource WarmFaint}" FontSize="11"
                                        VerticalOptions="Center" />
                             </Grid>
-                            <Label Text="{Binding Summary}" TextColor="{StaticResource WarmMuted}"
+                            <Label Text="{Binding Summary}" TextColor="{DynamicResource WarmMuted}"
                                    FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
-                            <Label Text="{Binding CharactersLabel}" TextColor="{StaticResource WarmFaint}"
+                            <Label Text="{Binding CharactersLabel}" TextColor="{DynamicResource WarmFaint}"
                                    FontSize="11" LineBreakMode="TailTruncation" />
                             <HorizontalStackLayout HorizontalOptions="End" Spacing="8" Margin="0,4,0,0">
                                 <Button Text="删除" Style="{StaticResource BtnText}"
-                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        TextColor="{DynamicResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
                                         Command="{Binding Path=BindingContext.DeleteNovelCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
@@ -71,7 +71,7 @@
         </CollectionView>
 
         <!-- Bottom bar -->
-        <Border Grid.Row="2" BackgroundColor="{StaticResource PageBg}" Padding="16,10,16,16"
+        <Border Grid.Row="2" BackgroundColor="{DynamicResource PageBg}" Padding="16,10,16,16"
                 StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Button Text="导入小说，创建新世界" Style="{StaticResource BtnNeumorph}"

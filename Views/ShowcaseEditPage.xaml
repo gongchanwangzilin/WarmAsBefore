@@ -6,7 +6,7 @@
              x:Class="WarmAsBefore.Views.ShowcaseEditPage"
              Title="编辑展示案"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header -->
@@ -15,7 +15,7 @@
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Label Text="编辑展示案" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
                 <Button Grid.Column="1" Text="保存" Style="{StaticResource BtnNeumorphSm}"
-                        BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                         FontAttributes="Bold" Command="{Binding SaveCommand}" />
             </Grid>
         </Border>
@@ -28,8 +28,8 @@
                         <Label Text="基本信息" Style="{StaticResource TxtSubhead}" />
                         <Grid ColumnDefinitions="80,*">
                             <Label Text="名称" VerticalOptions="Center" Style="{StaticResource TxtBodySm}" />
-                            <Entry Grid.Column="1" Text="{Binding ScriptName}" BackgroundColor="{StaticResource InputBg}"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ScriptName}" BackgroundColor="{DynamicResource InputBg}"
+                                   TextColor="{DynamicResource SurfaceFg}" FontSize="13" />
                         </Grid>
                         <Grid ColumnDefinitions="80,*">
                             <Label Text="主角" VerticalOptions="Center" Style="{StaticResource TxtBodySm}" />
@@ -51,7 +51,7 @@
                             </CollectionView.EmptyView>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ShowcaseStepDisplay">
-                                    <Border BackgroundColor="{StaticResource SurfaceBg}" Stroke="{StaticResource BorderLine}"
+                                    <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}"
                                             StrokeThickness="0.5" Padding="10,6" Margin="0,2">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">

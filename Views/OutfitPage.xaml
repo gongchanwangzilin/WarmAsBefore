@@ -5,7 +5,7 @@
              x:Class="WarmAsBefore.Views.OutfitPage"
              x:DataType="vm:OutfitViewModel"
              Title="换装"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid Padding="16">
         <Label Text="换装" Style="{StaticResource TxtTitle}" />

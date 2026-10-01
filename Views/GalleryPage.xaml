@@ -5,7 +5,7 @@
              x:Class="WarmAsBefore.Views.GalleryPage"
              x:DataType="vm:GalleryViewModel"
              Title="回忆录"
-             BackgroundColor="{StaticResource PageBg}"
+             BackgroundColor="{DynamicResource PageBg}"
              Shell.NavBarIsVisible="False">
 
     <ScrollView>
@@ -18,31 +18,31 @@
             <!-- Tab switch -->
             <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
                 <Border BackgroundColor="{Binding IsMemoirSelected, Converter={StaticResource SelectedBg}}"
-                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <Label Text="回忆录" HorizontalOptions="Center" FontSize="13"
-                           TextColor="{StaticResource WarmDark}" />
+                           TextColor="{DynamicResource WarmDark}" />
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="memoir" />
                     </Border.GestureRecognizers>
                 </Border>
                 <Border Grid.Column="1" BackgroundColor="{Binding IsDiarySelected, Converter={StaticResource SelectedBg}}"
-                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <Label Text="日记" HorizontalOptions="Center" FontSize="13"
-                           TextColor="{StaticResource WarmDark}" />
+                           TextColor="{DynamicResource WarmDark}" />
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="diary" />
                     </Border.GestureRecognizers>
                 </Border>
                 <Border Grid.Column="2" BackgroundColor="{Binding IsCgSelected, Converter={StaticResource SelectedBg}}"
-                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <Label Text="CG收藏册" HorizontalOptions="Center" FontSize="13"
-                           TextColor="{StaticResource WarmDark}" />
+                           TextColor="{DynamicResource WarmDark}" />
                     <Border.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="cg" />
                     </Border.GestureRecognizers>
@@ -53,8 +53,8 @@
             <VerticalStackLayout IsVisible="{Binding IsMemoirSelected}" Spacing="12">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Entry Grid.Column="0" Text="{Binding SearchText}" Placeholder="搜索对话回忆…"
-                           BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                           PlaceholderColor="{StaticResource MutedFg}" FontSize="13" />
+                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                     <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}"
                             FontSize="13" Command="{Binding ClearSearchCommand}" />
                 </Grid>
@@ -67,8 +67,8 @@
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding AffectionItems}" Spacing="6">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AffectionMemoryItem">
-                                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0.8"
-                                            Stroke="{StaticResource BorderLine}" Padding="8" Margin="0,2">
+                                    <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0.8"
+                                            Stroke="{DynamicResource BorderLine}" Padding="8" Margin="0,2">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                         <VerticalStackLayout Spacing="4">
                                             <Label Text="{Binding Display}" Style="{StaticResource TxtBodySm}" FontSize="13" />
@@ -109,7 +109,7 @@
                             <Border Style="{StaticResource CardNeumorph}" Padding="16,12">
                                 <VerticalStackLayout Spacing="6">
                                     <Label Text="{Binding Header}" Style="{StaticResource TxtBodySm}"
-                                           FontSize="13" TextColor="{StaticResource WarmDark}" />
+                                           FontSize="13" TextColor="{DynamicResource WarmDark}" />
                                     <Label Text="{Binding Content}" Style="{StaticResource TxtBodySm}"
                                            FontSize="13" />
                                 </VerticalStackLayout>
@@ -135,7 +135,7 @@
                                 <VerticalStackLayout Spacing="6">
                                     <Image Source="{Binding Image}" HeightRequest="210" Aspect="AspectFit" />
                                     <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}"
-                                           FontSize="13" TextColor="{StaticResource WarmDark}"
+                                           FontSize="13" TextColor="{DynamicResource WarmDark}"
                                            HorizontalOptions="Center" />
                                 </VerticalStackLayout>
                             </Border>

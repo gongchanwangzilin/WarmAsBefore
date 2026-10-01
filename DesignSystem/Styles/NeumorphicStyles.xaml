@@ -27,7 +27,7 @@
         </Setter>
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource ShadowDim}"
+                <Shadow Brush="{DynamicResource ShadowDim}"
                         Offset="0,4" Radius="14" Opacity="0.25" />
             </Setter.Value>
         </Setter>
@@ -35,9 +35,9 @@
 
     <!-- Neumorphic Card (inset / depressed) -->
     <Style x:Key="CardNeumorphInset" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="{StaticResource ShadowDim}" />
+        <Setter Property="Stroke" Value="{DynamicResource ShadowDim}" />
         <Setter Property="Padding" Value="20" />
         <Setter Property="StrokeShape">
             <Setter.Value>
@@ -46,7 +46,7 @@
         </Setter>
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource ShadowLight}"
+                <Shadow Brush="{DynamicResource ShadowLight}"
                         Offset="-3,-3" Radius="8" Opacity="0.3" />
             </Setter.Value>
         </Setter>
@@ -54,8 +54,8 @@
 
     <!-- Neumorphic Button (raised) -->
     <Style x:Key="BtnNeumorph" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
-        <Setter Property="TextColor" Value="{StaticResource SurfaceFg}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
+        <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
         <Setter Property="FontSize" Value="15" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="CornerRadius" Value="22" />
@@ -65,7 +65,7 @@
         <Setter Property="BorderColor" Value="#70FFFFFF" />
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource ShadowDim}"
+                <Shadow Brush="{DynamicResource ShadowDim}"
                         Offset="4,5" Radius="12" Opacity="0.35" />
             </Setter.Value>
         </Setter>
@@ -75,13 +75,13 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
                             <Setter Property="BorderColor" Value="#90F5EBDA" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -104,8 +104,8 @@
 
     <!-- Neumorphic Button (accent — beige tint, raised) -->
     <Style x:Key="BtnNeumorphAccent" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
-        <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
-        <Setter Property="TextColor" Value="{StaticResource WarmDark}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="BorderColor" Value="#90F5EBDA" />
     </Style>
 
@@ -144,7 +144,7 @@
         </Setter>
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource ShadowDim}"
+                <Shadow Brush="{DynamicResource ShadowDim}"
                         Offset="0,4" Radius="14" Opacity="0.25" />
             </Setter.Value>
         </Setter>
@@ -190,13 +190,13 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
                             <Setter Property="Opacity" Value="0.96" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
                             <Setter Property="Opacity" Value="0.88" />
                         </VisualState.Setters>
                     </VisualState>
@@ -212,7 +212,7 @@
 
     <!-- 分类/标签选择块：选中态米黄填充（Opacity 反馈，不用 Scale 避免 layout thrash） -->
     <Style x:Key="TagChip" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource Cream200}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource Cream200}" />
         <Setter Property="StrokeThickness" Value="1" />
         <Setter Property="Stroke" Value="#30C9A96B" />
         <Setter Property="Padding" Value="12,5" />
@@ -227,13 +227,13 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
                             <Setter Property="Opacity" Value="0.96" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
                             <Setter Property="Opacity" Value="0.88" />
                         </VisualState.Setters>
                     </VisualState>

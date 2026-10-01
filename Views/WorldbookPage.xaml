@@ -7,7 +7,7 @@
 
              Title="世界书"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
 
@@ -22,7 +22,7 @@
                     <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" FontSize="11" />
                 </VerticalStackLayout>
                 <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsThinking}"
-                                   IsVisible="{Binding IsThinking}" Color="{StaticResource PrimaryAction}"
+                                   IsVisible="{Binding IsThinking}" Color="{DynamicResource PrimaryAction}"
                                    WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
             </Grid>
         </Border>
@@ -37,9 +37,9 @@
                         <Label Text="描述你的世界" Style="{StaticResource TxtSubhead}" />
                         <Editor Text="{Binding Description}"
                                 Placeholder="描述你想要的世界观、角色、剧情…"
-                                PlaceholderColor="{StaticResource WarmMuted}"
-                                BackgroundColor="{StaticResource InputBg}"
-                                TextColor="{StaticResource SurfaceFg}"
+                                PlaceholderColor="{DynamicResource WarmMuted}"
+                                BackgroundColor="{DynamicResource InputBg}"
+                                TextColor="{DynamicResource SurfaceFg}"
                                 FontSize="14" HeightRequest="100" />
                         <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
                             <Label Grid.Column="0" Text="生成封面" VerticalOptions="Center" FontSize="13" />
@@ -59,7 +59,7 @@
                     <VerticalStackLayout Spacing="8">
                         <Label Text="{Binding Result.Worldbook.Title}" Style="{StaticResource TxtSubhead}" FontSize="18" />
                         <Label Text="{Binding Result.Worldbook.Description}" Style="{StaticResource TxtBody}"
-                               TextColor="{StaticResource WarmDark}" />
+                               TextColor="{DynamicResource WarmDark}" />
 
                         <!-- Cover Image -->
                         <Image Source="{Binding Result.CoverImagePath}"
@@ -75,9 +75,9 @@
                                         <VerticalStackLayout Spacing="4">
                                             <Label Text="{Binding Name}" FontAttributes="Bold" FontSize="14" />
                                             <Label Text="{Binding Description}" FontSize="12"
-                                                   TextColor="{StaticResource WarmDark}" />
+                                                   TextColor="{DynamicResource WarmDark}" />
                                             <Label Text="{Binding Personality}" FontSize="11"
-                                                   TextColor="{StaticResource WarmMuted}" />
+                                                   TextColor="{DynamicResource WarmMuted}" />
                                         </VerticalStackLayout>
                                     </Border>
                                 </DataTemplate>

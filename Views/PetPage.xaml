@@ -5,7 +5,7 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.PetPage"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid Padding="0">
         <!-- 回复气泡（顶部）：桌宠对话时显示 AI 回复 / 思考中… -->
@@ -19,8 +19,8 @@
 
         <!-- 返回按钮 -->
         <Button Text="← 返回" 
-                TextColor="{StaticResource SurfaceFg}"
-                BackgroundColor="{StaticResource SurfaceBg}"
+                TextColor="{DynamicResource SurfaceFg}"
+                BackgroundColor="{DynamicResource SurfaceBg}"
                 FontSize="13" Padding="12,0" CornerRadius="16" HeightRequest="32"
                 HorizontalOptions="Start" VerticalOptions="Start"
                 Margin="12,8,0,0"

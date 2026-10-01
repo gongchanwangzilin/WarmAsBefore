@@ -13,7 +13,7 @@
     -->
 
     <Style x:Key="CardSolid" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
         <Setter Property="StrokeThickness" Value="0" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="StrokeShape">
@@ -62,7 +62,7 @@
         </Setter>
         <Setter Property="Shadow">
             <Setter.Value>
-                <Shadow Brush="{StaticResource ShadowDeep}" Offset="0,8" Radius="28" Opacity="0.28" />
+                <Shadow Brush="{DynamicResource ShadowDeep}" Offset="0,8" Radius="28" Opacity="0.28" />
             </Setter.Value>
         </Setter>
     </Style>

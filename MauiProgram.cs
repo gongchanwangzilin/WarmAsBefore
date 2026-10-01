@@ -29,7 +29,6 @@ public static class MauiProgram
         builder.Services.AddSingleton<AudioController>();
         builder.Services.AddSingleton<SpeechService>();
         builder.Services.AddSingleton<MaterialLibrary>();
-        builder.Services.AddSingleton<GlassOverlayService>();
         builder.Services.AddSingleton<CharacterLibrary>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();

@@ -22,14 +22,13 @@ public sealed class RuntimeConfigurator
     private readonly CharacterLibrary _characters;
     private readonly OfficialChatBridge _bridge;
     private readonly DesignSystem.Theme.ThemeManager _theme;
-    private readonly GlassOverlayService _glassOverlay;
     private readonly NotificationService _notify;
     private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
-        GlassOverlayService glassOverlay, NotificationService notify)
+        NotificationService notify)
     {
         _settings = settings;
         _chat = chat;
@@ -41,13 +40,11 @@ public sealed class RuntimeConfigurator
         _characters = characters;
         _bridge = bridge;
         _theme = theme;
-        _glassOverlay = glassOverlay;
         _notify = notify;
     }
 
     public void Start()
     {
-        _glassOverlay.Start();
         // 通知服务此前没有任何订阅者：OfficialChatBridge 调用的 Show() 全部丢进了空事件，
         // 所以「通知」根本不出现。这里接上唯一的消费端。
         if (!_notifyHooked)

@@ -109,16 +109,27 @@ public class ThemeManager
             var filePath = candidates.FirstOrDefault(File.Exists);
             if (!string.IsNullOrEmpty(filePath) && File.Exists(filePath))
             {
-                UpdateColorsFromXaml(themeDict, File.ReadAllText(filePath));
+                ApplyPalette(themeDict, File.ReadAllText(filePath));
                 App.WriteLog("ThemeManager.Loaded from file: " + filePath);
                 return;
             }
-            // 尝试从嵌入资源加载
+            // 尝试从嵌入资源加载。
+            // 逻辑名由 csproj 显式指定为 DesignSystem.Theme.ColorPalette<Name>.xaml，
+            // 旧代码拼的是 "DesignSystem.Theme." + name + ".xaml"（= DesignSystem.Theme.sakura.xaml），
+            // 永远匹配不上；而上面的文件路径分支在发布版里也不成立（这些 xaml 只做嵌入，不随输出拷贝）。
+            // 两个分支同时落空 → 换主题完全无效，永远停在经典配色。
             try
             {
                 var asm = typeof(ThemeManager).Assembly;
+                var logical = name switch
+                {
+                    "sakura" => "DesignSystem.Theme.ColorPaletteSakura.xaml",
+                    "bamboo" => "DesignSystem.Theme.ColorPaletteBamboo.xaml",
+                    "mist" => "DesignSystem.Theme.ColorPaletteMist.xaml",
+                    _ => "DesignSystem.Theme.ColorPalette.xaml"
+                };
                 var resName = asm.GetManifestResourceNames()
-                    .FirstOrDefault(n => n.EndsWith("DesignSystem.Theme." + name + ".xaml", StringComparison.OrdinalIgnoreCase));
+                    .FirstOrDefault(n => string.Equals(n, logical, StringComparison.OrdinalIgnoreCase));
                 if (resName is not null)
                 {
                     using var stream = asm.GetManifestResourceStream(resName);
@@ -126,9 +137,13 @@ public class ThemeManager
                     {
                         using var reader = new StreamReader(stream);
                         var xaml = reader.ReadToEnd();
-                        UpdateColorsFromXaml(themeDict, xaml);
+                        ApplyPalette(themeDict, xaml);
                         App.WriteLog("ThemeManager.Loaded from embedded: " + resName);
                     }
+                }
+                else
+                {
+                    App.WriteLog("ThemeManager: 找不到嵌入主题资源 " + logical);
                 }
             }
             catch { }
@@ -136,6 +151,34 @@ public class ThemeManager
         catch (Exception ex)
         {
             App.WriteLog("ThemeManager.ApplyThemeResources -> " + ex);
+        }
+    }
+
+    /// <summary>
+    /// 套用新配色，并**整体替换** MergedDictionaries 里的那一项。
+    ///
+    /// 只改值（dict[key] = color）对已经创建好的页面不会触发 DynamicResource 重解析 ——
+    /// 缓存页面（标题页等 ShellContent）会永远停在旧配色，这正是「选哪个主题都只有经典色」。
+    /// 替换字典实例属于集合变更，DynamicResource 才会真正刷新。
+    /// </summary>
+    private static void ApplyPalette(ResourceDictionary themeDict, string xaml)
+    {
+        try
+        {
+            var fresh = new ResourceDictionary();
+            foreach (var kv in themeDict)
+                fresh[kv.Key] = kv.Value;
+            UpdateColorsFromXaml(fresh, xaml);
+
+            var dicts = Application.Current?.Resources.MergedDictionaries;
+            if (dicts is null) return;
+            // MergedDictionaries 是 ICollection，没有索引器：移除旧的再加入新的
+            if (dicts.Contains(themeDict)) dicts.Remove(themeDict);
+            dicts.Add(fresh);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ThemeManager.ApplyPalette -> " + ex);
         }
     }
 

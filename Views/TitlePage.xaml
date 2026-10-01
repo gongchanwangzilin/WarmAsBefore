@@ -6,33 +6,29 @@
              x:Class="WarmAsBefore.Views.TitlePage"
 
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid>
         <!-- Soft vertical gradient background -->
         <Grid.Background>
             <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                <GradientStop Color="{StaticResource Cream100}" Offset="0.0" />
-                <GradientStop Color="{StaticResource PageBg}" Offset="0.55" />
-                <GradientStop Color="{StaticResource Beige100}" Offset="1.0" />
+                <GradientStop Color="{DynamicResource Cream100}" Offset="0.0" />
+                <GradientStop Color="{DynamicResource PageBg}" Offset="0.55" />
+                <GradientStop Color="{DynamicResource Beige100}" Offset="1.0" />
             </LinearGradientBrush>
         </Grid.Background>
 
         <!-- Decorative warm glow (top) -->
-        <Ellipse Fill="{StaticResource BeigeAccent50}" Opacity="0.55"
+        <Ellipse Fill="{DynamicResource BeigeAccent50}" Opacity="0.55"
                  WidthRequest="460" HeightRequest="460"
                  HorizontalOptions="Center" VerticalOptions="Start"
                  Margin="0,-200,0,0" />
 
         <!-- Decorative soft glow (bottom) -->
-        <Ellipse Fill="{StaticResource Cream200}" Opacity="0.35"
+        <Ellipse Fill="{DynamicResource Cream200}" Opacity="0.35"
                  WidthRequest="380" HeightRequest="380"
                  HorizontalOptions="Center" VerticalOptions="End"
                  Margin="0,0,-120,-190" />
-
-        <!-- 装饰层模糊（毛玻璃的「背景模糊」）：只作用于装饰光斑，不覆盖任何内容；
-             由 GlassOverlayService 在开启毛玻璃时套上合成模糊画笔 -->
-        <Border x:Name="DecorBlur" InputTransparent="True" IsVisible="False" />
 
         <!-- 免责声明弹层已移到根 Grid 的最后一个子元素（见文件末尾）：
              它原先声明在主菜单之前，会被菜单整块盖住，「知道了」点不到。 -->
@@ -45,15 +41,15 @@
             <VerticalStackLayout Grid.Column="{Binding MenuColumn}"
                                  VerticalOptions="Center" HorizontalOptions="Center"
                                  Spacing="8" MaximumWidthRequest="340">
-                <Border BackgroundColor="{StaticResource SurfaceBg}"
-                        StrokeThickness="1.5" Stroke="{StaticResource BorderLine}"
+                <Border BackgroundColor="{DynamicResource SurfaceBg}"
+                        StrokeThickness="1.5" Stroke="{DynamicResource BorderLine}"
                         WidthRequest="118" HeightRequest="118"
                         HorizontalOptions="Center" Margin="0,0,0,22">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="59" />
                     </Border.StrokeShape>
                     <Border.Shadow>
-                        <Shadow Brush="{StaticResource ShadowDim}"
+                        <Shadow Brush="{DynamicResource ShadowDim}"
                                 Offset="5,6" Radius="18" Opacity="0.4" />
                     </Border.Shadow>
                     <Image Source="titlelogo.png" WidthRequest="104" HeightRequest="104"
@@ -88,7 +84,7 @@
                         Command="{Binding OpenSettingsCommand}" />
 
                 <Button Text="{Binding [Title_Exit], Source={StaticResource I18n}}" Style="{StaticResource BtnText}"
-                        TextColor="{StaticResource WarmMuted}"
+                        TextColor="{DynamicResource WarmMuted}"
                         FontSize="13" WidthRequest="290" HeightRequest="42"
                         Margin="0,14,0,0"
                         Command="{Binding ExitGameCommand}" />
@@ -108,7 +104,7 @@
                                FontSize="13" HorizontalOptions="Center"
                                CharacterSpacing="3" />
 
-                        <BoxView Color="{StaticResource BorderLine}" HeightRequest="1.5"
+                        <BoxView Color="{DynamicResource BorderLine}" HeightRequest="1.5"
                                  WidthRequest="200" HorizontalOptions="Center"
                                  Margin="0,10,0,4" Opacity="0.9" />
 
@@ -118,29 +114,29 @@
                                Opacity="0.9" />
 
                         <!-- Current theme info: color theme + effect -->
-                        <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                        <Border BackgroundColor="{DynamicResource BeigeAccent50}"
                                 StrokeThickness="0"
                                 Padding="16,8" HorizontalOptions="Center"
                                 Margin="0,10,0,0">
                             <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="{Binding ThemeColorName}"
-                                       FontSize="13" FontAttributes="Bold" TextColor="{StaticResource WarmDark}" />
+                                       FontSize="13" FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" />
                                 <Label Text="{Binding ThemeEffectName}"
-                                       FontSize="11" TextColor="{StaticResource WarmMuted}" />
+                                       FontSize="11" TextColor="{DynamicResource WarmMuted}" />
                             </VerticalStackLayout>
                         </Border>
                     </VerticalStackLayout>
                 </Border>
 
                 <!-- Decorative hint panel -->
-                <Border BackgroundColor="{StaticResource Cream100}"
-                        StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                <Border BackgroundColor="{DynamicResource Cream100}"
+                        StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="24,18" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <VerticalStackLayout Spacing="8">
                         <Label Text="{Binding [Title_Coexist], Source={StaticResource I18n}}" Style="{StaticResource TxtBodySm}"
-                               FontSize="13" TextColor="{StaticResource WarmDark}" />
+                               FontSize="13" TextColor="{DynamicResource WarmDark}" />
                         <Label Text="{Binding [Title_CoexistDesc], Source={StaticResource I18n}}"
                                Style="{StaticResource TxtCaption}" FontSize="12" />
                     </VerticalStackLayout>
@@ -155,7 +151,7 @@
 
         <!-- Gender selection overlay -->
         <Grid IsVisible="{Binding ShowGenderSelect}"
-              BackgroundColor="{StaticResource OverlayDim}">
+              BackgroundColor="{DynamicResource OverlayDim}">
             <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                  Spacing="20" Padding="32">
                 <Border Style="{StaticResource CardNeumorph}"
@@ -206,16 +202,16 @@
              放在主菜单之前会被菜单整块盖住，「知道了」点不到。
              遮罩 + 玻璃弹窗卡片，整体是模态的（会吃掉点击，这正是想要的）。 -->
         <Grid IsVisible="{Binding ShowDisclaimer}"
-              BackgroundColor="{StaticResource OverlayDim}">
+              BackgroundColor="{DynamicResource OverlayDim}">
             <Border Style="{StaticResource CardDialog}"
                     MaximumWidthRequest="560" Margin="48,0"
                     HorizontalOptions="Center" VerticalOptions="Center">
                 <VerticalStackLayout Spacing="14">
                     <Label Text="免责声明" FontSize="18"
-                           FontAttributes="Bold" TextColor="{StaticResource WarmDark}"
+                           FontAttributes="Bold" TextColor="{DynamicResource WarmDark}"
                            HorizontalOptions="Center" />
                     <Label LineBreakMode="WordWrap" FontSize="14"
-                           TextColor="{StaticResource SurfaceFg}" HorizontalOptions="Center"
+                           TextColor="{DynamicResource SurfaceFg}" HorizontalOptions="Center"
                            Text="「温暖如初」是 AI 生成内容的陪伴向 Galgame 工具。AI 输出具有随机性与不确定性，角色言行不代表真实价值观或专业建议；本工具不替代医疗、心理或情感支持。&#10;&#10;请自行判断并承担使用 AI 生成内容的风险与后果，遵守平台与地区法规，理性使用。点击「知道了」即表示已阅读并同意上述条款。" />
                     <Button Text="知道了" Style="{StaticResource BtnPrimary}"
                             WidthRequest="180" MinimumHeightRequest="48" HorizontalOptions="Center"

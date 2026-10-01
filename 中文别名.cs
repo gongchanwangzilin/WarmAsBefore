@@ -17,7 +17,6 @@ global using 存储提供者 = WarmAsBefore.Services.StorageProvider;
 global using 通知服务 = WarmAsBefore.Services.NotificationService;
 global using 音频控制器 = WarmAsBefore.Services.AudioController;
 global using 语音服务 = WarmAsBefore.Services.SpeechService;
-global using 毛玻璃服务 = WarmAsBefore.Services.GlassOverlayService;
 
 global using 迷你游戏引擎 = WarmAsBefore.Modules.GameModule.MiniGameEngine;
 global using 国际象棋智能 = WarmAsBefore.Modules.GameModule.ChessBrainService;

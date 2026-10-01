@@ -78,6 +78,8 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
         // 必须先 Boot（重置 State）再 SetCharacter（写入角色），否则角色会被 Boot 清掉
         _engine.Boot();
         _engine.SetCharacter(id);
+        // 新开一局：立绘随机只在这一刻发生，之后一律读档恢复
+        if (_engine.ActiveCharacter is { } fresh1) CharacterLibrary.RandomizeSpriteState(fresh1);
         _save.NewRun();
         await Shell.Current.GoToAsync("main");
     }
@@ -98,6 +100,8 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
             await Refresh();
             _engine.Boot();
             _engine.SetCharacter(ch.Profile.Id);
+            // 新角色新一局：立绘随机只在这一刻发生
+            if (_engine.ActiveCharacter is { } fresh2) CharacterLibrary.RandomizeSpriteState(fresh2);
             _save.NewRun();
             await Shell.Current.GoToAsync("main");
         }

@@ -7,20 +7,20 @@
 
     <!-- Page Defaults -->
     <Style TargetType="Page" ApplyToDerivedTypes="True">
-        <Setter Property="BackgroundColor" Value="{StaticResource PageBg}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PageBg}" />
     </Style>
 
     <Style TargetType="Shell" ApplyToDerivedTypes="True">
-        <Setter Property="BackgroundColor" Value="{StaticResource PageBg}" />
-        <Setter Property="ForegroundColor" Value="{StaticResource SurfaceFg}" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource PageBg}" />
+        <Setter Property="ForegroundColor" Value="{DynamicResource SurfaceFg}" />
     </Style>
 
     <Style TargetType="ActivityIndicator">
-        <Setter Property="Color" Value="{StaticResource PrimaryAction}" />
+        <Setter Property="Color" Value="{DynamicResource PrimaryAction}" />
     </Style>
 
     <Style TargetType="ProgressBar">
-        <Setter Property="ProgressColor" Value="{StaticResource PrimaryAction}" />
+        <Setter Property="ProgressColor" Value="{DynamicResource PrimaryAction}" />
     </Style>
 
 </ResourceDictionary>

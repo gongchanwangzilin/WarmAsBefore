@@ -6,7 +6,7 @@
              x:Name="Page"
              x:DataType="vm:CharacterSelectViewModel"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
         <!-- Header -->
@@ -28,15 +28,15 @@
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                      Spacing="12" Padding="32">
-                    <Border BackgroundColor="{StaticResource SurfaceBg}"
-                            StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                    <Border BackgroundColor="{DynamicResource SurfaceBg}"
+                            StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                             WidthRequest="96" HeightRequest="96">
                         <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
                         <Border.Shadow>
-                            <Shadow Brush="{StaticResource ShadowDim}"
+                            <Shadow Brush="{DynamicResource ShadowDim}"
                                     Offset="4,4" Radius="12" Opacity="0.3" />
                         </Border.Shadow>
-                        <Label Text="♡" TextColor="{StaticResource WarmFaint}" FontSize="40"
+                        <Label Text="♡" TextColor="{DynamicResource WarmFaint}" FontSize="40"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                     <Label Text="还没有角色" Style="{StaticResource TxtTitle}"
@@ -50,15 +50,15 @@
                     <Border Style="{StaticResource CardNeumorph}" Margin="0,0,0,14"
                             Padding="16,14">
                         <Grid ColumnDefinitions="72,*" ColumnSpacing="16">
-                            <Border BackgroundColor="{StaticResource BeigeAccent50}"
+                            <Border BackgroundColor="{DynamicResource BeigeAccent50}"
                                     WidthRequest="64" HeightRequest="64"
-                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
                                 <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
                                        IsVisible="{Binding HasAvatar}"
                                        HorizontalOptions="Fill" VerticalOptions="Fill" />
                                 <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
-                                       TextColor="{StaticResource WarmDark}" FontSize="24"
+                                       TextColor="{DynamicResource WarmDark}" FontSize="24"
                                        HorizontalOptions="Center" VerticalOptions="Center"
                                        FontAttributes="Bold"
                                        IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
@@ -67,7 +67,7 @@
                                 <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
                                 <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
                                 <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtCaption}"
-                                       TextColor="{StaticResource BeigeAccent300}" FontSize="11" />
+                                       TextColor="{DynamicResource BeigeAccent300}" FontSize="11" />
                             </VerticalStackLayout>
                         </Grid>
                         <Border.GestureRecognizers>
@@ -80,7 +80,7 @@
         </CollectionView>
 
         <!-- Bottom bar: new / import character -->
-        <Border Grid.Row="2" BackgroundColor="{StaticResource PageBg}" Padding="16,10,16,16"
+        <Border Grid.Row="2" BackgroundColor="{DynamicResource PageBg}" Padding="16,10,16,16"
                 StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">

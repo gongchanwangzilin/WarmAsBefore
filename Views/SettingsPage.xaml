@@ -9,7 +9,7 @@
              x:Class="WarmAsBefore.Views.SettingsPage"
              Title="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*" Padding="0">
         <!-- Header -->
@@ -209,12 +209,12 @@
                         <Label Text="{Binding [Settings_AiTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding AiUrl}" Placeholder="https://api.openai.com/v1/chat/completions"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiKey], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding AiKey}" IsPassword="True" Placeholder="sk-…"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*,Auto" VerticalOptions="Center">
                             <Label Text="{Binding [Settings_AiModel], Source={x:Static i18n:LocalizationService.Current}}" FontSize="13" />
                             <Picker Grid.Column="1" ItemsSource="{Binding AiModelChoices}"
@@ -222,13 +222,13 @@
                                     FontSize="13" HeightRequest="36"
                                     IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
                             <Button Grid.Column="2" Text="检测"
-                                    BackgroundColor="{StaticResource SurfaceBg}" TextColor="{StaticResource MutedFg}"
+                                    BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
                                     FontSize="11" Padding="10,0" HeightRequest="36" CornerRadius="10"
                                     Command="{Binding FetchModelsCommand}"
                                     IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
                         </Grid>
                         <Label Text="{Binding ModelListStatus}" Style="{StaticResource TxtCaption}"
-                               TextColor="{StaticResource MutedFg}" FontSize="11"
+                               TextColor="{DynamicResource MutedFg}" FontSize="11"
                                IsVisible="{Binding ModelListStatus, Converter={StaticResource StringNotEmpty}}" />
                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Temperature], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                             <Slider Grid.Column="1" Value="{Binding AiTemperature}" Minimum="0" Maximum="1" /></Grid>
@@ -240,8 +240,8 @@
                             <Switch Grid.Column="1" IsToggled="{Binding DeepThink}" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_DeepModel], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding DeepModel}" Placeholder="{Binding [Settings_DeepModelPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_MemoryTurns], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_MemoryTurnsHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
@@ -282,24 +282,24 @@
                             <Label Text="API 语音配置" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
                             <Grid ColumnDefinitions="110,*"><Label Text="API 地址" VerticalOptions="Center" FontSize="13" />
                                 <Entry Grid.Column="1" Text="{Binding VoiceApiUrl}" Placeholder="https://api.openai.com/v1"
-                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                             <Grid ColumnDefinitions="110,*"><Label Text="API 密钥" VerticalOptions="Center" FontSize="13" />
                                 <Entry Grid.Column="1" Text="{Binding VoiceApiKey}" IsPassword="True" Placeholder="sk-…"
-                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                             <Grid ColumnDefinitions="110,*"><Label Text="TTS 模型" VerticalOptions="Center" FontSize="13" />
                                 <Entry Grid.Column="1" Text="{Binding VoiceTtsModel}" Placeholder="tts-1"
-                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                             <Grid ColumnDefinitions="110,*"><Label Text="TTS 音色" VerticalOptions="Center" FontSize="13" />
                                 <Entry Grid.Column="1" Text="{Binding VoiceName}" Placeholder="alloy / echo / nova / shimmer"
-                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                             <Grid ColumnDefinitions="110,*"><Label Text="STT 模型" VerticalOptions="Center" FontSize="13" />
                                 <Entry Grid.Column="1" Text="{Binding VoiceSttModel}" Placeholder="whisper-1"
-                                       BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                       PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
@@ -323,8 +323,8 @@
                         <Label Text="{Binding [Settings_WeatherLife], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_City], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding WeatherCity}" Placeholder="{Binding [Settings_CityPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_CycleHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
@@ -368,12 +368,12 @@
                             <Switch Grid.Column="1" IsToggled="{Binding QqBotEnabled}" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppId], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding QqAppId}" Placeholder="{Binding [Settings_BotAppId], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppSecret], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding QqAppSecret}" IsPassword="True" Placeholder="{Binding [Settings_BotAppSecret], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
 
                         <Label Text="{Binding [Settings_WechatTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,10,0,0" />
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
@@ -382,20 +382,20 @@
                             <Switch Grid.Column="1" IsToggled="{Binding WechatEnabled}" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppId], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding WechatAppId}" Placeholder="{Binding [Settings_MpAppId], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AppSecret], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding WechatAppSecret}" IsPassword="True" Placeholder="{Binding [Settings_MpAppSecret], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_Token], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding WechatToken}" Placeholder="{Binding [Settings_TokenPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_Port], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding WechatPort}" Placeholder="{Binding [Settings_PortPlaceholder], Source={x:Static i18n:LocalizationService.Current}}" Keyboard="Numeric"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
 
                         <Grid ColumnDefinitions="*,Auto" Margin="0,8,0,0">
                             <VerticalStackLayout>
@@ -422,7 +422,7 @@
                             <Label Text="开启后脚本/AI 调用 MCP 工具无需逐次人工确认" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding McpAutoApprove}" /></Grid>
 
-                        <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Opacity="0.4" />
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
 
                         <!-- 已接入服务器列表 -->
                         <Grid ColumnDefinitions="*,Auto">
@@ -438,7 +438,7 @@
                             </CollectionView.EmptyView>
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="mcp:McpServerItem">
-                                    <Border BackgroundColor="{StaticResource SurfaceBg}" Stroke="{StaticResource BorderLine}"
+                                    <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}"
                                             StrokeThickness="0.8" Padding="10,8" Margin="0,4">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                         <Border.GestureRecognizers>
@@ -471,27 +471,27 @@
 
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_McpUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding McpNetworkUrl}" Placeholder="{Binding [Settings_McpUrlPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
 
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_GitHub], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding McpGitHubRepo}" Placeholder="{Binding [Settings_GitHubPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                         <Button Text="{Binding [Settings_ImportGithub], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFromGitHubCommand}"
                                 Style="{StaticResource BtnNeumorphSm}" />
 
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_ZipImport], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding McpImportZipPath}" Placeholder="{Binding [Settings_ZipPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
                         <Button Text="{Binding [Settings_ImportZip], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpZipCommand}"
                                 Style="{StaticResource BtnNeumorphSm}" />
 
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_FolderImport], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding McpImportFolderPath}" Placeholder="{Binding [Settings_FolderPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                   BackgroundColor="{StaticResource InputBg}" TextColor="{StaticResource SurfaceFg}"
-                                   PlaceholderColor="{StaticResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
                         <Button Text="{Binding [Settings_ImportFolder], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFolderCommand}"
                                 Style="{StaticResource BtnNeumorphSm}" />
                         <ProgressBar Progress="{Binding ImportProgress}" IsVisible="{Binding IsImporting}" />
@@ -540,7 +540,7 @@
                                     Command="{Binding DownloadJavaCommand}" />
                         </Grid>
 
-                        <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Opacity="0.4" />
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
 
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <Label Text="{Binding PythonManualPath, StringFormat='Python 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
@@ -556,7 +556,7 @@
                         </Grid>
 
                         <ActivityIndicator IsRunning="{Binding IsRuntimeBusy}" IsVisible="{Binding IsRuntimeBusy}"
-                                           HorizontalOptions="Center" Color="{StaticResource AccentWarm}" />
+                                           HorizontalOptions="Center" Color="{DynamicResource AccentWarm}" />
                         <Label Text="{Binding RuntimeBusyText}" Style="{StaticResource TxtCaption}"
                                IsVisible="{Binding RuntimeBusyText, Converter={StaticResource StringNotEmpty}}" />
                     </VerticalStackLayout>
@@ -626,11 +626,11 @@
                         <Label Text="支持作者 ❤️" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
                         <Label Text="如果您喜欢这个项目，欢迎赞助作者支持 continued development" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                            <Button Text="☕ 爱发电赞助" BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                            <Button Text="☕ 爱发电赞助" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                                     FontSize="13" HeightRequest="44" CornerRadius="12"
                                     Command="{Binding OpenSponsorCommand}" />
-                            <Button Grid.Column="1" Text="📺 B站主页" BackgroundColor="{StaticResource SurfaceBg}" TextColor="{StaticResource SurfaceFg}"
-                                    BorderColor="{StaticResource BorderLine}" BorderWidth="1"
+                            <Button Grid.Column="1" Text="📺 B站主页" BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource SurfaceFg}"
+                                    BorderColor="{DynamicResource BorderLine}" BorderWidth="1"
                                     FontSize="13" HeightRequest="44" CornerRadius="12"
                                     Command="{Binding OpenBilibiliCommand}" />
                         </Grid>
@@ -646,10 +646,10 @@
 
                         <Label Text="已解锁：可编辑 / 播放展示案"
                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
-                               TextColor="{StaticResource AccentWarm}"
+                               TextColor="{DynamicResource AccentWarm}"
                                IsVisible="{Binding ShowcaseUnlocked}" />
                         <Button Text="🎬 开发者展示（编辑 / 播放）" Style="{StaticResource BtnNeumorphSm}"
-                                BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                                BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                                 FontAttributes="Bold"
                                 IsVisible="{Binding ShowcaseUnlocked}"
                                 Command="{Binding OpenShowcaseCommand}" />

@@ -40,8 +40,19 @@ public partial class PetPage : ContentPage
             var roster = await _chars.ListAsync();
             var ch = roster.FirstOrDefault(c => c.Profile.Id == charId);
             if (ch is null || ch.SpriteMap.Count == 0) return;
-            var first = ch.SpriteMap.Keys.First();
-            if (ch.SpriteMap.TryGetValue(first, out var rel))
+
+            // 用角色当前状态，而不是 SpriteMap.Keys.First()。
+            // 取第一个键会让桌宠显示的立绘和主页面不一致 —— 看起来就像「进桌宠自动换了立绘」。
+            var key = $"{ch.State.CurrentOutfit}/{ch.State.CurrentEmotion}";
+            if (!ch.SpriteMap.ContainsKey(key))
+            {
+                var outfitEmotions = ch.SpriteMap.Keys
+                    .Where(k => k.StartsWith(ch.State.CurrentOutfit + "/", StringComparison.Ordinal))
+                    .ToList();
+                key = outfitEmotions.Count > 0 ? outfitEmotions[0] : ch.SpriteMap.Keys.First();
+            }
+
+            if (ch.SpriteMap.TryGetValue(key, out var rel))
             {
                 var full = Path.Combine(_store.Root, rel);
                 if (File.Exists(full))

@@ -7,7 +7,7 @@
 
              Title=""
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
         <!-- Header -->
@@ -29,9 +29,9 @@
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
                                      Padding="32">
-                    <Label Text="暂无存档" TextColor="{StaticResource WarmFaint}" FontSize="18"
+                    <Label Text="暂无存档" TextColor="{DynamicResource WarmFaint}" FontSize="18"
                            HorizontalOptions="Center" />
-                    <Label Text="回到标题点击「创建新欢」开始新的一局吧" TextColor="{StaticResource WarmMuted}" FontSize="13"
+                    <Label Text="回到标题点击「创建新欢」开始新的一局吧" TextColor="{DynamicResource WarmMuted}" FontSize="13"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
@@ -42,22 +42,22 @@
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12" RowDefinitions="Auto,Auto"
                               RowSpacing="8">
                             <!-- Character avatar circle -->
-                            <Border BackgroundColor="{StaticResource SurfaceBg}"
+                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="44" HeightRequest="44"
-                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}">
+                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="22" /></Border.StrokeShape>
                                 <Border.Shadow>
-                                    <Shadow Brush="{StaticResource ShadowLight}"
+                                    <Shadow Brush="{DynamicResource ShadowLight}"
                                             Offset="-2,-2" Radius="4" Opacity="0.5" />
                                 </Border.Shadow>
                                 <Label Text="{Binding CharacterName, Converter={StaticResource CharInitials}}"
-                                       TextColor="{StaticResource WarmDark}" FontSize="16"
+                                       TextColor="{DynamicResource WarmDark}" FontSize="16"
                                        HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
 
                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                <Label Text="{Binding Label}" TextColor="{StaticResource WarmDark}" FontSize="14" FontAttributes="Bold" />
-                                <Label TextColor="{StaticResource WarmMuted}" FontSize="11">
+                                <Label Text="{Binding Label}" TextColor="{DynamicResource WarmDark}" FontSize="14" FontAttributes="Bold" />
+                                <Label TextColor="{DynamicResource WarmMuted}" FontSize="11">
                                     <Label.FormattedText>
                                         <FormattedString>
                                             <Span Text="{Binding CharacterName}" FontAttributes="Bold" />
@@ -79,17 +79,17 @@
                             <HorizontalStackLayout Grid.Row="1" Grid.ColumnSpan="3"
                                                    HorizontalOptions="End" Spacing="8">
                                 <Button Text="重命名" Style="{StaticResource BtnText}"
-                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        TextColor="{DynamicResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
                                         Command="{Binding Path=BindingContext.RenameSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                                 <Button Text="导出" Style="{StaticResource BtnText}"
-                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        TextColor="{DynamicResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
                                         Command="{Binding Path=BindingContext.ExportSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
                                 <Button Text="删除" Style="{StaticResource BtnText}"
-                                        TextColor="{StaticResource WarmMuted}" FontSize="12"
+                                        TextColor="{DynamicResource WarmMuted}" FontSize="12"
                                         HeightRequest="30" Padding="10,0"
                                         Command="{Binding Path=BindingContext.DeleteSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                         CommandParameter="{Binding Id}" />
@@ -101,7 +101,7 @@
         </CollectionView>
 
         <!-- Bottom bar: import / backup / novel-test -->
-        <Border Grid.Row="2" BackgroundColor="{StaticResource PageBg}" Padding="16,10,16,16"
+        <Border Grid.Row="2" BackgroundColor="{DynamicResource PageBg}" Padding="16,10,16,16"
                 StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <VerticalStackLayout Spacing="8">
@@ -114,7 +114,7 @@
                             Command="{Binding BackupAllCommand}" />
                 </Grid>
                 <Button Text="导入小说（测试）" Style="{StaticResource BtnText}"
-                        FontSize="12" TextColor="{StaticResource WarmMuted}"
+                        FontSize="12" TextColor="{DynamicResource WarmMuted}"
                         HeightRequest="32"
                         IsVisible="{Binding NovelTesting}"
                         Command="{Binding ImportNovelCommand}" />

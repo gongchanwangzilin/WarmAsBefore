@@ -31,6 +31,34 @@ public sealed class CharacterLibrary
         _packs = packs;
     }
 
+    /// <summary>
+    /// 新建存档时给角色随机一套服装 + 表情。
+    ///
+    /// 这是全应用**唯一**该随机立绘的地方。其余场景（读档、桌宠模式来回、重进主页面）
+    /// 一律按 <see cref="CharacterState.CurrentOutfit"/> / <c>CurrentEmotion</c> 恢复 ——
+    /// 随机决策一旦放到 MainGameViewModel 这种 transient 对象里，每次导航都会重掷一次。
+    /// </summary>
+    public static void RandomizeSpriteState(CharacterData ch)
+    {
+        if (ch.SpriteMap.Count == 0) return;
+
+        var outfits = ch.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList();
+        if (outfits.Count == 0) return;
+        var outfit = outfits[Random.Shared.Next(outfits.Count)];
+
+        var emotions = ch.SpriteMap.Keys
+            .Where(k => k.StartsWith(outfit + "/", StringComparison.Ordinal))
+            .Select(k => k.Split('/')[1])
+            .Distinct()
+            .ToList();
+
+        ch.State.CurrentOutfit = outfit;
+        ch.State.CurrentEmotion = emotions.Count > 0
+            ? emotions[Random.Shared.Next(emotions.Count)]
+            : "normal";
+        App.WriteLog($"RandomizeSpriteState: {ch.Profile.Name} -> {outfit}/{ch.State.CurrentEmotion}");
+    }
+
     public async Task LoadAsync()
     {
         if (_loaded) return;

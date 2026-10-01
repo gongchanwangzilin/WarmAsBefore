@@ -398,21 +398,39 @@ public sealed partial class MainGameViewModel : ObservableObject
         AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(AffectionLevel);
         UpdateStats();
 
-        // 随机选择初始服装和表情
+        // 服装 / 表情：一律**读档恢复**，这里绝不重新随机。
+        //
+        // 旧实现每次构造 VM 都 Random.Shared.Next 一次。而 MainGamePage / MainGameViewModel
+        // 是 transient，每次 GoToAsync("main") 都会新建 —— 于是「进入存档」「桌宠模式回来」
+        // 都会自动换立绘。随机只应发生在新建存档那一刻（见 CharacterSelectViewModel.Pick /
+        // CreateCharacter），其余一律沿用上次状态。
         var outfits = ch.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList();
         if (outfits.Count > 0)
-            _outfitKey = outfits[Random.Shared.Next(outfits.Count)];
+        {
+            // 存档里记过且该服装仍然存在 → 沿用；否则回退到第一个（老存档从没写过这两个字段，
+            // 只能用确定性回退，至少保证此后每次进来都一样）
+            var savedOutfit = ch.State.CurrentOutfit;
+            _outfitKey = outfits.Contains(savedOutfit) ? savedOutfit : outfits[0];
+        }
         else
+        {
             _outfitKey = ch.State.CurrentOutfit;
+        }
 
         var emotions = ch.SpriteMap.Keys
             .Where(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal))
             .Select(k => k.Split('/')[1])
             .Distinct()
             .ToList();
-        if (emotions.Count > 0)
-            _defaultEmotion = emotions[Random.Shared.Next(emotions.Count)];
+        var savedEmotion = ch.State.CurrentEmotion;
+        _defaultEmotion = emotions.Contains(savedEmotion)
+            ? savedEmotion
+            : (emotions.Count > 0 ? emotions[0] : "normal");
         _currentEmotion = _defaultEmotion;
+
+        // 写回角色状态，随存档一起持久化 —— 这是「按上次立绘状态恢复」能成立的前提
+        ch.State.CurrentOutfit = _outfitKey;
+        ch.State.CurrentEmotion = _currentEmotion;
 
         SetEmotion(_currentEmotion);
         MainThread.BeginInvokeOnMainThread(() =>
@@ -438,6 +456,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         if (_char is null) return;
         _currentEmotion = _char.SpriteMap.ContainsKey($"{_outfitKey}/{emotion}") ? emotion : _defaultEmotion;
+        // 表情也要写回角色状态，随存档持久化；否则下次进来又回到初次的表情
+        _char.State.CurrentOutfit = _outfitKey;
+        _char.State.CurrentEmotion = _currentEmotion;
         ApplySprite();
     }
 

@@ -18,9 +18,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
     </ContentPage.Background>
 
     <Grid>
-        <!-- 玻璃叠层由 GlassOverlayService 统一挂到每页根 Grid 上（跟随主题），
-             不再在页面内硬塞 GlassOverlay —— 那层全窗口渐变+光带在每次交互/导航时重绘，
-             是「点击就卡死」的主要来源。页面背景已用半透明渐变模拟磨砂观感。 -->
+        <!-- 玻璃是「表面材质」：卡片 / 按钮 / 上下栏 / 弹窗的样式引用
+             GlassTokens 下发的 {DynamicResource ...} 画刷（见 DesignSystem/Theme/GlassTokens.cs）。
+             这里不再有任何整页叠加层 —— 那层既挡点击、压对比度，又要在每次交互时重绘。 -->
 
         <!-- ============ Phone Layout (vertical) ============ -->
         <Grid IsVisible="{OnIdiom Phone=True, Desktop=False}" RowDefinitions="Auto,*,Auto,Auto,Auto">
@@ -31,18 +31,18 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
                     <VerticalStackLayout Spacing="0">
                         <Label Text="{Binding CurrentTimeStr}"
-                               TextColor="{StaticResource WarmDark}" FontSize="22" FontAttributes="Bold" />
+                               TextColor="{DynamicResource WarmDark}" FontSize="22" FontAttributes="Bold" />
                         <Label Text="{Binding DateLabel}"
-                               TextColor="{StaticResource MutedFg}" FontSize="10" />
+                               TextColor="{DynamicResource MutedFg}" FontSize="10" />
                     </VerticalStackLayout>
                     <Label Text="{Binding WeatherDesc}"
-                           TextColor="{StaticResource MutedFg}" FontSize="11"
+                           TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Center" Grid.Column="1" />
-                    <Button Grid.Column="2" Text="设置" TextColor="{StaticResource MutedFg}"
+                    <Button Grid.Column="2" Text="设置" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="3" Text="手机" TextColor="{StaticResource MutedFg}"
+                    <Button Grid.Column="3" Text="手机" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenPhoneCommand}" />
@@ -62,8 +62,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <!-- 立绘加载进度条 -->
                 <ProgressBar IsVisible="{Binding SpriteLoadingProgress, Converter={StaticResource GreaterThanZero}}"
                              Progress="{Binding SpriteLoadingProgress}"
-                             ProgressColor="{StaticResource PrimaryAction}"
-                             BackgroundColor="{StaticResource BeigeAccent200}"
+                             ProgressColor="{DynamicResource PrimaryAction}"
+                             BackgroundColor="{DynamicResource BeigeAccent200}"
                              HeightRequest="3"
                              HorizontalOptions="Fill" VerticalOptions="End"
                              Margin="16,0,16,16" />
@@ -88,40 +88,40 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                        MaximumHeightRequest="600" />
                 <!-- 无立绘时的占位 -->
                 <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
-                        Stroke="{StaticResource BorderLine}" StrokeThickness="1.5"
+                        Stroke="{DynamicResource BorderLine}" StrokeThickness="1.5"
                         WidthRequest="180" HeightRequest="240"
                         HorizontalOptions="Center" VerticalOptions="Center"
                         IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="24" /></Border.StrokeShape>
                     <Border.Shadow>
-                        <Shadow Brush="{StaticResource ShadowDim}" Offset="0,4" Radius="12" Opacity="0.2" />
+                        <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="12" Opacity="0.2" />
                     </Border.Shadow>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                        <Border BackgroundColor="{StaticResource BeigeAccent100}"
+                        <Border BackgroundColor="{DynamicResource BeigeAccent100}"
                                 WidthRequest="64" HeightRequest="64" StrokeThickness="0">
                             <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
                             <Label Text="{Binding CharacterName, Converter={StaticResource CharInitials}}"
-                                   TextColor="{StaticResource WarmDark}" FontSize="28"
+                                   TextColor="{DynamicResource WarmDark}" FontSize="28"
                                    HorizontalOptions="Center" VerticalOptions="Center"
                                    FontAttributes="Bold" />
                         </Border>
-                        <Label Text="{Binding CharacterName}" TextColor="{StaticResource MutedFg}" FontSize="16"
+                        <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="16"
                                HorizontalOptions="Center" FontAttributes="Bold" />
-                        <Label Text="暂无立绘" TextColor="{StaticResource WarmFaint}" FontSize="11"
+                        <Label Text="暂无立绘" TextColor="{DynamicResource WarmFaint}" FontSize="11"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Border>
                 <!-- 名字胶囊 -->
                 <Border IsVisible="{Binding SpriteVisible}"
-                        BackgroundColor="#F0FDF8F0" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                        BackgroundColor="#F0FDF8F0" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,8"
                         Padding="20,6">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <Border.Shadow>
-                        <Shadow Brush="{StaticResource ShadowDim}" Offset="0,2" Radius="8" Opacity="0.15" />
+                        <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,2" Radius="8" Opacity="0.15" />
                     </Border.Shadow>
                     <Label Text="{Binding CharacterName}"
-                           TextColor="{StaticResource WarmDark}" FontSize="15" FontAttributes="Bold" />
+                           TextColor="{DynamicResource WarmDark}" FontSize="15" FontAttributes="Bold" />
                 </Border>
             </Grid>
 
@@ -134,25 +134,25 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <DataTemplate x:DataType="vm:DialogueMessage">
                         <Grid Padding="0,3">
                             <Border IsVisible="{Binding IsUser}"
-                                    BackgroundColor="{StaticResource BubbleMine}"
+                                    BackgroundColor="{DynamicResource BubbleMine}"
                                     StrokeThickness="0"
                                     Padding="12,8"
                                     HorizontalOptions="End"
                                     MaximumWidthRequest="300">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                                 <Label Text="{Binding Text}"
-                                       TextColor="{StaticResource SurfaceFg}"
+                                       TextColor="{DynamicResource SurfaceFg}"
                                        FontSize="13" LineBreakMode="WordWrap" />
                             </Border>
                             <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}"
-                                    BackgroundColor="{StaticResource BubbleTheirs}"
-                                    StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                                    BackgroundColor="{DynamicResource BubbleTheirs}"
+                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                                     Padding="12,8"
                                     HorizontalOptions="Start"
                                     MaximumWidthRequest="300">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                 <Label Text="{Binding Text}"
-                                       TextColor="{StaticResource SurfaceFg}"
+                                       TextColor="{DynamicResource SurfaceFg}"
                                        FontSize="13" LineBreakMode="WordWrap" />
                             </Border>
                         </Grid>
@@ -163,22 +163,22 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <!-- 气泡式多角色提示 + 沉默提示（同一 Grid.Row 槽位，按条件显示） -->
             <Label Grid.Row="2" IsVisible="{Binding UseBubbleChat}"
                    Text="气泡式已开启：多角色可直接以对话气泡交流"
-                   TextColor="{StaticResource MutedFg}" FontSize="11"
+                   TextColor="{DynamicResource MutedFg}" FontSize="11"
                    HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
             <Label Grid.Row="2" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
                    Text="{Binding SilenceHintText}"
-                   TextColor="{StaticResource MutedFg}" FontSize="11"
+                   TextColor="{DynamicResource MutedFg}" FontSize="11"
                    HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
             <!-- Typing indicator -->
             <Border Grid.Row="2" IsVisible="{Binding IsThinking}"
                     BackgroundColor="Transparent" StrokeThickness="0"
                     Padding="18,2,0,0" VerticalOptions="End" Margin="0,0,0,2">
                 <HorizontalStackLayout Spacing="6">
-                    <Border BackgroundColor="{StaticResource BubbleTheirs}"
-                            Stroke="{StaticResource BorderLine}" StrokeThickness="1"
+                    <Border BackgroundColor="{DynamicResource BubbleTheirs}"
+                            Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
                             Padding="10,6">
                         <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                        <Label Text="思考中…" TextColor="{StaticResource MutedFg}"
+                        <Label Text="思考中…" TextColor="{DynamicResource MutedFg}"
                                FontSize="12" FontAttributes="Italic" />
                     </Border>
                 </HorizontalStackLayout>
@@ -189,28 +189,28 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     Padding="10,8,10,10" StrokeThickness="0">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,16,0,0" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-                    <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}" Padding="10,0">
+                    <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Entry Text="{Binding InputText}"
                                Placeholder="输入你想说的话..."
-                               PlaceholderColor="{StaticResource MutedFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}"
                                BackgroundColor="Transparent"
-                               TextColor="{StaticResource SurfaceFg}" FontSize="13"
+                               TextColor="{DynamicResource SurfaceFg}" FontSize="13"
                                ReturnCommand="{Binding SendMessageCommand}"
                                HeightRequest="36" />
                     </Border>
-                    <Button Grid.Column="1" Text="🎁" TextColor="{StaticResource MutedFg}"
-                            BackgroundColor="{StaticResource SurfaceBg}" FontSize="13"
+                    <Button Grid.Column="1" Text="🎁" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{DynamicResource SurfaceBg}" FontSize="13"
                             CornerRadius="18" HeightRequest="36"
                             Padding="10,0"
                             Command="{Binding ToggleGiftPanelCommand}" />
-                    <Button Grid.Column="2" Text="语音" TextColor="{StaticResource MutedFg}"
-                            BackgroundColor="{StaticResource SurfaceBg}" FontSize="11"
+                    <Button Grid.Column="2" Text="语音" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11"
                             CornerRadius="18" HeightRequest="36"
                             Padding="10,0"
                             Command="{Binding VoiceInputCommand}" />
                     <Button Grid.Column="3" Text="发送"
-                            BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                            BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                             FontSize="12" FontAttributes="Bold"
                             CornerRadius="18" HeightRequest="36"
                             Padding="14,0"
@@ -225,46 +225,46 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <!-- 互动按钮：液态玻璃圆形材质（BtnLiquidGlassIcon 径向渐变 + 1px 内发光描边 + 柔和按下），无 Scale 避免卡死 -->
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
                         <Border Style="{StaticResource BtnLiquidGlassIcon}">
-                            <Label Text="摸" TextColor="{StaticResource WarmDark}" FontSize="18"
+                            <Label Text="摸" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding HeadpatCommand}" />
                             </Border.GestureRecognizers>
                         </Border>
-                        <Label Text="摸头" TextColor="{StaticResource MutedFg}" FontSize="10"
+                        <Label Text="摸头" TextColor="{DynamicResource MutedFg}" FontSize="10"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
                         <Border Style="{StaticResource BtnLiquidGlassIcon}">
-                            <Label Text="抱" TextColor="{StaticResource WarmDark}" FontSize="18"
+                            <Label Text="抱" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding HugCommand}" />
                             </Border.GestureRecognizers>
                         </Border>
-                        <Label Text="抱抱" TextColor="{StaticResource MutedFg}" FontSize="10"
+                        <Label Text="抱抱" TextColor="{DynamicResource MutedFg}" FontSize="10"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
                         <Border Style="{StaticResource BtnLiquidGlassIcon}">
-                            <Label Text="吻" TextColor="{StaticResource WarmDark}" FontSize="18"
+                            <Label Text="吻" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding KissCommand}" />
                             </Border.GestureRecognizers>
                         </Border>
-                        <Label Text="亲吻" TextColor="{StaticResource MutedFg}" FontSize="10"
+                        <Label Text="亲吻" TextColor="{DynamicResource MutedFg}" FontSize="10"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
                         <Border Style="{StaticResource BtnLiquidGlassIcon}">
-                            <Label Text="存" TextColor="{StaticResource WarmDark}" FontSize="18"
+                            <Label Text="存" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding QuickSaveCommand}" />
                             </Border.GestureRecognizers>
                         </Border>
-                        <Label Text="保存" TextColor="{StaticResource MutedFg}" FontSize="10"
+                        <Label Text="保存" TextColor="{DynamicResource MutedFg}" FontSize="10"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </HorizontalStackLayout>
@@ -279,21 +279,21 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14">
-                    <Label Text="{Binding CurrentTimeStr}" TextColor="{StaticResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
+                    <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                        <Label Text="{Binding DateLabel}" TextColor="{StaticResource MutedFg}" FontSize="10" />
-                        <Label Text="{Binding WeatherDesc}" TextColor="{StaticResource MutedFg}" FontSize="10" />
+                        <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                        <Label Text="{Binding WeatherDesc}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
                     </VerticalStackLayout>
-                    <Label Grid.Column="2" Text="{Binding LocationLabel}" TextColor="{StaticResource SurfaceFg}" FontSize="12" VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                    <Border Grid.Column="3" BackgroundColor="{StaticResource AccentWarm}" StrokeThickness="0" Padding="10,4" VerticalOptions="Center">
+                    <Label Grid.Column="2" Text="{Binding LocationLabel}" TextColor="{DynamicResource SurfaceFg}" FontSize="12" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    <Border Grid.Column="3" BackgroundColor="{DynamicResource AccentWarm}" StrokeThickness="0" Padding="10,4" VerticalOptions="Center">
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                        <Label Text="{Binding Energy, StringFormat='精力 {0}%'}" TextColor="{StaticResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
+                        <Label Text="{Binding Energy, StringFormat='精力 {0}%'}" TextColor="{DynamicResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
                     </Border>
-                    <Button Grid.Column="4" Text="存档" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding QuickSaveCommand}" />
-                    <Button Grid.Column="5" Text="设置" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="6" Text="手机" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenPhoneCommand}" />
-                    <Button Grid.Column="7" Text="地图" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenMapCommand}" />
-                    <Button Grid.Column="8" Text="世界书" TextColor="{StaticResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenWorldbookCommand}" />
+                    <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding QuickSaveCommand}" />
+                    <Button Grid.Column="5" Text="设置" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenSettingsCommand}" />
+                    <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenPhoneCommand}" />
+                    <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenMapCommand}" />
+                    <Button Grid.Column="8" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenWorldbookCommand}" />
                 </Grid>
             </Border>
 
@@ -301,39 +301,39 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" Margin="0">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
-                    <Label Text="信息" TextColor="{StaticResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
+                    <Label Text="信息" TextColor="{DynamicResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
                     <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">当前位置</Label>
-                        <Label Text="{Binding LocationLabel}" TextColor="{StaticResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">当前位置</Label>
+                        <Label Text="{Binding LocationLabel}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">好感度</Label>
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <ProgressBar Progress="{Binding AffectionPct}" ProgressColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding AffectionPct}" ProgressColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0}/100'}" TextColor="{DynamicResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="2">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">好感等级</Label>
-                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{StaticResource AccentWarm}" FontSize="13" FontAttributes="Bold" />
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感等级</Label>
+                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{DynamicResource AccentWarm}" FontSize="13" FontAttributes="Bold" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">信任度</Label>
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">信任度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <ProgressBar Progress="{Binding TrustPct}" ProgressColor="{StaticResource PrimaryAction}" BackgroundColor="{StaticResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding TrustPct}" ProgressColor="{DynamicResource PrimaryAction}" BackgroundColor="{DynamicResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0}/100'}" TextColor="{DynamicResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">精力</Label>
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">精力</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <ProgressBar Progress="{Binding EnergyPct}" ProgressColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0}/100'}" TextColor="{StaticResource SurfaceFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding EnergyPct}" ProgressColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0}/100'}" TextColor="{DynamicResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
-                        <Label TextColor="{StaticResource MutedFg}" FontSize="11">余额</Label>
-                        <Label Text="{Binding Balance, StringFormat='¤ {0}'}" TextColor="{StaticResource AccentWarm}" FontSize="14" FontAttributes="Bold" />
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">余额</Label>
+                        <Label Text="{Binding Balance, StringFormat='¤ {0}'}" TextColor="{DynamicResource AccentWarm}" FontSize="14" FontAttributes="Bold" />
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
@@ -357,16 +357,16 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                        Scale="{Binding SpriteScale}"
                        HorizontalOptions="Center" VerticalOptions="Center"
                        MaximumHeightRequest="600" />
-                <Border BackgroundColor="{StaticResource SurfaceBg}" Opacity="0.7" Stroke="{StaticResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
+                <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
                         <Label Text="🎭" FontSize="64" HorizontalOptions="Center" />
-                        <Label Text="{Binding CharacterName}" TextColor="{StaticResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" />
+                        <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" />
                     </VerticalStackLayout>
                 </Border>
-                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{StaticResource BorderLine}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
+                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                    <Label Text="{Binding CharacterName}" TextColor="{StaticResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
+                    <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                 </Border>
             </Grid>
 
@@ -375,34 +375,34 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">
                     <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                        <Button Text="摸摸头" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
-                        <Button Text="抱抱" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
-                        <Button Text="亲吻" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
-                        <Button Text="{Binding GalgameModeLabel}" TextColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
+                        <Button Text="摸摸头" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
+                        <Button Text="抱抱" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
+                        <Button Text="亲吻" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
+                        <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
                     </HorizontalStackLayout>
                     <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView" Margin="0,8" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:DialogueMessage">
                                 <Grid Padding="0,3">
-                                    <Border IsVisible="{Binding IsUser}" BackgroundColor="{StaticResource BubbleMine}" StrokeThickness="0" Padding="12,8" HorizontalOptions="End" MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding IsUser}" BackgroundColor="{DynamicResource BubbleMine}" StrokeThickness="0" Padding="12,8" HorizontalOptions="End" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
-                                        <Label Text="{Binding Text}" TextColor="{StaticResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
-                                    <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}" BackgroundColor="{StaticResource BubbleTheirs}" Stroke="{StaticResource BorderLine}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
-                                        <Label Text="{Binding Text}" TextColor="{StaticResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
+                                        <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-                    <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
+                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
-                            <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{StaticResource MutedFg}" BackgroundColor="Transparent" TextColor="{StaticResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
-                            <Button Grid.Column="1" Text="🎁" TextColor="{StaticResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="2" Text="语音" TextColor="{StaticResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
-                            <Button Grid.Column="3" Text="发送" BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
+                            <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" TextColor="{DynamicResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
+                            <Button Grid.Column="1" Text="🎁" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
+                            <Button Grid.Column="2" Text="语音" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
+                            <Button Grid.Column="3" Text="发送" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
                         </Grid>
                     </Border>
                 </Grid>
@@ -412,67 +412,67 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.Row="1" Grid.Column="1"
                     IsVisible="{Binding IsGalgamePanelVisible}"
                     BackgroundColor="#CCFDF8F0"
-                    Padding="16,12" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+                    Padding="16,12" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                     VerticalOptions="End" Margin="0,0,0,12"
                     HorizontalOptions="Fill"
                     HeightRequest="180">
                 <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                 <Border.Shadow>
-                    <Shadow Brush="{StaticResource ShadowDim}" Offset="0,-4" Radius="12" Opacity="0.3" />
+                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,-4" Radius="12" Opacity="0.3" />
                 </Border.Shadow>
                 <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
                     <!-- 标题栏：角色名 + 模式切换 -->
                     <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
-                        <Border BackgroundColor="{StaticResource AccentWarm}" StrokeThickness="0"
+                        <Border BackgroundColor="{DynamicResource AccentWarm}" StrokeThickness="0"
                                 Padding="10,4" HorizontalOptions="Start">
                             <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                            <Label Text="{Binding CharacterName}" TextColor="{StaticResource AccentWarmFg}"
+                            <Label Text="{Binding CharacterName}" TextColor="{DynamicResource AccentWarmFg}"
                                    FontSize="13" FontAttributes="Bold" />
                         </Border>
                         <Button Text="{Binding GalgameModeLabel}"
-                                TextColor="{StaticResource AccentWarm}" BackgroundColor="{StaticResource SurfaceBg}"
+                                TextColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource SurfaceBg}"
                                 FontSize="11" Padding="10,4" CornerRadius="12" HeightRequest="28"
                                 Command="{Binding ToggleGalgameModeCommand}" />
-                        <Label Text="{Binding LastSpeakerName}" TextColor="{StaticResource MutedFg}" FontSize="11"
+                        <Label Text="{Binding LastSpeakerName}" TextColor="{DynamicResource MutedFg}" FontSize="11"
                                VerticalOptions="Center" Margin="8,0,0,0" />
                     </HorizontalStackLayout>
 
                     <!-- 对话历史 -->
-                    <Border Grid.Row="1" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+                    <Border Grid.Row="1" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
                             MaximumHeightRequest="80" Padding="8,6">
                         <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                        <Label Text="{Binding LastMessageText}" TextColor="{StaticResource SurfaceFg}" FontSize="13"
+                        <Label Text="{Binding LastMessageText}" TextColor="{DynamicResource SurfaceFg}" FontSize="13"
                                LineBreakMode="WordWrap" MaxLines="4" VerticalOptions="Center" />
                     </Border>
 
                     <!-- 沉默提示（开启「允许 AI 沉默」时显示） -->
                     <Label Grid.Row="1" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
-                           Text="{Binding SilenceHintText}" TextColor="{StaticResource MutedFg}" FontSize="11"
+                           Text="{Binding SilenceHintText}" TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Start" Margin="8,4,8,0" />
 
                     <!-- 输入栏 -->
-                    <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"
-                            Stroke="{StaticResource BorderLine}" Padding="10,0">
+                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1"
+                            Stroke="{DynamicResource BorderLine}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}"
                                    Placeholder="输入你想说的话..."
-                                   PlaceholderColor="{StaticResource MutedFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}"
                                    BackgroundColor="Transparent"
-                                   TextColor="{StaticResource SurfaceFg}" FontSize="13"
+                                   TextColor="{DynamicResource SurfaceFg}" FontSize="13"
                                    ReturnCommand="{Binding SendMessageCommand}"
                                    HeightRequest="36"
                                    VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="🎁" TextColor="{StaticResource MutedFg}"
+                            <Button Grid.Column="1" Text="🎁" TextColor="{DynamicResource MutedFg}"
                                     BackgroundColor="Transparent" FontSize="13"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="2" Text="🎤" TextColor="{StaticResource MutedFg}"
+                            <Button Grid.Column="2" Text="🎤" TextColor="{DynamicResource MutedFg}"
                                     BackgroundColor="Transparent" FontSize="11"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding VoiceInputCommand}" />
                             <Button Grid.Column="3" Text="发送"
-                                    BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                                    BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                                     FontSize="12" FontAttributes="Bold"
                                     CornerRadius="14" HeightRequest="36" WidthRequest="52"
                                     Padding="0"
@@ -486,36 +486,36 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
         <!-- ============ Overlays (shared by phone & desktop) ============ -->
 
         <!-- Settings overlay -->
-        <Grid IsVisible="{Binding ShowSettings}" BackgroundColor="{StaticResource OverlayDim}">
-            <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
+        <Grid IsVisible="{Binding ShowSettings}" BackgroundColor="{DynamicResource OverlayDim}">
+            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                     Padding="24,20" Margin="40" VerticalOptions="Center"
                     MaximumWidthRequest="360">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
                 <VerticalStackLayout Spacing="16">
-                    <Label Text="设置" TextColor="{StaticResource SurfaceFg}" FontSize="20"
+                    <Label Text="设置" TextColor="{DynamicResource SurfaceFg}" FontSize="20"
                            HorizontalOptions="Center" FontAttributes="Bold" />
-                    <Button Text="存档管理" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="存档管理" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenSaveCommand}" />
-                    <Button Text="换装" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="换装" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenOutfitCommand}" />
-                    <Button Text="角色库" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="角色库" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenRosterCommand}" />
-                    <Button Text="素材库" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="素材库" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenMaterialsCommand}" />
-                    <Button Text="相册" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="相册" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenGalleryCommand}" />
-                    <Button Text="桌宠模式" TextColor="{StaticResource SurfaceFg}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="桌宠模式" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding PetModeCommand}" />
-                    <Button Text="回标题" TextColor="{StaticResource RedSoft}" BackgroundColor="{StaticResource SecondaryBg}"
+                    <Button Text="回标题" TextColor="{DynamicResource RedSoft}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding MenuCommand}" />
-                    <Button Text="关闭" TextColor="{StaticResource WarmMuted}" BackgroundColor="Transparent"
+                    <Button Text="关闭" TextColor="{DynamicResource WarmMuted}" BackgroundColor="Transparent"
                             CornerRadius="8" HeightRequest="36"
                             Command="{Binding OpenSettingsCommand}" />
                 </VerticalStackLayout>
@@ -523,41 +523,41 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
         </Grid>
 
         <!-- ============ 送礼 / 使用面板 ============ -->
-        <Grid IsVisible="{Binding IsGiftPanelVisible}" BackgroundColor="{StaticResource OverlayDim}">
+        <Grid IsVisible="{Binding IsGiftPanelVisible}" BackgroundColor="{DynamicResource OverlayDim}">
             <Border Background="{DynamicResource GlassCardBg}" Stroke="{DynamicResource GlassCardStroke}"
                     StrokeThickness="{DynamicResource GlassCardStrokeThickness}"
                     Padding="0" Margin="30" VerticalOptions="Center"
                     MaximumWidthRequest="420">
                 <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                 <Border.Shadow>
-                    <Shadow Brush="{StaticResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
+                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
                 </Border.Shadow>
                 <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="18,16" RowSpacing="12">
                     <!-- 标题 -->
-                    <Label Text="礼物箱 🎁" TextColor="{StaticResource SurfaceFg}" FontSize="16"
+                    <Label Text="礼物箱 🎁" TextColor="{DynamicResource SurfaceFg}" FontSize="16"
                            FontAttributes="Bold" HorizontalOptions="Center" />
-                    <Label Text="点一下送出心意，小雨会收下并回应" TextColor="{StaticResource MutedFg}" FontSize="11"
+                    <Label Text="点一下送出心意，小雨会收下并回应" TextColor="{DynamicResource MutedFg}" FontSize="11"
                            HorizontalOptions="Center" />
 
                     <!-- 模式切换：送礼 / 使用 -->
                     <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
                         <Button Text="🎁 送礼" FontSize="13" HeightRequest="34" CornerRadius="10" Padding="0"
-                                BackgroundColor="{StaticResource PrimaryAction}" TextColor="{StaticResource PrimaryFg}"
+                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource PrimaryFg}"
                                 Command="{Binding ToggleGiftModeCommand}">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsGiftMode}" Value="False">
                                     <Setter Property="BackgroundColor" Value="Transparent" />
-                                    <Setter Property="TextColor" Value="{StaticResource MutedFg}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
                         <Button Grid.Column="1" Text="✨ 使用" FontSize="13" HeightRequest="34" CornerRadius="10" Padding="0"
-                                BackgroundColor="Transparent" TextColor="{StaticResource MutedFg}"
+                                BackgroundColor="Transparent" TextColor="{DynamicResource MutedFg}"
                                 Command="{Binding ToggleGiftModeCommand}">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsGiftMode}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="{StaticResource AccentWarm}" />
-                                    <Setter Property="TextColor" Value="{StaticResource AccentWarmFg}" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentWarm}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource AccentWarmFg}" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
@@ -570,41 +570,41 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                             <DataTemplate>
                                     <VerticalStackLayout>
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,8">
-                                            <Border BackgroundColor="{StaticResource SecondaryBg}" StrokeThickness="0"
+                                            <Border BackgroundColor="{DynamicResource SecondaryBg}" StrokeThickness="0"
                                                     WidthRequest="40" HeightRequest="40" Padding="0">
                                                 <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                                                 <Label Text="{Binding Emoji}" FontSize="20"
                                                        HorizontalOptions="Center" VerticalOptions="Center" />
                                             </Border>
                                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                                <Label Text="{Binding Name}" TextColor="{StaticResource SurfaceFg}"
+                                                <Label Text="{Binding Name}" TextColor="{DynamicResource SurfaceFg}"
                                                        FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                                <Label Text="{Binding Desc}" TextColor="{StaticResource MutedFg}"
+                                                <Label Text="{Binding Desc}" TextColor="{DynamicResource MutedFg}"
                                                        FontSize="11" MaxLines="1" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <VerticalStackLayout Grid.Column="2" HorizontalOptions="End"
                                                                  VerticalOptions="Center" Spacing="6">
-                                                <Border BackgroundColor="{StaticResource Beige100}" StrokeThickness="0"
+                                                <Border BackgroundColor="{DynamicResource Beige100}" StrokeThickness="0"
                                                         Padding="9,2" HorizontalOptions="End">
                                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                                     <Label Text="{Binding Owned, StringFormat='×{0}'}"
-                                                           TextColor="{StaticResource WarmMuted}" FontSize="10" />
+                                                           TextColor="{DynamicResource WarmMuted}" FontSize="10" />
                                                 </Border>
                                                 <!-- 送礼（送礼模式下可见） -->
                                                 <Button Text="送礼" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
-                                                        BackgroundColor="{StaticResource PrimaryAction}" TextColor="{StaticResource PrimaryFg}"
+                                                        BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource PrimaryFg}"
                                                         IsVisible="{Binding Path=BindingContext.IsGiftMode, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         Command="{Binding Path=BindingContext.GiftItemCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
                                                 <!-- 使用（使用模式下可见） -->
                                                 <Button Text="使用" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
-                                                        BackgroundColor="{StaticResource AccentWarm}" TextColor="{StaticResource AccentWarmFg}"
+                                                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                                                         IsVisible="{Binding Path=BindingContext.IsGiftMode, Source={RelativeSource AncestorType={x:Type ContentPage}}, Converter={StaticResource InverseBool}}"
                                                         Command="{Binding Path=BindingContext.UseItemCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
                                             </VerticalStackLayout>
                                         </Grid>
-                                        <BoxView HeightRequest="1" Color="{StaticResource BorderLine}" Margin="4,0" />
+                                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="4,0" />
                                     </VerticalStackLayout>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
@@ -615,12 +615,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <VerticalStackLayout Grid.Row="3" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8"
                                          IsVisible="{Binding HasGiftItems, Converter={StaticResource InverseBool}}">
                         <Label Text="🎁" FontSize="34" HorizontalOptions="Center" />
-                        <Label Text="还没有已购商品，先去商店逛逛吧～" TextColor="{StaticResource MutedFg}" FontSize="12" />
+                        <Label Text="还没有已购商品，先去商店逛逛吧～" TextColor="{DynamicResource MutedFg}" FontSize="12" />
                     </VerticalStackLayout>
 
                     <!-- 关闭 -->
                     <Button Grid.Row="4" Text="关闭" FontSize="13" HeightRequest="40" CornerRadius="12"
-                            BackgroundColor="Transparent" TextColor="{StaticResource WarmMuted}"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource WarmMuted}"
                             Command="{Binding ToggleGiftPanelCommand}" />
                 </Grid>
             </Border>

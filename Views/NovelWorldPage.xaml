@@ -6,7 +6,7 @@
              x:DataType="vm:NovelWorldViewModel"
              Title=""
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
         <!-- Header -->
@@ -24,7 +24,7 @@
                            FontSize="11" LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
                 <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsThinking}"
-                                   IsVisible="{Binding IsThinking}" Color="{StaticResource PrimaryAction}"
+                                   IsVisible="{Binding IsThinking}" Color="{DynamicResource PrimaryAction}"
                                    WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
             </Grid>
         </Border>
@@ -53,18 +53,18 @@
                 Padding="12,8,12,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Border BackgroundColor="{StaticResource InputBg}" StrokeThickness="0" Padding="10,0">
+                <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10,0">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <Entry Text="{Binding InputText}"
                            Placeholder="对这个世界说点什么…"
-                           PlaceholderColor="{StaticResource WarmMuted}"
+                           PlaceholderColor="{DynamicResource WarmMuted}"
                            BackgroundColor="Transparent"
-                           TextColor="{StaticResource SurfaceFg}" FontSize="13"
+                           TextColor="{DynamicResource SurfaceFg}" FontSize="13"
                            ReturnCommand="{Binding SendCommand}"
                            HeightRequest="40" />
                 </Border>
                 <Button Grid.Column="1" Text="发送"
-                        BackgroundColor="{StaticResource PrimaryAction}" TextColor="{StaticResource PrimaryFg}"
+                        BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource PrimaryFg}"
                         FontSize="13" FontAttributes="Bold"
                         CornerRadius="20" HeightRequest="40" WidthRequest="64"
                         Padding="0"

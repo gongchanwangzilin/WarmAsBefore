@@ -7,12 +7,12 @@
 
              Title=""
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{StaticResource PageBg}">
+             BackgroundColor="{DynamicResource PageBg}">
 
     <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="0">
 
         <!-- Header -->
-        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="8,6,12,6">
+        <Border BackgroundColor="{DynamicResource SurfaceBg}" Padding="8,6,12,6">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
@@ -25,7 +25,7 @@
                        Style="{StaticResource TxtSubhead}" FontSize="18"
                        VerticalOptions="Center" />
                 <Border Grid.Column="3"
-                        BackgroundColor="{StaticResource Cream200}"
+                        BackgroundColor="{DynamicResource Cream200}"
                         StrokeThickness="0" Padding="10,0" HeightRequest="24"
                         VerticalOptions="Center">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
@@ -36,22 +36,22 @@
         </Border>
 
         <!-- 战绩条 -->
-        <Border Grid.Row="1" BackgroundColor="{StaticResource SurfaceBg}" Padding="12,4,12,4" StrokeThickness="0">
+        <Border Grid.Row="1" BackgroundColor="{DynamicResource SurfaceBg}" Padding="12,4,12,4" StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Label Text="{Binding RecordLabel}" Style="{StaticResource TxtCaption}"
                        FontSize="12" VerticalOptions="Center" />
                 <Label Grid.Column="1" Text="胜局 +30 亲密币 · 败局 +10" Style="{StaticResource TxtCaption}"
-                       FontSize="10" TextColor="{StaticResource WarmMuted}" VerticalOptions="Center" />
+                       FontSize="10" TextColor="{DynamicResource WarmMuted}" VerticalOptions="Center" />
             </Grid>
         </Border>
 
         <!-- buff 标记条（小雨当前身上的标记，随对话轮数衰减） -->
-        <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" Padding="12,3,12,3" StrokeThickness="0"
+        <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" Padding="12,3,12,3" StrokeThickness="0"
                 IsVisible="{Binding BuffsLabel, Converter={StaticResource StringNotEmpty}}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Label Text="{Binding BuffsLabel}" Style="{StaticResource TxtCaption}"
-                   FontSize="11" TextColor="{StaticResource AccentWarm}"
+                   FontSize="11" TextColor="{DynamicResource AccentWarm}"
                    LineBreakMode="TailTruncation" />
         </Border>
 
@@ -74,7 +74,7 @@
                                 <ActivityIndicator IsRunning="{Binding Busy}"
                                                    IsVisible="{Binding Busy}"
                                                    WidthRequest="18" HeightRequest="18"
-                                                   Color="{StaticResource AccentWarm}"
+                                                   Color="{DynamicResource AccentWarm}"
                                                    VerticalOptions="Center" />
                                 <Button Grid.Column="1" Text="生成" Style="{StaticResource BtnNeumorphic}"
                                         HeightRequest="34" Padding="14,0" FontSize="12"
@@ -84,7 +84,7 @@
                         </Grid>
                         <Label Text="{Binding AiStatus}"
                                Style="{StaticResource TxtCaption}" FontSize="11"
-                               TextColor="{StaticResource WarmMuted}" />
+                               TextColor="{DynamicResource WarmMuted}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -102,7 +102,7 @@
                                 <ActivityIndicator IsRunning="{Binding IsSyncing}"
                                                    IsVisible="{Binding IsSyncing}"
                                                    WidthRequest="18" HeightRequest="18"
-                                                   Color="{StaticResource AccentWarm}"
+                                                   Color="{DynamicResource AccentWarm}"
                                                    VerticalOptions="Center" />
                                 <Button Grid.Column="1" Text="同步" Style="{StaticResource BtnNeumorphic}"
                                         HeightRequest="34" Padding="14,0" FontSize="12"
@@ -112,7 +112,7 @@
                         </Grid>
                         <Label Text="{Binding SyncStatus}"
                                Style="{StaticResource TxtCaption}" FontSize="11"
-                               TextColor="{StaticResource WarmMuted}"
+                               TextColor="{DynamicResource WarmMuted}"
                                IsVisible="{Binding SyncStatus, Converter={StaticResource StringNotEmpty}}" />
                     </VerticalStackLayout>
                 </Border>
@@ -144,7 +144,7 @@
                 <!-- 提示消息 -->
                 <Label Text="{Binding ResultMessage}"
                        Style="{StaticResource TxtCaption}" FontSize="12"
-                       TextColor="{StaticResource AccentWarm}"
+                       TextColor="{DynamicResource AccentWarm}"
                        IsVisible="{Binding ResultMessage, Converter={StaticResource StringNotEmpty}}" />
             </VerticalStackLayout>
 
@@ -180,18 +180,18 @@
                                                Style="{StaticResource TxtBodySm}" FontSize="14" />
                                         <Label Text="{Binding Desc}"
                                                Style="{StaticResource TxtCaption}" FontSize="11"
-                                               TextColor="{StaticResource WarmMuted}"
+                                               TextColor="{DynamicResource WarmMuted}"
                                                LineBreakMode="WordWrap" MaxLines="2" />
                                         <HorizontalStackLayout Spacing="6">
                                             <Label Text="{Binding Category}"
                                                    Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{StaticResource WarmDark}" />
+                                                   TextColor="{DynamicResource WarmDark}" />
                                             <Label Text="{Binding Merchant, StringFormat='🏪 {0}'}"
                                                    Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{StaticResource AccentWarm}" />
+                                                   TextColor="{DynamicResource AccentWarm}" />
                                             <Label Text="{Binding Owned, StringFormat='已购 {0} 件'}"
                                                    Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{StaticResource AccentWarm}"
+                                                   TextColor="{DynamicResource AccentWarm}"
                                                    IsVisible="{Binding Owned, Converter={StaticResource GreaterThanZero}}" />
                                         </HorizontalStackLayout>
                                     </VerticalStackLayout>
@@ -228,10 +228,10 @@
                                      VerticalOptions="Center" HorizontalOptions="Center">
                     <ActivityIndicator IsRunning="{Binding IsSyncing}"
                                        WidthRequest="28" HeightRequest="28"
-                                       Color="{StaticResource AccentWarm}" />
+                                       Color="{DynamicResource AccentWarm}" />
                     <Label Text="正在上架更多商品…"
                            Style="{StaticResource TxtCaption}" FontSize="11"
-                           TextColor="{StaticResource WarmMuted}"
+                           TextColor="{DynamicResource WarmMuted}"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
             </Grid>
