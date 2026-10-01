@@ -28,7 +28,7 @@ jobs:
       run: dotnet restore
       
     - name: Publish Windows x64
-      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net10.0-windows10.0.19041.0 -r win-x64 --self-contained true
+      run: dotnet publish WarmAsBefore.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:UseMonoRuntime=false -p:RuntimeIdentifierOverride=win-x64 -o ./publish/win-x64
       
     - name: Get version
       id: version
@@ -43,7 +43,7 @@ jobs:
       shell: pwsh
       run: |
         $v = "${{ steps.version.outputs.version }}"
-        $dir = "bin/Release/net10.0-windows10.0.19041.0/win-x64/publish"
+        $dir = "publish/win-x64"
         New-Item -ItemType Directory -Force -Path dist | Out-Null
         $zip = "dist/WarmAsBefore_${v}_win-x64.zip"
         Compress-Archive -Path "$dir/*" -DestinationPath $zip -CompressionLevel Optimal
