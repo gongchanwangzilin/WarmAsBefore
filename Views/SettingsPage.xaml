@@ -49,29 +49,46 @@
                 <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="14">
                         <Label Text="{Binding [Settings_GlassFx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <!-- 透明度 = 总闸：放最上面，0 即视为关闭玻璃 -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="玻璃透明度" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="0 = 表面不透明，等同于关闭玻璃；1 = 最通透" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassTranslucency}"
+                                    WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Label Text="玻璃已关闭（透明度为 0）：表面为不透明材质，下方选项不生效。"
+                               IsVisible="{Binding GlassInactive}"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarm}" />
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_Frost], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_FrostHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding FrostOn}" /></Grid>
+                            <Switch Grid.Column="1" IsToggled="{Binding FrostOn}" IsEnabled="{Binding GlassActive}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_Glass], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_GlassHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <!-- 不再 IsEnabled="{Binding CanGlass}"（CanGlass => FrostOn）：
                                  该开关在磨砂未开时是禁用的，点它当然没反应。
                                  而 OnGlassOnChanged 本就会自动带上磨砂，禁用纯属多余。 -->
-                            <Switch Grid.Column="1" IsToggled="{Binding GlassOn}" /></Grid>
+                            <Switch Grid.Column="1" IsToggled="{Binding GlassOn}" IsEnabled="{Binding GlassActive}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
-                            <Label Text="{Binding [Settings_Liquid], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                            <Label Text="{Binding [Settings_LiquidHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding LiquidOn}" /></Grid>
+                            <Label Text="液态鼓起" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="最强的折射与浮起感；配合下方「液态高度」调节厚度" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding LiquidOn}" IsEnabled="{Binding GlassActive}" /></Grid>
 
-                        <!-- Apple Liquid Glass 标准：自适应透明度 + 减弱透明降级 -->
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <VerticalStackLayout>
-                                <Label Text="玻璃透明度（Apple Liquid Glass 标准）" Style="{StaticResource TxtBodySm}" />
-                                <Label Text="0=接近不透明 · 1=全液态；降低可增强正文对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassTranslucency}"
-                                    WidthRequest="120" VerticalOptions="Center" />
+                                <Label Text="磨砂程度" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="0 = 清玻璃 · 1 = 厚磨砂（奶白雾气浓度）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassFrost}"
+                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="液态高度" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="0 = 贴在页面上 · 1 = 明显浮起（投影深度 + 上沿高光）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassHeight}"
+                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="减弱透明降级（无障碍）" Style="{StaticResource TxtBodySm}" />

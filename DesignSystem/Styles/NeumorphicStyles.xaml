@@ -25,12 +25,8 @@
                 <RoundRectangle CornerRadius="20" />
             </Setter.Value>
         </Setter>
-        <Setter Property="Shadow">
-            <Setter.Value>
-                <Shadow Brush="{DynamicResource ShadowDim}"
-                        Offset="0,4" Radius="14" Opacity="0.25" />
-            </Setter.Value>
-        </Setter>
+        <!-- 高度感：投影随「液态高度」变化，是玻璃看起来有厚度的关键之一 -->
+        <Setter Property="Shadow" Value="{DynamicResource GlassCardShadow}" />
     </Style>
 
     <!-- Neumorphic Card (inset / depressed) -->

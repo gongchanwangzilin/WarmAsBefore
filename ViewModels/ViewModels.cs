@@ -191,6 +191,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _liquidOn = s.LiquidEnabled;
         _glassTranslucency = s.GlassTranslucency;
         _glassReducedTransparency = s.GlassReducedTransparency;
+        _glassFrost = s.GlassFrost;
+        _glassHeight = s.GlassHeight;
         _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
         _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
         _complexPlot = s.ComplexPlot;
@@ -285,6 +287,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _liquidOn;
     [ObservableProperty] private double _glassTranslucency = 1.0;
     [ObservableProperty] private bool _glassReducedTransparency;
+    [ObservableProperty] private double _glassFrost = 0.5;
+    [ObservableProperty] private double _glassHeight = 0.5;
     [ObservableProperty] private string _themeName = "classic";
     [ObservableProperty] private string _themeDisplay = "经典";
 
@@ -415,6 +419,10 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>毛玻璃是磨砂的高级版：必须开启磨砂后才能开启毛玻璃。</summary>
     public bool CanGlass => FrostOn;
+
+    /// <summary>透明度 > 0 才算真的开了玻璃；为 0 时表面不透明，等同于关闭。</summary>
+    public bool GlassActive => GlassTranslucency > 0.01;
+    public bool GlassInactive => !GlassActive;
     [ObservableProperty] private bool _complexPlot;
     [ObservableProperty] private bool _novelTesting;
     [ObservableProperty] private bool _showAffection;
@@ -564,11 +572,23 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnGlassTranslucencyChanged(double value)
     {
         _theme.GlassTranslucency = value;
+        OnPropertyChanged(nameof(GlassActive));
+        OnPropertyChanged(nameof(GlassInactive));
         PersistSettings();
     }
     partial void OnGlassReducedTransparencyChanged(bool value)
     {
         _theme.ReducedTransparency = value;
+        PersistSettings();
+    }
+    partial void OnGlassFrostChanged(double value)
+    {
+        _theme.GlassFrost = value;
+        PersistSettings();
+    }
+    partial void OnGlassHeightChanged(double value)
+    {
+        _theme.GlassHeight = value;
         PersistSettings();
     }
     partial void OnThemeDisplayChanged(string value) { ThemeName = ThemeKeyOf(value); _theme.ThemeName = ThemeName; PersistSettings(); }
@@ -729,6 +749,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 LiquidEnabled = LiquidOn,
                 GlassTranslucency = GlassTranslucency,
                 GlassReducedTransparency = GlassReducedTransparency,
+GlassFrost = GlassFrost,
+GlassHeight = GlassHeight,
                 ThemeName = ThemeKeyOf(ThemeDisplay),
                 MenuSide = MenuRight ? "right" : "left",
                 Lang = Lang,

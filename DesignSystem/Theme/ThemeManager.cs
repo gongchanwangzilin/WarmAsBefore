@@ -45,6 +45,14 @@ public class ThemeManager
     public bool ReducedTransparency { get => _reducedTransparency; set { _reducedTransparency = value; OnChange(); } }
     private bool _reducedTransparency;
 
+    /// <summary>磨砂程度 0-1：0=清玻璃，1=厚磨砂。</summary>
+    public double GlassFrost { get => _glassFrost; set { _glassFrost = Math.Clamp(value, 0, 1); OnChange(); } }
+    private double _glassFrost = 0.5;
+
+    /// <summary>液态高度 0-1：投影深度与上沿高光，0=贴面，1=明显浮起。</summary>
+    public double GlassHeight { get => _glassHeight; set { _glassHeight = Math.Clamp(value, 0, 1); OnChange(); } }
+    private double _glassHeight = 0.5;
+
     public string ActiveEffect =>
         (_liquid, _glass, _frost) switch
         {
@@ -247,7 +255,7 @@ public class ThemeManager
             {
                 // 先换调色板，再下发画刷 —— 顺序保证 GlassTokens 读到的是新配色
                 if (theme is not null) ApplyThemeResources(theme);
-                GlassTokens.Publish(ActiveEffect, GlassTranslucency, ReducedTransparency);
+                GlassTokens.Publish(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight, ReducedTransparency);
                 FadeCurrentPage();
             }
             catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }
