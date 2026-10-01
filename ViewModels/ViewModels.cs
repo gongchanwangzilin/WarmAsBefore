@@ -193,6 +193,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _glassReducedTransparency = s.GlassReducedTransparency;
         _glassFrost = s.GlassFrost;
         _glassHeight = s.GlassHeight;
+        _backgroundMode = string.IsNullOrEmpty(s.BackgroundMode) ? "none" : s.BackgroundMode;
+        _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
+        _backgroundImagePath = s.BackgroundImagePath ?? "";
         _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
         _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
         _complexPlot = s.ComplexPlot;
@@ -289,6 +292,63 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _glassReducedTransparency;
     [ObservableProperty] private double _glassFrost = 0.5;
     [ObservableProperty] private double _glassHeight = 0.5;
+
+    // 背景：玻璃需要有东西可透 —— 纯色窗口背景下永远看不出玻璃
+    [ObservableProperty] private string _backgroundMode = "none";
+    [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
+    [ObservableProperty] private string _backgroundImagePath = "";
+    public List<string> BackgroundModeChoices { get; } = new() { "纯色（默认）", "自定义图片", "窗口透视（看穿到桌面）" };
+    public bool BackgroundImageVisible => BackgroundMode == "image";
+    public string BackgroundImageLabel => string.IsNullOrWhiteSpace(BackgroundImagePath)
+        ? "尚未选择图片" : System.IO.Path.GetFileName(BackgroundImagePath);
+
+    private static string BackgroundModeDisplayOf(string m) => m switch
+    {
+        "image" => "自定义图片",
+        "clear" => "窗口透视（看穿到桌面）",
+        _ => "纯色（默认）"
+    };
+
+    partial void OnBackgroundModeDisplayChanged(string value)
+    {
+        BackgroundMode = value switch
+        {
+            "自定义图片" => "image",
+            "窗口透视（看穿到桌面）" => "clear",
+            _ => "none"
+        };
+        OnPropertyChanged(nameof(BackgroundImageVisible));
+        PersistSettings();
+    }
+
+    partial void OnBackgroundImagePathChanged(string value)
+    {
+        OnPropertyChanged(nameof(BackgroundImageLabel));
+        PersistSettings();
+    }
+
+    /// <summary>选一张背景图；PNG 里的透明像素会穿透到窗口下层。</summary>
+    [RelayCommand]
+    private async Task PickBackgroundImage()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择背景图片",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".webp", ".bmp" } },
+                    { DevicePlatform.Android, new[] { "image/*" } },
+                    { DevicePlatform.iOS, new[] { "public.image" } }
+                })
+            });
+            if (pick is null) return;
+            BackgroundImagePath = pick.FullPath;
+            BackgroundModeDisplay = "自定义图片";
+        }
+        catch (Exception ex) { App.WriteLog("PickBackgroundImage -> " + ex.Message); }
+    }
     [ObservableProperty] private string _themeName = "classic";
     [ObservableProperty] private string _themeDisplay = "经典";
 
@@ -751,6 +811,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 GlassReducedTransparency = GlassReducedTransparency,
 GlassFrost = GlassFrost,
 GlassHeight = GlassHeight,
+BackgroundMode = BackgroundMode,
+BackgroundImagePath = BackgroundImagePath,
                 ThemeName = ThemeKeyOf(ThemeDisplay),
                 MenuSide = MenuRight ? "right" : "left",
                 Lang = Lang,

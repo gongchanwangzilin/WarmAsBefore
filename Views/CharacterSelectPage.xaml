@@ -6,7 +6,7 @@
              x:Name="Page"
              x:DataType="vm:CharacterSelectViewModel"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
         <!-- Header -->
@@ -80,7 +80,7 @@
         </CollectionView>
 
         <!-- Bottom bar: new / import character -->
-        <Border Grid.Row="2" BackgroundColor="{DynamicResource PageBg}" Padding="16,10,16,16"
+        <Border Grid.Row="2" Background="{DynamicResource PageBgBrush}" Padding="16,10,16,16"
                 StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">

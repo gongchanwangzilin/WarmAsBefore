@@ -256,6 +256,7 @@ public class ThemeManager
                 // 先换调色板，再下发画刷 —— 顺序保证 GlassTokens 读到的是新配色
                 if (theme is not null) ApplyThemeResources(theme);
                 GlassTokens.Publish(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight, ReducedTransparency);
+                Services.AppBackgroundService.Publish();   // 换主题别把自定义背景冲掉
                 FadeCurrentPage();
             }
             catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }

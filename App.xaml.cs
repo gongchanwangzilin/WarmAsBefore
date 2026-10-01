@@ -23,6 +23,10 @@ public partial class App : Application
                 e.SetObserved();
             };
             InitializeComponent();
+            // 页面根背景统一走 PageBgBrush（可能被背景设置换成图片/透明）。
+            // 必须在首帧页面解析前给一个默认值，否则 DynamicResource 找不到键。
+            var pageBg = Resources.TryGetValue("PageBg", out var pv0) && pv0 is Color pc0 ? pc0 : Colors.WhiteSmoke;
+            Resources[Services.AppBackgroundService.PageBgBrushKey] = new SolidColorBrush(pageBg);
 #if WINDOWS
             // WinUI 层未处理异常（0xc000027b 崩溃源头大多从这里冒出来）
             if (Microsoft.UI.Xaml.Application.Current is { } app)

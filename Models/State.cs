@@ -63,6 +63,10 @@ public sealed record UserSettings
     public double GlassFrost { get; init; } = 0.5;
     /// <summary>液态高度 0-1：投影深度 + 上沿高光，0=贴面，1=明显浮起。</summary>
     public double GlassHeight { get; init; } = 0.5;
+    /// <summary>页面背景：none=纯色 · image=自定义图片 · clear=透明透视到窗口下层。
+    /// 玻璃需要有东西可透，纯色背景下无论怎么调都看不出玻璃。</summary>
+    public string BackgroundMode { get; init; } = "none";
+    public string BackgroundImagePath { get; init; } = "";
     public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist
     public string KeySfx { get; init; } = "default";
     public string MenuSide { get; init; } = "left";

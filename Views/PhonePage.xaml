@@ -6,7 +6,7 @@
              x:Name="Page"
              x:DataType="vm:PhoneViewModel"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto">
         <!-- Status bar: time + weather + back -->

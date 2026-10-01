@@ -6,7 +6,7 @@
              x:Name="Page"
              x:DataType="vm:MaterialsViewModel"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <ContentPage.Resources>
         <Style x:Key="TabOn" TargetType="Button">

@@ -9,7 +9,7 @@
              x:Class="WarmAsBefore.Views.SettingsPage"
              Title="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*" Padding="0">
         <!-- Header -->
@@ -94,6 +94,32 @@
                             <Label Text="减弱透明降级（无障碍）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开启后玻璃切不透明磨砂层，保证正文 4.5:1 对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding GlassReducedTransparency}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 背景：玻璃要有东西可透，否则再通透也看不出是玻璃 -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="背景（决定玻璃能透出什么）" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="半透明只是前提 —— 背后得有内容才看得见。纯色背景下无论怎么调，玻璃都像一块实心板。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <VerticalStackLayout>
+                                <Label Text="背景模式" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="窗口透视会让整个窗口背景透明，直接看穿到桌面"
+                                       Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="190" FontSize="13"
+                                    ItemsSource="{Binding BackgroundModeChoices}"
+                                    SelectedItem="{Binding BackgroundModeDisplay}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding BackgroundImageVisible}">
+                            <VerticalStackLayout>
+                                <Label Text="背景图片" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="{Binding BackgroundImageLabel}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Button Grid.Column="1" Text="选择图片" Style="{StaticResource BtnGhost}"
+                                    FontSize="13" Padding="14,6"
+                                    Command="{Binding PickBackgroundImageCommand}" />
+                        </Grid>
                     </VerticalStackLayout>
                 </Border>
 

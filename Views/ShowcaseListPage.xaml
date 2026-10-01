@@ -7,7 +7,7 @@
              x:Class="WarmAsBefore.Views.ShowcaseListPage"
              Title="开发者展示模式"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header -->

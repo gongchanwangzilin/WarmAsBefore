@@ -6,7 +6,7 @@
              x:Class="WarmAsBefore.Views.TitlePage"
 
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid>
         <!-- Soft vertical gradient background -->

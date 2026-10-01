@@ -134,6 +134,11 @@ public sealed class RuntimeConfigurator
             WindowTopmost.Force();
         else
             WindowTopmost.Release();
+        // 背景：纯色 / 自定义图片 / 窗口透视 —— 玻璃需要有东西可透
+        AppBackgroundService.Apply(s.BackgroundMode, s.BackgroundImagePath,
+            Application.Current?.Resources.TryGetValue("PageBg", out var pv) == true && pv is Color pc
+                ? pc : Colors.White);
+
         _bridge.Apply();
     }
 }

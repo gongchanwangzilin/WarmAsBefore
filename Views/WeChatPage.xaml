@@ -8,7 +8,7 @@
              x:Name="Page"
 
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
         <!-- Header: back + avatar + name + mode chip -->

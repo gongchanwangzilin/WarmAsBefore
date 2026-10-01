@@ -6,7 +6,7 @@
              x:DataType="vm:NovelWorldViewModel"
              Title=""
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
         <!-- Header -->

@@ -7,7 +7,7 @@
 
              Title="世界书"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
 

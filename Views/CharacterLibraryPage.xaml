@@ -6,7 +6,7 @@
              x:Name="Page"
              x:DataType="vm:CharacterLibraryViewModel"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto">
         <!-- Header -->
@@ -89,7 +89,7 @@
         </CollectionView>
 
         <!-- Footer hint -->
-        <Border Grid.Row="2" BackgroundColor="{DynamicResource PageBg}" Padding="24,4,24,20">
+        <Border Grid.Row="2" Background="{DynamicResource PageBgBrush}" Padding="24,4,24,20">
             <Label Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开她让 AI 改写人设即可。"
                    Style="{StaticResource TxtCaption}" FontSize="12" HorizontalTextAlignment="Center" />
         </Border>

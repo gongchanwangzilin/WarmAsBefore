@@ -5,7 +5,7 @@
              x:Class="WarmAsBefore.Views.GalleryPage"
              x:DataType="vm:GalleryViewModel"
              Title="回忆录"
-             BackgroundColor="{DynamicResource PageBg}"
+             Background="{DynamicResource PageBgBrush}"
              Shell.NavBarIsVisible="False">
 
     <ScrollView>

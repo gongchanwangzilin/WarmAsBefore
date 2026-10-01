@@ -6,7 +6,7 @@
              x:Class="WarmAsBefore.Views.ShowcaseEditPage"
              Title="编辑展示案"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header -->

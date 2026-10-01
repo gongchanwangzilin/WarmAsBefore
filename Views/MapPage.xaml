@@ -6,7 +6,7 @@
              x:Name="MapPageRoot"
              x:DataType="vm:MapViewModel"
              Title="地图"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid Padding="0" RowDefinitions="Auto,*,Auto">
 

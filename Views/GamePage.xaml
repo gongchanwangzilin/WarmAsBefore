@@ -6,7 +6,7 @@
              x:DataType="vm:GameViewModel"
              Title=""
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{DynamicResource PageBg}">
+             Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
 
