@@ -40,9 +40,15 @@ public sealed class UpdateService
         private static bool VersionLess(Version a, Version b) => a > b;
         private static bool TrySemVer(string tag, out Version v)
         {
+            // "v1.3.0-beta" -> "1.3.0"
+            //
+            // 旧实现是 IndexOf('.') + s[..dot] —— 那是**第一个点**的位置，
+            // 于是 "1.3.0" 被截成 "1"，Version.TryParse 直接失败，
+            // 任何 tag 都解析不出来 → HasUpdate 恒为 false，更新器**从来没报过更新**。
+            // 正确做法是按 '-' 切掉预发布后缀。
             var s = tag.TrimStart('v', 'V');
-            var dot = s.IndexOf('.');
-            if (dot > 0) s = s[..dot];   // 去掉 -beta 后缀
+            var dash = s.IndexOf('-');
+            if (dash > 0) s = s[..dash];
             return Version.TryParse(s, out v);
         }
     }
@@ -71,10 +77,14 @@ public sealed class UpdateService
             UpdateInfo? best = null;
             foreach (var r in releases)
             {
-                if (r.TryGetProperty("prerelease", out var pre) && pre.GetBoolean())
-                    continue;   // 正式版路径忽略 prerelease
                 var tag = r.GetProperty("tag_name").GetString() ?? "";
-                var isBeta = tag.EndsWith("-beta", StringComparison.OrdinalIgnoreCase);
+                // 测试版的两种标记：GitHub 的 prerelease 勾选，或 tag 的 -beta 后缀。
+                //
+                // 旧代码是 `if (prerelease) continue;` —— 无条件跳过，
+                // 连测试通道也看不到标了 prerelease 的 release（注释本意是「正式通道才跳过」）。
+                // 现在统一成「是测试版 且 没开测试通道」才跳过，勾选与后缀两种标法等价。
+                var isPre = r.TryGetProperty("prerelease", out var pre) && pre.GetBoolean();
+                var isBeta = isPre || tag.EndsWith("-beta", StringComparison.OrdinalIgnoreCase);
                 if (isBeta && !BetaChannel) continue;
                 // 找 win-x64 zip 资产
                 string? zipUrl = null, sha = null;

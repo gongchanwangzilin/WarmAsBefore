@@ -61,7 +61,8 @@ jobs:
         tag_name: ${{ steps.version.outputs.version }}
         release_name: ${{ steps.version.outputs.version }}
         draft: false
-        prerelease: false
+        # 由 tag 推导：v1.4.0-beta 会自动标为预发布，v1.4.0 则是正式版
+        prerelease: ${{ contains(github.ref_name, '-beta') }}
         
     - name: Upload zip
       uses: actions/upload-release-asset@v1
