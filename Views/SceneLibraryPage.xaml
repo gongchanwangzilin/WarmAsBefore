@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:models="clr-namespace:WarmAsBefore.Models"
+             x:Class="WarmAsBefore.Views.SceneLibraryPage"
+             x:Name="Page"
+             x:DataType="vm:SceneLibraryViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="{StaticResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- 顶部栏 -->
+        <Border Grid.Row="0" BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" StrokeThickness="0">
+            <Grid ColumnDefinitions="Auto,*,Auto">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="场景库" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="＋ 新建" Style="{StaticResource BtnPrimary}"
+                        FontSize="13" Padding="14,6" Command="{Binding AddEntryCommand}" />
+            </Grid>
+        </Border>
+
+        <!-- 主区：条目列表 + 选中详情 -->
+        <Grid Grid.Row="1" RowDefinitions="*,Auto">
+
+            <ScrollView Grid.Row="0">
+                <CollectionView ItemsSource="{Binding Entries}"
+                                SelectionMode="Single"
+                                SelectedItem="{Binding SelectedEntry}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:SceneLibraryEntry">
+                            <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" Margin="16,8,16,8"
+                                    Stroke="{StaticResource LineColor}" StrokeThickness="1">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                                <Grid RowDefinitions="Auto,Auto">
+                                    <Label Grid.Row="0" Text="{Binding Name}" Style="{StaticResource TxtTitle}" />
+                                    <Label Grid.Row="1" Style="{StaticResource TxtMuted}" Margin="0,4,0,0"
+                                           Text="{Binding MapSceneRef, StringFormat='地图引用：{0}'}" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </ScrollView>
+
+            <!-- 选中条目操作区 -->
+            <Border Grid.Row="1" BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12"
+                    IsVisible="{Binding CanEdit}">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                    <StackLayout Grid.Row="0" Orientation="Horizontal" Spacing="8">
+                        <Button Text="重命名" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                                Command="{Binding RenameEntryCommand}" />
+                        <Button Text="引用地图场景" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                                Command="{Binding LinkMapSceneCommand}" />
+                        <Button Text="变换规则" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                                Command="{Binding EditRulesCommand}" />
+                    </StackLayout>
+                    <StackLayout Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
+                        <Button Text="＋ 加模式" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                                Command="{Binding AddModeCommand}" />
+                        <Button Text="删除条目" Style="{StaticResource BtnDanger}" FontSize="13" Padding="14,6"
+                                Command="{Binding RemoveEntryCommand}" />
+                    </StackLayout>
+                    <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedModes}" Margin="0,12,0,0"
+                                    HeightRequest="120">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="models:SceneMode">
+                                <Label Text="{Binding Name}" Style="{StaticResource TxtBody}"
+                                       Margin="0,0,0,4" />
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Grid>
+            </Border>
+
+        </Grid>
+
+        <!-- 底部提示 -->
+        <Label Grid.Row="2" Style="{StaticResource TxtMuted}" Padding="16"
+               Text="场景可在地图页「单场景直接应用」；时间到点或 AI 发【场景:名/模式】标记时自动切换。" />
+
+    </Grid>
+
+</ContentPage>

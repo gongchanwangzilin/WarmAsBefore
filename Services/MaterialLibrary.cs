@@ -52,33 +52,37 @@ public sealed class MaterialLibrary
 
     public Task EnsureLoadedAsync()
     {
-        if (_loaded) return Task.CompletedTask;
         lock (Gate)
         {
             if (_loaded) return Task.CompletedTask;
             _loaded = true;
         }
-        try
+        // 装载涉及目录扫描 + 文件哈希 + 同步读取存储的 JSON，全部放到后台线程，
+        // 避免在 UI 线程上同步过 async 导致卡死 / 死锁。
+        return Task.Run(() =>
         {
-            var savedMusic = _store.Exists(MusicKey)
-                ? _store.Load<List<MusicItem>>(MusicKey).GetAwaiter().GetResult()
-                : null;
-            var savedBg = _store.Exists(BgKey)
-                ? _store.Load<List<BackgroundItem>>(BgKey).GetAwaiter().GetResult()
-                : null;
-            var savedAssign = _store.Exists(AssignKey)
-                ? _store.Load<SoundAssign>(AssignKey).GetAwaiter().GetResult()
-                : null;
-            if (savedMusic is not null) _music.AddRange(savedMusic);
-            if (savedBg is not null) _backgrounds.AddRange(savedBg);
-            if (savedAssign is not null) _assign = savedAssign;
-            SyncWithDisk();
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("MaterialLibrary.EnsureLoaded -> " + ex);
-        }
-        return Task.CompletedTask;
+            try
+            {
+                var savedMusic = _store.Exists(MusicKey)
+                    ? _store.Load<List<MusicItem>>(MusicKey).GetAwaiter().GetResult()
+                    : null;
+                var savedBg = _store.Exists(BgKey)
+                    ? _store.Load<List<BackgroundItem>>(BgKey).GetAwaiter().GetResult()
+                    : null;
+                var savedAssign = _store.Exists(AssignKey)
+                    ? _store.Load<SoundAssign>(AssignKey).GetAwaiter().GetResult()
+                    : null;
+                if (savedMusic is not null) _music.AddRange(savedMusic);
+                if (savedBg is not null) _backgrounds.AddRange(savedBg);
+                if (savedAssign is not null) _assign = savedAssign;
+                SyncWithDisk();
+                App.WriteLog("MaterialLibrary: loaded " + _music.Count + " music, " + _backgrounds.Count + " backgrounds");
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("MaterialLibrary.EnsureLoaded -> " + ex);
+            }
+        });
     }
 
     /// <summary>扫描目录：为新文件补条目，移除已删除文件的条目。</summary>
@@ -212,25 +216,29 @@ public sealed class MaterialLibrary
     }
 
     /// <summary>缩略图：图片返回自身绝对路径；MP4 返回已提取的首帧 PNG（未成功返回 null）。</summary>
-    public async Task<string?> ThumbnailAbsAsync(BackgroundItem item)
+    public Task<string?> ThumbnailAbsAsync(BackgroundItem item)
     {
-        await EnsureLoadedAsync();
-        if (item is null) return null;
-        if (!string.IsNullOrWhiteSpace(item.ThumbRelPath)
-            && File.Exists(ResolveAbs(item.ThumbRelPath)))
-            return ResolveAbs(item.ThumbRelPath);
-        if (ImageExts.Contains("." + item.Format, StringComparer.OrdinalIgnoreCase))
-            return ResolveAbs(item.RelPath);
-        if (string.IsNullOrEmpty(item.HashPath))
-            item.HashPath = HashFile(ResolveAbs(item.RelPath));
-        var framepath = ExtractVideoFrameAsync(ResolveAbs(item.RelPath)).GetAwaiter().GetResult();
-        if (!string.IsNullOrEmpty(framepath))
+        // 视频哈希、首帧提取都较重，放后台执行，避免阻塞 UI 线程
+        return Task.Run(async () =>
         {
-            item.ThumbRelPath = ToRel(framepath);
-            _ = PersistAsync();
-            return framepath;
-        }
-        return null;
+            await EnsureLoadedAsync();
+            if (item is null) return null;
+            if (!string.IsNullOrWhiteSpace(item.ThumbRelPath)
+                && File.Exists(ResolveAbs(item.ThumbRelPath)))
+                return ResolveAbs(item.ThumbRelPath);
+            if (ImageExts.Contains("." + item.Format, StringComparer.OrdinalIgnoreCase))
+                return ResolveAbs(item.RelPath);
+            if (string.IsNullOrEmpty(item.HashPath))
+                item.HashPath = HashFile(ResolveAbs(item.RelPath));
+            var framepath = await ExtractVideoFrameAsync(ResolveAbs(item.RelPath));
+            if (!string.IsNullOrEmpty(framepath))
+            {
+                item.ThumbRelPath = ToRel(framepath);
+                _ = PersistAsync();
+                return framepath;
+            }
+            return null;
+        });
     }
 
     // ==================== 重命名 / 删除 ====================

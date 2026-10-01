@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Controls;
 using WarmAsBefore.Models;
@@ -28,17 +29,25 @@ public sealed class ToolManager : IDisposable
     private readonly ConcurrentDictionary<string, ToolSession> _sessions = new();
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
+    private readonly Sandbox.SandboxPolicy _sandbox;
     private int _rpcId;
     private bool _disposed;
 
     public ToolManager(RuntimeManager runtimes)
     {
         _runtimes = runtimes;
+        _sandbox = new Sandbox.SandboxPolicy(new StorageProvider());
         RegisterSystemTools();
         Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
         _ = StartHarnessLoopAsync();
     }
+
+    /// <summary>
+    /// 工具沙箱策略（敏感词过滤 + 信任名单 + 加密落盘）。
+    /// 设置页 / 工具管理器通过此入口配置密钥指纹、信任与加密策略。
+    /// </summary>
+    public Sandbox.SandboxPolicy Sandbox => _sandbox;
 
     /// <summary>工具目录：{root}/tools/{工具名}/，每个工具目录含 tool.json 清单。</summary>
     public static string ToolsDir => Path.Combine(App.RootDirectory, "tools");
@@ -63,6 +72,75 @@ public sealed class ToolManager : IDisposable
 
     public ToolDefinition? Find(string name) =>
         _tools.TryGetValue(name, out var t) ? t : null;
+
+    /// <summary>
+    /// 以 DeepSeek Harness / OpenAI tools 契约格式输出全部工具的 schema。
+    /// 数组元素：{ name, description, parameters: JSONSchema, output?: JSONSchema }，
+    /// 可直接作为模型请求的 tools 字段注入（DeepSeek Harness defineTool 的模型面投影）。
+    /// </summary>
+    public string ListSchemas()
+    {
+        var tools = ListTools().Select(t => new
+        {
+            name = t.Name,
+            description = t.Description,
+            parameters = t.ParametersSchema,
+            output = t.OutputSchema
+        });
+        return JsonSerializer.Serialize(tools);
+    }
+
+    /// <summary>供外部注入的完整 schema JSON 数组（含 parameters 的 JSONSchema 对象）。</summary>
+    public List<object> BuildHarnessSchemas()
+    {
+        var list = new List<object>();
+        foreach (var t in ListTools())
+        {
+            var obj = new Dictionary<string, object>
+            {
+                ["name"] = t.Name,
+                ["description"] = t.Description,
+                ["parameters"] = ParseSchemaNode(t.ParametersSchema, t.Parameters)
+            };
+            if (!string.IsNullOrWhiteSpace(t.OutputSchema))
+                obj["output"] = ParseSchemaNode(t.OutputSchema, null);
+            list.Add(obj);
+        }
+        return list;
+    }
+
+    /// <summary>把 schema 字符串解析为 JsonNode；空则按 Parameters 生成扁平 schema。</summary>
+    private static JsonNode? ParseSchemaNode(string? schemaJson, List<ToolParameter>? parameters)
+    {
+        if (!string.IsNullOrWhiteSpace(schemaJson))
+        {
+            try { return JsonNode.Parse(schemaJson); }
+            catch { }
+        }
+        if (parameters is not null && parameters.Count > 0)
+        {
+            var props = new JsonObject();
+            var required = new JsonArray();
+            foreach (var p in parameters)
+            {
+                props[p.Name] = new JsonObject
+                {
+                    ["type"] = "string",
+                    ["description"] = p.Description
+                };
+                if (p.Required) required.Add(p.Name);
+            }
+            var schema = new JsonObject
+            {
+                ["type"] = "object",
+                ["properties"] = props,
+                ["required"] = required,
+                ["additionalProperties"] = false
+            };
+            return JsonNode.Parse(schema.ToJsonString());
+        }
+        return JsonNode.Parse("{\"type\":\"object\",\"properties\":{},\"required\":[],\"additionalProperties\":false}");
+    }
 
     /// <summary>扫描 {root}/tools/ 下的外部工具目录（tool.json 清单）。</summary>
     private void ScanExternalTools()
@@ -91,7 +169,9 @@ public sealed class ToolManager : IDisposable
                         Description = manifest.Description ?? "",
                         Language = language,
                         Entry = string.IsNullOrWhiteSpace(manifest.Entry) ? (language == ToolLanguage.Java ? "tool.jar" : "main.py") : manifest.Entry,
-                        WorkDir = dir
+                        WorkDir = dir,
+                        ParametersSchema = manifest.Schema,
+                        OutputSchema = manifest.OutputSchema
                     };
                 }
                 catch (Exception ex)
@@ -119,19 +199,26 @@ public sealed class ToolManager : IDisposable
             if (tool.IsExternal is false && _builtins.TryGetValue(name, out var handler))
                 return await handler(argsJson ?? "");
 
-            // 外部工具：先确保运行时可用
+            // 外部工具：沙箱网关（敏感词过滤 + 信任名单 + 防篡改审计）
+            var toolPath = tool.WorkDir;
+            var gate = await _sandbox.GateInputAsync(name, toolPath, argsJson ?? "", isExternal: true);
+            if (!gate.Allowed)
+                return JsonSerializer.Serialize(new { error = gate.BlockReason });
+
+            // 确保运行时可用
             var resolved = await _runtimes.ResolveRuntimeAsync(tool.Language);
             if (resolved is null)
                 return JsonSerializer.Serialize(new { error = $"{tool.RuntimeNeeded}。可在设置页 -> 工具模式中「一键下载」或手动配置路径" });
 
             var session = await GetSessionAsync(tool, resolved.Value.Exe, resolved.Value.Args);
             object? parameters = null;
-            if (!string.IsNullOrWhiteSpace(argsJson))
+            if (!string.IsNullOrWhiteSpace(gate.MaskedArgs))
             {
-                try { parameters = JsonDocument.Parse(argsJson).RootElement; }
-                catch { parameters = argsJson; }
+                try { parameters = JsonDocument.Parse(gate.MaskedArgs).RootElement; }
+                catch { parameters = gate.MaskedArgs; }
             }
-            return await session.CallAsync(parameters);
+            var raw = await session.CallAsync(parameters);
+            return _sandbox.GateOutput(name, raw);
         }
         catch (Exception ex)
         {
@@ -300,6 +387,13 @@ public sealed class ToolManager : IDisposable
                 return RpcResult(methodId, JsonSerializer.SerializeToElement(list));
             }
 
+            if (method == "tools.schema" || method == "list_schemas")
+            {
+                // DeepSeek Harness / OpenAI tools 契约：可注入模型请求 tools 字段的 schema 数组
+                var schemaJson = ListSchemas();
+                return RpcResult(methodId, JsonDocument.Parse(schemaJson).RootElement.Clone());
+            }
+
             if (method.StartsWith("tool.", StringComparison.Ordinal) || _tools.ContainsKey(method))
             {
                 var toolName = method.StartsWith("tool.", StringComparison.Ordinal) ? method["tool.".Length..] : method;
@@ -349,4 +443,8 @@ public sealed class ExternalToolManifest
     /// <summary>python 或 java。</summary>
     public string Language { get; set; } = "python";
     public string Entry { get; set; } = "";
+    /// <summary>可选：参数 JSON Schema（DeepSeek Harness 契约）；缺省时由内置参数列表生成。</summary>
+    public string? Schema { get; set; }
+    /// <summary>可选：输出 JSON Schema。</summary>
+    public string? OutputSchema { get; set; }
 }

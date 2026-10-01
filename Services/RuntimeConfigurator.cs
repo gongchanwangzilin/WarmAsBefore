@@ -93,6 +93,8 @@ public sealed class RuntimeConfigurator
         _theme.Frost = s.FrostEnabled;
         _theme.Glass = s.GlassEnabled;
         _theme.Liquid = s.LiquidEnabled;
+        _theme.GlassTranslucency = s.GlassTranslucency;
+        _theme.ReducedTransparency = s.GlassReducedTransparency;
         _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
 
         WindowTopmost.Apply(s.AlwaysOnTop);

@@ -20,6 +20,7 @@ public sealed partial class TitleViewModel : ObservableObject
         [ObservableProperty] private string _themeColorName = "经典";
         [ObservableProperty] private int _menuColumn;
         [ObservableProperty] private int _decorColumn = 1;
+        [ObservableProperty] private bool _showDisclaimer = true;
 
     public TitleViewModel(GameEngine engine, SettingsManager settings,
         DesignSystem.Theme.ThemeManager theme, SaveManager save)
@@ -38,7 +39,22 @@ public sealed partial class TitleViewModel : ObservableObject
             ApplySettings();
             RefreshStateCommand.Execute(null);
         });
+        // 首次启动免责声明 + 非玩具声明：已确认过则不再弹
+        ShowDisclaimer = !_settings.Current.DisclaimerAcknowledged;
         RefreshStateCommand.Execute(null);
+    }
+
+    [RelayCommand]
+    private async Task AcknowledgeDisclaimer()
+    {
+        ShowDisclaimer = false;
+        try
+        {
+            // 用 record with 保留全部现有设置，仅置位 DisclaimerAcknowledged
+            _settings.Apply(_settings.Current with { DisclaimerAcknowledged = true });
+            await _settings.Persist();
+        }
+        catch (Exception ex) { App.WriteLog("Title: AcknowledgeDisclaimer EX -> " + ex); }
     }
 
     /// <summary>有存档 → 「再续情缘」（读最后一次游玩的存档直接继续）；无存档 → 「创建新欢」（新开一局）。</summary>

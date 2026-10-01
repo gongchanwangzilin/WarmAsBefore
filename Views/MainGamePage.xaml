@@ -163,11 +163,11 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Label Grid.Row="2" IsVisible="{Binding UseBubbleChat}"
                    Text="气泡式已开启：多角色可直接以对话气泡交流"
                    TextColor="{StaticResource MutedFg}" FontSize="11"
-                   HorizontalOptions="Center" VerticalOptions="Top" Margin="0,4,0,0" />
+                   HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
             <Label Grid.Row="2" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
                    Text="{Binding SilenceHintText}"
                    TextColor="{StaticResource MutedFg}" FontSize="11"
-                   HorizontalOptions="Center" VerticalOptions="Top" Margin="0,4,0,0" />
+                   HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
             <!-- Typing indicator -->
             <Border Grid.Row="2" IsVisible="{Binding IsThinking}"
                     BackgroundColor="Transparent" StrokeThickness="0"

@@ -37,6 +37,14 @@ public class ThemeManager
         set { _liquid = value; OnChange(); }
     }
 
+    /// <summary>玻璃自适应透明度 0-1（Apple Liquid Glass 标准）：1=全液态透明；0=接近不透明。</summary>
+    public double GlassTranslucency { get => _glassTranslucency; set { _glassTranslucency = Math.Clamp(value, 0, 1); OnChange(); } }
+    private double _glassTranslucency = 1.0;
+
+    /// <summary>减弱透明降级（Accessibility）：true 时玻璃切不透明磨砂层，保证正文 4.5:1 对比。</summary>
+    public bool ReducedTransparency { get => _reducedTransparency; set { _reducedTransparency = value; OnChange(); } }
+    private bool _reducedTransparency;
+
     public string ActiveEffect =>
         (_liquid, _glass, _frost) switch
         {

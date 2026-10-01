@@ -39,6 +39,17 @@ public sealed record ToolDefinition
 
     public List<ToolParameter> Parameters { get; init; } = new();
 
+    /// <summary>
+    /// JSON Schema 参数定义（OpenAI / DeepSeek Harness 契约格式）。
+    /// 工具可用 <c>parameters</c> 直接声明 JSON Schema 字符串（如 tool.json 里 "schema" 字段），
+    /// 缺省时由 Parameters 列表自动生成扁平 schema。
+    /// 该字段会通过 tools/schema 输出，可直接注入模型请求的 tools 参数。
+    /// </summary>
+    public string? ParametersSchema { get; init; }
+
+    /// <summary>输出 JSON Schema（工具返回值的结构描述，可选）。</summary>
+    public string? OutputSchema { get; init; }
+
     /// <summary>预计所需运行时空缺时的提示。</summary>
     public string RuntimeNeeded => Language switch
     {

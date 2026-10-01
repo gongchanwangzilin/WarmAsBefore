@@ -5,8 +5,22 @@
              InputTransparent="True"
              IsVisible="False">
 
+    <!--
+        Apple Liquid Glass 标准（iOS 26）落地：
+        · 自适应透明（Translucency）：0=不透明磨砂，1=全液态玻璃
+        · 折射光带：2 条斜向动态光带，随 Liquid 档微位移动画
+        · 内发光描边：1px 渐变描边（左上亮 → 右下暖暗），替代旧 1.2px 硬描边
+        · 减弱透明降级：ReducedTransparency=true 时切不透明磨砂层，保证正文 4.5:1 对比
+    -->
     <Grid>
-        <!-- 磨砂层：轻透磨砂，内容仍清晰可读 -->
+        <!-- 不透明磨砂降级层（减弱透明模式） -->
+        <Grid x:Name="OpaqueFrostLayer" IsVisible="False">
+            <Grid.Background>
+                <SolidColorBrush Color="#E8FDF6EE" />
+            </Grid.Background>
+        </Grid>
+
+        <!-- 磨砂层：轻透磨砂 -->
         <Grid x:Name="FrostLayer">
             <Grid.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -16,54 +30,59 @@
             </Grid.Background>
         </Grid>
 
-        <!-- 毛玻璃层：磨砂之上，叠加层 + 边缘高光 -->
+        <!-- 毛玻璃层：叠加层 + 内发光描边 -->
         <Grid x:Name="GlassLayer">
-            <!-- 半透明叠加层 -->
             <Grid>
                 <Grid.Background>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#38FDF6EE" Offset="0.0" />
-                        <GradientStop Color="#12FDF6EE" Offset="0.55" />
-                        <GradientStop Color="#2EC9BFA8" Offset="1.0" />
+                        <GradientStop Color="#30FDF6EE" Offset="0.0" />
+                        <GradientStop Color="#10FDF6EE" Offset="0.55" />
+                        <GradientStop Color="#26C9BFA8" Offset="1.0" />
                     </LinearGradientBrush>
                 </Grid.Background>
             </Grid>
-            <!-- 边缘高光：左上亮边 + 右下暖暗边 -->
-            <Border x:Name="EdgeHighlight" StrokeThickness="1.2">
+            <!-- 1px 内发光描边（Apple Liquid Glass 标准） -->
+            <Border x:Name="InnerGlowEdge" StrokeThickness="1">
                 <Border.Stroke>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                        <GradientStop Color="#99FFFFFF" Offset="0.0" />
+                        <GradientStop Color="#88FFFFFF" Offset="0.0" />
+                        <GradientStop Color="#1AFFFFFF" Offset="0.45" />
                         <GradientStop Color="#2E8B7D6B" Offset="1.0" />
                     </LinearGradientBrush>
                 </Border.Stroke>
             </Border>
         </Grid>
 
-        <!-- 液态玻璃层：高透光泽质感 -->
+        <!-- 液态玻璃层：折射光带 + 高透叠加 -->
         <Grid x:Name="LiquidLayer">
-            <Grid.Background>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#96FFFFFF" Offset="0.0" />
-                    <GradientStop Color="#3DFDF6EE" Offset="0.35" />
-                    <GradientStop Color="#14FDF6EE" Offset="0.7" />
-                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
-                </LinearGradientBrush>
-            </Grid.Background>
-            <!-- 斜向光泽：模拟液态表面反光 -->
-            <Ellipse Fill="#B8FFFFFF" Opacity="0.28"
-                     WidthRequest="360" HeightRequest="120"
-                     HorizontalOptions="Start" VerticalOptions="Start"
-                     Margin="-80,-40,0,0" Rotation="-24" InputTransparent="True" />
-            <Ellipse Fill="#22FFFFFF" Opacity="0.5"
-                     WidthRequest="300" HeightRequest="80"
-                     HorizontalOptions="End" VerticalOptions="Center"
-                     Margin="0,0,-60,0" Rotation="18" InputTransparent="True" />
-            <Border StrokeThickness="1">
+            <Grid>
+                <Grid.Background>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                        <GradientStop Color="#66FFFFFF" Offset="0.0" />
+                        <GradientStop Color="#2AFDF6EE" Offset="0.35" />
+                        <GradientStop Color="#12FDF6EE" Offset="0.7" />
+                        <GradientStop Color="#5AC9BFA8" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Grid.Background>
+            </Grid>
+            <!-- 斜向折射光带（随 Liquid 档位移动画，微位移 6dp） -->
+            <Grid x:Name="RefractionBand">
+                <Ellipse Fill="#A8FFFFFF" Opacity="0.22"
+                         WidthRequest="420" HeightRequest="130"
+                         HorizontalOptions="Start" VerticalOptions="Start"
+                         Margin="-90,-46,0,0" Rotation="-24" InputTransparent="True" />
+                <Ellipse Fill="#1EFFFFFF" Opacity="0.4"
+                         WidthRequest="320" HeightRequest="90"
+                         HorizontalOptions="End" VerticalOptions="Center"
+                         Margin="0,0,-70,0" Rotation="18" InputTransparent="True" />
+            </Grid>
+            <!-- 1px 内发光描边 -->
+            <Border x:Name="LiquidInnerEdge" StrokeThickness="1">
                 <Border.Stroke>
                     <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
                         <GradientStop Color="#CCFFFFFF" Offset="0.0" />
-                        <GradientStop Color="#30FFFFFF" Offset="0.5" />
-                        <GradientStop Color="#8CC9BFA8" Offset="1.0" />
+                        <GradientStop Color="#24FFFFFF" Offset="0.5" />
+                        <GradientStop Color="#7AC9BFA8" Offset="1.0" />
                     </LinearGradientBrush>
                 </Border.Stroke>
             </Border>

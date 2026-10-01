@@ -62,6 +62,9 @@ builder.Services.AddSingleton<Modules.GameModule.ChessBrainService>();
 builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddSingleton<Modules.Market.ShopService>();
         builder.Services.AddSingleton<Modules.Market.GiftPanelService>();
+        builder.Services.AddSingleton<Modules.Scene.SceneDirector>();
+        builder.Services.AddSingleton<Modules.Update.UpdateService>();
+        builder.Services.AddSingleton<Modules.Sandbox.SandboxPolicy>();
 
         // 官方接入（真微信 / QQ）与运行时配置
         builder.Services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
@@ -107,6 +110,8 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<CgViewPage>();
         builder.Services.AddTransient<BattlePage>();
         builder.Services.AddTransient<MaterialsPage>();
+        builder.Services.AddTransient<Views.SceneLibraryPage>();
+        builder.Services.AddTransient<SceneLibraryViewModel>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
         builder.Services.AddTransient<NovelSelectViewModel>();
         builder.Services.AddTransient<NovelWorldViewModel>();

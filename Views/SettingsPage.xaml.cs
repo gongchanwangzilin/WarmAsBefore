@@ -10,6 +10,7 @@ public partial class SettingsPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
+        vm.RefreshSandboxTrust();
     }
 
     /// <summary>滚动到底部时显示开发者展示隐藏入口。</summary>

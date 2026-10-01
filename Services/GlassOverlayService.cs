@@ -94,6 +94,8 @@ public sealed class GlassOverlayService
                 o.Frost = frost;
                 o.Glass = glass;
                 o.Liquid = liquid;
+                o.Translucency = _theme.GlassTranslucency;
+                o.ReducedTransparency = _theme.ReducedTransparency;
             }
             foreach (var d in decorBlurs)
             {
