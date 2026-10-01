@@ -11,6 +11,9 @@ on:
         required: true
         default: 'v1.25'
 
+permissions:
+  contents: write   # 建 release 需要
+
 jobs:
   build-windows:
     runs-on: windows-latest
@@ -52,34 +55,16 @@ jobs:
         "sha=$zip.sha256" >> $env:GITHUB_OUTPUT
       id: pack
 
+    # actions/create-release 与 actions/upload-release-asset 已被 GitHub 归档（2023），
+    # 在 runner 上已经跑不起来 —— 这正是「Create Release」这一步一直失败的原因。
+    # 换成维护中的 softprops/action-gh-release，一步完成建 release + 传附件。
     - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.version }}
-        release_name: ${{ steps.version.outputs.version }}
-        draft: false
-        # 由 tag 推导：v1.4.0-beta 会自动标为预发布，v1.4.0 则是正式版
+        name: ${{ steps.version.outputs.version }}
+        body_path: RELEASE_NOTES.md
         prerelease: ${{ contains(github.ref_name, '-beta') }}
-        
-    - name: Upload zip
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ steps.pack.outputs.zip }}
-        asset_name: WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip
-        asset_content_type: application/zip
-
-    - name: Upload sha256
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ${{ steps.pack.outputs.sha }}
-        asset_name: WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip.sha256
-        asset_content_type: text/plain
+        files: |
+          dist/WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip
+          dist/WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip.sha256
