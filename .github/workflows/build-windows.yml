@@ -39,6 +39,19 @@ jobs:
           Write-Output "version=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
         }
         
+    - name: Package zip (auto-updater requires a .zip named with win-x64)
+      shell: pwsh
+      run: |
+        $v = "${{ steps.version.outputs.version }}"
+        $dir = "bin/Release/net10.0-windows10.0.19041.0/win-x64/publish"
+        New-Item -ItemType Directory -Force -Path dist | Out-Null
+        $zip = "dist/WarmAsBefore_${v}_win-x64.zip"
+        Compress-Archive -Path "$dir/*" -DestinationPath $zip -CompressionLevel Optimal
+        (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() | Out-File "$zip.sha256" -NoNewline -Encoding ascii
+        "zip=$zip" >> $env:GITHUB_OUTPUT
+        "sha=$zip.sha256" >> $env:GITHUB_OUTPUT
+      id: pack
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -47,15 +60,25 @@ jobs:
       with:
         tag_name: ${{ steps.version.outputs.version }}
         release_name: ${{ steps.version.outputs.version }}
-        draft: true
+        draft: false
         prerelease: false
         
-    - name: Upload Windows x64
+    - name: Upload zip
       uses: actions/upload-release-asset@v1
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/WarmAsBefore.exe
-        asset_name: WarmAsBefore-${{ steps.version.outputs.version }}-win-x64.exe
-        asset_content_type: application/octet-stream
+        asset_path: ${{ steps.pack.outputs.zip }}
+        asset_name: WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip
+        asset_content_type: application/zip
+
+    - name: Upload sha256
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ${{ steps.pack.outputs.sha }}
+        asset_name: WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip.sha256
+        asset_content_type: text/plain
