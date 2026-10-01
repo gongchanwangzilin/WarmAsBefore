@@ -185,20 +185,29 @@ public class ThemeManager
     /// 缓存页面（标题页等 ShellContent）会永远停在旧配色，这正是「选哪个主题都只有经典色」。
     /// 替换字典实例属于集合变更，DynamicResource 才会真正刷新。
     /// </summary>
+    /// <summary>
+    /// 套用新配色。
+    ///
+    /// 关键点：把颜色写进**应用级顶层字典**（Application.Current.Resources[key] = value）。
+    /// 之前是替换 MergedDictionaries 里的字典实例 —— 那属于集合变更，但
+    /// **不会通知已经注册的 DynamicResource**，于是元素和 Style 里的颜色全都不会重新解析，
+    /// 表现就是「换了主题但颜色不变」（只有 PageBgBrush 会变，因为它是直接写顶层字典的）。
+    /// 顶层字典的 indexer setter 会触发 ValuesChanged → DynamicResource 重新解析。
+    /// </summary>
     private static void ApplyPalette(ResourceDictionary themeDict, string xaml)
     {
         try
         {
-            var fresh = new ResourceDictionary();
-            foreach (var kv in themeDict)
-                fresh[kv.Key] = kv.Value;
-            UpdateColorsFromXaml(fresh, xaml);
+            var app = Application.Current;
+            if (app is null) return;
 
-            var dicts = Application.Current?.Resources.MergedDictionaries;
-            if (dicts is null) return;
-            // MergedDictionaries 是 ICollection，没有索引器：移除旧的再加入新的
-            if (dicts.Contains(themeDict)) dicts.Remove(themeDict);
-            dicts.Add(fresh);
+            var parsed = new ResourceDictionary();
+            UpdateColorsFromXaml(parsed, xaml);
+
+            foreach (var kv in parsed)
+                app.Resources[kv.Key] = kv.Value;
+
+            App.WriteLog($"ThemeManager palette applied: {parsed.Count} colors (palette has {themeDict.Count} keys)");
         }
         catch (Exception ex)
         {
@@ -273,7 +282,6 @@ public class ThemeManager
                 if (theme is not null)
                 {
                     ApplyThemeResources(theme);
-                    RestyleTree();       // 换主题后强制重新套用样式
                 }
                 GlassTokens.Publish(new GlassParams(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight,
                     GlassLightX, GlassLightY, GlassLightZ, GlassLightWidth, ReducedTransparency));
@@ -282,45 +290,6 @@ public class ThemeManager
             }
             catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }
         });
-    }
-
-    /// <summary>
-    /// 换主题后强制重新套用样式。
-    ///
-    /// 为什么需要这一步：MAUI 的 DynamicResource 写在 **Style 的 Setter 里**时，
-    /// 只在样式被套用的那一刻解析一次，之后资源字典变了也不会重新解析
-    /// （元素上直接写的 DynamicResource 才会跟着变）。
-    /// 而本应用几乎所有颜色都来自 Style（TxtTitle / CardNeumorph / BtnPrimary ...），
-    /// 所以换主题后只有页面背景变了、文字和卡片纹丝不动 —— 看起来就是「没生效」。
-    ///
-    /// 这里把每个元素的 Style 摘掉再装回去，强制 MAUI 重新套用一次 Setter，
-    /// 于是其中的 DynamicResource 会在新的调色板下重新解析。
-    /// </summary>
-    private static void RestyleTree()
-    {
-        var root = Shell.Current as object ?? Shell.Current?.CurrentPage;
-        if (root is null) return;
-
-        var count = 0;
-        Walk(root);
-
-        void Walk(object node)
-        {
-            if (node is VisualElement ve && ve.Style is not null)
-            {
-                var style = ve.Style;
-                ve.Style = null;
-                ve.Style = style;
-                count++;
-            }
-            if (node is IVisualTreeElement vte)
-            {
-                foreach (var child in vte.GetVisualChildren())
-                    if (child is not null) Walk(child);
-            }
-        }
-
-        App.WriteLog($"ThemeManager.RestyleTree: {count} elements");
     }
 
     /// <summary>
