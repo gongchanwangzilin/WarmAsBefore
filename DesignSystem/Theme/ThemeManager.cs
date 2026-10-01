@@ -270,7 +270,11 @@ public class ThemeManager
             try
             {
                 // 先换调色板，再下发画刷 —— 顺序保证 GlassTokens 读到的是新配色
-                if (theme is not null) ApplyThemeResources(theme);
+                if (theme is not null)
+                {
+                    ApplyThemeResources(theme);
+                    RestyleTree();       // 换主题后强制重新套用样式
+                }
                 GlassTokens.Publish(new GlassParams(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight,
                     GlassLightX, GlassLightY, GlassLightZ, GlassLightWidth, ReducedTransparency));
                 Services.AppBackgroundService.Publish();   // 换主题别把自定义背景冲掉
@@ -278,6 +282,45 @@ public class ThemeManager
             }
             catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }
         });
+    }
+
+    /// <summary>
+    /// 换主题后强制重新套用样式。
+    ///
+    /// 为什么需要这一步：MAUI 的 DynamicResource 写在 **Style 的 Setter 里**时，
+    /// 只在样式被套用的那一刻解析一次，之后资源字典变了也不会重新解析
+    /// （元素上直接写的 DynamicResource 才会跟着变）。
+    /// 而本应用几乎所有颜色都来自 Style（TxtTitle / CardNeumorph / BtnPrimary ...），
+    /// 所以换主题后只有页面背景变了、文字和卡片纹丝不动 —— 看起来就是「没生效」。
+    ///
+    /// 这里把每个元素的 Style 摘掉再装回去，强制 MAUI 重新套用一次 Setter，
+    /// 于是其中的 DynamicResource 会在新的调色板下重新解析。
+    /// </summary>
+    private static void RestyleTree()
+    {
+        var root = Shell.Current as object ?? Shell.Current?.CurrentPage;
+        if (root is null) return;
+
+        var count = 0;
+        Walk(root);
+
+        void Walk(object node)
+        {
+            if (node is VisualElement ve && ve.Style is not null)
+            {
+                var style = ve.Style;
+                ve.Style = null;
+                ve.Style = style;
+                count++;
+            }
+            if (node is IVisualTreeElement vte)
+            {
+                foreach (var child in vte.GetVisualChildren())
+                    if (child is not null) Walk(child);
+            }
+        }
+
+        App.WriteLog($"ThemeManager.RestyleTree: {count} elements");
     }
 
     /// <summary>
