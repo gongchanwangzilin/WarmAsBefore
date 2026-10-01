@@ -40,7 +40,7 @@ jobs:
       run: dotnet restore WarmAsBefore.csproj
       
     - name: Publish Android APK (ARM64)
-      run: dotnet publish WarmAsBefore.csproj -c Release -p:TargetFramework=net10.0-android -p:RuntimeIdentifier=android-arm64 -p:AndroidPackageFormat=apk
+      run: dotnet publish WarmAsBefore.csproj -c Release -f net10.0-android -r android-arm64 -p:AndroidPackageFormat=apk
       
     - name: Get version
       id: version
