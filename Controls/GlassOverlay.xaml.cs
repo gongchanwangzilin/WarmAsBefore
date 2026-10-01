@@ -23,6 +23,8 @@ public partial class GlassOverlay : ContentView
             propertyChanged: (b, _, _) => ((GlassOverlay)b).Refresh());
 
     public static readonly BindableProperty TranslucencyProperty =
+        // 默认值与 UserSettings.GlassTranslucency 保持一致（1.0），避免叠加层初始状态
+        // 与设置页滑块显示的值不一致。
         BindableProperty.Create(nameof(Translucency), typeof(double), typeof(GlassOverlay), 1.0,
             propertyChanged: (b, _, _) => ((GlassOverlay)b).Refresh());
 
@@ -64,13 +66,18 @@ public partial class GlassOverlay : ContentView
     {
         if (FrostLayer is null || GlassLayer is null || LiquidLayer is null) return;
 
-        // 减弱透明：不透明磨砂层替代所有透明层
+        // 减弱透明：不透明磨砂层替代所有透明层。
+        // 注意「减弱透明」只改变玻璃怎么画，不能反过来接管三个开关：
+        // 旧实现 IsVisible = reduced || Frost || Glass || Liquid，导致
+        // ①reduced 一旦为 true，磨砂/毛玻璃/液态三个开关全部失效（开关看起来没接线）；
+        // ②三个开关全关时叠加层仍留一层不透明磨砂，关不掉。
         var reduced = ReducedTransparency;
-        OpaqueFrostLayer.IsVisible = reduced;
+        var any = Frost || Glass || Liquid;
+        OpaqueFrostLayer.IsVisible = reduced && any;
         FrostLayer.IsVisible = !reduced && (Frost || Glass);
         GlassLayer.IsVisible = !reduced && Glass;
         LiquidLayer.IsVisible = !reduced && Liquid;
-        IsVisible = reduced || Frost || Glass || Liquid;
+        IsVisible = any;
 
         // 自适应透明度：按 Translucency 缩放液态层透明度
         var t = Math.Clamp(Translucency, 0, 1);
@@ -78,6 +85,9 @@ public partial class GlassOverlay : ContentView
             LiquidLayer.Opacity = 0.35 + 0.65 * t;
         if (GlassLayer is not null)
             GlassLayer.Opacity = 0.5 + 0.5 * t;
+        // 液态档：折射光带更亮，强化「液态玻璃」观感
+        if (RefractionBand is not null)
+            RefractionBand.Opacity = Liquid ? (0.5 + 0.5 * t) : 0;
     }
 
     // 折射光带保持静态（不做 fire-and-forget 位移动画）：
