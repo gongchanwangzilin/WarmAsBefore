@@ -31,7 +31,7 @@ public static class GlassTokens
     public const string ButtonStroke = "GlassButtonStroke";
 
     /// <summary>透明度=0 时表面收缩到的 alpha（接近不透明，但还留一丝材质感）。</summary>
-    private const double OpaqueAlpha = 0.96;
+    private const double OpaqueAlpha = 0.94;
 
     public static void Publish(string tier, double translucency, bool reduced)
     {
@@ -69,25 +69,25 @@ public static class GlassTokens
 
     private static Brush BarBrush(string tier, Color surface, Func<Color, Color> A) => tier switch
     {
-        "frost" => Solid(A(C("#D9FDF8F0"))),
-        "glass" => Gradient(A, ("#F2FFFFFF", 0.0), ("#DDFDF6EE", 1.0)),
-        "liquid" => Gradient(A, ("#FFFFFF", 0.0), ("#E8FDF6EE", 0.55), ("#D6E8DCC8", 1.0)),
+        "frost" => Solid(A(C("#B3FDF8F0"))),                                    // 0.70
+        "glass" => Gradient(A, ("#D9FFFFFF", 0.0), ("#A6FDF6EE", 1.0)),          // 0.85→0.65
+        "liquid" => Gradient(A, ("#E6FFFFFF", 0.0), ("#BFFDF6EE", 0.55), ("#99E8DCC8", 1.0)),
         _ => new SolidColorBrush(surface)
     };
 
     private static Brush CardBrush(string tier, Color surface, Func<Color, Color> A) => tier switch
     {
-        "frost" => Solid(A(C("#D9FEFCF8"))),
-        "glass" => Gradient(A, ("#E6FFFFFF", 0.0), ("#CCFDF6EE", 1.0)),
-        "liquid" => Gradient(A, ("#F2FFFFFF", 0.0), ("#D9FDF6EE", 0.55), ("#C4E8DCC8", 1.0)),
+        "frost" => Solid(A(C("#8CFEFCF8"))),                                    // 0.55
+        "glass" => Gradient(A, ("#B3FFFFFF", 0.0), ("#73FDF6EE", 1.0)),          // 0.70→0.45
+        "liquid" => Gradient(A, ("#CCFFFFFF", 0.0), ("#8CFDF6EE", 0.55), ("#59E8DCC8", 1.0)),
         _ => new SolidColorBrush(surface)
     };
 
     private static Brush ButtonBrush(string tier, Color surface, Func<Color, Color> A) => tier switch
     {
-        "frost" => Solid(A(C("#CCFEFCF8"))),
-        "glass" => Gradient(A, ("#E6FFFFFF", 0.0), ("#CCFDF6EE", 1.0)),
-        "liquid" => Gradient(A, ("#F5FFFFFF", 0.0), ("#D9FDF6EE", 0.55), ("#BFE8DCC8", 1.0)),
+        "frost" => Solid(A(C("#99FEFCF8"))),                                    // 0.60
+        "glass" => Gradient(A, ("#B3FFFFFF", 0.0), ("#80FDF6EE", 1.0)),          // 0.70→0.50
+        "liquid" => Gradient(A, ("#CCFFFFFF", 0.0), ("#99FDF6EE", 0.55), ("#66E8DCC8", 1.0)),
         _ => new SolidColorBrush(surface)
     };
 
