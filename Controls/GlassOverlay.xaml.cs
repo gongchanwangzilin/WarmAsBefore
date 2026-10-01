@@ -58,7 +58,6 @@ public partial class GlassOverlay : ContentView
     {
         base.OnHandlerChanged();
         Refresh();
-        PlayRefractionDrift();
     }
 
     private void Refresh()
@@ -81,13 +80,8 @@ public partial class GlassOverlay : ContentView
             GlassLayer.Opacity = 0.5 + 0.5 * t;
     }
 
-    /// <summary>液态档：折射光带做一次 6dp 位移动画（尊重 reduced-motion，静态时不播）。</summary>
-    private void PlayRefractionDrift()
-    {
-        if (!_prefersReducedMotion && Liquid && RefractionBand is not null)
-        {
-            _ = RefractionBand.TranslateTo(6, RefractionBand.TranslationY, RefractionDriftMs);
-            _ = RefractionBand.ScaleTo(1.02, RefractionDriftMs);
-        }
-    }
+    // 折射光带保持静态（不做 fire-and-forget 位移动画）：
+    // TranslateTo/ScaleTo 在液态档下每次导航页面都会重放，动画完成事件与
+    // GlassOverlayService.Refresh 并发写 TranslationX/Scale 会造成 UI 线程布局争用，
+    // 是「按键卡死」的主要来源之一。视觉观感用椭圆光带本身已足够，无需动态漂移。
 }

@@ -11,11 +11,30 @@
     - CornerRadius: 20px
     -->
 
-    <!-- Neumorphic Card (raised) -->
+    <!-- Neumorphic Card (raised) —— 液态玻璃材质版本
+         半透明白色渐变 + 1px 内发光描边 + 折射高光，圆角 20，柔和投影。
+         所有既有 CardNeumorph 卡片自动升级为 Apple Liquid Glass 观感。 -->
     <Style x:Key="CardNeumorph" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#66FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#2AFDF6EE" Offset="0.35" />
+                    <GradientStop Color="#12FDF6EE" Offset="0.7" />
+                    <GradientStop Color="#5AC9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
         <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="#80FFFFFF" />
+        <Setter Property="Stroke">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#CCFFFFFF" Offset="0.0" />
+                    <GradientStop Color="#24FFFFFF" Offset="0.5" />
+                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
         <Setter Property="Padding" Value="20" />
         <Setter Property="StrokeShape">
             <Setter.Value>
@@ -25,7 +44,7 @@
         <Setter Property="Shadow">
             <Setter.Value>
                 <Shadow Brush="{StaticResource ShadowDim}"
-                        Offset="6,6" Radius="16" Opacity="0.3" />
+                        Offset="0,4" Radius="14" Opacity="0.25" />
             </Setter.Value>
         </Setter>
     </Style>
@@ -74,7 +93,6 @@
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
                             <Setter Property="BorderColor" Value="#90F5EBDA" />
-                            <Setter Property="Scale" Value="1.02" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
@@ -148,7 +166,11 @@
         </Setter>
     </Style>
 
-    <!-- 可点击液态玻璃卡片：悬停微浮起（1.02），按下 200ms ease-out 回弹（0.96） -->
+    <!--
+    可点击液态玻璃卡片：按下 200ms ease-out 回弹。
+    用 Opacity + Background 切换代替 Scale，避免 WinUI 下 Border.Scale 视觉状态切换
+    触发重新布局（layout thrash），消除快速点按时「卡死」的现象。
+    -->
     <Style x:Key="PressableCardLiquidGlass" TargetType="Border" BasedOn="{StaticResource CardLiquidGlass}">
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -156,13 +178,17 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="Scale" Value="1.02" />
+                            <Setter Property="Opacity" Value="0.92" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Scale" Value="0.96" />
-                            <Setter Property="Opacity" Value="0.9" />
+                            <Setter Property="Opacity" Value="0.78" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -170,7 +196,9 @@
         </Setter>
     </Style>
 
-    <!-- 可点击卡片（游戏入口/功能块）：悬停微浮起，按下回弹，交互反馈 -->
+    <!-- 可点击卡片（游戏入口/功能块）：悬停微浮起，按下回弹。
+         只用 BackgroundColor + Opacity，不用 Scale，避免 WinUI 下视觉状态切换触发
+         重新布局 → 快速点按时「按键卡死」。 -->
     <Style x:Key="PressableCard" TargetType="Border" BasedOn="{StaticResource CardNeumorph}">
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -179,14 +207,18 @@
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
-                            <Setter Property="Scale" Value="1.06" />
+                            <Setter Property="Opacity" Value="0.96" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
-                            <Setter Property="Scale" Value="0.92" />
-                            <Setter Property="Opacity" Value="0.9" />
+                            <Setter Property="Opacity" Value="0.88" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -194,7 +226,7 @@
         </Setter>
     </Style>
 
-    <!-- 分类/标签选择块：选中态米黄填充 -->
+    <!-- 分类/标签选择块：选中态米黄填充（Opacity 反馈，不用 Scale 避免 layout thrash） -->
     <Style x:Key="TagChip" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{StaticResource Cream200}" />
         <Setter Property="StrokeThickness" Value="1" />
@@ -212,13 +244,13 @@
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent50}" />
-                            <Setter Property="Scale" Value="1.04" />
+                            <Setter Property="Opacity" Value="0.96" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
                             <Setter Property="BackgroundColor" Value="{StaticResource BeigeAccent100}" />
-                            <Setter Property="Scale" Value="0.94" />
+                            <Setter Property="Opacity" Value="0.88" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>

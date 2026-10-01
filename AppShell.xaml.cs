@@ -7,6 +7,19 @@ public partial class AppShell : Shell
         InitializeComponent();
         RegisterRoutes();
         App.WriteLog("AppShell: initialized, routes registered");
+        // 导航/弹窗时保持窗口置顶（若用户开启了 AlwaysOnTop），避免通知被其他窗口遮挡。
+        // AppShell 由 DI 构造注入，用 Application.Current.Services 取 SettingsManager。
+        Navigated += (_, _) =>
+        {
+            try
+            {
+                var sp = Application.Current?.Handler?.MauiContext?.Services;
+                var sm = sp?.GetService(typeof(WarmAsBefore.Services.SettingsManager)) as WarmAsBefore.Services.SettingsManager;
+                if (sm?.Current.AlwaysOnTop == true)
+                    WarmAsBefore.Services.WindowTopmost.BringAllToTop();
+            }
+            catch { /* 导航早期服务可能未就绪，忽略 */ }
+        };
     }
 
     private void RegisterRoutes()

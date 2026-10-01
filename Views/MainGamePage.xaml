@@ -221,11 +221,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.Row="4" BackgroundColor="#CCFCF8F0"
                     Padding="0,4,0,12" StrokeThickness="0">
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="16">
+                    <!-- 互动按钮：液态玻璃圆形材质（CardLiquidGlass 渐变 + 1px 内发光描边），按压 200ms ease-out 回弹 -->
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                                WidthRequest="50" HeightRequest="50">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="25" /></Border.StrokeShape>
-                            <Label Text="摸" TextColor="{StaticResource SurfaceFg}" FontSize="18"
+                        <Border Style="{StaticResource PressableCardLiquidGlass}"
+                                WidthRequest="56" HeightRequest="56">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                            <Label Text="摸" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding HeadpatCommand}" />
@@ -235,10 +236,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                                WidthRequest="50" HeightRequest="50">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="25" /></Border.StrokeShape>
-                            <Label Text="抱" TextColor="{StaticResource SurfaceFg}" FontSize="18"
+                        <Border Style="{StaticResource PressableCardLiquidGlass}"
+                                WidthRequest="56" HeightRequest="56">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                            <Label Text="抱" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding HugCommand}" />
@@ -248,10 +249,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                                WidthRequest="50" HeightRequest="50">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="25" /></Border.StrokeShape>
-                            <Label Text="吻" TextColor="{StaticResource SurfaceFg}" FontSize="18"
+                        <Border Style="{StaticResource PressableCardLiquidGlass}"
+                                WidthRequest="56" HeightRequest="56">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                            <Label Text="吻" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding KissCommand}" />
@@ -261,10 +262,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1" Stroke="{StaticResource BorderLine}"
-                                WidthRequest="50" HeightRequest="50">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="25" /></Border.StrokeShape>
-                            <Label Text="存" TextColor="{StaticResource SurfaceFg}" FontSize="18"
+                        <Border Style="{StaticResource PressableCardLiquidGlass}"
+                                WidthRequest="56" HeightRequest="56">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="28" /></Border.StrokeShape>
+                            <Label Text="存" TextColor="{StaticResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding QuickSaveCommand}" />
@@ -280,10 +281,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
         <!-- ============ Desktop Layout (horizontal) ============ -->
         <Grid IsVisible="{OnIdiom Phone=False, Desktop=True}"
               RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
-            <!-- Status bar -->
-            <Border Grid.ColumnSpan="3" BackgroundColor="#CFF9F5EC" Padding="16,8,16,10"
-                    StrokeThickness="0" Stroke="{StaticResource BorderLine}">
-                <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <!-- Status bar（液态玻璃材质：半透明渐变 + 1px 内发光描边） -->
+            <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
+                    Padding="16,8,16,10">
+                <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{StaticResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
@@ -304,7 +305,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             </Border>
 
             <!-- Left: Info panel -->
-            <Border Grid.Row="1" BackgroundColor="#D9FCF8F0" WidthRequest="180" StrokeThickness="0" Margin="0">
+            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" Margin="0">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
                     <Label Text="信息" TextColor="{StaticResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
