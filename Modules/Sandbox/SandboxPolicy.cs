@@ -35,15 +35,43 @@ public sealed class SandboxPolicy
         _trust = new TrustStore(root);
         _crypto = new CryptoStore(root);
         _audit = new AuditLog(root);
-        RefreshKeyFingerprints();
+        // 后台刷新密钥指纹。绝不 sync-over-async（GetAwaiter().GetResult()），
+        // 那在 WinUI 同步上下文里会死锁 → 界面卡死。
+        _ = RefreshKeyFingerprintsAsync();
     }
 
-    /// <summary>刷新动态密钥指纹（从 UserSettings 读取已配置的 ApiKey / 密钥）。</summary>
+    /// <summary>
+    /// 刷新动态密钥指纹（从 UserSettings 读取已配置的 ApiKey / 密钥）。
+    /// 纯异步，调用方 fire-and-forget，绝不阻塞 UI 线程。
+    /// </summary>
+    public async Task RefreshKeyFingerprintsAsync()
+    {
+        try
+        {
+            var raw = await _store.LoadRawAsync("settings");
+            if (string.IsNullOrWhiteSpace(raw)) return;
+            var s = JsonDocument.Parse(raw).RootElement.Deserialize<UserSettings>();
+            if (s is null) return;
+            _filter.SetDynamicFingerprints(new[]
+            {
+                s.AiKey, s.VoiceApiKey, s.ChessApiKey,
+                s.QqAppSecret, s.WechatAppSecret, s.WechatToken
+            });
+        }
+        catch { /* 指纹刷新失败不影响主流程 */ }
+    }
+
+    /// <summary>同步版本（仅在确实需要密钥指纹的调用方使用，如设置页手动触发；UI 线程不要调）。</summary>
     public void RefreshKeyFingerprints()
     {
         try
         {
-            var raw = _store.LoadRawAsync("settings").GetAwaiter().GetResult();
+            // 非阻塞路径：直接用同步 IO 读 settings 文件（不走 async，避免 sync-over-async）
+            var path = System.IO.Path.Combine(_store.Root, "..", "settings.json");
+            if (!System.IO.File.Exists(path))
+                path = System.IO.Path.Combine(_store.Root, "settings.json");
+            if (!System.IO.File.Exists(path)) return;
+            var raw = System.IO.File.ReadAllText(path);
             if (string.IsNullOrWhiteSpace(raw)) return;
             var s = JsonDocument.Parse(raw).RootElement.Deserialize<UserSettings>();
             if (s is null) return;

@@ -166,14 +166,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
-        Modules.Tools.RuntimeManager runtimes)
+        Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox)
     {
         _settings = settings;
         _theme = theme;
         _bridge = bridge;
         _mcp = mcp;
         _runtimes = runtimes;
-        _sandbox = new Modules.Sandbox.SandboxPolicy(new StorageProvider());
+        // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
+        _sandbox = sandbox;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
         JavaManualPath = _runtimes.ManualJavaPath;

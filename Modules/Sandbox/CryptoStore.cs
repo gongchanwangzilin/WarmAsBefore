@@ -12,16 +12,20 @@ namespace WarmAsBefore.Modules.Sandbox;
 public sealed class CryptoStore
 {
     private const string Magic = "WAB1";
-    private readonly byte[] _masterKey;
-    private readonly byte[] _hmacKey;
     private readonly string _root;
+    private byte[]? _masterKey;
+    private byte[]? _hmacKey;
+
+    // 惰性初始化：主密钥（含 Windows DPAPI 触碰）在首次真正加解密时才加载，
+    // 不在构造时做 —— 避免 DI 注入 SandboxPolicy 时（如进设置页）同步触碰 DPAPI 卡死界面。
+    private byte[] MasterKey => _masterKey ??= LoadOrCreateMasterKey();
+    private byte[] HmacKey => _hmacKey ??= DeriveHmacKey(MasterKey);
 
     public CryptoStore(string root)
     {
         _root = root;
-        Directory.CreateDirectory(Path.Combine(root, ".sandbox"));
-        _masterKey = LoadOrCreateMasterKey();
-        _hmacKey = DeriveHmacKey(_masterKey);
+        try { Directory.CreateDirectory(Path.Combine(root, ".sandbox")); }
+        catch { }
     }
 
     private static byte[] LoadOrCreateMasterKey()
@@ -81,7 +85,7 @@ public sealed class CryptoStore
         var ct = new byte[data.Length];
         var tag = new byte[16];
 
-        using var gcm = new AesGcm(_masterKey, 16);
+        using var gcm = new AesGcm(MasterKey, 16);
         gcm.Encrypt(nonce, data, ct, tag, tag);
 
         var payload = new byte[4 + nonce.Length + tag.Length + ct.Length];
@@ -118,14 +122,14 @@ public sealed class CryptoStore
         var ct = stored.AsSpan(32);
 
         var pt = new byte[ct.Length];
-        using var gcm = new AesGcm(_masterKey, 16);
+        using var gcm = new AesGcm(MasterKey, 16);
         gcm.Decrypt(nonce, ct, pt, tag, tag);
         return Encoding.UTF8.GetString(pt);
     }
 
     private byte[] ComputeHmac(byte[] payload)
     {
-        using var h = new HMACSHA256(_hmacKey);
+        using var h = new HMACSHA256(HmacKey);
         return h.ComputeHash(payload);
     }
 
@@ -175,6 +179,8 @@ public sealed class CryptoStore
 
         private static byte[] ExtractBlob(IntPtr outPtr, DATA_BLOB inputBlob)
         {
+            // crypt32 返回的 pDataOut / lpData 是 HLOCAL（LocalAlloc），要用 LocalFree，
+            // 之前用 FreeHGlobal 是错的 → 读野指针 / NRE
             var outBlob = System.Runtime.InteropServices.Marshal.PtrToStructure<DATA_BLOB>(outPtr);
             try
             {
@@ -184,10 +190,13 @@ public sealed class CryptoStore
             }
             finally
             {
-                System.Runtime.InteropServices.Marshal.FreeHGlobal(outBlob.lpData);
-                System.Runtime.InteropServices.Marshal.FreeHGlobal(outPtr);
+                if (outBlob.lpData != IntPtr.Zero) LocalFree(outBlob.lpData);
+                if (outPtr != IntPtr.Zero) LocalFree(outPtr);
             }
         }
+
+        [System.Runtime.InteropServices.DllImport("kernel32.dll", SetLastError = true)]
+        private static extern IntPtr LocalFree(IntPtr hMem);
 
         private static void ReleaseBlob(DATA_BLOB blob)
         {
