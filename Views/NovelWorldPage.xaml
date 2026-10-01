@@ -49,8 +49,8 @@
         </ScrollView>
 
         <!-- Input -->
-        <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}"
-                Padding="12,8,12,12" StrokeThickness="0">
+        <Border Grid.Row="2" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                Padding="12,8,12,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Border BackgroundColor="{StaticResource InputBg}" StrokeThickness="0" Padding="10,0">

@@ -243,8 +243,8 @@
         </Grid>
 
         <!-- Bottom dock -->
-        <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
-                Padding="0,10,0,16">
+        <Border Grid.Row="2" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="0,10,0,16">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
                 <Label Text="{Binding StatusLine}" TextColor="{StaticResource WarmMuted}"

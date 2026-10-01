@@ -11,7 +11,8 @@
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
 
         <!-- ========== Header ========== -->
-        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="8,6,12,6">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="8,6,12,6"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"

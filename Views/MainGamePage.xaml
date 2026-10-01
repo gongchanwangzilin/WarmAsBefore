@@ -524,7 +524,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
         <!-- ============ 送礼 / 使用面板 ============ -->
         <Grid IsVisible="{Binding IsGiftPanelVisible}" BackgroundColor="{StaticResource OverlayDim}">
-            <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+            <Border Background="{DynamicResource GlassCardBg}" Stroke="{DynamicResource GlassCardStroke}"
+                    StrokeThickness="{DynamicResource GlassCardStrokeThickness}"
                     Padding="0" Margin="30" VerticalOptions="Center"
                     MaximumWidthRequest="420">
                 <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
