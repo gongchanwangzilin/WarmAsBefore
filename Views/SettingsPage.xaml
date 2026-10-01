@@ -3,6 +3,8 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:mcp="clr-namespace:WarmAsBefore.Modules.Mcp"
+             xmlns:sbx="clr-namespace:WarmAsBefore.Modules.Sandbox"
+             xmlns:services="clr-namespace:WarmAsBefore.Services"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.SettingsPage"
              Title="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
@@ -59,6 +61,44 @@
                             <Label Text="{Binding [Settings_Liquid], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_LiquidHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding LiquidOn}" /></Grid>
+
+                        <!-- Apple Liquid Glass 标准：自适应透明度 + 减弱透明降级 -->
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout>
+                                <Label Text="玻璃透明度（Apple Liquid Glass 标准）" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="0=接近不透明 · 1=全液态；降低可增强正文对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassTranslucency}"
+                                    WidthRequest="120" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="减弱透明降级（无障碍）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后玻璃切不透明磨砂层，保证正文 4.5:1 对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding GlassReducedTransparency}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 工具安全（沙箱信任名单） -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="工具安全 · 沙箱信任名单" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="{Binding SandboxHint}" Style="{StaticResource TxtCaption}" />
+                        <CollectionView ItemsSource="{Binding TrustedTools}" HeightRequest="100">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="sbx:TrustEntry">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Text="{Binding ToolName}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                        <Button Grid.Column="1" Text="移除" Style="{StaticResource BtnText}"
+                                                FontSize="12" Padding="8,2"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveTrustedToolCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Button Text="＋ 信任一个工具目录" Style="{StaticResource BtnGhost}" FontSize="13"
+                                Command="{Binding TrustToolDirCommand}" />
+                        <Label Text="默认外部工具无法读取模型数据（API Key / 对话历史）；加入信任后放行。"
+                               Style="{StaticResource TxtCaption}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -85,6 +125,16 @@
                             <Label Text="{Binding [Settings_AutoSave], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_AutoSaveHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding AutoSave}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="多角色聊天显示" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="气泡式：消息直接成对话气泡流（适合多角色同场）；剧本式：底部对话面板 + 立绘" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="多角色聊天显示" WidthRequest="110"
+                                    ItemsSource="{Binding ChatStyleChoices}" SelectedItem="{Binding ChatStyleDisplay}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="允许 AI 沉默" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后角色可以选择不回复（什么都不输出），系统会自动停止该回合，而不是每次提问都强行给出答复" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowSilence}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
 
@@ -506,6 +556,29 @@
                                            HorizontalOptions="Center" Color="{StaticResource AccentWarm}" />
                         <Label Text="{Binding RuntimeBusyText}" Style="{StaticResource TxtCaption}"
                                IsVisible="{Binding RuntimeBusyText, Converter={StaticResource StringNotEmpty}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 自动更新（多镜像测速） -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="自动更新" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="测试计划（Beta 渠道）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后 *-beta 测试版 tag 也会提示更新" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding BetaChannel}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Button Text="检查更新" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                    Padding="14,6" Command="{Binding CheckUpdateCommand}"
+                                    IsEnabled="{Binding IsCheckingUpdate, Converter={StaticResource InverseBool}}" />
+                            <Button Grid.Column="1" Text="下载" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Padding="14,6" Command="{Binding DownloadUpdateCommand}"
+                                    IsEnabled="{Binding IsCheckingUpdate, Converter={StaticResource InverseBool}}" />
+                        </Grid>
+                        <Label Text="{Binding UpdateStatus}" Style="{StaticResource TxtCaption}"
+                               LineBreakMode="WordWrap" IsVisible="{Binding UpdateStatus, Converter={StaticResource StringNotEmpty}}" />
+                        <Label Text="{Binding LatestUpdateVersion, StringFormat='发现版本：{0}'}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding LatestUpdateVersion, Converter={StaticResource StringNotEmpty}}" />
                     </VerticalStackLayout>
                 </Border>
 

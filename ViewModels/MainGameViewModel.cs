@@ -34,6 +34,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly Modules.Affection.AffectionLevelUpService _levelUp;
     private readonly Modules.Cg.CgStore _cg;
     private readonly Modules.Cg.CgViewPayload _cgView;
+    private readonly Modules.Scene.SceneDirector _sceneDirector;
 
     [ObservableProperty] private string _locationLabel = "家";
     [ObservableProperty] private string _timeLabel = "";
@@ -91,6 +92,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _dateLabel = "";
     [ObservableProperty] private int _energy = 100;
     [ObservableProperty] private double _energyPct = 1.0;
+    // ============ 多角色单场景：气泡式开关 + 沉默提示 ============
+    [ObservableProperty] private bool _useBubbleChat;
+    [ObservableProperty] private string _silenceHintText = "";
 
     public bool NoSpriteVisible => !SpriteVisible;
 
@@ -129,7 +133,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         CharacterLibrary chars, StorageProvider store, PetService pet, MapService map,
         Modules.Market.GiftPanelService gifts, SettingsManager settings,
         Modules.Affection.AffectionLevelUpService levelUp,
-        Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView)
+        Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
+        Modules.Scene.SceneDirector sceneDirector)
     {
         _engine = engine;
         _chat = chat;
@@ -150,6 +155,14 @@ public sealed partial class MainGameViewModel : ObservableObject
         _levelUp = levelUp;
         _cg = cg;
         _cgView = cgView;
+        _sceneDirector = sceneDirector;
+
+        // 应用聊天显示风格 + 沉默许可
+        UseBubbleChat = _settings.Current.ChatStyle == "bubble";
+        _chat.SetAllowSilence(_settings.Current.AllowSilence);
+        SilenceHintText = _settings.Current.AllowSilence
+            ? "💡 已开启「允许沉默」：角色在不想说话时会选择不回复，这是正常的，不必每次提问都强求答复。"
+            : "";
 
         _auto.GreetingReady += OnGreet;
         _auto.Start();
@@ -183,7 +196,9 @@ public sealed partial class MainGameViewModel : ObservableObject
             await _map.InitializeAsync();
             _map.SceneChanged += OnMapSceneChanged;
             _map.MapChanged += OnMapChanged;
-            _chat.SetMapContext(BuildMapContext());
+            _chat.SetMapContext(BuildMapContext() + "\n" + _sceneDirector.BuildContext());
+            _sceneDirector.ModeApplied += OnSceneModeApplied;
+            _ = _sceneDirector.EvaluateTimeNowAsync();
             ApplyScene(_map.CurrentScene);
             RefreshSceneOptions();
             MainThread.BeginInvokeOnMainThread(async () =>
@@ -643,6 +658,17 @@ public sealed partial class MainGameViewModel : ObservableObject
                 display = "……";
             }
             finally { IsThinking = false; }
+
+            // 沉默判定：AI 允许沉默且本轮无正文（仅有动作标记/为空）→ 本回合停止，不再追加回复
+            var isSilent = _settings.Current.AllowSilence &&
+                           string.IsNullOrWhiteSpace(StripActionMarkers(display));
+            if (isSilent)
+            {
+                AddMessage("assistant", "（…沉默…）");
+                _ = AutoSave();
+                return;
+            }
+
             foreach (var seg in segments) AddMessage("assistant", seg);
             Affection = Math.Min(100, Affection + 1);
             Trust = Math.Min(100, Trust + 1);
@@ -760,7 +786,31 @@ public sealed partial class MainGameViewModel : ObservableObject
         result = Regex.Replace(result, @"【移动:[^】]+】", "").Trim();
         if (notes.Count > 0)
             result = $"{result}\n{string.Join("\n", notes)}";
-        return result;
+        // 场景库【场景:条目/模式】标记（时间关灯 / AI 指令切换）
+        var (cleanReply, sceneNote) = await _sceneDirector.ExecuteMarkersAsync(result);
+        if (!string.IsNullOrEmpty(sceneNote))
+            cleanReply = cleanReply + "\n" + sceneNote;
+        return cleanReply;
+    }
+
+    /// <summary>场景库模式被应用（地图/纯库场景）时渲染背景与 BGM。</summary>
+    private void OnSceneModeApplied(Models.SceneLibraryEntry entry, Models.SceneMode? mode)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var bg = mode?.Background is { Length: > 0 } mb ? mb : entry.Background;
+            var color = mode?.BackgroundColor is { Length: > 0 } mc ? mc : entry.BackgroundColor;
+            if (string.IsNullOrWhiteSpace(bg))
+            {
+                if (!string.IsNullOrEmpty(color)) SceneBg = color;
+                SceneBackdrop = null;
+            }
+            else
+            {
+                SceneBackdrop = ImageSource.FromFile(bg);
+                if (!string.IsNullOrEmpty(color)) SceneBg = color;
+            }
+        });
     }
 
     /// <summary>

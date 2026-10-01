@@ -14,12 +14,20 @@ public sealed class ChatEngine
     private CharacterProfile? _active;
     private string _rosterContext = "";
     private string _mapContext = "";
+    private bool _allowSilence;
 
     public ChatEngine(ApiGateway api, MemoryVault memory)
     {
         _api = api;
         _memory = memory;
     }
+
+    /// <summary>沉默协议：开启后 AI 可选择不回复（输出空），而非每次都强制给答复。</summary>
+    public const string SilenceProtocol =
+        "当剧情中对方不适合或不想说话（正在忙、不想被打扰、想独处、或此刻无话可说）时，" +
+        "你可以选择不回复：直接输出空内容（什么都不写，也不带动作标记）。" +
+        "不要为了显得有回应而强行编造台词；沉默本身也是回应。" +
+        "只有在确实有话说、且人设/情节支持开口时，才输出正常回复。";
 
     /// <summary>告诉 AI 当前陪伴的主角是谁（名字/性格/称呼/背景设定）。</summary>
     public void ConfigureCharacter(CharacterProfile profile) => _active = profile;
@@ -39,6 +47,9 @@ public sealed class ChatEngine
 
     /// <summary>注入地图上下文：告诉 AI 当前可去的场景与【移动:场景名】移动协议。</summary>
     public void SetMapContext(string context) => _mapContext = context ?? "";
+
+    /// <summary>允许沉默：true 时 AI 可选择完全不回复（输出空内容），系统据此停止该回合。</summary>
+    public void SetAllowSilence(bool allow) => _allowSilence = allow;
 
     public void Configure(AiEndpoint cfg)
     {
@@ -262,6 +273,8 @@ public sealed class ChatEngine
             if (!string.IsNullOrWhiteSpace(_mapContext))
                 persona += "\n" + _mapContext;
             persona += "\n" + ActionProtocol;
+            if (_allowSilence)
+                persona += "\n" + SilenceProtocol;
             _sessions[charId] = new List<ChatMessage>
             {
                 new() { Role = "system", Content = persona }

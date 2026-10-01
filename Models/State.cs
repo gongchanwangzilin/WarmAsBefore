@@ -55,10 +55,20 @@ public sealed record UserSettings
     public bool FrostEnabled { get; init; }             // 磨砂玻璃（半透明磨砂）
     public bool GlassEnabled { get; init; }             // 毛玻璃（磨砂的高级版）
     public bool LiquidEnabled { get; init; }            // 液态玻璃
+    /// <summary>玻璃自适应透明度 0-1（Apple Liquid Glass 标准）：1=全液态透明；0=接近不透明。</summary>
+    public double GlassTranslucency { get; init; } = 1.0;
+    /// <summary>减弱透明降级（Accessibility）：true 时玻璃切不透明磨砂层，保证正文 4.5:1 对比。</summary>
+    public bool GlassReducedTransparency { get; init; }
     public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist
     public string KeySfx { get; init; } = "default";
     public string MenuSide { get; init; } = "left";
     public bool AutoSaveEnabled { get; init; } = true;
+
+    // 多角色单场景对话
+    /// <summary>聊天显示风格：bubble=气泡式（消息直接成对话气泡流），galgame=剧本式（底部面板 + 立绘）。</summary>
+    public string ChatStyle { get; init; } = "galgame";
+    /// <summary>允许 AI 沉默：开启后角色可以选择不回复（什么都不输出），系统会自动停止该回合，不再每次都强行回复。</summary>
+    public bool AllowSilence { get; init; }
 
     // AI 对话
     public string AiUrl { get; init; } = "https://api.openai.com/v1/chat/completions";
@@ -140,4 +150,7 @@ public sealed record UserSettings
 
     // 开发者展示模式：设置页底部输入 114514 后解锁
     public bool DeveloperShowcaseUnlocked { get; init; }
+
+    /// <summary>免责声明已确认（首次启动标题页弹层「知道了」后写 true；不再重复弹）。</summary>
+    public bool DisclaimerAcknowledged { get; init; }
 }

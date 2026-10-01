@@ -159,6 +159,15 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </CollectionView.ItemTemplate>
             </CollectionView>
 
+            <!-- 气泡式多角色提示 + 沉默提示（同一 Grid.Row 槽位，按条件显示） -->
+            <Label Grid.Row="2" IsVisible="{Binding UseBubbleChat}"
+                   Text="气泡式已开启：多角色可直接以对话气泡交流"
+                   TextColor="{StaticResource MutedFg}" FontSize="11"
+                   HorizontalOptions="Center" VerticalOptions="Top" Margin="0,4,0,0" />
+            <Label Grid.Row="2" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
+                   Text="{Binding SilenceHintText}"
+                   TextColor="{StaticResource MutedFg}" FontSize="11"
+                   HorizontalOptions="Center" VerticalOptions="Top" Margin="0,4,0,0" />
             <!-- Typing indicator -->
             <Border Grid.Row="2" IsVisible="{Binding IsThinking}"
                     BackgroundColor="Transparent" StrokeThickness="0"
@@ -441,6 +450,11 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Label Text="{Binding LastMessageText}" TextColor="{StaticResource SurfaceFg}" FontSize="13"
                                LineBreakMode="WordWrap" MaxLines="4" VerticalOptions="Center" />
                     </Border>
+
+                    <!-- 沉默提示（开启「允许 AI 沉默」时显示） -->
+                    <Label Grid.Row="1" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
+                           Text="{Binding SilenceHintText}" TextColor="{StaticResource MutedFg}" FontSize="11"
+                           VerticalOptions="Start" Margin="8,4,8,0" />
 
                     <!-- 输入栏 -->
                     <Border Grid.Row="2" BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="1"

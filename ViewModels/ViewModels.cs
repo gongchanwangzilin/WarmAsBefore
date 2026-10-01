@@ -173,6 +173,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _bridge = bridge;
         _mcp = mcp;
         _runtimes = runtimes;
+        _sandbox = new Modules.Sandbox.SandboxPolicy(new StorageProvider());
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
         JavaManualPath = _runtimes.ManualJavaPath;
@@ -183,6 +184,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _frostOn = s.FrostEnabled;
         _glassOn = s.GlassEnabled;
         _liquidOn = s.LiquidEnabled;
+        _glassTranslucency = s.GlassTranslucency;
+        _glassReducedTransparency = s.GlassReducedTransparency;
         _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
         _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
         _complexPlot = s.ComplexPlot;
@@ -190,6 +193,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _showAffection = s.ShowAllAffection;
         _affectionLevelUp = s.AffectionLevelUpEnabled;
         _menuRight = s.MenuSide == "right";
+        _chatStyle = string.IsNullOrEmpty(s.ChatStyle) ? "galgame" : s.ChatStyle;
+        _chatStyleDisplay = ChatStyleDisplayOf(_chatStyle);
+        _allowSilence = s.AllowSilence;
         _lang = s.Lang;
         _langDisplay = LangDisplayOf(s.Lang);
         _textSpeed = s.TextSpeed;
@@ -267,10 +273,135 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _glassOn;
     [ObservableProperty] private bool _frostOn;
     [ObservableProperty] private bool _liquidOn;
+    [ObservableProperty] private double _glassTranslucency = 1.0;
+    [ObservableProperty] private bool _glassReducedTransparency;
     [ObservableProperty] private string _themeName = "classic";
     [ObservableProperty] private string _themeDisplay = "经典";
 
+    // 工具沙箱
+    [ObservableProperty] private ObservableCollection<Modules.Sandbox.TrustEntry> _trustedTools = new();
+    [ObservableProperty] private string _sandboxHint = "";
+
     public List<string> ThemeChoices { get; } = new() { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰" };
+    public List<string> ChatStyleChoices { get; } = new() { "剧本式", "气泡式" };
+
+    private readonly Modules.Sandbox.SandboxPolicy _sandbox;
+
+    /// <summary>刷新信任工具列表（设置页「工具安全」区）。</summary>
+    public void RefreshSandboxTrust()
+    {
+        TrustedTools = new ObservableCollection<Modules.Sandbox.TrustEntry>(_sandbox.Trust.All());
+        SandboxHint = TrustedTools.Count == 0
+            ? "默认所有外部工具都不能读取模型数据（API Key 等）。需要时在此处加入信任。"
+            : $"已信任 {TrustedTools.Count} 个工具。";
+    }
+
+    /// <summary>把工具目录加入信任名单（按目录路径）。</summary>
+    [RelayCommand]
+    private async Task TrustToolDir()
+    {
+        var dir = await Microsoft.Maui.Controls.Shell.Current.DisplayActionSheet(
+            "选择要信任的工具目录", "取消", null,
+            Directory.Exists(Modules.Tools.ToolManager.ToolsDir)
+                ? Directory.GetDirectories(Modules.Tools.ToolManager.ToolsDir).Select(System.IO.Path.GetFileName).ToArray()
+                : new string[] { "（工具目录为空）" });
+        if (dir is null || dir == "（工具目录为空）") return;
+        var full = System.IO.Path.Combine(Modules.Tools.ToolManager.ToolsDir, dir);
+        _sandbox.Trust.Add(dir, full, "设置页手动放开");
+        _sandbox.RefreshKeyFingerprints();
+        await Task.CompletedTask;
+        RefreshSandboxTrust();
+    }
+
+    [RelayCommand]
+    private void RemoveTrustedTool(Modules.Sandbox.TrustEntry tool)
+    {
+        _sandbox.Trust.Remove(tool.ToolName, tool.ToolPath);
+        RefreshSandboxTrust();
+    }
+
+    // 自动更新
+    [ObservableProperty] private bool _betaChannel;
+    [ObservableProperty] private bool _isCheckingUpdate;
+    [ObservableProperty] private string _updateStatus = "";
+    [ObservableProperty] private string _latestUpdateVersion = "";
+
+    private readonly Modules.Update.UpdateService _updater = new();
+
+    [RelayCommand]
+    private async Task CheckUpdate()
+    {
+        IsCheckingUpdate = true;
+        _latestUpdateVersion = "";
+        UpdateStatus = "正在检查更新（多镜像测速中）…";
+        try
+        {
+            _updater.BetaChannel = BetaChannel;
+            var r = await _updater.CheckAsync();
+            if (r.Error is not null)
+            {
+                UpdateStatus = "检查失败：" + r.Error;
+                return;
+            }
+            if (r.Latest is not null && r.HasUpdate)
+            {
+                _latestUpdateVersion = r.Latest.Tag;
+                // 测速选最快镜像
+                var speeds = await _updater.SpeedTestAsync(r.Latest.ZipUrl);
+                var fastest = speeds.Count > 0 ? speeds[0] : null;
+                UpdateStatus = $"发现新版本 {r.Latest.Tag}（{r.Latest.DownloadNote}）"
+                    + (fastest is not null ? $" · 最快源 {fastest.Mirror.TrimEnd('/')}（{fastest.MibPerSec:0.#} MiB/s）" : "");
+            }
+            else
+            {
+                UpdateStatus = r.Latest is null ? "已是最新版本" : $"当前为最新版本 {r.Latest.Tag}";
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Settings.CheckUpdate -> " + ex.Message);
+            UpdateStatus = "检查失败：" + ex.Message;
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadUpdate()
+    {
+        if (string.IsNullOrEmpty(_latestUpdateVersion))
+        {
+            UpdateStatus = "先点击「检查更新」发现新版本。";
+            return;
+        }
+        IsCheckingUpdate = true;
+        UpdateStatus = "正在下载更新包…";
+        try
+        {
+            _updater.BetaChannel = BetaChannel;
+            var r = await _updater.CheckAsync();
+            if (r.Latest is null) { UpdateStatus = "未发现可下载版本。"; return; }
+            var speeds = await _updater.SpeedTestAsync(r.Latest.ZipUrl);
+            var url = speeds.Count > 0
+                ? speeds[0].Mirror + "gongchanwangzilin/WarmAsBefore/releases/download/" + r.Latest.Tag + "/" + System.IO.Path.GetFileName(r.Latest.ZipUrl)
+                : r.Latest.ZipUrl;
+            var sha = await _updater.FetchSha256Async(r.Latest.Sha256);
+            var dir = System.IO.Path.Combine(Microsoft.Maui.Storage.FileSystem.AppDataDirectory, "WarmAsBefore", "updates");
+            var zip = await _updater.DownloadAsync(url, dir, sha);
+            UpdateStatus = $"已下载到 {zip}（SHA256 {(string.IsNullOrEmpty(sha) ? "未校验" : "已校验")}），重启后替换。";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Settings.DownloadUpdate -> " + ex.Message);
+            UpdateStatus = "下载失败：" + ex.Message;
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
 
     /// <summary>毛玻璃是磨砂的高级版：必须开启磨砂后才能开启毛玻璃。</summary>
     public bool CanGlass => FrostOn;
@@ -279,6 +410,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _showAffection;
     [ObservableProperty] private bool _affectionLevelUp = true;
     [ObservableProperty] private bool _menuRight;
+    [ObservableProperty] private string _chatStyle = "galgame";
+    [ObservableProperty] private string _chatStyleDisplay = "剧本式";
+    [ObservableProperty] private bool _allowSilence;
     [ObservableProperty] private string _lang = "zh-CN";
     [ObservableProperty] private string _langDisplay = "简体中文";
     [ObservableProperty] private double _textSpeed = 1.0;
@@ -415,12 +549,24 @@ public sealed partial class SettingsViewModel : ObservableObject
         PersistSettings();
     }
     partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings(); }
+    partial void OnGlassTranslucencyChanged(double value)
+    {
+        _theme.GlassTranslucency = value;
+        PersistSettings();
+    }
+    partial void OnGlassReducedTransparencyChanged(bool value)
+    {
+        _theme.ReducedTransparency = value;
+        PersistSettings();
+    }
     partial void OnThemeDisplayChanged(string value) { ThemeName = ThemeKeyOf(value); _theme.ThemeName = ThemeName; PersistSettings(); }
     partial void OnComplexPlotChanged(bool value) => PersistSettings();
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
     partial void OnShowAffectionChanged(bool value) => PersistSettings();
     partial void OnAffectionLevelUpChanged(bool value) => PersistSettings();
     partial void OnMenuRightChanged(bool value) => PersistSettings();
+    partial void OnChatStyleDisplayChanged(string value) { ChatStyle = ChatStyleKeyOf(value); PersistSettings(); }
+    partial void OnAllowSilenceChanged(bool value) => PersistSettings();
     partial void OnLangChanged(string value)
     {
         PersistSettings();
@@ -497,6 +643,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ => "classic"
     };
 
+    private static string ChatStyleDisplayOf(string key) => key switch
+    {
+        "bubble" => "气泡式",
+        _ => "剧本式"
+    };
+
+    private static string ChatStyleKeyOf(string display) => display switch
+    {
+        "气泡式" => "bubble",
+        _ => "galgame"
+    };
+
     private static string LangCodeOf(string display) => display switch
     {
         "繁體中文" => "zh-TW",
@@ -529,12 +687,16 @@ public sealed partial class SettingsViewModel : ObservableObject
                 FrostEnabled = FrostOn,
                 GlassEnabled = GlassOn,
                 LiquidEnabled = LiquidOn,
+                GlassTranslucency = GlassTranslucency,
+                GlassReducedTransparency = GlassReducedTransparency,
                 ThemeName = ThemeKeyOf(ThemeDisplay),
                 MenuSide = MenuRight ? "right" : "left",
                 Lang = Lang,
                 TextSpeed = TextSpeed,
                 AutoSaveEnabled = AutoSave,
                 KeySfx = KeySfx,
+                ChatStyle = ChatStyle,
+                AllowSilence = AllowSilence,
 
                 AiUrl = string.IsNullOrWhiteSpace(AiUrl) ? "https://api.openai.com/v1/chat/completions" : AiUrl.Trim(),
                 AiKey = AiKey.Trim(),
