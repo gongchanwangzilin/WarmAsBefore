@@ -693,7 +693,25 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ => "简体中文"
     };
 
-    private async void PersistSettings()
+    // 防抖：拖动滑杆 / 连续改设置时，每次变更都要跑一遍
+    // 「序列化整个 UserSettings + 落盘 + _settings.Apply → RuntimeConfigurator.Apply」
+    // （Apply 里还会重配 AI / 天气 / 语音 / 问候 / 官方接入桥），代价很高，
+    // 连续操作会叠加成数秒卡死。这里改成只在停手后跑一次。
+    private System.Threading.Timer? _persistTimer;
+    private readonly object _persistLock = new();
+
+    private void PersistSettings()
+    {
+        lock (_persistLock)
+        {
+            _persistTimer ??= new System.Threading.Timer(
+                _ => MainThread.BeginInvokeOnMainThread(PersistNow), null,
+                Timeout.Infinite, Timeout.Infinite);
+            _persistTimer.Change(300, Timeout.Infinite);
+        }
+    }
+
+    private async void PersistNow()
     {
         try
         {

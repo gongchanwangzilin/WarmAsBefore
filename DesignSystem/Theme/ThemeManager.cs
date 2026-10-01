@@ -62,8 +62,8 @@ public class ThemeManager
         {
             if (_themeName == value) return;
             _themeName = value;
-            ApplyThemeResources(value);
-            OnChange();
+            lock (_applyLock) _pendingTheme = value;
+            ScheduleApply();
         }
     }
 
@@ -208,13 +208,62 @@ public class ThemeManager
 
     public event Action? Changed;
 
+    // ── 应用调度（防抖） ────────────────────────────────────────────────
+    // 换主题要整体替换调色板字典，改档位/透明度要重写 GlassTokens —— 两者都会让
+    // 整棵可视树里的 {DynamicResource} 重新解析。连续点击主题选择器时若每次都立刻执行，
+    // 就会叠加成数秒卡死。这里统一防抖：连续变更只在停手后跑一次。
+    private const int ApplyDebounceMs = 220;
+    private System.Threading.Timer? _applyTimer;
+    private readonly object _applyLock = new();
+    private string? _pendingTheme;
+
     private void OnChange()
     {
-        // 把当前档位换算成画刷资源，组件样式用 {DynamicResource} 引用 → 一处切换、全局生效。
-        // 顺序很重要：ThemeName setter 会先 ApplyThemeResources 再走到这里，
-        // 所以读 SurfaceBg 拿到的一定是新配色。
-        GlassTokens.Publish(ActiveEffect);
+        ScheduleApply();
         Changed?.Invoke();
+    }
+
+    private void ScheduleApply()
+    {
+        lock (_applyLock)
+        {
+            _applyTimer ??= new System.Threading.Timer(_ => Flush(), null, Timeout.Infinite, Timeout.Infinite);
+            _applyTimer.Change(ApplyDebounceMs, Timeout.Infinite);
+        }
+    }
+
+    private void Flush()
+    {
+        string? theme;
+        lock (_applyLock)
+        {
+            theme = _pendingTheme;
+            _pendingTheme = null;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try
+            {
+                // 先换调色板，再下发画刷 —— 顺序保证 GlassTokens 读到的是新配色
+                if (theme is not null) ApplyThemeResources(theme);
+                GlassTokens.Publish(ActiveEffect, GlassTranslucency, ReducedTransparency);
+                FadeCurrentPage();
+            }
+            catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }
+        });
+    }
+
+    /// <summary>
+    /// 整页淡入：换主题是全局重绘，给一个短促的过场，
+    /// 观感上是「换好了」而不是「卡了一下」。
+    /// </summary>
+    private static void FadeCurrentPage()
+    {
+        var page = Shell.Current?.CurrentPage;
+        if (page is null) return;
+        page.Opacity = 0.55;
+        _ = page.FadeTo(1, 200, Easing.CubicOut);
     }
 
     public void Reset()
