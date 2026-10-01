@@ -56,7 +56,10 @@
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_Glass], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_GlassHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding GlassOn}" IsEnabled="{Binding CanGlass}" /></Grid>
+                            <!-- 不再 IsEnabled="{Binding CanGlass}"（CanGlass => FrostOn）：
+                                 该开关在磨砂未开时是禁用的，点它当然没反应。
+                                 而 OnGlassOnChanged 本就会自动带上磨砂，禁用纯属多余。 -->
+                            <Switch Grid.Column="1" IsToggled="{Binding GlassOn}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_Liquid], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="{Binding [Settings_LiquidHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>

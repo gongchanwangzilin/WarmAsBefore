@@ -148,6 +148,9 @@ public sealed record UserSettings
     public string PythonPath { get; init; } = "";
     public string JavaPath { get; init; } = "";
 
+    /// <summary>自动更新通道：true=预发布（Beta）。此前只存在于视图模型，未落盘，重开设置页即复位。</summary>
+    public bool BetaChannel { get; init; }
+
     // 开发者展示模式：设置页底部输入 114514 后解锁
     public bool DeveloperShowcaseUnlocked { get; init; }
 

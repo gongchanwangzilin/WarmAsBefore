@@ -253,6 +253,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _wechatToken = s.WechatToken;
         _wechatPort = s.WechatPort.ToString();
         _statusText = _bridge.Status;
+        _betaChannel = s.BetaChannel;
 
         // MCP 设置
         _mcpEnabled = s.McpEnabled;
@@ -263,7 +264,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _mcpGitHubRepo = s.McpGitHubRepo;
         _mcpImportZipPath = s.McpImportZipPath;
         _mcpImportFolderPath = s.McpImportFolderPath;
-        RefreshMcpServers();
+        // 这里不能同步 RefreshMcpServers()：McpOrchestrator.ListServers() 会递归
+        // Directory.GetFiles(dir, "*", SearchOption.AllDirectories) 并对每个文件取
+        // FileInfo.Length —— 全部跑在 UI 线程上。设置页是 transient，每次点「设置」
+        // 都会重新构造 ViewModel，于是每次导航都同步卡一次（「点设置卡死」的真实阻塞点）。
+        _ = LoadMcpServersAsync();
 
         _bridge.StatusChanged += st =>
             MainThread.BeginInvokeOnMainThread(() => StatusText = st);
@@ -479,6 +484,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             "困难（步步紧逼）" => "hard",
             _ => "normal"
         };
+        // 旧实现只改字段不落盘：设置页显示「困难」，服务读到的仍是 normal，UI 与设置不一致
+        PersistSettings();
     }
 
     [ObservableProperty] private bool _alwaysOnTop;
@@ -620,6 +627,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnAlwaysOnTopChanged(bool value) => PersistSettings();
     partial void OnPetIdleMinutesChanged(int value) => PersistSettings();
 
+    // 以下四项原先没有任何变更处理器：改了既不落盘、也不下发，
+    // 而小游戏/棋力服务读的是已落盘的 UserSettings —— 于是设置页显示与真实生效值不一致。
+    partial void OnAiAutoDifficultyChanged(bool value) => PersistSettings();
+    partial void OnChessApiEnabledChanged(bool value) => PersistSettings();
+    partial void OnChessApiUrlChanged(string value) => PersistSettings();
+    partial void OnChessApiKeyChanged(string value) => PersistSettings();
+    partial void OnChessApiModelChanged(string value) => PersistSettings();
+    // 自动更新通道：此前无处理器且模型里没有该字段，重开设置页永远是「正式版」
+    partial void OnBetaChannelChanged(bool value) => PersistSettings();
+
     partial void OnQqBotEnabledChanged(bool value) => PersistSettings();
     partial void OnQqAppIdChanged(string value) => PersistSettings();
     partial void OnQqAppSecretChanged(string value) => PersistSettings();
@@ -752,7 +769,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                  ChessApiKey = ChessApiKey.Trim(),
                  ChessApiModel = string.IsNullOrWhiteSpace(ChessApiModel) ? "gpt-4o-mini" : ChessApiModel.Trim(),
 
-                 DeveloperShowcaseUnlocked = ShowcaseUnlocked,
+                 BetaChannel = BetaChannel,
+DeveloperShowcaseUnlocked = ShowcaseUnlocked,
                  PythonPath = _runtimes.ManualPythonPath,
                  JavaPath = _runtimes.ManualJavaPath
              };
@@ -943,6 +961,27 @@ public sealed partial class SettingsViewModel : ObservableObject
             IsImporting = false;
             ImportProgress = 0;
         }
+    }
+
+    /// <summary>后台线程扫描 MCP 数据包目录，再回 UI 线程回填集合（首次进入设置页不再阻塞）。</summary>
+    private async Task LoadMcpServersAsync()
+    {
+        List<Modules.Mcp.McpServerItem> items;
+        try
+        {
+            items = await Task.Run(() => _mcp.ListServers());
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.LoadMcpServers -> " + ex);
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            McpServers.Clear();
+            foreach (var item in items) McpServers.Add(item);
+        });
     }
 
     /// <summary>刷新 MCP 数据包列表（从 McpPacks 目录扫描）。</summary>
