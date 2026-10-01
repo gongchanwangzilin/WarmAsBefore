@@ -34,18 +34,18 @@
              由 GlassOverlayService 在开启毛玻璃时套上合成模糊画笔 -->
         <Border x:Name="DecorBlur" InputTransparent="True" IsVisible="False" />
 
-        <!-- 免责声明 + 非玩具声明（首次启动弹层，确认后写 DisclaimerAcknowledged） -->
+        <!-- 免责声明（首次启动弹层，确认后写 DisclaimerAcknowledged） -->
         <Grid VerticalOptions="Center" HorizontalOptions="Center"
               IsVisible="{Binding ShowDisclaimer}" Padding="32"
               BackgroundColor="#D9FDF6EE">
             <Grid.Margin>48,0,48,0</Grid.Margin>
             <VerticalStackLayout Spacing="14" MaximumWidthRequest="560">
-                <Label Text="免责声明 · 非玩具声明" FontSize="18"
+                <Label Text="免责声明" FontSize="18"
                        FontAttributes="Bold" TextColor="{StaticResource WarmDark}"
                        HorizontalOptions="Center" />
                 <Label LineBreakMode="WordWrap" FontSize="14"
                        TextColor="{StaticResource SurfaceFg}" HorizontalOptions="Center"
-                       Text="「温暖如初」是 AI 生成内容的陪伴向 Galgame 工具。AI 输出具有随机性与不确定性，角色言行不代表真实价值观或专业建议；本工具不替代医疗、心理或情感支持。&#10;&#10;本作不是玩具：请自行判断并承担使用 AI 生成内容的风险与后果。使用者需遵守平台与地区法规，理性使用。点击「知道了」即表示已阅读并同意上述条款。" />
+                       Text="「温暖如初」是 AI 生成内容的陪伴向 Galgame 工具。AI 输出具有随机性与不确定性，角色言行不代表真实价值观或专业建议；本工具不替代医疗、心理或情感支持。&#10;&#10;请自行判断并承担使用 AI 生成内容的风险与后果，遵守平台与地区法规，理性使用。点击「知道了」即表示已阅读并同意上述条款。" />
                 <Button Text="知道了" Style="{StaticResource BtnPrimary}"
                         WidthRequest="180" MinimumHeightRequest="48" HorizontalOptions="Center"
                         Command="{Binding AcknowledgeDisclaimerCommand}" />

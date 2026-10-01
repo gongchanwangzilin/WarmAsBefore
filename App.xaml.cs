@@ -57,13 +57,8 @@ public partial class App : Application
                 _ = AutoSaveOnExitAsync();
                 ShutdownPetAsync();
             };
-            // 应用回到前台/获焦时重新置顶，保证通知栏与主界面不被其他窗口遮挡。
-            // 通知类应用：弹 Alert/对话框时恒置顶层（与 AlwaysOnTop 设置无关）。
-            win.Activated += (_, _) =>
-            {
-                try { Services.WindowTopmost.BeforeShowDialog(); }
-                catch { /* 早期焦点事件忽略 */ }
-            };
+            // 通知置顶由「对话框统一包装器」在真正弹 Alert 时触发（见 App.Dialog.ShowAlert），
+            // 不在 Window.Activated 里做：Activate() 在 WinUI 有焦点重入副作用，会造成卡顿。
             _ = RestoreSettingsAsync();
             WriteLog("CreateWindow: ok");
             return win;
@@ -116,7 +111,12 @@ public partial class App : Application
             var sm = services.GetService(typeof(SettingsManager)) as SettingsManager;
             if (sm is not null) await sm.Restore();
             LocalizationService.Current.SetCulture(sm?.Current.Lang ?? "zh-CN");
-            WindowTopmost.Apply(sm?.Current.AlwaysOnTop ?? false);
+            // 通知/桌宠类应用：默认常驻顶层，保证消息/通知不被其他窗口遮挡。
+            // AlwaysOnTop 关闭时只临时 BringToFront（弹通知时抬一次），开则持续强制。
+            if (sm?.Current.AlwaysOnTop == true)
+                WindowTopmost.Force();
+            else
+                WindowTopmost.BringToFront();
             var cfg = services.GetService(typeof(RuntimeConfigurator)) as RuntimeConfigurator;
             cfg?.Start();
         }

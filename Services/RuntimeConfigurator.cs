@@ -97,7 +97,11 @@ public sealed class RuntimeConfigurator
         _theme.ReducedTransparency = s.GlassReducedTransparency;
         _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
 
-        WindowTopmost.Apply(s.AlwaysOnTop);
+        // 置顶：开启 AlwaysOnTop 时持续强制常驻顶层（3 秒重断言防被抢占）；关闭则回落
+        if (s.AlwaysOnTop)
+            WindowTopmost.Force();
+        else
+            WindowTopmost.Release();
         _bridge.Apply();
     }
 }

@@ -18,8 +18,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
     </ContentPage.Background>
 
     <Grid>
-        <!-- 游戏页恒有磨砂玻璃底：页面自身强制叠层，不依赖全局磨砂设置 -->
-        <ctl:GlassOverlay Frost="True" />
+        <!-- 玻璃叠层由 GlassOverlayService 统一挂到每页根 Grid 上（跟随主题），
+             不再在页面内硬塞 GlassOverlay —— 那层全窗口渐变+光带在每次交互/导航时重绘，
+             是「点击就卡死」的主要来源。页面背景已用半透明渐变模拟磨砂观感。 -->
 
         <!-- ============ Phone Layout (vertical) ============ -->
         <Grid IsVisible="{OnIdiom Phone=True, Desktop=False}" RowDefinitions="Auto,*,Auto,Auto,Auto">

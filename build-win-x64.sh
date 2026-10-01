@@ -10,12 +10,13 @@ echo "SDK 版本: $(dotnet --version)"
 # 清理旧构建
 rm -rf ./publish/win-x64
 
-# 发布 Windows X64 版本
+# 发布 Windows X64 版本（UseMonoRuntime=false：.NET 10 MAUI 默认拉 Mono runtime pack 会还原失败）
 dotnet publish WarmAsBefore.csproj \
     -c Release \
     -f net10.0-windows10.0.19041.0 \
     -r win-x64 \
     --self-contained false \
+    -p:UseMonoRuntime=false \
     -p:RuntimeIdentifierOverride=win-x64 \
     -o ./publish/win-x64
 
