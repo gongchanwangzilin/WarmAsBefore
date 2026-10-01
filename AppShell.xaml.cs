@@ -7,21 +7,11 @@ public partial class AppShell : Shell
         InitializeComponent();
         RegisterRoutes();
         App.WriteLog("AppShell: initialized, routes registered");
-        // 导航/弹窗时保持窗口置顶，避免通知被其他窗口遮挡。
-        // 通知类应用：默认 BringToFront（弹通知不被挡）；AlwaysOnTop 开启时持续强制常驻。
-        Navigated += (_, _) =>
-        {
-            try
-            {
-                var sp = Application.Current?.Handler?.MauiContext?.Services;
-                var sm = sp?.GetService(typeof(WarmAsBefore.Services.SettingsManager)) as WarmAsBefore.Services.SettingsManager;
-                if (sm?.Current.AlwaysOnTop == true)
-                    WarmAsBefore.Services.WindowTopmost.Force();
-                else
-                    WarmAsBefore.Services.WindowTopmost.BringToFront();
-            }
-            catch { /* 导航早期服务可能未就绪，忽略 */ }
-        };
+        // 这里原先在每次导航时重新置顶/BringToFront。
+        // 但那会让「设置 → 窗口置顶」关闭后仍被强制置顶（关不掉），
+        // 且每次切页都产生一次 Win32 z-order / Presenter 变更 → 切页卡顿。
+        // 置顶策略统一由 RuntimeConfigurator.Apply() 跟随设置下发；
+        // 弹通知/对话框时再按需一次性抬前台（见 NotificationService 订阅方）。
     }
 
     private void RegisterRoutes()

@@ -23,11 +23,13 @@ public sealed class RuntimeConfigurator
     private readonly OfficialChatBridge _bridge;
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly GlassOverlayService _glassOverlay;
+    private readonly NotificationService _notify;
+    private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
-        GlassOverlayService glassOverlay)
+        GlassOverlayService glassOverlay, NotificationService notify)
     {
         _settings = settings;
         _chat = chat;
@@ -40,11 +42,19 @@ public sealed class RuntimeConfigurator
         _bridge = bridge;
         _theme = theme;
         _glassOverlay = glassOverlay;
+        _notify = notify;
     }
 
     public void Start()
     {
         _glassOverlay.Start();
+        // 通知服务此前没有任何订阅者：OfficialChatBridge 调用的 Show() 全部丢进了空事件，
+        // 所以「通知」根本不出现。这里接上唯一的消费端。
+        if (!_notifyHooked)
+        {
+            _notifyHooked = true;
+            _notify.Notify += OnNotify;
+        }
         // 每日日记与角色库加载不阻塞首帧：延迟到首帧后再执行
         MainThread.BeginInvokeOnMainThread(() =>
         {
@@ -54,6 +64,31 @@ public sealed class RuntimeConfigurator
         // 设置立即下发，保证首帧即生效
         Apply();
         _settings.Applied += Apply;
+    }
+
+    /// <summary>
+    /// 通知落地：先让窗口真的可见、可点，再弹对话框。
+    /// 桌宠模式下主窗口是 Hide 状态，若不先恢复，DisplayAlert 会挂在一个不可见的窗口上
+    /// —— 这正是「通知/对话框沉底、点不到」的成因。
+    /// </summary>
+    private void OnNotify(string title, string msg)
+    {
+        if (!_settings.Current.NotificationsEnabled) return;
+
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                PetService.ShowMainWindowStatic();
+                WindowTopmost.BringToFront();
+                var shell = Shell.Current;
+                if (shell is not null) await shell.DisplayAlert(title, msg, "好");
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("NotificationService.Show -> " + ex.Message);
+            }
+        });
     }
 
     private void Apply()
