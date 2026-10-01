@@ -10,7 +10,7 @@
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header -->
-        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" StrokeThickness="0">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <Label Text="编辑展示案" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />

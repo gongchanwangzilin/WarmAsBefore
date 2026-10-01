@@ -11,30 +11,14 @@
     - CornerRadius: 20px
     -->
 
-    <!-- Neumorphic Card (raised) —— 液态玻璃材质版本
-         半透明白色渐变 + 1px 内发光描边 + 折射高光，圆角 20，柔和投影。
-         所有既有 CardNeumorph 卡片自动升级为 Apple Liquid Glass 观感。 -->
+    <!-- Neumorphic Card (raised) —— 玻璃材质由 GlassTokens 按档位下发
+         关掉玻璃 = 不透明实心表面；磨砂/毛玻璃/液态逐档增加通透与亮边。
+         这里用 DynamicResource 而不是写死画刷，切档位时所有卡片一起变，
+         且不会像整页叠加层那样挡住内容与输入。 -->
     <Style x:Key="CardNeumorph" TargetType="Border">
-        <Setter Property="Background">
-            <Setter.Value>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#66FFFFFF" Offset="0.0" />
-                    <GradientStop Color="#2AFDF6EE" Offset="0.35" />
-                    <GradientStop Color="#12FDF6EE" Offset="0.7" />
-                    <GradientStop Color="#5AC9BFA8" Offset="1.0" />
-                </LinearGradientBrush>
-            </Setter.Value>
-        </Setter>
-        <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke">
-            <Setter.Value>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#CCFFFFFF" Offset="0.0" />
-                    <GradientStop Color="#24FFFFFF" Offset="0.5" />
-                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
-                </LinearGradientBrush>
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
         <Setter Property="Padding" Value="20" />
         <Setter Property="StrokeShape">
             <Setter.Value>

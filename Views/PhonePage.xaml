@@ -10,7 +10,7 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
         <!-- Status bar: time + weather + back -->
-        <Border BackgroundColor="{StaticResource SurfaceBg}" StrokeThickness="0"
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" StrokeThickness="{DynamicResource GlassBarStrokeThickness}"
                 Padding="16,12,16,10">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">

@@ -165,7 +165,14 @@ public class ThemeManager
 
     public event Action? Changed;
 
-    private void OnChange() => Changed?.Invoke();
+    private void OnChange()
+    {
+        // 把当前档位换算成画刷资源，组件样式用 {DynamicResource} 引用 → 一处切换、全局生效。
+        // 顺序很重要：ThemeName setter 会先 ApplyThemeResources 再走到这里，
+        // 所以读 SurfaceBg 拿到的一定是新配色。
+        GlassTokens.Publish(ActiveEffect);
+        Changed?.Invoke();
+    }
 
     public void Reset()
     {

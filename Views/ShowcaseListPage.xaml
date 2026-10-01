@@ -11,7 +11,7 @@
 
     <Grid RowDefinitions="Auto,*">
         <!-- Header -->
-        <Border BackgroundColor="{StaticResource SurfaceBg}" Padding="16,12" StrokeThickness="0">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*">
                 <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}" FontSize="14" Padding="0"

@@ -3,6 +3,15 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                     x:Class="WarmAsBefore.DesignSystem.Styles.CardShapes">
 
+    <!--
+      卡片 / 弹窗表面。
+      玻璃档位是全局设置（设置页的磨砂 / 毛玻璃 / 液态玻璃三个开关），
+      所以这里不再各写一套颜色，统一引用 GlassTokens 下发的画刷：
+        GlassCardBg / GlassCardStroke / GlassCardStrokeThickness
+      关掉玻璃就是实心表面，开启后整体变通透并带上亮边。
+      各风格之间只保留圆角与内边距的差别。
+    -->
+
     <Style x:Key="CardSolid" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
         <Setter Property="StrokeThickness" Value="0" />
@@ -14,10 +23,10 @@
         </Setter>
     </Style>
 
-    <Style x:Key="CardGlass" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="#B3FDF6EE" />
-        <Setter Property="Stroke" Value="#4DF5DFC0" />
-        <Setter Property="StrokeThickness" Value="1" />
+    <Style x:Key="CardFrost" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="Padding" Value="16" />
         <Setter Property="StrokeShape">
             <Setter.Value>
@@ -26,22 +35,12 @@
         </Setter>
     </Style>
 
-    <Style x:Key="CardFrost" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="#80FEFCF8" />
-        <Setter Property="Stroke" Value="#30FFFFFF" />
-        <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Padding" Value="16" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="16" />
-            </Setter.Value>
-        </Setter>
-    </Style>
+    <Style x:Key="CardGlass" TargetType="Border" BasedOn="{StaticResource CardFrost}" />
 
     <Style x:Key="CardLiquid" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="#CCFDF6EE" />
-        <Setter Property="Stroke" Value="#60F5DFC0" />
-        <Setter Property="StrokeThickness" Value="1.5" />
+        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="Padding" Value="20" />
         <Setter Property="StrokeShape">
             <Setter.Value>
@@ -50,13 +49,20 @@
         </Setter>
     </Style>
 
+    <!-- 弹窗 / 对话框表面（免责声明、确认框等） -->
     <Style x:Key="CardDialog" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{StaticResource SurfaceBg}" />
-        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="Padding" Value="24" />
         <Setter Property="StrokeShape">
             <Setter.Value>
                 <RoundRectangle CornerRadius="24" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{StaticResource ShadowDeep}" Offset="0,8" Radius="28" Opacity="0.28" />
             </Setter.Value>
         </Setter>
     </Style>
