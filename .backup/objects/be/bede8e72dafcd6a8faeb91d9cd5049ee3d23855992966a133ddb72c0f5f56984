@@ -1,0 +1,66 @@
+namespace WarmAsBefore.Models
+{
+    /// <summary>
+    /// 技能数据
+    /// </summary>
+    public class SkillData
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+        public int Damage { get; set; } = 10;
+        public int ManaCost { get; set; } = 0;
+        public bool IsHeal { get; set; } = false;
+        public int HealAmount { get; set; } = 0;
+        public string Type { get; set; } = "attack"; // attack, heal, buff, debuff
+    }
+
+    /// <summary>
+    /// 战斗角色
+    /// </summary>
+    public class BattleCharacter
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public string Name { get; set; } = string.Empty;
+        public int MaxHp { get; set; } = 100;
+        public int CurrentHp { get; set; } = 100;
+        public int MaxMana { get; set; } = 50;
+        public int CurrentMana { get; set; } = 50;
+        public int Attack { get; set; } = 15;
+        public int Defense { get; set; } = 5;
+        public bool IsPlayer { get; set; } = true;
+        public List<SkillData> Skills { get; set; } = new();
+        public string Avatar { get; set; } = string.Empty;
+        
+        /// <summary>HP 百分比（0.0-1.0）</summary>
+        public double HpPercentage => MaxHp > 0 ? (double)CurrentHp / MaxHp : 0;
+    }
+
+    /// <summary>
+    /// 战斗日志条目
+    /// </summary>
+    public class BattleLogEntry
+    {
+        public int Round { get; set; }
+        public string Actor { get; set; } = string.Empty;
+        public string Action { get; set; } = string.Empty;
+        public string Target { get; set; } = string.Empty;
+        public int Damage { get; set; }
+        public bool IsCritical { get; set; }
+    }
+
+    /// <summary>
+    /// 战斗状态
+    /// </summary>
+    public class BattleState
+    {
+        public string Id { get; set; } = Guid.NewGuid().ToString();
+        public List<BattleCharacter> Players { get; set; } = new();
+        public List<BattleCharacter> Enemies { get; set; } = new();
+        public int CurrentRound { get; set; } = 1;
+        public BattleCharacter? CurrentActor { get; set; }
+        public string Status { get; set; } = "waiting"; // waiting, player_turn, enemy_turn, ended
+        public List<BattleLogEntry> Log { get; set; } = new();
+        public string Winner { get; set; } = string.Empty;
+    }
+}

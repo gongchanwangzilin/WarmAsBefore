@@ -1,0 +1,139 @@
+using System.Text.Json;
+using WarmAsBefore.Models;
+
+namespace WarmAsBefore.Services;
+
+/// <summary>
+/// 灵枢 AI 导入服务：将导出的记忆 JSON 注入到指定角色的世界书中
+/// </summary>
+public sealed class LingshuImporter
+{
+    private readonly StorageProvider _store;
+    private readonly WorldbookService _worldbook;
+    
+    public LingshuImporter(StorageProvider store, WorldbookService worldbook)
+    {
+        _store = store;
+        _worldbook = worldbook;
+    }
+    
+    /// <summary>
+    /// 导入灵枢记忆到指定角色
+    /// </summary>
+    /// <param name="charId">目标角色 ID</param>
+    /// <param name="jsonPath">JSON 文件路径</param>
+    /// <param name="mode">导入模式：append=追加, replace=替换, create=创建新条目</param>
+    public async Task<(bool ok, string message)> ImportToCharacterAsync(
+        string charId, 
+        string jsonPath,
+        string mode = "append")
+    {
+        try
+        {
+            if (!File.Exists(jsonPath))
+                return (false, "文件不存在");
+            
+            var json = await File.ReadAllTextAsync(jsonPath);
+            var archive = JsonSerializer.Deserialize<LingshuArchive>(json);
+            
+            if (archive == null || archive.Memories.Count == 0)
+                return (false, "未找到有效的记忆数据");
+            
+            switch (mode)
+            {
+                case "replace":
+                    // 清空角色现有记忆，重新导入
+                    await _worldbook.ClearCharacterMemoriesAsync(charId);
+                    break;
+                case "create":
+                    // 创建新的独立条目
+                    return await ImportAsNewEntryAsync(archive);
+                case "append":
+                default:
+                    // 追加到现有记忆
+                    break;
+            }
+            
+            // 导入每条记忆
+            var imported = 0;
+            foreach (var memory in archive.Memories)
+            {
+                if (string.IsNullOrWhiteSpace(memory.Content))
+                    continue;
+                
+                var entry = new WorldbookEntry
+                {
+                    Id = Guid.NewGuid().ToString("N")[..10],
+                    CharacterId = charId,
+                    Content = memory.Content,
+                    Type = memory.Type,
+                    Timestamp = memory.Timestamp ?? DateTime.UtcNow
+                };
+                
+                await _worldbook.AddEntryAsync(entry);
+                imported++;
+            }
+            
+            return (true, $"成功导入 {imported} 条记忆");
+        }
+        catch (Exception ex)
+        {
+            return (false, $"导入失败: {ex.Message}");
+        }
+    }
+    
+    /// <summary>
+    /// 作为新条目导入（不关联特定角色）
+    /// </summary>
+    private async Task<(bool ok, string message)> ImportAsNewEntryAsync(LingshuArchive archive)
+    {
+        try
+        {
+            var imported = 0;
+            foreach (var memory in archive.Memories)
+            {
+                if (string.IsNullOrWhiteSpace(memory.Content))
+                    continue;
+                
+                var entry = new WorldbookEntry
+                {
+                    Id = Guid.NewGuid().ToString("N")[..10],
+                    CharacterId = "",
+                    Content = memory.Content,
+                    Type = memory.Type,
+                    Timestamp = memory.Timestamp ?? DateTime.UtcNow
+                };
+                
+                await _worldbook.AddEntryAsync(entry);
+                imported++;
+            }
+            
+            return (true, $"创建 {imported} 条新记忆");
+        }
+        catch (Exception ex)
+        {
+            return (false, ex.Message);
+        }
+    }
+    
+    /// <summary>
+    /// 验证文件格式
+    /// </summary>
+    public async Task<bool> ValidateAsync(string jsonPath)
+    {
+        try
+        {
+            if (!File.Exists(jsonPath))
+                return false;
+            
+            var json = await File.ReadAllTextAsync(jsonPath);
+            var archive = JsonSerializer.Deserialize<LingshuArchive>(json);
+            
+            return archive != null && archive.Memories.Count > 0;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+}

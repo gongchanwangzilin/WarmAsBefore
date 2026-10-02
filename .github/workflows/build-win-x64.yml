@@ -1,0 +1,37 @@
+name: Build Windows X64
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build -c Release -f net10.0-windows10.0.19041.0 -r win-x64 -p:UseMonoRuntime=false
+
+      - name: Publish
+        run: dotnet publish -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:UseMonoRuntime=false -p:RuntimeIdentifierOverride=win-x64 -o ./publish/win-x64
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WarmAsBefore-win-x64
+          path: publish/win-x64
+          retention-days: 7

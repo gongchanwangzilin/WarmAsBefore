@@ -1,0 +1,70 @@
+name: Build Windows Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (e.g., v1.25)'
+        required: true
+        default: 'v1.25'
+
+permissions:
+  contents: write   # 建 release 需要
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      
+    - name: Setup .NET 10
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '10.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Publish Windows x64
+      run: dotnet publish WarmAsBefore.csproj -c Release -f net10.0-windows10.0.19041.0 -r win-x64 --self-contained false -p:UseMonoRuntime=false -p:RuntimeIdentifierOverride=win-x64 -o ./publish/win-x64
+      
+    - name: Get version
+      id: version
+      run: |
+        if ("${{ github.event_name }}" -eq "workflow_dispatch") {
+          Write-Output "version=${{ github.event.inputs.version }}" >> $env:GITHUB_OUTPUT
+        } else {
+          Write-Output "version=${{ github.ref_name }}" >> $env:GITHUB_OUTPUT
+        }
+        
+    - name: Package zip (auto-updater requires a .zip named with win-x64)
+      shell: pwsh
+      run: |
+        $v = "${{ steps.version.outputs.version }}"
+        $dir = "publish/win-x64"
+        New-Item -ItemType Directory -Force -Path dist | Out-Null
+        $zip = "dist/WarmAsBefore_${v}_win-x64.zip"
+        Compress-Archive -Path "$dir/*" -DestinationPath $zip -CompressionLevel Optimal
+        (Get-FileHash $zip -Algorithm SHA256).Hash.ToLower() | Out-File "$zip.sha256" -NoNewline -Encoding ascii
+        "zip=$zip" >> $env:GITHUB_OUTPUT
+        "sha=$zip.sha256" >> $env:GITHUB_OUTPUT
+      id: pack
+
+    # actions/create-release 与 actions/upload-release-asset 已被 GitHub 归档（2023），
+    # 在 runner 上已经跑不起来 —— 这正是「Create Release」这一步一直失败的原因。
+    # 换成维护中的 softprops/action-gh-release，一步完成建 release + 传附件。
+    - name: Create Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: ${{ steps.version.outputs.version }}
+        body_path: RELEASE_NOTES.md
+        prerelease: ${{ contains(github.ref_name, '-beta') }}
+        files: |
+          dist/WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip
+          dist/WarmAsBefore_${{ steps.version.outputs.version }}_win-x64.zip.sha256

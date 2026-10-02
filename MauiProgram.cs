@@ -1,0 +1,130 @@
+using CommunityToolkit.Maui;
+using WarmAsBefore.Services;
+using WarmAsBefore.ViewModels;
+using WarmAsBefore.Views;
+
+namespace WarmAsBefore;
+
+public static class MauiProgram
+{
+    public static MauiApp CreateMauiApp()
+    {
+        App.WriteLog("CreateMauiApp: start");
+        var builder = MauiApp.CreateBuilder();
+        builder
+            .UseMauiApp<App>()
+            .UseMauiCommunityToolkit()
+            .UseMauiCommunityToolkitMediaElement();
+
+        // Design System
+        builder.Services.AddSingleton<DesignSystem.Theme.ThemeManager>();
+        // 中文别名包装：将已有的 ThemeManager 注入到 主题管理器（中文）中，便于中文标识符调用
+        builder.Services.AddSingleton<DesignSystem.Theme.主题管理器>(sp => new DesignSystem.Theme.主题管理器(sp.GetRequiredService<DesignSystem.Theme.ThemeManager>()));
+
+        // Core services
+        builder.Services.AddSingleton<GameEngine>();
+        builder.Services.AddSingleton<SettingsManager>();
+        builder.Services.AddSingleton<StorageProvider>();
+        builder.Services.AddSingleton<NotificationService>();
+        builder.Services.AddSingleton<AudioController>();
+        builder.Services.AddSingleton<SpeechService>();
+        builder.Services.AddSingleton<MaterialLibrary>();
+        builder.Services.AddSingleton<CharacterLibrary>();
+        builder.Services.AddSingleton<PetService>();
+        builder.Services.AddSingleton<MapService>();
+        builder.Services.AddSingleton<LingshuImporter>();
+
+        // Module services
+        builder.Services.AddSingleton<Modules.RealWorld.WeatherProvider>();
+        builder.Services.AddSingleton<Modules.RealWorld.TimeProvider>();
+        builder.Services.AddSingleton<Modules.RealWorld.PermissionBroker>();
+        builder.Services.AddSingleton<Modules.RealWorld.PhysiologicalTracker>();
+        builder.Services.AddSingleton<Modules.ApiManager.ApiGateway>();
+        builder.Services.AddSingleton<Modules.AiChat.ChatEngine>();
+        builder.Services.AddSingleton<Modules.AiChat.MemoryVault>();
+        builder.Services.AddSingleton<Modules.Automation.TaskOrchestrator>();
+        builder.Services.AddSingleton<Modules.Automation.DailyDiaryWriter>();
+        builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
+        builder.Services.AddSingleton<Modules.Tools.RuntimeManager>();
+        builder.Services.AddSingleton<Modules.Tools.ToolManager>();
+        builder.Services.AddSingleton<Modules.Affection.AffectionLevelUpService>();
+        builder.Services.AddSingleton<Modules.Battle.BattleDriverManager>();
+        builder.Services.AddSingleton<Modules.Cg.CgStore>();
+        builder.Services.AddSingleton<Modules.Cg.CgViewPayload>();
+        builder.Services.AddSingleton<Modules.Showcase.ShowcaseStore>();
+        builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
+        builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
+        builder.Services.AddSingleton<Modules.SaveSystem.SaveManager>();
+        builder.Services.AddSingleton<Modules.NovelImport.NovelAnalyzer>();
+builder.Services.AddSingleton<Modules.GameModule.MiniGameEngine>();
+builder.Services.AddSingleton<Modules.GameModule.ChessBrainService>();
+builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
+        builder.Services.AddSingleton<Modules.Market.ShopService>();
+        builder.Services.AddSingleton<Modules.Market.GiftPanelService>();
+        builder.Services.AddSingleton<Modules.Scene.SceneDirector>();
+        builder.Services.AddSingleton<Modules.Update.UpdateService>();
+        builder.Services.AddSingleton<Modules.Sandbox.SandboxPolicy>();
+
+        // 官方接入（真微信 / QQ）与运行时配置
+        builder.Services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
+        builder.Services.AddSingleton<RuntimeConfigurator>();
+        builder.Services.AddSingleton<Services.NovelLibrary>();
+
+        // ViewModels
+        builder.Services.AddTransient<TitleViewModel>();
+        builder.Services.AddTransient<MainGameViewModel>();
+        builder.Services.AddTransient<CharacterSelectViewModel>();
+        builder.Services.AddTransient<SettingsViewModel>();
+        builder.Services.AddTransient<PhoneViewModel>();
+        builder.Services.AddTransient<WeChatViewModel>();
+        builder.Services.AddTransient<MapViewModel>();
+        builder.Services.AddTransient<GalleryViewModel>();
+        builder.Services.AddTransient<OutfitViewModel>();
+        builder.Services.AddTransient<SaveViewModel>();
+        builder.Services.AddTransient<GameViewModel>();
+        builder.Services.AddTransient<WorldbookViewModel>();
+
+        // Pages
+        builder.Services.AddTransient<TitlePage>();
+        builder.Services.AddTransient<MainGamePage>();
+        builder.Services.AddTransient<CharacterSelectPage>();
+        builder.Services.AddTransient<SettingsPage>();
+        builder.Services.AddTransient<PhonePage>();
+        builder.Services.AddTransient<WeChatPage>();
+        builder.Services.AddTransient<MapPage>();
+        builder.Services.AddTransient<GalleryPage>();
+        builder.Services.AddTransient<OutfitPage>();
+        builder.Services.AddTransient<SavePage>();
+        builder.Services.AddTransient<GamePage>();
+        builder.Services.AddTransient<PetPage>();
+        builder.Services.AddTransient<NovelSelectPage>();
+        builder.Services.AddTransient<NovelWorldPage>();
+        builder.Services.AddTransient<WorldbookPage>();
+        builder.Services.AddTransient<CharacterLibraryPage>();
+        builder.Services.AddTransient<ShopPage>();
+        builder.Services.AddTransient<ShowcaseListPage>();
+        builder.Services.AddTransient<ShowcaseEditPage>();
+        builder.Services.AddTransient<ShowcasePlayPage>();
+        builder.Services.AddTransient<AffectionLevelUpPage>();
+        builder.Services.AddTransient<CgViewPage>();
+        builder.Services.AddTransient<BattlePage>();
+        builder.Services.AddTransient<MaterialsPage>();
+        builder.Services.AddTransient<Views.SceneLibraryPage>();
+        builder.Services.AddTransient<SceneLibraryViewModel>();
+        // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
+        builder.Services.AddTransient<NovelSelectViewModel>();
+        builder.Services.AddTransient<NovelWorldViewModel>();
+        builder.Services.AddTransient<CharacterLibraryViewModel>();
+        builder.Services.AddTransient<ShopViewModel>();
+        builder.Services.AddTransient<ShowcaseListViewModel>();
+        builder.Services.AddTransient<ShowcaseEditViewModel>();
+        builder.Services.AddTransient<ShowcasePlayViewModel>();
+        builder.Services.AddTransient<AffectionLevelUpViewModel>();
+        builder.Services.AddTransient<CgViewViewModel>();
+        builder.Services.AddTransient<MaterialsViewModel>();
+        // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
+
+        App.WriteLog("CreateMauiApp: building");
+        return builder.Build();
+    }
+}

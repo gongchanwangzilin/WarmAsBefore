@@ -1,0 +1,318 @@
+using System.Collections.ObjectModel;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Models;
+
+namespace WarmAsBefore.ViewModels
+{
+    /// <summary>
+    /// 回合制战斗 ViewModel
+    /// </summary>
+    public sealed partial class BattleViewModel : ObservableObject
+    {
+        private BattleState? _battle;
+        private BattleCharacter? _selectedPlayer;
+        private BattleCharacter? _selectedEnemy;
+        private SkillData? _selectedSkill;
+
+        [ObservableProperty] private bool _isInBattle;
+        [ObservableProperty] private int _round;
+        [ObservableProperty] private string _statusText = "等待开始";
+        [ObservableProperty] private ObservableCollection<BattleLogEntry> _battleLog = new();
+        
+        // 玩家角色列表
+        [ObservableProperty] private ObservableCollection<BattleCharacter> _playerCharacters = new();
+        // 敌方角色列表
+        [ObservableProperty] private ObservableCollection<BattleCharacter> _enemyCharacters = new();
+        
+        // 选中的角色和技能
+        [ObservableProperty] private BattleCharacter? _selectedPlayerForAction;
+        [ObservableProperty] private BattleCharacter? _selectedEnemyTarget;
+        [ObservableProperty] private SkillData? _selectedSkillForAction;
+        
+        // AI 生成总结
+        [ObservableProperty] private string _battleSummary = "";
+        [ObservableProperty] private bool _showSummary;
+
+        public BattleViewModel()
+        {
+        }
+
+        /// <summary>
+        /// 开始战斗 - 创建玩家和敌方角色
+        /// </summary>
+        [RelayCommand]
+        private void StartBattle(List<BattleCharacter> players, List<BattleCharacter> enemies)
+        {
+            _battle = new BattleState
+            {
+                Players = players,
+                Enemies = enemies,
+                Status = "player_turn"
+            };
+
+            PlayerCharacters.Clear();
+            EnemyCharacters.Clear();
+
+            foreach (var p in players)
+            {
+                p.CurrentHp = p.MaxHp;
+                p.CurrentMana = p.MaxMana;
+                PlayerCharacters.Add(p);
+            }
+
+            foreach (var e in enemies)
+            {
+                e.CurrentHp = e.MaxHp;
+                e.CurrentMana = e.MaxMana;
+                EnemyCharacters.Add(e);
+            }
+
+            IsInBattle = true;
+            Round = 1;
+            BattleLog.Clear();
+            AddLog("战斗开始！");
+            StatusText = "选择你的角色行动";
+        }
+
+        /// <summary>
+        /// 选择玩家角色
+        /// </summary>
+        [RelayCommand]
+        private void SelectPlayer(BattleCharacter character)
+        {
+            if (_battle?.Status != "player_turn") return;
+            if (character.CurrentHp <= 0) return;
+
+            _selectedPlayerForAction = character;
+            StatusText = $"已选择 {character.Name}，请选择技能或目标";
+        }
+
+        /// <summary>
+        /// 选择敌方目标
+        /// </summary>
+        [RelayCommand]
+        private void SelectEnemy(BattleCharacter character)
+        {
+            if (_battle?.Status != "player_turn" || _selectedPlayerForAction is null) return;
+            if (character.CurrentHp <= 0) return;
+
+            _selectedEnemyTarget = character;
+            StatusText = $"目标: {character.Name}";
+        }
+
+        /// <summary>
+        /// 选择技能
+        /// </summary>
+        [RelayCommand]
+        private void SelectSkill(SkillData skill)
+        {
+            if (_battle?.Status != "player_turn" || _selectedPlayerForAction is null) return;
+            if (_selectedPlayerForAction.CurrentMana < skill.ManaCost)
+            {
+                StatusText = " mana 不足！";
+                return;
+            }
+
+            _selectedSkillForAction = skill;
+            StatusText = $"选择了技能: {skill.Name}";
+        }
+
+        /// <summary>
+        /// 执行攻击
+        /// </summary>
+        [RelayCommand]
+        private void ExecuteAttack()
+        {
+            if (_battle is null || _battle.Status != "player_turn") return;
+            if (_selectedPlayerForAction is null || _selectedEnemyTarget is null)
+            {
+                StatusText = "请先选择角色和目标！";
+                return;
+            }
+
+            var attacker = _selectedPlayerForAction;
+            var target = _selectedEnemyTarget;
+
+            if (_selectedSkillForAction is null)
+            {
+                // 普通攻击
+                var damage = CalculateDamage(attacker.Attack, target.Defense);
+                target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
+                AddLog($"{attacker.Name} 攻击 {target.Name}，造成 {damage} 点伤害！");
+            }
+            else
+            {
+                // 使用技能
+                var skill = _selectedSkillForAction;
+                attacker.CurrentMana = Math.Max(0, attacker.CurrentMana - skill.ManaCost);
+
+                if (skill.IsHeal)
+                {
+                    // 治疗技能
+                    var healAmount = skill.HealAmount;
+                    target.CurrentHp = Math.Min(target.MaxHp, target.CurrentHp + healAmount);
+                    AddLog($"{attacker.Name} 使用 {skill.Name} 治疗 {target.Name}，恢复 {healAmount} HP！");
+                }
+                else
+                {
+                    // 攻击技能
+                    var damage = CalculateDamage(attacker.Attack + skill.Damage, target.Defense);
+                    bool isCrit = Random.Shared.Next(100) < 10; // 10% 暴击
+                    if (isCrit) damage = (int)(damage * 1.5);
+                    target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
+                    AddLog($"{attacker.Name} 使用 {skill.Name} 攻击 {target.Name}，造成 {damage} 点伤害{(isCrit ? "（暴击！）" : "")}！");
+                }
+            }
+
+            // 重置选择
+            _selectedPlayerForAction = null;
+            _selectedEnemyTarget = null;
+            _selectedSkillForAction = null;
+
+            // 检查战斗是否结束
+            if (CheckBattleEnd()) return;
+
+            // 切换为敌方回合
+            _battle.Status = "enemy_turn";
+            StatusText = "敌方回合...";
+            _ = ExecuteEnemyTurnAsync();
+        }
+
+        /// <summary>
+        /// 执行敌方回合
+        /// </summary>
+        private async Task ExecuteEnemyTurnAsync()
+        {
+            if (_battle is null) return;
+
+            await Task.Delay(1000); // 模拟思考时间
+
+            foreach (var enemy in _battle.Enemies.ToList())
+            {
+                if (enemy.CurrentHp <= 0) continue;
+
+                // 简单 AI：随机选择一个存活玩家攻击
+                var alivePlayers = _battle.Players.Where(p => p.CurrentHp > 0).ToList();
+                if (alivePlayers.Count == 0) break;
+
+                var target = alivePlayers[Random.Shared.Next(alivePlayers.Count)];
+                var damage = CalculateDamage(enemy.Attack, target.Defense);
+                target.CurrentHp = Math.Max(0, target.CurrentHp - damage);
+                AddLog($"{enemy.Name} 攻击 {target.Name}，造成 {damage} 点伤害！");
+
+                if (CheckBattleEnd()) return;
+            }
+
+            if (_battle.Status != "ended")
+            {
+                _battle.Status = "player_turn";
+                _battle.CurrentRound++;
+                Round = _battle.CurrentRound;
+                StatusText = "选择你的角色行动";
+            }
+        }
+
+        /// <summary>
+        /// 计算伤害
+        /// </summary>
+        private int CalculateDamage(int attack, int defense)
+        {
+            var baseDamage = Math.Max(1, attack - defense);
+            var variance = Random.Shared.Next(3);
+            return baseDamage + variance;
+        }
+
+        /// <summary>
+        /// 检查战斗是否结束
+        /// </summary>
+        private bool CheckBattleEnd()
+        {
+            if (_battle is null) return false;
+
+            var alivePlayers = _battle.Players.Any(p => p.CurrentHp > 0);
+            var aliveEnemies = _battle.Enemies.Any(e => e.CurrentHp > 0);
+
+            if (!alivePlayers)
+            {
+                _battle.Status = "ended";
+                _battle.Winner = "敌方";
+                StatusText = "战斗结束 - 你输了！";
+                AddLog("战斗结束 - 你输了！");
+                GenerateBattleSummary();
+                return true;
+            }
+
+            if (!aliveEnemies)
+            {
+                _battle.Status = "ended";
+                _battle.Winner = "玩家";
+                StatusText = "战斗结束 - 你赢了！";
+                AddLog("战斗结束 - 你赢了！");
+                GenerateBattleSummary();
+                return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// 生成战斗总结
+        /// </summary>
+        private void GenerateBattleSummary()
+        {
+            if (_battle is null) return;
+
+            var summary = new System.Text.StringBuilder();
+            summary.AppendLine($"战斗总结 - 第 {_battle.CurrentRound} 回合结束");
+            summary.AppendLine();
+            summary.AppendLine("我方角色状态：");
+            foreach (var p in _battle.Players)
+            {
+                summary.AppendLine($"  {p.Name}: HP {p.CurrentHp}/{p.MaxHp}");
+            }
+            summary.AppendLine();
+            summary.AppendLine("敌方角色状态：");
+            foreach (var e in _battle.Enemies)
+            {
+                summary.AppendLine($"  {e.Name}: HP {e.CurrentHp}/{e.MaxHp}");
+            }
+
+            BattleSummary = summary.ToString();
+            ShowSummary = true;
+        }
+
+        /// <summary>
+        /// 添加日志
+        /// </summary>
+        private void AddLog(string message)
+        {
+            BattleLog.Add(new BattleLogEntry
+            {
+                Round = Round,
+                Action = message,
+                IsCritical = message.Contains("暴击")
+            });
+        }
+
+        /// <summary>
+        /// 返回主界面
+        /// </summary>
+        [RelayCommand]
+        private async Task GoBack()
+        {
+            IsInBattle = false;
+            _battle = null;
+            await Shell.Current.GoToAsync("..");
+        }
+
+        /// <summary>
+        /// 关闭总结
+        /// </summary>
+        [RelayCommand]
+        private void CloseSummary()
+        {
+            ShowSummary = false;
+        }
+    }
+}

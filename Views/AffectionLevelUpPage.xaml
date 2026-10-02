@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.AffectionLevelUpPage"
+             x:DataType="vm:AffectionLevelUpViewModel"
+             Shell.NavBarIsVisible="False"
+             BackgroundColor="Transparent">
+
+    <Grid>
+        <Grid.GestureRecognizers>
+            <TapGestureRecognizer Command="{Binding CloseCommand}" />
+        </Grid.GestureRecognizers>
+
+        <!-- 背景（当前场景） -->
+        <Image Source="{Binding BackgroundPath, TargetNullValue=''}"
+               Aspect="AspectFill"
+               IsVisible="{Binding HasBackground}" />
+
+        <!-- 半透明粉色纱幕 -->
+        <BoxView Color="#55331f66" Opacity="0.55" />
+
+        <!-- 顶部丝带 -->
+        <Grid VerticalOptions="Start" Margin="0,70,0,0">
+            <Border BackgroundColor="#E8508D"
+                    StrokeThickness="0"
+                    HeightRequest="74"
+                    Margin="0,0,0,0"
+                    Opacity="0.96">
+                <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            </Border>
+            <Border BackgroundColor="#EE6FA5"
+                    StrokeThickness="0"
+                    HeightRequest="30"
+                    Margin="0,2,0,0"
+                    Opacity="0.9">
+                <Border.StrokeShape>
+                    <RoundRectangle CornerRadius="0" />
+                </Border.StrokeShape>
+            </Border>
+            <VerticalStackLayout Padding="0,14,0,0" Spacing="2">
+                <Label Text="好感等级提升！"
+                       TextColor="White"
+                       FontSize="30"
+                       FontAttributes="Bold"
+                       HorizontalOptions="Center" />
+                <Label Text="{Binding TitleLine}"
+                       TextColor="#FFE3F0"
+                       FontSize="17"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <!-- 中央爱心徽章 -->
+        <Grid HorizontalOptions="Center" VerticalOptions="Center" Margin="0,-60,0,0">
+            <Border BackgroundColor="#E8508D"
+                    StrokeThickness="4"
+                    Stroke="White"
+                    Padding="30,24"
+                    HorizontalOptions="Center">
+                <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
+                <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                    <Label Text="💗" FontSize="52" HorizontalOptions="Center" />
+                    <Label Text="{Binding LevelText}"
+                           TextColor="White"
+                           FontSize="44"
+                           FontAttributes="Bold"
+                           HorizontalOptions="Center" />
+                    <Label Text="{Binding CharacterName}"
+                           TextColor="#FFF0F6"
+                           FontSize="16"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- 立绘 -->
+        <Image Source="{Binding SpritePath, TargetNullValue=''}"
+               Aspect="AspectFit"
+               WidthRequest="420"
+               MaximumWidthRequest="460"
+               HorizontalOptions="Center"
+               VerticalOptions="End"
+               IsVisible="{Binding HasSprite}" />
+
+        <!-- 爱心飘散动画层：由代码动态填充 -->
+        <AbsoluteLayout x:Name="HeartsLayer" InputTransparent="True" />
+
+        <!-- 底部提示 -->
+        <Label Text="轻触任意处返回"
+               TextColor="#CCFFFFFF"
+               FontSize="13"
+               HorizontalOptions="Center"
+               VerticalOptions="End"
+               Margin="0,0,0,22"
+               Opacity="0.75" />
+    </Grid>
+</ContentPage>
