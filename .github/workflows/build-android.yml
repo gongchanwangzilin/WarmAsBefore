@@ -51,6 +51,11 @@ jobs:
           echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
         fi
         
+    - name: Rename APK to standard name
+      run: |
+        dir=bin/Release/net10.0-android/android-arm64/publish
+        for f in $dir/*.apk; do mv "$f" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"; done
+
     - name: Create Release
       uses: softprops/action-gh-release@v2
       with:
@@ -58,4 +63,4 @@ jobs:
         name: ${{ steps.version.outputs.version }}
         body_path: RELEASE_NOTES.md
         prerelease: ${{ contains(github.ref_name, '-beta') }}
-        files: bin/Release/net10.0-android/android-arm64/publish/*.apk
+        files: WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk
