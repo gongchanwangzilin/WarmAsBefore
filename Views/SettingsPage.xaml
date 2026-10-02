@@ -641,23 +641,29 @@
                     <VerticalStackLayout Spacing="14">
                         <Label Text="数据管理" Style="{StaticResource TxtSubhead}" />
                         <Label Text="导出 / 导入整个应用数据（立绘、存档、角色、背景等）。
-导出默认不含 settings.json（含 AI Key / 微信密钥）。"
+默认不含 API 密钥与机器人密钥，可在下方勾选。"
                                Style="{StaticResource TxtCaption}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                             <Button Text="导出数据包" Style="{StaticResource BtnPrimary}" FontSize="13"
-                                    Padding="14,6" Command="{Binding ExportDataCommand}" />
+                                    Padding="14,6" Command="{Binding ExportDataCommand}"
+                                    IsEnabled="{Binding IsDataBusy, Converter={StaticResource InverseBool}}" />
                             <Button Grid.Column="1" Text="导入数据包" Style="{StaticResource BtnGhost}" FontSize="13"
-                                    Padding="14,6" Command="{Binding ImportDataCommand}" />
+                                    Padding="14,6" Command="{Binding ImportDataCommand}"
+                                    IsEnabled="{Binding IsDataBusy, Converter={StaticResource InverseBool}}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Label Text="包含 API 密钥与机器人密钥" Style="{StaticResource TxtCaption}" />
+                            <CheckBox Grid.Column="1" IsChecked="{Binding IncludeSecrets}" VerticalOptions="Center" />
                         </Grid>
                         <ProgressBar IsVisible="{Binding ExportStatus, Converter={StaticResource StringNotEmpty}}"
                                      Progress="{Binding ExportProgress}" HeightRequest="4" />
                         <Label Text="{Binding ExportStatus}" Style="{StaticResource TxtCaption}"
                                IsVisible="{Binding ExportStatus, Converter={StaticResource StringNotEmpty}}"
                                LineBreakMode="WordWrap" />
-                        <ProgressBar IsVisible="{Binding ImportStatus, Converter={StaticResource StringNotEmpty}}"
-                                     Progress="{Binding ImportProgress}" HeightRequest="4" />
-                        <Label Text="{Binding ImportStatus}" Style="{StaticResource TxtCaption}"
-                               IsVisible="{Binding ImportStatus, Converter={StaticResource StringNotEmpty}}"
+                        <ProgressBar IsVisible="{Binding DataImportStatus, Converter={StaticResource StringNotEmpty}}"
+                                     Progress="{Binding DataImportProgress}" HeightRequest="4" />
+                        <Label Text="{Binding DataImportStatus}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding DataImportStatus, Converter={StaticResource StringNotEmpty}}"
                                LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
                 </Border>
