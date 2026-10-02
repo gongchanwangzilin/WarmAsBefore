@@ -1,0 +1,1481 @@
+﻿using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Modules.Mcp;
+using WarmAsBefore.Services;
+using WarmAsBefore.Models;
+using System.Collections.ObjectModel;
+using System.IO.Compression;
+
+namespace WarmAsBefore.ViewModels;
+
+public sealed partial class CharacterSelectViewModel : ObservableObject
+{
+    private readonly GameEngine _engine;
+    private readonly CharacterLibrary _library;
+    private readonly Modules.SaveSystem.SaveManager _save;
+    private readonly StorageProvider _store;
+
+    [ObservableProperty] private ObservableCollection<CharacterCardItem> _cards = new();
+
+    public CharacterSelectViewModel(GameEngine engine, CharacterLibrary library,
+        Modules.SaveSystem.SaveManager save, StorageProvider store)
+    {
+        _engine = engine;
+        _library = library;
+        _save = save;
+        _store = store;
+    }
+
+    [RelayCommand]
+    private async Task Refresh()
+    {
+        var list = await _library.ListAsync();
+        var allSaves = await _save.List();
+        Cards = new ObservableCollection<CharacterCardItem>(list.Select(ch =>
+        {
+            var saves = allSaves.Where(s => s.Character == ch.Profile.Id).ToList();
+            var label = saves.Count == 0
+                ? "还没有存档"
+                : $"已有 {saves.Count} 个存档 · 最近 {saves.Max(s => s.SavedAt).ToLocalTime():MM-dd HH:mm}";
+            ImageSource? avatar = null;
+            if (!string.IsNullOrEmpty(ch.Avatar))
+            {
+                var full = Path.Combine(_store.Root, ch.Avatar);
+                if (File.Exists(full)) avatar = ImageSource.FromFile(full);
+            }
+            return new CharacterCardItem(ch, avatar, label);
+        }));
+    }
+
+    [RelayCommand]
+    private async Task Pick(string id)
+    {
+        var card = Cards.FirstOrDefault(c => c.Id == id);
+        if (card is null) return;
+        var ch = card.Data;
+        var saves = await _save.ListByCharacter(id);
+
+        // 已有存档：可继续上次相处，也可新开一局；同一角色可有多档
+        if (saves.Count > 0)
+        {
+            var act = await Shell.Current.DisplayActionSheet(
+                $"和「{ch.Profile.Name}」再次相遇", "取消", null, "继续上次的相处", "开始新的一局");
+            if (act == "继续上次的相处")
+            {
+                await _library.ListAsync();
+                await _save.Load(saves[0].Id);
+                await Shell.Current.GoToAsync("main");
+                return;
+            }
+            if (act != "开始新的一局") return;
+        }
+        else
+        {
+            var confirm = await Shell.Current.DisplayActionSheet(
+                $"和「{ch.Profile.Name}」开始新的一局？", "取消", null, "开始游戏");
+            if (confirm != "开始游戏") return;
+        }
+        // 必须先 Boot（重置 State）再 SetCharacter（写入角色），否则角色会被 Boot 清掉
+        _engine.Boot();
+        _engine.SetCharacter(id);
+        // 新开一局：立绘随机只在这一刻发生，之后一律读档恢复
+        if (_engine.ActiveCharacter is { } fresh1) CharacterLibrary.RandomizeSpriteState(fresh1);
+        _save.NewRun();
+        await Shell.Current.GoToAsync("main");
+    }
+
+    [RelayCommand]
+    private async Task CreateCharacter()
+    {
+        var name = await Shell.Current.DisplayPromptAsync("新建角色", "她的名字：", "下一步", "取消", "小雨");
+        if (string.IsNullOrWhiteSpace(name)) return;
+        var gender = await Shell.Current.DisplayActionSheet("角色性别", "取消", null, "女", "男");
+        if (gender is not ("女" or "男")) return;
+        var personality = await Shell.Current.DisplayPromptAsync("角色性格", "用几句话描述她的性格：", "创建", "取消", "温柔、害羞、喜欢黏人");
+        if (personality is null) return;
+
+        var ch = _library.CreateDefault(name, gender, personality);
+        if (await _library.AddAsync(ch))
+        {
+            await Refresh();
+            _engine.Boot();
+            _engine.SetCharacter(ch.Profile.Id);
+            // 新角色新一局：立绘随机只在这一刻发生
+            if (_engine.ActiveCharacter is { } fresh2) CharacterLibrary.RandomizeSpriteState(fresh2);
+            _save.NewRun();
+            await Shell.Current.GoToAsync("main");
+        }
+        else
+        {
+            await Shell.Current.DisplayAlert("新建角色", "创建失败", "好");
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportCharacter()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择角色包",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                })
+            });
+            if (pick is null) return;
+            var import = await _library.ImportFromZipAsync(pick.FullPath);
+            await Shell.Current.DisplayAlert("导入角色", import.ok ? import.message : "导入失败：" + import.message, "好");
+            if (import.ok) await Refresh();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterSelect.ImportCharacter -> " + ex);
+        }
+    }
+
+    [RelayCommand]
+    private async Task Back() => await Shell.Current.GoToAsync("..");
+}
+
+/// <summary>角色选择页展示项：角色 + 头像 + 该角色名下存档情况。</summary>
+public sealed class CharacterCardItem
+{
+    public CharacterCardItem(CharacterData ch, ImageSource? avatar, string savesLabel)
+    {
+        Data = ch;
+        AvatarSource = avatar;
+        SavesLabel = savesLabel;
+    }
+
+    public CharacterData Data { get; init; }
+    public string Id => Data.Profile.Id;
+    public string Name => Data.Profile.Name;
+    public string Personality => Data.Profile.Personality;
+    public ImageSource? AvatarSource { get; init; }
+    public bool HasAvatar => AvatarSource is not null;
+    public string SavesLabel { get; init; }
+}
+
+public sealed partial class SettingsViewModel : ObservableObject
+{
+    private readonly SettingsManager _settings;
+    private readonly DesignSystem.Theme.ThemeManager _theme;
+    private readonly Modules.RealChat.OfficialChatBridge _bridge;
+    private readonly Modules.Mcp.McpOrchestrator _mcp;
+    private readonly Modules.Tools.RuntimeManager _runtimes;
+
+    public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
+        Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
+        Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox)
+    {
+        _settings = settings;
+        _theme = theme;
+        _bridge = bridge;
+        _mcp = mcp;
+        _runtimes = runtimes;
+        // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
+        _sandbox = sandbox;
+        _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
+        PythonManualPath = _runtimes.ManualPythonPath;
+        JavaManualPath = _runtimes.ManualJavaPath;
+
+        var s = settings.Current;
+        _bgmLevel = s.BgmLevel;
+        _sfxLevel = s.SfxLevel;
+        _frostOn = s.FrostEnabled;
+        _glassOn = s.GlassEnabled;
+        _liquidOn = s.LiquidEnabled;
+        _glassTranslucency = s.GlassTranslucency;
+        _glassReducedTransparency = s.GlassReducedTransparency;
+        _glassFrost = s.GlassFrost;
+        _glassHeight = s.GlassHeight;
+        _backgroundMode = string.IsNullOrEmpty(s.BackgroundMode) ? "none" : s.BackgroundMode;
+        _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
+        _backgroundImagePath = s.BackgroundImagePath ?? "";
+        _glassLightX = s.GlassLightX;
+        _glassLightY = s.GlassLightY;
+        _glassLightZ = s.GlassLightZ;
+        _glassLightWidth = s.GlassLightWidth;
+        _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
+        _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
+        _complexPlot = s.ComplexPlot;
+        _novelTesting = s.NovelTestingEnabled;
+        _showAffection = s.ShowAllAffection;
+        _affectionLevelUp = s.AffectionLevelUpEnabled;
+        _menuRight = s.MenuSide == "right";
+        _chatStyle = string.IsNullOrEmpty(s.ChatStyle) ? "galgame" : s.ChatStyle;
+        _chatStyleDisplay = ChatStyleDisplayOf(_chatStyle);
+        _allowSilence = s.AllowSilence;
+        _lang = s.Lang;
+        _langDisplay = LangDisplayOf(s.Lang);
+        _textSpeed = s.TextSpeed;
+        _autoSave = s.AutoSaveEnabled;
+        _keySfx = s.KeySfx;
+
+        _aiUrl = s.AiUrl;
+        _aiKey = s.AiKey;
+        _aiModel = s.AiModel;
+        _aiTemperature = s.AiTemperature;
+        _aiMaxTokens = s.AiMaxTokens;
+        _deepThink = s.DeepThink;
+        _deepModel = s.DeepModel;
+        _memoryTurns = s.MemoryTurns;
+
+        _ttsEnabled = s.TtsEnabled;
+        _ttsRate = s.TtsRate;
+        _sttEnabled = s.SttEnabled;
+        _ttsEngine = string.IsNullOrWhiteSpace(s.TtsEngine) ? "system" : s.TtsEngine;
+        _sttEngine = string.IsNullOrWhiteSpace(s.SttEngine) ? "system" : s.SttEngine;
+        _voiceApiUrl = string.IsNullOrWhiteSpace(s.VoiceApiUrl) ? "https://api.openai.com/v1" : s.VoiceApiUrl;
+        _voiceApiKey = s.VoiceApiKey ?? "";
+        _voiceTtsModel = string.IsNullOrWhiteSpace(s.VoiceTtsModel) ? "tts-1" : s.VoiceTtsModel;
+        _voiceSttModel = string.IsNullOrWhiteSpace(s.VoiceSttModel) ? "whisper-1" : s.VoiceSttModel;
+        _voiceName = string.IsNullOrWhiteSpace(s.VoiceName) ? "alloy" : s.VoiceName;
+
+        _notificationsEnabled = s.NotificationsEnabled;
+        _greetingEnabled = s.GreetingEnabled;
+
+        _weatherCity = s.WeatherCity;
+        _cycleLength = s.CycleLength;
+        _periodLength = s.PeriodLength;
+
+        _alwaysOnTop = s.AlwaysOnTop;
+        _petIdleMinutes = s.PetIdleMinutes;
+
+        // 小游戏难度
+        _gameDifficulty = string.IsNullOrWhiteSpace(s.GameDifficulty) ? "normal" : s.GameDifficulty;
+        _gameDifficultyDisplay = GameDifficultyDisplayOf(_gameDifficulty);
+        _aiAutoDifficulty = s.AiAutoDifficulty;
+
+        // 云端棋力
+        _chessApiEnabled = s.ChessApiEnabled;
+        _chessApiUrl = s.ChessApiUrl ?? "";
+        _chessApiKey = s.ChessApiKey ?? "";
+        _chessApiModel = string.IsNullOrWhiteSpace(s.ChessApiModel) ? "gpt-4o-mini" : s.ChessApiModel;
+
+        _qqBotEnabled = s.QqBotEnabled;
+        _qqAppId = s.QqAppId;
+        _qqAppSecret = s.QqAppSecret;
+        _wechatEnabled = s.WechatEnabled;
+        _wechatAppId = s.WechatAppId;
+        _wechatAppSecret = s.WechatAppSecret;
+        _wechatToken = s.WechatToken;
+        _wechatPort = s.WechatPort.ToString();
+        _statusText = _bridge.Status;
+        _betaChannel = s.BetaChannel;
+
+        // MCP 设置
+        _mcpEnabled = s.McpEnabled;
+        _mcpAutoApprove = s.McpAutoApprove;
+        _mcp.NetworkUrl = s.McpNetworkUrl;
+        _mcp.AutoApprove = _mcpAutoApprove;
+        _mcpNetworkUrl = s.McpNetworkUrl;
+        _mcpGitHubRepo = s.McpGitHubRepo;
+        _mcpImportZipPath = s.McpImportZipPath;
+        _mcpImportFolderPath = s.McpImportFolderPath;
+        // 这里不能同步 RefreshMcpServers()：McpOrchestrator.ListServers() 会递归
+        // Directory.GetFiles(dir, "*", SearchOption.AllDirectories) 并对每个文件取
+        // FileInfo.Length —— 全部跑在 UI 线程上。设置页是 transient，每次点「设置」
+        // 都会重新构造 ViewModel，于是每次导航都同步卡一次（「点设置卡死」的真实阻塞点）。
+        _ = LoadMcpServersAsync();
+
+        _bridge.StatusChanged += st =>
+            MainThread.BeginInvokeOnMainThread(() => StatusText = st);
+    }
+
+    [ObservableProperty] private double _bgmLevel = 0.7;
+    [ObservableProperty] private double _sfxLevel = 0.8;
+    [ObservableProperty] private bool _glassOn;
+    [ObservableProperty] private bool _frostOn;
+    [ObservableProperty] private bool _liquidOn;
+    [ObservableProperty] private double _glassTranslucency = 1.0;
+    [ObservableProperty] private bool _glassReducedTransparency;
+    [ObservableProperty] private double _glassFrost = 0.5;
+    [ObservableProperty] private double _glassHeight = 0.5;
+
+    // 背景：玻璃需要有东西可透 —— 纯色窗口背景下永远看不出玻璃
+    // 光源：X/Y 方向、Z 高度、光宽
+    [ObservableProperty] private double _glassLightX = -0.7;
+    [ObservableProperty] private double _glassLightY = -0.7;
+    [ObservableProperty] private double _glassLightZ = 0.3;
+    [ObservableProperty] private double _glassLightWidth = 0.4;
+
+    [ObservableProperty] private string _backgroundMode = "none";
+    [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
+    [ObservableProperty] private string _backgroundImagePath = "";
+    public List<string> BackgroundModeChoices { get; } = new() { "纯色（默认）", "自定义图片", "窗口透视（看穿到桌面）" };
+    public bool BackgroundImageVisible => BackgroundMode == "image";
+    public string BackgroundImageLabel => string.IsNullOrWhiteSpace(BackgroundImagePath)
+        ? "尚未选择图片" : System.IO.Path.GetFileName(BackgroundImagePath);
+
+    private static string BackgroundModeDisplayOf(string m) => m switch
+    {
+        "image" => "自定义图片",
+        "clear" => "窗口透视（看穿到桌面）",
+        _ => "纯色（默认）"
+    };
+
+    partial void OnBackgroundModeDisplayChanged(string value)
+    {
+        BackgroundMode = value switch
+        {
+            "自定义图片" => "image",
+            "窗口透视（看穿到桌面）" => "clear",
+            _ => "none"
+        };
+        OnPropertyChanged(nameof(BackgroundImageVisible));
+        PersistSettings();
+    }
+
+    partial void OnBackgroundImagePathChanged(string value)
+    {
+        OnPropertyChanged(nameof(BackgroundImageLabel));
+        PersistSettings();
+    }
+
+    /// <summary>选一张背景图；PNG 里的透明像素会穿透到窗口下层。</summary>
+    [RelayCommand]
+    private async Task PickBackgroundImage()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择背景图片",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".webp", ".bmp" } },
+                    { DevicePlatform.Android, new[] { "image/*" } },
+                    { DevicePlatform.iOS, new[] { "public.image" } }
+                })
+            });
+            if (pick is null) return;
+            BackgroundImagePath = pick.FullPath;
+            BackgroundModeDisplay = "自定义图片";
+        }
+        catch (Exception ex) { App.WriteLog("PickBackgroundImage -> " + ex.Message); }
+    }
+    [ObservableProperty] private string _themeName = "classic";
+    [ObservableProperty] private string _themeDisplay = "经典";
+
+    // 工具沙箱
+    [ObservableProperty] private ObservableCollection<Modules.Sandbox.TrustEntry> _trustedTools = new();
+    [ObservableProperty] private string _sandboxHint = "";
+
+    public List<string> ThemeChoices { get; } = new() { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰" };
+    public List<string> ChatStyleChoices { get; } = new() { "剧本式", "气泡式" };
+
+    private readonly Modules.Sandbox.SandboxPolicy _sandbox;
+
+    /// <summary>刷新信任工具列表（设置页「工具安全」区）。</summary>
+    public void RefreshSandboxTrust()
+    {
+        TrustedTools = new ObservableCollection<Modules.Sandbox.TrustEntry>(_sandbox.Trust.All());
+        SandboxHint = TrustedTools.Count == 0
+            ? "默认所有外部工具都不能读取模型数据（API Key 等）。需要时在此处加入信任。"
+            : $"已信任 {TrustedTools.Count} 个工具。";
+    }
+
+    /// <summary>把工具目录加入信任名单（按目录路径）。</summary>
+    [RelayCommand]
+    private async Task TrustToolDir()
+    {
+        var dir = await Microsoft.Maui.Controls.Shell.Current.DisplayActionSheet(
+            "选择要信任的工具目录", "取消", null,
+            Directory.Exists(Modules.Tools.ToolManager.ToolsDir)
+                ? Directory.GetDirectories(Modules.Tools.ToolManager.ToolsDir).Select(System.IO.Path.GetFileName).ToArray()
+                : new string[] { "（工具目录为空）" });
+        if (dir is null || dir == "（工具目录为空）") return;
+        var full = System.IO.Path.Combine(Modules.Tools.ToolManager.ToolsDir, dir);
+        _sandbox.Trust.Add(dir, full, "设置页手动放开");
+        _sandbox.RefreshKeyFingerprints();
+        await Task.CompletedTask;
+        RefreshSandboxTrust();
+    }
+
+    [RelayCommand]
+    private void RemoveTrustedTool(Modules.Sandbox.TrustEntry tool)
+    {
+        _sandbox.Trust.Remove(tool.ToolName, tool.ToolPath);
+        RefreshSandboxTrust();
+    }
+
+    // 自动更新
+    [ObservableProperty] private bool _betaChannel;
+    [ObservableProperty] private bool _isCheckingUpdate;
+    [ObservableProperty] private string _updateStatus = "";
+    [ObservableProperty] private string _latestUpdateVersion = "";
+
+    private readonly Modules.Update.UpdateService _updater = new();
+
+    [RelayCommand]
+    private async Task CheckUpdate()
+    {
+        IsCheckingUpdate = true;
+        _latestUpdateVersion = "";
+        UpdateStatus = "正在检查更新（多镜像测速中）…";
+        try
+        {
+            _updater.BetaChannel = BetaChannel;
+            var r = await _updater.CheckAsync();
+            if (r.Error is not null)
+            {
+                UpdateStatus = "检查失败：" + r.Error;
+                return;
+            }
+            if (r.Latest is not null && r.HasUpdate)
+            {
+                _latestUpdateVersion = r.Latest.Tag;
+                // 测速选最快镜像
+                var speeds = await _updater.SpeedTestAsync(r.Latest.ZipUrl);
+                var fastest = speeds.Count > 0 ? speeds[0] : null;
+                UpdateStatus = $"发现新版本 {r.Latest.Tag}（{r.Latest.DownloadNote}）"
+                    + (fastest is not null ? $" · 最快源 {fastest.Mirror.TrimEnd('/')}（{fastest.MibPerSec:0.#} MiB/s）" : "");
+            }
+            else
+            {
+                UpdateStatus = r.Latest is null ? "已是最新版本" : $"当前为最新版本 {r.Latest.Tag}";
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Settings.CheckUpdate -> " + ex.Message);
+            UpdateStatus = "检查失败：" + ex.Message;
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadUpdate()
+    {
+        if (string.IsNullOrEmpty(_latestUpdateVersion))
+        {
+            UpdateStatus = "先点击「检查更新」发现新版本。";
+            return;
+        }
+        IsCheckingUpdate = true;
+        UpdateStatus = "正在下载更新包…";
+        try
+        {
+            _updater.BetaChannel = BetaChannel;
+            var r = await _updater.CheckAsync();
+            if (r.Latest is null) { UpdateStatus = "未发现可下载版本。"; return; }
+            var speeds = await _updater.SpeedTestAsync(r.Latest.ZipUrl);
+            var url = speeds.Count > 0
+                ? speeds[0].Mirror + "gongchanwangzilin/WarmAsBefore/releases/download/" + r.Latest.Tag + "/" + System.IO.Path.GetFileName(r.Latest.ZipUrl)
+                : r.Latest.ZipUrl;
+            var sha = await _updater.FetchSha256Async(r.Latest.Sha256);
+            var dir = System.IO.Path.Combine(Microsoft.Maui.Storage.FileSystem.AppDataDirectory, "WarmAsBefore", "updates");
+            var zip = await _updater.DownloadAsync(url, dir, sha);
+            UpdateStatus = $"已下载到 {zip}（SHA256 {(string.IsNullOrEmpty(sha) ? "未校验" : "已校验")}），重启后替换。";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Settings.DownloadUpdate -> " + ex.Message);
+            UpdateStatus = "下载失败：" + ex.Message;
+        }
+        finally
+        {
+            IsCheckingUpdate = false;
+        }
+    }
+
+    /// <summary>毛玻璃是磨砂的高级版：必须开启磨砂后才能开启毛玻璃。</summary>
+    public bool CanGlass => FrostOn;
+
+    /// <summary>透明度 > 0 才算真的开了玻璃；为 0 时表面不透明，等同于关闭。</summary>
+    public bool GlassActive => GlassTranslucency > 0.01;
+    public bool GlassInactive => !GlassActive;
+    [ObservableProperty] private bool _complexPlot;
+    [ObservableProperty] private bool _novelTesting;
+    [ObservableProperty] private bool _showAffection;
+    [ObservableProperty] private bool _affectionLevelUp = true;
+    [ObservableProperty] private bool _menuRight;
+    [ObservableProperty] private string _chatStyle = "galgame";
+    [ObservableProperty] private string _chatStyleDisplay = "剧本式";
+    [ObservableProperty] private bool _allowSilence;
+    [ObservableProperty] private string _lang = "zh-CN";
+    [ObservableProperty] private string _langDisplay = "简体中文";
+    [ObservableProperty] private double _textSpeed = 1.0;
+    [ObservableProperty] private bool _autoSave = true;
+    [ObservableProperty] private string _keySfx = "default";
+
+    [ObservableProperty] private string _aiUrl = "https://api.openai.com/v1/chat/completions";
+    [ObservableProperty] private string _aiKey = "";
+    [ObservableProperty] private string _aiModel = "gpt-4o";
+    [ObservableProperty] private double _aiTemperature = 0.8;
+    [ObservableProperty] private double _aiMaxTokens = 500;
+    [ObservableProperty] private bool _deepThink;
+    [ObservableProperty] private string _deepModel = "";
+    [ObservableProperty] private int _memoryTurns = 5;
+
+    /// <summary>API 可用的模型列表（由 FetchModelsAsync 填充）。</summary>
+    public ObservableCollection<string> AiModelChoices { get; } = new();
+    [ObservableProperty] private bool _isLoadingModels;
+    [ObservableProperty] private string _modelListStatus = "";
+
+    [ObservableProperty] private bool _ttsEnabled = true;
+    [ObservableProperty] private double _ttsRate = 1.0;
+    [ObservableProperty] private bool _sttEnabled = true;
+    [ObservableProperty] private string _ttsEngine = "system";
+    [ObservableProperty] private string _sttEngine = "system";
+    [ObservableProperty] private string _voiceApiUrl = "https://api.openai.com/v1";
+    [ObservableProperty] private string _voiceApiKey = "";
+    [ObservableProperty] private string _voiceTtsModel = "tts-1";
+    [ObservableProperty] private string _voiceSttModel = "whisper-1";
+    [ObservableProperty] private string _voiceName = "alloy";
+
+    public List<string> VoiceEngineChoices { get; } = new() { "system", "api" };
+
+    [ObservableProperty] private bool _notificationsEnabled = true;
+    [ObservableProperty] private bool _greetingEnabled = true;
+
+    [ObservableProperty] private string _weatherCity = "";
+    [ObservableProperty] private int _cycleLength = 28;
+    [ObservableProperty] private int _periodLength = 5;
+
+    // 小游戏 AI 难度
+    [ObservableProperty] private string _gameDifficulty = "normal";
+    [ObservableProperty] private string _gameDifficultyDisplay = "普通（默认）";
+    [ObservableProperty] private bool _aiAutoDifficulty;
+    public List<string> GameDifficultyChoices { get; } = new() { "简单（新手练手）", "普通（默认）", "困难（步步紧逼）" };
+
+    // 云端棋力脑
+    [ObservableProperty] private bool _chessApiEnabled;
+    [ObservableProperty] private string _chessApiUrl = "";
+    [ObservableProperty] private string _chessApiKey = "";
+    [ObservableProperty] private string _chessApiModel = "gpt-4o-mini";
+    private static string GameDifficultyDisplayOf(string v) => v switch
+    {
+        "easy" => "简单（新手练手）",
+        "hard" => "困难（步步紧逼）",
+        _ => "普通（默认）"
+    };
+    partial void OnGameDifficultyDisplayChanged(string value)
+    {
+        _gameDifficulty = value switch
+        {
+            "简单（新手练手）" => "easy",
+            "困难（步步紧逼）" => "hard",
+            _ => "normal"
+        };
+        // 旧实现只改字段不落盘：设置页显示「困难」，服务读到的仍是 normal，UI 与设置不一致
+        PersistSettings();
+    }
+
+    [ObservableProperty] private bool _alwaysOnTop;
+    [ObservableProperty] private int _petIdleMinutes;
+
+    [ObservableProperty] private bool _qqBotEnabled;
+    [ObservableProperty] private string _qqAppId = "";
+    [ObservableProperty] private string _qqAppSecret = "";
+    [ObservableProperty] private bool _wechatEnabled;
+    [ObservableProperty] private string _wechatAppId = "";
+    [ObservableProperty] private string _wechatAppSecret = "";
+    [ObservableProperty] private string _wechatToken = "";
+    [ObservableProperty] private string _wechatPort = "8012";
+    [ObservableProperty] private string _statusText = "";
+
+    // MCP 配置
+    [ObservableProperty] private bool _mcpEnabled;
+    [ObservableProperty] private bool _mcpAutoApprove = true;
+    [ObservableProperty] private string _mcpNetworkUrl = "";
+    [ObservableProperty] private string _mcpGitHubRepo = "";
+    [ObservableProperty] private string _mcpImportZipPath = "";
+    [ObservableProperty] private string _mcpImportFolderPath = "";
+    [ObservableProperty] private bool _isImporting;
+    [ObservableProperty] private double _importProgress;
+    [ObservableProperty] private string _importStatus = "";
+    /// <summary>MCP 数据包列表（已导入 / 新建）。</summary>
+    public ObservableCollection<Modules.Mcp.McpServerItem> McpServers { get; } = new();
+
+    // ---- 工具模式运行时（Java / Python）----
+    [ObservableProperty] private string _pythonStatus = "未检测（点击下方「检测运行时」）";
+    [ObservableProperty] private string _javaStatus = "未检测（点击下方「检测运行时」）";
+    [ObservableProperty] private string _pythonManualPath = "";
+    [ObservableProperty] private string _javaManualPath = "";
+    [ObservableProperty] private bool _isRuntimeBusy;
+    [ObservableProperty] private string _runtimeBusyText = "";
+    public bool RuntimeOsSupported => _runtimes is { } r && r.IsDesktop;
+
+    // ---- 开发者展示模式 ----
+    [ObservableProperty] private bool _showcaseUnlocked;
+    /// <summary>设置页是否已滚动到底部（隐藏入口只在最底部生效）。</summary>
+    [ObservableProperty] private bool _atScrollBottom;
+    /// <summary>连击点按计数：翻到设置最底部连续点按 114514 次后解锁。</summary>
+    [ObservableProperty] private int _secretTapCount;
+    private const int SecretTapsNeeded = 114514;
+    private int _secretStamp;
+    private readonly object SecretGate = new();
+
+    public List<string> Langs { get; } = new() { "简体中文", "繁體中文", "English", "日本語" };
+    public List<string> KeySfxChoices { get; } = new() { "default", "soft", "typewriter", "none" };
+    public List<int> MemoryTurnsChoices { get; } = new() { 3, 5, 8, 10, 12, 15, 20 };
+    public List<int> CycleChoices { get; } = Enumerable.Range(21, 15).ToList();
+    public List<int> PeriodChoices { get; } = Enumerable.Range(3, 5).ToList();
+    /// <summary>桌宠闲置时长可选值（分钟）：0=关闭闲置自动桌宠。</summary>
+    public List<int> PetIdleChoices { get; } = new() { 0, 1, 3, 5, 10, 15, 30, 60 };
+
+    partial void OnBgmLevelChanged(double value) => PersistSettings();
+    partial void OnSfxLevelChanged(double value) => PersistSettings();
+    partial void OnGlassOnChanged(bool value)
+    {
+        if (value && !FrostOn) FrostOn = true;
+        _theme.Glass = value;
+        PersistSettings();
+    }
+    partial void OnFrostOnChanged(bool value)
+    {
+        if (!value) GlassOn = false;
+        _theme.Frost = value;
+        OnPropertyChanged(nameof(CanGlass));
+        PersistSettings();
+    }
+    partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings(); }
+    partial void OnGlassTranslucencyChanged(double value)
+    {
+        _theme.GlassTranslucency = value;
+        OnPropertyChanged(nameof(GlassActive));
+        OnPropertyChanged(nameof(GlassInactive));
+        PersistSettings();
+    }
+    partial void OnGlassReducedTransparencyChanged(bool value)
+    {
+        _theme.ReducedTransparency = value;
+        PersistSettings();
+    }
+    partial void OnGlassFrostChanged(double value)
+    {
+        _theme.GlassFrost = value;
+        PersistSettings();
+    }
+    partial void OnGlassHeightChanged(double value)
+    {
+        _theme.GlassHeight = value;
+        PersistSettings();
+    }
+    partial void OnGlassLightXChanged(double value) { _theme.GlassLightX = value; PersistSettings(); }
+    partial void OnGlassLightYChanged(double value) { _theme.GlassLightY = value; PersistSettings(); }
+    partial void OnGlassLightZChanged(double value) { _theme.GlassLightZ = value; PersistSettings(); }
+    partial void OnGlassLightWidthChanged(double value) { _theme.GlassLightWidth = value; PersistSettings(); }
+    partial void OnThemeDisplayChanged(string value) { ThemeName = ThemeKeyOf(value); _theme.ThemeName = ThemeName; PersistSettings(); }
+    partial void OnComplexPlotChanged(bool value) => PersistSettings();
+    partial void OnNovelTestingChanged(bool value) => PersistSettings();
+    partial void OnShowAffectionChanged(bool value) => PersistSettings();
+    partial void OnAffectionLevelUpChanged(bool value) => PersistSettings();
+    partial void OnMenuRightChanged(bool value) => PersistSettings();
+    partial void OnChatStyleDisplayChanged(string value) { ChatStyle = ChatStyleKeyOf(value); PersistSettings(); }
+    partial void OnAllowSilenceChanged(bool value) => PersistSettings();
+    partial void OnLangChanged(string value)
+    {
+        PersistSettings();
+        LocalizationService.Current.SetCulture(value);
+    }
+
+    partial void OnLangDisplayChanged(string value) => Lang = LangCodeOf(value);
+    partial void OnTextSpeedChanged(double value) => PersistSettings();
+    partial void OnAutoSaveChanged(bool value) => PersistSettings();
+    partial void OnKeySfxChanged(string value) => PersistSettings();
+
+    partial void OnAiUrlChanged(string value)
+    {
+        PersistSettings();
+        _ = FetchModelsAsync();
+    }
+    partial void OnAiKeyChanged(string value)
+    {
+        PersistSettings();
+        _ = FetchModelsAsync();
+    }
+    partial void OnAiModelChanged(string value) => PersistSettings();
+    partial void OnAiTemperatureChanged(double value) => PersistSettings();
+    partial void OnAiMaxTokensChanged(double value) => PersistSettings();
+    partial void OnDeepThinkChanged(bool value) => PersistSettings();
+    partial void OnDeepModelChanged(string value) => PersistSettings();
+    partial void OnMemoryTurnsChanged(int value) => PersistSettings();
+
+    partial void OnTtsEnabledChanged(bool value) => PersistSettings();
+    partial void OnTtsRateChanged(double value) => PersistSettings();
+    partial void OnSttEnabledChanged(bool value) => PersistSettings();
+    partial void OnTtsEngineChanged(string value) { OnPropertyChanged(nameof(NeedsVoiceApi)); PersistSettings(); }
+    partial void OnSttEngineChanged(string value) { OnPropertyChanged(nameof(NeedsVoiceApi)); PersistSettings(); }
+    partial void OnVoiceApiUrlChanged(string value) => PersistSettings();
+    partial void OnVoiceApiKeyChanged(string value) => PersistSettings();
+    partial void OnVoiceTtsModelChanged(string value) => PersistSettings();
+    partial void OnVoiceSttModelChanged(string value) => PersistSettings();
+    partial void OnVoiceNameChanged(string value) => PersistSettings();
+
+    /// <summary>朗读或识别选了 API 引擎时，显示 API 语音配置区。</summary>
+    public bool NeedsVoiceApi => TtsEngine == "api" || SttEngine == "api";
+
+    partial void OnNotificationsEnabledChanged(bool value) => PersistSettings();
+    partial void OnGreetingEnabledChanged(bool value) => PersistSettings();
+
+    partial void OnWeatherCityChanged(string value) => PersistSettings();
+    partial void OnCycleLengthChanged(int value) => PersistSettings();
+    partial void OnPeriodLengthChanged(int value) => PersistSettings();
+
+    partial void OnAlwaysOnTopChanged(bool value) => PersistSettings();
+    partial void OnPetIdleMinutesChanged(int value) => PersistSettings();
+
+    // 以下四项原先没有任何变更处理器：改了既不落盘、也不下发，
+    // 而小游戏/棋力服务读的是已落盘的 UserSettings —— 于是设置页显示与真实生效值不一致。
+    partial void OnAiAutoDifficultyChanged(bool value) => PersistSettings();
+    partial void OnChessApiEnabledChanged(bool value) => PersistSettings();
+    partial void OnChessApiUrlChanged(string value) => PersistSettings();
+    partial void OnChessApiKeyChanged(string value) => PersistSettings();
+    partial void OnChessApiModelChanged(string value) => PersistSettings();
+    // 自动更新通道：此前无处理器且模型里没有该字段，重开设置页永远是「正式版」
+    partial void OnBetaChannelChanged(bool value) => PersistSettings();
+
+    partial void OnQqBotEnabledChanged(bool value) => PersistSettings();
+    partial void OnQqAppIdChanged(string value) => PersistSettings();
+    partial void OnQqAppSecretChanged(string value) => PersistSettings();
+    partial void OnWechatEnabledChanged(bool value) => PersistSettings();
+    partial void OnWechatAppIdChanged(string value) => PersistSettings();
+    partial void OnWechatAppSecretChanged(string value) => PersistSettings();
+    partial void OnWechatTokenChanged(string value) => PersistSettings();
+    partial void OnWechatPortChanged(string value) => PersistSettings();
+
+    partial void OnMcpEnabledChanged(bool value) => PersistSettings();
+    partial void OnMcpNetworkUrlChanged(string value) { _mcp.NetworkUrl = value; PersistSettings(); }
+    partial void OnMcpAutoApproveChanged(bool value) { _mcp.AutoApprove = value; PersistSettings(); }
+    partial void OnMcpGitHubRepoChanged(string value) => PersistSettings();
+    partial void OnMcpImportZipPathChanged(string value) => PersistSettings();
+    partial void OnMcpImportFolderPathChanged(string value) => PersistSettings();
+
+    private static string ThemeKeyOf(string display) => display switch
+    {
+        "樱花粉" => "sakura",
+        "翠竹绿" => "bamboo",
+        "晨雾蓝灰" => "mist",
+        _ => "classic"
+    };
+
+    private static string ChatStyleDisplayOf(string key) => key switch
+    {
+        "bubble" => "气泡式",
+        _ => "剧本式"
+    };
+
+    private static string ChatStyleKeyOf(string display) => display switch
+    {
+        "气泡式" => "bubble",
+        _ => "galgame"
+    };
+
+    private static string LangCodeOf(string display) => display switch
+    {
+        "繁體中文" => "zh-TW",
+        "English" => "en-US",
+        "日本語" => "ja-JP",
+        _ => "zh-CN"
+    };
+
+    private static string LangDisplayOf(string code) => code switch
+    {
+        "zh-TW" => "繁體中文",
+        "en-US" => "English",
+        "ja-JP" => "日本語",
+        _ => "简体中文"
+    };
+
+    // 防抖：拖动滑杆 / 连续改设置时，每次变更都要跑一遍
+    // 「序列化整个 UserSettings + 落盘 + _settings.Apply → RuntimeConfigurator.Apply」
+    // （Apply 里还会重配 AI / 天气 / 语音 / 问候 / 官方接入桥），代价很高，
+    // 连续操作会叠加成数秒卡死。这里改成只在停手后跑一次。
+    private System.Threading.Timer? _persistTimer;
+    private readonly object _persistLock = new();
+
+    private void PersistSettings()
+    {
+        lock (_persistLock)
+        {
+            _persistTimer ??= new System.Threading.Timer(
+                _ => MainThread.BeginInvokeOnMainThread(PersistNow), null,
+                Timeout.Infinite, Timeout.Infinite);
+            _persistTimer.Change(300, Timeout.Infinite);
+        }
+    }
+
+    private async void PersistNow()
+    {
+        try
+        {
+            var port = int.TryParse(WechatPort, out var p) && p > 0 && p < 65536 ? p : 8012;
+            var s = new UserSettings
+            {
+                BgmLevel = BgmLevel,
+                SfxLevel = SfxLevel,
+                ComplexPlot = ComplexPlot,
+                NovelTestingEnabled = NovelTesting,
+                ShowAllAffection = ShowAffection,
+                AffectionLevelUpEnabled = AffectionLevelUp,
+                FrostEnabled = FrostOn,
+                GlassEnabled = GlassOn,
+                LiquidEnabled = LiquidOn,
+                GlassTranslucency = GlassTranslucency,
+                GlassReducedTransparency = GlassReducedTransparency,
+GlassFrost = GlassFrost,
+GlassHeight = GlassHeight,
+BackgroundMode = BackgroundMode,
+BackgroundImagePath = BackgroundImagePath,
+GlassLightX = GlassLightX,
+GlassLightY = GlassLightY,
+GlassLightZ = GlassLightZ,
+GlassLightWidth = GlassLightWidth,
+                ThemeName = ThemeKeyOf(ThemeDisplay),
+                MenuSide = MenuRight ? "right" : "left",
+                Lang = Lang,
+                TextSpeed = TextSpeed,
+                AutoSaveEnabled = AutoSave,
+                KeySfx = KeySfx,
+                ChatStyle = ChatStyle,
+                AllowSilence = AllowSilence,
+
+                AiUrl = string.IsNullOrWhiteSpace(AiUrl) ? "https://api.openai.com/v1/chat/completions" : AiUrl.Trim(),
+                AiKey = AiKey.Trim(),
+                AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
+                AiTemperature = AiTemperature,
+                AiMaxTokens = Math.Clamp((int)AiMaxTokens, 100, 8000),
+                DeepThink = DeepThink,
+                DeepModel = DeepModel.Trim(),
+                MemoryTurns = MemoryTurns,
+
+                TtsEnabled = TtsEnabled,
+                TtsRate = TtsRate,
+                SttEnabled = SttEnabled,
+                TtsEngine = string.IsNullOrWhiteSpace(TtsEngine) ? "system" : TtsEngine,
+                SttEngine = string.IsNullOrWhiteSpace(SttEngine) ? "system" : SttEngine,
+                VoiceApiUrl = string.IsNullOrWhiteSpace(VoiceApiUrl) ? "https://api.openai.com/v1" : VoiceApiUrl.Trim(),
+                VoiceApiKey = (VoiceApiKey ?? "").Trim(),
+                VoiceTtsModel = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel.Trim(),
+                VoiceSttModel = string.IsNullOrWhiteSpace(VoiceSttModel) ? "whisper-1" : VoiceSttModel.Trim(),
+                VoiceName = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName.Trim(),
+
+                NotificationsEnabled = NotificationsEnabled,
+                GreetingEnabled = GreetingEnabled,
+
+                WeatherCity = WeatherCity.Trim(),
+                CycleLength = CycleLength,
+                PeriodLength = PeriodLength,
+
+                AlwaysOnTop = AlwaysOnTop,
+                PetIdleMinutes = Math.Max(0, PetIdleMinutes),
+
+                QqBotEnabled = QqBotEnabled,
+                QqAppId = QqAppId.Trim(),
+                QqAppSecret = QqAppSecret.Trim(),
+                WechatEnabled = WechatEnabled,
+                WechatAppId = WechatAppId.Trim(),
+                WechatAppSecret = WechatAppSecret.Trim(),
+                WechatToken = WechatToken.Trim(),
+                 WechatPort = port,
+
+                 McpEnabled = McpEnabled,
+                 McpAutoApprove = McpAutoApprove,
+                 McpNetworkUrl = McpNetworkUrl.Trim(),
+                 McpGitHubRepo = McpGitHubRepo.Trim(),
+                 McpImportZipPath = McpImportZipPath.Trim(),
+                 McpImportFolderPath = McpImportFolderPath.Trim(),
+
+                 GameDifficulty = GameDifficulty,
+                 AiAutoDifficulty = AiAutoDifficulty,
+                 ChessApiEnabled = ChessApiEnabled,
+                 ChessApiUrl = ChessApiUrl.Trim(),
+                 ChessApiKey = ChessApiKey.Trim(),
+                 ChessApiModel = string.IsNullOrWhiteSpace(ChessApiModel) ? "gpt-4o-mini" : ChessApiModel.Trim(),
+
+                 BetaChannel = BetaChannel,
+DeveloperShowcaseUnlocked = ShowcaseUnlocked,
+                 PythonPath = _runtimes.ManualPythonPath,
+                 JavaPath = _runtimes.ManualJavaPath
+             };
+            _settings.Apply(s);
+            await _settings.Persist();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.PersistSettings EX -> " + ex);
+        }
+    }
+
+    /// <summary>检测 API 并获取可用模型列表。</summary>
+    [RelayCommand]
+    private async Task FetchModelsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(AiUrl) || string.IsNullOrWhiteSpace(AiKey))
+        {
+            AiModelChoices.Clear();
+            ModelListStatus = "请先填写 API 地址和密钥";
+            return;
+        }
+        IsLoadingModels = true;
+        ModelListStatus = "检测中...";
+        try
+        {
+            var services = Application.Current?.Handler?.MauiContext?.Services;
+            if (services is null) { ModelListStatus = "无法获取服务"; return; }
+            var api = services.GetService(typeof(Modules.ApiManager.ApiGateway)) as Modules.ApiManager.ApiGateway;
+            if (api is null) { ModelListStatus = "API 服务不可用"; return; }
+
+            // 先配置 API
+            api.Configure(new AiEndpoint
+            {
+                Url = AiUrl.Trim(),
+                Key = AiKey.Trim(),
+                Model = AiModel.Trim(),
+                Temperature = AiTemperature,
+                MaxTokens = (int)AiMaxTokens
+            });
+
+            var models = await api.ListModels();
+            if (models is not null && models.Count > 0)
+            {
+                AiModelChoices.Clear();
+                foreach (var m in models.OrderBy(x => x))
+                    AiModelChoices.Add(m);
+                ModelListStatus = $"已加载 {models.Count} 个模型";
+                // 如果当前模型不在列表中，自动选择第一个
+                if (!AiModelChoices.Contains(AiModel))
+                    AiModel = AiModelChoices[0];
+            }
+            else
+            {
+                AiModelChoices.Clear();
+                ModelListStatus = "无法获取模型列表（可能 API 密钥无效或端点不支持）";
+            }
+        }
+        catch (Exception ex)
+        {
+            AiModelChoices.Clear();
+            ModelListStatus = $"检测失败: {ex.Message}";
+        }
+        finally
+        {
+            IsLoadingModels = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task TestConnection()
+    {
+        try
+        {
+            var result = await _bridge.TestAsync();
+            await Shell.Current.DisplayAlert("官方接入测试", result, "好的");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.TestConnection -> " + ex);
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportMcpFromGitHub()
+    {
+        if (IsImporting) return;
+        try
+        {
+            if (string.IsNullOrWhiteSpace(McpGitHubRepo))
+            {
+                await Shell.Current.DisplayAlert("MCP", "请先输入 GitHub 仓库 URL", "好");
+                return;
+            }
+            IsImporting = true;
+            ImportProgress = 0;
+            ImportStatus = LocalizationService.Current["Settings_ImportReady"];
+            var progress = new Progress<string>(s => ImportStatus = s);
+            var result = await _mcp.ImportFromGitHub(McpGitHubRepo, _mcp.McpPackDir, progress);
+            RefreshMcpServers();
+            await Shell.Current.DisplayAlert("MCP GitHub 导入", result, "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ImportMcpFromGitHub -> " + ex);
+        }
+        finally
+        {
+            IsImporting = false;
+            ImportProgress = 0;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportMcpZip()
+    {
+        if (IsImporting) return;
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择 MCP 数据包 ZIP",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                })
+            });
+            if (pick is null) return;
+            McpImportZipPath = pick.FullPath;
+            IsImporting = true;
+            ImportProgress = 0;
+            ImportStatus = LocalizationService.Current["Settings_ImportUnzip"];
+            var progress = new Progress<(int done, int total)>(t =>
+                ImportProgress = t.total == 0 ? 0 : (double)t.done / t.total);
+            var result = await _mcp.ImportZip(pick.FullPath, _mcp.McpPackDir, progress);
+            RefreshMcpServers();
+            await Shell.Current.DisplayAlert("MCP ZIP 导入", result, "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ImportMcpZip -> " + ex);
+        }
+        finally
+        {
+            IsImporting = false;
+            ImportProgress = 0;
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportMcpFolder()
+    {
+        if (IsImporting) return;
+        try
+        {
+#if WINDOWS
+            var wnd = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null)?.Handler?.PlatformView
+                as Microsoft.UI.Xaml.Window;
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(wnd);
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+            picker.FileTypeFilter.Add("*");
+            var picked = await picker.PickSingleFolderAsync();
+            if (picked is null) return;
+            McpImportFolderPath = picked.Path;
+#else
+            // MAUI 的 FolderPicker 只在 Windows / macOS 上存在，Android 没有文件夹选择器。
+            // 之前这里直接调 FolderPicker.Default，Android 目标因此编译不过。
+            await Shell.Current.DisplayAlert("导入 MCP 文件夹",
+                "Android 端暂不支持选择文件夹，请改用「导入 zip」。", "好");
+            return;
+#endif
+            IsImporting = true;
+            ImportProgress = 0;
+            ImportStatus = LocalizationService.Current["Settings_ImportCopy"];
+            var progress = new Progress<(int done, int total)>(t =>
+                ImportProgress = t.total == 0 ? 0 : (double)t.done / t.total);
+            var result = await _mcp.ImportFolder(McpImportFolderPath, _mcp.McpPackDir, progress);
+            RefreshMcpServers();
+            await Shell.Current.DisplayAlert("MCP 文件夹导入", result, "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ImportMcpFolder -> " + ex);
+        }
+        finally
+        {
+            IsImporting = false;
+            ImportProgress = 0;
+        }
+    }
+
+    /// <summary>后台线程扫描 MCP 数据包目录，再回 UI 线程回填集合（首次进入设置页不再阻塞）。</summary>
+    private async Task LoadMcpServersAsync()
+    {
+        List<Modules.Mcp.McpServerItem> items;
+        try
+        {
+            items = await Task.Run(() => _mcp.ListServers());
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.LoadMcpServers -> " + ex);
+            return;
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            McpServers.Clear();
+            foreach (var item in items) McpServers.Add(item);
+        });
+    }
+
+    /// <summary>刷新 MCP 数据包列表（从 McpPacks 目录扫描）。</summary>
+    private void RefreshMcpServers()
+    {
+        try
+        {
+            McpServers.Clear();
+            foreach (var item in _mcp.ListServers())
+                McpServers.Add(item);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.RefreshMcpServers -> " + ex);
+        }
+    }
+
+    /// <summary>新建 MCP 服务器：名称 + 简介 + 可选地址。</summary>
+    [RelayCommand]
+    private async Task NewMcpServer()
+    {
+        try
+        {
+            var name = await Shell.Current.DisplayPromptAsync("新建 MCP 服务器", "输入名称（将作为数据包目录名）", "下一步", "取消", "例如: 天气服务");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var desc = await Shell.Current.DisplayPromptAsync("新建 MCP 服务器", "简介（说明这个服务器的用途）", "下一步", "取消", "例如: 提供实时天气查询");
+            if (string.IsNullOrWhiteSpace(desc)) return;
+            var url = await Shell.Current.DisplayPromptAsync("新建 MCP 服务器", "接入地址（可选，留空则仅本地数据包）", "创建", "取消", "https://…");
+            var item = _mcp.CreateServer(name, desc, url);
+            if (item is null)
+            {
+                await Shell.Current.DisplayAlert("新建 MCP 服务器", "创建失败（名称可能包含非法字符）", "好");
+                return;
+            }
+            RefreshMcpServers();
+            await Shell.Current.DisplayAlert("新建 MCP 服务器", $"已创建: {item.Name}\n{item.Detail}", "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.NewMcpServer -> " + ex);
+        }
+    }
+
+    /// <summary>查看某条 MCP 服务器的简介与属性详情。</summary>
+    [RelayCommand]
+    private async Task ShowMcpServerDetails(Modules.Mcp.McpServerItem? item)
+    {
+        try
+        {
+            if (item is null) return;
+            await Shell.Current.DisplayAlert($"MCP 服务器 · {item.Name}", item.Detail, "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ShowMcpServerDetails -> " + ex);
+        }
+    }
+
+    [RelayCommand]
+    private async Task GoBack() => await Shell.Current.GoToAsync("..");
+
+    // ============ 工具模式运行时 ============
+
+    /// <summary>检测 Python / Java 运行时，并回填手动路径。</summary>
+    [RelayCommand]
+    private async Task DetectRuntimes()
+    {
+        if (!_runtimes.IsDesktop)
+        {
+            await Shell.Current.DisplayAlert("工具模式", "外部 Java/Python 工具仅桌面端可用（当前设备为移动端）。", "好");
+            return;
+        }
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "正在检测…";
+        PythonStatus = "检测中…";
+        JavaStatus = "检测中…";
+        try
+        {
+            var st = await _runtimes.DetectAsync();
+            PythonManualPath = _runtimes.ManualPythonPath;
+            JavaManualPath = _runtimes.ManualJavaPath;
+            PythonStatus = st.PythonOk ? "✅ " + st.PythonDetail : "❌ " + st.PythonDetail;
+            JavaStatus = st.JavaOk ? "✅ " + st.JavaDetail : "❌ " + st.JavaDetail;
+            if (string.IsNullOrEmpty(st.WindowsOnlyNote))
+                RuntimeBusyText = "检测完成";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DetectRuntimes -> " + ex);
+            RuntimeBusyText = "检测出错：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task SetPythonPath()
+    {
+        var input = await Shell.Current.DisplayPromptAsync("Python 路径",
+            "输入 python.exe 的完整路径，或包含 python.exe 的目录（清空可解除）：", "确定", "取消", _runtimes.ManualPythonPath);
+        if (input is null) return;
+        _runtimes.SetManualPythonPath(input);
+        PythonManualPath = _runtimes.ManualPythonPath;
+        await DetectRuntimes();
+    }
+
+    [RelayCommand]
+    private async Task SetJavaPath()
+    {
+        var input = await Shell.Current.DisplayPromptAsync("Java 路径",
+            "输入 java.exe 的完整路径，或包含 bin/java.exe 的目录（清空可解除）：", "确定", "取消", _runtimes.ManualJavaPath);
+        if (input is null) return;
+        _runtimes.SetManualJavaPath(input);
+        JavaManualPath = _runtimes.ManualJavaPath;
+        await DetectRuntimes();
+    }
+
+    [RelayCommand]
+    private async Task DownloadPython()
+    {
+        if (IsRuntimeBusy) return;
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "准备下载 Python 便携版…";
+        try
+        {
+            var progress = new Progress<string>(s =>
+                MainThread.BeginInvokeOnMainThread(() => RuntimeBusyText = s));
+            var result = await _runtimes.DownloadPythonAsync(progress);
+            RuntimeBusyText = result;
+            await DetectRuntimes();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DownloadPython -> " + ex);
+            RuntimeBusyText = "下载失败：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    [RelayCommand]
+    private async Task DownloadJava()
+    {
+        if (IsRuntimeBusy) return;
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "准备下载 Java 便携版…";
+        try
+        {
+            var progress = new Progress<string>(s =>
+                MainThread.BeginInvokeOnMainThread(() => RuntimeBusyText = s));
+            var result = await _runtimes.DownloadJavaAsync(progress);
+            RuntimeBusyText = result;
+            await DetectRuntimes();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DownloadJava -> " + ex);
+            RuntimeBusyText = "下载失败：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    /// <summary>点击「检测运行时」按钮的包装（XAML 里也行，但保留同步调用的快捷入口）。</summary>
+    [RelayCommand]
+    private async Task RefreshRuntimes() => await DetectRuntimes();
+
+    // ============ 开发者展示模式（114514 连击解锁） ============
+
+    /// <summary>
+    /// 翻到设置最底部后，对解锁按钮连续点按 114514 次即解锁（无需输入框，不弹密码框）。
+    /// 达成开启成功提示；连击被打断（超过 4 秒未继续）则提示密码是错误并重置。
+    /// </summary>
+    [RelayCommand]
+    private async Task SecretTap()
+    {
+        if (ShowcaseUnlocked) return;
+        if (!AtScrollBottom) return;   // 隐藏入口：只有滚到最底部才计数
+        SecretTapCount++;
+        RestartSecretTimer();
+        if (SecretTapCount >= SecretTapsNeeded)
+        {
+            lock (SecretGate) { _secretStamp++; }
+            ShowcaseUnlocked = true;
+            _settings.Apply(_settings.Current with { DeveloperShowcaseUnlocked = true });
+            await _settings.Persist();
+            SecretTapCount = 0;
+            await Shell.Current.DisplayAlert("🔓 开启成功", "开发者展示模式已开启：新增「开发者展示」入口（可编辑 / 播放展示案，含多立绘支持）。", "好");
+        }
+    }
+
+    private void RestartSecretTimer()
+    {
+        int stamp;
+        lock (SecretGate) stamp = ++_secretStamp;
+        _ = CountSecretTimeoutAsync(stamp);
+    }
+
+    /// <summary>连击计数超过 4 秒未续按：视为密码输入中断，提示错误并重置。</summary>
+    private async Task CountSecretTimeoutAsync(int stamp)
+    {
+        try
+        {
+            await Task.Delay(TimeSpan.FromSeconds(4));
+            if (stamp != _secretStamp) return;
+            if (ShowcaseUnlocked || SecretTapCount <= 0) return;
+            SecretTapCount = 0;
+            await Shell.Current.DisplayAlert("密码是错误", "连击中断，未达到 114514 次，计数已重置。", "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.CountSecretTimeout -> " + ex.Message);
+        }
+    }
+
+    [RelayCommand]
+    private async Task OpenShowcase() => await Shell.Current.GoToAsync("showcase-list");
+
+    /// <summary>打开素材库（背景 / 音乐管理）。</summary>
+    [RelayCommand]
+    private async Task OpenMaterials() => await Shell.Current.GoToAsync("materials");
+
+    /// <summary>打开爱发电赞助页面。</summary>
+    [RelayCommand]
+    private async Task OpenSponsor()
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync("https://ifdian.net/a/jqyhxkxt1145141026");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.OpenSponsor -> " + ex);
+            await Shell.Current.DisplayAlert("赞助", "无法打开赞助页面：" + ex.Message, "好");
+        }
+    }
+
+    /// <summary>打开B站作者主页。</summary>
+    [RelayCommand]
+    private async Task OpenBilibili()
+    {
+        try
+        {
+            await Launcher.Default.OpenAsync("https://space.bilibili.com/3546745275419060?spm_id_from=333.1007.0.0");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.OpenBilibili -> " + ex);
+            await Shell.Current.DisplayAlert("B站", "无法打开B站主页：" + ex.Message, "好");
+        }
+    }
+    // ============ 数据包导出 / 导入 ============
+    [ObservableProperty] private string _exportStatus = "";
+    [ObservableProperty] private string _importStatus = "";
+    [ObservableProperty] private double _exportProgress;
+    [ObservableProperty] private double _importProgress;
+
+    [RelayCommand]
+    private async Task ExportData()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickSaveAsync(new PickSaveOptions
+            {
+                DefaultExtension = ".zip",
+                SuggestedFileName = "温暖如初_数据包_" + DateTime.Now.ToString("yyyyMMdd_HHmm") + ".zip",
+                Title = "保存数据包",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                })
+            });
+            if (pick is null) return;
+            ExportStatus = "正在导出…";
+            ExportProgress = 0;
+            await DataPackageService.ExportAsync(
+                pick.FullPath,
+                includeSensitive: false,
+                progress: new Progress<(int, int, string)>(t =>
+                {
+                    ExportProgress = t.Item2 == 0 ? 0 : (double)t.Item1 / t.Item2;
+                    ExportStatus = $"已导出 {t.Item1}/{t.Item2} 个文件…";
+                }));
+            var size = new FileInfo(pick.FullPath).Length;
+            ExportStatus = $"导出成功（{DataPackageService.FormatSize(size)}）";
+            await Shell.Current.DisplayAlert("导出成功",
+                "数据包已保存。
+
+注意：此包不含 settings.json（含 AI Key / 微信密钥）。
+"
+                + "如需完整备份，请手动复制数据目录：
+"
+                + App.RootDirectory,
+                "好");
+        }
+        catch (Exception ex)
+        {
+            ExportStatus = "导出失败：" + ex.Message;
+            App.WriteLog("Settings.ExportData -> " + ex);
+        }
+        finally { ExportProgress = 1.0; }
+    }
+
+    }
+
+    [RelayCommand]
+    private async Task ImportData()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择数据包",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                })
+            });
+            if (pick is null) return;
+            if (!DataPackageService.IsValidPackage(pick.FullPath))
+            {
+                await Shell.Current.DisplayAlert("导入失败", "这不是有效的温暖如初数据包。", "好");
+                return;
+            }
+            ImportStatus = "正在解压验证…";
+            ImportProgress = 0;
+            var tempDir = await DataPackageService.UnpackForImportAsync(
+                pick.FullPath,
+                progress: new Progress<(int, int, string)>(t =>
+                {
+                    ImportProgress = t.Item2 == 0 ? 0 : (double)t.Item1 / t.Item2;
+                    ImportStatus = $"已解压 {t.Item1}/{t.Item2} 个文件…";
+                }));
+            var items = DataPackageService.ListImportTargets(tempDir);
+            var summary = items.Count == 0
+                ? "（空包）"
+                : string.Join(" | ", items.Take(8).Select(i => $"{i.Name} ({DataPackageService.FormatSize(i.Size)})"));
+            var ok = await Shell.Current.DisplayActionSheet(
+                $"即将覆盖以下内容（需重启生效，共 {items.Count} 项）：
+{summary}",
+                "取消", null,
+                "确认导入") == "确认导入";
+            if (!ok) { DataPackageService.CleanupImport(tempDir); return; }
+            ImportStatus = "正在写入…";
+            DataPackageService.MergeIntoDataDir(tempDir);
+            DataPackageService.CleanupImport(tempDir);
+            ImportStatus = "导入成功！请重启应用生效。";
+            App.WriteLog("Settings.ImportData: success");
+            await Task.Delay(1500);
+            await Shell.Current.DisplayAlert("提示",
+                "数据包已导入。请关闭应用后重新打开，使配置生效。",
+                "好");
+        }
+        catch (Exception ex)
+        {
+            ImportStatus = "导入失败：" + ex.Message;
+            App.WriteLog("Settings.ImportData -> " + ex);
+        }
+        finally { ImportProgress = 1.0; }
+    }
+
+    }
+}
