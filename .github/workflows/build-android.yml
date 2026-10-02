@@ -53,8 +53,28 @@ jobs:
         
     - name: Rename APK to standard name
       run: |
-        dir=bin/Release/net10.0-android/android-arm64/publish
-        for f in $dir/*.apk; do mv "$f" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"; done
+        # 输出路径按 csproj 里 AndroidMauiVersion 决定：SDK 41 => net10.0-android，
+        # 旧 SDK(35) 只会出 net9.0-android。取实际存在的目录，避免硬编码猜版本
+        candidates=()
+        for d in bin/Release/net*/android-arm64/publish; do
+          [ -d "$d" ] && candidates+=("$d")
+        done
+        if [ ${#candidates[@]} -eq 0 ]; then
+          echo "错误：未找到 android-arm64/publish 目录" >&2
+          find . -name "*.apk" -not -path "./obj/*" 2>/dev/null
+          exit 1
+        fi
+        if [ ${#candidates[@]} -gt 1 ]; then
+          echo "错误：有多个候选目录，请手动指定：$(printf '%s ' "${candidates[@]}")" >&2
+          exit 1
+        fi
+        dir="${candidates[0]}"
+        echo "使用输出目录: $dir"
+        for f in "$dir"/*.apk; do
+          [ -e "$f" ] || continue
+          mv "$f" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
+        done
+        ls -la *.apk
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
