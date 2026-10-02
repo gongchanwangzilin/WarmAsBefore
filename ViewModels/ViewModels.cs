@@ -907,6 +907,12 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
     }
 
+    // 与 PersistNow 同体（主线程执行，落盘失败只记日志不阻塞），但返回 Task 供导出前 await
+    private async Task PersistNowAsync()
+    {
+        await Task.Run(PersistNow);
+    }
+
     /// <summary>检测 API 并获取可用模型列表。</summary>
     [RelayCommand]
     private async Task FetchModelsAsync()
@@ -1366,116 +1372,151 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
     }
     // ============ 数据包导出 / 导入 ============
+    // 注意：这里不要复用 MCP 区域的 ImportStatus / ImportProgress，两者在同一个类里，
+    // 重复声明会直接编译失败；分开也避免两块卡片的状态互相串。
     [ObservableProperty] private string _exportStatus = "";
-    [ObservableProperty] private string _importStatus = "";
     [ObservableProperty] private double _exportProgress;
-    [ObservableProperty] private double _importProgress;
+    [ObservableProperty] private string _dataImportStatus = "";
+    [ObservableProperty] private double _dataImportProgress;
+    [ObservableProperty] private bool _isDataBusy;
+    /// <summary>导出时是否把 API 密钥 / 机器人密钥一并写入数据包（默认否）。</summary>
+    [ObservableProperty] private bool _includeSecrets;
 
+    /// <summary>导出全部应用数据为一个 zip（默认清空 settings.json 里的密钥）。</summary>
     [RelayCommand]
     private async Task ExportData()
     {
+        if (IsDataBusy) return;
+        IsDataBusy = true;
+        string? tmp = null;
         try
         {
-            var pick = await FilePicker.Default.PickSaveAsync(new PickSaveOptions
-            {
-                DefaultExtension = ".zip",
-                SuggestedFileName = "温暖如初_数据包_" + DateTime.Now.ToString("yyyyMMdd_HHmm") + ".zip",
-                Title = "保存数据包",
-                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                {
-                    { DevicePlatform.WinUI, new[] { ".zip" } },
-                    { DevicePlatform.Android, new[] { "application/zip" } },
-                })
-            });
-            if (pick is null) return;
-            ExportStatus = "正在导出…";
-            ExportProgress = 0;
-            await DataPackageService.ExportAsync(
-                pick.FullPath,
-                includeSensitive: false,
-                progress: new Progress<(int, int, string)>(t =>
-                {
-                    ExportProgress = t.Item2 == 0 ? 0 : (double)t.Item1 / t.Item2;
-                    ExportStatus = $"已导出 {t.Item1}/{t.Item2} 个文件…";
-                }));
-            var size = new FileInfo(pick.FullPath).Length;
-            ExportStatus = $"导出成功（{DataPackageService.FormatSize(size)}）";
-            await Shell.Current.DisplayAlert("导出成功",
-                "数据包已保存。
+            // 设置是 300ms 防抖落盘的：先把当前值刷到磁盘，否则导出的是改动前的旧设置
+            await PersistNowAsync();
 
-注意：此包不含 settings.json（含 AI Key / 微信密钥）。
-"
-                + "如需完整备份，请手动复制数据目录：
-"
-                + App.RootDirectory,
-                "好");
+            var fileName = $"温暖如初_数据包_{DateTime.Now:yyyyMMdd_HHmm}.zip";
+            // 先打到临时文件，再交给 FileSaver 让用户选位置（Android 上也只有 FileSaver 能落盘）
+            tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+                "wab_export_" + Guid.NewGuid().ToString("N") + ".zip");
+
+            ExportStatus = "正在打包…";
+            ExportProgress = 0;
+            var progress = new Progress<(int Done, int Total, string Path)>(t =>
+            {
+                ExportProgress = t.Total == 0 ? 0 : (double)t.Done / t.Total;
+                ExportStatus = $"正在打包 {t.Done}/{t.Total} 个文件…";
+            });
+
+            await DataPackageService.ExportAsync(tmp, IncludeSecrets, progress);
+            var size = new FileInfo(tmp).Length;
+
+            ExportStatus = "请选择保存位置…";
+            using var fs = File.Open(tmp, FileMode.Open, FileAccess.Read, FileShare.Read);
+            var result = await CommunityToolkit.Maui.Storage.FileSaver.Default.SaveAsync(fileName, fs);
+
+            ExportStatus = result.IsSuccessful
+                ? $"导出成功（{DataPackageService.FormatSize(size)}）"
+                : "已取消保存";
+            if (result.IsSuccessful)
+            {
+                await Shell.Current.DisplayAlert("导出成功",
+                    $"数据包已保存（{DataPackageService.FormatSize(size)}）。"
+                    + (IncludeSecrets
+                        ? "包含 API 密钥与机器人密钥，请妥善保管。"
+                        : "已排除 API 密钥与机器人密钥。"),
+                    "好");
+            }
         }
         catch (Exception ex)
         {
             ExportStatus = "导出失败：" + ex.Message;
             App.WriteLog("Settings.ExportData -> " + ex);
         }
-        finally { ExportProgress = 1.0; }
+        finally
+        {
+            IsDataBusy = false;
+            ExportProgress = 0;
+            try { if (tmp is not null && File.Exists(tmp)) File.Delete(tmp); } catch { }
+        }
     }
 
-    }
-
+    /// <summary>导入数据包：解压到临时目录校验 → 用户确认 → 替换数据目录 → 提示重启。</summary>
     [RelayCommand]
     private async Task ImportData()
     {
+        if (IsDataBusy) return;
+        IsDataBusy = true;
+        string? tempDir = null;
+        string? picked = null;
         try
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions
             {
-                PickerTitle = "选择数据包",
+                PickerTitle = "选择数据包（.zip）",
                 FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
                 {
                     { DevicePlatform.WinUI, new[] { ".zip" } },
                     { DevicePlatform.Android, new[] { "application/zip" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
                 })
             });
             if (pick is null) return;
-            if (!DataPackageService.IsValidPackage(pick.FullPath))
+
+            DataImportStatus = "正在读取文件…";
+            DataImportProgress = 0;
+
+            // Android 上 FullPath 是 content:// URI，不能直接喂给 ZipFile；先落到本地临时文件
+            picked = System.IO.Path.Combine(System.IO.Path.GetTempPath(),
+                "wab_pick_" + Guid.NewGuid().ToString("N") + ".zip");
+            await using (var src = await pick.OpenReadAsync())
+            await using (var dst = File.Create(picked))
+                await src.CopyToAsync(dst);
+
+            if (!DataPackageService.IsValidPackage(picked))
             {
-                await Shell.Current.DisplayAlert("导入失败", "这不是有效的温暖如初数据包。", "好");
+                DataImportStatus = "导入失败：不是有效的数据包";
+                await Shell.Current.DisplayAlert("导入失败",
+                    "这个文件不像是「温暖如初」的数据包（缺少 characters.json / settings.json）。", "好");
                 return;
             }
-            ImportStatus = "正在解压验证…";
-            ImportProgress = 0;
-            var tempDir = await DataPackageService.UnpackForImportAsync(
-                pick.FullPath,
-                progress: new Progress<(int, int, string)>(t =>
-                {
-                    ImportProgress = t.Item2 == 0 ? 0 : (double)t.Item1 / t.Item2;
-                    ImportStatus = $"已解压 {t.Item1}/{t.Item2} 个文件…";
-                }));
-            var items = DataPackageService.ListImportTargets(tempDir);
+
+            DataImportStatus = "正在解压校验…";
+            DataImportProgress = 0;
+            var progress = new Progress<(int Done, int Total, string Path)>(t =>
+            {
+                DataImportProgress = t.Total == 0 ? 0 : (double)t.Done / t.Total;
+                DataImportStatus = $"正在解压校验 {t.Done}/{t.Total} 个文件…";
+            });
+            tempDir = await DataPackageService.UnpackForImportAsync(picked, progress);
+
+            var items = await Task.Run(() => DataPackageService.ListImportTargets(tempDir));
             var summary = items.Count == 0
                 ? "（空包）"
-                : string.Join(" | ", items.Take(8).Select(i => $"{i.Name} ({DataPackageService.FormatSize(i.Size)})"));
+                : string.Join("、", items.Take(8).Select(i =>
+                    i.Size < 0 ? i.Name : $"{i.Name}（{DataPackageService.FormatSize(i.Size)}）"));
             var ok = await Shell.Current.DisplayActionSheet(
-                $"即将覆盖以下内容（需重启生效，共 {items.Count} 项）：
-{summary}",
-                "取消", null,
-                "确认导入") == "确认导入";
-            if (!ok) { DataPackageService.CleanupImport(tempDir); return; }
-            ImportStatus = "正在写入…";
-            DataPackageService.MergeIntoDataDir(tempDir);
-            DataPackageService.CleanupImport(tempDir);
-            ImportStatus = "导入成功！请重启应用生效。";
-            App.WriteLog("Settings.ImportData: success");
-            await Task.Delay(1500);
-            await Shell.Current.DisplayAlert("提示",
-                "数据包已导入。请关闭应用后重新打开，使配置生效。",
-                "好");
+                $"将用数据包内容整体替换当前全部数据（共 {items.Count} 项：{summary}），完成后需要重启应用。",
+                "取消", null, "确认导入") == "确认导入";
+            if (!ok) { DataImportStatus = "已取消导入"; return; }
+
+            DataImportStatus = "正在写入数据目录…";
+            var (success, message) = await Task.Run(() => DataPackageService.ReplaceDataDir(tempDir!));
+            DataImportStatus = success ? "导入完成，请重启应用生效。" : "导入失败：" + message;
+            await Shell.Current.DisplayAlert(success ? "导入完成" : "导入失败",
+                success ? "数据已导入。请完全关闭并重新打开应用，改动才会生效。" : message, "好");
+            if (success) App.WriteLog("Settings.ImportData: success");
         }
         catch (Exception ex)
         {
-            ImportStatus = "导入失败：" + ex.Message;
+            DataImportStatus = "导入失败：" + ex.Message;
             App.WriteLog("Settings.ImportData -> " + ex);
         }
-        finally { ImportProgress = 1.0; }
-    }
-
+        finally
+        {
+            IsDataBusy = false;
+            DataImportProgress = 0;
+            if (tempDir is not null) DataPackageService.CleanupImport(tempDir);
+            try { if (picked is not null && File.Exists(picked)) File.Delete(picked); } catch { }
+        }
     }
 }
