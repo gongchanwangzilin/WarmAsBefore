@@ -1,0 +1,143 @@
+<?xml version="1.0" encoding="utf-8"?>
+<root>
+  <resheader name="resmimetype">
+    <value>text/microsoft-resx</value>
+  </resheader>
+  <resheader name="version">
+    <value>2.0</value>
+  </resheader>
+  <resheader name="reader">
+    <value>System.Resources.ResXResourceReader, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <resheader name="writer">
+    <value>System.Resources.ResXResourceWriter, System.Windows.Forms, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089</value>
+  </resheader>
+  <data name="Title_Save" xml:space="preserve"><value>存檔管理</value></data>
+  <data name="Title_Novels" xml:space="preserve"><value>平行宇宙</value></data>
+  <data name="Title_Roster" xml:space="preserve"><value>角色庫</value></data>
+  <data name="Title_Settings" xml:space="preserve"><value>設定</value></data>
+  <data name="Title_Exit" xml:space="preserve"><value>退出遊戲</value></data>
+  <data name="Title_Start" xml:space="preserve"><value>創建新歡</value></data>
+  <data name="Title_Continue" xml:space="preserve"><value>再續情緣</value></data>
+  <data name="Title_Tagline" xml:space="preserve"><value>讓每一段重逢，都如初見般溫暖</value></data>
+  <data name="Title_ThemePrefix" xml:space="preserve"><value>當前主題</value></data>
+  <data name="Title_Identity" xml:space="preserve"><value>選擇你的身分</value></data>
+  <data name="Title_IdentityHint" xml:space="preserve"><value>這份溫暖，將一直陪伴著你</value></data>
+  <data name="Title_Brother" xml:space="preserve"><value>哥哥</value></data>
+  <data name="Title_BrotherDesc" xml:space="preserve"><value>溫柔可靠的守護者</value></data>
+  <data name="Title_Sister" xml:space="preserve"><value>姐姐</value></data>
+  <data name="Title_SisterDesc" xml:space="preserve"><value>細心體貼的照顧者</value></data>
+  <data name="Title_Coexist" xml:space="preserve"><value>✦ 同居體驗</value></data>
+  <data name="Title_CoexistDesc" xml:space="preserve"><value>每天有她／他的陪伴，聊天、生活、小遊戲，溫暖如初。</value></data>
+  <data name="Title_ThemeClassic" xml:space="preserve"><value>經典</value></data>
+  <data name="Title_ThemeGlass" xml:space="preserve"><value>毛玻璃</value></data>
+  <data name="Title_ThemeFrost" xml:space="preserve"><value>磨砂玻璃</value></data>
+  <data name="Title_ThemeLiquid" xml:space="preserve"><value>液態玻璃</value></data>
+  <data name="Settings_Interface" xml:space="preserve"><value>介面</value></data>
+  <data name="Settings_Theme" xml:space="preserve"><value>配色主題</value></data>
+  <data name="Settings_ThemeHint" xml:space="preserve"><value>經典 / 櫻花粉 / 翠竹綠 / 晨霧藍灰，回到標題後全部頁面生效</value></data>
+  <data name="Settings_MenuRight" xml:space="preserve"><value>主題居左，按鈕居右</value></data>
+  <data name="Settings_MenuRightHint" xml:space="preserve"><value>電腦端主選單按鈕與主題裝飾列互換位置（預設按鈕居左）</value></data>
+  <data name="Settings_Language" xml:space="preserve"><value>語言</value></data>
+  <data name="Settings_LanguageHint" xml:space="preserve"><value>介面顯示語言</value></data>
+  <data name="Settings_AutoSave" xml:space="preserve"><value>自動儲存</value></data>
+  <data name="Settings_AutoSaveHint" xml:space="preserve"><value>開啟後設定變更即時儲存</value></data>
+  <data name="Settings_TextSfx" xml:space="preserve"><value>文字與音效</value></data>
+  <data name="Settings_TextSpeed" xml:space="preserve"><value>文本速度</value></data>
+  <data name="Settings_KeySfx" xml:space="preserve"><value>按鍵音效</value></data>
+  <data name="Settings_KeySfxHint" xml:space="preserve"><value>點擊按鈕時的回饋音</value></data>
+  <data name="Settings_WeatherLife" xml:space="preserve"><value>天氣與生活</value></data>
+  <data name="Settings_City" xml:space="preserve"><value>所在城市</value></data>
+  <data name="Settings_CityPlaceholder" xml:space="preserve"><value>如：杭州（留空預設北京）</value></data>
+  <data name="Settings_Cycle" xml:space="preserve"><value>生理週期天數</value></data>
+  <data name="Settings_CycleHint" xml:space="preserve"><value>她的一輪生理週期長度</value></data>
+  <data name="Settings_Period" xml:space="preserve"><value>經期天數</value></data>
+  <data name="Settings_PeriodHint" xml:space="preserve"><value>每月特殊日子的長度</value></data>
+  <data name="Settings_Desktop" xml:space="preserve"><value>電腦端</value></data>
+  <data name="Settings_AlwaysOnTop" xml:space="preserve"><value>視窗置頂</value></data>
+  <data name="Settings_AlwaysOnTopHint" xml:space="preserve"><value>讓遊戲視窗始終顯示在最前面</value></data>
+  <data name="Settings_Official" xml:space="preserve"><value>官方接入（真微信 / QQ）</value></data>
+  <data name="Settings_OfficialHint" xml:space="preserve"><value>配置後，遊戲裡的微信／QQ 將接入你的真實帳號：好友傳給你的訊息會由她親自回覆。官方方案僅支援單聊，不佔用滑鼠鍵盤，也無需額外安裝任何程式。</value></data>
+  <data name="Settings_QqTitle" xml:space="preserve"><value>QQ 官方機器人</value></data>
+  <data name="Settings_QqEnable" xml:space="preserve"><value>啟用 QQ 接入</value></data>
+  <data name="Settings_QqHint" xml:space="preserve"><value>前往 q.qq.com 開放平台建立機器人</value></data>
+  <data name="Settings_WechatTitle" xml:space="preserve"><value>微信公眾號</value></data>
+  <data name="Settings_WechatEnable" xml:space="preserve"><value>啟用微信接入</value></data>
+  <data name="Settings_WechatHint" xml:space="preserve"><value>需在公眾號後台配置伺服器 URL（可用內網穿透）指向本機</value></data>
+  <data name="Settings_AppId" xml:space="preserve"><value>AppID</value></data>
+  <data name="Settings_AppSecret" xml:space="preserve"><value>AppSecret</value></data>
+  <data name="Settings_BotAppId" xml:space="preserve"><value>機器人 AppID</value></data>
+  <data name="Settings_BotAppSecret" xml:space="preserve"><value>機器人 AppSecret</value></data>
+  <data name="Settings_MpAppId" xml:space="preserve"><value>公眾號 AppID</value></data>
+  <data name="Settings_MpAppSecret" xml:space="preserve"><value>公眾號 AppSecret</value></data>
+  <data name="Settings_Token" xml:space="preserve"><value>Token</value></data>
+  <data name="Settings_TokenPlaceholder" xml:space="preserve"><value>伺服器配置 Token</value></data>
+  <data name="Settings_Port" xml:space="preserve"><value>回調端口</value></data>
+  <data name="Settings_PortPlaceholder" xml:space="preserve"><value>8012</value></data>
+  <data name="Settings_ConnStatus" xml:space="preserve"><value>連接狀態</value></data>
+  <data name="Settings_TestConn" xml:space="preserve"><value>測試連接</value></data>
+  <data name="Settings_OfficialNote" xml:space="preserve"><value>注意：官方方案不支援群聊；如需要群聊，請自行接入 MCP 伺服器，與本應用無關。</value></data>
+  <data name="Settings_Mcp" xml:space="preserve"><value>MCP 配置</value></data>
+  <data name="Settings_McpEnable" xml:space="preserve"><value>啟用 MCP</value></data>
+  <data name="Settings_McpHint" xml:space="preserve"><value>開啟後可透過網路 MCP、GitHub/ZIP/資料夾匯入資料包</value></data>
+  <data name="Settings_McpUrl" xml:space="preserve"><value>網路 MCP URL</value></data>
+  <data name="Settings_McpUrlPlaceholder" xml:space="preserve"><value>https://mcp.example.com/api</value></data>
+  <data name="Settings_GitHub" xml:space="preserve"><value>GitHub 倉庫</value></data>
+  <data name="Settings_GitHubPlaceholder" xml:space="preserve"><value>https://github.com/user/repo</value></data>
+  <data name="Settings_ImportGithub" xml:space="preserve"><value>從 GitHub 匯入</value></data>
+  <data name="Settings_ZipImport" xml:space="preserve"><value>ZIP 匯入</value></data>
+  <data name="Settings_ZipPlaceholder" xml:space="preserve"><value>選擇 ZIP 檔案</value></data>
+  <data name="Settings_ImportZip" xml:space="preserve"><value>從 ZIP 匯入</value></data>
+  <data name="Settings_FolderImport" xml:space="preserve"><value>資料夾匯入</value></data>
+  <data name="Settings_FolderPlaceholder" xml:space="preserve"><value>選擇資料夾</value></data>
+  <data name="Settings_ImportFolder" xml:space="preserve"><value>從資料夾匯入</value></data>
+  <data name="Settings_Experimental" xml:space="preserve"><value>實驗性</value></data>
+  <data name="Settings_DevMode" xml:space="preserve"><value>開發者模式</value></data>
+  <data name="Settings_DevModeHint" xml:space="preserve"><value>查看 AI 提示詞與工具呼叫</value></data>
+  <data name="Settings_ComplexPlot" xml:space="preserve"><value>複雜劇情模式</value></data>
+  <data name="Settings_ComplexPlotHint" xml:space="preserve"><value>啟用深度思考，增加伏筆</value></data>
+  <data name="Settings_NovelTesting" xml:space="preserve"><value>小說功能（測試）</value></data>
+  <data name="Settings_NovelTestingHint" xml:space="preserve"><value>測試用途：匯入小說生成劇情概要，不參與正式流程</value></data>
+  <data name="Settings_ShowAffection" xml:space="preserve"><value>非攻略對象顯示好感</value></data>
+  <data name="Settings_AutoSaveNote" xml:space="preserve"><value>設定會自動儲存</value></data>
+  <data name="Settings_StatusDisabled" xml:space="preserve"><value>未啟用</value></data>
+  <data name="Settings_ImportReady" xml:space="preserve"><value>準備匯入…</value></data>
+  <data name="Settings_ImportUnzip" xml:space="preserve"><value>解壓中…</value></data>
+  <data name="Settings_ImportCopy" xml:space="preserve"><value>複製檔案中…</value></data>
+  <data name="Common_Back" xml:space="preserve"><value>＜ 返回</value></data>
+  <data name="Settings_Title" xml:space="preserve"><value>設定</value></data>
+  <data name="Settings_Volume" xml:space="preserve"><value>音量</value></data>
+  <data name="Settings_Bgm" xml:space="preserve"><value>BGM</value></data>
+  <data name="Settings_Sfx" xml:space="preserve"><value>音效</value></data>
+  <data name="Settings_GlassFx" xml:space="preserve"><value>玻璃效果</value></data>
+  <data name="Settings_Frost" xml:space="preserve"><value>磨砂玻璃</value></data>
+  <data name="Settings_FrostHint" xml:space="preserve"><value>半透明磨砂效果</value></data>
+  <data name="Settings_Glass" xml:space="preserve"><value>毛玻璃</value></data>
+  <data name="Settings_GlassHint" xml:space="preserve"><value>磨砂的高級版：半透明疊加層、邊緣高光、背景模糊（需先開啟磨砂）</value></data>
+  <data name="Settings_Liquid" xml:space="preserve"><value>液態玻璃</value></data>
+  <data name="Settings_LiquidHint" xml:space="preserve"><value>高透光澤質感</value></data>
+  <data name="Settings_AiTitle" xml:space="preserve"><value>AI 對話</value></data>
+  <data name="Settings_AiUrl" xml:space="preserve"><value>API 地址</value></data>
+  <data name="Settings_AiKey" xml:space="preserve"><value>API 金鑰</value></data>
+  <data name="Settings_AiModel" xml:space="preserve"><value>模型</value></data>
+  <data name="Settings_Temperature" xml:space="preserve"><value>溫度</value></data>
+  <data name="Settings_MaxToken" xml:space="preserve"><value>最大 Token</value></data>
+  <data name="Settings_DeepThink" xml:space="preserve"><value>深度思考</value></data>
+  <data name="Settings_DeepThinkHint" xml:space="preserve"><value>複雜劇情時使用更強的模型</value></data>
+  <data name="Settings_DeepModel" xml:space="preserve"><value>深度模型</value></data>
+  <data name="Settings_DeepModelPlaceholder" xml:space="preserve"><value>o3 / 推理模型</value></data>
+  <data name="Settings_MemoryTurns" xml:space="preserve"><value>記憶上下文輪數</value></data>
+  <data name="Settings_MemoryTurnsHint" xml:space="preserve"><value>AI 每次回覆可回憶起的歷史訊息條數</value></data>
+  <data name="Settings_TurnsTitle" xml:space="preserve"><value>輪數</value></data>
+  <data name="Settings_Voice" xml:space="preserve"><value>語音</value></data>
+  <data name="Settings_Tts" xml:space="preserve"><value>朗讀回覆</value></data>
+  <data name="Settings_TtsHint" xml:space="preserve"><value>收到回覆時用語音讀出來</value></data>
+  <data name="Settings_Stt" xml:space="preserve"><value>語音輸入</value></data>
+  <data name="Settings_SttHint" xml:space="preserve"><value>顯示語音輸入按鈕（需麥克風權限）</value></data>
+  <data name="Settings_TtsRate" xml:space="preserve"><value>朗讀語速</value></data>
+  <data name="Settings_NotifyTitle" xml:space="preserve"><value>通知與陪伴</value></data>
+  <data name="Settings_Notify" xml:space="preserve"><value>訊息通知</value></data>
+  <data name="Settings_NotifyHint" xml:space="preserve"><value>真實微信 / QQ 訊息到達時提示</value></data>
+  <data name="Settings_Greeting" xml:space="preserve"><value>空閒問候</value></data>
+  <data name="Settings_GreetingHint" xml:space="preserve"><value>她會在空閒時主動問候你</value></data>
+</root>

@@ -1,0 +1,241 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    x:Class="WarmAsBefore.DesignSystem.Styles.NeumorphicStyles">
+
+    <!--
+    Neumorphism Design System
+    - Background & components share the same color (SurfaceBg)
+    - Raised: dark shadow (bottom-right) + light stroke (top-left)
+    - Inset/Pressed: removed shadow, inset border, slight offset
+    - CornerRadius: 20px
+    -->
+
+    <!-- Neumorphic Card (raised) —— 玻璃材质由 GlassTokens 按档位下发
+         关掉玻璃 = 不透明实心表面；磨砂/毛玻璃/液态逐档增加通透与亮边。
+         这里用 DynamicResource 而不是写死画刷，切档位时所有卡片一起变，
+         且不会像整页叠加层那样挡住内容与输入。 -->
+    <Style x:Key="CardNeumorph" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="20" />
+            </Setter.Value>
+        </Setter>
+        <!-- 高度感：投影随「液态高度」变化，是玻璃看起来有厚度的关键之一 -->
+        <Setter Property="Shadow" Value="{DynamicResource GlassCardShadow}" />
+    </Style>
+
+    <!-- Neumorphic Card (inset / depressed) -->
+    <Style x:Key="CardNeumorphInset" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="{DynamicResource ShadowDim}" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="20" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{DynamicResource ShadowLight}"
+                        Offset="-3,-3" Radius="8" Opacity="0.3" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!-- Neumorphic Button (raised) -->
+    <Style x:Key="BtnNeumorph" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
+        <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+        <Setter Property="FontSize" Value="15" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CornerRadius" Value="22" />
+        <Setter Property="HeightRequest" Value="54" />
+        <Setter Property="Padding" Value="28,0" />
+        <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="BorderColor" Value="#70FFFFFF" />
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{DynamicResource ShadowDim}"
+                        Offset="4,5" Radius="12" Opacity="0.35" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+                            <Setter Property="BorderColor" Value="#90F5EBDA" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- Neumorphic Button (small, for inline use) -->
+    <Style x:Key="BtnNeumorphSm" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="CornerRadius" Value="16" />
+    </Style>
+
+    <!-- Neumorphic Button (accent — beige tint, raised) -->
+    <Style x:Key="BtnNeumorphAccent" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
+        <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+        <Setter Property="BorderColor" Value="#90F5EBDA" />
+    </Style>
+
+    <!--
+    Apple Liquid Glass 材质卡片（iOS 26 标准）：
+    半透明白色渐变 + 1px 内发光描边 + 折射高光；
+    按下 200ms ease-out 回弹（Scale 0.96），悬停微浮起（1.02）。
+    与 GlassOverlay.Liquid 档配合，整体呈液态玻璃观感。
+    -->
+    <Style x:Key="CardLiquidGlass" TargetType="Border">
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Padding" Value="20" />
+        <Setter Property="Background">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                    <GradientStop Color="#66FFFFFF" Offset="0.0" />
+                    <GradientStop Color="#2AFDF6EE" Offset="0.35" />
+                    <GradientStop Color="#12FDF6EE" Offset="0.7" />
+                    <GradientStop Color="#5AC9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Stroke">
+            <Setter.Value>
+                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
+                    <GradientStop Color="#CCFFFFFF" Offset="0.0" />
+                    <GradientStop Color="#24FFFFFF" Offset="0.5" />
+                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
+                </LinearGradientBrush>
+            </Setter.Value>
+        </Setter>
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="16" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="Shadow">
+            <Setter.Value>
+                <Shadow Brush="{DynamicResource ShadowDim}"
+                        Offset="0,4" Radius="14" Opacity="0.25" />
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <!--
+    可点击液态玻璃卡片：按下 200ms ease-out 回弹。
+    用 Opacity + Background 切换代替 Scale，避免 WinUI 下 Border.Scale 视觉状态切换
+    触发重新布局（layout thrash），消除快速点按时「卡死」的现象。
+    -->
+    <Style x:Key="PressableCardLiquidGlass" TargetType="Border" BasedOn="{StaticResource CardLiquidGlass}">
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.92" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.78" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- 可点击卡片（游戏入口/功能块）：悬停微浮起，按下回弹。
+         只用 BackgroundColor + Opacity，不用 Scale，避免 WinUI 下视觉状态切换触发
+         重新布局 → 快速点按时「按键卡死」。 -->
+    <Style x:Key="PressableCard" TargetType="Border" BasedOn="{StaticResource CardNeumorph}">
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+                            <Setter Property="Opacity" Value="0.96" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                            <Setter Property="Opacity" Value="0.88" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+    <!-- 分类/标签选择块：选中态米黄填充（Opacity 反馈，不用 Scale 避免 layout thrash） -->
+    <Style x:Key="TagChip" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{DynamicResource Cream200}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="Stroke" Value="#30C9A96B" />
+        <Setter Property="Padding" Value="12,5" />
+        <Setter Property="StrokeShape">
+            <Setter.Value>
+                <RoundRectangle CornerRadius="14" />
+            </Setter.Value>
+        </Setter>
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+                            <Setter Property="Opacity" Value="0.96" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                            <Setter Property="Opacity" Value="0.88" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
+    </Style>
+
+</ResourceDictionary>
