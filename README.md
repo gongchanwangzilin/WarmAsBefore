@@ -572,3 +572,4 @@ UI 基于自研设计系统，无第三方 UI 库。
 | 赞助（爱发电） | [ifdian.net/a/jqyhxkxt1145141026](https://ifdian.net/a/jqyhxkxt1145141026) |
 
 </details>
+本项目支持AI提交PR
