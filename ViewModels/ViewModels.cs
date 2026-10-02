@@ -1063,9 +1063,11 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             if (picked is null) return;
             McpImportFolderPath = picked.Path;
 #else
-            var folder = await FolderPicker.Default.PickAsync();
-            if (folder?.Folder is null) return;
-            McpImportFolderPath = folder.Folder.Path;
+            // MAUI 的 FolderPicker 只在 Windows / macOS 上存在，Android 没有文件夹选择器。
+            // 之前这里直接调 FolderPicker.Default，Android 目标因此编译不过。
+            await Shell.Current.DisplayAlert("导入 MCP 文件夹",
+                "Android 端暂不支持选择文件夹，请改用「导入 zip」。", "好");
+            return;
 #endif
             IsImporting = true;
             ImportProgress = 0;
