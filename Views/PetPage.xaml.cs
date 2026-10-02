@@ -59,7 +59,9 @@ public partial class PetPage : ContentPage
                 {
                     SpriteImage.Source = ImageSource.FromFile(full);
                     NameLabel.Text = ch.Profile.Name;
-                    AttachWheelZoom();
+#if WINDOWS
+                    AttachWheelZoom();   // 只存在于 Windows 分支
+#endif
                 }
             }
         }
