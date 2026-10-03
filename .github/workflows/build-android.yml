@@ -39,22 +39,12 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore WarmAsBefore.csproj
 
-    # ---------- 签名发布（v1.8 起 APK 自动签名）----------
-    # 密钥库 Signing/warmasbefore-release.p12 随仓库 checkout 落地（仅 4.4KB）。
-    # 密码与 dist/warmasbefore-signing.7z 相同（见 Signing/README.md）。
-    # 本地已用完全相同的参数验证 publish + 签名通过。
-    - name: Publish Android APK (ARM64, signed)
-      run: |
-        KS="Signing/warmasbefore-release.p12"
-        test -f "$KS" || { echo "缺少签名密钥 $KS" >&2; exit 1; }
-        dotnet publish WarmAsBefore.csproj -c Release -f net10.0-android -r android-arm64 \
-          -p:AndroidPackageFormat=apk \
-          -p:AndroidKeyStore=true \
-          -p:AndroidKeyStorePassword='@2012N10y26r' \
-          -p:AndroidSigningStorePass='@2012N10y26r' \
-          -p:AndroidSigningKeyStore="$KS" \
-          -p:AndroidSigningKeyAlias=warmasbefore \
-          -p:AndroidSigningKeyPass='@2012N10y26r'
+    # ---------- 云端打包（未签名 APK）----------
+    # 流程约定：CI 只出未签名 APK 供装机测试；最终发布包由本地用 Signing/warmasbefore-release.p12
+    # 签名（apksigner sign，密钥信息见 Signing/README.md）。
+    # 密钥明文不进仓库，dist/warmasbefore-signing.7z 是加密备份（7z + 密码，见 Signing/README.md）。
+    - name: Publish Android APK (ARM64, unsigned)
+      run: dotnet publish WarmAsBefore.csproj -c Release -f net10.0-android -r android-arm64 -p:AndroidPackageFormat=apk
 
     - name: Get version
       id: version
@@ -67,8 +57,8 @@ jobs:
 
     - name: Rename APK to standard name
       run: |
-        # 签名后文件名带 -Signed；找实际存在的输出目录（SDK35 出 net9.0-android，
-        # 新 SDK 出 net10.0-android），取带 -Signed 的 APK 改名
+        # 输出路径按 csproj 里 AndroidMauiVersion 决定：SDK 41 => net10.0-android，
+        # 旧 SDK(35) 只会出 net9.0-android。取实际存在的目录，避免硬编码猜版本
         candidates=()
         for d in bin/Release/net*/android-arm64/publish; do
           [ -d "$d" ] && candidates+=("$d")
@@ -84,27 +74,11 @@ jobs:
         fi
         dir="${candidates[0]}"
         echo "使用输出目录: $dir"
-        # 优先取 -Signed 的 APK（签过名的），没有再退回普通 APK
-        signed=$(ls "$dir"/*-Signed.apk 2>/dev/null | head -1)
-        plain=$(ls "$dir"/*.apk 2>/dev/null | head -1)
-        src="${signed:-$plain}"
-        if [ -z "$src" ]; then echo "错误：$dir 里没有 APK" >&2; exit 1; fi
-        echo "源 APK: $src"
-        mv "$src" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
+        for f in "$dir"/*.apk; do
+          [ -e "$f" ] || continue
+          mv "$f" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
+        done
         ls -la *.apk
-
-    # ---------- 签名验证（apksigner 确认 APK 真被签名）----------
-    - name: Verify APK signature
-      run: |
-        apk="WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
-        echo "验证签名: $apk"
-        # apksigner 校验 APK 签名；MAUI 出 v2/v3 签名时老版 apksigner 会报 v1 缺失，
-        # 用 -v 看 v2/v3 校验结果，只要任一 v* scheme 通过就算签上了
-        if command -v apksigner >/dev/null 2>&1; then
-          apksigner verify -v --print-certs "$apk" || echo "(v1 scheme 缺失属正常，看 v2/v3 结果)"
-        else
-          echo "apksigner 不可用，跳过强验证（签名参数已在本地验证过）"
-        fi
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
