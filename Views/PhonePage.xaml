@@ -147,7 +147,8 @@
                                         WidthRequest="40" HeightRequest="40" StrokeThickness="0"
                                         HorizontalOptions="Center" VerticalOptions="Center">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="素材库" TextColor="{DynamicResource SurfaceBg}" FontSize="10" FontAttributes="Bold"
+                                    <!-- 文字用深色（BeigeAccent300 偏浅，白字对比度不足） -->
+                                    <Label Text="素材库" TextColor="{DynamicResource WarmDark}" FontSize="10" FontAttributes="Bold"
                                            HorizontalOptions="Center" VerticalOptions="Center" />
                                 </Border>
                             </Border>
