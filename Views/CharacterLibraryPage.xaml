@@ -67,17 +67,22 @@
                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
                                 <HorizontalStackLayout Spacing="8">
                                     <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
+                                    <!-- 主角标签：BeigeAccent300 在浅色背景上对比度不足，用 WarmDark -->
                                     <Label Text="{Binding IsMainLabel}"
-                                           TextColor="{DynamicResource BeigeAccent300}" FontSize="11"
+                                           TextColor="{DynamicResource WarmDark}" FontSize="11"
                                            VerticalOptions="Center"
                                            IsVisible="{Binding IsMain}" />
                                 </HorizontalStackLayout>
                                 <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
                                 <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtCaption}"
-                                       TextColor="{DynamicResource BeigeAccent200}" FontSize="11" />
+                                       TextColor="{DynamicResource WarmMuted}" FontSize="11" />
                             </VerticalStackLayout>
-                            <Label Grid.Column="2" Text="···" TextColor="{DynamicResource WarmMuted}"
-                                   FontSize="20" VerticalOptions="Center" />
+                            <!-- 触屏：「···」菜单入口（点按弹 ActionSheet），保留原有 Tap 手势 -->
+                            <Button Grid.Column="2" Text="···" TextColor="{DynamicResource WarmMuted}"
+                                   BackgroundColor="Transparent" FontSize="20" Padding="8,0"
+                                   VerticalOptions="Center"
+                                   Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
+                                   CommandParameter="{Binding Id}" />
                         </Grid>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
