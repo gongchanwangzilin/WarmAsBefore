@@ -590,9 +590,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         { "自动（竖屏）", "横屏", "竖屏" };
 
     /// <summary>是否移动设备（手机/平板）：桌面端隐藏屏幕方向设置项。</summary>
-    public bool IsMobile => DeviceInfo.DeviceType is DeviceType.Virtual
-        || DeviceInfo.DeviceType == DeviceType.Handset
-        || DeviceInfo.DeviceType == DeviceType.Tablet;
+    public bool IsMobile => DeviceInfo.Platform == DevicePlatform.Android || DeviceInfo.Platform == DevicePlatform.iOS;
     partial void OnScreenOrientationDisplayChanged(string value)
     {
         _screenOrientation = value switch
@@ -916,8 +914,7 @@ GlassLightWidth = GlassLightWidth,
 
                 AlwaysOnTop = AlwaysOnTop,
                 PetIdleMinutes = Math.Max(0, PetIdleMinutes),
-                ScreenOrientation = screenOrientation,
-
+                ScreenOrientation = ScreenOrientation,
 
                 QqBotEnabled = QqBotEnabled,
                 QqAppId = QqAppId.Trim(),
