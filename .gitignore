@@ -360,4 +360,18 @@ MigrationBackup/
 .ionide/
 
 # Fody - auto-generated XML schema
-FodyWeavers.xsdandroid-jdk/lib/modules
+FodyWeavers.xsd
+
+# 构建环境（本地保留，不进仓库）
+android-sdk/
+android-jdk/
+
+# 发布产物（用 GitHub Releases 发布，不进仓库）
+# 例外：签名密钥备份 warmasbefore-signing.7z 必须保留在 GitHub（CI 本地签名的唯一云端备份）
+dist/*
+!dist/warmasbefore-signing.7z
+
+# 误操作残留 / 备份与缓存
+path/
+.backup/
+.cortex/
