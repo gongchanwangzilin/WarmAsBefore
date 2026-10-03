@@ -106,3 +106,4 @@ public sealed class BoolFontBold : IValueConverter
         v is true ? FontAttributes.Bold : FontAttributes.None;
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
 }
+

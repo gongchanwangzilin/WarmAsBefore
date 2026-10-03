@@ -22,6 +22,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
              GlassTokens 下发的 {DynamicResource ...} 画刷（见 DesignSystem/Theme/GlassTokens.cs）。
              这里不再有任何整页叠加层 —— 那层既挡点击、压对比度，又要在每次交互时重绘。 -->
 
+
+
         <!-- ============ Phone Layout (vertical) ============ -->
         <Grid IsVisible="{OnIdiom Phone=True, Desktop=False}" RowDefinitions="Auto,*,Auto,Auto,Auto">
             <!-- Status bar - 顶部状态栏 -->
@@ -370,8 +372,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </Border>
             </Grid>
 
-            <!-- Right: Mini-game chat panel (only visible in mini-game mode) -->
-            <Border Grid.Row="1" Grid.Column="2" BackgroundColor="#D9FCF8F0" WidthRequest="300" StrokeThickness="0" IsVisible="{Binding ShowRightChat}">
+            <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间） -->
+            <Border Grid.Row="1" Grid.Column="2" BackgroundColor="#D9FCF8F0" WidthRequest="300" StrokeThickness="0"
+                    IsVisible="{Binding IsRightPanelVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">
                     <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">

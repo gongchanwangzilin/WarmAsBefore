@@ -17,31 +17,54 @@ permissions:
 jobs:
   build-android:
     runs-on: ubuntu-latest
-    
+
     steps:
     - name: Checkout
       uses: actions/checkout@v4
-      
+
     - name: Setup .NET 10
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '10.0.x'
-        
+
     - name: Setup Java
       uses: actions/setup-java@v4
       with:
         distribution: 'temurin'
         java-version: '17'
-        
+
     - name: Install Android workload
       run: dotnet workload install maui-android --ignore-failed-sources
-      
+
     - name: Restore dependencies
       run: dotnet restore WarmAsBefore.csproj
-      
-    - name: Publish Android APK (ARM64)
-      run: dotnet publish WarmAsBefore.csproj -c Release -f net10.0-android -r android-arm64 -p:AndroidPackageFormat=apk
-      
+
+    # ---------- 准备签名密钥（7z 密码加密，v1.8 起 APK 自动签名）----------
+    - name: Decrypt signing keystore (7z)
+      run: |
+        # GitHub ubuntu runner 自带 7zz / 7zip；若缺失再回退到 7zz
+        command -v 7zz >/dev/null 2>&1 || {
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq 7zip
+        }
+        # -p 直接给密码，-mhe 表示头也加密（创建时已开启）
+        7zz x -y -p'@2012N10y26r' -o. dist/warmasbefore-signing.7z
+        test -f Signing/warmasbefore-release.p12 || test -f warmasbefore-release.p12
+        echo "7z 解压 OK"
+
+    # ---------- 签名发布 ----------
+    - name: Publish Android APK (ARM64, signed)
+      run: |
+        KS="dist/warmasbefore-signing/warmasbefore-release.p12"
+        [ -f "$KS" ] || KS="warmasbefore-release.p12"
+        dotnet publish WarmAsBefore.csproj -c Release -f net10.0-android -r android-arm64 \
+          -p:AndroidPackageFormat=apk \
+          -p:AndroidKeyStore=true \
+          -p:AndroidKeyStorePassword='@2012N10y26r' \
+          -p:AndroidSigningKeyStore="$KS" \
+          -p:AndroidSigningKeyAlias=warmasbefore \
+          -p:AndroidSigningKeyPassphrase='@2012N10y26r'
+
     - name: Get version
       id: version
       run: |
@@ -50,7 +73,7 @@ jobs:
         else
           echo "version=${{ github.ref_name }}" >> $GITHUB_OUTPUT
         fi
-        
+
     - name: Rename APK to standard name
       run: |
         # 输出路径按 csproj 里 AndroidMauiVersion 决定：SDK 41 => net10.0-android，
@@ -75,6 +98,18 @@ jobs:
           mv "$f" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
         done
         ls -la *.apk
+
+    # ---------- 签名验证（用 aapt2 / apksigner 确认 APK 真被签名了）----------
+    - name: Verify APK signature
+      run: |
+        apk=$(ls *.apk | head -1)
+        echo "验证签名: $apk"
+        # apksigner 在 setup-java 的 temurin 里不带，用 aapt2 dump badging 或 keytool 退而求其次：
+        # 能 unzip 且含 META-INF/CERT 即说明签名过
+        unzip -l "$apk" | grep -qiE "META-INF/.*\.(RSA|SF|DSA)" && echo "APK 含签名区（OK）" || {
+          echo "警告：APK 未发现签名区（可能未签名成功）" >&2
+          exit 1
+        }
 
     - name: Create Release
       uses: softprops/action-gh-release@v2
