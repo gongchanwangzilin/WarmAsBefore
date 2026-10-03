@@ -39,37 +39,17 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore WarmAsBefore.csproj
 
-    # ---------- 准备签名密钥（7z 密码加密，v1.8 起 APK 自动签名）----------
-    - name: Decrypt signing keystore (7z)
-      run: |
-        set -e
-        # 1) 装 7zip（ubuntu runner 上装 7zz；失败则回退 7z）
-        sudo apt-get update -qq || true
-        sudo apt-get install -y -qq 7zip || sudo apt-get install -y -qq p7zip-full || true
-        # 2) 7z 包创建时用了 -mhe（头加密），解包需要 -p 密码。
-        #    7zz/7z 都找不到就直接用 python3 + py7zr（最稳，不依赖 apt 源）
-        if ! command -v 7zz >/dev/null 2>&1 && ! command -v 7z >/dev/null 2>&1; then
-          echo "7zz/7z 缺失，改用 py7zr"
-          python3 -m pip install -q py7zr
-          python3 - <<'PY'
-          import py7zr
-          with py7zr.SevenZipFile("dist/warmasbefore-signing.7z", mode="r",
-                                   password="@2012N10y26r") as a:
-              a.extractall(".")
-          print("py7zr 解压成功")
-          PY
-        elif command -v 7zz >/dev/null 2>&1; then
-          7zz x -y -p'@2012N10y26r' dist/warmasbefore-signing.7z
-        else
-          7z x -y -p'@2012N10y26r' dist/warmasbefore-signing.7z
-        fi
-        test -f Signing/warmasbefore-release.p12 || test -f warmasbefore-release.p12
-        echo "7z 解压 OK"
+    # ---------- 签名密钥（v1.8 起 APK 自动签名）----------
+    # 说明：密钥库本身只有 4.4KB，直接以明文放在 Signing/ 目录随 checkout 落地。
+    # 密码在下方 CI 明文中（与 7z 包密码相同，见 Signing/README.md）。
+    # 之前用 7z 加密包导致 ubuntu runner 解不开（7zz/7z 都装不上、py7zr 头加密也不认），
+    # 改为直接读 checkout 下来的 .p12，去掉 7z 依赖。7z 加密包仍保留在 dist/ 供你手动下载备份。
 
-    # ---------- 签名发布 ----------
+    # ---------- 签名发布（用 checkout 下来的 Signing/ 明文 .p12）----------
     - name: Publish Android APK (ARM64, signed)
       run: |
-        if [ -f Signing/warmasbefore-release.p12 ]; then KS="Signing/warmasbefore-release.p12"; else KS="warmasbefore-release.p12"; fi
+        KS="Signing/warmasbefore-release.p12"
+        test -f "$KS" || { echo "缺少签名密钥 $KS" >&2; exit 1; }
         dotnet publish WarmAsBefore.csproj -c Release -f net10.0-android -r android-arm64 \
           -p:AndroidPackageFormat=apk \
           -p:AndroidKeyStore=true \
