@@ -17,6 +17,10 @@ public sealed class SpeechService
     public string VoiceTtsModel { get; set; } = "tts-1";
     public string VoiceSttModel { get; set; } = "whisper-1";
     public string VoiceName { get; set; } = "alloy";
+    /// <summary>外部语音服务类型：openai=OpenAI 兼容（/v1/audio/*），sovits=GPT-SoVITS（/api/tts，可连本地或局域网服务）。</summary>
+    public string VoiceApiMode { get; set; } = "openai";
+    /// <summary>引擎特有扩展参数（SoVITS：spk_id 说话人编号，"0" 表示默认角色）。</summary>
+    public string VoiceExtra { get; set; } = "";
 
     public event Action<string>? OnRecognized;
     public event Action<string>? OnSynthesized;
@@ -162,6 +166,30 @@ public sealed class SpeechService
     }
 #endif
 
+    /// <summary>
+    /// 测试外部语音服务连接（设置页"测试连接"用）：
+    /// 合成一段试听文本并真正播放；播放链路异常视为失败。返回面向用户的中文结果描述。
+    /// </summary>
+    public async Task<string> TestVoiceConnectionAsync()
+    {
+        if (TtsEngine != "api" && SttEngine != "api")
+            return "朗读与识别都选了 system（系统自带），无需外部服务。";
+        try
+        {
+#if ANDROID
+            // Android 端外部 API 模式尚未接上播放链路（系统 TTS 不可播 MP3）
+            return "Android 端暂不支持外部语音服务连接，请用 Windows 端测试或等待后续版本。";
+#else
+            await SpeakApi("测试语音服务连接");
+            return "连接正常，已播放试听音频。";
+#endif
+        }
+        catch (Exception ex)
+        {
+            return $"连接失败：{ex.Message}";
+        }
+    }
+
     // ============ Windows ============
 #if WINDOWS
     private async Task SpeakWindows(string text)
@@ -176,23 +204,18 @@ public sealed class SpeechService
         player.Play();
     }
 
-    /// <summary>外部 TTS API（OpenAI 兼容 /v1/audio/speech）：合成 MP3 → 临时文件 → MediaPlayer 播放。</summary>
+    /// <summary>外部 TTS API：按 VoiceApiMode 分发（openai=OpenAI 兼容 /v1/audio/speech；sovits=GPT-SoVITS /api/tts，可指本地/局域网服务）。合成音频 → 临时文件 → MediaPlayer 播放。</summary>
     private async Task SpeakApi(string text)
     {
-        var url = $"{VoiceApiUrl.TrimEnd('/')}/audio/speech";
-        using var http = new System.Net.Http.HttpClient();
-        http.Timeout = TimeSpan.FromSeconds(60);
-        if (!string.IsNullOrWhiteSpace(VoiceApiKey))
-            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", VoiceApiKey);
-        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        byte[] bytes;
+        if (string.Equals(VoiceApiMode, "sovits", StringComparison.OrdinalIgnoreCase))
         {
-            model = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel,
-            voice = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName,
-            input = text
-        });
-        using var resp = await http.PostAsync(url, new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
-        resp.EnsureSuccessStatusCode();
-        var bytes = await resp.Content.ReadAsByteArrayAsync();
+            bytes = await SynthesizeSovitsAsync(text);
+        }
+        else
+        {
+            bytes = await SynthesizeOpenAiAsync(text);
+        }
         var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"wab_tts_{Guid.NewGuid():N}.mp3");
         await System.IO.File.WriteAllBytesAsync(tmp, bytes);
         try
@@ -212,6 +235,46 @@ public sealed class SpeechService
             try { System.IO.File.Delete(tmp); } catch { }
             throw;
         }
+    }
+
+    /// <summary>OpenAI 兼容 /v1/audio/speech：返回音频字节（MP3）。</summary>
+    private async Task<byte[]> SynthesizeOpenAiAsync(string text)
+    {
+        var url = $"{VoiceApiUrl.TrimEnd('/')}/audio/speech";
+        using var http = new System.Net.Http.HttpClient();
+        http.Timeout = TimeSpan.FromSeconds(60);
+        if (!string.IsNullOrWhiteSpace(VoiceApiKey))
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", VoiceApiKey);
+        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            model = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel,
+            voice = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName,
+            input = text
+        });
+        using var resp = await http.PostAsync(url, new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsByteArrayAsync();
+    }
+
+    /// <summary>GPT-SoVITS /api/tts（POST JSON，返回 WAV）：base_url 直接是服务根地址（如 http://192.168.1.10:9870），
+    /// 兼容本地部署与局域网/内网穿透后的远程服务；text=要合成的文本，name=角色参考音名，spk_id=VoiceExtra（0 默认角色）。</summary>
+    private async Task<byte[]> SynthesizeSovitsAsync(string text)
+    {
+        var url = $"{VoiceApiUrl.TrimEnd('/')}/api/tts";
+        using var http = new System.Net.Http.HttpClient();
+        http.Timeout = TimeSpan.FromSeconds(120);
+        if (!string.IsNullOrWhiteSpace(VoiceApiKey))
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", VoiceApiKey);
+        var spkId = int.TryParse(VoiceExtra, out var spk) ? spk : 0;
+        var payload = System.Text.Json.JsonSerializer.Serialize(new
+        {
+            text,
+            name = string.IsNullOrWhiteSpace(VoiceName) ? null : VoiceName,
+            spk_id = spkId
+        });
+        using var resp = await http.PostAsync(url, new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsByteArrayAsync();
     }
 
     /// <summary>外部 STT API（OpenAI 兼容 /v1/audio/transcriptions）：MediaCapture 录音 8 秒 → 上传 WAV → 返回文本。</summary>
