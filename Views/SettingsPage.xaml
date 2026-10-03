@@ -361,6 +361,12 @@
                         <!-- API 语音配置（朗读或识别选了 api 时显示） -->
                         <VerticalStackLayout Spacing="12" IsVisible="{Binding NeedsVoiceApi}">
                             <Label Text="API 语音配置" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
+                            <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                                <Label Text="服务类型" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="OpenAI 兼容走网络 API；GPT-SoVITS 可连本地或局域网服务" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                <Picker Grid.Column="1" Title="服务类型" WidthRequest="150"
+                                        ItemsSource="{Binding VoiceModeChoices}" SelectedItem="{Binding VoiceModeDisplay}"
+                                        FontSize="13" /></Grid>
                             <Grid ColumnDefinitions="110,*"><Label Text="API 地址" VerticalOptions="Center" FontSize="13" />
                                 <Entry Grid.Column="1" Text="{Binding VoiceApiUrl}" Placeholder="https://api.openai.com/v1"
                                        BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -381,6 +387,19 @@
                                 <Entry Grid.Column="1" Text="{Binding VoiceSttModel}" Placeholder="whisper-1"
                                        BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                        PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                            <!-- GPT-SoVITS 扩展参数（仅服务类型选了 sovits 时显示） -->
+                            <Grid ColumnDefinitions="110,*" IsVisible="{Binding VoiceModeDisplay, Converter={StaticResource IsSovitsMode}}">
+                                <Label Text="说话人编号" VerticalOptions="Center" FontSize="13" />
+                                <Entry Grid.Column="1" Text="{Binding VoiceExtra}" Placeholder="0=默认角色"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" Keyboard="Numeric" /></Grid>
+                            <Button Text="测试连接" Command="{Binding TestVoiceConnectionCommand}"
+                                    BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
+                                    FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="10"
+                                    HorizontalOptions="Start" WidthRequest="100" />
+                            <Label Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
+                                   TextColor="{DynamicResource MutedFg}" FontSize="11"
+                                   IsVisible="{Binding TestVoiceStatus, Converter={StaticResource StringNotEmpty}}" />
                         </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>

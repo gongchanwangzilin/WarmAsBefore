@@ -116,6 +116,8 @@ public sealed class RuntimeConfigurator
         _speech.VoiceTtsModel = string.IsNullOrWhiteSpace(s.VoiceTtsModel) ? "tts-1" : s.VoiceTtsModel;
         _speech.VoiceSttModel = string.IsNullOrWhiteSpace(s.VoiceSttModel) ? "whisper-1" : s.VoiceSttModel;
         _speech.VoiceName = string.IsNullOrWhiteSpace(s.VoiceName) ? "alloy" : s.VoiceName;
+        _speech.VoiceApiMode = string.IsNullOrWhiteSpace(s.VoiceApiMode) ? "openai" : s.VoiceApiMode;
+        _speech.VoiceExtra = s.VoiceExtra ?? "";
 
         _auto.Enabled = s.GreetingEnabled;
         if (s.GreetingEnabled && !_auto.Running) _auto.Start();
