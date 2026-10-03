@@ -1,30 +1,33 @@
 # 安卓签名密钥（WarmAsBefore 专用）
 
-本目录存放 v1.8 起所有安卓版本的统一签名密钥。
+本目录存放 v1.8 起所有安卓版本的统一签名密钥。**以后只用这一个，不要再生成新的。**
 
 ## 文件
-- `warmasbefore-release.p12` — PKCS12 密钥库（Android 签名用）
+- `warmasbefore-release.p12` — PKCS12 密钥库（Android 签名用，仅 4.4KB）
 - `keystore-info.txt` — 别名 / 有效期限等信息（不含密码）
 
-## 密码
-- 密钥库 + 私钥密码：`@2012N10y26r`（与 7z 压缩包密码相同，请妥善保管）
+## 密钥信息
+- 别名 (alias)：`warmasbefore`
+- 密钥库密码 + 私钥密码：`@2012N10y26r`
+- 算法：RSA 4096，有效期 25000 天（至 2094 年）
 
-## 7z 加密包
-`warmasbefore-signing.7z` 位于本目录上一级的 `dist/` 里，密码同为 `@2012N10y26r`：
+## 7z 加密备份包
+`dist/warmasbefore-signing.7z`（密码同为 `@2012N10y26r`，创建时用了 `-mhe` 头加密）：
 
 ```
-7z x -p@2012N10y26r warmasbefore-signing.7z
+7z x -p'@2012N10y26r' dist/warmasbefore-signing.7z
 ```
 
-## 签名 CI 用法
-GitHub Actions 里解压 7z 后，`dotnet publish` 加：
+## CI 签名用法
+`.github/workflows/build-android.yml` 直接读本目录的明文 `.p12`（7z 包是给你手动备份用的，CI 不依赖它）：
 ```
--p:AndroidKeyStore=true
--p:KeyStore=<绝对路径>/warmasbefore-release.p12
--p:KeyStorePassword='@2012N10y26r'
--p:Package signing 相关参数...
+dotnet publish ... -p:AndroidKeyStore=true \
+  -p:AndroidKeyStorePassword='@2012N10y26r' \
+  -p:AndroidSigningKeyStore=Signing/warmasbefore-release.p12 \
+  -p:AndroidSigningKeyAlias=warmasbefore \
+  -p:AndroidSigningKeyPass='@2012N10y26r'
 ```
-（具体参数见 .github/workflows/build-android.yml）
 
-> 密码明文写在仓库 README 里是为了让 CI 能复现签名；真正的秘密是密码本身，
-> 泄露此仓库即泄露密码。若需轮换，重新生成本目录全部文件即可。
+> 密钥库小（4.4KB），直接随仓库分发；密码写在 CI 里。
+> 仓库是公开的 = 密钥公开，任何拿到仓库的人都能给同包名的 APK 签名。
+> 若日后需轮换：重新生成 Signing/ 全部文件 + dist/warmasbefore-signing.7z，并改 CI 密码。
