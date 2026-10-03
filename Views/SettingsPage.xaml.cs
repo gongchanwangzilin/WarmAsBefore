@@ -34,10 +34,8 @@ public partial class SettingsPage : ContentPage
         MainThread.BeginInvokeOnMainThread(async () =>
         {
             vm.ScreenOrientationDisplay = display;
-            var act = await DisplayAlert(
-                "屏幕方向已回弹",
-                "3 秒内未确认，已自动变回原方向。是否保留为新方向？",
-                "保留新方向", "仍用原方向");
+            var act = await DisplayActionSheet(
+                "3 秒内未确认，已自动变回原方向。", "取消", null, "保留新方向", "仍用原方向");
             if (act == "保留新方向")
             {
                 await vm.ConfirmOrientationKeepNewAsync();
