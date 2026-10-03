@@ -71,6 +71,14 @@ public sealed class BoolToColor : IValueConverter
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
 }
 
+/// <summary>service 模式字符串 → 是否 GPT-SoVITS（控制 SoVITS 专用参数行显隐）。</summary>
+public sealed class IsSovitsMode : IValueConverter
+{
+    public object Convert(object? v, Type t, object? p, CultureInfo c) =>
+        v is string s && s.Contains("GPT-SoVITS", System.StringComparison.OrdinalIgnoreCase);
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
+}
+
 /// <summary>string → 是否非空（控制提示条显隐）。</summary>
 public sealed class StringNotEmpty : IValueConverter
 {

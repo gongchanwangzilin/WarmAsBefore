@@ -168,10 +168,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.Mcp.McpOrchestrator _mcp;
     private readonly Modules.Tools.RuntimeManager _runtimes;
+    private readonly SpeechService _speech;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
-        Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox)
+        Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
+        SpeechService speech)
     {
         _settings = settings;
         _theme = theme;
@@ -180,6 +182,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _runtimes = runtimes;
         // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
         _sandbox = sandbox;
+        _speech = speech;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
         JavaManualPath = _runtimes.ManualJavaPath;
@@ -236,6 +239,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         _voiceTtsModel = string.IsNullOrWhiteSpace(s.VoiceTtsModel) ? "tts-1" : s.VoiceTtsModel;
         _voiceSttModel = string.IsNullOrWhiteSpace(s.VoiceSttModel) ? "whisper-1" : s.VoiceSttModel;
         _voiceName = string.IsNullOrWhiteSpace(s.VoiceName) ? "alloy" : s.VoiceName;
+        _voiceApiMode = string.IsNullOrWhiteSpace(s.VoiceApiMode) ? "openai" : s.VoiceApiMode;
+        _voiceExtra = s.VoiceExtra ?? "";
+        _voiceModeDisplay = _voiceApiMode switch
+        {
+            "sovits" => "GPT-SoVITS（本地/局域网）",
+            _ => "OpenAI 兼容（网络 API）",
+        };
 
         _notificationsEnabled = s.NotificationsEnabled;
         _greetingEnabled = s.GreetingEnabled;
@@ -541,8 +551,47 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _voiceTtsModel = "tts-1";
     [ObservableProperty] private string _voiceSttModel = "whisper-1";
     [ObservableProperty] private string _voiceName = "alloy";
+    /// <summary>外部语音服务类型：openai / sovits。</summary>
+    [ObservableProperty] private string _voiceApiMode = "openai";
+    [ObservableProperty] private string _voiceModeDisplay = "OpenAI 兼容（网络 API）";
+    /// <summary>引擎特有扩展参数（SoVITS：说话人编号 spk_id）。</summary>
+    [ObservableProperty] private string _voiceExtra = "";
+    [ObservableProperty] private string _testVoiceStatus = "";
 
     public List<string> VoiceEngineChoices { get; } = new() { "system", "api" };
+    /// <summary>外部语音服务类型选项（Picker 用，绑定显示名）。</summary>
+    public List<string> VoiceModeChoices { get; } = new()
+    {
+        "OpenAI 兼容（网络 API）",
+        "GPT-SoVITS（本地/局域网）",
+    };
+
+    /// <summary>测试外部语音服务：按当前设置（可先落盘）合成试听音频并播放，结果写入 <see cref="TestVoiceStatus"/>。</summary>
+    [RelayCommand]
+    private async Task TestVoiceConnection()
+    {
+        try
+        {
+            // 先落盘，保证用户刚填的参数立刻生效
+            PersistSettings();
+            var s = _settings.Current;
+            _speech.VoiceApiMode = string.IsNullOrWhiteSpace(s.VoiceApiMode) ? "openai" : s.VoiceApiMode;
+            _speech.VoiceExtra = s.VoiceExtra ?? "";
+            _speech.VoiceApiUrl = s.VoiceApiUrl;
+            _speech.VoiceApiKey = s.VoiceApiKey;
+            _speech.VoiceTtsModel = s.VoiceTtsModel;
+            _speech.VoiceSttModel = s.VoiceSttModel;
+            _speech.VoiceName = s.VoiceName;
+            TestVoiceStatus = "正在测试…";
+            var result = await _speech.TestVoiceConnectionAsync();
+            TestVoiceStatus = result;
+        }
+        catch (Exception ex)
+        {
+            TestVoiceStatus = $"测试失败：{ex.Message}";
+            App.WriteLog("SettingsViewModel.TestVoiceConnection -> " + ex);
+        }
+    }
 
     [ObservableProperty] private bool _notificationsEnabled = true;
     [ObservableProperty] private bool _greetingEnabled = true;
@@ -756,6 +805,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnVoiceTtsModelChanged(string value) => PersistSettings();
     partial void OnVoiceSttModelChanged(string value) => PersistSettings();
     partial void OnVoiceNameChanged(string value) => PersistSettings();
+    partial void OnVoiceExtraChanged(string value) => PersistSettings();
+    partial void OnVoiceApiModeChanged(string value)
+    {
+        VoiceModeDisplay = value == "sovits" ? "GPT-SoVITS（本地/局域网）" : "OpenAI 兼容（网络 API）";
+        PersistSettings();
+    }
 
     /// <summary>朗读或识别选了 API 引擎时，显示 API 语音配置区。</summary>
     public bool NeedsVoiceApi => TtsEngine == "api" || SttEngine == "api";
@@ -904,6 +959,8 @@ GlassLightWidth = GlassLightWidth,
                 VoiceTtsModel = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel.Trim(),
                 VoiceSttModel = string.IsNullOrWhiteSpace(VoiceSttModel) ? "whisper-1" : VoiceSttModel.Trim(),
                 VoiceName = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName.Trim(),
+                VoiceApiMode = string.IsNullOrWhiteSpace(VoiceApiMode) ? "openai" : VoiceApiMode.Trim().ToLowerInvariant(),
+                VoiceExtra = (VoiceExtra ?? "").Trim(),
 
                 NotificationsEnabled = NotificationsEnabled,
                 GreetingEnabled = GreetingEnabled,

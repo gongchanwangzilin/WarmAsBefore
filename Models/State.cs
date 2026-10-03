@@ -102,13 +102,17 @@ public sealed record UserSettings
     public string TtsEngine { get; init; } = "system";
     /// <summary>语音识别引擎：system=系统自带识别，api=外部 STT API。</summary>
     public string SttEngine { get; init; } = "system";
-    /// <summary>语音 API 基础地址（OpenAI 兼容，端点 /audio/speech、/audio/transcriptions）。</summary>
+    /// <summary>语音 API 基础地址（OpenAI 兼容，端点 /audio/speech、/audio/transcriptions；SoVITS 模式下为服务根地址，如 http://192.168.1.10:9870）。</summary>
     public string VoiceApiUrl { get; init; } = "https://api.openai.com/v1";
     public string VoiceApiKey { get; init; } = "";
     public string VoiceTtsModel { get; init; } = "tts-1";
     public string VoiceSttModel { get; init; } = "whisper-1";
-    /// <summary>TTS 音色（如 alloy / echo / nova / shimmer）。</summary>
+    /// <summary>TTS 音色（OpenAI 如 alloy / echo / nova / shimmer；SoVITS 为角色参考音名）。</summary>
     public string VoiceName { get; init; } = "alloy";
+    /// <summary>外部语音服务类型：openai=OpenAI 兼容（/v1/audio/*），sovits=GPT-SoVITS（/api/tts，本地或局域网服务）。</summary>
+    public string VoiceApiMode { get; init; } = "openai";
+    /// <summary>引擎特有扩展参数（SoVITS：spk_id 说话人编号，0 表示默认角色）。</summary>
+    public string VoiceExtra { get; init; } = "";
 
     // 通知与陪伴
     public bool NotificationsEnabled { get; init; } = true;
