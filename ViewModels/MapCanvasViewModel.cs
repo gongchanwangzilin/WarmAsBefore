@@ -178,7 +178,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private async Task Help()
     {
         // 触屏版（手机 / 平板）文案：把"左键/右键/滚轮"换成点按 / 长按 / 双指缩放
-        bool touch = DeviceInfo.DeviceType is DeviceType.Handset or DeviceType.Tablet or DeviceType.Virtual;
+        bool touch = DeviceInfo.Platform == DevicePlatform.Android || DeviceInfo.Platform == DevicePlatform.iOS;
         var hint = touch
             ? "【浏览】点卡片 = 出发前往\n【编辑】拖卡片 = 移动；空白处拖动 = 平移画布；长按空白 0.6 秒再拖 = 框选地点（松开高亮）；拖折点 = 改路径\n【连线】先点卡片或临时节点设起点，再点目标完成边；点空白加折点；长按取消\n【涂鸦】按住拖动自由画线，松手自动成边并显示总长；吸附卡片/节点\n\n长按：卡片 / 临时节点 / 连线 / 空白都有菜单。双指 = 缩放。"
             : "【浏览】左键点卡片 = 出发前往\n【编辑】拖拽卡片 = 移动；空白处拖动 = 平移画布；按住空白不放 0.6 秒再拖动 = 框选地点（松开高亮）；拖折点 = 改路径\n【连线】先点卡片或临时节点设起点，再点目标完成边；点空白加折点；右键取消\n【涂鸦】按住左键自由画线，松手自动成边并显示总长；吸附卡片/节点\n\n右键：卡片/临时节点/连线/空白都有菜单。框内右键自动归属该地点。滚轮 = 缩放。";

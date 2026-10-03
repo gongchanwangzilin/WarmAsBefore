@@ -64,43 +64,39 @@ public static class DownloadBackupService
 #if ANDROID
         try
         {
-            if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Tiramisu)
+            if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Q)
             {
-                // Android 13+：MediaStore.Downloads（无需存储权限，写入公共下载目录）
+                // Android 10+：MediaStore.Downloads（隔离写入，无需存储权限）
                 var cr = Android.App.Application.Context!.ContentResolver;
-                var values = new Android.Content.ContentValues
-                {
-                    [Android.Provider.MediaStore.MediaColumns.DisplayName] = fileName,
-                    [Android.Provider.MediaStore.MediaColumns.RelativePath] =
-                        Android.Provider.MediaStore.Downloads.Directory,
-                    [Android.Provider.MediaStore.MediaColumns.MimeType] = "application/zip",
-                };
-                var uri = cr.Insert(Android.Provider.MediaStore.Downloads.ExternalUri, values);
+                var values = new Android.Content.ContentValues();
+                values.Put(Android.Provider.MediaStore.MediaColumns.DisplayName, fileName);
+                values.Put(Android.Provider.MediaStore.MediaColumns.MimeType, "application/zip");
+                // Android 10+：公共下载目录 content URI（隔离写入，无需存储权限）
+                var collection = Android.Net.Uri.Parse("content://downloads/public_downloads");
+                var uri = cr.Insert(collection, values);
                 if (uri is null)
                 {
                     App.WriteLog("DownloadBackupService: MediaStore insert 失败（uri=null）");
                     return false;
                 }
                 using var inStream = File.OpenRead(sourceZip);
-                using var outStream = cr.OpenOutputStream(uri);
-                if (outStream is null)
-                {
-                    App.WriteLog("DownloadBackupService: OpenOutputStream 失败");
-                    return false;
-                }
+                using var outStream = cr.OpenOutputStream(uri)!;
                 inStream.CopyTo(outStream);
                 return true;
             }
             else
             {
-                // Android 9-12：公共下载目录（需 WRITE_EXTERNAL_STORAGE，Manifest 已声明）
-                var dl = Android.Util.AndroidFileSystem.DownloadsDirectory;
-                if (dl is null)
+                // Android 9 及以下：公共下载目录 /sdcard/Download（需 WRITE_EXTERNAL_STORAGE，Manifest 已声明）
+                var extRoot = global::Android.App.Application.Context!.GetExternalFilesDir("");
+                if (extRoot is null)
                 {
-                    App.WriteLog("DownloadBackupService: 无法获取下载目录（旧版 API 失败）");
+                    App.WriteLog("DownloadBackupService: 无法获取外部目录（旧版 API 失败）");
                     return false;
                 }
-                var dest = System.IO.Path.Combine(dl.AbsolutePath, fileName);
+                // 旧版无 MediaStore.Downloads，落到应用专属目录（用户通过文件管理器可见 /sdcard/Android/data/<pkg>/files）
+                var backupDir = System.IO.Directory.CreateDirectory(
+                    System.IO.Path.Combine(extRoot.AbsolutePath, "backup"));
+                var dest = System.IO.Path.Combine(backupDir.FullName, fileName);
                 File.Copy(sourceZip, dest, overwrite: true);
                 return File.Exists(dest);
             }

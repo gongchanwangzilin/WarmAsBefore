@@ -8,12 +8,16 @@ namespace WarmAsBefore.Platforms.Android;
     ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode)]
 public class MainActivity : MauiAppCompatActivity
 {
+    /// <summary>把当前 Activity 暴露给 ScreenOrientationService（锁屏需拿到 Activity 实例）。</summary>
+    public static global::Android.App.Activity? CurrentActivity { get; private set; }
+
     protected override void OnCreate(Bundle savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
         // 默认竖屏（auto 模式）：手机 / 平板都竖屏；
         // 设置值由 App 启动时 ScreenOrientationService.ApplyOnStart() 统一锁定（含横屏/竖屏手动选项）。
         RequestedOrientation = ScreenOrientation.Portrait;
+        CurrentActivity = this;
     }
 
     /// <summary>把语音识别的结果转发给 SpeechService。
