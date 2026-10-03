@@ -351,10 +351,34 @@
                             <Switch Grid.Column="1" IsToggled="{Binding SttEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="识别引擎" Style="{StaticResource TxtBodySm}" />
-                            <Label Text="system=系统自带识别，api=外部 STT API（录音 8 秒后识别）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Label Text="system=系统自带，local=本地下载模型，api=外部 STT API" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Picker Grid.Column="1" Title="识别引擎" WidthRequest="100"
                                     ItemsSource="{Binding VoiceEngineChoices}" SelectedItem="{Binding SttEngine}"
                                     FontSize="13" /></Grid>
+                        <!-- 本地识别模型：识别引擎选 local 时显示 -->
+                        <VerticalStackLayout Spacing="10" IsVisible="{Binding SttEngine, Converter={StaticResource SttEngineIsLocal}}">
+                            <Label Text="本地识别模型" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                            <Picker Title="本地模型" ItemsSource="{Binding SttModelChoices}"
+                                    SelectedItem="{Binding SttModelDisplay}" FontSize="13" />
+                            <Label Text="{Binding SttModelStatus}" Style="{StaticResource TxtCaption}"
+                                   TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                            <ProgressBar Progress="{Binding SttModelProgress}"
+                                         IsVisible="{Binding IsDownloadingSttModel}"
+                                         HeightRequest="4" />
+                            <Grid ColumnDefinitions="*,*">
+                                <Button Text="下载模型" Command="{Binding DownloadSttModelCommand}"
+                                        BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
+                                        FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="10"
+                                        IsEnabled="{Binding IsDownloadingSttModel, Converter={StaticResource InverseBool}}" />
+                                <Button Grid.Column="1" Text="删除模型" Command="{Binding DeleteSttModelCommand}"
+                                        BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
+                                        FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="10"
+                                        Margin="8,0,0,0"
+                                        IsEnabled="{Binding IsDownloadingSttModel, Converter={StaticResource InverseBool}}" />
+                            </Grid>
+                            <Label Text="local=离线识别（需先下载模型）；api=外部服务（电脑端录音 8 秒后识别）"
+                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                        </VerticalStackLayout>
                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_TtsRate], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                             <Slider Grid.Column="1" Value="{Binding TtsRate}" Minimum="0.5" Maximum="2" /></Grid>
 
