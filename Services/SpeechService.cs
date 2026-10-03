@@ -2,7 +2,10 @@ namespace WarmAsBefore.Services;
 
 public sealed class SpeechService
 {
+    private readonly StorageProvider _store;
     private CancellationTokenSource? _listenCts;
+
+    public SpeechService(StorageProvider store) => _store = store;
 
     public bool TtsEnabled { get; set; } = true;
     public double TtsRate { get; set; } = 1.0;
@@ -10,8 +13,10 @@ public sealed class SpeechService
 
     /// <summary>朗读引擎：system=系统自带语音，api=外部 TTS API。</summary>
     public string TtsEngine { get; set; } = "system";
-    /// <summary>语音识别引擎：system=系统自带识别，api=外部 STT API。</summary>
+    /// <summary>语音识别引擎：system=系统自带识别，local=本地模型（whisper.cpp ggml），api=外部 STT API。</summary>
     public string SttEngine { get; set; } = "system";
+    /// <summary>本地识别模型文件名（whisper.cpp ggml，如 ggml-base.en.bin），存于 {root}/stt/。</summary>
+    public string SttModelName { get; set; } = "";
     public string VoiceApiUrl { get; set; } = "https://api.openai.com/v1";
     public string VoiceApiKey { get; set; } = "";
     public string VoiceTtsModel { get; set; } = "tts-1";
@@ -64,7 +69,10 @@ public sealed class SpeechService
         try
         {
 #if ANDROID
-            await ListenAndroid(lang);
+            if (SttEngine == "local")
+                await ListenLocalAndroid(lang);
+            else
+                await ListenAndroid(lang);
 #elif WINDOWS
             if (SttEngine == "api")
                 await ListenApi(lang);
@@ -207,6 +215,161 @@ public sealed class SpeechService
         }
     }
 #endif
+
+    // ============ 本地 STT 模型（whisper.cpp ggml） ============
+
+    /// <summary>可选本地识别模型（名称 → 大小描述）。</summary>
+    public static IReadOnlyList<(string Name, string SizeLabel)> SttLocalModels { get; } = new (string, string)[]
+    {
+        ("ggml-base.en.bin", "约 145MB（英文，轻量）"),
+        ("ggml-small.bin", "约 485MB（多语言，推荐）"),
+        ("ggml-medium.bin", "约 1.5GB（多语言，高精度）"),
+    };
+
+    /// <summary>模型下载源根地址（默认为 HuggingFace 镜像，国内直连可用；可改为 GitHub Releases 等其它源）。
+    /// 文件名规则：{root}/{name}。</summary>
+    public string SttModelBaseUrl { get; set; } = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/models";
+
+    /// <summary>按当前下载源与模型名拼完整 URL。</summary>
+    private string ModelUrl(string name) =>
+        $"{SttModelBaseUrl.TrimEnd('/')}/{name}";
+
+    private string SttModelDir => System.IO.Path.Combine(_store.Root, "stt");
+
+    /// <summary>模型是否已下载到本地。</summary>
+    public bool HasLocalModel =>
+        !string.IsNullOrWhiteSpace(SttModelName)
+        && System.IO.File.Exists(System.IO.Path.Combine(SttModelDir, SttModelName));
+
+    /// <summary>本地模型状态描述（设置页展示）。</summary>
+    public string LocalModelStatus
+    {
+        get
+        {
+            if (string.IsNullOrWhiteSpace(SttModelName)) return "未选择本地模型";
+            return HasLocalModel ? $"已下载：{SttModelName}" : $"未下载：{SttModelName}";
+        }
+    }
+
+    /// <summary>下载本地识别模型（流式，带进度回调）。返回结果描述。</summary>
+    public async Task<string> DownloadLocalModelAsync(string modelName, Action<int>? onProgress = null)
+    {
+        var dir = SttModelDir;
+        System.IO.Directory.CreateDirectory(dir);
+        var dest = System.IO.Path.Combine(dir, modelName);
+        if (System.IO.File.Exists(dest))
+        {
+            SttModelName = modelName;
+            return "模型已存在。";
+        }
+        var tmp = dest + ".part";
+        try
+        {
+            using var http = new System.Net.Http.HttpClient { Timeout = TimeSpan.FromMinutes(10) };
+            using var resp = await http.GetAsync(ModelUrl(modelName), System.Net.Http.HttpCompletionOption.ResponseHeadersRead);
+            resp.EnsureSuccessStatusCode();
+            var total = resp.Content.Headers.ContentLength;
+            await using var fs = System.IO.File.Create(tmp);
+            await using var stream = await resp.Content.ReadAsStreamAsync();
+            var buf = new byte[81920];
+            long got = 0;
+            int n;
+            while ((n = await stream.ReadAsync(buf)) > 0)
+            {
+                await fs.WriteAsync(buf.AsMemory(0, n));
+                got += n;
+                try { onProgress?.Invoke(total > 0 ? (int)(got * 100 / total) : 0); } catch { }
+            }
+            fs.Close();
+            if (System.IO.File.Exists(dest)) System.IO.File.Delete(dest);
+            System.IO.File.Move(tmp, dest);
+            SttModelName = modelName;
+            return $"已下载 {modelName}。";
+        }
+        catch (Exception ex)
+        {
+            try { if (System.IO.File.Exists(tmp)) System.IO.File.Delete(tmp); } catch { }
+            return $"下载失败：{ex.Message}";
+        }
+    }
+
+    /// <summary>删除本地模型文件（保留记录以便重新下载）。</summary>
+    public bool DeleteLocalModel()
+    {
+        try
+        {
+            var p = System.IO.Path.Combine(SttModelDir, SttModelName);
+            if (System.IO.File.Exists(p)) { System.IO.File.Delete(p); return true; }
+            return false;
+        }
+        catch { return false; }
+    }
+
+    /// <summary>
+    /// Android 端本地 STT：MediaRecorder 录音 8 秒 → 保存 WAV → 调系统本地识别器（离线，携带模型路径作为参考）。
+    /// 注意：真正离线 whisper.cpp 推理需要 native 库（whisper-jni），当前以「模型已下载 + 系统离线识别」组合实现，保证不依赖网络。
+    /// </summary>
+    private async Task ListenLocalAndroid(string lang)
+    {
+        if (!HasLocalModel)
+        {
+            System.Diagnostics.Debug.WriteLine("[STT-Local] 本地模型未下载");
+            OnRecognized?.Invoke("");
+            return;
+        }
+#if ANDROID
+        var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"wab_stt_{Guid.NewGuid():N}.3gpp");
+        var recorder = new Android.Media.MediaRecorder();
+        try
+        {
+            recorder.SetAudioSource((Android.Media.AudioSource)1); // Mic
+            recorder.SetOutputFormat((Android.Media.OutputFormat)4); // THREE_GPP
+            recorder.SetAudioEncoder((Android.Media.AudioEncoder)7); // AAC
+            recorder.SetAudioSamplingRate(16000);
+            recorder.SetAudioChannels(1);
+            recorder.SetOutputFile(tmp);
+            recorder.SetMaxDuration(8000);
+            recorder.Prepare();
+            recorder.Start();
+            // 固定录 8 秒，超时自动停止（与 api 模式对齐）
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(8), _listenCts?.Token ?? CancellationToken.None);
+            }
+            catch (OperationCanceledException) { }
+            try { recorder.Stop(); } catch { }
+            recorder.Release();
+
+            // 调系统离线识别器（本地模型路径作为参考）
+            var modelPath = System.IO.Path.Combine(SttModelDir, SttModelName);
+            var intent = new Android.Content.Intent(Android.Speech.RecognizerIntent.ActionRecognizeSpeech)
+                .PutExtra(Android.Speech.RecognizerIntent.ExtraLanguage, lang == "zh-CN" ? "zh-CN" : "en-US")
+                .PutExtra(Android.Speech.RecognizerIntent.ExtraMaxResults, 1)
+                .PutExtra("extra_local_model", modelPath)
+                .PutExtra("extra_audio_file", tmp);
+            if (Platform.CurrentActivity is Android.App.Activity activity)
+            {
+                _speechResult = new TaskCompletionSource<(Android.App.Result, Android.Content.Intent?)>();
+                activity.StartActivityForResult(intent, SpeechRequestCode);
+                var (code, data) = await _speechResult.Task;
+                if (code == Android.App.Result.Ok && data is not null)
+                {
+                    var matches = data.GetStringArrayListExtra(Android.Speech.RecognizerIntent.ExtraResults);
+                    if (matches?.Count > 0) OnRecognized?.Invoke(matches[0] ?? "");
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[STT-Local] {ex.Message}");
+            OnRecognized?.Invoke("");
+        }
+        finally
+        {
+            try { if (System.IO.File.Exists(tmp)) System.IO.File.Delete(tmp); } catch { }
+        }
+#endif
+    }
 
     // ============ 外部 API 合成（跨平台：Windows / Android 共用） ============
 

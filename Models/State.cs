@@ -100,8 +100,10 @@ public sealed record UserSettings
     public bool SttEnabled { get; init; } = true;
     /// <summary>朗读引擎：system=系统自带语音，api=外部 TTS API。</summary>
     public string TtsEngine { get; init; } = "system";
-    /// <summary>语音识别引擎：system=系统自带识别，api=外部 STT API。</summary>
+    /// <summary>语音识别引擎：system=系统自带识别，local=本地下载的模型，api=外部 STT API。</summary>
     public string SttEngine { get; init; } = "system";
+    /// <summary>本地识别模型名称（如 ggml-base.en.bin / ggml-small.bin），对应 {root}/stt/{model}。</summary>
+    public string SttModelName { get; init; } = "";
     /// <summary>语音 API 基础地址（OpenAI 兼容，端点 /audio/speech、/audio/transcriptions；SoVITS 模式下为服务根地址，如 http://192.168.1.10:9870）。</summary>
     public string VoiceApiUrl { get; init; } = "https://api.openai.com/v1";
     public string VoiceApiKey { get; init; } = "";
