@@ -367,9 +367,14 @@ android-sdk/
 android-jdk/
 
 # 发布产物（用 GitHub Releases 发布，不进仓库）
-# 例外：签名密钥备份 warmasbefore-signing.7z 必须保留在 GitHub（CI 本地签名的唯一云端备份）
+# 云端密钥备份 7z 包（密码 @2012N10y26r，见 Signing/README.md）
 dist/*
 !dist/warmasbefore-signing.7z
+
+# 签名密钥（明文 p12 私钥 + 密码明文 + 文档）仅存本机，永不进仓库
+# 云端唯一备份是 dist/warmasbefore-signing.7z（7z 加密 + 密码 -mhe 头加密）
+Signing/
+!Signing/README.md
 
 # 误操作残留 / 备份与缓存
 path/
