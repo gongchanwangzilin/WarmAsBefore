@@ -6,6 +6,8 @@ using Android.Content.PM;
 using Android.OS;
 using Android.Runtime;
 using Java.Lang;
+using Java.Lang.Reflect;
+using Java.Lang.Thread;
 
 namespace WarmAsBefore.Modules.Screen;
 
@@ -18,7 +20,7 @@ namespace WarmAsBefore.Modules.Screen;
 ///   portrait  = 锁定竖屏
 ///
 /// 防呆：Set() 切换方向后立即启动 3 秒计时；到点未确认（Confirm）则自动回弹到上一方向，
-/// 并由 UI 弹一次确认框（见 SettingsViewModel.ConfirmOrientationKeepNewAsync 的调用方）。
+/// 并由 UI 弹一次确认框（见 SettingsPage.xaml.cs 的 DebouncedRevert 订阅）。
 /// 锁屏经 Java Handler(Looper.Main) 投递到主线程，避免非主线程写 Activity.RequestedOrientation。
 /// </summary>
 public static class ScreenOrientationService
@@ -98,7 +100,6 @@ public static class ScreenOrientationService
         var cts = new CancellationTokenSource();
         _debounceCts = cts;
         var token = cts.Token;
-        var target = Resolved;
         _ = Task.Delay(TimeSpan.FromSeconds(3), token).ContinueWith(t =>
         {
             if (t.IsCanceled) return;
@@ -122,6 +123,7 @@ public static class ScreenOrientationService
             var target = Resolved == KeyLandscape
                 ? (int)ScreenOrientation.Landscape
                 : (int)ScreenOrientation.Portrait;
+            // Handler(Looper.Main).post(runnable)：把锁屏动作投递到主线程
             var handler = new Handler(Looper.Main!);
             handler.Post(new ScreenOrientationRunnable(target));
         }
@@ -129,37 +131,43 @@ public static class ScreenOrientationService
         {
             App.WriteLog("ScreenOrientationService.LockNative -> " + ex.Message);
         }
+#else
+        App.WriteLog("ScreenOrientationService: 桌面端忽略屏幕方向=" + Resolved);
 #endif
     }
-}
 
-/// <summary>Android 侧 Runnable：在主线程把方向值设到当前 Activity。需保持类名与包名一致。</summary>
 #if ANDROID
-using Android.Views;
-
-namespace WarmAsBefore;
-
-[Register("com/warmasbefore/ScreenOrientationRunnable")]
-public class ScreenOrientationRunnable : Java.Lang.Object, IRunnable
-{
-    int _target;
-    public ScreenOrientationRunnable(int target) => _target = target;
-
-    public void Run()
+    /// <summary>Android 侧 Runnable：主线程把方向值设到当前 Activity。
+    /// 用反射拿 ActivityThread.currentApplication()（MAUI 默认包名 com.mauiapp.mauiactivity）。</summary>
+    class ScreenOrientationRunnable : Java.Lang.Object, IRunnable
     {
-        try
+        int _target;
+        public ScreenOrientationRunnable(int target) => _target = target;
+
+        public void Run()
         {
-            // ActivityThread.currentActivity()
-            var atType = Java.Lang.Class.ForName("android.app.ActivityThread");
-            var activity = atType.CallStaticMethod<Java.Lang.Object?>("currentActivity");
-            if (activity is null) return;
-            // Activity.setRequestedOrientation(int)
-            var setter = Java.Lang.Class.ForName("android.app.Activity")
-                .GetMethod("setRequestedOrientation",
-                    Java.Lang.Class.ForName("int"));
-            setter.Invoke(activity, (short)_target);
+            try
+            {
+                // android.app.ActivityThread.currentApplication() -> Application
+                // Application.ActivityThread.currentActivity -> Activity
+                var atType = Java.Lang.Class.ForName("android.app.ActivityThread");
+                var currentApp = atType.CallStaticMethod<Java.Lang.Object?>("currentApplication");
+                if (currentApp is null) return;
+                // 从 Application 拿到 ActivityThread，再取 currentActivity
+                var atMethod = atType.CallMethod<Java.Lang.Object?>("currentApplication", new object?[] { });
+                // 直接：ActivityThread.currentActivity() 是 Java 侧静态方法（隐藏 API），用反射调
+                var activity = atType.CallStaticMethod<Java.Lang.Object?>("currentActivity");
+                if (activity is null) return;
+                var setter = Java.Lang.Class.ForName("android.app.Activity")
+                    .GetMethod("setRequestedOrientation",
+                        Java.Lang.Class.ForName("int"));
+                setter.Invoke(activity, (short)_target);
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("ScreenOrientationRunnable -> " + ex.Message);
+            }
         }
-        catch { /* 锁屏失败静默 */ }
     }
-}
 #endif
+}
