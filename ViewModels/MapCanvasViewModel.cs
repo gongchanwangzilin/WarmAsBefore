@@ -177,9 +177,12 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task Help()
     {
-await Shell.Current.DisplayAlert("使用说明",
-            "【浏览】左键点卡片 = 出发前往\n【编辑】拖拽卡片 = 移动；空白处拖动 = 平移画布；按住空白不放 0.6 秒再拖动 = 框选地点（松开高亮）；拖折点 = 改路径\n【连线】先点卡片或临时节点设起点，再点目标完成边；点空白加折点；右键取消\n【涂鸦】按住左键自由画线，松手自动成边并显示总长；吸附卡片/节点\n\n右键：卡片/临时节点/连线/空白都有菜单。框内右键自动归属该地点。滚轮 = 缩放。",
-            "知道了");
+        // 触屏版（手机 / 平板）文案：把"左键/右键/滚轮"换成点按 / 长按 / 双指缩放
+        bool touch = DeviceInfo.DeviceType is DeviceType.Handset or DeviceType.Tablet or DeviceType.Virtual;
+        var hint = touch
+            ? "【浏览】点卡片 = 出发前往\n【编辑】拖卡片 = 移动；空白处拖动 = 平移画布；长按空白 0.6 秒再拖 = 框选地点（松开高亮）；拖折点 = 改路径\n【连线】先点卡片或临时节点设起点，再点目标完成边；点空白加折点；长按取消\n【涂鸦】按住拖动自由画线，松手自动成边并显示总长；吸附卡片/节点\n\n长按：卡片 / 临时节点 / 连线 / 空白都有菜单。双指 = 缩放。"
+            : "【浏览】左键点卡片 = 出发前往\n【编辑】拖拽卡片 = 移动；空白处拖动 = 平移画布；按住空白不放 0.6 秒再拖动 = 框选地点（松开高亮）；拖折点 = 改路径\n【连线】先点卡片或临时节点设起点，再点目标完成边；点空白加折点；右键取消\n【涂鸦】按住左键自由画线，松手自动成边并显示总长；吸附卡片/节点\n\n右键：卡片/临时节点/连线/空白都有菜单。框内右键自动归属该地点。滚轮 = 缩放。";
+        await Shell.Current.DisplayAlert("使用说明", hint, "知道了");
     }
 
     /// <summary>把全部卡片/临时节点按网格重新摆放。</summary>
@@ -344,6 +347,20 @@ await Shell.Current.DisplayAlert("使用说明",
         await _maps.SaveAsync();
         StatusText = $"已添加场景：{name.Trim()}（拖拽可摆位，右键可设背景/备注）";
         await PickSceneBackgroundAsync(scene);
+        Refresh();
+    }
+
+    /// <summary>从素材库为选中场景设背景（触屏常驻按钮；无选中场景时提示先选场景）。</summary>
+    [RelayCommand]
+    private async Task BackgroundFromLibrary()
+    {
+        var node = SelectedNode;
+        if (node is null || node.Scene is null)
+        {
+            StatusText = "请先在地图上点选一个场景卡片，再点「背景（素材库）」";
+            return;
+        }
+        await PickBackgroundFromLibraryAsync(node.Scene);
         Refresh();
     }
 

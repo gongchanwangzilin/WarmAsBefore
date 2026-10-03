@@ -1,0 +1,118 @@
+#nullable enable
+using System;
+using System.IO;
+
+namespace WarmAsBefore.Services;
+
+/// <summary>
+/// 自动备份数据包到「下载」目录（双触发：应用启动时 + 每次导出成功后）。
+///
+/// 实现：
+///   Android 13+ → MediaStore.Downloads（无需存储权限，写入公共 下载/ 目录）
+///   Android 9-12 → 公共 下载/ 目录（需 WRITE_EXTERNAL_STORAGE，AndroidManifest 已声明）
+///   桌面端 → no-op（桌面有自己的数据目录，无「下载文件夹」概念）
+/// </summary>
+public static class DownloadBackupService
+{
+    static readonly object _lock = new();
+    static bool _started;
+
+    /// <summary>应用启动时调用一次：把数据目录最新内容打包并备份到下载文件夹。失败只记日志。</summary>
+    public static async Task OnAppStartAsync()
+    {
+        lock (_lock)
+        {
+            if (_started) return;
+            _started = true;
+        }
+        try
+        {
+            var tmpZip = Path.Combine(Path.GetTempPath(),
+                "wab_autobackup_" + DateTime.Now.ToString("yyyyMMddHHmmss") + ".zip");
+            await DataPackageService.ExportAsync(tmpZip, includeSensitive: false, progress: null);
+            if (SaveToDownloads(tmpZip))
+                App.WriteLog("DownloadBackupService: 启动备份成功 -> 下载/WarmAsBefore_backup.zip");
+            else
+                App.WriteLog("DownloadBackupService: 启动备份未写入下载目录（桌面 no-op 或失败）");
+            try { if (File.Exists(tmpZip)) File.Delete(tmpZip); } catch { }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("DownloadBackupService.OnAppStart -> " + ex.Message);
+        }
+    }
+
+    /// <summary>导出成功后调用：把刚导出的数据包同步一份到下载文件夹。</summary>
+    public static void AfterExport(string? sourceZip)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(sourceZip) || !File.Exists(sourceZip)) return;
+            if (SaveToDownloads(sourceZip))
+                App.WriteLog("DownloadBackupService: 导出后备份成功 -> 下载/WarmAsBefore_backup.zip");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("DownloadBackupService.AfterExport -> " + ex.Message);
+        }
+    }
+
+    /// <summary>把 zip 落到「下载」目录。桌面返回 false（no-op）；Android 返回是否成功。</summary>
+    static bool SaveToDownloads(string sourceZip)
+    {
+        const string fileName = "WarmAsBefore_backup.zip";
+#if ANDROID
+        try
+        {
+            if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Tiramisu)
+            {
+                // Android 13+：MediaStore.Downloads（无需存储权限，写入公共下载目录）
+                var cr = Android.App.Application.Context!.ContentResolver;
+                var values = new Android.Content.ContentValues
+                {
+                    [Android.Provider.MediaStore.MediaColumns.DisplayName] = fileName,
+                    [Android.Provider.MediaStore.MediaColumns.RelativePath] =
+                        Android.Provider.MediaStore.Downloads.Directory,
+                    [Android.Provider.MediaStore.MediaColumns.MimeType] = "application/zip",
+                };
+                var uri = cr.Insert(Android.Provider.MediaStore.Downloads.ExternalUri, values);
+                if (uri is null)
+                {
+                    App.WriteLog("DownloadBackupService: MediaStore insert 失败（uri=null）");
+                    return false;
+                }
+                using var inStream = File.OpenRead(sourceZip);
+                using var outStream = cr.OpenOutputStream(uri);
+                if (outStream is null)
+                {
+                    App.WriteLog("DownloadBackupService: OpenOutputStream 失败");
+                    return false;
+                }
+                inStream.CopyTo(outStream);
+                return true;
+            }
+            else
+            {
+                // Android 9-12：公共下载目录（需 WRITE_EXTERNAL_STORAGE，Manifest 已声明）
+                var dl = Android.Util.AndroidFileSystem.DownloadsDirectory;
+                if (dl is null)
+                {
+                    App.WriteLog("DownloadBackupService: 无法获取下载目录（旧版 API 失败）");
+                    return false;
+                }
+                var dest = System.IO.Path.Combine(dl.AbsolutePath, fileName);
+                File.Copy(sourceZip, dest, overwrite: true);
+                return File.Exists(dest);
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("DownloadBackupService.SaveToDownloads -> " + ex.Message);
+            return false;
+        }
+#else
+        // 桌面：没有「下载文件夹」概念，返回 false（调用方按 no-op 处理）
+        return false;
+#endif
+    }
+}

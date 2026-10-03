@@ -120,6 +120,10 @@ public sealed record UserSettings
     public int CycleLength { get; init; } = 28;
     public int PeriodLength { get; init; } = 5;
 
+    // 移动设备
+    /// <summary>屏幕方向：auto=默认竖屏 / landscape=锁横屏 / portrait=锁竖屏（仅移动设备实际生效，桌面 no-op）。</summary>
+    public string ScreenOrientation { get; init; } = "auto";
+
     // 电脑端
     public bool AlwaysOnTop { get; init; }
     /// <summary>桌宠闲置时长（分钟）：0 表示关闭闲置自动桌宠；达到闲置时长自动进入桌宠模式，重新有输入时自动恢复。</summary>

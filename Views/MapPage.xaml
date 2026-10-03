@@ -59,7 +59,7 @@
                 </Grid>
 
                 <!-- 编辑模式提示行 -->
-                <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="编辑：拖卡片=移动 · 空白拖动=平移 · 按住空白 0.6秒再拖=框选地点 · 右键=菜单" 
                            TextColor="{DynamicResource BeigeAccent200}" FontSize="12" VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="＋ 新地点" TextColor="{DynamicResource OffWhite50}"
@@ -70,6 +70,10 @@
                             BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
                             CornerRadius="6" HeightRequest="32"
                             Command="{Binding AddSceneCommand}" />
+                    <Button Grid.Column="3" Text="🖼 背景（素材库）" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
+                            CornerRadius="6" HeightRequest="32"
+                            Command="{Binding BackgroundFromLibraryCommand}" />
                 </Grid>
             </Grid>
         </Border>

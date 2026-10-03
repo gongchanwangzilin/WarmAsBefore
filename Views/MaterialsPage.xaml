@@ -89,6 +89,9 @@
                            HorizontalOptions="Center" />
                     <Label Text="导入 JPG / PNG / MP4 背景，可在地图里选用" Style="{StaticResource TxtMuted}"
                            HorizontalOptions="Center" FontSize="13" />
+                    <Label Text="（触屏设备：导入后可在地图页选中场景点「🖼 背景（素材库）」选用）" Style="{StaticResource TxtMuted}"
+                           HorizontalOptions="Center" FontSize="11"
+                           IsVisible="{OnIdiom Phone=True, Desktop=False, Tablet=True}" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
@@ -138,7 +141,11 @@
                     <Label Text="音乐库还是空的" Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
                     <Label Text="导入音乐后可设为左键音/右键音/按键音/背景音" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="13" />
+                           HorizontalOptions="Center" FontSize="13"
+                           IsVisible="{OnIdiom Phone=False, Desktop=True, Tablet=False}" />
+                    <Label Text="导入音乐后可设为背景音/按键音" Style="{StaticResource TxtMuted}"
+                           HorizontalOptions="Center" FontSize="13"
+                           IsVisible="{OnIdiom Phone=True, Desktop=False, Tablet=True}" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
