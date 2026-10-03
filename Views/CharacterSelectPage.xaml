@@ -67,7 +67,7 @@
                                 <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
                                 <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
                                 <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtCaption}"
-                                       TextColor="{DynamicResource BeigeAccent300}" FontSize="11" />
+                                       TextColor="{DynamicResource WarmMuted}" FontSize="11" />
                             </VerticalStackLayout>
                         </Grid>
                         <Border.GestureRecognizers>

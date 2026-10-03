@@ -100,12 +100,19 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     public bool IsGalgamePanelVisible => !IsInMiniGame;
 
+    /// <summary>右侧介绍/对话框是否可见：仅在桌面（横版布局）且处于小游戏模式时显示；
+    /// 手机/平板竖屏时隐藏——竖版布局自带底部聊天面板，右框只会挤占立绘空间。</summary>
+    public bool IsRightPanelVisible
+        => ShowRightChat
+        && (DeviceInfo.Platform == DevicePlatform.WinUI || DeviceInfo.Platform == DevicePlatform.MacCatalyst);
+
     partial void OnIsInMiniGameChanged(bool value)
     {
         ShowRightChat = value;
         // 按钮文案 = 点击后进入的目标模式（value=IsInMiniGame）
         GalgameModeLabel = value ? "切回 Galgame" : "切到聊天模式";
         OnPropertyChanged(nameof(IsGalgamePanelVisible));
+        OnPropertyChanged(nameof(IsRightPanelVisible));
     }
 
     [RelayCommand]
@@ -116,10 +123,18 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     /// <summary>桌面布局：展开/收起右侧对话拉达。用两个无参命令，避免 RelayCommand&lt;bool&gt; 被 XAML 字符串参数坑。</summary>
     [RelayCommand]
-    private void ExpandRightPanel() => ShowRightChat = true;
+    private void ExpandRightPanel()
+    {
+        ShowRightChat = true;
+        OnPropertyChanged(nameof(IsRightPanelVisible));
+    }
 
     [RelayCommand]
-    private void CollapseRightPanel() => ShowRightChat = false;
+    private void CollapseRightPanel()
+    {
+        ShowRightChat = false;
+        OnPropertyChanged(nameof(IsRightPanelVisible));
+    }
 
     private CharacterData? _char;
     private string _outfitKey = "";
