@@ -557,6 +557,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>引擎特有扩展参数（SoVITS：说话人编号 spk_id）。</summary>
     [ObservableProperty] private string _voiceExtra = "";
     [ObservableProperty] private string _testVoiceStatus = "";
+    /// <summary>试听用文本（设置页"试听当前音色"输入框）。</summary>
+    [ObservableProperty] private string _previewVoiceText = "你好，我是温暖如初。";
 
     public List<string> VoiceEngineChoices { get; } = new() { "system", "api" };
     /// <summary>外部语音服务类型选项（Picker 用，绑定显示名）。</summary>
@@ -565,6 +567,32 @@ public sealed partial class SettingsViewModel : ObservableObject
         "OpenAI 兼容（网络 API）",
         "GPT-SoVITS（本地/局域网）",
     };
+
+    /// <summary>试听当前音色：按当前设置合成试听文本并播放（走系统 TTS 或外部 API，双端均可用）。</summary>
+    [RelayCommand]
+    private async Task PreviewVoice()
+    {
+        var text = string.IsNullOrWhiteSpace(PreviewVoiceText) ? "你好，我是温暖如初。" : PreviewVoiceText.Trim();
+        try
+        {
+            // 同步当前界面设置到 SpeechService（RuntimeConfigurator 只在上次 Persist 时下发过）
+            var s = _settings.Current;
+            _speech.VoiceApiMode = string.IsNullOrWhiteSpace(s.VoiceApiMode) ? "openai" : s.VoiceApiMode;
+            _speech.VoiceExtra = s.VoiceExtra ?? "";
+            _speech.VoiceApiUrl = s.VoiceApiUrl;
+            _speech.VoiceApiKey = s.VoiceApiKey;
+            _speech.VoiceTtsModel = s.VoiceTtsModel;
+            _speech.VoiceName = s.VoiceName;
+            TestVoiceStatus = "正在试听…";
+            await _speech.Speak(text);
+            TestVoiceStatus = "试听完成。";
+        }
+        catch (Exception ex)
+        {
+            TestVoiceStatus = $"试听失败：{ex.Message}";
+            App.WriteLog("SettingsViewModel.PreviewVoice -> " + ex);
+        }
+    }
 
     /// <summary>测试外部语音服务：按当前设置（可先落盘）合成试听音频并播放，结果写入 <see cref="TestVoiceStatus"/>。</summary>
     [RelayCommand]

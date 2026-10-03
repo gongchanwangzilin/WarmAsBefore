@@ -358,6 +358,25 @@
                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_TtsRate], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                             <Slider Grid.Column="1" Value="{Binding TtsRate}" Minimum="0.5" Maximum="2" /></Grid>
 
+                        <!-- 试听当前音色：输入文本，按当前设置（系统 TTS 或外部 API）合成并播放，双端可用 -->
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="试听当前音色" Style="{StaticResource TxtBodySm}" />
+                            <Entry Text="{Binding PreviewVoiceText}" Placeholder="输入一段话试听，如：你好，我是温暖如初。"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="按当前设置合成试听：系统引擎走系统语音；API 引擎走外部服务"
+                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                                <Button Grid.Column="1" Text="试听" Command="{Binding PreviewVoiceCommand}"
+                                        BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
+                                        FontSize="12" Padding="14,0" HeightRequest="36" CornerRadius="10"
+                                        WidthRequest="70" />
+                            </Grid>
+                            <Label Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
+                                   TextColor="{DynamicResource MutedFg}" FontSize="11"
+                                   IsVisible="{Binding TestVoiceStatus, Converter={StaticResource StringNotEmpty}}" />
+                        </VerticalStackLayout>
+
                         <!-- API 语音配置（朗读或识别选了 api 时显示） -->
                         <VerticalStackLayout Spacing="12" IsVisible="{Binding NeedsVoiceApi}">
                             <Label Text="API 语音配置" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
