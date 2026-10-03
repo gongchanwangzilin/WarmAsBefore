@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.Input;
 using WarmAsBefore.Modules.Mcp;
 using WarmAsBefore.Services;
 using WarmAsBefore.Models;
+using WarmAsBefore.Modules.Screen;
 using System.Collections.ObjectModel;
 using System.IO.Compression;
 
@@ -245,6 +246,15 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         _alwaysOnTop = s.AlwaysOnTop;
         _petIdleMinutes = s.PetIdleMinutes;
+
+        // 屏幕方向（auto / landscape / portrait）
+        _screenOrientation = string.IsNullOrWhiteSpace(s.ScreenOrientation) ? "auto" : s.ScreenOrientation;
+        _screenOrientationDisplay = _screenOrientation switch
+        {
+            "landscape" => "横屏",
+            "portrait" => "竖屏",
+            _ => "自动（竖屏）",
+        };
 
         // 小游戏难度
         _gameDifficulty = string.IsNullOrWhiteSpace(s.GameDifficulty) ? "normal" : s.GameDifficulty;
@@ -573,6 +583,43 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private int _petIdleMinutes;
 
+    // 移动端屏幕方向
+    [ObservableProperty] private string _screenOrientation = "auto";
+    [ObservableProperty] private string _screenOrientationDisplay = "自动（竖屏）";
+    public List<string> ScreenOrientationChoices { get; } = new()
+        { "自动（竖屏）", "横屏", "竖屏" };
+
+    /// <summary>是否移动设备（手机/平板）：桌面端隐藏屏幕方向设置项。</summary>
+    public bool IsMobile => DeviceInfo.DeviceType is DeviceType.Virtual
+        || DeviceInfo.DeviceType == DeviceType.Handset
+        || DeviceInfo.DeviceType == DeviceType.Tablet;
+    partial void OnScreenOrientationDisplayChanged(string value)
+    {
+        _screenOrientation = value switch
+        {
+            "横屏" => "landscape",
+            "竖屏" => "portrait",
+            _ => "auto",
+        };
+        PersistSettings();
+        // 实际锁屏 + 3 秒防呆回弹（防呆弹框由页面层负责；确认"保留新方向"时 UI 同步 Picker）
+        ScreenOrientationService.Set(_screenOrientation);
+    }
+    /// <summary>防呆回弹后用户选「保留新方向」时调用：重新锁定新方向，并把 UI 同步回新值。</summary>
+    public async Task ConfirmOrientationKeepNewAsync()
+    {
+        var display = _screenOrientation switch
+        {
+            "landscape" => "横屏",
+            "portrait" => "竖屏",
+            _ => "自动（竖屏）",
+        };
+        ScreenOrientationService.Set(_screenOrientation);
+        // UI 同步（Picker 此时停留在旧方向显示，切回新方向）
+        ScreenOrientationDisplay = display;
+        await Shell.Current.DisplayAlert("屏幕方向", $"已锁定为「{display}」。", "好");
+    }
+
     [ObservableProperty] private bool _qqBotEnabled;
     [ObservableProperty] private string _qqAppId = "";
     [ObservableProperty] private string _qqAppSecret = "";
@@ -869,6 +916,8 @@ GlassLightWidth = GlassLightWidth,
 
                 AlwaysOnTop = AlwaysOnTop,
                 PetIdleMinutes = Math.Max(0, PetIdleMinutes),
+                ScreenOrientation = screenOrientation,
+
 
                 QqBotEnabled = QqBotEnabled,
                 QqAppId = QqAppId.Trim(),
@@ -1419,6 +1468,8 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
                 : "已取消保存";
             if (result.IsSuccessful)
             {
+                // 同步一份到下载文件夹（安卓自动备份；桌面 no-op）
+                Services.DownloadBackupService.AfterExport(tmp);
                 await Shell.Current.DisplayAlert("导出成功",
                     $"数据包已保存（{DataPackageService.FormatSize(size)}）。"
                     + (IncludeSecrets

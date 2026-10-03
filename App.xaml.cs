@@ -115,6 +115,10 @@ public partial class App : Application
             var sm = services.GetService(typeof(SettingsManager)) as SettingsManager;
             if (sm is not null) await sm.Restore();
             LocalizationService.Current.SetCulture(sm?.Current.Lang ?? "zh-CN");
+            // 屏幕方向：按设置锁屏（auto=竖屏 / landscape / portrait）
+            Modules.Screen.ScreenOrientationService.ApplyOnStart(sm?.Current.ScreenOrientation);
+            // 自动备份：启动时把数据目录最新内容备份一份到下载文件夹（桌面 no-op）
+            _ = Services.DownloadBackupService.OnAppStartAsync();
             // 通知/桌宠类应用：默认常驻顶层，保证消息/通知不被其他窗口遮挡。
             // AlwaysOnTop 关闭时只临时 BringToFront（弹通知时抬一次），开则持续强制。
             if (sm?.Current.AlwaysOnTop == true)

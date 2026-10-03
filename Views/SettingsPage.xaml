@@ -212,6 +212,13 @@
                             <Label Text="允许 AI 沉默" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开启后角色可以选择不回复（什么都不输出），系统会自动停止该回合，而不是每次提问都强行给出答复" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding AllowSilence}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding IsMobile}"><VerticalStackLayout>
+                            <Label Text="屏幕方向" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="移动端专用：自动=默认竖屏，手机/平板都竖屏；也可手动锁横屏（电脑版布局）或竖屏。切换后 3 秒内未确认会自动变回来再让你确认一次" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="屏幕方向" WidthRequest="130"
+                                    ItemsSource="{Binding ScreenOrientationChoices}"
+                                    SelectedItem="{Binding ScreenOrientationDisplay}"
+                                    FontSize="13" /></Grid>
                     </VerticalStackLayout>
                 </Border>
 
@@ -567,7 +574,8 @@
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
                         <Button Text="{Binding [Settings_ImportFolder], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFolderCommand}"
-                                Style="{StaticResource BtnNeumorphSm}" />
+                                Style="{StaticResource BtnNeumorphSm}"
+                                IsVisible="{OnIdiom Phone=False, Desktop=True, Tablet=False}" />
                         <ProgressBar Progress="{Binding ImportProgress}" IsVisible="{Binding IsImporting}" />
                         <Label Text="{Binding ImportStatus}" Style="{StaticResource TxtCaption}"
                                IsVisible="{Binding IsImporting}" />
