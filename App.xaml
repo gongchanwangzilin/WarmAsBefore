@@ -32,6 +32,7 @@
             <conv:TicketLabel x:Key="TicketLabel" />
             <conv:BoolFontBold x:Key="BoolFontBold" />
             <conv:IsSovitsMode x:Key="IsSovitsMode" />
+            <conv:SttEngineIsLocal x:Key="SttEngineIsLocal" />
             <!-- 本地化服务实例，供 XAML 绑定使用（避免 x:Static 在 XAML 编译时实例化静态属性） -->
             <i18n:LocalizationService x:Key="I18n" />
         </ResourceDictionary>

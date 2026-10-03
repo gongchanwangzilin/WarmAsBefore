@@ -241,6 +241,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _voiceName = string.IsNullOrWhiteSpace(s.VoiceName) ? "alloy" : s.VoiceName;
         _voiceApiMode = string.IsNullOrWhiteSpace(s.VoiceApiMode) ? "openai" : s.VoiceApiMode;
         _voiceExtra = s.VoiceExtra ?? "";
+        // 本地 STT 模型：由显示名（"文件名（大小）"）映射 Picker 选中项
+        _sttModelDisplay = SttModelDisplayOf(s.SttModelName ?? "");
         _voiceModeDisplay = _voiceApiMode switch
         {
             "sovits" => "GPT-SoVITS（本地/局域网）",
@@ -559,14 +561,84 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _testVoiceStatus = "";
     /// <summary>试听用文本（设置页"试听当前音色"输入框）。</summary>
     [ObservableProperty] private string _previewVoiceText = "你好，我是温暖如初。";
+    /// <summary>本地 STT 模型显示名（Picker 选中项，"名称（大小）"格式）。</summary>
+    [ObservableProperty] private string _sttModelDisplay = "";
+    [ObservableProperty] private int _sttModelProgress;
+    [ObservableProperty] private string _sttModelStatus = "未选择本地模型";
+    [ObservableProperty] private bool _isDownloadingSttModel;
 
-    public List<string> VoiceEngineChoices { get; } = new() { "system", "api" };
+    public List<string> VoiceEngineChoices { get; } = new() { "system", "api", "local" };
+    /// <summary>本地识别模型选项（Picker 用，显示名 = "文件名（大小）"）。</summary>
+    public List<string> SttModelChoices { get; } = SpeechService.SttLocalModels
+        .Select(m => $"{m.Name}（{m.SizeLabel}）").ToList();
     /// <summary>外部语音服务类型选项（Picker 用，绑定显示名）。</summary>
     public List<string> VoiceModeChoices { get; } = new()
     {
         "OpenAI 兼容（网络 API）",
         "GPT-SoVITS（本地/局域网）",
     };
+
+    /// <summary>从 Picker 显示名（"文件名（大小）"）解析出模型文件名。</summary>
+    private static string SttModelNameOf(string display) =>
+        display is null ? "" : display.Split('（')[0].Trim();
+
+    /// <summary>由模型文件名反查 Picker 显示名（用于初始化选中项）。</summary>
+    private static string SttModelDisplayOf(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "";
+        var hit = SpeechService.SttLocalModels.FirstOrDefault(m => m.Name == name);
+        return hit.Name is not null ? $"{hit.Name}（{hit.SizeLabel}）" : name;
+    }
+
+    /// <summary>同步本地模型状态到 UI。</summary>
+    private void RefreshSttModelStatus()
+    {
+        var name = SttModelNameOf(SttModelDisplay);
+        _speech.SttModelName = name;
+        SttModelStatus = _speech.LocalModelStatus;
+    }
+
+    /// <summary>下载当前选中的本地识别模型（带进度）。</summary>
+    [RelayCommand]
+    private async Task DownloadSttModel()
+    {
+        if (IsDownloadingSttModel) return;
+        var name = SttModelNameOf(SttModelDisplay);
+        if (string.IsNullOrEmpty(name))
+        {
+            SttModelStatus = "请先选择本地模型";
+            return;
+        }
+        IsDownloadingSttModel = true;
+        SttModelStatus = "正在下载…";
+        try
+        {
+            var result = await _speech.DownloadLocalModelAsync(name, p => SttModelProgress = p);
+            SttModelStatus = result;
+            if (!result.Contains("失败"))
+            {
+                _speech.SttModelName = name;
+                SttModelStatus = _speech.LocalModelStatus;
+            }
+        }
+        catch (Exception ex)
+        {
+            SttModelStatus = $"下载失败：{ex.Message}";
+            App.WriteLog("SettingsViewModel.DownloadSttModel -> " + ex);
+        }
+        finally
+        {
+            IsDownloadingSttModel = false;
+        }
+    }
+
+    /// <summary>删除已下载的本地模型。</summary>
+    [RelayCommand]
+    private void DeleteSttModel()
+    {
+        _speech.DeleteLocalModel();
+        SttModelStatus = _speech.LocalModelStatus;
+    }
 
     /// <summary>试听当前音色：按当前设置合成试听文本并播放（走系统 TTS 或外部 API，双端均可用）。</summary>
     [RelayCommand]
@@ -839,6 +911,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         VoiceModeDisplay = value == "sovits" ? "GPT-SoVITS（本地/局域网）" : "OpenAI 兼容（网络 API）";
         PersistSettings();
     }
+    partial void OnSttModelDisplayChanged(string value)
+    {
+        RefreshSttModelStatus();
+        PersistSettings();
+    }
 
     /// <summary>朗读或识别选了 API 引擎时，显示 API 语音配置区。</summary>
     public bool NeedsVoiceApi => TtsEngine == "api" || SttEngine == "api";
@@ -989,6 +1066,7 @@ GlassLightWidth = GlassLightWidth,
                 VoiceName = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName.Trim(),
                 VoiceApiMode = string.IsNullOrWhiteSpace(VoiceApiMode) ? "openai" : VoiceApiMode.Trim().ToLowerInvariant(),
                 VoiceExtra = (VoiceExtra ?? "").Trim(),
+                SttModelName = SttModelNameOf(SttModelDisplay),
 
                 NotificationsEnabled = NotificationsEnabled,
                 GreetingEnabled = GreetingEnabled,

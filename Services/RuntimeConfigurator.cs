@@ -111,6 +111,7 @@ public sealed class RuntimeConfigurator
         _speech.SttEnabled = s.SttEnabled;
         _speech.TtsEngine = string.IsNullOrWhiteSpace(s.TtsEngine) ? "system" : s.TtsEngine;
         _speech.SttEngine = string.IsNullOrWhiteSpace(s.SttEngine) ? "system" : s.SttEngine;
+        _speech.SttModelName = s.SttModelName ?? "";
         _speech.VoiceApiUrl = string.IsNullOrWhiteSpace(s.VoiceApiUrl) ? "https://api.openai.com/v1" : s.VoiceApiUrl;
         _speech.VoiceApiKey = s.VoiceApiKey;
         _speech.VoiceTtsModel = string.IsNullOrWhiteSpace(s.VoiceTtsModel) ? "tts-1" : s.VoiceTtsModel;

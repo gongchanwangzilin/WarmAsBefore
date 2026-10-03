@@ -71,6 +71,14 @@ public sealed class BoolToColor : IValueConverter
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
 }
 
+/// <summary>识别引擎字符串 → 是否 local（控制本地模型区显隐）。</summary>
+public sealed class SttEngineIsLocal : IValueConverter
+{
+    public object Convert(object? v, Type t, object? p, CultureInfo c) =>
+        v is string s && string.Equals(s, "local", StringComparison.OrdinalIgnoreCase);
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
+}
+
 /// <summary>service 模式字符串 → 是否 GPT-SoVITS（控制 SoVITS 专用参数行显隐）。</summary>
 public sealed class IsSovitsMode : IValueConverter
 {
