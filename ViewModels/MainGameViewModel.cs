@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Dispatching;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.AiChat;
@@ -99,6 +100,37 @@ public sealed partial class MainGameViewModel : ObservableObject
     public bool NoSpriteVisible => !SpriteVisible;
 
     public bool IsGalgamePanelVisible => !IsInMiniGame;
+
+    /// <summary>是否套「手机主题」（竖版布局，无右侧卡片，聊天区在页面底部，左滑进右侧页）。
+    /// 手机 = 永远手机主题；平板 = 自动检测，是平板就用手机主题（横屏套电脑版太挤）；
+    /// 桌面 = 电脑版主题（横版布局，右侧卡片可显隐）。</summary>
+    public bool IsTabletPhoneLayout { get; } = DetectTabletPhoneLayout();
+
+    /// <summary>手机/平板 竖版布局是否显示：手机恒真；平板 = 自动检测为平板则真；桌面恒假。</summary>
+    public bool IsMobileOrTabletLayout { get; } = DetectMobileOrTabletLayout();
+
+    /// <summary>电脑版横版布局是否显示：仅桌面（WinUI/MacCatalyst）为真。</summary>
+    public bool IsDesktopLayout { get; } = DetectDesktopLayout();
+
+    static bool DetectDesktopLayout()
+    {
+        if (DeviceInfo.Platform is DevicePlatform.WinUI or DevicePlatform.MacCatalyst) return true;
+        return false;
+    }
+
+    static bool DetectMobileOrTabletLayout()
+    {
+        if (DeviceInfo.Platform != DevicePlatform.Android) return false;
+        // 手机 → 手机主题；平板（自动检测）→ 手机主题
+        try
+        {
+            return DeviceInfo.Idiom == DeviceIdiom.Tablet || DeviceInfo.Idiom == DeviceIdiom.Phone;
+        }
+        catch
+        {
+            return true; // 查不到设备类型时按手机主题兜底，避免空白
+        }
+    }
 
     /// <summary>右侧介绍/对话框是否可见：仅在桌面（横版布局）且处于小游戏模式时显示；
     /// 手机/平板竖屏时隐藏——竖版布局自带底部聊天面板，右框只会挤占立绘空间。</summary>
