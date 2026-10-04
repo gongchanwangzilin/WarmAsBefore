@@ -90,13 +90,11 @@ jobs:
         done
         ls -la *.apk
 
-    # ---------- 本地签名（密钥走 Secrets，不进仓库）----------
     # ---------- 签名（密钥走 Secrets，不进仓库）----------
-    # 签名密钥 3 项存于仓库 Secrets（Settings → Secrets and variables → Actions）：
-    #   WARMASBEFORE_P12_B64   = p12 文件的 base64（CI 内解码还原）
+    # 3 个 secret（Settings → Secrets and variables → Actions）：
+    #   WARMASBEFORE_P12_B64   = p12 文件的 base64
     #   WARMASBEFORE_KEY_PASS  = p12 库密码（=私钥密码）
-    #   WARMASBEFORE_KEY_ALIAS = 别名（warmasbefore）
-    # secret 缺失时自动跳过签名，回退上传未签名 APK。
+    #   WARMASBEFORE_KEY_ALIAS = 别名
     - name: Sign APK with release keystore (from Secrets)
       id: sign
       run: |
@@ -105,9 +103,16 @@ jobs:
           echo "signed=false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
-        echo "$P12_B64" | base64 -d > signing.p12
+        # 兼容 secret 值被拆成多行：先删掉所有换行再 base64 解码
+        P12_ONE=$(echo "$P12_B64" | tr -d '\n')
+        echo "$P12_ONE" | base64 -d > signing.p12
         chmod 600 signing.p12
+        # 校验解码字节数（本地 p12 是 4436 字节）
+        sz=$(stat -c%s signing.p12 2>/dev/null || stat -f%z signing.p12)
+        echo "signing.p12 size=$sz"
+        [ "$sz" -ne 4436 ] && { echo "p12 大小异常，中止签名" >&2; exit 1; }
         apk="WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
+        # jarsigner V1 签名；密码里若有 $ 等特殊字符，在双引号内由 bash 按字面值传递（secret 本身是纯文本）
         jarsigner -keystore signing.p12 -storetype PKCS12 \
           -storepass "$KEY_PASS" -keypass "$KEY_PASS" \
           -digestalg SHA256 "$apk" "$KEY_ALIAS"
