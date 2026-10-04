@@ -20,8 +20,10 @@ public static class DeviceInfoService
         try
         {
             // 直接取原生 DisplayMetrics（真实像素 / 密度比 = dp），不依赖 MAUI 的 DisplayUnit API
-            var context = Android.App.Application.Context;
-            var dm = context.Resources.System.DisplayMetrics;
+            // 通过 Activity 上下文拿 Context 的 DisplayMetrics（Resources.System 是静态属性，不能实例引用）
+            var activity = WarmAsBefore.Platforms.Android.MainActivity.CurrentActivity
+                ?? Android.App.Application.Context as Android.App.Activity;
+            var dm = (activity ?? Android.App.Application.Context).Resources.DisplayMetrics;
             double widthDp = dm.WidthPixels / (double)dm.Density;
             double heightDp = dm.HeightPixels / (double)dm.Density;
             double shortEdge = Math.Min(widthDp, heightDp);
