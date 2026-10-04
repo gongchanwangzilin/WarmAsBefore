@@ -280,7 +280,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="14">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                         <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
@@ -291,16 +291,16 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <Label Text="{Binding Energy, StringFormat='精力 {0}%'}" TextColor="{DynamicResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
                     </Border>
-                    <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding QuickSaveCommand}" />
-                    <Button Grid.Column="5" Text="设置" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenPhoneCommand}" />
-                    <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenMapCommand}" />
-                    <Button Grid.Column="8" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="32" Command="{Binding OpenWorldbookCommand}" />
+                    <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
+                    <Button Grid.Column="5" Text="设置" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenSettingsCommand}" />
+                    <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
+                    <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
+                    <Button Grid.Column="8" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenWorldbookCommand}" />
                 </Grid>
             </Border>
 
-            <!-- Left: Info panel -->
-            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" Margin="0">
+            <!-- Left: Info panel（窄屏下允许压缩，避免与状态栏按钮挤压） -->
+            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140" Margin="0">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
                     <Label Text="信息" TextColor="{DynamicResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />

@@ -367,7 +367,7 @@ android-sdk/
 android-jdk/
 
 # 发布产物（用 GitHub Releases 发布，不进仓库）
-# 云端密钥备份 7z 包（密码 @2012N10y26r，见 Signing/README.md）
+# 云端密钥备份 7z 包（7z 头加密，密码见本机 Signing/keystore-info.txt）
 dist/*
 !dist/warmasbefore-signing.7z
 

@@ -14,9 +14,9 @@ public class MainActivity : MauiAppCompatActivity
     protected override void OnCreate(Bundle savedInstanceState)
     {
         base.OnCreate(savedInstanceState);
-        // 默认竖屏（auto 模式）：手机 / 平板都竖屏；
+        // 默认不锁方向（auto 模式）：手机自然竖屏，平板保持系统方向（通常横屏）。
         // 设置值由 App 启动时 ScreenOrientationService.ApplyOnStart() 统一锁定（含横屏/竖屏手动选项）。
-        RequestedOrientation = ScreenOrientation.Portrait;
+        RequestedOrientation = ScreenOrientation.Unspecified;
         CurrentActivity = this;
     }
 

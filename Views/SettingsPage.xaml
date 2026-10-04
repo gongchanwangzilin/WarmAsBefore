@@ -12,6 +12,16 @@
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*" Padding="0">
+        <!-- 页面级 loading 遮罩：首帧渲染前盖住内容，避免转场动画期间布局未就绪导致卡顿观感 -->
+        <Border Grid.RowSpan="2" BackgroundColor="{DynamicResource PageBg}" IsVisible="{Binding PageLoading}" Padding="0"
+                VerticalOptions="Fill" HorizontalOptions="Fill">
+            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
+                <ActivityIndicator IsRunning="{Binding PageLoading}" IsVisible="{Binding PageLoading}"
+                                   HeightRequest="40" WidthRequest="40" Color="{DynamicResource AccentWarm}" />
+                <Label Text="正在加载设置…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Border>
+
         <!-- Header -->
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
@@ -573,8 +583,10 @@
                             <Button Grid.Column="1" Text="＋ 新建" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding NewMcpServerCommand}" />
                         </Grid>
-                        <CollectionView ItemsSource="{Binding McpServers}" HeightRequest="320"
-                                        SelectionMode="None">
+                        <Grid>
+                            <CollectionView ItemsSource="{Binding McpServers}" HeightRequest="320"
+                                            IsVisible="{Binding McpServersLoading, Converter={StaticResource InverseBool}}"
+                                            SelectionMode="None">
                             <CollectionView.EmptyView>
                                 <Label Text="还没有接入的服务器。点「＋ 新建」登记一个，或用下方功能导入数据包"
                                        Style="{StaticResource TxtCaption}" Padding="4,6" />
@@ -611,6 +623,11 @@
                                 </DataTemplate>
                             </CollectionView.ItemTemplate>
                         </CollectionView>
+                            <VerticalStackLayout IsVisible="{Binding McpServersLoading}" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                                <ActivityIndicator IsRunning="{Binding McpServersLoading}" IsVisible="{Binding McpServersLoading}" HeightRequest="32" WidthRequest="32" Color="{DynamicResource AccentWarm}" />
+                                <Label Text="正在加载已接入服务器…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Grid>
 
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_McpUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding McpNetworkUrl}" Placeholder="{Binding [Settings_McpUrlPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
