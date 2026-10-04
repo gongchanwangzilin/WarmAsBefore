@@ -402,6 +402,27 @@ public sealed partial class SettingsViewModel : ObservableObject
             : $"已信任 {TrustedTools.Count} 个工具。";
     }
 
+    /// <summary>后台刷新信任工具列表（同步 IO 放线程池，完成后回主线程更新绑定，避免阻塞 UI）。
+    /// 供 OnAppearing 等需要异步刷新的场景用；原同步版 RefreshSandboxTrust 保留给命令回调（已在后台上下文或可接受同步）。</summary>
+    public void RefreshSandboxTrustAsync()
+    {
+        try
+        {
+            var items = _sandbox.Trust.All();
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                TrustedTools = new ObservableCollection<Modules.Sandbox.TrustEntry>(items);
+                SandboxHint = TrustedTools.Count == 0
+                    ? "默认所有外部工具都不能读取模型数据（API Key 等）。需要时在此处加入信任。"
+                    : $"已信任 {TrustedTools.Count} 个工具。";
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("RefreshSandboxTrustAsync: " + ex);
+        }
+    }
+
     /// <summary>把工具目录加入信任名单（按目录路径）。</summary>
     [RelayCommand]
     private async Task TrustToolDir()
