@@ -110,11 +110,11 @@ jobs:
         sz=$(stat -c%s signing.p12 2>/dev/null || stat -f%z signing.p12)
         echo "signing.p12 size=$sz"
         [ "$sz" -ne 4436 ] && { echo "p12 大小异常（期望 4436），中止签名" >&2; exit 1; }
-        # 密码里若有 $ 等特殊字符，在双引号内 bash 会按字面值传递（secret 本身是纯文本）；
-        # 这里用 printf 打印长度做诊断（不打印明文）
-        echo "KEY_PASS length=${#KEY_PASS} (期望 11)"
+        # 清洗 secret 值里可能带的换行（GitHub 存 secret 不 trim，粘贴末尾常带 \n）
+        KEY_PASS=$(echo "$KEY_PASS" | tr -d '\r\n')
+        KEY_ALIAS=$(echo "$KEY_ALIAS" | tr -d '\r\n')
+        echo "KEY_PASS length after trim=${#KEY_PASS}"
         apk="WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
-        # jarsigner V1 签名；密码里若有 $ 等特殊字符，在双引号内由 bash 按字面值传递（secret 本身是纯文本）
         jarsigner -keystore signing.p12 -storetype PKCS12 \
           -storepass "$KEY_PASS" -keypass "$KEY_PASS" \
           -digestalg SHA256 "$apk" "$KEY_ALIAS"
