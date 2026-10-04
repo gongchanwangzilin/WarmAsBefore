@@ -11,12 +11,26 @@ public partial class SettingsPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
-        vm.RefreshSandboxTrust();
 #if ANDROID
         // 3 秒防呆到点（服务已自动回弹）→ 弹一次确认框，用户选「保留新方向」则重新锁定
         ScreenOrientationService.DebouncedRevert += OnDebouncedRevert;
         Unloaded += (_, _) => ScreenOrientationService.DebouncedRevert -= OnDebouncedRevert;
 #endif
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        // 延迟重活到首帧渲染之后，避免转场动画期间阻塞 UI 线程
+        var vm = BindingContext as SettingsViewModel;
+        if (vm is not null)
+        {
+            vm.RefreshSandboxTrust();
+            // 首帧渲染后再收起页面级 loading 遮罩（让转场动画完整播放）
+            // 延迟 32ms（两帧）再收起遮罩，确保转场动画首帧已渲染、布局已就绪
+            _ = System.Threading.Tasks.Task.Delay(32).ContinueWith(_ =>
+                MainThread.BeginInvokeOnMainThread(() => vm.PageLoading = false));
+        }
     }
 
 #if ANDROID
