@@ -10,7 +10,7 @@ namespace WarmAsBefore.Modules.Screen;
 /// 屏幕方向控制（Android 实际锁屏，桌面 no-op）。
 ///
 /// 语义：
-///   auto      = 默认竖屏（手机 / 平板都竖屏）
+///   auto      = 按屏幕分辨率自动选：手机→竖屏，平板（长边≥500dp）→横屏（电脑版布局）
 ///   landscape = 锁定横屏（电脑版布局）
 ///   portrait  = 锁定竖屏
 ///
@@ -76,25 +76,19 @@ public static class ScreenOrientationService
         _debounceCts = null;
     }
 
-    /// <summary>auto 解析成实际锁定方向：按设备自动选（手机→竖屏，平板→跟随系统/横屏），landscape → 横屏。</summary>
+    /// <summary>auto 解析成实际锁定方向：手机→竖屏，平板（长边≥500dp）→横屏（电脑版布局）。</summary>
     public static string Resolve(string? choice)
     {
         var normalized = Normalize(choice);
         if (normalized == KeyLandscape) return KeyLandscape;
         if (normalized == KeyPortrait) return KeyPortrait;
-        // auto：手机竖屏，平板横屏（电脑版布局）。用 AppInfo/DeviceInfo.Idiom 判断，
-        // 避免 DeviceType 枚举缺失（net10 绑定里 DeviceType 无 Tablet 成员，踩过坑）。
-#if ANDROID || IOS
-        try
-        {
-            var idiom = DeviceInfo.Idiom;
-            return idiom == DeviceIdiom.Tablet ? KeyLandscape : KeyPortrait;
-        }
-        catch { return KeyPortrait; }
-#else
-        return KeyPortrait;
-#endif
+        // auto：按屏幕分辨率判定。手机竖屏、平板横屏（电脑版布局）。
+        // 不用 DeviceInfo.Idiom（部分 Android 机型/模拟器识别不准），改用屏幕长边阈值判定，更稳。
+        return DeviceInfoService.IsTabletScreen() ? KeyLandscape : KeyPortrait;
     }
+
+    /// <summary>当前是否应按平板（电脑版布局 + 横屏）处理。桌面端无方向锁概念，恒 false。</summary>
+    public static bool IsTabletLayout() => DeviceInfoService.IsTabletScreen();
 
     static string Normalize(string? c)
         => (c ?? KeyAuto).Trim().ToLowerInvariant() switch

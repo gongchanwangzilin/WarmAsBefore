@@ -25,9 +25,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
 
         <!-- ============ Phone Layout (vertical) ============
-             手机 + 平板 都用手机主题（竖版，隐藏右侧卡片，聊天面板在页面底部，左滑进右侧页）；
-             桌面 = 走电脑版布局（下面那个 Grid） -->
-        <Grid IsVisible="{Binding IsMobileOrTabletLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
+             仅手机显示（竖版，无右侧卡片，聊天面板在页面底部，左滑进右侧页）；
+             平板（按屏幕短边≥600dp 判定）走电脑版布局（下面那个 Grid）并默认横屏 -->
+        <Grid IsVisible="{Binding IsPhoneLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
             <!-- Status bar - 顶部状态栏 -->
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
                     Padding="16,8">
