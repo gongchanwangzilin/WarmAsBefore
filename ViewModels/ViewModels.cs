@@ -789,6 +789,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _importStatus = "";
     /// <summary>MCP 数据包列表（已导入 / 新建）。</summary>
     public ObservableCollection<Modules.Mcp.McpServerItem> McpServers { get; } = new();
+    /// <summary>MCP 列表加载中标记（true 时设置页显示 loading 圈圈，防止 UI 动画停滞）。</summary>
+    [ObservableProperty] private bool _mcpServersLoading = true;
+    /// <summary>设置页级 loading 遮罩（首帧渲染前盖住内容；OnAppearing 后收起，让转场动画完整播放）。</summary>
+    [ObservableProperty] private bool _pageLoading = true;
 
     // ---- 工具模式运行时（Java / Python）----
     [ObservableProperty] private string _pythonStatus = "未检测（点击下方「检测运行时」）";
@@ -1322,6 +1326,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         {
             McpServers.Clear();
             foreach (var item in items) McpServers.Add(item);
+            McpServersLoading = false;   // 加载完成，隐藏圈圈、显示列表
         });
     }
 
