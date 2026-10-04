@@ -5,10 +5,14 @@ xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
 xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
 xmlns:model="clr-namespace:WarmAsBefore.Models"
+xmlns:conv="clr-namespace:WarmAsBefore.Converters"
              x:Class="WarmAsBefore.Views.MainGamePage"
              x:Name="GameRoot"
 
              Shell.NavBarIsVisible="False">
+    <ContentPage.Resources>
+        <conv:InverseBool x:Key="InvBool" />
+    </ContentPage.Resources>
     <ContentPage.Background>
         <!-- 半透明米白渐变：让全局磨砂叠层透出来，形成「磨砂玻璃底」 -->
         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
@@ -24,8 +28,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
 
 
-        <!-- ============ Phone Layout (vertical) ============ -->
-        <Grid IsVisible="{OnIdiom Phone=True, Desktop=False}" RowDefinitions="Auto,*,Auto,Auto,Auto">
+        <!-- ============ Phone Layout (vertical) ============
+             手机 + 平板 都用手机主题（竖版，隐藏右侧卡片，聊天面板在页面底部，左滑进右侧页）；
+             桌面 = 走电脑版布局（下面那个 Grid） -->
+        <Grid IsVisible="{Binding IsMobileOrTabletLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
             <!-- Status bar - 顶部状态栏 -->
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
                     Padding="16,8">
@@ -273,8 +279,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             </Border>
         </Grid>
 
-        <!-- ============ Desktop Layout (horizontal) ============ -->
-        <Grid IsVisible="{OnIdiom Phone=False, Desktop=True}"
+        <!-- ============ Desktop Layout (horizontal) ============
+             仅桌面显示；手机/平板都不显（平板走上面的手机主题布局） -->
+        <Grid IsVisible="{Binding IsDesktopLayout}"
               RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
             <!-- Status bar（液态玻璃材质：半透明渐变 + 1px 内发光描边） -->
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
