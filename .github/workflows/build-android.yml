@@ -97,6 +97,10 @@ jobs:
     #   WARMASBEFORE_KEY_ALIAS = 别名
     - name: Sign APK with release keystore (from Secrets)
       id: sign
+      env:
+        P12_B64: ${{ secrets.WARMASBEFORE_P12_B64 }}
+        KEY_PASS: ${{ secrets.WARMASBEFORE_KEY_PASS }}
+        KEY_ALIAS: ${{ secrets.WARMASBEFORE_KEY_ALIAS }}
       run: |
         if [ -z "$P12_B64" ]; then
           echo "未配置 WARMASBEFORE_P12_B64 secret，跳过签名（出未签名 APK）"
