@@ -13,10 +13,20 @@ on:
 
 permissions:
   contents: write   # 建 release 需要
+  # 签名密钥走 GitHub Secrets（仓库设置 → Secrets and variables → Actions）：
+  #   WARMASBEFORE_P12_B64    : p12 文件的 base64 内容（签名前解码还原）
+  #   WARMASBEFORE_KEY_PASS   : p12 库密码 + 私钥密码（库密码=私钥密码）
+  #   WARMASBEFORE_KEY_ALIAS  : 别名（warmasbefore）
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
+    # job 级 env：secrets 只能在此处引用，后续各 step 用 env.XXX 引用
+    # if: 表达式里 step 级 env 不可见，必须走 job 级
+    env:
+      P12_B64: ${{ secrets.WARMASBEFORE_P12_B64 }}
+      KEY_PASS: ${{ secrets.WARMASBEFORE_KEY_PASS }}
+      KEY_ALIAS: ${{ secrets.WARMASBEFORE_KEY_ALIAS }}
 
     steps:
     - name: Checkout
@@ -80,7 +90,45 @@ jobs:
         done
         ls -la *.apk
 
-    - name: Create Release
+    # ---------- 本地签名（密钥走 Secrets，不进仓库）----------
+    # ---------- 签名（密钥走 Secrets，不进仓库）----------
+    # 签名密钥 3 项存于仓库 Secrets（Settings → Secrets and variables → Actions）：
+    #   WARMASBEFORE_P12_B64   = p12 文件的 base64（CI 内解码还原）
+    #   WARMASBEFORE_KEY_PASS  = p12 库密码（=私钥密码）
+    #   WARMASBEFORE_KEY_ALIAS = 别名（warmasbefore）
+    # secret 缺失时自动跳过签名，回退上传未签名 APK。
+    - name: Sign APK with release keystore (from Secrets)
+      id: sign
+      run: |
+        if [ -z "$P12_B64" ]; then
+          echo "未配置 WARMASBEFORE_P12_B64 secret，跳过签名（出未签名 APK）"
+          echo "signed=false" >> "$GITHUB_OUTPUT"
+          exit 0
+        fi
+        echo "$P12_B64" | base64 -d > signing.p12
+        chmod 600 signing.p12
+        apk="WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
+        jarsigner -keystore signing.p12 -storetype PKCS12 \
+          -storepass "$KEY_PASS" -keypass "$KEY_PASS" \
+          -digestalg SHA256 "$apk" "$KEY_ALIAS"
+        rm -f signing.p12
+        mv "$apk" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64-signed.apk"
+        echo "签名完成: $apk"
+        echo "signed=true" >> "$GITHUB_OUTPUT"
+
+    # 签名成功时只上传签名版；secret 未配置时回退上传未签名版
+    - name: Create Release (signed)
+      if: steps.sign.outputs.signed == 'true'
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        name: ${{ steps.version.outputs.version }}
+        body_path: RELEASE_NOTES.md
+        prerelease: ${{ contains(github.ref_name, '-beta') }}
+        files: WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64-signed.apk
+
+    - name: Create Release (unsigned fallback)
+      if: steps.sign.outputs.signed != 'true'
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ steps.version.outputs.version }}
