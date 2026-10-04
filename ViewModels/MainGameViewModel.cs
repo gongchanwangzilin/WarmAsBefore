@@ -101,38 +101,32 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     public bool IsGalgamePanelVisible => !IsInMiniGame;
 
-    /// <summary>手机/平板 竖版布局是否显示：手机恒真；平板 = 自动检测为平板则真；桌面恒假。</summary>
-    public bool IsMobileOrTabletLayout { get; } = DetectMobileOrTabletLayout();
+    /// <summary>手机 竖版布局是否显示：手机恒真；平板（按屏幕短边≥600dp 判定）走电脑版布局，恒假；桌面恒假。</summary>
+    public bool IsPhoneLayout { get; } = DetectPhoneLayout();
 
-    /// <summary>电脑版横版布局是否显示：仅桌面（WinUI/MacCatalyst）为真。</summary>
+    /// <summary>电脑版横版布局是否显示：平板（按分辨率判定）+ 桌面 都为真；手机恒假。</summary>
     public bool IsDesktopLayout { get; } = DetectDesktopLayout();
 
     static bool DetectDesktopLayout()
     {
-        // DevicePlatform 是常量枚举，不能用 `is X or Y` 模式匹配（CS9135），用 == 逐个判
-        return DeviceInfo.Platform == DevicePlatform.WinUI
-            || DeviceInfo.Platform == DevicePlatform.MacCatalyst;
+        if (DeviceInfo.Platform == DevicePlatform.WinUI
+            || DeviceInfo.Platform == DevicePlatform.MacCatalyst)
+            return true;
+        // 平板（按屏幕短边≥600dp 判定，见 DeviceInfoService）也走电脑版布局
+        return WarmAsBefore.Modules.Screen.DeviceInfoService.IsTabletScreen();
     }
 
-    static bool DetectMobileOrTabletLayout()
+    static bool DetectPhoneLayout()
     {
-        if (DeviceInfo.Platform != DevicePlatform.Android) return false;
-        // 手机 → 手机主题；平板（自动检测）→ 手机主题
-        try
-        {
-            return DeviceInfo.Idiom == DeviceIdiom.Tablet || DeviceInfo.Idiom == DeviceIdiom.Phone;
-        }
-        catch
-        {
-            return true; // 查不到设备类型时按手机主题兜底，避免空白
-        }
+        // 手机才用竖版手机布局；平板（分辨率判定）和桌面都不用
+        return DeviceInfo.Platform == DevicePlatform.Android
+            && !WarmAsBefore.Modules.Screen.DeviceInfoService.IsTabletScreen();
     }
 
-    /// <summary>右侧介绍/对话框是否可见：仅在桌面（横版布局）且处于小游戏模式时显示；
-    /// 手机/平板竖屏时隐藏——竖版布局自带底部聊天面板，右框只会挤占立绘空间。</summary>
+    /// <summary>右侧介绍/对话框是否可见：仅在横版布局（桌面 / 按分辨率判定的平板）且处于小游戏模式时显示；
+    /// 手机（竖版布局）隐藏——竖版布局自带底部聊天面板，右框只会挤占立绘空间。</summary>
     public bool IsRightPanelVisible
-        => ShowRightChat
-        && (DeviceInfo.Platform == DevicePlatform.WinUI || DeviceInfo.Platform == DevicePlatform.MacCatalyst);
+        => ShowRightChat && IsDesktopLayout;
 
     partial void OnIsInMiniGameChanged(bool value)
     {
