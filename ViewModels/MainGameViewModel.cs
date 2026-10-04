@@ -101,11 +101,6 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     public bool IsGalgamePanelVisible => !IsInMiniGame;
 
-    /// <summary>是否套「手机主题」（竖版布局，无右侧卡片，聊天区在页面底部，左滑进右侧页）。
-    /// 手机 = 永远手机主题；平板 = 自动检测，是平板就用手机主题（横屏套电脑版太挤）；
-    /// 桌面 = 电脑版主题（横版布局，右侧卡片可显隐）。</summary>
-    public bool IsTabletPhoneLayout { get; } = DetectTabletPhoneLayout();
-
     /// <summary>手机/平板 竖版布局是否显示：手机恒真；平板 = 自动检测为平板则真；桌面恒假。</summary>
     public bool IsMobileOrTabletLayout { get; } = DetectMobileOrTabletLayout();
 
@@ -114,8 +109,9 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     static bool DetectDesktopLayout()
     {
-        if (DeviceInfo.Platform is DevicePlatform.WinUI or DevicePlatform.MacCatalyst) return true;
-        return false;
+        // DevicePlatform 是常量枚举，不能用 `is X or Y` 模式匹配（CS9135），用 == 逐个判
+        return DeviceInfo.Platform == DevicePlatform.WinUI
+            || DeviceInfo.Platform == DevicePlatform.MacCatalyst;
     }
 
     static bool DetectMobileOrTabletLayout()
