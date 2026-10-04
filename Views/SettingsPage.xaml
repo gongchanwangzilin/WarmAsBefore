@@ -12,16 +12,6 @@
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*" Padding="0">
-        <!-- 页面级 loading 遮罩：首帧渲染前盖住内容，避免转场动画期间布局未就绪导致卡顿观感 -->
-        <Border Grid.RowSpan="2" BackgroundColor="{DynamicResource PageBg}" IsVisible="{Binding PageLoading}" Padding="0"
-                VerticalOptions="Fill" HorizontalOptions="Fill">
-            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
-                <ActivityIndicator IsRunning="{Binding PageLoading}" IsVisible="{Binding PageLoading}"
-                                   HeightRequest="40" WidthRequest="40" Color="{DynamicResource AccentWarm}" />
-                <Label Text="正在加载设置…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
-            </VerticalStackLayout>
-        </Border>
-
         <!-- Header -->
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
@@ -37,6 +27,17 @@
                            VerticalOptions="Center" />
                 </Grid>
             </Grid>
+        </Border>
+
+        <!-- 页面级 loading 遮罩：盖在内容行（*）上，首帧渲染前隐藏内容避免布局未就绪的卡顿观感。
+             独占 Grid.Row=1 的 * 行（高度稳定，不随内容变化），避免 Auto 行反复 Measure。 -->
+        <Border Grid.Row="1" BackgroundColor="{DynamicResource PageBg}" IsVisible="{Binding PageLoading}"
+                HorizontalOptions="Fill" VerticalOptions="Fill">
+            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
+                <ActivityIndicator IsRunning="{Binding PageLoading}" IsVisible="{Binding PageLoading}"
+                                   HeightRequest="40" WidthRequest="40" Color="{DynamicResource AccentWarm}" />
+                <Label Text="正在加载设置…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,24" Scrolled="OnScrollViewScrolled">
