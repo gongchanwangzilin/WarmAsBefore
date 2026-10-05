@@ -279,13 +279,9 @@ We welcome bug reports, feature requests, and new module implementations.
 
 ## License
 
-[MIT License with a non-commercial clause](LICENSE) · © 2026 xkxt1026
+[GNU General Public License v2](LICENSE) · © 2026 xkxt1026
 
-- ✅ Learning, research, personal use, modification, and open-source use
-- ❌ Commercial use of any kind (sales, commercial product integration, paid distribution)
-- ✅ The original developer retains commercial usage rights
-
-Full terms: [LICENSE](LICENSE).
+本项目采用 GPLv2（继承 proot 的 GPLv2）。完整条款：[LICENSE](LICENSE)。
 
 ## Community & support
 
@@ -556,13 +552,9 @@ UI 基于自研设计系统，无第三方 UI 库。
 
 ## 协议
 
-[MIT License + 非商用条款](LICENSE) · © 2026 xkxt1026
+[GNU General Public License v2](LICENSE) · © 2026 xkxt1026
 
-- ✅ 允许：学习、研究、个人使用、修改、非商业开源自用
-- ❌ 禁止：任何形式的商业用途（销售、商业产品集成、付费分发）
-- ✅ 例外：原作者保留商业使用权
-
-完整条款：[LICENSE](LICENSE)。
+本项目采用 GPLv2（继承 proot 的 GPLv2）。完整条款：[LICENSE](LICENSE)。
 
 ## 社区与支持
 

@@ -29,16 +29,15 @@ public static class SandboxNativeHelper
 
             Directory.CreateDirectory(NativeDir);
 
-            // proot 动态链接依赖（全部放 sandbox-native/ 目录，proot 通过 LD_LIBRARY_PATH 找到）：
+            // proot（NDK 重编版）动态依赖（全部放 sandbox-native/，proot 通过 LD_LIBRARY_PATH 找到）：
             //   libtalloc.so.2       ← proot GNUmakefile 的 -ltalloc
-            //   libandroid-shmem.so  ← proot WITH_LIBANDROID_SHMEM（/dev/ashmem 匿名共享内存池）
+            //   libandroid-shmem.so  ← /dev/ashmem 匿名共享内存池（仅 sysvipc_shm 扩展用到）
             //   libtermux-exec.so    ← Termux 的 execve 替换库（proot 里 execve 拦截走它）
-            // loader / loader32      ← proot 内嵌的静态 loader（proot 主程序启动时自己调用，不需要 LD 找）
+            // loader/loader32 已内嵌进 proot 二进制（PROOT_UNBUNDLE_LOADER 未定义时的默认行为），
+            // 运行时 proot 自己从临时目录解压，无需单独复制。
             var files = new[]
             {
                 "proot-sandbox/proot",
-                "proot-sandbox/loader",
-                "proot-sandbox/loader32",
                 "proot-sandbox/libtalloc.so.2",
                 "proot-sandbox/libtermux-exec.so",
                 "proot-sandbox/libandroid-shmem.so",
