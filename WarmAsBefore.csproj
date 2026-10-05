@@ -48,7 +48,9 @@
     <MauiAsset Include="native\aarch64\proot" LogicalName="proot-sandbox/proot" />
     <MauiAsset Include="native\aarch64\loader" LogicalName="proot-sandbox/loader" />
     <MauiAsset Include="native\aarch64\loader32" LogicalName="proot-sandbox/loader32" />
-    <MauiAsset Include="native\aarch64\libtalloc.so" LogicalName="proot-sandbox/libtalloc.so" />
+    <MauiAsset Include="native\aarch64\libtalloc.so.2" LogicalName="proot-sandbox/libtalloc.so.2" />
+    <MauiAsset Include="native\aarch64\libtermux-exec.so" LogicalName="proot-sandbox/libtermux-exec.so" />
+    <MauiAsset Include="native\aarch64\libandroid-shmem.so" LogicalName="proot-sandbox/libandroid-shmem.so" />
     <!-- 阻止 MAUI Android 默认 glob 把 native/ 下文件当 jniLibs 收集（我们走 MauiAsset 路线） -->
     <AndroidNativeLibrary Remove="native\aarch64\**" />
     <None Remove="native\aarch64\**" />
