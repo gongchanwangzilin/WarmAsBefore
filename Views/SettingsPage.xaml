@@ -693,7 +693,8 @@
                                     Command="{Binding DetectRuntimesCommand}" />
                         </Grid>
 
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
+                              IsVisible="{Binding RuntimeOsSupported}">
                             <Button Text="⬇️ 下载 Python 便携版" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
                                     IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
                                     Command="{Binding DownloadPythonCommand}" />
@@ -702,15 +703,31 @@
                                     Command="{Binding DownloadJavaCommand}" />
                         </Grid>
 
+                        <!-- Android Linux 沙箱（proot）安装向导 -->
+                        <VerticalStackLayout Spacing="8" IsVisible="{Binding SandboxAvailable}">
+                            <Label Text="手机插件沙箱（Linux proot，无需 root）"
+                                   Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                            <Label Text="在 App 内运行 Linux 用户态沙箱，把 Python / Java 解释器装进沙箱，宿主投射 tools 目录，复用 JSON-RPC 工具协议。约 80MB，仅首次安装。"
+                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Button Text="📦 安装沙箱运行时（Python + Java，约 80MB）" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                        IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                        Command="{Binding InstallSandboxRuntimeCommand}" />
+                                <Button Grid.Column="1" Text="卸载" Style="{StaticResource BtnText}" FontSize="11"
+                                        IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                        Command="{Binding RemoveSandboxRuntimeCommand}" />
+                            </Grid>
+                        </VerticalStackLayout>
+
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
 
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding RuntimeOsSupported}">
                             <Label Text="{Binding PythonManualPath, StringFormat='Python 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
                                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
                             <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}" FontSize="11"
                                     Command="{Binding SetPythonPathCommand}" />
                         </Grid>
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding RuntimeOsSupported}">
                             <Label Text="{Binding JavaManualPath, StringFormat='Java 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
                                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
                             <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}" FontSize="11"

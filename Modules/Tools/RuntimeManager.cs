@@ -2,6 +2,9 @@ using System.Diagnostics;
 using System.IO.Compression;
 using System.Runtime.InteropServices;
 using WarmAsBefore.Services;
+#if ANDROID
+using WarmAsBefore.Modules.Tools.Sandbox;
+#endif
 
 namespace WarmAsBefore.Modules.Tools;
 
@@ -17,6 +20,8 @@ public sealed record RuntimeStatus
     public bool PythonAutoDownloaded { get; set; }
     public bool JavaAutoDownloaded { get; set; }
     public string WindowsOnlyNote { get; set; } = "";
+    /// <summary>Android 沙箱模式提示（rootfs 安装向导入口说明）。</summary>
+    public string SandboxNote { get; set; } = "";
 }
 
 /// <summary>
@@ -35,6 +40,37 @@ public sealed class RuntimeManager
     public static string RuntimesDir => Path.Combine(App.RootDirectory, "runtimes");
 
     public bool IsDesktop => OperatingSystem.IsWindows() || OperatingSystem.IsMacOS();
+
+    /// <summary>Android 是否启用 Linux 沙箱路线（非桌面，走 proot + rootfs）。</summary>
+    public bool UseSandbox => !IsDesktop && OperatingSystem.IsAndroid();
+
+#if ANDROID
+    private LinuxSandboxRuntime? _sandboxRuntime;
+    private RootfsInstaller? _sandboxInstaller;
+
+    /// <summary>沙箱运行时（Android）；其他平台为 null。</summary>
+    public LinuxSandboxRuntime? SandboxRuntime
+    {
+        get
+        {
+            if (!UseSandbox) return null;
+            return _sandboxRuntime ??= new LinuxSandboxRuntime(_settings);
+        }
+    }
+
+    /// <summary>沙箱 rootfs 安装器（Android）；其他平台为 null。</summary>
+    public RootfsInstaller? SandboxInstaller
+    {
+        get
+        {
+            if (!UseSandbox) return null;
+            return _sandboxInstaller ??= new RootfsInstaller(SandboxRuntime!);
+        }
+    }
+#else
+    public LinuxSandboxRuntime? SandboxRuntime => null;
+    public RootfsInstaller? SandboxInstaller => null;
+#endif
 
     // ============ 用户手动配置的路径（持久化到 UserSettings） ============
 
@@ -66,6 +102,24 @@ public sealed class RuntimeManager
         var st = new RuntimeStatus();
         if (!IsDesktop)
         {
+            if (UseSandbox)
+            {
+                // Android 沙箱路线：检查 rootfs 是否装好
+                var installer = SandboxInstaller!;
+                if (installer.IsInstalled)
+                {
+                    st.PythonOk = true;
+                    st.JavaOk = true;
+                    st.PythonDetail = "Linux 沙箱（proot）已装，python3 在 rootfs";
+                    st.JavaDetail = "Linux 沙箱（proot）已装，java 在 rootfs";
+                }
+                else
+                {
+                    st.WindowsOnlyNote = "外部 Java/Python 工具在 Android 上通过 Linux 沙箱（proot）运行，尚未安装 rootfs";
+                    st.SandboxNote = "点击下方「安装沙箱运行时」，自动下载 Python + Java 解释器（约 80MB）";
+                }
+                return st;
+            }
             st.WindowsOnlyNote = "外部 Java/Python 工具仅桌面端可用";
             return st;
         }
@@ -310,7 +364,13 @@ public sealed class RuntimeManager
     /// <summary>返回 (解释器, 启动参数)。找不到返回 null。</summary>
     public async Task<(string Exe, string Args)?> ResolveRuntimeAsync(ToolLanguage language)
     {
-        if (!IsDesktop) return null;
+        if (!IsDesktop)
+        {
+            // Android 沙箱路线：用 proot 起 guest 解释器
+            if (UseSandbox)
+                return await ResolveSandboxRuntimeAsync(language);
+            return null;
+        }
         return language switch
         {
             ToolLanguage.Python => await ResolvePythonAsync() switch
@@ -326,5 +386,18 @@ public sealed class RuntimeManager
             },
             _ => null
         };
+    }
+
+    private async Task<(string Exe, string Args)?> ResolveSandboxRuntimeAsync(ToolLanguage language)
+    {
+        var sandbox = SandboxRuntime!;
+        var lang = language switch
+        {
+            ToolLanguage.Python => "python",
+            ToolLanguage.Java => "java",
+            _ => null
+        };
+        if (lang is null) return null;
+        return await sandbox.BuildInterpreterAsync(lang);
     }
 }

@@ -823,6 +823,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isRuntimeBusy;
     [ObservableProperty] private string _runtimeBusyText = "";
     public bool RuntimeOsSupported => _runtimes is { } r && r.IsDesktop;
+    /// <summary>Android 沙箱路线是否可用（proot 安装向导入口显示条件）。</summary>
+    public bool SandboxAvailable => _runtimes is { } r && r.UseSandbox;
 
     // ---- 开发者展示模式 ----
     [ObservableProperty] private bool _showcaseUnlocked;
@@ -1521,6 +1523,70 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
     /// <summary>点击「检测运行时」按钮的包装（XAML 里也行，但保留同步调用的快捷入口）。</summary>
     [RelayCommand]
     private async Task RefreshRuntimes() => await DetectRuntimes();
+
+    // ============ Android 沙箱安装向导 ============
+
+    /// <summary>Android：一键安装 Linux 沙箱 rootfs + Python/Java 解释器（约 80MB）。</summary>
+    [RelayCommand]
+    private async Task InstallSandboxRuntime()
+    {
+        if (IsRuntimeBusy) return;
+        var installer = _runtimes.SandboxInstaller;
+        if (installer is null)
+        {
+            await Shell.Current.DisplayAlert("沙箱", "当前设备不支持 Linux 沙箱（仅 Android）。", "好");
+            return;
+        }
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "正在安装 Linux 沙箱运行时（Python + Java）…";
+        try
+        {
+            var progress = new Progress<string>(s =>
+                MainThread.BeginInvokeOnMainThread(() => RuntimeBusyText = s));
+            var (ok, note) = await installer.InstallAsync(progress);
+            RuntimeBusyText = ok ? "沙箱安装完成" : "部分失败：" + note;
+            await DetectRuntimes();
+            if (ok)
+            {
+                // 验证沙箱可用
+                var sandbox = _runtimes.SandboxRuntime!;
+                var diag = await sandbox.BuildDiagnosticAsync("python3 --version && java -version 2>&1 | head -1");
+                if (diag is not null)
+                {
+                    var (code, out_) = await sandbox.RunGuestCommandAsync(diag.Value.Exe, diag.Value.Args, 45);
+                    RuntimeBusyText = "沙箱验证：" + (code == 0 ? "✅" : "❌") + "\n" + out_;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.InstallSandboxRuntime -> " + ex);
+            RuntimeBusyText = "安装失败：" + ex.Message;
+        }
+        finally
+        {
+            IsRuntimeBusy = false;
+        }
+    }
+
+    /// <summary>Android：卸载沙箱（删 rootfs + native 文件，保留已下载的工具包）。</summary>
+    [RelayCommand]
+    private async Task RemoveSandboxRuntime()
+    {
+        var installer = _runtimes.SandboxInstaller;
+        if (installer is null) return;
+        var confirm = await Shell.Current.DisplayAlert(
+            "卸载沙箱",
+            "将删除已下载的 Python/Java 解释器（约 80MB），工具包本身保留。",
+            "删除", "取消");
+        if (!confirm) return;
+        IsRuntimeBusy = true;
+        RuntimeBusyText = "正在卸载沙箱…";
+        await Task.Run(() => installer.Remove());
+        RuntimeBusyText = "沙箱已删除";
+        await DetectRuntimes();
+        IsRuntimeBusy = false;
+    }
 
     // ============ 开发者展示模式（114514 连击解锁） ============
 
