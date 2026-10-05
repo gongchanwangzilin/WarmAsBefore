@@ -29,7 +29,20 @@ public static class SandboxNativeHelper
 
             Directory.CreateDirectory(NativeDir);
 
-            var files = new[] { "proot-sandbox/proot", "proot-sandbox/loader", "proot-sandbox/loader32", "proot-sandbox/libtalloc.so" };
+            // proot 动态链接依赖（全部放 sandbox-native/ 目录，proot 通过 LD_LIBRARY_PATH 找到）：
+            //   libtalloc.so.2       ← proot GNUmakefile 的 -ltalloc
+            //   libandroid-shmem.so  ← proot WITH_LIBANDROID_SHMEM（/dev/ashmem 匿名共享内存池）
+            //   libtermux-exec.so    ← Termux 的 execve 替换库（proot 里 execve 拦截走它）
+            // loader / loader32      ← proot 内嵌的静态 loader（proot 主程序启动时自己调用，不需要 LD 找）
+            var files = new[]
+            {
+                "proot-sandbox/proot",
+                "proot-sandbox/loader",
+                "proot-sandbox/loader32",
+                "proot-sandbox/libtalloc.so.2",
+                "proot-sandbox/libtermux-exec.so",
+                "proot-sandbox/libandroid-shmem.so",
+            };
             foreach (var assetName in files)
             {
                 var fileName = assetName[(assetName.LastIndexOf('/') + 1)..];
@@ -50,7 +63,8 @@ public static class SandboxNativeHelper
 
             // APK asset 没有 +x 位，需要显式 chmod。
             // Android 上 .NET 的 Process.Start 能调系统 /system/bin/chmod。
-            foreach (var name in new[] { "proot", "loader", "loader32" })
+            // 只给宿主直接 exec 的 proot 加 +x；loader/loader32/.so 由 proot 内部调用/加载，不需要 +x
+            foreach (var name in new[] { "proot" })
             {
                 await ChmodExecAsync(name);
             }
