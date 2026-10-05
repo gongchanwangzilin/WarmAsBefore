@@ -380,3 +380,11 @@ Signing/
 path/
 .backup/
 .cortex/
+
+# 手机沙箱构建中间物（proot 源码、de 包、jre.zip）
+/proot-master/
+/proot-src.tar.gz
+/jre.zip
+
+# Android SDK platforms（大文件，本地补全，不进 git）
+android-sdk/platforms/

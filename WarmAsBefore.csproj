@@ -42,6 +42,23 @@
     <MauiAsset Include="Resources\Raw\**" Exclude="Resources\Raw\**\*.gitkeep" LogicalName="%(RecursiveDir)%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- Android 原生工具（proot 沙箱）：Termux 编译的 aarch64 二进制，宿主直接 exec。
+       打进 APK assets，Android 首次启动时复制到应用数据目录并 chmod +x（APK 内资源无执行位）。 -->
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <MauiAsset Include="native\aarch64\proot" LogicalName="proot-sandbox/proot" />
+    <MauiAsset Include="native\aarch64\loader" LogicalName="proot-sandbox/loader" />
+    <MauiAsset Include="native\aarch64\loader32" LogicalName="proot-sandbox/loader32" />
+    <MauiAsset Include="native\aarch64\libtalloc.so" LogicalName="proot-sandbox/libtalloc.so" />
+    <!-- 阻止 MAUI Android 默认 glob 把 native/ 下文件当 jniLibs 收集（我们走 MauiAsset 路线） -->
+    <AndroidNativeLibrary Remove="native\aarch64\**" />
+    <None Remove="native\aarch64\**" />
+  </ItemGroup>
+
+  <!-- 阻止各平台 glob 把 native/ 下文件当 jniLibs / None 收集（Android 走 MauiAsset 路线） -->
+  <ItemGroup>
+    <None Remove="native\aarch64\**" />
+  </ItemGroup>
+
   <!-- 主题 XAML 嵌入为资源 -->
   <ItemGroup>
     <EmbeddedResource Include="DesignSystem\Theme\ColorPalette.xaml" LogicalName="DesignSystem.Theme.ColorPalette.xaml" />

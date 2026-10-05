@@ -30,11 +30,36 @@ public sealed class ToolSession : IDisposable
     {
         try
         {
+            // 判断是否 Linux 沙箱模式（exe 指向宿主 proot 路径）
+            var isSandbox = false;
+#if ANDROID
+            isSandbox = exe.StartsWith(
+                WarmAsBefore.Modules.Tools.Sandbox.SandboxNativeHelper.NativeDir,
+                System.StringComparison.Ordinal);
+#endif
+
             var toolArgs = args;
             if (tool.Language == ToolLanguage.Python)
-                toolArgs = (args + " \"" + Path.Combine(tool.WorkDir, tool.Entry) + "\"").Trim();
+            {
+                if (isSandbox)
+                {
+                    // guest 视角：宿主 tools/ 目录 bind 到 /tools，
+                    // tool.WorkDir = {宿主root}/tools/{name} → guest 路径 /tools/{name}
+                    var guestToolDir = ToGuestToolDir(tool.WorkDir);
+                    toolArgs = (args + " \"" + guestToolDir + "/" + tool.Entry + "\"").Trim();
+                }
+                else
+                {
+                    toolArgs = (args + " \"" + Path.Combine(tool.WorkDir, tool.Entry) + "\"").Trim();
+                }
+            }
             else if (tool.Language == ToolLanguage.Java)
-                toolArgs = "-jar \"" + Path.Combine(tool.WorkDir, tool.Entry) + "\"";
+            {
+                var jarPath = isSandbox
+                    ? ToGuestToolDir(tool.WorkDir) + "/" + tool.Entry
+                    : Path.Combine(tool.WorkDir, tool.Entry);
+                toolArgs = "-jar \"" + jarPath + "\"";
+            }
 
             var psi = new ProcessStartInfo
             {
@@ -45,7 +70,7 @@ public sealed class ToolSession : IDisposable
                 RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true,
-                WorkingDirectory = tool.WorkDir
+                WorkingDirectory = isSandbox ? "" : tool.WorkDir
             };
             var p = Process.Start(psi);
             if (p is null) return null;
@@ -56,6 +81,14 @@ public sealed class ToolSession : IDisposable
             App.WriteLog("ToolSession.Start -> " + ex);
             return null;
         }
+    }
+
+    /// <summary>把宿主 tools/{name} 目录翻译成 guest 侧 /tools/{name}（沙箱 bind 挂载点）。</summary>
+    private static string ToGuestToolDir(string hostToolDir)
+    {
+        // hostToolDir 形如 {root}/tools/mytool → 取 "mytool" 段拼到 /tools/ 前缀
+        var name = Path.GetFileName(hostToolDir);
+        return "/tools/" + name;
     }
 
     public bool IsAlive
