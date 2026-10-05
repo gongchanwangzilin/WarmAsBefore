@@ -46,8 +46,6 @@
        打进 APK assets，Android 首次启动时复制到应用数据目录并 chmod +x（APK 内资源无执行位）。 -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
     <MauiAsset Include="native\aarch64\proot" LogicalName="proot-sandbox/proot" />
-    <MauiAsset Include="native\aarch64\loader" LogicalName="proot-sandbox/loader" />
-    <MauiAsset Include="native\aarch64\loader32" LogicalName="proot-sandbox/loader32" />
     <MauiAsset Include="native\aarch64\libtalloc.so.2" LogicalName="proot-sandbox/libtalloc.so.2" />
     <MauiAsset Include="native\aarch64\libtermux-exec.so" LogicalName="proot-sandbox/libtermux-exec.so" />
     <MauiAsset Include="native\aarch64\libandroid-shmem.so" LogicalName="proot-sandbox/libandroid-shmem.so" />
