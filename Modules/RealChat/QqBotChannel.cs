@@ -197,9 +197,10 @@ public sealed class QqBotChannel : IOfficialChannel
             var content = d["content"]?.GetValue<string>() ?? "";
             var author = d["author"];
             var openid = author?["id"]?.GetValue<string>()
-                         ?? author?["user_openid"]?.GetValue<string>()
-                         ?? "";
-            var nickname = author?["member_openid"]?.GetValue<string>() ?? "";
+               ?? author?["user_openid"]?.GetValue<string>()
+               ?? "";
+            // C2C 私聊里昵称在 author.nickname（member_openid 是群聊字段，C2C 场景不存在）
+            var nickname = author?["nickname"]?.GetValue<string>() ?? "";
             if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(openid)) return;
 
             MessageReceived?.Invoke(new RealChatMessage
