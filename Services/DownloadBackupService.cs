@@ -8,8 +8,8 @@ namespace WarmAsBefore.Services;
 /// 自动备份数据包到「下载」目录（双触发：应用启动时 + 每次导出成功后）。
 ///
 /// 实现：
-///   Android 13+ → MediaStore.Downloads（无需存储权限，写入公共 下载/ 目录）
-///   Android 9-12 → 公共 下载/ 目录（需 WRITE_EXTERNAL_STORAGE，AndroidManifest 已声明）
+///   Android 10+（API 29+）→ MediaStore.Downloads（隔离写入，无需存储权限）
+///   Android 9 及以下 → 应用专属外部目录（旧版无 MediaStore.Downloads，落 /sdcard/Android/data/&lt;pkg&gt;/files/backup）
 ///   桌面端 → no-op（桌面有自己的数据目录，无「下载文件夹」概念）
 /// </summary>
 public static class DownloadBackupService
