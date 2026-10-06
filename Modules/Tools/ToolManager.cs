@@ -33,14 +33,20 @@ public sealed class ToolManager : IDisposable
     private int _rpcId;
     private bool _disposed;
 
-    public ToolManager(RuntimeManager runtimes)
+    public ToolManager(RuntimeManager runtimes, Sandbox.SandboxPolicy? injectedSandbox = null)
     {
         _runtimes = runtimes;
-        _sandbox = new Sandbox.SandboxPolicy(new StorageProvider());
+        // 优先使用 DI 注入的共享 SandboxPolicy（设置页保存后指纹刷新对所有调用方生效）；
+        // 未注入时（非 DI 路径）才自建，保证兼容。
+        _sandbox = injectedSandbox ?? new Sandbox.SandboxPolicy(new StorageProvider());
         RegisterSystemTools();
         Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
+#if ANDROID
+        // Android APK 没有宿主 stdin，Harness JSON-RPC 循环只在桌面端监听
+#else
         _ = StartHarnessLoopAsync();
+#endif
     }
 
     /// <summary>

@@ -46,7 +46,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Automation.DailyDiaryWriter>();
         builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
         builder.Services.AddSingleton<Modules.Tools.RuntimeManager>();
-        builder.Services.AddSingleton<Modules.Tools.ToolManager>();
+        builder.Services.AddSingleton<Modules.Tools.ToolManager>(sp =>
+            new Modules.Tools.ToolManager(
+                sp.GetRequiredService<Modules.Tools.RuntimeManager>(),
+                sp.GetRequiredService<Modules.Sandbox.SandboxPolicy>()));
         builder.Services.AddSingleton<Modules.Affection.AffectionLevelUpService>();
         builder.Services.AddSingleton<Modules.Battle.BattleDriverManager>();
         builder.Services.AddSingleton<Modules.Cg.CgStore>();
@@ -63,7 +66,10 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddSingleton<Modules.Market.GiftPanelService>();
         builder.Services.AddSingleton<Modules.Scene.SceneDirector>();
         builder.Services.AddSingleton<Modules.Update.UpdateService>();
-        builder.Services.AddSingleton<Modules.Sandbox.SandboxPolicy>();
+        builder.Services.AddSingleton<Modules.Sandbox.SandboxPolicy>(sp =>
+            new Modules.Sandbox.SandboxPolicy(
+                sp.GetRequiredService<StorageProvider>(),
+                sp.GetRequiredService<SettingsManager>()));
 
         // 官方接入（真微信 / QQ）与运行时配置
         builder.Services.AddSingleton<Modules.RealChat.OfficialChatBridge>();

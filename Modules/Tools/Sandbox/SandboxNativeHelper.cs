@@ -63,10 +63,15 @@ public static class SandboxNativeHelper
             // APK asset 没有 +x 位，需要显式 chmod。
             // Android 上 .NET 的 Process.Start 能调系统 /system/bin/chmod。
             // 只给宿主直接 exec 的 proot 加 +x；loader/loader32/.so 由 proot 内部调用/加载，不需要 +x
+            // Android 11+ 的 SELinux 下 /system/bin/chmod 可能被 avc 拒绝，
+            // 此时退化用 libcore 的 fchmod（java.lang.UnixFileSystem）兜底。
+            var chmodOk = true;
             foreach (var name in new[] { "proot" })
             {
-                await ChmodExecAsync(name);
+                chmodOk &= await ChmodExecAsync(name);
             }
+            if (!chmodOk)
+                App.WriteLog("SandboxNativeHelper: chmod +x 未成功（SELinux 可能拒绝），沙箱启动时可能报权限错");
 
             return (true, "原生沙箱文件已就绪 → " + NativeDir);
         }
@@ -77,9 +82,18 @@ public static class SandboxNativeHelper
         }
     }
 
-    private static async Task ChmodExecAsync(string name)
+    /// <summary>给单文件加 +x。先走 /system/bin/chmod，失败后退化 fchmod。返回是否成功。</summary>
+    private static async Task<bool> ChmodExecAsync(string name)
     {
         var path = Path.Combine(NativeDir, name);
+        // 已带 +x 位则直接返回（幂等）
+        try
+        {
+            if ((File.GetUnixFileMode(path) & File.UnixFileMode.UOwnerExecute) != 0)
+                return true;
+        }
+        catch { /* 旧运行时可能不支持 GetUnixFileMode，继续走 chmod */ }
+
         try
         {
             var psi = new System.Diagnostics.ProcessStartInfo
@@ -91,19 +105,38 @@ public static class SandboxNativeHelper
                 RedirectStandardError = true
             };
             using var p = System.Diagnostics.Process.Start(psi);
-            if (p is null)
+            if (p is not null)
+            {
+                var err = await p.StandardError.ReadToEndAsync();
+                await p.WaitForExitAsync();
+                if (p.ExitCode == 0)
+                    return true;
+                App.WriteLog("chmod " + name + " exit=" + p.ExitCode + " " + err);
+            }
+            else
             {
                 App.WriteLog("chmod " + name + " -> Process.Start returned null");
-                return;
             }
-            var err = await p.StandardError.ReadToEndAsync();
-            await p.WaitForExitAsync();
-            if (p.ExitCode != 0)
-                App.WriteLog("chmod " + name + " exit=" + p.ExitCode + " " + err);
         }
         catch (Exception ex)
         {
-            App.WriteLog("SandboxNativeHelper.Chmod(" + name + ") -> " + ex);
+            App.WriteLog("SandboxNativeHelper.Chmod(" + name + ") -> " + ex.Message);
+        }
+
+        // fchmod 兜底：走 .NET Unix 权限位（底层是 fchmodat，SELinux 通常放行）
+        try
+        {
+            var mode = File.GetUnixFileMode(path)
+                | File.UnixFileMode.UOwnerExecute
+                | File.UnixFileMode.GroupExecute
+                | File.UnixFileMode.OtherExecute;
+            File.SetUnixFileMode(path, mode);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SandboxNativeHelper.fchmod-fallback(" + name + ") -> " + ex.Message);
+            return false;
         }
     }
 }

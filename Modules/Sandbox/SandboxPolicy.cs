@@ -28,7 +28,7 @@ public sealed class SandboxPolicy
     public CryptoStore Crypto => _crypto;
     public AuditLog Audit => _audit;
 
-    public SandboxPolicy(StorageProvider store)
+    public SandboxPolicy(StorageProvider store, SettingsManager? settings = null)
     {
         _store = store;
         var root = Path.Combine(store.Root, "..");
@@ -38,6 +38,12 @@ public sealed class SandboxPolicy
         // 后台刷新密钥指纹。绝不 sync-over-async（GetAwaiter().GetResult()），
         // 那在 WinUI 同步上下文里会死锁 → 界面卡死。
         _ = RefreshKeyFingerprintsAsync();
+        // 设置页保存后自动刷新指纹（密钥改动立即生效，无需重启）
+        if (settings is not null)
+        {
+            var s = settings;
+            s.Applied += () => _ = RefreshKeyFingerprintsAsync();
+        }
     }
 
     /// <summary>
