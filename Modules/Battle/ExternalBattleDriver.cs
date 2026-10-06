@@ -160,8 +160,9 @@ public sealed class ExternalBattleDriver : IBattleDriver
             return JsonSerializer.Serialize(new { error = "战斗驱动超时（30s）" });
         }
         var text = await read;
+        // EOF（驱动进程已退出）：直接带 ended:true，让战斗系统当轮就感知到，而不是等下一轮才发现
         if (string.IsNullOrWhiteSpace(text))
-            return JsonSerializer.Serialize(new { error = "战斗驱动无响应（EOF）" });
+            return JsonSerializer.Serialize(new { error = "战斗驱动已退出（EOF）", ended = true, winner = "" });
         return text;
     }
 

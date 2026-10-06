@@ -171,12 +171,14 @@ public sealed class McpOrchestrator
 
     private static async Task<string> ExecPs(string cmd)
     {
+        // 用 -EncodedCommand（Base64 UTF-16LE）传命令，彻底避免 -Command "..." 的 shell 解析/引号注入。
+        var encoded = Convert.ToBase64String(System.Text.Encoding.Unicode.GetBytes(cmd ?? ""));
         using var p = new Process
         {
             StartInfo = new ProcessStartInfo
             {
                 FileName = "powershell",
-                Arguments = $"-NoProfile -Command \"{cmd.Replace("\"", "\\\"")}\"",
+                Arguments = $"-NoProfile -EncodedCommand {encoded}",
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
                 UseShellExecute = false,

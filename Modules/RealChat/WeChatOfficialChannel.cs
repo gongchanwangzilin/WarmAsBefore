@@ -19,7 +19,7 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(15) };
     private string _appId = "";
     private string _appSecret = "";
-    private string _token = "";
+    private string _signatureToken = "";   // 公众号后台配置的签名 Token（用于回调签名验证，区别于动态 access_token）
     private int _port = 8012;
     private string _accessToken = "";
     private DateTime _accessExpires;
@@ -36,7 +36,7 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
     {
         _appId = appId ?? "";
         _appSecret = appSecret ?? "";
-        _token = token ?? "";
+        _signatureToken = token ?? "";
         _port = port is > 0 and < 65536 ? port : 8012;
     }
 
@@ -58,7 +58,7 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
     {
         if (IsRunning || _cts is not null) return Task.CompletedTask;
         if (string.IsNullOrWhiteSpace(_appId) || string.IsNullOrWhiteSpace(_appSecret)
-            || string.IsNullOrWhiteSpace(_token))
+            || string.IsNullOrWhiteSpace(_signatureToken))
         {
             _status = "未配置 AppID / AppSecret / Token";
             return Task.CompletedTask;
@@ -169,8 +169,8 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
 
     private bool VerifySignature(string timestamp, string nonce, string signature)
     {
-        if (string.IsNullOrWhiteSpace(_token)) return false;
-        var arr = new[] { _token, timestamp, nonce }.OrderBy(s => s, StringComparer.Ordinal);
+        if (string.IsNullOrWhiteSpace(_signatureToken)) return false;
+        var arr = new[] { _signatureToken, timestamp, nonce }.OrderBy(s => s, StringComparer.Ordinal);
         var joined = string.Concat(arr);
         var sha1 = Convert.ToHexString(SHA1.HashData(Encoding.UTF8.GetBytes(joined))).ToLowerInvariant();
         return sha1 == signature;
