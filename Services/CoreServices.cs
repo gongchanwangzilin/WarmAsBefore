@@ -96,11 +96,13 @@ public sealed class SettingsManager
 public sealed class StorageProvider
 {
     private readonly string _root;
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, byte> _createdDirs = new(StringComparer.OrdinalIgnoreCase);
 
     public StorageProvider()
     {
         _root = Path.Combine(FileSystem.AppDataDirectory, "WarmAsBefore");
         Directory.CreateDirectory(_root);
+        _createdDirs[_root] = 0;
     }
 
     public string Root => _root;
@@ -125,7 +127,8 @@ public sealed class StorageProvider
     {
         var path = KeyPath(key);
         var dir = Path.GetDirectoryName(path);
-        if (dir is not null) Directory.CreateDirectory(dir);
+        if (dir is not null && _createdDirs.AddOrUpdate(dir, 0, (_, _) => 0) is null)
+            Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(data);
         await File.WriteAllTextAsync(path, json);
     }
@@ -211,10 +214,53 @@ public sealed class AudioController
             p.Play();
         }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[SFX] {filePath}: {ex.Message}"); }
+#elif ANDROID
+        try
+        {
+            lock (_androidAudioLock)
+            {
+                try { _androidSfxPlayer?.Stop(); _androidSfxPlayer?.Release(); } catch { }
+                var p = new Android.Media.MediaPlayer();
+                var uri = Android.Net.Uri.FromFile(new Java.IO.File(filePath));
+                p.SetDataSource(Platform.AppContext, uri);
+                p.Prepare();
+                p.Volume = (float)_sfx;
+                p.Start();
+                p.SetOnCompletionListener(new AndroidSfxCompletion(p));
+                _androidSfxPlayer = p;
+            }
+        }
+        catch (Exception ex) { System.Diagnostics.Debug.WriteLine($"[SFX] {filePath}: {ex.Message}"); }
 #else
         System.Diagnostics.Debug.WriteLine($"[SFX] {filePath}");
 #endif
     }
+
+#if ANDROID
+    /// <summary>Android 音效播完自动释放 MediaPlayer。</summary>
+    private sealed class AndroidSfxCompletion : Java.Lang.Object,
+        Android.Media.MediaPlayer.IOnCompletionListener
+    {
+        private readonly Android.Media.MediaPlayer _mp;
+        public AndroidSfxCompletion(Android.Media.MediaPlayer mp) => _mp = mp;
+        public void OnCompletion(Android.Media.MediaPlayer m)
+        {
+            try { m.Release(); } catch { }
+        }
+    }
+
+    /// <summary>Android 背景音乐：播完当前曲自动推进到列表下一首（与 Windows 端 AdvanceInner 对齐）。</summary>
+    private sealed class AndroidBgmCompletion : Java.Lang.Object,
+        Android.Media.MediaPlayer.IOnCompletionListener
+    {
+        private readonly AudioController _owner;
+        public AndroidBgmCompletion(AudioController owner) => _owner = owner;
+        public void OnCompletion(Android.Media.MediaPlayer m)
+        {
+            try { _owner.BgmNext(); } catch { }
+        }
+    }
+#endif
 
     // ==================== 背景音乐轮播 ====================
 
@@ -248,6 +294,12 @@ public sealed class AudioController
     private Windows.Media.Playback.MediaPlayer? _bgmPlayer;
 #else
     private object? _bgmPlayer;
+#endif
+
+#if ANDROID
+    private Android.Media.MediaPlayer? _androidBgmPlayer;
+    private Android.Media.MediaPlayer? _androidSfxPlayer;
+    private readonly object _androidAudioLock = new();
 #endif
 
     public void SetBgmPlaylist(IReadOnlyList<string> files)
@@ -292,6 +344,8 @@ public sealed class AudioController
         _bgmMuted = muted;
 #if WINDOWS
         if (_bgmPlayer is not null) _bgmPlayer.IsMuted = muted;
+#elif ANDROID
+        try { lock (_androidAudioLock) { if (_androidBgmPlayer is not null) _androidBgmPlayer.Volume = muted ? 0f : (float)_bgm; } } catch { }
 #endif
     }
 
@@ -305,15 +359,37 @@ public sealed class AudioController
             _bgmPlayer = null;
         }
         catch { }
+#elif ANDROID
+        try
+        {
+            lock (_androidAudioLock)
+            {
+                _androidBgmPlayer?.Stop();
+                _androidBgmPlayer?.Release();
+                _androidBgmPlayer = null;
+            }
+        }
+        catch { }
 #endif
     }
 
     public void StopAll()
     {
         StopBgm();
-        #if WINDOWS
+#if WINDOWS
         System.Diagnostics.Debug.WriteLine("[AUDIO] stop");
-        #endif
+#elif ANDROID
+        try
+        {
+            lock (_androidAudioLock)
+            {
+                _androidSfxPlayer?.Stop();
+                _androidSfxPlayer?.Release();
+                _androidSfxPlayer = null;
+            }
+        }
+        catch { }
+#endif
     }
 
     private void PlayBgmFile(string file)
@@ -328,6 +404,28 @@ public sealed class AudioController
             p.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(file));
             p.Play();
             _bgmPlayer = p;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"[BGM] {file}: {ex.Message}");
+        }
+        #elif ANDROID
+        try
+        {
+            lock (_androidAudioLock)
+            {
+                _androidBgmPlayer?.Stop();
+                _androidBgmPlayer?.Release();
+                var p = new Android.Media.MediaPlayer();
+                var uri = Android.Net.Uri.FromFile(new Java.IO.File(file));
+                p.SetDataSource(Platform.AppContext, uri);
+                p.Prepare();
+                p.Volume = _bgmMuted ? 0f : (float)_bgm;
+                // 播完当前曲自动推进到列表下一首（与 Windows 端 AdvanceInner 行为对齐）
+                p.SetOnCompletionListener(new AndroidBgmCompletion(this));
+                p.Start();
+                _androidBgmPlayer = p;
+            }
         }
         catch (Exception ex)
         {
