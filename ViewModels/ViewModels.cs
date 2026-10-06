@@ -15,16 +15,18 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
     private readonly CharacterLibrary _library;
     private readonly Modules.SaveSystem.SaveManager _save;
     private readonly StorageProvider _store;
+    private readonly SceneCalibrationService _cal;
 
     [ObservableProperty] private ObservableCollection<CharacterCardItem> _cards = new();
 
     public CharacterSelectViewModel(GameEngine engine, CharacterLibrary library,
-        Modules.SaveSystem.SaveManager save, StorageProvider store)
+        Modules.SaveSystem.SaveManager save, StorageProvider store, SceneCalibrationService cal)
     {
         _engine = engine;
         _library = library;
         _save = save;
         _store = store;
+        _cal = cal;
     }
 
     [RelayCommand]
@@ -131,6 +133,17 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
             var import = await _library.ImportFromZipAsync(pick.FullPath);
             await Shell.Current.DisplayAlert("导入角色", import.ok ? import.message : "导入失败：" + import.message, "好");
             if (import.ok) await Refresh();
+
+            // 素材包里的地图必须走同样的标定流程。这里把队列统一驱动一遍，
+            // 而不是等用户切到那个场景时被动撞上标定页。
+            if (_cal.PendingCount > 0)
+            {
+                var n = _cal.PendingCount;
+                var go = await Shell.Current.DisplayAlert("地图标定",
+                    $"这个素材包带进来 {n} 张地图背景，需要依次标定（落脚点 + 缩放）。现在开始吗？",
+                    "开始标定", "稍后再说");
+                if (go) await _cal.DrainAsync(SceneCalibrationService.DefaultTargetAspect);
+            }
         }
         catch (Exception ex)
         {

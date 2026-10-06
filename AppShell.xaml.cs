@@ -39,5 +39,6 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("battle", typeof(Views.BattlePage));
         Routing.RegisterRoute("materials", typeof(Views.MaterialsPage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
+        Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
     }
 }

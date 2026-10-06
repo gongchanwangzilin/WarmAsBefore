@@ -93,6 +93,56 @@ public sealed class MapService
         _map.Edges.RemoveAll(e => !ids.Contains(e.A) || !ids.Contains(e.B) || !dedup.Add((e.A, e.B)));
         if (_map.Locations.Count == 0)
             _map = BuildDefaultMap();
+        SanitizePlacements();
+    }
+
+    /// <summary>
+    /// 清理失配的标定：标定是绑定在"哪一张背景图"上的，图片换了旧标定就没有意义。
+    ///
+    /// 注意这里**只清理"图不对"的情况，不清理"标定不完整"的情况**——
+    /// 后者留着能让用户下次打开时接着标，而不是从零重画。
+    /// 不完整的标定由 SceneCalibrationService.NeedsCalibration 负责拦。
+    /// </summary>
+    private void SanitizePlacements()
+    {
+        foreach (var scene in _map.AllScenes)
+        {
+            var p = scene.Placement;
+            if (p is null) continue;
+
+            var abs = ResolveBackground(scene);
+            if (string.IsNullOrEmpty(abs))
+            {
+                // 背景文件没了，标定也就无从谈起
+                scene.Placement = null;
+                continue;
+            }
+
+            // 路径变了 = 换了另一张图，直接作废
+            if (!string.IsNullOrWhiteSpace(p.SourceBackground) && p.SourceBackground != scene.Background)
+            {
+                App.WriteLog($"MapService: 场景「{scene.Name}」背景已更换，旧标定作废");
+                scene.Placement = null;
+                continue;
+            }
+
+            // 路径没变但文件内容变了（同路径覆盖）：靠长度+时间指纹识别
+            if (string.IsNullOrWhiteSpace(p.SourceBackground))
+            {
+                p.SourceBackground = scene.Background;   // 老数据/素材包导入：补上来源标记
+            }
+            var stamp = StampOf(abs);
+            if (!string.IsNullOrWhiteSpace(p.SourceStamp) && !string.IsNullOrWhiteSpace(stamp)
+                && p.SourceStamp != stamp)
+            {
+                App.WriteLog($"MapService: 场景「{scene.Name}」背景文件已变化，旧标定作废");
+                scene.Placement = null;
+            }
+            else if (string.IsNullOrWhiteSpace(p.SourceStamp))
+            {
+                p.SourceStamp = stamp;
+            }
+        }
     }
 
     public async Task SaveAsync() => await _store.Save(MapKey, _map);
@@ -261,6 +311,16 @@ public sealed class MapService
         return loc;
     }
 
+    /// <summary>
+    /// 按名字取地点，不存在才新建。
+    /// （<see cref="AddLocation"/> 总是新建，用它做素材包合并会每次都多出一个同名地点。）
+    /// </summary>
+    public MapLocation EnsureLocation(string name, string parentId = "")
+    {
+        var loc = _map.Locations.FirstOrDefault(l => l.Name == name);
+        return loc ?? AddLocation(name, parentId);
+    }
+
     public MapScene AddScene(string locationId, string name)
     {
         var loc = _map.Locations.FirstOrDefault(l => l.Id == locationId);
@@ -357,6 +417,18 @@ public sealed class MapService
         }
     }
 
+    /// <summary>
+    /// 背景换了就必须重新标定：同一张图上标出来的落脚点与缩放关系，换一张图就不成立了。
+    /// 这里只负责作废，不负责触发标定流程（那是 SceneCalibrationService 的事，
+    /// 服务层不该直接导航）。
+    /// </summary>
+    public string? ImportBackgroundForScene(string srcPath, MapScene scene)
+    {
+        var rel = ImportBackground(srcPath, scene.Id);
+        if (rel is not null) InvalidatePlacement(scene);
+        return rel;
+    }
+
     /// <summary>从相对背景路径解析为绝对路径（图片不存在返回 null，UI 用颜色兜底）。</summary>
     public string? ResolveBackground(MapScene scene)
     {
@@ -386,6 +458,35 @@ public sealed class MapService
         || ext.Equals(".mov", StringComparison.OrdinalIgnoreCase)
         || ext.Equals(".m4v", StringComparison.OrdinalIgnoreCase)
         || ext.Equals(".webm", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 背景文件的指纹（"{字节数}@{最后写入时间}"）。
+    ///
+    /// 背景统一存在 {root}/maps/{sceneId}{ext}，**换图是同路径覆盖**——
+    /// 只比较相对路径的话，换了张图但路径没变，旧标定会静默地继续生效。
+    /// 用长度 + mtime 做指纹就能识别出"这张图已经不是当初标定的那张了"。
+    /// </summary>
+    public static string StampOf(string? absPath)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(absPath) || !File.Exists(absPath)) return "";
+            var fi = new FileInfo(absPath);
+            return $"{fi.Length}@{fi.LastWriteTimeUtc.Ticks}";
+        }
+        catch
+        {
+            return "";
+        }
+    }
+
+    /// <summary>背景图/视频已变化（或从未标定）时清空标定，强制重新走标定流程。返回是否真的清掉了。</summary>
+    public bool InvalidatePlacement(MapScene scene)
+    {
+        if (scene.Placement is null) return false;
+        scene.Placement = null;
+        return true;
+    }
 
     /// <summary>视频背景的首帧缩略图绝对路径（{场景名}_thumb.png）；视频不存在/未生成则返回 null。</summary>
     public string? ThumbnailAbsFor(MapScene scene)
@@ -470,7 +571,15 @@ public sealed class MapService
             await SaveAsync();
             MapChanged?.Invoke();
             await MoveToAsync(_currentSceneId, ct);
-            return $"已导入地图：{map.Name}（{map.AllScenes.Count()} 个场景）";
+
+            // 导入进来的场景若带背景但没标定，进到那个场景时会被强制标定；
+            // 这里先把话说明白，免得用户莫名其妙撞上标定页。
+            var needCal = _map.AllScenes.Count(s =>
+                !string.IsNullOrWhiteSpace(s.Background)
+                && ResolveBackground(s) is not null
+                && !PlacementMath.Validate(s.Placement).Ok);
+            var tail = needCal > 0 ? $"，其中 {needCal} 个场景需要标定背景" : "";
+            return $"已导入地图：{map.Name}（{map.AllScenes.Count()} 个场景{tail}）";
         }
         catch (Exception ex)
         {

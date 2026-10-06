@@ -1,6 +1,9 @@
+using System.Text.Json;
 using System.Text.RegularExpressions;
+using Microsoft.Maui.ApplicationModel;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.ApiManager;
+using WarmAsBefore.Modules.Tools;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Modules.AiChat;
@@ -9,6 +12,7 @@ public sealed class ChatEngine
 {
     private readonly ApiGateway _api;
     private readonly MemoryVault _memory;
+    private readonly ToolManager _tools;
     private readonly Dictionary<string, List<ChatMessage>> _sessions = new();
     private AiEndpoint _cfg = new();
     private CharacterProfile? _active;
@@ -16,10 +20,18 @@ public sealed class ChatEngine
     private string _mapContext = "";
     private bool _allowSilence;
 
-    public ChatEngine(ApiGateway api, MemoryVault memory)
+    /// <summary>端点已明确拒绝过 tools 字段：本会话不再发送工具，避免每轮都白撞一次 400。</summary>
+    private bool _toolsUnsupported;
+
+    /// <summary>
+    /// 工具管理器由构造注入（DI 里 ChatEngine 先于 ToolManager 注册，但单例是首次解析时才构造，
+    /// 两者之间也不存在循环依赖，MauiProgram 的注册顺序无需调整）。
+    /// </summary>
+    public ChatEngine(ApiGateway api, MemoryVault memory, ToolManager tools)
     {
         _api = api;
         _memory = memory;
+        _tools = tools;
     }
 
     /// <summary>沉默协议：开启后 AI 可选择不回复（输出空），而非每次都强制给答复。</summary>
@@ -42,6 +54,15 @@ public sealed class ChatEngine
         "标记必须放在回复的最末尾、紧挨正文之后，格式如“……真的好开心！【雀跃】”。" +
         "即使情节不适合明显的动作，也要选最接近的一个，不要省略、不要单独成段、不要加解释。";
 
+    /// <summary>
+    /// 工具提示：这种"陪聊"人设很容易只用嘴答应而不动手，所以有工具时明确告诉它工具的存在与用法。
+    /// 只在确实有工具可用时拼进 system persona（没有工具时请求内容与从前完全一致）。
+    /// </summary>
+    public const string ToolHint =
+        "你还可以调用系统提供的工具，真正改变画面或查询状态（查看当前状态、切换场景与氛围、调整立绘位置与透明度、播放动作动画）。" +
+        "只有当用户的要求需要落到画面或状态上时才调用工具，日常闲聊不必调用。" +
+        "工具返回的结果要如实转达：返回值里说没有产生视觉变化时，不要宣称画面已经变了。";
+
     /// <summary>注入角色库：世界中还有其他角色时，AI 可在剧情里自由调用/扮演她们。</summary>
     public void SetRoster(string roster) => _rosterContext = roster ?? "";
 
@@ -55,6 +76,8 @@ public sealed class ChatEngine
     {
         _cfg = cfg;
         _api.Configure(cfg);
+        // 端点/模型可能整个换了（设置页保存即走到这里）：重新给它一次带工具的机会
+        _toolsUnsupported = false;
     }
 
     /// <summary>动态状态上下文（buff/标记）：每次 Send 前调用，返回值拼进用户消息前缀注入 AI。
@@ -88,21 +111,18 @@ public sealed class ChatEngine
             return offlineReply;
         }
 
-        // API 已配置：调用 API
+        // API 已配置：调用 API（可能带工具往返）
         try
         {
-            var reply = await _api.Chat(session, _cfg);
-            // ApiGateway 现在返回详细错误信息（不以null结尾）
-            if (reply is null)
-            {
-                reply = "（AI 暂时无法回应，请检查 API 配置或网络连接）";
-            }
-            else if (reply.StartsWith("[", StringComparison.Ordinal))
+            var (reply, error) = await RunTurnAsync(session);
+            if (error is not null)
             {
                 // API 返回了错误信息，直接显示给用户（不存会话历史）
-                App.WriteLog("ChatEngine: API error: " + reply);
-                return reply;
+                App.WriteLog("ChatEngine: API error: " + error);
+                return error;
             }
+            // 正文为 null（而不是空串）＝模型没给正文，沿用原来的提示语；空串是"沉默"，必须原样保留
+            reply ??= "（AI 暂时无法回应，请检查 API 配置或网络连接）";
             session.Add(new ChatMessage { Role = "assistant", Content = reply });
             Trim(session);
 
@@ -124,6 +144,105 @@ public sealed class ChatEngine
             // 直接返回给调用方展示。
             return errorMsg;
         }
+    }
+
+    // ============ 工具调用闭环 ============
+
+    /// <summary>单个回合内最多执行的工具调用轮数：模型可以连续要工具，但必须有硬上限，否则不听话的端点会让请求无限套下去。</summary>
+    private const int MaxToolRounds = 3;
+
+    /// <summary>模型要过工具、最终却没给出正文时的兜底回复（不能落成"沉默"，那会误触发沉默协议）。</summary>
+    private const string ToolFallbackReply = "（我照做啦，只是一时不知道该怎么接话。）";
+
+    /// <summary>
+    /// 跑完一个回合：请求 →（模型要工具就）执行 → 结果回灌 → 再请求，直到模型给出正文或用完工具轮数。
+    ///
+    /// 只把最终的 assistant 正文写回会话：中间的 `tool_calls` / `tool` 结果消息只活在本回合的临时消息流里。
+    /// 原因是 Trim() 从头部裁历史，一旦把这两者裁散（tool 结果留下、对应的 tool_calls 被裁掉），
+    /// 严格端点会因"tool 消息没有对应的 tool_calls"拒收整段历史 —— 那会直接毁掉聊天。
+    /// </summary>
+    private async Task<(string? Text, string? Error)> RunTurnAsync(List<ChatMessage> session)
+    {
+        // 端点已拒绝过、或根本没有可用工具时保持 null：请求体与从前逐字段一致
+        var tools = _toolsUnsupported ? null : _tools.BuildChatTools();
+        if (tools is { Count: 0 }) tools = null;
+        var allowed = tools is null ? null : _tools.ChatToolNames();
+
+        var working = new List<ChatMessage>(session);
+        string? text = null;
+        var askedTools = false;
+
+        for (var round = 0; round <= MaxToolRounds; round++)
+        {
+            var turn = await _api.ChatWithToolsAsync(working, tools, _cfg);
+            if (turn.ToolsRejected)
+            {
+                // 端点不认识 tools（已由 ApiGateway 去掉 tools 重试过一次）：记住它，
+                // 本轮剩下的请求与后续轮次都退回纯文本 —— 聊天绝不能因为工具而彻底不可用。
+                _toolsUnsupported = true;
+                tools = null;
+                App.WriteLog("ChatEngine: 端点不支持 tools，已降级为纯文本对话");
+            }
+            if (turn.Error is not null) return (null, turn.Error);
+
+            text = turn.Content;
+            if (turn.ToolCalls is not { Count: > 0 }) break;   // 正常文本回复 → 收尾
+            askedTools = true;
+
+            // 用完轮数、或工具已不可用（比如端点凭空报了个工具名）→ 收尾，绝不再发请求
+            if (round == MaxToolRounds || allowed is null || tools is null) break;
+
+            // assistant 的 tool_calls 与每个 tool 结果必须成对追加，否则下一次请求会被端点拒收
+            working.Add(new ChatMessage
+            {
+                Role = "assistant",
+                Content = turn.Content ?? "",
+                ToolCalls = turn.ToolCalls
+            });
+            foreach (var call in turn.ToolCalls)
+            {
+                var result = await RunToolAsync(call, allowed);
+                working.Add(new ChatMessage { Role = "tool", Content = result, ToolCallId = call.Id });
+            }
+        }
+
+        // 要过工具却始终没正文：给句中性的兜底，别让"模型没说人话"被上层当成沉默
+        if (askedTools && string.IsNullOrWhiteSpace(text)) text = ToolFallbackReply;
+        return (text, null);
+    }
+
+    /// <summary>
+    /// 执行一次模型发起的工具调用。工具会碰 MAUI/UI 状态（立绘、动画、场景），必须在主线程执行；
+    /// 单个工具失败只把错误文本当作工具结果回灌给模型，不让整轮聊天崩掉。
+    /// </summary>
+    private async Task<string> RunToolAsync(ToolCall call, HashSet<string> allowed)
+    {
+        if (string.IsNullOrWhiteSpace(call.Name) || !allowed.Contains(call.Name))
+        {
+            // 兜住"模型报了个我们没暴露的工具名"（send_message / 外部工具都在此被挡下）
+            App.WriteLog("ChatEngine.Tool: 拒绝未暴露的工具 " + call.Name);
+            return JsonSerializer.Serialize(new { error = $"工具 {call.Name} 不在可用列表中" });
+        }
+        var args = string.IsNullOrWhiteSpace(call.Arguments) ? "{}" : call.Arguments.Trim();
+        try
+        {
+            var result = await MainThread.InvokeOnMainThreadAsync(() => _tools.ExecuteAsync(call.Name, args));
+            App.WriteLog($"ChatEngine.Tool {call.Name}({args}) -> {Brief(result)}");
+            return result ?? "";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"ChatEngine.Tool {call.Name} 执行失败 -> {ex}");
+            return JsonSerializer.Serialize(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>日志用的结果摘要：工具可能返回很长的 JSON，只留开头一段。</summary>
+    private static string Brief(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return "";
+        var oneLine = s.Replace('\r', ' ').Replace('\n', ' ');
+        return oneLine.Length <= 200 ? oneLine : oneLine[..200] + "…";
     }
 
     /// <summary>AI 离线时的友好回复库：关键词 → 候选回复，命中后在候选间随机挑一条，避免反复撞同一句。</summary>
@@ -287,6 +406,8 @@ public sealed class ChatEngine
                            "当剧情合适时，你可以自然地提到她们、让她们出场，甚至用【名字】标记来短暂扮演她们说话，让生活更热闹。";
             if (!string.IsNullOrWhiteSpace(_mapContext))
                 persona += "\n" + _mapContext;
+            if (!_toolsUnsupported && _tools.ChatToolNames().Count > 0)
+                persona += "\n" + ToolHint;
             persona += "\n" + ActionProtocol;
             if (_allowSilence)
                 persona += "\n" + SilenceProtocol;

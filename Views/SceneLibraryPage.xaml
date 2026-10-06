@@ -48,7 +48,7 @@
             <!-- 选中条目操作区 -->
             <Border Grid.Row="1" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12"
                     IsVisible="{Binding CanEdit}">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
                     <StackLayout Grid.Row="0" Orientation="Horizontal" Spacing="8">
                         <Button Text="重命名" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
                                 Command="{Binding RenameEntryCommand}" />
@@ -63,23 +63,61 @@
                         <Button Text="删除条目" Style="{StaticResource BtnDanger}" FontSize="13" Padding="14,6"
                                 Command="{Binding RemoveEntryCommand}" />
                     </StackLayout>
+
+                    <!-- 模式列表：可选中，下面的按钮作用于选中项 -->
                     <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedModes}" Margin="0,12,0,0"
-                                    HeightRequest="120">
+                                    HeightRequest="132"
+                                    SelectionMode="Single"
+                                    SelectedItem="{Binding SelectedModeRow}">
                         <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="models:SceneMode">
-                                <Label Text="{Binding Name}" Style="{StaticResource TxtBody}"
-                                       Margin="0,0,0,4" />
+                            <DataTemplate x:DataType="vm:SceneModeRow">
+                                <VerticalStackLayout Margin="0,0,0,8">
+                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource TxtMuted}" FontSize="11" />
+                                </VerticalStackLayout>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
+
+                    <StackLayout Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <Button Text="模式名" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                                IsEnabled="{Binding CanEditMode}"
+                                Command="{Binding EditModeNameCommand}"
+                                CommandParameter="{Binding SelectedModeRow}" />
+                        <Button Text="背景" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                                IsEnabled="{Binding CanEditMode}"
+                                Command="{Binding EditModeBgCommand}"
+                                CommandParameter="{Binding SelectedModeRow}" />
+                        <Button Text="BGM" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                                IsEnabled="{Binding CanEditMode}"
+                                Command="{Binding EditModeBgmCommand}"
+                                CommandParameter="{Binding SelectedModeRow}" />
+                    </StackLayout>
+                    <StackLayout Grid.Row="4" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
+                        <Button Text="灯光" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                                IsEnabled="{Binding CanEditMode}"
+                                Command="{Binding EditModeLightingCommand}"
+                                CommandParameter="{Binding SelectedModeRow}" />
+                        <Button Text="时间区间" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                                IsEnabled="{Binding CanEditMode}"
+                                Command="{Binding EditModeTimesCommand}"
+                                CommandParameter="{Binding SelectedModeRow}" />
+                        <Button Text="删除模式" Style="{StaticResource BtnDanger}" FontSize="12" Padding="12,5"
+                                IsEnabled="{Binding CanEditMode}"
+                                Command="{Binding RemoveModeCommand}"
+                                CommandParameter="{Binding SelectedModeRow}" />
+                    </StackLayout>
                 </Grid>
             </Border>
 
         </Grid>
 
-        <!-- 底部提示 -->
-        <Label Grid.Row="2" Style="{StaticResource TxtMuted}" Padding="16"
-               Text="场景可在地图页「单场景直接应用」；时间到点或 AI 发【场景:名/模式】标记时自动切换。" />
+        <!-- 底部：当前生效状态（解释「AI 为什么切不动」）+ 用法提示 -->
+        <VerticalStackLayout Grid.Row="2" Padding="16" Spacing="4">
+            <Label Style="{StaticResource TxtBody}" FontSize="12" Text="{Binding StateText}" />
+            <Label Style="{StaticResource TxtMuted}"
+                   Text="场景可在地图页「单场景直接应用」；时间到点自动切换，AI 只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。" />
+        </VerticalStackLayout>
 
     </Grid>
 

@@ -37,13 +37,26 @@ public sealed class SceneMode
     public string Background { get; set; } = "";
     /// <summary>背景色覆盖（空则沿用）。</summary>
     public string BackgroundColor { get; set; } = "";
-    /// <summary>灯光基调（AI 指令如“关灯”用：dim/normal/bright 仅作语义标签，实际映射到背景亮度）。</summary>
+    /// <summary>
+    /// 灯光基调：dim / normal / bright。dim 会经 SceneDirector.ActiveDim 驱动主界面的一层黑色遮罩，
+    /// normal 与 bright 亮度相同——所以"白天把 normal 调成 bright"在画面上看不出变化，
+    /// 这正是"选项生效了但看不出"的典型情形。
+    /// </summary>
     public string Lighting { get; set; } = "normal";
-    /// <summary>BGM 文件名（来自素材库；空则不改音乐）。</summary>
+    /// <summary>
+    /// BGM：存素材库里的音乐 **Id**（空则不改音乐；绝对路径也兼容）。
+    /// 早期注释写的是"文件名"，但 <c>PlaySfxFile</c> 要的是绝对路径，所以那样配置从来没真正播出来过。
+    /// </summary>
     public string? Bgm { get; set; }
     /// <summary>
     /// 时间触发区间（可空）：如 ["22:00-06:00"] 表示夜间自动启用。
     /// 支持跨午夜区间；多条区间用 List。空 = 不由时间触发。
     /// </summary>
     public List<string> TimeRanges { get; set; } = new();
+
+    /// <summary>
+    /// 本模式自带覆盖背景时的**独立标定**（同一条目的每张模式背景可以各自微调）。
+    /// 为 null = 沿用所属库条目的标定（库条目又没标定时，回退到地图场景的标定）。
+    /// </summary>
+    public ScenePlacement? Placement { get; set; }
 }

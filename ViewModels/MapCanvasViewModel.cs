@@ -20,6 +20,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly MapService _maps;
     private readonly MaterialLibrary _materials;
     private readonly AudioController _audio;
+    private readonly SceneCalibrationService _cal;
     public MapCanvasDrawable Drawable { get; } = new();
 
     [ObservableProperty] private ModeKind _mode = ModeKind.View;
@@ -77,12 +78,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     // 长按左键框选（编辑模式）：空白处按下并拖动即进入框选，松开结算。点击（未拖动）= 仅取消选择
 
-    public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio)
+    public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio,
+        SceneCalibrationService cal)
     {
         _engine = engine;
         _maps = maps;
         _materials = materials;
         _audio = audio;
+        _cal = cal;
         _maps.SceneChanged += OnSceneChanged;
         Drawable.AttachBgResolver(node => _maps.ResolveBackground(node.Scene));
         Drawable.AttachLocationThumbResolver(loc =>
@@ -785,6 +788,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                     ("✎ 编辑名称", "rename"),
                     ("🖼 背景图（素材库）", "bg-lib"),
                     ("🖼 背景图（电脑导入）", "bg"),
+                    ("📐 标定这张背景", "cal"),
                     ("🗑 清除背景", "bg-clear"),
                     ("📝 备注", "note"),
                     ("ℹ 详细信息", "info"),
@@ -1182,6 +1186,21 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 await PickBackgroundFromLibraryAsync(scene);
                 Refresh();
                 break;
+            case "cal":
+            {
+                if (scene is null) return;
+                if (_maps.ResolveBackground(scene) is null)
+                {
+                    await Shell.Current.DisplayAlert("标定背景", "这个场景还没有背景图，先选一张再来标定。", "好");
+                    return;
+                }
+                // 已有标定的场景也能重标：改一个不满意的落脚点，不必重新导入背景
+                var ok = await _cal.EnsureCalibratedAsync(scene,
+                    SceneCalibrationService.DefaultTargetAspect, force: true);
+                StatusText = ok ? $"已完成「{scene.Name}」的背景标定" : "已取消标定";
+                Refresh();
+                break;
+            }
             case "bg-clear":
                 if (scene is not null)
                 {
@@ -1775,11 +1794,25 @@ await _maps.SaveAsync();
                 })
             });
             if (pick is null || scene is null) return;
-            var rel = _maps.ImportBackground(pick.FullPath, scene.Id);
+
+            // 换图 = 旧标定作废，随后必须重新标定；用户中途放弃则整张图回滚，
+            // 不留下"换了图但没标定"的半吊子状态。
+            var oldBg = scene.Background;
+            var oldPlacement = scene.Placement;
+            var rel = _maps.ImportBackgroundForScene(pick.FullPath, scene);
             if (rel is null) { StatusText = "背景复制失败"; return; }
             scene.Background = rel;
             await _maps.SaveAsync();
-            StatusText = $"已更新「{scene.Name}」背景";
+
+            if (!await _cal.EnsureCalibratedAsync(scene, SceneCalibrationService.DefaultTargetAspect))
+            {
+                scene.Background = oldBg;
+                scene.Placement = oldPlacement;
+                await _maps.SaveAsync();
+                StatusText = "已取消，背景未更换";
+                return;
+            }
+            StatusText = $"已更新「{scene.Name}」背景并完成标定";
         }
         catch (Exception ex)
         {
@@ -1807,11 +1840,22 @@ await _maps.SaveAsync();
             if (item is null) return;
             var abs = _materials.ResolveAbs(item.RelPath);
             if (!File.Exists(abs)) { StatusText = "背景文件缺失"; return; }
-            var rel = _maps.ImportBackground(abs, scene.Id);
+            var oldBg = scene.Background;
+            var oldPlacement = scene.Placement;
+            var rel = _maps.ImportBackgroundForScene(abs, scene);
             if (rel is null) { StatusText = "背景复制失败"; return; }
             scene.Background = rel;
             await _maps.SaveAsync();
-            StatusText = $"已应用素材库背景「{item.Name}」";
+
+            if (!await _cal.EnsureCalibratedAsync(scene, SceneCalibrationService.DefaultTargetAspect))
+            {
+                scene.Background = oldBg;
+                scene.Placement = oldPlacement;
+                await _maps.SaveAsync();
+                StatusText = "已取消，背景未更换";
+                return;
+            }
+            StatusText = $"已应用素材库背景「{item.Name}」并完成标定";
         }
         catch (Exception ex)
         {
