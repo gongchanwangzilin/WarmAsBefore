@@ -120,48 +120,63 @@ public sealed class ChatEngine
         {
             App.WriteLog("ChatEngine.Send -> " + ex.Message);
             var errorMsg = $"（AI 调用出错：{ex.Message}）";
-            session.Add(new ChatMessage { Role = "assistant", Content = errorMsg });
-            Trim(session);
+            // 异常路径的错误提示不进会话历史（避免污染后续上下文的 assistant 记忆），
+            // 直接返回给调用方展示。
             return errorMsg;
         }
     }
 
-    /// <summary>AI 离线时的友好回复：根据用户消息生成自然的回应。</summary>
+    /// <summary>AI 离线时的友好回复库：关键词 → 候选回复，命中后在候选间随机挑一条，避免反复撞同一句。</summary>
+    private static readonly (string[] Keywords, string[] Replies)[] OfflineReplyPool =
+    {
+        (new[] { "你好", "您好", "hi", "hello", "嗨" },
+         new[] { "你好呀！今天过得怎么样？有什么想和我聊的吗？", "嘿，你来啦~ 我正好在等你呢。", "嗨！最近还好吗？跟我说说吧。" }),
+        (new[] { "再见", "拜拜", "bye", "晚安" },
+         new[] { "再见！记得常来找我聊天哦~", "拜拜啦，路上小心，回来还要陪我的。", "晚安~ 做个好梦，明天见。" }),
+        (new[] { "喜欢", "爱", "亲爱的" },
+         new[] { "谢谢你这么说，我心里暖暖的~", "听到你这么说，我真的很开心。", "我也很喜欢和你待在一起。" }),
+        (new[] { "今天", "在干嘛", "干嘛呢" },
+         new[] { "今天呢...希望能和你一起度过愉快的时光！", "我在等你哦，你来得刚好。", "今天过得好吗？跟我讲讲~" }),
+        (new[] { "天气", "下雨", "晴天", "冷", "热" },
+         new[] { "天气变化会影响心情呢，你那边现在怎么样？", "记得添减衣物，别着凉/中暑了。", "天气好的话，要不要一起出去走走？" }),
+        (new[] { "吃饭", "饿", "吃", "肚子" },
+         new[] { "要好好吃饭哦！你想吃什么？我可以陪你一起'吃'~", "饿了吧？快去吃点东西，别亏待自己。", "我陪你'云吃饭'，你想好要吃什么了吗？" }),
+        (new[] { "困", "累", "睡", "疲惫" },
+         new[] { "辛苦了！要注意休息哦，我会一直陪着你的。", "累了就歇会儿，我在呢，不用硬撑。", "早点睡吧，晚安~" }),
+        (new[] { "开心", "高兴", "快乐", "好事" },
+         new[] { "看到你开心我也很开心呢！有什么好事想和我分享吗？", "太好啦！跟我说说，让我也乐一乐。", "你的开心是会传染的，我也被感染了~" }),
+        (new[] { "难过", "伤心", "哭", "烦" },
+         new[] { "别难过，我会一直在这里陪着你。想说说发生了什么吗？", "我在，随时可以跟我倾诉。", "抱抱你，会好起来的。" }),
+        (new[] { "工作", "学习", "考试", "加班" },
+         new[] { "加油！你努力的样子一定很耀眼，我会为你加油的！", "辛苦啦，休息一下再战。", "我信你，你一定可以的。" }),
+        (new[] { "游戏", "玩", "一起" },
+         new[] { "想玩游戏吗？我们可以一起玩游戏，或者就随便聊聊~", "好呀，你想玩什么？我奉陪到底。", "那我们一起，你定个主题？" }),
+        (new[] { "名字", "叫什么" },
+         new[] { "我是小雨呀，是你的陪伴者~ 你叫什么名字呢？", "你可以叫我小雨。你呢？" }),
+        (new[] { "可爱", "漂亮", "好看", "帅" },
+         new[] { "嘿嘿，谢谢你夸我！你也很可爱呢~", "被你这么一说，我都有点不好意思了。", "谢谢，你嘴真甜~" }),
+        (new[] { "谢谢", "感谢", "辛苦" },
+         new[] { "不客气！能帮到你是我最大的荣幸~", "应该的，你对我这么好，我哪有不帮的。", "谢谢的话就不用啦，我们之间不用这么见外~" }),
+    };
+
+    private static readonly string[] OfflineFallback =
+    {
+        "{0}…嗯，我在听呢。有什么想和我说的吗？",
+        "{0}……我记下了。然后呢？",
+        "你说的 {0}，我收到了。再多跟我说说？",
+        "嗯，{0}。我在，你想怎么聊？",
+    };
+
+    /// <summary>AI 离线时的友好回复：关键词命中则随机挑一条，否则走随机兜底。</summary>
     private static string GenerateOfflineReply(string input)
     {
-        // 根据输入内容生成不同回复
         var lower = input.ToLowerInvariant();
-        if (lower.Contains("你好") || lower.Contains("您好") || lower.Contains("hi") || lower.Contains("hello"))
-            return "你好呀！今天过得怎么样？有什么想和我聊的吗？";
-        if (lower.Contains("再见") || lower.Contains("拜拜") || lower.Contains("bye"))
-            return "再见！记得常来找我聊天哦~";
-        if (lower.Contains("喜欢") || lower.Contains("爱"))
-            return "谢谢你这么说，我心里暖暖的~";
-        if (lower.Contains("今天"))
-            return "今天呢...希望能和你一起度过愉快的时光！";
-        if (lower.Contains("天气") || lower.Contains("下雨") || lower.Contains("晴天"))
-            return "天气变化会影响心情呢，你那边现在怎么样？";
-        if (lower.Contains("吃饭") || lower.Contains("饿") || lower.Contains("吃"))
-            return "要好好吃饭哦！你想吃什么？我可以陪你一起 '吃'~";
-        if (lower.Contains("困") || lower.Contains("累") || lower.Contains("睡"))
-            return "辛苦了！要注意休息哦，我会一直陪着你的。";
-        if (lower.Contains("开心") || lower.Contains("高兴") || lower.Contains("快乐"))
-            return "看到你开心我也很开心呢！有什么好事想和我分享吗？";
-        if (lower.Contains("难过") || lower.Contains("伤心") || lower.Contains("哭"))
-            return "别难过，我会一直在这里陪着你。想说说发生了什么吗？";
-        if (lower.Contains("工作") || lower.Contains("学习") || lower.Contains("考试"))
-            return "加油！你努力的样子一定很耀眼，我会为你加油的！";
-        if (lower.Contains("游戏") || lower.Contains("玩"))
-            return "想玩游戏吗？我们可以一起玩游戏，或者就随便聊聊~";
-        if (lower.Contains("名字") || lower.Contains("叫什么"))
-            return "我是小雨呀，是你的陪伴者~ 你叫什么名字呢？";
-        if (lower.Contains("可爱") || lower.Contains("漂亮") || lower.Contains("好看"))
-            return "嘿嘿，谢谢你夸我！你也很可爱呢~";
-        if (lower.Contains("谢谢"))
-            return "不客气！能帮到你是我最大的荣幸~";
-        if (lower.Contains("喜欢"))
-            return "我也很喜欢和你在一起呢~";
-        return $"{input}…嗯，我在听呢。有什么想和我说的吗？";
+        foreach (var (keywords, replies) in OfflineReplyPool)
+        {
+            if (keywords.Any(k => lower.Contains(k)))
+                return replies[Random.Shared.Next(replies.Length)];
+        }
+        return string.Format(OfflineFallback[Random.Shared.Next(OfflineFallback.Length)], input);
     }
 
     private static string Fallback(string input) => $"{input}…嗯，我在听。";
@@ -293,21 +308,27 @@ public sealed class ChatEngine
 public sealed class MemoryVault
 {
     private readonly StorageProvider _store;
+    private readonly object _gate = new();
     private List<MemoryEntry> _cache = new();
+    private bool _loaded;
 
-    public MemoryVault(StorageProvider store)
-    {
-        _store = store;
-        // 启动即载入全部记忆（回忆录可查询所有历史对话），失败时保持空缓存
-        _ = LoadAllAsync();
-    }
+    public MemoryVault(StorageProvider store) => _store = store;
 
-    private async Task LoadAllAsync()
+    /// <summary>惰性加载：首次真正读写前 await，避免构造函数 fire-and-forget 造成「旧记忆还没读进来就被覆盖」的竞态。</summary>
+    private async Task EnsureLoadedAsync()
     {
+        lock (_gate)
+        {
+            if (_loaded) return;
+            _loaded = true;   // 先置位，后续并发调用直接走快路径
+        }
         try
         {
             var saved = await _store.Load<List<MemoryEntry>>("memories");
-            if (saved is not null && saved.Count > 0) _cache = saved;
+            lock (_gate)
+            {
+                if (saved is not null && saved.Count > 0) _cache = saved;
+            }
         }
         catch (Exception ex)
         {
@@ -317,8 +338,15 @@ public sealed class MemoryVault
 
     public async Task Store(MemoryEntry entry)
     {
-        _cache.Add(entry);
-        await _store.Save("memories", _cache);
+        await EnsureLoadedAsync();
+        List<MemoryEntry> snapshot;
+        lock (_gate)
+        {
+            _cache.Add(entry);
+            // 快照整份列表再序列化，避免序列化到一半列表被另一线程修改
+            snapshot = new List<MemoryEntry>(_cache);
+        }
+        await _store.Save("memories", snapshot);
     }
 
     /// <summary>记录好感提升瞬间（回忆录的「全部好感时刻」来源，随记忆持久化）。</summary>
@@ -333,19 +361,32 @@ public sealed class MemoryVault
             ImagePath = imagePath
         });
 
-    public Task<List<MemoryEntry>> Recent(string charId, int n = 10) =>
-        Task.FromResult(_cache.Where(m => m.CharacterId == charId)
-            .OrderByDescending(m => m.At).Take(n).ToList());
+    public Task<List<MemoryEntry>> Recent(string charId, int n = 10)
+    {
+        _ = EnsureLoadedAsync();
+        lock (_gate)
+            return Task.FromResult(_cache.Where(m => m.CharacterId == charId)
+                .OrderByDescending(m => m.At).Take(n).ToList());
+    }
 
     /// <summary>某个角色的全部记忆（可限定类别，如 affection / dialogue）。</summary>
-    public Task<List<MemoryEntry>> All(string charId, string? category = null) =>
-        Task.FromResult(_cache.Where(m => m.CharacterId == charId
-                && (category is null || m.Category == category))
-            .OrderByDescending(m => m.At).ToList());
+    public Task<List<MemoryEntry>> All(string charId, string? category = null)
+    {
+        _ = EnsureLoadedAsync();
+        lock (_gate)
+            return Task.FromResult(_cache.Where(m => m.CharacterId == charId
+                    && (category is null || m.Category == category))
+                .OrderByDescending(m => m.At).ToList());
+    }
 
     public Task<List<MemoryEntry>> Search(string charId, string query)
     {
-        var hits = _cache.Where(m => m.CharacterId == charId).AsEnumerable();
+        _ = EnsureLoadedAsync();
+        IEnumerable<MemoryEntry> hits;
+        lock (_gate)
+        {
+            hits = _cache.Where(m => m.CharacterId == charId).AsEnumerable();
+        }
         if (!string.IsNullOrWhiteSpace(query))
         {
             try

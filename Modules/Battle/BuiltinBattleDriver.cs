@@ -60,7 +60,7 @@ public sealed class BuiltinBattleDriver : IBattleDriver
         _battle.Enemies[1].Skills.Add(new SkillData { Name = "暗影箭", Description = "远程暗影伤害", Damage = 16, ManaCost = 0, Type = "attack" });
     }
 
-    public Task<string> CallAsync(string method, string paramsJson)
+    public async Task<string> CallAsync(string method, string paramsJson)
     {
         try
         {
@@ -74,7 +74,7 @@ public sealed class BuiltinBattleDriver : IBattleDriver
                     stateJson = ApplyAction(paramsJson);
                     break;
                 case "battle_advance":
-                    stateJson = ApplyEnemyTurn();
+                    stateJson = await ApplyEnemyTurnAsync();
                     break;
                 case "battle_status":
                     stateJson = Serialize();
@@ -83,17 +83,17 @@ public sealed class BuiltinBattleDriver : IBattleDriver
                     stateJson = JsonSerializer.Serialize(new { error = $"未知方法 {method}", ended = true, winner = "" });
                     break;
             }
-            return Task.FromResult(stateJson);
+            return stateJson;
         }
         catch (Exception ex)
         {
             App.WriteLog("BuiltinBattleDriver.CallAsync -> " + ex);
-            return Task.FromResult(JsonSerializer.Serialize(new
+            return JsonSerializer.Serialize(new
             {
                 error = ex.Message,
                 ended = true,
                 winner = ""
-            }));
+            });
         }
     }
 
@@ -202,7 +202,7 @@ public sealed class BuiltinBattleDriver : IBattleDriver
         }
     }
 
-    private string ApplyEnemyTurn()
+    private async Task<string> ApplyEnemyTurnAsync()
     {
         if (_battle.Status == "ended")
             return JsonSerializer.Serialize(new { error = "战斗已结束", ended = true, winner = _battle.Winner, round = _battle.CurrentRound });
@@ -211,8 +211,9 @@ public sealed class BuiltinBattleDriver : IBattleDriver
             return Serialize(); // 已回到玩家回合，无需推进
 
         _battle.Status = "enemy_turn";
-        WaitForBattleSync(900);
-
+        // 外部驱动在敌方回合常需要「思考时间」；内置驱动同样等一拍，保持节奏一致。
+        // 走 await Task.Delay（后台线程池），绝不 Thread.Sleep 冻结 UI 线程。
+        await Task.Delay(900);
         foreach (var enemy in _battle.Enemies.Where(e => e.CurrentHp > 0).ToList())
         {
             var alive = _battle.Players.Where(p => p.CurrentHp > 0).ToList();
@@ -234,8 +235,6 @@ public sealed class BuiltinBattleDriver : IBattleDriver
         return Serialize();
     }
 
-    /// <summary>外部驱动在敌方回合常需要「思考时间」；内置驱动同样等一拍，保持节奏一致。</summary>
-    private void WaitForBattleSync(int ms) => Thread.Sleep(ms);
 
     private void CheckEndAfterPlayer()
     {

@@ -4,8 +4,15 @@ using System.Text.Json;
 namespace WarmAsBefore.Modules.Battle;
 
 /// <summary>
-/// 回合制战斗系统：内化为游戏正式模块（原插件系统的战斗能力迁移至此）。
-/// 线程安全：战斗字典使用 ConcurrentDictionary。
+/// 系统级回合制战斗引擎（供「工具模式」/ MCP 调用）：独立于游戏内战斗页的
+/// BuiltinBattleDriver（后者带角色立绘 / 技能 / 好感联动，面向 UI）。
+///
+/// 定位区别：
+///  · 本类 = 极简「两个角色互砍」的通用战斗逻辑，进程内静态 ConcurrentDictionary 存储，
+///    重启即丢（不落盘）。仅服务 ToolManager / BattleTools 暴露的 battle_* 工具。
+///  · BuiltinBattleDriver = 游戏内战斗页驱动，由 BattleDriverManager 拉起，
+///    可被外部 Python/Java 驱动替换（外部优先、内置兜底）。
+/// 两者契约独立，互不引用；需要存档时请走 BuiltinBattleDriver + SaveManager。
 /// </summary>
 public static class BattleSystem
 {
