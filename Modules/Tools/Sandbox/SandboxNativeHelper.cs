@@ -23,7 +23,7 @@ public static class SandboxNativeHelper
     {
         try
         {
-            var ctx = Microsoft.Maui.Platform.AppContext ?? global::Android.App.Application.Context;
+            var ctx = Microsoft.Maui.ApplicationModel.Platform.AppContext;
             if (ctx is null)
                 return (false, "无法获取 Android Context");
 
@@ -47,14 +47,14 @@ public static class SandboxNativeHelper
                 var fileName = assetName[(assetName.LastIndexOf('/') + 1)..];
                 var dest = Path.Combine(NativeDir, fileName);
                 long expectedSize;
-                using (var check = ctx.GetAssets().Open(assetName))
+                using (var check = ctx.Assets.Open(assetName))
                 {
                     expectedSize = check.Length;
                 }
                 if (File.Exists(dest) && new FileInfo(dest).Length == expectedSize)
                     continue;
 
-                await using var input = await ctx.GetAssets().OpenAsync(assetName);
+                using var input = ctx.Assets.Open(assetName);
                 await using var fs = new FileStream(dest, FileMode.Create, FileAccess.Write,
                     FileShare.None, 81920, useAsync: true);
                 await input.CopyToAsync(fs);
@@ -89,7 +89,7 @@ public static class SandboxNativeHelper
         // 已带 +x 位则直接返回（幂等）
         try
         {
-            if ((File.GetUnixFileMode(path) & File.UnixFileMode.UOwnerExecute) != 0)
+            if ((File.GetUnixFileMode(path) & UnixFileMode.UserExecute) != 0)
                 return true;
         }
         catch { /* 旧运行时可能不支持 GetUnixFileMode，继续走 chmod */ }
@@ -127,9 +127,9 @@ public static class SandboxNativeHelper
         try
         {
             var mode = File.GetUnixFileMode(path)
-                | File.UnixFileMode.UOwnerExecute
-                | File.UnixFileMode.GroupExecute
-                | File.UnixFileMode.OtherExecute;
+                | UnixFileMode.UserExecute
+                | UnixFileMode.GroupExecute
+                | UnixFileMode.OtherExecute;
             File.SetUnixFileMode(path, mode);
             return true;
         }

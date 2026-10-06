@@ -59,6 +59,13 @@
     <None Remove="native\aarch64\**" />
   </ItemGroup>
 
+  <!-- 本地工具链目录（.gitignore，CI 上不存在）：NDK 源码树里带了几个 .cs（spirv-headers 的 C# 绑定），
+       会被默认 Compile glob 收进来撞成 CS0101 重复定义。显式排除，保证「SDK/JDK 放仓库内」的本地布局也能直接编译。 -->
+  <ItemGroup>
+    <Compile Remove="android-sdk\**" />
+    <Compile Remove="android-jdk\**" />
+  </ItemGroup>
+
   <!-- 主题 XAML 嵌入为资源 -->
   <ItemGroup>
     <EmbeddedResource Include="DesignSystem\Theme\ColorPalette.xaml" LogicalName="DesignSystem.Theme.ColorPalette.xaml" />

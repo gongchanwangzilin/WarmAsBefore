@@ -29,16 +29,16 @@ public sealed class ToolManager : IDisposable
     private readonly ConcurrentDictionary<string, ToolSession> _sessions = new();
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
-    private readonly Sandbox.SandboxPolicy _sandbox;
+    private readonly Modules.Sandbox.SandboxPolicy _sandbox;
     private int _rpcId;
     private bool _disposed;
 
-    public ToolManager(RuntimeManager runtimes, Sandbox.SandboxPolicy? injectedSandbox = null)
+    public ToolManager(RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy? injectedSandbox = null)
     {
         _runtimes = runtimes;
         // 优先使用 DI 注入的共享 SandboxPolicy（设置页保存后指纹刷新对所有调用方生效）；
         // 未注入时（非 DI 路径）才自建，保证兼容。
-        _sandbox = injectedSandbox ?? new Sandbox.SandboxPolicy(new StorageProvider());
+        _sandbox = injectedSandbox ?? new Modules.Sandbox.SandboxPolicy(new StorageProvider());
         RegisterSystemTools();
         Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
@@ -53,7 +53,7 @@ public sealed class ToolManager : IDisposable
     /// 工具沙箱策略（敏感词过滤 + 信任名单 + 加密落盘）。
     /// 设置页 / 工具管理器通过此入口配置密钥指纹、信任与加密策略。
     /// </summary>
-    public Sandbox.SandboxPolicy Sandbox => _sandbox;
+    public Modules.Sandbox.SandboxPolicy Sandbox => _sandbox;
 
     /// <summary>工具目录：{root}/tools/{工具名}/，每个工具目录含 tool.json 清单。</summary>
     public static string ToolsDir => Path.Combine(App.RootDirectory, "tools");
