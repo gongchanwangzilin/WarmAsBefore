@@ -127,7 +127,8 @@ public sealed class StorageProvider
     {
         var path = KeyPath(key);
         var dir = Path.GetDirectoryName(path);
-        if (dir is not null && _createdDirs.AddOrUpdate(dir, 0, (_, _) => 0) is null)
+        // TryAdd 只在首次插入时返回 true：同一目录只建一次，省掉每次 Save 的 CreateDirectory 系统调用
+        if (dir is not null && _createdDirs.TryAdd(dir, 0))
             Directory.CreateDirectory(dir);
         var json = JsonSerializer.Serialize(data);
         await File.WriteAllTextAsync(path, json);
@@ -224,7 +225,7 @@ public sealed class AudioController
                 var uri = Android.Net.Uri.FromFile(new Java.IO.File(filePath));
                 p.SetDataSource(Platform.AppContext, uri);
                 p.Prepare();
-                p.Volume = (float)_sfx;
+                p.SetVolume((float)_sfx, (float)_sfx);
                 p.Start();
                 p.SetOnCompletionListener(new AndroidSfxCompletion(p));
                 _androidSfxPlayer = p;
@@ -345,7 +346,7 @@ public sealed class AudioController
 #if WINDOWS
         if (_bgmPlayer is not null) _bgmPlayer.IsMuted = muted;
 #elif ANDROID
-        try { lock (_androidAudioLock) { if (_androidBgmPlayer is not null) _androidBgmPlayer.Volume = muted ? 0f : (float)_bgm; } } catch { }
+        try { lock (_androidAudioLock) { if (_androidBgmPlayer is not null) { var v = muted ? 0f : (float)_bgm; _androidBgmPlayer.SetVolume(v, v); } } } catch { }
 #endif
     }
 
@@ -420,7 +421,8 @@ public sealed class AudioController
                 var uri = Android.Net.Uri.FromFile(new Java.IO.File(file));
                 p.SetDataSource(Platform.AppContext, uri);
                 p.Prepare();
-                p.Volume = _bgmMuted ? 0f : (float)_bgm;
+                var bgmVol = _bgmMuted ? 0f : (float)_bgm;
+                p.SetVolume(bgmVol, bgmVol);
                 // 播完当前曲自动推进到列表下一首（与 Windows 端 AdvanceInner 行为对齐）
                 p.SetOnCompletionListener(new AndroidBgmCompletion(this));
                 p.Start();

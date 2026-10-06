@@ -1,4 +1,5 @@
 #if ANDROID
+using System.Formats.Tar;
 using System.IO.Compression;
 using Microsoft.Maui.Storage;
 using WarmAsBefore.Services;
@@ -160,11 +161,12 @@ public sealed class RootfsInstaller
             var relative = Path.GetRelativePath(Path.GetDirectoryName(link)!, src);
             try
             {
-                global::Android.Net.FileSystem.CreateSymbolicLink(relative, link, global::Android.Net.FileLinkOptions.None);
+                // .NET 的 File.CreateSymbolicLink(path, pathToTarget)：path 是要创建的链接，第二个是目标
+                File.CreateSymbolicLink(link, relative);
             }
-            catch (System.TypeLoadException)
+            catch (PlatformNotSupportedException)
             {
-                // Android API 层没有此方法时（旧 targetSdk）退化为直接复制
+                // 运行时不支持符号链接时退化为直接复制
                 App.WriteLog("CreateSymbolicLink 不可用，退化为复制");
                 File.Copy(src, link, overwrite: true);
             }
@@ -182,27 +184,23 @@ public sealed class RootfsInstaller
     private static async Task ExtractTarGzAsync(string gzPath, string destDir)
     {
         await using var gz = File.OpenRead(gzPath);
-        await using var tar = new GzipStream(gz, leaveOpen: true);
-        await using var dirStream = new TarStream(tar, FileAccess.Read, leaveOpen: false);
-        while (true)
+        await using var tar = new GZipStream(gz, CompressionMode.Decompress, leaveOpen: true);
+        await using var reader = new TarReader(tar, leaveOpen: true);
+        while (await reader.GetNextEntryAsync() is { } entry)
         {
-            TarEntry? entry;
-            try { entry = dirStream.ReadEntry(); }
-            catch (EndOfStreamException) { break; }
-            if (entry is null) break;
-            var target = SanitizeTarget(destDir, entry.FullName);
+            var target = SanitizeTarget(destDir, entry.Name);
             if (target is null) continue;
-            if (entry.IsDirectory)
+            if (entry.EntryType is TarEntryType.Directory)
             {
                 Directory.CreateDirectory(target);
             }
-            else
+            else if (entry.DataStream is { } data)
             {
                 Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                await using var es = entry.Open();
                 await using var dst = File.Create(target);
-                await es.CopyToAsync(dst);
+                await data.CopyToAsync(dst);
             }
+            // 符号链接等无 DataStream 的条目跳过（只还原常规文件与目录）
         }
     }
 
@@ -222,12 +220,14 @@ public sealed class RootfsInstaller
         using var resp = await Http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
         resp.EnsureSuccessStatusCode();
         var total = resp.Content.Headers.ContentLength;
+        // 流必须开在循环外：放循环里每轮都会重新发起请求，等于从头下载
+        await using var src = await resp.Content.ReadAsStreamAsync();
         await using var fs = File.Create(dest);
         var buffer = new byte[81920];
         var read = 0L;
         while (true)
         {
-            var n = await resp.Content.ReadAsStreamAsync().ReadAsync(buffer.AsMemory());
+            var n = await src.ReadAsync(buffer.AsMemory());
             if (n <= 0) break;
             read += n;
             await fs.WriteAsync(buffer.AsMemory(0, n));
