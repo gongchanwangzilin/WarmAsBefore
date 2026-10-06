@@ -32,6 +32,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<CharacterLibrary>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
+        // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
+        builder.Services.AddSingleton<SceneCalibrationService>();
         builder.Services.AddSingleton<LingshuImporter>();
 
         // Module services
@@ -98,6 +100,8 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<PhonePage>();
         builder.Services.AddTransient<WeChatPage>();
         builder.Services.AddTransient<MapPage>();
+        builder.Services.AddTransient<SceneCalibrationViewModel>();
+        builder.Services.AddTransient<SceneCalibrationPage>();
         builder.Services.AddTransient<GalleryPage>();
         builder.Services.AddTransient<OutfitPage>();
         builder.Services.AddTransient<SavePage>();

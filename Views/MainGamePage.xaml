@@ -54,7 +54,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             </Border>
 
             <!-- Character area (center, zoomed) -->
-            <Grid Grid.Row="1">
+            <Grid Grid.Row="1" x:Name="PhoneStage" SizeChanged="OnStageSizeChanged">
                 <!-- 左上角状态指示器 -->
                 <Border IsVisible="{Binding StatusText}"
                         BackgroundColor="#CC000000" Padding="8,4" Margin="12,12,0,0"
@@ -81,15 +81,23 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                       Aspect="AspectFill" Opacity="0.5"
                                       ShouldAutoPlay="True" ShouldLoopPlayback="True"
                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
-                <!-- 立绘支持位置、透明度、缩放，手机模式更大 -->
+                <!-- 场景亮度遮罩：dim 模式压暗背景/视频（立绘在它之上，不受影响）。
+                     没有这层，"关灯"在画面上根本看不出来，也就无从判断某个选项是否真的生效。 -->
+                <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
+                         HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 立绘支持位置、透明度、缩放，手机模式更大。
+                     尺寸由 VM 显式给出（不再依赖 MaximumHeightRequest + 自动 measure）：
+                     标定要算"角色脚底落在哪个像素"，必须先有一个确定的基准尺寸，
+                     而 MAUI 的 measure 结果在 AspectFit + Scale 叠加下并不稳定。 -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
-                       Aspect="AspectFit" Margin="16,8"
+                       Aspect="AspectFit"
+                       WidthRequest="{Binding SpriteFitW}"
+                       HeightRequest="{Binding SpriteFitH}"
                        Opacity="{Binding SpriteOpacity}"
                        TranslationX="{Binding SpriteX}"
                        TranslationY="{Binding SpriteY}"
                        Scale="{Binding SpriteScale}"
-                       HorizontalOptions="Center" VerticalOptions="Center"
-                       MaximumHeightRequest="600" />
+                       HorizontalOptions="Center" VerticalOptions="Center" />
                 <!-- 无立绘时的占位 -->
                 <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
                         Stroke="{DynamicResource BorderLine}" StrokeThickness="1.5"
@@ -344,7 +352,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             </Border>
 
             <!-- Center: Character area -->
-            <Grid Grid.Row="1" Grid.Column="1">
+            <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage" SizeChanged="OnStageSizeChanged">
                 <BoxView Color="{Binding SceneBg}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
                 <toolkit:MediaElement x:Name="SceneVideoDesktop"
@@ -353,15 +361,19 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                       Aspect="AspectFill" Opacity="0.55"
                                       ShouldAutoPlay="True" ShouldLoopPlayback="True"
                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
-                <!-- 立绘支持位置、透明度、缩放，限制最大高度防止溢出 -->
+                <!-- 场景亮度遮罩（同手机版说明） -->
+                <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
+                         HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 立绘支持位置、透明度、缩放；尺寸由 VM 按标定显式给出（见手机版同处说明） -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
                        Aspect="AspectFit"
+                       WidthRequest="{Binding SpriteFitW}"
+                       HeightRequest="{Binding SpriteFitH}"
                        Opacity="{Binding SpriteOpacity}"
                        TranslationX="{Binding SpriteX}"
                        TranslationY="{Binding SpriteY}"
                        Scale="{Binding SpriteScale}"
-                       HorizontalOptions="Center" VerticalOptions="Center"
-                       MaximumHeightRequest="600" />
+                       HorizontalOptions="Center" VerticalOptions="Center" />
                 <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
@@ -631,5 +643,44 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </Grid>
             </Border>
         </Grid>
+
+        <!-- ===== 未标定闸门遮罩（最上层，不可关闭）=====
+             没有标定数据就不生成角色位置，但必须给出口，否则换错一张图就卡死。 -->
+        <Grid IsVisible="{Binding IsCalibrationBlocked}" BackgroundColor="#CC000000">
+            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
+                    Padding="24,22" Margin="28" VerticalOptions="Center" HorizontalOptions="Center"
+                    MaximumWidthRequest="520">
+                <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="这张背景还没有标定" FontSize="19" FontAttributes="Bold"
+                           TextColor="{DynamicResource WarmDark}"
+                           HorizontalOptions="Center" />
+                    <Label Text="{Binding CalibrationHint}" FontSize="13"
+                           TextColor="{DynamicResource WarmMuted}" />
+                    <Label Text="标定确定两件事：角色能站在哪里（落脚点），以及近处远处该怎么缩放（缩放标定）。"
+                           FontSize="12" TextColor="{DynamicResource WarmMuted}" />
+                    <Button Text="✓ 现在去标定" FontSize="14" HeightRequest="44" CornerRadius="12"
+                            BackgroundColor="{DynamicResource Cream200}" TextColor="{DynamicResource WarmDark}"
+                            Command="{Binding GoCalibrateCommand}" />
+                    <Button Text="移除这张背景（改用纯色）" FontSize="13" HeightRequest="40" CornerRadius="12"
+                            BackgroundColor="{DynamicResource WarmBody}" TextColor="{DynamicResource OffWhite50}"
+                            Command="{Binding RemoveSceneBackgroundCommand}" />
+                    <Button Text="暂时用居中显示继续" FontSize="13" HeightRequest="40" CornerRadius="12"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource WarmMuted}"
+                            Command="{Binding ContinueCenteredCommand}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- 选择了「暂用居中」后的常驻提醒（不挡操作，点了就能去补标定） -->
+        <Border IsVisible="{Binding IsUncalibrated}" BackgroundColor="#E6B3261E"
+                StrokeThickness="0" Padding="14,8" Margin="12" VerticalOptions="Start" HorizontalOptions="Center">
+            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+            <Label Text="{Binding UncalibratedHint}" TextColor="White" FontSize="12">
+                <Label.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding GoCalibrateCommand}" />
+                </Label.GestureRecognizers>
+            </Label>
+        </Border>
     </Grid>
 </ContentPage>

@@ -101,6 +101,16 @@ public sealed class MapScene
     /// <summary>画布坐标（地图编辑器里卡片的位置）；-1 表示尚未摆放，加载时自动网格布局。</summary>
     public double X { get; set; } = -1;
     public double Y { get; set; } = -1;
+
+    /// <summary>
+    /// 背景图的标定数据（落脚点 + 缩放依据）。为 null 或校验不通过 = 未标定，
+    /// 此时不允许生成角色位置（切到该场景会强制进入标定流程）。
+    /// 注意 X/Y 是编辑器画布坐标，与标定无关，不要混用。
+    /// </summary>
+    public ScenePlacement? Placement { get; set; }
+
+    /// <summary>来源素材包名（空 = 手工创建）。用于素材包重复导入时判断「覆盖还是另存」。</summary>
+    public string SourcePack { get; set; } = "";
 }
 
 /// <summary>临时节点：不归属任何地点，作为连线端点/路径站。</summary>

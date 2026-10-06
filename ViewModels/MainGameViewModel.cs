@@ -64,6 +64,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private ImageSource? _spriteSource;
     [ObservableProperty] private bool _spriteVisible;
     [ObservableProperty] private double _spriteOpacity = 1.0;
+
+    /// <summary>场景亮度遮罩 0..1（由生效模式的灯光基调换算）；主界面在背景层之上叠黑色遮罩绑这个值。</summary>
+    [ObservableProperty] private double _sceneDim;
     [ObservableProperty] private double _spriteX = 0;
     [ObservableProperty] private double _spriteY = 0;
     [ObservableProperty] private double _spriteScale = 1.0;
@@ -163,6 +166,30 @@ public sealed partial class MainGameViewModel : ObservableObject
     private string _defaultEmotion = "";
     private string _currentEmotion = "";
     private DateTime _lastAutoSave = DateTime.MinValue;
+    private readonly SceneCalibrationService _cal;
+    private MapScene? _currentScene;
+
+    // ---- 标定闸门 ----
+    /// <summary>当前场景没标定，界面被全屏遮罩拦住（不可关闭，必须选一个出口）。</summary>
+    [ObservableProperty] private bool _isCalibrationBlocked;
+    [ObservableProperty] private string _calibrationHint = "";
+    /// <summary>用户选了「暂时用居中显示继续」：放行游玩，但界面常驻未标定警告。</summary>
+    [ObservableProperty] private bool _isUncalibrated;
+    [ObservableProperty] private string _uncalibratedHint = "";
+
+    // ---- 标定驱动的角色变换 ----
+    private ScenePlacement? _placement;
+    private (int W, int H) _bgImageSize;
+    private (int W, int H) _spritePixels;
+    private double _stageW, _stageH;
+    private string? _spriteAbsPath;
+    /// <summary>标定算出的缩放（说话强调在此之上乘系数，而不是覆盖它）。</summary>
+    private double _calibratedScale = 1.0;
+    /// <summary>标定算出的基准位移；动画在它之上做偏移，动画结束回到它。</summary>
+    private double _baseSpriteX, _baseSpriteY;
+
+    [ObservableProperty] private double _spriteFitW = 260;
+    [ObservableProperty] private double _spriteFitH = 420;
 
     public MainGameViewModel(GameEngine engine, ChatEngine chat, MemoryVault memory,
         TaskOrchestrator auto, SaveManager save, WeatherProvider weather, RealTimeProvider time,
@@ -171,7 +198,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Market.GiftPanelService gifts, SettingsManager settings,
         Modules.Affection.AffectionLevelUpService levelUp,
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
-        Modules.Scene.SceneDirector sceneDirector)
+        Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal)
     {
         _engine = engine;
         _chat = chat;
@@ -193,6 +220,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _cg = cg;
         _cgView = cgView;
         _sceneDirector = sceneDirector;
+        _cal = cal;
 
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
@@ -284,11 +312,13 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void ApplyScene(MapScene? scene)
     {
+        _currentScene = scene;
         SceneVideoOn = false;
         SceneVideoPath = "";
         if (scene is null)
         {
             SceneBackdrop = null;
+            ClearCalibrationGate();
             return;
         }
         var bg = _map.ResolveBackground(scene);
@@ -306,6 +336,191 @@ public sealed partial class MainGameViewModel : ObservableObject
         else
             SceneBackdrop = null;
         SceneBg = scene.BackgroundColor;
+
+        UpdateCalibrationGate(scene);
+        _ = RefreshSpriteGeometryAsync(scene);
+    }
+
+    /// <summary>承载背景与立绘的容器尺寸变化（页面 SizeChanged 转发）。</summary>
+    public void OnStageSizeChanged(double w, double h, bool isPhone)
+    {
+        if (w <= 0 || h <= 0) return;
+        _stageW = w;
+        _stageH = h;
+        _isPhoneStage = isPhone;
+        UpdateSpriteTransform();
+    }
+
+    private bool _isPhoneStage = true;
+
+    /// <summary>取地图场景背景图与立绘的原图像素尺寸，然后重算立绘变换。</summary>
+    private async Task RefreshSpriteGeometryAsync(MapScene? scene)
+    {
+        var bgAbs = scene is null ? null : _map.ResolveBackground(scene);
+        if (!string.IsNullOrEmpty(bgAbs) && MapService.IsVideoExt(Path.GetExtension(bgAbs)))
+            bgAbs = scene is null ? null : _map.ThumbnailAbsFor(scene);
+        await RefreshSpriteGeometryForAsync(bgAbs, scene?.Placement);
+    }
+
+    /// <summary>按"任意背景路径 + 标定数据"重算立绘变换（场景模式覆盖背景时走这条）。</summary>
+    private async Task RefreshSpriteGeometryForAsync(string? bgAbs, ScenePlacement? placement)
+    {
+        _placement = placement;
+        _bgImageSize = await ImageProbe.SizeOfAsync(
+            !string.IsNullOrEmpty(bgAbs) && File.Exists(bgAbs) ? bgAbs : null);
+        _spritePixels = await ImageProbe.SizeOfAsync(_spriteAbsPath);
+        UpdateSpriteTransform();
+    }
+
+    /// <summary>
+    /// 场景模式换背景时同步换标定。
+    ///
+    /// 规格里这块是"可以选择沿用或单图微调"，两种都支持：
+    ///   · <see cref="Models.SceneMode.Placement"/> 有值 = 这张模式背景自己标过（单图微调）；
+    ///   · 为空 = 沿用所属库条目引用的地图场景的标定。
+    /// </summary>
+    private void ApplyModePlacement(Models.SceneLibraryEntry entry, Models.SceneMode? mode)
+    {
+        var placement = mode?.Placement;
+        if (placement is null && !string.IsNullOrEmpty(entry.MapSceneRef))
+            placement = _map.Map.SceneById(entry.MapSceneRef!)?.Placement;
+
+        var bgAbs = mode?.Background is { Length: > 0 } mb ? mb : entry.Background;
+        _ = RefreshSpriteGeometryForAsync(bgAbs, placement);
+    }
+
+    /// <summary>
+    /// 由标定数据算出立绘的尺寸、缩放与位移。
+    ///
+    /// 关键点是背景用的是 AspectFill（会裁切），而标定坐标是**原图归一化**坐标，
+    /// 所以必须先把归一化坐标映射到 AspectFill 之后的实际显示矩形上，
+    /// 否则竖图放横屏时会整体偏掉。
+    /// </summary>
+    private void UpdateSpriteTransform()
+    {
+        if (_stageW <= 0 || _stageH <= 0) return;
+
+        // 立绘基准尺寸：AspectFit 进容器
+        var sw = _spritePixels.W > 0 ? _spritePixels.W : 400.0;
+        var sh = _spritePixels.H > 0 ? _spritePixels.H : 640.0;
+        var fit = Math.Min(_stageW / sw, _stageH / sh);
+        var baseW = sw * fit;
+        var baseH = sh * fit;
+        SpriteFitW = baseW;
+        SpriteFitH = baseH;
+
+        // 没有可用标定：退回旧的居中显示，**不凭空推断位置与缩放**
+        if (_placement is null || !PlacementMath.Validate(_placement).Ok)
+        {
+            _calibratedScale = 1.0;
+            _baseSpriteX = 0;
+            _baseSpriteY = 0;
+            SpriteX = 0;
+            SpriteY = 0;
+            ApplySpeakingEmphasis();
+            return;
+        }
+
+        var desired = DesiredNormalized(baseW);
+        var (anchor, k) = PlacementMath.ResolveAnchor(_placement, desired);
+
+        // 标定给出的 k 是"相对基准大小"，乘上参考身高占比与容器高得到目标像素高
+        var visibleH = _stageH * _placement.RefHeightRatio * k;
+        _calibratedScale = Math.Clamp(visibleH / baseH, 0.02, 8.0);
+        ApplySpeakingEmphasis();
+
+        // AspectFill 映射：算出原图在容器里实际被铺成了多大、偏移多少
+        var iw = _bgImageSize.W > 0 ? _bgImageSize.W : 16.0;
+        var ih = _bgImageSize.H > 0 ? _bgImageSize.H : 9.0;
+        var s = Math.Max(_stageW / iw, _stageH / ih);
+        var dw = iw * s;
+        var dh = ih * s;
+        var ox = (_stageW - dw) / 2;
+        var oy = (_stageH - dh) / 2;
+
+        _baseSpriteX = ox + anchor.X * dw - _stageW / 2;
+        // 让"脚底"落在锚点上：立绘实际显示高度是 baseH * Scale
+        _baseSpriteY = oy + anchor.Y * dh - _stageH / 2 - baseH * SpriteScale / 2;
+
+        SpriteX = _baseSpriteX;
+        SpriteY = _baseSpriteY;
+    }
+
+    /// <summary>把 left/center/right 换算成归一化落脚位置——按立绘宽度成比例，而不是写死 150px。</summary>
+    private NormPoint DesiredNormalized(double baseW)
+    {
+        var iw = _bgImageSize.W > 0 ? _bgImageSize.W : 16.0;
+        var ih = _bgImageSize.H > 0 ? _bgImageSize.H : 9.0;
+        var dw = iw * Math.Max(_stageW / iw, _stageH / ih);
+        var dir = SpritePosition switch { "left" => -1.0, "right" => 1.0, _ => 0.0 };
+        var nx = dw > 0 ? 0.5 + dir * baseW * 1.05 / dw : 0.5;
+        return new NormPoint(Math.Clamp(nx, 0.02, 0.98), 0.9);
+    }
+
+    /// <summary>说话强调：乘在标定缩放之上，而不是把它覆盖掉。</summary>
+    private void ApplySpeakingEmphasis() => SpriteScale = _calibratedScale * (IsSpeaking ? 1.0 : 0.95);
+
+    /// <summary>
+    /// 标定闸门。
+    ///
+    /// 落到哪个位置、画多大，全靠标定数据算出来；没有标定就不能凭空生成角色位置，
+    /// 所以这里弹一个不可关闭的遮罩。
+    ///
+    /// 但**必须留出口**：用户完全可能只是选错了一张图、想换一张，此时若不给路走就会被永久卡住。
+    /// 三个出口分别是「去标定」「移除这张背景」「暂时用居中显示继续」。
+    /// </summary>
+    private void UpdateCalibrationGate(MapScene scene)
+    {
+        if (!_cal.NeedsCalibration(scene))
+        {
+            ClearCalibrationGate();
+            return;
+        }
+        CalibrationHint = $"「{scene.Name}」的背景还没有标定，无法确定角色该站在哪、应该多大。\n\n"
+                          + _cal.DescribeMissing(scene);
+        IsCalibrationBlocked = true;
+    }
+
+    private void ClearCalibrationGate()
+    {
+        IsCalibrationBlocked = false;
+        CalibrationHint = "";
+        IsUncalibrated = false;
+        UncalibratedHint = "";
+    }
+
+    /// <summary>出口①：去标定。标完回来重跑 ApplyScene 解除遮罩。</summary>
+    [RelayCommand]
+    private async Task GoCalibrateAsync()
+    {
+        if (_currentScene is null) return;
+        var ok = await _cal.EnsureCalibratedAsync(_currentScene, SceneCalibrationService.DefaultTargetAspect);
+        if (ok) ApplyScene(_currentScene);
+    }
+
+    /// <summary>
+    /// 出口②：移除这张背景。场景退回纯色 —— 没有图也就不需要标定，
+    /// 这是合法出口而不是"跳过标定"（跳过标定指的是带着图却不标）。
+    /// </summary>
+    [RelayCommand]
+    private async Task RemoveSceneBackgroundAsync()
+    {
+        var scene = _currentScene;
+        if (scene is null) return;
+        scene.Background = "";
+        scene.Placement = null;
+        await _map.SaveAsync();
+        _map.NotifyChanged();
+        ApplyScene(scene);
+    }
+
+    /// <summary>出口③：暂时用居中显示继续玩。放行但常驻警告，直到补上标定。</summary>
+    [RelayCommand]
+    private void ContinueCentered()
+    {
+        IsCalibrationBlocked = false;
+        IsUncalibrated = true;
+        UncalibratedHint = $"⚠「{_currentScene?.Name}」背景未标定，角色位置已回退为居中显示，点此补标定";
     }
 
     /// <summary>地图被编辑/导入后刷新 AI 语境与场景列表。</summary>
@@ -555,16 +770,11 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             SpriteSource = ImageSource.FromFile(full);
             SpriteVisible = true;
-            // 根据位置设置偏移
-            SpriteX = SpritePosition switch
-            {
-                "left" => -150,
-                "right" => 150,
-                _ => 0
-            };
-            SpriteY = 0;
+            _spriteAbsPath = full;
             SpriteOpacity = IsSpeaking ? 1.0 : 0.5;
-            SpriteScale = IsSpeaking ? 1.0 : 0.95;
+            // 位置与缩放一律由标定算出来；没有标定时回退居中显示。
+            // 这里不再有"-150/150"这类写死的偏移——那会让远近不同的场景全都错位。
+            await RefreshSpriteGeometryAsync(_currentScene);
             SpriteLoadingProgress = 1.0;
             StatusText = "";
         }
@@ -583,24 +793,24 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (SpriteVisible)
         {
             SpriteOpacity = isSpeaking ? 1.0 : 0.5;
-            SpriteScale = isSpeaking ? 1.0 : 0.95;
+            ApplySpeakingEmphasis();
         }
     }
 
-    /// <summary>执行基础动作：下沉。</summary>
+    /// <summary>执行基础动作：下沉。位移叠加在标定算出的基准位置上，动画结束回到基准。</summary>
     public async Task SinkAnimationAsync()
     {
-        SpriteY = 15;
+        SpriteY = _baseSpriteY + 15;
         await Task.Delay(300);
-        SpriteY = 0;
+        SpriteY = _baseSpriteY;
     }
 
     /// <summary>执行基础动作：跳跃。</summary>
     public async Task JumpAnimationAsync()
     {
-        SpriteY = -30;
+        SpriteY = _baseSpriteY - 30;
         await Task.Delay(400);
-        SpriteY = 0;
+        SpriteY = _baseSpriteY;
     }
 
     /// <summary>执行基础动作：颤抖。</summary>
@@ -608,10 +818,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         for (int i = 0; i < 5; i++)
         {
-            SpriteX = i % 2 == 0 ? 3 : -3;
+            SpriteX = _baseSpriteX + (i % 2 == 0 ? 3 : -3);
             await Task.Delay(50);
         }
-        SpriteX = 0;
+        SpriteX = _baseSpriteX;
     }
 
     /// <summary>从回复文本中匹配表情：命中任一表情词（取最长）则切过去；否则按常用情绪词兜底。</summary>
@@ -677,6 +887,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task SendMessage()
     {
+        // 未标定遮罩期间禁止交互：这时角色位置无从确定，剧情推进下去也没有意义
+        if (IsCalibrationBlocked) return;
         if (string.IsNullOrWhiteSpace(InputText)) return;
         _audio.PlayAssigned("key");
         var msg = InputText;
@@ -856,18 +1068,24 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
+            // 亮度遮罩跟着生效模式走；「早上开灯看不出变化」已由 SceneDirector 判定并写进给 AI 的回报里
+            SceneDim = _sceneDirector.ActiveDim;
             var bg = mode?.Background is { Length: > 0 } mb ? mb : entry.Background;
             var color = mode?.BackgroundColor is { Length: > 0 } mc ? mc : entry.BackgroundColor;
             if (string.IsNullOrWhiteSpace(bg))
             {
                 if (!string.IsNullOrEmpty(color)) SceneBg = color;
-                SceneBackdrop = null;
+                // 纯库场景才清空背景。地图引用条目（entry.Background 为空）是"背景交给地图场景去画"，
+                // 这里清空会把刚由 SceneChanged 渲染好的地图背景抹掉。
+                if (string.IsNullOrEmpty(entry.MapSceneRef)) SceneBackdrop = null;
             }
             else
             {
                 SceneBackdrop = ImageSource.FromFile(bg);
                 if (!string.IsNullOrEmpty(color)) SceneBg = color;
             }
+            // 背景换了，标定也得跟着换，否则角色会按上一张图的尺度站到错的位置
+            ApplyModePlacement(entry, mode);
         });
     }
 

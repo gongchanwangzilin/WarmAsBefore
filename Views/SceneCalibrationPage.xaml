@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.SceneCalibrationPage"
+             x:Name="CalRoot"
+             x:DataType="vm:SceneCalibrationViewModel"
+             Title="背景标定"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- ===== 工具条 ===== -->
+        <Border Grid.Row="0" BackgroundColor="{DynamicResource WarmDark}" StrokeThickness="0" Padding="16,10">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="8">
+
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                        <Label Text="{Binding SceneName, StringFormat='标定背景：{0}'}"
+                               TextColor="{DynamicResource OffWhite50}" FontSize="18" FontAttributes="Bold" />
+                        <Label Text="{Binding ImageInfo}" TextColor="{DynamicResource BeigeAccent200}" FontSize="12" />
+                        <Label Text="{Binding StatusText}" TextColor="{DynamicResource Cream200}" FontSize="12"
+                               LineBreakMode="TailTruncation" MaxLines="1" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="取消" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="14,0"
+                            CornerRadius="6" HeightRequest="34" Clicked="OnCancelClicked" />
+                </Grid>
+
+                <!-- 落脚点类型 -->
+                <Grid ColumnDefinitions="Auto,*,*,*,Auto" ColumnSpacing="8">
+                    <Label Text="落脚点" TextColor="{DynamicResource WarmMuted}" FontSize="13"
+                           VerticalOptions="Center" WidthRequest="60" />
+                    <Button Grid.Column="1" Text="{Binding PointChipLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetLandingCommand}" CommandParameter="point" />
+                    <Button Grid.Column="2" Text="{Binding FullChipLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetLandingCommand}" CommandParameter="full" />
+                    <Button Grid.Column="3" Text="{Binding LinearChipLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetLandingCommand}" CommandParameter="linear" />
+                </Grid>
+
+                <!-- 缩放标定方式 -->
+                <Grid ColumnDefinitions="Auto,*,*,Auto,Auto" ColumnSpacing="8">
+                    <Label Text="缩放" TextColor="{DynamicResource WarmMuted}" FontSize="13"
+                           VerticalOptions="Center" WidthRequest="60" />
+                    <Button Grid.Column="1" Text="{Binding DualLineChipLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetScaleMethodCommand}" CommandParameter="dualLine" />
+                    <Button Grid.Column="2" Text="{Binding SphereChipLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetScaleMethodCommand}" CommandParameter="spheres" />
+                    <Button Grid.Column="3" Text="⇄ 翻转第二条线" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding FlipSecondScaleLineCommand}" />
+                    <Button Grid.Column="4" Text="↻ 适应窗口" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34" Command="{Binding FitViewCommand}" />
+                </Grid>
+
+                <!-- 画落脚线与画缩放线都要用线时才需要手动切目标，否则自动定 -->
+                <Grid ColumnDefinitions="Auto,*,*,Auto" ColumnSpacing="8" IsVisible="{Binding ShowTargetSwitch}">
+                    <Label Text="当前操作" TextColor="{DynamicResource WarmMuted}" FontSize="13"
+                           VerticalOptions="Center" WidthRequest="60" />
+                    <Button Grid.Column="1" Text="{Binding TargetLandingLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetTargetCommand}" CommandParameter="landing" />
+                    <Button Grid.Column="2" Text="{Binding TargetScaleLabel}" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="10,0"
+                            CornerRadius="6" HeightRequest="34"
+                            Command="{Binding SetTargetCommand}" CommandParameter="scale" />
+                </Grid>
+
+                <Label Text="拖空白=新建 · 拖顶点/球心=移动 · 拖球缘=改半径 · 双击=删除（线身双击=插折点） · 右键=撤销 · 滚轮/双指=缩放 · 选「平移」后可拖动画面"
+                       TextColor="{DynamicResource WarmMuted}" FontSize="11" />
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- ===== 画布 ===== -->
+        <GraphicsView Grid.Row="1" x:Name="CalCanvas"
+                      StartInteraction="OnCanvasStart"
+                      DragInteraction="OnCanvasDrag"
+                      EndInteraction="OnCanvasEnd"
+                      SizeChanged="OnCanvasSizeChanged"
+                      BackgroundColor="Black" />
+
+        <!-- ===== 底部：强制输出 + 完成 ===== -->
+        <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}"
+                StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                Padding="16,10" Margin="12,8,12,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="8">
+                <Label Text="{Binding SummaryText}" TextColor="{DynamicResource Cream200}" FontSize="13" />
+                <Label Text="{Binding MissingText}" IsVisible="{Binding HasMissing}"
+                       TextColor="{DynamicResource RedSoft}" FontSize="13" />
+                <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
+                    <Button Text="清空重标" TextColor="{DynamicResource OffWhite50}"
+                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
+                            CornerRadius="8" HeightRequest="36" Command="{Binding ClearAllCommand}" />
+                    <Button Text="✓ 完成标定" TextColor="{DynamicResource WarmDark}"
+                            BackgroundColor="{DynamicResource Cream200}" FontSize="13" Padding="16,0"
+                            CornerRadius="8" HeightRequest="36"
+                            IsEnabled="{Binding CanComplete}" Clicked="OnCompleteClicked" />
+                </HorizontalStackLayout>
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>
