@@ -367,12 +367,9 @@ android-sdk/
 android-jdk/
 
 # 发布产物（用 GitHub Releases 发布，不进仓库）
-# 云端密钥备份 7z 包（7z 头加密，密码见本机 Signing/keystore-info.txt）
 dist/*
-!dist/warmasbefore-signing.7z
-
 # 签名密钥（明文 p12 私钥 + 密码明文 + 文档）仅存本机，永不进仓库
-# 云端唯一备份是 dist/warmasbefore-signing.7z（7z 加密 + 密码 -mhe 头加密）
+# 任何密钥/签名备份包（含 7z）不进仓库，只存本机
 Signing/
 !Signing/README.md
 
