@@ -189,6 +189,59 @@ public sealed class StickerRow
     public string DescLabel => string.IsNullOrWhiteSpace(Description) ? "（还没写描述）" : Description;
 }
 
+/// <summary>
+/// 设置页「多端点轮换」列表的一行：一条 = 供应商 + 某款 AI（模型）+ 该组合的多枚密钥。
+/// 列表里可直接改启用开关；任何改动都会通过 PropertyChanged 触发防抖落盘。
+/// </summary>
+public sealed partial class AiProfileRow : ObservableObject
+{
+    public string Id { get; init; } = Guid.NewGuid().ToString("N")[..8];
+
+    [ObservableProperty] private string _name = "";
+    [ObservableProperty] private string _url = "";
+    [ObservableProperty] private string _model = "";
+    /// <summary>密钥池：一行一枚，多枚轮流用。</summary>
+    [ObservableProperty] private string _keysText = "";
+    [ObservableProperty] private bool _enabled = true;
+
+    /// <summary>列表主标题：优先名称，其次端点。</summary>
+    public string Title =>
+        !string.IsNullOrWhiteSpace(Name) ? Name
+        : !string.IsNullOrWhiteSpace(Url) ? Url
+        : "（未命名端点）";
+
+    /// <summary>列表副标题：模型 + 密钥数量。</summary>
+    public string Summary
+    {
+        get
+        {
+            var count = SplitKeys(KeysText).Count;
+            var model = string.IsNullOrWhiteSpace(Model) ? "（未填模型）" : Model;
+            return $"{model} · {count}枚密钥";
+        }
+    }
+
+    partial void OnNameChanged(string value) => OnPropertyChanged(nameof(Title));
+    partial void OnUrlChanged(string value) => OnPropertyChanged(nameof(Title));
+    partial void OnModelChanged(string value) => OnPropertyChanged(nameof(Summary));
+    partial void OnKeysTextChanged(string value) => OnPropertyChanged(nameof(Summary));
+
+    /// <summary>把多行文本拆成密钥列表（去空行、去首尾空白）。</summary>
+    public static List<string> SplitKeys(string? text) =>
+        (text ?? "").Split(new[] { '\n', '\r' },
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
+
+    public AiEndpointProfile ToProfile() => new()
+    {
+        Id = Id,
+        Name = (Name ?? "").Trim(),
+        Url = (Url ?? "").Trim(),
+        Model = (Model ?? "").Trim(),
+        Keys = SplitKeys(KeysText),
+        Enabled = Enabled,
+    };
+}
+
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingsManager _settings;
@@ -283,6 +336,25 @@ public sealed partial class SettingsViewModel : ObservableObject
         _deepThink = s.DeepThink;
         _deepModel = s.DeepModel;
         _memoryTurns = s.MemoryTurns;
+
+        // 多端点轮换 + 上下文 Token 上限
+        _aiRotationEnabled = s.AiRotationEnabled;
+        _contextTokenLimit = Math.Clamp(s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000, 4000, 256000);
+        _contextTokenLimitDisplay = ContextLimitDisplayOf(_contextTokenLimit);
+        AiProfiles.Clear();
+        foreach (var p in s.AiProfiles ?? new List<AiEndpointProfile>())
+        {
+            AttachAiProfile(new AiProfileRow
+            {
+                Id = string.IsNullOrWhiteSpace(p.Id) ? Guid.NewGuid().ToString("N")[..8] : p.Id,
+                Name = p.Name ?? "",
+                Url = p.Url ?? "",
+                Model = p.Model ?? "",
+                KeysText = string.Join("\n", p.Keys ?? new List<string>()),
+                Enabled = p.Enabled,
+            });
+        }
+        UpdateAiProfileStatus();
 
         _ttsEnabled = s.TtsEnabled;
         _ttsRate = s.TtsRate;
@@ -633,6 +705,118 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (!yes) return;
         await _stickers.RemoveAsync(row.Id);
         await RefreshStickers();
+    }
+
+    // ============ 多端点轮换（供应商 × AI × 密钥） ============
+
+    /// <summary>保存的多端点档案（设置页显示/编辑用）。</summary>
+    public ObservableCollection<AiProfileRow> AiProfiles { get; } = new();
+
+    /// <summary>轮换总开关：开启后自动在多个端点与多枚密钥间轮换，保证对话不间断。</summary>
+    [ObservableProperty] private bool _aiRotationEnabled = true;
+
+    /// <summary>多端点区状态文案。</summary>
+    [ObservableProperty] private string _aiProfileStatus = "";
+
+    /// <summary>上下文 Token 上限（估算值）：超过时强制把旧对话总结成第一人称记忆。</summary>
+    [ObservableProperty] private int _contextTokenLimit = 32000;
+
+    /// <summary>上限的 Picker 显示项（4K…256K）。</summary>
+    [ObservableProperty] private string _contextTokenLimitDisplay = "32K";
+
+    /// <summary>Token 上限可选项。</summary>
+    public List<string> ContextLimitChoices { get; } = new() { "4K", "8K", "16K", "32K", "64K", "128K", "256K" };
+
+    // 新增端点输入框
+    [ObservableProperty] private string _newAiProfileName = "";
+    [ObservableProperty] private string _newAiProfileUrl = "";
+    [ObservableProperty] private string _newAiProfileModel = "";
+    [ObservableProperty] private string _newAiProfileKeys = "";
+
+    /// <summary>把一行挂上防抖落盘后加入列表。</summary>
+    private void AttachAiProfile(AiProfileRow row)
+    {
+        row.PropertyChanged += (_, __) => PersistSettings();
+        AiProfiles.Add(row);
+    }
+
+    /// <summary>从输入框添加一条端点（密钥一行一枚，可多枚轮换）。</summary>
+    [RelayCommand]
+    private void AddAiProfile()
+    {
+        if (string.IsNullOrWhiteSpace(NewAiProfileUrl) || string.IsNullOrWhiteSpace(NewAiProfileModel))
+        {
+            AiProfileStatus = "先填端点地址和模型，再点「＋添加」；密钥一行一枚、可多枚轮流用。";
+            return;
+        }
+        AttachAiProfile(new AiProfileRow
+        {
+            Name = (NewAiProfileName ?? "").Trim(),
+            Url = (NewAiProfileUrl ?? "").Trim(),
+            Model = (NewAiProfileModel ?? "").Trim(),
+            KeysText = (NewAiProfileKeys ?? "").Trim(),
+        });
+        NewAiProfileName = "";
+        NewAiProfileUrl = "";
+        NewAiProfileModel = "";
+        NewAiProfileKeys = "";
+        UpdateAiProfileStatus();
+        PersistSettings();
+    }
+
+    /// <summary>把当前主配置灌进输入框，方便快速再添一条。</summary>
+    [RelayCommand]
+    private void FillAiProfileFromCurrent()
+    {
+        if (string.IsNullOrWhiteSpace(NewAiProfileUrl) && !string.IsNullOrWhiteSpace(AiUrl)) NewAiProfileUrl = AiUrl.Trim();
+        if (string.IsNullOrWhiteSpace(NewAiProfileModel) && !string.IsNullOrWhiteSpace(AiModel)) NewAiProfileModel = AiModel.Trim();
+        if (string.IsNullOrWhiteSpace(NewAiProfileKeys) && !string.IsNullOrWhiteSpace(AiKey)) NewAiProfileKeys = AiKey.Trim();
+        AiProfileStatus = "已用当前配置预填，点「＋添加」保存为一条端点。";
+    }
+
+    /// <summary>删除一条端点。</summary>
+    [RelayCommand]
+    private void RemoveAiProfile(AiProfileRow? row)
+    {
+        if (row is null) return;
+        AiProfiles.Remove(row);
+        UpdateAiProfileStatus();
+        PersistSettings();
+    }
+
+    /// <summary>刷新多端点区的状态文案。</summary>
+    private void UpdateAiProfileStatus()
+    {
+        AiProfileStatus = AiProfiles.Count == 0
+            ? "还没有多端点。填好地址 / 模型 / 密钥后点「＋添加」。"
+            : $"已保存 {AiProfiles.Count} 条端点。";
+    }
+
+    partial void OnAiRotationEnabledChanged(bool value) => PersistSettings();
+
+    partial void OnContextTokenLimitDisplayChanged(string value)
+    {
+        _contextTokenLimit = ParseContextLimit(value);
+        PersistSettings();
+    }
+
+    /// <summary>"32K"之类的显示名 → 数字。</summary>
+    private static int ParseContextLimit(string? display)
+    {
+        var t = (display ?? "").Trim().TrimEnd('K', 'k');
+        if (int.TryParse(t, out var v) && v >= 1) return v * 1000;
+        return 32000;
+    }
+
+    /// <summary>数字 → 最接近的显示名。</summary>
+    private static string ContextLimitDisplayOf(int limit)
+    {
+        var k = Math.Max(1, limit / 1000);
+        int[] candidates = { 4, 8, 16, 32, 64, 128, 256 };
+        var best = candidates[0];
+        foreach (var c in candidates)
+            if (Math.Abs(c - k) < Math.Abs(best - k)) best = c;
+        return $"{best}K";
     }
 
     // ============ #16 QQ 机器人绑定角色（选存档） ============
@@ -1489,6 +1673,11 @@ GlassLightWidth = GlassLightWidth,
                 DeepThink = DeepThink,
                 DeepModel = DeepModel.Trim(),
                 MemoryTurns = MemoryTurns,
+                AiProfiles = AiProfiles.Select(r => r.ToProfile())
+                    .Where(p => !string.IsNullOrWhiteSpace(p.Url) || p.Keys.Count > 0)
+                    .ToList(),
+                AiRotationEnabled = AiRotationEnabled,
+                ContextTokenLimit = Math.Clamp(_contextTokenLimit > 0 ? _contextTokenLimit : 32000, 4000, 256000),
 
                 TtsEnabled = TtsEnabled,
                 TtsRate = TtsRate,

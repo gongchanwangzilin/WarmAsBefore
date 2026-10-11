@@ -383,6 +383,12 @@
                             <Picker Grid.Column="1" Title="{Binding [Settings_TurnsTitle], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
                                     ItemsSource="{Binding MemoryTurnsChoices}" SelectedItem="{Binding MemoryTurns}"
                                     FontSize="13" /></Grid>
+                        <!-- 上下文 Token 上限：达到后强制把旧对话总结成第一人称记忆（不是机械压缩） -->
+                        <Grid ColumnDefinitions="110,*"><Label Text="上下文上限" VerticalOptions="Center" FontSize="13" />
+                            <Picker Grid.Column="1" Title="超过后强制总结" ItemsSource="{Binding ContextLimitChoices}"
+                                    SelectedItem="{Binding ContextTokenLimitDisplay}" FontSize="13" /></Grid>
+                        <Label Text="对话历史估算超过该 Token 数时，会像人回忆一样把旧对话总结成第一人称记忆；平时不动历史。"
+                               Style="{StaticResource TxtCaption}" />
                         <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                         <Label Text="识图模型（可选）" Style="{StaticResource TxtBodySm}" />
@@ -400,6 +406,50 @@
                             <Entry Grid.Column="1" Text="{Binding VisionModel}" Placeholder="gpt-4o-mini / qwen-vl-plus / glm-4v …"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                        <!-- 多端点轮换（供应商 × AI × 密钥）：保存多条端点，密钥/端点轮流用，保证对话不间断 -->
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="多端点轮换（供应商 / AI / 密钥）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="保存多条端点（一条 = 供应商 + 某款 AI + 多枚密钥）。开启后密钥与端点自动轮流使用；某条失灵就换下一条，保证对话不间断。"
+                                   Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AiRotationEnabled}" /></Grid>
+                        <CollectionView ItemsSource="{Binding AiProfiles}" SelectionMode="None" MaximumHeightRequest="220">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:AiProfileRow">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <Switch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                                        <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveAiProfileCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                        <Label Text="{Binding AiProfileStatus}" Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Entry Grid.Column="0" Text="{Binding NewAiProfileName}" Placeholder="名称（如：硅基-主力）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding NewAiProfileModel}" Placeholder="模型（如：deepseek-chat）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+                        <Entry Text="{Binding NewAiProfileUrl}" Placeholder="端点（https://…/v1/chat/completions）"
+                               BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        <Editor Text="{Binding NewAiProfileKeys}" Placeholder="密钥（一行一枚，多枚轮流用）" HeightRequest="72"
+                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Button Grid.Column="0" Text="＋添加端点" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Command="{Binding AddAiProfileCommand}" />
+                            <Button Grid.Column="1" Text="用当前配置预填" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Command="{Binding FillAiProfileFromCurrentCommand}" />
+                        </Grid>
                     </VerticalStackLayout>
                 </Border>
 

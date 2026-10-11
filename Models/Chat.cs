@@ -77,4 +77,8 @@ public sealed record AiEndpoint
     public bool DeepThink { get; init; }
     public string? DeepModel { get; init; }
     public int MemoryTurns { get; init; } = 5;
+    /// <summary>密钥池：多枚密钥轮流使用（空则只用 <see cref="Key"/> 单枚）。</summary>
+    public IReadOnlyList<string> KeyPool { get; init; } = Array.Empty<string>();
+    /// <summary>上下文 Token 上限（估算值）：超过时强制把旧对话折叠成人类式记忆。</summary>
+    public int ContextTokenLimit { get; init; } = 32000;
 }

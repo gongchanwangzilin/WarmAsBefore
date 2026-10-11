@@ -92,6 +92,32 @@ public sealed class RuntimeConfigurator
     {
         var s = _settings.Current;
 
+        // 多端点轮换池（供应商 × AI × 密钥）：从设置里的端点档案展开，
+        // 每条端点的密钥池会轮流使用；轮换开启时任一失灵自动切下一条，保证对话不间断。
+        var rotationPool = new List<AiEndpoint>();
+        foreach (var p in s.AiProfiles ?? new List<AiEndpointProfile>())
+        {
+            if (!p.Enabled) continue;
+            if (string.IsNullOrWhiteSpace(p.Url) || string.IsNullOrWhiteSpace(p.Model)) continue;
+            var keys = (p.Keys ?? new List<string>())
+                .Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+            if (keys.Count == 0) continue;
+            rotationPool.Add(new AiEndpoint
+            {
+                Provider = string.IsNullOrWhiteSpace(p.Name) ? "轮换端点" : p.Name,
+                Url = p.Url.Trim(),
+                Model = p.Model.Trim(),
+                Key = keys[0],
+                KeyPool = keys,
+                Temperature = s.AiTemperature,
+                MaxTokens = s.AiMaxTokens,
+                DeepThink = s.DeepThink || s.ComplexPlot,
+                DeepModel = s.DeepModel,
+                MemoryTurns = s.MemoryTurns,
+                ContextTokenLimit = s.ContextTokenLimit
+            });
+        }
+
         _chat.Configure(new AiEndpoint
         {
             Url = s.AiUrl,
@@ -101,8 +127,9 @@ public sealed class RuntimeConfigurator
             MaxTokens = s.AiMaxTokens,
             DeepThink = s.DeepThink || s.ComplexPlot,
             DeepModel = s.DeepModel,
-            MemoryTurns = s.MemoryTurns
-        });
+            MemoryTurns = s.MemoryTurns,
+            ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
+        }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
 
         _weather.SetCity(s.WeatherCity);
         _phys.SetCycle(s.CycleLength, s.PeriodLength);

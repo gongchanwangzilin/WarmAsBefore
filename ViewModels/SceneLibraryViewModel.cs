@@ -379,7 +379,7 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
         await AfterModeEdit();
     }
 
-    // ============ 点击式工房：点一下就直接切换（#8） ============
+    // ============ 点击式工坊：点一下就直接切换（#8） ============
     // 设计取向：不做拖拽式强可视化，用户点条目=切到该场景条目、点模式=切到该条目下的模式，
     // 由 SceneDirector 走既有的「选项可用性 + 变化检测」流程，结果直接回显在顶部状态栏。
 

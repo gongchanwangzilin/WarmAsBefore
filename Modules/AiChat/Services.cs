@@ -101,10 +101,12 @@ public sealed class ChatEngine
     /// <summary>允许沉默：true 时 AI 可选择完全不回复（输出空内容），系统据此停止该回合。</summary>
     public void SetAllowSilence(bool allow) => _allowSilence = allow;
 
-    public void Configure(AiEndpoint cfg)
+    public void Configure(AiEndpoint cfg, List<AiEndpoint>? rotationPool = null, bool rotationEnabled = false)
     {
         _cfg = cfg;
         _api.Configure(cfg);
+        // 多端点/多密钥轮换池：任一失灵自动切换下一条，保证对话不间断
+        _api.ConfigureRotation(rotationPool, rotationEnabled);
         // 端点/模型可能整个换了（设置页保存即走到这里）：重新给它一次带工具的机会
         _toolsUnsupported = false;
     }
@@ -148,13 +150,13 @@ public sealed class ChatEngine
             userMsg = userMsg with { Attachments = attachments.ToList() };
         session.Add(userMsg);
 
-        // 检查 API 是否已配置
-        if (string.IsNullOrWhiteSpace(_cfg.Key))
+        // 检查 API 是否已配置（主配置或轮换池任一可用即可）
+        if (!_api.HasAnyEndpoint)
         {
             // AI 未配置：返回友好的提示
             var offlineReply = GenerateOfflineReply(text);
             session.Add(new ChatMessage { Role = "assistant", Content = offlineReply });
-            Trim(session);
+            await TrimAsync(session);
             return offlineReply;
         }
 
@@ -171,7 +173,7 @@ public sealed class ChatEngine
             // 正文为 null（而不是空串）＝模型没给正文，沿用原来的提示语；空串是"沉默"，必须原样保留
             reply ??= "（AI 暂时无法回应，请检查 API 配置或网络连接）";
             session.Add(new ChatMessage { Role = "assistant", Content = reply });
-            Trim(session);
+            await TrimAsync(session);
 
             await _memory.Store(new MemoryEntry
             {
@@ -443,7 +445,7 @@ public sealed class ChatEngine
     /// </summary>
     public async Task<int> AskAffectionDeltaAsync(string cgTitle)
     {
-        if (string.IsNullOrWhiteSpace(_cfg.Key)) return 8;
+        if (!_api.HasAnyEndpoint) return 8;
         try
         {
             var msgs = new List<ChatMessage>
@@ -473,7 +475,7 @@ public sealed class ChatEngine
     /// </summary>
     public async Task<string> RetryActionMarkerAsync(string charId, string userText, string assistantText, bool isReOutput)
     {
-        if (string.IsNullOrWhiteSpace(_cfg.Key)) return assistantText;
+        if (!_api.HasAnyEndpoint) return assistantText;
         try
         {
             var session = Session(charId);
@@ -558,50 +560,145 @@ public sealed class ChatEngine
         return _sessions[charId];
     }
 
+    /// <summary>上下文 Token 上限的兜底值（用户没配置时）。</summary>
+    private const int DefaultContextTokenLimit = 32000;
+
     /// <summary>
-    /// 历史裁剪：保留首条 system 与最近 KeepTurns 轮，超出的中间消息**不再直接丢弃**，
-    /// 而是先折叠成一条上下文摘要并追加到 system 里（这就是「上下文总结率」优化的核心）。
+    /// 历史折叠（对话管线核心）：平时不动历史，直到估算 Token 超过「上下文上限」才强制做一次总结。
+    /// 总结**以人类的形式进行**——不是机械截断、也不是逐条复述，而是像人回忆生活那样，
+    /// 把旧对话整理成一段第一人称的记忆：留住情感节点、约定与关键事件，琐碎的细节自然淡忘。
     ///
-    /// 旧做法是 RemoveRange 一删了之，等于把前情彻底忘掉；对话一长，AI 就不知道
-    /// 「之前发生过什么」，容易前后矛盾、人设漂移。新做法把被裁掉的内容压缩成摘要，
-    /// 让 AI 始终能看到一条贯穿全程的脉络。
+    /// 「省钱」体现在：总结只在达到上限时触发一次；输入/输出都有长度封顶；结果始终只保留一份、
+    /// 不随轮次无限膨胀。模型不可用时自动降级为本地人类式简记，绝不因总结失败而中断对话。
     ///
-    /// 设计要点：
-    ///  · 摘要以 [前情摘要] 段落挂在 system 末尾，多轮累积时后写覆盖先写，始终保持一份、不无限膨胀；
-    ///  · 只对「user / assistant 且正文非空」的消息做摘要，绝不触碰 tool_calls / tool 成对消息
-    ///    （ToolHint 里写死的前提：裁历史绝不能把这两者裁散，否则严格端点会拒收整段历史）；
-    ///  · 摘要是尽力而为：模型不可用时保留一个本地摘录兜底，绝不因摘要失败而中断对话。
+    /// · 记忆段落挂在 system 末尾（【我的记忆】），后写覆盖先写，永远只有一份；
+    /// · 只取 user/assistant 正文做素材，绝不触碰 tool_calls / tool 成对消息
+    ///   （裁历史绝不能把这两者裁散，否则严格端点会拒收整段历史）。
     /// </summary>
-    private static void Trim(List<ChatMessage> msgs)
+    private async Task TrimAsync(List<ChatMessage> msgs)
     {
-        if (msgs.Count <= 2 * ChatSession.KeepTurns + 1) return;
+        if (msgs.Count <= 2) return;
+
+        var limit = _cfg.ContextTokenLimit > 0 ? _cfg.ContextTokenLimit : DefaultContextTokenLimit;
+        if (EstimateTokens(msgs) <= limit) return;   // 没到上限：原样保留，不折腾
 
         var cutCount = msgs.Count - 2 * ChatSession.KeepTurns - 1;
+        if (cutCount <= 0) return;
         var dropped = msgs.GetRange(1, cutCount);
         msgs.RemoveRange(1, cutCount);
 
-        var digest = BuildDigest(dropped);
-        if (digest.Length == 0) return;
+        var digest = await SummarizeAsHumanAsync(dropped);
+        if (string.IsNullOrWhiteSpace(digest)) digest = BuildFallbackDigest(dropped);
+        if (string.IsNullOrWhiteSpace(digest)) return;
         MergeDigestIntoSystem(msgs, digest);
     }
 
     /// <summary>
-    /// 把被裁掉的一批消息折叠成一段可读的「前情摘要」。
-    /// 这里用纯本地摘录（不额外发请求）：每轮取 user/assistant 正文各截断，
-    /// 这样裁剪是零延迟、零额度的，且绝不会因为摘要请求失败而卡住聊天。
-    ///
-    /// 格式对齐「像人一样」的记忆：user+assistant 成对合并为一行事件（每件事一句话），
-    /// 单条 60 字封顶、最多保留 30 行（老的先丢）——摘要本身永远小而精，
-    /// 长对话历史经此折叠后可达 90%+ 的压缩率，token 开销稳定可控。
+    /// 粗暴但够用的 Token 估算：CJK 字符 ≈ 1 字符 1 token，其余字符 ≈ 4 字符 1 token。
+    /// 宁可高估也别低估——高估只会让总结早一点触发，低估会把请求顶爆上下文。
     /// </summary>
-    private static string BuildDigest(List<ChatMessage> dropped)
+    private static int EstimateTokens(List<ChatMessage> msgs)
+    {
+        var total = 0L;
+        foreach (var m in msgs)
+        {
+            total += EstimateText(m.Content);
+            if (m.ToolCalls is { Count: > 0 })
+                foreach (var c in m.ToolCalls)
+                    total += EstimateText(c.Arguments);
+        }
+        return total > int.MaxValue ? int.MaxValue : (int)total;
+    }
+
+    private static int EstimateText(string? s)
+    {
+        if (string.IsNullOrEmpty(s)) return 0;
+        var cjk = 0;
+        var other = 0;
+        foreach (var ch in s)
+        {
+            if (ch >= '\u2E80') cjk++;
+            else other++;
+        }
+        return cjk + Math.Max(1, other / 4);
+    }
+
+    /// <summary>
+    /// 人类式总结：把被折叠的一批消息交给模型，请它用第一人称、回忆的口吻整理成一小段记忆。
+    /// 为了省钱：输入限长（约 4000 字素材）、输出限长（400 token 内）、只在超上限时调用一次；
+    /// 调用失败（未配置/网络/端点拒绝）返回空串，由本地兜底接手。
+    /// </summary>
+    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped)
+    {
+        if (!_api.HasAnyEndpoint) return "";
+        var material = BuildMemoryMaterial(dropped);
+        if (material.Length == 0) return "";
+
+        try
+        {
+            var who = string.IsNullOrWhiteSpace(_active?.Name) ? "我" : _active!.Name;
+            var body = new
+            {
+                model = _cfg.Model,
+                messages = new object[]
+                {
+                    new { role = "system", content = $"你是「{who}」的记忆整理器。把对话整理成第一人称回忆。" },
+                    new
+                    {
+                        role = "user",
+                        content =
+                            $"下面是「{who}」和对方之前的一段对话记录。请以{who}自己的口吻（第一人称），" +
+                            "像人回忆生活那样，把最重要的部分写成一小段记忆：" +
+                            "留住情感节点、约定与关键事件，模糊掉琐碎的闲聊与细节。" +
+                            "不要逐条复述，不要列表，不要标题，直接输出记忆正文，250字以内。\n\n" +
+                            "对话记录：\n" + material
+                    }
+                },
+                temperature = 0.6,
+                max_tokens = 400
+            };
+            var reply = await _api.ChatRaw(body);
+            if (string.IsNullOrWhiteSpace(reply)) return "";
+            var t = reply.Trim();
+            if (t.StartsWith("[", StringComparison.Ordinal)) return "";   // [API错误…] 之类的失败文本
+            return t.Length > 400 ? t[..400] : t;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.Summarize -> " + ex.Message);
+            return "";
+        }
+    }
+
+    /// <summary>把被折叠的消息整理成给总结模型看的素材：只要 user/assistant 正文，每条截断、总长封顶。</summary>
+    private static string BuildMemoryMaterial(List<ChatMessage> dropped)
+    {
+        var lines = new List<string>();
+        foreach (var m in dropped)
+        {
+            if (m.Role is not ("user" or "assistant")) continue;
+            if (m.ToolCalls is { Count: > 0 }) continue;
+            var t = (m.Content ?? "").Trim();
+            if (t.Length == 0) continue;
+            lines.Add((m.Role == "user" ? "对方：" : "我：") + Truncate(t, 120));
+        }
+        if (lines.Count > 40) lines = lines.TakeLast(40).ToList();
+        var text = string.Join("\n", lines);
+        return text.Length > 4000 ? text[^4000..] : text;
+    }
+
+    /// <summary>
+    /// 本地兜底：模型不可用时的人类式简记（零延迟、零花费）。
+    /// user+assistant 成对合并为「记得……」的一行事件，最多 30 行，老的先丢——人类式遗忘。
+    /// </summary>
+    private static string BuildFallbackDigest(List<ChatMessage> dropped)
     {
         var pairs = new List<(string U, string A)>();
         string? pendingUser = null;
         foreach (var m in dropped)
         {
-            // 只摘要纯正文字段：带 tool_calls 的 assistant（Content 可能为 null）和 role=tool 结果都跳过，
-            // 保证摘要是「人话」，也不会把工具往返的配对关系带进 system。
+            // 只摘纯正文字段：带 tool_calls 的 assistant（Content 可能为 null）和 role=tool 结果都跳过，
+            // 保证记忆是「人话」，也不会把工具往返的配对关系带进 system。
             if (m.Role == "user")
             {
                 var t = (m.Content ?? "").Trim();
@@ -617,9 +714,9 @@ public sealed class ChatEngine
             }
         }
         var lines = pairs
-            .Select(p => p.U.Length > 0 ? $"· {p.U} → {p.A}" : $"· {p.A}")
+            .Select(p => p.U.Length > 0 ? $"· 记得，{p.U} → {p.A}" : $"· 记得，{p.A}")
             .ToList();
-        // 总量控制：只保留最新的 30 行（更早的事件按「人类式遗忘」丢掉），摘要永不无限膨胀。
+        // 总量控制：只保留最新的 30 行（更早的事件按「人类式遗忘」丢掉），记忆永不无限膨胀。
         if (lines.Count > 30) lines = lines.TakeLast(30).ToList();
         return string.Join("\n", lines);
     }
@@ -629,16 +726,19 @@ public sealed class ChatEngine
         => s.Length <= n ? s : s[..n] + "…";
 
     /// <summary>
-    /// 把摘要段落合并进 system：已经有 [前情摘要] 段时替换（避免多轮累积越堆越长），
-    /// 没有则追加。只改 Content，system 永远只有一条，不影响 tool_calls 配对。
+    /// 把记忆段落合并进 system：已经有记忆段时替换（只保留一份，绝不越堆越长），没有则追加。
+    /// 只改 Content，system 永远只有一条，不影响 tool_calls 配对。
+    /// 兼容旧版机械摘要标记「[前情摘要]」：升级后首次折叠会把旧的机械摘要一并替换掉。
     /// </summary>
     private static void MergeDigestIntoSystem(List<ChatMessage> msgs, string digest)
     {
         if (msgs.Count == 0 || msgs[0].Role != "system") return;
-        const string marker = "\n\n[前情摘要]";
+        const string marker = "\n\n【我的记忆】";
         var baseContent = msgs[0].Content ?? "";
         var idx = baseContent.IndexOf(marker, StringComparison.Ordinal);
         if (idx >= 0) baseContent = baseContent[..idx];
+        var oldIdx = baseContent.IndexOf("\n\n[前情摘要]", StringComparison.Ordinal);
+        if (oldIdx >= 0) baseContent = baseContent[..oldIdx];
         msgs[0] = msgs[0] with { Content = baseContent + marker + "\n" + digest };
     }
 }
