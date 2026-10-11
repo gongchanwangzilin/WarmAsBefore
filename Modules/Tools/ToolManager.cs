@@ -132,8 +132,26 @@ public sealed class ToolManager : IDisposable
     };
 
     /// <summary>某个工具是否可以暴露给应用内聊天：只放内置工具（外部工具要解析运行时、最长可挂 120s，聊天回合扛不住）。</summary>
-    private static bool IsChatTool(ToolDefinition t) =>
-        !t.IsExternal && !ChatExcludedTools.Contains(t.Name);
+    private static bool IsChatTool(ToolDefinition t)
+    {
+        if (t.IsExternal || ChatExcludedTools.Contains(t.Name)) return false;
+        // 战斗系统在设置里被关闭时，battle_* 工具整体不提供给 AI（连"能看见但不能用"都不留，
+        // 否则模型会反复尝试调用被拒的工具，浪费轮次）。
+        if (t.Name.StartsWith("battle_", StringComparison.Ordinal) && !BattleSystemEnabled()) return false;
+        return true;
+    }
+
+    /// <summary>读设置里的战斗总开关；设置服务不可用时默认可用，避免误伤。</summary>
+    private static bool BattleSystemEnabled()
+    {
+        try
+        {
+            var settings = ServicesHelper.GetServices()?.GetService(typeof(Services.SettingsManager))
+                as Services.SettingsManager;
+            return settings?.Current.BattleEnabled ?? true;
+        }
+        catch { return true; }
+    }
 
     /// <summary>应用内聊天可见的工具名集合：ChatEngine 用它兜住"模型凭空报了一个工具名"的情况。</summary>
     public HashSet<string> ChatToolNames() =>

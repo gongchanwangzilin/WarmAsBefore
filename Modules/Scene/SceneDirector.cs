@@ -281,6 +281,46 @@ public sealed class SceneDirector : IDisposable
     /// <summary>模式被应用时触发（时间触发与 AI 触发共用）。保证在 UI 线程派发。</summary>
     public event Action<SceneLibraryEntry, SceneMode?>? ModeApplied;
 
+    /// <summary>
+    /// 天气事件（打雷 / 下雨）触发时回调，参数是事件种类与当前天气串。
+    /// 判定在时间 Timer 线程完成，主界面收到后须自行切到 UI 线程渲染白色闪光 / 图片帧 / 播放音效。
+    /// </summary>
+    public event Action<WeatherEventKind, string?>? WeatherEventTriggered;
+
+    /// <summary>天气事件种类。</summary>
+    public enum WeatherEventKind
+    {
+        /// <summary>打雷：白色闪光 + 可选雷声 + 可选帧序列。</summary>
+        Lightning,
+        /// <summary>下雨：可选雨声 + 可选雨帧循环。</summary>
+        Rain
+    }
+
+    /// <summary>
+    /// 天气事件设置快照。由主界面在设置变更时写入，Timer 线程读取。
+    /// 用 volatile 引用整体替换，避免逐字段跨线程读写的竞态。
+    /// </summary>
+    private volatile WeatherEventConfig _weatherEvents = new();
+
+    /// <summary>更新天气事件配置（设置页改动后调用；可空字段保持默认）。</summary>
+    public void SetWeatherEventConfig(WeatherEventConfig config) => _weatherEvents = config ?? new();
+
+    /// <summary>读取当前配置（UI 诊断用）。</summary>
+    public WeatherEventConfig WeatherEvents => _weatherEvents;
+
+    /// <summary>上次触发打雷/下雨的时刻，用于冷却，避免同一场雨里连续轰。</summary>
+    private DateTime _lastLightningAt = DateTime.MinValue;
+    private DateTime _lastRainAt = DateTime.MinValue;
+
+    /// <summary>天气事件配置（主界面写入、SceneDirector 读取；全部为不可变值语义，便于整块替换）。</summary>
+    public sealed record WeatherEventConfig
+    {
+        public bool LightningEnabled { get; init; } = true;
+        public double LightningProbability { get; init; } = 0.06;
+        public bool RainEventEnabled { get; init; } = true;
+        public double RainProbability { get; init; } = 0.15;
+    }
+
     // ============ 库管理 ============
 
     public SceneLibraryEntry AddEntry(string name)
@@ -492,6 +532,8 @@ public sealed class SceneDirector : IDisposable
         {
             // 顺带刷新天气：被动触发的第二类来源。放在时间评估同一 tick 里，避免再起一个定时器。
             await RefreshWeatherAsync();
+            // 天气事件（打雷/下雨）：与被动场景应用同 tick 判定，独立回调，不影响 _active 状态。
+            EvaluateWeatherEvents();
             var now = DateTime.Now;
 
             // 被动触发优先级：时间规则 > 天气规则（两者都属被动，时间优先因为它对时刻更敏感）。
@@ -536,6 +578,72 @@ public sealed class SceneDirector : IDisposable
                     hits.Add(new TimeMatchResult(e, m));
         return hits;
     }
+
+    // ============ 天气事件（打雷 / 下雨） ============
+
+    /// <summary>打雷冷却：同一场雨里两次打雷至少隔 45 秒，避免连续轰。</summary>
+    private static readonly TimeSpan LightningCooldown = TimeSpan.FromSeconds(45);
+
+    /// <summary>下雨事件冷却：60 秒，避免每次 tick 都重放雨声。</summary>
+    private static readonly TimeSpan RainCooldown = TimeSpan.FromSeconds(60);
+
+    /// <summary>
+    /// 天气事件判定：读取当前天气串与设置，按概率随机触发打雷/下雨回调。
+    /// 概率口径（与设置项注释一致）：
+    ///  - 打雷：rain/drizzle/storm/thunder 命中时基准概率；thunder/storm（打雷天）放大 4 倍；
+    ///  - 下雨：rain/drizzle/storm/thunder 命中时按下雨概率。
+    /// 全部候选都走冷却，命中后置位时间戳；异常一律吞掉（天气事件绝不打断主流程）。
+    /// </summary>
+    private void EvaluateWeatherEvents()
+    {
+        try
+        {
+            var cfg = _weatherEvents;
+            var current = _currentWeather;
+            if (string.IsNullOrWhiteSpace(current)) return;
+
+            var w = current.ToLowerInvariant();
+            bool isRain = w.Contains("rain") || w.Contains("drizzle") || w.Contains("shower");
+            bool isStorm = w.Contains("thunder") || w.Contains("storm") || w.Contains("lightning");
+            bool isOvercast = w.Contains("overcast") || w.Contains("cloud") || w.Contains("阴");
+            if (!isRain && !isStorm && !isOvercast) return; // 晴天不打雷不下雨
+
+            var now = DateTime.Now;
+            var rng = Random.Shared;
+
+            // 打雷：极阴天也能打，但概率更低（乘 0.3）；雨天基准；打雷天 4 倍。
+            if (cfg.LightningEnabled && now - _lastLightningAt >= LightningCooldown)
+            {
+                double p = cfg.LightningProbability;
+                if (isStorm) p *= 4.0;
+                else if (isRain) p *= 1.0;
+                else if (isOvercast) p *= 0.3;
+                p = Math.Clamp(p, 0, 1);
+                if (rng.NextDouble() < p)
+                {
+                    _lastLightningAt = now;
+                    WeatherEventTriggered?.Invoke(WeatherEventKind.Lightning, current);
+                }
+            }
+
+            // 下雨：天气本身已是雨/雷时，按下雨概率触发（用于「进入雨天的雨声/雨视觉」）。
+            if (cfg.RainEventEnabled && (isRain || isStorm) && now - _lastRainAt >= RainCooldown)
+            {
+                var p = Math.Clamp(cfg.RainProbability, 0, 1);
+                if (rng.NextDouble() < p)
+                {
+                    _lastRainAt = now;
+                    WeatherEventTriggered?.Invoke(WeatherEventKind.Rain, current);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SceneDirector.EvaluateWeatherEvents -> " + ex);
+        }
+    }
+
+    // ============ 时间匹配 ============
 
     /// <summary>按当前时间扫描库中所有模式的 TimeRanges，按库顺序返回全部命中项。</summary>
     private List<TimeMatchResult> FindModesByTime(DateTime now)
