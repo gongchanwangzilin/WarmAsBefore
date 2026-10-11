@@ -43,7 +43,48 @@ public partial class MainGamePage : ContentPage
     {
         base.OnAppearing();
         ResumeSceneVideo();
+        HookDesktopArrowKeys();
     }
+
+    // ============ #9 电脑端键盘方向键切换地点 ============
+    // MAUI 的 Button 没有 KeyboardAccelerators 属性（那只在 MenuFlyoutItem/ToolbarItem 上），
+    // 所以按项目已有做法（见 WeChatPage）在平台层挂按键：WinUI 窗口级 KeyDown 里接左右方向键。
+    // 无地点（CanGoPrev/NextScene=false）时命令内部静默忽略，与按钮置灰一致。
+#if WINDOWS
+    private bool _arrowsHooked;
+
+    private void HookDesktopArrowKeys()
+    {
+        if (_arrowsHooked) return;
+        try
+        {
+            if (Application.Current?.Windows.Count > 0
+                && Application.Current.Windows[0].Handler?.PlatformView is Microsoft.UI.Xaml.Window w
+                && w.Content is Microsoft.UI.Xaml.UIElement root)
+            {
+                root.KeyDown += (_, e) =>
+                {
+                    if (BindingContext is not MainGameViewModel vm) return;
+                    switch (e.Key)
+                    {
+                        case Windows.System.VirtualKey.Left:
+                            e.Handled = true;
+                            if (vm.PrevSceneCommand.CanExecute(null)) vm.PrevSceneCommand.Execute(null);
+                            break;
+                        case Windows.System.VirtualKey.Right:
+                            e.Handled = true;
+                            if (vm.NextSceneCommand.CanExecute(null)) vm.NextSceneCommand.Execute(null);
+                            break;
+                    }
+                };
+                _arrowsHooked = true;
+            }
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.HookDesktopArrowKeys -> " + ex); }
+    }
+#else
+    private void HookDesktopArrowKeys() { }
+#endif
 
     private void PauseSceneVideo()
     {

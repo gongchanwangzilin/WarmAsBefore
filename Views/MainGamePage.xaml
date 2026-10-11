@@ -395,18 +395,6 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
             <!-- Center: Character area -->
             <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage" SizeChanged="OnStageSizeChanged">
-                <!-- #9 电脑端键盘方向键切换地点：← 上一个、→ 下一个（无地点时命令内部静默忽略）。
-                     挂在两个透明按钮上以便通用加速键在任何焦点下都能触发。 -->
-                <Button IsVisible="False" HeightRequest="0" WidthRequest="0" Command="{Binding PrevSceneCommand}">
-                    <Button.KeyboardAccelerators>
-                        <KeyboardAccelerator Key="Left" />
-                    </Button.KeyboardAccelerators>
-                </Button>
-                <Button IsVisible="False" HeightRequest="0" WidthRequest="0" Command="{Binding NextSceneCommand}">
-                    <Button.KeyboardAccelerators>
-                        <KeyboardAccelerator Key="Right" />
-                    </Button.KeyboardAccelerators>
-                </Button>
                 <BoxView Color="{Binding SceneBg}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
                 <toolkit:MediaElement x:Name="SceneVideoDesktop"
