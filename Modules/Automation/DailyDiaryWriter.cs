@@ -90,7 +90,16 @@ public sealed class DailyDiaryWriter
     {
         var lines = new List<string> { $"{day:M月d日} 的陪伴总结：" };
         if (dialogues.Count > 0)
-            lines.Add($"· 今天聊了 {dialogues.Count} 次");
+        {
+            // 人类式记法：不记精确条数，只留「聊得多少」的模糊印象（底账在记忆库里，需要时可用 search_memory 查）。
+            var talk = dialogues.Count switch
+            {
+                <= 2 => "只说了几句话",
+                <= 8 => "聊了一会儿",
+                _ => "聊了好久"
+            };
+            lines.Add("· 今天" + talk);
+        }
         if (affections.Count > 0)
         {
             var net = affections.Sum(a => a.Weight);
