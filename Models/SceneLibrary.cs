@@ -55,6 +55,13 @@ public sealed class SceneMode
     public List<string> TimeRanges { get; set; } = new();
 
     /// <summary>
+    /// 天气触发标签（被动触发的一种，可空）：如 ["下雨","雨","storm"]。
+    /// 当前天气命中任一标签时，本模式会被视为「此刻适合自动启用」。
+    /// 空 = 不由天气触发。与 TimeRanges 是并列的被动触发条件，互相独立。
+    /// </summary>
+    public List<string> WeatherTags { get; set; } = new();
+
+    /// <summary>
     /// 本模式自带覆盖背景时的**独立标定**（同一条目的每张模式背景可以各自微调）。
     /// 为 null = 沿用所属库条目的标定（库条目又没标定时，回退到地图场景的标定）。
     /// </summary>

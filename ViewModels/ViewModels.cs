@@ -172,6 +172,10 @@ public sealed class CharacterCardItem
     public ImageSource? AvatarSource { get; init; }
     public bool HasAvatar => AvatarSource is not null;
     public string SavesLabel { get; init; }
+
+    /// <summary>微信式列表项副标题：优先显示性格，空则给一句默认。</summary>
+    public string Subtitle =>
+        string.IsNullOrWhiteSpace(Personality) ? "点击开始聊天" : Personality;
 }
 
 public sealed partial class SettingsViewModel : ObservableObject

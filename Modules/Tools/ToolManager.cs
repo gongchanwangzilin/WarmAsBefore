@@ -498,6 +498,119 @@ public sealed class ToolManager : IDisposable
             {
                 new() { Name = "spec", Description = "选项名，取自 get_scene_options 的 spec 字段", Required = true }
             });
+
+        // 加微信：把剧情里用过的角色库角色变成微信常驻好友（加上后才出现在微信联系人里）
+        RegisterBuiltin("add_wechat",
+            "把一个角色加为微信好友。角色必须已经出现在角色库中（即剧情里真的用过这个角色）。"
+            + "加成功后该角色会成为常驻好友，出现在手机的微信联系人列表里，随时可以点进去聊天。"
+            + "重复添加同一个角色是安全的（幂等），不会报错。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var wechat = services.GetService(typeof(Services.WeChatService)) as Services.WeChatService;
+                if (wechat is null) return JsonSerializer.Serialize(new { ok = false, message = "WeChatService 不可用" });
+                var name = (args ?? "").Trim();
+                if (name.Length == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "缺少参数 character（要加微信的角色名或 Id）" });
+
+                var (ok, message, added) = await wechat.AddContactAsync(name);
+                return JsonSerializer.Serialize(new { ok, message, added });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "character", Description = "角色名或角色 Id（需已在角色库中出现过）", Required = true }
+            });
+
+        // 查微信好友：AI 想知道自己微信里现在有哪些人，先调用本工具，不要凭记忆猜
+        RegisterBuiltin("list_wechat_contacts",
+            "列出当前已经在微信里的常驻好友（用 add_wechat 加过的角色）。"
+            + "在回应「谁在微信里」这类问题前先调用它，避免凭记忆编造。",
+            async _ =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var wechat = services.GetService(typeof(Services.WeChatService)) as Services.WeChatService;
+                if (wechat is null) return JsonSerializer.Serialize(new { ok = false, message = "WeChatService 不可用" });
+
+                var context = await wechat.BuildContactsContextAsync();
+                var contacts = await wechat.ListAsync();
+                return JsonSerializer.Serialize(new
+                {
+                    count = contacts.Count,
+                    ids = contacts.Select(c => c.CharacterId).ToList(),
+                    context
+                });
+            });
+
+        // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置
+        RegisterBuiltin("list_actors",
+            "列出地图上所有实体（用户 + 各角色）当前所在的场景。"
+            + "想拉人/带人之前先看这个，确认谁和谁在同一场景。",
+            async _ =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var actors = services.GetService(typeof(Services.MapActorService)) as Services.MapActorService;
+                if (actors is null) return JsonSerializer.Serialize(new { ok = false, message = "MapActorService 不可用" });
+                var list = actors.Actors.Select(a => new
+                {
+                    id = a.Id,
+                    name = a.Name,
+                    isUser = a.IsUser,
+                    scene = a.SceneId
+                }).ToList();
+                return JsonSerializer.Serialize(new { count = list.Count, actors = list });
+            });
+
+        // 拉人：AI 把用户/其他 AI 拉到另一个场景（多 AI 拉同一目标由服务仲裁）
+        RegisterBuiltin("pull_actor",
+            "把某个实体（用户或另一个角色）拉到指定场景。可以一次拉多人：用 pull 的 puller 自己按顺序多次调用即可。"
+            + "若同一目标同时被多个方向拉拽，服务会仲裁：方向一致则跟随，方向不同则目标不动，"
+            + "并在返回里说明是谁在拉、为什么没动。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var actors = services.GetService(typeof(Services.MapActorService)) as Services.MapActorService;
+                if (actors is null) return JsonSerializer.Serialize(new { ok = false, message = "MapActorService 不可用" });
+
+                string puller = "", target = "", scene = "";
+                try
+                {
+                    using var doc = JsonDocument.Parse(args ?? "{}");
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("puller", out var p)) puller = p.GetString() ?? "";
+                    if (root.TryGetProperty("target", out var t)) target = t.GetString() ?? "";
+                    if (root.TryGetProperty("scene", out var s)) scene = s.GetString() ?? "";
+                }
+                catch (Exception ex)
+                {
+                    App.WriteLog("ToolManager.pull_actor parse -> " + ex.Message);
+                }
+                if (target.Length == 0 || scene.Length == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "需要参数 puller、target、scene" });
+
+                // 目标场景按名字解析成 Id（AI 通常给的是场景名）
+                var map = services.GetService(typeof(MapService)) as MapService;
+                var sceneId = scene;
+                if (map is not null)
+                {
+                    var sc = map.Map.SceneById(scene) ?? map.Map.SceneByName(scene);
+                    if (sc is not null) sceneId = sc.Id;
+                }
+
+                var result = await actors.PullAsync(puller.Length == 0 ? "ai" : puller,
+                    puller, target, sceneId);
+                return JsonSerializer.Serialize(new
+                {
+                    moved = result.Moved,
+                    final_scene = result.FinalSceneId,
+                    shake_suppressed = result.ShakeSuppressed,
+                    pulled_by = result.Pulls.Select(r => r.PullerName).ToList(),
+                    message = result.Message
+                });
+            });
     }
 
     /// <summary>取场景导演（与 get_state 等内置工具一致，走服务定位而不是构造注入）。</summary>

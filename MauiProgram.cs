@@ -77,6 +77,15 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
         builder.Services.AddSingleton<RuntimeConfigurator>();
         builder.Services.AddSingleton<Services.NovelLibrary>();
+        // 微信好友：谁加过微信、谁是常驻聊天对象（角色"假微信"联系人列表）
+        builder.Services.AddSingleton<Services.WeChatService>(sp =>
+            new Services.WeChatService(
+                sp.GetRequiredService<StorageProvider>(),
+                sp.GetRequiredService<CharacterLibrary>()));
+
+        // 多实体地图：用户 + 各 AI 角色各自的位置，以及 AI 拉拽移动的仲裁
+        builder.Services.AddSingleton<Services.MapActorService>(sp =>
+            new Services.MapActorService(sp.GetRequiredService<MapService>()));
 
         // ViewModels
         builder.Services.AddTransient<TitleViewModel>();
@@ -91,6 +100,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<SaveViewModel>();
         builder.Services.AddTransient<GameViewModel>();
         builder.Services.AddTransient<WorldbookViewModel>();
+        builder.Services.AddTransient<ForceCastViewModel>();
 
         // Pages
         builder.Services.AddTransient<TitlePage>();
@@ -132,6 +142,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<AffectionLevelUpViewModel>();
         builder.Services.AddTransient<CgViewViewModel>();
         builder.Services.AddTransient<MaterialsViewModel>();
+        builder.Services.AddTransient<Views.ForceCastPage>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
         App.WriteLog("CreateMauiApp: building");

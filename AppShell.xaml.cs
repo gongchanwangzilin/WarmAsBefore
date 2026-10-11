@@ -40,5 +40,6 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("materials", typeof(Views.MaterialsPage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
         Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
+        Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));
     }
 }

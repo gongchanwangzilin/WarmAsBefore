@@ -135,13 +135,18 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
         {
             SceneApplySource.Time => $"时间规则 {_director.AppliedAt:HH:mm}",
             SceneApplySource.Ai => $"AI/指令 {_director.AppliedAt:HH:mm}",
+            SceneApplySource.Manual => $"手动切换 {_director.AppliedAt:HH:mm}",
+            SceneApplySource.Weather => $"天气规则 {_director.AppliedAt:HH:mm}",
             _ => "—"
         };
         var dim = _director.ActiveDim > 0.001 ? $"，亮度遮罩 {_director.ActiveDim:0.00}" : "";
         var ranges = _director.ActiveMode is { TimeRanges.Count: > 0 } am
             ? $"，受时间限制：{string.Join("、", am.TimeRanges)}"
             : "";
-        StateText = $"当前生效：{name}（来源：{src}{dim}{ranges}）";
+        var weather = _director.ActiveMode is { WeatherTags.Count: > 0 } aw
+            ? $"，受天气限制：{string.Join("、", aw.WeatherTags)}"
+            : "";
+        StateText = $"当前生效：{name}（来源：{src}{dim}{ranges}{weather}）";
     }
 
     /// <summary>模式改动后统一收尾：落盘 + 重建模式列表 + 刷新状态文本。</summary>
