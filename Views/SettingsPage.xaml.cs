@@ -27,6 +27,8 @@ public partial class SettingsPage : ContentPage
         {
             // RefreshSandboxTrust 是同步文件 IO，放后台跑，避免阻塞 UI 线程（ANR 风险）
             _ = System.Threading.Tasks.Task.Run(() => vm.RefreshSandboxTrustAsync());
+            // #12 表情包列表刷新（轻量本地读，直接主线程 async）
+            _ = vm.RefreshStickersCommand.ExecuteAsync(null);
             // 首帧渲染后再收起页面级 loading 遮罩（让转场动画完整播放）
             // 延迟 32ms（两帧）再收起遮罩，确保转场动画首帧已渲染、布局已就绪
             _ = System.Threading.Tasks.Task.Delay(32).ContinueWith(_ =>

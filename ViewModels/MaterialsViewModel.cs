@@ -139,9 +139,14 @@ public sealed partial class MaterialsViewModel : ObservableObject
         string left = a.LeftClickId == item.Data.Id ? "取消设为左键音" : "设为左键音";
         string right = a.RightClickId == item.Data.Id ? "取消设为右键音" : "设为右键音";
         string key = a.KeyPressId == item.Data.Id ? "取消设为按键音" : "设为按键音";
+        // 事件小音效卡槽（打雷/雨/颤抖/跳动）：装填后由事件系统优先取用
+        string lightning = a.LightningId == item.Data.Id ? "取消设为打雷音" : "设为打雷音";
+        string rain = a.RainId == item.Data.Id ? "取消设为雨声音" : "设为雨声音";
+        string shake = a.ShakeId == item.Data.Id ? "取消设为颤抖音" : "设为颤抖音";
+        string bounce = a.BounceId == item.Data.Id ? "取消设为跳动音" : "设为跳动音";
         string bgm = a.BgmList.Contains(item.Data.Id) ? "从背景音列表移除" : "加入背景音列表";
         var act = await Shell.Current.DisplayActionSheet(
-            $"「{item.Name}」", "取消", null, "试听", left, right, key, bgm, "重命名", "删除");
+            $"「{item.Name}」", "取消", null, "试听", left, right, key, lightning, rain, shake, bounce, bgm, "重命名", "删除");
         switch (act)
         {
             case "试听":
@@ -154,6 +159,14 @@ public sealed partial class MaterialsViewModel : ObservableObject
             case "取消设为右键音": a.RightClickId = ""; await AfterAssign(); break;
             case "设为按键音": a.KeyPressId = item.Data.Id; await AfterAssign(); break;
             case "取消设为按键音": a.KeyPressId = ""; await AfterAssign(); break;
+            case "设为打雷音": a.LightningId = item.Data.Id; await AfterAssign(); break;
+            case "取消设为打雷音": a.LightningId = ""; await AfterAssign(); break;
+            case "设为雨声音": a.RainId = item.Data.Id; await AfterAssign(); break;
+            case "取消设为雨声音": a.RainId = ""; await AfterAssign(); break;
+            case "设为颤抖音": a.ShakeId = item.Data.Id; await AfterAssign(); break;
+            case "取消设为颤抖音": a.ShakeId = ""; await AfterAssign(); break;
+            case "设为跳动音": a.BounceId = item.Data.Id; await AfterAssign(); break;
+            case "取消设为跳动音": a.BounceId = ""; await AfterAssign(); break;
             case "加入背景音列表":
                 if (!a.BgmList.Contains(item.Data.Id)) { a.BgmList.Add(item.Data.Id); await AfterAssign(true); }
                 break;

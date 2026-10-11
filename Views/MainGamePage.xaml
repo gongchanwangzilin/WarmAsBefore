@@ -186,7 +186,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:DialogueMessage">
                         <Grid Padding="0,3">
-                            <Border IsVisible="{Binding IsUser}"
+                            <Border IsVisible="{Binding ShowBubbleMine}"
                                     BackgroundColor="{DynamicResource BubbleMine}"
                                     StrokeThickness="0"
                                     Padding="12,8"
@@ -197,7 +197,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                        TextColor="{DynamicResource SurfaceFg}"
                                        FontSize="13" LineBreakMode="WordWrap" />
                             </Border>
-                            <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}"
+                            <Border IsVisible="{Binding ShowBubbleTheirs}"
                                     BackgroundColor="{DynamicResource BubbleTheirs}"
                                     StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                                     Padding="12,8"
@@ -208,6 +208,15 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                        TextColor="{DynamicResource SurfaceFg}"
                                        FontSize="13" LineBreakMode="WordWrap" />
                             </Border>
+                            <!-- #12 表情消息：图片形态（我发的靠右 / TA 发的靠左） -->
+                            <Image IsVisible="{Binding ShowStickerMine}"
+                                   Source="{Binding StickerPath}"
+                                   Aspect="AspectFit" HeightRequest="120" WidthRequest="120"
+                                   HorizontalOptions="End" />
+                            <Image IsVisible="{Binding ShowStickerTheirs}"
+                                   Source="{Binding StickerPath}"
+                                   Aspect="AspectFit" HeightRequest="120" WidthRequest="120"
+                                   HorizontalOptions="Start" />
                         </Grid>
                     </DataTemplate>
                 </CollectionView.ItemTemplate>
@@ -338,6 +347,18 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Label Text="保存" TextColor="{DynamicResource MutedFg}" FontSize="10"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
+                    <!-- #12 发一个表情（从已导入的表情包里挑） -->
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
+                            <Label Text="表" TextColor="{DynamicResource WarmDark}" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding SendStickerCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                        <Label Text="表情" TextColor="{DynamicResource MutedFg}" FontSize="10"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
                 </HorizontalStackLayout>
             </Border>
         </Grid>
@@ -346,8 +367,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
              仅桌面显示；手机/平板都不显（平板走上面的手机主题布局） -->
         <Grid IsVisible="{Binding IsDesktopLayout}"
               RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
-            <!-- Status bar（液态玻璃材质：半透明渐变 + 1px 内发光描边） -->
+            <!-- Status bar（液态玻璃材质：半透明渐变 + 1px 内发光描边）；#E4：ESC 可隐藏 -->
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
+                    IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
@@ -370,8 +392,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </Grid>
             </Border>
 
-            <!-- Left: Info panel（窄屏下允许压缩，避免与状态栏按钮挤压） -->
-            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140" Margin="0">
+            <!-- Left: Info panel（窄屏下允许压缩，避免与状态栏按钮挤压）；#E4：ESC 可隐藏 -->
+            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140" Margin="0"
+                    IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
                     <Label Text="信息" TextColor="{DynamicResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
@@ -495,26 +518,32 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:DialogueMessage">
                                 <Grid Padding="0,3">
-                                    <Border IsVisible="{Binding IsUser}" BackgroundColor="{DynamicResource BubbleMine}" StrokeThickness="0" Padding="12,8" HorizontalOptions="End" MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding ShowBubbleMine}" BackgroundColor="{DynamicResource BubbleMine}" StrokeThickness="0" Padding="12,8" HorizontalOptions="End" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                                         <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
-                                    <Border IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding ShowBubbleTheirs}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                         <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
+                                    <!-- #12 表情消息：图片形态（我发的靠右 / TA 发的靠左） -->
+                                    <Image IsVisible="{Binding ShowStickerMine}" Source="{Binding StickerPath}"
+                                           Aspect="AspectFit" HeightRequest="110" WidthRequest="110" HorizontalOptions="End" />
+                                    <Image IsVisible="{Binding ShowStickerTheirs}" Source="{Binding StickerPath}"
+                                           Aspect="AspectFit" HeightRequest="110" WidthRequest="110" HorizontalOptions="Start" />
                                 </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
                     <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" TextColor="{DynamicResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
                             <Button Grid.Column="1" Text="文件" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="2,0" HeightRequest="36" WidthRequest="40" Command="{Binding PickAttachmentCommand}" />
-                            <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="3" Text="语音" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
-                            <Button Grid.Column="4" Text="发送" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
+                            <Button Grid.Column="2" Text="表情" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="2,0" HeightRequest="36" WidthRequest="40" Command="{Binding SendStickerCommand}" />
+                            <Button Grid.Column="3" Text="🎁" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
+                            <Button Grid.Column="4" Text="语音" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
+                            <Button Grid.Column="5" Text="发送" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
                         </Grid>
                     </Border>
                 </Grid>

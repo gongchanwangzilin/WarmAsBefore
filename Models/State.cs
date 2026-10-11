@@ -88,6 +88,12 @@ public sealed record UserSettings
     public string AiUrl { get; init; } = "https://api.openai.com/v1/chat/completions";
     public string AiKey { get; init; } = "";
     public string AiModel { get; init; } = "gpt-4o";
+    /// <summary>#13：API 预设标签（openai/deepseek/mimo/kimi/doubao/zhipu/siliconflow/qwen/custom）。仅用于设置页一键填充。</summary>
+    public string AiPreset { get; init; } = "custom";
+    /// <summary>#13：识图（视觉）模型独立端点；三项都填才能用识图（如表情包自动描述）。</summary>
+    public string VisionUrl { get; init; } = "";
+    public string VisionKey { get; init; } = "";
+    public string VisionModel { get; init; } = "";
     public double AiTemperature { get; init; } = 0.8;
     public int AiMaxTokens { get; init; } = 500;
     public bool DeepThink { get; init; }
@@ -134,11 +140,23 @@ public sealed record UserSettings
     public bool AlwaysOnTop { get; init; }
     /// <summary>桌宠闲置时长（分钟）：0 表示关闭闲置自动桌宠；达到闲置时长自动进入桌宠模式，重新有输入时自动恢复。</summary>
     public int PetIdleMinutes { get; init; } = 0;
+    /// <summary>
+    /// #E3 桌宠思考模式：off=不主动思考；random=按间隔随机（约一半概率）嘀咕；timer=按间隔定时嘀咕。
+    /// 桌宠模式下单击立绘也总能触发一次思考。
+    /// </summary>
+    public string PetThinkMode { get; init; } = "off";
+    /// <summary>桌宠思考间隔（分钟），默认 10。</summary>
+    public int PetThinkIntervalMinutes { get; init; } = 10;
 
     // 官方接入（真微信 / QQ 官方机器人）
     public bool QqBotEnabled { get; init; }
     public string QqAppId { get; init; } = "";
     public string QqAppSecret { get; init; } = "";
+    /// <summary>
+    /// #16：QQ 机器人绑定「用它来陪聊的角色」。接入机器人时必须选定一个已有角色（相当于选存档），
+    /// 空串表示回退到「当前游戏角色」的行为。
+    /// </summary>
+    public string QqBoundCharacterId { get; init; } = "";
     public bool WechatEnabled { get; init; }
     public string WechatAppId { get; init; } = "";
     public string WechatAppSecret { get; init; } = "";

@@ -18,6 +18,7 @@ public sealed class ChatEngine
     private CharacterProfile? _active;
     private string _rosterContext = "";
     private string _mapContext = "";
+    private string _stickerContext = "";
     private bool _allowSilence;
 
     /// <summary>端点已明确拒绝过 tools 字段：本会话不再发送工具，避免每轮都白撞一次 400。</summary>
@@ -68,6 +69,34 @@ public sealed class ChatEngine
 
     /// <summary>注入地图上下文：告诉 AI 当前可去的场景与【移动:场景名】移动协议。</summary>
     public void SetMapContext(string context) => _mapContext = context ?? "";
+
+    /// <summary>
+    /// #12 注入表情包清单：AI 可用 [表情:名字] 发表情。
+    /// 与 roster/map 不同——表情库可能在会话存在中途变化（用户随时导入新表情），
+    /// 所以这里会同步更新已存在会话的 system（只动 system，不碰历史消息，不会破坏 tool_calls 配对）。
+    /// </summary>
+    public void SetStickerContext(string context)
+    {
+        var v = context ?? "";
+        if (v == _stickerContext) return;
+        _stickerContext = v;
+        foreach (var msgs in _sessions.Values)
+        {
+            if (msgs.Count == 0 || msgs[0].Role != "system") continue;
+            var content = msgs[0].Content ?? "";
+            var idx = content.IndexOf(StickerSectionHead, StringComparison.Ordinal);
+            if (idx >= 0)
+            {
+                var end = content.IndexOf("\n【", idx + StickerSectionHead.Length, StringComparison.Ordinal);
+                content = end >= 0 ? content.Remove(idx, end - idx) : content[..idx];
+            }
+            if (v.Length > 0) content += StickerSectionHead + v;
+            msgs[0] = msgs[0] with { Content = content };
+        }
+    }
+
+    /// <summary>表情包段在 system 里的固定包头（用于更新时定位，也是与其它段落的分隔）。</summary>
+    private const string StickerSectionHead = "\n【表情包】";
 
     /// <summary>允许沉默：true 时 AI 可选择完全不回复（输出空内容），系统据此停止该回合。</summary>
     public void SetAllowSilence(bool allow) => _allowSilence = allow;
@@ -514,6 +543,8 @@ public sealed class ChatEngine
                            "当剧情合适时，你可以自然地提到她们、让她们出场，甚至用【名字】标记来短暂扮演她们说话，让生活更热闹。";
             if (!string.IsNullOrWhiteSpace(_mapContext))
                 persona += "\n" + _mapContext;
+            if (!string.IsNullOrWhiteSpace(_stickerContext))
+                persona += StickerSectionHead + _stickerContext;
             if (!_toolsUnsupported && _tools.ChatToolNames().Count > 0)
                 persona += "\n" + ToolHint;
             persona += "\n" + ActionProtocol;
@@ -558,24 +589,44 @@ public sealed class ChatEngine
     /// 把被裁掉的一批消息折叠成一段可读的「前情摘要」。
     /// 这里用纯本地摘录（不额外发请求）：每轮取 user/assistant 正文各截断，
     /// 这样裁剪是零延迟、零额度的，且绝不会因为摘要请求失败而卡住聊天。
+    ///
+    /// 格式对齐「像人一样」的记忆：user+assistant 成对合并为一行事件（每件事一句话），
+    /// 单条 60 字封顶、最多保留 30 行（老的先丢）——摘要本身永远小而精，
+    /// 长对话历史经此折叠后可达 90%+ 的压缩率，token 开销稳定可控。
     /// </summary>
     private static string BuildDigest(List<ChatMessage> dropped)
     {
-        var sb = new System.Text.StringBuilder();
+        var pairs = new List<(string U, string A)>();
+        string? pendingUser = null;
         foreach (var m in dropped)
         {
             // 只摘要纯正文字段：带 tool_calls 的 assistant（Content 可能为 null）和 role=tool 结果都跳过，
             // 保证摘要是「人话」，也不会把工具往返的配对关系带进 system。
-            if (m.Role != "user" && m.Role != "assistant") continue;
-            if (m.ToolCalls is { Count: > 0 }) continue;
-            var text = (m.Content ?? "").Trim();
-            if (text.Length == 0) continue;
-            // 用户消息里带 [上下文] 前缀（Send 注入的），摘要时保留更完整
-            if (text.Length > 80) text = text[..80] + "…";
-            sb.Append(m.Role == "user" ? "· 用户：" : "· AI：").Append(text).Append('\n');
+            if (m.Role == "user")
+            {
+                var t = (m.Content ?? "").Trim();
+                if (t.Length > 0) pendingUser = Truncate(t, 60);
+            }
+            else if (m.Role == "assistant")
+            {
+                if (m.ToolCalls is { Count: > 0 }) continue;
+                var t = (m.Content ?? "").Trim();
+                if (t.Length == 0) continue;
+                pairs.Add((pendingUser ?? "", Truncate(t, 60)));
+                pendingUser = null;
+            }
         }
-        return sb.ToString().Trim();
+        var lines = pairs
+            .Select(p => p.U.Length > 0 ? $"· {p.U} → {p.A}" : $"· {p.A}")
+            .ToList();
+        // 总量控制：只保留最新的 30 行（更早的事件按「人类式遗忘」丢掉），摘要永不无限膨胀。
+        if (lines.Count > 30) lines = lines.TakeLast(30).ToList();
+        return string.Join("\n", lines);
     }
+
+    /// <summary>截断到 n 字（超过加省略号）。</summary>
+    private static string Truncate(string s, int n)
+        => s.Length <= n ? s : s[..n] + "…";
 
     /// <summary>
     /// 把摘要段落合并进 system：已经有 [前情摘要] 段时替换（避免多轮累积越堆越长），

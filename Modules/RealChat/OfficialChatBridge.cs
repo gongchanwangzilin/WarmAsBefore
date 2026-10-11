@@ -114,7 +114,9 @@ public sealed class OfficialChatBridge
             Replied?.Invoke(msg, reply);
 
             var channel = msg.Channel == _qq.Name ? (IOfficialChannel)_qq : _wechat;
-            await channel.SendAsync(msg, reply);
+            // #18：真实通道（QQ/微信官方）暂不支持直接发送表情图片（官方协议需要富媒体上传），
+            // 回复里的 [表情:名字] 标记降级为文字，保证语义不丢失；本地界面侧仍按图片显示。
+            await channel.SendAsync(msg, Services.StickerLibrary.ToPlainFallback(reply));
 
             var s = _settings.Current;
             if (s.NotificationsEnabled)
@@ -155,6 +157,9 @@ public sealed class OfficialChatBridge
 
     private string ResolveCharacter()
     {
+        // #16：QQ/微信机器人绑定过「陪聊角色（存档）」时优先用它；未绑定时回退到当前游戏角色 / 名册第一个 / 兜底。
+        var bound = _settings.Current.QqBoundCharacterId;
+        if (!string.IsNullOrEmpty(bound)) return bound;
         var id = _engine.State.CharacterId;
         if (!string.IsNullOrEmpty(id)) return id;
         if (_engine.Roster.Count > 0) return _engine.Roster.Values.First().Profile.Id;

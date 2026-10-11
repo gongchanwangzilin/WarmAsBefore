@@ -35,6 +35,14 @@ public sealed class SoundAssign
     public string RightClickId { get; set; } = "";
     /// <summary>按键音（输入等）播放的音乐 Id。</summary>
     public string KeyPressId { get; set; } = "";
+    /// <summary>打雷音（打雷事件时优先播放；空则回落到场景配置的打雷音效路径）。</summary>
+    public string LightningId { get; set; } = "";
+    /// <summary>雨声音（下雨事件时优先播放；空则回落到场景配置）。</summary>
+    public string RainId { get; set; } = "";
+    /// <summary>颤抖音（角色颤抖等小动作）。</summary>
+    public string ShakeId { get; set; } = "";
+    /// <summary>跳动音（角色跳动等小动作）。</summary>
+    public string BounceId { get; set; } = "";
     /// <summary>背景音乐轮播列表（音乐 Id 列表，按顺序循环）。</summary>
     public List<string> BgmList { get; set; } = new();
 }

@@ -173,7 +173,7 @@ public sealed class AudioController
         set => _sfx = Math.Clamp(value, 0, 1);
     }
 
-    /// <summary>按分配方案播放：left=左键音，right=右键音，key=按键音。</summary>
+    /// <summary>按分配方案播放：left=左键音，right=右键音，key=按键音；lightning/rain/shake/bounce 为事件小音效卡槽。</summary>
     public void PlayAssigned(string kind)
     {
         _ = PlayAssignedAsync(kind);
@@ -189,6 +189,11 @@ public sealed class AudioController
             {
                 "left" => a.LeftClickId,
                 "right" => a.RightClickId,
+                "key" => a.KeyPressId,
+                "lightning" => a.LightningId,
+                "rain" => a.RainId,
+                "shake" => a.ShakeId,
+                "bounce" => a.BounceId,
                 _ => a.KeyPressId
             };
             if (string.IsNullOrEmpty(id)) return;
@@ -200,6 +205,31 @@ public sealed class AudioController
         {
             App.WriteLog("AudioController.PlayAssigned -> " + ex.Message);
         }
+    }
+
+    /// <summary>
+    /// 事件音效卡槽是否有装填（用于打雷/雨事件的「音效库优先、配置路径回落」判断）。
+    /// </summary>
+    public async Task<bool> HasAssignedAsync(string kind)
+    {
+        try
+        {
+            await _materials.EnsureLoadedAsync();
+            var a = _materials.Assign;
+            var id = kind switch
+            {
+                "left" => a.LeftClickId,
+                "right" => a.RightClickId,
+                "key" => a.KeyPressId,
+                "lightning" => a.LightningId,
+                "rain" => a.RainId,
+                "shake" => a.ShakeId,
+                "bounce" => a.BounceId,
+                _ => ""
+            };
+            return !string.IsNullOrEmpty(id);
+        }
+        catch { return false; }
     }
 
     public void PlaySfxFile(string filePath)
