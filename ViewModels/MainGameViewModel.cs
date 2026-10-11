@@ -122,10 +122,10 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     public bool IsGalgamePanelVisible => !IsInMiniGame;
 
-    /// <summary>手机 竖版布局是否显示：手机恒真；平板（按屏幕短边≥600dp 判定）走电脑版布局，恒假；桌面恒假。</summary>
+    /// <summary>手机 竖版布局是否显示：手机恒真；平板（MAUI 原生 Idiom 判定）走电脑版布局，恒假；桌面恒假。</summary>
     public bool IsPhoneLayout { get; } = DetectPhoneLayout();
 
-    /// <summary>电脑版横版布局是否显示：平板（按分辨率判定）+ 桌面 都为真；手机恒假。</summary>
+    /// <summary>电脑版横版布局是否显示：平板（MAUI 原生 Idiom 判定）+ 桌面 都为真；手机恒假。</summary>
     public bool IsDesktopLayout { get; } = DetectDesktopLayout();
 
     static bool DetectDesktopLayout()
@@ -133,13 +133,13 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (DeviceInfo.Platform == DevicePlatform.WinUI
             || DeviceInfo.Platform == DevicePlatform.MacCatalyst)
             return true;
-        // 平板（按屏幕短边≥600dp 判定，见 DeviceInfoService）也走电脑版布局
+        // 平板（MAUI 原生 DeviceInfo.Idiom 判定，见 DeviceInfoService）也走电脑版布局
         return WarmAsBefore.Modules.Screen.DeviceInfoService.IsTabletScreen();
     }
 
     static bool DetectPhoneLayout()
     {
-        // 手机才用竖版手机布局；平板（分辨率判定）和桌面都不用
+        // 手机才用竖版手机布局；平板（MAUI 原生 Idiom 判定）和桌面都不用
         return DeviceInfo.Platform == DevicePlatform.Android
             && !WarmAsBefore.Modules.Screen.DeviceInfoService.IsTabletScreen();
     }

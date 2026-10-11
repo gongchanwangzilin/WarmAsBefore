@@ -10,7 +10,7 @@ namespace WarmAsBefore.Modules.Screen;
 /// 屏幕方向控制（Android 实际锁屏，桌面 no-op）。
 ///
 /// 语义：
-///   auto      = 按屏幕分辨率自动选：手机→竖屏，平板（长边≥500dp）→横屏（电脑版布局）
+///   auto      = 按 MAUI 原生 DeviceInfo.Idiom 自动选：手机→竖屏，平板→横屏（电脑版布局）
 ///   landscape = 锁定横屏（电脑版布局）
 ///   portrait  = 锁定竖屏
 ///
@@ -76,14 +76,14 @@ public static class ScreenOrientationService
         _debounceCts = null;
     }
 
-    /// <summary>auto 解析成实际锁定方向：手机→竖屏，平板（长边≥500dp）→横屏（电脑版布局）。</summary>
+    /// <summary>auto 解析成实际锁定方向：手机→竖屏，平板→横屏（电脑版布局）。</summary>
     public static string Resolve(string? choice)
     {
         var normalized = Normalize(choice);
         if (normalized == KeyLandscape) return KeyLandscape;
         if (normalized == KeyPortrait) return KeyPortrait;
-        // auto：按屏幕分辨率判定。手机竖屏、平板横屏（电脑版布局）。
-        // 不用 DeviceInfo.Idiom（部分 Android 机型/模拟器识别不准），改用屏幕长边阈值判定，更稳。
+        // auto：手机竖屏、平板横屏（电脑版布局）。
+        // 使用 MAUI 原生 DeviceInfo.Idiom（基于系统 smallestScreenWidth 标准），不自己写阈值。
         return DeviceInfoService.IsTabletScreen() ? KeyLandscape : KeyPortrait;
     }
 
