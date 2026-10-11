@@ -119,12 +119,52 @@ jobs:
         KEY_ALIAS=$(echo "$KEY_ALIAS" | tr -d '\r\n')
         echo "KEY_PASS length after trim=${#KEY_PASS}"
         apk="WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64.apk"
-        jarsigner -keystore signing.p12 -storetype PKCS12 \
-          -storepass "$KEY_PASS" -keypass "$KEY_PASS" \
-          -digestalg SHA256 "$apk" "$KEY_ALIAS"
-        rm -f signing.p12
-        mv "$apk" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64-signed.apk"
-        echo "签名完成: $apk"
+        # 打 v1+v2+v3 全签名（jarsigner 只有 v1，Android 7+ 安装器要求 v2/v3）
+        # apksigner 在 build-tools 里，.NET Android 构建会自动装到 ~/.dotnet/sdk-manifests 之外
+        # 的实际位置是 ~/.dotnet/workloads 或 android sdk；先广搜一遍，找不到再兜底
+        apksigner_bin=""
+        if command -v apksigner >/dev/null 2>&1; then
+          apksigner_bin=apksigner
+        else
+          apksigner_bin=$(find "$HOME" /opt /usr /root -name apksigner -type f 2>/dev/null | head -1)
+        fi
+        if [ -n "$apksigner_bin" ]; then
+          echo "使用 apksigner: $apksigner_bin（v1+v2+v3 全签名）"
+          "$apksigner_bin" sign \
+            --ks signing.p12 --ks-type PKCS12 \
+            --ks-pass "pass:$KEY_PASS" --key-pass "pass:$KEY_PASS" \
+            --key "$KEY_ALIAS" \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+            --out "${apk}.signed" "$apk"
+          "$apksigner_bin" verify --verbose "${apk}.signed"
+          rm -f signing.p12
+          mv "${apk}.signed" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64-signed.apk"
+        else
+          echo "未找到 apksigner，尝试自动安装 Android build-tools 里的 apksigner..."
+          # 兜底：用 sdkmanager 装 build-tools;34.0.0（含 apksigner），装完再走上面同款逻辑
+          ANDROID_HOME="${ANDROID_HOME:-$HOME/android-sdk}"
+          export ANDROID_HOME ANDROID_SDK_ROOT="$ANDROID_HOME"
+          mkdir -p "$ANDROID_HOME/cmdline-tools"
+          if [ ! -f "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" ]; then
+            curl -sSLo "$ANDROID_HOME/cmdline-tools.zip" "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip"
+            (cd "$ANDROID_HOME/cmdline-tools" && unzip -q ../cmdline-tools.zip && mv cmdline-tools latest 2>/dev/null || true)
+          fi
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses >/dev/null 2>&1 || true
+          "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "build-tools;34.0.0"
+          apksigner_bin="$ANDROID_HOME/build-tools/34.0.0/apksigner"
+          [ -x "$apksigner_bin" ] || { echo "apksigner 安装失败，签名步骤中止" >&2; exit 1; }
+          echo "使用 apksigner（新装）: $apksigner_bin"
+          "$apksigner_bin" sign \
+            --ks signing.p12 --ks-type PKCS12 \
+            --ks-pass "pass:$KEY_PASS" --key-pass "pass:$KEY_PASS" \
+            --key "$KEY_ALIAS" \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
+            --out "${apk}.signed" "$apk"
+          "$apksigner_bin" verify --verbose "${apk}.signed"
+          rm -f signing.p12
+          mv "${apk}.signed" "WarmAsBefore-${{ steps.version.outputs.version }}-android-arm64-signed.apk"
+        fi
+        echo "签名完成"
         echo "signed=true" >> "$GITHUB_OUTPUT"
 
     # 签名成功时只上传签名版；secret 未配置时回退上传未签名版
