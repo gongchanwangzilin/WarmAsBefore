@@ -40,6 +40,25 @@ public sealed record ChatRecord
     public DateTime At { get; init; } = DateTime.Now;
 }
 
+/// <summary>
+/// 多端点档案：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。
+/// 密钥池里的多枚密钥轮流使用；多条档案组成轮换链，任一条失灵自动切换下一条，保证对话不间断。
+/// </summary>
+public sealed record AiEndpointProfile
+{
+    public string Id { get; init; } = Guid.NewGuid().ToString("N")[..8];
+    /// <summary>显示名（供应商名/备注），如「硅基流动-主力」。</summary>
+    public string Name { get; init; } = "";
+    /// <summary>端点地址（OpenAI 兼容 chat/completions）。</summary>
+    public string Url { get; init; } = "";
+    /// <summary>该供应商下要使用的 AI 模型名。</summary>
+    public string Model { get; init; } = "";
+    /// <summary>该组合的多枚密钥（轮流使用）。</summary>
+    public List<string> Keys { get; init; } = new();
+    /// <summary>单条启用开关。</summary>
+    public bool Enabled { get; init; } = true;
+}
+
 public sealed record UserSettings
 {
     public string Lang { get; init; } = "zh-CN";
@@ -99,6 +118,17 @@ public sealed record UserSettings
     public bool DeepThink { get; init; }
     public string DeepModel { get; init; } = "";
     public int MemoryTurns { get; init; } = 5;
+
+    // 多端点轮换（供应商 × AI × 密钥）：保存多条端点，自动轮流用，保证对话不间断
+    /// <summary>
+    /// 多端点档案：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。
+    /// 轮换开启时依次使用；任一密钥/端点失灵自动切换下一条。
+    /// </summary>
+    public List<AiEndpointProfile> AiProfiles { get; init; } = new();
+    /// <summary>端点/密钥轮换总开关（可开关）：false 时完全按原来的单端点行为走。</summary>
+    public bool AiRotationEnabled { get; init; } = true;
+    /// <summary>上下文 Token 上限（估算值）：对话历史超过该值时，强制把旧对话总结成第一人称记忆。</summary>
+    public int ContextTokenLimit { get; init; } = 32000;
 
     // 语音
     public bool TtsEnabled { get; init; } = true;

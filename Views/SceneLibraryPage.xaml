@@ -38,7 +38,7 @@
                                     <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtTitle}" />
                                     <Label Grid.Row="1" Grid.Column="0" Style="{StaticResource TxtMuted}" Margin="0,4,0,0"
                                            Text="{Binding MapSceneRef, StringFormat='地图引用：{0}'}" />
-                                    <!-- #8 点击式工房：点一下就把当前场景切到这个条目（无需拖拽）。 -->
+                                    <!-- #8 点击式工坊：点一下就把当前场景切到这个条目（无需拖拽）。 -->
                                     <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Text="应用"
                                             Style="{StaticResource BtnPrimary}" FontSize="12" Padding="14,6"
                                             VerticalOptions="Center"
@@ -82,7 +82,7 @@
                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" />
                                         <Label Text="{Binding Detail}" Style="{StaticResource TxtMuted}" FontSize="11" />
                                     </VerticalStackLayout>
-                                    <!-- #8 点击式工房：点一下直接切到该「条目/模式」（此刻不可用也会给出原因）。 -->
+                                    <!-- #8 点击式工坊：点一下直接切到该「条目/模式」（此刻不可用也会给出原因）。 -->
                                     <Button Grid.Column="1" Text="应用"
                                             Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
                                             VerticalOptions="Center"

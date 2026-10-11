@@ -12,6 +12,96 @@ public sealed class ApiGateway
 
     public void Configure(AiEndpoint cfg) => _cfg = cfg;
 
+    // ============ 多端点 / 多密钥轮换 ============
+
+    /// <summary>轮换池：多条「供应商 × AI」端点（各带密钥池）。由 RuntimeConfigurator 装配。</summary>
+    private List<AiEndpoint> _pool = new();
+    /// <summary>轮换总开关（用户设置；false 或池空时不启用，行为与从前一致）。</summary>
+    private bool _rotationEnabled;
+    /// <summary>池游标：每次成功请求后 +1，让端点轮着用。</summary>
+    private int _poolCursor;
+    /// <summary>各端点的密钥游标（键 = Url|Model，值 = 下一枚要用的密钥下标），让多密钥轮流用。</summary>
+    private readonly Dictionary<string, int> _keyCursors = new();
+
+    /// <summary>当前是否至少有一个可用的模型端点（主配置或轮换池任一即可）。</summary>
+    public bool HasAnyEndpoint =>
+        !string.IsNullOrWhiteSpace(_cfg.Key)
+        || (_rotationEnabled && _pool.Count > 0);
+
+    /// <summary>配置轮换池（多供应商/多 AI/多密钥）。enabled=false 或池空时完全按旧行为走主配置。</summary>
+    public void ConfigureRotation(List<AiEndpoint>? pool, bool enabled)
+    {
+        _pool = pool ?? new List<AiEndpoint>();
+        _rotationEnabled = enabled;
+    }
+
+    /// <summary>本次请求的候选端点序列：启用轮换时从池游标开始转一圈（再兜底主配置）；否则只用主配置。</summary>
+    private List<AiEndpoint> CandidateEndpoints(AiEndpoint? over)
+    {
+        // over 是调用方指定的特殊端点（与主配置不同）时，只尝试它自己
+        if (over is not null && !ReferenceEquals(over, _cfg))
+            return new List<AiEndpoint> { over };
+
+        var list = new List<AiEndpoint>();
+        if (_rotationEnabled && _pool.Count > 0)
+        {
+            for (var i = 0; i < _pool.Count; i++)
+                list.Add(_pool[(_poolCursor + i) % _pool.Count]);
+        }
+        list.Add(_cfg);   // 主配置兜底
+        return list;
+    }
+
+    /// <summary>单个端点的候选密钥：密钥池（从游标起步、轮流）优先，兜底单枚 Key。</summary>
+    private List<string> CandidateKeys(AiEndpoint e)
+    {
+        var keys = new List<string>();
+        foreach (var k in e.KeyPool)
+            if (!string.IsNullOrWhiteSpace(k)) keys.Add(k);
+        if (keys.Count == 0) keys.Add(e.Key ?? "");
+        if (keys.Count <= 1) return keys;
+
+        var name = e.Url + "|" + e.Model;
+        var start = _keyCursors.TryGetValue(name, out var c) ? ((c % keys.Count) + keys.Count) % keys.Count : 0;
+        var ordered = new List<string>();
+        for (var i = 0; i < keys.Count; i++)
+            ordered.Add(keys[(start + i) % keys.Count]);
+        return ordered;
+    }
+
+    /// <summary>一次尝试成功：游标前进（端点轮到下一条、密钥轮到下一枚），实现「轮流用」。</summary>
+    private void AdvanceAfterSuccess(AiEndpoint e, string key)
+    {
+        if (_rotationEnabled && _pool.Count > 0)
+        {
+            var idx = _pool.FindIndex(p => ReferenceEquals(p, e) || (p.Url == e.Url && p.Model == e.Model));
+            if (idx >= 0) _poolCursor = (idx + 1) % _pool.Count;
+        }
+        if (e.KeyPool.Count > 1)
+        {
+            var name = e.Url + "|" + e.Model;
+            var keys = new List<string>();
+            foreach (var k in e.KeyPool)
+                if (!string.IsNullOrWhiteSpace(k)) keys.Add(k);
+            var pos = keys.IndexOf(key);
+            if (pos >= 0) _keyCursors[name] = (pos + 1) % keys.Count;
+        }
+    }
+
+    /// <summary>从失败响应体里提取错误文本（沿用旧的 [API错误 …] 格式）。</summary>
+    private static string ParseErrorText(string raw, HttpStatusCode status)
+    {
+        try
+        {
+            var errDoc = JsonDocument.Parse(raw);
+            if (errDoc.RootElement.TryGetProperty("error", out var err)
+                && err.TryGetProperty("message", out var msg))
+                return $"[API错误 {status}]: {msg}";
+        }
+        catch { }
+        return $"[API错误 {status}]";
+    }
+
     /// <summary>获取 API 支持的所有模型列表。</summary>
     public async Task<List<string>?> ListModels()
     {
@@ -101,53 +191,58 @@ public sealed class ApiGateway
 
     public async Task<string?> Chat(List<ChatMessage> history, AiEndpoint? over = null)
     {
-        var cfg = over ?? _cfg;
-        var url = BuildChatUrl(cfg);
-        var body = new
+        string? lastError = null;
+        foreach (var cfg in CandidateEndpoints(over))
         {
-            model = cfg.Model,
-            messages = history.Select(m => new { role = m.Role, content = m.Content }),
-            temperature = cfg.Temperature,
-            max_tokens = cfg.MaxTokens
-        };
-        var json = JsonSerializer.Serialize(body);
-        using var req = new HttpRequestMessage(HttpMethod.Post, url);
-        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
-        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {cfg.Key}");
-
-        try
-        {
-            var resp = await _http.SendAsync(req);
-            var raw = await resp.Content.ReadAsStringAsync();
-
-            if (!resp.IsSuccessStatusCode)
+            var url = BuildChatUrl(cfg);
+            var body = new
             {
+                model = cfg.Model,
+                messages = history.Select(m => new { role = m.Role, content = m.Content }),
+                temperature = cfg.Temperature,
+                max_tokens = cfg.MaxTokens
+            };
+            var json = JsonSerializer.Serialize(body);
+
+            foreach (var key in CandidateKeys(cfg))
+            {
+                using var req = new HttpRequestMessage(HttpMethod.Post, url);
+                req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {key}");
+
                 try
                 {
-                    var errDoc = JsonDocument.Parse(raw);
-                    if (errDoc.RootElement.TryGetProperty("error", out var err)
-                        && err.TryGetProperty("message", out var msg))
-                        return $"[API错误 {resp.StatusCode}]: {msg}";
-                }
-                catch { }
-                return $"[API错误 {resp.StatusCode}]";
-            }
+                    var resp = await _http.SendAsync(req);
+                    var raw = await resp.Content.ReadAsStringAsync();
 
-            return JsonDocument.Parse(raw)
-                .RootElement.GetProperty("choices")[0]
-                .GetProperty("message")
-                .GetProperty("content")
-                .GetString();
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        // HTTP 失败（认证/限流/额度/服务端…）：换下一枚密钥或下一条端点继续试
+                        lastError = ParseErrorText(raw, resp.StatusCode);
+                        App.WriteLog($"ApiGateway.Chat: 「{cfg.Provider}」失败 {resp.StatusCode}，尝试轮换");
+                        continue;
+                    }
+
+                    AdvanceAfterSuccess(cfg, key);
+                    return JsonDocument.Parse(raw)
+                        .RootElement.GetProperty("choices")[0]
+                        .GetProperty("message")
+                        .GetProperty("content")
+                        .GetString();
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Gateway] {ex.Message}");
+                    // 网络类失败换端点也无济于事，直接返回（保持旧行为）
+                    if (ex is HttpRequestException && ex.InnerException is System.Net.Sockets.SocketException)
+                        return "[网络连接失败，请检查网络]";
+                    if (ex is TimeoutException)
+                        return "[请求超时，请检查网络或重试]";
+                    return $"[API错误: {ex.Message}]";
+                }
+            }
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[Gateway] {ex.Message}");
-            if (ex is HttpRequestException && ex.InnerException is System.Net.Sockets.SocketException)
-                return "[网络连接失败，请检查网络]";
-            if (ex is TimeoutException)
-                return "[请求超时，请检查网络或重试]";
-            return $"[API错误: {ex.Message}]";
-        }
+        return lastError ?? "[API错误]";
     }
 
     // ============ 工具调用（OpenAI function calling） ============
@@ -162,16 +257,13 @@ public sealed class ApiGateway
     /// </summary>
     public async Task<ChatTurn> ChatWithToolsAsync(List<ChatMessage> history, List<object>? tools, AiEndpoint? over = null)
     {
-        var cfg = over ?? _cfg;
-        var url = BuildChatUrl(cfg);
-
-        var turn = await SendTurnAsync(url, cfg, history, tools);
+        var turn = await SendTurnAsync(history, tools, over);
         if (tools is not { Count: > 0 } || !turn.ToolRejected)
             return new ChatTurn { Content = turn.Content, ToolCalls = turn.ToolCalls, Error = turn.Error };
 
         // 去掉 tools 再试一次：绝大多数"不支持工具"的端点只是严格校验了未知字段
         App.WriteLog($"ApiGateway.ChatWithTools: 端点疑似不支持 tools（{turn.Error}），去掉 tools 重试");
-        var retry = await SendTurnAsync(url, cfg, history, null);
+        var retry = await SendTurnAsync(history, null, over);
         return new ChatTurn
         {
             Content = retry.Content,
@@ -181,49 +273,67 @@ public sealed class ApiGateway
         };
     }
 
-    /// <summary>单次 HTTP 往返：发起请求 + 解析出完整 assistant 消息。</summary>
-    private async Task<TurnResult> SendTurnAsync(string url, AiEndpoint cfg, List<ChatMessage> history, List<object>? tools)
+    /// <summary>单次 HTTP 往返（带多端点/多密钥轮换）：发起请求 + 解析出完整 assistant 消息。</summary>
+    private async Task<TurnResult> SendTurnAsync(List<ChatMessage> history, List<object>? tools, AiEndpoint? over)
     {
-        var json = JsonSerializer.Serialize(BuildBody(cfg, history, tools));
-        using var req = new HttpRequestMessage(HttpMethod.Post, url);
-        req.Content = new StringContent(json, Encoding.UTF8, "application/json");
-        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {cfg.Key}");
-
-        try
+        TurnResult? last = null;
+        foreach (var cfg in CandidateEndpoints(over))
         {
-            var resp = await _http.SendAsync(req);
-            var raw = await resp.Content.ReadAsStringAsync();
+            var url = BuildChatUrl(cfg);
+            var json = JsonSerializer.Serialize(BuildBody(cfg, history, tools));
 
-            if (!resp.IsSuccessStatusCode)
+            foreach (var key in CandidateKeys(cfg))
             {
-                var detail = "";
+                using var req = new HttpRequestMessage(HttpMethod.Post, url);
+                req.Content = new StringContent(json, Encoding.UTF8, "application/json");
+                req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {key}");
+
                 try
                 {
-                    var errDoc = JsonDocument.Parse(raw);
-                    if (errDoc.RootElement.TryGetProperty("error", out var err)
-                        && err.TryGetProperty("message", out var msg))
-                        detail = msg.ToString();
-                }
-                catch { }
-                var text = string.IsNullOrWhiteSpace(detail)
-                    ? $"[API错误 {resp.StatusCode}]"
-                    : $"[API错误 {resp.StatusCode}]: {detail}";
-                return new TurnResult(null, null, text, LooksLikeToolRejection(resp.StatusCode, raw));
-            }
+                    var resp = await _http.SendAsync(req);
+                    var raw = await resp.Content.ReadAsStringAsync();
 
-            return ParseTurn(raw);
+                    if (!resp.IsSuccessStatusCode)
+                    {
+                        var detail = "";
+                        try
+                        {
+                            var errDoc = JsonDocument.Parse(raw);
+                            if (errDoc.RootElement.TryGetProperty("error", out var err)
+                                && err.TryGetProperty("message", out var msg))
+                                detail = msg.ToString();
+                        }
+                        catch { }
+                        var text = string.IsNullOrWhiteSpace(detail)
+                            ? $"[API错误 {resp.StatusCode}]"
+                            : $"[API错误 {resp.StatusCode}]: {detail}";
+                        last = new TurnResult(null, null, text, LooksLikeToolRejection(resp.StatusCode, raw));
+                        App.WriteLog($"ApiGateway.SendTurn: 「{cfg.Provider}」失败 {resp.StatusCode}，尝试轮换");
+                        continue;
+                    }
+
+                    var parsed = ParseTurn(raw);
+                    if (parsed.Error is null)
+                    {
+                        AdvanceAfterSuccess(cfg, key);
+                        return parsed;
+                    }
+                    last = parsed;   // 响应畸形：同样换下一条试试
+                }
+                catch (Exception ex)
+                {
+                    System.Diagnostics.Debug.WriteLine($"[Gateway.ChatWithTools] {ex.Message}");
+                    var text = ex switch
+                    {
+                        HttpRequestException { InnerException: System.Net.Sockets.SocketException } => "[网络连接失败，请检查网络]",
+                        TimeoutException => "[请求超时，请检查网络或重试]",
+                        _ => $"[API错误: {ex.Message}]"
+                    };
+                    return new TurnResult(null, null, text, false);
+                }
+            }
         }
-        catch (Exception ex)
-        {
-            System.Diagnostics.Debug.WriteLine($"[Gateway.ChatWithTools] {ex.Message}");
-            var text = ex switch
-            {
-                HttpRequestException { InnerException: System.Net.Sockets.SocketException } => "[网络连接失败，请检查网络]",
-                TimeoutException => "[请求超时，请检查网络或重试]",
-                _ => $"[API错误: {ex.Message}]"
-            };
-            return new TurnResult(null, null, text, false);
-        }
+        return last ?? new TurnResult(null, null, "[API错误]", false);
     }
 
     /// <summary>请求体：只有确实有工具时才带 tools 字段（无工具时与 Chat() 逐字段相同）。</summary>

@@ -1842,7 +1842,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenWorldbook() => await Shell.Current.GoToAsync("worldbook");
 
-    /// <summary>打开场景库（点击式场景工房）：把当前场景切到所选条目/模式，无需拖拽。</summary>
+    /// <summary>打开场景库（点击式场景工坊）：把当前场景切到所选条目/模式，无需拖拽。</summary>
     [RelayCommand]
     private async Task OpenSceneLibrary() => await Shell.Current.GoToAsync("scenelibrary");
 
