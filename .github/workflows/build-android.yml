@@ -133,7 +133,6 @@ jobs:
           "$apksigner_bin" sign \
             --ks signing.p12 --ks-type PKCS12 \
             --ks-pass "pass:$KEY_PASS" --key-pass "pass:$KEY_PASS" \
-            --key "$KEY_ALIAS" \
             --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
             --out "${apk}.signed" "$apk"
           "$apksigner_bin" verify --verbose "${apk}.signed"
@@ -157,7 +156,6 @@ jobs:
           "$apksigner_bin" sign \
             --ks signing.p12 --ks-type PKCS12 \
             --ks-pass "pass:$KEY_PASS" --key-pass "pass:$KEY_PASS" \
-            --key "$KEY_ALIAS" \
             --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
             --out "${apk}.signed" "$apk"
           "$apksigner_bin" verify --verbose "${apk}.signed"
