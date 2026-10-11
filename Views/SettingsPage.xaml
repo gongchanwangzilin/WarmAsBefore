@@ -187,6 +187,15 @@
                                 Command="{Binding TrustToolDirCommand}" />
                         <Label Text="默认外部工具无法读取模型数据（API Key / 对话历史）；加入信任后放行。"
                                Style="{StaticResource TxtCaption}" />
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Label Text="完整性检查" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="核对该有的工具是否齐全、描述与参数 schema 是否完整、聊天可用工具集能否正常构建。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Button Text="🔍 检查工具完整性" Style="{StaticResource BtnGhost}" FontSize="13"
+                                Command="{Binding VerifyToolsCommand}" />
+                        <Label Text="{Binding ToolIntegrityText}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding ToolIntegrityText, Converter={StaticResource IsNotNull}}"
+                               TextColor="{Binding ToolIntegrityHealthy, Converter={StaticResource BoolGreenRed}}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -857,6 +866,16 @@
                             <Label Text="特效帧切换间隔（毫秒）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="打雷白闪时长 / 帧图切换频率，建议 80-300" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Entry Grid.Column="1" Text="{Binding WeatherEffectFrameMs}" Keyboard="Numeric" WidthRequest="72" /></Grid>
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Label Text="行进扩展（AI 出行 / 跟随）" Style="{StaticResource TxtBodySm}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="AI 可单独出行（不带我）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后 AI 发【移动:】只移动 AI 自己，我的视角留在原地；关闭则维持旧行为（AI 走到哪我跟到哪）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AiTravelAlone}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="允许我「跟上」" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="AI 单独走远后，主界面出现「跟上」按钮；点一下即可跟过去" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding AllowFollowAi}" IsEnabled="{Binding AiTravelAlone}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
 

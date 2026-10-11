@@ -34,10 +34,16 @@
                             <Border BackgroundColor="{DynamicResource SurfaceBg}" Padding="16,12" Margin="16,8,16,8"
                                     Stroke="{DynamicResource LineColor}" StrokeThickness="1">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                                <Grid RowDefinitions="Auto,Auto">
-                                    <Label Grid.Row="0" Text="{Binding Name}" Style="{StaticResource TxtTitle}" />
-                                    <Label Grid.Row="1" Style="{StaticResource TxtMuted}" Margin="0,4,0,0"
+                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtTitle}" />
+                                    <Label Grid.Row="1" Grid.Column="0" Style="{StaticResource TxtMuted}" Margin="0,4,0,0"
                                            Text="{Binding MapSceneRef, StringFormat='地图引用：{0}'}" />
+                                    <!-- #8 点击式工房：点一下就把当前场景切到这个条目（无需拖拽）。 -->
+                                    <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Text="应用"
+                                            Style="{StaticResource BtnPrimary}" FontSize="12" Padding="14,6"
+                                            VerticalOptions="Center"
+                                            Command="{Binding BindingContext.ApplyEntryCommand, Source={x:Reference Page}}"
+                                            CommandParameter="{Binding .}" />
                                 </Grid>
                             </Border>
                         </DataTemplate>
@@ -71,10 +77,18 @@
                                     SelectedItem="{Binding SelectedModeRow}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:SceneModeRow">
-                                <VerticalStackLayout Margin="0,0,0,8">
-                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" />
-                                    <Label Text="{Binding Detail}" Style="{StaticResource TxtMuted}" FontSize="11" />
-                                </VerticalStackLayout>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="0,0,0,8">
+                                    <VerticalStackLayout Grid.Column="0">
+                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" />
+                                        <Label Text="{Binding Detail}" Style="{StaticResource TxtMuted}" FontSize="11" />
+                                    </VerticalStackLayout>
+                                    <!-- #8 点击式工房：点一下直接切到该「条目/模式」（此刻不可用也会给出原因）。 -->
+                                    <Button Grid.Column="1" Text="应用"
+                                            Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                                            VerticalOptions="Center"
+                                            Command="{Binding BindingContext.ApplyModeCommand, Source={x:Reference Page}}"
+                                            CommandParameter="{Binding .}" />
+                                </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
@@ -116,7 +130,7 @@
         <VerticalStackLayout Grid.Row="2" Padding="16" Spacing="4">
             <Label Style="{StaticResource TxtBody}" FontSize="12" Text="{Binding StateText}" />
             <Label Style="{StaticResource TxtMuted}"
-                   Text="场景可在地图页「单场景直接应用」；时间到点自动切换，AI 只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。" />
+                   Text="点条目或模式右侧的「应用」即可立刻切换当前场景（点击式，无需拖拽）；切换结果与此刻可用性会显示在上方状态栏。时间到点自动切换，AI 只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。" />
         </VerticalStackLayout>
 
     </Grid>

@@ -32,7 +32,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
                     Padding="16,8">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
                     <VerticalStackLayout Spacing="0">
                         <Label Text="{Binding CurrentTimeStr}"
                                TextColor="{DynamicResource WarmDark}" FontSize="22" FontAttributes="Bold" />
@@ -42,11 +42,15 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Label Text="{Binding WeatherDesc}"
                            TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Center" Grid.Column="1" />
-                    <Button Grid.Column="2" Text="设置" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="2" Text="场景库" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="Transparent" FontSize="11" Padding="8,4"
+                            HeightRequest="32"
+                            Command="{Binding OpenSceneLibraryCommand}" />
+                    <Button Grid.Column="3" Text="设置" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="3" Text="手机" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="4" Text="手机" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenPhoneCommand}" />
@@ -55,6 +59,11 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
             <!-- Character area (center, zoomed) -->
             <Grid Grid.Row="1" x:Name="PhoneStage" SizeChanged="OnStageSizeChanged">
+                <!-- #9 手机左右滑动切换地点（无地点时命令内部静默忽略、按钮置灰） -->
+                <Grid.GestureRecognizers>
+                    <SwipeGestureRecognizer Direction="Left" Command="{Binding NextSceneCommand}" />
+                    <SwipeGestureRecognizer Direction="Right" Command="{Binding PrevSceneCommand}" />
+                </Grid.GestureRecognizers>
                 <!-- 左上角状态指示器 -->
                 <Border IsVisible="{Binding StatusText}"
                         BackgroundColor="#CC000000" Padding="8,4" Margin="12,12,0,0"
@@ -142,6 +151,31 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Label Text="{Binding CharacterName}"
                            TextColor="{DynamicResource WarmDark}" FontSize="15" FontAttributes="Bold" />
                 </Border>
+
+                <!-- #9 左右竖条切换地点按键（左右两侧各一条）：无地点时置灰（IsEnabled 绑可用态）。
+                     电脑端另有键盘方向键、手机端另有左右滑动，三条入口共用同一对命令。 -->
+                <Button Text="◀"
+                        Command="{Binding PrevSceneCommand}"
+                        IsEnabled="{Binding CanGoPrevScene}"
+                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource WarmDark}"
+                        FontSize="18" WidthRequest="40" HeightRequest="96" Padding="0"
+                        CornerRadius="14" HorizontalOptions="Start" VerticalOptions="Center"
+                        Margin="6,0,0,0" />
+                <Button Text="▶"
+                        Command="{Binding NextSceneCommand}"
+                        IsEnabled="{Binding CanGoNextScene}"
+                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource WarmDark}"
+                        FontSize="18" WidthRequest="40" HeightRequest="96" Padding="0"
+                        CornerRadius="14" HorizontalOptions="End" VerticalOptions="Center"
+                        Margin="0,0,6,0" />
+
+                <!-- #9 用户可选跟上：AI 单独出行后出现（AI 不带用户走时）。 -->
+                <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
+                        Command="{Binding FollowAiCommand}"
+                        IsVisible="{Binding CanFollowAi}"
+                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="White"
+                        FontSize="12" Padding="12,4" CornerRadius="16" HeightRequest="32"
+                        HorizontalOptions="End" VerticalOptions="Start" Margin="0,12,12,0" />
             </Grid>
 
             <!-- Dialogue area -->
@@ -298,7 +332,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                         <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
@@ -313,7 +347,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Button Grid.Column="5" Text="设置" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenSettingsCommand}" />
                     <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
                     <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
-                    <Button Grid.Column="8" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenWorldbookCommand}" />
+                    <Button Grid.Column="8" Text="场景库" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenSceneLibraryCommand}" />
+                    <Button Grid.Column="9" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenWorldbookCommand}" />
                 </Grid>
             </Border>
 
@@ -360,6 +395,18 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
             <!-- Center: Character area -->
             <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage" SizeChanged="OnStageSizeChanged">
+                <!-- #9 电脑端键盘方向键切换地点：← 上一个、→ 下一个（无地点时命令内部静默忽略）。
+                     挂在两个透明按钮上以便通用加速键在任何焦点下都能触发。 -->
+                <Button IsVisible="False" HeightRequest="0" WidthRequest="0" Command="{Binding PrevSceneCommand}">
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Left" />
+                    </Button.KeyboardAccelerators>
+                </Button>
+                <Button IsVisible="False" HeightRequest="0" WidthRequest="0" Command="{Binding NextSceneCommand}">
+                    <Button.KeyboardAccelerators>
+                        <KeyboardAccelerator Key="Right" />
+                    </Button.KeyboardAccelerators>
+                </Button>
                 <BoxView Color="{Binding SceneBg}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
                 <toolkit:MediaElement x:Name="SceneVideoDesktop"
@@ -398,6 +445,33 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                 </Border>
+
+                <!-- #9 左右竖条切换地点按键（电脑端同样提供，与键盘方向键、手机滑动共用命令）。
+                     无地点时置灰：IsEnabled 绑可用态。 -->
+                <Button Text="◀"
+                        Command="{Binding PrevSceneCommand}"
+                        IsEnabled="{Binding CanGoPrevScene}"
+                        ToolTipProperties.Text="{Binding PrevSceneLabel}"
+                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource SurfaceFg}"
+                        FontSize="18" WidthRequest="44" HeightRequest="120" Padding="0"
+                        CornerRadius="16" HorizontalOptions="Start" VerticalOptions="Center"
+                        Margin="10,0,0,0" />
+                <Button Text="▶"
+                        Command="{Binding NextSceneCommand}"
+                        IsEnabled="{Binding CanGoNextScene}"
+                        ToolTipProperties.Text="{Binding NextSceneLabel}"
+                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource SurfaceFg}"
+                        FontSize="18" WidthRequest="44" HeightRequest="120" Padding="0"
+                        CornerRadius="16" HorizontalOptions="End" VerticalOptions="Center"
+                        Margin="0,0,10,0" />
+
+                <!-- #9 用户可选跟上：AI 单独出行后出现。 -->
+                <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
+                        Command="{Binding FollowAiCommand}"
+                        IsVisible="{Binding CanFollowAi}"
+                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="White"
+                        FontSize="12" Padding="14,4" CornerRadius="16" HeightRequest="34"
+                        HorizontalOptions="End" VerticalOptions="Start" Margin="0,16,16,0" />
             </Grid>
 
             <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间） -->

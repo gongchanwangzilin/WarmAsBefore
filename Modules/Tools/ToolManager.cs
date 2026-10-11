@@ -157,6 +157,122 @@ public sealed class ToolManager : IDisposable
     public HashSet<string> ChatToolNames() =>
         ListTools().Where(IsChatTool).Select(t => t.Name).ToHashSet(StringComparer.Ordinal);
 
+    // ============ 工具完整性检查（#2） ============
+
+    /// <summary>
+    /// 期望存在的基础工具集（名字 + 用途）。完整性检查据此核对「该有的工具是不是都在」。
+    /// 新增内置工具时同步补到这里，否则检查会漏报。
+    /// 注意：战斗工具在设置里被关闭时不参与检查（那是按配置隐藏，不是缺失）。
+    /// </summary>
+    private static readonly (string Name, string Purpose)[] ExpectedTools =
+    {
+        ("get_state", "读取当前游戏状态"),
+        ("send_message", "向角色发送消息"),
+        ("set_sprite", "设置立绘位置/透明度"),
+        ("animate", "播放立绘动画"),
+        ("get_scene_options", "列出当前可用场景选项"),
+        ("set_scene_option", "应用一个场景选项"),
+        ("add_wechat", "把角色加为微信好友"),
+        ("list_wechat_contacts", "列出微信好友"),
+        ("list_actors", "列出地图实体位置"),
+        ("pull_actor", "拉拽实体到场景"),
+        ("battle_start", "发起战斗"),
+        ("battle_attack", "战斗攻击"),
+        ("battle_status", "战斗状态"),
+        ("battle_end", "结束战斗"),
+        ("battle_list", "列出战斗")
+    };
+
+    /// <summary>单个工具的问题描述（缺失 / 描述为空 / schema 解析失败 / 重复注册）。</summary>
+    public sealed record ToolIssue(string Tool, string Severity, string Detail);
+
+    /// <summary>完整性检查结果。</summary>
+    public sealed record ToolIntegrityReport(
+        int Total,
+        int ChatVisible,
+        int External,
+        List<string> Missing,
+        List<ToolIssue> Issues,
+        bool Healthy)
+    {
+        /// <summary>一行摘要（可直接显示/写日志）。</summary>
+        public string Summary()
+        {
+            if (Healthy)
+                return $"工具完整性正常：共 {Total} 个（聊天可见 {ChatVisible}，外部 {External}）。";
+            var parts = new List<string>();
+            if (Missing.Count > 0) parts.Add($"缺失 {Missing.Count} 个：{string.Join("、", Missing)}");
+            if (Issues.Count > 0) parts.Add($"问题 {Issues.Count} 条：" + string.Join("；", Issues.Select(i => $"{i.Tool}({i.Severity}:{i.Detail})")));
+            return $"工具完整性问题：共 {Total} 个。" + string.Join(" ", parts);
+        }
+    }
+
+    /// <summary>
+    /// 真正核验工具清单：期望工具是否齐全、描述是否为空、参数 schema 是否能被解析成合法 JSON Schema、
+    /// 聊天工具集合是否可构建（命中不该暴露的工具则报问题）。返回结构化报告，健康与否一眼可见。
+    /// </summary>
+    public ToolIntegrityReport VerifyIntegrity()
+    {
+        var tools = ListTools();
+        var byName = tools.ToDictionary(t => t.Name, StringComparer.Ordinal);
+        var issues = new List<ToolIssue>();
+        var missing = new List<string>();
+        var battleOn = BattleSystemEnabled();
+
+        foreach (var (name, purpose) in ExpectedTools)
+        {
+            // 战斗工具在关闭时被有意隐藏，不算缺失。
+            var isBattle = name.StartsWith("battle_", StringComparison.Ordinal);
+            if (isBattle && !battleOn) continue;
+            if (!byName.ContainsKey(name)) missing.Add($"{name}（{purpose}）");
+        }
+
+        foreach (var t in tools)
+        {
+            if (string.IsNullOrWhiteSpace(t.Name))
+                issues.Add(new ToolIssue("(空名)", "error", "工具名为空"));
+            if (string.IsNullOrWhiteSpace(t.Description))
+                issues.Add(new ToolIssue(t.Name, "warn", "描述为空，模型看不到该工具的作用"));
+
+            // 参数 schema 必须能解析成对象（否则模型请求会带坏 tools 数组）。
+            if (!string.IsNullOrWhiteSpace(t.ParametersSchema))
+            {
+                try { _ = ParseSchemaNode(t.ParametersSchema, null); }
+                catch (Exception ex) { issues.Add(new ToolIssue(t.Name, "error", $"参数 schema 解析失败：{ex.Message}")); }
+            }
+            // 声明了参数却没给 schema 时，检查每个参数的 name/description 是否完整。
+            foreach (var p in t.Parameters)
+            {
+                if (string.IsNullOrWhiteSpace(p.Name))
+                    issues.Add(new ToolIssue(t.Name, "warn", "有参数未命名"));
+                else if (string.IsNullOrWhiteSpace(p.Description))
+                    issues.Add(new ToolIssue(t.Name, "warn", $"参数 {p.Name} 无描述"));
+            }
+        }
+
+        // 可构建聊天工具表 = 聊天链路不会被坏数据打断。
+        HashSet<string> chatNames;
+        try { chatNames = ChatToolNames(); }
+        catch (Exception ex)
+        {
+            chatNames = new HashSet<string>(StringComparer.Ordinal);
+            issues.Add(new ToolIssue("(chat)", "error", $"聊天工具集构建失败：{ex.Message}"));
+        }
+        // 不该暴露给聊天的工具若混进来，也报出来。
+        foreach (var bad in ChatExcludedTools)
+            if (chatNames.Contains(bad))
+                issues.Add(new ToolIssue(bad, "error", "本应排除却出现在聊天可见工具里"));
+
+        var healthy = missing.Count == 0 && issues.All(i => i.Severity != "error");
+        return new ToolIntegrityReport(
+            Total: tools.Count,
+            ChatVisible: chatNames.Count,
+            External: tools.Count(t => t.IsExternal),
+            Missing: missing,
+            Issues: issues,
+            Healthy: healthy);
+    }
+
     /// <summary>
     /// 应用内聊天要注入请求的 tools 数组，OpenAI function calling 线格式：
     /// <c>[{ "type":"function", "function":{ name, description, parameters } }]</c>。
