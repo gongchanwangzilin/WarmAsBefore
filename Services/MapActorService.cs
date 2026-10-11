@@ -204,6 +204,37 @@ public sealed class MapActorService
     public bool CanReach(string fromSceneId, string toSceneId)
         => fromSceneId == toSceneId || _map.FindShortest(fromSceneId, toSceneId) is not null;
 
+    /// <summary>
+    /// 让「某个实体」单独移动到目标场景（不牵扯其它实体，包括用户）。
+    /// 用于 #9 行进扩展：AI 可选不带用户单独走到某地——此时只改 AI 自己的位置，
+    /// 用户视角（MapService.CurrentSceneId）保持不动，由用户在 UI 里选择「跟上」。
+    /// </summary>
+    /// <returns>移动过程描述文本；找不到实体或目标不可达时返回空串。</returns>
+    public string MoveActorToScene(string actorId, string sceneNameOrId)
+    {
+        if (string.IsNullOrEmpty(actorId) || string.IsNullOrEmpty(sceneNameOrId)) return "";
+        MapActor? actor;
+        lock (_lock) _actors.TryGetValue(actorId, out actor);
+        if (actor is null) return "";
+        var target = _map.Map.SceneById(sceneNameOrId) ?? _map.Map.SceneByName(sceneNameOrId);
+        if (target is null) return "";
+        var from = string.IsNullOrEmpty(actor.SceneId) ? _map.CurrentSceneId : actor.SceneId;
+        if (from == target.Id) return $"（{actor.Name} 已经在 {target.Name}）";
+        var route = _map.FindShortest(from, target.Id);
+        if (route is null) return $"（{actor.Name} 从当前位置到 {target.Name} 还没有开通路线）";
+        lock (_lock) actor.SceneId = target.Id;
+        ActorMoved?.Invoke(actor);
+        var pathText = string.Join(" → ", route.Select(r => r.Name));
+        return $"（{actor.Name} 独自走到了 {target.Name}：{pathText}）";
+    }
+
+    /// <summary>取某实体当前的场景 Id；找不到返回空串。</summary>
+    public string SceneOfActor(string actorId)
+    {
+        if (string.IsNullOrEmpty(actorId)) return "";
+        lock (_lock) return _actors.TryGetValue(actorId, out var a) ? a.SceneId : "";
+    }
+
     private static string NamesOf(IReadOnlyList<PullRequest> reqs)
         => string.Join("、", reqs.Select(r => string.IsNullOrEmpty(r.PullerName) ? r.PullerId : r.PullerName)
             .Distinct());

@@ -379,6 +379,46 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
         await AfterModeEdit();
     }
 
+    // ============ 点击式工房：点一下就直接切换（#8） ============
+    // 设计取向：不做拖拽式强可视化，用户点条目=切到该场景条目、点模式=切到该条目下的模式，
+    // 由 SceneDirector 走既有的「选项可用性 + 变化检测」流程，结果直接回显在顶部状态栏。
+
+    /// <summary>点一下条目即应用该条目（无模式时用它；有模式时切到条目本身）。</summary>
+    [RelayCommand]
+    private async Task ApplyEntry(SceneLibraryEntry? entry)
+    {
+        entry ??= SelectedEntry;
+        if (entry is null) return;
+        await ApplyNow(entry, null);
+    }
+
+    /// <summary>点一下模式即应用该「条目/模式」组合。</summary>
+    [RelayCommand]
+    private async Task ApplyMode(SceneModeRow? row)
+    {
+        if (ModeOf(row) is not { } m || SelectedEntry is not { } e) return;
+        await ApplyNow(e, m);
+    }
+
+    /// <summary>把「点击选择」落成真正的场景切换（来源记为 Manual），并回显结果。</summary>
+    private async Task ApplyNow(SceneLibraryEntry entry, SceneMode? mode)
+    {
+        try
+        {
+            var r = await _director.ApplyOptionAsync(entry, mode, SceneApplySource.Manual);
+            // 结果直接写进状态栏：applied=已切换；unchanged=看不出变化/已生效；unavailable=此刻不可用（含原因）。
+            StateText = r.Message;
+            SyncModes();
+            OnPropertyChanged(nameof(CanEdit));
+            OnPropertyChanged(nameof(CanEditMode));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SceneLibrary.ApplyNow -> " + ex);
+            StateText = "切换失败：" + ex.Message;
+        }
+    }
+
     [RelayCommand]
     private void Back() => Shell.Current.GoToAsync("..");
 }

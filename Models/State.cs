@@ -218,4 +218,13 @@ public sealed record UserSettings
 
     /// <summary>特效帧切换间隔（毫秒）：只有一帧时表示「闪一下」的持续时长。</summary>
     public int WeatherEffectFrameMs { get; init; } = 120;
+
+    // ===== 行进扩展（#9） =====
+
+    /// <summary>AI 是否可单独出行（不带用户走）：开启后 AI 发【移动:】只移动自己，
+    /// 用户视角停原地并出现「跟上」入口；关闭则维持旧行为（AI 走到哪、用户跟到哪）。</summary>
+    public bool AiTravelAlone { get; init; }
+
+    /// <summary>AI 单独出行时，用户是否可以「跟上」（显示跟上按钮）。</summary>
+    public bool AllowFollowAi { get; init; } = true;
 }

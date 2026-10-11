@@ -185,18 +185,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.Mcp.McpOrchestrator _mcp;
     private readonly Modules.Tools.RuntimeManager _runtimes;
+    private readonly Modules.Tools.ToolManager _tools;
     private readonly SpeechService _speech;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
         Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
-        SpeechService speech)
+        Modules.Tools.ToolManager tools, SpeechService speech)
     {
         _settings = settings;
         _theme = theme;
         _bridge = bridge;
         _mcp = mcp;
         _runtimes = runtimes;
+        _tools = tools;
         // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
         _sandbox = sandbox;
         _speech = speech;
@@ -238,6 +240,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _lightningFramesText = string.Join("\n", s.LightningFrames ?? new List<string>());
         _rainFramesText = string.Join("\n", s.RainFrames ?? new List<string>());
         _weatherEffectFrameMs = s.WeatherEffectFrameMs.ToString();
+        _aiTravelAlone = s.AiTravelAlone;
+        _allowFollowAi = s.AllowFollowAi;
         _menuRight = s.MenuSide == "right";
         _chatStyle = string.IsNullOrEmpty(s.ChatStyle) ? "galgame" : s.ChatStyle;
         _chatStyleDisplay = ChatStyleDisplayOf(_chatStyle);
@@ -475,6 +479,37 @@ public sealed partial class SettingsViewModel : ObservableObject
         RefreshSandboxTrust();
     }
 
+    // ============ 工具完整性检查（#2） ============
+
+    /// <summary>最近一次完整性检查的结果文本（设置页「检查工具完整性」按钮写入）。</summary>
+    [ObservableProperty] private string _toolIntegrityText = "";
+    /// <summary>最近一次检查是否健康（决定结果文字颜色）。</summary>
+    [ObservableProperty] private bool _toolIntegrityHealthy = true;
+
+    /// <summary>
+    /// 运行一次工具完整性检查：核对期望工具是否齐全、描述/schema 是否完整、聊天工具集能否构建。
+    /// 结果写入 ToolIntegrityText + 日志，UI 一眼可读。
+    /// </summary>
+    [RelayCommand]
+    private void VerifyTools()
+    {
+        try
+        {
+            var report = _tools.VerifyIntegrity();
+            ToolIntegrityHealthy = report.Healthy;
+            ToolIntegrityText = report.Summary();
+            App.WriteLog("ToolIntegrity: " + report.Summary());
+            foreach (var i in report.Issues.Where(i => i.Severity == "error"))
+                App.WriteLog($"ToolIntegrity[error] {i.Tool}: {i.Detail}");
+        }
+        catch (Exception ex)
+        {
+            ToolIntegrityHealthy = false;
+            ToolIntegrityText = "工具完整性检查失败：" + ex.Message;
+            App.WriteLog("VerifyTools -> " + ex);
+        }
+    }
+
     // 自动更新
     [ObservableProperty] private bool _betaChannel;
     [ObservableProperty] private bool _isCheckingUpdate;
@@ -586,6 +621,11 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _rainFramesText = "";
     /// <summary>特效帧切换间隔（毫秒）：字符串承接 Entry.Text。</summary>
     [ObservableProperty] private string _weatherEffectFrameMs = "120";
+    // 行进扩展（#9）：AI 可单独出行 + 用户可选跟上
+    /// <summary>AI 是否可单独出行（不带用户）：开启后【移动:】只移动 AI 自己，用户视角停原地。</summary>
+    [ObservableProperty] private bool _aiTravelAlone;
+    /// <summary>AI 单独出行时用户是否可「跟上」（主界面出现跟上按钮）。</summary>
+    [ObservableProperty] private bool _allowFollowAi = true;
     [ObservableProperty] private bool _menuRight;
     [ObservableProperty] private string _chatStyle = "galgame";
     [ObservableProperty] private string _chatStyleDisplay = "剧本式";
@@ -948,6 +988,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnLightningFramesTextChanged(string value) => PersistSettings();
     partial void OnRainFramesTextChanged(string value) => PersistSettings();
     partial void OnWeatherEffectFrameMsChanged(string value) => PersistSettings();
+    partial void OnAiTravelAloneChanged(bool value) => PersistSettings();
+    partial void OnAllowFollowAiChanged(bool value) => PersistSettings();
 
     /// <summary>把多行文本按行拆成路径列表（去空行与首尾空白）。设置页「每行一个路径」用。</summary>
     private static List<string> SplitLines(string? text)
@@ -1142,6 +1184,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 LightningFrames = SplitLines(LightningFramesText),
                 RainFrames = SplitLines(RainFramesText),
                 WeatherEffectFrameMs = ParseFrameMs(WeatherEffectFrameMs),
+                AiTravelAlone = AiTravelAlone,
+                AllowFollowAi = AllowFollowAi,
                 FrostEnabled = FrostOn,
                 GlassEnabled = GlassOn,
                 LiquidEnabled = LiquidOn,

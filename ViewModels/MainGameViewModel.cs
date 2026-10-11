@@ -36,6 +36,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly Modules.Cg.CgStore _cg;
     private readonly Modules.Cg.CgViewPayload _cgView;
     private readonly Modules.Scene.SceneDirector _sceneDirector;
+    private readonly Services.MapActorService _mapActors;
 
     [ObservableProperty] private string _locationLabel = "家";
     [ObservableProperty] private string _timeLabel = "";
@@ -204,7 +205,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Market.GiftPanelService gifts, SettingsManager settings,
         Modules.Affection.AffectionLevelUpService levelUp,
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
-        Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal)
+        Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
+        Services.MapActorService mapActors)
     {
         _engine = engine;
         _chat = chat;
@@ -227,6 +229,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _cgView = cgView;
         _sceneDirector = sceneDirector;
         _cal = cal;
+        _mapActors = mapActors;
 
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
@@ -554,6 +557,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         }).ToList();
         SceneOptions.Clear();
         foreach (var it in items) SceneOptions.Add(it);
+        // 地点集合变了，左右切换按钮的可用态/相邻名要跟着重算（#9）。
+        RefreshSceneSwitch();
     }
 
     /// <summary>地图 overlay 里点场景直接走过去。</summary>
@@ -569,6 +574,89 @@ public sealed partial class MainGameViewModel : ObservableObject
         }
         catch (Exception ex) { App.WriteLog("MainGame.WalkToScene -> " + ex); }
         finally { IsWalking = false; }
+    }
+
+    // ============ 左右切换地点（#9） ============
+
+    /// <summary>当前可切换的地点数量（不含当前所在）。为 0 时左右按键置灰。</summary>
+    [ObservableProperty] private int _sceneSwitchCount;
+    /// <summary>是否存在可切换的目标地点；false 时左右切换按键全部置灰。</summary>
+    [ObservableProperty] private bool _hasSceneNeighbors;
+    /// <summary>左键是否可用；无目标时为 false（置灰）。</summary>
+    [ObservableProperty] private bool _canGoPrevScene;
+    /// <summary>右键是否可用；无目标时为 false（置灰）。</summary>
+    [ObservableProperty] private bool _canGoNextScene;
+    /// <summary>切换按钮上显示的「上一个地点」名（用于提示，可空）。</summary>
+    [ObservableProperty] private string _prevSceneLabel = "";
+    /// <summary>切换按钮上显示的「下一个地点」名（用于提示，可空）。</summary>
+    [ObservableProperty] private string _nextSceneLabel = "";
+
+    /// <summary>当前在 SceneOptions 中的索引；找不到时取 0。</summary>
+    private int CurrentSceneIndex()
+    {
+        var id = _map.CurrentSceneId;
+        for (var i = 0; i < SceneOptions.Count; i++)
+            if (SceneOptions[i].SceneId == id) return i;
+        return SceneOptions.Count > 0 ? 0 : -1;
+    }
+
+    /// <summary>
+    /// 刷新左右切换按钮的可用态与相邻地点名。呼据点：
+    /// 场景列表变化、走到新地点、存档载入 —— 只要地点集合或当前位置变了就要重算，否则按钮状态会滞后。
+    /// </summary>
+    private void RefreshSceneSwitch()
+    {
+        try
+        {
+            var n = SceneOptions.Count;
+            SceneSwitchCount = n;
+            if (n <= 1)
+            {
+                // 只有一个（或零个）地点：没有可切的目标，左右都置灰。
+                HasSceneNeighbors = false;
+                CanGoPrevScene = false;
+                CanGoNextScene = false;
+                PrevSceneLabel = NextSceneLabel = "";
+                return;
+            }
+            var idx = CurrentSceneIndex();
+            if (idx < 0)
+            {
+                HasSceneNeighbors = false; CanGoPrevScene = false; CanGoNextScene = false;
+                PrevSceneLabel = NextSceneLabel = ""; return;
+            }
+            // 循环切换：首尾相接，永远有相邻项（因为 n>1）。
+            var prev = SceneOptions[(idx - 1 + n) % n];
+            var next = SceneOptions[(idx + 1) % n];
+            HasSceneNeighbors = true;
+            CanGoPrevScene = true;
+            CanGoNextScene = true;
+            PrevSceneLabel = prev.Label;
+            NextSceneLabel = next.Label;
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.RefreshSceneSwitch -> " + ex); }
+    }
+
+    /// <summary>切换到上一个地点（首尾循环）。无目标时静默忽略。</summary>
+    [RelayCommand]
+    private async Task PrevSceneAsync()
+    {
+        var n = SceneOptions.Count;
+        if (n <= 1) return;
+        var idx = CurrentSceneIndex();
+        if (idx < 0) return;
+        await WalkToScene(SceneOptions[(idx - 1 + n) % n].SceneId);
+    }
+
+    /// <summary>切换到下一个地点（首尾循环）。无目标时静默忽略。</summary>
+    [RelayCommand]
+    private async Task NextSceneAsync()
+    {
+        var n = SceneOptions.Count;
+        if (n <= 1) return;
+        var idx = CurrentSceneIndex();
+        if (idx < 0) return;
+        await WalkToScene(SceneOptions[(idx + 1) % n].SceneId);
     }
 
     /// <summary>好感/信任变化时同步回角色状态，保证自动保存真正落盘。</summary>
@@ -1054,7 +1142,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             try
             {
                 IsWalking = true;
-                var walk = await _map.MoveToAsync(sceneName);
+                var walk = await ExecuteSingleMoveAsync(sceneName);
                 if (!string.IsNullOrWhiteSpace(walk)) notes.Add(walk);
             }
             catch (Exception ex)
@@ -1282,14 +1370,54 @@ public sealed partial class MainGameViewModel : ObservableObject
         return (segments, hasReaction);
     }
 
-    /// <summary>执行一次【移动:场景名】，返回移动过程描述（作为一段回答展示）。</summary>
+    /// <summary>
+    /// 执行一次【移动:场景名】，返回移动过程描述（作为一段回答展示）。
+    /// #9 行进扩展：
+    ///  - 设置「AI 单独出行」关闭（默认）→ 维持旧行为：移动用户视角，AI 走到哪用户跟到哪。
+    ///  - 设置「AI 单独出行」开启 → 只移动 AI 自己的 actor 位置，用户视角停原地；
+    ///    随后若「允许跟上」，主界面出现「跟上」入口（FollowAiCommand），由用户决定是否跟上。
+    /// </summary>
     private async Task<string?> ExecuteSingleMoveAsync(string sceneName)
     {
         if (string.IsNullOrEmpty(sceneName)) return null;
         try
         {
             IsWalking = true;
-            return await _map.MoveToAsync(sceneName);
+            var alone = _settings.Current.AiTravelAlone;
+
+            if (!alone)
+            {
+                // 旧行为：AI 带着用户一起走（移动用户视角）。
+                var walk = await _map.MoveToAsync(sceneName);
+                ClearFollowOffer();
+                return walk;
+            }
+
+            // 新行为：AI 单独走。先把当前 AI 注册成 actor（若尚未注册），再单独移动它。
+            var actorId = EnsureAiActor();
+            var target = _map.Map.SceneById(sceneName) ?? _map.Map.SceneByName(sceneName);
+            if (target is null) return null;
+
+            var note = _mapActors.MoveActorToScene(actorId, target.Id);
+            if (string.IsNullOrWhiteSpace(note))
+            {
+                // 无法单独移动（不可达等）：退回旧行为，保证 AI 仍能到达目的地。
+                ClearFollowOffer();
+                return await _map.MoveToAsync(sceneName);
+            }
+            // 成功单独出行：用户视角没动。若允许跟上且用户不在同一场景，亮出「跟上」入口。
+            var userScene = _map.CurrentSceneId;
+            if (_settings.Current.AllowFollowAi && userScene != target.Id)
+            {
+                PendingFollowSceneId = target.Id;
+                PendingFollowSceneName = target.Name;
+                CanFollowAi = true;
+            }
+            else
+            {
+                ClearFollowOffer();
+            }
+            return note;
         }
         catch (Exception ex)
         {
@@ -1297,6 +1425,55 @@ public sealed partial class MainGameViewModel : ObservableObject
             return null;
         }
         finally { IsWalking = false; }
+    }
+
+    // ============ 行进扩展：AI 单独出行 / 用户跟上（#9） ============
+
+    /// <summary>「跟上」入口是否可用：AI 单独走到别处且用户没跟上时为 true。</summary>
+    [ObservableProperty] private bool _canFollowAi;
+    /// <summary>待跟上的目标场景名（按钮/提示用）。</summary>
+    [ObservableProperty] private string _pendingFollowSceneName = "";
+    /// <summary>待跟上的目标场景 Id（内部用）。</summary>
+    private string PendingFollowSceneId { get; set; } = "";
+
+    /// <summary>确保当前 AI 角色已在地图 actor 里注册，返回其 actor Id。</summary>
+    private string EnsureAiActor()
+    {
+        var ch = _engine.ActiveCharacter;
+        var id = ch?.Profile.Id;
+        var name = ch?.Profile.Name ?? CharacterName;
+        if (string.IsNullOrEmpty(id)) id = "ai_active";
+        if (_mapActors.Get(id) is null)
+            _mapActors.Register(id, name, isUser: false, sceneId: _map.CurrentSceneId);
+        return id;
+    }
+
+    /// <summary>清掉「跟上」提示（AI 未单独出行 / 已跟上 / 用户已同场景时调用）。</summary>
+    private void ClearFollowOffer()
+    {
+        CanFollowAi = false;
+        PendingFollowSceneId = "";
+        PendingFollowSceneName = "";
+    }
+
+    /// <summary>用户选择「跟上」AI：把用户视角移动到 AI 所在的场景。</summary>
+    [RelayCommand]
+    private async Task FollowAiAsync()
+    {
+        if (!CanFollowAi || string.IsNullOrEmpty(PendingFollowSceneId)) return;
+        var sceneId = PendingFollowSceneId;
+        try
+        {
+            IsWalking = true;
+            var walk = await _map.MoveToAsync(sceneId);
+            if (!string.IsNullOrWhiteSpace(walk)) AddMessage("assistant", walk);
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.FollowAi -> " + ex); }
+        finally
+        {
+            IsWalking = false;
+            ClearFollowOffer();
+        }
     }
 
     /// <summary>触发单个 CG 标记：解锁 + 全屏播放 + 好感积分询问。</summary>
@@ -1525,6 +1702,10 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     [RelayCommand]
     private async Task OpenWorldbook() => await Shell.Current.GoToAsync("worldbook");
+
+    /// <summary>打开场景库（点击式场景工房）：把当前场景切到所选条目/模式，无需拖拽。</summary>
+    [RelayCommand]
+    private async Task OpenSceneLibrary() => await Shell.Current.GoToAsync("scenelibrary");
 
     [RelayCommand]
     private async Task OpenSave() => await Shell.Current.GoToAsync("save");
