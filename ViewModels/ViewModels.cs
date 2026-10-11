@@ -227,6 +227,17 @@ public sealed partial class SettingsViewModel : ObservableObject
         _novelTesting = s.NovelTestingEnabled;
         _showAffection = s.ShowAllAffection;
         _affectionLevelUp = s.AffectionLevelUpEnabled;
+        _battleEnabled = s.BattleEnabled;
+        _battleAiCanStart = s.BattleAiCanStart;
+        _lightningEnabled = s.LightningEnabled;
+        _lightningProbability = s.LightningProbability.ToString("0.###");
+        _rainEventEnabled = s.RainEventEnabled;
+        _rainProbability = s.RainProbability.ToString("0.###");
+        _lightningSfxPath = s.LightningSfxPath;
+        _rainSfxPath = s.RainSfxPath;
+        _lightningFramesText = string.Join("\n", s.LightningFrames ?? new List<string>());
+        _rainFramesText = string.Join("\n", s.RainFrames ?? new List<string>());
+        _weatherEffectFrameMs = s.WeatherEffectFrameMs.ToString();
         _menuRight = s.MenuSide == "right";
         _chatStyle = string.IsNullOrEmpty(s.ChatStyle) ? "galgame" : s.ChatStyle;
         _chatStyleDisplay = ChatStyleDisplayOf(_chatStyle);
@@ -557,6 +568,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _novelTesting;
     [ObservableProperty] private bool _showAffection;
     [ObservableProperty] private bool _affectionLevelUp = true;
+    // 战斗系统开关：关闭后 AI 不能开战、battle_* 工具被剔除
+    [ObservableProperty] private bool _battleEnabled = true;
+    [ObservableProperty] private bool _battleAiCanStart = true;
+    // 天气事件（打雷/下雨）：开关 + 概率 + 音效/帧图
+    [ObservableProperty] private bool _lightningEnabled = true;
+    /// <summary>打雷概率（0-1）：用字符串承接 Entry.Text，落盘时再解析。</summary>
+    [ObservableProperty] private string _lightningProbability = "0.06";
+    [ObservableProperty] private bool _rainEventEnabled = true;
+    /// <summary>下雨概率（0-1）：同上，字符串承接。</summary>
+    [ObservableProperty] private string _rainProbability = "0.15";
+    [ObservableProperty] private string _lightningSfxPath = "";
+    [ObservableProperty] private string _rainSfxPath = "";
+    /// <summary>打雷帧图路径（每行一个；空则用默认白闪）。</summary>
+    [ObservableProperty] private string _lightningFramesText = "";
+    /// <summary>下雨帧图路径（每行一个；空则不显示雨视觉）。</summary>
+    [ObservableProperty] private string _rainFramesText = "";
+    /// <summary>特效帧切换间隔（毫秒）：字符串承接 Entry.Text。</summary>
+    [ObservableProperty] private string _weatherEffectFrameMs = "120";
     [ObservableProperty] private bool _menuRight;
     [ObservableProperty] private string _chatStyle = "galgame";
     [ObservableProperty] private string _chatStyleDisplay = "剧本式";
@@ -908,6 +937,41 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
     partial void OnShowAffectionChanged(bool value) => PersistSettings();
     partial void OnAffectionLevelUpChanged(bool value) => PersistSettings();
+    partial void OnBattleEnabledChanged(bool value) => PersistSettings();
+    partial void OnBattleAiCanStartChanged(bool value) => PersistSettings();
+    partial void OnLightningEnabledChanged(bool value) => PersistSettings();
+    partial void OnLightningProbabilityChanged(string value) => PersistSettings();
+    partial void OnRainEventEnabledChanged(bool value) => PersistSettings();
+    partial void OnRainProbabilityChanged(string value) => PersistSettings();
+    partial void OnLightningSfxPathChanged(string value) => PersistSettings();
+    partial void OnRainSfxPathChanged(string value) => PersistSettings();
+    partial void OnLightningFramesTextChanged(string value) => PersistSettings();
+    partial void OnRainFramesTextChanged(string value) => PersistSettings();
+    partial void OnWeatherEffectFrameMsChanged(string value) => PersistSettings();
+
+    /// <summary>把多行文本按行拆成路径列表（去空行与首尾空白）。设置页「每行一个路径」用。</summary>
+    private static List<string> SplitLines(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return new List<string>();
+        return text.Split('\n', '\r')
+            .Select(l => l.Trim())
+            .Where(l => l.Length > 0)
+            .ToList();
+    }
+
+    /// <summary>解析 0-1 概率文本；非法或越界则回退默认值。</summary>
+    private static double ParseProb(string? text, double fallback)
+    {
+        if (double.TryParse((text ?? "").Trim(), out var v)) return Math.Clamp(v, 0, 1);
+        return fallback;
+    }
+
+    /// <summary>解析帧间隔毫秒文本；非法则回退 120，并夹在 30..5000。</summary>
+    private static int ParseFrameMs(string? text)
+    {
+        if (int.TryParse((text ?? "").Trim(), out var v)) return Math.Clamp(v, 30, 5000);
+        return 120;
+    }
     partial void OnMenuRightChanged(bool value) => PersistSettings();
     partial void OnChatStyleDisplayChanged(string value) { ChatStyle = ChatStyleKeyOf(value); PersistSettings(); }
     partial void OnAllowSilenceChanged(bool value) => PersistSettings();
@@ -1067,6 +1131,17 @@ public sealed partial class SettingsViewModel : ObservableObject
                 NovelTestingEnabled = NovelTesting,
                 ShowAllAffection = ShowAffection,
                 AffectionLevelUpEnabled = AffectionLevelUp,
+                BattleEnabled = BattleEnabled,
+                BattleAiCanStart = BattleAiCanStart,
+                LightningEnabled = LightningEnabled,
+                LightningProbability = ParseProb(LightningProbability, 0.06),
+                RainEventEnabled = RainEventEnabled,
+                RainProbability = ParseProb(RainProbability, 0.15),
+                LightningSfxPath = (LightningSfxPath ?? "").Trim(),
+                RainSfxPath = (RainSfxPath ?? "").Trim(),
+                LightningFrames = SplitLines(LightningFramesText),
+                RainFrames = SplitLines(RainFramesText),
+                WeatherEffectFrameMs = ParseFrameMs(WeatherEffectFrameMs),
                 FrostEnabled = FrostOn,
                 GlassEnabled = GlassOn,
                 LiquidEnabled = LiquidOn,

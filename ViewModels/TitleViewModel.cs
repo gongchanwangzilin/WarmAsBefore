@@ -57,6 +57,24 @@ public sealed partial class TitleViewModel : ObservableObject
         catch (Exception ex) { App.WriteLog("Title: AcknowledgeDisclaimer EX -> " + ex); }
     }
 
+    /// <summary>不同意免责声明：直接退出应用（用户明确要求「不同意则退出」）。</summary>
+    [RelayCommand]
+    private void DeclineDisclaimer()
+    {
+        try
+        {
+#if ANDROID
+            Android.OS.Process.KillProcess(Android.OS.Process.MyPid());
+#else
+            Application.Current?.Quit();
+#endif
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Title: DeclineDisclaimer EX -> " + ex.Message);
+        }
+    }
+
     /// <summary>有存档 → 「再续情缘」（读最后一次游玩的存档直接继续）；无存档 → 「创建新欢」（新开一局）。</summary>
     [RelayCommand]
     private async Task RefreshState()

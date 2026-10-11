@@ -67,6 +67,12 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     /// <summary>场景亮度遮罩 0..1（由生效模式的灯光基调换算）；主界面在背景层之上叠黑色遮罩绑这个值。</summary>
     [ObservableProperty] private double _sceneDim;
+    /// <summary>打雷白闪遮罩不透明度 0..1：1=全白，随后自动渐变回 0。</summary>
+    [ObservableProperty] private double _flashOpacity;
+    /// <summary>当前天气特效帧图（打雷/下雨的图片或动画帧）；null 表示不显示。</summary>
+    [ObservableProperty] private ImageSource? _weatherFxImage;
+    /// <summary>天气特效帧层是否可见。</summary>
+    [ObservableProperty] private bool _weatherFxVisible;
     [ObservableProperty] private double _spriteX = 0;
     [ObservableProperty] private double _spriteY = 0;
     [ObservableProperty] private double _spriteScale = 1.0;
@@ -225,6 +231,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
         _chat.SetAllowSilence(_settings.Current.AllowSilence);
+        // 设置变更时把天气事件参数同步进 SceneDirector（改概率/开关后无需重启即可生效）。
+        _settings.Applied += SyncWeatherEventConfig;
         SilenceHintText = _settings.Current.AllowSilence
             ? "💡 已开启「允许沉默」：角色在不想说话时会选择不回复，这是正常的，不必每次提问都强求答复。"
             : "";
@@ -263,6 +271,8 @@ public sealed partial class MainGameViewModel : ObservableObject
             _map.MapChanged += OnMapChanged;
             _chat.SetMapContext(BuildMapContext() + "\n" + _sceneDirector.BuildContext());
             _sceneDirector.ModeApplied += OnSceneModeApplied;
+            _sceneDirector.WeatherEventTriggered += OnWeatherEvent;
+            SyncWeatherEventConfig();
             _ = _sceneDirector.EvaluateTimeNowAsync();
             ApplyScene(_map.CurrentScene);
             RefreshSceneOptions();
@@ -1061,6 +1071,90 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (!string.IsNullOrEmpty(sceneNote))
             cleanReply = cleanReply + "\n" + sceneNote;
         return cleanReply;
+    }
+
+    /// <summary>把设置里的天气事件参数同步进 SceneDirector（设置变更与启动时各调一次）。</summary>
+    private void SyncWeatherEventConfig()
+    {
+        var s = _settings.Current;
+        _sceneDirector.SetWeatherEventConfig(new Modules.Scene.SceneDirector.WeatherEventConfig
+        {
+            LightningEnabled = s.LightningEnabled,
+            LightningProbability = s.LightningProbability,
+            RainEventEnabled = s.RainEventEnabled,
+            RainProbability = s.RainProbability
+        });
+    }
+
+    /// <summary>
+    /// 天气事件回调（打雷/下雨，可能在 Timer 线程）：
+    ///  - 打雷：若配了帧图则按序播放（播放期间叠图片），否则默认「屏幕白一下再慢慢恢复」；
+    ///    同时按配置播放雷声；白闪时长与帧切换间隔取 WeatherEffectFrameMs。
+    ///  - 下雨：播放雨声（若配了）；若配了雨帧则循环显示。
+    /// 全程切到 UI 线程渲染，异常吞掉不影响主对话。
+    /// </summary>
+    private void OnWeatherEvent(Modules.Scene.SceneDirector.WeatherEventKind kind, string? weather)
+    {
+        try
+        {
+            var s = _settings.Current;
+            var frames = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
+                ? s.LightningFrames
+                : s.RainFrames;
+            var sfx = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
+                ? s.LightningSfxPath
+                : s.RainSfxPath;
+            var frameMs = Math.Clamp(s.WeatherEffectFrameMs, 30, 5000);
+
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try
+                {
+                    // 音效：打雷/下雨各自独立，音量为当前 SFX 档。
+                    if (!string.IsNullOrWhiteSpace(sfx))
+                        _audio.PlaySfxFile(sfx);
+
+                    // 视觉：有帧图则按序切换；打雷且无帧图 → 默认白闪。
+                    var usable = frames.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+                    if (usable.Count > 0)
+                    {
+                        WeatherFxVisible = true;
+                        var loops = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
+                            ? 1 // 打雷只播一遍
+                            : 3; // 下雨循环几轮（受雨声时长约束，简单起见固定 3 轮）
+                        for (var loop = 0; loop < loops; loop++)
+                        {
+                            foreach (var f in usable)
+                            {
+                                try { WeatherFxImage = ImageSource.FromFile(f); } catch { }
+                                await Task.Delay(frameMs);
+                            }
+                            if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning) break;
+                        }
+                        WeatherFxVisible = false;
+                        WeatherFxImage = null;
+                    }
+                    else if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning)
+                    {
+                        // 默认表现：屏幕白一下，再慢慢恢复。
+                        FlashOpacity = 1.0;
+                        await Task.Delay(frameMs);
+                        var steps = 12;
+                        for (var i = steps; i >= 0; i--)
+                        {
+                            FlashOpacity = i / (double)steps * 0.9;
+                            await Task.Delay(45);
+                        }
+                        FlashOpacity = 0;
+                    }
+                }
+                catch (Exception ex) { App.WriteLog("MainGame.OnWeatherEvent(render) -> " + ex); }
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGame.OnWeatherEvent -> " + ex);
+        }
     }
 
     /// <summary>场景库模式被应用（地图/纯库场景）时渲染背景与 BGM。</summary>

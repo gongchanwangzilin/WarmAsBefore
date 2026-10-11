@@ -80,10 +80,17 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                       IsVisible="{Binding SceneVideoOn}"
                                       Aspect="AspectFill" Opacity="0.5"
                                       ShouldAutoPlay="True" ShouldLoopPlayback="True"
-                                      HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 场景亮度遮罩：dim 模式压暗背景/视频（立绘在它之上，不受影响）。
-                     没有这层，"关灯"在画面上根本看不出来，也就无从判断某个选项是否真的生效。 -->
+                      没有这层，"关灯"在画面上根本看不出来，也就无从判断某个选项是否真的生效。 -->
                 <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
+                         HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 天气特效帧层（打雷/下雨的图片或动画帧）：在亮度遮罩之上、立绘之下。 -->
+                <Image Source="{Binding WeatherFxImage}" IsVisible="{Binding WeatherFxVisible}"
+                       Aspect="AspectFill" InputTransparent="True"
+                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 打雷白闪层：覆盖整个画面（含立绘），默认「屏幕白一下再慢慢恢复」。 -->
+                <BoxView Color="White" Opacity="{Binding FlashOpacity}" InputTransparent="True"
                          HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 立绘支持位置、透明度、缩放，手机模式更大。
                      尺寸由 VM 显式给出（不再依赖 MaximumHeightRequest + 自动 measure）：
@@ -363,6 +370,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 场景亮度遮罩（同手机版说明） -->
                 <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
+                         HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 天气特效帧层 + 打雷白闪层（同手机版说明） -->
+                <Image Source="{Binding WeatherFxImage}" IsVisible="{Binding WeatherFxVisible}"
+                       Aspect="AspectFill" InputTransparent="True"
+                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <BoxView Color="White" Opacity="{Binding FlashOpacity}" InputTransparent="True"
                          HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 立绘支持位置、透明度、缩放；尺寸由 VM 按标定显式给出（见手机版同处说明） -->
                 <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"

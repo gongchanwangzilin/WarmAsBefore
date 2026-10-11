@@ -9,12 +9,44 @@ namespace WarmAsBefore.Modules.Battle;
 /// </summary>
 public static class BattleTools
 {
+    /// <summary>
+    /// 战斗系统是否可用：读用户设置里的总开关（BattleEnabled）。
+    /// 设置服务取不到时（极早期/测试环境）默认可用，避免误伤。
+    /// </summary>
+    private static bool BattleAvailable()
+    {
+        try
+        {
+            var services = Modules.Tools.ServicesHelper.GetServices();
+            var settings = services?.GetService(typeof(Services.SettingsManager)) as Services.SettingsManager;
+            return settings?.Current.BattleEnabled ?? true;
+        }
+        catch { return true; }
+    }
+
+    /// <summary>AI 是否被允许主动发起战斗（BattleAiCanStart）。</summary>
+    private static bool AiCanStartBattle()
+    {
+        try
+        {
+            var services = Modules.Tools.ServicesHelper.GetServices();
+            var settings = services?.GetService(typeof(Services.SettingsManager)) as Services.SettingsManager;
+            return settings?.Current.BattleAiCanStart ?? true;
+        }
+        catch { return true; }
+    }
+
+    private const string DisabledMsg = "{\"error\":\"战斗系统已在设置中关闭。\"}";
+    private const string AiDisabledMsg = "{\"error\":\"AI 主动发起战斗已在设置中关闭，请由用户手动开始战斗。\"}";
+
     public static void Register(ToolManager manager)
     {
         manager.RegisterBuiltin("battle_start",
             "开始一场新的回合制战斗，参数：battle_id、attacker_hp、defender_hp、attacker_attack、defender_attack、attacker_name、defender_name（可选）。",
             async args =>
             {
+                if (!BattleAvailable()) return DisabledMsg;
+                if (!AiCanStartBattle()) return AiDisabledMsg;
                 try
                 {
                     var root = Parse(args);
@@ -47,6 +79,7 @@ public static class BattleTools
             "在已开始的战斗里执行一轮攻击，参数：battle_id、is_attacker（true=攻击方行动，false=防御方反击）。",
             async args =>
             {
+                if (!BattleAvailable()) return DisabledMsg;
                 try
                 {
                     var root = Parse(args);

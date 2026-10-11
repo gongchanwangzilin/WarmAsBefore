@@ -180,4 +180,42 @@ public sealed record UserSettings
 
     /// <summary>免责声明已确认（首次启动标题页弹层「知道了」后写 true；不再重复弹）。</summary>
     public bool DisclaimerAcknowledged { get; init; }
+
+    // ===== 战斗系统 =====
+
+    /// <summary>战斗系统总开关：关闭时 AI 不得发起战斗，battle_* 工具从可用列表剔除，战斗入口隐藏。</summary>
+    public bool BattleEnabled { get; init; } = true;
+
+    /// <summary>是否允许 AI 主动发起战斗（关闭时只有用户手动点进战斗页才能开战）。</summary>
+    public bool BattleAiCanStart { get; init; } = true;
+
+    // ===== 天气事件（打雷 / 下雨） =====
+
+    /// <summary>打雷事件总开关：关闭则任何天气都不会触发打雷与白闪。</summary>
+    public bool LightningEnabled { get; init; } = true;
+
+    /// <summary>打雷触发概率基准（0..1，每分钟 tick 判定的基准值）。
+    /// 雨天/极阴天按此值缩放，打雷天按此值的 4 倍（上限 1）——即「打雷天概率一般，雨天概率小」。</summary>
+    public double LightningProbability { get; init; } = 0.06;
+
+    /// <summary>下雨事件总开关：关闭则天气切到雨天时不会播放雨声/雨动画。</summary>
+    public bool RainEventEnabled { get; init; } = true;
+
+    /// <summary>下雨触发概率（0..1，天气进入雨天时每分钟判定一次的基准值）。</summary>
+    public double RainProbability { get; init; } = 0.15;
+
+    /// <summary>打雷音效文件路径（绝对路径；空则不打雷声，仅白闪）。</summary>
+    public string LightningSfxPath { get; init; } = "";
+
+    /// <summary>下雨音效文件路径（绝对路径；空则不播雨声）。</summary>
+    public string RainSfxPath { get; init; } = "";
+
+    /// <summary>打雷特效图片/动画帧序列（绝对路径，按次序顺序切换；为空则用默认「白一下再慢慢恢复」）。</summary>
+    public List<string> LightningFrames { get; init; } = new();
+
+    /// <summary>下雨特效图片/动画帧序列（绝对路径，按次序循环切换；为空则不显示雨视觉）。</summary>
+    public List<string> RainFrames { get; init; } = new();
+
+    /// <summary>特效帧切换间隔（毫秒）：只有一帧时表示「闪一下」的持续时长。</summary>
+    public int WeatherEffectFrameMs { get; init; } = 120;
 }
