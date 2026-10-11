@@ -702,7 +702,10 @@ public sealed class ToolManager : IDisposable
             "把某个实体（用户或另一个角色）拉到指定场景。"
             + "需要一次拉多个不同目标时，用批量形式：传 targets 数组（每项 {target, scene}），puller 是发起者。"
             + "若同一目标同时被多个方向拉拽，服务会仲裁：方向一致则跟随，方向不同则目标不动，"
-            + "并在返回里说明是谁在拉、为什么没动；不可达/不同场景/没指定目的地会被拒绝并列在 rejected 里。",
+            + "并在返回里说明是谁在拉、为什么没动；不可达/不同场景/没指定目的地会被拒绝并列在 rejected 里。"
+            + "另有一种「自己走」的形式：传 move_self=true（+scene），让 puller 自己走到 scene；"
+            + "此时用 carry_user=true/false 决定这次行动是否带上用户（用户不在同一处就带不走，返回里会说明）。"
+            + "无论拉拽还是自己走，事件都会广播给同场景的在场者（broadcast）。",
             async args =>
             {
                 var services = ServicesHelper.GetServices();
@@ -712,6 +715,7 @@ public sealed class ToolManager : IDisposable
                 var map = services.GetService(typeof(MapService)) as MapService;
 
                 string puller = "", target = "", scene = "";
+                bool moveSelf = false, carryUser = false;
                 var batch = new List<(string Target, string Scene)>();
                 try
                 {
@@ -720,6 +724,12 @@ public sealed class ToolManager : IDisposable
                     if (root.TryGetProperty("puller", out var p)) puller = p.GetString() ?? "";
                     if (root.TryGetProperty("target", out var t)) target = t.GetString() ?? "";
                     if (root.TryGetProperty("scene", out var s)) scene = s.GetString() ?? "";
+                    if (root.TryGetProperty("move_self", out var ms)
+                        && (ms.ValueKind == JsonValueKind.True || ms.ValueKind == JsonValueKind.False))
+                        moveSelf = ms.GetBoolean();
+                    if (root.TryGetProperty("carry_user", out var cu)
+                        && (cu.ValueKind == JsonValueKind.True || cu.ValueKind == JsonValueKind.False))
+                        carryUser = cu.GetBoolean();
                     // 批量形式：targets 是对象数组
                     if (root.TryGetProperty("targets", out var arr) && arr.ValueKind == JsonValueKind.Array)
                     {
@@ -743,6 +753,21 @@ public sealed class ToolManager : IDisposable
                     if (map is null) return name;
                     var sc = map.Map.SceneById(name) ?? map.Map.SceneByName(name);
                     return sc is null ? name : sc.Id;
+                }
+
+                // 自己走（可选带用户）：move_self=true 时走这里
+                if (moveSelf && scene.Length > 0)
+                {
+                    var me = puller.Length == 0 ? "ai" : puller;
+                    var (note, carried, bc) = actors.MoveWithUser(me, ResolveScene(scene), carryUser);
+                    return JsonSerializer.Serialize(new
+                    {
+                        ok = note.Length > 0,
+                        move_self = true,
+                        carried_user = carried,
+                        note,
+                        broadcast = bc
+                    });
                 }
 
                 // 批量：一次拉多个不同目标，各自独立仲裁
@@ -769,7 +794,7 @@ public sealed class ToolManager : IDisposable
                 }
 
                 if (target.Length == 0 || scene.Length == 0)
-                    return JsonSerializer.Serialize(new { ok = false, message = "需要参数 puller、target、scene，或用 targets 数组批量拉拽" });
+                    return JsonSerializer.Serialize(new { ok = false, message = "需要参数 puller、target、scene，或用 targets 数组批量拉拽，或 move_self=true + scene 自己走" });
 
                 var sceneId = ResolveScene(scene);
                 var result = await actors.PullAsync(puller.Length == 0 ? "ai" : puller,
