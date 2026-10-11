@@ -44,6 +44,11 @@ public sealed class PullArbitrationResult
     public string Message { get; set; } = "";
     /// <summary>本次涉及的所有拉拽发起者（用于"返回给哪些人拉了用户"）。</summary>
     public List<PullRequest> Pulls { get; set; } = new();
+    /// <summary>
+    /// 被拒绝的拉拽及原因（人不在场 / 不同场景 / 没指定目的地 / 目的地不可达）。
+    /// 用于向 AI 解释「为什么你没拉动」。
+    /// </summary>
+    public List<string> Rejected { get; set; } = new();
     /// <summary>目标最终所在场景 Id（未移动时为原场景）。</summary>
     public string FinalSceneId { get; set; } = "";
     /// <summary>目标是否发生了抖动（多方向冲突但被抑制；只有用户目标才会抖）。</summary>

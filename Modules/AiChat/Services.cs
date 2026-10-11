@@ -419,10 +419,68 @@ public sealed class ChatEngine
         return _sessions[charId];
     }
 
+    /// <summary>
+    /// 历史裁剪：保留首条 system 与最近 KeepTurns 轮，超出的中间消息**不再直接丢弃**，
+    /// 而是先折叠成一条上下文摘要并追加到 system 里（这就是「上下文总结率」优化的核心）。
+    ///
+    /// 旧做法是 RemoveRange 一删了之，等于把前情彻底忘掉；对话一长，AI 就不知道
+    /// 「之前发生过什么」，容易前后矛盾、人设漂移。新做法把被裁掉的内容压缩成摘要，
+    /// 让 AI 始终能看到一条贯穿全程的脉络。
+    ///
+    /// 设计要点：
+    ///  · 摘要以 [前情摘要] 段落挂在 system 末尾，多轮累积时后写覆盖先写，始终保持一份、不无限膨胀；
+    ///  · 只对「user / assistant 且正文非空」的消息做摘要，绝不触碰 tool_calls / tool 成对消息
+    ///    （ToolHint 里写死的前提：裁历史绝不能把这两者裁散，否则严格端点会拒收整段历史）；
+    ///  · 摘要是尽力而为：模型不可用时保留一个本地摘录兜底，绝不因摘要失败而中断对话。
+    /// </summary>
     private static void Trim(List<ChatMessage> msgs)
     {
-        if (msgs.Count > 2 * ChatSession.KeepTurns + 1)
-            msgs.RemoveRange(1, msgs.Count - 2 * ChatSession.KeepTurns - 1);
+        if (msgs.Count <= 2 * ChatSession.KeepTurns + 1) return;
+
+        var cutCount = msgs.Count - 2 * ChatSession.KeepTurns - 1;
+        var dropped = msgs.GetRange(1, cutCount);
+        msgs.RemoveRange(1, cutCount);
+
+        var digest = BuildDigest(dropped);
+        if (digest.Length == 0) return;
+        MergeDigestIntoSystem(msgs, digest);
+    }
+
+    /// <summary>
+    /// 把被裁掉的一批消息折叠成一段可读的「前情摘要」。
+    /// 这里用纯本地摘录（不额外发请求）：每轮取 user/assistant 正文各截断，
+    /// 这样裁剪是零延迟、零额度的，且绝不会因为摘要请求失败而卡住聊天。
+    /// </summary>
+    private static string BuildDigest(List<ChatMessage> dropped)
+    {
+        var sb = new System.Text.StringBuilder();
+        foreach (var m in dropped)
+        {
+            // 只摘要纯正文字段：带 tool_calls 的 assistant（Content 可能为 null）和 role=tool 结果都跳过，
+            // 保证摘要是「人话」，也不会把工具往返的配对关系带进 system。
+            if (m.Role != "user" && m.Role != "assistant") continue;
+            if (m.ToolCalls is { Count: > 0 }) continue;
+            var text = (m.Content ?? "").Trim();
+            if (text.Length == 0) continue;
+            // 用户消息里带 [上下文] 前缀（Send 注入的），摘要时保留更完整
+            if (text.Length > 80) text = text[..80] + "…";
+            sb.Append(m.Role == "user" ? "· 用户：" : "· AI：").Append(text).Append('\n');
+        }
+        return sb.ToString().Trim();
+    }
+
+    /// <summary>
+    /// 把摘要段落合并进 system：已经有 [前情摘要] 段时替换（避免多轮累积越堆越长），
+    /// 没有则追加。只改 Content，system 永远只有一条，不影响 tool_calls 配对。
+    /// </summary>
+    private static void MergeDigestIntoSystem(List<ChatMessage> msgs, string digest)
+    {
+        if (msgs.Count == 0 || msgs[0].Role != "system") return;
+        const string marker = "\n\n[前情摘要]";
+        var baseContent = msgs[0].Content ?? "";
+        var idx = baseContent.IndexOf(marker, StringComparison.Ordinal);
+        if (idx >= 0) baseContent = baseContent[..idx];
+        msgs[0] = msgs[0] with { Content = baseContent + marker + "\n" + digest };
     }
 }
 
