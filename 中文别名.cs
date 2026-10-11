@@ -47,6 +47,7 @@ global using 商店页面 = WarmAsBefore.Views.ShopPage;
 global using 展示案例表页面 = WarmAsBefore.Views.ShowcaseListPage;
 global using 展示案编辑页面 = WarmAsBefore.Views.ShowcaseEditPage;
 global using 展示案播放页面 = WarmAsBefore.Views.ShowcasePlayPage;
+global using 点名页面 = WarmAsBefore.Views.ForceCastPage;
 
 global using 标题视图模型 = WarmAsBefore.ViewModels.TitleViewModel;
 global using 主游戏视图模型 = WarmAsBefore.ViewModels.MainGameViewModel;
@@ -65,3 +66,4 @@ global using 商店视图模型 = WarmAsBefore.ViewModels.ShopViewModel;
 global using 展示案例表视图模型 = WarmAsBefore.ViewModels.ShowcaseListViewModel;
 global using 展示案编辑视图模型 = WarmAsBefore.ViewModels.ShowcaseEditViewModel;
 global using 展示案播放视图模型 = WarmAsBefore.ViewModels.ShowcasePlayViewModel;
+global using 点名视图模型 = WarmAsBefore.ViewModels.ForceCastViewModel;

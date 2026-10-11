@@ -6,12 +6,33 @@ using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Modules.Scene;
 
-/// <summary>生效来源：时间规则 / AI（内置工具与【场景:】标记）/ 尚未生效。仅用于展示与诊断。</summary>
+/// <summary>
+/// 生效来源。区分「主动」与「被动」两大类：
+///  - 主动（Active）：Ai（模型/【场景:】标记）、Manual（用户在场景库手动切换）
+///  - 被动（Passive）：Time（时间规则自动触发）、Weather（天气规则自动触发）
+///  - None：尚未生效
+/// 仅用于展示与诊断。
+/// </summary>
 public enum SceneApplySource
 {
     None,
     Ai,
-    Time
+    Time,
+    /// <summary>用户在场景库页手动切换。</summary>
+    Manual,
+    /// <summary>天气规则自动触发（被动）。</summary>
+    Weather
+}
+
+public static class SceneApplySourceExtensions
+{
+    /// <summary>是否属于「主动发起」（AI 指令或用户手动）。</summary>
+    public static bool IsActive(this SceneApplySource s)
+        => s is SceneApplySource.Ai or SceneApplySource.Manual;
+
+    /// <summary>是否属于「被动触发」（时间/天气等环境因素）。</summary>
+    public static bool IsPassive(this SceneApplySource s)
+        => s is SceneApplySource.Time or SceneApplySource.Weather;
 }
 
 /// <summary>
@@ -103,6 +124,51 @@ public sealed class SceneTimeGate : ISceneOptionGate
 }
 
 /// <summary>
+/// 天气门控：模式声明了 WeatherTags 时，只有当前天气命中任一标签才可选。
+/// 与时间门控并列，两者互不干涉：一条模式可以只受时间约束、只受天气约束，或两者都受。
+/// 天气来源由外部通过委托注入（读的是 SceneDirector 缓存的最新天气串），
+/// 因此门控本身不持有网络依赖，也不会阻塞 UI 线程。
+/// </summary>
+public sealed class SceneWeatherGate : ISceneOptionGate
+{
+    private readonly Func<string?> _weatherOf;
+
+    /// <param name="weatherOf">读取「当前天气描述/标签」的委托；返回 null 或空表示天气未知。</param>
+    public SceneWeatherGate(Func<string?> weatherOf) => _weatherOf = weatherOf;
+
+    public string? BlockReason(SceneLibraryEntry entry, SceneMode? mode, DateTime now)
+    {
+        if (mode is null || mode.WeatherTags.Count == 0) return null;
+        var current = _weatherOf();
+        if (string.IsNullOrWhiteSpace(current)) return null; // 天气未知时不拦，避免断网就全锁死
+        if (Matches(current, mode.WeatherTags)) return null;
+        return $"该模式限定在天气「{string.Join("、", mode.WeatherTags)}」时生效，当前天气「{current}」不匹配";
+    }
+
+    public string? AllowReason(SceneLibraryEntry entry, SceneMode? mode, DateTime now)
+    {
+        if (mode is null || mode.WeatherTags.Count == 0) return null;
+        var current = _weatherOf();
+        if (string.IsNullOrWhiteSpace(current)) return null;
+        return Matches(current, mode.WeatherTags)
+            ? $"受天气限制：{string.Join("、", mode.WeatherTags)}（当前「{current}」命中）"
+            : null;
+    }
+
+    /// <summary>天气串与标签的匹配：忽略大小写，且「标签被天气串包含」也算命中（如天气 "light rain" 命中标签 "rain"）。</summary>
+    private static bool Matches(string current, List<string> tags)
+    {
+        foreach (var tag in tags)
+        {
+            if (string.IsNullOrWhiteSpace(tag)) continue;
+            if (current.Contains(tag, StringComparison.OrdinalIgnoreCase)) return true;
+            if (tag.Contains(current, StringComparison.OrdinalIgnoreCase)) return true;
+        }
+        return false;
+    }
+}
+
+/// <summary>
 /// 场景导演：场景库的统一执行入口。
 /// 职责：
 ///  1. 加载/持久化场景库（scene_library.json）；
@@ -125,7 +191,17 @@ public sealed class SceneDirector : IDisposable
     private readonly SemaphoreSlim _applyLock = new(1, 1);
 
     /// <summary>可用性门控表（顺序即评估顺序，第一个拦下的理由会返回给 AI）。</summary>
-    private readonly List<ISceneOptionGate> _gates = new() { new SceneTimeGate() };
+    /// <remarks>含时间门控与天气门控；天气门控通过委托读取下方缓存的 _currentWeather，故此处延迟到构造函数内初始化。</remarks>
+    private readonly List<ISceneOptionGate> _gates;
+
+    /// <summary>天气数据源（可空：未注册时天气门控视为「未知」，不拦任何模式）。</summary>
+    private readonly Modules.RealWorld.WeatherProvider? _weather;
+
+    /// <summary>
+    /// 最近一次刷新的「当前天气」串（如 "clear"/"rain"）。volatile 保证跨线程可见：
+    /// 刷新发生在定时器线程，读取发生在 UI/AI 线程的门控里。
+    /// </summary>
+    private volatile string? _currentWeather;
 
     private List<SceneLibraryEntry> _library = new();
     private SceneLibraryEntry? _active;
@@ -147,16 +223,22 @@ public sealed class SceneDirector : IDisposable
     private static readonly Regex SceneMarkerRe =
         new(@"【场景:([^】]+)】", RegexOptions.Compiled);
 
-    public SceneDirector(StorageProvider store, MapService map, AudioController audio, MaterialLibrary materials)
+    public SceneDirector(StorageProvider store, MapService map, AudioController audio, MaterialLibrary materials,
+        Modules.RealWorld.WeatherProvider? weather = null)
     {
         _store = store;
         _map = map;
         _audio = audio;
         _materials = materials;
+        _weather = weather;
+        // 门控表：时间 + 天气。天气门控用委托读缓存的 _currentWeather（volatile），不直接碰网络。
+        _gates = new() { new SceneTimeGate(), new SceneWeatherGate(() => _currentWeather) };
         // 1 分钟一次：早中晚边界响应更快（旧值 5 分钟最坏要等 5 分钟才换背景）。
         // tick 只做一次线性查找 + 状态比较，成本可忽略；真正会阻塞的只有命中后的应用。
         _timeTimer = new Timer(_ => _ = EvaluateTimeAsync(), null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
         _ = LoadAsync();
+        // 启动即刷新一次天气；失败也无妨，门控会按「未知」放行。
+        _ = RefreshWeatherAsync();
     }
 
     // ============ 加载 / 持久化 ============
@@ -408,22 +490,51 @@ public sealed class SceneDirector : IDisposable
     {
         try
         {
+            // 顺带刷新天气：被动触发的第二类来源。放在时间评估同一 tick 里，避免再起一个定时器。
+            await RefreshWeatherAsync();
             var now = DateTime.Now;
-            var hits = FindModesByTime(now);
-            if (hits.Count == 0) return;
 
-            var target = hits.FirstOrDefault(h => ReferenceEquals(h.Mode, _activeMode)) ?? hits[0];
+            // 被动触发优先级：时间规则 > 天气规则（两者都属被动，时间优先因为它对时刻更敏感）。
+            // 任一命中即可，未命中不动、不回退——沿用旧约定。
+            var target = FindModesByTime(now).FirstOrDefault(h => ReferenceEquals(h.Mode, _activeMode))
+                         ?? FindModesByTime(now).FirstOrDefault();
+            var source = SceneApplySource.Time;
+
+            if (target is null)
+            {
+                target = FindModesByWeather().FirstOrDefault(h => ReferenceEquals(h.Mode, _activeMode))
+                         ?? FindModesByWeather().FirstOrDefault();
+                source = SceneApplySource.Weather;
+            }
+
+            if (target is null) return;
             _lastTimeMatch = target.Mode;
             if (ReferenceEquals(_active, target.Entry) && ReferenceEquals(_activeMode, target.Mode)) return;
 
-            var result = await ApplyOptionAsync(target.Entry, target.Mode, SceneApplySource.Time);
+            var result = await ApplyOptionAsync(target.Entry, target.Mode, source);
             if (!result.Applied)
-                App.WriteLog($"SceneDirector.EvaluateTime: 命中但未应用 -> {result.Message}");
+                App.WriteLog($"SceneDirector.EvaluatePassive: 命中({source})但未应用 -> {result.Message}");
         }
         catch (Exception ex)
         {
             App.WriteLog("SceneDirector.EvaluateTime -> " + ex);
         }
+    }
+
+    /// <summary>按当前天气扫描库中所有模式的 WeatherTags，按库顺序返回全部命中项。</summary>
+    private List<TimeMatchResult> FindModesByWeather()
+    {
+        var hits = new List<TimeMatchResult>();
+        var current = _currentWeather;
+        if (string.IsNullOrWhiteSpace(current)) return hits;
+        foreach (var e in _library.ToList())
+            foreach (var m in e.Modes.ToList())
+                if (m.WeatherTags.Count > 0 && m.WeatherTags.Any(t =>
+                        !string.IsNullOrWhiteSpace(t) &&
+                        (current.Contains(t, StringComparison.OrdinalIgnoreCase) ||
+                         t.Contains(current, StringComparison.OrdinalIgnoreCase))))
+                    hits.Add(new TimeMatchResult(e, m));
+        return hits;
     }
 
     /// <summary>按当前时间扫描库中所有模式的 TimeRanges，按库顺序返回全部命中项。</summary>
@@ -716,6 +827,8 @@ public sealed class SceneDirector : IDisposable
     {
         SceneApplySource.Time => "时间规则",
         SceneApplySource.Ai => "AI/指令",
+        SceneApplySource.Manual => "手动切换",
+        SceneApplySource.Weather => "天气规则",
         _ => "无"
     };
 
@@ -780,6 +893,31 @@ public sealed class SceneDirector : IDisposable
     // ============ 时间评估入口（手动/启动时） ============
 
     public async Task EvaluateTimeNowAsync() => await EvaluateTimeAsync();
+
+    /// <summary>对外暴露的「当前天气」串（门控与 UI 共用），null 表示未知。</summary>
+    public string? CurrentWeather => _currentWeather;
+
+    /// <summary>手动触发一次天气刷新（设置改城市后可调）。</summary>
+    public async Task RefreshWeatherNowAsync() => await RefreshWeatherAsync();
+
+    /// <summary>
+    /// 拉取一次天气并缓存其 Condition 串。异常一律吞掉：天气拿不到时门控按「未知」放行，
+    /// 绝不能因为断网把整个场景库锁死。
+    /// </summary>
+    private async Task RefreshWeatherAsync()
+    {
+        if (_weather is null) return;
+        try
+        {
+            var reading = await _weather.Fetch();
+            if (reading is not null && !string.IsNullOrWhiteSpace(reading.Condition))
+                _currentWeather = reading.Condition;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SceneDirector.RefreshWeather -> " + ex);
+        }
+    }
 
     public void Dispose()
     {

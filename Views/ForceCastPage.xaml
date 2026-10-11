@@ -1,0 +1,109 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:models="clr-namespace:WarmAsBefore.Models"
+             x:Class="WarmAsBefore.Views.ForceCastPage"
+             x:Name="Page"
+             x:DataType="vm:ForceCastViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+    <Grid RowDefinitions="Auto,*,Auto">
+        <!-- 顶栏：返回 + 标题 -->
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12,16,10">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0" VerticalOptions="Center"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="点名 · 进入剧情"
+                       Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                <Label Grid.Column="2" Text="{Binding StatusText}" TextColor="{DynamicResource WarmMuted}"
+                       FontSize="11" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+            </Grid>
+        </Border>
+
+        <!-- 角色列表 -->
+        <Grid Grid.Row="1">
+            <CollectionView ItemsSource="{Binding Entries}"
+                            SelectionMode="None" Margin="16,12">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
+                </CollectionView.ItemsLayout>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="models:ForceCastEntry">
+                        <Border Background="{DynamicResource SurfaceBg}"
+                                Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
+                                Padding="12,10">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                                <!-- 勾选 -->
+                                <CheckBox Grid.Column="0" IsChecked="{Binding Selected}"
+                                          Color="{DynamicResource BeigeAccent300}" VerticalOptions="Center" />
+                                <!-- 头像 -->
+                                <Border Grid.Column="1" WidthRequest="40" HeightRequest="40" Padding="0"
+                                        BackgroundColor="{DynamicResource BeigeAccent200}" StrokeThickness="0"
+                                        VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                    <Grid>
+                                        <Label Text="{Binding Initial}" TextColor="{DynamicResource WarmDark}"
+                                               FontSize="16" FontAttributes="Bold"
+                                               HorizontalOptions="Center" VerticalOptions="Center"
+                                               IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                        <Image Source="{Binding Avatar}" Aspect="AspectFill"
+                                               IsVisible="{Binding HasAvatar}" />
+                                    </Grid>
+                                </Border>
+                                <!-- 名字 -->
+                                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="{Binding CharacterName}" TextColor="{DynamicResource WarmDark}"
+                                           FontSize="15" FontAttributes="Bold" />
+                                    <Label Text="{Binding SceneName, StringFormat='初始位置 · {0}'}"
+                                           TextColor="{DynamicResource WarmMuted}" FontSize="11" />
+                                </VerticalStackLayout>
+                                <!-- 场景选择 -->
+                                <Picker Grid.Column="3" WidthRequest="130"
+                                        Title="选择场景"
+                                        ItemsSource="{Binding SceneOptions}"
+                                        ItemDisplayBinding="{Binding Name, x:DataType=models:MapScene}"
+                                        SelectedItem="{Binding SelectedScene, Mode=TwoWay}"
+                                        TextColor="{DynamicResource WarmDark}"
+                                        TitleColor="{DynamicResource WarmMuted}"
+                                        FontSize="13" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- 空状态 -->
+            <VerticalStackLayout IsVisible="{Binding HasNoCharacters}"
+                                 HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                <Label Text="角色库还是空的" TextColor="{DynamicResource WarmMuted}"
+                       FontSize="15" HorizontalOptions="Center" />
+                <Label Text="先创建几个角色，再来点名吧" TextColor="{DynamicResource WarmMuted}"
+                       FontSize="12" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+
+            <!-- 忙碌遮罩 -->
+            <Grid IsVisible="{Binding IsBusy}" BackgroundColor="#80000000">
+                <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource BeigeAccent300}"
+                                   WidthRequest="40" HeightRequest="40"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+            </Grid>
+        </Grid>
+
+        <!-- 底部确定 -->
+        <Border Grid.Row="2" Background="{DynamicResource GlassBarBg}"
+                Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,10">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Button Text="确定点名 · 进入剧情"
+                    BackgroundColor="{DynamicResource BeigeAccent300}"
+                    TextColor="{DynamicResource WarmDark}"
+                    FontSize="15" FontAttributes="Bold" CornerRadius="14"
+                    Command="{Binding ConfirmCommand}" />
+        </Border>
+    </Grid>
+</ContentPage>

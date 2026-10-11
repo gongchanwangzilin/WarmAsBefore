@@ -11,6 +11,72 @@
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
+        <!-- 联系人列表层：微信风格，点联系人进入单聊 -->
+        <Grid Grid.RowSpan="5" IsVisible="{Binding IsContactListVisible}"
+              BackgroundColor="{DynamicResource SurfaceBg}" ZIndex="10">
+            <Grid RowDefinitions="Auto,*" Padding="0">
+                <Border BackgroundColor="#2E2E2E" StrokeThickness="0" Padding="12,12,12,12">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Button Text="&lt;" Style="{StaticResource BtnText}"
+                                TextColor="White" FontSize="20" Padding="0" WidthRequest="28"
+                                Command="{Binding BackCommand}" />
+                        <Label Grid.Column="1" Text="微信" TextColor="White" FontSize="17"
+                               FontAttributes="Bold" VerticalOptions="Center" HorizontalOptions="Center" />
+                    </Grid>
+                </Border>
+                <CollectionView Grid.Row="1" ItemsSource="{Binding ContactList}"
+                                SelectionMode="None" Margin="0,4,0,0">
+                    <CollectionView.EmptyView>
+                        <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                             Spacing="10" Padding="32">
+                            <Label Text="💬" FontSize="40" HorizontalOptions="Center" />
+                            <Label Text="还没有微信好友" Style="{StaticResource TxtTitle}"
+                                   HorizontalOptions="Center" />
+                            <Label Text="让 AI 用「add_wechat」把剧情里的角色加为好友"
+                                   Style="{StaticResource TxtMuted}" FontSize="12"
+                                   HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+                        </VerticalStackLayout>
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:WeChatContactItem">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+                                  Padding="16,10" BackgroundColor="{DynamicResource SurfaceBg}">
+                                <Border BackgroundColor="{DynamicResource BeigeAccent50}"
+                                        WidthRequest="48" HeightRequest="48" StrokeThickness="0">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                    <Image Source="{Binding Avatar}" Aspect="AspectFill"
+                                           IsVisible="{Binding HasAvatar}"
+                                           HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                    <Label Text="{Binding Initial}" TextColor="White" FontSize="18"
+                                           FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center"
+                                           IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                </Border>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
+                                    <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold"
+                                           TextColor="{DynamicResource SurfaceFg}" />
+                                    <Label Text="{Binding LastMessage}" FontSize="12"
+                                           TextColor="{DynamicResource MutedFg}"
+                                           LineBreakMode="TailTruncation" MaxLines="1" />
+                                </VerticalStackLayout>
+                                <Border Grid.Column="2" IsVisible="{Binding Unread}"
+                                        BackgroundColor="#C0392B" WidthRequest="18" HeightRequest="18"
+                                        StrokeThickness="0" VerticalOptions="Center">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                </Border>
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenContactCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </Grid.GestureRecognizers>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Grid>
+        </Grid>
+
         <!-- Header: back + avatar + name + mode chip -->
         <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
                 Padding="12,10,16,10">

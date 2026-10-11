@@ -65,6 +65,10 @@ public sealed partial class PhoneViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenMaterials() => await SafeNav("materials");
 
+    /// <summary>点名：人类主动点名角色，指定初始位置，强制进入对话剧情。</summary>
+    [RelayCommand]
+    private async Task OpenForceCast() => await SafeNav("forcecast");
+
     [RelayCommand]
     private async Task OpenShop() => await SafeNav("shop");
 
@@ -102,6 +106,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     private readonly StorageProvider _store;
     private readonly SettingsManager _settings;
     private readonly Modules.Market.GiftPanelService _gifts;
+    private readonly Services.WeChatService _wechat;
 
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
@@ -113,6 +118,13 @@ public sealed partial class WeChatViewModel : ObservableObject
     [ObservableProperty] private bool _hasPartnerAvatar;
     [ObservableProperty] private string _modeLabel = "本地微信";
     [ObservableProperty] private bool _isStickerPanelVisible;
+    // ============ 联系人列表（角色"假微信"：谁加过好友） ============
+    [ObservableProperty] private bool _isContactListVisible = true;
+    [ObservableProperty] private bool _hasContacts;
+    /// <summary>微信联系人列表（来自 WeChatService：已经加过微信的常驻角色）。</summary>
+    public ObservableCollection<WeChatContactItem> ContactList { get; } = new();
+    /// <summary>当前聊天对象（默认跟随主游戏角色；点联系人可切换，仅影响微信页）。</summary>
+    private string _chatTargetId = "";
     // ============ 送礼 / 使用面板（微信聊天时显示） ============
     [ObservableProperty] private bool _isGiftPanelVisible;
     private CancellationTokenSource? _typingCts;
@@ -124,7 +136,8 @@ public sealed partial class WeChatViewModel : ObservableObject
 
     public WeChatViewModel(GameEngine engine, ChatEngine chat, SpeechService speech,
         Modules.RealChat.OfficialChatBridge bridge, CharacterLibrary library,
-        StorageProvider store, SettingsManager settings, Modules.Market.GiftPanelService gifts)
+        StorageProvider store, SettingsManager settings, Modules.Market.GiftPanelService gifts,
+        Services.WeChatService wechat)
     {
         _engine = engine;
         _chat = chat;
@@ -134,6 +147,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         _store = store;
         _settings = settings;
         _gifts = gifts;
+        _wechat = wechat;
         _bridge.Incoming += OnRealIncoming;
         _bridge.Replied += OnRealReplied;
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshMode);
@@ -142,7 +156,14 @@ public sealed partial class WeChatViewModel : ObservableObject
     /// <summary>进入微信页时刷新：对方头像+名字 + 真微信/假微信状态。</summary>
     public async Task LoadAsync()
     {
-        var charId = _engine.State.CharacterId;
+        await LoadContactsAsync();
+        var charId = EffectiveChatId();
+        // 若还没定聊天对象，取第一个联系人
+        if (string.IsNullOrEmpty(charId) && ContactList.Count > 0)
+        {
+            _chatTargetId = ContactList[0].CharacterId;
+            charId = _chatTargetId;
+        }
         if (!string.IsNullOrEmpty(charId))
         {
             var list = await _library.ListAsync();
@@ -160,6 +181,7 @@ public sealed partial class WeChatViewModel : ObservableObject
                 HasPartnerAvatar = avatar is not null;
                 _chat.ConfigureCharacter(ch.Profile);
                 _chat.SetRoster(_library.RosterContext(ch.Profile.Id));
+                await _wechat.MarkReadAsync(charId);
             }
         }
         RefreshMode();
@@ -222,7 +244,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(InputText)) return;
         var msg = InputText.Trim();
         InputText = "";
-        var charId = _engine.State.CharacterId;
+        var charId = EffectiveChatId();
         if (string.IsNullOrEmpty(charId)) return;
 
         Messages.Add(new ChatItem { Text = msg, DisplayText = msg, IsUser = true });
@@ -238,6 +260,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         Messages.Add(aiMsg);
         _ = Typewrite(aiMsg, reply);
         MaybeAiSticker(reply);
+        await _wechat.TouchLastMessageAsync(charId, msg.Length > 20 ? msg[..20] : msg);
     }
 
     // ============ 送礼 / 使用面板（微信聊天） ============
@@ -470,8 +493,95 @@ public sealed partial class WeChatViewModel : ObservableObject
         });
     }
 
+    // ============ 联系人列表（角色"假微信"） ============
+
+    /// <summary>当前聊天对象的 Id：优先微信页内选的，其次主游戏当前角色。</summary>
+    private string EffectiveChatId() =>
+        string.IsNullOrEmpty(_chatTargetId) ? _engine.State.CharacterId : _chatTargetId;
+
+    /// <summary>从 WeChatService 加载联系人（已加微信的常驻角色）。</summary>
+    public async Task LoadContactsAsync()
+    {
+        try
+        {
+            var contacts = await _wechat.ListAsync();
+            var chars = await _library.ListAsync();
+            var items = new List<WeChatContactItem>();
+            foreach (var c in contacts)
+            {
+                var ch = chars.FirstOrDefault(x => x.Profile.Id == c.CharacterId);
+                if (ch is null) continue;
+                var avatarPath = "";
+                if (!string.IsNullOrEmpty(ch.Avatar))
+                {
+                    var full = Path.Combine(_store.Root, ch.Avatar);
+                    if (File.Exists(full)) avatarPath = full;
+                }
+                items.Add(new WeChatContactItem
+                {
+                    CharacterId = c.CharacterId,
+                    Name = ch.Profile.Name,
+                    Avatar = avatarPath,
+                    LastMessage = c.LastMessage,
+                    Unread = c.Unread
+                });
+            }
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                ContactList.Clear();
+                foreach (var it in items) ContactList.Add(it);
+                HasContacts = ContactList.Count > 0;
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WeChatViewModel.LoadContactsAsync -> " + ex);
+        }
+    }
+
+    /// <summary>点联系人：切换聊天对象并进入聊天视图。</summary>
     [RelayCommand]
-    private async Task Back() => await Shell.Current.GoToAsync("..");
+    private async Task OpenContact(WeChatContactItem item)
+    {
+        if (item is null) return;
+        _chatTargetId = item.CharacterId;
+        IsContactListVisible = false;
+        Messages.Clear();
+        await LoadAsync();
+    }
+
+    /// <summary>在聊天视图与联系人列表之间切换。</summary>
+    [RelayCommand]
+    private async Task ToggleContactList()
+    {
+        IsContactListVisible = !IsContactListVisible;
+        if (IsContactListVisible) await LoadContactsAsync();
+    }
+
+    [RelayCommand]
+    private async Task Back()
+    {
+        // 聊天视图下按返回：先回联系人列表；已在列表才退出页面
+        if (!IsContactListVisible && HasContacts)
+        {
+            IsContactListVisible = true;
+            await LoadContactsAsync();
+            return;
+        }
+        await Shell.Current.GoToAsync("..");
+    }
+}
+
+/// <summary>微信联系人列表项（显示用）。</summary>
+public sealed class WeChatContactItem
+{
+    public string CharacterId { get; init; } = "";
+    public string Name { get; init; } = "";
+    public string Avatar { get; init; } = "";
+    public string LastMessage { get; init; } = "";
+    public bool Unread { get; init; }
+    public bool HasAvatar => !string.IsNullOrEmpty(Avatar);
+    public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name[..1];
 }
 
 public sealed partial class GalleryViewModel : ObservableObject
