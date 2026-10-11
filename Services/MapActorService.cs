@@ -27,6 +27,12 @@ public sealed class MapActorService
     /// <summary>多 AI 拉拽导致用户目标被抑制抖动时触发（UI 可做一次"轻微回弹"表现）。</summary>
     public event Action<string>? ShakeSuppressed;
 
+    /// <summary>
+    /// 位置变动广播（#5）：一次拉拽/移动发生后，向「同场景的其它实体」广播这件事，
+    /// 让在场者都"知道"谁被带去哪了。参数为一句人类可读的广播文本（已含在场者名单）。
+    /// </summary>
+    public event Action<string>? ActorsBroadcast;
+
     public MapActorService(MapService map) => _map = map;
 
     /// <summary>当前所有实体（快照）。</summary>
@@ -154,6 +160,8 @@ public sealed class MapActorService
             result.FinalSceneId = dest;
             ActorMoved?.Invoke(target);
             result.Message = $"{NamesOf(sameScene)} 把 {target.Name} 拉去了「{SceneName(dest)}」。";
+            // #5 广播：拉拽发生时，原场景里的其它实体都"知道"这件事（含被拉者名单）。
+            BroadcastPositionChange(oldScene, target, result.Message);
             return Task.FromResult(result);
         }
 
@@ -165,7 +173,33 @@ public sealed class MapActorService
         result.Message = $"{NamesOf(sameScene)} 同时在拉 {target.Name}，方向不同（{detail}），"
             + $"所以 {target.Name} 站在原地没有动。";
         if (target.IsUser) ShakeSuppressed?.Invoke(target.Id);
+        // #5 广播：拉拽冲突（没拉动）本身也是在场者都该知道的事。
+        BroadcastPositionChange(target.SceneId, target, result.Message);
         return Task.FromResult(result);
+    }
+
+    /// <summary>
+    /// #5：把一次位置变动广播给「变动发生场景里的其它实体」，让在场者都知道谁去了哪。
+    /// 场景里除事件主角外没有别的实体、且主角也不是用户时，不广播（没人可被通知）。
+    /// </summary>
+    private void BroadcastPositionChange(string sceneId, MapActor subject, string message)
+    {
+        if (string.IsNullOrEmpty(sceneId)) return;
+        List<string> witnesses;
+        lock (_lock)
+        {
+            witnesses = _actors.Values
+                .Where(a => a.SceneId == sceneId && !ReferenceEquals(a, subject))
+                .Select(a => a.Name)
+                .Where(n => !string.IsNullOrEmpty(n))
+                .Distinct()
+                .ToList();
+        }
+        // 在场者列表去重后并入广播文本，AI 侧一眼能看到"谁在场、谁被告知了"。
+        var line = witnesses.Count > 0
+            ? message + $"（在场并被告知：{string.Join("、", witnesses)}）"
+            : message;
+        ActorsBroadcast?.Invoke(line);
     }
 
     /// <summary>便捷版：单个 AI 拉单个目标。</summary>
@@ -233,6 +267,58 @@ public sealed class MapActorService
     {
         if (string.IsNullOrEmpty(actorId)) return "";
         lock (_lock) return _actors.TryGetValue(actorId, out var a) ? a.SceneId : "";
+    }
+
+    /// <summary>
+    /// #4：AI 行动时「可选择是否带上用户」。
+    /// 让 actorId 走到目标场景；carryUser=true 时，若用户此刻与 AI 同场景，则一并把用户带过去
+    /// （用户不在同场景则不勉强，返回里说明）。移动后向两个场景的在场者广播。
+    /// </summary>
+    /// <returns>(移动描述, 是否带上了用户, 广播文本)。</returns>
+    public (string Note, bool CarriedUser, string Broadcast) MoveWithUser(
+        string actorId, string sceneNameOrId, bool carryUser)
+    {
+        if (string.IsNullOrEmpty(actorId) || string.IsNullOrEmpty(sceneNameOrId))
+            return ("", false, "");
+        MapActor? actor;
+        lock (_lock) _actors.TryGetValue(actorId, out actor);
+        if (actor is null) return ("", false, "");
+        var target = _map.Map.SceneById(sceneNameOrId) ?? _map.Map.SceneByName(sceneNameOrId);
+        if (target is null) return ("", false, "");
+        var from = string.IsNullOrEmpty(actor.SceneId) ? _map.CurrentSceneId : actor.SceneId;
+        if (from == target.Id) return ($"（{actor.Name} 已经在 {target.Name}）", false, "");
+        var route = _map.FindShortest(from, target.Id);
+        if (route is null) return ($"（{actor.Name} 从当前位置到 {target.Name} 还没有开通路线）", false, "");
+
+        MapActor? user = null;
+        if (carryUser)
+        {
+            lock (_lock) _actors.TryGetValue(UserId, out user);
+            // 只有用户确实跟 AI 同场景才带得走；否则不勉强。
+            if (user is not null && !string.Equals(user.SceneId, from, StringComparison.Ordinal))
+                user = null;
+        }
+
+        lock (_lock) actor.SceneId = target.Id;
+        ActorMoved?.Invoke(actor);
+        var pathText = string.Join(" → ", route.Select(r => r.Name));
+        var note = carryUser && user is not null
+            ? $"（{actor.Name} 带着你从 {pathText} 走了过去）"
+            : $"（{actor.Name} 独自走到了 {target.Name}：{pathText}）";
+
+        var broadcast = "";
+        if (carryUser && user is not null)
+        {
+            lock (_lock) user.SceneId = target.Id;
+            ActorMoved?.Invoke(user);
+            broadcast = $"{actor.Name} 带走了 {user.Name}，一起去了「{target.Name}」。";
+        }
+        else if (carryUser)
+        {
+            broadcast = $"{actor.Name} 独自去了「{target.Name}」（你没有和 TA 待在同一处，没能跟上）。";
+        }
+        BroadcastPositionChange(from, actor, broadcast.Length > 0 ? broadcast : $"{actor.Name} 去了「{target.Name}」。");
+        return (note, carryUser && user is not null, broadcast);
     }
 
     private static string NamesOf(IReadOnlyList<PullRequest> reqs)

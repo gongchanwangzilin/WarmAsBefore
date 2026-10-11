@@ -241,7 +241,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.Row="3" BackgroundColor="#F7FDF8F0"
                     Padding="10,8,10,10" StrokeThickness="0">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,16,0,0" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                <VerticalStackLayout Spacing="0">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                     <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Entry Text="{Binding InputText}"
@@ -252,23 +253,40 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                ReturnCommand="{Binding SendMessageCommand}"
                                HeightRequest="36" />
                     </Border>
-                    <Button Grid.Column="1" Text="🎁" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="1" Text="文件" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11"
+                            CornerRadius="18" HeightRequest="36"
+                            Padding="10,0"
+                            Command="{Binding PickAttachmentCommand}" />
+                    <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="{DynamicResource SurfaceBg}" FontSize="13"
                             CornerRadius="18" HeightRequest="36"
                             Padding="10,0"
                             Command="{Binding ToggleGiftPanelCommand}" />
-                    <Button Grid.Column="2" Text="语音" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="3" Text="语音" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11"
                             CornerRadius="18" HeightRequest="36"
                             Padding="10,0"
                             Command="{Binding VoiceInputCommand}" />
-                    <Button Grid.Column="3" Text="发送"
+                    <Button Grid.Column="4" Text="发送"
                             BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                             FontSize="12" FontAttributes="Bold"
                             CornerRadius="18" HeightRequest="36"
                             Padding="14,0"
                             Command="{Binding SendMessageCommand}" />
                 </Grid>
+                <!-- #10 待发附件提示：有文件挂着时才显示，点"清空"卸下 -->
+                <Grid IsVisible="{Binding HasPendingAttachments}" Margin="0,6,0,0"
+                      ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Grid.Column="0" Text="{Binding PendingAttachmentsLabel}"
+                           TextColor="{DynamicResource MutedFg}" FontSize="11"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="清空" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="Transparent" FontSize="11" Padding="8,2"
+                            HeightRequest="24" MinimumHeightRequest="24"
+                            Command="{Binding ClearAttachmentsCommand}" />
+                </Grid>
+                </VerticalStackLayout>
             </Border>
 
             <!-- Action bar -->
@@ -491,11 +509,12 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     </CollectionView>
                     <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" TextColor="{DynamicResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
-                            <Button Grid.Column="1" Text="🎁" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="2" Text="语音" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
-                            <Button Grid.Column="3" Text="发送" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
+                            <Button Grid.Column="1" Text="文件" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="2,0" HeightRequest="36" WidthRequest="40" Command="{Binding PickAttachmentCommand}" />
+                            <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
+                            <Button Grid.Column="3" Text="语音" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
+                            <Button Grid.Column="4" Text="发送" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
                         </Grid>
                     </Border>
                 </Grid>
@@ -547,7 +566,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1"
                             Stroke="{DynamicResource BorderLine}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="6">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}"
                                    Placeholder="输入你想说的话..."
                                    PlaceholderColor="{DynamicResource MutedFg}"
@@ -556,15 +575,19 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                    ReturnCommand="{Binding SendMessageCommand}"
                                    HeightRequest="36"
                                    VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="🎁" TextColor="{DynamicResource MutedFg}"
+                            <Button Grid.Column="1" Text="文件" TextColor="{DynamicResource MutedFg}"
+                                    BackgroundColor="Transparent" FontSize="11"
+                                    Padding="2,0" HeightRequest="36" WidthRequest="40"
+                                    Command="{Binding PickAttachmentCommand}" />
+                            <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}"
                                     BackgroundColor="Transparent" FontSize="13"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="2" Text="🎤" TextColor="{DynamicResource MutedFg}"
+                            <Button Grid.Column="3" Text="🎤" TextColor="{DynamicResource MutedFg}"
                                     BackgroundColor="Transparent" FontSize="11"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding VoiceInputCommand}" />
-                            <Button Grid.Column="3" Text="发送"
+                            <Button Grid.Column="4" Text="发送"
                                     BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                                     FontSize="12" FontAttributes="Bold"
                                     CornerRadius="14" HeightRequest="36" WidthRequest="52"

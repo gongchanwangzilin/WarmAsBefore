@@ -56,6 +56,16 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _physLabel = "正常";
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
+
+    /// <summary>
+    /// #10 待发送的文件附件（用户点了"带文件"后先挂在这里，随下一条消息一起发出）。
+    /// 为空时发送路径与旧行为完全一致。
+    /// </summary>
+    public ObservableCollection<Models.ChatAttachment> PendingAttachments { get; } = new();
+    /// <summary>待发附件数量标签（"带文件 · 2"），0 时隐藏。</summary>
+    [ObservableProperty] private string _pendingAttachmentsLabel = "";
+    /// <summary>是否有待发附件（控制按钮高亮/清除按钮显隐）。</summary>
+    [ObservableProperty] private bool _hasPendingAttachments;
     [ObservableProperty] private bool _showSettings;
     [ObservableProperty] private bool _showMap;
     [ObservableProperty] private string _currentTimeStr = "";
@@ -987,11 +997,14 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         // 未标定遮罩期间禁止交互：这时角色位置无从确定，剧情推进下去也没有意义
         if (IsCalibrationBlocked) return;
-        if (string.IsNullOrWhiteSpace(InputText)) return;
+        // #10：允许「只发文件不带文字」——只要附件非空就发
+        if (string.IsNullOrWhiteSpace(InputText) && PendingAttachments.Count == 0) return;
         _audio.PlayAssigned("key");
         var msg = InputText;
+        var files = PendingAttachments.ToList();
         InputText = "";
-        AddMessage("user", msg);
+        ClearAttachmentsInternal();
+        AddMessage("user", files.Count > 0 ? $"{msg}（附 {files.Count} 个文件）".Trim() : msg);
         var charId = _engine.State.CharacterId;
         if (!string.IsNullOrEmpty(charId))
         {
@@ -1000,7 +1013,10 @@ public sealed partial class MainGameViewModel : ObservableObject
             var display = "";
             try
             {
-                var reply = await _chat.Send(charId, msg);
+                // #10：有附件时走带附件的发送重载
+                var reply = files.Count > 0
+                    ? await _chat.Send(charId, msg, files)
+                    : await _chat.Send(charId, msg);
                 var (segs, hasReaction) = await ProcessReplyAsync(reply);
                 // 动作标记缺失 → System 级补正：有正文=重输出，近乎为空=补输出
                 if (!hasReaction && !string.IsNullOrWhiteSpace(_settings.Current.AiUrl))
@@ -1048,6 +1064,55 @@ public sealed partial class MainGameViewModel : ObservableObject
             _ = _speech.Speak(StripActionMarkers(display));
             _ = AutoSave();
         }
+    }
+
+    // ============ #10 对话携带文件 ============
+
+    /// <summary>选一个文件挂到「待发附件」，下一条消息会带着它一起发给 AI。</summary>
+    [RelayCommand]
+    private async Task PickAttachment()
+    {
+        if (IsCalibrationBlocked) return;
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择要带给 TA 的文件",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".txt", ".md", ".json", ".csv", ".log", ".xml", ".pdf",
+                        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".mp3", ".wav", ".mp4", "*" } },
+                    { DevicePlatform.Android, new[] { "*/*" } },
+                    { DevicePlatform.iOS, new[] { "public.item" } }
+                })
+            });
+            if (pick is null) return;
+            var att = Modules.AiChat.ChatEngine.BuildAttachmentFromPath(pick.FullPath);
+            PendingAttachments.Add(att);
+            RefreshAttachmentState();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameViewModel.PickAttachment -> " + ex);
+        }
+    }
+
+    /// <summary>清空待发附件。</summary>
+    [RelayCommand]
+    private void ClearAttachments() => ClearAttachmentsInternal();
+
+    private void ClearAttachmentsInternal()
+    {
+        PendingAttachments.Clear();
+        RefreshAttachmentState();
+    }
+
+    /// <summary>刷新待发附件相关的展示状态（数量标签、按钮高亮）。</summary>
+    private void RefreshAttachmentState()
+    {
+        var n = PendingAttachments.Count;
+        HasPendingAttachments = n > 0;
+        PendingAttachmentsLabel = n > 0 ? $"带文件 · {n}" : "";
     }
 
     // ============ 送礼 / 使用面板 ============

@@ -89,6 +89,16 @@ public sealed class ChatEngine
 
     public async Task<string> Send(string charId, string text)
     {
+        return await Send(charId, text, null);
+    }
+
+    /// <summary>
+    /// #10：带文件附件的发送。附件里的文本内容会按 <see cref="MaxAttachmentChars"/> 上限截断，
+    /// 与正文一起注入模型；二进制附件（图片/音频等）只报元信息，交由识图工具或用户后续处理。
+    /// 附件清单同时存进这一条 user 消息（<see cref="ChatMessage.Attachments"/>），便于回显与追溯。
+    /// </summary>
+    public async Task<string> Send(string charId, string text, IReadOnlyList<ChatAttachment>? attachments)
+    {
         var session = Session(charId);
         var recent = await _memory.Recent(charId, Math.Max(1, _cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
@@ -99,7 +109,15 @@ public sealed class ChatEngine
         catch (Exception ex) { App.WriteLog("ChatEngine.BuffContext -> " + ex.Message); }
         var payload = string.IsNullOrWhiteSpace(buff) ? text : $"{buff}\n{text}";
 
-        session.Add(new ChatMessage { Role = "user", Content = $"[{ctx}]\n{payload}" });
+        // #10 附件注入：文本类拼正文，二进类只给元信息
+        var fileBlock = BuildAttachmentBlock(attachments);
+        if (fileBlock.Length > 0)
+            payload = payload.Length > 0 ? $"{payload}\n{fileBlock}" : fileBlock;
+
+        var userMsg = new ChatMessage { Role = "user", Content = $"[{ctx}]\n{payload}" };
+        if (attachments is { Count: > 0 })
+            userMsg = userMsg with { Attachments = attachments.ToList() };
+        session.Add(userMsg);
 
         // 检查 API 是否已配置
         if (string.IsNullOrWhiteSpace(_cfg.Key))
@@ -144,6 +162,96 @@ public sealed class ChatEngine
             // 直接返回给调用方展示。
             return errorMsg;
         }
+    }
+
+    /// <summary>单个文本附件注入模型的最大字符数（超出截断，避免一份大文件把上下文吃光）。</summary>
+    public const int MaxAttachmentChars = 6000;
+
+
+    /// <summary>
+    /// 把附件清单渲染成一段给模型看的文本块。文本附件给出正文（截断），
+    /// 二进制附件只给文件名/类型/大小/路径。没有附件时返回空串。
+    /// </summary>
+    public static string BuildAttachmentBlock(IReadOnlyList<ChatAttachment>? attachments)
+    {
+        if (attachments is null || attachments.Count == 0) return "";
+        var sb = new System.Text.StringBuilder();
+        sb.Append("[携带的文件]");
+        foreach (var a in attachments)
+        {
+            if (a is null) continue;
+            sb.Append('\n').Append("- ").Append(a.FileName)
+              .Append("（").Append(a.Kind).Append(", ").Append(a.Size).Append(" 字节）");
+            if (!string.IsNullOrEmpty(a.TextContent))
+            {
+                sb.Append("\n  内容：").Append(a.TextContent);
+                if (a.Truncated) sb.Append("\n  （内容过长已截断）");
+            }
+            else
+            {
+                sb.Append("\n  （二进制文件，未内联内容；路径：").Append(a.Path).Append("）");
+            }
+        }
+        return sb.ToString();
+    }
+
+    /// <summary>
+    /// #10：从磁盘路径构造一个附件。文本类（txt/md/json/csv/log/xml/code 等）会读入正文并按
+    /// <see cref="MaxAttachmentChars"/> 截断；图片/音频等二进制只登记元信息。
+    /// 读失败也返回一个"占位附件"，不抛异常（附件不该拖垮整轮对话）。
+    /// </summary>
+    public static ChatAttachment BuildAttachmentFromPath(string path)
+    {
+        var name = System.IO.Path.GetFileName(path ?? "");
+        var kind = GuessAttachmentKind(name);
+        long size = 0;
+        try { if (System.IO.File.Exists(path)) size = new System.IO.FileInfo(path).Length; }
+        catch { }
+        string? text = null;
+        var truncated = false;
+        if (kind == "text")
+        {
+            try
+            {
+                var raw = System.IO.File.ReadAllText(path);
+                if (raw.Length > MaxAttachmentChars)
+                {
+                    raw = raw.Substring(0, MaxAttachmentChars);
+                    truncated = true;
+                }
+                text = raw;
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("ChatAttachment.Read -> " + ex.Message);
+                text = "（文件读取失败）";
+            }
+        }
+        return new ChatAttachment
+        {
+            FileName = name,
+            Path = path ?? "",
+            Kind = kind,
+            Size = size,
+            TextContent = text,
+            Truncated = truncated
+        };
+    }
+
+    /// <summary>按扩展名粗判附件类型：text / image / audio / video / other。</summary>
+    private static string GuessAttachmentKind(string fileName)
+    {
+        var ext = (System.IO.Path.GetExtension(fileName ?? "") ?? "").ToLowerInvariant();
+        return ext switch
+        {
+            ".txt" or ".md" or ".json" or ".csv" or ".log" or ".xml" or ".yml" or ".yaml"
+                or ".ini" or ".cfg" or ".cs" or ".js" or ".ts" or ".py" or ".java" or ".html"
+                or ".css" or ".sh" or ".bat" or ".sql" or ".xaml" => "text",
+            ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp" or ".svg" => "image",
+            ".mp3" or ".wav" or ".ogg" or ".m4a" or ".flac" or ".aac" => "audio",
+            ".mp4" or ".mov" or ".avi" or ".mkv" or ".webm" => "video",
+            _ => "other"
+        };
     }
 
     // ============ 工具调用闭环 ============
