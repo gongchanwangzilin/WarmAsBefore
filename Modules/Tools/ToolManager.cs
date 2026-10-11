@@ -174,6 +174,7 @@ public sealed class ToolManager : IDisposable
         ("set_scene_option", "应用一个场景选项"),
         ("add_wechat", "把角色加为微信好友"),
         ("list_wechat_contacts", "列出微信好友"),
+        ("search_memory", "在对话记忆库中搜索过去"),
         ("list_actors", "列出地图实体位置"),
         ("pull_actor", "拉拽实体到场景"),
         ("battle_start", "发起战斗"),
@@ -675,6 +676,109 @@ public sealed class ToolManager : IDisposable
                     ids = contacts.Select(c => c.CharacterId).ToList(),
                     context
                 });
+            });
+
+        // 搜记忆：在对话记忆库里按关键词 / 日期找过去的对话——想不起来就查，不要凭空编造
+        RegisterBuiltin("search_memory",
+            "在你们的对话记忆库里搜索过去（对话与好感记录都存着）。"
+            + "可以按关键词模糊搜，也可以按日期搜；日期支持具体日期（如 2026-10-01）或"
+            + "「今天 / 昨天 / 前天 / 最近」这样的相对说法。"
+            + "当对方问起过去的事、某天聊了什么、某个话题时调用本工具；不要凭记忆编造过去。"
+            + "返回按时间倒序的匹配条目（时间 + 摘要）。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var memory = services.GetService(typeof(Modules.AiChat.MemoryVault)) as Modules.AiChat.MemoryVault;
+                if (memory is null) return JsonSerializer.Serialize(new { ok = false, message = "MemoryVault 不可用" });
+                var engine = services.GetService(typeof(GameEngine)) as GameEngine;
+                var charId = engine?.State.CharacterId ?? "";
+                if (string.IsNullOrEmpty(charId)) charId = "小雨";
+
+                string keyword = "", dateFrom = "", dateTo = "";
+                var limit = 10;
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("keyword", out var k) && k.ValueKind == JsonValueKind.String)
+                        keyword = (k.GetString() ?? "").Trim();
+                    if (root.TryGetProperty("date_from", out var df) && df.ValueKind == JsonValueKind.String)
+                        dateFrom = (df.GetString() ?? "").Trim();
+                    if (root.TryGetProperty("date_to", out var dt) && dt.ValueKind == JsonValueKind.String)
+                        dateTo = (dt.GetString() ?? "").Trim();
+                    if (root.TryGetProperty("limit", out var lm))
+                    {
+                        if (lm.ValueKind == JsonValueKind.Number && lm.TryGetInt32(out var n))
+                            limit = Math.Clamp(n, 1, 30);
+                        else if (lm.ValueKind == JsonValueKind.String && int.TryParse(lm.GetString(), out var n2))
+                            limit = Math.Clamp(n2, 1, 30);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    App.WriteLog("ToolManager.search_memory parse -> " + ex.Message);
+                }
+
+                if (keyword.Length == 0 && dateFrom.Length == 0 && dateTo.Length == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "请至少给出关键词（keyword）或日期（date_from / date_to）中的一项。" });
+
+                // 相对日期也算得出来——AI 不一定知道今天几号，但它会说「昨天」。
+                DateTime? ParseDay(string s, bool isEnd)
+                {
+                    if (string.IsNullOrWhiteSpace(s)) return null;
+                    var t = s.Trim();
+                    var today = DateTime.Now.Date;
+                    if (t is "今天" or "今日") return isEnd ? today.AddDays(1).AddSeconds(-1) : today;
+                    if (t is "昨天" or "昨日") { var d = today.AddDays(-1); return isEnd ? d.AddDays(1).AddSeconds(-1) : d; }
+                    if (t is "前天") { var d = today.AddDays(-2); return isEnd ? d.AddDays(1).AddSeconds(-1) : d; }
+                    if (t is "最近" or "近期") return isEnd ? today.AddDays(1).AddSeconds(-1) : today.AddDays(-7);
+                    if (DateTime.TryParse(t, out var d3)) return isEnd ? d3.Date.AddDays(1).AddSeconds(-1) : d3;
+                    return null;
+                }
+
+                var from = ParseDay(dateFrom, isEnd: false);
+                var to = ParseDay(dateTo, isEnd: true);
+
+                var all = await memory.All(charId);
+                IEnumerable<MemoryEntry> hits = all;
+                if (keyword.Length > 0)
+                {
+                    hits = hits.Where(m => (m.Content ?? "").Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                        || (m.Keywords is not null && m.Keywords.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+                }
+                if (from is not null) hits = hits.Where(m => m.At.ToLocalTime() >= from.Value);
+                if (to is not null) hits = hits.Where(m => m.At.ToLocalTime() <= to.Value);
+
+                var list = hits.OrderByDescending(m => m.At).Take(limit).ToList();
+                if (list.Count == 0)
+                    return JsonSerializer.Serialize(new { ok = true, count = 0, message = "没有找到相关记忆。可以说「记不太清了」，不要编造。" });
+
+                var items = list.Select(m =>
+                {
+                    var c = m.Content ?? "";
+                    return new
+                    {
+                        time = m.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                        type = m.Category == "affection" ? "好感" : "对话",
+                        text = c.Length > 120 ? c[..120] + "…" : c
+                    };
+                }).ToList();
+                return JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    count = items.Count,
+                    character = charId,
+                    items,
+                    note = "以上为检索结果；回答时用自然的口气引用，不要逐条念。"
+                });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "keyword", Description = "关键词（模糊匹配对话内容与备注）；可与日期组合，可留空", Required = false },
+                new() { Name = "date_from", Description = "起始日期（含），如 2026-10-01，或「昨天」「最近」", Required = false },
+                new() { Name = "date_to", Description = "结束日期（含当天），同上格式", Required = false },
+                new() { Name = "limit", Description = "返回条数上限，默认 10，最大 30", Required = false }
             });
 
         // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置

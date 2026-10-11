@@ -64,6 +64,15 @@ public sealed class ChatEngine
         "只有当用户的要求需要落到画面或状态上时才调用工具，日常闲聊不必调用。" +
         "工具返回的结果要如实转达：返回值里说没有产生视觉变化时，不要宣称画面已经变了。";
 
+    /// <summary>
+    /// 记忆检索提示：你们的全部对话都存在记忆库里；想不起来时就该去搜（关键词/日期），别硬编。
+    /// 只在工具可用时和 ToolHint 一起注入。
+    /// </summary>
+    public const string MemoryHint =
+        "\n你们的全部对话都保存在记忆库里。当需要回忆过去（某天、某句话、某个话题、某件事）时，" +
+        "调用 search_memory 工具去搜——可以按关键词搜，也可以按日期搜（支持「昨天」「前天」「最近」这类说法）；" +
+        "搜到什么就说什么，不要凭印象编造记不清的过去。";
+
     /// <summary>注入角色库：世界中还有其他角色时，AI 可在剧情里自由调用/扮演她们。</summary>
     public void SetRoster(string roster) => _rosterContext = roster ?? "";
 
@@ -548,7 +557,10 @@ public sealed class ChatEngine
             if (!string.IsNullOrWhiteSpace(_stickerContext))
                 persona += StickerSectionHead + _stickerContext;
             if (!_toolsUnsupported && _tools.ChatToolNames().Count > 0)
+            {
                 persona += "\n" + ToolHint;
+                persona += MemoryHint;
+            }
             persona += "\n" + ActionProtocol;
             if (_allowSilence)
                 persona += "\n" + SilenceProtocol;
