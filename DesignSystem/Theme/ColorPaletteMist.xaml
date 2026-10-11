@@ -60,7 +60,7 @@
     <Color x:Key="PrimaryHover">#8AA4BA</Color>
     <Color x:Key="PrimaryFg">#4A5563</Color>
     <Color x:Key="SecondaryBg">#E4EAF0</Color>
-    <Color x:Key="MutedFg">#8C98A5</Color>
+    <Color x:Key="MutedFg">#4A5563</Color>
     <Color x:Key="BorderLine">#D2DBE4</Color>
     <Color x:Key="InputBg">#EFF2F5</Color>
     <Color x:Key="SuccessTint">#A5D6A7</Color>
