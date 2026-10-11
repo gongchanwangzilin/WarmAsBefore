@@ -86,6 +86,12 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         // 多实体地图：用户 + 各 AI 角色各自的位置，以及 AI 拉拽移动的仲裁
         builder.Services.AddSingleton<Services.MapActorService>(sp =>
             new Services.MapActorService(sp.GetRequiredService<MapService>()));
+        // #12 表情包库：导入/描述/给 AI 的清单；主对话、假微信、机器人通道共用同一个库
+        builder.Services.AddSingleton<Services.StickerLibrary>(sp =>
+            new Services.StickerLibrary(sp.GetRequiredService<StorageProvider>()));
+        // #13 识图服务：独立配置的识图模型（表情包自动描述等看图任务）
+        builder.Services.AddSingleton<Services.VisionService>(sp =>
+            new Services.VisionService(sp.GetRequiredService<SettingsManager>()));
 
         // ViewModels
         builder.Services.AddTransient<TitleViewModel>();

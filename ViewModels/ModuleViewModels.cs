@@ -107,6 +107,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     private readonly SettingsManager _settings;
     private readonly Modules.Market.GiftPanelService _gifts;
     private readonly Services.WeChatService _wechat;
+    private readonly Services.StickerLibrary _stickerLib;
 
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
@@ -137,7 +138,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     public WeChatViewModel(GameEngine engine, ChatEngine chat, SpeechService speech,
         Modules.RealChat.OfficialChatBridge bridge, CharacterLibrary library,
         StorageProvider store, SettingsManager settings, Modules.Market.GiftPanelService gifts,
-        Services.WeChatService wechat)
+        Services.WeChatService wechat, Services.StickerLibrary stickerLib)
     {
         _engine = engine;
         _chat = chat;
@@ -148,6 +149,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         _settings = settings;
         _gifts = gifts;
         _wechat = wechat;
+        _stickerLib = stickerLib;
         _bridge.Incoming += OnRealIncoming;
         _bridge.Replied += OnRealReplied;
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshMode);
@@ -231,10 +233,12 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            var aiMsg = new ChatItem { Text = reply, DisplayText = "", IsUser = false };
+            // #12：剥离 [表情:名字] 标记再展示（表情以图片消息形式发出）
+            var replyShown = StripStickerMarkers(reply, out var stickerNames);
+            var aiMsg = new ChatItem { Text = replyShown, DisplayText = "", IsUser = false };
             Messages.Add(aiMsg);
-            _ = Typewrite(aiMsg, reply);
-            MaybeAiSticker(reply);
+            _ = Typewrite(aiMsg, replyShown);
+            MaybeAiSticker(replyShown, stickerNames);
         });
     }
 
@@ -248,18 +252,21 @@ public sealed partial class WeChatViewModel : ObservableObject
         if (string.IsNullOrEmpty(charId)) return;
 
         Messages.Add(new ChatItem { Text = msg, DisplayText = msg, IsUser = true });
-
         IsTyping = true;
         _typingCts = new CancellationTokenSource();
         _ = AnimateTypingDots(_typingCts.Token);
+        // #12：把最新表情包清单同步给 AI（同一套库，主对话/假微信都能用表情）
+        await _stickerLib.EnsureLoadedAsync();
+        _chat.SetStickerContext(_stickerLib.BuildContextForAi());
         var reply = await _chat.Send(charId, msg);
         _typingCts.Cancel();
         IsTyping = false;
-
-        var aiMsg = new ChatItem { Text = reply, DisplayText = "", IsUser = false };
+        // #12：剥离 [表情:名字] 标记再展示（表情以图片消息形式发出）
+        var replyShown = StripStickerMarkers(reply, out var stickerNames);
+        var aiMsg = new ChatItem { Text = replyShown, DisplayText = "", IsUser = false };
         Messages.Add(aiMsg);
-        _ = Typewrite(aiMsg, reply);
-        MaybeAiSticker(reply);
+        _ = Typewrite(aiMsg, replyShown);
+        MaybeAiSticker(replyShown, stickerNames);
         await _wechat.TouchLastMessageAsync(charId, msg.Length > 20 ? msg[..20] : msg);
     }
 
@@ -390,10 +397,12 @@ public sealed partial class WeChatViewModel : ObservableObject
         }
         _typingCts.Cancel();
         IsTyping = false;
-        var aiMsg = new ChatItem { Text = reply, DisplayText = "", IsUser = false };
+        // #12：剥离 [表情:名字] 标记再展示（表情以图片消息形式发出）
+        var replyShown = StripStickerMarkers(reply, out var stickerNames);
+        var aiMsg = new ChatItem { Text = replyShown, DisplayText = "", IsUser = false };
         Messages.Add(aiMsg);
-        _ = Typewrite(aiMsg, reply);
-        MaybeAiSticker(reply);
+        _ = Typewrite(aiMsg, replyShown);
+        MaybeAiSticker(replyShown, stickerNames);
     }
 
     /// <summary>按扩展名分流发送：图片→ImageSource；视频→内联播放；其他→文件卡片。</summary>
@@ -415,15 +424,63 @@ public sealed partial class WeChatViewModel : ObservableObject
             }));
     }
 
-    /// <summary>AI 回复后自发表情包：从用户表情库随机挑一张（库为空则不发）。</summary>
-    private void MaybeAiSticker(string reply)
+    /// <summary>
+    /// #12 升级：AI 回复里带 [表情:名字] 标记时，按名字找到图片发出（统一表情库优先，旧目录兜底）；
+    /// 一个都没命中时，保留原来的「小概率随机自发一张」行为，让聊天有生气。
+    /// </summary>
+    private void MaybeAiSticker(string reply, List<string>? stickerNames = null)
     {
+        var hit = false;
+        if (stickerNames is { Count: > 0 })
+        {
+            foreach (var nm in stickerNames)
+            {
+                var path = FindStickerByName(nm);
+                if (path is null) continue;
+                AddMediaMessage(path, isUser: false);
+                hit = true;
+            }
+        }
+        if (hit) return;
         if (string.IsNullOrEmpty(reply) || Stickers.Count == 0) return;
         if (Random.Shared.Next(100) < 35)
         {
             var pick = Stickers[Random.Shared.Next(Stickers.Count)];
             AddMediaMessage(pick, isUser: false);
         }
+    }
+
+    /// <summary>按名字找表情图片：统一表情库优先，旧 Stickers 目录兜底；找不到返回 null。</summary>
+    private string? FindStickerByName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        try
+        {
+            var lib = _stickerLib.Find(name);
+            if (lib is not null && File.Exists(lib.Path)) return lib.Path;
+        }
+        catch { }
+        try
+        {
+            var noExt = Path.GetFileNameWithoutExtension(name);
+            foreach (var f in Stickers)
+            {
+                var fn = Path.GetFileNameWithoutExtension(f);
+                if (string.Equals(fn, name, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(fn, noExt, StringComparison.OrdinalIgnoreCase))
+                    return f;
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    /// <summary>把 AI 正文里的 [表情:名字] 标记剥离，返回干净文本；标记清单经 out 带给调用方。</summary>
+    private static string StripStickerMarkers(string reply, out List<string> stickerNames)
+    {
+        var (clean, names) = Services.StickerLibrary.SplitMarkers(reply);
+        stickerNames = names;
+        return clean;
     }
 
 #if WINDOWS

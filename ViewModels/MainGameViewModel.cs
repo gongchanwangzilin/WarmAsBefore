@@ -37,6 +37,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly Modules.Cg.CgViewPayload _cgView;
     private readonly Modules.Scene.SceneDirector _sceneDirector;
     private readonly Services.MapActorService _mapActors;
+    private readonly Services.StickerLibrary _stickers;
 
     [ObservableProperty] private string _locationLabel = "家";
     [ObservableProperty] private string _timeLabel = "";
@@ -216,7 +217,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Affection.AffectionLevelUpService levelUp,
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
-        Services.MapActorService mapActors)
+        Services.MapActorService mapActors, Services.StickerLibrary stickers)
     {
         _engine = engine;
         _chat = chat;
@@ -240,6 +241,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _sceneDirector = sceneDirector;
         _cal = cal;
         _mapActors = mapActors;
+        _stickers = stickers;
 
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
@@ -1005,18 +1007,26 @@ public sealed partial class MainGameViewModel : ObservableObject
         InputText = "";
         ClearAttachmentsInternal();
         AddMessage("user", files.Count > 0 ? $"{msg}（附 {files.Count} 个文件）".Trim() : msg);
+        // #12：把最新表情包清单同步给 AI（库没变时内部直接跳过，开销可忽略）
+        await _stickers.EnsureLoadedAsync();
+        _chat.SetStickerContext(_stickers.BuildContextForAi());
         var charId = _engine.State.CharacterId;
         if (!string.IsNullOrEmpty(charId))
         {
             IsThinking = true;
             var segments = new List<string>();
             var display = "";
+            var stickerNames = new List<string>(); // #12：AI 本轮要发的表情（稍后渲染成图）
             try
             {
                 // #10：有附件时走带附件的发送重载
                 var reply = files.Count > 0
                     ? await _chat.Send(charId, msg, files)
                     : await _chat.Send(charId, msg);
+                // #12：先剥离 [表情:名字] 标记，正文照常处理
+                var (replyClean, foundStickers) = Services.StickerLibrary.SplitMarkers(reply);
+                reply = replyClean;
+                stickerNames.AddRange(foundStickers);
                 var (segs, hasReaction) = await ProcessReplyAsync(reply);
                 // 动作标记缺失 → System 级补正：有正文=重输出，近乎为空=补输出
                 if (!hasReaction && !string.IsNullOrWhiteSpace(_settings.Current.AiUrl))
@@ -1026,8 +1036,10 @@ public sealed partial class MainGameViewModel : ObservableObject
                     if (!ReferenceEquals(corrected, reply) && corrected != reply)
                     {
                         _chat.ReplaceLastAssistant(charId, corrected);
-                        (segs, hasReaction) = await ProcessReplyAsync(corrected);
-                        reply = corrected;
+                        var (corrClean, moreStickers) = Services.StickerLibrary.SplitMarkers(corrected);
+                        stickerNames.AddRange(moreStickers);
+                        (segs, hasReaction) = await ProcessReplyAsync(corrClean);
+                        reply = corrClean;
                     }
                 }
                 segments = segs;
@@ -1044,7 +1056,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             finally { IsThinking = false; }
 
             // 沉默判定：AI 允许沉默且本轮无正文（仅有动作标记/为空）→ 本回合停止，不再追加回复
-            var isSilent = _settings.Current.AllowSilence &&
+            var isSilent = _settings.Current.AllowSilence && stickerNames.Count == 0 &&
                            string.IsNullOrWhiteSpace(StripActionMarkers(display));
             if (isSilent)
             {
@@ -1054,6 +1066,12 @@ public sealed partial class MainGameViewModel : ObservableObject
             }
 
             foreach (var seg in segments) AddMessage("assistant", seg);
+            // #12：AI 发的表情挂成图片消息（找不到对应表情就静默跳过）
+            foreach (var sn in stickerNames)
+            {
+                var sticker = _stickers.Find(sn);
+                if (sticker is not null) AddMessage("assistant", "", sticker.Path);
+            }
             Affection = Math.Min(100, Affection + 1);
             Trust = Math.Min(100, Trust + 1);
             UpdateStats();
@@ -1113,6 +1131,58 @@ public sealed partial class MainGameViewModel : ObservableObject
         var n = PendingAttachments.Count;
         HasPendingAttachments = n > 0;
         PendingAttachmentsLabel = n > 0 ? $"带文件 · {n}" : "";
+    }
+
+    /// <summary>#12：挑一个已导入的表情发出去（用户侧）。</summary>
+    [RelayCommand]
+    private async Task SendSticker()
+    {
+        if (IsCalibrationBlocked) return;
+        await _stickers.EnsureLoadedAsync();
+        var items = _stickers.Items;
+        if (items.Count == 0)
+        {
+            await Shell.Current.DisplayAlert("表情包", "还没有导入表情。到「设置 → 表情包库」导入几张吧。", "好");
+            return;
+        }
+        var names = items.Select(i => i.Name).Distinct().Take(24).ToArray();
+        var choice = await Shell.Current.DisplayActionSheet("发一个表情", "取消", null, names);
+        if (string.IsNullOrEmpty(choice) || choice == "取消") return;
+        var item = _stickers.Find(choice);
+        if (item is null) return;
+        // 界面上先把自己发的表情挂出来
+        AddMessage("user", "", item.Path);
+        var charId = _engine.State.CharacterId;
+        if (string.IsNullOrEmpty(charId)) return;
+        IsThinking = true;
+        var stickerNames = new List<string>();
+        try
+        {
+            _chat.SetStickerContext(_stickers.BuildContextForAi());
+            var desc = string.IsNullOrWhiteSpace(item.Description) ? "" : $"，{item.Description}";
+            var reply = await _chat.Send(charId, $"(用户发来一个表情包：「{item.Name}」{desc})");
+            var (replyClean, found) = Services.StickerLibrary.SplitMarkers(reply);
+            reply = replyClean;
+            stickerNames.AddRange(found);
+            var (segs, _) = await ProcessReplyAsync(reply);
+            if (segs.Count == 0) segs.Add(reply.Trim());
+            foreach (var seg in segs) AddMessage("assistant", seg);
+            foreach (var sn in stickerNames)
+            {
+                var st = _stickers.Find(sn);
+                if (st is not null) AddMessage("assistant", "", st.Path);
+            }
+            Affection = Math.Min(100, Affection + 1);
+            Trust = Math.Min(100, Trust + 1);
+            UpdateStats();
+            AddAffectionPoints(1, true);
+            _ = AutoSave();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameViewModel.SendSticker -> " + ex);
+        }
+        finally { IsThinking = false; }
     }
 
     // ============ 送礼 / 使用面板 ============
@@ -1263,8 +1333,12 @@ public sealed partial class MainGameViewModel : ObservableObject
             {
                 try
                 {
-                    // 音效：打雷/下雨各自独立，音量为当前 SFX 档。
-                    if (!string.IsNullOrWhiteSpace(sfx))
+                    // 音效：优先取「音效库卡槽」（素材库长按 → 设为打雷音 / 雨声音）；没装填再回落设置里的路径。
+                    // 两条都没有就不放音（画面照常闪）。
+                    var slotKind = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning ? "lightning" : "rain";
+                    if (await _audio.HasAssignedAsync(slotKind))
+                        _audio.PlayAssigned(slotKind);
+                    else if (!string.IsNullOrWhiteSpace(sfx))
                         _audio.PlaySfxFile(sfx);
 
                     // 视觉：有帧图则按序切换；打雷且无帧图 → 默认白闪。
@@ -1772,6 +1846,14 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenSceneLibrary() => await Shell.Current.GoToAsync("scenelibrary");
 
+    // ============ #E4 电脑端：隐藏顶栏/侧栏（ESC）与全屏（F11，code-behind 处理） ============
+
+    /// <summary>电脑端隐藏左侧信息栏与顶部状态栏（ESC 再按恢复）；手机端不生效。</summary>
+    [ObservableProperty] private bool _hideDesktopPanels;
+
+    [RelayCommand]
+    private void ToggleHidePanels() => HideDesktopPanels = !HideDesktopPanels;
+
     [RelayCommand]
     private async Task OpenSave() => await Shell.Current.GoToAsync("save");
 
@@ -1834,13 +1916,14 @@ public sealed partial class MainGameViewModel : ObservableObject
         _engine.ToggleAuto();
     }
 
-    private void AddMessage(string role, string text)
+    private void AddMessage(string role, string text, string? stickerPath = null)
     {
         Messages.Add(new DialogueMessage
         {
             Role = role,
             Text = text,
-            Time = DateTime.Now.ToString("HH:mm")
+            Time = DateTime.Now.ToString("HH:mm"),
+            StickerPath = stickerPath
         });
         // 对话卡剧情文本区：始终展示最近一条
         LastSpeakerName = role == "user" ? "你" : (string.IsNullOrEmpty(CharacterName) ? "角色" : CharacterName);
@@ -1913,6 +1996,16 @@ public sealed class DialogueMessage
     public string Text { get; set; } = "";
     public string Time { get; set; } = "";
     public bool IsUser => Role == "user";
+    /// <summary>#12：这是一条表情消息时，指向表情图片的路径；普通文字消息为 null。</summary>
+    public string? StickerPath { get; set; }
+    /// <summary>是否显示为表情（模板里用它切换显示形态）。</summary>
+    public bool HasSticker => !string.IsNullOrEmpty(StickerPath);
+    /// <summary>文本气泡的显示条件（表情消息不显示空气泡）。</summary>
+    public bool ShowBubbleMine => IsUser && !HasSticker;
+    public bool ShowBubbleTheirs => !IsUser && !HasSticker;
+    /// <summary>表情图片的显示条件（用户发的靠右、AI 发的靠左）。</summary>
+    public bool ShowStickerMine => IsUser && HasSticker;
+    public bool ShowStickerTheirs => !IsUser && HasSticker;
 }
 
 /// <summary>地图 overlay 里的一行场景（x:DataType 绑定的行模型）。</summary>

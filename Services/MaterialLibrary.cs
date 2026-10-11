@@ -260,6 +260,10 @@ public sealed class MaterialLibrary
         if (_assign.LeftClickId == id) _assign.LeftClickId = "";
         if (_assign.RightClickId == id) _assign.RightClickId = "";
         if (_assign.KeyPressId == id) _assign.KeyPressId = "";
+        if (_assign.LightningId == id) _assign.LightningId = "";
+        if (_assign.RainId == id) _assign.RainId = "";
+        if (_assign.ShakeId == id) _assign.ShakeId = "";
+        if (_assign.BounceId == id) _assign.BounceId = "";
         _assign.BgmList.Remove(id);
         _music.Remove(it);
         await PersistAsync();

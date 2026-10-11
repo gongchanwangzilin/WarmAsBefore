@@ -90,19 +90,27 @@ public sealed class DailyDiaryWriter
     {
         var lines = new List<string> { $"{day:M月d日} 的陪伴总结：" };
         if (dialogues.Count > 0)
-            lines.Add($"· 今天和你聊了 {dialogues.Count} 次");
+            lines.Add($"· 今天聊了 {dialogues.Count} 次");
         if (affections.Count > 0)
         {
             var net = affections.Sum(a => a.Weight);
             var reasons = string.Join("、", affections.Select(a => a.Keywords).Where(k => !string.IsNullOrWhiteSpace(k)).Distinct());
             lines.Add($"· 好感变化 {net:+0;-0;0}（{reasons}）");
         }
-        var excerpts = dialogues.Take(3).Select(m =>
-        {
-            var t = m.Content;
-            return t.Length > 40 ? t[..40] + "…" : t;
-        });
-        lines.Add("· 今日片段：" + string.Join("；", excerpts));
+        // 事件摘要：每件事一句话（只取用户那半句，28 字内），最多 5 件——对齐「内部总结小而精」。
+        var highlights = dialogues
+            .Select(d =>
+            {
+                var c = d.Content ?? "";
+                var arrow = c.IndexOf("→", StringComparison.Ordinal);
+                var piece = (arrow >= 0 ? c[..arrow] : c).Trim();
+                return piece.Length > 28 ? piece[..28] + "…" : piece;
+            })
+            .Where(s => s.Length > 0)
+            .Take(5)
+            .ToList();
+        if (highlights.Count > 0)
+            lines.Add("· 今天的事：" + string.Join("；", highlights));
         return string.Join("\n", lines);
     }
 

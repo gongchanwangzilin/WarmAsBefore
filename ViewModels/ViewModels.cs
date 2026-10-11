@@ -178,6 +178,17 @@ public sealed class CharacterCardItem
         string.IsNullOrWhiteSpace(Personality) ? "点击开始聊天" : Personality;
 }
 
+/// <summary>设置页「表情包库」列表的一行（#12）。</summary>
+public sealed class StickerRow
+{
+    public string Id { get; init; } = "";
+    public string Name { get; init; } = "";
+    public string Description { get; init; } = "";
+    public string Path { get; init; } = "";
+    /// <summary>列表里的描述行文案（没写描述时给提示）。</summary>
+    public string DescLabel => string.IsNullOrWhiteSpace(Description) ? "（还没写描述）" : Description;
+}
+
 public sealed partial class SettingsViewModel : ObservableObject
 {
     private readonly SettingsManager _settings;
@@ -187,11 +198,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Modules.Tools.RuntimeManager _runtimes;
     private readonly Modules.Tools.ToolManager _tools;
     private readonly SpeechService _speech;
+    private readonly Services.StickerLibrary _stickers;
+    private readonly CharacterLibrary _library;
+    private readonly Services.VisionService _vision;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
         Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
-        Modules.Tools.ToolManager tools, SpeechService speech)
+        Modules.Tools.ToolManager tools, SpeechService speech,
+        Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision)
     {
         _settings = settings;
         _theme = theme;
@@ -202,6 +217,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
         _sandbox = sandbox;
         _speech = speech;
+        _stickers = stickers;
+        _library = library;
+        _vision = vision;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
         JavaManualPath = _runtimes.ManualJavaPath;
@@ -255,6 +273,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _aiUrl = s.AiUrl;
         _aiKey = s.AiKey;
         _aiModel = s.AiModel;
+        _aiPreset = PresetDisplayOf(s.AiPreset);
+        _visionUrl = s.VisionUrl;
+        _visionKey = s.VisionKey;
+        _visionModel = s.VisionModel;
+        foreach (var p in AiPresets) AiPresetChoices.Add(p.Display);
         _aiTemperature = s.AiTemperature;
         _aiMaxTokens = s.AiMaxTokens;
         _deepThink = s.DeepThink;
@@ -290,6 +313,8 @@ public sealed partial class SettingsViewModel : ObservableObject
 
         _alwaysOnTop = s.AlwaysOnTop;
         _petIdleMinutes = s.PetIdleMinutes;
+        _petThinkModeDisplay = ThinkModeDisplayOf(s.PetThinkMode);
+        _petThinkIntervalMinutes = Math.Max(1, s.PetThinkIntervalMinutes);
 
         // 屏幕方向（auto / landscape / portrait）
         _screenOrientation = string.IsNullOrWhiteSpace(s.ScreenOrientation) ? "auto" : s.ScreenOrientation;
@@ -314,6 +339,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _qqBotEnabled = s.QqBotEnabled;
         _qqAppId = s.QqAppId;
         _qqAppSecret = s.QqAppSecret;
+        _qqBoundCharacterId = s.QqBoundCharacterId;
         _wechatEnabled = s.WechatEnabled;
         _wechatAppId = s.WechatAppId;
         _wechatAppSecret = s.WechatAppSecret;
@@ -336,6 +362,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         // FileInfo.Length —— 全部跑在 UI 线程上。设置页是 transient，每次点「设置」
         // 都会重新构造 ViewModel，于是每次导航都同步卡一次（「点设置卡死」的真实阻塞点）。
         _ = LoadMcpServersAsync();
+        _ = LoadQqBoundChoicesAsync();
+        _suppressPresetApply = false;
 
         _bridge.StatusChanged += st =>
             MainThread.BeginInvokeOnMainThread(() => StatusText = st);
@@ -509,6 +537,221 @@ public sealed partial class SettingsViewModel : ObservableObject
             App.WriteLog("VerifyTools -> " + ex);
         }
     }
+
+    // ============ #12 表情包库 ============
+
+    /// <summary>表情包列表（设置页显示用）。</summary>
+    public ObservableCollection<StickerRow> Stickers { get; } = new();
+
+    /// <summary>表情包库状态文案（空库提示 / 数量）。</summary>
+    [ObservableProperty] private string _stickerStatus = "";
+
+    /// <summary>从库里刷新表情列表。</summary>
+    [RelayCommand]
+    private async Task RefreshStickers()
+    {
+        try
+        {
+            await _stickers.EnsureLoadedAsync();
+            Stickers.Clear();
+            foreach (var s in _stickers.Items)
+                Stickers.Add(new StickerRow { Id = s.Id, Name = s.Name, Description = s.Description, Path = s.Path });
+            StickerStatus = Stickers.Count == 0 ? "还没有表情包。点「导入表情」添加图片。" : $"共 {Stickers.Count} 个表情";
+        }
+        catch (Exception ex) { App.WriteLog("Settings.RefreshStickers -> " + ex.Message); }
+    }
+
+    /// <summary>导入一个或多个表情图片。</summary>
+    [RelayCommand]
+    private async Task ImportSticker()
+    {
+        try
+        {
+            var picks = await FilePicker.Default.PickMultipleAsync(new PickOptions
+            {
+                PickerTitle = "导入表情包图片",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" } },
+                    { DevicePlatform.Android, new[] { "image/*" } },
+                    { DevicePlatform.iOS, new[] { "public.image" } }
+                })
+            });
+            if (picks is null) return;
+            var added = 0;
+            foreach (var p in picks)
+            {
+                var item = await _stickers.ImportAsync(p.FullPath);
+                if (item is not null) added++;
+            }
+            await RefreshStickers();
+            if (added > 0)
+                await Shell.Current.DisplayAlert("表情包", $"导入了 {added} 个表情。给它们写句描述，AI 用起来会更准。", "好");
+        }
+        catch (Exception ex) { App.WriteLog("Settings.ImportSticker -> " + ex.Message); }
+    }
+
+    /// <summary>编辑某个表情的描述（用户手填，AI 会按描述选表情）。</summary>
+    [RelayCommand]
+    private async Task EditStickerDesc(StickerRow? row)
+    {
+        if (row is null) return;
+        var text = await Shell.Current.DisplayPromptAsync("表情描述",
+            $"给「{row.Name}」写一句描述（AI 会按描述选表情）：", "保存", "取消", row.Description, maxLength: 120);
+        if (text is null) return;
+        await _stickers.UpdateDescriptionAsync(row.Id, text);
+        await RefreshStickers();
+    }
+
+    /// <summary>#12/#13：让识图模型看一眼这个表情，自动写描述（一次性识别后注入给 AI）。</summary>
+    [RelayCommand]
+    private async Task AutoDescribeSticker(StickerRow? row)
+    {
+        if (row is null) return;
+        if (!_vision.IsConfigured)
+        {
+            await Shell.Current.DisplayAlert("识图", "还没有配置识图模型。到「API 设置 → 识图模型」填好端点 / Key / 模型后再试。", "好");
+            return;
+        }
+        var desc = await _vision.DescribeImageAsync(row.Path,
+            "这是一张聊天用的表情包。请用一句中文描述它的内容、情绪和适合的使用场景（30 字以内，直接给描述，不要客套）。");
+        if (string.IsNullOrEmpty(desc))
+        {
+            await Shell.Current.DisplayAlert("识图", "识图失败。检查识图模型配置或网络后再试。", "好");
+            return;
+        }
+        await _stickers.UpdateDescriptionAsync(row.Id, desc);
+        await RefreshStickers();
+    }
+
+    /// <summary>删除一个表情。</summary>
+    [RelayCommand]
+    private async Task RemoveSticker(StickerRow? row)
+    {
+        if (row is null) return;
+        var yes = await Shell.Current.DisplayAlert("删除表情", $"删除「{row.Name}」？", "删除", "取消");
+        if (!yes) return;
+        await _stickers.RemoveAsync(row.Id);
+        await RefreshStickers();
+    }
+
+    // ============ #16 QQ 机器人绑定角色（选存档） ============
+
+    /// <summary>QQ 机器人绑定的陪聊角色 Id（空=用当前角色，即旧行为）。</summary>
+    private string _qqBoundCharacterId = "";
+
+    /// <summary>QQ 机器人绑定角色的显示名（Picker 的选中项）。</summary>
+    [ObservableProperty] private string _qqBoundCharacter = "";
+
+    /// <summary>可选角色名列表（首项为「用当前角色」）。</summary>
+    public ObservableCollection<string> QqBoundChoices { get; } = new();
+
+    /// <summary>把角色库里的角色名填进绑定选择器，并把已绑定的 Id 翻译回显示名。</summary>
+    private async Task LoadQqBoundChoicesAsync()
+    {
+        try
+        {
+            var list = await _library.ListAsync();
+            QqBoundChoices.Clear();
+            QqBoundChoices.Add("（用当前角色）");
+            foreach (var c in list)
+            {
+                if (!string.IsNullOrEmpty(c.Profile.Name) && !QqBoundChoices.Contains(c.Profile.Name))
+                    QqBoundChoices.Add(c.Profile.Name);
+            }
+            if (!string.IsNullOrEmpty(_qqBoundCharacterId))
+            {
+                var bound = list.FirstOrDefault(c => c.Profile.Id == _qqBoundCharacterId);
+                QqBoundCharacter = bound is null ? "（用当前角色）" : bound.Profile.Name;
+            }
+            else
+            {
+                QqBoundCharacter = "（用当前角色）";
+            }
+        }
+        catch (Exception ex) { App.WriteLog("Settings.LoadQqBoundChoices -> " + ex.Message); }
+    }
+
+    partial void OnQqBoundCharacterChanged(string value) => _ = ResolveQqBoundAsync(value);
+
+    /// <summary>显示名 → 角色 Id（用于持久化）。</summary>
+    private async Task ResolveQqBoundAsync(string name)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(name) || name == "（用当前角色）")
+            {
+                _qqBoundCharacterId = "";
+                PersistSettings();
+                return;
+            }
+            var list = await _library.ListAsync();
+            var ch = list.FirstOrDefault(c => c.Profile.Name == name);
+            _qqBoundCharacterId = ch?.Profile.Id ?? "";
+            PersistSettings();
+        }
+        catch (Exception ex) { App.WriteLog("Settings.ResolveQqBound -> " + ex.Message); }
+    }
+
+    // ============ #13 API 预设 & 识图模型 ============
+
+    /// <summary>预设显示名（Picker 绑定）。</summary>
+    [ObservableProperty] private string _aiPreset = "自定义";
+    /// <summary>识图模型端点（独立于主对话模型）。</summary>
+    [ObservableProperty] private string _visionUrl = "";
+    [ObservableProperty] private string _visionKey = "";
+    [ObservableProperty] private string _visionModel = "";
+
+    /// <summary>预设列表（Picker 数据源）。</summary>
+    public ObservableCollection<string> AiPresetChoices { get; } = new();
+
+    /// <summary>构造初始化期间不触发预设覆盖（防止恢复设置时把用户 URL 冲掉）。</summary>
+    private bool _suppressPresetApply = true;
+
+    /// <summary>常见 API 服务的端点预设：显示名 / 键 / URL。</summary>
+    private static readonly (string Display, string Key, string Url)[] AiPresets =
+    {
+        ("通用（OpenAI兼容）", "openai", "https://api.openai.com/v1/chat/completions"),
+        ("DeepSeek", "deepseek", "https://api.deepseek.com/v1/chat/completions"),
+        ("MiMo（小米）", "mimo", "https://api.xiaomimimo.com/v1/chat/completions"),
+        ("Kimi（月之暗面）", "kimi", "https://api.moonshot.cn/v1/chat/completions"),
+        ("豆包（火山方舟）", "doubao", "https://ark.cn-beijing.volces.com/api/v3/chat/completions"),
+        ("智谱 AI", "zhipu", "https://open.bigmodel.cn/api/paas/v4/chat/completions"),
+        ("硅基流动", "siliconflow", "https://api.siliconflow.cn/v1/chat/completions"),
+        ("通义千问（DashScope）", "qwen", "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions"),
+        ("自定义", "custom", ""),
+    };
+
+    private static string PresetDisplayOf(string key)
+    {
+        foreach (var p in AiPresets) if (p.Key == key) return p.Display;
+        return "自定义";
+    }
+
+    private static string PresetKeyOf(string display)
+    {
+        foreach (var p in AiPresets) if (p.Display == display) return p.Key;
+        return "custom";
+    }
+
+    private static string PresetUrlOf(string display)
+    {
+        foreach (var p in AiPresets) if (p.Display == display) return p.Url;
+        return "";
+    }
+
+    /// <summary>切换预设：把端点填成该服务的默认值（模型名由用户填或点「拉取模型」）。</summary>
+    partial void OnAiPresetChanged(string value)
+    {
+        if (_suppressPresetApply) return;
+        var url = PresetUrlOf(value);
+        if (!string.IsNullOrWhiteSpace(url)) AiUrl = url;
+        PersistSettings();
+    }
+
+    partial void OnVisionUrlChanged(string value) => PersistSettings();
+    partial void OnVisionKeyChanged(string value) => PersistSettings();
+    partial void OnVisionModelChanged(string value) => PersistSettings();
 
     // 自动更新
     [ObservableProperty] private bool _betaChannel;
@@ -930,6 +1173,32 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>桌宠闲置时长可选值（分钟）：0=关闭闲置自动桌宠。</summary>
     public List<int> PetIdleChoices { get; } = new() { 0, 1, 3, 5, 10, 15, 30, 60 };
 
+    // ============ #E3 桌宠思考 ============
+
+    /// <summary>桌宠思考模式（显示名：关闭 / 随机 / 定时）。</summary>
+    [ObservableProperty] private string _petThinkModeDisplay = "关闭";
+    public List<string> PetThinkModeChoices { get; } = new() { "关闭", "随机", "定时" };
+    /// <summary>思考间隔（分钟）。</summary>
+    [ObservableProperty] private int _petThinkIntervalMinutes = 10;
+    public List<int> PetThinkIntervalChoices { get; } = new() { 5, 10, 15, 30, 60 };
+
+    private static string ThinkModeDisplayOf(string key) => key switch
+    {
+        "random" => "随机",
+        "timer" => "定时",
+        _ => "关闭"
+    };
+
+    private static string ThinkModeKeyOf(string display) => display switch
+    {
+        "随机" => "random",
+        "定时" => "timer",
+        _ => "off"
+    };
+
+    partial void OnPetThinkModeDisplayChanged(string value) => PersistSettings();
+    partial void OnPetThinkIntervalMinutesChanged(int value) => PersistSettings();
+
     partial void OnBgmLevelChanged(double value) => PersistSettings();
     partial void OnSfxLevelChanged(double value) => PersistSettings();
     partial void OnGlassOnChanged(bool value)
@@ -1211,6 +1480,10 @@ GlassLightWidth = GlassLightWidth,
                 AiUrl = string.IsNullOrWhiteSpace(AiUrl) ? "https://api.openai.com/v1/chat/completions" : AiUrl.Trim(),
                 AiKey = AiKey.Trim(),
                 AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
+                AiPreset = PresetKeyOf(_aiPreset),
+                VisionUrl = VisionUrl.Trim(),
+                VisionKey = VisionKey.Trim(),
+                VisionModel = VisionModel.Trim(),
                 AiTemperature = AiTemperature,
                 AiMaxTokens = Math.Clamp((int)AiMaxTokens, 100, 8000),
                 DeepThink = DeepThink,
@@ -1240,11 +1513,14 @@ GlassLightWidth = GlassLightWidth,
 
                 AlwaysOnTop = AlwaysOnTop,
                 PetIdleMinutes = Math.Max(0, PetIdleMinutes),
+                PetThinkMode = ThinkModeKeyOf(_petThinkModeDisplay),
+                PetThinkIntervalMinutes = Math.Max(1, PetThinkIntervalMinutes),
                 ScreenOrientation = ScreenOrientation,
 
                 QqBotEnabled = QqBotEnabled,
                 QqAppId = QqAppId.Trim(),
                 QqAppSecret = QqAppSecret.Trim(),
+                QqBoundCharacterId = _qqBoundCharacterId,
                 WechatEnabled = WechatEnabled,
                 WechatAppId = WechatAppId.Trim(),
                 WechatAppSecret = WechatAppSecret.Trim(),

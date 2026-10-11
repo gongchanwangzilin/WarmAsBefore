@@ -75,12 +75,40 @@ public partial class MainGamePage : ContentPage
                             e.Handled = true;
                             if (vm.NextSceneCommand.CanExecute(null)) vm.NextSceneCommand.Execute(null);
                             break;
+                        // #E4：ESC 隐藏/恢复左侧信息栏与顶部状态栏
+                        case Windows.System.VirtualKey.Escape:
+                            e.Handled = true;
+                            vm.ToggleHidePanelsCommand.Execute(null);
+                            break;
+                        // #E4：F11 全屏（完全全屏、覆盖任务栏）/ 退出全屏
+                        case Windows.System.VirtualKey.F11:
+                            e.Handled = true;
+                            ToggleFullScreen();
+                            break;
                     }
                 };
                 _arrowsHooked = true;
             }
         }
         catch (Exception ex) { App.WriteLog("MainGame.HookDesktopArrowKeys -> " + ex); }
+    }
+
+    /// <summary>#E4：WinUI 全屏切换——全屏时用 FullScreen presenter（覆盖任务栏），再按恢复窗口。</summary>
+    private void ToggleFullScreen()
+    {
+        try
+        {
+            if (Application.Current?.Windows.Count > 0
+                && Application.Current.Windows[0].Handler?.PlatformView is Microsoft.UI.Xaml.Window w
+                && w.AppWindow is { } app)
+            {
+                if (app.Presenter.Kind == Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen)
+                    app.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.Overlapped);
+                else
+                    app.SetPresenter(Microsoft.UI.Windowing.AppWindowPresenterKind.FullScreen);
+            }
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.ToggleFullScreen -> " + ex); }
     }
 #else
     private void HookDesktopArrowKeys() { }

@@ -196,6 +196,36 @@
                         <Label Text="{Binding ToolIntegrityText}" Style="{StaticResource TxtCaption}"
                                IsVisible="{Binding ToolIntegrityText, Converter={StaticResource IsNotNull}}"
                                TextColor="{Binding ToolIntegrityHealthy, Converter={StaticResource BoolGreenRed}}" />
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Label Text="表情包库" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="导入的表情可以在对话里发送；写上描述，AI 也能按场合挑表情发。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Button Text="＋ 导入表情" Style="{StaticResource BtnGhost}" FontSize="13"
+                                Command="{Binding ImportStickerCommand}" />
+                        <Label Text="{Binding StickerStatus}" Style="{StaticResource TxtCaption}" />
+                        <CollectionView ItemsSource="{Binding Stickers}" SelectionMode="None" MaximumHeightRequest="240">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:StickerRow">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <Image Source="{Binding Path}" Aspect="AspectFit" HeightRequest="40" WidthRequest="40" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding DescLabel}" Style="{StaticResource TxtCaption}"
+                                                   LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2" Text="识别" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=AutoDescribeStickerCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="3" Text="描述" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditStickerDescCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="4" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveStickerCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
                     </VerticalStackLayout>
                 </Border>
 
@@ -308,6 +338,10 @@
                 <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="14">
                         <Label Text="{Binding [Settings_AiTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <!-- #13 API 预设：选服务自动填端点 -->
+                        <Grid ColumnDefinitions="110,*"><Label Text="API 预设" VerticalOptions="Center" FontSize="13" />
+                            <Picker Grid.Column="1" Title="选一个服务" ItemsSource="{Binding AiPresetChoices}"
+                                    SelectedItem="{Binding AiPreset}" FontSize="13" /></Grid>
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_AiUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding AiUrl}" Placeholder="https://api.openai.com/v1/chat/completions"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -349,6 +383,23 @@
                             <Picker Grid.Column="1" Title="{Binding [Settings_TurnsTitle], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
                                     ItemsSource="{Binding MemoryTurnsChoices}" SelectedItem="{Binding MemoryTurns}"
                                     FontSize="13" /></Grid>
+                        <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Label Text="识图模型（可选）" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="独立配置一个支持看图的模型；配好后「表情包库」里可以一键让 AI 写描述。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="110,*"><Label Text="识图端点" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding VisionUrl}" Placeholder="https://…/v1/chat/completions"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="识图 Key" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding VisionKey}" IsPassword="True" Placeholder="sk-…"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="识图模型" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding VisionModel}" Placeholder="gpt-4o-mini / qwen-vl-plus / glm-4v …"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
                     </VerticalStackLayout>
                 </Border>
 
@@ -516,6 +567,19 @@
                             <Picker Grid.Column="1" Title="桌宠闲置时长" WidthRequest="110"
                                     ItemsSource="{Binding PetIdleChoices}" SelectedItem="{Binding PetIdleMinutes}"
                                     FontSize="13" /></Grid>
+                        <!-- #E3 桌宠思考 -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="桌宠思考" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="关闭=不主动嘀咕；随机=按间隔掷骰子（约一半概率）；定时=按间隔必想一次。桌宠模式下单击立绘总能触发一次" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="桌宠思考" WidthRequest="110"
+                                    ItemsSource="{Binding PetThinkModeChoices}" SelectedItem="{Binding PetThinkModeDisplay}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="思考间隔" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="随机 / 定时模式下每隔多久想一次（分钟）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="思考间隔" WidthRequest="110"
+                                    ItemsSource="{Binding PetThinkIntervalChoices}" SelectedItem="{Binding PetThinkIntervalMinutes}"
+                                    FontSize="13" /></Grid>
                     </VerticalStackLayout>
                 </Border>
 
@@ -537,6 +601,11 @@
                             <Entry Grid.Column="1" Text="{Binding QqAppSecret}" IsPassword="True" Placeholder="{Binding [Settings_BotAppSecret], Source={x:Static i18n:LocalizationService.Current}}"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                        <!-- #16：QQ 机器人绑定陪聊角色（相当于选一个存档；不选则跟随当前角色） -->
+                        <Grid ColumnDefinitions="110,*"><Label Text="陪聊角色" VerticalOptions="Center" FontSize="13" />
+                            <Picker Grid.Column="1" Title="选一个角色（存档）" ItemsSource="{Binding QqBoundChoices}"
+                                    SelectedItem="{Binding QqBoundCharacter}" FontSize="13" /></Grid>
+                        <Label Text="接入 QQ 机器人前先选好用它陪聊的角色；没选则跟随当前游戏角色。" Style="{StaticResource TxtCaption}" />
 
                         <Label Text="{Binding [Settings_WechatTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,10,0,0" />
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
