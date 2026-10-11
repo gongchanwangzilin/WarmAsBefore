@@ -67,8 +67,31 @@ public sealed partial class NovelSelectViewModel : ObservableObject
             }
             var entry = await _library.AddAsync(result);
             await Refresh();
-            await Shell.Current.DisplayAlert("平行宇宙创建成功",
-                $"「{entry.Title}」\n\n{entry.Summary}", "好");
+
+            // 展示完整性报告：让用户在上手前就知道「这个世界的剧情讲得全不全」。
+            var c = entry.Completeness;
+            if (c is not null)
+            {
+                var sb = new System.Text.StringBuilder();
+                sb.AppendLine($"「{entry.Title}」");
+                sb.AppendLine();
+                sb.AppendLine($"完整度：{c.Score}/100（原文 {c.SourceLength} 字，切 {c.SegmentCount} 段）");
+                sb.AppendLine(c.Verdict);
+                if (c.Issues.Count > 0)
+                {
+                    sb.AppendLine();
+                    sb.AppendLine("需要注意：");
+                    foreach (var issue in c.Issues.Take(6)) sb.AppendLine("· " + issue);
+                }
+                await Shell.Current.DisplayAlert(
+                    c.CanEnter ? "平行宇宙创建成功" : "已创建（剧情不完整）",
+                    sb.ToString().TrimEnd(), "好");
+            }
+            else
+            {
+                await Shell.Current.DisplayAlert("平行宇宙创建成功",
+                    $"「{entry.Title}」\n\n{entry.Summary}", "好");
+            }
         }
         catch (Exception ex)
         {
@@ -139,10 +162,22 @@ public sealed partial class NovelWorldViewModel : ObservableObject
     {
         var chars = novel.Characters.Count > 0 ? string.Join("、", novel.Characters) : "（未知角色）";
         var summary = string.IsNullOrWhiteSpace(novel.Summary) ? "（无简介）" : novel.Summary;
-        return $"你正在扮演小说《{novel.Title}》的平行宇宙。世界设定：{summary}\n" +
-               $"这个世界的角色：{chars}\n" +
-               $"用户是穿越进入这个世界的局外人，真实存在。你以这个世界的角色视角、按小说风格与他对话、推进剧情，" +
-               $"回应要符合世界观与人物性格，保持沉浸感，但不要替用户做决定。用中文回复。";
+        var sb = new System.Text.StringBuilder();
+        sb.Append($"你正在扮演小说《{novel.Title}》的平行宇宙。世界设定：{summary}\n");
+        if (novel.KeyEvents.Count > 0)
+        {
+            sb.Append("这个世界已经发生过的事件（按顺序，供你推进时保持连贯）：\n");
+            foreach (var e in novel.KeyEvents.Take(20)) sb.Append("· ").Append(e).Append('\n');
+        }
+        if (novel.Completeness is { Issues.Count: > 0 } c)
+        {
+            sb.Append($"注意：这份世界设定的剧情并不完整（完整度 {c.Score}/100）。");
+            sb.Append("如果用户推进到缺失的部分，请合理补全，不要让剧情突然断掉。\n");
+        }
+        sb.Append($"这个世界的角色：{chars}\n");
+        sb.Append("用户是穿越进入这个世界的局外人，真实存在。你以这个世界的角色视角、按小说风格与他对话、推进剧情，");
+        sb.Append("回应要符合世界观与人物性格，保持沉浸感，但不要替用户做决定。用中文回复。");
+        return sb.ToString();
     }
 
     [RelayCommand]

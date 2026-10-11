@@ -565,17 +565,20 @@ public sealed class ToolManager : IDisposable
 
         // 拉人：AI 把用户/其他 AI 拉到另一个场景（多 AI 拉同一目标由服务仲裁）
         RegisterBuiltin("pull_actor",
-            "把某个实体（用户或另一个角色）拉到指定场景。可以一次拉多人：用 pull 的 puller 自己按顺序多次调用即可。"
+            "把某个实体（用户或另一个角色）拉到指定场景。"
+            + "需要一次拉多个不同目标时，用批量形式：传 targets 数组（每项 {target, scene}），puller 是发起者。"
             + "若同一目标同时被多个方向拉拽，服务会仲裁：方向一致则跟随，方向不同则目标不动，"
-            + "并在返回里说明是谁在拉、为什么没动。",
+            + "并在返回里说明是谁在拉、为什么没动；不可达/不同场景/没指定目的地会被拒绝并列在 rejected 里。",
             async args =>
             {
                 var services = ServicesHelper.GetServices();
                 if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
                 var actors = services.GetService(typeof(Services.MapActorService)) as Services.MapActorService;
                 if (actors is null) return JsonSerializer.Serialize(new { ok = false, message = "MapActorService 不可用" });
+                var map = services.GetService(typeof(MapService)) as MapService;
 
                 string puller = "", target = "", scene = "";
+                var batch = new List<(string Target, string Scene)>();
                 try
                 {
                     using var doc = JsonDocument.Parse(args ?? "{}");
@@ -583,23 +586,58 @@ public sealed class ToolManager : IDisposable
                     if (root.TryGetProperty("puller", out var p)) puller = p.GetString() ?? "";
                     if (root.TryGetProperty("target", out var t)) target = t.GetString() ?? "";
                     if (root.TryGetProperty("scene", out var s)) scene = s.GetString() ?? "";
+                    // 批量形式：targets 是对象数组
+                    if (root.TryGetProperty("targets", out var arr) && arr.ValueKind == JsonValueKind.Array)
+                    {
+                        foreach (var item in arr.EnumerateArray())
+                        {
+                            if (item.ValueKind != JsonValueKind.Object) continue;
+                            var bt = item.TryGetProperty("target", out var e1) ? e1.GetString() ?? "" : "";
+                            var bs = item.TryGetProperty("scene", out var e2) ? e2.GetString() ?? "" : "";
+                            if (bt.Length > 0 && bs.Length > 0) batch.Add((bt, bs));
+                        }
+                    }
                 }
                 catch (Exception ex)
                 {
                     App.WriteLog("ToolManager.pull_actor parse -> " + ex.Message);
                 }
-                if (target.Length == 0 || scene.Length == 0)
-                    return JsonSerializer.Serialize(new { ok = false, message = "需要参数 puller、target、scene" });
 
-                // 目标场景按名字解析成 Id（AI 通常给的是场景名）
-                var map = services.GetService(typeof(MapService)) as MapService;
-                var sceneId = scene;
-                if (map is not null)
+                // 场景名 → Id
+                string ResolveScene(string name)
                 {
-                    var sc = map.Map.SceneById(scene) ?? map.Map.SceneByName(scene);
-                    if (sc is not null) sceneId = sc.Id;
+                    if (map is null) return name;
+                    var sc = map.Map.SceneById(name) ?? map.Map.SceneByName(name);
+                    return sc is null ? name : sc.Id;
                 }
 
+                // 批量：一次拉多个不同目标，各自独立仲裁
+                if (batch.Count > 0)
+                {
+                    var reqs = batch.Select(b => new PullRequest
+                    {
+                        PullerId = puller.Length == 0 ? "ai" : puller,
+                        PullerName = puller,
+                        TargetId = b.Target,
+                        TargetSceneId = ResolveScene(b.Scene)
+                    }).ToList();
+                    var many = await actors.PullManyAsync(reqs);
+                    var results = many.Select(kv => new
+                    {
+                        target = kv.Key,
+                        moved = kv.Value.Moved,
+                        final_scene = kv.Value.FinalSceneId,
+                        shake_suppressed = kv.Value.ShakeSuppressed,
+                        rejected = kv.Value.Rejected,
+                        message = kv.Value.Message
+                    }).ToList();
+                    return JsonSerializer.Serialize(new { ok = true, count = results.Count, results });
+                }
+
+                if (target.Length == 0 || scene.Length == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "需要参数 puller、target、scene，或用 targets 数组批量拉拽" });
+
+                var sceneId = ResolveScene(scene);
                 var result = await actors.PullAsync(puller.Length == 0 ? "ai" : puller,
                     puller, target, sceneId);
                 return JsonSerializer.Serialize(new
@@ -608,6 +646,7 @@ public sealed class ToolManager : IDisposable
                     final_scene = result.FinalSceneId,
                     shake_suppressed = result.ShakeSuppressed,
                     pulled_by = result.Pulls.Select(r => r.PullerName).ToList(),
+                    rejected = result.Rejected,
                     message = result.Message
                 });
             });

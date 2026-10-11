@@ -34,7 +34,9 @@ public sealed class NovelLibrary
             Title = string.IsNullOrWhiteSpace(result.Title) ? "未命名世界" : result.Title.Trim(),
             Summary = result.Summary,
             Characters = result.Characters,
-            Branches = result.Branches
+            Branches = result.Branches,
+            KeyEvents = result.KeyEvents,
+            Completeness = result.Completeness
         };
         _cache.Add(entry);
         await Save();
@@ -75,4 +77,10 @@ public sealed record NovelEntry
     public List<string> Characters { get; init; } = new();
     public List<PlotBranch> Branches { get; init; } = new();
     public DateTime ImportedAt { get; init; } = DateTime.Now;
+
+    /// <summary>关键事件时间线（与 ScenarioResult 对应）。旧存档没有此字段，反序列化后为空列表。</summary>
+    public List<string> KeyEvents { get; init; } = new();
+
+    /// <summary>剧情完整性报告。旧存档为 null。</summary>
+    public PlotCompleteness? Completeness { get; init; }
 }

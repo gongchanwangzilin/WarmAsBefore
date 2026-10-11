@@ -94,26 +94,45 @@ public sealed class MapActorService
             return Task.FromResult(result);
         }
 
-        // 过滤有效请求：puller 存在、与目标同场景、指定了目标场景
+        // 过滤有效请求：puller 存在、与目标同场景、指定了目标场景、且目标场景可达
         var sameScene = new List<PullRequest>();
+        var rejected = new List<string>();
         foreach (var req in requests ?? Array.Empty<PullRequest>())
         {
             if (req is null) continue;
             MapActor? puller;
             lock (_lock) _actors.TryGetValue(req.PullerId ?? "", out puller);
-            if (puller is null) continue;
+            if (puller is null)
+            {
+                rejected.Add($"{req.PullerName ?? req.PullerId}（不在场）");
+                continue;
+            }
             if (!string.IsNullOrEmpty(puller.SceneId) && puller.SceneId != target.SceneId)
+            {
+                rejected.Add($"{Name(req)}（和目标不在同一场景）");
                 continue;   // 不在同一场景，拉不动
-            if (string.IsNullOrEmpty(req.TargetSceneId)) continue;
+            }
+            if (string.IsNullOrEmpty(req.TargetSceneId))
+            {
+                rejected.Add($"{Name(req)}（没指定目的地）");
+                continue;
+            }
+            // 可达性：目的地必须在地图里且与目标当前场景连通（同场景也算可达，用于「拉不动」提示）。
+            if (!CanReach(target.SceneId, req.TargetSceneId))
+            {
+                rejected.Add($"{Name(req)}（「{SceneName(req.TargetSceneId)}」不可达）");
+                continue;
+            }
             sameScene.Add(req);
         }
-
         result.Pulls = sameScene;
+        result.Rejected = rejected;
         result.FinalSceneId = target.SceneId;
-
         if (sameScene.Count == 0)
         {
-            result.Message = "没有有效的拉拽（拉拽者必须和目标在同一场景）。";
+            result.Message = rejected.Count > 0
+                ? $"没有有效的拉拽：{string.Join("、", rejected)}。"
+                : "没有有效的拉拽（拉拽者必须和目标在同一场景，且目的地要可达）。";
             return Task.FromResult(result);
         }
 
@@ -163,6 +182,24 @@ public sealed class MapActorService
             }
         }, ct);
 
+    /// <summary>
+    /// 批量拉拽：一次处理「多个不同目标」的拉拽（每个目标各自仲裁，互不干涉）。
+    /// 用于一个回合里多个 AI 同时拉不同的人——各自按 PullAsync 的规则判定。
+    /// </summary>
+    public async Task<Dictionary<string, PullArbitrationResult>> PullManyAsync(
+        IReadOnlyList<PullRequest> requests, CancellationToken ct = default)
+    {
+        var results = new Dictionary<string, PullArbitrationResult>(StringComparer.Ordinal);
+        foreach (var group in (requests ?? Array.Empty<PullRequest>())
+                     .Where(r => r is not null && !string.IsNullOrEmpty(r.TargetId))
+                     .GroupBy(r => r.TargetId, StringComparer.Ordinal))
+        {
+            var list = group.ToList();
+            results[group.Key] = await PullAsync(group.Key, list, ct);
+        }
+        return results;
+    }
+
     /// <summary>本地图/场景是否可达（拉拽前的合法性检查）。</summary>
     public bool CanReach(string fromSceneId, string toSceneId)
         => fromSceneId == toSceneId || _map.FindShortest(fromSceneId, toSceneId) is not null;
@@ -170,6 +207,9 @@ public sealed class MapActorService
     private static string NamesOf(IReadOnlyList<PullRequest> reqs)
         => string.Join("、", reqs.Select(r => string.IsNullOrEmpty(r.PullerName) ? r.PullerId : r.PullerName)
             .Distinct());
+    /// <summary>单个拉拽者的显示名（无名字则退回 Id）。</summary>
+    private static string Name(PullRequest req)
+        => string.IsNullOrEmpty(req.PullerName) ? req.PullerId : req.PullerName;
 
     private string SceneName(string sceneId)
         => _map.Map.SceneById(sceneId)?.Name ?? sceneId;
