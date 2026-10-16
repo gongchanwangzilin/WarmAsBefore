@@ -163,6 +163,35 @@ public sealed class CharacterLibrary
     }
 
     /// <summary>
+    /// 把某张立绘的路径换成新文件（立绘规范化后指向标准画布）。
+    /// 按值匹配：所有指向旧文件的服装/表情条目一起改，避免只改一半。
+    /// </summary>
+    public async Task<(bool ok, string message)> ReplaceSpritePathAsync(string oldRel, string newRel)
+    {
+        await LoadAsync();
+        if (string.IsNullOrWhiteSpace(oldRel) || string.IsNullOrWhiteSpace(newRel))
+            return (false, "路径为空，无法替换。");
+
+        var changed = 0;
+        foreach (var ch in _engine.Roster.Values.ToList())
+        {
+            if (ch.SpriteMap.Count == 0) continue;
+            if (!ch.SpriteMap.Any(kv => SamePath(kv.Value, oldRel))) continue;
+
+            var map = new Dictionary<string, string>(ch.SpriteMap, StringComparer.OrdinalIgnoreCase);
+            foreach (var (k, v) in ch.SpriteMap)
+                if (SamePath(v, oldRel)) map[k] = newRel;
+            if (await UpdateAsync(ch with { SpriteMap = map })) changed++;
+        }
+        return changed > 0
+            ? (true, $"已把 {changed} 个角色的立绘指向新的标准画布文件。")
+            : (false, "没有找到引用这张立绘的角色（可能它不在任何 SpriteMap 里）。");
+    }
+
+    private static bool SamePath(string a, string b) =>
+        string.Equals(a?.Replace('\\', '/').Trim(), b?.Replace('\\', '/').Trim(), StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// 角色库上下文：除主角外所有角色的一句话介绍，注入 AI 提示词供其自由调用。
     /// <paramref name="allowedIds"/> 非空时只列白名单里的角色——存档可以限定可用配角，
     /// 避免 AI 看到角色库里有人就疯狂加配角。
