@@ -1237,6 +1237,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _subProfileAiRewrite;
     partial void OnSubProfileAiRewriteChanged(bool value) => PersistSettings();
 
+    // ============ 设置搜索 ============
+
+    /// <summary>卡片级过滤：搜索时只留下命中的卡片（设置页太长，找不到项是常态）。</summary>
+    public SettingsCardFilter Filter { get; } = new();
+
+    [ObservableProperty] private string _settingsSearchText = "";
+    partial void OnSettingsSearchTextChanged(string value) => Filter.Apply(value);
+
+    /// <summary>清空搜索，恢复全部分类。</summary>
+    [RelayCommand]
+    private void ClearSettingsSearch() => SettingsSearchText = "";
+
     /// <summary>智能省钱总开关（默认开）。</summary>
     [ObservableProperty] private bool _smartSavingEnabled = true;
     partial void OnSmartSavingEnabledChanged(bool value) => PersistSettings();
