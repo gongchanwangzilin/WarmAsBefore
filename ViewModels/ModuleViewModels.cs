@@ -182,7 +182,7 @@ public sealed partial class WeChatViewModel : ObservableObject
                 PartnerAvatar = avatar;
                 HasPartnerAvatar = avatar is not null;
                 _chat.ConfigureCharacter(ch.Profile);
-                _chat.SetRoster(_library.RosterContext(ch.Profile.Id));
+                _chat.SetRoster(_library.RosterContext(ch.Profile.Id, _engine.State.AllowedCharacters));
                 await _wechat.MarkReadAsync(charId);
             }
         }
@@ -867,6 +867,16 @@ public sealed partial class SaveViewModel : ObservableObject
     {
         await _library.ListAsync();   // 确保角色库已载入，读档时才能恢复角色状态
         await _save.Load(id);
+        // 过期存档被自动修复过就告知用户（不是静默改动数据）
+        if (!string.IsNullOrWhiteSpace(_save.LastLoadNote))
+        {
+            var note = _save.LastLoadNote;
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                try { await Shell.Current.DisplayAlert("存档已自动修复", note, "好"); }
+                catch (Exception ex) { App.WriteLog("SaveVM.RepairNote -> " + ex.Message); }
+            });
+        }
         await Shell.Current.GoToAsync("main");
     }
 

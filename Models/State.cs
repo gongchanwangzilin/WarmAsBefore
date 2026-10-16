@@ -13,6 +13,17 @@ public sealed record GameState
     public HashSet<string> CgUnlocked { get; init; } = new();
     public HashSet<string> Achievements { get; init; } = new();
     public List<AffectionTick> AffectionLog { get; init; } = new();
+
+    /// <summary>
+    /// 本存档可用的角色白名单：非空时 AI 只能在这些角色里选配角，
+    /// 避免「角色库里只要有角色就疯狂加配角」。空 = 不限制。
+    /// </summary>
+    public HashSet<string> AllowedCharacters { get; init; } = new();
+
+    /// <summary>AI 主动黑屏（屏幕上什么都不显示，但仍然可以对话）。</summary>
+    public bool Blackout { get; set; }
+    /// <summary>黑屏原因（AI 给的说明，供用户理解此刻在发生什么）。</summary>
+    public string BlackoutReason { get; set; } = "";
 }
 
 public sealed record AffectionTick

@@ -378,6 +378,19 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     </VerticalStackLayout>
                 </HorizontalStackLayout>
             </Border>
+
+            <!-- AI 主动黑屏：只黑舞台，聊天与输入照常可用 -->
+            <Grid IsVisible="{Binding IsBlackout}" BackgroundColor="Black">
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
+                    <Label Text="（黑屏）" TextColor="#66FFFFFF" FontSize="14" HorizontalOptions="Center" />
+                    <Label Text="{Binding BlackoutReason}" TextColor="#99FFFFFF" FontSize="12"
+                           HorizontalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="260"
+                           IsVisible="{Binding BlackoutReason, Converter={StaticResource IsNotNull}}" />
+                    <Button Text="退出黑屏" FontSize="12" Padding="12,4"
+                            Command="{Binding ExitBlackoutCommand}"
+                            BackgroundColor="#33FFFFFF" TextColor="White" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Grid>
         </Grid>
 
         <!-- ============ Desktop Layout (horizontal) ============
@@ -519,6 +532,19 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         BackgroundColor="{DynamicResource AccentWarm}" TextColor="White"
                         FontSize="12" Padding="14,4" CornerRadius="16" HeightRequest="34"
                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,16,16,0" />
+
+                <!-- AI 主动黑屏：只黑舞台，右侧对话面板照常可用 -->
+                <Grid IsVisible="{Binding IsBlackout}" BackgroundColor="Black">
+                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
+                        <Label Text="（黑屏）" TextColor="#66FFFFFF" FontSize="15" HorizontalOptions="Center" />
+                        <Label Text="{Binding BlackoutReason}" TextColor="#99FFFFFF" FontSize="12"
+                               HorizontalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="360"
+                               IsVisible="{Binding BlackoutReason, Converter={StaticResource IsNotNull}}" />
+                        <Button Text="退出黑屏" FontSize="12" Padding="12,4"
+                                Command="{Binding ExitBlackoutCommand}"
+                                BackgroundColor="#33FFFFFF" TextColor="White" HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Grid>
             </Grid>
 
             <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间） -->

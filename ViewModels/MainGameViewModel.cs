@@ -201,6 +201,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private DateTime _lastAutoSave = DateTime.MinValue;
     private readonly SceneCalibrationService _cal;
     private readonly PortraitCalibrationService _portraits;
+    private readonly ScreenBlackoutService _blackout;
     private MapScene? _currentScene;
 
     // ---- 标定闸门 ----
@@ -237,6 +238,10 @@ public sealed partial class MainGameViewModel : ObservableObject
         => OnPropertyChanged(nameof(HasSpriteCalibrationIssue));
     public bool HasSpriteCalibrationIssue => !string.IsNullOrEmpty(SpriteCalibrationIssue);
 
+    /// <summary>AI 主动黑屏：舞台全黑，但聊天与输入照常可用。</summary>
+    [ObservableProperty] private bool _isBlackout;
+    [ObservableProperty] private string _blackoutReason = "";
+
     public MainGameViewModel(GameEngine engine, ChatEngine chat, MemoryVault memory,
         TaskOrchestrator auto, SaveManager save, WeatherProvider weather, RealTimeProvider time,
         PhysiologicalTracker phys, AudioController audio, SpeechService speech,
@@ -246,7 +251,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
         Services.MapActorService mapActors, Services.StickerLibrary stickers,
-        PortraitCalibrationService portraits)
+        PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout)
     {
         _engine = engine;
         _chat = chat;
@@ -272,6 +277,13 @@ public sealed partial class MainGameViewModel : ObservableObject
         _mapActors = mapActors;
         _stickers = stickers;
         _portraits = portraits;
+        _blackout = blackout;
+        // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
+        _blackout.Changed += (on, reason) => MainThread.BeginInvokeOnMainThread(() =>
+        {
+            IsBlackout = on;
+            BlackoutReason = reason;
+        });
 
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
@@ -875,8 +887,10 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             CharacterName = ch.Profile.Name;
             _chat.ConfigureCharacter(ch.Profile);
-            _chat.SetRoster(_chars.RosterContext(ch.Profile.Id));
+            _chat.SetRoster(_chars.RosterContext(ch.Profile.Id, _engine.State.AllowedCharacters));
             RestoreSession();
+            // 读档后同步黑屏状态（黑屏是存档的一部分，重启也该保持）
+            _blackout.SyncFromState();
         });
         App.WriteLog($"LoadCharacterAsync: char={ch.Profile.Name}, outfit={_outfitKey}, emotion={_currentEmotion}, sprites={ch.SpriteMap.Count}");
         _ = _audio.StartBgmRotationAsync();
@@ -1948,6 +1962,15 @@ public sealed partial class MainGameViewModel : ObservableObject
         var key = _spriteKey ?? "";
         if (string.IsNullOrEmpty(key)) return;
         await Shell.Current.GoToAsync($"portraitCalibration?key={Uri.EscapeDataString(key)}");
+    }
+
+    /// <summary>用户手动退出黑屏（AI 选了黑屏时也留个出口，免得被卡在黑屏里）。</summary>
+    [RelayCommand]
+    private void ExitBlackout()
+    {
+        _blackout.Set(false);
+        IsBlackout = false;
+        BlackoutReason = "";
     }
 
     [RelayCommand]

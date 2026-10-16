@@ -182,6 +182,7 @@ public sealed class ToolManager : IDisposable
         ("search_by_tags", "按标签或标签组合检索记忆"),
         ("list_skills", "列出可用的能力包"),
         ("read_skill", "读取能力包的说明书"),
+        ("set_blackout", "把画面黑掉或恢复（仍可对话）"),
         ("list_actors", "列出地图实体位置"),
         ("pull_actor", "拉拽实体到场景"),
         ("battle_start", "发起战斗"),
@@ -1104,6 +1105,53 @@ public sealed class ToolManager : IDisposable
             new List<ToolParameter>
             {
                 new() { Name = "name", Description = "能力包名字（见 list_skills 返回）", Required = true }
+            });
+
+        // 黑屏：AI 可以主动把画面黑掉（关灯/私密时刻），但黑屏不影响继续对话
+        RegisterBuiltin("set_blackout",
+            "把画面黑掉或恢复。适合某些时刻：房间里关了灯、不想让对方看见画面、话题太私密。"
+            + "黑屏不代表不能说话——你依然可以正常回复，对方也依然能看见你的文字。"
+            + "不要滥用：日常对话保持画面可见。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                var blackout = services?.GetService(typeof(ScreenBlackoutService)) as ScreenBlackoutService;
+                if (blackout is null) return JsonSerializer.Serialize(new { ok = false, message = "黑屏服务不可用" });
+
+                var on = true;
+                var reason = "";
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("on", out var o))
+                    {
+                        on = o.ValueKind switch
+                        {
+                            JsonValueKind.False => false,
+                            JsonValueKind.String => !string.Equals(o.GetString(), "false", StringComparison.OrdinalIgnoreCase),
+                            _ => true
+                        };
+                    }
+                    if (root.TryGetProperty("reason", out var r) && r.ValueKind == JsonValueKind.String)
+                        reason = (r.GetString() ?? "").Trim();
+                }
+                catch (Exception ex) { App.WriteLog("ToolManager.set_blackout parse -> " + ex.Message); }
+
+                blackout.Set(on, reason);
+                return JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    blackout = on,
+                    message = on
+                        ? "画面已黑掉（对方仍能和你说话）。" + (reason.Length > 0 ? $"说明：{reason}" : "")
+                        : "画面已恢复。"
+                });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "on", Description = "true=黑屏，false=恢复，默认 true", Required = false },
+                new() { Name = "reason", Description = "简短说明为什么黑屏（会给用户看），可留空", Required = false }
             });
 
         // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置

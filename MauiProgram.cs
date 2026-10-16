@@ -44,6 +44,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<MemoryTagService>();
         // 智能省钱：真实 token 用量 + 单价 → 花费表与「该不该总结」建议
         builder.Services.AddSingleton<CostEstimatorService>();
+        // 黑屏：AI 可主动黑屏，但对话不受影响
+        builder.Services.AddSingleton<ScreenBlackoutService>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件

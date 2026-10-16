@@ -171,11 +171,13 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             "修改用户称呼", "修改昵称", "修改问候语",
             "查看副设定（当下之我）", "副设定回正到主设定",
             "词义关系网（纠错）", "标签（查看/删除）",
+            (IsAllowedInSave(item.Data.Profile.Id) ? "移出本存档可用角色" : "加入本存档可用角色"),
             "参数覆写（记忆/采样）");
         if (field is null || field == "取消") return;
         if (field.Contains("参数覆写")) { await EditOverridesAsync(item); return; }
         if (field.Contains("词义关系网")) { await EditSemanticNetworkAsync(item); return; }
         if (field.Contains("标签")) { await EditTagsAsync(item); return; }
+        if (field.Contains("本存档可用角色")) { await ToggleAllowedAsync(item); return; }
         if (field.Contains("查看副设定"))
         {
             await Shell.Current.DisplayAlert($"「{p.Name}」的设定",
@@ -362,6 +364,41 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(name)) return;
         var removed = await _tags.RemoveAsync(id, name.Trim());
         await Shell.Current.DisplayAlert("删除标签", removed > 0 ? $"已删除「{name.Trim()}」。" : "没有找到这个标签。", "好");
+    }
+
+    /// <summary>
+    /// 存档可用角色白名单：不设限时 AI 会看到角色库里所有人，容易疯狂加配角。
+    /// 加入白名单后，只有名单里的人会出现在提示词里（空名单 = 不限制）。
+    /// </summary>
+    private async Task ToggleAllowedAsync(CharacterLibraryItem item)
+    {
+        var id = item.Data.Profile.Id;
+        var allowed = _engine.State.AllowedCharacters;
+        var name = item.Data.Profile.Name;
+        if (allowed.Contains(id))
+        {
+            allowed.Remove(id);
+            await Shell.Current.DisplayAlert("存档可用角色",
+                $"已把「{name}」移出本存档的可用角色。\n" + WhitelistSummary(), "好");
+        }
+        else
+        {
+            allowed.Add(id);
+            await Shell.Current.DisplayAlert("存档可用角色",
+                $"已把「{name}」加入本存档的可用角色。\n" + WhitelistSummary(), "好");
+        }
+    }
+
+    private bool IsAllowedInSave(string id) => _engine.State.AllowedCharacters.Contains(id);
+
+    private string WhitelistSummary()
+    {
+        var allowed = _engine.State.AllowedCharacters;
+        if (allowed.Count == 0) return "当前名单为空 = 不限制（AI 可以使用角色库里任何角色当配角）。";
+        var names = _engine.Roster.Values
+            .Where(c => allowed.Contains(c.Profile.Id))
+            .Select(c => c.Profile.Name);
+        return $"当前可用角色（{allowed.Count} 个）：{string.Join("、", names)}。";
     }
 
     /// <summary>复制角色（共享引用所有立绘，不重复保存素材文件）。</summary>

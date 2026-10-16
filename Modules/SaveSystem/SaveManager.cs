@@ -1,5 +1,6 @@
 using System.Text.Json;
 using WarmAsBefore.Models;
+using WarmAsBefore.Modules.Screen;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Modules.SaveSystem;
@@ -19,6 +20,12 @@ public sealed class SaveManager
 
     /// <summary>当前会话的聊天记录：随每次保存写入存档，读档后恢复聊天界面。</summary>
     public List<ChatRecord> ChatLog { get; } = new();
+
+    /// <summary>存档结构版本：旧档（缺此字段 = 0）在加载时自动迁移修复。</summary>
+    public const int SchemaVersion = 1;
+
+    /// <summary>上一次读档时的自动修复说明（空 = 无需修复）。</summary>
+    public string LastLoadNote { get; private set; } = "";
 
     /// <summary>新开一局：分配新的存档槽位（同一角色可开多局，各自成档）。</summary>
     public string NewRun()
@@ -46,6 +53,7 @@ public sealed class SaveManager
                 ["state"] = _engine.State,
                 ["meta"] = slot,
                 ["mode"] = mode,
+                ["version"] = SchemaVersion,
                 ["char_state"] = _engine.ActiveCharacter?.State,
                 ["chat"] = ChatLog.TakeLast(60).ToList()
             };
@@ -95,7 +103,65 @@ public sealed class SaveManager
             if (records is not null) ChatLog.AddRange(records);
         }
         _engine.CurrentSaveId = id;
+
+        // 过期存档自动修复：旧档缺版本字段（=0）或结构漂移时，就地补齐并回写。
+        var version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
+        LastLoadNote = version >= SchemaVersion ? "" : await RepairAsync(id, version);
+        if (!string.IsNullOrEmpty(LastLoadNote)) App.WriteLog("SaveManager.Repair -> " + LastLoadNote);
+
+        // 手机端进入存档自动横屏（桌面/平板无方向锁概念）
+        try { ScreenOrientationService.EnterSaveLandscape(); }
+        catch (Exception ex) { App.WriteLog("SaveManager.EnterLandscape -> " + ex.Message); }
         return true;
+    }
+
+    /// <summary>
+    /// 过期存档修复：把结构落后的存档补齐到当前版本。
+    /// 只做「能确定的修正」——越界数值夹回范围、坏行丢弃、缺失的引用补种，绝不猜测剧情内容。
+    /// </summary>
+    private async Task<string> RepairAsync(string id, int fromVersion)
+    {
+        var fixes = new List<string>();
+
+        var state = _engine.State;
+        // 白名单里指向已不存在的角色：清掉，否则提示词里会出现空引用
+        if (state.AllowedCharacters.Count > 0)
+        {
+            var known = _engine.Roster.Keys.ToHashSet(StringComparer.Ordinal);
+            var droppedIds = state.AllowedCharacters.Where(c => !known.Contains(c)).ToList();
+            foreach (var d in droppedIds) state.AllowedCharacters.Remove(d);
+            if (droppedIds.Count > 0) fixes.Add($"清理了 {droppedIds.Count} 个已不存在的可用角色");
+        }
+
+        // 聊天记录里的空行（旧版异常退出可能留下）
+        var badChat = ChatLog.Count(r => string.IsNullOrWhiteSpace(r.Text));
+        if (badChat > 0)
+        {
+            ChatLog.RemoveAll(r => string.IsNullOrWhiteSpace(r.Text));
+            fixes.Add($"丢弃了 {badChat} 条空聊天记录");
+        }
+
+        // 角色数值越界（旧版/手改档）：夹回合法范围
+        if (_engine.ActiveCharacter is { } ch)
+        {
+            var st = ch.State;
+            var before = (st.Affection, st.AffectionPoints, st.Trust, st.Energy);
+            st.Affection = Math.Clamp(st.Affection, 0, 100);
+            st.AffectionPoints = Math.Clamp(st.AffectionPoints, 0, 5000);
+            st.Trust = Math.Clamp(st.Trust, 0, 100);
+            st.Energy = Math.Clamp(st.Energy, 0, 100);
+            if (before != (st.Affection, st.AffectionPoints, st.Trust, st.Energy))
+                fixes.Add("把越界的好感/信任/精力数值夹回合法范围");
+        }
+
+        var note = fixes.Count == 0
+            ? ""
+            : $"存档已自动修复（结构版本 {fromVersion} → {SchemaVersion}）：" + string.Join("；", fixes) + "。";
+
+        // 回写：升级后的版本号与修复结果一并落盘，避免每次读档都重复修
+        await Commit(string.IsNullOrWhiteSpace(_engine.ActiveCharacter?.Profile.Name)
+            ? "自动修复" : _engine.ActiveCharacter!.Profile.Name, "repair");
+        return note;
     }
 
     /// <summary>给存档重命名：改写 meta.Label 并回写文件。</summary>
