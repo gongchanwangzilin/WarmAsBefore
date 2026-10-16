@@ -90,16 +90,70 @@ public sealed class SettingsManager
     private async Task MigrateLegacyAsync()
     {
         var c = _current;
-        if (string.IsNullOrEmpty(c.GlassStyle) || c.FrostEnabled || c.GlassEnabled || c.LiquidEnabled)
-            return;
-        var migrated = c with
+        var changed = false;
+
+        if (!(string.IsNullOrEmpty(c.GlassStyle) || c.FrostEnabled || c.GlassEnabled || c.LiquidEnabled))
         {
-            FrostEnabled = c.GlassStyle is "frost" or "glass",
-            GlassEnabled = c.GlassStyle == "glass",
-            LiquidEnabled = c.GlassStyle == "liquid",
-            GlassStyle = ""
-        };
-        _current = migrated;
+            c = c with
+            {
+                FrostEnabled = c.GlassStyle is "frost" or "glass",
+                GlassEnabled = c.GlassStyle == "glass",
+                LiquidEnabled = c.GlassStyle == "liquid",
+                GlassStyle = ""
+            };
+            changed = true;
+        }
+
+        // 旧的「一条档案 = 厂商+模型+密钥」迁移成「厂商 + 多模型」：
+        // 同端点同密钥的档案合并成一家厂商，各自的模型并进这家厂商的模型列表。
+        if (c.AiProviders.Count == 0 && c.AiProfiles.Count > 0)
+        {
+            var providers = new List<AiProvider>();
+            foreach (var p in c.AiProfiles)
+            {
+                var normUrl = (p.Url ?? "").Trim();
+                var keys = (p.Keys ?? new List<string>()).Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+                var match = providers.FirstOrDefault(v =>
+                    string.Equals(v.Url, normUrl, StringComparison.OrdinalIgnoreCase)
+                    && v.Keys.SequenceEqual(keys, StringComparer.Ordinal));
+
+                if (match is not null)
+                {
+                    var idx = providers.IndexOf(match);
+                    providers[idx] = match with
+                    {
+                        Models = match.Models.Concat(new[] { new AiProviderModel { Model = (p.Model ?? "").Trim(), Label = p.Name ?? "" } })
+                            .Where(m => !string.IsNullOrWhiteSpace(m.Model))
+                            .GroupBy(m => m.Model, StringComparer.OrdinalIgnoreCase)
+                            .Select(g => g.First())
+                            .ToList()
+                    };
+                }
+                else
+                {
+                    providers.Add(new AiProvider
+                    {
+                        Name = string.IsNullOrWhiteSpace(p.Name) ? (p.Model ?? "") : p.Name!,
+                        Url = normUrl,
+                        Keys = keys,
+                        Enabled = p.Enabled,
+                        TimeoutSeconds = p.TimeoutSeconds,
+                        Models = string.IsNullOrWhiteSpace(p.Model)
+                            ? new List<AiProviderModel>()
+                            : new List<AiProviderModel> { new() { Model = p.Model.Trim() } }
+                    });
+                }
+            }
+            if (providers.Count > 0)
+            {
+                c = c with { AiProviders = providers };
+                changed = true;
+                App.WriteLog($"Settings.Migrate: {c.AiProfiles.Count} 条端点档案 → {providers.Count} 家厂商");
+            }
+        }
+
+        if (!changed) return;
+        _current = c;
         await _store.Save("settings", _current);
     }
 }

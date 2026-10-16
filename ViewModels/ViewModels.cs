@@ -194,39 +194,39 @@ public sealed class StickerRow
 /// 设置页「多端点轮换」列表的一行：一条 = 供应商 + 某款 AI（模型）+ 该组合的多枚密钥。
 /// 列表里可直接改启用开关；任何改动都会通过 PropertyChanged 触发防抖落盘。
 /// </summary>
-public sealed partial class AiProfileRow : ObservableObject
+/// <summary>
+/// 设置页里的一家厂商：端点 + 密钥 + 它下面的多款模型。
+/// UI 只编辑这一层与模型列表，轮换池由 RuntimeConfigurator 展开成「厂商 × 模型」。
+/// </summary>
+public sealed partial class AiProviderRow : ObservableObject
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N")[..8];
 
     [ObservableProperty] private string _name = "";
     [ObservableProperty] private string _url = "";
-    [ObservableProperty] private string _model = "";
-    /// <summary>密钥池：一行一枚，多枚轮流用。</summary>
     [ObservableProperty] private string _keysText = "";
     [ObservableProperty] private bool _enabled = true;
-
-    /// <summary>该端点的超时时长（秒）：留空或 0 = 用全局设置。</summary>
+    /// <summary>该厂商的超时（秒）：留空 = 用全局。</summary>
     [ObservableProperty] private string _timeoutSeconds = "";
 
-    /// <summary>列表主标题：优先名称，其次端点。</summary>
-    public string Title =>
-        !string.IsNullOrWhiteSpace(Name) ? Name
-        : !string.IsNullOrWhiteSpace(Url) ? Url
-        : "（未命名端点）";
+    /// <summary>这家厂商下要用的模型（可多款）。</summary>
+    public ObservableCollection<AiModelRow> Models { get; } = new();
 
-    /// <summary>列表副标题：模型 + 密钥数量 + 超时覆写。</summary>
+    public string Title => string.IsNullOrWhiteSpace(Name) ? "（未命名厂商）" : Name;
+    /// <summary>模型增减后刷新副标题（模型列表在外部被改动时调用）。</summary>
+    public void RefreshSummary() => OnPropertyChanged(nameof(Summary));
+
     public string Summary
     {
         get
         {
-            var count = SplitKeys(KeysText).Count;
-            var model = string.IsNullOrWhiteSpace(Model) ? "（未填模型）" : Model;
-            var timeout = ParseTimeout() is { } t ? $" · 超时{t}s" : "";
-            return $"{model} · {count}枚密钥{timeout}";
+            var keys = SplitKeys(KeysText).Count;
+            var on = Models.Count(m => m.Enabled);
+            var timeout = ParseTimeout() is { } t ? $" · 超时 {t}s" : "";
+            return $"{on}/{Models.Count} 款模型 · {keys} 枚密钥{timeout}";
         }
     }
 
-    /// <summary>解析超时覆写：非法或空返回 null（表示跟随全局）。</summary>
     public int? ParseTimeout()
     {
         if (string.IsNullOrWhiteSpace(TimeoutSeconds)) return null;
@@ -234,26 +234,37 @@ public sealed partial class AiProfileRow : ObservableObject
     }
 
     partial void OnNameChanged(string value) => OnPropertyChanged(nameof(Title));
-    partial void OnUrlChanged(string value) => OnPropertyChanged(nameof(Title));
-    partial void OnModelChanged(string value) => OnPropertyChanged(nameof(Summary));
     partial void OnKeysTextChanged(string value) => OnPropertyChanged(nameof(Summary));
     partial void OnTimeoutSecondsChanged(string value) => OnPropertyChanged(nameof(Summary));
 
-    /// <summary>把多行文本拆成密钥列表（去空行、去首尾空白）。</summary>
     public static List<string> SplitKeys(string? text) =>
-        (text ?? "").Split(new[] { '\n', '\r' },
+        (text ?? "").Split(new[] { '\n', '\r', ',', '，', ';', '；' },
             StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).ToList();
 
-    public AiEndpointProfile ToProfile() => new()
+    public AiProvider ToProvider() => new()
     {
         Id = Id,
         Name = (Name ?? "").Trim(),
         Url = (Url ?? "").Trim(),
-        Model = (Model ?? "").Trim(),
         Keys = SplitKeys(KeysText),
         Enabled = Enabled,
-        TimeoutSeconds = ParseTimeout()
+        TimeoutSeconds = ParseTimeout(),
+        Models = Models.Where(m => !string.IsNullOrWhiteSpace(m.Model))
+            .Select(m => new AiProviderModel { Model = m.Model.Trim(), Label = (m.Label ?? "").Trim(), Enabled = m.Enabled })
+            .ToList()
     };
+}
+
+/// <summary>厂商下面的一款模型（可在列表里单独启停）。</summary>
+public sealed partial class AiModelRow : ObservableObject
+{
+    [ObservableProperty] private string _model = "";
+    [ObservableProperty] private string _label = "";
+    [ObservableProperty] private bool _enabled = true;
+
+    public string DisplayName => string.IsNullOrWhiteSpace(Label) ? (string.IsNullOrWhiteSpace(Model) ? "（未填模型）" : Model) : Label;
+    partial void OnModelChanged(string value) => OnPropertyChanged(nameof(DisplayName));
+    partial void OnLabelChanged(string value) => OnPropertyChanged(nameof(DisplayName));
 }
 
 public sealed partial class SettingsViewModel : ObservableObject
@@ -366,20 +377,23 @@ public sealed partial class SettingsViewModel : ObservableObject
         _aiRotationEnabled = s.AiRotationEnabled;
         _contextTokenLimit = Math.Clamp(s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000, 4000, 256000);
         _contextTokenLimitDisplay = ContextLimitDisplayOf(_contextTokenLimit);
-        AiProfiles.Clear();
-        foreach (var p in s.AiProfiles ?? new List<AiEndpointProfile>())
+        AiProviders.Clear();
+        foreach (var v in s.AiProviders ?? new List<AiProvider>())
         {
-            AttachAiProfile(new AiProfileRow
+            var row = new AiProviderRow
             {
-                Id = string.IsNullOrWhiteSpace(p.Id) ? Guid.NewGuid().ToString("N")[..8] : p.Id,
-                Name = p.Name ?? "",
-                Url = p.Url ?? "",
-                Model = p.Model ?? "",
-                KeysText = string.Join("\n", p.Keys ?? new List<string>()),
-                Enabled = p.Enabled,
-            });
+                Id = string.IsNullOrWhiteSpace(v.Id) ? Guid.NewGuid().ToString("N")[..8] : v.Id,
+                Name = v.Name ?? "",
+                Url = v.Url ?? "",
+                KeysText = string.Join("\n", v.Keys ?? new List<string>()),
+                Enabled = v.Enabled,
+                TimeoutSeconds = v.TimeoutSeconds is { } t and > 0 ? t.ToString() : ""
+            };
+            foreach (var m in v.Models ?? new List<AiProviderModel>())
+                row.Models.Add(new AiModelRow { Model = m.Model ?? "", Label = m.Label ?? "", Enabled = m.Enabled });
+            AttachAiProvider(row);
         }
-        UpdateAiProfileStatus();
+        UpdateAiProviderStatus();
 
         _ttsEnabled = s.TtsEnabled;
         _ttsRate = s.TtsRate;
@@ -744,16 +758,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         await RefreshStickers();
     }
 
-    // ============ 多端点轮换（供应商 × AI × 密钥） ============
+    // ============ 多端点轮换（厂商 × 模型） ============
 
-    /// <summary>保存的多端点档案（设置页显示/编辑用）。</summary>
-    public ObservableCollection<AiProfileRow> AiProfiles { get; } = new();
+    /// <summary>接入的厂商（一家 = 端点 + 密钥 + 多款模型）。</summary>
+    public ObservableCollection<AiProviderRow> AiProviders { get; } = new();
 
-    /// <summary>轮换总开关：开启后自动在多个端点与多枚密钥间轮换，保证对话不间断。</summary>
+    /// <summary>轮换总开关：开启后自动在多家厂商的多款模型间轮换，保证对话不间断。</summary>
     [ObservableProperty] private bool _aiRotationEnabled = true;
 
     /// <summary>多端点区状态文案。</summary>
-    [ObservableProperty] private string _aiProfileStatus = "";
+    [ObservableProperty] private string _aiProviderStatus = "";
 
     /// <summary>上下文 Token 上限（估算值）：超过时强制把旧对话总结成第一人称记忆。</summary>
     [ObservableProperty] private int _contextTokenLimit = 32000;
@@ -764,99 +778,173 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>Token 上限可选项。</summary>
     public List<string> ContextLimitChoices { get; } = new() { "4K", "8K", "16K", "32K", "64K", "128K", "256K" };
 
-    // 新增端点输入框
-    [ObservableProperty] private string _newAiProfileName = "";
-    [ObservableProperty] private string _newAiProfileUrl = "";
-    [ObservableProperty] private string _newAiProfileModel = "";
-    [ObservableProperty] private string _newAiProfileKeys = "";
-    /// <summary>新端点的超时覆写（秒，留空 = 跟随全局）。</summary>
-    [ObservableProperty] private string _newAiProfileTimeout = "";
+    // 新增厂商输入框
+    [ObservableProperty] private string _newProviderName = "";
+    [ObservableProperty] private string _newProviderUrl = "";
+    [ObservableProperty] private string _newProviderKeys = "";
+    [ObservableProperty] private string _newProviderModel = "";
+    [ObservableProperty] private string _newProviderTimeout = "";
 
-    /// <summary>把一行挂上防抖落盘后加入列表。</summary>
-    private void AttachAiProfile(AiProfileRow row)
+    private void AttachAiProvider(AiProviderRow row)
     {
         row.PropertyChanged += (_, __) => PersistSettings();
-        AiProfiles.Add(row);
+        AiProviders.Add(row);
     }
 
-    /// <summary>从输入框添加一条端点（密钥一行一枚，可多枚轮换）。</summary>
+    /// <summary>新增一家厂商（可顺手填第一款模型；之后还能继续加）。</summary>
     [RelayCommand]
-    private void AddAiProfile()
+    private void AddProvider()
     {
-        if (string.IsNullOrWhiteSpace(NewAiProfileUrl) || string.IsNullOrWhiteSpace(NewAiProfileModel))
+        if (string.IsNullOrWhiteSpace(NewProviderUrl))
         {
-            AiProfileStatus = "先填端点地址和模型，再点「＋添加」；密钥一行一枚、可多枚轮流用。";
+            AiProviderStatus = "先填端点地址（OpenAI 兼容），再点「＋添加厂商」。";
             return;
         }
-        AttachAiProfile(new AiProfileRow
+        var row = new AiProviderRow
         {
-            Name = (NewAiProfileName ?? "").Trim(),
-            Url = (NewAiProfileUrl ?? "").Trim(),
-            Model = (NewAiProfileModel ?? "").Trim(),
-            KeysText = (NewAiProfileKeys ?? "").Trim(),
-            TimeoutSeconds = (NewAiProfileTimeout ?? "").Trim(),
-        });
-        NewAiProfileName = "";
-        NewAiProfileUrl = "";
-        NewAiProfileModel = "";
-        NewAiProfileKeys = "";
-        NewAiProfileTimeout = "";
-        UpdateAiProfileStatus();
+            Name = (NewProviderName ?? "").Trim(),
+            Url = (NewProviderUrl ?? "").Trim(),
+            KeysText = (NewProviderKeys ?? "").Trim(),
+            TimeoutSeconds = (NewProviderTimeout ?? "").Trim()
+        };
+        if (!string.IsNullOrWhiteSpace(NewProviderModel))
+            row.Models.Add(new AiModelRow { Model = NewProviderModel.Trim() });
+        AttachAiProvider(row);
+
+        NewProviderName = "";
+        NewProviderUrl = "";
+        NewProviderKeys = "";
+        NewProviderModel = "";
+        NewProviderTimeout = "";
+        UpdateAiProviderStatus();
         PersistSettings();
     }
 
-    /// <summary>把当前主配置灌进输入框，方便快速再添一条。</summary>
+    /// <summary>用当前主配置预填厂商信息（同一家厂商只需填一次端点与密钥）。</summary>
     [RelayCommand]
-    private void FillAiProfileFromCurrent()
+    private void FillProviderFromCurrent()
     {
-        if (string.IsNullOrWhiteSpace(NewAiProfileUrl) && !string.IsNullOrWhiteSpace(AiUrl)) NewAiProfileUrl = AiUrl.Trim();
-        if (string.IsNullOrWhiteSpace(NewAiProfileModel) && !string.IsNullOrWhiteSpace(AiModel)) NewAiProfileModel = AiModel.Trim();
-        if (string.IsNullOrWhiteSpace(NewAiProfileKeys) && !string.IsNullOrWhiteSpace(AiKey)) NewAiProfileKeys = AiKey.Trim();
-        AiProfileStatus = "已用当前配置预填，点「＋添加」保存为一条端点。";
+        if (string.IsNullOrWhiteSpace(NewProviderUrl) && !string.IsNullOrWhiteSpace(AiUrl)) NewProviderUrl = AiUrl.Trim();
+        if (string.IsNullOrWhiteSpace(NewProviderKeys) && !string.IsNullOrWhiteSpace(AiKey)) NewProviderKeys = AiKey.Trim();
+        if (string.IsNullOrWhiteSpace(NewProviderModel) && !string.IsNullOrWhiteSpace(AiModel)) NewProviderModel = AiModel.Trim();
+        AiProviderStatus = "已用当前配置预填，点「＋添加厂商」。";
     }
 
-    /// <summary>删除一条端点。</summary>
+    /// <summary>给某家厂商加一款模型（同一厂商多款模型不必重复填端点密钥）。</summary>
     [RelayCommand]
-    private void RemoveAiProfile(AiProfileRow? row)
+    private async Task AddModelToProvider(AiProviderRow? provider)
     {
-        if (row is null) return;
-        AiProfiles.Remove(row);
-        UpdateAiProfileStatus();
+        if (provider is null) return;
+        var model = await Shell.Current.DisplayPromptAsync($"给「{provider.Title}」加模型",
+            "模型名（如 deepseek-chat / gpt-4o-mini）。同一家厂商可以挂多款。", maxLength: 60);
+        if (string.IsNullOrWhiteSpace(model)) return;
+        var label = await Shell.Current.DisplayPromptAsync("显示名（可留空）",
+            "想给这款模型起个好认的名字就填；留空则直接用模型名。", maxLength: 20);
+        provider.Models.Add(new AiModelRow { Model = model.Trim(), Label = (label ?? "").Trim() });
+        provider.RefreshSummary();
         PersistSettings();
     }
 
-    /// <summary>
-    /// 把端点往上挪一位：列表顺序就是使用顺序（轮换时优先用靠前的，失灵再往后换）。
-    /// </summary>
+    /// <summary>改厂商名与端点（同一家厂商的地址只填一次）。</summary>
     [RelayCommand]
-    private void MoveAiProfileUp(AiProfileRow? row)
+    private async Task EditProviderBasics(AiProviderRow? provider)
+    {
+        if (provider is null) return;
+        var name = await Shell.Current.DisplayPromptAsync("厂商名称",
+            "好认的名字，如「硅基流动」「DeepSeek 官方」。", initialValue: provider.Name, maxLength: 30);
+        if (name is null) return;
+        var url = await Shell.Current.DisplayPromptAsync("端点地址",
+            "OpenAI 兼容的 chat/completions 地址。", initialValue: provider.Url, maxLength: 300);
+        if (url is null) return;
+        provider.Name = name.Trim();
+        provider.Url = url.Trim();
+        PersistSettings();
+    }
+
+    /// <summary>点一下模型：启用 / 停用（停用的模型不参与轮换）。</summary>
+    [RelayCommand]
+    private void ToggleModel(AiModelRow? model)
+    {
+        if (model is null) return;
+        model.Enabled = !model.Enabled;
+        var owner = AiProviders.FirstOrDefault(v => v.Models.Contains(model));
+        owner?.RefreshSummary();
+        PersistSettings();
+    }
+
+    /// <summary>改某家厂商的密钥（一行一枚）。</summary>
+    [RelayCommand]
+    private async Task EditProviderKeys(AiProviderRow? provider)
+    {
+        if (provider is null) return;
+        var keys = await Shell.Current.DisplayPromptAsync($"「{provider.Title}」的密钥",
+            "一行一枚，可多枚轮流用（也可用逗号分隔）。", initialValue: provider.KeysText, maxLength: 4000);
+        if (keys is null) return;
+        provider.KeysText = keys;
+        PersistSettings();
+    }
+
+    /// <summary>改某家厂商的超时（秒，留空 = 跟随全局）。</summary>
+    [RelayCommand]
+    private async Task EditProviderTimeout(AiProviderRow? provider)
+    {
+        if (provider is null) return;
+        var t = await Shell.Current.DisplayPromptAsync($"「{provider.Title}」的超时",
+            "秒数（3~600），留空 = 用设置里的全局超时。", initialValue: provider.TimeoutSeconds, maxLength: 4);
+        if (t is null) return;
+        provider.TimeoutSeconds = t.Trim();
+        PersistSettings();
+    }
+
+    [RelayCommand]
+    private void RemoveModelFromProvider(AiModelRow? model)
+    {
+        if (model is null) return;
+        var owner = AiProviders.FirstOrDefault(v => v.Models.Contains(model));
+        if (owner is null) return;
+        owner.Models.Remove(model);
+        owner.RefreshSummary();
+        PersistSettings();
+    }
+
+    /// <summary>删除一家厂商。</summary>
+    [RelayCommand]
+    private void RemoveProvider(AiProviderRow? row)
     {
         if (row is null) return;
-        var idx = AiProfiles.IndexOf(row);
+        AiProviders.Remove(row);
+        UpdateAiProviderStatus();
+        PersistSettings();
+    }
+
+    /// <summary>厂商顺序即优先顺序：靠前的先用，失灵自动换下一家/下一款。</summary>
+    [RelayCommand]
+    private void MoveProviderUp(AiProviderRow? row)
+    {
+        if (row is null) return;
+        var idx = AiProviders.IndexOf(row);
         if (idx <= 0) return;
-        AiProfiles.Move(idx, idx - 1);
+        AiProviders.Move(idx, idx - 1);
         PersistSettings();
-        UpdateAiProfileStatus();
     }
 
-    /// <summary>把端点往下挪一位。</summary>
     [RelayCommand]
-    private void MoveAiProfileDown(AiProfileRow? row)
+    private void MoveProviderDown(AiProviderRow? row)
     {
         if (row is null) return;
-        var idx = AiProfiles.IndexOf(row);
-        if (idx < 0 || idx >= AiProfiles.Count - 1) return;
-        AiProfiles.Move(idx, idx + 1);
+        var idx = AiProviders.IndexOf(row);
+        if (idx < 0 || idx >= AiProviders.Count - 1) return;
+        AiProviders.Move(idx, idx + 1);
         PersistSettings();
-        UpdateAiProfileStatus();
     }
 
     /// <summary>刷新多端点区的状态文案。</summary>
-    private void UpdateAiProfileStatus()
+    private void UpdateAiProviderStatus()
     {
-        AiProfileStatus = AiProfiles.Count == 0
-            ? "还没有多端点。填好地址 / 模型 / 密钥后点「＋添加」。"
-            : $"已保存 {AiProfiles.Count} 条端点。按列表顺序使用：靠前的先用，失灵自动换下一条（可用 ↑↓ 调整顺序）。";
+        AiProviderStatus = AiProviders.Count == 0
+            ? "还没有接入厂商。填端点与密钥后点「＋添加厂商」，再往里加模型。"
+            : $"已接入 {AiProviders.Count} 家厂商，共 {AiProviders.Sum(v => v.Models.Count)} 款模型。"
+              + "按列表顺序使用：靠前的先用，失灵自动换下一家/下一款（可用 ↑↓ 调整）。";
     }
 
     partial void OnAiRotationEnabledChanged(bool value) => PersistSettings();
@@ -2091,8 +2179,8 @@ GlassLightWidth = GlassLightWidth,
                 SubProfileAiRewrite = SubProfileAiRewrite,
                 SemanticAiAssist = SemanticAiAssist,
                 SmartSavingEnabled = SmartSavingEnabled,
-                AiProfiles = AiProfiles.Select(r => r.ToProfile())
-                    .Where(p => !string.IsNullOrWhiteSpace(p.Url) || p.Keys.Count > 0)
+                AiProviders = AiProviders.Select(v => v.ToProvider())
+                    .Where(v => !string.IsNullOrWhiteSpace(v.Url) || v.Keys.Count > 0)
                     .ToList(),
                 AiRotationEnabled = AiRotationEnabled,
                 AiTimeoutSeconds = AiTimeoutSeconds > 0 ? AiTimeoutSeconds : 25,

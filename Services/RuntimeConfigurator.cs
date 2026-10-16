@@ -149,31 +149,64 @@ public sealed class RuntimeConfigurator
     {
         var s = _settings.Current;
 
-        // 多端点轮换池（供应商 × AI × 密钥）：从设置里的端点档案展开，
+        // 多端点轮换池（厂商 × 模型）：一家厂商可挂多款模型，按「启用的厂商 × 启用的模型」展开；
         // 每条端点的密钥池会轮流使用；轮换开启时任一失灵自动切下一条，保证对话不间断。
+        // 老设置里只有 AiProfiles（一条 = 一个模型）时，用它兜底（启动时已迁移成厂商，这里只是保底）。
         var rotationPool = new List<AiEndpoint>();
-        foreach (var p in s.AiProfiles ?? new List<AiEndpointProfile>())
+        var providers = s.AiProviders ?? new List<AiProvider>();
+        if (providers.Count > 0)
         {
-            if (!p.Enabled) continue;
-            if (string.IsNullOrWhiteSpace(p.Url) || string.IsNullOrWhiteSpace(p.Model)) continue;
-            var keys = (p.Keys ?? new List<string>())
-                .Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
-            if (keys.Count == 0) continue;
-            rotationPool.Add(new AiEndpoint
+            foreach (var v in providers)
             {
-                Provider = string.IsNullOrWhiteSpace(p.Name) ? "轮换端点" : p.Name,
-                Url = p.Url.Trim(),
-                Model = p.Model.Trim(),
-                Key = keys[0],
-                KeyPool = keys,
-                Temperature = s.AiTemperature,
-                MaxTokens = s.AiMaxTokens,
-                DeepThink = s.DeepThink || s.ComplexPlot,
-                DeepModel = s.DeepModel,
-                MemoryTurns = s.MemoryTurns,
-                ContextTokenLimit = s.ContextTokenLimit,
-                TimeoutSeconds = p.TimeoutSeconds
-            });
+                if (!v.Enabled) continue;
+                if (string.IsNullOrWhiteSpace(v.Url)) continue;
+                var keys = (v.Keys ?? new List<string>()).Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+                if (keys.Count == 0) continue;
+                foreach (var m in (v.Models ?? new List<AiProviderModel>()).Where(m => m.Enabled && !string.IsNullOrWhiteSpace(m.Model)))
+                {
+                    rotationPool.Add(new AiEndpoint
+                    {
+                        Provider = string.IsNullOrWhiteSpace(v.Name) ? m.Model : v.Name,
+                        Url = v.Url.Trim(),
+                        Model = m.Model.Trim(),
+                        Key = keys[0],
+                        KeyPool = keys,
+                        Temperature = s.AiTemperature,
+                        MaxTokens = s.AiMaxTokens,
+                        DeepThink = s.DeepThink || s.ComplexPlot,
+                        DeepModel = s.DeepModel,
+                        MemoryTurns = s.MemoryTurns,
+                        ContextTokenLimit = s.ContextTokenLimit,
+                        TimeoutSeconds = v.TimeoutSeconds
+                    });
+                }
+            }
+        }
+        else
+        {
+            foreach (var p in s.AiProfiles ?? new List<AiEndpointProfile>())
+            {
+                if (!p.Enabled) continue;
+                if (string.IsNullOrWhiteSpace(p.Url) || string.IsNullOrWhiteSpace(p.Model)) continue;
+                var keys = (p.Keys ?? new List<string>())
+                    .Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+                if (keys.Count == 0) continue;
+                rotationPool.Add(new AiEndpoint
+                {
+                    Provider = string.IsNullOrWhiteSpace(p.Name) ? "轮换端点" : p.Name,
+                    Url = p.Url.Trim(),
+                    Model = p.Model.Trim(),
+                    Key = keys[0],
+                    KeyPool = keys,
+                    Temperature = s.AiTemperature,
+                    MaxTokens = s.AiMaxTokens,
+                    DeepThink = s.DeepThink || s.ComplexPlot,
+                    DeepModel = s.DeepModel,
+                    MemoryTurns = s.MemoryTurns,
+                    ContextTokenLimit = s.ContextTokenLimit,
+                    TimeoutSeconds = p.TimeoutSeconds
+                });
+            }
         }
 
         _chat.Configure(new AiEndpoint
