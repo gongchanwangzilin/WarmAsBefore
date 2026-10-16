@@ -200,6 +200,44 @@ public sealed class PetService
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
+    // ===== 桌宠窗口透明（Windows 分层窗口） =====
+
+    [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
+    private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+    [DllImport("user32.dll")]
+    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint colorKey, byte alpha, uint flags);
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_LAYERED = 0x00080000;
+    private const uint LWA_ALPHA = 0x00000002;
+
+    /// <summary>
+    /// 把桌宠窗口做成「只有角色、没有背景」：分层窗口 + 根面板透明，
+    /// 于是没有内容的地方直接透出桌面，立绘看起来就是站在桌面/任务栏上。
+    /// WinUI 的窗口默认有一层不透明的合成底色，只把 XAML 背景设成透明是不够的。
+    /// </summary>
+    private static void MakePetWindowTransparent(Microsoft.UI.Xaml.Window xw)
+    {
+        try
+        {
+            var hwnd = WindowNative.GetWindowHandle(xw);
+            var ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+            SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(ex | WS_EX_LAYERED));
+            // alpha=255：不做整体半透明，只让「没有内容的地方」透出去
+            SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+
+            // 根面板是 WinUI 实际铺满窗口的那层，它的背景必须透明
+            if (xw.Content is Microsoft.UI.Xaml.Controls.Panel root)
+                root.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.MakePetWindowTransparent -> " + ex.Message);
+        }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     private struct POINT { public int X; public int Y; }
 
@@ -285,13 +323,27 @@ public sealed class PetService
         }
     }
 
-    /// <summary>主窗口最小化时自动收纳为桌宠（挂接一次监听）。</summary>
+    /// <summary>
+    /// 主窗口最小化时自动收纳为桌宠（挂接一次监听）。
+    /// 注意：窗口此时可能还没建好（VM 构造期就调用），所以必须**确认挂上之后再置位**，
+    /// 否则一次过早的调用就会把标志位吃掉，最小化再也不会进桌宠（曾经的 bug）。
+    /// </summary>
     public void WatchMinimize()
     {
         if (_listening) return;
-        _listening = true;
         var main = GetMainWinUIWindow();
-        if (main is null) return;
+        if (main is null)
+        {
+            // 窗口还没就绪：稍后再试，最多试 20 次（约 4 秒）
+            if (_watchRetries++ >= 20) return;
+            MainThread.BeginInvokeOnMainThread(async () =>
+            {
+                await Task.Delay(200);
+                WatchMinimize();
+            });
+            return;
+        }
+        _listening = true;
         main.AppWindow.Changed += (aw, _) =>
         {
             if (aw.Presenter is OverlappedPresenter p && p.State == OverlappedPresenterState.Minimized)
@@ -304,6 +356,8 @@ public sealed class PetService
             }
         };
     }
+
+    private int _watchRetries;
 
     private static Microsoft.UI.Xaml.Window? GetMainWinUIWindow()
     {
@@ -338,6 +392,10 @@ public sealed class PetService
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsAlwaysOnTop = true;
             }
+            // 背景透明：桌宠只保留角色，其余部分透出桌面
+            MakePetWindowTransparent(xw);
+            // 窗口内容就绪后再设一次：根面板有时在首帧之后才被创建
+            page.Loaded += (_, _) => MakePetWindowTransparent(xw);
         }
     }
 

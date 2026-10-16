@@ -39,10 +39,29 @@ public sealed partial class TitleViewModel : ObservableObject
             ApplySettings();
             RefreshStateCommand.Execute(null);
         });
-        // 首次启动免责声明 + 非玩具声明：已确认过则不再弹
-        ShowDisclaimer = !_settings.Current.DisclaimerAcknowledged;
+        // 首次启动免责声明 + 非玩具声明：已确认过则不再弹。
+        // 用 Preferences 作为权威来源：settings.json 是「整份快照覆盖写」，
+        // 任何一个用旧快照落盘的路径都会把确认标记擦掉（用户实测每次启动都弹就是这个原因）。
+        ShowDisclaimer = !IsDisclaimerAcknowledged();
         RefreshStateCommand.Execute(null);
     }
+
+    /// <summary>是否已确认过免责声明（Preferences 优先，兼容旧的设置字段）。</summary>
+    private bool IsDisclaimerAcknowledged()
+    {
+        try
+        {
+            if (Preferences.Get(DisclaimerPrefKey, false)) return true;
+            return _settings.Current.DisclaimerAcknowledged;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Title: IsDisclaimerAcknowledged EX -> " + ex.Message);
+            return _settings.Current.DisclaimerAcknowledged;
+        }
+    }
+
+    private const string DisclaimerPrefKey = "disclaimer_ack";
 
     [RelayCommand]
     private async Task AcknowledgeDisclaimer()
@@ -50,7 +69,8 @@ public sealed partial class TitleViewModel : ObservableObject
         ShowDisclaimer = false;
         try
         {
-            // 用 record with 保留全部现有设置，仅置位 DisclaimerAcknowledged
+            // 先落到不会被覆盖的地方，再同步设置字段（best effort）
+            Preferences.Set(DisclaimerPrefKey, true);
             _settings.Apply(_settings.Current with { DisclaimerAcknowledged = true });
             await _settings.Persist();
         }
