@@ -129,6 +129,12 @@ public sealed record UserSettings
     public double GlassTranslucency { get; init; } = 1.0;
     /// <summary>减弱透明降级（Accessibility）：true 时玻璃切不透明磨砂层，保证正文 4.5:1 对比。</summary>
     public bool GlassReducedTransparency { get; init; }
+    /// <summary>
+    /// 轻量模式：关闭卡片/信息条的投影阴影。阴影在 WinUI 上是每个元素一个合成层，
+    /// 卡片多的页面（比如设置页有 24 张卡）首屏与重排都会明显变慢——低配机器上开它能立竿见影。
+    /// </summary>
+    public bool LightMode { get; init; }
+
     /// <summary>磨砂程度 0-1：0=清玻璃，1=厚磨砂（奶白雾气浓度）。</summary>
     public double GlassFrost { get; init; } = 0.5;
     /// <summary>液态高度 0-1：投影深度 + 上沿高光，0=贴面，1=明显浮起。</summary>

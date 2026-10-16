@@ -13,6 +13,8 @@ public class ThemeManager
         get => _glass;
         set
         {
+            // 值没变就别刷新：下发设置时是全量赋值，每次不改也刷会让任何一次点击都触发整页重排
+            if (_glass == value && (!value || _frost)) return;
             _glass = value;
             if (value && !_frost) _frost = true;
             OnChange();
@@ -25,6 +27,7 @@ public class ThemeManager
         get => _frost;
         set
         {
+            if (_frost == value) return;
             _frost = value;
             if (!value) _glass = false;
             OnChange();
@@ -34,39 +37,123 @@ public class ThemeManager
     public bool Liquid
     {
         get => _liquid;
-        set { _liquid = value; OnChange(); }
+        set
+        {
+            if (_liquid == value) return;
+            _liquid = value;
+            OnChange();
+        }
     }
 
     /// <summary>玻璃自适应透明度 0-1（Apple Liquid Glass 标准）：1=全液态透明；0=接近不透明。</summary>
-    public double GlassTranslucency { get => _glassTranslucency; set { _glassTranslucency = Math.Clamp(value, 0, 1); OnChange(); } }
+    public double GlassTranslucency
+    {
+        get => _glassTranslucency;
+        set
+        {
+            var v = Math.Clamp(value, 0, 1);
+            if (Math.Abs(_glassTranslucency - v) < 1e-6) return;
+            _glassTranslucency = v;
+            OnChange();
+        }
+    }
     private double _glassTranslucency = 1.0;
 
     /// <summary>减弱透明降级（Accessibility）：true 时玻璃切不透明磨砂层，保证正文 4.5:1 对比。</summary>
-    public bool ReducedTransparency { get => _reducedTransparency; set { _reducedTransparency = value; OnChange(); } }
+    public bool ReducedTransparency
+    {
+        get => _reducedTransparency;
+        set
+        {
+            if (_reducedTransparency == value) return;
+            _reducedTransparency = value;
+            OnChange();
+        }
+    }
     private bool _reducedTransparency;
 
     /// <summary>磨砂程度 0-1：0=清玻璃，1=厚磨砂。</summary>
-    public double GlassFrost { get => _glassFrost; set { _glassFrost = Math.Clamp(value, 0, 1); OnChange(); } }
+    public double GlassFrost
+    {
+        get => _glassFrost;
+        set
+        {
+            var v = Math.Clamp(value, 0, 1);
+            if (Math.Abs(_glassFrost - v) < 1e-6) return;
+            _glassFrost = v;
+            OnChange();
+        }
+    }
     private double _glassFrost = 0.5;
 
     /// <summary>液态高度 0-1：投影深度与上沿高光，0=贴面，1=明显浮起。</summary>
-    public double GlassHeight { get => _glassHeight; set { _glassHeight = Math.Clamp(value, 0, 1); OnChange(); } }
+    public double GlassHeight
+    {
+        get => _glassHeight;
+        set
+        {
+            var v = Math.Clamp(value, 0, 1);
+            if (Math.Abs(_glassHeight - v) < 1e-6) return;
+            _glassHeight = v;
+            OnChange();
+        }
+    }
     private double _glassHeight = 0.5;
 
     /// <summary>光源 X：屏幕平面内左右（-1 左 · 1 右）。</summary>
-    public double GlassLightX { get => _lx; set { _lx = Math.Clamp(value, -1, 1); OnChange(); } }
+    public double GlassLightX
+    {
+        get => _lx;
+        set
+        {
+            var v = Math.Clamp(value, -1, 1);
+            if (Math.Abs(_lx - v) < 1e-6) return;
+            _lx = v;
+            OnChange();
+        }
+    }
     private double _lx = -0.7;
 
     /// <summary>光源 Y：屏幕平面内上下（-1 上 · 1 下）。</summary>
-    public double GlassLightY { get => _ly; set { _ly = Math.Clamp(value, -1, 1); OnChange(); } }
+    public double GlassLightY
+    {
+        get => _ly;
+        set
+        {
+            var v = Math.Clamp(value, -1, 1);
+            if (Math.Abs(_ly - v) < 1e-6) return;
+            _ly = v;
+            OnChange();
+        }
+    }
     private double _ly = -0.7;
 
     /// <summary>光源 Z：离表面的高度 0-1 —— 越高高光越柔、影子越散。</summary>
-    public double GlassLightZ { get => _lz; set { _lz = Math.Clamp(value, 0, 1); OnChange(); } }
+    public double GlassLightZ
+    {
+        get => _lz;
+        set
+        {
+            var v = Math.Clamp(value, 0, 1);
+            if (Math.Abs(_lz - v) < 1e-6) return;
+            _lz = v;
+            OnChange();
+        }
+    }
     private double _lz = 0.3;
 
     /// <summary>光宽 0-1：窄=一道锐利反光，宽=整片漫射。</summary>
-    public double GlassLightWidth { get => _lw; set { _lw = Math.Clamp(value, 0, 1); OnChange(); } }
+    public double GlassLightWidth
+    {
+        get => _lw;
+        set
+        {
+            var v = Math.Clamp(value, 0, 1);
+            if (Math.Abs(_lw - v) < 1e-6) return;
+            _lw = v;
+            OnChange();
+        }
+    }
     private double _lw = 0.4;
 
     public string ActiveEffect =>
