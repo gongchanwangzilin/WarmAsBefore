@@ -1346,6 +1346,37 @@ IsVisible="{Binding Filter.Ai}">
                                TextColor="{DynamicResource AccentWarm}" />
                     </VerticalStackLayout>
                 </Border>
+                <!-- 骨架占位：卡片还没建出来时先显示几块淡色条，页面不会看起来是空的/卡住的。
+                     透明度动画由合成层负责，不占 UI 线程，正好用来「争取时间」。 -->
+                <VerticalStackLayout x:Name="CardsSkeleton" Spacing="16">
+                    <Border Style="{StaticResource CardNeumorph}" Padding="20">
+                        <VerticalStackLayout Spacing="10">
+                            <BoxView HeightRequest="18" WidthRequest="120" CornerRadius="6" Opacity="0.18"
+                                     Color="{DynamicResource SurfaceFg}" HorizontalOptions="Start" />
+                            <BoxView HeightRequest="10" CornerRadius="5" Opacity="0.12"
+                                     Color="{DynamicResource SurfaceFg}" />
+                            <BoxView HeightRequest="10" WidthRequest="220" CornerRadius="5" Opacity="0.12"
+                                     Color="{DynamicResource SurfaceFg}" HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource CardNeumorph}" Padding="20">
+                        <VerticalStackLayout Spacing="10">
+                            <BoxView HeightRequest="18" WidthRequest="96" CornerRadius="6" Opacity="0.18"
+                                     Color="{DynamicResource SurfaceFg}" HorizontalOptions="Start" />
+                            <BoxView HeightRequest="10" CornerRadius="5" Opacity="0.12"
+                                     Color="{DynamicResource SurfaceFg}" />
+                        </VerticalStackLayout>
+                    </Border>
+                    <Border Style="{StaticResource CardNeumorph}" Padding="20">
+                        <VerticalStackLayout Spacing="10">
+                            <BoxView HeightRequest="18" WidthRequest="140" CornerRadius="6" Opacity="0.18"
+                                     Color="{DynamicResource SurfaceFg}" HorizontalOptions="Start" />
+                            <BoxView HeightRequest="10" WidthRequest="260" CornerRadius="5" Opacity="0.12"
+                                     Color="{DynamicResource SurfaceFg}" HorizontalOptions="Start" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
                 <!-- 卡片宿主：分组模板在首帧后逐组建到这里（见 SettingsPage.xaml.cs） -->
                 <VerticalStackLayout x:Name="CardsHost" Spacing="16" />
             </VerticalStackLayout>
