@@ -80,7 +80,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                              HeightRequest="3"
                              HorizontalOptions="Fill" VerticalOptions="End"
                              Margin="16,0,16,16" />
-                <BoxView Color="{Binding SceneBg}" />
+                <BoxView Color="{Binding StageBackdropFill}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
                        IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
                        Opacity="0.5" />
@@ -113,7 +113,24 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                        TranslationX="{Binding SpriteX}"
                        TranslationY="{Binding SpriteY}"
                        Scale="{Binding SpriteScale}"
+                       ScaleX="{Binding SpriteFlipScaleX}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
+                <!-- 立绘不合规（像素比例不是 1080×1920 逻辑画布）时的调试入口：
+                     大小与底部对齐只认标定结果，所以这里给一条直达标定页的路，而不是静默拉伸。 -->
+                <Border IsVisible="{Binding HasSpriteCalibrationIssue}"
+                        BackgroundColor="Black" Opacity="0.72"
+                        Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
+                        Margin="12,12,12,0" Padding="10,8"
+                        HorizontalOptions="Fill" VerticalOptions="Start">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                    <HorizontalStackLayout Spacing="10">
+                        <Label Text="{Binding SpriteCalibrationIssue}" TextColor="White" FontSize="12"
+                               VerticalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="420" />
+                        <Button Text="去标定" FontSize="12" Padding="10,2"
+                                Command="{Binding OpenPortraitCalibrationCommand}"
+                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="White" />
+                    </HorizontalStackLayout>
+                </Border>
                 <!-- 无立绘时的占位 -->
                 <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
                         Stroke="{DynamicResource BorderLine}" StrokeThickness="1.5"
@@ -436,7 +453,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
             <!-- Center: Character area -->
             <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage" SizeChanged="OnStageSizeChanged">
-                <BoxView Color="{Binding SceneBg}" />
+                <BoxView Color="{Binding StageBackdropFill}" />
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
                 <toolkit:MediaElement x:Name="SceneVideoDesktop"
                                       Source="{Binding SceneVideoPath}"
@@ -462,6 +479,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                        TranslationX="{Binding SpriteX}"
                        TranslationY="{Binding SpriteY}"
                        Scale="{Binding SpriteScale}"
+                       ScaleX="{Binding SpriteFlipScaleX}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
                 <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>

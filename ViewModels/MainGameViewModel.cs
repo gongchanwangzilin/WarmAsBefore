@@ -71,6 +71,21 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private bool _showMap;
     [ObservableProperty] private string _currentTimeStr = "";
     [ObservableProperty] private string _sceneBg = "#2C1810";
+
+    /// <summary>
+    /// 舞台底色：背景图之外的「空缺」用什么填。
+    /// 平时用场景底色（周围的按键栏/信息栏会盖住边缘）；沉浸状态没有周围栏，改用纯黑填充。
+    /// </summary>
+    [ObservableProperty] private Color _stageBackdropFill = Colors.Black;
+
+    partial void OnSceneBgChanged(string value) => RefreshStageFill();
+
+    private void RefreshStageFill()
+    {
+        if (HideDesktopPanels) { StageBackdropFill = Colors.Black; return; }
+        try { StageBackdropFill = string.IsNullOrWhiteSpace(SceneBg) ? Colors.Black : Color.FromArgb(SceneBg); }
+        catch { StageBackdropFill = Colors.Black; }
+    }
     [ObservableProperty] private double _affectionPct;
     [ObservableProperty] private double _trustPct;
     [ObservableProperty] private ImageSource? _spriteSource;
@@ -185,6 +200,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private string _currentEmotion = "";
     private DateTime _lastAutoSave = DateTime.MinValue;
     private readonly SceneCalibrationService _cal;
+    private readonly PortraitCalibrationService _portraits;
     private MapScene? _currentScene;
 
     // ---- 标定闸门 ----
@@ -201,6 +217,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     private (int W, int H) _spritePixels;
     private double _stageW, _stageH;
     private string? _spriteAbsPath;
+    /// <summary>当前立绘在 SpriteMap 里的键（存储相对路径）：立绘标定按它存取。</summary>
+    private string? _spriteKey;
+    private PortraitCalibration? _portraitCal;
     /// <summary>标定算出的缩放（说话强调在此之上乘系数，而不是覆盖它）。</summary>
     private double _calibratedScale = 1.0;
     /// <summary>标定算出的基准位移；动画在它之上做偏移，动画结束回到它。</summary>
@@ -208,6 +227,15 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     [ObservableProperty] private double _spriteFitW = 260;
     [ObservableProperty] private double _spriteFitH = 420;
+
+    /// <summary>水平翻转（-1 = 镜像）：方向不对的素材由标定决定，而不是靠文件名约定。</summary>
+    [ObservableProperty] private double _spriteFlipScaleX = 1;
+
+    /// <summary>立绘标定问题（非空时主界面顶部给出提示与「去标定」入口）。</summary>
+    [ObservableProperty] private string _spriteCalibrationIssue = "";
+    partial void OnSpriteCalibrationIssueChanged(string value)
+        => OnPropertyChanged(nameof(HasSpriteCalibrationIssue));
+    public bool HasSpriteCalibrationIssue => !string.IsNullOrEmpty(SpriteCalibrationIssue);
 
     public MainGameViewModel(GameEngine engine, ChatEngine chat, MemoryVault memory,
         TaskOrchestrator auto, SaveManager save, WeatherProvider weather, RealTimeProvider time,
@@ -217,7 +245,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Affection.AffectionLevelUpService levelUp,
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
-        Services.MapActorService mapActors, Services.StickerLibrary stickers)
+        Services.MapActorService mapActors, Services.StickerLibrary stickers,
+        PortraitCalibrationService portraits)
     {
         _engine = engine;
         _chat = chat;
@@ -242,6 +271,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _cal = cal;
         _mapActors = mapActors;
         _stickers = stickers;
+        _portraits = portraits;
 
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
@@ -394,7 +424,28 @@ public sealed partial class MainGameViewModel : ObservableObject
         _bgImageSize = await ImageProbe.SizeOfAsync(
             !string.IsNullOrEmpty(bgAbs) && File.Exists(bgAbs) ? bgAbs : null);
         _spritePixels = await ImageProbe.SizeOfAsync(_spriteAbsPath);
+        await RefreshPortraitCalibrationAsync();
         UpdateSpriteTransform();
+    }
+
+    /// <summary>
+    /// 取当前立绘的标定，并判断它是否需要进调试界面。
+    /// 不是 1080×1920 逻辑画布的素材会被标记出来（主界面给「去标定」入口），
+    /// 但不会被静默拉伸——大小与底部对齐只认标定结果。
+    /// </summary>
+    private async Task RefreshPortraitCalibrationAsync()
+    {
+        var key = _spriteKey ?? _spriteAbsPath ?? "";
+        _portraitCal = await _portraits.GetAsync(key);
+
+        List<string> problems;
+        try { problems = await _portraits.ProblemsAsync(key, _spritePixels.W, _spritePixels.H); }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameVM.PortraitCalibration -> " + ex.Message);
+            problems = new List<string>();
+        }
+        SpriteCalibrationIssue = problems.Count > 0 ? problems[0] : "";
     }
 
     /// <summary>
@@ -425,9 +476,12 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         if (_stageW <= 0 || _stageH <= 0) return;
 
-        // 立绘基准尺寸：AspectFit 进容器
-        var sw = _spritePixels.W > 0 ? _spritePixels.W : 400.0;
-        var sh = _spritePixels.H > 0 ? _spritePixels.H : 640.0;
+        // 立绘基准尺寸：按「标定后的有效像素」AspectFit 进容器。
+        // 用有效尺寸而不是原始像素，才能让 1080×1920 的画布语义对任何素材都成立
+        // （裁剪修掉留白、旋转修正方向后，角色的实际占比才是对的）。
+        var (effW, effH) = PortraitCalibrationMath.EffectiveSize(_spritePixels.W, _spritePixels.H, _portraitCal);
+        var sw = effW > 0 ? effW : 400.0;
+        var sh = effH > 0 ? effH : 640.0;
         var fit = Math.Min(_stageW / sw, _stageH / sh);
         var baseW = sw * fit;
         var baseH = sh * fit;
@@ -442,6 +496,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             _baseSpriteY = 0;
             SpriteX = 0;
             SpriteY = 0;
+            ApplyPortraitCalibrationOffsets(baseH);
             ApplySpeakingEmphasis();
             return;
         }
@@ -467,8 +522,29 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 让"脚底"落在锚点上：立绘实际显示高度是 baseH * Scale
         _baseSpriteY = oy + anchor.Y * dh - _stageH / 2 - baseH * SpriteScale / 2;
 
+        ApplyPortraitCalibrationOffsets(baseH);
+
         SpriteX = _baseSpriteX;
         SpriteY = _baseSpriteY;
+    }
+
+    /// <summary>
+    /// 把立绘标定叠加到基准变换上：方向（镜像）、溢出幅度（缩放）、着色偏移、
+    /// 以及「底部对齐」——脚底线不在图像底边时，把图整体下移，让脚踩在锚点上。
+    /// </summary>
+    private void ApplyPortraitCalibrationOffsets(double baseH)
+    {
+        SpriteFlipScaleX = 1;
+        if (_portraitCal is not { Calibrated: true } pc) return;
+
+        SpriteFlipScaleX = pc.FlipHorizontal ? -1 : 1;
+        _calibratedScale = Math.Clamp(_calibratedScale * pc.Scale, 0.02, 8.0);
+        ApplySpeakingEmphasis();
+
+        // 底部对齐：脚底线归一化高度 footLine 处的像素要落在锚点上
+        _baseSpriteY += baseH * SpriteScale * (1 - pc.FootLine);
+        _baseSpriteX += pc.OffsetX * _stageW;
+        _baseSpriteY += pc.OffsetY * _stageH;
     }
 
     /// <summary>把 left/center/right 换算成归一化落脚位置——按立绘宽度成比例，而不是写死 150px。</summary>
@@ -832,6 +908,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             rel = _char.SpriteMap.ContainsKey($"{_outfitKey}/{_defaultEmotion}")
                 ? _char.SpriteMap[$"{_outfitKey}/{_defaultEmotion}"]
                 : _char.SpriteMap.Values.FirstOrDefault();
+        _spriteKey = rel;   // 立绘标定按 SpriteMap 的存储路径存取，与角色库/素材库共用同一份
         string? full = null;
         if (!string.IsNullOrEmpty(rel))
         {
@@ -1853,6 +1930,25 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     [RelayCommand]
     private void ToggleHidePanels() => HideDesktopPanels = !HideDesktopPanels;
+
+    /// <summary>沉浸状态切换：周围栏隐藏后，空缺改由纯黑填充。</summary>
+    partial void OnHideDesktopPanelsChanged(bool value)
+    {
+        RefreshStageFill();
+        OnPropertyChanged(nameof(IsImmersive));
+    }
+
+    /// <summary>沉浸状态：周围栏（状态栏/信息栏）已隐藏。</summary>
+    public bool IsImmersive => HideDesktopPanels;
+
+    /// <summary>带着当前立绘去标定（不合规素材的调试入口）。</summary>
+    [RelayCommand]
+    private async Task OpenPortraitCalibration()
+    {
+        var key = _spriteKey ?? "";
+        if (string.IsNullOrEmpty(key)) return;
+        await Shell.Current.GoToAsync($"portraitCalibration?key={Uri.EscapeDataString(key)}");
+    }
 
     [RelayCommand]
     private async Task OpenSave() => await Shell.Current.GoToAsync("save");

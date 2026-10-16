@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.PortraitCalibrationPage"
+             Title="立绘标定"
+             BackgroundColor="{DynamicResource PageBg}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="14">
+
+            <Label Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
+                   TextColor="{DynamicResource PrimaryFg}" />
+            <Label Text="立绘按 1080×1920 的逻辑画布对齐。允许角色溢出画布，但脚底必须落在这块画布的下沿线上，大小与朝向也要正确。"
+                   FontSize="12" TextColor="{DynamicResource MutedFg}" />
+
+            <!-- 预览：固定 9:16 画框，与游戏用的是同一套换算 -->
+            <Border BackgroundColor="Black" Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
+                    HorizontalOptions="Center" Padding="0" WidthRequest="270" HeightRequest="480">
+                <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
+                <Grid>
+                    <Image Source="{Binding AbsPath}" Aspect="AspectFit"
+                           WidthRequest="{Binding PreviewW}"
+                           HeightRequest="{Binding PreviewH}"
+                           ScaleX="{Binding PreviewScaleX}"
+                           ScaleY="{Binding PreviewScaleY}"
+                           Rotation="{Binding PreviewRotation}"
+                           TranslationX="{Binding PreviewX}"
+                           TranslationY="{Binding PreviewY}"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                    <!-- 脚底基准线：与游戏的落脚点一致（场景高度的 90% 处），角色的脚应该踩在这条线上 -->
+                    <BoxView Color="#FF5252" HeightRequest="1.5" Opacity="0.9"
+                             HorizontalOptions="Fill" VerticalOptions="End" Margin="0,0,0,48" />
+                    <Label Text="脚底基准线" FontSize="9" TextColor="#FF5252"
+                           HorizontalOptions="End" VerticalOptions="End" Margin="0,0,4,50" />
+                </Grid>
+            </Border>
+
+            <Label Text="{Binding SourceLabel, StringFormat='素材尺寸：{0}'}"
+                   FontSize="12" TextColor="{DynamicResource MutedFg}" HorizontalOptions="Center" />
+            <Label Text="{Binding Status}" FontSize="12"
+                   TextColor="{DynamicResource MutedFg}" HorizontalOptions="Center" />
+
+            <!-- 方向 -->
+            <Label Text="方向" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
+            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                <Button Text="水平翻转" Command="{Binding ToggleFlipHorizontalCommand}" FontSize="12" />
+                <Button Text="垂直翻转" Command="{Binding ToggleFlipVerticalCommand}" FontSize="12" />
+                <Button Text="旋转 90°" Command="{Binding RotateRightCommand}" FontSize="12" />
+            </HorizontalStackLayout>
+
+            <!-- 大小 -->
+            <Label Text="大小（&gt;100% 即溢出画布）" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
+            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                <Button Text="缩小" Command="{Binding ScaleDownCommand}" FontSize="12" WidthRequest="80" />
+                <Label Text="{Binding Scale, StringFormat='{0:P0}'}" VerticalOptions="Center" FontSize="14"
+                       TextColor="{DynamicResource PrimaryFg}" />
+                <Button Text="放大" Command="{Binding ScaleUpCommand}" FontSize="12" WidthRequest="80" />
+            </HorizontalStackLayout>
+
+            <!-- 位置与脚底线 -->
+            <Label Text="位置与脚底线" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
+            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                <Button Text="←" Command="{Binding NudgeLeftCommand}" FontSize="12" WidthRequest="52" />
+                <Button Text="→" Command="{Binding NudgeRightCommand}" FontSize="12" WidthRequest="52" />
+                <Button Text="↑" Command="{Binding NudgeUpCommand}" FontSize="12" WidthRequest="52" />
+                <Button Text="↓" Command="{Binding NudgeDownCommand}" FontSize="12" WidthRequest="52" />
+            </HorizontalStackLayout>
+            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                <Label Text="脚底线" VerticalOptions="Center" FontSize="12" TextColor="{DynamicResource MutedFg}" />
+                <Button Text="抬脚线上移" Command="{Binding FootUpCommand}" FontSize="11" WidthRequest="96" />
+                <Button Text="回到底边" Command="{Binding FootDownCommand}" FontSize="11" WidthRequest="96" />
+            </HorizontalStackLayout>
+
+            <!-- 校验结果 -->
+            <Border IsVisible="{Binding HasProblems}"
+                    BackgroundColor="#33FF5252" Stroke="#88FF5252" StrokeThickness="1" Padding="10">
+                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                <Label Text="{Binding ProblemsText}" FontSize="12" TextColor="{DynamicResource PrimaryFg}" />
+            </Border>
+
+            <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                <Button Text="重置" Command="{Binding ResetCommand}" FontSize="13" />
+                <Button Text="清除标定" Command="{Binding ClearCalibrationCommand}" FontSize="13" />
+                <Button Text="保存" Command="{Binding SaveCommand}" FontSize="13"
+                        BackgroundColor="{DynamicResource PrimaryAction}" TextColor="White" />
+            </HorizontalStackLayout>
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
