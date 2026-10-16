@@ -162,11 +162,16 @@ public sealed class CharacterLibrary
         return await UpdateAsync(ch with { Overrides = overrides ?? new CharacterOverrides() });
     }
 
-    /// <summary>角色库上下文：除主角外所有角色的一句话介绍，注入 AI 提示词供其自由调用。</summary>
-    public string RosterContext(string excludeId)
+    /// <summary>
+    /// 角色库上下文：除主角外所有角色的一句话介绍，注入 AI 提示词供其自由调用。
+    /// <paramref name="allowedIds"/> 非空时只列白名单里的角色——存档可以限定可用配角，
+    /// 避免 AI 看到角色库里有人就疯狂加配角。
+    /// </summary>
+    public string RosterContext(string excludeId, IReadOnlyCollection<string>? allowedIds = null)
     {
         var others = _engine.Roster.Values
             .Where(c => c.Profile.Id != excludeId)
+            .Where(c => allowedIds is null || allowedIds.Count == 0 || allowedIds.Contains(c.Profile.Id))
             .OrderBy(c => c.Profile.Name)
             .ToList();
         if (others.Count == 0) return "";

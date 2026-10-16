@@ -76,6 +76,50 @@ public static class ScreenOrientationService
         _debounceCts = null;
     }
 
+    static bool _saveLandscapeActive;
+    static string _choiceBeforeSave = KeyAuto;
+
+    /// <summary>
+    /// 进入存档：手机端自动切横屏（存档里的游戏按横屏排版与操作）。
+    /// 桌面/平板无需处理；已经是横屏时不重复记账。返回是否临时改过方向。
+    /// </summary>
+    public static bool EnterSaveLandscape()
+    {
+        if (!IsMobileDevice()) return false;
+        lock (_lock)
+        {
+            if (_saveLandscapeActive) return false;
+            _saveLandscapeActive = true;
+            _choiceBeforeSave = _choice;
+        }
+        Set(KeyLandscape);
+        Confirm();   // 自动切换不做 3 秒防呆回弹，否则刚要玩就被弹回去
+        return true;
+    }
+
+    /// <summary>离开存档（回到菜单/存档列表）：恢复进入前的方向选择。</summary>
+    public static void ExitSaveLandscape()
+    {
+        string restore;
+        lock (_lock)
+        {
+            if (!_saveLandscapeActive) return;
+            _saveLandscapeActive = false;
+            restore = _choiceBeforeSave;
+        }
+        Set(restore);
+        Confirm();
+    }
+
+    /// <summary>当前是否处于「进存档临时横屏」状态。</summary>
+    public static bool SaveLandscapeActive
+    {
+        get { lock (_lock) return _saveLandscapeActive; }
+    }
+
+    private static bool IsMobileDevice() =>
+        DeviceInfo.Platform == DevicePlatform.Android || DeviceInfo.Platform == DevicePlatform.iOS;
+
     /// <summary>auto 解析成实际锁定方向：手机→竖屏，平板→横屏（电脑版布局）。</summary>
     public static string Resolve(string? choice)
     {
