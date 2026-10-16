@@ -75,6 +75,17 @@ public sealed class SettingsManager
         await MigrateLegacyAsync();
     }
 
+    /// <summary>
+    /// 同步读取设置：必须在构建窗口/界面之前调用。
+    /// 原因是标题页要靠 <see cref="UserSettings.DisclaimerAcknowledged"/> 决定弹不弹免责声明，
+    /// 异步读会晚于首帧，导致「已确认过也每次启动都弹」。文件很小，阻塞时间可忽略。
+    /// </summary>
+    public void RestoreBlocking()
+    {
+        try { Task.Run(async () => await Restore()).GetAwaiter().GetResult(); }
+        catch (Exception ex) { App.WriteLog("SettingsManager.RestoreBlocking -> " + ex.Message); }
+    }
+
     /// <summary>旧版单一 GlassStyle → 新的三个独立开关；毛玻璃隐含磨砂。</summary>
     private async Task MigrateLegacyAsync()
     {

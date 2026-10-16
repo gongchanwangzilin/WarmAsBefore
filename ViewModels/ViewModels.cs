@@ -2359,9 +2359,13 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         {
             McpServers.Clear();
             foreach (var item in items) McpServers.Add(item);
+            OnPropertyChanged(nameof(HasMcpServers));
             McpServersLoading = false;   // 加载完成，隐藏圈圈、显示列表
         });
     }
+
+    /// <summary>列表是否为空（空态提示用；列表本身改成 BindableLayout，外层页面统一滚动）。</summary>
+    public bool HasMcpServers => McpServers.Count > 0;
 
     /// <summary>刷新 MCP 数据包列表（从 McpPacks 目录扫描）。</summary>
     private void RefreshMcpServers()
@@ -2371,6 +2375,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             McpServers.Clear();
             foreach (var item in _mcp.ListServers())
                 McpServers.Add(item);
+            OnPropertyChanged(nameof(HasMcpServers));
         }
         catch (Exception ex)
         {
