@@ -16,7 +16,7 @@
             <Grid ColumnDefinitions="Auto,*,Auto">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
                         Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="场景库" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="场景工坊" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
                 <Button Grid.Column="2" Text="＋ 新建" Style="{StaticResource BtnPrimary}"
                         FontSize="13" Padding="14,6" Command="{Binding AddEntryCommand}" />
             </Grid>

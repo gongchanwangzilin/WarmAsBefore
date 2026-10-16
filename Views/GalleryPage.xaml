@@ -85,6 +85,8 @@
             <VerticalStackLayout IsVisible="{Binding IsRememberedSelected}" Spacing="10">
                 <Label Text="这是她脑子里真正记得的事——重要的忘得慢，琐碎的自然淡忘；照片式记忆只有单张。"
                        Style="{StaticResource TxtCaption}" />
+                <Button Text="⚙ 记忆管理（关系网 / 标签 / 记得的事 / 副设定）" Style="{StaticResource BtnGhost}"
+                        FontSize="13" HorizontalOptions="Start" Command="{Binding OpenMemoryManageCommand}" />
                 <Border Style="{StaticResource CardNeumorph}" Padding="14,12" IsVisible="{Binding HasTags}">
                     <VerticalStackLayout Spacing="4">
                         <Label Text="她给你的标签" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />

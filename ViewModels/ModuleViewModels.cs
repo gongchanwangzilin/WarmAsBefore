@@ -69,6 +69,10 @@ public sealed partial class PhoneViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenForceCast() => await SafeNav("forcecast");
 
+    /// <summary>场景工坊：条目 / 模式（点击式切换，无需拖拽）。</summary>
+    [RelayCommand]
+    private async Task OpenSceneWorkshop() => await SafeNav("scenelibrary");
+
     [RelayCommand]
     private async Task OpenShop() => await SafeNav("shop");
 
@@ -718,9 +722,13 @@ public sealed partial class GalleryViewModel : ObservableObject
     [ObservableProperty] private string _semanticSummary = "";
     [ObservableProperty] private bool _hasSemantic;
 
+    /// <summary>打开记忆管理页（关系网 / 标签 / 记得的事 / 副设定）。</summary>
+    [RelayCommand]
+    private async Task OpenMemoryManage() =>
+        await Shell.Current.GoToAsync($"memoryManage?charId={Uri.EscapeDataString(CharacterId)}");
+
     private async Task ReloadRememberedAsync()
-    {
-        try
+    {        try
         {
             var entries = await _human.AllAsync(CharacterId);
             var items = new List<HumanMemoryItem>();

@@ -24,14 +24,12 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly ApiGateway _api;
     private readonly LingshuImporter _lingshu;
     private readonly CharacterSubProfileService _subProfiles;
-    private readonly SemanticNetworkService _semantic;
-    private readonly MemoryTagService _tags;
 
     [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
 
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
         SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu,
-        CharacterSubProfileService subProfiles, SemanticNetworkService semantic, MemoryTagService tags)
+        CharacterSubProfileService subProfiles)
     {
         _engine = engine;
         _library = library;
@@ -40,8 +38,6 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         _api = api;
         _lingshu = lingshu;
         _subProfiles = subProfiles;
-        _semantic = semantic;
-        _tags = tags;
     }
 
     [RelayCommand]
@@ -170,13 +166,16 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             "修改性格（外在表现/内在坚定）", "修改背景/前情提要（主设定）",
             "修改用户称呼", "修改昵称", "修改问候语",
             "查看副设定（当下之我）", "副设定回正到主设定",
-            "词义关系网（纠错）", "标签（查看/删除）",
+            "记忆管理（关系网/标签/记得的事）",
             (IsAllowedInSave(item.Data.Profile.Id) ? "移出本存档可用角色" : "加入本存档可用角色"),
             "参数覆写（记忆/采样）");
         if (field is null || field == "取消") return;
         if (field.Contains("参数覆写")) { await EditOverridesAsync(item); return; }
-        if (field.Contains("词义关系网")) { await EditSemanticNetworkAsync(item); return; }
-        if (field.Contains("标签")) { await EditTagsAsync(item); return; }
+        if (field.Contains("记忆管理"))
+        {
+            await Shell.Current.GoToAsync($"memoryManage?charId={Uri.EscapeDataString(item.Data.Profile.Id)}");
+            return;
+        }
         if (field.Contains("本存档可用角色")) { await ToggleAllowedAsync(item); return; }
         if (field.Contains("查看副设定"))
         {
@@ -280,89 +279,6 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         var t = raw?.Trim() ?? "";
         if (t.Length == 0) return apply(null);
         return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? apply(v) : null;
-    }
-
-    /// <summary>
-    /// 词义关系网的人工纠错：看联系最紧的若干对词，可以加一条或删一条。
-    /// AI 也能改这张网（tag_memory 之外的联想纠正走工具），这里给人一个直接下手的入口。
-    /// </summary>
-    private async Task EditSemanticNetworkAsync(CharacterLibraryItem item)
-    {
-        var id = item.Data.Profile.Id;
-        var count = await _semantic.LinkCountAsync(id);
-        if (count == 0)
-        {
-            await Shell.Current.DisplayAlert("词义关系网",
-                $"「{item.Data.Profile.Name}」的关联网还没长出来——多聊几句就会自动积累（不花模型额度）。", "好");
-            return;
-        }
-
-        var preview = await BuildSemanticPreviewAsync(id);
-        var action = await Shell.Current.DisplayActionSheet(
-            $"「{item.Data.Profile.Name}」的词义关系网（{count} 条联系）", "取消", null,
-            "添加/加强一条联系", "删除一条联系");
-        if (action is null || action == "取消") return;
-
-        if (action.StartsWith("添加"))
-        {
-            await Shell.Current.DisplayAlert("当前联系最紧的词对", preview, "好");
-            var input = await Shell.Current.DisplayPromptAsync("添加联系",
-                "输入两个词，用逗号或顿号分隔（例如「咖啡、加班」）：", maxLength: 40);
-            if (string.IsNullOrWhiteSpace(input)) return;
-            var parts = input.Split(new[] { ',', '，', '、', ' ', '|' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) { await Shell.Current.DisplayAlert("添加联系", "请给出两个词。", "好"); return; }
-            await _semantic.LinkAsync(id, parts[0].Trim(), parts[1].Trim(), 5, "human");
-            await Shell.Current.DisplayAlert("添加联系", $"已建立「{parts[0].Trim()} ↔ {parts[1].Trim()}」。", "好");
-        }
-        else
-        {
-            await Shell.Current.DisplayAlert("当前联系最紧的词对", preview, "好");
-            var input = await Shell.Current.DisplayPromptAsync("删除联系",
-                "输入要断开的那两个词，逗号或顿号分隔：", maxLength: 40);
-            if (string.IsNullOrWhiteSpace(input)) return;
-            var parts = input.Split(new[] { ',', '，', '、', ' ', '|' }, StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) { await Shell.Current.DisplayAlert("删除联系", "请给出两个词。", "好"); return; }
-            await _semantic.UnlinkAsync(id, parts[0].Trim(), parts[1].Trim());
-            await Shell.Current.DisplayAlert("删除联系", "已断开这条联系。", "好");
-        }
-    }
-
-    /// <summary>取联系最紧的若干词对做成预览文本（给纠错时参照）。</summary>
-    private async Task<string> BuildSemanticPreviewAsync(string charId)
-    {
-        var links = await _semantic.TopLinksAsync(charId, 12);
-        if (links.Count == 0) return "（暂无联系最紧的词对）";
-        return string.Join("\n", links.Select(l => $"{l.A} ↔ {l.B}（{l.Weight:0}，{l.Source}）"));
-    }
-
-    /// <summary>标签层的人工侧：看这个角色给人和事打了哪些标签，可删掉不合适的。</summary>
-    private async Task EditTagsAsync(CharacterLibraryItem item)
-    {
-        var id = item.Data.Profile.Id;
-        var tags = await _tags.ListAsync(id);
-        if (tags.Count == 0)
-        {
-            await Shell.Current.DisplayAlert("标签",
-                $"「{item.Data.Profile.Name}」还没有打过标签。标签由 AI 在对话中自己打（也可以让她「记一下这件事」）。", "好");
-            return;
-        }
-
-        var text = string.Join("\n", tags.Select(t =>
-            $"· {t.Name}（{(t.Subject switch { "person" => "人", "talk" => "话题", "place" => "地点", "thing" => "物", _ => "事" })}，用过 {t.Count} 次）"));
-        var action = await Shell.Current.DisplayActionSheet($"「{item.Data.Profile.Name}」的标签（{tags.Count} 个）", "取消", null,
-            "查看全部", "删除一个标签");
-        if (action is null || action == "取消") return;
-
-        if (action == "查看全部")
-        {
-            await Shell.Current.DisplayAlert("标签", text, "好");
-            return;
-        }
-        await Shell.Current.DisplayAlert("标签", text, "好");
-        var name = await Shell.Current.DisplayPromptAsync("删除标签", "输入要删掉的标签名：", maxLength: 12);
-        if (string.IsNullOrWhiteSpace(name)) return;
-        var removed = await _tags.RemoveAsync(id, name.Trim());
-        await Shell.Current.DisplayAlert("删除标签", removed > 0 ? $"已删除「{name.Trim()}」。" : "没有找到这个标签。", "好");
     }
 
     /// <summary>
