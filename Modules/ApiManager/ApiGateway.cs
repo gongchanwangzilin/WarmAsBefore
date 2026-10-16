@@ -73,6 +73,12 @@ public sealed class ApiGateway
         if (over is not null && !ReferenceEquals(over, _cfg))
             return new List<AiEndpoint> { over };
 
+        // 游戏页临时指定的端点优先，且只用它——用户手动选的是"这次就用这个"，
+        // 悄悄回退到别的端点会让人以为选择没生效。
+        var temp = _temporary;
+        if (temp is not null && !string.IsNullOrWhiteSpace(temp.Key))
+            return new List<AiEndpoint> { temp };
+
         var list = new List<AiEndpoint>();
         if (_rotationEnabled && _pool.Count > 0)
         {
@@ -82,6 +88,18 @@ public sealed class ApiGateway
         list.Add(_cfg);   // 主配置兜底
         return list;
     }
+
+    private AiEndpoint? _temporary;
+
+    /// <summary>临时指定本次会话用哪个端点回答（不写入设置，退出即失效）。</summary>
+    public void SetTemporaryEndpoint(AiEndpoint? endpoint) => _temporary = endpoint;
+
+    /// <summary>当前临时端点（null = 按设置的顺序自动选）。</summary>
+    public AiEndpoint? TemporaryEndpoint => _temporary;
+
+    /// <summary>临时端点的显示名（主界面提示用）。</summary>
+    public string TemporaryEndpointLabel =>
+        _temporary is null ? "" : (string.IsNullOrWhiteSpace(_temporary.Provider) ? _temporary.Model : _temporary.Provider);
 
     /// <summary>单个端点的候选密钥：密钥池（从游标起步、轮流）优先，兜底单枚 Key。</summary>
     private List<string> CandidateKeys(AiEndpoint e)

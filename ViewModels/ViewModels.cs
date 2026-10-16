@@ -360,6 +360,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _memoryRecallRandomness = Math.Clamp(s.MemoryRecallRandomness, 0, 1);
         _subProfileAiRewrite = s.SubProfileAiRewrite;
         _semanticAiAssist = s.SemanticAiAssist;
+        _smartSavingEnabled = s.SmartSavingEnabled;
 
         // 多端点轮换 + 上下文 Token 上限
         _aiRotationEnabled = s.AiRotationEnabled;
@@ -1148,6 +1149,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _subProfileAiRewrite;
     partial void OnSubProfileAiRewriteChanged(bool value) => PersistSettings();
 
+    /// <summary>智能省钱总开关（默认开）。</summary>
+    [ObservableProperty] private bool _smartSavingEnabled = true;
+    partial void OnSmartSavingEnabledChanged(bool value) => PersistSettings();
+
     /// <summary>是否让模型辅助建立词义关系网（默认关闭：默认只靠共现统计）。</summary>
     [ObservableProperty] private bool _semanticAiAssist;
     partial void OnSemanticAiAssistChanged(bool value) => PersistSettings();
@@ -1355,6 +1360,12 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _costSummary = "点「刷新用量」看看花了多少。";
 
+    // 钱与 token 分开看：两张表 + 两个排行榜
+    [ObservableProperty] private string _priceTable = "";
+    [ObservableProperty] private string _tokenTable = "";
+    [ObservableProperty] private string _costRanking = "";
+    [ObservableProperty] private string _tokenRanking = "";
+
     /// <summary>单价表快照（落盘用）：由成本服务维护，这里只取当前值。</summary>
     private List<ModelPrice> ModelPricesSnapshot
     {
@@ -1374,6 +1385,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             CostSummary = await _cost.ReportTextAsync();
+            PriceTable = await _cost.PriceTableTextAsync();
+            TokenTable = await _cost.TokenTableTextAsync();
+            CostRanking = await _cost.CostRankTextAsync();
+            TokenRanking = await _cost.TokenRankTextAsync();
             await RebuildChartAsync();
         }
         catch (Exception ex)
@@ -1489,13 +1504,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         var model = (NewPriceModel ?? "").Trim();
         if (model.Length == 0) { CostSummary = "先填模型名（要和请求里用的模型名一致）。"; return; }
-        double Parse(string s) => double.TryParse((s ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : -1;
+        double? Parse(string s)
+            => double.TryParse((s ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) && v >= 0 ? v : null;
+
         var input = Parse(NewPriceInput);
         var output = Parse(NewPriceOutput);
-        if (input < 0 || output < 0) { CostSummary = "输入价与输出价都要填数字（每百万 token，例如 2 / 8）。"; return; }
+        // 只填一侧也接受：很多服务只关心输入价，强制两边都填是多余的负担
+        var (ok, message) = await _cost.SetPriceAsync(model, input, output);
+        if (!ok) { CostSummary = message; return; }
 
-        await _cost.SetPriceAsync(model, input, output);
-        // 单价表同时写回设置，保证重开设置页与 RuntimeConfigurator 下发时一致
         _settings.Apply(_settings.Current with
         {
             ModelPrices = (await _cost.PricesAsync()).ToList()
@@ -2073,6 +2090,7 @@ GlassLightWidth = GlassLightWidth,
                 MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),
                 SubProfileAiRewrite = SubProfileAiRewrite,
                 SemanticAiAssist = SemanticAiAssist,
+                SmartSavingEnabled = SmartSavingEnabled,
                 AiProfiles = AiProfiles.Select(r => r.ToProfile())
                     .Where(p => !string.IsNullOrWhiteSpace(p.Url) || p.Keys.Count > 0)
                     .ToList(),

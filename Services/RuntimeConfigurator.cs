@@ -204,8 +204,8 @@ public sealed class RuntimeConfigurator
             _subProfiles.RewriteAsync(charId, personality, description, "经历之后，她对自己的看法变了");
         // 人类记忆层：回合结束把折叠出的记忆记进去，每轮对话前按人类方式回想
         _chat.Human = _human;
-        // 智能省钱：总结前先算「现在总结 vs 不总结」哪个更省
-        _chat.Cost = _cost;
+        // 智能省钱：总结前先算「现在总结 vs 不总结」哪个更省（关掉则恢复老行为）
+        _chat.Cost = s.SmartSavingEnabled ? _cost : null;
         // 词义关系网与标签层：对话自动长网、标签清单注入人设
         _chat.Semantic = _semantic;
         _chat.Tags = _tags;
