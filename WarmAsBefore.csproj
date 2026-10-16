@@ -80,6 +80,7 @@
     <PackageReference Include="CommunityToolkit.Maui.MediaElement" Version="4.1.2" />
     <PackageReference Include="Microsoft.Maui.Controls" Version="9.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.*" />
+    <PackageReference Include="SkiaSharp" Version="2.88.9" />
   </ItemGroup>
 
   <!-- 桌面端截图（好感瞬间）仅 Windows 可用 -->

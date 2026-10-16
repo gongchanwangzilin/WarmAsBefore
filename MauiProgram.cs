@@ -36,6 +36,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<CharacterSubProfileService>();
         // 立绘标定：素材按 1080×1920 逻辑画布标定一次，各处共用
         builder.Services.AddSingleton<PortraitCalibrationService>();
+        // 立绘规范化：非标素材重采样成 1080×1920 标准画布文件
+        builder.Services.AddSingleton<PortraitNormalizer>();
         // 人类记忆层：按重要性×时间衰减×复述×随机存取（与全量记忆库并存）
         builder.Services.AddSingleton<HumanMemoryService>();
         // 词义关系网：后台随对话自动长出来（纯统计，不花模型钱）
