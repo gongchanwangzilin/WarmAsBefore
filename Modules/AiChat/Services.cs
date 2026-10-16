@@ -71,6 +71,14 @@ public sealed class ChatEngine
     /// <summary>每隔多少轮对话才做一次模型改写（默认 12 轮，避免频繁花钱）。</summary>
     public int SubProfileRewriteEveryTurns { get; set; } = 12;
 
+    /// <summary>
+    /// 词义关系网的模型辅助开关（默认关闭）：打开后每 20 轮请模型补几条关联。
+    /// 补出来的边标记为 ai 来源，人工纠错不会被它冲淡。
+    /// </summary>
+    public bool SemanticAiAssistEnabled { get; set; }
+    public int SemanticAiAssistEveryTurns { get; set; } = 20;
+    private readonly Dictionary<string, int> _turnsSinceSemanticAssist = new(StringComparer.Ordinal);
+
     private readonly Dictionary<string, int> _turnsSinceRewrite = new(StringComparer.Ordinal);
 
     /// <summary>
@@ -135,6 +143,60 @@ public sealed class ChatEngine
     }
 
     /// <summary>
+    /// 请模型补几条词义关联（可选、低频）：让它输出「词A=词B」每行一组。
+    /// 关闭开关、未配置端点或失败时都静默跳过——关联网本来就不该依赖模型。
+    /// </summary>
+    public async Task<List<(string A, string B)>> SuggestLinksAsync(string charId, IEnumerable<string> recentTexts)
+    {
+        var result = new List<(string, string)>();
+        if (!_api.HasAnyEndpoint) return result;
+        var material = string.Join("\n", recentTexts.Where(t => !string.IsNullOrWhiteSpace(t))).Trim();
+        if (material.Length == 0) return result;
+        if (material.Length > 3000) material = material[^3000..];
+
+        try
+        {
+            var cfg = CfgFor(charId);
+            var body = new
+            {
+                model = cfg.Model,
+                messages = new object[]
+                {
+                    new
+                    {
+                        role = "system",
+                        content = "你在整理一段对话里词与词的关联，供联想回忆用。"
+                                + "只输出 3 组，每行一组，格式「词A=词B」，两个词都必须是对话里出现过的具体词，不要解释。"
+                    },
+                    new { role = "user", content = "对话记录：\n" + material + "\n\n输出 3 行「词A=词B」：" }
+                },
+                temperature = 0.5,
+                max_tokens = 120
+            };
+            var raw = await _api.ChatRaw(body);
+            if (string.IsNullOrWhiteSpace(raw)) return result;
+
+            foreach (var line in raw!.Replace("\r\n", "\n").Split('\n', StringSplitOptions.RemoveEmptyEntries))
+            {
+                var t = line.Trim().TrimStart('-', '·', '*', ' ', '\t');
+                var idx = t.IndexOf('=');
+                if (idx <= 0) continue;
+                var a = t[..idx].Trim().Trim('「', '」', '"', '\'');
+                var b = t[(idx + 1)..].Trim().Trim('「', '」', '"', '\'');
+                if (a.Length is < 1 or > 12 || b.Length is < 1 or > 12) continue;
+                if (string.Equals(a, b, StringComparison.Ordinal)) continue;
+                result.Add((a, b));
+                if (result.Count >= 3) break;
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.SuggestLinks -> " + ex.Message);
+        }
+        return result;
+    }
+
+    /// <summary>
     /// 每回合结束后回调（角色 id，折叠出的记忆要点或 null）。用于让副设定随时间漂移。
     /// </summary>
     public Func<string, string?, Task>? AfterTurn { get; set; }
@@ -172,6 +234,26 @@ public sealed class ChatEngine
         {
             try { await Semantic.LearnAsync(charId, userText, reply); }
             catch (Exception ex) { App.WriteLog("ChatEngine.SemanticLearn -> " + ex.Message); }
+        }
+        // 模型辅助增边（默认关闭）：每 20 轮请模型补几条关联，标为 ai 来源
+        if (SemanticAiAssistEnabled && Semantic is not null)
+        {
+            try
+            {
+                var turns = (_turnsSinceSemanticAssist.TryGetValue(charId, out var n) ? n : 0) + 1;
+                if (turns >= Math.Max(4, SemanticAiAssistEveryTurns))
+                {
+                    _turnsSinceSemanticAssist[charId] = 0;
+                    var pairs = await SuggestLinksAsync(charId, new[] { userText, reply ?? "" });
+                    foreach (var (a, b) in pairs)
+                        await Semantic.LinkAsync(charId, a, b, 2, "ai");
+                }
+                else
+                {
+                    _turnsSinceSemanticAssist[charId] = turns;
+                }
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.SemanticAiAssist -> " + ex.Message); }
         }
         await RefreshTagContextAsync(charId);
 

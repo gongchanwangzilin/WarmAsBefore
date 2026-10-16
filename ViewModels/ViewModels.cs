@@ -359,6 +359,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _memoryWindowDays = MemoryWindowChoices.Contains(s.MemoryWindowDays) ? s.MemoryWindowDays : HumanMemoryMath.DefaultWindowDays;
         _memoryRecallRandomness = Math.Clamp(s.MemoryRecallRandomness, 0, 1);
         _subProfileAiRewrite = s.SubProfileAiRewrite;
+        _semanticAiAssist = s.SemanticAiAssist;
 
         // 多端点轮换 + 上下文 Token 上限
         _aiRotationEnabled = s.AiRotationEnabled;
@@ -1140,6 +1141,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>是否让模型参与副设定改写（默认关闭：低频但要花钱）。</summary>
     [ObservableProperty] private bool _subProfileAiRewrite;
     partial void OnSubProfileAiRewriteChanged(bool value) => PersistSettings();
+
+    /// <summary>是否让模型辅助建立词义关系网（默认关闭：默认只靠共现统计）。</summary>
+    [ObservableProperty] private bool _semanticAiAssist;
+    partial void OnSemanticAiAssistChanged(bool value) => PersistSettings();
 
     /// <summary>API 可用的模型列表（由 FetchModelsAsync 填充）。</summary>
     public ObservableCollection<string> AiModelChoices { get; } = new();
@@ -1946,6 +1951,7 @@ GlassLightWidth = GlassLightWidth,
                 MemoryWindowDays = MemoryWindowDays,
                 MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),
                 SubProfileAiRewrite = SubProfileAiRewrite,
+                SemanticAiAssist = SemanticAiAssist,
                 AiProfiles = AiProfiles.Select(r => r.ToProfile())
                     .Where(p => !string.IsNullOrWhiteSpace(p.Url) || p.Keys.Count > 0)
                     .ToList(),
