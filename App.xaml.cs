@@ -48,6 +48,16 @@ public partial class App : Application
     {
         try
         {
+            // 设置必须在构建界面之前读完：标题页要按 DisclaimerAcknowledged 决定弹不弹免责声明，
+            // 读晚了（原来的 fire-and-forget）首帧拿到的永远是默认值 →每次启动都弹一遍。
+            try
+            {
+                var sm = Application.Current?.Handler?.MauiContext?.Services
+                    ?.GetService(typeof(SettingsManager)) as SettingsManager;
+                sm?.RestoreBlocking();
+            }
+            catch (Exception ex) { WriteLog("CreateWindow.RestoreSettings: " + ex); }
+
             WriteLog("CreateWindow: building AppShell");
             var win = new Window(new AppShell())
             {
@@ -63,7 +73,7 @@ public partial class App : Application
             };
             // 通知置顶由「对话框统一包装器」在真正弹 Alert 时触发（见 App.Dialog.ShowAlert），
             // 不在 Window.Activated 里做：Activate() 在 WinUI 有焦点重入副作用，会造成卡顿。
-            _ = RestoreSettingsAsync();
+            _ = AfterWindowStartedAsync();
             WriteLog("CreateWindow: ok");
             return win;
         }
@@ -106,14 +116,17 @@ public partial class App : Application
         }
     }
 
-    private static async Task RestoreSettingsAsync()
+    /// <summary>
+    /// 窗口已建好之后要做的事：语言、屏幕方向、自动备份、置顶、运行时配置下发。
+    /// 设置本身已在 <see cref="CreateWindow"/> 里同步读过（见那里的说明）。
+    /// </summary>
+    private static async Task AfterWindowStartedAsync()
     {
         try
         {
             var services = Application.Current?.Handler?.MauiContext?.Services;
             if (services is null) return;
             var sm = services.GetService(typeof(SettingsManager)) as SettingsManager;
-            if (sm is not null) await sm.Restore();
             LocalizationService.Current.SetCulture(sm?.Current.Lang ?? "zh-CN");
             // 屏幕方向：按设置锁屏（auto=竖屏 / landscape / portrait）
             Modules.Screen.ScreenOrientationService.ApplyOnStart(sm?.Current.ScreenOrientation);
@@ -130,8 +143,9 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
-            WriteLog("RestoreSettings: " + ex);
+            WriteLog("AfterWindowStarted: " + ex);
         }
+        await Task.CompletedTask;
     }
 
     private static readonly System.Collections.Concurrent.ConcurrentQueue<string> LogQueue = new();

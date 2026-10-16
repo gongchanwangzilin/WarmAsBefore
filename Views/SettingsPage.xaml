@@ -445,8 +445,9 @@
                             <Label Text="全局默认；某条端点需要更久时，在下面那条端点的「超时」里单独填" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Picker Grid.Column="1" WidthRequest="90" ItemsSource="{Binding TimeoutChoices}"
                                     SelectedItem="{Binding AiTimeoutSeconds}" FontSize="13" /></Grid>
-                        <CollectionView ItemsSource="{Binding AiProfiles}" SelectionMode="None" MaximumHeightRequest="220">
-                            <CollectionView.ItemTemplate>
+                        <!-- 同 MCP 列表：CollectionView 在页面 ScrollView 里会抢滚动手势，改成随页面滚动 -->
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AiProfiles}">
+                            <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AiProfileRow">
                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6" Padding="0,4">
                                         <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
@@ -467,8 +468,8 @@
                                                 CommandParameter="{Binding .}" />
                                     </Grid>
                                 </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                         <Label Text="{Binding AiProfileStatus}" Style="{StaticResource TxtCaption}" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <Entry Grid.Column="0" Text="{Binding NewAiProfileName}" Placeholder="名称（如：硅基-主力）"
@@ -832,15 +833,11 @@
                             <Button Grid.Column="1" Text="＋ 新建" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding NewMcpServerCommand}" />
                         </Grid>
-                        <Grid>
-                            <CollectionView ItemsSource="{Binding McpServers}" HeightRequest="320"
-                                            IsVisible="{Binding McpServersLoading, Converter={StaticResource InverseBool}}"
-                                            SelectionMode="None">
-                            <CollectionView.EmptyView>
-                                <Label Text="还没有接入的服务器。点「＋ 新建」登记一个，或用下方功能导入数据包"
-                                       Style="{StaticResource TxtCaption}" Padding="4,6" />
-                            </CollectionView.EmptyView>
-                            <CollectionView.ItemTemplate>
+                        <!-- 用 BindableLayout 而不是 CollectionView：CollectionView 嵌在页面 ScrollView 里
+                             时两边抢滚动手势，内层列表常常滚不动（用户实测反馈）。列表跟着页面一起滚最稳。 -->
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding McpServers}"
+                                             IsVisible="{Binding McpServersLoading, Converter={StaticResource InverseBool}}">
+                            <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="mcp:McpServerItem">
                                     <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}"
                                             StrokeThickness="0.8" Padding="10,8" Margin="0,4">
@@ -870,13 +867,15 @@
                                         </Grid>
                                     </Border>
                                 </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-                            <VerticalStackLayout IsVisible="{Binding McpServersLoading}" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                                <ActivityIndicator IsRunning="{Binding McpServersLoading}" IsVisible="{Binding McpServersLoading}" HeightRequest="32" WidthRequest="32" Color="{DynamicResource AccentWarm}" />
-                                <Label Text="正在加载已接入服务器…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
-                            </VerticalStackLayout>
-                        </Grid>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="还没有接入的服务器。点「＋ 新建」登记一个，或用下方功能导入数据包"
+                               Style="{StaticResource TxtCaption}" Padding="4,6"
+                               IsVisible="{Binding McpServersLoading, Converter={StaticResource InverseBool}}" />
+                        <VerticalStackLayout IsVisible="{Binding McpServersLoading}" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                            <ActivityIndicator IsRunning="{Binding McpServersLoading}" IsVisible="{Binding McpServersLoading}" HeightRequest="32" WidthRequest="32" Color="{DynamicResource AccentWarm}" />
+                            <Label Text="正在加载已接入服务器…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                        </VerticalStackLayout>
 
                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_McpUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                             <Entry Grid.Column="1" Text="{Binding McpNetworkUrl}" Placeholder="{Binding [Settings_McpUrlPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
