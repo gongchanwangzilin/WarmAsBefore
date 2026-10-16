@@ -216,6 +216,27 @@ public sealed record UserSettings
     /// 空串表示回退到「当前游戏角色」的行为。
     /// </summary>
     public string QqBoundCharacterId { get; init; } = "";
+
+    /// <summary>是否回复群聊消息（默认否）：群聊里默认不理，免得在群里刷屏。</summary>
+    public bool QqReplyGroup { get; init; }
+
+    /// <summary>
+    /// 用来识别「用户本人」的 QQ openid：主动发消息时发给它。
+    /// 留空则用最后一个跟机器人私聊过的人（读日志可查）。
+    /// </summary>
+    public string QqUserOpenId { get; init; } = "";
+
+    /// <summary>用户在 QQ 里的昵称（识别到本人时，角色会用这个称呼叫他）。</summary>
+    public string QqUserName { get; init; } = "";
+
+    /// <summary>允许角色主动发消息到用户手机（存档里的「她拿起手机发消息」）。默认关闭。</summary>
+    public bool QqProactiveEnabled { get; init; }
+
+    /// <summary>主动发消息是否需要人工确认（默认需要）：AI 不能未经同意就往外发。</summary>
+    public bool QqProactiveRequireConfirm { get; init; } = true;
+
+    /// <summary>主动发消息的每小时上限（防骚扰 / 防误触刷屏）。</summary>
+    public int QqProactivePerHour { get; init; } = 3;
     public bool WechatEnabled { get; init; }
     public string WechatAppId { get; init; } = "";
     public string WechatAppSecret { get; init; } = "";

@@ -183,6 +183,7 @@ public sealed class ToolManager : IDisposable
         ("list_skills", "列出可用的能力包"),
         ("read_skill", "读取能力包的说明书"),
         ("set_blackout", "把画面黑掉或恢复（仍可对话）"),
+        ("send_to_user", "给用户手机真的发一条消息（默认需确认）"),
         ("list_actors", "列出地图实体位置"),
         ("pull_actor", "拉拽实体到场景"),
         ("battle_start", "发起战斗"),
@@ -1152,6 +1153,39 @@ public sealed class ToolManager : IDisposable
             {
                 new() { Name = "on", Description = "true=黑屏，false=恢复，默认 true", Required = false },
                 new() { Name = "reason", Description = "简短说明为什么黑屏（会给用户看），可留空", Required = false }
+            });
+
+        // 给用户真的发一条消息到手机（QQ 桥）：让「虚拟世界」能伸手够到现实
+        RegisterBuiltin("send_to_user",
+            "给用户真的发一条消息到他的手机上（QQ 私聊），不是游戏里的对话。"
+            + "只有确实想越过屏幕找到他时才用：约好的时间到了、他很久没消息你想叫他、或你答应了要给他发消息。"
+            + "默认要等用户确认后才会真的发出去，所以你发完要如实告诉他「我发了，记得确认」。"
+            + "一小时内的条数有上限，别连着发。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                var bridge = services?.GetService(typeof(Modules.RealChat.OfficialChatBridge)) as Modules.RealChat.OfficialChatBridge;
+                if (bridge is null) return JsonSerializer.Serialize(new { ok = false, message = "外接通道服务不可用。" });
+
+                var text = "";
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    if (doc.RootElement.TryGetProperty("text", out var t) && t.ValueKind == JsonValueKind.String)
+                        text = (t.GetString() ?? "").Trim();
+                }
+                catch (Exception ex) { App.WriteLog("ToolManager.send_to_user parse -> " + ex.Message); }
+
+                if (text.Length == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "请给出要发的内容（text）。" });
+                if (text.Length > 500) text = text[..500];
+
+                var result = bridge.QueueOutbound(text);
+                return JsonSerializer.Serialize(new { ok = true, message = result });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "text", Description = "要发到对方手机上的消息正文", Required = true }
             });
 
         // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置

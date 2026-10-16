@@ -190,25 +190,33 @@ public sealed class QqBotChannel : IOfficialChannel
     {
         var t = evt["t"]?.GetValue<string>();
         var d = evt["d"];
-        if (t != "C2C_MESSAGE_CREATE" || d is null) return;
+        if (d is null) return;
+
+        // 私聊（C2C）与被 @ 的群消息：群消息带 group_openid，回复时要回同一个群。
+        var isGroup = t == "GROUP_AT_MESSAGE_CREATE";
+        if (t != "C2C_MESSAGE_CREATE" && !isGroup) return;
 
         try
         {
             var content = d["content"]?.GetValue<string>() ?? "";
             var author = d["author"];
             var openid = author?["id"]?.GetValue<string>()
+               ?? author?["member_openid"]?.GetValue<string>()
                ?? author?["user_openid"]?.GetValue<string>()
                ?? "";
-            // C2C 私聊里昵称在 author.nickname（member_openid 是群聊字段，C2C 场景不存在）
             var nickname = author?["nickname"]?.GetValue<string>() ?? "";
+            var groupId = isGroup ? (d["group_openid"]?.GetValue<string>() ?? "") : "";
             if (string.IsNullOrWhiteSpace(content) || string.IsNullOrWhiteSpace(openid)) return;
+            if (isGroup && string.IsNullOrWhiteSpace(groupId)) return;
 
             MessageReceived?.Invoke(new RealChatMessage
             {
                 Channel = Name,
                 SenderId = openid,
-                SenderName = string.IsNullOrEmpty(nickname) ? "QQ好友" : nickname,
-                Content = content.Trim()
+                SenderName = string.IsNullOrEmpty(nickname) ? (isGroup ? "群友" : "QQ好友") : nickname,
+                Content = content.Trim(),
+                IsGroup = isGroup,
+                GroupId = groupId
             });
         }
         catch (Exception ex)
@@ -222,7 +230,10 @@ public sealed class QqBotChannel : IOfficialChannel
         if (!IsRunning) return;
         try
         {
-            var url = $"{ApiBase}/v2/users/{Uri.EscapeDataString(from.SenderId)}/messages";
+            // 群消息回到群里，私聊回到私聊
+            var url = from.IsGroup && !string.IsNullOrWhiteSpace(from.GroupId)
+                ? $"{ApiBase}/v2/groups/{Uri.EscapeDataString(from.GroupId)}/messages"
+                : $"{ApiBase}/v2/users/{Uri.EscapeDataString(from.SenderId)}/messages";
             var body = JsonSerializer.Serialize(new { content = text, msg_type = 0 });
             using var req = new HttpRequestMessage(HttpMethod.Post, url)
             {
@@ -236,6 +247,37 @@ public sealed class QqBotChannel : IOfficialChannel
         catch (Exception ex)
         {
             App.WriteLog("QqBotChannel.SendAsync -> " + ex);
+        }
+    }
+
+    /// <summary>
+    /// 主动给某个用户发私聊（存档里的角色「拿起手机发消息」用这条）。
+    /// 官方机器人只能在用户 48 小时内主动说过话的会话里发消息，超时会失败——失败会记日志，不抛。
+    /// </summary>
+    public async Task<bool> SendPrivateAsync(string userOpenId, string text)
+    {
+        if (!IsRunning || string.IsNullOrWhiteSpace(userOpenId) || string.IsNullOrWhiteSpace(text)) return false;
+        try
+        {
+            var url = $"{ApiBase}/v2/users/{Uri.EscapeDataString(userOpenId)}/messages";
+            var body = JsonSerializer.Serialize(new { content = text, msg_type = 0 });
+            using var req = new HttpRequestMessage(HttpMethod.Post, url)
+            {
+                Content = new StringContent(body, Encoding.UTF8, "application/json")
+            };
+            req.Headers.TryAddWithoutValidation("Authorization", $"QQBot {_token}");
+            var resp = await _http.SendAsync(req);
+            if (!resp.IsSuccessStatusCode)
+            {
+                App.WriteLog($"QqBotChannel.SendPrivate failed {resp.StatusCode}: {await resp.Content.ReadAsStringAsync()}");
+                return false;
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("QqBotChannel.SendPrivateAsync -> " + ex);
+            return false;
         }
     }
 

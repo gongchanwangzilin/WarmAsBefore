@@ -202,6 +202,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly SceneCalibrationService _cal;
     private readonly PortraitCalibrationService _portraits;
     private readonly ScreenBlackoutService _blackout;
+    private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private MapScene? _currentScene;
 
     // ---- 标定闸门 ----
@@ -242,6 +243,40 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private bool _isBlackout;
     [ObservableProperty] private string _blackoutReason = "";
 
+    // ===== 主动外发确认（角色要给你的手机发消息） =====
+
+    /// <summary>待确认的主动消息文本（空 = 没有待确认的）。</summary>
+    [ObservableProperty] private string _outboundPendingText = "";
+    private string _outboundPendingId = "";
+    public bool HasOutboundPending => !string.IsNullOrEmpty(OutboundPendingText);
+    partial void OnOutboundPendingTextChanged(string value) => OnPropertyChanged(nameof(HasOutboundPending));
+
+    private void RefreshOutbound()
+    {
+        var first = _bridge.PendingOutbound.FirstOrDefault();
+        _outboundPendingId = first?.Id ?? "";
+        OutboundPendingText = first?.Text ?? "";
+    }
+
+    [RelayCommand]
+    private async Task ConfirmOutbound()
+    {
+        var id = _outboundPendingId;
+        if (string.IsNullOrEmpty(id)) return;
+        var ok = await _bridge.ConfirmOutboundAsync(id);
+        if (!ok) await Shell.Current.DisplayAlert("发送失败",
+            "可能是超过 48 小时没互动，QQ 不允许机器人主动发起会话；让对方先给机器人发条消息即可。", "好");
+        RefreshOutbound();
+    }
+
+    [RelayCommand]
+    private void CancelOutbound()
+    {
+        if (string.IsNullOrEmpty(_outboundPendingId)) return;
+        _bridge.CancelOutbound(_outboundPendingId);
+        RefreshOutbound();
+    }
+
     public MainGameViewModel(GameEngine engine, ChatEngine chat, MemoryVault memory,
         TaskOrchestrator auto, SaveManager save, WeatherProvider weather, RealTimeProvider time,
         PhysiologicalTracker phys, AudioController audio, SpeechService speech,
@@ -251,7 +286,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
         Services.MapActorService mapActors, Services.StickerLibrary stickers,
-        PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout)
+        PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout,
+        Modules.RealChat.OfficialChatBridge bridge)
     {
         _engine = engine;
         _chat = chat;
@@ -278,6 +314,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         _stickers = stickers;
         _portraits = portraits;
         _blackout = blackout;
+        _bridge = bridge;
+        // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
+        _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
         _blackout.Changed += (on, reason) => MainThread.BeginInvokeOnMainThread(() =>
         {
