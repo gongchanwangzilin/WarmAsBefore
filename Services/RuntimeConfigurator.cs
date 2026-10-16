@@ -26,6 +26,8 @@ public sealed class RuntimeConfigurator
     private readonly CharacterSettingsResolver _charSettings;
     private readonly CharacterSubProfileService _subProfiles;
     private readonly HumanMemoryService _human;
+    private readonly SemanticNetworkService _semantic;
+    private readonly MemoryTagService _tags;
     private readonly Modules.AiChat.MemoryVault _memory;
     private bool _notifyHooked;
 
@@ -34,6 +36,7 @@ public sealed class RuntimeConfigurator
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
         NotificationService notify, CharacterSettingsResolver charSettings,
         CharacterSubProfileService subProfiles, HumanMemoryService human,
+        SemanticNetworkService semantic, MemoryTagService tags,
         Modules.AiChat.MemoryVault memory)
     {
         _settings = settings;
@@ -50,6 +53,8 @@ public sealed class RuntimeConfigurator
         _charSettings = charSettings;
         _subProfiles = subProfiles;
         _human = human;
+        _semantic = semantic;
+        _tags = tags;
         _memory = memory;
     }
 
@@ -155,6 +160,9 @@ public sealed class RuntimeConfigurator
         _chat.AfterTurn = (charId, note) => _subProfiles.DriftAsync(charId, "对话之后", note);
         // 人类记忆层：回合结束把折叠出的记忆记进去，每轮对话前按人类方式回想
         _chat.Human = _human;
+        // 词义关系网与标签层：对话自动长网、标签清单注入人设
+        _chat.Semantic = _semantic;
+        _chat.Tags = _tags;
         // 好感时刻/带截图的时刻也进人类记忆层（照片式记忆）
         _memory.Human = _human;
 

@@ -74,14 +74,24 @@ public sealed class ChatEngine
         fresh.AddRange(history);
     }
 
-    /// <summary>回合收尾：把折叠出来的记忆记进人类记忆层，通知副设定漂移，再让人设即时生效。</summary>
-    private async Task RunAfterTurnAsync(string charId, string? digest)
+    /// <summary>
+    /// 回合收尾：记人类记忆、学词义关系网、刷新标签清单、通知副设定漂移，再让人设即时生效。
+    /// </summary>
+    private async Task RunAfterTurnAsync(string charId, string? digest, string userText = "", string? reply = "")
     {
         if (Human is not null && !string.IsNullOrWhiteSpace(digest))
         {
             try { await Human.StoreFromDigestAsync(charId, digest); }
             catch (Exception ex) { App.WriteLog("ChatEngine.HumanStore -> " + ex.Message); }
         }
+        // 词义关系网：同一轮里一起出现的词互相加强（纯统计，不花模型钱）
+        if (Semantic is not null)
+        {
+            try { await Semantic.LearnAsync(charId, userText, reply); }
+            catch (Exception ex) { App.WriteLog("ChatEngine.SemanticLearn -> " + ex.Message); }
+        }
+        await RefreshTagContextAsync(charId);
+
         if (AfterTurn is null) return;
         try
         {
@@ -187,6 +197,27 @@ public sealed class ChatEngine
     /// </summary>
     public HumanMemoryService? Human { get; set; }
 
+    /// <summary>词义关系网：后台随对话自动长出来，用于联想检索（默认不花模型钱）。</summary>
+    public SemanticNetworkService? Semantic { get; set; }
+
+    /// <summary>标签层：AI 打的标签会注入人设（每次刷新取前 10~20 个）。</summary>
+    public MemoryTagService? Tags { get; set; }
+
+    /// <summary>每个角色当前缓存的标签清单（异步刷新，人设同步读取）。</summary>
+    private readonly Dictionary<string, string> _tagContext = new(StringComparer.Ordinal);
+
+    /// <summary>刷新某角色的标签清单缓存，供下一次拼人设使用。</summary>
+    public async Task RefreshTagContextAsync(string charId)
+    {
+        if (Tags is null) return;
+        try
+        {
+            var text = await Tags.InjectTextAsync(charId);
+            lock (_tagContext) _tagContext[charId] = text;
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.RefreshTags -> " + ex.Message); }
+    }
+
     /// <summary>取本次对话实际生效的端点配置：全局配置叠加该角色的覆写。</summary>
     private AiEndpoint CfgFor(string charId) => Resolver?.EndpointFor(charId, _cfg) ?? _cfg;
 
@@ -245,7 +276,7 @@ public sealed class ChatEngine
             var offlineReply = GenerateOfflineReply(text);
             session.Add(new ChatMessage { Role = "assistant", Content = offlineReply });
             await TrimAsync(session, cfg);
-            await RunAfterTurnAsync(charId, null);
+            await RunAfterTurnAsync(charId, null, text, offlineReply);
             return offlineReply;
         }
 
@@ -272,7 +303,7 @@ public sealed class ChatEngine
             });
             try { AfterSend?.Invoke(); }
             catch (Exception ex) { App.WriteLog("ChatEngine.AfterSend -> " + ex.Message); }
-            await RunAfterTurnAsync(charId, digest);
+            await RunAfterTurnAsync(charId, digest, text, reply);
             return reply;
         }
         catch (Exception ex)
@@ -636,6 +667,13 @@ public sealed class ChatEngine
                 if (!string.IsNullOrWhiteSpace(subProfile)) persona += "\n" + subProfile;
             }
             catch (Exception ex) { App.WriteLog("ChatEngine.SubProfile -> " + ex.Message); }
+            // 标签层：角色「自己怎么记人」的清单（10~20 个），先给个空的话就由下次刷新补上
+            string tagText;
+            lock (_tagContext)
+            {
+                if (!_tagContext.TryGetValue(charId, out tagText!)) tagText = "";
+            }
+            if (!string.IsNullOrWhiteSpace(tagText)) persona += "\n" + tagText;
             if (!string.IsNullOrWhiteSpace(_rosterContext))
                 persona += $"\n你的世界里还有这些角色：{_rosterContext}。" +
                            "当剧情合适时，你可以自然地提到她们、让她们出场，甚至用【名字】标记来短暂扮演她们说话，让生活更热闹。";

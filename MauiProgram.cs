@@ -38,6 +38,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<PortraitCalibrationService>();
         // 人类记忆层：按重要性×时间衰减×复述×随机存取（与全量记忆库并存）
         builder.Services.AddSingleton<HumanMemoryService>();
+        // 词义关系网：后台随对话自动长出来（纯统计，不花模型钱）
+        builder.Services.AddSingleton<SemanticNetworkService>();
+        // 标签层：AI 打标签 → 分类检索 → 标签清单注入
+        builder.Services.AddSingleton<MemoryTagService>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
