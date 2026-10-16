@@ -45,6 +45,13 @@ public sealed class ChatEngine
     /// <summary>告诉 AI 当前陪伴的主角是谁（名字/性格/称呼/背景设定）。</summary>
     public void ConfigureCharacter(CharacterProfile profile) => _active = profile;
 
+    /// <summary>工作记忆现状：活跃会话数与这些会话里的消息总数（记忆总览用）。</summary>
+    public (int Sessions, int Messages) SessionStats()
+    {
+        try { return (_sessions.Count, _sessions.Values.Sum(s => s.Count)); }
+        catch (InvalidOperationException) { return (_sessions.Count, 0); }   // 正好在发消息，忽略这一帧
+    }
+
     /// <summary>
     /// 副设定文本提供者（按角色 id）。由副设定服务注入；为空时人设与从前逐字段一致。
     /// 主设定是内核，副设定只影响语气与反应，每次建会话时读一次。

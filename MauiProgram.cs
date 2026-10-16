@@ -44,6 +44,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<SemanticNetworkService>();
         // 标签层：AI 打标签 → 分类检索 → 标签清单注入
         builder.Services.AddSingleton<MemoryTagService>();
+        // 记忆分层总览：五层规模与现状汇总（界面/提示词统一从这里取）
+        builder.Services.AddSingleton<MemoryOverviewService>();
         // 智能省钱：真实 token 用量 + 单价 → 花费表与「该不该总结」建议
         builder.Services.AddSingleton<CostEstimatorService>();
         // 黑屏：AI 可主动黑屏，但对话不受影响

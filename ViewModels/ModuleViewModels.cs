@@ -649,6 +649,10 @@ public sealed partial class GalleryViewModel : ObservableObject
     private readonly Modules.Cg.CgStore _cg;
     private readonly Modules.Cg.CgViewPayload _cgView;
 
+    private readonly Services.MemoryOverviewService _overview;
+    private readonly Services.HumanMemoryService _human;
+    private readonly Services.SemanticNetworkService _semantic;
+    private readonly Services.MemoryTagService _tags;
     [ObservableProperty] private bool _isMemoirSelected = true;
     [ObservableProperty] private bool _isDiarySelected;
     [ObservableProperty] private bool _isCgSelected;
@@ -664,13 +668,19 @@ public sealed partial class GalleryViewModel : ObservableObject
 
     public GalleryViewModel(Modules.AiChat.MemoryVault memory, GameEngine engine,
         Modules.Automation.DailyDiaryWriter diary, Modules.Cg.CgStore cg,
-        Modules.Cg.CgViewPayload cgView)
+        Modules.Cg.CgViewPayload cgView, Services.MemoryOverviewService overview,
+        Services.HumanMemoryService human, Services.SemanticNetworkService semantic,
+        Services.MemoryTagService tags)
     {
         _memory = memory;
         _engine = engine;
         _diary = diary;
         _cg = cg;
         _cgView = cgView;
+        _overview = overview;
+        _human = human;
+        _semantic = semantic;
+        _tags = tags;
     }
 
     private string CharacterId
@@ -690,12 +700,107 @@ public sealed partial class GalleryViewModel : ObservableObject
         await ReloadDiaryAsync();
         await ReloadMemoirAsync();
         await ReloadCgAsync();
+        await ReloadLayersAsync();
+        await ReloadRememberedAsync();
+    }
+
+    // ===== 记忆分层总览（B）：五层各自的规模一眼可见 =====
+
+    [ObservableProperty] private ObservableCollection<MemoryLayerItem> _layerStats = new();
+    [ObservableProperty] private bool _hasLayerStats;
+
+    // ===== 「记得的事」（C）：人类记忆层 + 标签 + 关系网 =====
+
+    [ObservableProperty] private bool _isRememberedSelected;
+    [ObservableProperty] private ObservableCollection<HumanMemoryItem> _humanMemoryItems = new();
+    [ObservableProperty] private string _tagSummary = "";
+    [ObservableProperty] private bool _hasTags;
+    [ObservableProperty] private string _semanticSummary = "";
+    [ObservableProperty] private bool _hasSemantic;
+
+    private async Task ReloadRememberedAsync()
+    {
+        try
+        {
+            var entries = await _human.AllAsync(CharacterId);
+            var items = new List<HumanMemoryItem>();
+            foreach (var e in entries)
+            {
+                ImageSource? img = null;
+                if (!string.IsNullOrEmpty(e.ImagePath))
+                {
+                    var abs = Path.IsPathRooted(e.ImagePath) ? e.ImagePath : Path.Combine(App.RootDirectory, e.ImagePath);
+                    if (File.Exists(abs)) img = ImageSource.FromFile(abs);
+                }
+                items.Add(new HumanMemoryItem
+                {
+                    Kind = e.Kind switch
+                    {
+                        HumanMemoryKind.Image => "照片",
+                        HumanMemoryKind.Important => "重要时刻",
+                        HumanMemoryKind.Abstraction => "印象",
+                        _ => "事件"
+                    },
+                    Text = e.Text,
+                    Time = e.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm"),
+                    RecallText = e.RecallCount > 0 ? $" · 被想起 {e.RecallCount} 次" : "",
+                    TagText = e.Tags.Count == 0 ? "" : "#" + string.Join(" #", e.Tags),
+                    Image = img
+                });
+            }
+            HumanMemoryItems = new ObservableCollection<HumanMemoryItem>(items);
+
+            var tags = await _tags.ListAsync(CharacterId);
+            HasTags = tags.Count > 0;
+            TagSummary = HasTags
+                ? string.Join("　", tags.Select(t => $"{t.Name}×{t.Count}"))
+                : "";
+
+            var links = await _semantic.TopLinksAsync(CharacterId, 8);
+            HasSemantic = links.Count > 0;
+            SemanticSummary = HasSemantic
+                ? string.Join("\n", links.Select(l => $"{l.A} ↔ {l.B}（{l.Weight:0}，{SourceText(l.Source)}）"))
+                : "";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("GalleryVM.ReloadRemembered -> " + ex.Message);
+        }
+    }
+
+    private static string SourceText(string source) => source switch
+    {
+        "human" => "人工改过",
+        "ai" => "AI 改过",
+        _ => "自动积累"
+    };
+
+    private async Task ReloadLayersAsync()
+    {
+        try
+        {
+            var stats = await _overview.StatsAsync(CharacterId);
+            LayerStats = new ObservableCollection<MemoryLayerItem>(stats.Select(s => new MemoryLayerItem
+            {
+                Name = s.Name,
+                Describe = s.Describe,
+                CountText = $"{s.Count} {s.Unit}",
+                Detail = s.Detail
+            }));
+            HasLayerStats = LayerStats.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("GalleryVM.ReloadLayers -> " + ex.Message);
+            HasLayerStats = false;
+        }
     }
 
     [RelayCommand]
     private void SelectTab(string tab)
     {
         IsMemoirSelected = tab == "memoir";
+        IsRememberedSelected = tab == "remembered";
         IsDiarySelected = tab == "diary";
         IsCgSelected = tab == "cg";
     }
@@ -824,6 +929,29 @@ public sealed class DiaryDayItem
     public string Mood { get; init; } = "";
     public string Content { get; init; } = "";
     public string Header => $"{Date} · {Mood}";
+}
+
+/// <summary>记忆分层总览里的一层。</summary>
+public sealed class MemoryLayerItem
+{
+    public string Name { get; init; } = "";
+    public string Describe { get; init; } = "";
+    public string CountText { get; init; } = "";
+    public string Detail { get; init; } = "";
+}
+
+/// <summary>人类记忆层里的一条「记得的事」。</summary>
+public sealed class HumanMemoryItem
+{
+    public string Kind { get; init; } = "";
+    public string Text { get; init; } = "";
+    public string Time { get; init; } = "";
+    public string RecallText { get; init; } = "";
+    public string TagText { get; init; } = "";
+    public bool HasTags => !string.IsNullOrEmpty(TagText);
+    public ImageSource? Image { get; init; }
+    public bool HasImage => Image is not null;
+    public string Header => $"{Kind} · {Time}{RecallText}";
 }
 
 public sealed partial class OutfitViewModel : ObservableObject
