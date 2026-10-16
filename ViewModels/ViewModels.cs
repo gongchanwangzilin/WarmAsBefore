@@ -2157,7 +2157,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             var port = int.TryParse(WechatPort, out var p) && p > 0 && p < 65536 ? p : 8012;
-            var s = new UserSettings
+            // 必须以「当前设置」为基底：原来用 new UserSettings{...} 重建整份，
+            // 凡是没列在这个初始化器里的字段（免责声明确认标记、开发者模式解锁等）
+            // 每次保存设置都会被默认值冲掉——这正是「免责声明每次启动都弹」的真凶。
+            var s = _settings.Current with
             {
                 BgmLevel = BgmLevel,
                 SfxLevel = SfxLevel,

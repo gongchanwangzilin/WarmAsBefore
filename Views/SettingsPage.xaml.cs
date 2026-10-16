@@ -21,6 +21,7 @@ public partial class SettingsPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        _ = BuildCardsProgressivelyAsync();
         // 延迟重活到首帧渲染之后，避免转场动画期间阻塞 UI 线程
         var vm = BindingContext as SettingsViewModel;
         if (vm is not null)
@@ -36,23 +37,60 @@ public partial class SettingsPage : ContentPage
         }
     }
 
+    private bool _cardsBuilt;
+
+    /// <summary>
+    /// 分组构建卡片：24 张卡一次性实例化实测约 2.6 秒（页面会明显僵一下），
+    /// 按 4 组逐批做、每批之间让消息循环喘口气，页面约 0.5 秒即可交互，其余内容陆续补齐。
+    /// 每组耗时都记进 perf.log，方便继续优化最重的那一组。
+    /// </summary>
+    private async Task BuildCardsProgressivelyAsync()
+    {
+        if (_cardsBuilt) return;
+        _cardsBuilt = true;
+        try
+        {
+            await Task.Delay(24);   // 一帧：先把顶栏与搜索框画出来
+            for (var i = 1; i <= 4; i++)
+            {
+                var key = $"SettingsCards{i}";
+                if (!Resources.TryGetValue(key, out var t) || t is not DataTemplate template)
+                {
+                    Services.PerfLog.Note($"设置页 · 卡片第 {i} 组缺失", key + " 没找到");
+                    continue;
+                }
+                Microsoft.Maui.Controls.View? content = null;
+                using (Services.PerfLog.Measure($"设置页 · 卡片第 {i} 组"))
+                    content = template.CreateContent() as Microsoft.Maui.Controls.View;
+                if (content is null) continue;
+                CardsHost.Add(content);
+
+                // 成本图表在卡片模板里，名字要在这个实例的名字域里取
+                var chart = content.FindByName("CostChartView") as GraphicsView;
+                if (chart is not null && BindingContext is SettingsViewModel vm)
+                {
+                    chart.Drawable = vm.CostChart;
+                    vm.InvalidateCostChart = () => chart.Invalidate();
+                }
+                await Task.Delay(32);   // 让出一次消息循环，卡片能真正画出来再做下一组
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsPage.BuildCardsProgressively -> " + ex);
+        }
+    }
+
     /// <summary>等页面渲染稳定后再装数据，避免把装载时间算进「打开设置」的等待。</summary>
     private async Task SeedAfterSettledAsync(SettingsViewModel vm)
     {
-        await Task.Delay(500);
+        await Task.Delay(600);
         await SeedSettingsPageAsync(vm);
     }
 
     /// <summary>设置页的数据装载：串行 + 计时 + 跳过被搜索隐藏的分类（性能日志见 {数据根}/perf.log）。</summary>
     private async Task SeedSettingsPageAsync(SettingsViewModel vm)
     {
-        // 成本图表：先把 drawable 挂上（必须主线程）
-        await MainThread.InvokeOnMainThreadAsync(() =>
-        {
-            CostChartView.Drawable = vm.CostChart;
-            vm.InvalidateCostChart = () => CostChartView.Invalidate();
-        });
-
         var f = vm.Filter;
         if (f.Sandbox)
         {

@@ -11,54 +11,12 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*" Padding="0">
-        <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
-                        Command="{Binding GoBackCommand}" />
-                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"
-                           VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                </Grid>
-            </Grid>
-        </Border>
-
-        <!-- 页面级 loading 遮罩：盖在内容行（*）上，首帧渲染前隐藏内容避免布局未就绪的卡顿观感。
-             独占 Grid.Row=1 的 * 行（高度稳定，不随内容变化），避免 Auto 行反复 Measure。 -->
-        <Border Grid.Row="1" BackgroundColor="{DynamicResource PageBg}" IsVisible="{Binding PageLoading}"
-                HorizontalOptions="Fill" VerticalOptions="Fill">
-            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
-                <ActivityIndicator IsRunning="{Binding PageLoading}" IsVisible="{Binding PageLoading}"
-                                   HeightRequest="40" WidthRequest="40" Color="{DynamicResource AccentWarm}" />
-                <Label Text="正在加载设置…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
-            </VerticalStackLayout>
-        </Border>
-
-        <ScrollView Grid.Row="1" Padding="24,16,24,24" Scrolled="OnScrollViewScrolled">
-            <VerticalStackLayout Spacing="16" MaximumWidthRequest="640"
-                                 HorizontalOptions="Center">
-                <!-- 设置搜索：设置项太多、找不到是常态，按关键词把不相关的分类收起 -->
-                <Border Style="{StaticResource CardNeumorph}" Padding="12,10">
-                    <VerticalStackLayout Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <Entry Grid.Column="0" Text="{Binding SettingsSearchText}" Placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
-                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" ClearButtonVisibility="WhileEditing" />
-                            <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}" FontSize="12"
-                                    Command="{Binding ClearSettingsSearchCommand}" />
-                        </Grid>
-                        <Label Text="{Binding Filter.MatchCount, StringFormat='找到 {0} 个相关分类'}" Style="{StaticResource TxtCaption}"
-                               IsVisible="{Binding Filter.IsSearching}" />
-                        <Label Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
-                               TextColor="{DynamicResource AccentWarm}" />
-                    </VerticalStackLayout>
-                </Border>
+        <ContentPage.Resources>
+        <!-- 24 张卡片按分类分成 4 组模板，逐组实例化：
+             一次性建完实测要约 2.6 秒（页面会僵一下），分批做则页面约 0.5 秒即可用，
+             其余内容在消息循环间隙陆续补齐。 -->
+        <DataTemplate x:Key="SettingsCards1">
+            <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
                         IsVisible="{Binding Filter.Volume}">
                     <VerticalStackLayout Spacing="14">
@@ -324,6 +282,10 @@ IsVisible="{Binding Filter.Glass}">
                 </Border>
 
                 <!-- 云端棋力脑 -->
+            </VerticalStackLayout>
+        </DataTemplate>
+        <DataTemplate x:Key="SettingsCards2">
+            <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
                         IsVisible="{Binding Filter.Chess}">
                     <VerticalStackLayout Spacing="14">
@@ -779,6 +741,10 @@ IsVisible="{Binding Filter.Ai}">
                     </VerticalStackLayout>
                 </Border>
 
+            </VerticalStackLayout>
+        </DataTemplate>
+        <DataTemplate x:Key="SettingsCards3">
+            <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
                         IsVisible="{Binding Filter.Desktop}">
                     <VerticalStackLayout Spacing="14">
@@ -1138,6 +1104,10 @@ IsVisible="{Binding Filter.Ai}">
                 </Border>
 
                 
+            </VerticalStackLayout>
+        </DataTemplate>
+        <DataTemplate x:Key="SettingsCards4">
+            <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
                         IsVisible="{Binding Filter.Experimental}">
                     <VerticalStackLayout Spacing="12">
@@ -1321,6 +1291,61 @@ IsVisible="{Binding Filter.Ai}">
 
                 <Label Text="{Binding [Settings_AutoSaveNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
                        HorizontalOptions="Center" FontSize="12" Margin="0,6,0,0" />
+
+            </VerticalStackLayout>
+        </DataTemplate>
+    </ContentPage.Resources>
+
+<Grid RowDefinitions="Auto,*" Padding="0">
+        <!-- Header -->
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
+                        FontSize="14" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"
+                           VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 页面级 loading 遮罩：盖在内容行（*）上，首帧渲染前隐藏内容避免布局未就绪的卡顿观感。
+             独占 Grid.Row=1 的 * 行（高度稳定，不随内容变化），避免 Auto 行反复 Measure。 -->
+        <Border Grid.Row="1" BackgroundColor="{DynamicResource PageBg}" IsVisible="{Binding PageLoading}"
+                HorizontalOptions="Fill" VerticalOptions="Fill">
+            <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
+                <ActivityIndicator IsRunning="{Binding PageLoading}" IsVisible="{Binding PageLoading}"
+                                   HeightRequest="40" WidthRequest="40" Color="{DynamicResource AccentWarm}" />
+                <Label Text="正在加载设置…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,24" Scrolled="OnScrollViewScrolled">
+                    <VerticalStackLayout Spacing="16" MaximumWidthRequest="640"
+                                 HorizontalOptions="Center">
+                <!-- 设置搜索：设置项太多、找不到是常态，按关键词把不相关的分类收起 -->
+                <Border Style="{StaticResource CardNeumorph}" Padding="12,10">
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Entry Grid.Column="0" Text="{Binding SettingsSearchText}" Placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" ClearButtonVisibility="WhileEditing" />
+                            <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}" FontSize="12"
+                                    Command="{Binding ClearSettingsSearchCommand}" />
+                        </Grid>
+                        <Label Text="{Binding Filter.MatchCount, StringFormat='找到 {0} 个相关分类'}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding Filter.IsSearching}" />
+                        <Label Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
+                               TextColor="{DynamicResource AccentWarm}" />
+                    </VerticalStackLayout>
+                </Border>
+                <!-- 卡片宿主：分组模板在首帧后逐组建到这里（见 SettingsPage.xaml.cs） -->
+                <VerticalStackLayout x:Name="CardsHost" Spacing="16" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>
