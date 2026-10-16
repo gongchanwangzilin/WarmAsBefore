@@ -175,6 +175,8 @@ public sealed class ToolManager : IDisposable
         ("add_wechat", "把角色加为微信好友"),
         ("list_wechat_contacts", "列出微信好友"),
         ("search_memory", "在对话记忆库中搜索过去"),
+        ("tag_memory", "给记得的事打标签"),
+        ("search_by_tags", "按标签或标签组合检索记忆"),
         ("list_actors", "列出地图实体位置"),
         ("pull_actor", "拉拽实体到场景"),
         ("battle_start", "发起战斗"),
@@ -743,10 +745,26 @@ public sealed class ToolManager : IDisposable
 
                 var all = await memory.All(charId);
                 IEnumerable<MemoryEntry> hits = all;
+                // 联想检索：先用词义关系网把关键词扩散成一组相关词（想到「咖啡」也该想起「加班」）
+                var relatedTerms = new List<string>();
+                var semantic = services.GetService(typeof(SemanticNetworkService)) as SemanticNetworkService;
+                if (semantic is not null && keyword.Length > 0)
+                {
+                    try
+                    {
+                        var expanded = await semantic.ExpandAsync(charId, new[] { keyword }, 8, 1);
+                        relatedTerms = expanded.Select(x => x.Term)
+                            .Where(t => !string.Equals(t, keyword, StringComparison.OrdinalIgnoreCase))
+                            .Distinct(StringComparer.OrdinalIgnoreCase)
+                            .ToList();
+                    }
+                    catch (Exception ex) { App.WriteLog("ToolManager.search_memory expand -> " + ex.Message); }
+                }
                 if (keyword.Length > 0)
                 {
                     hits = hits.Where(m => (m.Content ?? "").Contains(keyword, StringComparison.OrdinalIgnoreCase)
-                        || (m.Keywords is not null && m.Keywords.Contains(keyword, StringComparison.OrdinalIgnoreCase)));
+                        || (m.Keywords is not null && m.Keywords.Contains(keyword, StringComparison.OrdinalIgnoreCase))
+                        || relatedTerms.Any(t => (m.Content ?? "").Contains(t, StringComparison.OrdinalIgnoreCase)));
                 }
                 if (from is not null) hits = hits.Where(m => m.At.ToLocalTime() >= from.Value);
                 if (to is not null) hits = hits.Where(m => m.At.ToLocalTime() <= to.Value);
@@ -792,8 +810,10 @@ public sealed class ToolManager : IDisposable
                     character = charId,
                     items,
                     human,
+                    related = relatedTerms.Take(6),
                     note = "items 是翻日记能找到的记录（近的在前、同一天内随机）；"
-                         + "human 是对方脑子里还记得的事（重要的不容易忘，久的会模糊）。"
+                         + "human 是对方脑子里还记得的事（重要的不容易忘，久的会模糊）；"
+                         + "related 是顺着记忆里的联系想起来的近义词。"
                          + "回答时用自然的口气引用，不要逐条念。"
                 });
             },
@@ -839,6 +859,140 @@ public sealed class ToolManager : IDisposable
             }
             return result;
         }
+
+        // 打标签：给自己的记忆做分类（人 / 对话 / 事件 / 地点 / 物）。
+        // 标签会落到人类记忆上，之后可以按标签或标签组合检索，标签本身也能被回想。
+        RegisterBuiltin("tag_memory",
+            "给你记得的事打标签，用于以后按标签回忆。标签可以指向人、一段对话、一件事、一个地方或一件东西。"
+            + "例如把「雨夜那次谈心」标成「谈心、雨夜、脆弱」，之后问起「我们聊过什么心里话」就能顺着标签想起来。"
+            + "一次最多 6 个标签，每个不超过 12 个字。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var tags = services.GetService(typeof(MemoryTagService)) as MemoryTagService;
+                if (tags is null) return JsonSerializer.Serialize(new { ok = false, message = "标签服务不可用" });
+                var engine = services.GetService(typeof(GameEngine)) as GameEngine;
+                var charId = engine?.State.CharacterId ?? "";
+                if (string.IsNullOrEmpty(charId)) charId = "小雨";
+
+                string raw = "", subject = "event", target = "";
+                var importance = 0.5;
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("tags", out var t))
+                    {
+                        raw = t.ValueKind == JsonValueKind.Array
+                            ? string.Join("、", t.EnumerateArray().Select(x => x.GetString() ?? ""))
+                            : (t.GetString() ?? "");
+                    }
+                    if (root.TryGetProperty("subject", out var s) && s.ValueKind == JsonValueKind.String)
+                        subject = (s.GetString() ?? "event").Trim().ToLowerInvariant();
+                    if (root.TryGetProperty("target", out var tg) && tg.ValueKind == JsonValueKind.String)
+                        target = (tg.GetString() ?? "").Trim();
+                    if (root.TryGetProperty("importance", out var im) && im.ValueKind == JsonValueKind.Number)
+                        importance = Math.Clamp(im.GetDouble(), 0.05, 1.0);
+                }
+                catch (Exception ex) { App.WriteLog("ToolManager.tag_memory parse -> " + ex.Message); }
+
+                var list = raw.Split(new[] { '、', ',', '，', ';', '；', '|', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+                if (list.Count == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "请给出至少一个标签（tags）。" });
+
+                var subjectKind = subject is "person" or "talk" or "event" or "place" or "thing" ? subject : "event";
+                var applied = await tags.ApplyAsync(charId, list, subjectKind, target, importance);
+                return JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    applied,
+                    subject = subjectKind,
+                    message = applied == 0 ? "没有可用的标签。" : $"已记下 {applied} 个标签。"
+                });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "tags", Description = "标签，逗号或顿号分隔，一次最多 6 个", Required = true },
+                new() { Name = "subject", Description = "标签指向什么：person/talk/event/place/thing，默认 event", Required = false },
+                new() { Name = "target", Description = "标签指向的那件事/那段话（留空则用标签自身记一条）", Required = false },
+                new() { Name = "importance", Description = "这件事的重要性 0~1，默认 0.5", Required = false }
+            });
+
+        // 按标签（可组合）检索：这是「分类查」的入口，和按关键词/日期的 search_memory 互补。
+        RegisterBuiltin("search_by_tags",
+            "按你打过的标签检索记忆，支持标签组合。当对方问「我们聊过哪些心里话」「关于下雨的事」这类"
+            + "带分类意味的问题时用它。match_all=true（默认）要求同时具备全部标签，false 表示命中任一即可。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                if (services is null) return JsonSerializer.Serialize(new { ok = false, message = "服务不可用" });
+                var tags = services.GetService(typeof(MemoryTagService)) as MemoryTagService;
+                if (tags is null) return JsonSerializer.Serialize(new { ok = false, message = "标签服务不可用" });
+                var engine = services.GetService(typeof(GameEngine)) as GameEngine;
+                var charId = engine?.State.CharacterId ?? "";
+                if (string.IsNullOrEmpty(charId)) charId = "小雨";
+
+                var raw = "";
+                var matchAll = true;
+                var limit = 10;
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("tags", out var t))
+                    {
+                        raw = t.ValueKind == JsonValueKind.Array
+                            ? string.Join("、", t.EnumerateArray().Select(x => x.GetString() ?? ""))
+                            : (t.GetString() ?? "");
+                    }
+                    if (root.TryGetProperty("match_all", out var ma))
+                        matchAll = ma.ValueKind != JsonValueKind.False;
+                    if (root.TryGetProperty("limit", out var lm) && lm.ValueKind == JsonValueKind.Number
+                        && lm.TryGetInt32(out var n))
+                        limit = Math.Clamp(n, 1, 20);
+                }
+                catch (Exception ex) { App.WriteLog("ToolManager.search_by_tags parse -> " + ex.Message); }
+
+                var list = raw.Split(new[] { '、', ',', '，', ';', '；', '|' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(x => x.Trim()).Where(x => x.Length > 0).ToList();
+                if (list.Count == 0)
+                    return JsonSerializer.Serialize(new { ok = false, message = "请给出至少一个标签（tags）。" });
+
+                var hits = await tags.SearchAsync(charId, list, matchAll, limit);
+                if (hits.Count == 0)
+                {
+                    // 没命中就说清有什么标签可用，别让 AI 编造
+                    var available = await tags.ListAsync(charId);
+                    return JsonSerializer.Serialize(new
+                    {
+                        ok = true,
+                        count = 0,
+                        known_tags = available.Take(20).Select(x => x.Name),
+                        message = "没有带这些标签的记忆。可以照实说「记不太清」，或改用可用的标签再查一次。"
+                    });
+                }
+                return JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    count = hits.Count,
+                    items = hits.Select(h => new
+                    {
+                        time = h.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd"),
+                        kind = h.Kind.ToString(),
+                        tags = h.Tags,
+                        text = h.Text
+                    }),
+                    note = "用自然的口气引用，不要逐条念。"
+                });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "tags", Description = "标签，逗号或顿号分隔，可组合", Required = true },
+                new() { Name = "match_all", Description = "true=同时具备全部标签（默认），false=命中任一", Required = false },
+                new() { Name = "limit", Description = "返回条数上限，默认 10，最大 20", Required = false }
+            });
 
         // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置
         RegisterBuiltin("list_actors",
