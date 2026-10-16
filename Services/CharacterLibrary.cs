@@ -67,6 +67,7 @@ public sealed class CharacterLibrary
         {
             var saved = await _store.Load<List<CharacterData>>("characters");
             if (saved is null) return;
+            var seeded = false;
             foreach (var ch in saved)
             {
                 // 修复已有的 SpriteMap 路径：确保带 assets/ 前缀
@@ -83,9 +84,16 @@ public sealed class CharacterLibrary
                     }
                     fixedCh = ch with { SpriteMap = fixedMap };
                 }
+                // 旧存档里的角色没有副设定：按主设定补种一次（主设定本身不动）
+                if (!fixedCh.SubProfile.IsSeeded)
+                {
+                    fixedCh = fixedCh with { SubProfile = CharacterSubProfileService.Seed(fixedCh.Profile) };
+                    seeded = true;
+                }
                 if (!_engine.Roster.ContainsKey(fixedCh.Profile.Id))
                     _engine.Register(fixedCh);
             }
+            if (seeded) await _store.Save("characters", _engine.Roster.Values.ToList());
         }
         catch (Exception ex)
         {
@@ -173,7 +181,7 @@ public sealed class CharacterLibrary
         return cut > 0 ? p[..cut] : (p.Length > 30 ? p[..30] + "…" : p);
     }
 
-    /// <summary>新建角色：从手工填写的资料生成。</summary>
+    /// <summary>新建角色：从手工填写的资料生成。副设定以主设定为起点播种。</summary>
     public CharacterData CreateDefault(string name, string gender, string personality)
     {
         var profile = new CharacterProfile
@@ -185,7 +193,23 @@ public sealed class CharacterLibrary
             UserAddress = "主人",
             Description = "刚刚诞生的伙伴，一切都是崭新的开始。"
         };
-        return new CharacterData { Profile = profile, State = new CharacterState() };
+        return new CharacterData
+        {
+            Profile = profile,
+            State = new CharacterState(),
+            SubProfile = CharacterSubProfileService.Seed(profile)
+        };
+    }
+
+    /// <summary>
+    /// 写入某角色的副设定（漂移/回正）。主设定 <see cref="CharacterData.Profile"/> 不在此处触碰，
+    /// 角色库与导入包都无法改写它以外的部分。
+    /// </summary>
+    public async Task<bool> SetSubProfileAsync(string charId, CharacterSubProfile? sub)
+    {
+        await LoadAsync();
+        if (!_engine.Roster.TryGetValue(charId, out var ch)) return false;
+        return await UpdateAsync(ch with { SubProfile = sub ?? CharacterSubProfileService.Seed(ch.Profile) });
     }
 
     /// <summary>
@@ -208,7 +232,9 @@ public sealed class CharacterLibrary
                 Profile = destProfile,
                 State = new CharacterState(),
                 SpriteMap = new Dictionary<string, string>(src.SpriteMap),
-                Avatar = src.Avatar
+                Avatar = src.Avatar,
+                // 副本从主设定重新播种副设定：不继承原角色漂移出来的当下心境与心事
+                SubProfile = CharacterSubProfileService.Seed(destProfile)
             };
             var ok = await AddAsync(dest);
             return ok

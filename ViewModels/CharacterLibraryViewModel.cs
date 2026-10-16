@@ -23,11 +23,13 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly StorageProvider _store;
     private readonly ApiGateway _api;
     private readonly LingshuImporter _lingshu;
+    private readonly CharacterSubProfileService _subProfiles;
 
     [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
 
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
-        SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu)
+        SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu,
+        CharacterSubProfileService subProfiles)
     {
         _engine = engine;
         _library = library;
@@ -35,6 +37,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         _store = store;
         _api = api;
         _lingshu = lingshu;
+        _subProfiles = subProfiles;
     }
 
     [RelayCommand]
@@ -162,9 +165,25 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             $"编辑「{p.Name}」设定", "取消", null,
             "修改性格（外在表现/内在坚定）", "修改背景/前情提要（主设定）",
             "修改用户称呼", "修改昵称", "修改问候语",
+            "查看副设定（当下之我）", "副设定回正到主设定",
             "参数覆写（记忆/采样）");
         if (field is null || field == "取消") return;
         if (field.Contains("参数覆写")) { await EditOverridesAsync(item); return; }
+        if (field.Contains("查看副设定"))
+        {
+            await Shell.Current.DisplayAlert($"「{p.Name}」的设定",
+                _subProfiles.DiffSummary(item.Data.Profile.Id), "好");
+            return;
+        }
+        if (field.Contains("回正"))
+        {
+            var yes = await Shell.Current.DisplayAlert("副设定回正",
+                $"把「{p.Name}」的副设定退回主设定的副本？这会清空累积的当下心境与心事，主设定不受影响。",
+                "回正", "取消");
+            if (!yes) return;
+            if (await _subProfiles.ResetAsync(item.Data.Profile.Id)) await Refresh();
+            return;
+        }
 
         string? promptTitle = null, initialValue = null;
         if (field.Contains("性格")) { promptTitle = "修改性格"; initialValue = p.Personality; }
