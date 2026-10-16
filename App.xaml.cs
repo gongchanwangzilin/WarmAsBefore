@@ -106,6 +106,15 @@ public partial class App : Application
         return null;
     }
 
+    private static bool HoldOnRoute()
+    {
+        try
+        {
+            return Environment.GetCommandLineArgs().Any(a => a.Equals("--hold", StringComparison.OrdinalIgnoreCase));
+        }
+        catch { return false; }
+    }
+
     private static async Task OpenDiagnosticRouteAsync(string routes)
     {
         try
@@ -124,6 +133,7 @@ public partial class App : Application
 
                 if (ok) Services.PerfLog.Note($"诊断 · 页面装载 {route}", $"{sw.ElapsedMilliseconds} ms{(sw.ElapsedMilliseconds >= 300 ? "  <<< SLOW" : "")}");
                 await Task.Delay(3500);   // 留出该页自身的异步装载时间
+                if (HoldOnRoute()) { await Task.Delay(60000); continue; }   // --hold：停在当前页，便于截图核查
                 await MainThread.InvokeOnMainThreadAsync(async () => await Shell.Current.GoToAsync(".."));
                 await Task.Delay(1200);
             }

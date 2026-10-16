@@ -373,6 +373,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _semanticAiAssist = s.SemanticAiAssist;
         _smartSavingEnabled = s.SmartSavingEnabled;
         _lightMode = s.LightMode;
+        _preferDiscreteGpu = s.PreferDiscreteGpu;
+        _gpuStatusText = Services.GpuPreferenceService.IsHighPerformancePreferred()
+            ? "当前已登记为「高性能」（重启程序后生效）" : "当前由 Windows 自动选择显卡";
 
         // 多端点轮换 + 上下文 Token 上限
         _aiRotationEnabled = s.AiRotationEnabled;
@@ -495,6 +498,40 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private double _bgmLevel = 0.7;
     [ObservableProperty] private double _sfxLevel = 0.8;
+    // 玻璃模式：磨砂/毛玻璃/液态本来是三个互相牵制的开关，用户要的是一句话选一种——
+    // 合成一个下拉，顺手把「开关禁用了却点不动」那类困惑一起去掉。
+    public List<string> GlassModeChoices { get; } = new() { "关闭", "磨砂玻璃", "毛玻璃", "液态玻璃" };
+
+    /// <summary>玻璃模式（下拉显示值）：由三个开关推导，选择时反向设置。</summary>
+    public string GlassModeDisplay
+    {
+        get => _liquidOn ? "液态玻璃" : _glassOn ? "毛玻璃" : _frostOn ? "磨砂玻璃" : "关闭";
+        set
+        {
+            var want = value ?? "关闭";
+            if (want == GlassModeDisplay) return;
+            switch (want)
+            {
+                case "液态玻璃":
+                    LiquidOn = true; GlassOn = true; FrostOn = true;
+                    break;
+                case "毛玻璃":
+                    LiquidOn = false; GlassOn = true; FrostOn = true;
+                    break;
+                case "磨砂玻璃":
+                    LiquidOn = false; GlassOn = false; FrostOn = true;
+                    break;
+                default:
+                    LiquidOn = false; GlassOn = false; FrostOn = false;
+                    break;
+            }
+            OnPropertyChanged(nameof(GlassModeDisplay));
+        }
+    }
+
+    /// <summary>光源方向那四个滑杆属于微调，默认收起（用户反馈：一排近似设置太占地方）。</summary>
+    [ObservableProperty] private bool _showLightAdvanced;
+
     [ObservableProperty] private bool _glassOn;
     [ObservableProperty] private bool _frostOn;
     [ObservableProperty] private bool _liquidOn;
@@ -1238,6 +1275,103 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _subProfileAiRewrite;
     partial void OnSubProfileAiRewriteChanged(bool value) => PersistSettings();
 
+    // ============ 设置首页：分类条目 ============
+
+    /// <summary>首页的一个分类条目（名称 + 一句话说明 + 当前值摘要）。</summary>
+    public sealed partial class SettingsSectionRow : ObservableObject
+    {
+        public string Key { get; init; } = "";
+        public string Icon { get; init; } = "";
+        public string Title { get; init; } = "";
+        public string Desc { get; init; } = "";
+        public string[] Keywords { get; init; } = Array.Empty<string>();
+        [ObservableProperty] private string _summary = "";
+        [ObservableProperty] private bool _visible = true;
+    }
+
+    public ObservableCollection<SettingsSectionRow> SectionRows { get; } = new();
+
+    /// <summary>按当前设置值刷新每个分类的「当前值」摘要（首页一眼能看到关键状态）。</summary>
+    private void RefreshSectionSummaries()
+    {
+        foreach (var row in SectionRows)
+        {
+            row.Summary = row.Key switch
+            {
+                "appearance" => $"{(_liquidOn ? "液态玻璃" : _glassOn ? "毛玻璃" : _frostOn ? "磨砂" : "纯色")} · {ThemeDisplayName()}",
+                "sound" => $"BGM {BgmLevel:P0} · 音效 {SfxLevel:P0}",
+                "ai" => $"{AiProviders.Count(v => v.Enabled)} 家厂商 · {(SmartSavingEnabled ? "省钱开" : "省钱关")} · 超时 {AiTimeoutSeconds}s",
+                "memory" => $"回想 {WindowText(MemoryWindowDays)} · 上下文 {_contextTokenLimitDisplay}",
+                "voice" => $"{(TtsEnabled ? "朗读开" : "朗读关")} · {(SttEnabled ? "识别开" : "识别关")} · {TtsEngine}",
+                "interface" => $"{ScreenOrientationDisplay} · {ChatStyleDisplay} · 难度 {GameDifficultyDisplayOf(_gameDifficulty)}",
+                "platform" => $"桌宠闲置 {(PetIdleMinutes == 0 ? "关" : PetIdleMinutes + " 分")} · {(PreferDiscreteGpu ? "独显" : "自动显卡")}",
+                "integrations" => $"{(QqBotEnabled ? "QQ 开" : "QQ 关")} · {(WechatEnabled ? "微信开" : "微信关")} · MCP {(McpEnabled ? "开" : "关")}",
+                "life" => $"{(NotificationsEnabled ? "通知开" : "通知关")} · {(string.IsNullOrWhiteSpace(WeatherCity) ? "未设城市" : WeatherCity)}",
+                "data" => $"{MaterialsSummary()} · 能力包 {(string.IsNullOrWhiteSpace(SkillsSummary) ? "未装" : "已装")}",
+                _ => row.Desc
+            };
+        }
+    }
+
+    private string ThemeDisplayName() => (_themeName ?? "classic") switch
+    {
+        "sakura" => "樱花粉",
+        "bamboo" => "翠竹绿",
+        "mist" => "晨雾蓝灰",
+        _ => "经典"
+    };
+
+    private static string WindowText(double days) => days <= 0 ? "不限" : $"{days:0.#} 天";
+
+    private string MaterialsSummary()
+    {
+        try { return "素材库"; }
+        catch { return "素材库"; }
+    }
+
+    /// <summary>建分类条目（首次进设置页时一次）。</summary>
+    private void BuildSectionRows()
+    {
+        if (SectionRows.Count > 0) { RefreshSectionSummaries(); return; }
+        foreach (var sec in SettingsCatalog.All)
+        {
+            SectionRows.Add(new SettingsSectionRow
+            {
+                Key = sec.Key, Icon = sec.Icon, Title = sec.Title, Desc = sec.Desc, Keywords = sec.Keywords
+            });
+        }
+        RefreshSectionSummaries();
+    }
+
+    /// <summary>按搜索词过滤分类条目（同时把卡片级过滤也应用上，子页里才不会显示无关卡片）。</summary>
+    private void ApplySearch(string? query)
+    {
+        Filter.Apply(query);
+        var q = (query ?? "").Trim().ToLowerInvariant();
+        foreach (var row in SectionRows)
+        {
+            row.Visible = q.Length == 0
+                || row.Keywords.Any(k => k.Contains(q, StringComparison.OrdinalIgnoreCase) || q.Contains(k, StringComparison.OrdinalIgnoreCase))
+                || row.Title.Contains(q, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    /// <summary>首页出现时准备：建分类条目并刷新摘要。</summary>
+    public void PrepareHome()
+    {
+        BuildSectionRows();
+        RefreshSectionSummaries();
+        ApplySearch(SettingsSearchText);
+    }
+
+    /// <summary>进入某个分类子页。</summary>
+    [RelayCommand]
+    private async Task OpenSection(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return;
+        await Shell.Current.GoToAsync($"settingssection?key={Uri.EscapeDataString(key)}");
+    }
+
     // ============ 设置搜索 ============
 
     /// <summary>卡片级过滤：搜索时只留下命中的卡片（设置页太长，找不到项是常态）。</summary>
@@ -1256,7 +1390,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         lock (_persistLock)
         {
             _searchTimer ??= new System.Threading.Timer(
-                _ => MainThread.BeginInvokeOnMainThread(() => Filter.Apply(SettingsSearchText)), null,
+                _ => MainThread.BeginInvokeOnMainThread(() => ApplySearch(SettingsSearchText)), null,
                 Timeout.Infinite, Timeout.Infinite);
             _searchTimer.Change(250, Timeout.Infinite);
         }
@@ -1267,7 +1401,19 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void ClearSettingsSearch()
     {
         SettingsSearchText = "";
-        Filter.Apply("");   // 清空立即生效，不用等防抖
+        ApplySearch("");   // 清空立即生效，不用等防抖
+    }
+
+    /// <summary>优先使用独显（Windows 图形设置里的「高性能」），改完需重启程序生效。</summary>
+    [ObservableProperty] private bool _preferDiscreteGpu;
+    [ObservableProperty] private string _gpuStatusText = "";
+
+    partial void OnPreferDiscreteGpuChanged(bool value)
+    {
+        var (ok, msg) = Services.GpuPreferenceService.SetHighPerformance(value);
+        GpuStatusText = msg;
+        if (ok) PersistSettings();
+        _ = ok;
     }
 
     /// <summary>轻量模式：关闭卡片阴影（低配机器流畅优先）。</summary>
@@ -1923,18 +2069,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnSfxLevelChanged(double value) => PersistSettings();
     partial void OnGlassOnChanged(bool value)
     {
+        OnPropertyChanged(nameof(GlassModeDisplay));
         if (value && !FrostOn) FrostOn = true;
         _theme.Glass = value;
         PersistSettings();
     }
     partial void OnFrostOnChanged(bool value)
     {
+        OnPropertyChanged(nameof(GlassModeDisplay));
         if (!value) GlassOn = false;
         _theme.Frost = value;
         OnPropertyChanged(nameof(CanGlass));
         PersistSettings();
     }
-    partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings(); }
+    partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings();  OnPropertyChanged(nameof(GlassModeDisplay)); }
     partial void OnGlassTranslucencyChanged(double value)
     {
         _theme.GlassTranslucency = value;
@@ -2221,6 +2369,7 @@ GlassLightWidth = GlassLightWidth,
                 SemanticAiAssist = SemanticAiAssist,
                 SmartSavingEnabled = SmartSavingEnabled,
                 LightMode = LightMode,
+                PreferDiscreteGpu = PreferDiscreteGpu,
                 AiProviders = AiProviders.Select(v => v.ToProvider())
                     .Where(v => !string.IsNullOrWhiteSpace(v.Url) || v.Keys.Count > 0)
                     .ToList(),

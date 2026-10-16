@@ -130,6 +130,12 @@ public sealed record UserSettings
     /// <summary>减弱透明降级（Accessibility）：true 时玻璃切不透明磨砂层，保证正文 4.5:1 对比。</summary>
     public bool GlassReducedTransparency { get; init; }
     /// <summary>
+    /// 优先使用独显：在 Windows 图形设置里给本程序登记「高性能」，重启程序生效。
+    /// 只影响玻璃模糊/大图缩放等合成工作；界面构建慢属于 CPU 侧，换显卡无帮助。
+    /// </summary>
+    public bool PreferDiscreteGpu { get; init; }
+
+    /// <summary>
     /// 轻量模式：关闭卡片/信息条的投影阴影。阴影在 WinUI 上是每个元素一个合成层，
     /// 卡片多的页面（比如设置页有 24 张卡）首屏与重排都会明显变慢——低配机器上开它能立竿见影。
     /// </summary>

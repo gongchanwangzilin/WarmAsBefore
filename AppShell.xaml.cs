@@ -61,6 +61,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("subProfile", typeof(Views.SubProfilePage));
         // 记忆管理：关系网 / 标签 / 记得的事 / 副设定
         Routing.RegisterRoute("memoryManage", typeof(Views.MemoryManagePage));
+        // 设置分类子页（首页 → 分类）
+        Routing.RegisterRoute("settingssection", typeof(Views.SettingsSectionPage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
         Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
         Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));
