@@ -24,12 +24,14 @@ public sealed class RuntimeConfigurator
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly NotificationService _notify;
     private readonly CharacterSettingsResolver _charSettings;
+    private readonly CharacterSubProfileService _subProfiles;
     private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
-        NotificationService notify, CharacterSettingsResolver charSettings)
+        NotificationService notify, CharacterSettingsResolver charSettings,
+        CharacterSubProfileService subProfiles)
     {
         _settings = settings;
         _chat = chat;
@@ -43,6 +45,7 @@ public sealed class RuntimeConfigurator
         _theme = theme;
         _notify = notify;
         _charSettings = charSettings;
+        _subProfiles = subProfiles;
     }
 
     public void Start()
@@ -58,11 +61,19 @@ public sealed class RuntimeConfigurator
         MainThread.BeginInvokeOnMainThread(() =>
         {
             _diary.Start();
-            _ = _characters.LoadAsync();
+            _ = LoadCharactersAsync();
         });
         // 设置立即下发，保证首帧即生效
         Apply();
         _settings.Applied += Apply;
+    }
+
+    /// <summary>加载角色库并给旧存档里的角色补种副设定（幂等）。</summary>
+    private async Task LoadCharactersAsync()
+    {
+        await _characters.LoadAsync();
+        try { await _subProfiles.EnsureSeededAsync(); }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.EnsureSubProfiles -> " + ex.Message); }
     }
 
     /// <summary>
@@ -134,6 +145,9 @@ public sealed class RuntimeConfigurator
         }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
         // 角色级覆写：Send/Retry 时按当前角色叠加，未设置覆写的角色行为不变
         _chat.Resolver = _charSettings;
+        // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次
+        _chat.SubProfileProvider = _subProfiles.Describe;
+        _chat.AfterTurn = (charId, note) => _subProfiles.DriftAsync(charId, "对话之后", note);
 
         _weather.SetCity(s.WeatherCity);
         _phys.SetCycle(s.CycleLength, s.PeriodLength);

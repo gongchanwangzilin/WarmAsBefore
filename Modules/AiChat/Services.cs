@@ -46,6 +46,51 @@ public sealed class ChatEngine
     public void ConfigureCharacter(CharacterProfile profile) => _active = profile;
 
     /// <summary>
+    /// 副设定文本提供者（按角色 id）。由副设定服务注入；为空时人设与从前逐字段一致。
+    /// 主设定是内核，副设定只影响语气与反应，每次建会话时读一次。
+    /// </summary>
+    public Func<string, string?>? SubProfileProvider { get; set; }
+
+    /// <summary>
+    /// 每回合结束后回调（角色 id，折叠出的记忆要点或 null）。用于让副设定随时间漂移。
+    /// </summary>
+    public Func<string, string?, Task>? AfterTurn { get; set; }
+
+    /// <summary>
+    /// 副设定漂移后刷新人设：保留对话历史与折叠出的记忆段落，只重建人设部分，
+    /// 让角色「现在是这个样子」立刻生效，而不必等新会话。
+    /// </summary>
+    public void RefreshPersona(string charId)
+    {
+        if (!_sessions.TryGetValue(charId, out var s) || s.Count == 0) return;
+        const string marker = "\n\n【我的记忆】";
+        var oldSystem = s[0].Content ?? "";
+        var idx = oldSystem.IndexOf(marker, StringComparison.Ordinal);
+        var carry = idx >= 0 ? oldSystem[idx..] : "";   // 折叠出的记忆绝不能丢
+        var history = s.GetRange(1, s.Count - 1);
+        _sessions.Remove(charId);
+        var fresh = Session(charId);
+        if (carry.Length > 0) fresh[0] = fresh[0] with { Content = fresh[0].Content + carry };
+        fresh.AddRange(history);
+    }
+
+    /// <summary>回合收尾：通知副设定漂移（只喂第一行要点，避免整段摘要塞进心事），再让人设即时生效。</summary>
+    private async Task RunAfterTurnAsync(string charId, string? digest)
+    {
+        if (AfterTurn is null) return;
+        try
+        {
+            var note = digest?
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(l => l.TrimStart('·', '-', '*', ' ', '\t'))
+                .FirstOrDefault(l => l.Length > 0);
+            await AfterTurn(charId, string.IsNullOrWhiteSpace(note) ? null : note);
+            RefreshPersona(charId);
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.AfterTurn -> " + ex.Message); }
+    }
+
+    /// <summary>
     /// 动作标记协议：每条回复必须以一个动作标记结尾。
     /// 【下沉】低落/害羞低头 【雀跃】开心跳起 【颤抖】害怕/激动发抖。
     /// </summary>
@@ -175,6 +220,7 @@ public sealed class ChatEngine
             var offlineReply = GenerateOfflineReply(text);
             session.Add(new ChatMessage { Role = "assistant", Content = offlineReply });
             await TrimAsync(session, cfg);
+            await RunAfterTurnAsync(charId, null);
             return offlineReply;
         }
 
@@ -191,7 +237,7 @@ public sealed class ChatEngine
             // 正文为 null（而不是空串）＝模型没给正文，沿用原来的提示语；空串是"沉默"，必须原样保留
             reply ??= "（AI 暂时无法回应，请检查 API 配置或网络连接）";
             session.Add(new ChatMessage { Role = "assistant", Content = reply });
-            await TrimAsync(session, cfg);
+            var digest = await TrimAsync(session, cfg);
 
             await _memory.Store(new MemoryEntry
             {
@@ -201,6 +247,7 @@ public sealed class ChatEngine
             });
             try { AfterSend?.Invoke(); }
             catch (Exception ex) { App.WriteLog("ChatEngine.AfterSend -> " + ex.Message); }
+            await RunAfterTurnAsync(charId, digest);
             return reply;
         }
         catch (Exception ex)
@@ -558,6 +605,12 @@ public sealed class ChatEngine
                 : $"你是{p.Name}，{p.Personality}。用户是你的{p.UserAddress}。" +
                   $"{(string.IsNullOrWhiteSpace(p.Description) ? "" : "你的背景：" + p.Description + " ")}" +
                   $"用中文自然回复，保持人设一致，语气像日常相处一样放松。";
+            try
+            {
+                var subProfile = SubProfileProvider?.Invoke(charId);
+                if (!string.IsNullOrWhiteSpace(subProfile)) persona += "\n" + subProfile;
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.SubProfile -> " + ex.Message); }
             if (!string.IsNullOrWhiteSpace(_rosterContext))
                 persona += $"\n你的世界里还有这些角色：{_rosterContext}。" +
                            "当剧情合适时，你可以自然地提到她们、让她们出场，甚至用【名字】标记来短暂扮演她们说话，让生活更热闹。";
@@ -596,22 +649,23 @@ public sealed class ChatEngine
     /// · 只取 user/assistant 正文做素材，绝不触碰 tool_calls / tool 成对消息
     ///   （裁历史绝不能把这两者裁散，否则严格端点会拒收整段历史）。
     /// </summary>
-    private async Task TrimAsync(List<ChatMessage> msgs, AiEndpoint cfg)
+    private async Task<string?> TrimAsync(List<ChatMessage> msgs, AiEndpoint cfg)
     {
-        if (msgs.Count <= 2) return;
+        if (msgs.Count <= 2) return null;
 
         var limit = cfg.ContextTokenLimit > 0 ? cfg.ContextTokenLimit : DefaultContextTokenLimit;
-        if (EstimateTokens(msgs) <= limit) return;   // 没到上限：原样保留，不折腾
+        if (EstimateTokens(msgs) <= limit) return null;   // 没到上限：原样保留，不折腾
 
         var cutCount = msgs.Count - 2 * ChatSession.KeepTurns - 1;
-        if (cutCount <= 0) return;
+        if (cutCount <= 0) return null;
         var dropped = msgs.GetRange(1, cutCount);
         msgs.RemoveRange(1, cutCount);
 
         var digest = await SummarizeAsHumanAsync(dropped, cfg);
         if (string.IsNullOrWhiteSpace(digest)) digest = BuildFallbackDigest(dropped);
-        if (string.IsNullOrWhiteSpace(digest)) return;
+        if (string.IsNullOrWhiteSpace(digest)) return null;
         MergeDigestIntoSystem(msgs, digest);
+        return digest;
     }
 
     /// <summary>
