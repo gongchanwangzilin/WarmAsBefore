@@ -103,14 +103,31 @@ public sealed class OfficialChatBridge
         try
         {
             await _gate.WaitAsync();
+
+            // 群聊默认不理：在群里刷屏是最容易被讨厌的行为，需在设置里显式打开。
+            if (msg.IsGroup && !_settings.Current.QqReplyGroup)
+            {
+                App.WriteLog($"OfficialChatBridge: 忽略群消息（未开启群聊回复）：{msg.SenderName} {msg.Content}");
+                return;
+            }
+
+            // 识别「用户本人」：配置了 openid 就按它认人，之后角色可以用昵称称呼他
+            RememberUserIfKnown(msg);
+
             Incoming?.Invoke(msg);
             var charId = ResolveCharacter();
+
+            // 认出本人时告诉他「这是谁在跟我说话」——否则角色只会看到一个陌生 openid 的名字
+            var s0 = _settings.Current;
+            var incoming = msg.Content;
+            if (!msg.IsGroup && IsKnownUser && !string.IsNullOrWhiteSpace(s0.QqUserName))
+                incoming = $"[这是你认得的「{s0.QqUserName}」从手机 QQ 上发来的] {incoming}";
 
             // 文本指令：送礼/使用 直接消耗商店库存（不进 AI）
             var command = TryHandleCommand(msg.Content);
             var reply = command is not null
                 ? command
-                : await _chat.Send(charId, msg.Content);
+                : await _chat.Send(charId, incoming);
             Replied?.Invoke(msg, reply);
 
             var channel = msg.Channel == _qq.Name ? (IOfficialChannel)_qq : _wechat;
@@ -131,6 +148,117 @@ public sealed class OfficialChatBridge
         {
             _gate.Release();
         }
+    }
+
+    /// <summary>
+    /// 认出「用户本人」：设置里填了 openid 就按它比对；没填则记下最近一个私聊过的人，
+    /// 让主动发消息有落点（否则角色想给你发消息也不知道发给谁）。
+    /// </summary>
+    private void RememberUserIfKnown(RealChatMessage msg)
+    {
+        if (msg.IsGroup) return;   // 群里的发言不能当成用户本人
+        var configured = (_settings.Current.QqUserOpenId ?? "").Trim();
+        if (configured.Length > 0)
+        {
+            IsKnownUser = string.Equals(configured, msg.SenderId, StringComparison.Ordinal);
+            if (IsKnownUser) UserOpenId = msg.SenderId;
+            return;
+        }
+        UserOpenId = msg.SenderId;
+        UserName = msg.SenderName;
+    }
+
+    /// <summary>最近一次与机器人私聊的用户 openid（主动发消息的目标）。</summary>
+    public string UserOpenId { get; private set; } = "";
+    public string UserName { get; private set; } = "";
+    /// <summary>上一次私聊是否确认为设置里指定的「用户本人」。</summary>
+    public bool IsKnownUser { get; private set; }
+
+    // ============ 主动外发（角色拿起手机发消息） ============
+
+    /// <summary>等待用户确认的主动消息。</summary>
+    public sealed record PendingOutboundMessage(string Id, string Text, DateTime At);
+
+    private readonly List<PendingOutboundMessage> _pending = new();
+    private readonly List<DateTime> _sentLog = new();
+
+    /// <summary>待确认的主动消息（主界面给出确认入口）。</summary>
+    public IReadOnlyList<PendingOutboundMessage> PendingOutbound
+    {
+        get { lock (_sentLog) return _pending.ToList(); }
+    }
+
+    /// <summary>
+    /// 角色主动发消息到用户手机。
+    /// 默认不直接发：先排队等用户确认（<see cref="QqProactiveRequireConfirm"/>），
+    /// 并受每小时上限约束——这两道闸门是「AI 不能未经同意往外发消息」的保证。
+    /// 返回给 AI 看的说明文本。
+    /// </summary>
+    public string QueueOutbound(string text)
+    {
+        var s = _settings.Current;
+        var body = (text ?? "").Trim();
+        if (body.Length == 0) return "要发的内容是空的。";
+        if (!s.QqProactiveEnabled)
+            return "现在没开「允许角色主动发消息」，所以这条没发出去。可以在设置里打开。";
+        if (string.IsNullOrWhiteSpace(UserOpenId))
+            return "还不知道该发给谁——让对方先在 QQ 上跟机器人说句话，就能认出他来了。";
+
+        lock (_sentLog)
+        {
+            _sentLog.RemoveAll(t => t < DateTime.Now.AddHours(-1));
+            if (_sentLog.Count >= Math.Max(1, s.QqProactivePerHour))
+                return "这一小时已经发得够多了，先别打扰对方了。";
+        }
+
+        if (!s.QqProactiveRequireConfirm)
+        {
+            _ = SendNowAsync(body);
+            return "消息已经发出去了。";
+        }
+
+        var item = new PendingOutboundMessage(Guid.NewGuid().ToString("N")[..8], body, DateTime.Now);
+        lock (_sentLog) _pending.Add(item);
+        OutboundPendingChanged?.Invoke();
+        _notify.Show("有一条消息等着确认", body);
+        return "这条消息要等用户确认后才会真的发出去（已排队）。你可以先告诉对方你发了什么。";
+    }
+
+    /// <summary>确认并发出某条待确认消息。</summary>
+    public async Task<bool> ConfirmOutboundAsync(string id)
+    {
+        PendingOutboundMessage? item;
+        lock (_sentLog)
+        {
+            item = _pending.FirstOrDefault(p => p.Id == id);
+            if (item is not null) _pending.Remove(item);
+        }
+        OutboundPendingChanged?.Invoke();
+        if (item is null) return false;
+        return await SendNowAsync(item.Text);
+    }
+
+    public void CancelOutbound(string id)
+    {
+        lock (_sentLog) _pending.RemoveAll(p => p.Id == id);
+        OutboundPendingChanged?.Invoke();
+    }
+
+    /// <summary>待确认列表变化（主界面据此显示/隐藏确认入口）。</summary>
+    public event Action? OutboundPendingChanged;
+
+    private async Task<bool> SendNowAsync(string text)
+    {
+        var target = UserOpenId;
+        if (string.IsNullOrWhiteSpace(target)) return false;
+        var ok = await _qq.SendPrivateAsync(target, Services.StickerLibrary.ToPlainFallback(text));
+        lock (_sentLog)
+        {
+            if (ok) _sentLog.Add(DateTime.Now);
+        }
+        App.WriteLog($"OfficialChatBridge.Outbound -> {(ok ? "已发送" : "发送失败")}：{text}");
+        if (!ok) _notify.Show("消息没发出去", "可能是超过 48 小时没互动，QQ 不允许机器人主动发起会话。");
+        return ok;
     }
 
     /// <summary>识别「送礼 xxx」「使用 xxx」指令并执行，返回小雨的回应；非指令返回 null（走正常 AI）。</summary>

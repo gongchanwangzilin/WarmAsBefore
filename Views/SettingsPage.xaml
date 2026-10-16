@@ -716,6 +716,36 @@
                                     SelectedItem="{Binding QqBoundCharacter}" FontSize="13" /></Grid>
                         <Label Text="接入 QQ 机器人前先选好用它陪聊的角色；没选则跟随当前游戏角色。" Style="{StaticResource TxtCaption}" />
 
+                        <!-- 群聊与「用户本人」识别 -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="回复群聊消息" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="默认不理群里的消息（免得在群里刷屏）；打开后只回应 @ 到机器人的消息" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding QqReplyGroup}" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="我的 QQ openid" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding QqUserOpenId}" Placeholder="留空则认最近跟你私聊过的人"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="110,*"><Label Text="我的称呼" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding QqUserName}" Placeholder="角色这样称呼你（如：小林）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                        <Label Text="填了 openid 就能认出「哪个是你」；之后角色可以主动给你手机发消息。" Style="{StaticResource TxtCaption}" />
+
+                        <!-- 主动外发（角色拿起手机发消息） -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="允许角色主动发消息到我手机" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="存档里她「拿起手机发个消息」，就真的发到你的 QQ。默认关闭" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding QqProactiveEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="发送前需要我确认" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后每条外发消息都先排队，主界面点「发出去」才真的发送（AI 不能未经同意往外发）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding QqProactiveRequireConfirm}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="每小时上限" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="防止误触或被刷屏；超出后 AI 会被告知「先别打扰对方」" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="90" ItemsSource="{Binding QqProactiveRateChoices}"
+                                    SelectedItem="{Binding QqProactivePerHour}" FontSize="13" /></Grid>
+
                         <Label Text="{Binding [Settings_WechatTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,10,0,0" />
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="{Binding [Settings_WechatEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />

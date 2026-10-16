@@ -434,6 +434,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         _qqAppId = s.QqAppId;
         _qqAppSecret = s.QqAppSecret;
         _qqBoundCharacterId = s.QqBoundCharacterId;
+        _qqReplyGroup = s.QqReplyGroup;
+        _qqUserOpenId = s.QqUserOpenId;
+        _qqUserName = s.QqUserName;
+        _qqProactiveEnabled = s.QqProactiveEnabled;
+        _qqProactiveRequireConfirm = s.QqProactiveRequireConfirm;
+        _qqProactivePerHour = s.QqProactivePerHour > 0 ? s.QqProactivePerHour : 3;
         _wechatEnabled = s.WechatEnabled;
         _wechatAppId = s.WechatAppId;
         _wechatAppSecret = s.WechatAppSecret;
@@ -1534,6 +1540,29 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _qqBotEnabled;
     [ObservableProperty] private string _qqAppId = "";
+
+    // ===== QQ 桥增强：群聊 / 用户识别 / 主动外发 =====
+
+    /// <summary>是否回复群聊消息（默认否）。</summary>
+    [ObservableProperty] private bool _qqReplyGroup;
+    /// <summary>用来认出「用户本人」的 openid（留空则记最近私聊过的人）。</summary>
+    [ObservableProperty] private string _qqUserOpenId = "";
+    /// <summary>角色对用户的称呼（识别到本人时使用）。</summary>
+    [ObservableProperty] private string _qqUserName = "";
+    /// <summary>允许角色主动发消息到用户手机。</summary>
+    [ObservableProperty] private bool _qqProactiveEnabled;
+    /// <summary>外发前是否需要人工确认。</summary>
+    [ObservableProperty] private bool _qqProactiveRequireConfirm = true;
+    /// <summary>外发每小时上限。</summary>
+    [ObservableProperty] private int _qqProactivePerHour = 3;
+    public List<int> QqProactiveRateChoices { get; } = new() { 1, 3, 5, 10 };
+
+    partial void OnQqReplyGroupChanged(bool value) => PersistSettings();
+    partial void OnQqUserOpenIdChanged(string value) => PersistSettings();
+    partial void OnQqUserNameChanged(string value) => PersistSettings();
+    partial void OnQqProactiveEnabledChanged(bool value) => PersistSettings();
+    partial void OnQqProactiveRequireConfirmChanged(bool value) => PersistSettings();
+    partial void OnQqProactivePerHourChanged(int value) => PersistSettings();
     [ObservableProperty] private string _qqAppSecret = "";
     [ObservableProperty] private bool _wechatEnabled;
     [ObservableProperty] private string _wechatAppId = "";
@@ -1950,6 +1979,12 @@ GlassLightWidth = GlassLightWidth,
                 QqAppId = QqAppId.Trim(),
                 QqAppSecret = QqAppSecret.Trim(),
                 QqBoundCharacterId = _qqBoundCharacterId,
+                QqReplyGroup = QqReplyGroup,
+                QqUserOpenId = (QqUserOpenId ?? "").Trim(),
+                QqUserName = (QqUserName ?? "").Trim(),
+                QqProactiveEnabled = QqProactiveEnabled,
+                QqProactiveRequireConfirm = QqProactiveRequireConfirm,
+                QqProactivePerHour = Math.Clamp(QqProactivePerHour, 1, 30),
                 WechatEnabled = WechatEnabled,
                 WechatAppId = WechatAppId.Trim(),
                 WechatAppSecret = WechatAppSecret.Trim(),
