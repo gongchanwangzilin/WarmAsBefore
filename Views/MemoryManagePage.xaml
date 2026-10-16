@@ -1,0 +1,102 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.MemoryManagePage"
+             Title="记忆管理"
+             BackgroundColor="{DynamicResource PageBg}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" />
+            <Label Text="这里能看到并修改她的记忆：关系网、标签、她记得的事，以及主设定 × 副设定。"
+                   Style="{StaticResource TxtCaption}" />
+
+            <!-- 副设定 -->
+            <Border Style="{StaticResource CardNeumorph}" Padding="14,12">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="副设定（当下之我）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                    <Label Text="主设定不可改；副设定随经历漂移，可以看对比、也可以回正到主设定。"
+                           Style="{StaticResource TxtCaption}" />
+                    <Button Text="打开主设定 × 副设定对比" Style="{StaticResource BtnGhost}" FontSize="13"
+                            HorizontalOptions="Start" Command="{Binding OpenSubProfileCommand}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 词义关系网 -->
+            <Border Style="{StaticResource CardNeumorph}" Padding="14,12">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="词义关系网（联想式回忆）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                    <Label Text="联系越紧，想到一个词越容易想起另一个。自动积累的可以删，错的可以改。"
+                           Style="{StaticResource TxtCaption}" />
+                    <Label Text="{Binding LinkStatus}" Style="{StaticResource TxtCaption}" />
+                    <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding Links}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Label Text="{Binding .}" FontSize="12" TextColor="{DynamicResource PrimaryFg}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="添加联系" Style="{StaticResource BtnGhost}" FontSize="12" Command="{Binding AddLinkCommand}" />
+                        <Button Text="删除联系" Style="{StaticResource BtnGhost}" FontSize="12" Command="{Binding RemoveLinkCommand}" />
+                        <Button Text="刷新" Style="{StaticResource BtnText}" FontSize="12" Command="{Binding LoadCommand}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 标签 -->
+            <Border Style="{StaticResource CardNeumorph}" Padding="14,12">
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="标签（她怎么记人和事）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                    <Label Text="{Binding TagStatus}" Style="{StaticResource TxtCaption}" />
+                    <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding TagItems}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate>
+                                <Label Text="{Binding .}" FontSize="12" TextColor="{DynamicResource PrimaryFg}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Spacing="10">
+                        <Button Text="加标签" Style="{StaticResource BtnGhost}" FontSize="12" Command="{Binding AddTagCommand}" />
+                        <Button Text="删标签" Style="{StaticResource BtnGhost}" FontSize="12" Command="{Binding RemoveTagCommand}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 人类记忆 -->
+            <Label Text="她记得的事（人类记忆层）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+            <Label Text="只记事件、印象、重要时刻与单张照片；越重要忘得越慢，久了的会模糊。"
+                   Style="{StaticResource TxtCaption}" />
+            <Button Text="＋ 手动加一条记忆" Style="{StaticResource BtnGhost}" FontSize="13"
+                    HorizontalOptions="Start" Command="{Binding AddMemoryCommand}" />
+
+            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Memories}"
+                                 IsVisible="{Binding HasMemories}">
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="vm:MemoryManageViewModel+MemoryRow">
+                        <Border Style="{StaticResource CardNeumorph}" Padding="14,10" Margin="0,0,0,8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                                    <Label Text="{Binding Kind}" Style="{StaticResource TxtCaption}" />
+                                    <Label Text="{Binding Text}" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" FontSize="10" />
+                                    <Label Text="{Binding TagText}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasTags}" />
+                                    <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
+                                           Aspect="AspectFill" HeightRequest="120" HorizontalOptions="Start" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="忘掉" Style="{StaticResource BtnText}" FontSize="12"
+                                        VerticalOptions="Start"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryManageViewModel}}, Path=RemoveMemoryCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </Grid>
+                        </Border>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </VerticalStackLayout>
+            <Label Text="还没有记得的事——多聊几句，重要的会被记下来。" Style="{StaticResource TxtCaption}"
+                   IsVisible="{Binding HasMemories, Converter={StaticResource InverseBool}}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
