@@ -15,8 +15,30 @@
             <Label Text="全部好感时刻与全部对话都在这里，可搜索；日记是每天自动生成的陪伴总结（核心机制，无需开启）"
                    Style="{StaticResource TxtCaption}" />
 
+            <!-- 记忆分层总览：五层各自的规模，哪一层没在长一眼可见 -->
+            <Border Style="{StaticResource CardNeumorph}" Padding="14,12" IsVisible="{Binding HasLayerStats}">
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="记忆分层" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                    <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding LayerStats}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MemoryLayerItem">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <Label Grid.Column="0" Text="{Binding Name}" FontSize="12"
+                                           TextColor="{DynamicResource PrimaryFg}" WidthRequest="80" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                        <Label Text="{Binding CountText}" FontSize="12" TextColor="{DynamicResource PrimaryFg}" />
+                                        <Label Text="{Binding Describe}" FontSize="10" TextColor="{DynamicResource MutedFg}" />
+                                        <Label Text="{Binding Detail}" FontSize="10" TextColor="{DynamicResource MutedFg}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
             <!-- Tab switch -->
-            <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
                 <Border BackgroundColor="{Binding IsMemoirSelected, Converter={StaticResource SelectedBg}}"
                         StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
@@ -27,7 +49,17 @@
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="memoir" />
                     </Border.GestureRecognizers>
                 </Border>
-                <Border Grid.Column="1" BackgroundColor="{Binding IsDiarySelected, Converter={StaticResource SelectedBg}}"
+                <Border Grid.Column="1" BackgroundColor="{Binding IsRememberedSelected, Converter={StaticResource SelectedBg}}"
+                        StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                        Padding="0,10" HorizontalOptions="Fill">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <Label Text="记得的事" HorizontalOptions="Center" FontSize="13"
+                           TextColor="{DynamicResource WarmDark}" />
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="remembered" />
+                    </Border.GestureRecognizers>
+                </Border>
+                <Border Grid.Column="2" BackgroundColor="{Binding IsDiarySelected, Converter={StaticResource SelectedBg}}"
                         StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
@@ -37,7 +69,7 @@
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="diary" />
                     </Border.GestureRecognizers>
                 </Border>
-                <Border Grid.Column="2" BackgroundColor="{Binding IsCgSelected, Converter={StaticResource SelectedBg}}"
+                <Border Grid.Column="3" BackgroundColor="{Binding IsCgSelected, Converter={StaticResource SelectedBg}}"
                         StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                         Padding="0,10" HorizontalOptions="Fill">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
@@ -48,6 +80,41 @@
                     </Border.GestureRecognizers>
                 </Border>
             </Grid>
+
+            <!-- REMEMBERED tab：人类记忆层（她真正记得的事） + 标签 + 关系网 -->
+            <VerticalStackLayout IsVisible="{Binding IsRememberedSelected}" Spacing="10">
+                <Label Text="这是她脑子里真正记得的事——重要的忘得慢，琐碎的自然淡忘；照片式记忆只有单张。"
+                       Style="{StaticResource TxtCaption}" />
+                <Border Style="{StaticResource CardNeumorph}" Padding="14,12" IsVisible="{Binding HasTags}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="她给你的标签" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                        <Label Text="{Binding TagSummary}" Style="{StaticResource TxtCaption}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Style="{StaticResource CardNeumorph}" Padding="14,12" IsVisible="{Binding HasSemantic}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="词义关系网（联系最紧的词对）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                        <Label Text="{Binding SemanticSummary}" Style="{StaticResource TxtCaption}" />
+                    </VerticalStackLayout>
+                </Border>
+                <CollectionView ItemsSource="{Binding HumanMemoryItems}"
+                                EmptyView="还没有记得的事——多聊几句，重要的会被记下来。">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:HumanMemoryItem">
+                            <Border Style="{StaticResource CardNeumorph}" Padding="14,10" Margin="0,0,0,8">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="{Binding Header}" Style="{StaticResource TxtCaption}" />
+                                    <Label Text="{Binding Text}" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="{Binding TagText}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasTags}" />
+                                    <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
+                                           Aspect="AspectFill" HeightRequest="140" HorizontalOptions="Start" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
 
             <!-- MEMOIR tab -->
             <VerticalStackLayout IsVisible="{Binding IsMemoirSelected}" Spacing="12">
