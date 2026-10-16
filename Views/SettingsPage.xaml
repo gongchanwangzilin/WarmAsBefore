@@ -445,61 +445,118 @@
                             <Label Text="全局默认；某条端点需要更久时，在下面那条端点的「超时」里单独填" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Picker Grid.Column="1" WidthRequest="90" ItemsSource="{Binding TimeoutChoices}"
                                     SelectedItem="{Binding AiTimeoutSeconds}" FontSize="13" /></Grid>
-                        <!-- 同 MCP 列表：CollectionView 在页面 ScrollView 里会抢滚动手势，改成随页面滚动 -->
-                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AiProfiles}">
+                        <!-- 厂商列表：一家厂商 = 端点 + 密钥 + 多款模型。
+                             同一家厂商加模型不必重复填端点密钥（用户反馈：原来是按「一条 = 厂商+模型+密钥」重复填）。 -->
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AiProviders}">
                             <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="vm:AiProfileRow">
-                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6" Padding="0,4">
-                                        <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
-                                            <Button Text="↑" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveAiProfileUpCommand}"
-                                                    CommandParameter="{Binding .}" />
-                                            <Button Text="↓" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
-                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveAiProfileDownCommand}"
-                                                    CommandParameter="{Binding .}" />
+                                <DataTemplate x:DataType="vm:AiProviderRow">
+                                    <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}"
+                                            StrokeThickness="0.8" Padding="10,8" Margin="0,4">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                        <VerticalStackLayout Spacing="6">
+                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+                                                <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
+                                                    <Button Text="↑" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveProviderUpCommand}"
+                                                            CommandParameter="{Binding .}" />
+                                                    <Button Text="↓" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveProviderDownCommand}"
+                                                            CommandParameter="{Binding .}" />
+                                                </VerticalStackLayout>
+                                                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                                    <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}" FontSize="10"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" FontSize="10" />
+                                                </VerticalStackLayout>
+                                                <Switch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                                                <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveProviderCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </Grid>
+
+                                            <!-- 这家厂商的模型：点名字启停，✕ 删掉 -->
+                                            <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Models}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:AiModelRow">
+                                                        <Border StrokeThickness="1" Padding="6,2"
+                                                                Stroke="{DynamicResource BorderLine}"
+                                                                BackgroundColor="{Binding Enabled, Converter={StaticResource SelectedBg}}">
+                                                            <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                                            <HorizontalStackLayout Spacing="4">
+                                                                <Label Text="{Binding DisplayName}" FontSize="11"
+                                                                       TextColor="{DynamicResource SurfaceFg}" VerticalOptions="Center">
+                                                                    <Label.GestureRecognizers>
+                                                                        <TapGestureRecognizer
+                                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleModelCommand}"
+                                                                            CommandParameter="{Binding .}" />
+                                                                    </Label.GestureRecognizers>
+                                                                </Label>
+                                                                <Button Text="✕" Style="{StaticResource BtnText}" FontSize="10" Padding="2,0"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveModelFromProviderCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                            </HorizontalStackLayout>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </HorizontalStackLayout>
+
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Button Text="＋模型" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=AddModelToProviderCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Text="名称/端点" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditProviderBasicsCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Text="密钥" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditProviderKeysCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Text="超时" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditProviderTimeoutCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </HorizontalStackLayout>
                                         </VerticalStackLayout>
-                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                                            <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" LineBreakMode="TailTruncation" />
-                                        </VerticalStackLayout>
-                                        <Switch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
-                                        <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveAiProfileCommand}"
-                                                CommandParameter="{Binding .}" />
-                                    </Grid>
+                                    </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
-                        <Label Text="{Binding AiProfileStatus}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding AiProviderStatus}" Style="{StaticResource TxtCaption}" />
+
+                        <!-- 新增厂商：端点与密钥只填一次，模型可以往里继续加 -->
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                            <Entry Grid.Column="0" Text="{Binding NewAiProfileName}" Placeholder="名称（如：硅基-主力）"
+                            <Entry Grid.Column="0" Text="{Binding NewProviderName}" Placeholder="厂商名（如：硅基流动）"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
-                            <Entry Grid.Column="1" Text="{Binding NewAiProfileModel}" Placeholder="模型（如：deepseek-chat）"
+                            <Entry Grid.Column="1" Text="{Binding NewProviderModel}" Placeholder="首款模型（如：deepseek-chat）"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         </Grid>
-                        <Entry Text="{Binding NewAiProfileUrl}" Placeholder="端点（https://…/v1/chat/completions）"
+                        <Entry Text="{Binding NewProviderUrl}" Placeholder="端点（https://…/v1/chat/completions）"
                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <Entry Grid.Column="0" Text="{Binding NewAiProfileKeys}" Placeholder="密钥（一行一枚，多枚轮流用）"
+                            <Entry Grid.Column="0" Text="{Binding NewProviderKeys}" Placeholder="密钥（一行一枚，多枚轮流用）"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
-                            <Entry Grid.Column="1" Text="{Binding NewAiProfileTimeout}" Placeholder="超时秒" WidthRequest="80"
+                            <Entry Grid.Column="1" Text="{Binding NewProviderTimeout}" Placeholder="超时秒" WidthRequest="80"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         </Grid>
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Button Grid.Column="0" Text="＋添加厂商" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Command="{Binding AddProviderCommand}" />
+                            <Button Grid.Column="1" Text="用当前配置预填" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Command="{Binding FillProviderFromCurrentCommand}" />
+                        </Grid>
 
-                        <!-- 智能省钱：真实用量 + 单价 → 花费表与「该不该总结」建议 -->
+                        <!-- 花费与省钱：真实用量 + 单价 → 两张表、两个排行榜、一张图 -->
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                         <Label Text="花费与省钱" Style="{StaticResource TxtBodySm}" />
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                             <Label Text="智能省钱" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开启后折叠历史前先预测「现在总结 / 不总结」哪个更省，并识别编程办公场景改用轻总结；关闭则恢复「到上限就总结」。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding SmartSavingEnabled}" /></Grid>
-                        <Label Text="端点返回 usage 时自动记账。录入单价（每百万 token）后就能算钱，并预测「现在总结 / 不总结」哪个更省——编程办公类对话盲目总结会丢细节、AI 重读反而更贵。"
-                               Style="{StaticResource TxtCaption}" />
                         <Label Text="{Binding CostSummary}" Style="{StaticResource TxtBodySm}" />
                         <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="6">
                             <Entry Grid.Column="0" Text="{Binding NewPriceModel}" Placeholder="模型名"
@@ -514,6 +571,7 @@
                             <Button Grid.Column="3" Text="保存单价" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
                                     Command="{Binding AddModelPriceCommand}" />
                         </Grid>
+                        <Label Text="单价可以只填一侧（另一侧按 0 计），不必每个模型都填。" Style="{StaticResource TxtCaption}" />
                         <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
                             <Button Text="刷新用量 / 花费" Style="{StaticResource BtnGhost}" FontSize="12"
                                     Command="{Binding RefreshCostCommand}" />
@@ -549,12 +607,6 @@
                         <Label Text="token 排行榜" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
                         <Label Text="{Binding TokenRanking}" FontSize="11" FontFamily="Consolas"
                                TextColor="{DynamicResource MutedFg}" />
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                            <Button Grid.Column="0" Text="＋添加端点" Style="{StaticResource BtnGhost}" FontSize="13"
-                                    Command="{Binding AddAiProfileCommand}" />
-                            <Button Grid.Column="1" Text="用当前配置预填" Style="{StaticResource BtnGhost}" FontSize="13"
-                                    Command="{Binding FillAiProfileFromCurrentCommand}" />
-                        </Grid>
                     </VerticalStackLayout>
                 </Border>
 

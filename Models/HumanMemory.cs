@@ -60,7 +60,9 @@ public static class HumanMemoryMath
     {
         if (windowDays <= 0) return 1.0;              // 不限窗口：只由重要性决定
         if (ageDays <= 0) return 1.0;
-        var tau = windowDays / 3.0;
+        // 时间常数取「调取窗口」本身：默认 3 天时，3 天前约 37%、9 天前约 5%——
+        // 也就是刚过窗口还记着，久了才淡。（曾经写成 windowDays/3，衰减快 3 倍，记忆几乎不留。）
+        var tau = windowDays;
         return Math.Exp(-ageDays / tau);
     }
 

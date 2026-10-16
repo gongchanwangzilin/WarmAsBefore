@@ -52,7 +52,7 @@ public sealed record ChatRecord
 }
 
 /// <summary>
-/// 多端点档案：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。
+/// 多端点：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。
 /// 密钥池里的多枚密钥轮流使用；多条档案组成轮换链，任一条失灵自动切换下一条，保证对话不间断。
 /// </summary>
 public sealed record AiEndpointProfile
@@ -71,6 +71,43 @@ public sealed record AiEndpointProfile
 
     /// <summary>该端点的超时时长（秒）：null 或 ≤0 = 用全局设置。慢模型/长思考端点可以单独放宽。</summary>
     public int? TimeoutSeconds { get; init; }
+}
+
+/// <summary>
+/// 厂商下的一款模型：厂商决定端点和密钥，模型只是它的一个选择项。
+/// 同一厂商挂多个模型（贵的主力 + 便宜的兜底）比给每个模型重复填一遍端点密钥省事得多。
+/// </summary>
+public sealed record AiProviderModel
+{
+    public string Model { get; init; } = "";
+    /// <summary>显示名（可留空，用模型名）。</summary>
+    public string Label { get; init; } = "";
+    public bool Enabled { get; init; } = true;
+
+    public string DisplayName => string.IsNullOrWhiteSpace(Label) ? Model : Label;
+}
+
+/// <summary>
+/// 接入的厂商（供应商）：一个端点 + 一组密钥 + 若干可用模型。
+/// 轮换池按「启用的厂商 × 启用的模型」展开，顺序即优先级。
+/// </summary>
+public sealed record AiProvider
+{
+    public string Id { get; init; } = Guid.NewGuid().ToString("N")[..8];
+    /// <summary>厂商显示名，如「硅基流动」「DeepSeek 官方」。</summary>
+    public string Name { get; init; } = "";
+    /// <summary>OpenAI 兼容端点（chat/completions）。</summary>
+    public string Url { get; init; } = "";
+    /// <summary>该厂商的多枚密钥（轮流使用）。</summary>
+    public List<string> Keys { get; init; } = new();
+    public bool Enabled { get; init; } = true;
+    public int? TimeoutSeconds { get; init; }
+    /// <summary>这家厂商下要用的模型（可多款）。</summary>
+    public List<AiProviderModel> Models { get; init; } = new();
+
+    public string Summary =>
+        $"{Models.Count(m => m.Enabled)}/{Models.Count} 款模型 · {Keys.Count(k => !string.IsNullOrWhiteSpace(k))} 枚密钥"
+        + (TimeoutSeconds is { } t and > 0 ? $" · 超时 {t}s" : "");
 }
 
 public sealed record UserSettings
@@ -161,6 +198,12 @@ public sealed record UserSettings
     /// 轮换开启时依次使用；任一密钥/端点失灵自动切换下一条。
     /// </summary>
     public List<AiEndpointProfile> AiProfiles { get; init; } = new();
+
+    /// <summary>
+    /// 厂商列表（推荐用这个）：一家厂商 = 一个端点 + 一组密钥 + 多款模型。
+    /// 轮换按「启用的厂商 × 启用的模型」展开。旧的 <see cref="AiProfiles"/> 会在启动时自动迁移进来。
+    /// </summary>
+    public List<AiProvider> AiProviders { get; init; } = new();
     /// <summary>端点/密钥轮换总开关（可开关）：false 时完全按原来的单端点行为走。</summary>
     public bool AiRotationEnabled { get; init; } = true;
 
