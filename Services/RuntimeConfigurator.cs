@@ -29,6 +29,7 @@ public sealed class RuntimeConfigurator
     private readonly SemanticNetworkService _semantic;
     private readonly MemoryTagService _tags;
     private readonly Modules.AiChat.MemoryVault _memory;
+    private readonly Modules.Tools.ToolManager _tools;
     private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
@@ -37,7 +38,7 @@ public sealed class RuntimeConfigurator
         NotificationService notify, CharacterSettingsResolver charSettings,
         CharacterSubProfileService subProfiles, HumanMemoryService human,
         SemanticNetworkService semantic, MemoryTagService tags,
-        Modules.AiChat.MemoryVault memory)
+        Modules.AiChat.MemoryVault memory, Modules.Tools.ToolManager tools)
     {
         _settings = settings;
         _chat = chat;
@@ -56,6 +57,7 @@ public sealed class RuntimeConfigurator
         _semantic = semantic;
         _tags = tags;
         _memory = memory;
+        _tools = tools;
     }
 
     public void Start()
@@ -76,6 +78,8 @@ public sealed class RuntimeConfigurator
         // 设置立即下发，保证首帧即生效
         Apply();
         _settings.Applied += Apply;
+        // 能力包清单（skill）：只放名字与用途，正文由 AI 按需 read_skill
+        _ = _tools.RefreshSkillHintAsync();
     }
 
     /// <summary>加载角色库并给旧存档里的角色补种副设定（幂等）。</summary>

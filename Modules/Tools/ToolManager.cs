@@ -30,12 +30,15 @@ public sealed class ToolManager : IDisposable
     private readonly SemaphoreSlim _sessionLock = new(1, 1);
     private readonly CancellationTokenSource _cts = new();
     private readonly Modules.Sandbox.SandboxPolicy _sandbox;
+    private readonly SkillLibrary? _skills;
     private int _rpcId;
     private bool _disposed;
 
-    public ToolManager(RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy? injectedSandbox = null)
+    public ToolManager(RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy? injectedSandbox = null,
+        SkillLibrary? skills = null)
     {
         _runtimes = runtimes;
+        _skills = skills;
         // 优先使用 DI 注入的共享 SandboxPolicy（设置页保存后指纹刷新对所有调用方生效）；
         // 未注入时（非 DI 路径）才自建，保证兼容。
         _sandbox = injectedSandbox ?? new Modules.Sandbox.SandboxPolicy(new StorageProvider());
@@ -177,6 +180,8 @@ public sealed class ToolManager : IDisposable
         ("search_memory", "在对话记忆库中搜索过去"),
         ("tag_memory", "给记得的事打标签"),
         ("search_by_tags", "按标签或标签组合检索记忆"),
+        ("list_skills", "列出可用的能力包"),
+        ("read_skill", "读取能力包的说明书"),
         ("list_actors", "列出地图实体位置"),
         ("pull_actor", "拉拽实体到场景"),
         ("battle_start", "发起战斗"),
@@ -424,11 +429,65 @@ public sealed class ToolManager : IDisposable
                     App.WriteLog("ToolManager.ScanExternalTools(" + dir + ") -> " + ex);
                 }
             }
+
+            // Skills：启用了可执行入口的 skill 目录也按外部工具注册（说明书那部分走 read_skill）
+            var skillsDir = SkillLibrary.SkillsDir;
+            if (_skills is not null && Directory.Exists(skillsDir))
+            {
+                var enabled = _skills.EnabledAsync().GetAwaiter().GetResult();
+                foreach (var skill in enabled.Where(s => s.HasExecutable))
+                {
+                    var manifestPath = Path.Combine(skill.Dir, "tool.json");
+                    try
+                    {
+                        var manifest = JsonSerializer.Deserialize<ExternalToolManifest>(File.ReadAllText(manifestPath));
+                        if (manifest is null) continue;
+                        var language = manifest.Language?.ToLowerInvariant() switch
+                        {
+                            "python" => ToolLanguage.Python,
+                            "java" => ToolLanguage.Java,
+                            _ => ToolLanguage.Builtin
+                        };
+                        if (language == ToolLanguage.Builtin) continue;
+                        var toolName = string.IsNullOrWhiteSpace(manifest.Name) ? $"skill_{skill.Name}" : manifest.Name.Trim();
+                        _tools[toolName] = new ToolDefinition
+                        {
+                            Name = toolName,
+                            Description = string.IsNullOrWhiteSpace(manifest.Description) ? skill.Description : manifest.Description!,
+                            Language = language,
+                            Entry = string.IsNullOrWhiteSpace(manifest.Entry)
+                                ? (language == ToolLanguage.Java ? "tool.jar" : "main.py")
+                                : manifest.Entry,
+                            WorkDir = skill.Dir,
+                            ParametersSchema = manifest.Schema,
+                            OutputSchema = manifest.OutputSchema
+                        };
+                    }
+                    catch (Exception ex)
+                    {
+                        App.WriteLog("ToolManager.ScanSkills(" + skill.Name + ") -> " + ex);
+                    }
+                }
+            }
         }
         catch (Exception ex)
         {
             App.WriteLog("ToolManager.ScanExternalTools -> " + ex);
         }
+    }
+
+    /// <summary>
+    /// 人设里的 skill 清单（只有名字与用途）：渐进加载——正文等 AI 主动 read_skill 时才进上下文。
+    /// </summary>
+    public string SkillHintText => _skillHint;
+    private volatile string _skillHint = "";
+
+    /// <summary>刷新 skill 清单缓存（启动时与导入/删除/启停之后调用）。</summary>
+    public async Task RefreshSkillHintAsync()
+    {
+        if (_skills is null) { _skillHint = ""; return; }
+        try { _skillHint = await _skills.HintTextAsync(); }
+        catch (Exception ex) { App.WriteLog("ToolManager.RefreshSkillHint -> " + ex.Message); }
     }
 
     // ============ 执行 ============
@@ -992,6 +1051,59 @@ public sealed class ToolManager : IDisposable
                 new() { Name = "tags", Description = "标签，逗号或顿号分隔，可组合", Required = true },
                 new() { Name = "match_all", Description = "true=同时具备全部标签（默认），false=命中任一", Required = false },
                 new() { Name = "limit", Description = "返回条数上限，默认 10，最大 20", Required = false }
+            });
+
+        // ===== Skills（能力包）=====
+        RegisterBuiltin("list_skills",
+            "列出已安装并可用的能力包（skill），包含名字与用途。不确定自己会什么时先用它看一眼。",
+            async _ =>
+            {
+                var services = ServicesHelper.GetServices();
+                var skills = services?.GetService(typeof(SkillLibrary)) as SkillLibrary;
+                if (skills is null) return JsonSerializer.Serialize(new { ok = true, count = 0, message = "没有安装能力包。" });
+                var list = await skills.EnabledAsync();
+                if (list.Count == 0) return JsonSerializer.Serialize(new { ok = true, count = 0, message = "没有安装能力包。" });
+                return JsonSerializer.Serialize(new
+                {
+                    ok = true,
+                    count = list.Count,
+                    skills = list.Select(s => new
+                    {
+                        name = s.Name,
+                        title = s.Title,
+                        purpose = s.Description,
+                        runnable = s.HasExecutable
+                    }),
+                    note = "要用某个能力时，先调 read_skill 读它的说明书。"
+                });
+            },
+            new List<ToolParameter>());
+
+        RegisterBuiltin("read_skill",
+            "读取某个能力包（skill）的说明书正文。按说明书做，不要凭名字猜它的用法。",
+            async args =>
+            {
+                var services = ServicesHelper.GetServices();
+                var skills = services?.GetService(typeof(SkillLibrary)) as SkillLibrary;
+                if (skills is null) return JsonSerializer.Serialize(new { ok = false, message = "能力包服务不可用。" });
+
+                var name = "";
+                try
+                {
+                    using var doc = JsonDocument.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    if (doc.RootElement.TryGetProperty("name", out var n)) name = (n.GetString() ?? "").Trim();
+                }
+                catch (Exception ex) { App.WriteLog("ToolManager.read_skill parse -> " + ex.Message); }
+                if (name.Length == 0) return JsonSerializer.Serialize(new { ok = false, message = "请给出能力包名字（name）。" });
+
+                var body = skills.ReadInstructions(name);
+                if (string.IsNullOrWhiteSpace(body))
+                    return JsonSerializer.Serialize(new { ok = false, message = $"「{name}」没有说明书（可能只有可执行入口，直接用它的工具即可）。" });
+                return JsonSerializer.Serialize(new { ok = true, name, instructions = body });
+            },
+            new List<ToolParameter>
+            {
+                new() { Name = "name", Description = "能力包名字（见 list_skills 返回）", Required = true }
             });
 
         // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置

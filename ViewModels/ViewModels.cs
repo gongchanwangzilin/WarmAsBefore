@@ -254,12 +254,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Services.StickerLibrary _stickers;
     private readonly CharacterLibrary _library;
     private readonly Services.VisionService _vision;
+    private readonly Services.SkillLibrary _skills;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
         Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
         Modules.Tools.ToolManager tools, SpeechService speech,
-        Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision)
+        Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision,
+        Services.SkillLibrary skills)
     {
         _settings = settings;
         _theme = theme;
@@ -267,6 +269,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _mcp = mcp;
         _runtimes = runtimes;
         _tools = tools;
+        _skills = skills;
         // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
         _sandbox = sandbox;
         _speech = speech;
@@ -1274,9 +1277,106 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private int _petIdleMinutes;
 
+    // ============ 能力包（Skills） ============
+
+    [ObservableProperty] private string _skillsSummary = "正在读取…";
+
+    public async Task RefreshSkillsAsync()
+    {
+        try
+        {
+            var list = await _skills.ListAsync();
+            if (list.Count == 0) { SkillsSummary = "还没有装能力包。"; return; }
+            var enabled = list.Count(s => s.Enabled);
+            SkillsSummary = $"已装 {list.Count} 个，启用 {enabled} 个："
+                + string.Join("、", list.Select(s => s.Name + (s.Enabled ? "" : "（已停用）")));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsVM.RefreshSkills -> " + ex.Message);
+            SkillsSummary = "读取能力包失败。";
+        }
+    }
+
+    [RelayCommand]
+    private async Task ImportSkill()
+    {
+        try
+        {
+            var picked = await FilePicker.PickAsync(new PickOptions
+            {
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip", "application/octet-stream" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                }),
+                PickerTitle = "选择能力包（zip，内含 SKILL.md 与/或 tool.json）"
+            });
+            if (picked is null) return;
+            var (ok, message) = await _skills.ImportAsync(picked.FullPath);
+            await Shell.Current.DisplayAlert("能力包", message, "好");
+            if (ok)
+            {
+                await _tools.RefreshSkillHintAsync();
+                await RefreshSkillsAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsVM.ImportSkill -> " + ex);
+            await Shell.Current.DisplayAlert("能力包", "导入失败：" + ex.Message, "好");
+        }
+    }
+
+    /// <summary>管理已装能力包：启停 / 看说明书 / 删除。</summary>
+    [RelayCommand]
+    private async Task ManageSkills()
+    {
+        var list = await _skills.ListAsync();
+        if (list.Count == 0)
+        {
+            await Shell.Current.DisplayAlert("能力包", "还没有装能力包。用「导入 zip / 目录」装上第一个。", "好");
+            return;
+        }
+        var pick = await Shell.Current.DisplayActionSheet("管理能力包", "取消", null,
+            list.Select(s => $"{s.Name}｜{(s.Enabled ? "已启用" : "已停用")}").ToArray());
+        if (pick is null || pick == "取消") return;
+        var name = pick.Split('｜')[0].Trim();
+        var skill = list.FirstOrDefault(s => s.Name == name);
+        if (skill is null) return;
+
+        var action = await Shell.Current.DisplayActionSheet(
+            $"「{skill.Name}」{skill.Description}", "取消", null,
+            skill.Enabled ? "停用" : "启用", "查看说明书", "删除");
+        if (action is null || action == "取消") return;
+
+        switch (action)
+        {
+            case "停用":
+            case "启用":
+                await _skills.SetEnabledAsync(skill.Name, action == "启用");
+                break;
+            case "查看说明书":
+                {
+                    var text = _skills.ReadInstructions(skill.Name);
+                    await Shell.Current.DisplayAlert(skill.Name, string.IsNullOrWhiteSpace(text) ? "这个能力包没有说明书。" : text, "好");
+                    return;
+                }
+            case "删除":
+                {
+                    var yes = await Shell.Current.DisplayAlert("删除能力包", $"删除「{skill.Name}」及其全部文件？", "删除", "取消");
+                    if (!yes) return;
+                    await _skills.RemoveAsync(skill.Name);
+                    break;
+                }
+        }
+        await _tools.RefreshSkillHintAsync();
+        await RefreshSkillsAsync();
+    }
+
     // 移动端屏幕方向
-    [ObservableProperty] private string _screenOrientation = "auto";
-    [ObservableProperty] private string _screenOrientationDisplay = "自动（竖屏）";
+    [ObservableProperty] private string _screenOrientation = "auto";    [ObservableProperty] private string _screenOrientationDisplay = "自动（竖屏）";
     public List<string> ScreenOrientationChoices { get; } = new()
         { "自动（竖屏）", "横屏", "竖屏" };
 

@@ -685,6 +685,8 @@ public sealed class ChatEngine
             {
                 persona += "\n" + ToolHint;
                 persona += MemoryHint;
+                var skillHint = _tools.SkillHintText;
+                if (!string.IsNullOrWhiteSpace(skillHint)) persona += "\n" + skillHint;
             }
             persona += "\n" + ActionProtocol;
             if (_allowSilence)
