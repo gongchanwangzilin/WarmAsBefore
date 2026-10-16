@@ -442,6 +442,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         _qqProactiveEnabled = s.QqProactiveEnabled;
         _qqProactiveRequireConfirm = s.QqProactiveRequireConfirm;
         _qqProactivePerHour = s.QqProactivePerHour > 0 ? s.QqProactivePerHour : 3;
+        _outboundChannelDisplay = (s.RealOutboundChannel ?? "auto").ToLowerInvariant() switch
+        {
+            "qq" => "只走 QQ",
+            "wechat" => "只走微信",
+            _ => "自动"
+        };
         _wechatEnabled = s.WechatEnabled;
         _wechatAppId = s.WechatAppId;
         _wechatAppSecret = s.WechatAppSecret;
@@ -1671,6 +1677,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _qqProactivePerHour = 3;
     public List<int> QqProactiveRateChoices { get; } = new() { 1, 3, 5, 10 };
 
+    /// <summary>主动外发走哪个通道：自动 / 只走 QQ / 只走微信。</summary>
+    [ObservableProperty] private string _outboundChannelDisplay = "自动";
+    public List<string> OutboundChannelChoices { get; } = new() { "自动", "只走 QQ", "只走微信" };
+    partial void OnOutboundChannelDisplayChanged(string value) => PersistSettings();
+    private string OutboundChannelValue => OutboundChannelDisplay switch
+    {
+        "只走 QQ" => "qq",
+        "只走微信" => "wechat",
+        _ => "auto"
+    };
+
     partial void OnQqReplyGroupChanged(bool value) => PersistSettings();
     partial void OnQqUserOpenIdChanged(string value) => PersistSettings();
     partial void OnQqUserNameChanged(string value) => PersistSettings();
@@ -2101,6 +2118,7 @@ GlassLightWidth = GlassLightWidth,
                 QqProactiveEnabled = QqProactiveEnabled,
                 QqProactiveRequireConfirm = QqProactiveRequireConfirm,
                 QqProactivePerHour = Math.Clamp(QqProactivePerHour, 1, 30),
+                RealOutboundChannel = OutboundChannelValue,
                 WechatEnabled = WechatEnabled,
                 WechatAppId = WechatAppId.Trim(),
                 WechatAppSecret = WechatAppSecret.Trim(),

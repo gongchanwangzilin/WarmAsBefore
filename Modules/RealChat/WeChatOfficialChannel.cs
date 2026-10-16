@@ -230,20 +230,28 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
         }
     }
 
-    public async Task SendAsync(RealChatMessage from, string text)
+    public Task SendAsync(RealChatMessage from, string text) => SendTextAsync(from.SenderId, text);
+
+    /// <summary>
+    /// 主动给某个用户发客服消息（角色「拿起手机发消息」用这条）。
+    /// 公众号同样有 48 小时互动窗口：超窗会返回错误码，这里如实返回 false，不抛。
+    /// </summary>
+    public async Task<bool> SendPrivateAsync(string openId, string text) => await SendTextAsync(openId, text);
+
+    private async Task<bool> SendTextAsync(string openId, string text)
     {
-        if (!IsRunning) return;
+        if (!IsRunning || string.IsNullOrWhiteSpace(openId) || string.IsNullOrWhiteSpace(text)) return false;
         try
         {
             if (!await RefreshAccessTokenAsync(false))
             {
                 App.WriteLog("WeChatOfficialChannel.Send: no access_token -> " + _status);
-                return;
+                return false;
             }
             var url = $"{CustomSendApi}?access_token={Uri.EscapeDataString(_accessToken)}";
             var body = JsonSerializer.Serialize(new
             {
-                touser = from.SenderId,
+                touser = openId,
                 msgtype = "text",
                 text = new { content = text }
             });
@@ -256,11 +264,16 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
             using var doc = JsonDocument.Parse(raw);
             var root = doc.RootElement;
             if (root.TryGetProperty("errcode", out var code) && code.GetInt32() != 0)
+            {
                 App.WriteLog($"WeChatOfficialChannel.Send err {raw}");
+                return false;
+            }
+            return true;
         }
         catch (Exception ex)
         {
-            App.WriteLog("WeChatOfficialChannel.SendAsync -> " + ex);
+            App.WriteLog("WeChatOfficialChannel.SendText -> " + ex);
+            return false;
         }
     }
 }
