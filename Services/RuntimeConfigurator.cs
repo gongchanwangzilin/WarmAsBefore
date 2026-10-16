@@ -30,6 +30,8 @@ public sealed class RuntimeConfigurator
     private readonly MemoryTagService _tags;
     private readonly Modules.AiChat.MemoryVault _memory;
     private readonly Modules.Tools.ToolManager _tools;
+    private readonly Modules.SaveSystem.SaveManager _save;
+    private readonly GameEngine _engine;
     private readonly Modules.ApiManager.ApiGateway _api;
     private readonly CostEstimatorService _cost;
     private bool _notifyHooked;
@@ -41,7 +43,8 @@ public sealed class RuntimeConfigurator
         CharacterSubProfileService subProfiles, HumanMemoryService human,
         SemanticNetworkService semantic, MemoryTagService tags,
         Modules.AiChat.MemoryVault memory, Modules.Tools.ToolManager tools,
-        Modules.ApiManager.ApiGateway api, CostEstimatorService cost)
+        Modules.ApiManager.ApiGateway api, CostEstimatorService cost,
+        Modules.SaveSystem.SaveManager save, GameEngine engine)
     {
         _settings = settings;
         _chat = chat;
@@ -63,6 +66,8 @@ public sealed class RuntimeConfigurator
         _tools = tools;
         _api = api;
         _cost = cost;
+        _save = save;
+        _engine = engine;
     }
 
     /// <summary>把设置里的单价表同步进成本服务，并把真实 usage 接到成本账上。</summary>
@@ -110,7 +115,46 @@ public sealed class RuntimeConfigurator
         _settings.Applied += Apply;
         // 能力包清单（skill）：只放名字与用途，正文由 AI 按需 read_skill
         _ = _tools.RefreshSkillHintAsync();
+        // 空闲预热：启动几秒后把「打开页面要读的数据」先读进内存，
+        // 用户点设置/角色库/回忆录时就不用等这一次 IO。数据侧可并行，UI 侧不能。
+        _ = WarmUpAsync();
     }
+
+    /// <summary>
+    /// 空闲预热：延后几秒再跑，避开启动首屏争资源；各段互不依赖，并行跑满多核。
+    /// 只做「读进内存」，不碰界面——界面的元素创建与布局只能在 UI 线程做。
+    /// </summary>
+    private async Task WarmUpAsync()
+    {
+        try
+        {
+            await Task.Delay(4000);   // 让首屏与角色库先跑完
+            var work = new List<(string Label, Func<Task> Body)>
+            {
+                ("预热 · 存档列表", () => _save.List()),
+                ("预热 · 记忆库", async () => { await _human.CountAsync(_engine.State.CharacterId); }),
+                ("预热 · 关系网", () => _semantic.LinkCountAsync(_engine.State.CharacterId)),
+                ("预热 · 标签", async () => { await _tags.ListAsync(_engine.State.CharacterId); }),
+                ("预热 · 用量与单价", () => _cost.ReportTextAsync()),
+                ("预热 · 能力包", async () => { await _skillsHintWarm(); }),
+            };
+
+            await Task.WhenAll(work.Select(async w =>
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                try { await w.Body(); }
+                catch (Exception ex) { App.WriteLog("WarmUp " + w.Label + " -> " + ex.Message); }
+                PerfLog.Note(w.Label, $"{sw.ElapsedMilliseconds} ms");
+            }));
+            PerfLog.Note("预热完成", "以上数据已进内存，打开对应页面无需再等 IO");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("RuntimeConfigurator.WarmUp -> " + ex.Message);
+        }
+    }
+
+    private Task _skillsHintWarm() => _tools.RefreshSkillHintAsync();
 
     /// <summary>加载角色库并给旧存档里的角色补种副设定（幂等）。</summary>
     private async Task LoadCharactersAsync()

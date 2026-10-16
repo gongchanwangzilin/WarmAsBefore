@@ -10,6 +10,8 @@ public partial class SettingsPage : ContentPage
     public SettingsPage(SettingsViewModel vm)
     {
         InitializeComponent();
+        // 卡片宽度跟随窗口：固定 640 在宽屏上会显得又窄又短（用户反馈）
+        SizeChanged += (_, _) => ApplyResponsiveWidth();
         BindingContext = vm;
 #if ANDROID
         // 3 秒防呆到点（服务已自动回弹）→ 弹一次确认框，用户选「保留新方向」则重新锁定
@@ -21,6 +23,7 @@ public partial class SettingsPage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        ApplyResponsiveWidth();
         _ = BuildCardsProgressivelyAsync();
         // 延迟重活到首帧渲染之后，避免转场动画期间阻塞 UI 线程
         var vm = BindingContext as SettingsViewModel;
@@ -81,6 +84,25 @@ public partial class SettingsPage : ContentPage
         }
     }
 
+    /// <summary>
+    /// 卡片宽度匹配屏幕：窄屏（手机/竖屏）铺满，宽屏给到最多 1080（再宽一行文字太长反而难读），
+    /// 两边各留 24 的页面内边距。原来固定 640，在 1280 的窗口上左右各空 300 多，卡片又窄又短。
+    /// </summary>
+    private void ApplyResponsiveWidth()
+    {
+        try
+        {
+            var w = Width;
+            if (w <= 0) return;
+            var available = w - 48;
+            SettingsBody.MaximumWidthRequest = Math.Clamp(available, 320, 1080);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsPage.ApplyResponsiveWidth -> " + ex.Message);
+        }
+    }
+
     /// <summary>等页面渲染稳定后再装数据，避免把装载时间算进「打开设置」的等待。</summary>
     private async Task SeedAfterSettledAsync(SettingsViewModel vm)
     {
@@ -88,30 +110,39 @@ public partial class SettingsPage : ContentPage
         await SeedSettingsPageAsync(vm);
     }
 
-    /// <summary>设置页的数据装载：串行 + 计时 + 跳过被搜索隐藏的分类（性能日志见 {数据根}/perf.log）。</summary>
+    /// <summary>
+    /// 设置页的数据装载：**按需要并行跑**（互不依赖，串行只是浪费核心），
+    /// 每段各自计时，跳过被搜索隐藏的分类（性能日志见 {数据根}/perf.log）。
+    ///
+    /// 注意：能并行的只有数据侧（读文件、扫目录、解析 JSON）——XAML 的元素创建与布局
+    /// 必须在 UI 线程做，拆不到多核上；这里用 Task.WhenAll 把 IO/CPU 段摊开，
+    /// UI 更新仍由各自的 MainThread 回调串行落到主线程。
+    /// </summary>
     private async Task SeedSettingsPageAsync(SettingsViewModel vm)
     {
         var f = vm.Filter;
+        var work = new List<Task>();
+
         if (f.Sandbox)
-        {
-            using (Services.PerfLog.Measure("设置页 · 沙箱信任"))
-                await Task.Run(() => vm.RefreshSandboxTrustAsync());
-        }
+            work.Add(MeasuredAsync("设置页 · 沙箱信任", () => Task.Run(() => vm.RefreshSandboxTrustAsync())));
         if (f.Interface)
-        {
-            using (Services.PerfLog.Measure("设置页 · 表情包"))
-                await vm.RefreshStickersCommand.ExecuteAsync(null);
-        }
+            work.Add(MeasuredAsync("设置页 · 表情包", () => vm.RefreshStickersCommand.ExecuteAsync(null)));
         if (f.Skills)
-        {
-            using (Services.PerfLog.Measure("设置页 · 能力包"))
-                await vm.RefreshSkillsAsync();
-        }
+            work.Add(MeasuredAsync("设置页 · 能力包", () => vm.RefreshSkillsAsync()));
         if (f.Memory || f.Ai)
-        {
-            using (Services.PerfLog.Measure("设置页 · 用量与花费"))
-                await vm.RefreshCostCommand.ExecuteAsync(null);
-        }
+            work.Add(MeasuredAsync("设置页 · 用量与花费", () => vm.RefreshCostCommand.ExecuteAsync(null)));
+
+        using (Services.PerfLog.Measure($"设置页 · 数据装载（{work.Count} 段并行）"))
+            await Task.WhenAll(work);
+    }
+
+    /// <summary>包一层计时：结束点写日志，便于分辨哪一段拖后腿。</summary>
+    private static async Task MeasuredAsync(string label, Func<Task> body)
+    {
+        var sw = System.Diagnostics.Stopwatch.StartNew();
+        try { await body(); }
+        catch (Exception ex) { App.WriteLog(label + " -> " + ex.Message); }
+        Services.PerfLog.Note(label, $"{sw.ElapsedMilliseconds} ms{(sw.ElapsedMilliseconds >= 200 ? "  <<< SLOW" : "")}");
     }
 
 #if ANDROID

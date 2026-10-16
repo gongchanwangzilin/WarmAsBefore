@@ -1326,7 +1326,9 @@ IsVisible="{Binding Filter.Ai}">
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,24" Scrolled="OnScrollViewScrolled">
-                    <VerticalStackLayout Spacing="16" MaximumWidthRequest="640"
+                    <!-- 宽度由代码按窗口自适应（x:Name 见 code-behind）：原来固定 640，
+                         宽屏上左右留一大片空白，卡片看着又窄又短。 -->
+                    <VerticalStackLayout x:Name="SettingsBody" Spacing="16" MaximumWidthRequest="640"
                                  HorizontalOptions="Center">
                 <!-- 设置搜索：设置项太多、找不到是常态，按关键词把不相关的分类收起 -->
                 <Border Style="{StaticResource CardNeumorph}" Padding="12,10">
