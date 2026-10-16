@@ -53,20 +53,28 @@ public partial class SettingsPage : ContentPage
         _cardsBuilt = true;
         try
         {
-            await Task.Delay(24);   // 一帧：先把顶栏与搜索框画出来
-            for (var i = 1; i <= 4; i++)
+            await Task.Delay(24);   // 一帧：先把顶栏 + 搜索框 + 骨架占位画出来
+            for (var i = 1; ; i++)
             {
                 var key = $"SettingsCards{i}";
                 if (!Resources.TryGetValue(key, out var t) || t is not DataTemplate template)
                 {
-                    Services.PerfLog.Note($"设置页 · 卡片第 {i} 组缺失", key + " 没找到");
-                    continue;
+                    if (i == 1) Services.PerfLog.Note("设置页 · 卡片模板缺失", key + " 没找到");
+                    break;   // 没有下一组了
                 }
+
+                // 骨架只留到第一组真正落地
+                if (i == 1 && CardsSkeleton.IsVisible) CardsSkeleton.IsVisible = false;
+
                 Microsoft.Maui.Controls.View? content = null;
                 using (Services.PerfLog.Measure($"设置页 · 卡片第 {i} 组"))
                     content = template.CreateContent() as Microsoft.Maui.Controls.View;
                 if (content is null) continue;
+
+                // 淡入：透明度动画由合成层负责，不占 UI 线程，正好在下一组构建时继续播
+                content.Opacity = 0;
                 CardsHost.Add(content);
+                _ = content.FadeTo(1, 140, Easing.CubicOut);
 
                 // 成本图表在卡片模板里，名字要在这个实例的名字域里取
                 var chart = content.FindByName("CostChartView") as GraphicsView;
@@ -75,7 +83,7 @@ public partial class SettingsPage : ContentPage
                     chart.Drawable = vm.CostChart;
                     vm.InvalidateCostChart = () => chart.Invalidate();
                 }
-                await Task.Delay(32);   // 让出一次消息循环，卡片能真正画出来再做下一组
+                await Task.Delay(24);   // 让出消息循环：先把这一组画出来，再建下一组
             }
         }
         catch (Exception ex)
