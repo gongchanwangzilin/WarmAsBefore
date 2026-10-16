@@ -23,12 +23,13 @@ public sealed class RuntimeConfigurator
     private readonly OfficialChatBridge _bridge;
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly NotificationService _notify;
+    private readonly CharacterSettingsResolver _charSettings;
     private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
-        NotificationService notify)
+        NotificationService notify, CharacterSettingsResolver charSettings)
     {
         _settings = settings;
         _chat = chat;
@@ -41,6 +42,7 @@ public sealed class RuntimeConfigurator
         _bridge = bridge;
         _theme = theme;
         _notify = notify;
+        _charSettings = charSettings;
     }
 
     public void Start()
@@ -130,6 +132,8 @@ public sealed class RuntimeConfigurator
             MemoryTurns = s.MemoryTurns,
             ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
         }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
+        // 角色级覆写：Send/Retry 时按当前角色叠加，未设置覆写的角色行为不变
+        _chat.Resolver = _charSettings;
 
         _weather.SetCity(s.WeatherCity);
         _phys.SetCycle(s.CycleLength, s.PeriodLength);

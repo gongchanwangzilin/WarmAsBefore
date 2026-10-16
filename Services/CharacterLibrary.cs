@@ -146,6 +146,14 @@ public sealed class CharacterLibrary
         }
     }
 
+    /// <summary>写入某角色的参数覆写（字段为 null 表示沿用全局设置），立即落盘。</summary>
+    public async Task<bool> SetOverridesAsync(string charId, CharacterOverrides? overrides)
+    {
+        await LoadAsync();
+        if (!_engine.Roster.TryGetValue(charId, out var ch)) return false;
+        return await UpdateAsync(ch with { Overrides = overrides ?? new CharacterOverrides() });
+    }
+
     /// <summary>角色库上下文：除主角外所有角色的一句话介绍，注入 AI 提示词供其自由调用。</summary>
     public string RosterContext(string excludeId)
     {

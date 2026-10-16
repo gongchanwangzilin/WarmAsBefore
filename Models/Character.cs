@@ -48,4 +48,7 @@ public sealed record CharacterData
 
     /// <summary>头像图片（相对存储根目录的路径，如 assets/characters/{id}/avatar.png），空表示无头像。</summary>
     public string Avatar { get; init; } = "";
+
+    /// <summary>该角色的参数覆写（记忆轮数/上下文上限/温度/记忆窗口等）；空字段沿用全局设置。</summary>
+    public CharacterOverrides Overrides { get; init; } = new();
 }

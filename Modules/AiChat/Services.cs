@@ -127,6 +127,14 @@ public sealed class ChatEngine
     /// <summary>每次 Send 完成后回调（用于 tick buff 剩余轮数等）。</summary>
     public Action? AfterSend { get; set; }
 
+    /// <summary>
+    /// 角色级设置覆写链（全局设置 → 该角色覆写）。未注入时行为与从前完全一致。
+    /// </summary>
+    public CharacterSettingsResolver? Resolver { get; set; }
+
+    /// <summary>取本次对话实际生效的端点配置：全局配置叠加该角色的覆写。</summary>
+    private AiEndpoint CfgFor(string charId) => Resolver?.EndpointFor(charId, _cfg) ?? _cfg;
+
     public async Task<string> Send(string charId, string text)
     {
         return await Send(charId, text, null);
@@ -140,7 +148,8 @@ public sealed class ChatEngine
     public async Task<string> Send(string charId, string text, IReadOnlyList<ChatAttachment>? attachments)
     {
         var session = Session(charId);
-        var recent = await _memory.Recent(charId, Math.Max(1, _cfg.MemoryTurns));
+        var cfg = CfgFor(charId);
+        var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
 
         // 注入 buff/标记上下文（动态，随每次对话变化；拼在用户消息前，AI 可见但不算用户说的话）
@@ -165,14 +174,14 @@ public sealed class ChatEngine
             // AI 未配置：返回友好的提示
             var offlineReply = GenerateOfflineReply(text);
             session.Add(new ChatMessage { Role = "assistant", Content = offlineReply });
-            await TrimAsync(session);
+            await TrimAsync(session, cfg);
             return offlineReply;
         }
 
         // API 已配置：调用 API（可能带工具往返）
         try
         {
-            var (reply, error) = await RunTurnAsync(session);
+            var (reply, error) = await RunTurnAsync(session, cfg);
             if (error is not null)
             {
                 // API 返回了错误信息，直接显示给用户（不存会话历史）
@@ -182,7 +191,7 @@ public sealed class ChatEngine
             // 正文为 null（而不是空串）＝模型没给正文，沿用原来的提示语；空串是"沉默"，必须原样保留
             reply ??= "（AI 暂时无法回应，请检查 API 配置或网络连接）";
             session.Add(new ChatMessage { Role = "assistant", Content = reply });
-            await TrimAsync(session);
+            await TrimAsync(session, cfg);
 
             await _memory.Store(new MemoryEntry
             {
@@ -309,7 +318,7 @@ public sealed class ChatEngine
     /// 原因是 Trim() 从头部裁历史，一旦把这两者裁散（tool 结果留下、对应的 tool_calls 被裁掉），
     /// 严格端点会因"tool 消息没有对应的 tool_calls"拒收整段历史 —— 那会直接毁掉聊天。
     /// </summary>
-    private async Task<(string? Text, string? Error)> RunTurnAsync(List<ChatMessage> session)
+    private async Task<(string? Text, string? Error)> RunTurnAsync(List<ChatMessage> session, AiEndpoint cfg)
     {
         // 端点已拒绝过、或根本没有可用工具时保持 null：请求体与从前逐字段一致
         var tools = _toolsUnsupported ? null : _tools.BuildChatTools();
@@ -322,7 +331,7 @@ public sealed class ChatEngine
 
         for (var round = 0; round <= MaxToolRounds; round++)
         {
-            var turn = await _api.ChatWithToolsAsync(working, tools, _cfg);
+            var turn = await _api.ChatWithToolsAsync(working, tools, cfg);
             if (turn.ToolsRejected)
             {
                 // 端点不认识 tools（已由 ApiGateway 去掉 tools 重试过一次）：记住它，
@@ -502,7 +511,7 @@ public sealed class ChatEngine
                 new() { Role = "assistant", Content = assistantText },
                 new() { Role = "user", Content = "（请按系统提示，以修正后的完整回复收尾，不再附加其它内容）" }
             };
-            var reply = await _api.Chat(msgs, _cfg);
+            var reply = await _api.Chat(msgs, CfgFor(charId));
             if (string.IsNullOrWhiteSpace(reply) || reply.StartsWith("[", StringComparison.Ordinal))
                 return assistantText;
             return reply;
@@ -587,11 +596,11 @@ public sealed class ChatEngine
     /// · 只取 user/assistant 正文做素材，绝不触碰 tool_calls / tool 成对消息
     ///   （裁历史绝不能把这两者裁散，否则严格端点会拒收整段历史）。
     /// </summary>
-    private async Task TrimAsync(List<ChatMessage> msgs)
+    private async Task TrimAsync(List<ChatMessage> msgs, AiEndpoint cfg)
     {
         if (msgs.Count <= 2) return;
 
-        var limit = _cfg.ContextTokenLimit > 0 ? _cfg.ContextTokenLimit : DefaultContextTokenLimit;
+        var limit = cfg.ContextTokenLimit > 0 ? cfg.ContextTokenLimit : DefaultContextTokenLimit;
         if (EstimateTokens(msgs) <= limit) return;   // 没到上限：原样保留，不折腾
 
         var cutCount = msgs.Count - 2 * ChatSession.KeepTurns - 1;
@@ -599,7 +608,7 @@ public sealed class ChatEngine
         var dropped = msgs.GetRange(1, cutCount);
         msgs.RemoveRange(1, cutCount);
 
-        var digest = await SummarizeAsHumanAsync(dropped);
+        var digest = await SummarizeAsHumanAsync(dropped, cfg);
         if (string.IsNullOrWhiteSpace(digest)) digest = BuildFallbackDigest(dropped);
         if (string.IsNullOrWhiteSpace(digest)) return;
         MergeDigestIntoSystem(msgs, digest);
@@ -642,7 +651,7 @@ public sealed class ChatEngine
     /// 每条不超过 40 字、最多 6 条。为了省钱：输入限长（约 4000 字素材）、输出限长（400 token 内）、
     /// 只在超上限时调用一次；调用失败（未配置/网络/端点拒绝）返回空串，由本地兜底接手。
     /// </summary>
-    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped)
+    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped, AiEndpoint cfg)
     {
         if (!_api.HasAnyEndpoint) return "";
         var material = BuildMemoryMaterial(dropped);
@@ -653,7 +662,7 @@ public sealed class ChatEngine
             var who = string.IsNullOrWhiteSpace(_active?.Name) ? "我" : _active!.Name;
             var body = new
             {
-                model = _cfg.Model,
+                model = cfg.Model,
                 messages = new object[]
                 {
                     new { role = "system", content = $"你是「{who}」的记忆整理器。只输出极简的第一人称记忆。" },
