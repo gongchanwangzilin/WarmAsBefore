@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
@@ -160,8 +161,10 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         var field = await Shell.Current.DisplayActionSheet(
             $"编辑「{p.Name}」设定", "取消", null,
             "修改性格（外在表现/内在坚定）", "修改背景/前情提要（主设定）",
-            "修改用户称呼", "修改昵称", "修改问候语");
+            "修改用户称呼", "修改昵称", "修改问候语",
+            "参数覆写（记忆/采样）");
         if (field is null || field == "取消") return;
+        if (field.Contains("参数覆写")) { await EditOverridesAsync(item); return; }
 
         string? promptTitle = null, initialValue = null;
         if (field.Contains("性格")) { promptTitle = "修改性格"; initialValue = p.Personality; }
@@ -187,6 +190,69 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             }
         };
         if (await _library.UpdateAsync(updated)) await Refresh();
+    }
+
+    /// <summary>
+    /// 角色级参数覆写：每个字段留空 = 沿用全局设置（清除该角色的覆写）。
+    /// 用于让不同角色有各自的记忆与采样参数——有的记得久，有的转头就忘。
+    /// </summary>
+    private async Task EditOverridesAsync(CharacterLibraryItem item)
+    {
+        var o = item.Data.Overrides ?? new CharacterOverrides();
+        var name = item.Data.Profile.Name;
+        var pick = await Shell.Current.DisplayActionSheet(
+            $"「{name}」参数覆写（留空=跟随全局）", "取消", null,
+            $"记忆条数：{ShowOverride(o.MemoryTurns)}",
+            $"上下文上限：{ShowOverride(o.ContextTokenLimit)}",
+            $"温度：{ShowOverride(o.AiTemperature)}",
+            $"记忆窗口天数：{ShowOverride(o.MemoryWindowDays)}",
+            $"回忆随机度：{ShowOverride(o.MemoryRecallRandomness)}");
+        if (pick is null || pick == "取消") return;
+
+        var title = pick.Split('：')[0];
+        var (hint, initial) = title switch
+        {
+            "记忆条数" => ("带进上下文的最近记忆条数（1-200），留空跟随全局", o.MemoryTurns?.ToString() ?? ""),
+            "上下文上限" => ("上下文 Token 上限（如 32000），留空跟随全局", o.ContextTokenLimit?.ToString() ?? ""),
+            "温度" => ("采样温度 0-2，留空跟随全局", o.AiTemperature?.ToString(CultureInfo.InvariantCulture) ?? ""),
+            "记忆窗口天数" => ("人类记忆能回忆的天数，0=不限，留空跟随全局（默认 3 天）", o.MemoryWindowDays?.ToString(CultureInfo.InvariantCulture) ?? ""),
+            _ => ("回忆随机扰动 0-1：越大越像人一样跳着想起，留空跟随全局", o.MemoryRecallRandomness?.ToString(CultureInfo.InvariantCulture) ?? "")
+        };
+        var input = await Shell.Current.DisplayPromptAsync(title, hint, initialValue: initial, maxLength: 12);
+        if (input is null) return;
+
+        var updated = title switch
+        {
+            "记忆条数" => ParseInt(input, v => o with { MemoryTurns = v }),
+            "上下文上限" => ParseInt(input, v => o with { ContextTokenLimit = v }),
+            "温度" => ParseDouble(input, v => o with { AiTemperature = v }),
+            "记忆窗口天数" => ParseDouble(input, v => o with { MemoryWindowDays = v }),
+            _ => ParseDouble(input, v => o with { MemoryRecallRandomness = v })
+        };
+        if (updated is null)
+        {
+            await Shell.Current.DisplayAlert("参数覆写", "请输入数字；留空表示跟随全局设置。", "好");
+            return;
+        }
+        if (await _library.SetOverridesAsync(item.Data.Profile.Id, updated)) await Refresh();
+    }
+
+    private static string ShowOverride<T>(T? v) where T : struct =>
+        v?.ToString() is { Length: > 0 } s ? s : "跟随全局";
+
+    /// <summary>空串 = 清除覆写（返回去掉该字段的副本）；非法输入 = null。</summary>
+    private static CharacterOverrides? ParseInt(string raw, Func<int?, CharacterOverrides> apply)
+    {
+        var t = raw?.Trim() ?? "";
+        if (t.Length == 0) return apply(null);
+        return int.TryParse(t, out var v) ? apply(v) : null;
+    }
+
+    private static CharacterOverrides? ParseDouble(string raw, Func<double?, CharacterOverrides> apply)
+    {
+        var t = raw?.Trim() ?? "";
+        if (t.Length == 0) return apply(null);
+        return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? apply(v) : null;
     }
 
     /// <summary>复制角色（共享引用所有立绘，不重复保存素材文件）。</summary>

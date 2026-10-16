@@ -30,6 +30,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<SpeechService>();
         builder.Services.AddSingleton<MaterialLibrary>();
         builder.Services.AddSingleton<CharacterLibrary>();
+        // 「全局设置 → 角色覆写」解析链：记忆/采样等参数按角色取值
+        builder.Services.AddSingleton<CharacterSettingsResolver>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
