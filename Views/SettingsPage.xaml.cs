@@ -29,6 +29,8 @@ public partial class SettingsPage : ContentPage
             _ = System.Threading.Tasks.Task.Run(() => vm.RefreshSandboxTrustAsync());
             // #12 表情包列表刷新（轻量本地读，直接主线程 async）
             _ = vm.RefreshStickersCommand.ExecuteAsync(null);
+            // 能力包清单（本地目录扫描）
+            _ = vm.RefreshSkillsAsync();
             // 首帧渲染后再收起页面级 loading 遮罩（让转场动画完整播放）
             // 延迟 32ms（两帧）再收起遮罩，确保转场动画首帧已渲染、布局已就绪
             _ = System.Threading.Tasks.Task.Delay(32).ContinueWith(_ =>

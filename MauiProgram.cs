@@ -60,10 +60,13 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Automation.DailyDiaryWriter>();
         builder.Services.AddSingleton<Modules.Mcp.McpOrchestrator>();
         builder.Services.AddSingleton<Modules.Tools.RuntimeManager>();
+        // 能力包（skill）：说明书渐进加载 + 可执行入口复用外部工具机制
+        builder.Services.AddSingleton<SkillLibrary>();
         builder.Services.AddSingleton<Modules.Tools.ToolManager>(sp =>
             new Modules.Tools.ToolManager(
                 sp.GetRequiredService<Modules.Tools.RuntimeManager>(),
-                sp.GetRequiredService<Modules.Sandbox.SandboxPolicy>()));
+                sp.GetRequiredService<Modules.Sandbox.SandboxPolicy>(),
+                sp.GetRequiredService<SkillLibrary>()));
         builder.Services.AddSingleton<Modules.Affection.AffectionLevelUpService>();
         builder.Services.AddSingleton<Modules.Battle.BattleDriverManager>();
         builder.Services.AddSingleton<Modules.Cg.CgStore>();

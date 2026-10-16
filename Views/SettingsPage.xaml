@@ -1026,6 +1026,22 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- 能力包（Skills） -->
+                <Border Style="{StaticResource CardNeumorph}">
+                    <VerticalStackLayout Spacing="12">
+                        <Label Text="能力包（Skills）" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
+                        <Label Text="{Binding SkillsSummary}" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                        <Label Text="一个能力包 = 一个目录，可含 SKILL.md（写给 AI 的说明书，按需加载）和 tool.json（可执行入口，复用 Python/Java 运行时）。装上后 AI 会先读说明书再动手。"
+                               Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                        <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                            <Button Text="导入 zip / 目录" Style="{StaticResource BtnNeumorphSm}"
+                                    HeightRequest="40" Command="{Binding ImportSkillCommand}" />
+                            <Button Text="管理" Style="{StaticResource BtnNeumorphSm}"
+                                    HeightRequest="40" Command="{Binding ManageSkillsCommand}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- 赞助作者 -->
                 <Border Style="{StaticResource CardNeumorph}">
                     <VerticalStackLayout Spacing="12">
