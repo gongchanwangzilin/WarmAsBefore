@@ -25,13 +25,16 @@ public sealed class RuntimeConfigurator
     private readonly NotificationService _notify;
     private readonly CharacterSettingsResolver _charSettings;
     private readonly CharacterSubProfileService _subProfiles;
+    private readonly HumanMemoryService _human;
+    private readonly Modules.AiChat.MemoryVault _memory;
     private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
         NotificationService notify, CharacterSettingsResolver charSettings,
-        CharacterSubProfileService subProfiles)
+        CharacterSubProfileService subProfiles, HumanMemoryService human,
+        Modules.AiChat.MemoryVault memory)
     {
         _settings = settings;
         _chat = chat;
@@ -46,6 +49,8 @@ public sealed class RuntimeConfigurator
         _notify = notify;
         _charSettings = charSettings;
         _subProfiles = subProfiles;
+        _human = human;
+        _memory = memory;
     }
 
     public void Start()
@@ -148,6 +153,10 @@ public sealed class RuntimeConfigurator
         // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次
         _chat.SubProfileProvider = _subProfiles.Describe;
         _chat.AfterTurn = (charId, note) => _subProfiles.DriftAsync(charId, "对话之后", note);
+        // 人类记忆层：回合结束把折叠出的记忆记进去，每轮对话前按人类方式回想
+        _chat.Human = _human;
+        // 好感时刻/带截图的时刻也进人类记忆层（照片式记忆）
+        _memory.Human = _human;
 
         _weather.SetCity(s.WeatherCity);
         _phys.SetCycle(s.CycleLength, s.PeriodLength);

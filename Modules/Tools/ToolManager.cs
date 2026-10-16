@@ -684,7 +684,8 @@ public sealed class ToolManager : IDisposable
             + "可以按关键词模糊搜，也可以按日期搜；日期支持具体日期（如 2026-10-01）或"
             + "「今天 / 昨天 / 前天 / 最近」这样的相对说法。"
             + "当对方问起过去的事、某天聊了什么、某个话题时调用本工具；不要凭记忆编造过去。"
-            + "返回按时间倒序的匹配条目（时间 + 摘要）。",
+            + "返回两部分：items 是记录（近的在前、同一天内随机）、human 是对方脑子里还记得的事"
+            + "（重要的事不容易忘，久的会模糊、可能想不起来）。",
             async args =>
             {
                 var services = ServicesHelper.GetServices();
@@ -750,9 +751,28 @@ public sealed class ToolManager : IDisposable
                 if (from is not null) hits = hits.Where(m => m.At.ToLocalTime() >= from.Value);
                 if (to is not null) hits = hits.Where(m => m.At.ToLocalTime() <= to.Value);
 
-                var list = hits.OrderByDescending(m => m.At).Take(limit).ToList();
+                // 由近到远排序，但完全随机：按「天」为主序（近期在前），同一天内随机打乱。
+                // 人回忆时正是这样——大致记得先后，具体哪句先想起来是随机的。
+                var list = hits
+                    .GroupBy(m => m.At.ToLocalTime().Date)
+                    .OrderByDescending(g => g.Key)
+                    .SelectMany(g => g.OrderBy(_ => Random.Shared.Next()))
+                    .Take(limit)
+                    .ToList();
                 if (list.Count == 0)
-                    return JsonSerializer.Serialize(new { ok = true, count = 0, message = "没有找到相关记忆。可以说「记不太清了」，不要编造。" });
+                {
+                    var humanOnly = await BuildHumanRecallAsync(services, charId, keyword);
+                    if (humanOnly.Count == 0)
+                        return JsonSerializer.Serialize(new { ok = true, count = 0, message = "没有找到相关记忆。可以说「记不太清了」，不要编造。" });
+                    return JsonSerializer.Serialize(new
+                    {
+                        ok = true,
+                        count = humanOnly.Count,
+                        character = charId,
+                        human = humanOnly,
+                        note = "以上是对方脑子里还记得的事；用自然的口气引用，不要逐条念。"
+                    });
+                }
 
                 var items = list.Select(m =>
                 {
@@ -764,13 +784,17 @@ public sealed class ToolManager : IDisposable
                         text = c.Length > 120 ? c[..120] + "…" : c
                     };
                 }).ToList();
+                var human = await BuildHumanRecallAsync(services, charId, keyword);
                 return JsonSerializer.Serialize(new
                 {
                     ok = true,
-                    count = items.Count,
+                    count = items.Count + human.Count,
                     character = charId,
                     items,
-                    note = "以上为检索结果；回答时用自然的口气引用，不要逐条念。"
+                    human,
+                    note = "items 是翻日记能找到的记录（近的在前、同一天内随机）；"
+                         + "human 是对方脑子里还记得的事（重要的不容易忘，久的会模糊）。"
+                         + "回答时用自然的口气引用，不要逐条念。"
                 });
             },
             new List<ToolParameter>
@@ -780,6 +804,41 @@ public sealed class ToolManager : IDisposable
                 new() { Name = "date_to", Description = "结束日期（含当天），同上格式", Required = false },
                 new() { Name = "limit", Description = "返回条数上限，默认 10，最大 30", Required = false }
             });
+
+        // 检索记忆时同时给出「对方脑子里还记得的」（人类记忆层），
+        // 而不是只把日记记录倒出来。
+        static async Task<List<object>> BuildHumanRecallAsync(IServiceProvider services, string charId, string keyword)
+        {
+            var result = new List<object>();
+            var human = services.GetService(typeof(HumanMemoryService)) as HumanMemoryService;
+            if (human is null) return result;
+            var settings = services.GetService(typeof(SettingsManager)) as SettingsManager;
+            var window = settings?.Current.MemoryWindowDays ?? HumanMemoryMath.DefaultWindowDays;
+            var randomness = settings?.Current.MemoryRecallRandomness ?? HumanMemoryMath.DefaultRandomness;
+
+            var entries = await human.RecallAsync(charId, window, randomness, 8);
+            foreach (var e in entries)
+            {
+                if (!string.IsNullOrWhiteSpace(keyword)
+                    && !(e.Text ?? "").Contains(keyword, StringComparison.OrdinalIgnoreCase)
+                    && !e.Tags.Any(t => t.Contains(keyword, StringComparison.OrdinalIgnoreCase)))
+                    continue;
+                result.Add(new
+                {
+                    time = e.CreatedAt.ToLocalTime().ToString("yyyy-MM-dd"),
+                    type = e.Kind switch
+                    {
+                        HumanMemoryKind.Image => "照片",
+                        HumanMemoryKind.Important => "重要",
+                        HumanMemoryKind.Abstraction => "印象",
+                        _ => "事件"
+                    },
+                    recalled = e.RecallCount,
+                    text = e.Text
+                });
+            }
+            return result;
+        }
 
         // 看谁在哪：多实体地图上，用户和每个 AI 角色各自的位置
         RegisterBuiltin("list_actors",

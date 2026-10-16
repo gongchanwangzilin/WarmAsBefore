@@ -389,6 +389,20 @@
                                     SelectedItem="{Binding ContextTokenLimitDisplay}" FontSize="13" /></Grid>
                         <Label Text="对话历史估算超过该 Token 数时，会像人回忆一样把旧对话总结成第一人称记忆；平时不动历史。"
                                Style="{StaticResource TxtCaption}" />
+                        <!-- 人类记忆层：回想窗口与随机度（可按角色在角色库里覆写） -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="记忆回想窗口" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="默认只想起三天内的事为主，越久越模糊但不彻底消失；选「不限」能想起最早的记忆。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="天数" WidthRequest="110"
+                                    ItemsSource="{Binding MemoryWindowChoices}" SelectedItem="{Binding MemoryWindowDays}"
+                                    FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="回忆的随机度" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="越大越像人：会跳着想、偶尔想不起来。0 = 严格按时间与重要性排序。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" WidthRequest="140" Minimum="0" Maximum="1"
+                                    Value="{Binding MemoryRecallRandomness}" /></Grid>
+                        <Label Text="需要个别角色记性好/记性差时，在角色库 →「参数覆写」里单独设置这两个值。"
+                               Style="{StaticResource TxtCaption}" />
                         <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                         <Label Text="识图模型（可选）" Style="{StaticResource TxtBodySm}" />
