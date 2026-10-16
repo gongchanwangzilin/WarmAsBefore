@@ -336,6 +336,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _deepThink = s.DeepThink;
         _deepModel = s.DeepModel;
         _memoryTurns = s.MemoryTurns;
+        _memoryWindowDays = MemoryWindowChoices.Contains(s.MemoryWindowDays) ? s.MemoryWindowDays : HumanMemoryMath.DefaultWindowDays;
+        _memoryRecallRandomness = Math.Clamp(s.MemoryRecallRandomness, 0, 1);
 
         // 多端点轮换 + 上下文 Token 上限
         _aiRotationEnabled = s.AiRotationEnabled;
@@ -1072,6 +1074,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _deepModel = "";
     [ObservableProperty] private int _memoryTurns = 5;
 
+    /// <summary>人类记忆调取窗口（天）：默认 3 天，0 = 不限。可按角色在角色库里覆写。</summary>
+    [ObservableProperty] private double _memoryWindowDays = HumanMemoryMath.DefaultWindowDays;
+
+    /// <summary>回忆随机扰动 0~1：越大越像人一样跳着想起、偶尔漏掉。</summary>
+    [ObservableProperty] private double _memoryRecallRandomness = HumanMemoryMath.DefaultRandomness;
+
     /// <summary>API 可用的模型列表（由 FetchModelsAsync 填充）。</summary>
     public ObservableCollection<string> AiModelChoices { get; } = new();
     [ObservableProperty] private bool _isLoadingModels;
@@ -1352,6 +1360,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     public List<string> Langs { get; } = new() { "简体中文", "繁體中文", "English", "日本語" };
     public List<string> KeySfxChoices { get; } = new() { "default", "soft", "typewriter", "none" };
     public List<int> MemoryTurnsChoices { get; } = new() { 3, 5, 8, 10, 12, 15, 20 };
+
+    /// <summary>人类记忆调取窗口（天）：0 = 不限（能想起最早的记忆）。</summary>
+    public List<double> MemoryWindowChoices { get; } = new() { 1, 3, 7, 14, 30, 90, 0 };
     public List<int> CycleChoices { get; } = Enumerable.Range(21, 15).ToList();
     public List<int> PeriodChoices { get; } = Enumerable.Range(3, 5).ToList();
     /// <summary>桌宠闲置时长可选值（分钟）：0=关闭闲置自动桌宠。</summary>
@@ -1497,6 +1508,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnDeepThinkChanged(bool value) => PersistSettings();
     partial void OnDeepModelChanged(string value) => PersistSettings();
     partial void OnMemoryTurnsChanged(int value) => PersistSettings();
+    partial void OnMemoryWindowDaysChanged(double value) => PersistSettings();
+    partial void OnMemoryRecallRandomnessChanged(double value) => PersistSettings();
 
     partial void OnTtsEnabledChanged(bool value) => PersistSettings();
     partial void OnTtsRateChanged(double value) => PersistSettings();
@@ -1673,6 +1686,8 @@ GlassLightWidth = GlassLightWidth,
                 DeepThink = DeepThink,
                 DeepModel = DeepModel.Trim(),
                 MemoryTurns = MemoryTurns,
+                MemoryWindowDays = MemoryWindowDays,
+                MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),
                 AiProfiles = AiProfiles.Select(r => r.ToProfile())
                     .Where(p => !string.IsNullOrWhiteSpace(p.Url) || p.Keys.Count > 0)
                     .ToList(),

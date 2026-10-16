@@ -119,6 +119,15 @@ public sealed record UserSettings
     public string DeepModel { get; init; } = "";
     public int MemoryTurns { get; init; } = 5;
 
+    /// <summary>
+    /// 人类记忆的调取窗口（天）：默认回想三天内的事为主，越久越模糊。
+    /// 0 = 不限（能想起最早的记忆）。可按角色覆写。
+    /// </summary>
+    public double MemoryWindowDays { get; init; } = HumanMemoryMath.DefaultWindowDays;
+
+    /// <summary>回忆的随机扰动强度 0~1：越大越像人一样跳着想起、偶尔漏掉。可按角色覆写。</summary>
+    public double MemoryRecallRandomness { get; init; } = HumanMemoryMath.DefaultRandomness;
+
     // 多端点轮换（供应商 × AI × 密钥）：保存多条端点，自动轮流用，保证对话不间断
     /// <summary>
     /// 多端点档案：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。

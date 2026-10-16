@@ -36,6 +36,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<CharacterSubProfileService>();
         // 立绘标定：素材按 1080×1920 逻辑画布标定一次，各处共用
         builder.Services.AddSingleton<PortraitCalibrationService>();
+        // 人类记忆层：按重要性×时间衰减×复述×随机存取（与全量记忆库并存）
+        builder.Services.AddSingleton<HumanMemoryService>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件

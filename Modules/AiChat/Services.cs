@@ -74,9 +74,14 @@ public sealed class ChatEngine
         fresh.AddRange(history);
     }
 
-    /// <summary>回合收尾：通知副设定漂移（只喂第一行要点，避免整段摘要塞进心事），再让人设即时生效。</summary>
+    /// <summary>回合收尾：把折叠出来的记忆记进人类记忆层，通知副设定漂移，再让人设即时生效。</summary>
     private async Task RunAfterTurnAsync(string charId, string? digest)
     {
+        if (Human is not null && !string.IsNullOrWhiteSpace(digest))
+        {
+            try { await Human.StoreFromDigestAsync(charId, digest); }
+            catch (Exception ex) { App.WriteLog("ChatEngine.HumanStore -> " + ex.Message); }
+        }
         if (AfterTurn is null) return;
         try
         {
@@ -177,6 +182,11 @@ public sealed class ChatEngine
     /// </summary>
     public CharacterSettingsResolver? Resolver { get; set; }
 
+    /// <summary>
+    /// 人类记忆层：按人脑方式存与取（重要性与时间衰减，不是取最近 N 条）。未注入时跳过。
+    /// </summary>
+    public HumanMemoryService? Human { get; set; }
+
     /// <summary>取本次对话实际生效的端点配置：全局配置叠加该角色的覆写。</summary>
     private AiEndpoint CfgFor(string charId) => Resolver?.EndpointFor(charId, _cfg) ?? _cfg;
 
@@ -196,6 +206,21 @@ public sealed class ChatEngine
         var cfg = CfgFor(charId);
         var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
+
+        // 人类记忆层：按「重要性 × 时间衰减 × 复述次数 × 随机扰动」回想（默认以三天内为主），
+        // 而不是按时间取最近若干条——人本来就会想起很久以前的重要事，也会突然想不起昨天说了什么。
+        try
+        {
+            if (Human is not null)
+            {
+                var recalled = await Human.RecallTextAsync(charId,
+                    Resolver?.MemoryWindowDays(charId) ?? HumanMemoryMath.DefaultWindowDays,
+                    Resolver?.MemoryRecallRandomness(charId) ?? HumanMemoryMath.DefaultRandomness);
+                if (!string.IsNullOrWhiteSpace(recalled))
+                    ctx = ctx.Length == 0 ? recalled : recalled + "\n" + ctx;
+            }
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.HumanRecall -> " + ex.Message); }
 
         // 注入 buff/标记上下文（动态，随每次对话变化；拼在用户消息前，AI 可见但不算用户说的话）
         var buff = "";
@@ -871,8 +896,25 @@ public sealed class MemoryVault
     }
 
     /// <summary>记录好感提升瞬间（回忆录的「全部好感时刻」来源，随记忆持久化）。</summary>
-    public Task LogAffection(string charId, int delta, string reason, string? imagePath = null) =>
-        Store(new MemoryEntry
+    /// <summary>
+    /// 人类记忆层的入口：好感时刻/重要事件也会进「脑子里记得的」那层。
+    /// 未注入时只写全量记忆库，行为与从前一致。
+    /// </summary>
+    public HumanMemoryService? Human { get; set; }
+
+    public Task LogAffection(string charId, int delta, string reason, string? imagePath = null)
+    {
+        if (Human is not null)
+        {
+            // 带截图的时刻按「照片式记忆」存，没有图的按重要事件存——
+            // 人只记得住事件、印象、重要时刻和单张图片，不会把过程全背下来。
+            var hasImage = !string.IsNullOrWhiteSpace(imagePath);
+            var text = string.IsNullOrWhiteSpace(reason) ? "一件值得记住的事" : reason;
+            var kind = hasImage ? HumanMemoryKind.Image : HumanMemoryKind.Important;
+            var importance = hasImage ? 0.8 : Math.Clamp(0.5 + Math.Abs(delta) / 40.0, 0.5, 0.95);
+            _ = Human.StoreAsync(charId, text, kind, importance, imagePath ?? "");
+        }
+        return Store(new MemoryEntry
         {
             CharacterId = charId,
             Content = $"{delta:+0;-0;0} 好感（{reason}）",
@@ -881,6 +923,7 @@ public sealed class MemoryVault
             Weight = delta,
             ImagePath = imagePath
         });
+    }
 
     public Task<List<MemoryEntry>> Recent(string charId, int n = 10)
     {

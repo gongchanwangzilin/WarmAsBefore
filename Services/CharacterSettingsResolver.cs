@@ -9,11 +9,11 @@ namespace WarmAsBefore.Services;
 /// </summary>
 public sealed class CharacterSettingsResolver
 {
-    /// <summary>人类记忆调取窗口的默认天数（可在设置或角色覆写里改；0 表示不限）。</summary>
-    public const double DefaultMemoryWindowDays = 3;
-
     /// <summary>回忆随机扰动的默认强度（0..1）。</summary>
-    public const double DefaultRecallRandomness = 0.25;
+    public const double DefaultRecallRandomness = HumanMemoryMath.DefaultRandomness;
+
+    /// <summary>人类记忆调取窗口的默认天数（保留常量以兼容既有引用）。</summary>
+    public const double DefaultMemoryWindowDays = HumanMemoryMath.DefaultWindowDays;
 
     private readonly SettingsManager _settings;
     private readonly GameEngine _engine;
@@ -54,13 +54,13 @@ public sealed class CharacterSettingsResolver
     /// <summary>人类记忆调取窗口（天）。0 表示不限（能回忆到最早的记忆）。</summary>
     public double MemoryWindowDays(string? characterId)
     {
-        var v = OverridesOf(characterId).MemoryWindowDays ?? DefaultMemoryWindowDays;
-        return v < 0 ? 0 : v;
+        var v = OverridesOf(characterId).MemoryWindowDays ?? _settings.Current.MemoryWindowDays;
+        return v < 0 ? HumanMemoryMath.DefaultWindowDays : v;
     }
 
     public double MemoryRecallRandomness(string? characterId)
     {
-        var v = OverridesOf(characterId).MemoryRecallRandomness ?? DefaultRecallRandomness;
+        var v = OverridesOf(characterId).MemoryRecallRandomness ?? _settings.Current.MemoryRecallRandomness;
         return Math.Clamp(v, 0, 1);
     }
 
