@@ -31,6 +31,10 @@ public partial class SettingsPage : ContentPage
             _ = vm.RefreshStickersCommand.ExecuteAsync(null);
             // 能力包清单（本地目录扫描）
             _ = vm.RefreshSkillsAsync();
+            // 成本图表：挂上自绘 drawable，并取一次用量把图与表都填上
+            CostChartView.Drawable = vm.CostChart;
+            vm.InvalidateCostChart = () => CostChartView.Invalidate();
+            _ = vm.RefreshCostCommand.ExecuteAsync(null);
             // 首帧渲染后再收起页面级 loading 遮罩（让转场动画完整播放）
             // 延迟 32ms（两帧）再收起遮罩，确保转场动画首帧已渲染、布局已就绪
             _ = System.Threading.Tasks.Task.Delay(32).ContinueWith(_ =>

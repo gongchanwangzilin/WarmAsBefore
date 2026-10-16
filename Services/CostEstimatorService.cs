@@ -179,6 +179,86 @@ public sealed class CostEstimatorService
     private static string Pad(string s, int width) =>
         s.Length >= width ? s[..width] : s + new string(' ', width - s.Length);
 
+    // ============ 图表与导出用的聚合 ============
+
+    /// <summary>按模型汇总（条形图用）。</summary>
+    public sealed record ModelTotal(string Model, int Calls, long Prompt, long Completion, double Cost);
+
+    public async Task<List<ModelTotal>> ModelTotalsAsync()
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+        return usage.GroupBy(u => u.Model, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new ModelTotal(g.Key, g.Count(),
+                g.Sum(x => (long)x.PromptTokens), g.Sum(x => (long)x.CompletionTokens),
+                g.Sum(x => CostOf(x.Model, x.PromptTokens, x.CompletionTokens))))
+            .OrderByDescending(m => m.Cost)
+            .ThenByDescending(m => m.Prompt + m.Completion)
+            .ToList();
+    }
+
+    /// <summary>按天汇总（折线图用）：最近 <paramref name="days"/> 天，没有用量的日子也补 0，折线才连得上。</summary>
+    public sealed record DailyPoint(DateTime Day, int Calls, long Prompt, long Completion, double Cost);
+
+    public async Task<List<DailyPoint>> DailySeriesAsync(int days = 14)
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+
+        var today = DateTime.Now.Date;
+        var from = today.AddDays(-(Math.Max(2, days) - 1));
+        var points = new List<DailyPoint>();
+        for (var d = from; d <= today; d = d.AddDays(1))
+        {
+            var bucket = usage.Where(u => u.At.ToLocalTime().Date == d).ToList();
+            points.Add(new DailyPoint(d, bucket.Count,
+                bucket.Sum(x => (long)x.PromptTokens),
+                bucket.Sum(x => (long)x.CompletionTokens),
+                bucket.Sum(x => CostOf(x.Model, x.PromptTokens, x.CompletionTokens))));
+        }
+        return points;
+    }
+
+    /// <summary>导出 CSV（UTF-8 带 BOM，Excel 直接打开不乱码）。返回文件绝对路径。</summary>
+    public async Task<string> ExportCsvAsync()
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        List<ModelPrice> prices;
+        lock (_gate) { usage = _usage.ToList(); prices = _prices.ToList(); }
+
+        var dir = Path.Combine(_store.Root, "exports");
+        Directory.CreateDirectory(dir);
+        var path = Path.Combine(dir, $"cost-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("时间,模型,输入tok,输出tok,本次花费,是否总结");
+        foreach (var u in usage.OrderBy(u => u.At))
+        {
+            sb.Append(u.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")).Append(',')
+              .Append(Escape(u.Model)).Append(',')
+              .Append(u.PromptTokens).Append(',')
+              .Append(u.CompletionTokens).Append(',')
+              .Append(CostOf(u.Model, u.PromptTokens, u.CompletionTokens).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+              .Append(u.IsSummary ? "是" : "否").AppendLine();
+        }
+
+        sb.AppendLine();
+        sb.AppendLine("模型,单价(输入/百万),单价(输出/百万)");
+        foreach (var p in prices)
+            sb.Append(Escape(p.Model)).Append(',')
+              .Append(p.InputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+              .Append(p.OutputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).AppendLine();
+
+        await File.WriteAllTextAsync(path, sb.ToString(), new System.Text.UTF8Encoding(true));
+        return path;
+    }
+
+    private static string Escape(string s) =>
+        s.Contains(',') || s.Contains('"') ? "\"" + s.Replace("\"", "\"\"") + "\"" : s;
+
     /// <summary>这类内容是不是编程/办公：是的话盲目总结会丢细节，AI 往往要重读，反倒更贵。</summary>
     public static bool LooksLikeWork(IEnumerable<string>? recentTexts)
     {
