@@ -57,6 +57,9 @@ public sealed record AiEndpointProfile
     public List<string> Keys { get; init; } = new();
     /// <summary>单条启用开关。</summary>
     public bool Enabled { get; init; } = true;
+
+    /// <summary>该端点的超时时长（秒）：null 或 ≤0 = 用全局设置。慢模型/长思考端点可以单独放宽。</summary>
+    public int? TimeoutSeconds { get; init; }
 }
 
 public sealed record UserSettings
@@ -136,6 +139,12 @@ public sealed record UserSettings
     public List<AiEndpointProfile> AiProfiles { get; init; } = new();
     /// <summary>端点/密钥轮换总开关（可开关）：false 时完全按原来的单端点行为走。</summary>
     public bool AiRotationEnabled { get; init; } = true;
+
+    /// <summary>请求超时（秒）：全局默认，各端点可单独覆写（慢模型/长思考可放宽）。默认 25 秒。</summary>
+    public int AiTimeoutSeconds { get; init; } = 25;
+
+    /// <summary>模型单价表（每百万 token）：录入后才会统计花费并给出省钱建议。</summary>
+    public List<ModelPrice> ModelPrices { get; init; } = new();
     /// <summary>上下文 Token 上限（估算值）：对话历史超过该值时，强制把旧对话总结成第一人称记忆。</summary>
     public int ContextTokenLimit { get; init; } = 32000;
 
