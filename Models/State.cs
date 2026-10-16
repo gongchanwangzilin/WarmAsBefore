@@ -142,6 +142,12 @@ public sealed record UserSettings
     /// <summary>回忆的随机扰动强度 0~1：越大越像人一样跳着想起、偶尔漏掉。可按角色覆写。</summary>
     public double MemoryRecallRandomness { get; init; } = HumanMemoryMath.DefaultRandomness;
 
+    /// <summary>
+    /// 允许模型参与副设定的改写（默认关闭）：让角色对「自己现在的样子」的表述随时间演化。
+    /// 低频触发、单次短输出，但毕竟要花钱，所以默认不开。
+    /// </summary>
+    public bool SubProfileAiRewrite { get; init; }
+
     // 多端点轮换（供应商 × AI × 密钥）：保存多条端点，自动轮流用，保证对话不间断
     /// <summary>
     /// 多端点档案：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。

@@ -180,8 +180,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         if (field.Contains("本存档可用角色")) { await ToggleAllowedAsync(item); return; }
         if (field.Contains("查看副设定"))
         {
-            await Shell.Current.DisplayAlert($"「{p.Name}」的设定",
-                _subProfiles.DiffSummary(item.Data.Profile.Id), "好");
+            await Shell.Current.GoToAsync($"subProfile?charId={Uri.EscapeDataString(item.Data.Profile.Id)}");
             return;
         }
         if (field.Contains("回正"))

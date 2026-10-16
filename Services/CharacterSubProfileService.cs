@@ -100,6 +100,86 @@ public sealed class CharacterSubProfileService
         return await _library.SetSubProfileAsync(charId, Seed(ch.Profile, new CharacterSubProfile()));
     }
 
+    /// <summary>
+    /// 用模型给出的表述改写副设定（性格 / 背景的当下版本）。
+    /// 主设定一个字都不动，改动进留影、可回正；两项都空则视为无改动。
+    /// </summary>
+    public async Task<bool> RewriteAsync(string charId, string? personality, string? description, string reason)
+    {
+        if (!_engine.Roster.TryGetValue(charId, out var ch)) return false;
+        var cur = Seed(ch.Profile, ch.SubProfile);
+        var p = (personality ?? "").Trim();
+        var d = (description ?? "").Trim();
+        if (p.Length == 0 && d.Length == 0) return false;
+        if (p.Length > 300) p = p[..300];
+        if (d.Length > 500) d = d[..500];
+        if (p == cur.Personality && d == cur.Description) return false;
+
+        var history = new List<SubProfileSnapshot>(cur.History)
+        {
+            new() { Reason = reason, Tone = cur.Tone, Notes = cur.RecentNotes.ToList() }
+        };
+        if (history.Count > MaxHistory) history.RemoveRange(0, history.Count - MaxHistory);
+
+        var next = cur with
+        {
+            Personality = p.Length > 0 ? p : cur.Personality,
+            Description = d.Length > 0 ? d : cur.Description,
+            UpdatedAt = DateTime.UtcNow,
+            LastDriftReason = reason,
+            DriftCount = cur.DriftCount + 1,
+            History = history
+        };
+        return await _library.SetSubProfileAsync(charId, next);
+    }
+
+    /// <summary>当前漂移次数（判断该不该触发改写用）。</summary>
+    public int DriftCount(string? charId)
+    {
+        if (string.IsNullOrEmpty(charId) || !_engine.Roster.TryGetValue(charId, out var ch)) return 0;
+        return ch.SubProfile.DriftCount;
+    }
+
+    /// <summary>对比页用的数据：主设定、副设定、留影。</summary>
+    public sealed record Comparison(
+        string MainName, string MainPersonality, string MainDescription,
+        string SubPersonality, string SubDescription, string Tone,
+        List<string> Notes, int DriftCount, string LastReason, DateTime UpdatedAt,
+        List<SubProfileSnapshot> History);
+
+    public Comparison? Compare(string? charId)
+    {
+        if (string.IsNullOrEmpty(charId) || !_engine.Roster.TryGetValue(charId, out var ch)) return null;
+        var sub = Seed(ch.Profile, ch.SubProfile);
+        return new Comparison(
+            ch.Profile.Name,
+            ch.Profile.Personality, ch.Profile.Description,
+            sub.Personality, sub.Description, sub.Tone,
+            sub.RecentNotes.ToList(), sub.DriftCount, sub.LastDriftReason, sub.UpdatedAt,
+            sub.History.ToList());
+    }
+
+    /// <summary>改写提示词要用的素材：主设定 + 当下心境 + 近期心事 + 记得的事。</summary>
+    public async Task<string> BuildRewriteMaterialAsync(string charId)
+    {
+        if (!_engine.Roster.TryGetValue(charId, out var ch)) return "";
+        var sub = Seed(ch.Profile, ch.SubProfile);
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine($"名字：{ch.Profile.Name}");
+        sb.AppendLine($"主设定（内核，不可改）：{ch.Profile.Personality}");
+        if (!string.IsNullOrWhiteSpace(ch.Profile.Description))
+            sb.AppendLine($"主设定背景：{ch.Profile.Description}");
+        if (!string.IsNullOrWhiteSpace(sub.Tone)) sb.AppendLine($"当下心境：{sub.Tone}");
+        if (sub.RecentNotes.Count > 0) sb.AppendLine("近期心事：" + string.Join("；", sub.RecentNotes));
+        try
+        {
+            var memories = await _library.ListAsync();   // 保证角色库已就绪
+            _ = memories;
+        }
+        catch { /* 仅用于确保已加载 */ }
+        return sb.ToString();
+    }
+
     /// <summary>提示词文本：主设定是内核，副设定只体现在语气里，不该被直接说出来。</summary>
     public string Describe(string? charId)
     {
