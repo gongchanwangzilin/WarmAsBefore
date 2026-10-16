@@ -30,6 +30,8 @@ public sealed class RuntimeConfigurator
     private readonly MemoryTagService _tags;
     private readonly Modules.AiChat.MemoryVault _memory;
     private readonly Modules.Tools.ToolManager _tools;
+    private readonly Modules.ApiManager.ApiGateway _api;
+    private readonly CostEstimatorService _cost;
     private bool _notifyHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
@@ -38,7 +40,8 @@ public sealed class RuntimeConfigurator
         NotificationService notify, CharacterSettingsResolver charSettings,
         CharacterSubProfileService subProfiles, HumanMemoryService human,
         SemanticNetworkService semantic, MemoryTagService tags,
-        Modules.AiChat.MemoryVault memory, Modules.Tools.ToolManager tools)
+        Modules.AiChat.MemoryVault memory, Modules.Tools.ToolManager tools,
+        Modules.ApiManager.ApiGateway api, CostEstimatorService cost)
     {
         _settings = settings;
         _chat = chat;
@@ -58,7 +61,34 @@ public sealed class RuntimeConfigurator
         _tags = tags;
         _memory = memory;
         _tools = tools;
+        _api = api;
+        _cost = cost;
     }
+
+    /// <summary>把设置里的单价表同步进成本服务，并把真实 usage 接到成本账上。</summary>
+    private async Task SyncModelPricesAsync(List<ModelPrice>? prices)
+    {
+        try
+        {
+            if (!_usageHooked)
+            {
+                _usageHooked = true;
+                _api.UsageReported += (model, prompt, completion) => _cost.Record(model, prompt, completion);
+            }
+            if (prices is null) return;
+            var existing = await _cost.PricesAsync();
+            foreach (var p in prices.Where(p => !string.IsNullOrWhiteSpace(p.Model)))
+            {
+                var cur = existing.FirstOrDefault(e => string.Equals(e.Model, p.Model, StringComparison.OrdinalIgnoreCase));
+                if (cur is not null && Math.Abs(cur.InputPerMillion - p.InputPerMillion) < 1e-9
+                    && Math.Abs(cur.OutputPerMillion - p.OutputPerMillion) < 1e-9) continue;
+                await _cost.SetPriceAsync(p.Model, p.InputPerMillion, p.OutputPerMillion);
+            }
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.SyncModelPrices -> " + ex.Message); }
+    }
+
+    private bool _usageHooked;
 
     public void Start()
     {
@@ -141,7 +171,8 @@ public sealed class RuntimeConfigurator
                 DeepThink = s.DeepThink || s.ComplexPlot,
                 DeepModel = s.DeepModel,
                 MemoryTurns = s.MemoryTurns,
-                ContextTokenLimit = s.ContextTokenLimit
+                ContextTokenLimit = s.ContextTokenLimit,
+                TimeoutSeconds = p.TimeoutSeconds
             });
         }
 
@@ -157,6 +188,10 @@ public sealed class RuntimeConfigurator
             MemoryTurns = s.MemoryTurns,
             ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
         }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
+        // 超时：全局值（端点可在上面的档案里单独覆写）
+        _api.GlobalTimeoutSeconds = s.AiTimeoutSeconds > 0 ? s.AiTimeoutSeconds : 25;
+        // 成本：单价表由设置页维护，用量由 ApiGateway 的真实 usage 记账
+        _ = SyncModelPricesAsync(s.ModelPrices);
         // 角色级覆写：Send/Retry 时按当前角色叠加，未设置覆写的角色行为不变
         _chat.Resolver = _charSettings;
         // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次
@@ -164,6 +199,8 @@ public sealed class RuntimeConfigurator
         _chat.AfterTurn = (charId, note) => _subProfiles.DriftAsync(charId, "对话之后", note);
         // 人类记忆层：回合结束把折叠出的记忆记进去，每轮对话前按人类方式回想
         _chat.Human = _human;
+        // 智能省钱：总结前先算「现在总结 vs 不总结」哪个更省
+        _chat.Cost = _cost;
         // 词义关系网与标签层：对话自动长网、标签清单注入人设
         _chat.Semantic = _semantic;
         _chat.Tags = _tags;

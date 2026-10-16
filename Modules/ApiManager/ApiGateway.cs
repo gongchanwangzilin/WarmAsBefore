@@ -7,10 +7,41 @@ namespace WarmAsBefore.Modules.ApiManager;
 
 public sealed class ApiGateway
 {
-    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(25) };
+    /// <summary>超时交给每次请求自己的 CTS（可按端点覆写），HttpClient 自身不再设固定超时。</summary>
+    private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
     private AiEndpoint _cfg = new();
 
+    /// <summary>全局请求超时（秒），由 RuntimeConfigurator 从设置下发；端点可单独覆写。</summary>
+    public int GlobalTimeoutSeconds { get; set; } = 25;
+
+    /// <summary>一次请求的真实 token 消耗（模型名, 输入, 输出）。成本统计订阅它。</summary>
+    public event Action<string, int, int>? UsageReported;
+
     public void Configure(AiEndpoint cfg) => _cfg = cfg;
+
+    /// <summary>按端点超时（未设则用全局）发请求。</summary>
+    private async Task<HttpResponseMessage> SendWithTimeoutAsync(HttpRequestMessage req, AiEndpoint cfg)
+    {
+        var seconds = cfg.TimeoutSeconds is { } t && t > 0 ? t : GlobalTimeoutSeconds;
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(seconds, 3, 600)));
+        return await _http.SendAsync(req, cts.Token);
+    }
+
+    /// <summary>从响应体里取 usage 并上报（端点不返回 usage 时静默跳过）。</summary>
+    private void ReportUsage(string raw, string model)
+    {
+        if (UsageReported is null) return;
+        try
+        {
+            using var doc = JsonDocument.Parse(raw);
+            if (!doc.RootElement.TryGetProperty("usage", out var usage)) return;
+            var prompt = usage.TryGetProperty("prompt_tokens", out var p) && p.TryGetInt32(out var pv) ? pv : 0;
+            var completion = usage.TryGetProperty("completion_tokens", out var c) && c.TryGetInt32(out var cv) ? cv : 0;
+            if (prompt == 0 && completion == 0) return;
+            UsageReported.Invoke(model, prompt, completion);
+        }
+        catch (Exception ex) { App.WriteLog("ApiGateway.Usage -> " + ex.Message); }
+    }
 
     // ============ 多端点 / 多密钥轮换 ============
 
@@ -116,7 +147,7 @@ public sealed class ApiGateway
 
         try
         {
-            var resp = await _http.SendAsync(req);
+            var resp = await SendWithTimeoutAsync(req, _cfg);
             if (!resp.IsSuccessStatusCode)
             {
                 var errRaw = await resp.Content.ReadAsStringAsync();
@@ -160,9 +191,10 @@ public sealed class ApiGateway
 
         try
         {
-            var resp = await _http.SendAsync(req);
+            var resp = await SendWithTimeoutAsync(req, _cfg);
             resp.EnsureSuccessStatusCode();
             var raw = await resp.Content.ReadAsStringAsync();
+            ReportUsage(raw, cfg.Model);
             return JsonDocument.Parse(raw)
                 .RootElement.GetProperty("choices")[0]
                 .GetProperty("message")
@@ -212,7 +244,7 @@ public sealed class ApiGateway
 
                 try
                 {
-                    var resp = await _http.SendAsync(req);
+                    var resp = await SendWithTimeoutAsync(req, cfg);
                     var raw = await resp.Content.ReadAsStringAsync();
 
                     if (!resp.IsSuccessStatusCode)
@@ -224,6 +256,7 @@ public sealed class ApiGateway
                     }
 
                     AdvanceAfterSuccess(cfg, key);
+                    ReportUsage(raw, cfg.Model);
                     return JsonDocument.Parse(raw)
                         .RootElement.GetProperty("choices")[0]
                         .GetProperty("message")
@@ -236,7 +269,7 @@ public sealed class ApiGateway
                     // 网络类失败换端点也无济于事，直接返回（保持旧行为）
                     if (ex is HttpRequestException && ex.InnerException is System.Net.Sockets.SocketException)
                         return "[网络连接失败，请检查网络]";
-                    if (ex is TimeoutException)
+                    if (ex is TimeoutException || ex is TaskCanceledException)
                         return "[请求超时，请检查网络或重试]";
                     return $"[API错误: {ex.Message}]";
                 }
@@ -290,7 +323,7 @@ public sealed class ApiGateway
 
                 try
                 {
-                    var resp = await _http.SendAsync(req);
+                    var resp = await SendWithTimeoutAsync(req, cfg);
                     var raw = await resp.Content.ReadAsStringAsync();
 
                     if (!resp.IsSuccessStatusCode)
@@ -316,6 +349,7 @@ public sealed class ApiGateway
                     if (parsed.Error is null)
                     {
                         AdvanceAfterSuccess(cfg, key);
+                        ReportUsage(raw, cfg.Model);
                         return parsed;
                     }
                     last = parsed;   // 响应畸形：同样换下一条试试
@@ -327,6 +361,7 @@ public sealed class ApiGateway
                     {
                         HttpRequestException { InnerException: System.Net.Sockets.SocketException } => "[网络连接失败，请检查网络]",
                         TimeoutException => "[请求超时，请检查网络或重试]",
+                        TaskCanceledException => $"[请求超时（超过 {GlobalTimeoutSeconds}s），可在设置里放宽超时]",
                         _ => $"[API错误: {ex.Message}]"
                     };
                     return new TurnResult(null, null, text, false);

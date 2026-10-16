@@ -42,6 +42,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<SemanticNetworkService>();
         // 标签层：AI 打标签 → 分类检索 → 标签清单注入
         builder.Services.AddSingleton<MemoryTagService>();
+        // 智能省钱：真实 token 用量 + 单价 → 花费表与「该不该总结」建议
+        builder.Services.AddSingleton<CostEstimatorService>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件

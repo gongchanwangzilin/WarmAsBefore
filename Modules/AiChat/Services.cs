@@ -203,6 +203,9 @@ public sealed class ChatEngine
     /// <summary>标签层：AI 打的标签会注入人设（每次刷新取前 10~20 个）。</summary>
     public MemoryTagService? Tags { get; set; }
 
+    /// <summary>智能省钱：决定该不该总结、用哪种级别的总结。未注入时按旧行为（到上限就总结）。</summary>
+    public CostEstimatorService? Cost { get; set; }
+
     /// <summary>每个角色当前缓存的标签清单（异步刷新，人设同步读取）。</summary>
     private readonly Dictionary<string, string> _tagContext = new(StringComparer.Ordinal);
 
@@ -719,14 +722,42 @@ public sealed class ChatEngine
         if (msgs.Count <= 2) return null;
 
         var limit = cfg.ContextTokenLimit > 0 ? cfg.ContextTokenLimit : DefaultContextTokenLimit;
-        if (EstimateTokens(msgs) <= limit) return null;   // 没到上限：原样保留，不折腾
+        var total = EstimateTokens(msgs);
+        if (total <= limit) return null;   // 没到上限：原样保留，不折腾
 
         var cutCount = msgs.Count - 2 * ChatSession.KeepTurns - 1;
         if (cutCount <= 0) return null;
         var dropped = msgs.GetRange(1, cutCount);
-        msgs.RemoveRange(1, cutCount);
+        var keptTokens = EstimateTokens(msgs.GetRange(0, 1).Concat(msgs.GetRange(1 + cutCount, msgs.Count - 1 - cutCount)).ToList());
+        var droppedTokens = EstimateTokens(dropped);
 
-        var digest = await SummarizeAsHumanAsync(dropped, cfg);
+        // 智能省钱：先问「现在总结 / 不总结」哪个更划算。
+        // 只有在真的更省、或上下文已经严重顶到上限（1.5 倍）时才动手——
+        // 盲目折叠在编程/办公类对话里会丢细节，AI 反而要重读一遍，花的更多。
+        var isWork = false;
+        CostEstimatorService.Advice? advice = null;
+        if (Cost is not null)
+        {
+            try
+            {
+                isWork = CostEstimatorService.LooksLikeWork(dropped
+                    .Where(m => m.Role is "user" or "assistant")
+                    .TakeLast(8)
+                    .Select(m => m.Content));
+                advice = await Cost.AdviseAsync(cfg.Model, total, keptTokens, droppedTokens, isWork);
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.TrimAdvice -> " + ex.Message); }
+        }
+        var hardLimit = total > limit * 3 / 2;
+        if (advice?.Choice == "none" && !hardLimit)
+        {
+            App.WriteLog($"ChatEngine.Trim: 省钱判断为「先不总结」（{total} tok / 上限 {limit}）");
+            return null;
+        }
+        var light = isWork || advice?.Choice == "summarize" && isWork;
+
+        msgs.RemoveRange(1, cutCount);
+        var digest = await SummarizeAsHumanAsync(dropped, cfg, light);
         if (string.IsNullOrWhiteSpace(digest)) digest = BuildFallbackDigest(dropped);
         if (string.IsNullOrWhiteSpace(digest)) return null;
         MergeDigestIntoSystem(msgs, digest);
@@ -769,8 +800,9 @@ public sealed class ChatEngine
     /// 关键感觉只记单个词；花钱只记「贵/便宜 + 大概数字」；过程细节一律不留。
     /// 每条不超过 40 字、最多 6 条。为了省钱：输入限长（约 4000 字素材）、输出限长（400 token 内）、
     /// 只在超上限时调用一次；调用失败（未配置/网络/端点拒绝）返回空串，由本地兜底接手。
+    /// <paramref name="light"/> = 编程/办公类场景的轻总结：保住具体名词与结论，宁可长一点也不丢细节。
     /// </summary>
-    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped, AiEndpoint cfg)
+    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped, AiEndpoint cfg, bool light = false)
     {
         if (!_api.HasAnyEndpoint) return "";
         var material = BuildMemoryMaterial(dropped);
@@ -779,6 +811,16 @@ public sealed class ChatEngine
         try
         {
             var who = string.IsNullOrWhiteSpace(_active?.Name) ? "我" : _active!.Name;
+            // 轻总结（编程/办公类对话）：保住具体名词、数字与结论，不追求极简——
+            // 这类内容一旦被折叠得太狠，AI 后面会重新问一遍，反而更贵。
+            var rules = light
+                ? "1. 保留具体的东西：文件/函数/接口的名字、数字、结论、约定——这些丢了对方还得重新问一遍；\n"
+                + "2. 可以省掉的是客套与重复确认，不是内容；\n"
+                + "3. 每条不超过 60 字，最多 8 条，第一人称口语。"
+                : "1. 只记关键点：发生了什么、和谁、在哪、什么时候、为什么——一件事一句话；\n"
+                + "2. 关键感觉只记一个词（好吃 / 辣 / 开心 / 舍不得…），绝不展开描写；\n"
+                + "3. 花钱只记「贵 / 便宜」和大概数字，过程、细节、废话一律不留；\n"
+                + "4. 越短越好（每条不超过 40 字），最多 6 条，第一人称口语。";
             var body = new
             {
                 model = cfg.Model,
@@ -792,10 +834,7 @@ public sealed class ChatEngine
                             $"下面是「{who}」和对方的对话记录。请把它整理成{who}脑子里的记忆——" +
                             "像真人过了几天之后回想那件事，不是复述，不是日记。\n" +
                             "真人记忆的规则（严格遵守）：\n" +
-                            "1. 只记关键点：发生了什么、和谁、在哪、什么时候、为什么——一件事一句话；\n" +
-                            "2. 关键感觉只记一个词（好吃 / 辣 / 开心 / 舍不得…），绝不展开描写；\n" +
-                            "3. 花钱只记「贵 / 便宜」和大概数字，过程、细节、废话一律不留；\n" +
-                            "4. 越短越好（每条不超过 40 字），最多 6 条，第一人称口语。\n" +
+                            rules + "\n" +
                             "例：\n" +
                             "· 昨天在商场三楼吃了火锅，很辣，好吃，你请的。\n" +
                             "· 你送我一个杯子，我很喜欢，那天下午你有点不好意思。\n\n" +

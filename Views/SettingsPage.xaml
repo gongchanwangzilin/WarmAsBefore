@@ -427,16 +427,30 @@
                             <Label Text="保存多条端点（一条 = 供应商 + 某款 AI + 多枚密钥）。开启后密钥与端点自动轮流使用；某条失灵就换下一条，保证对话不间断。"
                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding AiRotationEnabled}" /></Grid>
+                        <!-- 请求超时：慢模型/长思考端点可在每条端点里单独覆写 -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="请求超时（秒）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="全局默认；某条端点需要更久时，在下面那条端点的「超时」里单独填" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="90" ItemsSource="{Binding TimeoutChoices}"
+                                    SelectedItem="{Binding AiTimeoutSeconds}" FontSize="13" /></Grid>
                         <CollectionView ItemsSource="{Binding AiProfiles}" SelectionMode="None" MaximumHeightRequest="220">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AiProfileRow">
-                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6" Padding="0,4">
                                         <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
+                                            <Button Text="↑" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveAiProfileUpCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="↓" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveAiProfileDownCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" LineBreakMode="TailTruncation" />
                                         </VerticalStackLayout>
-                                        <Switch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
-                                        <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                        <Switch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                                        <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveAiProfileCommand}"
                                                 CommandParameter="{Binding .}" />
                                     </Grid>
@@ -455,9 +469,40 @@
                         <Entry Text="{Binding NewAiProfileUrl}" Placeholder="端点（https://…/v1/chat/completions）"
                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
-                        <Editor Text="{Binding NewAiProfileKeys}" Placeholder="密钥（一行一枚，多枚轮流用）" HeightRequest="72"
-                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Entry Grid.Column="0" Text="{Binding NewAiProfileKeys}" Placeholder="密钥（一行一枚，多枚轮流用）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding NewAiProfileTimeout}" Placeholder="超时秒" WidthRequest="80"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+
+                        <!-- 智能省钱：真实用量 + 单价 → 花费表与「该不该总结」建议 -->
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Label Text="花费与省钱" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="端点返回 usage 时自动记账。录入单价（每百万 token）后就能算钱，并预测「现在总结 / 不总结」哪个更省——编程办公类对话盲目总结会丢细节、AI 重读反而更贵。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding CostSummary}" Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="6">
+                            <Entry Grid.Column="0" Text="{Binding NewPriceModel}" Placeholder="模型名"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                            <Entry Grid.Column="1" Text="{Binding NewPriceInput}" Placeholder="输入价/百万"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                            <Entry Grid.Column="2" Text="{Binding NewPriceOutput}" Placeholder="输出价/百万"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                            <Button Grid.Column="3" Text="保存单价" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                    Command="{Binding AddModelPriceCommand}" />
+                        </Grid>
+                        <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                            <Button Text="刷新用量 / 花费" Style="{StaticResource BtnGhost}" FontSize="12"
+                                    Command="{Binding RefreshCostCommand}" />
+                            <Button Text="按当前上限试算" Style="{StaticResource BtnGhost}" FontSize="12"
+                                    Command="{Binding TryAdviceCommand}" />
+                        </HorizontalStackLayout>
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <Button Grid.Column="0" Text="＋添加端点" Style="{StaticResource BtnGhost}" FontSize="13"
                                     Command="{Binding AddAiProfileCommand}" />

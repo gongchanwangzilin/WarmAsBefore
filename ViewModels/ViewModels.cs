@@ -5,6 +5,7 @@ using WarmAsBefore.Services;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.Screen;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.IO.Compression;
 
 namespace WarmAsBefore.ViewModels;
@@ -204,27 +205,39 @@ public sealed partial class AiProfileRow : ObservableObject
     [ObservableProperty] private string _keysText = "";
     [ObservableProperty] private bool _enabled = true;
 
+    /// <summary>该端点的超时时长（秒）：留空或 0 = 用全局设置。</summary>
+    [ObservableProperty] private string _timeoutSeconds = "";
+
     /// <summary>列表主标题：优先名称，其次端点。</summary>
     public string Title =>
         !string.IsNullOrWhiteSpace(Name) ? Name
         : !string.IsNullOrWhiteSpace(Url) ? Url
         : "（未命名端点）";
 
-    /// <summary>列表副标题：模型 + 密钥数量。</summary>
+    /// <summary>列表副标题：模型 + 密钥数量 + 超时覆写。</summary>
     public string Summary
     {
         get
         {
             var count = SplitKeys(KeysText).Count;
             var model = string.IsNullOrWhiteSpace(Model) ? "（未填模型）" : Model;
-            return $"{model} · {count}枚密钥";
+            var timeout = ParseTimeout() is { } t ? $" · 超时{t}s" : "";
+            return $"{model} · {count}枚密钥{timeout}";
         }
+    }
+
+    /// <summary>解析超时覆写：非法或空返回 null（表示跟随全局）。</summary>
+    public int? ParseTimeout()
+    {
+        if (string.IsNullOrWhiteSpace(TimeoutSeconds)) return null;
+        return int.TryParse(TimeoutSeconds.Trim(), out var v) && v > 0 ? Math.Clamp(v, 3, 600) : null;
     }
 
     partial void OnNameChanged(string value) => OnPropertyChanged(nameof(Title));
     partial void OnUrlChanged(string value) => OnPropertyChanged(nameof(Title));
     partial void OnModelChanged(string value) => OnPropertyChanged(nameof(Summary));
     partial void OnKeysTextChanged(string value) => OnPropertyChanged(nameof(Summary));
+    partial void OnTimeoutSecondsChanged(string value) => OnPropertyChanged(nameof(Summary));
 
     /// <summary>把多行文本拆成密钥列表（去空行、去首尾空白）。</summary>
     public static List<string> SplitKeys(string? text) =>
@@ -239,6 +252,7 @@ public sealed partial class AiProfileRow : ObservableObject
         Model = (Model ?? "").Trim(),
         Keys = SplitKeys(KeysText),
         Enabled = Enabled,
+        TimeoutSeconds = ParseTimeout()
     };
 }
 
@@ -255,13 +269,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly CharacterLibrary _library;
     private readonly Services.VisionService _vision;
     private readonly Services.SkillLibrary _skills;
+    private readonly Services.CostEstimatorService _cost;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
         Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
         Modules.Tools.ToolManager tools, SpeechService speech,
         Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision,
-        Services.SkillLibrary skills)
+        Services.SkillLibrary skills, Services.CostEstimatorService cost)
     {
         _settings = settings;
         _theme = theme;
@@ -270,6 +285,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _runtimes = runtimes;
         _tools = tools;
         _skills = skills;
+        _cost = cost;
         // 注入 DI 单例（已在 MauiProgram 注册），不再每次 new StorageProvider + 触碰 DPAPI
         _sandbox = sandbox;
         _speech = speech;
@@ -339,6 +355,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _deepThink = s.DeepThink;
         _deepModel = s.DeepModel;
         _memoryTurns = s.MemoryTurns;
+        _aiTimeoutSeconds = s.AiTimeoutSeconds > 0 ? s.AiTimeoutSeconds : 25;
         _memoryWindowDays = MemoryWindowChoices.Contains(s.MemoryWindowDays) ? s.MemoryWindowDays : HumanMemoryMath.DefaultWindowDays;
         _memoryRecallRandomness = Math.Clamp(s.MemoryRecallRandomness, 0, 1);
 
@@ -737,6 +754,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _newAiProfileUrl = "";
     [ObservableProperty] private string _newAiProfileModel = "";
     [ObservableProperty] private string _newAiProfileKeys = "";
+    /// <summary>新端点的超时覆写（秒，留空 = 跟随全局）。</summary>
+    [ObservableProperty] private string _newAiProfileTimeout = "";
 
     /// <summary>把一行挂上防抖落盘后加入列表。</summary>
     private void AttachAiProfile(AiProfileRow row)
@@ -760,11 +779,13 @@ public sealed partial class SettingsViewModel : ObservableObject
             Url = (NewAiProfileUrl ?? "").Trim(),
             Model = (NewAiProfileModel ?? "").Trim(),
             KeysText = (NewAiProfileKeys ?? "").Trim(),
+            TimeoutSeconds = (NewAiProfileTimeout ?? "").Trim(),
         });
         NewAiProfileName = "";
         NewAiProfileUrl = "";
         NewAiProfileModel = "";
         NewAiProfileKeys = "";
+        NewAiProfileTimeout = "";
         UpdateAiProfileStatus();
         PersistSettings();
     }
@@ -789,12 +810,38 @@ public sealed partial class SettingsViewModel : ObservableObject
         PersistSettings();
     }
 
+    /// <summary>
+    /// 把端点往上挪一位：列表顺序就是使用顺序（轮换时优先用靠前的，失灵再往后换）。
+    /// </summary>
+    [RelayCommand]
+    private void MoveAiProfileUp(AiProfileRow? row)
+    {
+        if (row is null) return;
+        var idx = AiProfiles.IndexOf(row);
+        if (idx <= 0) return;
+        AiProfiles.Move(idx, idx - 1);
+        PersistSettings();
+        UpdateAiProfileStatus();
+    }
+
+    /// <summary>把端点往下挪一位。</summary>
+    [RelayCommand]
+    private void MoveAiProfileDown(AiProfileRow? row)
+    {
+        if (row is null) return;
+        var idx = AiProfiles.IndexOf(row);
+        if (idx < 0 || idx >= AiProfiles.Count - 1) return;
+        AiProfiles.Move(idx, idx + 1);
+        PersistSettings();
+        UpdateAiProfileStatus();
+    }
+
     /// <summary>刷新多端点区的状态文案。</summary>
     private void UpdateAiProfileStatus()
     {
         AiProfileStatus = AiProfiles.Count == 0
             ? "还没有多端点。填好地址 / 模型 / 密钥后点「＋添加」。"
-            : $"已保存 {AiProfiles.Count} 条端点。";
+            : $"已保存 {AiProfiles.Count} 条端点。按列表顺序使用：靠前的先用，失灵自动换下一条（可用 ↑↓ 调整顺序）。";
     }
 
     partial void OnAiRotationEnabledChanged(bool value) => PersistSettings();
@@ -1276,6 +1323,82 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private bool _alwaysOnTop;
     [ObservableProperty] private int _petIdleMinutes;
+
+    // ============ 超时与成本（智能省钱） ============
+
+    /// <summary>全局请求超时（秒）。</summary>
+    [ObservableProperty] private int _aiTimeoutSeconds = 25;
+    public List<int> TimeoutChoices { get; } = new() { 10, 15, 25, 40, 60, 120, 180 };
+    partial void OnAiTimeoutSecondsChanged(int value) => PersistSettings();
+
+    [ObservableProperty] private string _costSummary = "点「刷新用量」看看花了多少。";
+
+    /// <summary>单价表快照（落盘用）：由成本服务维护，这里只取当前值。</summary>
+    private List<ModelPrice> ModelPricesSnapshot
+    {
+        get
+        {
+            try { return _cost.PricesAsync().GetAwaiter().GetResult(); }
+            catch { return new List<ModelPrice>(); }
+        }
+    }
+    [ObservableProperty] private string _newPriceModel = "";
+    [ObservableProperty] private string _newPriceInput = "";
+    [ObservableProperty] private string _newPriceOutput = "";
+
+    [RelayCommand]
+    private async Task RefreshCost()
+    {
+        try { CostSummary = await _cost.ReportTextAsync(); }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsVM.RefreshCost -> " + ex.Message);
+            CostSummary = "读取用量失败。";
+        }
+    }
+
+    /// <summary>录入单价：按「每百万 token」填输入价与输出价。</summary>
+    [RelayCommand]
+    private async Task AddModelPrice()
+    {
+        var model = (NewPriceModel ?? "").Trim();
+        if (model.Length == 0) { CostSummary = "先填模型名（要和请求里用的模型名一致）。"; return; }
+        double Parse(string s) => double.TryParse((s ?? "").Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : -1;
+        var input = Parse(NewPriceInput);
+        var output = Parse(NewPriceOutput);
+        if (input < 0 || output < 0) { CostSummary = "输入价与输出价都要填数字（每百万 token，例如 2 / 8）。"; return; }
+
+        await _cost.SetPriceAsync(model, input, output);
+        // 单价表同时写回设置，保证重开设置页与 RuntimeConfigurator 下发时一致
+        _settings.Apply(_settings.Current with
+        {
+            ModelPrices = (await _cost.PricesAsync()).ToList()
+        });
+        await _settings.Persist();
+        NewPriceModel = "";
+        NewPriceInput = "";
+        NewPriceOutput = "";
+        await RefreshCost();
+    }
+
+    /// <summary>按当前上下文上限试算一次「现在总结 vs 不总结」（真实决策发生在对话里，这里是预估）。</summary>
+    [RelayCommand]
+    private async Task TryAdvice()
+    {
+        try
+        {
+            var limit = ContextTokenLimit > 0 ? ContextTokenLimit : 32000;
+            var keep = Math.Max(500, limit / 3);
+            var dropped = Math.Max(500, limit - keep);
+            var advice = await _cost.AdviseAsync(AiModel, limit, keep, dropped, isWork: false);
+            CostSummary = advice.Reason;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsVM.TryAdvice -> " + ex.Message);
+            CostSummary = "试算失败：" + ex.Message;
+        }
+    }
 
     // ============ 能力包（Skills） ============
 
@@ -1792,6 +1915,8 @@ GlassLightWidth = GlassLightWidth,
                     .Where(p => !string.IsNullOrWhiteSpace(p.Url) || p.Keys.Count > 0)
                     .ToList(),
                 AiRotationEnabled = AiRotationEnabled,
+                AiTimeoutSeconds = AiTimeoutSeconds > 0 ? AiTimeoutSeconds : 25,
+                ModelPrices = ModelPricesSnapshot,
                 ContextTokenLimit = Math.Clamp(_contextTokenLimit > 0 ? _contextTokenLimit : 32000, 4000, 256000),
 
                 TtsEnabled = TtsEnabled,
