@@ -148,6 +148,13 @@ public sealed record UserSettings
     /// </summary>
     public bool SubProfileAiRewrite { get; init; }
 
+    /// <summary>
+    /// 允许模型辅助建立词义关系网（默认关闭）。
+    /// 关闭时关联网只靠共现统计自动长；打开后每 20 轮让模型补几条它认为相关的联系，
+    /// 这些边标记为 ai 来源，人工纠错仍然优先。
+    /// </summary>
+    public bool SemanticAiAssist { get; init; }
+
     // 多端点轮换（供应商 × AI × 密钥）：保存多条端点，自动轮流用，保证对话不间断
     /// <summary>
     /// 多端点档案：一条 =「供应商 + 某款 AI（模型）+ 该组合的密钥池」。

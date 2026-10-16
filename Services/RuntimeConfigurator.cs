@@ -209,6 +209,8 @@ public sealed class RuntimeConfigurator
         // 词义关系网与标签层：对话自动长网、标签清单注入人设
         _chat.Semantic = _semantic;
         _chat.Tags = _tags;
+        // 关系网的模型辅助（默认关闭）：每 20 轮补几条关联
+        _chat.SemanticAiAssistEnabled = s.SemanticAiAssist;
         // 好感时刻/带截图的时刻也进人类记忆层（照片式记忆）
         _memory.Human = _human;
 
