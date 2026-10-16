@@ -38,6 +38,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("cg-view", typeof(Views.CgViewPage));
         Routing.RegisterRoute("battle", typeof(Views.BattlePage));
         Routing.RegisterRoute("materials", typeof(Views.MaterialsPage));
+        // 立绘标定：非 1080×1920 逻辑画布的素材从这里调试后再上场
+        Routing.RegisterRoute("portraitCalibration", typeof(Views.PortraitCalibrationPage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
         Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
         Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));

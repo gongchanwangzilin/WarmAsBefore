@@ -34,6 +34,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<CharacterSettingsResolver>();
         // 副设定：主设定为内核，副设定随经历漂移
         builder.Services.AddSingleton<CharacterSubProfileService>();
+        // 立绘标定：素材按 1080×1920 逻辑画布标定一次，各处共用
+        builder.Services.AddSingleton<PortraitCalibrationService>();
         builder.Services.AddSingleton<PetService>();
         builder.Services.AddSingleton<MapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
@@ -139,6 +141,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<CgViewPage>();
         builder.Services.AddTransient<BattlePage>();
         builder.Services.AddTransient<MaterialsPage>();
+        builder.Services.AddTransient<PortraitCalibrationPage>();
         builder.Services.AddTransient<Views.SceneLibraryPage>();
         builder.Services.AddTransient<SceneLibraryViewModel>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
@@ -152,6 +155,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<AffectionLevelUpViewModel>();
         builder.Services.AddTransient<CgViewViewModel>();
         builder.Services.AddTransient<MaterialsViewModel>();
+        builder.Services.AddTransient<PortraitCalibrationViewModel>();
         builder.Services.AddTransient<Views.ForceCastPage>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
