@@ -59,6 +59,82 @@ public sealed class ChatEngine
     public Func<string, string?>? SubProfileProvider { get; set; }
 
     /// <summary>
+    /// 副设定走「模型改写」的开关与素材来源。两者都由 RuntimeConfigurator 注入；
+    /// 开关关闭或素材为空时完全不调用模型。
+    /// </summary>
+    public bool SubProfileAiRewriteEnabled { get; set; }
+    public Func<string, Task<string>>? SubProfileMaterial { get; set; }
+
+    /// <summary>模型给出新的副设定表述后，由它负责真正写入（charId, 性格, 背景）。</summary>
+    public Func<string, string?, string?, Task>? SubProfileRewritten { get; set; }
+
+    /// <summary>每隔多少轮对话才做一次模型改写（默认 12 轮，避免频繁花钱）。</summary>
+    public int SubProfileRewriteEveryTurns { get; set; } = 12;
+
+    private readonly Dictionary<string, int> _turnsSinceRewrite = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// 让模型更新副设定的表述（可选、低频、省钱）：只输出两行「性格：… / 背景：…」。
+    /// 未配置端点或调用失败时返回空，绝不打断对话。
+    /// </summary>
+    public async Task<(string? Personality, string? Description)> RewriteSubProfileAsync(string charId)
+    {
+        if (!_api.HasAnyEndpoint) return (null, null);
+        try
+        {
+            var material = SubProfileMaterial is null ? "" : await SubProfileMaterial(charId);
+            if (string.IsNullOrWhiteSpace(material)) return (null, null);
+
+            var cfg = CfgFor(charId);
+            var body = new
+            {
+                model = cfg.Model,
+                messages = new object[]
+                {
+                    new
+                    {
+                        role = "system",
+                        content = "你在更新一个人「现在的样子」的自我描述。她的人格内核不变，"
+                                + "变的是经历这些之后她对自己的看法与当下的状态。只输出两行，不要解释、不要标题。"
+                    },
+                    new
+                    {
+                        role = "user",
+                        content = material
+                            + "\n请输出两行：\n"
+                            + "性格：<内核不变，但带上这段时间的变化，60 字以内>\n"
+                            + "背景：<她此刻的处境与在意的事，80 字以内>"
+                    }
+                },
+                temperature = 0.7,
+                max_tokens = 300
+            };
+            var raw = await _api.ChatRaw(body);
+            if (string.IsNullOrWhiteSpace(raw)) return (null, null);
+            return ParseRewrite(raw!);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.RewriteSubProfile -> " + ex.Message);
+            return (null, null);
+        }
+    }
+
+    private static (string? Personality, string? Description) ParseRewrite(string raw)
+    {
+        string? p = null, d = null;
+        foreach (var line in raw.Replace("\r\n", "\n").Split('\n'))
+        {
+            var t = line.Trim().TrimStart('-', '·', '*', ' ', '\t');
+            if (t.StartsWith("性格：", StringComparison.Ordinal) || t.StartsWith("性格:", StringComparison.Ordinal))
+                p = t[3..].Trim();
+            else if (t.StartsWith("背景：", StringComparison.Ordinal) || t.StartsWith("背景:", StringComparison.Ordinal))
+                d = t[3..].Trim();
+        }
+        return (string.IsNullOrWhiteSpace(p) ? null : p, string.IsNullOrWhiteSpace(d) ? null : d);
+    }
+
+    /// <summary>
     /// 每回合结束后回调（角色 id，折叠出的记忆要点或 null）。用于让副设定随时间漂移。
     /// </summary>
     public Func<string, string?, Task>? AfterTurn { get; set; }
@@ -110,6 +186,31 @@ public sealed class ChatEngine
             RefreshPersona(charId);
         }
         catch (Exception ex) { App.WriteLog("ChatEngine.AfterTurn -> " + ex.Message); }
+
+        // 副设定的模型改写：默认关闭；开启后每 12 轮才做一次（省钱）。
+        // 改的是「她对自己的表述」，主设定不动，随时可回正。
+        if (SubProfileAiRewriteEnabled && SubProfileRewritten is not null)
+        {
+            try
+            {
+                var turns = (_turnsSinceRewrite.TryGetValue(charId, out var t) ? t : 0) + 1;
+                if (turns >= Math.Max(2, SubProfileRewriteEveryTurns))
+                {
+                    _turnsSinceRewrite[charId] = 0;
+                    var (p, d) = await RewriteSubProfileAsync(charId);
+                    if (p is not null || d is not null)
+                    {
+                        await SubProfileRewritten(charId, p, d);
+                        RefreshPersona(charId);
+                    }
+                }
+                else
+                {
+                    _turnsSinceRewrite[charId] = turns;
+                }
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.SubProfileRewrite -> " + ex.Message); }
+        }
     }
 
     /// <summary>

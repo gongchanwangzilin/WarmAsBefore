@@ -159,6 +159,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<BattlePage>();
         builder.Services.AddTransient<MaterialsPage>();
         builder.Services.AddTransient<PortraitCalibrationPage>();
+        builder.Services.AddTransient<SubProfilePage>();
         builder.Services.AddTransient<Views.SceneLibraryPage>();
         builder.Services.AddTransient<SceneLibraryViewModel>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册
@@ -173,6 +174,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<CgViewViewModel>();
         builder.Services.AddTransient<MaterialsViewModel>();
         builder.Services.AddTransient<PortraitCalibrationViewModel>();
+        builder.Services.AddTransient<SubProfileViewModel>();
         builder.Services.AddTransient<Views.ForceCastPage>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 

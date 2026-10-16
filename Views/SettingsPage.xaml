@@ -403,6 +403,12 @@
                                     Value="{Binding MemoryRecallRandomness}" /></Grid>
                         <Label Text="需要个别角色记性好/记性差时，在角色库 →「参数覆写」里单独设置这两个值。"
                                Style="{StaticResource TxtCaption}" />
+                        <!-- 副设定：由模型参与改写（默认关闭，因为要花钱） -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="让模型参与副设定改写" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后每 12 轮对话，让模型重新表述一次「她现在的样子」（性格与处境）；主设定不动、随时可回正。默认关闭以免额外花钱。"
+                                   Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SubProfileAiRewrite}" /></Grid>
                         <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                         <Label Text="识图模型（可选）" Style="{StaticResource TxtBodySm}" />

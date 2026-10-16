@@ -40,6 +40,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("materials", typeof(Views.MaterialsPage));
         // 立绘标定：非 1080×1920 逻辑画布的素材从这里调试后再上场
         Routing.RegisterRoute("portraitCalibration", typeof(Views.PortraitCalibrationPage));
+        // 主设定 × 副设定对比
+        Routing.RegisterRoute("subProfile", typeof(Views.SubProfilePage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
         Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
         Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));

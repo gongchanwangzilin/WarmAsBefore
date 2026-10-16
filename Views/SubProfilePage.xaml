@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.SubProfilePage"
+             Title="主设定 × 副设定"
+             BackgroundColor="{DynamicResource PageBg}">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="16" Spacing="12">
+            <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" />
+            <Label Text="左边是主设定（角色库规定，运行时不改）；右边是副设定（随经历漂移的当下之我）。"
+                   Style="{StaticResource TxtCaption}" />
+            <Label Text="{Binding DriftSummary}" Style="{StaticResource TxtBodySm}" />
+
+            <!-- 左右对比 -->
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Border Grid.Column="0" Style="{StaticResource CardNeumorph}" Padding="14,12">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="主设定（内核）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                        <Label Text="性格" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding MainPersonality}" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="背景" Style="{StaticResource TxtCaption}" Margin="0,6,0,0" />
+                        <Label Text="{Binding MainDescription}" Style="{StaticResource TxtBodySm}" />
+                    </VerticalStackLayout>
+                </Border>
+                <Border Grid.Column="1" Style="{StaticResource CardNeumorph}" Padding="14,12">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="副设定（当下之我）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                        <Label Text="{Binding PersonalityDiffNote}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding SubPersonality}" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="{Binding DescriptionDiffNote}" Style="{StaticResource TxtCaption}" Margin="0,6,0,0" />
+                        <Label Text="{Binding SubDescription}" Style="{StaticResource TxtBodySm}" />
+                        <Label Text="此刻心境" Style="{StaticResource TxtCaption}" Margin="0,6,0,0" />
+                        <Label Text="{Binding Tone}" Style="{StaticResource TxtBodySm}" />
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+
+            <!-- 心事 -->
+            <Border Style="{StaticResource CardNeumorph}" Padding="14,12">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="近期心事（她自己放在心上的事）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                    <Label Text="{Binding NotesText}" Style="{StaticResource TxtBodySm}" />
+                    <Label Text="心事由每次折叠出的记忆要点累积而来，最多保留 8 条、留影 12 份。"
+                           Style="{StaticResource TxtCaption}" IsVisible="{Binding HasNotes}" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 漂移留影 -->
+            <Label Text="漂移留影（她是怎么一步步变成这样的）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                   IsVisible="{Binding HasHistory}" />
+            <CollectionView ItemsSource="{Binding History}" IsVisible="{Binding HasHistory}">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SubProfileViewModel+DriftItem">
+                        <Border Style="{StaticResource CardNeumorph}" Padding="14,10" Margin="0,0,0,8">
+                            <VerticalStackLayout Spacing="3">
+                                <Label Text="{Binding Time}" Style="{StaticResource TxtCaption}" />
+                                <Label Text="{Binding Reason}" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="{Binding Tone}" Style="{StaticResource TxtCaption}" />
+                                <Label Text="{Binding Notes}" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                <Button Text="刷新" Command="{Binding RefreshCommand}" FontSize="13" />
+                <Button Text="副设定回正" Command="{Binding ResetCommand}" FontSize="13" />
+            </HorizontalStackLayout>
+            <Label Text="在设置里打开「让模型参与副设定改写」后，她会每 12 轮对话重新表述一次「自己现在的样子」（默认关闭，因为要花钱）。"
+                   Style="{StaticResource TxtCaption}" />
+        </VerticalStackLayout>
+    </ScrollView>
+</ContentPage>
