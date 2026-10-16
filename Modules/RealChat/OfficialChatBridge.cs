@@ -153,23 +153,38 @@ public sealed class OfficialChatBridge
     /// <summary>
     /// 认出「用户本人」：设置里填了 openid 就按它比对；没填则记下最近一个私聊过的人，
     /// 让主动发消息有落点（否则角色想给你发消息也不知道发给谁）。
+    /// 微信与 QQ 各记各的 openid——两个平台的身份不通用。
     /// </summary>
     private void RememberUserIfKnown(RealChatMessage msg)
     {
         if (msg.IsGroup) return;   // 群里的发言不能当成用户本人
-        var configured = (_settings.Current.QqUserOpenId ?? "").Trim();
-        if (configured.Length > 0)
+        var fromQq = msg.Channel == _qq.Name;
+        var configured = fromQq ? (_settings.Current.QqUserOpenId ?? "").Trim() : "";
+
+        if (fromQq)
         {
-            IsKnownUser = string.Equals(configured, msg.SenderId, StringComparison.Ordinal);
-            if (IsKnownUser) UserOpenId = msg.SenderId;
+            if (configured.Length > 0)
+            {
+                IsKnownUser = string.Equals(configured, msg.SenderId, StringComparison.Ordinal);
+                if (IsKnownUser) UserOpenId = msg.SenderId;
+            }
+            else
+            {
+                UserOpenId = msg.SenderId;
+                UserName = msg.SenderName;
+            }
             return;
         }
-        UserOpenId = msg.SenderId;
-        UserName = msg.SenderName;
+
+        // 微信：公众号 openid 无法预先填写（每次关注都不同），只记最近私聊过的人
+        WeChatUserOpenId = msg.SenderId;
+        if (string.IsNullOrWhiteSpace(UserName)) UserName = msg.SenderName;
     }
 
-    /// <summary>最近一次与机器人私聊的用户 openid（主动发消息的目标）。</summary>
+    /// <summary>最近一次与机器人私聊的用户 openid（QQ）。</summary>
     public string UserOpenId { get; private set; } = "";
+    /// <summary>最近一次与公众号私聊的用户 openid（微信）。</summary>
+    public string WeChatUserOpenId { get; private set; } = "";
     public string UserName { get; private set; } = "";
     /// <summary>上一次私聊是否确认为设置里指定的「用户本人」。</summary>
     public bool IsKnownUser { get; private set; }
@@ -201,8 +216,8 @@ public sealed class OfficialChatBridge
         if (body.Length == 0) return "要发的内容是空的。";
         if (!s.QqProactiveEnabled)
             return "现在没开「允许角色主动发消息」，所以这条没发出去。可以在设置里打开。";
-        if (string.IsNullOrWhiteSpace(UserOpenId))
-            return "还不知道该发给谁——让对方先在 QQ 上跟机器人说句话，就能认出他来了。";
+        if (ResolveTarget() is null)
+            return "还不知道该发给谁——让对方先在 QQ 或微信上跟机器人说句话，就能认出他来了。";
 
         lock (_sentLog)
         {
@@ -222,6 +237,24 @@ public sealed class OfficialChatBridge
         OutboundPendingChanged?.Invoke();
         _notify.Show("有一条消息等着确认", body);
         return "这条消息要等用户确认后才会真的发出去（已排队）。你可以先告诉对方你发了什么。";
+    }
+
+    /// <summary>
+    /// 挑一个能用的外发通道与目标：默认优先 QQ，QQ 没在跑或有设置偏好时用微信。
+    /// 两个通道的身份不通用（QQ openid 与公众号 openid 是两套）。
+    /// </summary>
+    private (bool IsQq, string OpenId)? ResolveTarget()
+    {
+        var prefer = (_settings.Current.RealOutboundChannel ?? "auto").Trim().ToLowerInvariant();
+        var qqReady = _qq.IsRunning && !string.IsNullOrWhiteSpace(UserOpenId);
+        var wxReady = _wechat.IsRunning && !string.IsNullOrWhiteSpace(WeChatUserOpenId);
+
+        if (prefer == "wechat") return wxReady ? (false, WeChatUserOpenId) : null;
+        if (prefer == "qq") return qqReady ? (true, UserOpenId) : null;
+
+        if (qqReady) return (true, UserOpenId);
+        if (wxReady) return (false, WeChatUserOpenId);
+        return null;
     }
 
     /// <summary>确认并发出某条待确认消息。</summary>
@@ -247,17 +280,33 @@ public sealed class OfficialChatBridge
     /// <summary>待确认列表变化（主界面据此显示/隐藏确认入口）。</summary>
     public event Action? OutboundPendingChanged;
 
+    /// <summary>当前会走哪个通道发（界面提示用）。</summary>
+    public string OutboundChannelLabel => ResolveTarget() is { } t
+        ? (t.IsQq ? "QQ" : "微信公众号")
+        : "无可用通道";
+
     private async Task<bool> SendNowAsync(string text)
     {
-        var target = UserOpenId;
-        if (string.IsNullOrWhiteSpace(target)) return false;
-        var ok = await _qq.SendPrivateAsync(target, Services.StickerLibrary.ToPlainFallback(text));
+        var target = ResolveTarget();
+        if (target is null)
+        {
+            _notify.Show("消息没发出去", "没有可用的通道或还不知道发给谁。");
+            return false;
+        }
+
+        var plain = Services.StickerLibrary.ToPlainFallback(text);
+        var ok = target.Value.IsQq
+            ? await _qq.SendPrivateAsync(target.Value.OpenId, plain)
+            : await _wechat.SendPrivateAsync(target.Value.OpenId, plain);
+
         lock (_sentLog)
         {
             if (ok) _sentLog.Add(DateTime.Now);
         }
-        App.WriteLog($"OfficialChatBridge.Outbound -> {(ok ? "已发送" : "发送失败")}：{text}");
-        if (!ok) _notify.Show("消息没发出去", "可能是超过 48 小时没互动，QQ 不允许机器人主动发起会话。");
+        App.WriteLog($"OfficialChatBridge.Outbound({(target.Value.IsQq ? "QQ" : "微信")}) -> {(ok ? "已发送" : "发送失败")}：{text}");
+        if (!ok)
+            _notify.Show("消息没发出去",
+                "可能超过 48 小时没互动，平台不允许机器人主动发起会话；让对方先回一句即可。");
         return ok;
     }
 

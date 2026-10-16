@@ -250,6 +250,9 @@ public sealed record UserSettings
 
     /// <summary>主动发消息的每小时上限（防骚扰 / 防误触刷屏）。</summary>
     public int QqProactivePerHour { get; init; } = 3;
+
+    /// <summary>主动发消息优先走哪个通道：auto=有 QQ 就 QQ、否则微信；也可固定 qq / wechat。</summary>
+    public string RealOutboundChannel { get; init; } = "auto";
     public bool WechatEnabled { get; init; }
     public string WechatAppId { get; init; } = "";
     public string WechatAppSecret { get; init; } = "";

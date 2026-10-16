@@ -771,6 +771,11 @@
                             <Label Text="防止误触或被刷屏；超出后 AI 会被告知「先别打扰对方」" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Picker Grid.Column="1" WidthRequest="90" ItemsSource="{Binding QqProactiveRateChoices}"
                                     SelectedItem="{Binding QqProactivePerHour}" FontSize="13" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="走哪个通道" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="QQ 与微信的身份是两套 openid；自动 = 谁在线且认识你就走谁" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="110" ItemsSource="{Binding OutboundChannelChoices}"
+                                    SelectedItem="{Binding OutboundChannelDisplay}" FontSize="13" /></Grid>
 
                         <Label Text="{Binding [Settings_WechatTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,10,0,0" />
                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
