@@ -32,7 +32,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
                     Padding="16,8">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="12">
                     <VerticalStackLayout Spacing="0">
                         <Label Text="{Binding CurrentTimeStr}"
                                TextColor="{DynamicResource WarmDark}" FontSize="22" FontAttributes="Bold" />
@@ -42,15 +42,20 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Label Text="{Binding WeatherDesc}"
                            TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Center" Grid.Column="1" />
-                    <Button Grid.Column="2" Text="场景库" TextColor="{DynamicResource MutedFg}"
+                    <!-- 临时指定这次由哪个 AI 回答（指定后高亮） -->
+                    <Button Grid.Column="2" Text="AI" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
+                            FontSize="11" Padding="8,4" HeightRequest="32"
+                            Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
+                    <Button Grid.Column="3" Text="场景库" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenSceneLibraryCommand}" />
-                    <Button Grid.Column="3" Text="设置" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="4" Text="设置" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="4" Text="手机" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="5" Text="手机" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenPhoneCommand}" />
@@ -421,7 +426,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                         <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
@@ -438,6 +443,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
                     <Button Grid.Column="8" Text="场景库" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenSceneLibraryCommand}" />
                     <Button Grid.Column="9" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenWorldbookCommand}" />
+                    <!-- 临时指定这次由哪个 AI 回答（不动全局设置；指定后按钮高亮） -->
+                    <Button Grid.Column="10" Text="AI" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                            BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
+                            Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
                 </Grid>
             </Border>
 

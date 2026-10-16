@@ -494,9 +494,13 @@
                         <!-- 智能省钱：真实用量 + 单价 → 花费表与「该不该总结」建议 -->
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                         <Label Text="花费与省钱" Style="{StaticResource TxtBodySm}" />
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="智能省钱" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后折叠历史前先预测「现在总结 / 不总结」哪个更省，并识别编程办公场景改用轻总结；关闭则恢复「到上限就总结」。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SmartSavingEnabled}" /></Grid>
                         <Label Text="端点返回 usage 时自动记账。录入单价（每百万 token）后就能算钱，并预测「现在总结 / 不总结」哪个更省——编程办公类对话盲目总结会丢细节、AI 重读反而更贵。"
                                Style="{StaticResource TxtCaption}" />
-                        <Label Text="{Binding CostSummary}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding CostSummary}" Style="{StaticResource TxtBodySm}" />
                         <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="6">
                             <Entry Grid.Column="0" Text="{Binding NewPriceModel}" Placeholder="模型名"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -530,6 +534,21 @@
                             <Button Text="导出 CSV" Style="{StaticResource BtnGhost}" FontSize="12"
                                     Command="{Binding ExportCostCsvCommand}" />
                         </HorizontalStackLayout>
+
+                        <!-- 钱与 token 分成两张表 + 两个排行榜（用户反馈：混在一张表里看不清） -->
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,2" />
+                        <Label Text="价钱表（每百万 token）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                        <Label Text="{Binding PriceTable}" FontSize="11" FontFamily="Consolas"
+                               TextColor="{DynamicResource MutedFg}" LineBreakMode="NoWrap" />
+                        <Label Text="token 表" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
+                        <Label Text="{Binding TokenTable}" FontSize="11" FontFamily="Consolas"
+                               TextColor="{DynamicResource MutedFg}" LineBreakMode="NoWrap" />
+                        <Label Text="花钱排行榜" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
+                        <Label Text="{Binding CostRanking}" FontSize="11" FontFamily="Consolas"
+                               TextColor="{DynamicResource MutedFg}" />
+                        <Label Text="token 排行榜" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
+                        <Label Text="{Binding TokenRanking}" FontSize="11" FontFamily="Consolas"
+                               TextColor="{DynamicResource MutedFg}" />
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <Button Grid.Column="0" Text="＋添加端点" Style="{StaticResource BtnGhost}" FontSize="13"
                                     Command="{Binding AddAiProfileCommand}" />

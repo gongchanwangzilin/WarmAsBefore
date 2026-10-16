@@ -75,17 +75,23 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>
     /// 舞台底色：背景图之外的「空缺」用什么填。
     /// 平时用场景底色（周围的按键栏/信息栏会盖住边缘）；沉浸状态没有周围栏，改用纯黑填充。
+    /// 这里用计算属性而不是缓存字段——缓存字段会在「场景色恰好等于初值」时因 setter 提前返回而
+    /// 永远停在初值（曾经因此让舞台整块变黑）。
     /// </summary>
-    [ObservableProperty] private Color _stageBackdropFill = Colors.Black;
-
-    partial void OnSceneBgChanged(string value) => RefreshStageFill();
-
-    private void RefreshStageFill()
+    public Color StageBackdropFill
     {
-        if (HideDesktopPanels) { StageBackdropFill = Colors.Black; return; }
-        try { StageBackdropFill = string.IsNullOrWhiteSpace(SceneBg) ? Colors.Black : Color.FromArgb(SceneBg); }
-        catch { StageBackdropFill = Colors.Black; }
+        get
+        {
+            if (HideDesktopPanels) return Colors.Black;
+            try
+            {
+                return string.IsNullOrWhiteSpace(SceneBg) ? Colors.Black : Color.FromArgb(SceneBg);
+            }
+            catch { return Colors.Black; }
+        }
     }
+
+    partial void OnSceneBgChanged(string value) => OnPropertyChanged(nameof(StageBackdropFill));
     [ObservableProperty] private double _affectionPct;
     [ObservableProperty] private double _trustPct;
     [ObservableProperty] private ImageSource? _spriteSource;
@@ -203,6 +209,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly PortraitCalibrationService _portraits;
     private readonly ScreenBlackoutService _blackout;
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
+    private readonly Modules.ApiManager.ApiGateway _api;
     private MapScene? _currentScene;
 
     // ---- 标定闸门 ----
@@ -287,7 +294,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
         Services.MapActorService mapActors, Services.StickerLibrary stickers,
         PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout,
-        Modules.RealChat.OfficialChatBridge bridge)
+        Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api)
     {
         _engine = engine;
         _chat = chat;
@@ -315,6 +322,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _portraits = portraits;
         _blackout = blackout;
         _bridge = bridge;
+        _api = api;
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
         _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
@@ -1987,7 +1995,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>沉浸状态切换：周围栏隐藏后，空缺改由纯黑填充。</summary>
     partial void OnHideDesktopPanelsChanged(bool value)
     {
-        RefreshStageFill();
+        OnPropertyChanged(nameof(StageBackdropFill));
         OnPropertyChanged(nameof(IsImmersive));
     }
 
@@ -2010,6 +2018,87 @@ public sealed partial class MainGameViewModel : ObservableObject
         _blackout.Set(false);
         IsBlackout = false;
         BlackoutReason = "";
+    }
+
+    // ===== 临时指定这次由哪个 AI 回答（不写入设置，退出即失效） =====
+
+    [ObservableProperty] private string _answerAiLabel = "AI：自动";
+    [ObservableProperty] private bool _hasTemporaryAi;
+
+    /// <summary>
+    /// 弹一个列表让用户临时指定回答的 AI：自动（按设置顺序）/ 某条端点。
+    /// 这是「我现在就想用这个模型」的快捷入口，不动全局设置。
+    /// </summary>
+    [RelayCommand]
+    private async Task PickAnswerAi()
+    {
+        try
+        {
+            var s = _settings.Current;
+            var options = new List<string> { "自动（按设置里的顺序）" };
+            var profiles = (s.AiProfiles ?? new List<AiEndpointProfile>())
+                .Where(p => p.Enabled && !string.IsNullOrWhiteSpace(p.Url) && !string.IsNullOrWhiteSpace(p.Model))
+                .ToList();
+            foreach (var p in profiles)
+                options.Add($"{(string.IsNullOrWhiteSpace(p.Name) ? p.Model : p.Name)}（{p.Model}）");
+            if (!string.IsNullOrWhiteSpace(s.AiModel))
+                options.Add($"主配置（{s.AiModel}）");
+
+            var pick = await Shell.Current.DisplayActionSheet("这次由哪个 AI 回答", "取消", null, options.ToArray());
+            if (pick is null || pick == "取消") return;
+
+            if (pick.StartsWith("自动", StringComparison.Ordinal))
+            {
+                _api.SetTemporaryEndpoint(null);
+            }
+            else if (pick.StartsWith("主配置", StringComparison.Ordinal))
+            {
+                _api.SetTemporaryEndpoint(new AiEndpoint
+                {
+                    Provider = "主配置",
+                    Url = s.AiUrl,
+                    Key = s.AiKey,
+                    Model = s.AiModel,
+                    Temperature = s.AiTemperature,
+                    MaxTokens = s.AiMaxTokens,
+                    DeepThink = s.DeepThink || s.ComplexPlot,
+                    DeepModel = s.DeepModel,
+                    MemoryTurns = s.MemoryTurns,
+                    ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
+                });
+            }
+            else
+            {
+                var idx = options.IndexOf(pick) - 1;
+                if (idx < 0 || idx >= profiles.Count) return;
+                var p = profiles[idx];
+                var keys = (p.Keys ?? new List<string>()).Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+                if (keys.Count == 0) { await Shell.Current.DisplayAlert("切换 AI", "这条端点没有可用密钥。", "好"); return; }
+                _api.SetTemporaryEndpoint(new AiEndpoint
+                {
+                    Provider = string.IsNullOrWhiteSpace(p.Name) ? p.Model : p.Name!,
+                    Url = p.Url.Trim(),
+                    Key = keys[0],
+                    KeyPool = keys,
+                    Model = p.Model.Trim(),
+                    Temperature = s.AiTemperature,
+                    MaxTokens = s.AiMaxTokens,
+                    DeepThink = s.DeepThink || s.ComplexPlot,
+                    DeepModel = s.DeepModel,
+                    MemoryTurns = s.MemoryTurns,
+                    ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000,
+                    TimeoutSeconds = p.TimeoutSeconds
+                });
+            }
+
+            var label = _api.TemporaryEndpointLabel;
+            HasTemporaryAi = !string.IsNullOrEmpty(label);
+            AnswerAiLabel = HasTemporaryAi ? $"AI：{label}" : "AI：自动";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameVM.PickAnswerAi -> " + ex);
+        }
     }
 
     [RelayCommand]

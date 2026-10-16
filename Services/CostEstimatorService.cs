@@ -99,23 +99,22 @@ public sealed class CostEstimatorService
         lock (_gate) return _prices.ToList();
     }
 
-    /// <summary>录入/覆盖某模型的单价（每百万 token）。</summary>
-    public async Task SetPriceAsync(string model, double inputPerMillion, double outputPerMillion)
+    /// <summary>录入/覆盖某模型的单价（每百万 token）。只填一侧也接受，未填的按 0 处理。</summary>
+    public async Task<(bool ok, string message)> SetPriceAsync(string model, double? inputPerMillion, double? outputPerMillion)
     {
-        if (string.IsNullOrWhiteSpace(model)) return;
+        if (string.IsNullOrWhiteSpace(model)) return (false, "模型名不能为空。");
+        var inp = Math.Max(0, inputPerMillion ?? 0);
+        var outp = Math.Max(0, outputPerMillion ?? 0);
+        if (inp <= 0 && outp <= 0) return (false, "输入价与输出价至少要填一个（另一个可以留空）。");
+
         await EnsureLoadedAsync();
         lock (_gate)
         {
             _prices.RemoveAll(p => string.Equals(p.Model, model.Trim(), StringComparison.OrdinalIgnoreCase));
-            if (inputPerMillion > 0 || outputPerMillion > 0)
-                _prices.Add(new ModelPrice
-                {
-                    Model = model.Trim(),
-                    InputPerMillion = Math.Max(0, inputPerMillion),
-                    OutputPerMillion = Math.Max(0, outputPerMillion)
-                });
+            _prices.Add(new ModelPrice { Model = model.Trim(), InputPerMillion = inp, OutputPerMillion = outp });
         }
         await _store.Save(PriceKey, _prices.ToList());
+        return (true, $"已记录「{model.Trim()}」的单价（只填一侧也可以，另一侧按 0 计）。");
     }
 
     public async Task RemovePriceAsync(string model)
@@ -140,7 +139,7 @@ public sealed class CostEstimatorService
              + completionTokens / 1_000_000.0 * price.OutputPerMillion;
     }
 
-    /// <summary>用量与花费表（每个模型一行 + 合计）。没录单价时只给 token 数。</summary>
+    /// <summary>用量与花费总览（一句话摘要）。</summary>
     public async Task<string> ReportTextAsync()
     {
         await EnsureLoadedAsync();
@@ -148,32 +147,97 @@ public sealed class CostEstimatorService
         lock (_gate) usage = _usage.ToList();
         if (usage.Count == 0) return "还没有用量记录——端点返回 usage 后会自动记账（部分服务不返回 usage，则无法统计）。";
 
-        var rows = usage.GroupBy(u => u.Model, StringComparer.OrdinalIgnoreCase)
-            .Select(g => new
-            {
-                Model = g.Key,
-                Calls = g.Count(),
-                SummaryCalls = g.Count(x => x.IsSummary),
-                Prompt = g.Sum(x => (long)x.PromptTokens),
-                Completion = g.Sum(x => (long)x.CompletionTokens),
-                Cost = g.Sum(x => CostOf(x.Model, x.PromptTokens, x.CompletionTokens))
-            })
-            .OrderByDescending(r => r.Cost)
-            .ThenByDescending(r => r.Prompt + r.Completion)
-            .ToList();
+        var totals = await ModelTotalsAsync();
+        var cost = totals.Sum(t => t.Cost);
+        var prompt = totals.Sum(t => t.Prompt);
+        var completion = totals.Sum(t => t.Completion);
+        return $"共 {totals.Sum(t => t.Calls)} 次调用 · 输入 {prompt} tok · 输出 {completion} tok · "
+             + (HasPrices ? $"花费 {cost:0.####}" : "未录单价（只统计 token）");
+    }
 
+    /// <summary>价钱表：模型 × 单价（每百万 token）。钱的事单独一张表。</summary>
+    public async Task<string> PriceTableTextAsync()
+    {
+        var prices = await PricesAsync();
+        if (prices.Count == 0) return "还没有录入单价。按「模型 输入价/百万 输出价/百万」录入后，这里会出现价钱表。";
+
+        var totals = await ModelTotalsAsync();
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("模型              调用   输入tok   输出tok     花费");
-        foreach (var r in rows)
+        sb.AppendLine("模型               输入价/百万   输出价/百万     累计花费");
+        foreach (var p in prices.OrderByDescending(p => p.InputPerMillion + p.OutputPerMillion))
         {
-            sb.AppendLine($"{Pad(r.Model, 16)} {r.Calls,5} {r.Prompt,9} {r.Completion,9} {r.Cost,9:0.####}"
-                + (r.SummaryCalls > 0 ? $"（其中总结 {r.SummaryCalls} 次）" : ""));
+            var used = totals.FirstOrDefault(t => string.Equals(t.Model, p.Model, StringComparison.OrdinalIgnoreCase));
+            sb.AppendLine($"{Pad(p.Model, 16)} {p.InputPerMillion,10:0.####} {p.OutputPerMillion,12:0.####} "
+                + $"{(used is null ? "—" : used.Cost.ToString("0.####")),12}");
         }
         sb.AppendLine("─────────────────────────────────────────────");
-        sb.AppendLine($"合计：{rows.Sum(r => r.Calls)} 次调用，输入 {rows.Sum(r => r.Prompt)} tok，"
-            + $"输出 {rows.Sum(r => r.Completion)} tok，花费 {rows.Sum(r => r.Cost):0.####}");
-        if (!HasPrices) sb.AppendLine("提示：还没录入单价，只统计了 token。在下方按「模型 输入价 输出价」录入即可算钱。");
+        sb.Append($"合计花费：{totals.Sum(t => t.Cost):0.####}");
         return sb.ToString();
+    }
+
+    /// <summary>token 表：模型 × 输入/输出/合计 token。token 的事单独一张表，不与钱混。</summary>
+    public async Task<string> TokenTableTextAsync()
+    {
+        var totals = await ModelTotalsAsync();
+        if (totals.Count == 0) return "还没有用量记录——端点返回 usage 后会自动记账。";
+
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("模型                 调用     输入tok     输出tok      合计tok");
+        foreach (var t in totals.OrderByDescending(t => t.Prompt + t.Completion))
+        {
+            sb.AppendLine($"{Pad(t.Model, 16)} {t.Calls,6} {t.Prompt,11} {t.Completion,11} {t.Prompt + t.Completion,12}");
+        }
+        sb.AppendLine("──────────────────────────────────────────────────────────");
+        sb.Append($"合计：{totals.Sum(t => t.Calls)} 次 · 输入 {totals.Sum(t => t.Prompt)} · "
+                + $"输出 {totals.Sum(t => t.Completion)} · 合计 {totals.Sum(t => t.Prompt + t.Completion)}");
+        return sb.ToString();
+    }
+
+    /// <summary>花钱排行榜（按累计花费从高到低）。没录单价时提示无法排名。</summary>
+    public async Task<string> CostRankTextAsync(int top = 5)
+    {
+        if (!HasPrices) return "还没录单价，排不出花钱榜。";
+        var totals = await ModelTotalsAsync();
+        var ranked = totals.Where(t => t.Cost > 0).OrderByDescending(t => t.Cost).Take(Math.Max(1, top)).ToList();
+        if (ranked.Count == 0) return "还没有产生花费。";
+
+        var total = totals.Sum(t => t.Cost);
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < ranked.Count; i++)
+        {
+            var t = ranked[i];
+            var share = total > 0 ? t.Cost / total : 0;
+            sb.AppendLine($"{i + 1}. {t.Model} —— {t.Cost:0.####}"
+                + $"（占 {share:P0}，{Bar(share)}）");
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>token 排行榜（按累计 token 从高到低）。</summary>
+    public async Task<string> TokenRankTextAsync(int top = 5)
+    {
+        var totals = await ModelTotalsAsync();
+        var ranked = totals.OrderByDescending(t => t.Prompt + t.Completion).Take(Math.Max(1, top)).ToList();
+        if (ranked.Count == 0) return "还没有用量记录。";
+
+        var total = totals.Sum(t => t.Prompt + t.Completion);
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < ranked.Count; i++)
+        {
+            var t = ranked[i];
+            var sum = t.Prompt + t.Completion;
+            var share = total > 0 ? (double)sum / total : 0;
+            sb.AppendLine($"{i + 1}. {t.Model} —— {sum} tok"
+                + $"（占 {share:P0}，{Bar(share)}）");
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>排行榜里的横条：纯文本画，够直观又不用控件。</summary>
+    private static string Bar(double share)
+    {
+        var n = (int)Math.Round(Math.Clamp(share, 0, 1) * 10);
+        return new string('█', Math.Max(1, n)) + new string('·', 10 - Math.Max(1, n));
     }
 
     private static string Pad(string s, int width) =>

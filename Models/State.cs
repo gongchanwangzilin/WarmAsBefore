@@ -169,6 +169,12 @@ public sealed record UserSettings
 
     /// <summary>模型单价表（每百万 token）：录入后才会统计花费并给出省钱建议。</summary>
     public List<ModelPrice> ModelPrices { get; init; } = new();
+
+    /// <summary>
+    /// 智能省钱总开关（默认开）：开启时折叠历史前会先预测「现在总结 / 不总结」哪个更省，
+    /// 并识别编程/办公场景改用轻总结；关闭后恢复「到上限就总结」的老行为。
+    /// </summary>
+    public bool SmartSavingEnabled { get; init; } = true;
     /// <summary>上下文 Token 上限（估算值）：对话历史超过该值时，强制把旧对话总结成第一人称记忆。</summary>
     public int ContextTokenLimit { get; init; } = 32000;
 
