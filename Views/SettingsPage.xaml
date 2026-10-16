@@ -78,6 +78,11 @@
 IsVisible="{Binding Filter.Glass}">
                     <VerticalStackLayout Spacing="14">
                         <Label Text="{Binding [Settings_GlassFx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                        <!-- 性能：阴影是每个元素一个合成层，卡片多的页面（设置页有 24 张卡）会明显变慢 -->
+                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                            <Label Text="轻量模式（关阴影，低配更流畅）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="关闭后卡片不再有投影，观感朴素一些。阴影在 WinUI 上是每个元素一个合成层，卡片多或显卡弱时更划算；本机（独立显卡）实测差异在噪声范围内。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding LightMode}" /></Grid>
                         <!-- 透明度 = 总闸：放最上面，0 即视为关闭玻璃 -->
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <VerticalStackLayout>

@@ -39,6 +39,9 @@ public static class GlassTokens
     public const string CardShadow = "GlassCardShadow";
     public const string BarShadow = "GlassBarShadow";
 
+    /// <summary>轻量模式：不发布阴影。由 RuntimeConfigurator 按用户设置下发。</summary>
+    public static bool LightMode { get; set; }
+
     private const double OpaqueAlpha = 0.94;
 
     public static void Publish(GlassParams p)
@@ -47,6 +50,8 @@ public static class GlassTokens
         if (app is null) return;
 
         var res = app.Resources;
+        // 轻量模式（设置里可开）或诊断环境变量都会关掉阴影
+        var noShadow = LightMode || Environment.GetEnvironmentVariable("WARM_NO_SHADOW") == "1";
         var surface = ReadColor(res, "SurfaceBg", "#FDF8F0");
 
         var t = Math.Clamp(p.Translucency, 0, 1);
@@ -82,12 +87,15 @@ public static class GlassTokens
         res[BarBg] = BarBrush(p.Tier, surface, Bg);
         res[BarStroke] = EdgeBrush(p.Tier, bar: true, Edge, dx, dy, w);
         res[BarStrokeThickness] = StrokeWidth(p.Tier, bar: true);
-        res[BarShadow] = ShadowFor(h, z, dx, dy, bar: true);
+        res[BarShadow] = noShadow ? null : ShadowFor(h, z, dx, dy, bar: true);
 
         res[CardBg] = CardBrush(p.Tier, surface, Bg);
         res[CardStroke] = EdgeBrush(p.Tier, bar: false, Edge, dx, dy, w);
         res[CardStrokeThickness] = StrokeWidth(p.Tier, bar: false);
-        res[CardShadow] = ShadowFor(h, z, dx, dy, bar: false);
+        // 诊断/降级开关：WARM_NO_SHADOW=1 时不发布卡片阴影。
+        // 阴影在 WinUI 上是每个元素一个合成层，卡片多时既是首屏成本也是重排成本；
+        // 低配机器或排查卡顿时可用它换流畅。
+        res[CardShadow] = noShadow ? null : ShadowFor(h, z, dx, dy, bar: false);
 
         res[ButtonBg] = ButtonBrush(p.Tier, surface, Bg);
         res[ButtonStroke] = Edge(ButtonStrokeColor(p.Tier));

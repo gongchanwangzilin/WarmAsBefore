@@ -58,6 +58,7 @@ public partial class App : Application
             }
             catch (Exception ex) { WriteLog("CreateWindow.RestoreSettings: " + ex); }
 
+            var swStartup = System.Diagnostics.Stopwatch.StartNew();
             WriteLog("CreateWindow: building AppShell");
             var win = new Window(new AppShell())
             {
@@ -73,6 +74,7 @@ public partial class App : Application
             };
             // 通知置顶由「对话框统一包装器」在真正弹 Alert 时触发（见 App.Dialog.ShowAlert），
             // 不在 Window.Activated 里做：Activate() 在 WinUI 有焦点重入副作用，会造成卡顿。
+            Services.PerfLog.Note("启动 · 构建 AppShell+Window", $"{swStartup.ElapsedMilliseconds} ms");
             _ = AfterWindowStartedAsync();
             WriteLog("CreateWindow: ok");
             return win;
@@ -81,6 +83,54 @@ public partial class App : Application
         {
             WriteLog("CreateWindow: " + ex);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// 诊断用启动参数：--open=页面路由（如 --open=settings）直接打开该页并计时。
+    /// 用来测量「某个页面装载到底多慢」——不靠手点，也能拿到数字。
+    /// 正常启动不带此参数时完全没有影响。
+    /// </summary>
+    private static string? DiagnosticRoute()
+    {
+        try
+        {
+            foreach (var a in Environment.GetCommandLineArgs())
+            {
+                const string flag = "--open=";
+                if (a.StartsWith(flag, StringComparison.OrdinalIgnoreCase) && a.Length > flag.Length)
+                    return a[flag.Length..];
+            }
+        }
+        catch { }
+        return null;
+    }
+
+    private static async Task OpenDiagnosticRouteAsync(string routes)
+    {
+        try
+        {
+            await Task.Delay(2500);   // 等首页与角色库加载完，避免与启动抢资源
+            foreach (var route in routes.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+            {
+                var sw = System.Diagnostics.Stopwatch.StartNew();
+                var ok = false;
+                try
+                {
+                    await MainThread.InvokeOnMainThreadAsync(async () => await Shell.Current.GoToAsync(route));
+                    ok = true;
+                }
+                catch (Exception ex) { Services.PerfLog.Note($"诊断 · 导航失败 {route}", ex.Message); }
+
+                if (ok) Services.PerfLog.Note($"诊断 · 页面装载 {route}", $"{sw.ElapsedMilliseconds} ms{(sw.ElapsedMilliseconds >= 300 ? "  <<< SLOW" : "")}");
+                await Task.Delay(3500);   // 留出该页自身的异步装载时间
+                await MainThread.InvokeOnMainThreadAsync(async () => await Shell.Current.GoToAsync(".."));
+                await Task.Delay(1200);
+            }
+        }
+        catch (Exception ex)
+        {
+            Services.PerfLog.Note("诊断 · 导航异常", ex.Message);
         }
     }
 
@@ -140,6 +190,10 @@ public partial class App : Application
                 WindowTopmost.BringToFront();
             var cfg = services.GetService(typeof(RuntimeConfigurator)) as RuntimeConfigurator;
             cfg?.Start();
+
+            // 诊断：--open=页面 时直接打开该页并计时（见 DiagnosticRoute 说明）
+            var route = DiagnosticRoute();
+            if (!string.IsNullOrWhiteSpace(route)) _ = OpenDiagnosticRouteAsync(route!);
         }
         catch (Exception ex)
         {

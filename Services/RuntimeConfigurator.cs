@@ -145,9 +145,16 @@ public sealed class RuntimeConfigurator
         });
     }
 
+    /// <summary>上一份已下发的设置：用来跳过「这次没变」的分区（每次点击都会走一遍 Apply）。</summary>
+    private UserSettings? _lastApplied;
+    private string _lastPriceSignature = "";
+
     private void Apply()
     {
         var s = _settings.Current;
+        using var _total = PerfLog.Measure("Apply 总计");
+        var prev = _lastApplied;
+        _lastApplied = s;
 
         // 多端点轮换池（厂商 × 模型）：一家厂商可挂多款模型，按「启用的厂商 × 启用的模型」展开；
         // 每条端点的密钥池会轮流使用；轮换开启时任一失灵自动切下一条，保证对话不间断。
@@ -223,8 +230,15 @@ public sealed class RuntimeConfigurator
         }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
         // 超时：全局值（端点可在上面的档案里单独覆写）
         _api.GlobalTimeoutSeconds = s.AiTimeoutSeconds > 0 ? s.AiTimeoutSeconds : 25;
-        // 成本：单价表由设置页维护，用量由 ApiGateway 的真实 usage 记账
-        _ = SyncModelPricesAsync(s.ModelPrices);
+        // 成本：单价表由设置页维护，用量由 ApiGateway 的真实 usage 记账。
+        // 表没变就不重复读文件（每次点击都会走 Apply）。
+        var priceSig = string.Join("|", (s.ModelPrices ?? new List<ModelPrice>())
+            .Select(x => $"{x.Model}:{x.InputPerMillion}:{x.OutputPerMillion}"));
+        if (priceSig != _lastPriceSignature)
+        {
+            _lastPriceSignature = priceSig;
+            _ = SyncModelPricesAsync(s.ModelPrices);
+        }
         // 角色级覆写：Send/Retry 时按当前角色叠加，未设置覆写的角色行为不变
         _chat.Resolver = _charSettings;
         // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次
@@ -267,24 +281,65 @@ public sealed class RuntimeConfigurator
         if (s.GreetingEnabled && !_auto.Running) _auto.Start();
         else if (!s.GreetingEnabled && _auto.Running) _auto.Stop();
 
-        // 玻璃效果：毛玻璃是磨砂的高级版，ThemeManager 内部已保证依赖
-        _theme.Frost = s.FrostEnabled;
-        _theme.Glass = s.GlassEnabled;
-        _theme.Liquid = s.LiquidEnabled;
-        _theme.GlassTranslucency = s.GlassTranslucency;
-        _theme.ReducedTransparency = s.GlassReducedTransparency;
-        _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
+        // 玻璃效果：毛玻璃是磨砂的高级版，ThemeManager 内部已保证依赖。
+        // 只有相关设置真的变了才下发——主题一变会重算画刷并通知订阅者，整页都要重排。
+        var themeChanged = prev is null
+            || prev.FrostEnabled != s.FrostEnabled || prev.GlassEnabled != s.GlassEnabled
+            || prev.LiquidEnabled != s.LiquidEnabled || Math.Abs(prev.GlassTranslucency - s.GlassTranslucency) > 1e-6
+            || prev.GlassReducedTransparency != s.GlassReducedTransparency
+            || prev.GlassFrost != s.GlassFrost || prev.GlassHeight != s.GlassHeight
+            || prev.GlassLightX != s.GlassLightX || prev.GlassLightY != s.GlassLightY
+            || prev.GlassLightZ != s.GlassLightZ || prev.GlassLightWidth != s.GlassLightWidth
+            || prev.LightMode != s.LightMode
+            || !string.Equals(prev.ThemeName, s.ThemeName, StringComparison.Ordinal);
+        if (themeChanged)
+        {
+            using var _themeScope = PerfLog.Measure("  · 主题下发");
+            WarmAsBefore.DesignSystem.Theme.GlassTokens.LightMode = s.LightMode;
+            _theme.Frost = s.FrostEnabled;
+            _theme.Glass = s.GlassEnabled;
+            _theme.Liquid = s.LiquidEnabled;
+            _theme.GlassTranslucency = s.GlassTranslucency;
+            _theme.ReducedTransparency = s.GlassReducedTransparency;
+            _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
+        }
 
-        // 置顶：开启 AlwaysOnTop 时持续强制常驻顶层（3 秒重断言防被抢占）；关闭则回落
-        if (s.AlwaysOnTop)
-            WindowTopmost.Force();
-        else
-            WindowTopmost.Release();
+        // 置顶：开启 AlwaysOnTop 时持续强制常驻顶层（3 秒重断言防被抢占）；关闭则回落。
+        // 未变化时不重复调用 Win32（每次点击都调会让窗口 z-order 反复变动）。
+        if (prev is null || prev.AlwaysOnTop != s.AlwaysOnTop)
+        {
+            using var _topScope = PerfLog.Measure("  · 置顶下发");
+            if (s.AlwaysOnTop)
+                WindowTopmost.Force();
+            else
+                WindowTopmost.Release();
+        }
         // 背景：纯色 / 自定义图片 / 窗口透视 —— 玻璃需要有东西可透
-        AppBackgroundService.Apply(s.BackgroundMode, s.BackgroundImagePath,
-            Application.Current?.Resources.TryGetValue("PageBg", out var pv) == true && pv is Color pc
-                ? pc : Colors.White);
+        var bgChanged = prev is null
+            || !string.Equals(prev.BackgroundMode, s.BackgroundMode, StringComparison.Ordinal)
+            || !string.Equals(prev.BackgroundImagePath, s.BackgroundImagePath, StringComparison.Ordinal);
+        if (bgChanged)
+        {
+            using var _bgScope = PerfLog.Measure("  · 背景下发");
+            AppBackgroundService.Apply(s.BackgroundMode, s.BackgroundImagePath,
+                Application.Current?.Resources.TryGetValue("PageBg", out var pv) == true && pv is Color pc
+                    ? pc : Colors.White);
+        }
 
-        _bridge.Apply();
+        // 官方接入：只有相关配置变了才重配（否则每次点击都会去启动/停止机器人通道）
+        var bridgeChanged = prev is null
+            || !string.Equals(prev.QqAppId, s.QqAppId, StringComparison.Ordinal)
+            || !string.Equals(prev.QqAppSecret, s.QqAppSecret, StringComparison.Ordinal)
+            || prev.QqBotEnabled != s.QqBotEnabled
+            || !string.Equals(prev.WechatAppId, s.WechatAppId, StringComparison.Ordinal)
+            || !string.Equals(prev.WechatAppSecret, s.WechatAppSecret, StringComparison.Ordinal)
+            || !string.Equals(prev.WechatToken, s.WechatToken, StringComparison.Ordinal)
+            || prev.WechatPort != s.WechatPort
+            || prev.WechatEnabled != s.WechatEnabled;
+        if (bridgeChanged)
+        {
+            using var _bridgeScope = PerfLog.Measure("  · 官方接入下发");
+            _bridge.Apply();
+        }
     }
 }

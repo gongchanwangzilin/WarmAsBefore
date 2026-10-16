@@ -7,12 +7,29 @@ public partial class AppShell : Shell
         InitializeComponent();
         RegisterRoutes();
         App.WriteLog("AppShell: initialized, routes registered");
+        // 页面切换耗时打点：卡顿到底在「导航本身」还是「目标页的首屏装载」，日志里分得清
+        Navigating += (_, e) =>
+        {
+            _navWatch = System.Diagnostics.Stopwatch.StartNew();
+            _navTarget = e.Target?.Location?.OriginalString ?? "";
+        };
+        Navigated += (_, e) =>
+        {
+            if (_navWatch is null) return;
+            var to = e.Current?.Location?.OriginalString ?? "";
+            Services.PerfLog.Note($"导航 {_navTarget} → {to}",
+                $"{_navWatch.ElapsedMilliseconds} ms{(_navWatch.ElapsedMilliseconds >= 300 ? "  <<< SLOW" : "")}");
+            _navWatch = null;
+        };
         // 这里原先在每次导航时重新置顶/BringToFront。
         // 但那会让「设置 → 窗口置顶」关闭后仍被强制置顶（关不掉），
         // 且每次切页都产生一次 Win32 z-order / Presenter 变更 → 切页卡顿。
         // 置顶策略统一由 RuntimeConfigurator.Apply() 跟随设置下发；
         // 弹通知/对话框时再按需一次性抬前台（见 NotificationService 订阅方）。
     }
+
+    private System.Diagnostics.Stopwatch? _navWatch;
+    private string _navTarget = "";
 
     private void RegisterRoutes()
     {

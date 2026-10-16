@@ -372,6 +372,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _subProfileAiRewrite = s.SubProfileAiRewrite;
         _semanticAiAssist = s.SemanticAiAssist;
         _smartSavingEnabled = s.SmartSavingEnabled;
+        _lightMode = s.LightMode;
 
         // 多端点轮换 + 上下文 Token 上限
         _aiRotationEnabled = s.AiRotationEnabled;
@@ -1243,11 +1244,35 @@ public sealed partial class SettingsViewModel : ObservableObject
     public SettingsCardFilter Filter { get; } = new();
 
     [ObservableProperty] private string _settingsSearchText = "";
-    partial void OnSettingsSearchTextChanged(string value) => Filter.Apply(value);
+
+    private System.Threading.Timer? _searchTimer;
+
+    /// <summary>
+    /// 搜索防抖 250ms：每敲一个字就切 24 张卡片的可见性会让长页面反复重排，
+    /// 打字时就会一卡一卡；等手停一下再过滤，观感顺得多。
+    /// </summary>
+    partial void OnSettingsSearchTextChanged(string value)
+    {
+        lock (_persistLock)
+        {
+            _searchTimer ??= new System.Threading.Timer(
+                _ => MainThread.BeginInvokeOnMainThread(() => Filter.Apply(SettingsSearchText)), null,
+                Timeout.Infinite, Timeout.Infinite);
+            _searchTimer.Change(250, Timeout.Infinite);
+        }
+    }
 
     /// <summary>清空搜索，恢复全部分类。</summary>
     [RelayCommand]
-    private void ClearSettingsSearch() => SettingsSearchText = "";
+    private void ClearSettingsSearch()
+    {
+        SettingsSearchText = "";
+        Filter.Apply("");   // 清空立即生效，不用等防抖
+    }
+
+    /// <summary>轻量模式：关闭卡片阴影（低配机器流畅优先）。</summary>
+    [ObservableProperty] private bool _lightMode;
+    partial void OnLightModeChanged(bool value) => PersistSettings();
 
     /// <summary>智能省钱总开关（默认开）。</summary>
     [ObservableProperty] private bool _smartSavingEnabled = true;
@@ -2128,6 +2153,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async void PersistNow()
     {
+        using var _scope = Services.PerfLog.Measure("保存设置（序列化 + 下发）");
         try
         {
             var port = int.TryParse(WechatPort, out var p) && p > 0 && p < 65536 ? p : 8012;
@@ -2191,6 +2217,7 @@ GlassLightWidth = GlassLightWidth,
                 SubProfileAiRewrite = SubProfileAiRewrite,
                 SemanticAiAssist = SemanticAiAssist,
                 SmartSavingEnabled = SmartSavingEnabled,
+                LightMode = LightMode,
                 AiProviders = AiProviders.Select(v => v.ToProvider())
                     .Where(v => !string.IsNullOrWhiteSpace(v.Url) || v.Keys.Count > 0)
                     .ToList(),
