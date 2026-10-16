@@ -136,6 +136,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<MainGamePage>();
         builder.Services.AddTransient<CharacterSelectPage>();
         builder.Services.AddTransient<SettingsPage>();
+        builder.Services.AddTransient<SettingsSectionPage>();
         builder.Services.AddTransient<PhonePage>();
         builder.Services.AddTransient<WeChatPage>();
         builder.Services.AddTransient<MapPage>();
