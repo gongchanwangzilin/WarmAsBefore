@@ -1365,11 +1365,115 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task RefreshCost()
     {
-        try { CostSummary = await _cost.ReportTextAsync(); }
+        try
+        {
+            CostSummary = await _cost.ReportTextAsync();
+            await RebuildChartAsync();
+        }
         catch (Exception ex)
         {
             App.WriteLog("SettingsVM.RefreshCost -> " + ex.Message);
             CostSummary = "读取用量失败。";
+        }
+    }
+
+    // ===== 成本图表（条形图：各模型对比；折线图：按天趋势） =====
+
+    /// <summary>自绘图表：页面的 GraphicsView 把它挂上（见 SettingsPage.xaml.cs）。</summary>
+    public Drawables.CostChartDrawable CostChart { get; } = new();
+
+    /// <summary>页面注入的重绘回调。</summary>
+    public Action? InvalidateCostChart { get; set; }
+
+    [ObservableProperty] private bool _costChartIsLine = true;
+    [ObservableProperty] private string _costChartCaption = "";
+
+    /// <summary>按钮文案 = 点了会切到什么。</summary>
+    public string CostChartModeLabel => CostChartIsLine ? "切换为条形图（各模型对比）" : "切换为折线图（按天趋势）";
+
+    private bool _chartBusy;
+
+    [RelayCommand]
+    private void ToggleChartMode() => CostChartIsLine = !CostChartIsLine;
+
+    partial void OnCostChartIsLineChanged(bool value)
+    {
+        CostChart.Mode = value ? Drawables.CostChartDrawable.ChartMode.Lines : Drawables.CostChartDrawable.ChartMode.Bars;
+        OnPropertyChanged(nameof(CostChartModeLabel));
+        if (!_chartBusy) _ = RebuildChartAsync();
+    }
+
+    /// <summary>按当前模式重建图表数据。</summary>
+    private async Task RebuildChartAsync()
+    {
+        if (_chartBusy) return;
+        _chartBusy = true;
+        try
+        {
+            var prices = await _cost.PricesAsync();
+            var hasPrice = prices.Count > 0;
+            var totals = await _cost.ModelTotalsAsync();
+
+            // 条形图：各模型的「花费」对比（没录单价就退化成 token 对比）
+            var bars = totals.Select(t => new Drawables.CostChartDrawable.Bar(
+                    t.Model,
+                    hasPrice ? t.Cost : t.Prompt + t.Completion,
+                    hasPrice ? $"{t.Cost:0.###}" : Fmt(t.Prompt + t.Completion)))
+                .ToList();
+
+            // 折线图：最近 14 天的输入/输出 token
+            var daily = await _cost.DailySeriesAsync(14);
+            var line = new List<Drawables.CostChartDrawable.Series>
+            {
+                new("输入", Color.FromArgb("#7BA7D7"), daily.Select(d => (double)d.Prompt).ToList()),
+                new("输出", Color.FromArgb("#D79B7B"), daily.Select(d => (double)d.Completion).ToList())
+            };
+            var labels = daily.Select(d => d.Day.ToString("MM-dd")).ToList();
+
+            CostChart.Bars = bars;
+            CostChart.SeriesList = line;
+            CostChart.XLabels = labels;
+            CostChart.Unit = hasPrice ? "元" : "tok";
+            CostChart.EmptyHint = "还没有用量记录（端点返回 usage 后自动记账）";
+            CostChart.Mode = CostChartIsLine
+                ? Drawables.CostChartDrawable.ChartMode.Lines
+                : Drawables.CostChartDrawable.ChartMode.Bars;
+
+            var total = daily.Sum(d => d.Cost);
+            var calls = daily.Sum(d => d.Calls);
+            CostChartCaption = hasPrice
+                ? $"最近 14 天：{calls} 次调用，共 {Fmt(daily.Sum(d => d.Prompt + d.Completion))} tok，花费 {total:0.###}"
+                : $"最近 14 天：{calls} 次调用，共 {Fmt(daily.Sum(d => d.Prompt + d.Completion))} tok（录入单价后显示金额）";
+
+            InvalidateCostChart?.Invoke();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsVM.RebuildChart -> " + ex.Message);
+        }
+        finally { _chartBusy = false; }
+    }
+
+    private static string Fmt(long v) => v switch
+    {
+        >= 1_000_000 => (v / 1_000_000.0).ToString("0.#") + "M",
+        >= 1_000 => (v / 1_000.0).ToString("0.#") + "k",
+        _ => v.ToString()
+    };
+
+    /// <summary>把用量明细与单价表导出成 CSV（Excel 可直接打开）。</summary>
+    [RelayCommand]
+    private async Task ExportCostCsv()
+    {
+        try
+        {
+            var path = await _cost.ExportCsvAsync();
+            await Shell.Current.DisplayAlert("导出完成", $"已导出到：\n{path}", "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsVM.ExportCostCsv -> " + ex);
+            await Shell.Current.DisplayAlert("导出失败", ex.Message, "好");
         }
     }
 

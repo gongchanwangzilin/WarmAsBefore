@@ -515,6 +515,20 @@
                             <Button Text="按当前上限试算" Style="{StaticResource BtnGhost}" FontSize="12"
                                     Command="{Binding TryAdviceCommand}" />
                         </HorizontalStackLayout>
+
+                        <!-- 条形图 / 折线图：自绘，跟着主题色走 -->
+                        <Border BackgroundColor="{DynamicResource InputBg}" Stroke="{DynamicResource BorderLine}"
+                                StrokeThickness="1" Padding="6" HeightRequest="190">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                            <GraphicsView x:Name="CostChartView" HeightRequest="178" />
+                        </Border>
+                        <Label Text="{Binding CostChartCaption}" Style="{StaticResource TxtCaption}" />
+                        <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+                            <Button Text="{Binding CostChartModeLabel}" Style="{StaticResource BtnGhost}" FontSize="12"
+                                    Command="{Binding ToggleChartModeCommand}" />
+                            <Button Text="导出 CSV" Style="{StaticResource BtnGhost}" FontSize="12"
+                                    Command="{Binding ExportCostCsvCommand}" />
+                        </HorizontalStackLayout>
                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
                             <Button Grid.Column="0" Text="＋添加端点" Style="{StaticResource BtnGhost}" FontSize="13"
                                     Command="{Binding AddAiProfileCommand}" />
