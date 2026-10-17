@@ -32,6 +32,13 @@ public sealed class SpeechService
     public bool IsListening => _listenCts is not null;
 
     /// <summary>
+    /// 最近一次识别为什么没给出文字（成功识别时为空）。
+    /// 调用方在拿到空文本时用它说一句人话：只把按钮复位、输入框一个字没有，
+    /// 在用户看来就是「这麦克风坏了」，谁也不知道是没麦、没授权还是没说话。
+    /// </summary>
+    public string LastRecognitionNote { get; private set; } = "";
+
+    /// <summary>
     /// Speak text aloud using the configured TTS engine.
     /// Android: TextToSpeech; Windows: system SpeechSynthesis or external API.
     /// </summary>
@@ -64,7 +71,10 @@ public sealed class SpeechService
     /// </summary>
     public async Task StartListening(string lang = "zh-CN")
     {
-        if (!SttEnabled) return;
+        // 关掉识别时也要回调：调用方（主界面的语音按钮、桌宠的麦克风）都是「按下即进入聆听态，
+        // 等这个事件复位」。这里静默返回会让按钮永远卡在聆听态，只能退出页面重来。
+        if (!SttEnabled) { LastRecognitionNote = "语音识别已在设置里关闭"; OnRecognized?.Invoke(""); return; }
+        LastRecognitionNote = "";
         _listenCts = new CancellationTokenSource();
         try
         {
@@ -82,7 +92,8 @@ public sealed class SpeechService
         }
         catch (Exception ex)
         {
-            System.Diagnostics.Debug.WriteLine($"[STT] {ex.Message}");
+            App.WriteLog($"SpeechService.StartListening({SttEngine}) -> {ex.Message}");
+            LastRecognitionNote = "识别失败：" + ex.Message;
             // Fallback: simulate recognition
             OnRecognized?.Invoke("");
         }
@@ -523,11 +534,14 @@ public sealed class SpeechService
             resp.EnsureSuccessStatusCode();
             var json = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
             var text = json.RootElement.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
+            if (string.IsNullOrWhiteSpace(text)) LastRecognitionNote = "外部识别没返回内容：可能没听清，或录音里没有说话声";
             OnRecognized?.Invoke(text);
         }
         catch (Exception ex)
         {
             System.Diagnostics.Debug.WriteLine($"[STT-API] {ex.Message}");
+            App.WriteLog($"SpeechService.ListenApi -> {ex.GetType().Name}: {ex.Message}");
+            LastRecognitionNote = "外部语音识别失败：" + ex.Message;
             OnRecognized?.Invoke("");
         }
         finally
@@ -536,25 +550,181 @@ public sealed class SpeechService
         }
     }
 
+    /// <summary>一次识别最长听多久（秒）：说一句话用不了这么久，但必须有上限，否则麦克风按钮能卡在「…」里到天亮。</summary>
+    private const int WindowsListenSeconds = 20;
+
+    /// <summary>
+    /// Windows「系统识别」：优先桌面 SAPI（System.Speech），WinRT 只当备胎。
+    /// 实测本机：SAPI 中文识别器能正常开麦（AudioState=Silence，一直采样），
+    /// 而 unpackaged 进程里的 WinRT SpeechRecognizer 无论带不带 UI 都在 2 秒内返回 status=Unknown(6) 空文本
+    /// ——用户说完一整句，输入框一个字都没有，且系统不报原因。
+    /// </summary>
     private async Task ListenWindows(string lang)
     {
-        using var recognizer = new Windows.Media.SpeechRecognition.SpeechRecognizer(
-            new Windows.Globalization.Language(lang == "zh-CN" ? "zh-CN" : "en-US"));
+        if (await ListenWindowsSapi(lang)) return;
+        await ListenWindowsWinRt(lang);
+    }
+
+    /// <summary>桌面 SAPI 听一次。返回 false = SAPI 这条路根本没走起来（没装引擎/语法加载失败），交给 WinRT 再试。</summary>
+    private async Task<bool> ListenWindowsSapi(string lang)
+    {
+        var tag = lang == "zh-CN" ? "zh-CN" : "en-US";
+        System.Speech.Recognition.SpeechRecognitionEngine? engine = null;
+        var started = false;
         try
         {
-            await recognizer.CompileConstraintsAsync();
-            var result = await recognizer.RecognizeWithUIAsync();
-            if (result.Status == Windows.Media.SpeechRecognition.SpeechRecognitionResultStatus.Success)
+            try
             {
-                OnRecognized?.Invoke(result.Text);
+                engine = new System.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(tag));
             }
+            catch (Exception ex)
+            {
+                // 这个语言的桌面识别器没装（实测本机只有 zh-CN，没有 en-US）：退回系统默认，别直接放弃
+                App.WriteLog($"SpeechService: SAPI 没有 {tag} 识别器（{ex.Message}），改用系统默认语言");
+                engine = new System.Speech.Recognition.SpeechRecognitionEngine();
+                tag = engine.RecognizerInfo.Culture.Name;
+            }
+            engine.LoadGrammar(new System.Speech.Recognition.DictationGrammar());
+            engine.SetInputToDefaultAudioDevice();
+            engine.InitialSilenceTimeout = TimeSpan.FromSeconds(WindowsListenSeconds);
+            engine.EndSilenceTimeout = TimeSpan.FromMilliseconds(600);
+
+            string? text = null;
+            var speechSeen = false;
+            string? audioProblem = null;
+            var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            engine.SpeechDetected += (_, __) => speechSeen = true;
+            engine.SpeechHypothesized += (_, __) => speechSeen = true;
+            engine.SpeechRecognized += (_, e) => { text = e.Result?.Text; tcs.TrySetResult(true); };
+            engine.SpeechRecognitionRejected += (_, __) => tcs.TrySetResult(true);
+            engine.AudioSignalProblemOccurred += (_, e) => audioProblem = e.AudioSignalProblem.ToString();
+            engine.RecognizeCompleted += (_, __) => tcs.TrySetResult(true);
+            using var cancelRegistration = (_listenCts ??= new CancellationTokenSource()).Token.Register(() =>
+            {
+                try { engine.RecognizeAsyncCancel(); } catch { }
+                tcs.TrySetResult(true);
+            });
+
+            engine.RecognizeAsync(System.Speech.Recognition.RecognizeMode.Single);
+            started = true;
+            App.WriteLog($"SpeechService: SAPI 开始识别 culture={tag} engine='{engine.RecognizerInfo.Description}'");
+            await tcs.Task.WaitAsync(TimeSpan.FromSeconds(WindowsListenSeconds + 5));
+
+            App.WriteLog($"SpeechService: SAPI 识别结束 text='{text}' seen={speechSeen} audioProblem={audioProblem}");
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                OnRecognized?.Invoke(text);
+                return true;
+            }
+            LastRecognitionNote = NoteForSapi(speechSeen, audioProblem);
+            OnRecognized?.Invoke("");
+            return true;
+        }
+        catch (OperationCanceledException) when (started)
+        {
+            // 只有引擎迟迟不给任何完成事件才会走到这里（引擎自己有 20 秒静音超时）
+            App.WriteLog("SpeechService: SAPI 识别超时，引擎没有交回结果");
+            LastRecognitionNote = $"没等到说话（{WindowsListenSeconds} 秒内没有声音）";
+            OnRecognized?.Invoke("");
+            return true;
         }
         catch (Exception ex)
         {
-            // 隐私未授权/无麦克风等：不抛给 UI，安静降级为"没听清"
-            System.Diagnostics.Debug.WriteLine($"[STT-Win] {ex.Message}");
+            App.WriteLog($"SpeechService.ListenWindowsSapi -> {ex.GetType().Name}: {ex.Message}");
+            if (!started) return false;
+            LastRecognitionNote = "系统识别中断：" + ex.Message;
+            OnRecognized?.Invoke("");
+            return true;
+        }
+        finally
+        {
+            try { engine?.Dispose(); } catch { }
+        }
+    }
+
+    /// <summary>把 SAPI 的音频问题（或「听见了但没识别出来」）翻成用户能照着做的一句话。</summary>
+    private static string NoteForSapi(bool speechSeen, string? audioProblem)
+    {
+        if (!string.IsNullOrWhiteSpace(audioProblem) && audioProblem != "None")
+            return audioProblem switch
+            {
+                "NoSignal" => "麦克风没有信号输入",
+                "Muted" => "麦克风被静音了",
+                "TooQuiet" => "声音太小，请靠近麦克风再说",
+                "TooLoud" => "环境太吵，识别被盖过去了",
+                "TooFast" => "语速太快，识别跟不上",
+                _ => "麦克风异常（" + audioProblem + "）",
+            };
+        return speechSeen ? "没听清，请再说一次" : $"没等到说话（{WindowsListenSeconds} 秒内没有声音）";
+    }
+
+    private async Task ListenWindowsWinRt(string lang)
+    {
+        var tag = lang == "zh-CN" ? "zh-CN" : "en-US";
+        try
+        {
+            using var recognizer = new Windows.Media.SpeechRecognition.SpeechRecognizer(
+                new Windows.Globalization.Language(tag));
+            // 引擎降级原因（没麦/隐私被关/语言模型没装）只在这个事件里说，识别结果本身只给一个空文本，
+            // 不挂着就只剩「Unknown」这种谁也看不懂的词。
+            var problem = "";
+            recognizer.RecognitionQualityDegrading += (_, e) => problem = e.Problem.ToString();
+
+            var compile = await recognizer.CompileConstraintsAsync();
+            App.WriteLog($"SpeechService: WinRT 语法编译 status={compile.Status}({(int)compile.Status}) lang={tag} problem={problem}");
+            if (compile.Status != Windows.Media.SpeechRecognition.SpeechRecognitionResultStatus.Success)
+                throw new InvalidOperationException($"识别语法不可用（{compile.Status}）");
+
+            // 不用 RecognizeWithUIAsync：系统听写面板要把文字插进「当前活动窗口里已聚焦的编辑框」，
+            // 桌宠的头顶小窗是从不激活的工具窗，面板插不进去；文字由我们自己填进输入框才靠得住。
+            var result = await recognizer.RecognizeAsync().AsTask()
+                .WaitAsync(TimeSpan.FromSeconds(WindowsListenSeconds), _listenCts?.Token ?? CancellationToken.None);
+            App.WriteLog($"SpeechService: WinRT 识别结束 status={result.Status}({(int)result.Status}) text='{result.Text}' problem={problem}");
+            if (result.Status == Windows.Media.SpeechRecognition.SpeechRecognitionResultStatus.Success
+                && !string.IsNullOrWhiteSpace(result.Text))
+            {
+                OnRecognized?.Invoke(result.Text);
+                return;
+            }
+            LastRecognitionNote = NoteForWinRt(result.Status.ToString(), problem);
             OnRecognized?.Invoke("");
         }
+        catch (OperationCanceledException)
+        {
+            LastRecognitionNote = _listenCts?.IsCancellationRequested == true
+                ? "识别已取消"
+                : $"没等到说话（{WindowsListenSeconds} 秒内没有声音）";
+            App.WriteLog("SpeechService: WinRT 识别取消/超时 note=" + LastRecognitionNote);
+            OnRecognized?.Invoke("");
+        }
+        catch (Exception ex)
+        {
+            // 隐私未授权/无麦克风/语言模型缺失等：不抛给 UI，安静降级为"没听清"——但原因要交给界面，
+            // 否则用户只会看到一个转圈的按钮，谁也不知道是没麦还是没授权。
+            App.WriteLog($"SpeechService.ListenWindowsWinRt -> {ex.GetType().Name}: {ex.Message}");
+            LastRecognitionNote = "系统语音识别不可用：" + ex.Message;
+            OnRecognized?.Invoke("");
+        }
+    }
+
+    /// <summary>把 WinRT 的识别状态翻成用户能照着做的一句话。</summary>
+    private static string NoteForWinRt(string status, string problem)
+    {
+        var s = status switch
+        {
+            "TopicLanguageNotSupported" => "这个语言的语音识别系统不支持，换一种语言或改用外部识别",
+            "GrammarLanguageMismatch" => "识别语言和已安装的语言模型不匹配",
+            "GrammarCompilationFailure" => "识别语法编译失败",
+            "AudioQualityFailure" => "麦克风音质太差，没识别出来，请靠近一点再说",
+            "UserCanceled" => "识别已取消",
+            "TimeoutExceeded" => "安静太久，没听到说话",
+            "PauseLimitExceeded" => "中间停顿太久，识别断掉了",
+            "NetworkFailure" => "系统语音识别要联网，网络不通",
+            "MicrophoneUnavailable" => "没有可用的麦克风",
+            "Unknown" => "系统语音识别失败（系统没给出原因）",
+            _ => "识别失败（" + status + "）",
+        };
+        return string.IsNullOrWhiteSpace(problem) || problem == "None" ? s : s + "（引擎提示：" + problem + "）";
     }
 #endif
 }

@@ -9,7 +9,7 @@
     <ScrollView>
         <VerticalStackLayout Padding="16" Spacing="12">
             <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" />
-            <Label Text="这里能看到并修改她的记忆：关系网、标签、她记得的事，以及主设定 × 副设定。"
+            <Label Text="这里能看到并修改 TA 的记忆：关系网、标签、TA 记得的事，以及主设定 × 副设定。"
                    Style="{StaticResource TxtCaption}" />
 
             <!-- 副设定 -->
@@ -48,7 +48,7 @@
             <!-- 标签 -->
             <Border Style="{StaticResource CardNeumorph}" Padding="14,12">
                 <VerticalStackLayout Spacing="6">
-                    <Label Text="标签（她怎么记人和事）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                    <Label Text="标签（TA 怎么记人和事）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                     <Label Text="{Binding TagStatus}" Style="{StaticResource TxtCaption}" />
                     <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding TagItems}">
                         <BindableLayout.ItemTemplate>
@@ -65,7 +65,7 @@
             </Border>
 
             <!-- 人类记忆 -->
-            <Label Text="她记得的事（人类记忆层）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+            <Label Text="TA 记得的事（人类记忆层）" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
             <Label Text="只记事件、印象、重要时刻与单张照片；越重要忘得越慢，久了的会模糊。"
                    Style="{StaticResource TxtCaption}" />
             <Button Text="＋ 手动加一条记忆" Style="{StaticResource BtnGhost}" FontSize="13"

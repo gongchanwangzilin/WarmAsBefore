@@ -288,11 +288,11 @@ public sealed class RuntimeConfigurator
         // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次
         _chat.SubProfileProvider = _subProfiles.Describe;
         _chat.AfterTurn = (charId, note) => _subProfiles.DriftAsync(charId, "对话之后", note);
-        // 副设定的模型改写（默认关闭）：每 12 轮才问一次模型「她现在是怎样的人」
+        // 副设定的模型改写（默认关闭）：每 12 轮才问一次模型「TA 现在是怎样的人」
         _chat.SubProfileAiRewriteEnabled = s.SubProfileAiRewrite;
         _chat.SubProfileMaterial = _subProfiles.BuildRewriteMaterialAsync;
         _chat.SubProfileRewritten = (charId, personality, description) =>
-            _subProfiles.RewriteAsync(charId, personality, description, "经历之后，她对自己的看法变了");
+            _subProfiles.RewriteAsync(charId, personality, description, "经历之后，TA 对自己的看法变了");
         // 人类记忆层：回合结束把折叠出的记忆记进去，每轮对话前按人类方式回想
         _chat.Human = _human;
         // 智能省钱：总结前先算「现在总结 vs 不总结」哪个更省（关掉则恢复老行为）
@@ -305,8 +305,9 @@ public sealed class RuntimeConfigurator
         // 好感时刻/带截图的时刻也进人类记忆层（照片式记忆）
         _memory.Human = _human;
 
-        _weather.SetCity(s.WeatherCity);
-        _phys.SetCycle(s.CycleLength, s.PeriodLength);
+        _weather.Configure(s.WeatherSource, s.WeatherApiUrl, s.WeatherApiKey);
+        _weather.SetLocation(s.WeatherCity, s.WeatherLatitude, s.WeatherLongitude);
+        _phys.SetCycle(s.CycleRuleFor(_engine.ActiveCharacter?.Profile.Gender));
         _speech.TtsEnabled = s.TtsEnabled;
         _speech.TtsRate = s.TtsRate;
         _speech.SttEnabled = s.SttEnabled;

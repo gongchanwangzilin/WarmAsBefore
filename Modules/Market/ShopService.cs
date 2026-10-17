@@ -339,7 +339,8 @@ public sealed class ShopService
                 "ovulation" => "排卵期", "luteal" => "黄体期",
                 _ => cycle.Phase
             };
-            lines.Add($"🌸 生理周期：第 {cycle.CycleDay} 天（{phase}）");
+            // 内部按 0 起算（第 0 天=经期第一天），说日子的时候没人这么数，界面上补成 1 起算。
+            lines.Add($"🌸 生理周期：第 {cycle.CycleDay + 1} 天（{phase}）");
         }
         var buffs = ActiveBuffs;
         if (buffs.Count > 0)

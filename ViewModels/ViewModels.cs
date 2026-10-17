@@ -91,11 +91,11 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateCharacter()
     {
-        var name = await Shell.Current.DisplayPromptAsync("新建角色", "她的名字：", "下一步", "取消", "小雨");
+        var name = await Shell.Current.DisplayPromptAsync("新建角色", "TA 的名字：", "下一步", "取消", "小雨");
         if (string.IsNullOrWhiteSpace(name)) return;
-        var gender = await Shell.Current.DisplayActionSheet("角色性别", "取消", null, "女", "男");
-        if (gender is not ("女" or "男")) return;
-        var personality = await Shell.Current.DisplayPromptAsync("角色性格", "用几句话描述她的性格：", "创建", "取消", "温柔、害羞、喜欢黏人");
+        var gender = await Helpers.GenderPrompt.PickAsync("角色性别");
+        if (string.IsNullOrWhiteSpace(gender)) return;
+        var personality = await Shell.Current.DisplayPromptAsync("角色性格", "用几句话描述 TA 的性格：", "创建", "取消", "温柔、害羞、喜欢黏人");
         if (personality is null) return;
 
         var ch = _library.CreateDefault(name, gender, personality);
@@ -281,13 +281,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Services.VisionService _vision;
     private readonly Services.SkillLibrary _skills;
     private readonly Services.CostEstimatorService _cost;
+    private readonly Modules.RealWorld.LocationService _cities;
+    private readonly Modules.RealWorld.WeatherProvider _weather;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
         Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
         Modules.Tools.ToolManager tools, SpeechService speech,
         Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision,
-        Services.SkillLibrary skills, Services.CostEstimatorService cost)
+        Services.SkillLibrary skills, Services.CostEstimatorService cost,
+        Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather)
     {
         _settings = settings;
         _theme = theme;
@@ -303,6 +306,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _stickers = stickers;
         _library = library;
         _vision = vision;
+        _cities = cities;
+        _weather = weather;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
         JavaManualPath = _runtimes.ManualJavaPath;
@@ -422,14 +427,22 @@ public sealed partial class SettingsViewModel : ObservableObject
         _notificationsEnabled = s.NotificationsEnabled;
         _greetingEnabled = s.GreetingEnabled;
 
+        // 天气：直接写后备字段，避开属性变更钩子（构造期一触发就把旧设置又写回盘）
         _weatherCity = s.WeatherCity;
-        _cycleLength = s.CycleLength;
-        _periodLength = s.PeriodLength;
+        _weatherLatitude = s.WeatherLatitude;
+        _weatherLongitude = s.WeatherLongitude;
+        _weatherSource = Modules.RealWorld.WeatherSources.Normalize(s.WeatherSource);
+        _weatherSourceChoice = ChoiceOf(_weatherSource);
+        _isWeatherSourceCustom = _weatherSource == Modules.RealWorld.WeatherSources.Custom;
+        _weatherApiUrl = s.WeatherApiUrl ?? "";
+        _weatherApiKey = s.WeatherApiKey ?? "";
+        LoadCycleRules(s);
 
         _alwaysOnTop = s.AlwaysOnTop;
         _petIdleMinutes = s.PetIdleMinutes;
         _petThinkModeDisplay = ThinkModeDisplayOf(s.PetThinkMode);
         _petThinkIntervalMinutes = Math.Max(1, s.PetThinkIntervalMinutes);
+        _petChromeCrossScreen = s.PetChromeCrossScreen;
 
         // 屏幕方向（auto / landscape / portrait）
         _screenOrientation = string.IsNullOrWhiteSpace(s.ScreenOrientation) ? "auto" : s.ScreenOrientation;
@@ -648,16 +661,31 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task TrustToolDir()
     {
+        const string cancel = "取消";
+        var dirs = Directory.Exists(Modules.Tools.ToolManager.ToolsDir)
+            ? Directory.GetDirectories(Modules.Tools.ToolManager.ToolsDir).Select(System.IO.Path.GetFileName).ToArray()
+            : Array.Empty<string>();
+        if (dirs.Length == 0)
+        {
+            await Shell.Current.DisplayAlert("工具目录", "工具目录里还没有任何工具，没什么可信任的。", "好");
+            return;
+        }
         var dir = await Microsoft.Maui.Controls.Shell.Current.DisplayActionSheet(
-            "选择要信任的工具目录", "取消", null,
-            Directory.Exists(Modules.Tools.ToolManager.ToolsDir)
-                ? Directory.GetDirectories(Modules.Tools.ToolManager.ToolsDir).Select(System.IO.Path.GetFileName).ToArray()
-                : new string[] { "（工具目录为空）" });
-        if (dir is null || dir == "（工具目录为空）") return;
+            "选择要信任的工具目录", cancel, null, dirs);
+        // DisplayActionSheet 点「取消」返回的是这个按钮的文字本身，不是 null。
+        // 少这一句判断，「取消」就会被当成目录名写进信任名单：一个并不存在的目录拿到了读模型数据的权限。
+        if (string.IsNullOrWhiteSpace(dir) || dir == cancel) return;
         var full = System.IO.Path.Combine(Modules.Tools.ToolManager.ToolsDir, dir);
+        // 信任名单是给真实目录放行的，路径不存在的一律不记；这也是上面那句判断的兜底。
+        if (!Directory.Exists(full))
+        {
+            App.WriteLog($"Sandbox.Trust: 拒绝「{dir}」，目录不存在：{full}");
+            await Shell.Current.DisplayAlert("工具目录", $"找不到目录：{dir}", "好");
+            return;
+        }
         _sandbox.Trust.Add(dir, full, "设置页手动放开");
         _sandbox.RefreshKeyFingerprints();
-        await Task.CompletedTask;
+        App.WriteLog($"Sandbox.Trust: 已信任 {full}");
         RefreshSandboxTrust();
     }
 
@@ -665,6 +693,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void RemoveTrustedTool(Modules.Sandbox.TrustEntry tool)
     {
         _sandbox.Trust.Remove(tool.ToolName, tool.ToolPath);
+        App.WriteLog($"Sandbox.Trust: 已移除 {tool.ToolPath}");
         RefreshSandboxTrust();
     }
 
@@ -1306,7 +1335,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 "interface" => $"{ScreenOrientationDisplay} · {ChatStyleDisplay} · 难度 {GameDifficultyDisplayOf(_gameDifficulty)}",
                 "platform" => $"桌宠闲置 {(PetIdleMinutes == 0 ? "关" : PetIdleMinutes + " 分")} · {(PreferDiscreteGpu ? "独显" : "自动显卡")}",
                 "integrations" => $"{(QqBotEnabled ? "QQ 开" : "QQ 关")} · {(WechatEnabled ? "微信开" : "微信关")} · MCP {(McpEnabled ? "开" : "关")}",
-                "life" => $"{(NotificationsEnabled ? "通知开" : "通知关")} · {(string.IsNullOrWhiteSpace(WeatherCity) ? "未设城市" : WeatherCity)}",
+                "life" => $"{(NotificationsEnabled ? "通知开" : "通知关")} · {(string.IsNullOrWhiteSpace(WeatherCity) ? "未设城市" : WeatherCity)}{(WeatherSource == Modules.RealWorld.WeatherSources.Custom ? "（自定义源）" : "")}",
                 "data" => $"{MaterialsSummary()} · 能力包 {(string.IsNullOrWhiteSpace(SkillsSummary) ? "未装" : "已装")}",
                 _ => row.Desc
             };
@@ -1382,7 +1411,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private System.Threading.Timer? _searchTimer;
 
     /// <summary>
-    /// 搜索防抖 250ms：每敲一个字就切 24 张卡片的可见性会让长页面反复重排，
+    /// 搜索防抖 250ms：每敲一个字就切一遍全部卡片的可见性会让长页面反复重排，
     /// 打字时就会一卡一卡；等手停一下再过滤，观感顺得多。
     /// </summary>
     partial void OnSettingsSearchTextChanged(string value)
@@ -1586,9 +1615,256 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _notificationsEnabled = true;
     [ObservableProperty] private bool _greetingEnabled = true;
 
+    // ============ 天气与生活：定位 / 选择城市 / 数据源 ============
+
     [ObservableProperty] private string _weatherCity = "";
+    /// <summary>城市坐标：由「定位」或「选择城市」写入。为空表示只填过城市名，取天气时再地理编码。</summary>
+    [ObservableProperty] private double? _weatherLatitude;
+    [ObservableProperty] private double? _weatherLongitude;
+    /// <summary>数据源代码（open-meteo / wttr / custom）：落盘用它，显示名只给 Picker 看。</summary>
+    [ObservableProperty] private string _weatherSource = "open-meteo";
+    [ObservableProperty] private Modules.RealWorld.WeatherSourceChoice _weatherSourceChoice = null!;
+    [ObservableProperty] private string _weatherApiUrl = "";
+    [ObservableProperty] private string _weatherApiKey = "";
+    [ObservableProperty] private bool _isWeatherSourceCustom;
+
+    /// <summary>城市选择面板（搜索 + 热门城市）是否展开。</summary>
+    [ObservableProperty] private bool _cityChooserOpen;
+    [ObservableProperty] private string _citySearchText = "";
+    [ObservableProperty] private bool _isSearchingCity;
+    [ObservableProperty] private bool _isLocatingCity;
+    [ObservableProperty] private bool _hasCityResults;
+    /// <summary>定位 / 选城市 / 测试天气的回显文字（不入库）。</summary>
+    [ObservableProperty] private string _weatherStatusText = "";
+    [ObservableProperty] private bool _hasWeatherStatus;
+
+    public List<Modules.RealWorld.WeatherSourceChoice> WeatherSourceChoices { get; } = new()
+    {
+        new("open-meteo", "Open-Meteo（默认，免密钥）"),
+        new("wttr", "wttr.in（免密钥）"),
+        new("custom", "自定义（Open-Meteo 兼容）"),
+    };
+
+    /// <summary>内置热门城市：不联网也能点选。</summary>
+    public IReadOnlyList<Modules.RealWorld.CityHit> PopularCities => Modules.RealWorld.CityCatalog.Popular;
+
+    /// <summary>搜索联想结果（内置匹配 + 在线地理编码合并）。</summary>
+    public ObservableCollection<Modules.RealWorld.CityHit> CityResults { get; } = new();
+
+    public string WeatherCityDisplay => string.IsNullOrWhiteSpace(WeatherCity)
+        ? LocalizationService.Current["Settings_CityUnset"] : WeatherCity;
+
+    /// <summary>坐标回显：让「定到的是哪儿」看得见，也方便确认自定义源请求的坐标。</summary>
+    public string WeatherCoordDisplay => WeatherLatitude is double la && WeatherLongitude is double lo
+        ? $"{la:0.00}, {lo:0.00}" : "";
+
+    private Modules.RealWorld.WeatherSourceChoice ChoiceOf(string code) =>
+        WeatherSourceChoices.FirstOrDefault(c => c.Code == code) ?? WeatherSourceChoices[0];
+
+    partial void OnWeatherSourceChoiceChanged(Modules.RealWorld.WeatherSourceChoice value)
+    {
+        if (value is null) return;
+        // 写后备字段：赋属性会再触发一次本钩子，Picker 上就会看到两次「源已切换」
+        _weatherSource = value.Code;
+        IsWeatherSourceCustom = value.Code == Modules.RealWorld.WeatherSources.Custom;
+        PersistSettings();
+    }
+
+    partial void OnWeatherApiUrlChanged(string value) => PersistSettings();
+    partial void OnWeatherApiKeyChanged(string value) => PersistSettings();
+    partial void OnWeatherStatusTextChanged(string value) => HasWeatherStatus = !string.IsNullOrWhiteSpace(value);
+
+    /// <summary>展开/收起城市选择面板。</summary>
+    [RelayCommand]
+    private void ToggleCityChooser() => CityChooserOpen = !CityChooserOpen;
+
+    /// <summary>点选一个城市：名字与坐标一起记下，之后取天气不再依赖地理编码。</summary>
+    [RelayCommand]
+    private void ChooseCity(Modules.RealWorld.CityHit? city)
+    {
+        if (city is null) return;
+        WeatherCity = city.Name;
+        WeatherLatitude = city.Latitude;
+        WeatherLongitude = city.Longitude;
+        CityChooserOpen = false;
+        CitySearchText = "";
+        CityResults.Clear();
+        HasCityResults = false;
+        WeatherStatusText = $"已选择 {city.Name}（{city.CoordText}）";
+        PersistSettings();   // 城市名没变、只更新坐标时，属性钩子不会触发，这里补一次
+    }
+
+    /// <summary>定位：先要系统定位，拿不到再按公网 IP 估一个城市（Windows 桌面多数走后者）。</summary>
+    [RelayCommand]
+    private async Task LocateWeatherCity()
+    {
+        if (IsLocatingCity) return;
+        IsLocatingCity = true;
+        WeatherStatusText = "正在定位…";
+        try
+        {
+            var fix = await _cities.LocateAsync();
+            if (fix is null)
+            {
+                WeatherStatusText = "定位失败：系统定位不可用或被拒绝，IP 也没估出位置。请手动选择城市。";
+                return;
+            }
+            WeatherCity = fix.City.Name;
+            WeatherLatitude = fix.City.Latitude;
+            WeatherLongitude = fix.City.Longitude;
+            CityChooserOpen = false;
+            WeatherStatusText = $"已按{fix.Origin}定位到 {fix.City.Name}（{fix.City.CoordText}）";
+            PersistSettings();
+        }
+        catch (Exception ex)
+        {
+            WeatherStatusText = "定位失败：" + ex.Message;
+            App.WriteLog("SettingsViewModel.LocateWeatherCity -> " + ex);
+        }
+        finally
+        {
+            IsLocatingCity = false;
+        }
+    }
+
+    /// <summary>按当前界面上的源与城市取一次真实天气：自定义源填完能立刻验证通不通。</summary>
+    [RelayCommand]
+    private async Task TestWeather()
+    {
+        WeatherStatusText = "正在取天气…";
+        try
+        {
+            _weather.Configure(WeatherSource, WeatherApiUrl, WeatherApiKey);
+            _weather.SetLocation(WeatherCity, WeatherLatitude, WeatherLongitude);
+            var r = await _weather.Fetch();
+            WeatherStatusText = r is null ? "这个源没返回天气数据" : $"{r.City}：{r.Description} {r.Celsius:0.#}°C";
+        }
+        catch (Exception ex)
+        {
+            WeatherStatusText = "取天气失败：" + ex.Message;
+            App.WriteLog("SettingsViewModel.TestWeather -> " + ex);
+        }
+    }
+
+    private System.Threading.Timer? _citySearchTimer;
+    private readonly object _citySearchLock = new();
+    private int _citySearchSeq;
+
+    partial void OnCitySearchTextChanged(string value)
+    {
+        lock (_citySearchLock)
+        {
+            _citySearchTimer ??= new System.Threading.Timer(
+                _ => MainThread.BeginInvokeOnMainThread(RunCitySearch), null,
+                Timeout.Infinite, Timeout.Infinite);
+            _citySearchTimer.Change(250, Timeout.Infinite);
+        }
+    }
+
+    private async void RunCitySearch()
+    {
+        var keyword = CitySearchText.Trim();
+        var seq = ++_citySearchSeq;
+        if (keyword.Length == 0)
+        {
+            CityResults.Clear();
+            HasCityResults = false;
+            return;
+        }
+        IsSearchingCity = true;
+        try
+        {
+            var hits = await _cities.SearchAsync(keyword, WeatherSource, WeatherApiUrl);
+            // 只让最后一次输入的结果落地：连打字时旧请求回得晚会把新结果盖掉
+            if (seq != _citySearchSeq) return;
+            CityResults.Clear();
+            foreach (var h in hits) CityResults.Add(h);
+            HasCityResults = CityResults.Count > 0;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.CitySearch -> " + ex);
+        }
+        finally
+        {
+            IsSearchingCity = false;
+        }
+    }
+
+    // ============ 周期设置：按性别分开 ============
+    //
+    // 编辑的是「当前选中性别」的那一条规则，全部规则先在内存里攒着（_cycleRules），
+    // 落盘时整体快照一次。不直接改 _settings.Current 的那本字典：切一次性别会连着触发
+    // 三个字段变更，每个都去读盘再写盘，读到的还是上一轮的旧值，最后一次编辑会被吃掉。
+
+    private readonly Dictionary<string, CycleRule> _cycleRules = new(StringComparer.Ordinal);
+    private bool _loadingCycle;
+
+    [ObservableProperty] private bool _cycleTracked;
     [ObservableProperty] private int _cycleLength = 28;
     [ObservableProperty] private int _periodLength = 5;
+    [ObservableProperty] private string _cycleGender = "女";
+    [ObservableProperty] private bool _showCycleAdvanced;
+
+    public ObservableCollection<string> CycleGenderChoices { get; } = new() { "女", "男", "其他" };
+
+    private void LoadCycleRules(UserSettings s)
+    {
+        _cycleRules.Clear();
+        foreach (var (gender, rule) in s.CycleRules) _cycleRules[gender] = rule;
+        foreach (var gender in _cycleRules.Keys)
+            if (!CycleGenderChoices.Contains(gender)) CycleGenderChoices.Add(gender);
+
+        // 后备字段直写，理由同天气那一段：构造期触发变更钩子会把旧设置又写回盘
+        _cycleGender = CycleGenderChoices.FirstOrDefault(g => _cycleRules.ContainsKey(g)) ?? "女";
+        var first = _cycleRules.TryGetValue(_cycleGender, out var r) ? r : CycleRule.DefaultFor(_cycleGender);
+        _cycleTracked = first.Enabled;
+        _cycleLength = first.CycleLength;
+        _periodLength = first.PeriodLength;
+    }
+
+    partial void OnCycleGenderChanged(string value)
+    {
+        _loadingCycle = true;
+        var rule = _cycleRules.TryGetValue(value, out var r) ? r : CycleRule.DefaultFor(value);
+        CycleTracked = rule.Enabled;
+        CycleLength = rule.CycleLength;
+        PeriodLength = rule.PeriodLength;
+        _loadingCycle = false;
+    }
+
+    partial void OnCycleTrackedChanged(bool value) => SaveCycleRule();
+    partial void OnCycleLengthChanged(int value) => SaveCycleRule();
+    partial void OnPeriodLengthChanged(int value) => SaveCycleRule();
+
+    private void SaveCycleRule()
+    {
+        if (_loadingCycle) return;
+        var g = (CycleGender ?? "").Trim();
+        if (g.Length == 0) return;
+        _cycleRules[g] = new CycleRule
+        {
+            Enabled = CycleTracked,
+            CycleLength = Math.Clamp(CycleLength, 7, 60),
+            PeriodLength = Math.Clamp(PeriodLength, 1, Math.Clamp(CycleLength, 7, 60)),
+        };
+        PersistSettings();
+    }
+
+    /// <summary>高级：给一个自定义性别单独立一条周期规则。</summary>
+    [RelayCommand]
+    private async Task AddCycleGenderAsync()
+    {
+        var input = await Shell.Current.DisplayPromptAsync("自定义性别", "这个性别的称呼（例如：机器人 / 双性 / 精灵）：",
+            "添加", "取消", maxLength: 12);
+        var g = (input ?? "").Trim();
+        if (g.Length == 0) return;
+        if (_cycleRules.ContainsKey(g)) { CycleGender = g; return; }
+        _cycleRules[g] = CycleRule.DefaultFor(g);
+        if (!CycleGenderChoices.Contains(g)) CycleGenderChoices.Add(g);
+        CycleGender = g;
+        PersistSettings();
+    }
 
     // 小游戏 AI 难度
     [ObservableProperty] private string _gameDifficulty = "normal";
@@ -2048,6 +2324,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private int _petThinkIntervalMinutes = 10;
     public List<int> PetThinkIntervalChoices { get; } = new() { 5, 10, 15, 30, 60 };
 
+    /// <summary>多显示器：允许头顶对话小窗跟着角色跨到另一块屏。</summary>
+    [ObservableProperty] private bool _petChromeCrossScreen;
+
     private static string ThinkModeDisplayOf(string key) => key switch
     {
         "random" => "随机",
@@ -2212,12 +2491,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnNotificationsEnabledChanged(bool value) => PersistSettings();
     partial void OnGreetingEnabledChanged(bool value) => PersistSettings();
 
-    partial void OnWeatherCityChanged(string value) => PersistSettings();
-    partial void OnCycleLengthChanged(int value) => PersistSettings();
-    partial void OnPeriodLengthChanged(int value) => PersistSettings();
+    partial void OnWeatherCityChanged(string value)
+    {
+        PersistSettings();
+        OnPropertyChanged(nameof(WeatherCityDisplay));
+    }
 
     partial void OnAlwaysOnTopChanged(bool value) => PersistSettings();
     partial void OnPetIdleMinutesChanged(int value) => PersistSettings();
+
+    partial void OnPetChromeCrossScreenChanged(bool value)
+    {
+        PersistSettings();
+#if WINDOWS
+        // 正在当桌宠时拨这个开关，头顶小窗立刻按新边界重排——不然要等下次鼠标靠近才见效，
+        // 用户没法确认自己刚才那一下有没有生效。
+        PetService.RepositionChrome();
+#endif
+    }
 
     // 以下四项原先没有任何变更处理器：改了既不落盘、也不下发，
     // 而小游戏/棋力服务读的是已落盘的 UserSettings —— 于是设置页显示与真实生效值不一致。
@@ -2396,13 +2687,18 @@ GlassLightWidth = GlassLightWidth,
                 GreetingEnabled = GreetingEnabled,
 
                 WeatherCity = WeatherCity.Trim(),
-                CycleLength = CycleLength,
-                PeriodLength = PeriodLength,
+                WeatherLatitude = WeatherLatitude,
+                WeatherLongitude = WeatherLongitude,
+                WeatherSource = WeatherSource,
+                WeatherApiUrl = WeatherApiUrl.Trim(),
+                WeatherApiKey = WeatherApiKey.Trim(),
+                CycleRules = new Dictionary<string, CycleRule>(_cycleRules, StringComparer.Ordinal),
 
                 AlwaysOnTop = AlwaysOnTop,
                 PetIdleMinutes = Math.Max(0, PetIdleMinutes),
                 PetThinkMode = ThinkModeKeyOf(_petThinkModeDisplay),
                 PetThinkIntervalMinutes = Math.Max(1, PetThinkIntervalMinutes),
+                PetChromeCrossScreen = PetChromeCrossScreen,
                 ScreenOrientation = ScreenOrientation,
 
                 QqBotEnabled = QqBotEnabled,

@@ -53,7 +53,7 @@
                                         </Grid>
                                         <Label Text="玻璃已关闭（透明度为 0）：表面为不透明材质，下方选项不生效。"
                                                IsVisible="{Binding GlassInactive}"
-                                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarm}" />
+                                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}" />
 
                                                                                 <!-- 玻璃模式：原来是三个互相牵制的开关（开着毛玻璃还得自己记得开磨砂），
                                              现在是「一次选一种」。 -->
@@ -625,7 +625,7 @@
                                         <!-- 副设定：由模型参与改写（默认关闭，因为要花钱） -->
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="让模型参与副设定改写" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="开启后每 12 轮对话，让模型重新表述一次「她现在的样子」（性格与处境）；主设定不动、随时可回正。默认关闭以免额外花钱。"
+                                            <Label Text="开启后每 12 轮对话，让模型重新表述一次「TA 现在的样子」（性格与处境）；主设定不动、随时可回正。默认关闭以免额外花钱。"
                                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <Switch Grid.Column="1" IsToggled="{Binding SubProfileAiRewrite}" /></Grid>
                                         <!-- 词义关系网：模型辅助增边（默认关闭） -->
@@ -642,7 +642,7 @@
         <DataTemplate x:Key="Card11">
             <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
-                                        IsVisible="{Binding Filter.Notify}">
+                                        IsVisible="{Binding Filter.Voice}">
                                     <VerticalStackLayout Spacing="14">
                                         <Label Text="{Binding [Settings_Voice], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
@@ -762,7 +762,7 @@
         <DataTemplate x:Key="Card12">
             <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
-                                        IsVisible="{Binding Filter.Weather}">
+                                        IsVisible="{Binding Filter.Notify}">
                                     <VerticalStackLayout Spacing="14">
                                         <Label Text="{Binding [Settings_NotifyTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
@@ -781,25 +781,120 @@
         <DataTemplate x:Key="Card13">
             <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardNeumorph}"
-                                        IsVisible="{Binding Filter.Desktop}">
+                                        IsVisible="{Binding Filter.Weather}">
                                     <VerticalStackLayout Spacing="14">
                                         <Label Text="{Binding [Settings_WeatherLife], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
-                                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_City], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
-                                            <Entry Grid.Column="1" Text="{Binding WeatherCity}" Placeholder="{Binding [Settings_CityPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
+                                        <!-- 所在城市：定位或从列表选，不再手打名字（名字要打错就什么也查不到） -->
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding [Settings_City], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="{Binding WeatherCityDisplay}" FontSize="15" TextColor="{DynamicResource PrimaryFg}" />
+                                                <Label Text="{Binding WeatherCoordDisplay}" Style="{StaticResource TxtCaption}" />
+                                            </VerticalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                                                <Button Text="{Binding [Settings_Locate], Source={x:Static i18n:LocalizationService.Current}}"
+                                                        Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,6"
+                                                        IsEnabled="{Binding IsLocatingCity, Converter={StaticResource InverseBool}}"
+                                                        Command="{Binding LocateWeatherCityCommand}" />
+                                                <Button Text="{Binding [Settings_ChooseCity], Source={x:Static i18n:LocalizationService.Current}}"
+                                                        Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,6"
+                                                        Command="{Binding ToggleCityChooserCommand}" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                        <Label Text="{Binding WeatherStatusText}" Style="{StaticResource TxtCaption}"
+                                               IsVisible="{Binding HasWeatherStatus}" />
+                                        <!-- 选城市：内置热门城市不联网也能点，输入几个字再补在线联想 -->
+                                        <VerticalStackLayout Spacing="10" IsVisible="{Binding CityChooserOpen}">
+                                            <Entry Text="{Binding CitySearchText}"
+                                                   Placeholder="{Binding [Settings_CitySearchHint], Source={x:Static i18n:LocalizationService.Current}}"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                                            <Label Text="{Binding [Settings_PopularCities], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
+                                            <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding PopularCities}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Button Text="{Binding Name}" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                Padding="10,5" Margin="0,0,6,6"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ChooseCityCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </FlexLayout>
+                                            <ActivityIndicator IsRunning="{Binding IsSearchingCity}" IsVisible="{Binding IsSearchingCity}"
+                                                               HeightRequest="22" Color="{DynamicResource PrimaryFg}" />
+                                            <Border Style="{StaticResource CardNeumorphInset}" IsVisible="{Binding HasCityResults}">
+                                                <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding CityResults}">
+                                                    <BindableLayout.ItemTemplate>
+                                                        <DataTemplate>
+                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                                <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                                                    <Label Text="{Binding Display}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" />
+                                                                    <Label Text="{Binding CoordText}" Style="{StaticResource TxtCaption}" />
+                                                                </VerticalStackLayout>
+                                                                <Button Grid.Column="1" Text="{Binding [Settings_UseCity], Source={x:Static i18n:LocalizationService.Current}}"
+                                                                        Style="{StaticResource BtnText}" FontSize="12" VerticalOptions="Center"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ChooseCityCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                            </Grid>
+                                                        </DataTemplate>
+                                                    </BindableLayout.ItemTemplate>
+                                                </VerticalStackLayout>
+                                            </Border>
+                                        </VerticalStackLayout>
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
-                                            <Label Text="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding [Settings_CycleHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Picker Grid.Column="1" Title="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
-                                                    ItemsSource="{Binding CycleChoices}" SelectedItem="{Binding CycleLength}"
+                                            <Label Text="{Binding [Settings_WeatherSource], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding [Settings_WeatherSourceHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Picker Grid.Column="1" WidthRequest="180" FontSize="13"
+                                                    ItemsSource="{Binding WeatherSourceChoices}" ItemDisplayBinding="{Binding Display}"
+                                                    SelectedItem="{Binding WeatherSourceChoice}" /></Grid>
+                                        <VerticalStackLayout Spacing="10" IsVisible="{Binding IsWeatherSourceCustom}">
+                                            <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_WeatherBaseUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                                                <Entry Grid.Column="1" Text="{Binding WeatherApiUrl}" Placeholder="https://example.com"
+                                                       FontSize="12" /></Grid>
+                                            <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_WeatherApiKey], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
+                                                <Entry Grid.Column="1" Text="{Binding WeatherApiKey}" Placeholder="sk-…" IsPassword="True"
+                                                       FontSize="12" /></Grid>
+                                            <Label Text="{Binding [Settings_WeatherCustomNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Button Text="{Binding [Settings_TestWeather], Source={x:Static i18n:LocalizationService.Current}}"
+                                                Style="{StaticResource BtnGhost}" FontSize="12" HorizontalOptions="Start"
+                                                Command="{Binding TestWeatherCommand}" />
+                                        <!-- 周期按性别分开配：先选性别，再决定这个性别有没有周期、多少天。
+                                             没单独配过的性别出厂即「无周期」，所以给自定义性别写周期算高级操作。 -->
+                                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                                            <Label Text="{Binding [Settings_CycleGender], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding [Settings_CycleGenderHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Picker Grid.Column="1" WidthRequest="110"
+                                                    ItemsSource="{Binding CycleGenderChoices}" SelectedItem="{Binding CycleGender}"
                                                     FontSize="13" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
-                                            <Label Text="{Binding [Settings_Period], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding [Settings_PeriodHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Picker Grid.Column="1" Title="{Binding [Settings_Period], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="110"
-                                                    ItemsSource="{Binding PeriodChoices}" SelectedItem="{Binding PeriodLength}"
-                                                    FontSize="13" /></Grid>
+                                            <Label Text="{Binding [Settings_CycleTracked], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding [Settings_CycleTrackedHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Switch Grid.Column="1" IsToggled="{Binding CycleTracked}" /></Grid>
+                                        <VerticalStackLayout Spacing="14" IsVisible="{Binding CycleTracked}">
+                                            <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                                                <Label Text="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="{Binding [Settings_CycleHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                                <Picker Grid.Column="1" WidthRequest="110"
+                                                        ItemsSource="{Binding CycleChoices}" SelectedItem="{Binding CycleLength}"
+                                                        FontSize="13" /></Grid>
+                                            <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                                                <Label Text="{Binding [Settings_Period], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="{Binding [Settings_PeriodHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                                <Picker Grid.Column="1" WidthRequest="110"
+                                                        ItemsSource="{Binding PeriodChoices}" SelectedItem="{Binding PeriodLength}"
+                                                        FontSize="13" /></Grid>
+                                        </VerticalStackLayout>
+                                        <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
+                                            <Label Text="{Binding [Settings_CycleAdvanced], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding [Settings_CycleAdvancedHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Switch Grid.Column="1" IsToggled="{Binding ShowCycleAdvanced}" /></Grid>
+                                        <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowCycleAdvanced}">
+                                            <Button Text="{Binding [Settings_CycleAddGender], Source={x:Static i18n:LocalizationService.Current}}"
+                                                    Style="{StaticResource BtnGhost}" FontSize="12" HorizontalOptions="Start"
+                                                    Command="{Binding AddCycleGenderCommand}" />
+                                            <Label Text="{Binding [Settings_CycleAddGenderHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -834,6 +929,11 @@
                                             <Picker Grid.Column="1" Title="思考间隔" WidthRequest="110"
                                                     ItemsSource="{Binding PetThinkIntervalChoices}" SelectedItem="{Binding PetThinkIntervalMinutes}"
                                                     FontSize="13" /></Grid>
+                                        <!-- 多显示器：头顶小窗能不能跟着角色跨到另一块屏 -->
+                                        <Grid ColumnDefinitions="*,Auto" IsVisible="{OnPlatform WinUI=True, Default=False}"><VerticalStackLayout>
+                                            <Label Text="对话小窗跨屏跟随" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="多显示器用：开启后角色拖到副屏，头顶输入条跟着跨过去；关闭时小窗只在角色那块屏里，贴到屏边会折回本屏。单屏无区别" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Switch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" /></Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -884,7 +984,7 @@
                                         <!-- 主动外发（角色拿起手机发消息） -->
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="允许角色主动发消息到我手机" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="存档里她「拿起手机发个消息」，就真的发到你的 QQ。默认关闭" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Label Text="存档里 TA「拿起手机发个消息」，就真的发到你的 QQ。默认关闭" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <Switch Grid.Column="1" IsToggled="{Binding QqProactiveEnabled}" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="发送前需要我确认" Style="{StaticResource TxtBodySm}" />
@@ -1329,7 +1429,7 @@
 
                                         <Label Text="已解锁：可编辑 / 播放展示案"
                                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
-                                               TextColor="{DynamicResource AccentWarm}"
+                                               TextColor="{DynamicResource AccentWarmFg}"
                                                IsVisible="{Binding ShowcaseUnlocked}" />
                                         <Button Text="🎬 开发者展示（编辑 / 播放）" Style="{StaticResource BtnNeumorphSm}"
                                                 BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
@@ -1363,7 +1463,7 @@
                             <Label Text="在本程序的 Windows 图形设置里登记「高性能」，重启程序后生效。它只影响玻璃模糊、大图缩放这类合成工作——之前量到的界面构建慢是 CPU 侧的事，换显卡帮不上。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding PreferDiscreteGpu}" /></Grid>
                         <Label Text="{Binding GpuStatusText}" Style="{StaticResource TxtCaption}"
-                               TextColor="{DynamicResource AccentWarm}" />
+                               TextColor="{DynamicResource AccentWarmFg}" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

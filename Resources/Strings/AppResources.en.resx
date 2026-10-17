@@ -21,14 +21,8 @@
   <data name="Title_Continue" xml:space="preserve"><value>Continue</value></data>
   <data name="Title_Tagline" xml:space="preserve"><value>Let every reunion feel as warm as the first meeting</value></data>
   <data name="Title_ThemePrefix" xml:space="preserve"><value>Theme</value></data>
-  <data name="Title_Identity" xml:space="preserve"><value>Choose Your Role</value></data>
-  <data name="Title_IdentityHint" xml:space="preserve"><value>This warmth will always be with you</value></data>
-  <data name="Title_Brother" xml:space="preserve"><value>Brother</value></data>
-  <data name="Title_BrotherDesc" xml:space="preserve"><value>A gentle and reliable guardian</value></data>
-  <data name="Title_Sister" xml:space="preserve"><value>Sister</value></data>
-  <data name="Title_SisterDesc" xml:space="preserve"><value>A caring and attentive caretaker</value></data>
   <data name="Title_Coexist" xml:space="preserve"><value>✦ Co-living Experience</value></data>
-  <data name="Title_CoexistDesc" xml:space="preserve"><value>Every day with her / him — chatting, living, mini-games — warm as before.</value></data>
+  <data name="Title_CoexistDesc" xml:space="preserve"><value>Every day with them — chatting, living, mini-games — warm as before.</value></data>
   <data name="Title_ThemeClassic" xml:space="preserve"><value>Classic</value></data>
   <data name="Title_ThemeGlass" xml:space="preserve"><value>Frosted Glass</value></data>
   <data name="Title_ThemeFrost" xml:space="preserve"><value>Matte Glass</value></data>
@@ -48,16 +42,35 @@
   <data name="Settings_KeySfxHint" xml:space="preserve"><value>Feedback sound when clicking buttons</value></data>
   <data name="Settings_WeatherLife" xml:space="preserve"><value>Weather &amp; Life</value></data>
   <data name="Settings_City" xml:space="preserve"><value>City</value></data>
-  <data name="Settings_CityPlaceholder" xml:space="preserve"><value>e.g., Hangzhou (blank = Beijing)</value></data>
+  <data name="Settings_Locate" xml:space="preserve"><value>Use my location</value></data>
+  <data name="Settings_ChooseCity" xml:space="preserve"><value>Choose city</value></data>
+  <data name="Settings_CityUnset" xml:space="preserve"><value>Not set (defaults to Beijing)</value></data>
+  <data name="Settings_CitySearchHint" xml:space="preserve"><value>Type a city name, e.g. Hangzhou</value></data>
+  <data name="Settings_PopularCities" xml:space="preserve"><value>Popular cities (works offline)</value></data>
+  <data name="Settings_UseCity" xml:space="preserve"><value>Use</value></data>
+  <data name="Settings_WeatherSource" xml:space="preserve"><value>Weather source</value></data>
+  <data name="Settings_WeatherSourceHint" xml:space="preserve"><value>Open-Meteo by default; wttr.in or a custom URL also work</value></data>
+  <data name="Settings_WeatherBaseUrl" xml:space="preserve"><value>Endpoint URL</value></data>
+  <data name="Settings_WeatherApiKey" xml:space="preserve"><value>API key</value></data>
+  <data name="Settings_WeatherCustomNote" xml:space="preserve"><value>Custom endpoints are queried with the Open-Meteo format (URL + /v1/forecast?latitude=…&amp;longitude=…); the key goes only to that URL, as an Authorization: Bearer header</value></data>
+  <data name="Settings_TestWeather" xml:space="preserve"><value>Test weather lookup</value></data>
   <data name="Settings_Cycle" xml:space="preserve"><value>Cycle Length</value></data>
   <data name="Settings_CycleHint" xml:space="preserve"><value>Length of one physiological cycle</value></data>
   <data name="Settings_Period" xml:space="preserve"><value>Period Days</value></data>
   <data name="Settings_PeriodHint" xml:space="preserve"><value>Length of the monthly period</value></data>
+  <data name="Settings_CycleGender" xml:space="preserve"><value>Applies to gender</value></data>
+  <data name="Settings_CycleGenderHint" xml:space="preserve"><value>Pick a gender first, then set its cycle</value></data>
+  <data name="Settings_CycleTracked" xml:space="preserve"><value>This gender has a cycle</value></data>
+  <data name="Settings_CycleTrackedHint" xml:space="preserve"><value>When off, no period wording shows up in prompts or the UI</value></data>
+  <data name="Settings_CycleAdvanced" xml:space="preserve"><value>Advanced: cycle for a custom gender</value></data>
+  <data name="Settings_CycleAdvancedHint" xml:space="preserve"><value>Only female characters ship with a cycle. Add a rule here for any other gender that should have one</value></data>
+  <data name="Settings_CycleAddGender" xml:space="preserve"><value>Add gender rule…</value></data>
+  <data name="Settings_CycleAddGenderHint" xml:space="preserve"><value>A new rule starts as “no cycle” — select the gender, then switch it on above</value></data>
   <data name="Settings_Desktop" xml:space="preserve"><value>Desktop</value></data>
   <data name="Settings_AlwaysOnTop" xml:space="preserve"><value>Always on Top</value></data>
   <data name="Settings_AlwaysOnTopHint" xml:space="preserve"><value>Keep the game window always in front</value></data>
   <data name="Settings_Official" xml:space="preserve"><value>Official Integration (WeChat / QQ)</value></data>
-  <data name="Settings_OfficialHint" xml:space="preserve"><value>Once configured, the in-game WeChat / QQ connects to your real accounts: messages from friends are replied by her personally. Official support is single-chat only, does not use mouse/keyboard, and requires no extra software.</value></data>
+  <data name="Settings_OfficialHint" xml:space="preserve"><value>Once configured, the in-game WeChat / QQ connects to your real accounts: messages from friends get a reply from them in person. Official support is single-chat only, does not use mouse/keyboard, and requires no extra software.</value></data>
   <data name="Settings_QqTitle" xml:space="preserve"><value>QQ Bot</value></data>
   <data name="Settings_QqEnable" xml:space="preserve"><value>Enable QQ</value></data>
   <data name="Settings_QqHint" xml:space="preserve"><value>Create a bot at the q.qq.com open platform</value></data>
@@ -139,5 +152,5 @@
   <data name="Settings_Notify" xml:space="preserve"><value>Message Notifications</value></data>
   <data name="Settings_NotifyHint" xml:space="preserve"><value>Notify when real WeChat / QQ messages arrive</value></data>
   <data name="Settings_Greeting" xml:space="preserve"><value>Idle Greetings</value></data>
-  <data name="Settings_GreetingHint" xml:space="preserve"><value>She greets you when idle</value></data>
+  <data name="Settings_GreetingHint" xml:space="preserve"><value>They greet you when idle</value></data>
 </root>

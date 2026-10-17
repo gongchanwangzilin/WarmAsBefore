@@ -205,7 +205,7 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
         var who = await Shell.Current.DisplayActionSheet("谁说话？", "取消", null, $"角色（{CharacterName}）", "用户（你）");
         if (who == null) return;
         var speaker = who.Contains("角色") ? "character" : "user";
-        var promptText = speaker == "character" ? "她想说的话：" : "你想说的话：";
+        var promptText = speaker == "character" ? "TA 想说的话：" : "你想说的话：";
         var text = await Shell.Current.DisplayPromptAsync("对话内容", promptText, "添加", "取消");
         if (string.IsNullOrWhiteSpace(text)) return;
         var step = new ShowcaseStep { Type = "dialogue", Speaker = speaker, Text = text.Trim() };
@@ -239,9 +239,11 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
             return;
         }
         var key = await Shell.Current.DisplayActionSheet("选择立绘", "取消", null, SpriteKeys.ToArray());
-        if (key == null) return;
+        // ActionSheet 点「取消」返回的是字符串「取消」，不是 null：不判这句，
+        // 取消会一路走下去，往展示案里塞一张空图片的立绘。
+        if (string.IsNullOrEmpty(key) || key == "取消") return;
         var pos = await Shell.Current.DisplayActionSheet("立绘位置", "取消", null, "左", "中", "右");
-        if (pos == null) return;
+        if (string.IsNullOrEmpty(pos) || pos == "取消") return;
         var ch = _allCharacters.FirstOrDefault(c => c.Profile.Id == CharacterId);
         var path = ch?.SpriteMap.TryGetValue(key, out var p) == true ? p : "";
         var position = pos switch { "左" => "left", "右" => "right", _ => "center" };

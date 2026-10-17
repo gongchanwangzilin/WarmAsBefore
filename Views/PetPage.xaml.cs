@@ -5,10 +5,11 @@ using WarmAsBefore.Services;
 namespace WarmAsBefore.Views;
 
 /// <summary>
-/// 桌宠窗口：无边框、置顶、只显示角色立绘。
-/// 拖动窗口：Win32 模拟标题栏拖拽（按下移动时调用 PetService.BeginDrag）。
-/// 缩放：右上角 +/- 按钮，或鼠标滚轮（WinUI 平台 PointerWheelChanged）。
-/// 双击：回到主窗口。底部输入行：直接在桌宠上对话（ChatEngine 单例）。
+/// 桌宠这一页在两个平台上是两种东西：
+/// Windows 上它只剩「头顶那条对话小窗」（输入框 + 回复气泡），角色本体由
+/// PetLayeredWindow 按像素 alpha 直接贴在桌面上；小窗靠整窗显隐出现，鼠标靠近头顶才亮。
+/// 移动端它仍是全屏问答页：立绘、捏合缩放、拖动都在这张 XAML 里。
+/// 单击角色=嘀咕一句，双击=回到主界面；滚轮（Windows）缩放角色。
 /// </summary>
 public partial class PetPage : ContentPage
 {
@@ -18,14 +19,17 @@ public partial class PetPage : ContentPage
     private readonly ChatEngine _chat;
     private readonly SettingsManager _settings;
     private readonly Modules.AiChat.MemoryVault _memory;
+    private readonly SpeechService _speech;
     private double _scale = 1.0;
     private const double MinScale = 0.5;
     private const double MaxScale = 3.0;
     private bool _thinking;
     private bool _alive = true;
+    private bool _listening;
     private int _pendingSingleTap;
+    private IDispatcherTimer? _hoverTimer;
     public PetPage(GameEngine engine, CharacterLibrary chars, StorageProvider store, ChatEngine chat,
-        SettingsManager settings, Modules.AiChat.MemoryVault memory)
+        SettingsManager settings, Modules.AiChat.MemoryVault memory, SpeechService speech)
     {
         InitializeComponent();
         _engine = engine;
@@ -34,12 +38,17 @@ public partial class PetPage : ContentPage
         _chat = chat;
         _settings = settings;
         _memory = memory;
+        _speech = speech;
         Loaded += OnLoaded;
-        Unloaded += (_, _) => _alive = false;
+        Unloaded += (_, _) => { _alive = false; _hoverTimer?.Stop(); };
     }
 
     private async void OnLoaded(object? sender, EventArgs e)
     {
+#if WINDOWS
+        // 放在最前面：下面几处「没角色/没立绘」的 return 不该把小窗的显隐也一起跳过
+        StartHoverReveal();
+#endif
         try
         {
             var charId = _engine.State.CharacterId;
@@ -64,11 +73,14 @@ public partial class PetPage : ContentPage
                 var full = Path.Combine(_store.Root, rel);
                 if (File.Exists(full))
                 {
-                    SpriteImage.Source = ImageSource.FromFile(full);
-                    NameLabel.Text = ch.Profile.Name;
 #if WINDOWS
-                    AttachWheelZoom();   // 只存在于 Windows 分支
+                    // 立绘不进 XAML：交给分层窗口按像素贴图，角色才真的站在桌面上
+                    PetService.AttachSprite(full);
+                    AttachPetSurface();
+#else
+                    SpriteImage.Source = ImageSource.FromFile(full);
 #endif
+                    NameLabel.Text = ch.Profile.Name;
                 }
             }
         }
@@ -78,14 +90,12 @@ public partial class PetPage : ContentPage
         }
         StartThinkLoop();
     }
-    private void OnDoubleTapped(object sender, TappedEventArgs e)
-    {
-        _pendingSingleTap++; // 让待发的单击思考失效（双击优先）
-        PetService.ShowMainWindowStatic();
-    }
+    private void OnDoubleTapped(object sender, TappedEventArgs e) => BackToMain();
 
     /// <summary>单击立绘：延迟 350ms 判定——没有第二击时触发一次「思考」嘀咕。</summary>
-    private async void OnSingleTapped(object? sender, TappedEventArgs e)
+    private async void OnSingleTapped(object? sender, TappedEventArgs e) => await QueueThinkAsync();
+
+    private async Task QueueThinkAsync()
     {
         try
         {
@@ -95,7 +105,13 @@ public partial class PetPage : ContentPage
             _pendingSingleTap = 0;
             await DoThinkAsync();
         }
-        catch (Exception ex) { App.WriteLog("PetPage.OnSingleTapped -> " + ex); }
+        catch (Exception ex) { App.WriteLog("PetPage.QueueThink -> " + ex); }
+    }
+
+    private void BackToMain()
+    {
+        _pendingSingleTap++; // 让待发的单击思考失效（双击优先）
+        PetService.ShowMainWindowStatic();
     }
 
     // ============ #E3 桌宠思考 ============
@@ -122,6 +138,30 @@ public partial class PetPage : ContentPage
         }
     }
 
+    /// <summary>把气泡亮起来；Windows 上这条决定小窗该多高、还要亮多久（鼠标离开后再留一会儿读）。</summary>
+    private void ShowBubble()
+    {
+        ReplyBubble.IsVisible = true;
+#if WINDOWS
+        _bubbleUntil = DateTime.UtcNow.AddSeconds(14);
+        PetService.SetChrome(true, true);
+#endif
+    }
+
+    /// <summary>
+    /// 写进气泡。Windows 上不是简单赋值：换行后的文字有多高，头顶小窗就长多高，
+    /// 放不下才裁一段——以前固定 168 DIP + MaxLines=4，长回复被切成四行，读的人以为 TA 只说了这么多。
+    /// </summary>
+    private void SetReply(string text)
+    {
+#if WINDOWS
+        FitBubble(text);
+#else
+        // 移动端是全屏问答页，气泡没有窗口高度可调，长回复折中行数给个上限
+        ReplyLabel.Text = text.Length > 260 ? text[..260] + "…" : text;
+#endif
+    }
+
     /// <summary>想一次：结合日记与当前时间，让 AI 嘀咕一句；结果显示在头顶泡泡。</summary>
     private async Task DoThinkAsync()
     {
@@ -131,21 +171,27 @@ public partial class PetPage : ContentPage
             var charId = _engine.State.CharacterId;
             if (string.IsNullOrEmpty(charId)) return;
             _thinking = true;
-            ReplyBubble.IsVisible = true;
-            ReplyLabel.Text = "……";
+            ShowBubble();
+            SetReply("……");
             string line;
             try { line = await _chat.Send(charId, await BuildThinkPromptAsync(charId)); }
-            catch (Exception ex) { App.WriteLog("PetPage.Think -> " + ex); line = "……"; }
+            catch (Exception ex)
+            {
+                // 单击就是要看到反应：只回一个「……」，用户只会以为这一下没生效
+                App.WriteLog("PetPage.Think -> " + ex);
+                SetReply("没接上：" + ReasonOf(ex));
+                return;
+            }
             line = (line ?? "").Trim();
             if (line.Length > 60) line = line[..60] + "…";
-            ReplyLabel.Text = "（" + line + "）";
+            SetReply("（" + line + "）");
         }
         finally { _thinking = false; }
     }
 
     /// <summary>
     /// 思考输入：说明「在当桌宠、没人打扰」，附当前时间与最近一篇日记，
-    /// 让她以自言自语的形式嘀咕一句（20 字内），不提问不客套。
+    /// 让 TA 以自言自语的形式嘀咕一句（20 字内），不提问不客套。
     /// </summary>
     private async Task<string> BuildThinkPromptAsync(string charId)
     {
@@ -170,7 +216,7 @@ public partial class PetPage : ContentPage
     
     private void OnBack(object sender, EventArgs e) => PetService.ShowMainWindowStatic();
 
-    /// <summary>底部输入行发送：走 ChatEngine（与主界面同一 AI），回复显示在顶部气泡。</summary>
+    /// <summary>输入条发送：走 ChatEngine（与主界面同一 AI），回复显示在头顶气泡。</summary>
     private async void OnSend(object sender, EventArgs e)
     {
         try
@@ -180,8 +226,8 @@ public partial class PetPage : ContentPage
             var charId = _engine.State.CharacterId;
             if (string.IsNullOrEmpty(charId)) return;
             InputEntry.Text = "";
-            ReplyBubble.IsVisible = true;
-            ReplyLabel.Text = "思考中…";
+            ShowBubble();
+            SetReply("思考中…");
             string reply;
             try
             {
@@ -190,9 +236,10 @@ public partial class PetPage : ContentPage
             catch (Exception ex)
             {
                 App.WriteLog("PetPage.OnSend -> " + ex);
-                reply = "……";
+                // 以前这里只在气泡里留一个「……」——看着像 TA 在卖关子，其实请求根本没发出去。
+                reply = "没接上 TA 的话：" + ReasonOf(ex);
             }
-            ReplyLabel.Text = reply;
+            SetReply(reply);
         }
         catch (Exception ex)
         {
@@ -200,11 +247,173 @@ public partial class PetPage : ContentPage
         }
     }
 
-#if WINDOWS
-    private void OnZoomIn(object sender, EventArgs e) => ZoomBy(+0.1);
+    /// <summary>把接口异常翻译成人话。不把 ex.Message 原样贴出来：那里面可能带请求地址与参数。</summary>
+    private static string ReasonOf(Exception ex)
+    {
+        var m = ex.Message ?? "";
+        if (m.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase) || m.Contains("401"))
+            return "接口鉴权失败，密钥无效或已到期。\n在「设置 › 模型」里换一个可用密钥就好。";
+        if (m.Contains("timeout", StringComparison.OrdinalIgnoreCase) || m.Contains("TaskCanceled", StringComparison.OrdinalIgnoreCase))
+            return "网络超时了。\n检查一下网络，或者换个模型再试。";
+        return "接口调用失败。\n具体原因写在日志里（warm_startup.log）。";
+    }
 
-    private void OnZoomOut(object sender, EventArgs e) => ZoomBy(-0.1);
+#if WINDOWS
+    // ============ 头顶小窗的显隐 ============
+
+    /// <summary>头顶上下各多少物理像素算「靠近」。太窄就得把鼠标精确压在一条线上，不好用。</summary>
+    private const int HoverBandPx = 80;
+
+    private DateTime _bubbleUntil = DateTime.MinValue;
+    private bool _surfaceHooked;
+
+    /// <summary>气泡文字宽度 = 小窗 340 减去左右内边距 10+10（DIP，WinUI 量的就是 DIP）。</summary>
+    private const double BubbleInnerDip = 320;
+    private const double BubblePadDip = 12;
+    private const double BubbleMaxDip = 300;
+
+    /// <summary>换行后的文字有多高，小窗就长多高；高过上限才裁一段，而不是让末尾被切在窗口外面。</summary>
+    private void FitBubble(string text)
+    {
+        if (ReplyLabel.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.TextBlock tb)
+        {
+            ReplyLabel.Text = text;
+            return;
+        }
+        var h = MeasureBubble(tb, text);
+        if (h > BubbleMaxDip && text.Length > 40)
+        {
+            var cut = Math.Clamp((int)(text.Length * (BubbleMaxDip / h)) - 8, 20, text.Length);
+            text = text[..cut].TrimEnd() + "…";
+            h = MeasureBubble(tb, text);
+        }
+        App.WriteLog($"PetPage.FitBubble len={text.Length} measured={h:F0}");
+        ReplyLabel.Text = text;
+        PetService.SetBubbleHeight(h + BubblePadDip);
+    }
+
+    private static double MeasureBubble(Microsoft.UI.Xaml.Controls.TextBlock tb, string text)
+    {
+        tb.Text = text;
+        tb.Measure(new Windows.Foundation.Size(BubbleInnerDip, double.PositiveInfinity));
+        return tb.DesiredSize.Height;
+    }
+
+    /// <summary>
+    /// 轮询鼠标位置来显隐小窗，而不是挂 PointerMoved：
+    /// 角色没被悬停时收不到任何指针事件，「靠近才出现」就会退化成「点进去才出现」。
+    /// 收放的是整条小窗（窗口级 Show/Hide），因为 XAML 里怎么写都盖不掉那层不透明表面。
+    /// </summary>
+    private void StartHoverReveal()
+    {
+        var timer = Dispatcher.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(200);
+        var last = false;
+        var logged = false;
+        timer.Tick += (_, _) =>
+        {
+            // 正在打字或草稿没发出去：不许收起来，否则焦点和写了一半的话一起没了
+            var keepTyping = InputEntry.IsFocused || !string.IsNullOrWhiteSpace(InputEntry.Text);
+            var near = PetService.IsCursorNearHead(HoverBandPx);
+            var bubble = DateTime.UtcNow < _bubbleUntil;
+            // 鼠标压在小窗自己身上：长回复要读，读到哪儿读到哪儿，不能被「离开头顶」这条规则收走
+            var onSelf = PetService.IsCursorOnChrome();
+            var show = keepTyping || near || bubble || onSelf;
+            if (!logged)
+            {
+                // 只在第一次和每次翻转时写：这条时间隔 200ms，全记会把日志刷爆。
+                logged = true;
+                App.WriteLog($"PetPage: hover 起转 typing={keepTyping} near={near} bubble={bubble} onSelf={onSelf}");
+            }
+            else if (show != last)
+            {
+                App.WriteLog($"PetPage: hover -> {(show ? "显示" : "收起")} (typing={keepTyping} near={near} bubble={bubble} onSelf={onSelf})");
+                PetService.LogChromeProbe(show ? "显示" : "收起");
+            }
+            last = show;
+            if (!show && ReplyBubble.IsVisible)
+            {
+                ReplyBubble.IsVisible = false;
+                _bubbleUntil = DateTime.MinValue;
+            }
+            PetService.SetChrome(show, ReplyBubble.IsVisible);
+        };
+        timer.Start();
+        _hoverTimer = timer;
+    }
+
+    /// <summary>把分层窗口的鼠标事件接到这一页：单击嘀咕、双击回家、滚轮缩放、拖走之后小窗跟着走。</summary>
+    private void AttachPetSurface()
+    {
+        if (_surfaceHooked) return;
+        _surfaceHooked = true;
+        Platforms.Windows.PetLayeredWindow.Pressed += () => _ = QueueThinkAsync();
+        Platforms.Windows.PetLayeredWindow.DoublePressed += BackToMain;
+        Platforms.Windows.PetLayeredWindow.WheelTurned += OnSurfaceWheel;
+        Platforms.Windows.PetLayeredWindow.Moved += PetService.RepositionChrome;
+    }
+
+    private void OnSurfaceWheel(int delta)
+    {
+        Platforms.Windows.PetLayeredWindow.Zoom(delta > 0 ? 1.12 : 1 / 1.12);
+        PetService.RepositionChrome();
+    }
 #endif
+
+    // ============ 语音输入 ============
+
+    /// <summary>麦克风：识别结果填进输入框，不自动发送——说错了还能改。</summary>
+    private async void OnMicClicked(object? sender, EventArgs e)
+    {
+        if (_listening) return;
+        if (!_speech.SttEnabled)
+        {
+            // 识别总开关在设置里，关着的时候点麦克风必须说清楚为什么没反应，
+            // 否则在用户看来就是「这按钮坏了」。
+            ShowBubble();
+            SetReply("语音识别已在设置里关闭");
+            App.WriteLog("PetPage: 麦克风按下，但 SttEnabled=false");
+            return;
+        }
+        _listening = true;
+        MicButton.Text = "…";
+        _speech.OnRecognized += OnSpeechRecognized;
+        try
+        {
+            await _speech.StartListening();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetPage.OnMicClicked -> " + ex);
+        }
+        // 识别被关掉时 OnRecognized 根本不会触发，这里兜一手，否则按钮永远停在「…」
+        FinishSpeech("");
+    }
+
+    private void OnSpeechRecognized(string text) => FinishSpeech(text);
+
+    private void FinishSpeech(string text)
+    {
+        _speech.OnRecognized -= OnSpeechRecognized;
+        if (!_listening) return;
+        _listening = false;
+        var note = _speech.LastRecognitionNote;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            MicButton.Text = "🎤";
+            if (!string.IsNullOrWhiteSpace(text))
+            {
+                InputEntry.Text = text;
+                return;
+            }
+            // 空文本必须说原因：只把按钮复位、输入框一个字没有，在用户看来就是麦克风坏了。
+            if (!string.IsNullOrWhiteSpace(note))
+            {
+                ShowBubble();
+                SetReply(note);
+            }
+        });
+    }
 
     private void ZoomBy(double delta)
     {
@@ -251,30 +460,4 @@ public partial class PetPage : ContentPage
         }
         catch (Exception ex) { App.WriteLog("PetPage.OnPan -> " + ex); }
     }
-
-#if WINDOWS
-    /// <summary>在 WinUI 平台层挂接滚轮事件（MAUI 手势不提供滚轮回调）。</summary>
-    private void AttachWheelZoom()
-    {
-        try
-        {
-            var handler = SpriteImage.Handler;
-            var platformView = handler?.PlatformView;
-            if (platformView is not Microsoft.UI.Xaml.Controls.Image img) return;
-            if (_wheelHooked) return;
-            _wheelHooked = true;
-            img.PointerWheelChanged += (_, ev) =>
-            {
-                var delta = ev.GetCurrentPoint(null).Properties.MouseWheelDelta;
-                if (delta != 0) ZoomBy(delta > 0 ? 0.1 : -0.1);
-            };
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("PetPage.AttachWheelZoom -> " + ex);
-        }
-    }
-
-    private bool _wheelHooked;
-#endif
 }

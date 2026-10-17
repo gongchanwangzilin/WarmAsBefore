@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 namespace WarmAsBefore.Models;
 
 /// <summary>
-/// 「点名」条目：人类在手机里点名一个角色，指定她的初始位置（场景）。
+/// 「点名」条目：人类在手机里点名一个角色，指定 TA 的初始位置（场景）。
 ///
 /// 被点名的角色会被强制变成常驻 NPC（出现在微信联系人里），
 /// 并通过「确定」按钮强制进入对话剧情。

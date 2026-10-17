@@ -51,7 +51,7 @@
                 IsVisible="{Binding BuffsLabel, Converter={StaticResource StringNotEmpty}}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Label Text="{Binding BuffsLabel}" Style="{StaticResource TxtCaption}"
-                   FontSize="11" TextColor="{DynamicResource AccentWarm}"
+                   FontSize="11" TextColor="{DynamicResource AccentWarmFg}"
                    LineBreakMode="TailTruncation" />
         </Border>
 
@@ -144,7 +144,7 @@
                 <!-- 提示消息 -->
                 <Label Text="{Binding ResultMessage}"
                        Style="{StaticResource TxtCaption}" FontSize="12"
-                       TextColor="{DynamicResource AccentWarm}"
+                       TextColor="{DynamicResource AccentWarmFg}"
                        IsVisible="{Binding ResultMessage, Converter={StaticResource StringNotEmpty}}" />
             </VerticalStackLayout>
 
@@ -188,10 +188,10 @@
                                                    TextColor="{DynamicResource WarmDark}" />
                                             <Label Text="{Binding Merchant, StringFormat='🏪 {0}'}"
                                                    Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{DynamicResource AccentWarm}" />
+                                                   TextColor="{DynamicResource AccentWarmFg}" />
                                             <Label Text="{Binding Owned, StringFormat='已购 {0} 件'}"
                                                    Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{DynamicResource AccentWarm}"
+                                                   TextColor="{DynamicResource AccentWarmFg}"
                                                    IsVisible="{Binding Owned, Converter={StaticResource GreaterThanZero}}" />
                                         </HorizontalStackLayout>
                                     </VerticalStackLayout>

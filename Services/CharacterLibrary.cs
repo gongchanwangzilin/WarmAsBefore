@@ -215,6 +215,10 @@ public sealed class CharacterLibrary
         return cut > 0 ? p[..cut] : (p.Length > 30 ? p[..30] + "…" : p);
     }
 
+    /// <summary>导入包里没写、或写得认不出来的性别统一记成这个，而不是替角色挑一个：
+    /// 猜成「女」就等于凭空给它挂上一条周期，提示词里会当真。</summary>
+    public const string UnknownGender = "未知";
+
     /// <summary>新建角色：从手工填写的资料生成。副设定以主设定为起点播种。</summary>
     public CharacterData CreateDefault(string name, string gender, string personality)
     {
@@ -222,7 +226,7 @@ public sealed class CharacterLibrary
         {
             Id = Guid.NewGuid().ToString("N")[..10],
             Name = string.IsNullOrWhiteSpace(name) ? "小雨" : name.Trim(),
-            Gender = gender,
+            Gender = string.IsNullOrWhiteSpace(gender) ? UnknownGender : gender.Trim(),
             Personality = string.IsNullOrWhiteSpace(personality) ? "温柔可爱" : personality.Trim(),
             UserAddress = "主人",
             Description = "刚刚诞生的伙伴，一切都是崭新的开始。"
@@ -398,7 +402,7 @@ public sealed class CharacterLibrary
                 ? ParseProfileJson(jsonEntry)
                 : txtEntry is not null ? ParseSettingTxt(ReadEntry(txtEntry)) : null;
             var name = string.IsNullOrWhiteSpace(profile?.Name) ? dir : profile!.Name;
-            var ch = CreateDefault(name, profile?.Gender ?? "女", profile?.Personality ?? "");
+            var ch = CreateDefault(name, profile?.Gender ?? "", profile?.Personality ?? "");
             if (profile is not null)
             {
                 var p = ch.Profile;
@@ -515,7 +519,9 @@ public sealed class CharacterLibrary
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         var name = Match(text, @"姓名\s*[：:]\s*([^\s（(]+)");
-        var gender = Match(text, @"性别\s*(男|女)");
+        // 只认「男/女」的老正则会把其他、自定义性别整个吞掉，然后悄悄补一个「女」。
+        // 现在照原样取：性别后面到第一个标点/换行之前的这一小截就是性别，取不到留空，由 CreateDefault 记成「未知」。
+        var gender = Match(text, @"性别\s*[：:]?\s*([^\s，,。；;、\n（(]{1,12})");
         var user = Match(text, @"用户扮演的人物\s*[：:]\s*([^\n]+)");
         var outer = Match(text, @"外在表现[^：:\n]*[：:]\s*([^\n]+)");
         var inner = Match(text, @"内在坚定[^：:\n]*[：:]\s*([^\n]+)");
@@ -526,7 +532,7 @@ public sealed class CharacterLibrary
         return new CharacterProfile
         {
             Name = string.IsNullOrWhiteSpace(name) ? "新角色" : name.Trim(),
-            Gender = string.IsNullOrEmpty(gender) ? "女" : gender,
+            Gender = gender,
             UserAddress = string.IsNullOrWhiteSpace(user) ? "主人" : user.Trim(),
             Personality = string.IsNullOrWhiteSpace(personality) ? "温柔可爱" : personality.Trim(),
             Description = extra.Length > 800 ? extra[..800] : extra

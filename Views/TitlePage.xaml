@@ -2,7 +2,6 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
-             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.TitlePage"
 
              Shell.NavBarIsVisible="False"
@@ -57,34 +56,34 @@
                            HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
 
-                <Button Text="{Binding StartLabel}" Style="{StaticResource BtnNeumorph}"
-                        WidthRequest="290" MinimumHeightRequest="56"
+                <Button Text="{Binding StartLabel}" Style="{StaticResource BtnNeumorphLg}"
+                        WidthRequest="290"
                         Margin="0,4"
-                        Command="{Binding StartGameCommand}"
-                        IsEnabled="{Binding ShowGenderSelect, Converter={StaticResource InverseBool}}" />
+                        Command="{Binding StartGameCommand}" />
 
-                <Button Text="{Binding [Title_Save], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
-                        WidthRequest="290" MinimumHeightRequest="56"
+                <Button Text="{Binding [Title_Save], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorphLg}"
+                        WidthRequest="290"
                         Margin="0,4"
                         Command="{Binding OpenSaveCommand}" />
 
-                <Button Text="{Binding [Title_Novels], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
-                        WidthRequest="290" MinimumHeightRequest="56"
+                <Button Text="{Binding [Title_Novels], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorphLg}"
+                        WidthRequest="290"
                         Margin="0,4"
                         Command="{Binding OpenNovelsCommand}" />
 
-                <Button Text="{Binding [Title_Roster], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
-                        WidthRequest="290" MinimumHeightRequest="56"
+                <Button Text="{Binding [Title_Roster], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorphLg}"
+                        WidthRequest="290"
                         Margin="0,4"
                         Command="{Binding OpenRosterCommand}" />
 
-                <Button Text="{Binding [Title_Settings], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorph}"
-                        WidthRequest="290" MinimumHeightRequest="56"
+                <Button Text="{Binding [Title_Settings], Source={StaticResource I18n}}" Style="{StaticResource BtnNeumorphLg}"
+                        WidthRequest="290"
                         Margin="0,4"
                         Command="{Binding OpenSettingsCommand}" />
 
+                <!-- 退出是次要动作，但仍是正文文字：WarmMuted 在晨雾主题上只有 2.6:1，读不动 -->
                 <Button Text="{Binding [Title_Exit], Source={StaticResource I18n}}" Style="{StaticResource BtnText}"
-                        TextColor="{DynamicResource WarmMuted}"
+                        TextColor="{DynamicResource WarmBody}"
                         FontSize="13" WidthRequest="290" HeightRequest="42"
                         Margin="0,14,0,0"
                         Command="{Binding ExitGameCommand}" />
@@ -148,55 +147,6 @@
         <Label Text="· 温暖如初 ·" Style="{StaticResource TxtMuted}"
                FontSize="12" HorizontalOptions="Center" VerticalOptions="End"
                Margin="0,0,0,22" Opacity="0.6" />
-
-        <!-- Gender selection overlay -->
-        <Grid IsVisible="{Binding ShowGenderSelect}"
-              BackgroundColor="{DynamicResource OverlayDim}">
-            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                 Spacing="20" Padding="32">
-                <Border Style="{StaticResource CardNeumorph}"
-                        Padding="32,26" MaximumWidthRequest="440">
-                    <VerticalStackLayout Spacing="20">
-                        <Label Text="{Binding [Title_Identity], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
-                               HorizontalOptions="Center" />
-                        <Label Text="{Binding [Title_IdentityHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtMuted}"
-                               HorizontalOptions="Center" FontSize="14" />
-
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
-                            <Border Style="{StaticResource CardNeumorph}"
-                                    Padding="22,18" HorizontalOptions="Fill">
-                                <VerticalStackLayout HorizontalOptions="Center" Spacing="8">
-                                    <Label Text="{Binding [Title_Brother], Source={StaticResource I18n}}" Style="{StaticResource TxtSubhead}"
-                                           FontSize="20" HorizontalOptions="Center" />
-                                    <Label Text="{Binding [Title_BrotherDesc], Source={StaticResource I18n}}"
-                                           Style="{StaticResource TxtCaption}"
-                                           HorizontalOptions="Center" />
-                                </VerticalStackLayout>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding SelectGenderCommand}"
-                                                          CommandParameter="MALE" />
-                                </Border.GestureRecognizers>
-                            </Border>
-
-                            <Border Grid.Column="1" Style="{StaticResource CardNeumorph}"
-                                    Padding="22,18" HorizontalOptions="Fill">
-                                <VerticalStackLayout HorizontalOptions="Center" Spacing="8">
-                                    <Label Text="{Binding [Title_Sister], Source={StaticResource I18n}}" Style="{StaticResource TxtSubhead}"
-                                           FontSize="20" HorizontalOptions="Center" />
-                                    <Label Text="{Binding [Title_SisterDesc], Source={StaticResource I18n}}"
-                                           Style="{StaticResource TxtCaption}"
-                                           HorizontalOptions="Center" />
-                                </VerticalStackLayout>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding SelectGenderCommand}"
-                                                          CommandParameter="FEMALE" />
-                                </Border.GestureRecognizers>
-                            </Border>
-                        </Grid>
-                    </VerticalStackLayout>
-                </Border>
-            </VerticalStackLayout>
-        </Grid>
 
         <!-- 免责声明：必须留在根 Grid 的**最后**一个子元素位置。
              放在主菜单之前会被菜单整块盖住，「知道了」点不到。

@@ -5,7 +5,7 @@ public enum HumanMemoryKind
 {
     /// <summary>发生过的一件事（一句话）。</summary>
     Event = 0,
-    /// <summary>从经历里抽出来的结论/印象（「她其实很怕黑」）。</summary>
+    /// <summary>从经历里抽出来的结论/印象（「TA 其实很怕黑」）。</summary>
     Abstraction = 1,
     /// <summary>重要时刻（约定、第一次、重大情绪节点）。</summary>
     Important = 2,

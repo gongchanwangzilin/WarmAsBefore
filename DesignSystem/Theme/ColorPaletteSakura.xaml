@@ -41,6 +41,7 @@
     <!-- 功能色 / Functional -->
     <Color x:Key="GreenSoft">#DDA9B8</Color>
     <Color x:Key="RedSoft">#E5738C</Color>
+    <Color x:Key="DangerInk">#A83A50</Color>
     <Color x:Key="BlueSoft">#90CAF9</Color>
 
     <!-- 阴影色 / Shadows -->

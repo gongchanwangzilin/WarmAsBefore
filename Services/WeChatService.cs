@@ -85,7 +85,7 @@ public sealed class WeChatService
             });
             await _store.Save(ContactsKey, new WeChatContacts { Items = list });
             ContactsChanged?.Invoke();
-            return (true, $"已加上「{ch.Profile.Name}」的微信，她现在是常驻好友了", true);
+            return (true, $"已加上「{ch.Profile.Name}」的微信，TA 现在是常驻好友了", true);
         }
         finally
         {

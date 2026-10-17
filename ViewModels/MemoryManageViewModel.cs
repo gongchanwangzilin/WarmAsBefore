@@ -227,7 +227,7 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
     private async Task AddMemory()
     {
         var text = await Shell.Current.DisplayPromptAsync("新增一条记忆",
-            "按她自己的口吻写一件事（不超过 60 字）。这是「她记得的事」，会参与回想。", maxLength: 60);
+            "按 TA 自己的口吻写一件事（不超过 60 字）。这是「TA 记得的事」，会参与回想。", maxLength: 60);
         if (string.IsNullOrWhiteSpace(text)) return;
         await _human.StoreAsync(CharId, text.Trim());
         await LoadAsync();
@@ -237,7 +237,7 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
     private async Task RemoveMemory(MemoryRow? row)
     {
         if (row is null) return;
-        var yes = await Shell.Current.DisplayAlert("删除记忆", $"让她忘掉这件事？\n\n{row.Text}", "忘掉", "取消");
+        var yes = await Shell.Current.DisplayAlert("删除记忆", $"让 TA 忘掉这件事？\n\n{row.Text}", "忘掉", "取消");
         if (!yes) return;
         await _human.ForgetAsync(CharId, row.Id);
         await LoadAsync();

@@ -44,6 +44,20 @@ public sealed class PetService
     private bool _iconAdded;
     private bool _listening;
     private Window? _petWindow;
+    private bool _chromeVisible;
+    private bool _chromeExpanded;
+
+    // 头顶小窗的几何：尺寸按 DIP 设计（右下存的是换算后的物理像素，供鼠标命中判定用）
+    private const double ChromeWidthDip = 340;
+    private const double ChromeRowDip = 56;        // 收起时只有输入行
+    private const double BubbleGapDip = 6;         // VerticalStackLayout 的行距
+    private const double BubblePadDip = 12;        // 气泡上下内边距（Padding="10,6"）
+    private const double BubbleMinDip = 40;
+    private const double BubbleMaxDip = 300;       // 再长就截断：小窗不该变成一堵盖住半块屏幕的墙
+    private const double BubbleInnerWidthDip = ChromeWidthDip - 20;
+    private double _bubbleDip = 106;
+    private IntPtr _chromeHwnd;
+    private int _chromeLoggedH;
 
     private IDispatcherTimer? _idleTimer;
     private bool _autoPetEntered;   // 是否因闲置自动进入（此时要监听输入自动恢复）
@@ -200,41 +214,76 @@ public sealed class PetService
     [DllImport("user32.dll")]
     private static extern bool GetCursorPos(out POINT lpPoint);
 
-    // ===== 桌宠窗口透明（Windows 分层窗口） =====
+    // ============ 桌宠窗口表面（背景做不到透明，见下方注释） ============
+
+    private const int DWMWA_WINDOW_CORNER_PREFERENCE = 33;   // Windows 11 才有
+    private const int DWMWCP_ROUND = 2;
+
+    private const int GWL_EXSTYLE = -20;
+    private const int WS_EX_TOOLWINDOW = 0x00000080;
+    private const uint SWP_NOSIZE = 0x0001, SWP_NOMOVE = 0x0002, SWP_NOZORDER = 0x0004, SWP_FRAMECHANGED = 0x0020;
+
+    [DllImport("dwmapi.dll")]
+    private static extern int DwmSetWindowAttribute(IntPtr hWnd, int attr, ref int value, int size);
 
     [DllImport("user32.dll", EntryPoint = "GetWindowLongPtrW")]
     private static extern IntPtr GetWindowLongPtr(IntPtr hWnd, int nIndex);
-    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
-    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
-    [DllImport("user32.dll")]
-    private static extern bool SetLayeredWindowAttributes(IntPtr hWnd, uint colorKey, byte alpha, uint flags);
 
-    private const int GWL_EXSTYLE = -20;
-    private const int WS_EX_LAYERED = 0x00080000;
-    private const uint LWA_ALPHA = 0x00000002;
+    [DllImport("user32.dll", EntryPoint = "SetWindowLongPtrW")]
+    private static extern IntPtr SetWindowLongPtr(IntPtr hWnd, int nIndex, IntPtr newLong);
+
+    [DllImport("user32.dll")]
+    private static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
+
+    /// <summary>小窗的尺寸按 DIP 设计，但 AppWindow.Move/Resize 吃物理像素：换算比例只能问窗口自己。</summary>
+    [DllImport("user32.dll")]
+    private static extern uint GetDpiForWindow(IntPtr hWnd);
+
+    /// <summary>整个虚拟桌面（所有显示器拼起来的包围盒）的左/上/宽/高，物理像素。</summary>
+    [DllImport("user32.dll")]
+    private static extern int GetSystemMetrics(int nIndex);
+    private const int SM_XVIRTUALSCREEN = 76, SM_YVIRTUALSCREEN = 77, SM_CXVIRTUALSCREEN = 78, SM_CYVIRTUALSCREEN = 79;
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WinRect { public int left, top, right, bottom; }
+
+    /// <summary>取窗口的真实物理矩形——小窗的坐标系和鼠标坐标系不是一个尺度，只能这样对齐。</summary>
+    [DllImport("user32.dll")]
+    private static extern bool GetWindowRect(IntPtr hWnd, out WinRect lpRect);
 
     /// <summary>
-    /// 把桌宠窗口做成「只有角色、没有背景」：分层窗口 + 根面板透明，
-    /// 于是没有内容的地方直接透出桌面，立绘看起来就是站在桌面/任务栏上。
-    /// WinUI 的窗口默认有一层不透明的合成底色，只把 XAML 背景设成透明是不够的。
+    /// 桌宠话术层（头顶小窗）的表面处理：圆角 + 从 Alt+Tab 里消失。
+    /// 背景「透明」这件事在 WinUI3 桌面上做不到，别再试了：窗口的组合表面是不透明的，
+    /// 它盖在 DWM 画的东西上面，所以 DWM 后面铺什么都是白搭。三条路全部实测过（截图为证）：
+    /// 1) WS_EX_LAYERED + SetLayeredWindowAttributes(alpha=255)：没开色键，255 等于不透明。
+    /// 2) DwmEnableBlurBehindWindow(空区域) + DwmExtendFrameIntoClientArea(-1)：两个都返回 S_OK，
+    ///    白板纹丝不动；顺手把可视树从 WindowRootViewContainer 到页面宿主 Border 全打了一遍，
+    ///    背景清一色 #00FFFFFF —— 白不是 XAML 铺的，是那层组合表面。
+    /// 3) WS_EX_LAYERED + 色键品红：exStyle 确实带上了 0x80000、函数返回 True，
+    ///    截图里整窗变成纯品红，一个像素都没被抠掉。分层属性作用于 DWM 的重定位位图，
+    ///    组合内容根本不走那条路。
+    /// 所以立绘改由自建 Win32 分层窗口贴图（见 Platforms/Windows/PetLayeredWindow）：
+    /// 角色能透，四周和脚下不再有矩形。这条小窗只装输入框和气泡，收起来时根本不存在。
     /// </summary>
-    private static void MakePetWindowTransparent(Microsoft.UI.Xaml.Window xw)
+    private static void StylePetWindowSurface(Microsoft.UI.Xaml.Window xw)
     {
         try
         {
             var hwnd = WindowNative.GetWindowHandle(xw);
-            var ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
-            SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(ex | WS_EX_LAYERED));
-            // alpha=255：不做整体半透明，只让「没有内容的地方」透出去
-            SetLayeredWindowAttributes(hwnd, 0, 255, LWA_ALPHA);
+            var pref = DWMWCP_ROUND;
+            _ = DwmSetWindowAttribute(hwnd, DWMWA_WINDOW_CORNER_PREFERENCE, ref pref, sizeof(int));
 
-            // 根面板是 WinUI 实际铺满窗口的那层，它的背景必须透明
-            if (xw.Content is Microsoft.UI.Xaml.Controls.Panel root)
-                root.Background = new Microsoft.UI.Xaml.Media.SolidColorBrush(Microsoft.UI.Colors.Transparent);
+            var ex = GetWindowLongPtr(hwnd, GWL_EXSTYLE).ToInt64();
+            if ((ex & WS_EX_TOOLWINDOW) == 0)
+            {
+                SetWindowLongPtr(hwnd, GWL_EXSTYLE, new IntPtr(ex | WS_EX_TOOLWINDOW));
+                SetWindowPos(hwnd, IntPtr.Zero, 0, 0, 0, 0,
+                    SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
+            }
         }
         catch (Exception ex)
         {
-            App.WriteLog("PetService.MakePetWindowTransparent -> " + ex.Message);
+            App.WriteLog("PetService.StylePetWindowSurface -> " + ex.Message);
         }
     }
 
@@ -244,7 +293,6 @@ public sealed class PetService
     private const uint MF_STRING = 0x0;
     private const uint TPM_RIGHTBUTTON = 0x2;
     private const uint TPM_RETURNCMD = 0x100;
-    private const int SW_RESTORE = 9;
 
     private static WndProc? _procDelegate;
 
@@ -259,21 +307,6 @@ public sealed class PetService
 
     /// <summary>静态入口：进入/退出桌宠模式。</summary>
     public static void TogglePetModeStatic() => _instance?.TogglePetMode();
-
-    public static void BeginDrag(Microsoft.Maui.Controls.Page? page)
-    {
-        if (page?.Handler?.PlatformView is not Microsoft.UI.Xaml.Controls.Panel) return;
-        var win = page.Window;
-        if (win?.Handler?.PlatformView is Microsoft.UI.Xaml.Window xw)
-        {
-            var hwnd = WindowNative.GetWindowHandle(xw);
-            ReleaseCapture();
-            _ = PostMessage(hwnd, 0x00A1 /* WM_NCLBUTTONDOWN */, new IntPtr(2 /* HTCAPTION */), IntPtr.Zero);
-        }
-    }
-
-    [DllImport("user32.dll")]
-    private static extern bool ReleaseCapture();
 
     /// <summary>进入/退出桌宠模式：收纳主窗口并显示桌宠（或相反）。</summary>
     public void TogglePetMode()
@@ -291,8 +324,10 @@ public sealed class PetService
             if (main is null) return;
             EnsureTray();
             EnsurePetWindow();
-            main.AppWindow.Hide();
+            // 先置位再隐藏：Hide() 会同步触发 AppWindow.Changed，那个回调里的「闲置自动进入」
+            // 看到 _petMode 还是 false，就会把 EnterPetMode() 再跑一遍。
             _petMode = true;
+            main.AppWindow.Hide();
             App.WriteLog("PetService: pet mode on");
         }
         catch (Exception ex)
@@ -361,10 +396,17 @@ public sealed class PetService
 
     private static Microsoft.UI.Xaml.Window? GetMainWinUIWindow()
     {
-        var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null);
+        // 显式排除桌宠窗：MAUI 窗口集合按创建顺序排，一旦桌宠窗成为第一个，
+        // 「隐藏主窗口」就会把桌宠自己藏起来。
+        var win = Application.Current?.Windows.FirstOrDefault(w => !ReferenceEquals(w, _instance?._petWindow) && w.Handler is not null);
         return win?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
     }
 
+    /// <summary>
+    /// 桌宠的「话术层」：一条浮在头顶的小窗（输入框 + 回复气泡），默认收起。
+    /// 立绘不在这里——立绘走 PetLayeredWindow 的按像素 alpha 贴图，XAML 窗口做不到透明。
+    /// 这条小窗只能是矩形，所以让它小到只剩内容本身，靠圆角和深色底读成一个对话气泡。
+    /// </summary>
     private void EnsurePetWindow()
     {
         if (_petWindow is not null && Application.Current.Windows.Contains(_petWindow)) return;
@@ -375,37 +417,206 @@ public sealed class PetService
         var win = new Window(page)
         {
             Title = "温暖如初 · 桌宠",
-            Width = 320,
-            Height = 460
+            Width = 340,
+            Height = 56
         };
         Application.Current.OpenWindow(win);
         _petWindow = win;
-        // 无边框 + 置顶 + 右下角摆放
+        _chromeVisible = false;
+        _chromeExpanded = false;
         if (win.Handler?.PlatformView is Microsoft.UI.Xaml.Window xw && xw.AppWindow is { } app)
         {
-            app.Resize(new SizeInt32(320, 460));
-            var area = DisplayArea.GetFromWindowId(app.Id, DisplayAreaFallback.Nearest);
-            app.Move(new PointInt32(area.WorkArea.X + area.WorkArea.Width - 340,
-                area.WorkArea.Y + area.WorkArea.Height - 480));
+            _chromeHwnd = WindowNative.GetWindowHandle(xw);
             if (app.Presenter is OverlappedPresenter presenter)
             {
                 presenter.SetBorderAndTitleBar(false, false);
                 presenter.IsAlwaysOnTop = true;
+                // 双击顶沿最大化、拖边缘改尺寸、贴屏幕右缘分屏——这些都是「窗口」的手感，桌宠不该有。
+                presenter.IsResizable = false;
+                presenter.IsMaximizable = false;
+                presenter.IsMinimizable = false;
             }
-            // 背景透明：桌宠只保留角色，其余部分透出桌面
-            MakePetWindowTransparent(xw);
-            // 窗口内容就绪后再设一次：根面板有时在首帧之后才被创建
-            page.Loaded += (_, _) => MakePetWindowTransparent(xw);
+            StylePetWindowSurface(xw);
+            app.Hide();
         }
+    }
+
+    // ============ 立绘与头顶小窗的联动（供 PetPage 调用） ============
+
+    /// <summary>把角色立绘贴到桌面上（右下角、脚踩工作区底沿），并定位头顶小窗。</summary>
+    public static void AttachSprite(string absPath)
+    {
+        var inst = _instance;
+        if (inst is null) return;
+        try
+        {
+            var area = inst.GetPetDisplayArea();
+            var bodyH = Math.Clamp((int)(area.Height * 0.42), 240, 900);
+            Platforms.Windows.PetLayeredWindow.Open(absPath,
+                area.X + area.Width - 28, area.Y + area.Height - 8, bodyH);
+            inst.PlaceChrome();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.AttachSprite -> " + ex);
+        }
+    }
+
+    /// <summary>小窗显隐；expanded=true 时给回复气泡腾出高度（气泡向上长，输入行位置不动）。</summary>
+    public static void SetChrome(bool visible, bool expanded)
+    {
+        var inst = _instance;
+        if (inst is null) return;
+        if (inst._chromeExpanded != expanded) { inst._chromeExpanded = expanded; inst.PlaceChrome(); }
+        if (inst._chromeVisible == visible) return;
+        inst._chromeVisible = visible;
+        try
+        {
+            if (visible)
+            {
+                inst.PlaceChrome();
+                if (inst._petWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window xw) xw.AppWindow.Show();
+            }
+            else if (inst._petWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window hidden) hidden.AppWindow.Hide();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.SetChrome -> " + ex.Message);
+        }
+    }
+
+    /// <summary>角色被拖走或缩放后，小窗要跟着回到头顶。</summary>
+    public static void RepositionChrome() => _instance?.PlaceChrome();
+
+    /// <summary>
+    /// 气泡内容实测出来的高度（DIP，含自身内边距）。小窗展开后的高度跟着它长：
+    /// 以前固定 168 DIP + MaxLines=4，长回复被静悄悄切成四行，读的人以为 AI 只说了这么多。
+    /// </summary>
+    public static void SetBubbleHeight(double dip)
+    {
+        var inst = _instance;
+        if (inst is null) return;
+        var next = Math.Clamp(dip, BubbleMinDip, BubbleMaxDip);
+        if (Math.Abs(next - inst._bubbleDip) < 1) return;
+        inst._bubbleDip = next;
+        if (inst._chromeVisible) inst.PlaceChrome();
+    }
+
+    /// <summary>
+    /// 鼠标停在小窗自己身上（正在读长回复、正在打字）——这时候不许收起来。
+    /// 用的是 GetWindowRect 的真实物理矩形，不是 PlaceChrome 里算出来的那份：小窗是 MAUI 建的，
+    /// 它自己活在被 DWM 缩放过的坐标系里（GetDpiForWindow 回 96，屏幕却是 125%），
+    /// 两套坐标一比大小，等于永远比不中。
+    /// </summary>
+    public static bool IsCursorOnChrome()
+    {
+        var inst = _instance;
+        if (inst is null || !inst._chromeVisible || inst._chromeHwnd == IntPtr.Zero) return false;
+        if (!GetWindowRect(inst._chromeHwnd, out var r)) return false;
+        if (!GetCursorPos(out var pt)) return false;
+        return pt.X >= r.left && pt.X < r.right && pt.Y >= r.top && pt.Y < r.bottom;
+    }
+
+    /// <summary>显隐翻转时打一行探针：小窗真实矩形 + 鼠标点位。这两套坐标系不一致时，只有这条能看出来。</summary>
+    public static void LogChromeProbe(string why)
+    {
+        var inst = _instance;
+        if (inst is null) return;
+        var rect = "no-window";
+        if (inst._chromeHwnd != IntPtr.Zero && GetWindowRect(inst._chromeHwnd, out var r))
+            rect = $"{r.left},{r.top} {r.right - r.left}x{r.bottom - r.top}";
+        var cur = GetCursorPos(out var p) ? $"{p.X},{p.Y}" : "n/a";
+        App.WriteLog($"PetService: 小窗{why} visible={inst._chromeVisible} rect={rect} cursor={cur}");
+    }
+
+    /// <summary>鼠标是否靠近角色头顶（窗口外一段也算）。分层窗口的矩形就是轮廓的包围盒，够用。</summary>
+    public static bool IsCursorNearHead(int bandPx)
+    {
+        try
+        {
+            if (!Platforms.Windows.PetLayeredWindow.Exists) return false;
+            if (!GetCursorPos(out var pt)) return false;
+            var l = Platforms.Windows.PetLayeredWindow.Left;
+            var r = l + Platforms.Windows.PetLayeredWindow.Width;
+            var top = Platforms.Windows.PetLayeredWindow.Top;
+            return pt.X >= l - bandPx && pt.X <= r + bandPx && pt.Y >= top - bandPx && pt.Y <= top + bandPx;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.IsCursorNearHead -> " + ex.Message);
+            return false;
+        }
+    }
+
+    private RectInt32 GetPetDisplayArea()
+    {
+        if (_petWindow?.Handler?.PlatformView is Microsoft.UI.Xaml.Window xw)
+        {
+            var area = DisplayArea.GetFromWindowId(xw.AppWindow.Id, DisplayAreaFallback.Nearest);
+            return area.WorkArea;
+        }
+        return DisplayArea.Primary.WorkArea;
+    }
+
+    private void PlaceChrome()
+    {
+        if (_petWindow?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window xw) return;
+        var app = xw.AppWindow;
+        var scale = GetDpiForWindow(WindowNative.GetWindowHandle(xw)) / 96f;
+        if (scale <= 0f) scale = 1f;
+        var w = (int)(ChromeWidthDip * scale);
+        var h = (int)((ChromeRowDip + (_chromeExpanded
+            ? BubbleGapDip + Math.Clamp(_bubbleDip, BubbleMinDip, BubbleMaxDip) : 0)) * scale);
+        app.Resize(new SizeInt32(w, h));
+
+        var area = GetChromeBounds();
+        var top = Platforms.Windows.PetLayeredWindow.Exists
+            ? Platforms.Windows.PetLayeredWindow.Top - (int)(10 * scale) - h
+            : area.Y + 20;
+        var left = Platforms.Windows.PetLayeredWindow.Exists
+            ? Platforms.Windows.PetLayeredWindow.CenterX - w / 2
+            : area.X + area.Width - w - 28;
+        // 头顶不够位置（角色贴着屏幕顶）时，把小窗压回可用区，别飘到看不见的地方
+        left = Math.Clamp(left, area.X + 8, Math.Max(area.X + 8, area.X + area.Width - w - 8));
+        top = Math.Max(area.Y + 8, top);
+        app.Move(new PointInt32(left, top));
+        if (h != _chromeLoggedH)
+        {
+            // 只在高度变化时写：拖拽时每帧都会重排，全记会把日志刷爆。
+            _chromeLoggedH = h;
+            App.WriteLog($"PetService: 小窗 {left},{top} {w}x{h}（scale={scale:F2} bubble={_bubbleDip:F0} expanded={_chromeExpanded}）");
+        }
+    }
+
+    /// <summary>
+    /// 小窗允许待的范围。关掉「跨屏跟随」时就是角色那块屏的工作区——角色贴着屏缝时，
+    /// 小窗折回本屏，而不是跨过缝跑到另一块屏上去（那块屏上没人看着它）；
+    /// 打开时按整个虚拟桌面算，角色拖到副屏，小窗就跟着过去。
+    /// 虚拟桌面没有工作区概念（副屏一般没有任务栏），这里直接用整块包围盒。
+    /// </summary>
+    private RectInt32 GetChromeBounds()
+    {
+        if (_settings.Current.PetChromeCrossScreen)
+        {
+            var x = GetSystemMetrics(SM_XVIRTUALSCREEN);
+            var y = GetSystemMetrics(SM_YVIRTUALSCREEN);
+            var cw = GetSystemMetrics(SM_CXVIRTUALSCREEN);
+            var ch = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+            if (cw > 0 && ch > 0) return new RectInt32(x, y, cw, ch);
+        }
+        return GetPetDisplayArea();
     }
 
     private void ClosePetWindow()
     {
+        Platforms.Windows.PetLayeredWindow.Close();
         if (_petWindow is not null && Application.Current.Windows.Contains(_petWindow))
         {
             try { Application.Current.CloseWindow(_petWindow); } catch { }
         }
         _petWindow = null;
+        _chromeVisible = false;
+        _chromeExpanded = false;
     }
 
     /// <summary>主窗口关闭时调用：收起桌宠窗口并移除托盘图标，确保干净退出。</summary>
@@ -574,6 +785,5 @@ public sealed class PetService
     public void WatchMinimize() { }
     public void WatchIdle() { }
     public void Shutdown() { }
-    public static void BeginDrag(Microsoft.Maui.Controls.Page? page) { }
 #endif
 }

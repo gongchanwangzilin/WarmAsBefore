@@ -168,7 +168,7 @@ public sealed class HumanMemoryService
             .OrderByDescending(m => m.CreatedAt).ToList();
     }
 
-    /// <summary>让她忘掉一条记忆（人工修正：记错了、不该记的都删得掉）。</summary>
+    /// <summary>让 TA 忘掉一条记忆（人工修正：记错了、不该记的都删得掉）。</summary>
     public async Task<bool> ForgetAsync(string charId, string memoryId)
     {
         await EnsureLoadedAsync();

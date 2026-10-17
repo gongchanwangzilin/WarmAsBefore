@@ -47,4 +47,12 @@
         <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
     </Style>
 
+    <!-- 分组标题：比正文小一档、重一档，靠上方留白和上一组分开，不靠颜色变淡 -->
+    <Style x:Key="TxtSection" TargetType="Label">
+        <Setter Property="FontSize" Value="13" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource WarmBody}" />
+        <Setter Property="Margin" Value="4,26,0,12" />
+    </Style>
+
 </ResourceDictionary>

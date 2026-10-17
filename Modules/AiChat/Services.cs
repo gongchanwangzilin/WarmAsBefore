@@ -102,8 +102,8 @@ public sealed class ChatEngine
                     new
                     {
                         role = "system",
-                        content = "你在更新一个人「现在的样子」的自我描述。她的人格内核不变，"
-                                + "变的是经历这些之后她对自己的看法与当下的状态。只输出两行，不要解释、不要标题。"
+                        content = "你在更新一个人「现在的样子」的自我描述。TA 的人格内核不变，"
+                                + "变的是经历这些之后 TA 对自己的看法与当下的状态。只输出两行，不要解释、不要标题。"
                     },
                     new
                     {
@@ -111,7 +111,7 @@ public sealed class ChatEngine
                         content = material
                             + "\n请输出两行：\n"
                             + "性格：<内核不变，但带上这段时间的变化，60 字以内>\n"
-                            + "背景：<她此刻的处境与在意的事，80 字以内>"
+                            + "背景：<TA 此刻的处境与在意的事，80 字以内>"
                     }
                 },
                 temperature = 0.7,
@@ -270,7 +270,7 @@ public sealed class ChatEngine
         catch (Exception ex) { App.WriteLog("ChatEngine.AfterTurn -> " + ex.Message); }
 
         // 副设定的模型改写：默认关闭；开启后每 12 轮才做一次（省钱）。
-        // 改的是「她对自己的表述」，主设定不动，随时可回正。
+        // 改的是「TA 对自己的表述」，主设定不动，随时可回正。
         if (SubProfileAiRewriteEnabled && SubProfileRewritten is not null)
         {
             try
@@ -323,7 +323,7 @@ public sealed class ChatEngine
         "调用 search_memory 工具去搜——可以按关键词搜，也可以按日期搜（支持「昨天」「前天」「最近」这类说法）；" +
         "搜到什么就说什么，不要凭印象编造记不清的过去。";
 
-    /// <summary>注入角色库：世界中还有其他角色时，AI 可在剧情里自由调用/扮演她们。</summary>
+    /// <summary>注入角色库：世界中还有其他角色时，AI 可在剧情里自由调用、扮演这些角色。</summary>
     public void SetRoster(string roster) => _rosterContext = roster ?? "";
 
     /// <summary>注入地图上下文：告诉 AI 当前可去的场景与【移动:场景名】移动协议。</summary>
@@ -754,7 +754,7 @@ public sealed class ChatEngine
     private static string Fallback(string input) => $"{input}…嗯，我在听。";
 
     /// <summary>
-    /// 结构化询问：刚才这一幕（CG）让女主的累计好感积分增加多少。
+    /// 结构化询问：刚才这一幕（CG）让 TA 的累计好感积分增加多少。
     /// 返回 0-20 的整数；AI 未配置或调用失败时回退默认 8。
     /// </summary>
     public async Task<int> AskAffectionDeltaAsync(string cgTitle)
@@ -765,7 +765,7 @@ public sealed class ChatEngine
             var msgs = new List<ChatMessage>
             {
                 new() { Role = "system", Content = "你是好感度数值评定器。只能输出一个整数，不要输出任何其它文字或标点。" },
-                new() { Role = "user", Content = $"刚才发生了一幕名为「{cgTitle}」的浪漫时刻。请评定这次经历让女主对用户的累计好感积分增加多少，取 1 到 20 的整数。只输出数字。" }
+                new() { Role = "user", Content = $"刚才发生了一幕名为「{cgTitle}」的浪漫时刻。请评定这次经历让 TA 对用户累计的好感积分增加多少，取 1 到 20 的整数。只输出数字。" }
             };
             var reply = await _api.Chat(msgs, _cfg);
             if (reply is null) return 8;
@@ -869,7 +869,7 @@ public sealed class ChatEngine
             if (!string.IsNullOrWhiteSpace(tagText)) persona += "\n" + tagText;
             if (!string.IsNullOrWhiteSpace(_rosterContext))
                 persona += $"\n你的世界里还有这些角色：{_rosterContext}。" +
-                           "当剧情合适时，你可以自然地提到她们、让她们出场，甚至用【名字】标记来短暂扮演她们说话，让生活更热闹。";
+                           "当剧情合适时，你可以自然地提到其他角色、安排某个角色出场，甚至用【名字】标记短暂扮演别的角色说话，让生活更热闹。";
             if (!string.IsNullOrWhiteSpace(_mapContext))
                 persona += "\n" + _mapContext;
             if (!string.IsNullOrWhiteSpace(_stickerContext))

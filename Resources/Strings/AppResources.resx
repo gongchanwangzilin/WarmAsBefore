@@ -21,14 +21,8 @@
   <data name="Title_Continue" xml:space="preserve"><value>再续情缘</value></data>
   <data name="Title_Tagline" xml:space="preserve"><value>让每一段重逢，都如初见般温暖</value></data>
   <data name="Title_ThemePrefix" xml:space="preserve"><value>当前主题</value></data>
-  <data name="Title_Identity" xml:space="preserve"><value>选择你的身份</value></data>
-  <data name="Title_IdentityHint" xml:space="preserve"><value>这份温暖，将一直陪伴着你</value></data>
-  <data name="Title_Brother" xml:space="preserve"><value>哥哥</value></data>
-  <data name="Title_BrotherDesc" xml:space="preserve"><value>温柔可靠的守护者</value></data>
-  <data name="Title_Sister" xml:space="preserve"><value>姐姐</value></data>
-  <data name="Title_SisterDesc" xml:space="preserve"><value>细心体贴的照顾者</value></data>
   <data name="Title_Coexist" xml:space="preserve"><value>✦ 同住体验</value></data>
-  <data name="Title_CoexistDesc" xml:space="preserve"><value>每天有她 / 他的陪伴，聊天、生活、小游戏，温暖如初。</value></data>
+  <data name="Title_CoexistDesc" xml:space="preserve"><value>每天有 TA 的陪伴，聊天、生活、小游戏，温暖如初。</value></data>
   <data name="Title_ThemeClassic" xml:space="preserve"><value>经典</value></data>
   <data name="Title_ThemeGlass" xml:space="preserve"><value>毛玻璃</value></data>
   <data name="Title_ThemeFrost" xml:space="preserve"><value>磨砂玻璃</value></data>
@@ -48,16 +42,35 @@
   <data name="Settings_KeySfxHint" xml:space="preserve"><value>点击按钮时的反馈音</value></data>
   <data name="Settings_WeatherLife" xml:space="preserve"><value>天气与生活</value></data>
   <data name="Settings_City" xml:space="preserve"><value>所在城市</value></data>
-  <data name="Settings_CityPlaceholder" xml:space="preserve"><value>如：杭州（留空默认北京）</value></data>
+  <data name="Settings_Locate" xml:space="preserve"><value>定位</value></data>
+  <data name="Settings_ChooseCity" xml:space="preserve"><value>选择城市</value></data>
+  <data name="Settings_CityUnset" xml:space="preserve"><value>未设置（默认北京）</value></data>
+  <data name="Settings_CitySearchHint" xml:space="preserve"><value>输入城市名搜索，如：杭州</value></data>
+  <data name="Settings_PopularCities" xml:space="preserve"><value>热门城市（不联网也能选）</value></data>
+  <data name="Settings_UseCity" xml:space="preserve"><value>选用</value></data>
+  <data name="Settings_WeatherSource" xml:space="preserve"><value>天气数据源</value></data>
+  <data name="Settings_WeatherSourceHint" xml:space="preserve"><value>默认 Open-Meteo，可换 wttr.in 或自定义地址</value></data>
+  <data name="Settings_WeatherBaseUrl" xml:space="preserve"><value>接口地址</value></data>
+  <data name="Settings_WeatherApiKey" xml:space="preserve"><value>密钥</value></data>
+  <data name="Settings_WeatherCustomNote" xml:space="preserve"><value>自定义地址按 Open-Meteo 协议请求（地址 + /v1/forecast?latitude=…&amp;longitude=…）；密钥只发给这个地址，按 Authorization: Bearer 头带上</value></data>
+  <data name="Settings_TestWeather" xml:space="preserve"><value>测试取一次天气</value></data>
   <data name="Settings_Cycle" xml:space="preserve"><value>生理周期天数</value></data>
-  <data name="Settings_CycleHint" xml:space="preserve"><value>她的一轮生理周期长度</value></data>
+  <data name="Settings_CycleHint" xml:space="preserve"><value>TA 的一轮生理周期长度</value></data>
   <data name="Settings_Period" xml:space="preserve"><value>经期天数</value></data>
   <data name="Settings_PeriodHint" xml:space="preserve"><value>每月特殊日子的长度</value></data>
+  <data name="Settings_CycleGender" xml:space="preserve"><value>适用性别</value></data>
+  <data name="Settings_CycleGenderHint" xml:space="preserve"><value>先选性别，再给这个性别配周期</value></data>
+  <data name="Settings_CycleTracked" xml:space="preserve"><value>这个性别有生理周期</value></data>
+  <data name="Settings_CycleTrackedHint" xml:space="preserve"><value>关掉后，提示词和界面都不再出现经期表述</value></data>
+  <data name="Settings_CycleAdvanced" xml:space="preserve"><value>高级：自定义性别的周期</value></data>
+  <data name="Settings_CycleAdvancedHint" xml:space="preserve"><value>出厂只给「女」配了周期；其他性别要有周期，得在这里新建一条规则</value></data>
+  <data name="Settings_CycleAddGender" xml:space="preserve"><value>添加性别规则…</value></data>
+  <data name="Settings_CycleAddGenderHint" xml:space="preserve"><value>新加的规则默认「无周期」，选中它再打开上面的开关</value></data>
   <data name="Settings_Desktop" xml:space="preserve"><value>电脑端</value></data>
   <data name="Settings_AlwaysOnTop" xml:space="preserve"><value>窗口置顶</value></data>
   <data name="Settings_AlwaysOnTopHint" xml:space="preserve"><value>让游戏窗口始终显示在最前面</value></data>
   <data name="Settings_Official" xml:space="preserve"><value>官方接入（真微信 / QQ）</value></data>
-  <data name="Settings_OfficialHint" xml:space="preserve"><value>配置后，游戏里的微信 / QQ 将接入你的真实账号：好友发给你的消息会由她亲自回复。官方方案仅支持单聊，不占用鼠标键盘，也无需额外安装任何程序。</value></data>
+  <data name="Settings_OfficialHint" xml:space="preserve"><value>配置后，游戏里的微信 / QQ 将接入你的真实账号：好友发给你的消息会由 TA 亲自回复。官方方案仅支持单聊，不占用鼠标键盘，也无需额外安装任何程序。</value></data>
   <data name="Settings_QqTitle" xml:space="preserve"><value>QQ 官方机器人</value></data>
   <data name="Settings_QqEnable" xml:space="preserve"><value>启用 QQ 接入</value></data>
   <data name="Settings_QqHint" xml:space="preserve"><value>前往 q.qq.com 开放平台创建机器人</value></data>
@@ -139,5 +152,5 @@
   <data name="Settings_Notify" xml:space="preserve"><value>消息通知</value></data>
   <data name="Settings_NotifyHint" xml:space="preserve"><value>真实微信 / QQ 消息到达时提示</value></data>
   <data name="Settings_Greeting" xml:space="preserve"><value>空闲问候</value></data>
-  <data name="Settings_GreetingHint" xml:space="preserve"><value>她会在空闲时主动问候你</value></data>
+  <data name="Settings_GreetingHint" xml:space="preserve"><value>TA 会在空闲时主动问候你</value></data>
 </root>

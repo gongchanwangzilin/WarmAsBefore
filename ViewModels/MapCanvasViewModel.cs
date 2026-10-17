@@ -1572,8 +1572,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             }
             var pick = await Shell.Current.DisplayActionSheet("归入哪个已有地点？", "取消", null,
                 candidates.Select(l => l.Name).ToArray());
-            if (string.IsNullOrWhiteSpace(pick)) return;
-            parent = candidates.FirstOrDefault(l => l.Name == pick) ?? candidates[0];
+            // 「取消」返回的是按钮文本；按名字找不到就当没选，不能退回 candidates[0]，
+            // 否则点取消等于把这一片地点塞进列表里的第一个地点。
+            if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
+            parent = candidates.FirstOrDefault(l => l.Name == pick);
         }
         if (parent is null) return;
 

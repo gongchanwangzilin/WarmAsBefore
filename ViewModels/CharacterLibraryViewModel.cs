@@ -13,7 +13,7 @@ namespace WarmAsBefore.ViewModels;
 /// <summary>
 /// 角色库：所有已创建/导入的角色集中管理。
 /// 除主角外，AI 在对话里可以自由调用角色库中的其他角色；
-/// 觉得某个角色不合适，可以让 AI 帮她改写人设（AI 优化人设）。
+/// 觉得某个角色不合适，可以让 AI 帮 TA 改写人设（AI 优化人设）。
 /// </summary>
 public sealed partial class CharacterLibraryViewModel : ObservableObject
 {
@@ -69,7 +69,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         var act = await Shell.Current.DisplayActionSheet(
             $"「{item.Name}」", "取消", null,
             item.IsMain ? "移除主角标记" : "设为当前主角",
-            "AI 优化人设", "修改性格", "编辑设定",
+            "AI 优化人设", "修改性格", "修改性别", "编辑设定",
             "复制角色", "补充素材",
             "导入灵枢记忆");
         switch (act)
@@ -77,7 +77,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             case "设为当前主角":
                 _engine.SetCharacter(id);
                 await Refresh();
-                await Shell.Current.DisplayAlert("角色库", $"「{item.Name}」现在是你的主角了。\n回到角色选择页可以和她开始新的一局。", "好");
+                await Shell.Current.DisplayAlert("角色库", $"「{item.Name}」现在是你的主角了。\n回到角色选择页可以和 TA 开始新的一局。", "好");
                 break;
             case "移除主角标记":
                 _engine.State.CharacterId = "";
@@ -88,6 +88,9 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
                 break;
             case "修改性格":
                 await EditPersonalityAsync(id);
+                break;
+            case "修改性别":
+                await EditGenderAsync(id);
                 break;
             case "编辑设定":
                 await EditProfileAsync(id);
@@ -152,6 +155,20 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             $"「{p.Name}」的当前性格：{p.Personality}", "保存", "取消");
         if (string.IsNullOrWhiteSpace(input)) return;
         var updated = item.Data with { Profile = p with { Personality = input.Trim() } };
+        if (await _library.UpdateAsync(updated)) await Refresh();
+    }
+
+    /// <summary>改性别：导入包没写性别（记成「未知」）或当初随手选了一个，都从这里纠正。
+    /// 性别是周期规则的键，改完这一条，角色的周期表述立刻跟着变。</summary>
+    private async Task EditGenderAsync(string id)
+    {
+        var item = Items.FirstOrDefault(i => i.Id == id);
+        if (item is null) return;
+        var p = item.Data.Profile;
+        var current = string.IsNullOrWhiteSpace(p.Gender) ? "未填" : p.Gender;
+        var gender = await Helpers.GenderPrompt.PickAsync($"「{p.Name}」的性别（当前：{current}）");
+        if (string.IsNullOrWhiteSpace(gender)) return;
+        var updated = item.Data with { Profile = p with { Gender = gender.Trim() } };
         if (await _library.UpdateAsync(updated)) await Refresh();
     }
 
@@ -360,8 +377,8 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     {
         var name = await Shell.Current.DisplayPromptAsync("新建角色", "角色姓名：", maxLength: 30);
         if (string.IsNullOrWhiteSpace(name)) return;
-        var gender = await Shell.Current.DisplayActionSheet("角色性别", "取消", null, "女", "男", "其他");
-        if (gender is null || gender == "取消") return;
+        var gender = await Helpers.GenderPrompt.PickAsync("角色性别");
+        if (string.IsNullOrWhiteSpace(gender)) return;
         var personality = await Shell.Current.DisplayPromptAsync("新建角色", "性格描述（一句话）：", maxLength: 100);
         if (personality is null) return;
         var ch = _library.CreateDefault(name.Trim(), gender, string.IsNullOrWhiteSpace(personality) ? "温柔可爱" : personality.Trim());

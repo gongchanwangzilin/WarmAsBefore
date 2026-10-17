@@ -43,7 +43,7 @@
                         <Label Text="{Binding Filter.MatchCount, StringFormat='匹配到 {0} 个设置项（进子页后只显示这些）'}" Style="{StaticResource TxtCaption}"
                                IsVisible="{Binding Filter.IsSearching}" />
                         <Label Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
-                               TextColor="{DynamicResource AccentWarm}" />
+                               TextColor="{DynamicResource AccentWarmFg}" />
                     </VerticalStackLayout>
                 </Border>
 

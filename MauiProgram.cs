@@ -60,6 +60,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.RealWorld.WeatherProvider>();
         builder.Services.AddSingleton<Modules.RealWorld.TimeProvider>();
         builder.Services.AddSingleton<Modules.RealWorld.PermissionBroker>();
+        // 城市定位（GPS → IP 降级）与搜索联想：设置页「定位 / 选择城市」用
+        builder.Services.AddSingleton<Modules.RealWorld.LocationService>();
         builder.Services.AddSingleton<Modules.RealWorld.PhysiologicalTracker>();
         builder.Services.AddSingleton<Modules.ApiManager.ApiGateway>();
         builder.Services.AddSingleton<Modules.AiChat.ChatEngine>();

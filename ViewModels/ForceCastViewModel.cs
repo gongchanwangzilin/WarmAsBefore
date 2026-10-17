@@ -7,7 +7,7 @@ using WarmAsBefore.Services;
 namespace WarmAsBefore.ViewModels;
 
 /// <summary>
-/// 「点名」页 ViewModel：人类主动点名一个或多个角色，指定她们的初始位置（场景），
+/// 「点名」页 ViewModel：人类主动点名一个或多个角色，指定各自的初始位置（场景），
 /// 确定后被点名的角色会被：
 ///   1) 把 <see cref="CharacterState.Location"/> 设为指定场景并落盘（初始位置）；
 ///   2) 强制加微信 → 变成常驻 NPC（出现在微信联系人里）；
@@ -43,7 +43,7 @@ public sealed partial class ForceCastViewModel : ObservableObject
     public bool HasNoCharacters => Entries.Count == 0;
 
     [ObservableProperty] private bool _isBusy;
-    [ObservableProperty] private string _statusText = "勾选要点名的角色，并为她指定初始位置";
+    [ObservableProperty] private string _statusText = "勾选要点名的角色，并为 TA 指定初始位置";
 
     /// <summary>进入页面：加载角色 + 场景。</summary>
     public async Task LoadAsync()

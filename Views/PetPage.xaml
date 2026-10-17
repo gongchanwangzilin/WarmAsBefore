@@ -5,29 +5,51 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.PetPage"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="Transparent">
+             BackgroundColor="{OnPlatform WinUI='#4A3D2C', Default='#1E1712'}">
+    <!-- Windows：这一页不再是「舞台」，只剩头顶那条对话小窗，底色就是小窗本身（窗口表面不透明，
+         圆角交给 DWM）。立绘改由 PetLayeredWindow 按像素 alpha 直接贴在桌面上，四周与脚下没有矩形。
+         其余平台：全屏问答模式，深色舞台底仍然必要——页面上所有文字都是白色系。 -->
 
     <Grid Padding="0">
-        <!-- 回复气泡（顶部）：桌宠对话时显示 AI 回复 / 思考中… -->
-        <Border x:Name="ReplyBubble" BackgroundColor="#CC4A3D2C" StrokeThickness="0"
-                Padding="10,6" HorizontalOptions="Fill" VerticalOptions="Start"
-                Margin="10,36,10,0" IsVisible="False">
-            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-            <Label x:Name="ReplyLabel" TextColor="White" FontSize="12"
-                   LineBreakMode="WordWrap" MaxLines="4" />
-        </Border>
+        <!-- 顶部：输入条 + 回复气泡共用一个纵向栈。
+             Windows 上这条就是小窗的全部内容，整条小窗靠显隐控制（不再藏输入条本身）；
+             气泡出现时小窗长高，输入行位置不动。 -->
+        <VerticalStackLayout VerticalOptions="Start" Spacing="6"
+                             Margin="{OnPlatform WinUI='0,0,0,0', Default='8,6,8,0'}">
+            <Border x:Name="InputBar" StrokeThickness="0" Padding="8,6"
+                    BackgroundColor="{OnPlatform WinUI='Transparent', Default='#E64A3D2C'}"
+                    IsVisible="{OnPlatform WinUI=True, Default=False}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                    <Entry x:Name="InputEntry" TextColor="White" PlaceholderColor="#AAFFFFFF"
+                           Placeholder="和 TA 说点什么…" BackgroundColor="#22FFFFFF"
+                           FontSize="12" VerticalOptions="Center"
+                           Completed="OnSend" />
+                    <!-- 语音输入：识别结果填进输入框，不自动发送——说错了还能改 -->
+                    <Button Grid.Column="1" x:Name="MicButton" Text="🎤" FontSize="12" TextColor="White"
+                            BackgroundColor="#33FFFFFF" CornerRadius="10" Padding="10,4"
+                            Clicked="OnMicClicked" />
+                    <Button Grid.Column="2" Text="发送" FontSize="12" TextColor="White"
+                            BackgroundColor="#33FFFFFF" CornerRadius="10" Padding="12,4"
+                            Clicked="OnSend" />
+                </Grid>
+            </Border>
 
-        <!-- 返回按钮 -->
-        <Button Text="← 返回" 
-                TextColor="{DynamicResource SurfaceFg}"
-                BackgroundColor="{DynamicResource SurfaceBg}"
-                FontSize="13" Padding="12,0" CornerRadius="16" HeightRequest="32"
-                HorizontalOptions="Start" VerticalOptions="Start"
-                Margin="12,8,0,0"
-                Clicked="OnBack" />
+            <!-- 回复气泡：桌宠对话时显示 AI 回复 / 思考中…
+                 不再限 MaxLines——换行后整段都要看得见，小窗高度由 PetService 按实测文本高度调。
+                 超长时 code-behind 会截断到放得下的行数，而不是让它在窗口外被切掉。 -->
+            <Border x:Name="ReplyBubble" StrokeThickness="0" Padding="10,6" IsVisible="False"
+                    BackgroundColor="{OnPlatform WinUI='Transparent', Default='#CC4A3D2C'}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                <Label x:Name="ReplyLabel" TextColor="White" FontSize="12"
+                       LineBreakMode="WordWrap" />
+            </Border>
+        </VerticalStackLayout>
 
-        <!-- 立绘区域：双击回主窗口（输入行与气泡不挂手势，避免抢焦点） -->
-        <Grid VerticalOptions="Fill" Margin="0,50,0,70">
+        <!-- 立绘区域：只有移动端用。Windows 的角色站在桌面上，不在这一页里。
+             双击回主窗口（输入行与气泡不挂手势，避免抢焦点） -->
+        <Grid x:Name="SpriteArea" VerticalOptions="Fill" Margin="0,58,0,50"
+              IsVisible="{OnPlatform WinUI=False, Default=True}">
             <Grid.GestureRecognizers>
                 <!-- 单击=思考（自言自语嘀咕一句）；双击=回主窗口。单击在 code-behind 里延迟判定，避免被双击抢走。 -->
                 <TapGestureRecognizer Tapped="OnSingleTapped" NumberOfTapsRequired="1" />
@@ -52,27 +74,15 @@
             </Border>
         </Grid>
 
-        <!-- 带说明文字的提示条 -->
-        <Border BackgroundColor="#5A4A3D2C" StrokeThickness="0"
-                Padding="10,4" HorizontalOptions="Center" VerticalOptions="Start"
-                Margin="0,4,0,0">
-            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-            <Label Text="双击返回主界面" TextColor="#CCFFFFFF" FontSize="10" />
-        </Border>
-
-        <!-- 底部对话输入行：桌宠模式下直接和她说说话 -->
-        <Border BackgroundColor="#CC4A3D2C" StrokeThickness="0"
-                Padding="8,6" HorizontalOptions="Fill" VerticalOptions="End"
-                Margin="8,0,8,8">
-            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                <Entry x:Name="InputEntry" TextColor="White" PlaceholderColor="#AAFFFFFF"
-                       Placeholder="和她说点什么…" BackgroundColor="#22FFFFFF"
-                       FontSize="12" VerticalOptions="Center" />
-                <Button Grid.Column="1" Text="发送" FontSize="12" TextColor="White"
-                        BackgroundColor="#33FFFFFF" CornerRadius="10"
-                        Padding="12,4" Clicked="OnSend" />
-            </Grid>
-        </Border>
+        <!-- 返回按钮：挪到左下角，不再和顶部输入条抢位置。Windows 上双击角色就回去了，
+             小窗里没有它的位置。 -->
+        <Button x:Name="BackButton" Text="← 返回"
+                TextColor="#CCFFFFFF"
+                BackgroundColor="#7A4A3D2C"
+                FontSize="12" Padding="10,0" CornerRadius="14" HeightRequest="28"
+                HorizontalOptions="Start" VerticalOptions="End"
+                Margin="8,0,0,8"
+                IsVisible="{OnPlatform WinUI=False, Default=True}"
+                Clicked="OnBack" />
     </Grid>
 </ContentPage>
