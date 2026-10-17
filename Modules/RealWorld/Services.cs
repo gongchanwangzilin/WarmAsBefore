@@ -9,17 +9,47 @@ public sealed class WeatherProvider
     private string _city = "";
     private double _lat = 39.9042;
     private double _lon = 116.4074;
-    private bool _geoOk;
+    private bool _hasCoord;      // 坐标来自「定位 / 选择城市」，直接拿去查天气
+    private bool _geoDone;       // 只填过城市名的旧数据：解析尝试过一次就作罢，别每次拉天气都联网试
+    private string _source = WeatherSources.OpenMeteo;
+    private string _baseUrl = "";
+    private string _apiKey = "";
 
     public string City => _city;
 
-    /// <summary>设置城市名（首次拉取天气时自动地理编码）。</summary>
+    /// <summary>
+    /// 下发数据源配置。密钥只在请求自定义源那一条地址上带（不进了 <see cref="HttpClient"/> 的默认头），
+    /// 否则同一条 Key 会被连带发给地理编码与 wttr 这些第三方主机。
+    /// </summary>
+    public void Configure(string? source, string? baseUrl, string? apiKey)
+    {
+        _source = WeatherSources.Normalize(source);
+        _baseUrl = (baseUrl ?? "").Trim();
+        _apiKey = (apiKey ?? "").Trim();
+        _geoDone = false;   // 换源之后按新源重新解析一次城市名
+    }
+
+    /// <summary>设置城市名（没有坐标的旧数据走这条路，首次拉取天气时自动地理编码）。</summary>
     public void SetCity(string? city)
     {
         var c = (city ?? "").Trim();
         if (c == _city) return;
         _city = c;
-        _geoOk = false;
+        _hasCoord = false;
+        _geoDone = false;
+    }
+
+    /// <summary>设置城市名 + 坐标（「定位」或「选择城市」拿到的结果）。</summary>
+    public void SetLocation(string? city, double? lat, double? lon)
+    {
+        if (lat is not double la || lon is not double lo) { SetCity(city); return; }
+        var c = (city ?? "").Trim();
+        if (c == _city && la == _lat && lo == _lon) return;
+        _city = c;
+        _lat = la;
+        _lon = lo;
+        _hasCoord = true;
+        _geoDone = true;
     }
 
     public async Task<WeatherReading?> Fetch(string? city = null)
@@ -28,61 +58,49 @@ public sealed class WeatherProvider
         {
             if (!string.IsNullOrWhiteSpace(city)) SetCity(city);
             await EnsureGeoAsync();
-            var url = $"https://api.open-meteo.com/v1/forecast?latitude={_lat.ToString(System.Globalization.CultureInfo.InvariantCulture)}&longitude={_lon.ToString(System.Globalization.CultureInfo.InvariantCulture)}&current_weather=true&timezone=auto";
-            var resp = await _http.GetStringAsync(url);
-            using var doc = JsonDocument.Parse(resp);
-            var cw = doc.RootElement.GetProperty("current_weather");
-            var code = cw.GetProperty("weathercode").GetInt32();
-            return new WeatherReading
-            {
-                Condition = CodeToCondition(code),
-                Description = CodeToDesc(code),
-                Celsius = cw.GetProperty("temperature").GetDouble(),
-                City = string.IsNullOrEmpty(_city) ? "北京" : _city
-            };
+            var url = WeatherFormat.ForecastUrl(_source, _baseUrl, _lat, _lon);
+            var json = await GetAsync(url, _source == WeatherSources.Custom);
+            var reading = WeatherFormat.Parse(_source, json, _city);
+            if (reading is not null) return reading;
         }
-        catch
+        catch (Exception ex)
         {
-            return new WeatherReading { Condition = "clear", Celsius = 22, City = string.IsNullOrEmpty(_city) ? "未知" : _city };
+            App.WriteLog("WeatherProvider.Fetch -> " + ex.Message);
         }
+        return new WeatherReading { Condition = "clear", Celsius = 22, City = string.IsNullOrEmpty(_city) ? "未知" : _city };
+    }
+
+    private async Task<string> GetAsync(string url, bool withKey)
+    {
+        if (!withKey || _apiKey.Length == 0) return await _http.GetStringAsync(url);
+        using var req = new HttpRequestMessage(HttpMethod.Get, url);
+        req.Headers.TryAddWithoutValidation("Authorization", $"Bearer {_apiKey}");
+        using var resp = await _http.SendAsync(req);
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadAsStringAsync();
     }
 
     private async Task EnsureGeoAsync()
     {
-        if (_geoOk) return;
-        if (string.IsNullOrWhiteSpace(_city)) { _geoOk = true; return; }
-        try
+        if (_hasCoord || _geoDone) return;
+        if (string.IsNullOrWhiteSpace(_city)) { _geoDone = true; return; }
+        foreach (var url in WeatherFormat.GeoSearchUrls(_source, _baseUrl, _city, 1))
         {
-            var url = $"https://geocoding-api.open-meteo.com/v1/search?name={Uri.EscapeDataString(_city)}&count=1&language=zh&format=json";
-            var resp = await _http.GetStringAsync(url);
-            using var doc = JsonDocument.Parse(resp);
-            if (doc.RootElement.TryGetProperty("results", out var results) && results.GetArrayLength() > 0)
+            try
             {
-                var r = results[0];
-                _lat = r.GetProperty("latitude").GetDouble();
-                _lon = r.GetProperty("longitude").GetDouble();
-                if (r.TryGetProperty("name", out var n)) _city = n.GetString() ?? _city;
+                var hits = WeatherFormat.ParseGeo(await _http.GetStringAsync(url));
+                if (hits.Count == 0) continue;
+                _lat = hits[0].Latitude;
+                _lon = hits[0].Longitude;
+                _city = hits[0].Name;
+                _hasCoord = true;
+                _geoDone = true;
+                return;
             }
+            catch { /* 换下一个候选地址，全部失败则保持默认坐标 */ }
         }
-        catch { /* 保持默认坐标 */ }
-        _geoOk = true;
+        _geoDone = true;
     }
-
-    private static string CodeToCondition(int c) => c switch
-    {
-        0 => "clear", 1 => "mostly-clear", 2 => "partly-cloudy", 3 => "overcast",
-        >= 45 and <= 48 => "foggy", >= 51 and <= 57 => "drizzle",
-        >= 61 and <= 67 => "rain", >= 71 and <= 77 => "snow",
-        >= 80 and <= 82 => "showers", >= 95 => "storm", _ => "cloudy"
-    };
-
-    private static string CodeToDesc(int c) => c switch
-    {
-        0 => "晴朗", 1 => "大部晴朗", 2 => "多云", 3 => "阴天",
-        >= 45 and <= 48 => "雾", >= 51 and <= 57 => "毛毛雨",
-        >= 61 and <= 67 => "雨", >= 71 and <= 77 => "雪",
-        >= 80 and <= 82 => "阵雨", >= 95 => "雷暴", _ => "多云"
-    };
 }
 
 public sealed class TimeProvider
@@ -131,25 +149,30 @@ public sealed class PermissionBroker
 public sealed class PhysiologicalTracker
 {
     private int _day;
+    private bool _tracked = true;
     private int _cycleLen = 28;
     private int _periodLen = 5;
 
-    public void SetCycle(int cycleLen, int periodLen)
+    /// <summary>按当前角色的性别下发规则：没有周期的性别直接把 Tracked 关掉，
+    /// 下面三个读数（Phase / InPeriod / Label）全部退回「无」，谁拿它去拼界面或提示词都不会冒出经期。</summary>
+    public void SetCycle(CycleRule rule)
     {
-        _cycleLen = Math.Clamp(cycleLen, 7, 60);
-        _periodLen = Math.Clamp(periodLen, 1, _cycleLen);
+        _tracked = rule.Enabled;
+        _cycleLen = Math.Clamp(rule.CycleLength, 7, 60);
+        _periodLen = Math.Clamp(rule.PeriodLength, 1, _cycleLen);
     }
 
+    public bool Tracked => _tracked;
     public int Day { get => _day; set => _day = value % _cycleLen; }
-    public string Phase => _day switch
+    public string Phase => !_tracked ? "normal" : _day switch
     {
         _ when _day < _periodLen => "period",
         _ when _day < 14 => "follicular",
         _ when _day < 16 => "ovulation",
         _ => "luteal"
     };
-    public bool InPeriod => _day < _periodLen;
-    public string Label => Phase switch
+    public bool InPeriod => _tracked && _day < _periodLen;
+    public string Label => !_tracked ? "" : Phase switch
     {
         "period" => "经期",
         "follicular" => "卵泡期",

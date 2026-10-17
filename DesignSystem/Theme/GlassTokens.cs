@@ -35,6 +35,8 @@ public static class GlassTokens
     public const string CardStroke = "GlassCardStroke";
     public const string CardStrokeThickness = "GlassCardStrokeThickness";
     public const string ButtonBg = "GlassButtonBg";
+    public const string ButtonBgHover = "GlassButtonBgHover";
+    public const string ButtonBgPressed = "GlassButtonBgPressed";
     public const string ButtonStroke = "GlassButtonStroke";
     public const string CardShadow = "GlassCardShadow";
     public const string BarShadow = "GlassBarShadow";
@@ -98,7 +100,23 @@ public static class GlassTokens
         res[CardShadow] = noShadow ? null : ShadowFor(h, z, dx, dy, bar: false);
 
         res[ButtonBg] = ButtonBrush(p.Tier, surface, Bg);
-        res[ButtonStroke] = Edge(ButtonStrokeColor(p.Tier));
+        // 悬停/按下各发一份，压暗程度分两级：静止 → 悬停（三成）→ 按下（十成）。
+        // 桌面端悬停是主要的「我能点」信号，只靠 1px 描边加粗在实测里根本看不出来。
+        res[ButtonBgHover] = ButtonBrush(p.Tier, surface, c => Sink(Bg(c), 0.32));
+        // 按下态另发一份：按钮样式在 Pressed 视觉状态里引用它，才能既压暗又不脱离当前玻璃档位。
+        res[ButtonBgPressed] = ButtonBrush(p.Tier, surface, c => Sink(Bg(c), 1.0));
+        if (p.Tier == "none")
+        {
+            // 「关闭玻璃」过去连按钮底色一起关掉：静止态 = 页面底色，描边 = Transparent，
+            // 一整片按钮和背景同色，用户看到的是「按键没有边框，和背景合为一体」。
+            // 关掉的应该只有通透和阴影，可点击性不在此列，所以平档自己给三档深度。
+            res[ButtonBg] = Solid(Sink(surface, 0.60));
+            res[ButtonBgHover] = Solid(Sink(surface, 0.85));
+            res[ButtonBgPressed] = Solid(Sink(surface, 1.00));
+        }
+        // 描边取主题的 BorderLine，不再是半透明白：这套材质近白，白描边等于没有描边。
+        // 实测静止按钮面 #F7F9FB 对页面 #EFF2F5 只有 1.06:1，边界全靠这一圈线撑。
+        res[ButtonStroke] = ReadColor(res, "BorderLine", "#D8CFC0");
     }
 
     /// <summary>
@@ -180,15 +198,22 @@ public static class GlassTokens
         _ => 1
     };
 
-    private static Color ButtonStrokeColor(string tier) => tier switch
-    {
-        "frost" => C("#59FFFFFF"),
-        "glass" => C("#80FFFFFF"),
-        "liquid" => C("#B3FFFFFF"),
-        _ => C("#4DF5DFC0")
-    };
-
     private static Color C(string hex) => Color.FromArgb(hex);
+
+    /// <summary>
+    /// 按下压暗：往暖褐方向沉，而不是单纯降明度——这套材质是奶油 + 暖光，
+    /// 直接乘同一个系数会变灰，看着像被禁用而不是被按住。
+    /// amount 分档用：悬停只要三成就够，按下一成。
+    /// </summary>
+    private static Color Sink(Color c, double amount)
+    {
+        var k = (float)Math.Clamp(amount, 0d, 1d);
+        return new Color(
+            Math.Clamp(c.Red * (1 - 0.10f * k), 0f, 1f),
+            Math.Clamp(c.Green * (1 - 0.14f * k), 0f, 1f),
+            Math.Clamp(c.Blue * (1 - 0.18f * k), 0f, 1f),
+            c.Alpha);
+    }
 
     private static SolidColorBrush Solid(Color c) => new(c);
 

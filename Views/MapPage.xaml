@@ -99,7 +99,7 @@
                 </Border>
                 <Label Grid.Column="1" Text="拖拽卡片调整位置" TextColor="{DynamicResource WarmMuted}" FontSize="12"
                        VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="🗑 删除" TextColor="{DynamicResource RedSoft}"
+                <Button Grid.Column="2" Text="🗑 删除" TextColor="{DynamicResource DangerInk}"
                         BackgroundColor="{DynamicResource SecondaryBg}" FontSize="12" Padding="12,0"
                         CornerRadius="8" HeightRequest="36" Command="{Binding RemoveSceneCommand}"
                         IsVisible="{Binding HasSelection}" />

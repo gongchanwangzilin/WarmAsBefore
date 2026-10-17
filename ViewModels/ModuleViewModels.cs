@@ -21,6 +21,8 @@ public sealed partial class PhoneViewModel : ObservableObject
     [ObservableProperty] private string _statusTime = "";
     [ObservableProperty] private string _weChatLabel = "微信";
     [ObservableProperty] private string _statusLine = "温暖如初 · 手机";
+    /// <summary>战斗系统在设置里开着时，手机桌面才给「战斗」入口——入口不该比功能多。</summary>
+    [ObservableProperty] private bool _showBattle;
 
     public PhoneViewModel(SettingsManager settings,
         Modules.RealChat.OfficialChatBridge bridge, Modules.RealWorld.TimeProvider time)
@@ -30,6 +32,7 @@ public sealed partial class PhoneViewModel : ObservableObject
         _time = time;
         RefreshStatus();
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshStatus);
+        _settings.Applied += RefreshStatus;
     }
 
     public void OnAppearing()
@@ -48,6 +51,7 @@ public sealed partial class PhoneViewModel : ObservableObject
         WeChatLabel = real ? "微信 · 真" : "微信 · 本地";
         var s = _bridge.Status;
         StatusLine = s is null or "未开启" ? "温暖如初 · 手机" : $"温暖如初 · {s}";
+        ShowBattle = _settings.Current.BattleEnabled;
     }
 
     [RelayCommand]
@@ -75,6 +79,17 @@ public sealed partial class PhoneViewModel : ObservableObject
 
     [RelayCommand]
     private async Task OpenShop() => await SafeNav("shop");
+
+    /// <summary>世界书：从小说/设定里生成世界观条目（桌面顶栏之外，手机也要能进）。</summary>
+    [RelayCommand]
+    private async Task OpenWorldbook() => await SafeNav("worldbook");
+
+    /// <summary>换装：给当前角色挑一套立绘/服饰。</summary>
+    [RelayCommand]
+    private async Task OpenOutfit() => await SafeNav("outfit");
+
+    [RelayCommand]
+    private async Task OpenBattle() => await SafeNav("battle");
 
     [RelayCommand]
     private async Task OpenGame(string? kind)
@@ -118,7 +133,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     [ObservableProperty] private bool _isTyping;
     [ObservableProperty] private int _typingDots;
     [ObservableProperty] private string _typingLabel = "";
-    [ObservableProperty] private string _partnerName = "她";
+    [ObservableProperty] private string _partnerName = "TA";
     [ObservableProperty] private ImageSource? _partnerAvatar;
     [ObservableProperty] private bool _hasPartnerAvatar;
     [ObservableProperty] private string _modeLabel = "本地微信";
@@ -220,7 +235,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         var real = _settings.Current.WechatEnabled
             && _bridge.Channels.Length > 1 && _bridge.Channels[1].IsRunning;
-        ModeLabel = real ? "真微信 · 已接入" : "本地微信 · 她还在";
+        ModeLabel = real ? "真微信 · 已接入" : "本地微信 · TA 还在";
     }
 
     private void OnRealIncoming(Modules.RealChat.RealChatMessage msg)

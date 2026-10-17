@@ -12,7 +12,6 @@ public sealed partial class TitleViewModel : ObservableObject
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly SaveManager _save;
 
-    [ObservableProperty] private bool _showGenderSelect;
     [ObservableProperty] private bool _hasSave;
     [ObservableProperty] private string _startLabel = "";
         [ObservableProperty] private bool _menuLeft = true;
@@ -29,7 +28,6 @@ public sealed partial class TitleViewModel : ObservableObject
         _settings = settings;
         _theme = theme;
         _save = save;
-        ShowGenderSelect = string.IsNullOrEmpty(Preferences.Get("player_gender", ""));
         ApplySettings();
         _settings.Applied += ApplySettings;
         _theme.Changed += ApplySettings;
@@ -129,7 +127,7 @@ public sealed partial class TitleViewModel : ObservableObject
     [RelayCommand]
     private async Task StartGame()
     {
-        App.WriteLog("Title: StartGame clicked, HasSave=" + HasSave + ", ShowGenderSelect=" + ShowGenderSelect);
+        App.WriteLog("Title: StartGame clicked, HasSave=" + HasSave);
         // 有存档：再续情缘——直接读最后一次游玩的存档继续；无存档：创建新欢（新开一局）
         if (HasSave)
         {
@@ -145,7 +143,6 @@ public sealed partial class TitleViewModel : ObservableObject
             await OpenSave();
             return;
         }
-        if (ShowGenderSelect) return;
         try
         {
             await Shell.Current.GoToAsync("select");
@@ -179,7 +176,7 @@ public sealed partial class TitleViewModel : ObservableObject
         catch (Exception ex) { App.WriteLog("Title: OpenNovels EX -> " + ex); }
     }
 
-    /// <summary>角色库：管理所有角色，AI 可调用她们，也可让 AI 改写人设。</summary>
+    /// <summary>角色库：管理所有角色，AI 可调用其他角色，也可让 AI 改写人设。</summary>
     [RelayCommand]
     private async Task OpenRoster()
     {
@@ -193,13 +190,5 @@ public sealed partial class TitleViewModel : ObservableObject
     {
         App.WriteLog("Title: ExitGame clicked");
         Application.Current?.Quit();
-    }
-
-    [RelayCommand]
-    private void SelectGender(string gender)
-    {
-        if (gender is not "MALE" and not "FEMALE") return;
-        Preferences.Set("player_gender", gender);
-        ShowGenderSelect = false;
     }
 }

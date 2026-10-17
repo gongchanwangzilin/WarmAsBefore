@@ -1,15 +1,42 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
                     x:Class="WarmAsBefore.DesignSystem.Styles.ButtonShapes">
 
     <!--
-    Apple Liquid Glass 按钮系统
-    - 全部视觉状态只用 BackgroundColor / Opacity / BorderColor，绝不用 Scale：
-      WinUI 下 Button.Scale 切换会改控件尺寸 → 触发重新布局 → 快速点按时「按键卡死」。
-    - 柔和按下动效：PointerOver 微提亮，Pressed 加深+透明度回落，150ms 内完成，
-      交互反馈即时（ui-ux-pro-max「active states」检查项）。
-    - 背景沿用半透明奶油渐变，保留液态玻璃观感；描边 1px 内发光。
+    按钮体系：奶油底上的暖色软玻璃。
+
+    按下去应该发生什么（这套界面里按钮就是「摸/抱/吻」这类身体动作，反馈必须像材料被压住）：
+      1. 表面压暗：背景往暖褐沉一点，不是变灰（变灰会被读成禁用）。这是主线索。
+      2. 下沉 1.6px：由 PressFeel 补出过渡。视觉状态的 Setter 是瞬时的，
+         想让状态之间「走过去」只能补中间帧，这就是之前手感发脆的根因。
+      3. 悬停：表面先沉三成色（静止→悬停→按下是三级台阶，只加粗 1px 描边实测看不出来）。
+         但实测 WinUI 上 MAUI 根本不进 PointerOver 态，PointerEntered/Exited 也不回调，
+         所以这些声明在当前桌面端不会生效——保留是因为它们在别的控件路径上是对的，
+         而驱动不再为此给每个按钮挂一套指针手势：换不来一个像素，却拖慢每一次鼠标移动。
+      4. 键盘焦点：描一圈 2px 的 BeigeAccent300 环。不能用 AccentWarm——四套主题里它都比
+         静止描边更淡，结果是一聚焦边框反倒消失，等于把焦点弄丢了。
+      5. 禁用：压暗到 0.4。
+
+    影子只在静止态声明一次，状态之间不再换它。听起来最该有影子收拢的就是按下，但代价太大：
+    WinUI 换 Shadow 等于重建一次合成层，实测「点过的按钮返回后整块空白」——布局位还在、
+    像素一个不画、连 UIA 树里都没有了（去掉状态里的 Shadow 后同一操作 3/3 正常）。
+    省下的还有每次点击重建两遍模糊层的开销。
+
+    静止态的边界必须自己成立。截图实测过：这套材质近白（按钮面 #F7F9FB，页面 #EFF2F5，
+    对比只有 1.06:1），描边一旦用半透明白就等于没画，按钮只剩一层弥散阴影，读不出「可按」。
+    所以描边一律取主题的 BorderLine（四套调色板本来就定义了，约 1.2~1.4:1），不再自创白色。
+
+    分工：样式负责每个状态长什么样，PressFeel 只负责 TranslationY 怎么走。
+    约束：状态里绝不用 Scale（WinUI 下按压缩放触发重新布局，快速连点会卡住），
+          也不换 Shadow（理由见上一段）；
+          Pressed/PointerOver 里别写 TranslationY——那是驱动的输出量，写了会跟它抢。
+          透明度反过来：它归状态（禁用态的 0.4 就靠它），驱动一律不碰。
+
+    几何梯度（改尺寸请顺着这四档，别再新增第五档）：
+      高度 34 / 40 / 46 / 56 —— 56 只给标题页那种「一屏就几个大钮」的场合；
+      圆角 10 / 14 / 16，圆形按钮取边长一半；内距 12,0 / 20,0 / 24,0；字号 12 / 14。
     -->
 
     <!-- 圆形液态玻璃图标钮（主游戏互动按钮：摸/抱/吻/存） -->
@@ -45,18 +72,20 @@
                 <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,3" Radius="10" Opacity="0.28" />
             </Setter.Value>
         </Setter>
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.92" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.72" />
+                            <Setter Property="StrokeThickness" Value="1.5" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -64,7 +93,7 @@
         </Setter>
     </Style>
 
-    <!-- Neumorphic: raised surface with subtle shadow（液态玻璃底 + 柔和按下） -->
+    <!-- Neumorphic：抬起的奶油面（主按钮尺寸） -->
     <Style x:Key="BtnNeumorphic" TargetType="Button">
         <Setter Property="Background">
             <Setter.Value>
@@ -80,26 +109,52 @@
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="HeightRequest" Value="46" />
-        <Setter Property="Padding" Value="24,0" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderWidth" Value="1" />
-        <Setter Property="BorderColor" Value="#88FFFFFF" />
+        <Setter Property="BorderColor" Value="{DynamicResource BorderLine}" />
         <Setter Property="Shadow">
             <Setter.Value>
                 <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,3" Radius="10" Opacity="0.25" />
             </Setter.Value>
         </Setter>
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.9" />
+                            <!-- 悬停要有真实色阶：这套材质近白，只加粗描边在实测里看不出来 -->
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#4AFFFFFF" Offset="0.0" />
+                                        <GradientStop Color="#20FDF6EE" Offset="0.5" />
+                                        <GradientStop Color="#40C9BFA8" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.7" />
+                            <!-- 上沿的高光收掉、下沿的实体面加重：压暗集中在底部，才像被压进去 -->
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#2EFFFFFF" Offset="0.0" />
+                                        <GradientStop Color="#1AFDF6EE" Offset="0.45" />
+                                        <GradientStop Color="#52BFAF92" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BorderWidth" Value="2" />
+                            <Setter Property="BorderColor" Value="{DynamicResource BeigeAccent300}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -112,7 +167,7 @@
         </Setter>
     </Style>
 
-    <!-- Primary: 液态玻璃主按钮（半透明暖金，最强调） -->
+    <!-- Primary：暖金主按钮，一个界面里只该有一个这样的声音 -->
     <Style x:Key="BtnPrimary" TargetType="Button">
         <Setter Property="Background">
             <Setter.Value>
@@ -127,25 +182,47 @@
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="HeightRequest" Value="46" />
-        <Setter Property="Padding" Value="24,0" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="Shadow">
             <Setter.Value>
                 <Shadow Brush="#88FFB300" Offset="0,4" Radius="12" Opacity="0.35" />
             </Setter.Value>
         </Setter>
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.92" />
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FFD54F" Offset="0.0" />
+                                        <GradientStop Color="#FFB300" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.75" />
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#F2A81D" Offset="0.0" />
+                                        <GradientStop Color="#DE9400" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BorderWidth" Value="2" />
+                            <Setter Property="BorderColor" Value="{DynamicResource WarmDark}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -158,30 +235,47 @@
         </Setter>
     </Style>
 
-    <!-- Glass: translucent 液态玻璃按钮。
-         底与描边跟随设置页的玻璃档位（GlassTokens 下发），
-         关掉玻璃就是干净的实心按钮，开启后转成通透玻璃面 + 亮边。 -->
+    <!-- 紧凑档的主按钮：卡片里的小步确认（不是页面级 CTA，所以不再单独发明第四种尺寸） -->
+    <Style x:Key="BtnPrimarySm" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
+        <Setter Property="HeightRequest" Value="34" />
+        <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Glass：跟随设置页玻璃档位的按钮。底与描边来自 GlassTokens，
+         按下态另有一份压暗背景（同样是当前档位算出来的），所以切档位时按钮不会脱离主题。 -->
     <Style x:Key="BtnGlass" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="HeightRequest" Value="46" />
-        <Setter Property="Padding" Value="24,0" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
+        <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
         <Setter Property="BorderWidth" Value="1" />
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.9" />
+                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgHover}" />
+                            <Setter Property="BorderWidth" Value="1.5" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.72" />
+                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgPressed}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BorderWidth" Value="2" />
+                            <Setter Property="BorderColor" Value="{DynamicResource BeigeAccent300}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -194,25 +288,59 @@
         </Setter>
     </Style>
 
-    <!-- Text-only (ghost)：透明底，按下仅降透明度 -->
+    <!-- 柔和次要按钮：半透明奶油 + 描边（中档高度） -->
+    <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnGlass}">
+        <Setter Property="Padding" Value="18,0" />
+        <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
+        <Setter Property="FontSize" Value="13" />
+    </Style>
+
+    <!-- 紧凑档（34/10/12）：设置行、列表行里的动作钮。以前这些地方是拿常规档再内联覆写
+         FontSize/Padding 凑出来的，凑出来的高度仍停在 40/46，一行里大小按钮混着。
+         要小就用这一档；窄列里放不下两个汉字时，把内距再收一点比换字号稳。 -->
+    <Style x:Key="BtnGhostSm" TargetType="Button" BasedOn="{StaticResource BtnGhost}">
+        <Setter Property="HeightRequest" Value="34" />
+        <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- Text-only（ghost 文字钮）：透明底，只靠颜色与位移说话 -->
     <Style x:Key="BtnText" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
                             <Setter Property="TextColor" Value="{DynamicResource WarmMuted}" />
-                            <Setter Property="Opacity" Value="0.8" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.55" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BorderWidth" Value="1.5" />
+                            <Setter Property="BorderColor" Value="{DynamicResource BeigeAccent300}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -220,14 +348,14 @@
         </Setter>
     </Style>
 
-    <!-- 柔和次要按钮：半透明奶油 + 描边 -->
-    <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnGlass}">
-        <Setter Property="Padding" Value="18,0" />
-        <Setter Property="HeightRequest" Value="40" />
-        <Setter Property="FontSize" Value="13" />
+    <!-- 文字钮的紧凑档：行内小动作（识别 / 删除 / 上下移） -->
+    <Style x:Key="BtnTextSm" TargetType="Button" BasedOn="{StaticResource BtnText}">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="CornerRadius" Value="8" />
     </Style>
 
-    <!-- 危险操作（删除/移除）：暖红液态玻璃 -->
+    <!-- 危险操作（删除/移除）：暖红，按压同样收影子 -->
     <Style x:Key="BtnDanger" TargetType="Button">
         <Setter Property="Background">
             <Setter.Value>
@@ -241,24 +369,52 @@
         <Setter Property="FontSize" Value="13" />
         <Setter Property="CornerRadius" Value="14" />
         <Setter Property="HeightRequest" Value="40" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Padding" Value="18,0" />
+        <Setter Property="BorderWidth" Value="0" />
         <Setter Property="Shadow">
             <Setter.Value>
                 <Shadow Brush="#66E5544B" Offset="0,3" Radius="10" Opacity="0.35" />
             </Setter.Value>
         </Setter>
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.9" />
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#FF7B7B" Offset="0.0" />
+                                        <GradientStop Color="#EA5B52" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.72" />
+                            <Setter Property="Background">
+                                <Setter.Value>
+                                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
+                                        <GradientStop Color="#EF5F5F" Offset="0.0" />
+                                        <GradientStop Color="#D24740" Offset="1.0" />
+                                    </LinearGradientBrush>
+                                </Setter.Value>
+                            </Setter>
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Focused">
+                        <VisualState.Setters>
+                            <Setter Property="BorderWidth" Value="2" />
+                            <Setter Property="BorderColor" Value="{DynamicResource WarmDark}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>
@@ -266,13 +422,46 @@
         </Setter>
     </Style>
 
-    <!-- Navigation icon -->
+    <!-- 危险操作的紧凑档（列表行内的删除） -->
+    <Style x:Key="BtnDangerSm" TargetType="Button" BasedOn="{StaticResource BtnDanger}">
+        <Setter Property="HeightRequest" Value="34" />
+        <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="Padding" Value="12,0" />
+        <Setter Property="CornerRadius" Value="10" />
+        <Setter Property="FontSize" Value="12" />
+    </Style>
+
+    <!-- 导航图标钮 -->
     <Style x:Key="BtnIcon" TargetType="ImageButton">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="CornerRadius" Value="22" />
         <Setter Property="HeightRequest" Value="44" />
         <Setter Property="WidthRequest" Value="44" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="10" />
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="PointerOver">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Pressed">
+                        <VisualState.Setters>
+                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                    <VisualState Name="Disabled">
+                        <VisualState.Setters>
+                            <Setter Property="Opacity" Value="0.4" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
+        </Setter>
     </Style>
 
 </ResourceDictionary>

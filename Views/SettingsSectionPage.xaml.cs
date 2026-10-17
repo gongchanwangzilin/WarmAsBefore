@@ -1,3 +1,5 @@
+using WarmAsBefore.DesignSystem.Theme;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -84,9 +86,11 @@ public partial class SettingsSectionPage : ContentPage
                     content = template.CreateContent() as Microsoft.Maui.Controls.View;
                 if (content is null) continue;
 
-                content.Opacity = 0;
+                // 逐张浮起：让「一张张出来」读成有节奏的进场，而不是随机蹦出来。
+                // 时长仍然很短（130ms）——这一页的首要任务是别让人觉得慢。
+                // 这里不淡入：这些卡片带着阴影，透明度被多处共写容易把它们留在看不见的那一头。
                 CardsHost.Add(content);
-                _ = content.FadeTo(1, 130, Easing.CubicOut);
+                _ = Motion.Rise(content, (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
 
                 var chart = content.FindByName("CostChartView") as GraphicsView;
                 if (chart is not null)
@@ -94,7 +98,7 @@ public partial class SettingsSectionPage : ContentPage
                     chart.Drawable = _vm.CostChart;
                     _vm.InvalidateCostChart = () => chart.Invalidate();
                 }
-                await Task.Delay(16);   // 让出消息循环，这一张先画出来
+                await Task.Delay(MotionTokens.FrameMs);   // 让出一帧，这一张先画出来
             }
             // 卡片就绪后再补该分类要用的数据（只做这一页需要的）
             _ = SeedAfterCardsAsync(section.Key);

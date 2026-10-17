@@ -100,9 +100,9 @@
                 Padding="16,10" Margin="12,8,12,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
             <VerticalStackLayout Spacing="8">
-                <Label Text="{Binding SummaryText}" TextColor="{DynamicResource Cream200}" FontSize="13" />
+                <Label Text="{Binding SummaryText}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" />
                 <Label Text="{Binding MissingText}" IsVisible="{Binding HasMissing}"
-                       TextColor="{DynamicResource RedSoft}" FontSize="13" />
+                       TextColor="{DynamicResource DangerInk}" FontSize="13" />
                 <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
                     <Button Text="清空重标" TextColor="{DynamicResource OffWhite50}"
                             BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"

@@ -22,7 +22,7 @@
                 <Border Grid.Column="2" BackgroundColor="{DynamicResource BeigeAccent50}"
                         StrokeThickness="0" Padding="10,5">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="AI 也会用到她们" FontSize="11" TextColor="{DynamicResource WarmDark}" />
+                    <Label Text="AI 也会用到其他角色" FontSize="11" TextColor="{DynamicResource WarmDark}" />
                 </Border>
             </Grid>
         </Border>
@@ -42,7 +42,7 @@
                     </Border>
                     <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
-                    <Label Text="在角色选择页新建或导入角色后，她们会出现在这里" Style="{StaticResource TxtMuted}"
+                    <Label Text="在角色选择页新建或导入角色后，新角色会出现在这里" Style="{StaticResource TxtMuted}"
                            HorizontalOptions="Center" FontSize="13" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
@@ -95,7 +95,7 @@
 
         <!-- Footer hint -->
         <Border Grid.Row="2" Background="{DynamicResource PageBgBrush}" Padding="24,4,24,20">
-            <Label Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开她让 AI 改写人设即可。"
+            <Label Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开 TA 让 AI 改写人设即可。"
                    Style="{StaticResource TxtCaption}" FontSize="12" HorizontalTextAlignment="Center" />
         </Border>
     </Grid>

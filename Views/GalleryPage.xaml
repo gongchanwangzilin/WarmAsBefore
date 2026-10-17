@@ -81,15 +81,15 @@
                 </Border>
             </Grid>
 
-            <!-- REMEMBERED tab：人类记忆层（她真正记得的事） + 标签 + 关系网 -->
+            <!-- REMEMBERED tab：人类记忆层（TA 真正记得的事） + 标签 + 关系网 -->
             <VerticalStackLayout IsVisible="{Binding IsRememberedSelected}" Spacing="10">
-                <Label Text="这是她脑子里真正记得的事——重要的忘得慢，琐碎的自然淡忘；照片式记忆只有单张。"
+                <Label Text="这是 TA 脑子里真正记得的事——重要的忘得慢，琐碎的自然淡忘；照片式记忆只有单张。"
                        Style="{StaticResource TxtCaption}" />
                 <Button Text="⚙ 记忆管理（关系网 / 标签 / 记得的事 / 副设定）" Style="{StaticResource BtnGhost}"
                         FontSize="13" HorizontalOptions="Start" Command="{Binding OpenMemoryManageCommand}" />
                 <Border Style="{StaticResource CardNeumorph}" Padding="14,12" IsVisible="{Binding HasTags}">
                     <VerticalStackLayout Spacing="4">
-                        <Label Text="她给你的标签" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                        <Label Text="TA 给你的标签" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                         <Label Text="{Binding TagSummary}" Style="{StaticResource TxtCaption}" />
                     </VerticalStackLayout>
                 </Border>
@@ -132,7 +132,7 @@
                 <Border Style="{StaticResource CardNeumorph}" Padding="16,12">
                     <VerticalStackLayout Spacing="8">
                         <Label IsVisible="{Binding HasAffection, Converter={StaticResource InverseBool}}"
-                               Text="还没有好感时刻，去和她互动吧~" Style="{StaticResource TxtCaption}" />
+                               Text="还没有好感时刻，去和 TA 互动吧~" Style="{StaticResource TxtCaption}" />
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding AffectionItems}" Spacing="6">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AffectionMemoryItem">
@@ -170,7 +170,7 @@
             <!-- DIARY tab -->
             <VerticalStackLayout IsVisible="{Binding IsDiarySelected}" Spacing="10">
                 <Label IsVisible="{Binding HasDiary, Converter={StaticResource InverseBool}}"
-                       Text="还没有日记，今天多陪陪她，明天早上就会有一篇总结啦~"
+                       Text="还没有日记，今天多陪陪 TA，明天早上就会有一篇总结啦~"
                        Style="{StaticResource TxtCaption}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding DiaryItems}" Spacing="10">
                     <BindableLayout.ItemTemplate>
@@ -191,7 +191,7 @@
             <!-- CG 收藏册 tab -->
             <VerticalStackLayout IsVisible="{Binding IsCgSelected}" Spacing="10">
                 <Label IsVisible="{Binding HasCg, Converter={StaticResource InverseBool}}"
-                       Text="还没有收藏的 CG。当她在对话里引用【CG:文件名】时就会解锁收藏~"
+                       Text="还没有收藏的 CG。当 TA 在对话里引用【CG:文件名】时就会解锁收藏~"
                        Style="{StaticResource TxtCaption}" />
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding CgItems}" Spacing="10">
                     <BindableLayout.ItemTemplate>

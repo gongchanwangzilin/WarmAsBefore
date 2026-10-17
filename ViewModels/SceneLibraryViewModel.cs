@@ -213,10 +213,11 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
             await Shell.Current.DisplayAlert("", "地图尚未加载", "好");
             return;
         }
-        var options = scenes.Select(s => s.Name).Append("(取消)").ToArray();
         var pick = await Shell.Current.DisplayActionSheet("选择要引用的地图场景", "取消", null,
-            options[..^1]);
-        if (pick is null) return;
+            scenes.Select(s => s.Name).ToArray());
+        // DisplayActionSheet 点「取消」返回的是按钮文本「取消」而不是 null，
+        // 不判这一句就会拿它去匹配场景名（匹配不到，静默什么也不做）。
+        if (string.IsNullOrEmpty(pick) || pick == "取消") return;
         var target = scenes.FirstOrDefault(s => s.Name == pick);
         if (!string.IsNullOrEmpty(target.Id))
         {

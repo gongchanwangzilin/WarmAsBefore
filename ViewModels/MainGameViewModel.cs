@@ -54,7 +54,6 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private int _attachment;
     [ObservableProperty] private int _balance = 1000;
     [ObservableProperty] private string _weatherDesc = "晴朗";
-    [ObservableProperty] private string _physLabel = "正常";
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
 
@@ -67,7 +66,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _pendingAttachmentsLabel = "";
     /// <summary>是否有待发附件（控制按钮高亮/清除按钮显隐）。</summary>
     [ObservableProperty] private bool _hasPendingAttachments;
-    [ObservableProperty] private bool _showSettings;
+    /// <summary>菜单浮层（存档/设置/桌宠/回标题）。功能入口在手机桌面，不在这里。</summary>
+    [ObservableProperty] private bool _showMenu;
     [ObservableProperty] private bool _showMap;
     [ObservableProperty] private string _currentTimeStr = "";
     [ObservableProperty] private string _sceneBg = "#2C1810";
@@ -1870,7 +1870,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     }
 
 #if WINDOWS
-    /// <summary>截取美少女主窗口客户区（顶部以下到信息栏以上），存 PNG 并返回路径。</summary>
+    /// <summary>截取主窗口客户区（顶部以下到信息栏以上），存 PNG 并返回路径。</summary>
     private static string? CaptureWindowSnapshot()
     {
         try
@@ -1976,13 +1976,6 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     [RelayCommand]
     private async Task OpenFullMap() => await Shell.Current.GoToAsync("map");
-
-    [RelayCommand]
-    private async Task OpenWorldbook() => await Shell.Current.GoToAsync("worldbook");
-
-    /// <summary>打开场景库（点击式场景工坊）：把当前场景切到所选条目/模式，无需拖拽。</summary>
-    [RelayCommand]
-    private async Task OpenSceneLibrary() => await Shell.Current.GoToAsync("scenelibrary");
 
     // ============ #E4 电脑端：隐藏顶栏/侧栏（ESC）与全屏（F11，code-behind 处理） ============
 
@@ -2104,24 +2097,12 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenSave() => await Shell.Current.GoToAsync("save");
 
+    /// <summary>开关菜单浮层。名字里不再叫 settings：它开的不是设置，是这一局的菜单。</summary>
     [RelayCommand]
-    private async Task OpenSettings() => ShowSettings = !ShowSettings;
+    private void ToggleMenu() => ShowMenu = !ShowMenu;
 
     [RelayCommand]
-    private async Task OpenOutfit() => await Shell.Current.GoToAsync("outfit");
-
-    [RelayCommand]
-    private async Task OpenGallery() => await Shell.Current.GoToAsync("gallery");
-
-    [RelayCommand]
-    private async Task OpenRoster() => await Shell.Current.GoToAsync("roster");
-
-    [RelayCommand]
-    private async Task OpenMaterials() => await Shell.Current.GoToAsync("materials");
-
-    /// <summary>进入战斗页面</summary>
-    [RelayCommand]
-    private async Task OpenBattle() => await Shell.Current.GoToAsync("battle");
+    private async Task OpenSettings() => await Shell.Current.GoToAsync("settings");
 
     /// <summary>收纳到桌面（桌宠模式）：主窗口隐藏，桌面只留立绘，托盘可恢复。</summary>
     [RelayCommand]
@@ -2144,16 +2125,13 @@ public sealed partial class MainGameViewModel : ObservableObject
         catch (Exception ex) { App.WriteLog("MainGame.AutoSave -> " + ex); }
     }
 
+    /// <summary>回标题：先落盘再停自动存档，否则这一局聊的天会丢。</summary>
     [RelayCommand]
-    private async Task Menu()
+    private async Task BackToTitle()
     {
-        var act = await Shell.Current.DisplayActionSheet("菜单", "取消", null, "设置", "存档管理", "回标题");
-        switch (act)
-        {
-            case "设置": await Shell.Current.GoToAsync("settings"); break;
-            case "存档管理": await Shell.Current.GoToAsync("save"); break;
-            case "回标题": await _save.Commit("存档"); _auto.Stop(); await Shell.Current.GoToAsync(".."); break;
-        }
+        await _save.Commit("存档");
+        _auto.Stop();
+        await Shell.Current.GoToAsync("..");
     }
 
     [RelayCommand]
@@ -2215,8 +2193,41 @@ public sealed partial class MainGameViewModel : ObservableObject
                 _ => "家"
             };
         }
-        _phys.Day = (int)(info.Now - DateTime.Today).TotalMinutes / 60;
-        PhysLabel = _phys.Label;
+        // 周期跟着「当前角色的性别」走：换一个没有周期的角色，经期表述要当场消失，
+        // 不能等到下次设置变更才纠正。
+        RefreshCycle();
+    }
+
+    /// <summary>
+    /// 把设置里按性别存的「规则」换算成当前角色身上的「读数」（第几天、哪一期）。
+    /// 商店的「身体状态」面板读的是 <see cref="CharacterState.Cycle"/>，这一步不跑，
+    /// 用户改的周期就永远只躺在设置里，面板上那一行连出现都不会出现。
+    /// </summary>
+    private void RefreshCycle()
+    {
+        var ch = _engine.ActiveCharacter;
+        var rule = _settings.Current.CycleRuleFor(ch?.Profile.Gender);
+        _phys.SetCycle(rule);
+        if (ch is null) return;
+
+        var cycle = ch.State.Cycle;
+        if (!rule.Enabled)
+        {
+            if (cycle.Tracked) ch.State.Cycle = cycle with { Tracked = false, Phase = "normal" };
+            return;
+        }
+
+        // 起点是「上次经期的第一天」，第一次跟踪时把今天记下来，之后一直按自然日往下数。
+        // 早先这里写的是 (now - 今天零点) 折算出来的数，那其实是「现在几点」——
+        // 于是角色每天 0 点进入经期、14 点排卵、午夜清零，周期跟着钟表一天转一圈。
+        var today = _time.Now().Now.Date;
+        var anchor = cycle.LastPeriod == default ? today : cycle.LastPeriod.Date;
+        // 长度按出厂区间夹一手：设置页写入时会夹，但存档 JSON 是用户能自己改的文件，
+        // 这里 0 就会在每次时钟跳动时抛一次除零。
+        var len = Math.Clamp(rule.CycleLength, 7, 60);
+        var day = Math.Max(0, (int)(today - anchor).TotalDays) % len;
+        _phys.Day = day;
+        ch.State.Cycle = cycle with { Tracked = true, CycleDay = day, Phase = _phys.Phase, LastPeriod = anchor };
     }
 
     private static readonly string[] WeekCn = { "日", "一", "二", "三", "四", "五", "六" };

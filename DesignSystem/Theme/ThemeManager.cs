@@ -309,7 +309,7 @@ public class ThemeManager
             "AccentWarm", "AccentWarmFg", "BubbleMine", "BubbleTheirs", "OverlayDim",
             "Cream50", "Cream100", "Cream200", "Beige100", "Beige200", "BeigeAccent50", "BeigeAccent100",
             "BeigeAccent200", "BeigeAccent300", "OffWhite50", "OffWhite100", "OffWhite200", "ShadowLight",
-            "ShadowDim", "ShadowDeep", "GreenSoft", "RedSoft", "BlueSoft", "TabActive", "TabInactive" };
+            "ShadowDim", "ShadowDeep", "GreenSoft", "RedSoft", "DangerInk", "BlueSoft", "TabActive", "TabInactive" };
         foreach (var key in keys)
         {
             var match = System.Text.RegularExpressions.Regex.Match(xaml, $"<Color x:Key=\"{key}\"[^>]*>([^<]+)</Color>");
@@ -387,8 +387,10 @@ public class ThemeManager
     {
         var page = Shell.Current?.CurrentPage;
         if (page is null) return;
+        var ms = MotionTokens.Ms(MotionTokens.PageFadeMs);
+        if (ms <= 0) { page.Opacity = 1; return; }   // 减少动画：别从半透明起步，那本身就是一次动效
         page.Opacity = 0.55;
-        _ = page.FadeTo(1, 200, Easing.CubicOut);
+        _ = page.FadeTo(1, (uint)ms, Easing.CubicOut);
     }
 
     public void Reset()

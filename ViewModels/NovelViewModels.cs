@@ -154,7 +154,7 @@ public sealed partial class NovelWorldViewModel : ObservableObject
         _history.Add(new ChatMessage { Role = "system", Content = system });
         AddMessage("assistant",
             novel.Characters.Count > 0
-                ? $"欢迎来到《{novel.Title}》的平行宇宙。你是误入这个世界的旅人，\n{(novel.Characters.Count > 0 ? "这里生活着：" + string.Join("、", novel.Characters) : "")}。她们会把你当成这个世界的一部分，和你一起经历接下来的故事。"
+                ? $"欢迎来到《{novel.Title}》的平行宇宙。你是误入这个世界的旅人，\n{(novel.Characters.Count > 0 ? "这里生活着：" + string.Join("、", novel.Characters) : "")}。这里的角色会把你当成这个世界的一部分，和你一起经历接下来的故事。"
                 : $"欢迎来到《{novel.Title}》的平行宇宙。\n\n{novel.Summary}");
     }
 

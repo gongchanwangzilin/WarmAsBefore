@@ -152,6 +152,26 @@ public sealed class SettingsManager
             }
         }
 
+        // 旧的单一周期设置 → 按性别分开。判据是「字典为空」而不是「值为默认」：
+        // 老存档里根本没有 CycleRules 这个键，反序列化后就是空字典，新存档则由设置页写满。
+        if (c.CycleRules.Count == 0)
+        {
+#pragma warning disable CS0618   // 这两个属性就是为了这次搬家才留在模型里的
+            var fem = new CycleRule { Enabled = true, CycleLength = c.CycleLength, PeriodLength = c.PeriodLength };
+#pragma warning restore CS0618
+            c = c with
+            {
+                CycleRules = new Dictionary<string, CycleRule>(StringComparer.Ordinal)
+                {
+                    ["女"] = fem,
+                    ["男"] = new CycleRule { Enabled = false },
+                    ["其他"] = new CycleRule { Enabled = false },
+                }
+            };
+            changed = true;
+            App.WriteLog($"Settings.Migrate: 单一周期 → 按性别（女 {fem.CycleLength}/{fem.PeriodLength}，男/其他无周期）");
+        }
+
         if (!changed) return;
         _current = c;
         await _store.Save("settings", _current);

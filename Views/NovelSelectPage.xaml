@@ -29,7 +29,7 @@
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
                                      Padding="32">
-                    <Label Text="还没有平行宇宙" TextColor="{DynamicResource WarmFaint}" FontSize="18"
+                    <Label Text="还没有平行宇宙" TextColor="{DynamicResource WarmBody}" FontSize="18"
                            HorizontalOptions="Center" />
                     <Label Text="导入一部小说，它就会变成一个可以进入的世界" TextColor="{DynamicResource WarmMuted}" FontSize="13"
                            HorizontalOptions="Center" />
@@ -45,12 +45,12 @@
                                        FontSize="16" FontAttributes="Bold"
                                        LineBreakMode="TailTruncation" />
                                 <Label Grid.Column="1" Text="{Binding ImportedAt, StringFormat='{0:MM/dd}'}"
-                                       TextColor="{DynamicResource WarmFaint}" FontSize="11"
+                                       TextColor="{DynamicResource WarmBody}" FontSize="11"
                                        VerticalOptions="Center" />
                             </Grid>
                             <Label Text="{Binding Summary}" TextColor="{DynamicResource WarmMuted}"
                                    FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
-                            <Label Text="{Binding CharactersLabel}" TextColor="{DynamicResource WarmFaint}"
+                            <Label Text="{Binding CharactersLabel}" TextColor="{DynamicResource WarmBody}"
                                    FontSize="11" LineBreakMode="TailTruncation" />
                             <HorizontalStackLayout HorizontalOptions="End" Spacing="8" Margin="0,4,0,0">
                                 <Button Text="删除" Style="{StaticResource BtnText}"

@@ -32,7 +32,10 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
                     Padding="16,8">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="12">
+                <!-- 顶栏只放「正在玩」时会碰的东西：存档 / 菜单 / 手机 / 地图 / 临时换 AI。
+                     工坊、世界书这类「配置世界」的页面一律从手机桌面进，不在这里再开一扇门：
+                     入口混在一起，七个小按钮就没有主次了，等于没有入口。 -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
                     <VerticalStackLayout Spacing="0">
                         <Label Text="{Binding CurrentTimeStr}"
                                TextColor="{DynamicResource WarmDark}" FontSize="22" FontAttributes="Bold" />
@@ -47,15 +50,11 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                             BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
                             FontSize="11" Padding="8,4" HeightRequest="32"
                             Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
-                    <Button Grid.Column="3" Text="工坊" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="3" Text="菜单" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
-                            Command="{Binding OpenSceneLibraryCommand}" />
-                    <Button Grid.Column="4" Text="设置" TextColor="{DynamicResource MutedFg}"
-                            BackgroundColor="Transparent" FontSize="11" Padding="8,4"
-                            HeightRequest="32"
-                            Command="{Binding OpenSettingsCommand}" />
-                    <Button Grid.Column="5" Text="手机" TextColor="{DynamicResource MutedFg}"
+                            Command="{Binding ToggleMenuCommand}" />
+                    <Button Grid.Column="4" Text="手机" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="Transparent" FontSize="11" Padding="8,4"
                             HeightRequest="32"
                             Command="{Binding OpenPhoneCommand}" />
@@ -176,7 +175,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         </Border>
                         <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="16"
                                HorizontalOptions="Center" FontAttributes="Bold" />
-                        <Label Text="暂无立绘" TextColor="{DynamicResource WarmFaint}" FontSize="11"
+                        <Label Text="暂无立绘" TextColor="{DynamicResource WarmBody}" FontSize="11"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Border>
@@ -426,7 +425,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                         <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
@@ -437,14 +436,13 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                         <Label Text="{Binding Energy, StringFormat='精力 {0}%'}" TextColor="{DynamicResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
                     </Border>
+                    <!-- 同手机版：只留「正在玩」的动作，配置世界的页面走手机桌面 -->
                     <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
-                    <Button Grid.Column="5" Text="设置" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenSettingsCommand}" />
+                    <Button Grid.Column="5" Text="菜单" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
                     <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
                     <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
-                    <Button Grid.Column="8" Text="工坊" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenSceneLibraryCommand}" />
-                    <Button Grid.Column="9" Text="世界书" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenWorldbookCommand}" />
                     <!-- 临时指定这次由哪个 AI 回答（不动全局设置；指定后按钮高亮） -->
-                    <Button Grid.Column="10" Text="AI" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                    <Button Grid.Column="8" Text="AI" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                             BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
                             Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
                 </Grid>
@@ -469,7 +467,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="2">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感等级</Label>
-                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{DynamicResource AccentWarm}" FontSize="13" FontAttributes="Bold" />
+                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{DynamicResource AccentWarmFg}" FontSize="13" FontAttributes="Bold" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">信任度</Label>
@@ -487,7 +485,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">余额</Label>
-                        <Label Text="{Binding Balance, StringFormat='¤ {0}'}" TextColor="{DynamicResource AccentWarm}" FontSize="14" FontAttributes="Bold" />
+                        <Label Text="{Binding Balance, StringFormat='¤ {0}'}" TextColor="{DynamicResource AccentWarmFg}" FontSize="14" FontAttributes="Bold" />
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </Border>
@@ -584,7 +582,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Button Text="摸摸头" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
                         <Button Text="抱抱" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
                         <Button Text="亲吻" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
-                        <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
+                        <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
                     </HorizontalStackLayout>
                     <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView" Margin="0,8" SelectionMode="None">
                         <CollectionView.ItemTemplate>
@@ -643,7 +641,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                    FontSize="13" FontAttributes="Bold" />
                         </Border>
                         <Button Text="{Binding GalgameModeLabel}"
-                                TextColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource SurfaceBg}"
+                                TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}"
                                 FontSize="11" Padding="10,4" CornerRadius="12" HeightRequest="28"
                                 Command="{Binding ToggleGalgameModeCommand}" />
                         <Label Text="{Binding LastSpeakerName}" TextColor="{DynamicResource MutedFg}" FontSize="11"
@@ -702,39 +700,35 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
         <!-- ============ Overlays (shared by phone & desktop) ============ -->
 
-        <!-- Settings overlay -->
-        <Grid IsVisible="{Binding ShowSettings}" BackgroundColor="{DynamicResource OverlayDim}">
+        <!-- 菜单浮层：只放「这一局」的系统动作（设置/存档/收起/回标题）。
+             功能入口一律走手机桌面，这里不再重复一遍——同一个功能有两个入口，
+             就等于没有入口：用户记不住哪个是正的，我们也改不动另一份。 -->
+        <Grid IsVisible="{Binding ShowMenu}" BackgroundColor="{DynamicResource OverlayDim}">
             <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
                     Padding="24,20" Margin="40" VerticalOptions="Center"
                     MaximumWidthRequest="360">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
-                <VerticalStackLayout Spacing="16">
-                    <Label Text="设置" TextColor="{DynamicResource SurfaceFg}" FontSize="20"
-                           HorizontalOptions="Center" FontAttributes="Bold" />
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="菜单" TextColor="{DynamicResource SurfaceFg}" FontSize="20"
+                           HorizontalOptions="Center" FontAttributes="Bold" Margin="0,0,0,6" />
+                    <Button Text="设置" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
+                            CornerRadius="8" HeightRequest="40"
+                            Command="{Binding OpenSettingsCommand}" />
+                    <Button Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
+                            CornerRadius="8" HeightRequest="40"
+                            Command="{Binding OpenPhoneCommand}" />
                     <Button Text="存档管理" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenSaveCommand}" />
-                    <Button Text="换装" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
-                            CornerRadius="8" HeightRequest="40"
-                            Command="{Binding OpenOutfitCommand}" />
-                    <Button Text="角色库" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
-                            CornerRadius="8" HeightRequest="40"
-                            Command="{Binding OpenRosterCommand}" />
-                    <Button Text="素材库" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
-                            CornerRadius="8" HeightRequest="40"
-                            Command="{Binding OpenMaterialsCommand}" />
-                    <Button Text="相册" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
-                            CornerRadius="8" HeightRequest="40"
-                            Command="{Binding OpenGalleryCommand}" />
                     <Button Text="桌宠模式" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding PetModeCommand}" />
-                    <Button Text="回标题" TextColor="{DynamicResource RedSoft}" BackgroundColor="{DynamicResource SecondaryBg}"
+                    <Button Text="回标题" TextColor="{DynamicResource DangerInk}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
-                            Command="{Binding MenuCommand}" />
-                    <Button Text="关闭" TextColor="{DynamicResource WarmMuted}" BackgroundColor="Transparent"
+                            Command="{Binding BackToTitleCommand}" />
+                    <Button Text="关闭" TextColor="{DynamicResource WarmBody}" BackgroundColor="Transparent"
                             CornerRadius="8" HeightRequest="36"
-                            Command="{Binding OpenSettingsCommand}" />
+                            Command="{Binding ToggleMenuCommand}" />
                 </VerticalStackLayout>
             </Border>
         </Grid>

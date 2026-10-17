@@ -29,7 +29,7 @@
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8"
                                      Padding="32">
-                    <Label Text="暂无存档" TextColor="{DynamicResource WarmFaint}" FontSize="18"
+                    <Label Text="暂无存档" TextColor="{DynamicResource WarmBody}" FontSize="18"
                            HorizontalOptions="Center" />
                     <Label Text="回到标题点击「创建新欢」开始新的一局吧" TextColor="{DynamicResource WarmMuted}" FontSize="13"
                            HorizontalOptions="Center" />

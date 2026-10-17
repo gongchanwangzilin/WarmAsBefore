@@ -86,6 +86,8 @@
   <!-- 桌面端截图（好感瞬间）仅 Windows 可用 -->
   <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
+    <!-- 「系统识别」引擎用桌面 SAPI：WinRT SpeechRecognizer 在 unpackaged 进程里开不了麦，只会返回 Unknown -->
+    <PackageReference Include="System.Speech" Version="8.0.0" />
   </ItemGroup>
 
 </Project>

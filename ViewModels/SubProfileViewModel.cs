@@ -7,7 +7,7 @@ namespace WarmAsBefore.ViewModels;
 
 /// <summary>
 /// 副设定对比页：左边是主设定（内核，永不改），右边是副设定（当下之我）。
-/// 下面是漂移留影，可以看清「她是怎么一步步变成现在这样的」，也可以一键回正。
+/// 下面是漂移留影，可以看清「TA 是怎么一步步变成现在这样的」，也可以一键回正。
 /// </summary>
 public sealed partial class SubProfileViewModel : ObservableObject, IQueryAttributable
 {
@@ -70,7 +70,7 @@ public sealed partial class SubProfileViewModel : ObservableObject, IQueryAttrib
         HasNotes = c.Notes.Count > 0;
 
         DriftSummary = c.DriftCount == 0
-            ? "还没有漂移过——她就是主设定里的样子。"
+            ? "还没有漂移过——TA 就是主设定里的样子。"
             : $"已漂移 {c.DriftCount} 次，最近一次 {c.UpdatedAt.ToLocalTime():MM-dd HH:mm}"
               + (string.IsNullOrWhiteSpace(c.LastReason) ? "" : $"（{c.LastReason}）");
 

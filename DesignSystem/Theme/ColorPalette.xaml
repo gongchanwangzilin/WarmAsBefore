@@ -41,6 +41,9 @@
     <!-- 功能色 / Functional -->
     <Color x:Key="GreenSoft">#A5D6A7</Color>
     <Color x:Key="RedSoft">#EF9A9A</Color>
+    <!-- 删除 / 回标题这类危险动作的文字色。RedSoft 是淡色填充（徽章、底色），
+         拿它当文字约 1.5:1，等于没写；需要「能读出来的红」就用这个。 -->
+    <Color x:Key="DangerInk">#A63A28</Color>
     <Color x:Key="BlueSoft">#90CAF9</Color>
 
     <!-- 阴影色 / Shadows -->

@@ -262,7 +262,37 @@ public sealed record UserSettings
 
     // 天气与生活
     public string WeatherCity { get; init; } = "";
+    /// <summary>
+    /// 城市坐标（由「定位」或「选择城市」写入）。为空说明是旧数据里手填的城市名，
+    /// 拉天气时再走一次地理编码，不能因为升级就让用户重选一遍城市。
+    /// </summary>
+    public double? WeatherLatitude { get; init; }
+    public double? WeatherLongitude { get; init; }
+    /// <summary>天气数据源：open-meteo（默认）/ wttr / custom（Open-Meteo 兼容的自建或镜像端点）。</summary>
+    public string WeatherSource { get; init; } = "open-meteo";
+    /// <summary>自定义源基址，仅 <see cref="WeatherSource"/> 为 custom 时生效。</summary>
+    public string WeatherApiUrl { get; init; } = "";
+    public string WeatherApiKey { get; init; } = "";
+    /// <summary>
+    /// 周期规则按性别分开存，键是性别原文（Trim 后）。空字典 = 还没配过，
+    /// 由 <see cref="CycleRuleFor"/> 回落到出厂规则。
+    /// </summary>
+    public Dictionary<string, CycleRule> CycleRules { get; init; } = new();
+
+    /// <summary>
+    /// 某个性别的周期规则。没单独配过的性别一律「无周期」，不去猜：
+    /// 凭空给某个性别安一段周期，提示词里就多了一件从没发生过的事，模型会当真。
+    /// </summary>
+    public CycleRule CycleRuleFor(string? gender)
+    {
+        var g = (gender ?? "").Trim();
+        return g.Length > 0 && CycleRules.TryGetValue(g, out var rule) ? rule : CycleRule.DefaultFor(g);
+    }
+
+    // 旧版单一周期（v1.36 起按性别拆成 CycleRules）。留着只为了给老存档搬家，运行时不再读。
+    [System.Obsolete("改用 CycleRules；仅 SettingsManager.MigrateLegacyAsync 读取")]
     public int CycleLength { get; init; } = 28;
+    [System.Obsolete("改用 CycleRules；仅 SettingsManager.MigrateLegacyAsync 读取")]
     public int PeriodLength { get; init; } = 5;
 
     // 移动设备
@@ -280,6 +310,12 @@ public sealed record UserSettings
     public string PetThinkMode { get; init; } = "off";
     /// <summary>桌宠思考间隔（分钟），默认 10。</summary>
     public int PetThinkIntervalMinutes { get; init; } = 10;
+    /// <summary>
+    /// 多显示器：开=头顶小窗可以跟角色跨到副屏（按整个虚拟桌面收边）；
+    /// 关=只按角色所在那块屏的工作区收边，角色贴屏边时小窗折回本屏，不会跨过缝隙跑到另一块屏上。
+    /// 只有一块屏时两个选项没区别。
+    /// </summary>
+    public bool PetChromeCrossScreen { get; init; }
 
     // 官方接入（真微信 / QQ 官方机器人）
     public bool QqBotEnabled { get; init; }
@@ -303,7 +339,7 @@ public sealed record UserSettings
     /// <summary>用户在 QQ 里的昵称（识别到本人时，角色会用这个称呼叫他）。</summary>
     public string QqUserName { get; init; } = "";
 
-    /// <summary>允许角色主动发消息到用户手机（存档里的「她拿起手机发消息」）。默认关闭。</summary>
+    /// <summary>允许角色主动发消息到用户手机（存档里的「TA 拿起手机发消息」）。默认关闭。</summary>
     public bool QqProactiveEnabled { get; init; }
 
     /// <summary>主动发消息是否需要人工确认（默认需要）：AI 不能未经同意就往外发。</summary>
@@ -402,4 +438,22 @@ public sealed record UserSettings
 
     /// <summary>AI 单独出行时，用户是否可以「跟上」（显示跟上按钮）。</summary>
     public bool AllowFollowAi { get; init; } = true;
+}
+
+/// <summary>
+/// 一个性别的周期规则。<see cref="Enabled"/> 为 false 表示这个性别没有周期，
+/// 桌宠/提示词里都不该出现「经期第几天」这类表述。
+/// </summary>
+public sealed record CycleRule
+{
+    public bool Enabled { get; init; }
+    public int CycleLength { get; init; } = 28;
+    public int PeriodLength { get; init; } = 5;
+
+    /// <summary>出厂规则：只有「女」默认带周期，其余（含自定义性别）一律不带，要带得去设置里写。</summary>
+    public static CycleRule DefaultFor(string gender) => gender switch
+    {
+        "女" => new CycleRule { Enabled = true },
+        _ => new CycleRule { Enabled = false },
+    };
 }

@@ -21,14 +21,8 @@
   <data name="Title_Continue" xml:space="preserve"><value>続きから</value></data>
   <data name="Title_Tagline" xml:space="preserve"><value>すべての再会が、初めての出会いのように温かく</value></data>
   <data name="Title_ThemePrefix" xml:space="preserve"><value>テーマ</value></data>
-  <data name="Title_Identity" xml:space="preserve"><value>あなたの立場を選んで</value></data>
-  <data name="Title_IdentityHint" xml:space="preserve"><value>この温もりは、ずっとあなたと共に</value></data>
-  <data name="Title_Brother" xml:space="preserve"><value>お兄ちゃん</value></data>
-  <data name="Title_BrotherDesc" xml:space="preserve"><value>優しく頼れる守護者</value></data>
-  <data name="Title_Sister" xml:space="preserve"><value>お姉ちゃん</value></data>
-  <data name="Title_SisterDesc" xml:space="preserve"><value>細やかで思いやりのある世話役</value></data>
   <data name="Title_Coexist" xml:space="preserve"><value>✦ 同居体験</value></data>
-  <data name="Title_CoexistDesc" xml:space="preserve"><value>毎日彼女・彼と一緒に、おしゃべり、生活、ミニゲーム。温かさはそのままに。</value></data>
+  <data name="Title_CoexistDesc" xml:space="preserve"><value>毎日その人と一緒に、おしゃべり、生活、ミニゲーム。温かさはそのままに。</value></data>
   <data name="Title_ThemeClassic" xml:space="preserve"><value>クラシック</value></data>
   <data name="Title_ThemeGlass" xml:space="preserve"><value>すりガラス</value></data>
   <data name="Title_ThemeFrost" xml:space="preserve"><value>マットガラス</value></data>
@@ -48,16 +42,35 @@
   <data name="Settings_KeySfxHint" xml:space="preserve"><value>ボタンクリック時のフィードバック音</value></data>
   <data name="Settings_WeatherLife" xml:space="preserve"><value>天気と生活</value></data>
   <data name="Settings_City" xml:space="preserve"><value>都市</value></data>
-  <data name="Settings_CityPlaceholder" xml:space="preserve"><value>例：杭州（空欄は北京）</value></data>
+  <data name="Settings_Locate" xml:space="preserve"><value>現在地を取得</value></data>
+  <data name="Settings_ChooseCity" xml:space="preserve"><value>都市を選択</value></data>
+  <data name="Settings_CityUnset" xml:space="preserve"><value>未設定（既定は北京）</value></data>
+  <data name="Settings_CitySearchHint" xml:space="preserve"><value>都市名を入力して検索（例：杭州）</value></data>
+  <data name="Settings_PopularCities" xml:space="preserve"><value>人気都市（オフラインでも選択可）</value></data>
+  <data name="Settings_UseCity" xml:space="preserve"><value>選択</value></data>
+  <data name="Settings_WeatherSource" xml:space="preserve"><value>天気データソース</value></data>
+  <data name="Settings_WeatherSourceHint" xml:space="preserve"><value>既定は Open-Meteo。wttr.in やカスタム URL も可</value></data>
+  <data name="Settings_WeatherBaseUrl" xml:space="preserve"><value>エンドポイント URL</value></data>
+  <data name="Settings_WeatherApiKey" xml:space="preserve"><value>API キー</value></data>
+  <data name="Settings_WeatherCustomNote" xml:space="preserve"><value>カスタム URL は Open-Meteo 形式で要求します（URL + /v1/forecast?latitude=…&amp;longitude=…）。キーはその URL だけに Authorization: Bearer で送ります</value></data>
+  <data name="Settings_TestWeather" xml:space="preserve"><value>天気をテスト</value></data>
   <data name="Settings_Cycle" xml:space="preserve"><value>生理周期の日数</value></data>
   <data name="Settings_CycleHint" xml:space="preserve"><value>一周期の長さ</value></data>
   <data name="Settings_Period" xml:space="preserve"><value>生理の日数</value></data>
   <data name="Settings_PeriodHint" xml:space="preserve"><value>毎月の期間の長さ</value></data>
+  <data name="Settings_CycleGender" xml:space="preserve"><value>対象の性別</value></data>
+  <data name="Settings_CycleGenderHint" xml:space="preserve"><value>性別を選んでから周期を設定します</value></data>
+  <data name="Settings_CycleTracked" xml:space="preserve"><value>この性別に生理周期がある</value></data>
+  <data name="Settings_CycleTrackedHint" xml:space="preserve"><value>オフにするとプロンプトにも画面にも経期の表記は出ません</value></data>
+  <data name="Settings_CycleAdvanced" xml:space="preserve"><value>詳細：カスタム性別の周期</value></data>
+  <data name="Settings_CycleAdvancedHint" xml:space="preserve"><value>初期設定で周期があるのは女性だけです。他の性別に周期を持たせるにはここでルールを追加します</value></data>
+  <data name="Settings_CycleAddGender" xml:space="preserve"><value>性別ルールを追加…</value></data>
+  <data name="Settings_CycleAddGenderHint" xml:space="preserve"><value>追加したルールは既定で周期なしです。性別を選択してから上のスイッチをオンにしてください</value></data>
   <data name="Settings_Desktop" xml:space="preserve"><value>PC</value></data>
   <data name="Settings_AlwaysOnTop" xml:space="preserve"><value>常に手前に表示</value></data>
   <data name="Settings_AlwaysOnTopHint" xml:space="preserve"><value>ゲームウィンドウを常に最前面に表示します</value></data>
   <data name="Settings_Official" xml:space="preserve"><value>公式連携（WeChat / QQ）</value></data>
-  <data name="Settings_OfficialHint" xml:space="preserve"><value>設定すると、ゲーム内のWeChat／QQがあなたの本物のアカウントに接続され、友達からのメッセージに彼女が直接返信します。公式連携は単独チャットのみ対応で、マウス・キーボードを使わず、追加ソフトも不要です。</value></data>
+  <data name="Settings_OfficialHint" xml:space="preserve"><value>設定すると、ゲーム内のWeChat／QQがあなたの本物のアカウントに接続され、友達からのメッセージに直接返信します。公式連携は単独チャットのみ対応で、マウス・キーボードを使わず、追加ソフトも不要です。</value></data>
   <data name="Settings_QqTitle" xml:space="preserve"><value>QQ公式ボット</value></data>
   <data name="Settings_QqEnable" xml:space="preserve"><value>QQ連携を有効化</value></data>
   <data name="Settings_QqHint" xml:space="preserve"><value>q.qq.com オープンプラットフォームでボットを作成</value></data>
@@ -139,5 +152,5 @@
   <data name="Settings_Notify" xml:space="preserve"><value>メッセージ通知</value></data>
   <data name="Settings_NotifyHint" xml:space="preserve"><value>実際のWeChat／QQメッセージが届いたら通知</value></data>
   <data name="Settings_Greeting" xml:space="preserve"><value>アイドル時の挨拶</value></data>
-  <data name="Settings_GreetingHint" xml:space="preserve"><value>彼女がアイドル時に自ら挨拶する</value></data>
+  <data name="Settings_GreetingHint" xml:space="preserve"><value>手が空いた時に自分から挨拶する</value></data>
 </root>
