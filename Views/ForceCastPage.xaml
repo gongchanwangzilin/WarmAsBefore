@@ -8,102 +8,108 @@
              x:DataType="vm:ForceCastViewModel"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
-    <Grid RowDefinitions="Auto,*,Auto">
-        <!-- 顶栏：返回 + 标题 -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12,16,10">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+
+    <!--
+      点名页。结构对标桌面系统设置窗：一块中性地 + 一张装行的卡。
+      原来每个角色各套一张描边圆角牌（一摞牌子），分组关系被卡间距冲散了；
+      现在一个角色 = 一行，全部装进同一张 CardGroup，行间压发丝线。
+      上下两条 bar 不再是「贴上去的另一种材质」，而是同色地面 + 一根发丝线。
+    -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="0">
+
+        <!-- 顶栏：返回 + 标题 + 状态读数 -->
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0" VerticalOptions="Center"
+                        Padding="0" VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="点名 · 进入剧情"
                        Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Label Grid.Column="2" Text="{Binding StatusText}" TextColor="{DynamicResource WarmMuted}"
-                       FontSize="11" VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                <Label Grid.Column="2" Text="{Binding StatusText}" Style="{StaticResource TxtCaption}"
+                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
             </Grid>
         </Border>
+        <BoxView Grid.Row="1" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
 
-        <!-- 角色列表 -->
-        <Grid Grid.Row="1">
-            <CollectionView ItemsSource="{Binding Entries}"
-                            SelectionMode="None" Margin="16,12">
-                <CollectionView.ItemsLayout>
-                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="10" />
-                </CollectionView.ItemsLayout>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:ForceCastEntry">
-                        <Border Background="{DynamicResource SurfaceBg}"
-                                Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
-                                Padding="12,10">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
-                                <!-- 勾选 -->
-                                <CheckBox Grid.Column="0" IsChecked="{Binding Selected}"
-                                          Color="{DynamicResource BeigeAccent300}" VerticalOptions="Center" />
-                                <!-- 头像 -->
-                                <Border Grid.Column="1" WidthRequest="40" HeightRequest="40" Padding="0"
-                                        BackgroundColor="{DynamicResource BeigeAccent200}" StrokeThickness="0"
-                                        VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                                    <Grid>
-                                        <Label Text="{Binding Initial}" TextColor="{DynamicResource WarmDark}"
-                                               FontSize="16" FontAttributes="Bold"
-                                               HorizontalOptions="Center" VerticalOptions="Center"
-                                               IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
-                                        <Image Source="{Binding Avatar}" Aspect="AspectFill"
-                                               IsVisible="{Binding HasAvatar}" />
+        <!-- 列表 + 空状态 + 忙碌遮罩共用中间这一行 -->
+        <Grid Grid.Row="2">
+
+            <!-- 一个角色 = 一行；行首有勾选与头像，所以线从左缘缩进（跨过圆片会被读成「上一行的底」） -->
+            <Border Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}"
+                    IsVisible="{Binding HasNoCharacters, Converter={StaticResource InverseBool}}">
+                <CollectionView ItemsSource="{Binding Entries}" SelectionMode="None"
+                                BackgroundColor="Transparent">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:ForceCastEntry">
+                            <VerticalStackLayout Spacing="0">
+                                <Border Style="{StaticResource SettingRow}">
+                                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                                        <!-- 勾选 -->
+                                        <CheckBox Grid.Column="0" IsChecked="{Binding Selected}"
+                                                  Color="{DynamicResource BeigeAccent300}" VerticalOptions="Center" />
+                                        <!-- 头像：凹一档的井就够，不再描边 -->
+                                        <Border Grid.Column="1" WidthRequest="40" HeightRequest="40" Padding="0"
+                                                Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                                VerticalOptions="Center" StrokeShape="{DynamicResource WRadiusWell}">
+                                            <Grid>
+                                                <Label Text="{Binding Initial}" Style="{StaticResource TxtRowTitle}"
+                                                       HorizontalOptions="Center" VerticalOptions="Center"
+                                                       IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                                <Image Source="{Binding Avatar}" Aspect="AspectFill"
+                                                       IsVisible="{Binding HasAvatar}" />
+                                            </Grid>
+                                        </Border>
+                                        <!-- 名字：行标题 + 行说明，垂直居中 -->
+                                        <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                                            <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding SceneName, StringFormat='初始位置 · {0}'}"
+                                                   Style="{StaticResource TxtRowDesc}" />
+                                        </VerticalStackLayout>
+                                        <!-- 场景选择：这一行的「值」，排右 -->
+                                        <Picker Grid.Column="3" WidthRequest="130" VerticalOptions="Center"
+                                                Title="选择场景"
+                                                ItemsSource="{Binding SceneOptions}"
+                                                ItemDisplayBinding="{Binding Name, x:DataType=models:MapScene}"
+                                                SelectedItem="{Binding SelectedScene, Mode=TwoWay}"
+                                                TextColor="{DynamicResource WarmDark}"
+                                                TitleColor="{DynamicResource MutedFg}"
+                                                FontSize="{DynamicResource WSizeSmall}" />
                                     </Grid>
                                 </Border>
-                                <!-- 名字 -->
-                                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
-                                    <Label Text="{Binding CharacterName}" TextColor="{DynamicResource WarmDark}"
-                                           FontSize="15" FontAttributes="Bold" />
-                                    <Label Text="{Binding SceneName, StringFormat='初始位置 · {0}'}"
-                                           TextColor="{DynamicResource WarmMuted}" FontSize="11" />
-                                </VerticalStackLayout>
-                                <!-- 场景选择 -->
-                                <Picker Grid.Column="3" WidthRequest="130"
-                                        Title="选择场景"
-                                        ItemsSource="{Binding SceneOptions}"
-                                        ItemDisplayBinding="{Binding Name, x:DataType=models:MapScene}"
-                                        SelectedItem="{Binding SelectedScene, Mode=TwoWay}"
-                                        TextColor="{DynamicResource WarmDark}"
-                                        TitleColor="{DynamicResource WarmMuted}"
-                                        FontSize="13" />
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+                                <BoxView Style="{StaticResource HSepInset}" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Border>
 
-            <!-- 空状态 -->
+            <!-- 空状态：不是卡，是地上的一段文字 -->
             <VerticalStackLayout IsVisible="{Binding HasNoCharacters}"
                                  HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
-                <Label Text="角色库还是空的" TextColor="{DynamicResource WarmMuted}"
-                       FontSize="15" HorizontalOptions="Center" />
-                <Label Text="先创建几个角色，再来点名吧" TextColor="{DynamicResource WarmMuted}"
-                       FontSize="12" HorizontalOptions="Center" />
+                <Label Text="角色库还是空的" Style="{StaticResource TxtSubhead}"
+                       HorizontalOptions="Center" />
+                <Label Text="先创建几个角色，再来点名吧" Style="{StaticResource TxtMuted}"
+                       HorizontalOptions="Center" HorizontalTextAlignment="Center" />
             </VerticalStackLayout>
 
-            <!-- 忙碌遮罩 -->
-            <Grid IsVisible="{Binding IsBusy}" BackgroundColor="#80000000">
+            <!-- 忙碌遮罩：压暗用世界的 OverlayDim，原来是写死的 #80000000（深色档会盖过头） -->
+            <Grid IsVisible="{Binding IsBusy}" BackgroundColor="{DynamicResource OverlayDim}">
                 <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource BeigeAccent300}"
                                    WidthRequest="40" HeightRequest="40"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
             </Grid>
         </Grid>
 
-        <!-- 底部确定 -->
-        <Border Grid.Row="2" Background="{DynamicResource GlassBarBg}"
-                Stroke="{DynamicResource GlassBarStroke}"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,10">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Button Text="确定点名 · 进入剧情"
-                    BackgroundColor="{DynamicResource BeigeAccent300}"
-                    TextColor="{DynamicResource WarmDark}"
-                    FontSize="15" FontAttributes="Bold" CornerRadius="14"
-                    Command="{Binding ConfirmCommand}" />
+        <!-- 底部确定：同样只有一条线把它和正文分开 -->
+        <BoxView Grid.Row="3" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
+        <Border Grid.Row="4" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Button Text="确定点名 · 进入剧情" Style="{StaticResource BtnPrimary}"
+                    HorizontalOptions="Fill" Command="{Binding ConfirmCommand}" />
         </Border>
     </Grid>
 </ContentPage>

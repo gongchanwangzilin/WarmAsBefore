@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -18,6 +19,7 @@ public partial class ShowcasePlayPage : ContentPage
         var id = ShowcasePlayViewModel.PendingScriptId;
         ShowcasePlayViewModel.PendingScriptId = null;
         if (!string.IsNullOrEmpty(id)) _vm.LoadCommand.Execute(id);
+        Motion.ArrivePage(this);
     }
 
     private void OnTap(object? sender, TappedEventArgs e) => _vm.AdvanceTapCommand.Execute(null);

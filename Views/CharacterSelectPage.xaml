@@ -6,98 +6,102 @@
              x:Name="Page"
              x:DataType="vm:CharacterSelectViewModel"
              Shell.NavBarIsVisible="False"
-             Background="{DynamicResource PageBgBrush}">
+             Background="{StaticResource WcPageBg}">
 
+    <!--
+      微信壳 · 联系人/会话列表（移动端观感，白 + 蓝）。
+      品牌色一律 Wc*（WeChatBrand.xaml），静态、不随四套风格世界与明暗档走 ——
+      这里模仿的是「微信本身」，不是软件自己的界面。
+      版式：白底 · 顶部白条（返回 + 居中标题「微信」+ 新建）· 白行 + 发丝分隔 · 头像左置。
+      分隔与头像面用 BoxView（编译模板里 Border+DynamicResource 有 XamlC 坑，这里直接静态色最稳）。
+    -->
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
-        <!-- 微信式顶部栏：返回 + 「微信」标题 + 新建 -->
-        <Border BackgroundColor="#2E2E2E" StrokeThickness="0" Padding="12,12,12,12">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                <Button Text="&lt;" Style="{StaticResource BtnText}"
-                        TextColor="White" FontSize="20" Padding="0" WidthRequest="28"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="微信" TextColor="White" FontSize="17"
-                       FontAttributes="Bold" VerticalOptions="Center" HorizontalOptions="Center" />
-                <Button Grid.Column="2" Text="＋" Style="{StaticResource BtnText}"
-                        TextColor="White" FontSize="22" Padding="0" WidthRequest="28"
-                        Command="{Binding CreateCharacterCommand}" />
-            </Grid>
-        </Border>
 
-        <!-- 联系人列表：头像 + 名字 + 副标题（性格/存档） -->
+        <!-- 顶栏：白条 + 深色字，微信移动端的消息列表头 -->
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+              BackgroundColor="{StaticResource WcHeader}" Padding="14,14,14,14">
+            <Button Text="&lt;" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
+                    FontSize="20" Padding="0" WidthRequest="30" Command="{Binding BackCommand}" />
+            <Label Grid.Column="1" Text="微信" Style="{StaticResource TxtTitle}"
+                   TextColor="{StaticResource WcInk}"
+                   VerticalOptions="Center" HorizontalOptions="Center" />
+            <Button Grid.Column="2" Text="＋" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
+                    FontSize="20" Padding="0" WidthRequest="30"
+                    Command="{Binding CreateCharacterCommand}" />
+        </Grid>
+        <BoxView HeightRequest="1" Color="{StaticResource WcSep}" />
+
+        <!-- 联系人/会话列表：一行一个角色 = 一个「好友」，白行 + 发丝线 -->
         <CollectionView Grid.Row="1" ItemsSource="{Binding Cards}"
-                        Margin="0,4,0,0" SelectionMode="None"
-                        BackgroundColor="{DynamicResource SurfaceBg}">
+                        SelectionMode="None" BackgroundColor="Transparent">
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                     Spacing="12" Padding="32">
-                    <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                            StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
-                            WidthRequest="96" HeightRequest="96">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
-                        <Label Text="💬" FontSize="40"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
-                    <Label Text="还没有联系人" Style="{StaticResource TxtTitle}"
-                           HorizontalOptions="Center" />
-                    <Label Text="新建一个 TA，或导入角色包开始聊天" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="13" />
+                                     Spacing="10" Padding="32">
+                    <Grid WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
+                        <BoxView WidthRequest="64" HeightRequest="64" CornerRadius="32"
+                                 Color="{StaticResource WcAvatar}" InputTransparent="True" />
+                        <Label Text="💬" HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Grid>
+                    <Label Text="还没有微信好友" Style="{StaticResource TxtTitle}"
+                           TextColor="{StaticResource WcSub}" HorizontalOptions="Center" />
+                    <Label Text="让 AI 用「add_wechat」把剧情里的角色加为好友，或下方新建/导入"
+                           Style="{StaticResource TxtMuted}" TextColor="{StaticResource WcFaint}"
+                           FontSize="13" HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                           LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:CharacterCardItem">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
-                          Padding="16,10" BackgroundColor="{DynamicResource SurfaceBg}">
-                        <!-- 圆形头像 -->
-                        <Border BackgroundColor="{DynamicResource BeigeAccent50}"
-                                WidthRequest="48" HeightRequest="48"
-                                StrokeThickness="0">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                            <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
-                                   IsVisible="{Binding HasAvatar}"
-                                   HorizontalOptions="Fill" VerticalOptions="Fill" />
-                            <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
-                                   TextColor="White" FontSize="18"
-                                   HorizontalOptions="Center" VerticalOptions="Center"
-                                   FontAttributes="Bold"
-                                   IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                    <VerticalStackLayout Spacing="0">
+                        <Border BackgroundColor="{StaticResource WcRow}" Padding="14,12">
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickCommand}"
+                                                      CommandParameter="{Binding Id}" />
+                            </Border.GestureRecognizers>
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                <!-- 头像：无图时浅灰圆片 + 首字 -->
+                                <Grid Grid.Column="0" WidthRequest="48" HeightRequest="48">
+                                    <BoxView WidthRequest="48" HeightRequest="48" CornerRadius="24"
+                                             Color="{StaticResource WcAvatar}" InputTransparent="True" />
+                                    <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
+                                           WidthRequest="48" HeightRequest="48"
+                                           IsVisible="{Binding HasAvatar}"
+                                           HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                    <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
+                                           TextColor="{StaticResource WcInk}" FontSize="18" FontAttributes="Bold"
+                                           HorizontalOptions="Center" VerticalOptions="Center"
+                                           IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                </Grid>
+                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
+                                    <Label Text="{Binding Name}" TextColor="{StaticResource WcInk}"
+                                           FontSize="17" FontAttributes="Bold" />
+                                    <Label Text="{Binding Subtitle}" TextColor="{StaticResource WcSub}"
+                                           FontSize="13" LineBreakMode="TailTruncation" MaxLines="1" />
+                                </VerticalStackLayout>
+                                <Label Grid.Column="2" Text="{Binding SavesLabel}"
+                                       TextColor="{StaticResource WcFaint}" FontSize="12"
+                                       VerticalOptions="Center" HorizontalTextAlignment="End" />
+                            </Grid>
                         </Border>
-                        <!-- 名字 + 副标题 -->
-                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-                            <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold"
-                                   TextColor="{DynamicResource SurfaceFg}" />
-                            <Label Text="{Binding Subtitle}" FontSize="12"
-                                   TextColor="{DynamicResource MutedFg}"
-                                   LineBreakMode="TailTruncation" MaxLines="1" />
-                        </VerticalStackLayout>
-                        <!-- 右侧：存档时间 -->
-                        <VerticalStackLayout Grid.Column="2" VerticalOptions="Center"
-                                             HorizontalOptions="End" Spacing="3">
-                            <Label Text="{Binding SavesLabel}" FontSize="10"
-                                   TextColor="{DynamicResource WarmMuted}"
-                                   HorizontalTextAlignment="End" />
-                        </VerticalStackLayout>
-                        <Grid.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickCommand}"
-                                                  CommandParameter="{Binding Id}" />
-                        </Grid.GestureRecognizers>
-                    </Grid>
+                        <!-- 行末发丝线：微信列表就是「白行 + 一条浅灰线」 -->
+                        <BoxView HeightRequest="1" Color="{StaticResource WcSep}" Margin="64,0,0,0" />
+                    </VerticalStackLayout>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>
 
-        <!-- Bottom bar: 新建 / 导入 -->
-        <Border Grid.Row="2" Background="{DynamicResource PageBgBrush}" Padding="16,10,16,16"
-                StrokeThickness="0">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Button Text="新建角色" Style="{StaticResource BtnNeumorph}"
-                        HeightRequest="44" FontSize="13"
-                        Command="{Binding CreateCharacterCommand}" />
-                <Button Grid.Column="1" Text="导入角色包" Style="{StaticResource BtnNeumorph}"
-                        HeightRequest="44" FontSize="13"
-                        Command="{Binding ImportCharacterCommand}" />
-            </Grid>
-        </Border>
+        <!-- 底部：新建 / 导入，微信白+蓝按钮 -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="10"
+              BackgroundColor="{StaticResource WcPageBg}" Padding="14,12,14,16">
+            <BoxView HeightRequest="1" Color="{StaticResource WcSep}" VerticalOptions="Start" />
+            <Button Text="＋ 新建角色"
+                    BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
+                    CornerRadius="22" HeightRequest="44" FontAttributes="Bold"
+                    Command="{Binding CreateCharacterCommand}" />
+            <Button Grid.Column="1" Text="📥 导入角色包"
+                    BackgroundColor="{StaticResource WcAccentSoft}" TextColor="{StaticResource WcAccent}"
+                    CornerRadius="22" HeightRequest="44"
+                    Command="{Binding ImportCharacterCommand}" />
+        </Grid>
     </Grid>
 </ContentPage>

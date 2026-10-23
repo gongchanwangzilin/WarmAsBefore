@@ -128,12 +128,20 @@ public sealed class McpOrchestrator
         }
     }
 
+    /// <summary>metadata.json 是手写数据包的一部分：小写字段、注释、尾逗号都认。</summary>
+    private static readonly JsonSerializerOptions MetaJson = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true
+    };
+
     private static McpServerMeta? LoadMeta(string dir)
     {
         try
         {
             var p = Path.Combine(dir, "metadata.json");
-            return File.Exists(p) ? JsonSerializer.Deserialize<McpServerMeta>(File.ReadAllText(p)) : null;
+            return File.Exists(p) ? JsonSerializer.Deserialize<McpServerMeta>(File.ReadAllText(p), MetaJson) : null;
         }
         catch { return null; }
     }

@@ -1,5 +1,7 @@
 using System.Linq;
 using Microsoft.Maui.Graphics;
+using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -12,6 +14,13 @@ public partial class MapPage : ContentPage
         BindingContext = vm;
         MapCanvas.Drawable = vm.Drawable;
         vm.AttachInvalidate(() => MapCanvas.Invalidate());
+        LoadingVeil.Attach(this, vm, "Nodes");   // 节点表读盘才有：Nodes 是 VM 已有的集合
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        Motion.ArrivePage(this);
     }
 
 #if WINDOWS

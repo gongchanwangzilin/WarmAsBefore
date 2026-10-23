@@ -23,10 +23,11 @@
   <data name="Title_ThemePrefix" xml:space="preserve"><value>テーマ</value></data>
   <data name="Title_Coexist" xml:space="preserve"><value>✦ 同居体験</value></data>
   <data name="Title_CoexistDesc" xml:space="preserve"><value>毎日その人と一緒に、おしゃべり、生活、ミニゲーム。温かさはそのままに。</value></data>
-  <data name="Title_ThemeClassic" xml:space="preserve"><value>クラシック</value></data>
-  <data name="Title_ThemeGlass" xml:space="preserve"><value>すりガラス</value></data>
-  <data name="Title_ThemeFrost" xml:space="preserve"><value>マットガラス</value></data>
-  <data name="Title_ThemeLiquid" xml:space="preserve"><value>リキッドガラス</value></data>
+  <!-- 启动卡的两行：上面那行是图形化的中文名牌（不翻译，它就是那颗印章），
+       下面这行才跟语言设置走。跳过提示跟着同一张卡，只在卡片期间出现。 -->
+  <data name="Brand_Mark" xml:space="preserve"><value>温暖如初</value></data>
+  <data name="Brand_Name" xml:space="preserve"><value>温かさはそのままに</value></data>
+  <data name="Intro_Skip" xml:space="preserve"><value>タップでスキップ</value></data>
   <data name="Settings_Interface" xml:space="preserve"><value>インターフェース</value></data>
   <data name="Settings_Theme" xml:space="preserve"><value>カラーテーマ</value></data>
   <data name="Settings_ThemeHint" xml:space="preserve"><value>クラシック／桜／竹／もや。タイトルに戻ると全ページに反映されます</value></data>
@@ -118,6 +119,7 @@
   <data name="Settings_ImportUnzip" xml:space="preserve"><value>解凍中…</value></data>
   <data name="Settings_ImportCopy" xml:space="preserve"><value>ファイルをコピー中…</value></data>
   <data name="Common_Back" xml:space="preserve"><value>＜ 戻る</value></data>
+  <data name="Common_Loading" xml:space="preserve"><value>準備中…</value></data>
   <data name="Settings_Title" xml:space="preserve"><value>設定</value></data>
   <data name="Settings_Volume" xml:space="preserve"><value>音量</value></data>
   <data name="Settings_Bgm" xml:space="preserve"><value>BGM</value></data>
@@ -153,4 +155,73 @@
   <data name="Settings_NotifyHint" xml:space="preserve"><value>実際のWeChat／QQメッセージが届いたら通知</value></data>
   <data name="Settings_Greeting" xml:space="preserve"><value>アイドル時の挨拶</value></data>
   <data name="Settings_GreetingHint" xml:space="preserve"><value>手が空いた時に自分から挨拶する</value></data>
+  <data name="Setup_Lang_Title" xml:space="preserve"><value>まず言語を選ぶ</value></data>
+  <data name="Setup_Lang_Sub" xml:space="preserve"><value>タップした瞬間に切り替わります。再起動は要りません。</value></data>
+  <data name="Setup_Style_Title" xml:space="preserve"><value>手触りを選ぶ</value></data>
+  <data name="Setup_Style_Sub" xml:space="preserve"><value>マテリアルは角・境目・光を、パレットは色を決めます。タップするとこのページがすぐ変わります。</value></data>
+  <data name="Setup_Style_Material" xml:space="preserve"><value>マテリアル</value></data>
+  <data name="Setup_Style_Palette" xml:space="preserve"><value>パレット</value></data>
+  <data name="Setup_Reside_Title" xml:space="preserve"><value>そばに置く</value></data>
+  <data name="Setup_Reside_Sub" xml:space="preserve"><value>この2つは Windows での動きだけに変えます。設定でいつでも戻せます。</value></data>
+  <data name="Setup_Reside_Top" xml:space="preserve"><value>常に手前に表示</value></data>
+  <data name="Setup_Reside_TopHint" xml:space="preserve"><value>他のウィンドウに隠れません</value></data>
+  <data name="Setup_Reside_Pet" xml:space="preserve"><value>マスコットが自分から出る間隔</value></data>
+  <data name="Setup_Ai_Title" xml:space="preserve"><value>話す部分をつなぐ</value></data>
+  <data name="Setup_Ai_Sub" xml:space="preserve"><value>入力しないと本物の返信は返りません。スキップしても他は使えます。</value></data>
+  <data name="Setup_Ai_Hint" xml:space="preserve"><value>キーは上のURLにだけ送信します。ログにも、他の先にも送りません。</value></data>
+  <data name="Setup_Done_Title" xml:space="preserve"><value>以上です</value></data>
+  <data name="Setup_Done_Sub" xml:space="preserve"><value>あとは使いながら調整しましょう。最初の人に出会いに行きますか？</value></data>
+  <data name="Setup_Teach_Head" xml:space="preserve"><value>始める前に</value></data>
+  <data name="Setup_Teach_Char" xml:space="preserve"><value>まずはキャラを用意</value></data>
+  <data name="Setup_Teach_CharHint" xml:space="preserve"><value>新規なら名前・性別・性格だけでOK（立ち絵は不要）。キャラパック（.zip）のインポートも可</value></data>
+  <data name="Setup_Teach_Ai" xml:space="preserve"><value>リアルな返答にはAIが必要</value></data>
+  <data name="Setup_Teach_AiHint" xml:space="preserve"><value>設定 →「AI・モデル」：アドレス、キー、モデル</value></data>
+  <data name="Setup_Teach_More" xml:space="preserve"><value>いつでも調整できる</value></data>
+  <data name="Setup_Teach_MoreHint" xml:space="preserve"><value>外観・テーマでスタイルと色を変更；データ・素材でパックの読み書き</value></data>
+  <data name="Setup_Next" xml:space="preserve"><value>次へ</value></data>
+  <data name="Setup_Back" xml:space="preserve"><value>戻る</value></data>
+  <data name="Setup_Begin" xml:space="preserve"><value>始める</value></data>
+  <data name="Setup_CreateGo" xml:space="preserve"><value>キャラクターを作る</value></data>
+  <data name="Setup_Later" xml:space="preserve"><value>あとで</value></data>
+  <data name="Setup_SkipStep" xml:space="preserve"><value>この手順をスキップ</value></data>
+  <data name="Setup_SkipAll" xml:space="preserve"><value>セットアップをスキップ</value></data>
+  <data name="Setup_World_Soft" xml:space="preserve"><value>軽めの質感</value></data>
+  <data name="Setup_World_Minimal" xml:space="preserve"><value>やわらかいミニマル</value></data>
+  <data name="Setup_World_Gradient" xml:space="preserve"><value>やわらかいグラデーション</value></data>
+  <data name="Setup_World_Liquid" xml:space="preserve"><value>リキッドガラス</value></data>
+  <data name="Setup_Pal_Classic" xml:space="preserve"><value>クラシック</value></data>
+  <data name="Setup_Pal_Sakura" xml:space="preserve"><value>桜</value></data>
+  <data name="Setup_Pal_Bamboo" xml:space="preserve"><value>竹</value></data>
+  <data name="Setup_Pal_Mist" xml:space="preserve"><value>もや</value></data>
+  <data name="Setup_Pet_Off" xml:space="preserve"><value>自分から出ない</value></data>
+  <data name="Setup_Pet_Min" xml:space="preserve"><value>アイドル {0} 分後</value></data>
+  <data name="Settings_ChannelsUrl" xml:space="preserve"><value>チャンネル URL</value></data>
+  <data name="Settings_ChannelsUrlPlaceholder" xml:space="preserve"><value>https://…（チャンネルのリンク。空欄ならシェル側から開けません）</value></data>
+  <data name="Shell_Channels" xml:space="preserve"><value>チャンネル</value></data>
+  <data name="Shell_Qq" xml:space="preserve"><value>QQ</value></data>
+  <data name="Shell_Forum" xml:space="preserve"><value>フォーラム</value></data>
+  <data name="Forum_Title" xml:space="preserve"><value>QQ フォーラム</value></data>
+  <data name="Forum_Placeholder" xml:space="preserve"><value>フォーラムにひとこと…</value></data>
+  <data name="Forum_Post" xml:space="preserve"><value>投稿</value></data>
+  <data name="Forum_Empty" xml:space="preserve"><value>まだ投稿がありません</value></data>
+  <data name="Forum_TopicDaily" xml:space="preserve"><value>日常</value></data>
+  <data name="Forum_TopicWish" xml:space="preserve"><value>願望</value></data>
+  <data name="Forum_TopicToday" xml:space="preserve"><value>今日はなにがしたい？</value></data>
+  <data name="Settings_CloudTitle" xml:space="preserve"><value>クラウドセーブ</value></data>
+  <data name="Settings_CloudHint" xml:space="preserve"><value>セーブ・キャラクター・チャット履歴を自分の GitHub リポジトリに複製します。端末ごとに別のフォルダへ書き、新しいタイムスタンプが優先されるので上書きし合いません。同時に使った場合も、負けた側は conflicts にバックアップされます。</value></data>
+  <data name="Settings_CloudEnable" xml:space="preserve"><value>クラウドセーブを有効にする</value></data>
+  <data name="Settings_CloudEnableHint" xml:space="preserve"><value>オフのときはこの端末だけに保存し、オンにすると変更が自動でアップロードされます</value></data>
+  <data name="Settings_CloudRepo" xml:space="preserve"><value>リポジトリ</value></data>
+  <data name="Settings_CloudRepoPlaceholder" xml:space="preserve"><value>owner/repo（プライベート推奨）</value></data>
+  <data name="Settings_CloudToken" xml:space="preserve"><value>アクセストークン</value></data>
+  <data name="Settings_CloudTokenPlaceholder" xml:space="preserve"><value>github_pat_…（Contents の読み書きのみで可）</value></data>
+  <data name="Settings_CloudDevice" xml:space="preserve"><value>端末名</value></data>
+  <data name="Settings_CloudDevicePlaceholder" xml:space="preserve"><value>自宅 PC / 私のスマホ</value></data>
+  <data name="Settings_CloudAutoUpload" xml:space="preserve"><value>変更後に自動アップロード</value></data>
+  <data name="Settings_CloudAutoUploadHint" xml:space="preserve"><value>入力が止まって約 2 秒後にアップロードします</value></data>
+  <data name="Settings_CloudReconcile" xml:space="preserve"><value>同期後に記憶を整理</value></data>
+  <data name="Settings_CloudReconcileHint" xml:space="preserve"><value>両端末の統合後、重複した記憶を対話モデルに削除させます（モデル未設定ならスキップ）</value></data>
+  <data name="Settings_CloudSyncNow" xml:space="preserve"><value>今すぐ同期</value></data>
+  <data name="Settings_CloudTest" xml:space="preserve"><value>接続テスト</value></data>
+  <data name="Settings_CloudPrivacy" xml:space="preserve"><value>トークンはこの端末の設定にのみ保存され、settings.json はアップロードされません。リポジトリにはセーブとデータのみが入り、立ち絵や背景などの画像はアップロードされません。</value></data>
 </root>

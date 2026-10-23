@@ -84,7 +84,7 @@ public static class PressFeel
         {
             if (_pressed == on) return;
             _pressed = on;
-            Move(on ? MotionTokens.SinkPx : 0,
+            Move(on ? MotionTokens.Press : 0,
                 on ? MotionTokens.Ms(MotionTokens.TapMs) : MotionTokens.Ms(MotionTokens.SettleMs),
                 on ? MotionTokens.OutCubic : MotionTokens.Settle);
         }
@@ -94,7 +94,7 @@ public static class PressFeel
         {
             if (_pressed) return;
             _pressed = true;
-            await Move(MotionTokens.SinkPx, MotionTokens.Ms(MotionTokens.TapMs), MotionTokens.OutCubic);
+            await Move(MotionTokens.Press, MotionTokens.Ms(MotionTokens.TapMs), MotionTokens.OutCubic);
             if (!_pressed) return;              // 中途被真正的抬起事件接走，别抢它的回弹
             _pressed = false;
             await Move(0, MotionTokens.Ms(MotionTokens.SettleMs), MotionTokens.Settle);

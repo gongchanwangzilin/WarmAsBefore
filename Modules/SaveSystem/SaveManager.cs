@@ -10,12 +10,14 @@ public sealed class SaveManager
     private readonly StorageProvider _store;
     private readonly GameEngine _engine;
     private readonly CharacterLibrary _library;
+    private readonly MemoryScope _scope;
 
-    public SaveManager(StorageProvider store, GameEngine engine, CharacterLibrary library)
+    public SaveManager(StorageProvider store, GameEngine engine, CharacterLibrary library, MemoryScope scope)
     {
         _store = store;
         _engine = engine;
         _library = library;
+        _scope = scope;
     }
 
     /// <summary>当前会话的聊天记录：随每次保存写入存档，读档后恢复聊天界面。</summary>
@@ -32,6 +34,7 @@ public sealed class SaveManager
     {
         _engine.CurrentSaveId = Guid.NewGuid().ToString("N")[..12];
         ChatLog.Clear();
+        _scope.Raise();      // 新的一局 = 新的一份记忆，不能接着写上一个存档的记忆
         return _engine.CurrentSaveId;
     }
 
@@ -103,6 +106,7 @@ public sealed class SaveManager
             if (records is not null) ChatLog.AddRange(records);
         }
         _engine.CurrentSaveId = id;
+        _scope.Raise();      // 换档之后，各记忆服务必须重读这个档自己的那一份
 
         // 过期存档自动修复：旧档缺版本字段（=0）或结构漂移时，就地补齐并回写。
         var version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;

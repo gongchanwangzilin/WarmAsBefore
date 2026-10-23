@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--
+      社交壳（微信 / QQ）专用品牌配色，静态、不随四套「风格世界」与明暗档切换。
+      记忆：style ⊥ palette —— 世界管的是软件自己的界面；这里模仿的是「微信/QQ 本身」，
+      是外部品牌，必须用固定的白 + 蓝，不能跟着色板走。移动端优先（用户依据是手机端）。
+
+      命名一律 Wc*（WeChat-shell）。蓝字都带明确的 *Ink / *Fg 兄弟色，
+      淡色只做面（*Soft / *Bg / *Row），不当文字 —— 与「淡名是填充、墨名是文字」同一条规则。
+    -->
+
+    <!-- 面 / 底 -->
+    <Color x:Key="WcPageBg">#FFFFFF</Color>      <!-- 列表/页面白底 -->
+    <Color x:Key="WcChatBg">#EDEDED</Color>      <!-- 会话页灰底（微信会话气泡浮在灰上） -->
+    <Color x:Key="WcHeader">#FFFFFF</Color>       <!-- 列表顶栏：白 -->
+    <Color x:Key="WcHeaderChat">#F7F7F7</Color>   <!-- 会话顶栏：浅灰 -->
+    <Color x:Key="WcRow">#FFFFFF</Color>          <!-- 联系人行白 -->
+    <Color x:Key="WcRowPress">#F2F2F2</Color>     <!-- 行按压/选中灰 -->
+    <Color x:Key="WcInputBg">#F2F2F2</Color>      <!-- 输入框灰面 -->
+
+    <!-- 分界 / 描边 -->
+    <Color x:Key="WcSep">#E7E7E7</Color>          <!-- 发丝分隔线 -->
+    <Color x:Key="WcAvatar">#E8E8E8</Color>       <!-- 头像底（无图时） -->
+
+    <!-- 墨 / 字 -->
+    <Color x:Key="WcInk">#111111</Color>          <!-- 主字近黑 -->
+    <Color x:Key="WcSub">#7F7F7F</Color>          <!-- 次级/副标题 -->
+    <Color x:Key="WcFaint">#B0B0B0</Color>        <!-- 最淡说明 -->
+
+    <!-- 蓝（点缀：链接、强调、发送钮、选中） -->
+    <Color x:Key="WcAccent">#3E8EEB</Color>
+    <Color x:Key="WcAccentSoft">#E7F1FD</Color>   <!-- 蓝淡面（chip/徽章底） -->
+    <Color x:Key="WcAccentInk">#FFFFFF</Color>    <!-- 蓝底上的字 -->
+
+    <!-- 气泡：我=浅蓝，对方=白 -->
+    <Color x:Key="WcMine">#D6EBFF</Color>
+    <Color x:Key="WcMineInk">#111111</Color>
+    <Color x:Key="WcTheirs">#FFFFFF</Color>
+    <Color x:Key="WcTheirsInk">#111111</Color>
+
+    <!-- 未读红点（社交通用，保留微信红） -->
+    <Color x:Key="WcBadge">#FA5151</Color>
+
+    <!-- ============ QQ 壳（Qq*）：同样是「白 + 蓝」，但换成 QQ 自己的青蓝点缀。
+         页面/行/字色共用中性白灰（与微信壳一致），只有点缀色（*Accent*）与气泡底色是 QQ 的青蓝。 -->
+    <Color x:Key="QqPageBg">#FFFFFF</Color>
+    <Color x:Key="QqChatBg">#E4EEF7</Color>      <!-- 会话页蓝灰底 -->
+    <Color x:Key="QqHeader">#FFFFFF</Color>
+    <Color x:Key="QqHeaderChat">#F3F9FE</Color>
+    <Color x:Key="QqRow">#FFFFFF</Color>
+    <Color x:Key="QqRowPress">#EAF4FB</Color>
+    <Color x:Key="QqInputBg">#EAF4FB</Color>
+    <Color x:Key="QqSep">#DCE9F5</Color>
+    <Color x:Key="QqAvatar">#CFE8F8</Color>
+    <Color x:Key="QqInk">#111111</Color>
+    <Color x:Key="QqSub">#5E86A5</Color>
+    <Color x:Key="QqFaint">#9DBEDD</Color>
+    <Color x:Key="QqAccent">#12B7F5</Color>      <!-- QQ 青蓝（强调、发送钮、选中） -->
+    <Color x:Key="QqAccentSoft">#D9F3FE</Color>  <!-- QQ 蓝淡面（chip/徽章底） -->
+    <Color x:Key="QqAccentInk">#FFFFFF</Color>
+    <Color x:Key="QqMine">#D2EEFD</Color>        <!-- 我=浅 QQ 蓝 -->
+    <Color x:Key="QqMineInk">#111111</Color>
+    <Color x:Key="QqTheirs">#FFFFFF</Color>
+    <Color x:Key="QqTheirsInk">#111111</Color>
+    <Color x:Key="QqBadge">#FA5151</Color>
+</ResourceDictionary>

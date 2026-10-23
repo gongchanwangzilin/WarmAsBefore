@@ -101,6 +101,46 @@ public sealed class StickerLibrary
         }
     }
 
+    /// <summary>
+    /// 登记一个「库外」的表情文件（不复制、不接管生命周期）：
+    /// 社交壳（假微信/QQ）自己的表情目录里导入的文件，也登记进来，
+    /// 描述（手填或识图模型 OCR）才能进 BuildContextForAi，AI 才「认得」这张表情。
+    /// 同名已存在（库内或旧登记）则只更新描述，不重复建档。
+    /// </summary>
+    public async Task<StickerItem?> RegisterAsync(string path, string name, string description = "")
+    {
+        if (string.IsNullOrWhiteSpace(path) || !File.Exists(path)) return null;
+        var displayName = string.IsNullOrWhiteSpace(name)
+            ? Path.GetFileNameWithoutExtension(path)
+            : name;
+        await EnsureLoadedAsync();
+        StickerItem? item = null;
+        lock (_lock)
+        {
+            item = _items.FirstOrDefault(i => string.Equals(i.Name, displayName, StringComparison.OrdinalIgnoreCase));
+            if (item is null)
+            {
+                item = new StickerItem
+                {
+                    Id = "ext_" + Guid.NewGuid().ToString("N")[..10],
+                    Name = displayName,
+                    Path = path,
+                    Description = description ?? ""
+                };
+                _items.Add(item);
+            }
+            else if (!string.IsNullOrWhiteSpace(description))
+            {
+                item = item with { Description = description };
+                var idx = _items.FindIndex(i => i.Id == item.Id);
+                _items[idx] = item;
+            }
+        }
+        await _store.Save("stickers", _items);
+        Changed?.Invoke();
+        return item;
+    }
+
     public async Task RemoveAsync(string id)
     {
         await EnsureLoadedAsync();

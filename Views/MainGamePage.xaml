@@ -123,7 +123,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                      大小与底部对齐只认标定结果，所以这里给一条直达标定页的路，而不是静默拉伸。 -->
                 <Border IsVisible="{Binding HasSpriteCalibrationIssue}"
                         BackgroundColor="Black" Opacity="0.72"
-                        Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
                         Margin="12,12,12,0" Padding="10,8"
                         HorizontalOptions="Fill" VerticalOptions="Start">
                     <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
@@ -132,13 +132,13 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                VerticalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="420" />
                         <Button Text="去标定" FontSize="12" Padding="10,2"
                                 Command="{Binding OpenPortraitCalibrationCommand}"
-                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="White" />
+                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource AccentWarmFg}" />
                     </HorizontalStackLayout>
                 </Border>
                 <!-- 角色想给你手机发消息：确认后才真的发出去 -->
                 <Border IsVisible="{Binding HasOutboundPending}"
                         BackgroundColor="Black" Opacity="0.78"
-                        Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
                         Margin="12,12,12,0" Padding="10,8"
                         HorizontalOptions="Fill" VerticalOptions="Start">
                     <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
@@ -148,7 +148,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                LineBreakMode="WordWrap" MaximumWidthRequest="380" />
                         <Button Text="发出去" FontSize="12" Padding="10,2"
                                 Command="{Binding ConfirmOutboundCommand}"
-                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="White" />
+                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource AccentWarmFg}" />
                         <Button Text="不发" FontSize="12" Padding="10,2"
                                 Command="{Binding CancelOutboundCommand}"
                                 BackgroundColor="#33FFFFFF" TextColor="White" />
@@ -156,7 +156,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </Border>
                 <!-- 无立绘时的占位 -->
                 <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
-                        Stroke="{DynamicResource BorderLine}" StrokeThickness="1.5"
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1.5"
                         WidthRequest="180" HeightRequest="240"
                         HorizontalOptions="Center" VerticalOptions="Center"
                         IsVisible="{Binding NoSpriteVisible}">
@@ -181,7 +181,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </Border>
                 <!-- 名字胶囊 -->
                 <Border IsVisible="{Binding SpriteVisible}"
-                        BackgroundColor="#F0FDF8F0" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                        BackgroundColor="#F0FDF8F0" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
                         HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,8"
                         Padding="20,6">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
@@ -213,7 +213,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
                         Command="{Binding FollowAiCommand}"
                         IsVisible="{Binding CanFollowAi}"
-                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="White"
+                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                         FontSize="12" Padding="12,4" CornerRadius="16" HeightRequest="32"
                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,12,12,0" />
             </Grid>
@@ -239,7 +239,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                             </Border>
                             <Border IsVisible="{Binding ShowBubbleTheirs}"
                                     BackgroundColor="{DynamicResource BubbleTheirs}"
-                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
                                     Padding="12,8"
                                     HorizontalOptions="Start"
                                     MaximumWidthRequest="300">
@@ -277,7 +277,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     Padding="18,2,0,0" VerticalOptions="End" Margin="0,0,0,2">
                 <HorizontalStackLayout Spacing="6">
                     <Border BackgroundColor="{DynamicResource BubbleTheirs}"
-                            Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
+                            Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
                             Padding="10,6">
                         <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                         <Label Text="思考中…" TextColor="{DynamicResource MutedFg}"
@@ -292,7 +292,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,16,0,0" /></Border.StrokeShape>
                 <VerticalStackLayout Spacing="0">
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
-                    <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0">
+                    <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Entry Text="{Binding InputText}"
                                Placeholder="输入你想说的话..."
@@ -520,14 +520,14 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                        Scale="{Binding SpriteScale}"
                        ScaleX="{Binding SpriteFlipScaleX}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
-                <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
+                <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource WSepBrush}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
                         <Label Text="🎭" FontSize="64" HorizontalOptions="Center" />
                         <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" />
                     </VerticalStackLayout>
                 </Border>
-                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
+                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                 </Border>
@@ -555,7 +555,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
                         Command="{Binding FollowAiCommand}"
                         IsVisible="{Binding CanFollowAi}"
-                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="White"
+                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                         FontSize="12" Padding="14,4" CornerRadius="16" HeightRequest="34"
                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,16,16,0" />
 
@@ -592,7 +592,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                                         <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
-                                    <Border IsVisible="{Binding ShowBubbleTheirs}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource BorderLine}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding ShowBubbleTheirs}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                         <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
@@ -605,7 +605,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}" Padding="10,0" Margin="0,4,0,0">
+                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="10,0" Margin="0,4,0,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" TextColor="{DynamicResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
@@ -623,7 +623,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <Border Grid.Row="1" Grid.Column="1"
                     IsVisible="{Binding IsGalgamePanelVisible}"
                     BackgroundColor="#CCFDF8F0"
-                    Padding="16,12" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                    Padding="16,12" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
                     VerticalOptions="End" Margin="0,0,0,12"
                     HorizontalOptions="Fill"
                     HeightRequest="180">
@@ -663,7 +663,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
                     <!-- 输入栏 -->
                     <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1"
-                            Stroke="{DynamicResource BorderLine}" Padding="10,0">
+                            Stroke="{DynamicResource WSepBrush}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}"
@@ -704,7 +704,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
              功能入口一律走手机桌面，这里不再重复一遍——同一个功能有两个入口，
              就等于没有入口：用户记不住哪个是正的，我们也改不动另一份。 -->
         <Grid IsVisible="{Binding ShowMenu}" BackgroundColor="{DynamicResource OverlayDim}">
-            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
                     Padding="24,20" Margin="40" VerticalOptions="Center"
                     MaximumWidthRequest="360">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
@@ -799,7 +799,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                                         Padding="9,2" HorizontalOptions="End">
                                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                                     <Label Text="{Binding Owned, StringFormat='×{0}'}"
-                                                           TextColor="{DynamicResource WarmMuted}" FontSize="10" />
+                                                           TextColor="{DynamicResource MutedFg}" FontSize="10" />
                                                 </Border>
                                                 <!-- 送礼（送礼模式下可见） -->
                                                 <Button Text="送礼" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
@@ -831,7 +831,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
                     <!-- 关闭 -->
                     <Button Grid.Row="4" Text="关闭" FontSize="13" HeightRequest="40" CornerRadius="12"
-                            BackgroundColor="Transparent" TextColor="{DynamicResource WarmMuted}"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource MutedFg}"
                             Command="{Binding ToggleGiftPanelCommand}" />
                 </Grid>
             </Border>
@@ -849,17 +849,17 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                            TextColor="{DynamicResource WarmDark}"
                            HorizontalOptions="Center" />
                     <Label Text="{Binding CalibrationHint}" FontSize="13"
-                           TextColor="{DynamicResource WarmMuted}" />
+                           TextColor="{DynamicResource MutedFg}" />
                     <Label Text="标定确定两件事：角色能站在哪里（落脚点），以及近处远处该怎么缩放（缩放标定）。"
-                           FontSize="12" TextColor="{DynamicResource WarmMuted}" />
-                    <Button Text="✓ 现在去标定" FontSize="14" HeightRequest="44" CornerRadius="12"
-                            BackgroundColor="{DynamicResource Cream200}" TextColor="{DynamicResource WarmDark}"
+                           FontSize="12" TextColor="{DynamicResource MutedFg}" />
+                    <!-- 这两个钮原来写死「淡面 + 白字」：深色档里淡面令牌会变浅、白字随之糊掉。
+                         走共享样式，颜色交给世界，两个档位才都读得动。 -->
+                    <Button Text="✓ 现在去标定" Style="{StaticResource BtnNeumorphAccent}"
                             Command="{Binding GoCalibrateCommand}" />
-                    <Button Text="移除这张背景（改用纯色）" FontSize="13" HeightRequest="40" CornerRadius="12"
-                            BackgroundColor="{DynamicResource WarmBody}" TextColor="{DynamicResource OffWhite50}"
+                    <Button Text="移除这张背景（改用纯色）" Style="{StaticResource BtnDangerSm}"
                             Command="{Binding RemoveSceneBackgroundCommand}" />
                     <Button Text="暂时用居中显示继续" FontSize="13" HeightRequest="40" CornerRadius="12"
-                            BackgroundColor="Transparent" TextColor="{DynamicResource WarmMuted}"
+                            BackgroundColor="Transparent" TextColor="{DynamicResource MutedFg}"
                             Command="{Binding ContinueCenteredCommand}" />
                 </VerticalStackLayout>
             </Border>

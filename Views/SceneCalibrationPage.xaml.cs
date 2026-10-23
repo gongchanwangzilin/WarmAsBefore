@@ -1,5 +1,6 @@
 using System.Linq;
 using Microsoft.Maui.Graphics;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
 
@@ -35,6 +36,7 @@ public partial class SceneCalibrationPage : ContentPage
         base.OnAppearing();
         if (_loaded) return;
         _loaded = true;
+        Motion.ArrivePage(this);
 
         var scene = _cal.PendingScene;
         if (scene is null)

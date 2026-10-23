@@ -57,7 +57,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
         ("Official", new[] { "qq", "微信", "机器人", "群聊", "openid", "外发", "公众号" }),
         ("Mcp", new[] { "mcp", "插件", "服务器", "工具集" }),
         ("Runtime", new[] { "运行时", "python", "java", "proot", "沙箱运行时" }),
-        ("Data", new[] { "数据", "导出", "导入", "备份", "存档" }),
+        ("Data", new[] { "数据", "导出", "导入", "备份", "存档", "云存档", "同步", "github", "仓库" }),
         ("Update", new[] { "更新", "版本", "beta", "渠道" }),
         ("Experimental", new[] { "实验", "测试功能" }),
         ("Materials", new[] { "素材", "背景库", "音乐库", "素材库" }),

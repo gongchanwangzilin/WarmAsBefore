@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
@@ -9,117 +9,148 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*" Padding="0">
+    <Grid RowDefinitions="Auto,Auto,*" Padding="0">
 
-        <!-- Header -->
-        <Border BackgroundColor="{DynamicResource SurfaceBg}" Padding="8,6,12,6">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="13" Padding="8,0"
-                        Command="{Binding GoBackCommand}" />
-                <Button Grid.Column="1" Text="🫀 身体状态" Style="{StaticResource BtnText}"
-                        FontSize="12" Padding="8,0"
-                        Command="{Binding OpenBodyStatusCommand}" />
-                <Label Grid.Column="2" Text="美了么"
-                       Style="{StaticResource TxtSubhead}" FontSize="18"
-                       VerticalOptions="Center" />
-                <Border Grid.Column="3"
-                        BackgroundColor="{DynamicResource Cream200}"
-                        StrokeThickness="0" Padding="10,0" HeightRequest="24"
-                        VerticalOptions="Center">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="{Binding WalletLabel}" Style="{StaticResource TxtCaption}"
-                           FontSize="12" VerticalOptions="Center" />
+        <!-- Header：眉栏跟页面底同一块地，靠下面那条发丝线与内容分开，不靠描边 -->
+        <VerticalStackLayout Spacing="0">
+            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
+                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                            FontSize="{DynamicResource WSizeCaption}" Padding="8,0"
+                            Command="{Binding GoBackCommand}" />
+                    <Button Grid.Column="1" Text="🫀 身体状态" Style="{StaticResource BtnText}"
+                            FontSize="{DynamicResource WSizeCaption}" Padding="8,0"
+                            Command="{Binding OpenBodyStatusCommand}" />
+                    <Label Grid.Column="2" Text="美了么"
+                           Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                    <Border Grid.Column="3"
+                            Background="{DynamicResource WWellBrush}"
+                            StrokeThickness="0" Padding="10,0" HeightRequest="24"
+                            VerticalOptions="Center" StrokeShape="{DynamicResource WRadiusPill}">
+                        <Label Text="{Binding WalletLabel}" Style="{StaticResource TxtRowTitle}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+            <BoxView Style="{StaticResource HSep}" />
+        </VerticalStackLayout>
+
+        <!-- 战绩条 + buff 标记条：同一个店的两条实时状态，因此并成一栏、中间一条发丝线。
+             这里不用 SettingRow（那是 52 高的表单行），状态条压到井距一档才不会读成两行设置。 -->
+        <Border Grid.Row="1" Background="{DynamicResource WBarBrush}" Padding="0" StrokeThickness="0">
+            <VerticalStackLayout Spacing="0">
+                <Border Padding="{DynamicResource WPadWell}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Label Text="{Binding RecordLabel}" Style="{StaticResource TxtBodySm}"
+                               VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="胜局 +30 亲密币 · 败局 +10" Style="{StaticResource TxtMuted}"
+                               VerticalOptions="Center" />
+                    </Grid>
                 </Border>
-            </Grid>
-        </Border>
-
-        <!-- 战绩条 -->
-        <Border Grid.Row="1" BackgroundColor="{DynamicResource SurfaceBg}" Padding="12,4,12,4" StrokeThickness="0">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Label Text="{Binding RecordLabel}" Style="{StaticResource TxtCaption}"
-                       FontSize="12" VerticalOptions="Center" />
-                <Label Grid.Column="1" Text="胜局 +30 亲密币 · 败局 +10" Style="{StaticResource TxtCaption}"
-                       FontSize="10" TextColor="{DynamicResource WarmMuted}" VerticalOptions="Center" />
-            </Grid>
-        </Border>
-
-        <!-- buff 标记条（小雨当前身上的标记，随对话轮数衰减） -->
-        <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" Padding="12,3,12,3" StrokeThickness="0"
-                IsVisible="{Binding BuffsLabel, Converter={StaticResource StringNotEmpty}}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Label Text="{Binding BuffsLabel}" Style="{StaticResource TxtCaption}"
-                   FontSize="11" TextColor="{DynamicResource AccentWarmFg}"
-                   LineBreakMode="TailTruncation" />
+                <VerticalStackLayout Spacing="0"
+                                     IsVisible="{Binding BuffsLabel, Converter={StaticResource StringNotEmpty}}">
+                    <BoxView Style="{StaticResource HSep}" />
+                    <Border Padding="{DynamicResource WPadWell}">
+                        <!-- buff 是当前生效的提示，用信号墨而不是面 -->
+                        <Label Text="{Binding BuffsLabel}" Style="{StaticResource TxtMuted}"
+                               TextColor="{DynamicResource AccentWarmFg}"
+                               LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
         </Border>
 
         <!-- 内容区：固定头部 + CollectionView 占满剩余高度（虚拟化：只渲染可见项） -->
-        <Grid Grid.Row="3" RowDefinitions="Auto,*" Padding="0">
+        <Grid Grid.Row="2" RowDefinitions="Auto,*" Padding="{DynamicResource WPadCard}">
 
             <!-- 顶部工具区：AI 生成 + 同步 + 搜索 + 分类 -->
-            <VerticalStackLayout Grid.Row="0" Spacing="8" Padding="10,8,10,0">
+            <VerticalStackLayout Grid.Row="0" Spacing="{DynamicResource WGapSection}">
 
                 <!-- AI 实时生成 -->
-                <Border Style="{StaticResource CardFrost}" Padding="8">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="AI 选品 · 想要啥说啥，实时上新"
-                               Style="{StaticResource TxtCaption}" FontSize="12" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <Entry Text="{Binding AiPrompt}"
-                                   Placeholder="例：小雨喜欢的草莓味饮品、生日蛋糕…"
-                                   FontSize="12" BackgroundColor="#FFFDF5" />
-                            <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
-                                <ActivityIndicator IsRunning="{Binding Busy}"
-                                                   IsVisible="{Binding Busy}"
-                                                   WidthRequest="18" HeightRequest="18"
-                                                   Color="{DynamicResource AccentWarm}"
-                                                   VerticalOptions="Center" />
-                                <Button Grid.Column="1" Text="生成" Style="{StaticResource BtnNeumorphic}"
-                                        HeightRequest="34" Padding="14,0" FontSize="12"
-                                        IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}"
-                                        Command="{Binding AiGenerateCommand}" />
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}">
+                            <Label Text="AI 选品 · 想要啥说啥，实时上新" Style="{StaticResource TxtRowTitle}" />
+                        </Border>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <Entry Text="{Binding AiPrompt}"
+                                       Placeholder="例：小雨喜欢的草莓味饮品、生日蛋糕…"
+                                       FontSize="{DynamicResource WSizeCaption}"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
+                                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
+                                    <ActivityIndicator IsRunning="{Binding Busy}"
+                                                       IsVisible="{Binding Busy}"
+                                                       WidthRequest="18" HeightRequest="18"
+                                                       Color="{DynamicResource PrimaryAction}"
+                                                       VerticalOptions="Center" />
+                                    <Button Grid.Column="1" Text="生成" Style="{StaticResource BtnNeumorphic}"
+                                            HeightRequest="34" Padding="14,0" FontSize="{DynamicResource WSizeCaption}"
+                                            IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}"
+                                            Command="{Binding AiGenerateCommand}" />
+                                </Grid>
                             </Grid>
-                        </Grid>
-                        <Label Text="{Binding AiStatus}"
-                               Style="{StaticResource TxtCaption}" FontSize="11"
-                               TextColor="{DynamicResource WarmMuted}" />
+                        </Border>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Label Text="{Binding AiStatus}" Style="{StaticResource TxtRowDesc}"
+                                   VerticalOptions="Center" />
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
 
                 <!-- GitHub 仓库同步 -->
-                <Border Style="{StaticResource CardFrost}" Padding="8">
-                    <VerticalStackLayout Spacing="6">
-                        <Label Text="GitHub 仓库同步 · 仓库内 shop/catalog.json 会自动上架"
-                               Style="{StaticResource TxtCaption}" FontSize="12" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                            <Entry Text="{Binding SyncRepo}"
-                                   Placeholder="owner/repo，如 my-username/my-shop"
-                                   FontSize="12" BackgroundColor="#FFFDF5" />
-                            <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
-                                <!-- 点击同步立即转圈反馈，完成后消失 -->
-                                <ActivityIndicator IsRunning="{Binding IsSyncing}"
-                                                   IsVisible="{Binding IsSyncing}"
-                                                   WidthRequest="18" HeightRequest="18"
-                                                   Color="{DynamicResource AccentWarm}"
-                                                   VerticalOptions="Center" />
-                                <Button Grid.Column="1" Text="同步" Style="{StaticResource BtnNeumorphic}"
-                                        HeightRequest="34" Padding="14,0" FontSize="12"
-                                        IsEnabled="{Binding IsSyncing, Converter={StaticResource InverseBool}}"
-                                        Command="{Binding SyncGitHubCommand}" />
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}">
+                            <Label Text="GitHub 仓库同步 · 仓库内 shop/catalog.json 会自动上架"
+                                   Style="{StaticResource TxtRowTitle}" />
+                        </Border>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <Entry Text="{Binding SyncRepo}"
+                                       Placeholder="owner/repo，如 my-username/my-shop"
+                                       FontSize="{DynamicResource WSizeCaption}"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
+                                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
+                                    <!-- 点击同步立即转圈反馈，完成后消失 -->
+                                    <ActivityIndicator IsRunning="{Binding IsSyncing}"
+                                                       IsVisible="{Binding IsSyncing}"
+                                                       WidthRequest="18" HeightRequest="18"
+                                                       Color="{DynamicResource PrimaryAction}"
+                                                       VerticalOptions="Center" />
+                                    <Button Grid.Column="1" Text="同步" Style="{StaticResource BtnNeumorphic}"
+                                            HeightRequest="34" Padding="14,0" FontSize="{DynamicResource WSizeCaption}"
+                                            IsEnabled="{Binding IsSyncing, Converter={StaticResource InverseBool}}"
+                                            Command="{Binding SyncGitHubCommand}" />
+                                </Grid>
                             </Grid>
-                        </Grid>
-                        <Label Text="{Binding SyncStatus}"
-                               Style="{StaticResource TxtCaption}" FontSize="11"
-                               TextColor="{DynamicResource WarmMuted}"
-                               IsVisible="{Binding SyncStatus, Converter={StaticResource StringNotEmpty}}" />
+                        </Border>
+                        <VerticalStackLayout Spacing="0"
+                                             IsVisible="{Binding SyncStatus, Converter={StaticResource StringNotEmpty}}">
+                            <BoxView Style="{StaticResource HSep}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Label Text="{Binding SyncStatus}" Style="{StaticResource TxtRowDesc}"
+                                       VerticalOptions="Center" />
+                            </Border>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </Border>
 
                 <!-- 搜索 -->
-                <Entry Text="{Binding SearchText}" Placeholder="🔍 搜索商品…"
-                       FontSize="13" BackgroundColor="#FFFDF5" />
+                <Border Style="{StaticResource CardGroup}">
+                    <Border Style="{StaticResource SettingRow}">
+                        <Entry Text="{Binding SearchText}" Placeholder="🔍 搜索商品…"
+                               FontSize="{DynamicResource WSizeSmall}"
+                               BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
+                    </Border>
+                </Border>
 
                 <!-- 分类横滑 -->
                 <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
@@ -134,7 +165,7 @@
                                                               CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
                                     <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"
-                                           FontSize="12" FontAttributes="{Binding IsSelected, Converter={StaticResource BoolFontBold}}" />
+                                           FontAttributes="{Binding IsSelected, Converter={StaticResource BoolFontBold}}" />
                                 </Border>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
@@ -143,118 +174,120 @@
 
                 <!-- 提示消息 -->
                 <Label Text="{Binding ResultMessage}"
-                       Style="{StaticResource TxtCaption}" FontSize="12"
+                       Style="{StaticResource TxtMuted}"
                        TextColor="{DynamicResource AccentWarmFg}"
                        IsVisible="{Binding ResultMessage, Converter={StaticResource StringNotEmpty}}" />
             </VerticalStackLayout>
 
-            <!-- 商品列表：CollectionView 虚拟化（只渲染可见项）+ 滚动到底自动加载更多 -->
-            <Grid Grid.Row="1" Padding="10,4,10,8">
+            <!-- 商品列表：一条商品是一行，整张列表装进一张卡（原来一件商品一张浮卡，
+                 卡距比行内距还大，读起来是一摞牌子而不是一份清单）。
+                 缩略图在行首，因此分界线用缩进版：线跨过图会把图读成「上一行的底」。 -->
+            <Border Grid.Row="1" Style="{StaticResource CardGroup}">
                 <CollectionView ItemsSource="{Binding Items}"
                                 RemainingItemsThreshold="12"
                                 RemainingItemsThresholdReachedCommand="{Binding LoadMoreCommand}"
                                 SelectionMode="None"
                                 VerticalScrollBarVisibility="Default">
                     <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
                     </CollectionView.ItemsLayout>
-                        <CollectionView.ItemTemplate>
-                <DataTemplate>
-                            <Border Style="{StaticResource CardFrost}" Padding="10">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                                    <Border BackgroundColor="#FFFDF5"
-                                            StrokeThickness="0"
-                                            WidthRequest="50" HeightRequest="50"
-                                            StrokeShape="{RoundRectangle CornerRadius=12}">
-                                        <Grid>
-                                            <!-- 菜品图片（GitHub 同步下载到本地后显示；无图时 Emoji 兜底） -->
-                                            <Image Source="{Binding ImagePath}" Aspect="AspectFill"
-                                                   IsVisible="{Binding HasImage}" />
-                                            <Label Text="{Binding Emoji}" FontSize="22"
-                                                   HorizontalOptions="Center" VerticalOptions="Center"
-                                                   IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
-                                        </Grid>
-                                    </Border>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                        <Label Text="{Binding Name}"
-                                               Style="{StaticResource TxtBodySm}" FontSize="14" />
-                                        <Label Text="{Binding Desc}"
-                                               Style="{StaticResource TxtCaption}" FontSize="11"
-                                               TextColor="{DynamicResource WarmMuted}"
-                                               LineBreakMode="WordWrap" MaxLines="2" />
-                                        <HorizontalStackLayout Spacing="6">
-                                            <Label Text="{Binding Category}"
-                                                   Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{DynamicResource WarmDark}" />
-                                            <Label Text="{Binding Merchant, StringFormat='🏪 {0}'}"
-                                                   Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{DynamicResource AccentWarmFg}" />
-                                            <Label Text="{Binding Owned, StringFormat='已购 {0} 件'}"
-                                                   Style="{StaticResource TxtCaption}" FontSize="10"
-                                                   TextColor="{DynamicResource AccentWarmFg}"
-                                                   IsVisible="{Binding Owned, Converter={StaticResource GreaterThanZero}}" />
-                                        </HorizontalStackLayout>
-                                    </VerticalStackLayout>
-                                    <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
-                                        <Label Text="{Binding Price, StringFormat='{0} 币'}"
-                                               Style="{StaticResource TxtSubhead}" FontSize="14"
-                                               HorizontalOptions="End" />
-                                        <Button Text="{Binding IsTicket, Converter={StaticResource TicketLabel}}"
-                                                Style="{StaticResource BtnNeumorphic}"
-                                                HeightRequest="30" Padding="10,0" FontSize="11"
-                                                Command="{Binding Path=BindingContext.BuyCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
-                                                CommandParameter="{Binding .}" />
-                                        <!-- 送礼 / 使用（始终可见，无库存时点击有提示） -->
-                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
-                                            <Button Grid.Column="0" Text="🎁送礼" Style="{StaticResource BtnNeumorphic}"
-                                                    HeightRequest="26" Padding="4,0" FontSize="10"
-                                                    Command="{Binding Path=BindingContext.GiftCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate>
+                            <VerticalStackLayout Spacing="0">
+                                <Border Style="{StaticResource SettingRow}">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                        <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
+                                                StrokeThickness="0"
+                                                WidthRequest="50" HeightRequest="50"
+                                                StrokeShape="{DynamicResource WRadiusWell}"
+                                                VerticalOptions="Center">
+                                            <Grid>
+                                                <!-- 菜品图片（GitHub 同步下载到本地后显示；无图时 Emoji 兜底） -->
+                                                <Image Source="{Binding ImagePath}" Aspect="AspectFill"
+                                                       IsVisible="{Binding HasImage}" />
+                                                <Label Text="{Binding Emoji}" FontSize="{DynamicResource WSizeSubhead}"
+                                                       HorizontalOptions="Center" VerticalOptions="Center"
+                                                       IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
+                                            </Grid>
+                                        </Border>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding Desc}"
+                                                   Style="{StaticResource TxtRowDesc}"
+                                                   LineBreakMode="WordWrap" MaxLines="2" />
+                                            <HorizontalStackLayout Spacing="6">
+                                                <Label Text="{Binding Category}"
+                                                       Style="{StaticResource TxtMuted}" />
+                                                <Label Text="{Binding Merchant, StringFormat='🏪 {0}'}"
+                                                       Style="{StaticResource TxtMuted}"
+                                                       TextColor="{DynamicResource AccentWarmFg}" />
+                                                <Label Text="{Binding Owned, StringFormat='已购 {0} 件'}"
+                                                       Style="{StaticResource TxtMuted}"
+                                                       TextColor="{DynamicResource AccentWarmFg}"
+                                                       IsVisible="{Binding Owned, Converter={StaticResource GreaterThanZero}}" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                                            <Label Text="{Binding Price, StringFormat='{0} 币'}"
+                                                   Style="{StaticResource TxtRowTitle}" HorizontalOptions="End" />
+                                            <Button Text="{Binding IsTicket, Converter={StaticResource TicketLabel}}"
+                                                    Style="{StaticResource BtnNeumorphic}"
+                                                    HeightRequest="30" Padding="10,0" FontSize="{DynamicResource WSizeCaption}"
+                                                    Command="{Binding Path=BindingContext.BuyCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                     CommandParameter="{Binding .}" />
-                                            <Button Grid.Column="1" Text="✨使用" Style="{StaticResource BtnNeumorphic}"
-                                                    HeightRequest="26" Padding="4,0" FontSize="10"
-                                                    Command="{Binding Path=BindingContext.UseCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
-                                                    CommandParameter="{Binding .}" />
-                                        </Grid>
-                                    </VerticalStackLayout>
-                                </Grid>
-                            </Border>
+                                            <!-- 送礼 / 使用（始终可见，无库存时点击有提示） -->
+                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+                                                <Button Grid.Column="0" Text="🎁送礼" Style="{StaticResource BtnNeumorphic}"
+                                                        HeightRequest="26" Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
+                                                        Command="{Binding Path=BindingContext.GiftCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Grid.Column="1" Text="✨使用" Style="{StaticResource BtnNeumorphic}"
+                                                        HeightRequest="26" Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
+                                                        Command="{Binding Path=BindingContext.UseCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                        CommandParameter="{Binding .}" />
+                                            </Grid>
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </Border>
+                                <BoxView Style="{StaticResource HSepInset}" />
+                            </VerticalStackLayout>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
+            </Border>
 
-                <!-- 后台补货转圈（完整目录生成期间显示，列表仍可先浏览种子商品） -->
-                <VerticalStackLayout Spacing="6"
-                                     IsVisible="{Binding IsSyncing}"
-                                     VerticalOptions="Center" HorizontalOptions="Center">
-                    <ActivityIndicator IsRunning="{Binding IsSyncing}"
-                                       WidthRequest="28" HeightRequest="28"
-                                       Color="{DynamicResource AccentWarm}" />
-                    <Label Text="正在上架更多商品…"
-                           Style="{StaticResource TxtCaption}" FontSize="11"
-                           TextColor="{DynamicResource WarmMuted}"
-                           HorizontalOptions="Center" />
-                </VerticalStackLayout>
-            </Grid>
+            <!-- 后台补货转圈（完整目录生成期间显示，列表仍可先浏览种子商品） -->
+            <VerticalStackLayout Grid.Row="1" Spacing="6"
+                                 IsVisible="{Binding IsSyncing}"
+                                 VerticalOptions="Center" HorizontalOptions="Center">
+                <ActivityIndicator IsRunning="{Binding IsSyncing}"
+                                   WidthRequest="28" HeightRequest="28"
+                                   Color="{DynamicResource PrimaryAction}" />
+                <Label Text="正在上架更多商品…"
+                       Style="{StaticResource TxtMuted}"
+                       HorizontalOptions="Center" />
+            </VerticalStackLayout>
         </Grid>
 
         <!-- 身体状态覆盖层（查看小雨身体/状态总览） -->
-        <Grid Grid.RowSpan="4"
-              BackgroundColor="#B8000000"
+        <Grid Grid.RowSpan="3"
+              BackgroundColor="{DynamicResource OverlayDim}"
               IsVisible="{Binding ShowBodyStatus}">
-            <Border Style="{StaticResource CardFrost}" Padding="16"
+            <Border Style="{StaticResource CardDialog}"
                     WidthRequest="320" VerticalOptions="Center" HorizontalOptions="Center">
                 <VerticalStackLayout Spacing="10">
                     <Label Text="🫀 小雨的身体状态"
-                           Style="{StaticResource TxtSubhead}" FontSize="16"
+                           Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
-                    <Border BackgroundColor="#FFFDF5" StrokeThickness="0" Padding="10"
-                            StrokeShape="{RoundRectangle CornerRadius=10}">
+                    <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                            Padding="{DynamicResource WPadWell}"
+                            StrokeShape="{DynamicResource WRadiusWell}">
                         <Label Text="{Binding BodyStatusText}"
-                               Style="{StaticResource TxtBodySm}" FontSize="13"
+                               Style="{StaticResource TxtBody}"
                                LineBreakMode="WordWrap" />
                     </Border>
                     <Button Text="关闭" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="36" FontSize="13"
+                            HeightRequest="36" FontSize="{DynamicResource WSizeBody}"
                             Command="{Binding CloseBodyStatusCommand}" />
                 </VerticalStackLayout>
             </Border>

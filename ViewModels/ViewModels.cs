@@ -283,6 +283,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Services.CostEstimatorService _cost;
     private readonly Modules.RealWorld.LocationService _cities;
     private readonly Modules.RealWorld.WeatherProvider _weather;
+    private readonly Services.CloudSync.CloudSyncService _cloud;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
@@ -290,7 +291,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         Modules.Tools.ToolManager tools, SpeechService speech,
         Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision,
         Services.SkillLibrary skills, Services.CostEstimatorService cost,
-        Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather)
+        Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather,
+        Services.CloudSync.CloudSyncService cloud)
     {
         _settings = settings;
         _theme = theme;
@@ -308,6 +310,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _vision = vision;
         _cities = cities;
         _weather = weather;
+        _cloud = cloud;
+        _cloudStatus = cloud.Status;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
         JavaManualPath = _runtimes.ManualJavaPath;
@@ -318,6 +322,18 @@ public sealed partial class SettingsViewModel : ObservableObject
         _frostOn = s.FrostEnabled;
         _glassOn = s.GlassEnabled;
         _liquidOn = s.LiquidEnabled;
+        // 旧存档只有三个玻璃布尔，没有世界键：按布尔落回对应的世界，
+        // 否则升级的那一次等于把所有人的风格重置成默认档。
+        _selectedWorld = !string.IsNullOrEmpty(s.StyleWorldName)
+            ? WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromName(s.StyleWorldName)
+            : s.LiquidEnabled
+                ? WarmAsBefore.DesignSystem.Worlds.StyleWorld.Liquid
+                : s.GlassEnabled
+                    ? WarmAsBefore.DesignSystem.Worlds.StyleWorld.Gradient
+                    : s.FrostEnabled
+                        ? WarmAsBefore.DesignSystem.Worlds.StyleWorld.Soft
+                        : WarmAsBefore.DesignSystem.Worlds.StyleWorld.Minimal;
+        _theme.World = _selectedWorld;
         _glassTranslucency = s.GlassTranslucency;
         _glassReducedTransparency = s.GlassReducedTransparency;
         _glassFrost = s.GlassFrost;
@@ -365,6 +381,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _visionUrl = s.VisionUrl;
         _visionKey = s.VisionKey;
         _visionModel = s.VisionModel;
+        _embeddingEnabled = s.EmbeddingEnabled;
+        _embeddingUrl = s.EmbeddingUrl;
+        _embeddingKey = s.EmbeddingKey;
+        _embeddingModel = s.EmbeddingModel;
+        _embeddingDimensions = EmbeddingDimensionChoices.Contains(s.EmbeddingDimensions) ? s.EmbeddingDimensions : 0;
         foreach (var p in AiPresets) AiPresetChoices.Add(p.Display);
         _aiTemperature = s.AiTemperature;
         _aiMaxTokens = s.AiMaxTokens;
@@ -373,9 +394,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _memoryTurns = s.MemoryTurns;
         _aiTimeoutSeconds = s.AiTimeoutSeconds > 0 ? s.AiTimeoutSeconds : 25;
         _memoryWindowDays = MemoryWindowChoices.Contains(s.MemoryWindowDays) ? s.MemoryWindowDays : HumanMemoryMath.DefaultWindowDays;
+        SyncWindowDisplay();
         _memoryRecallRandomness = Math.Clamp(s.MemoryRecallRandomness, 0, 1);
         _subProfileAiRewrite = s.SubProfileAiRewrite;
         _semanticAiAssist = s.SemanticAiAssist;
+        _crossSaveMemory = s.CrossSaveMemory;
         _smartSavingEnabled = s.SmartSavingEnabled;
         _lightMode = s.LightMode;
         _preferDiscreteGpu = s.PreferDiscreteGpu;
@@ -485,6 +508,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         _wechatAppSecret = s.WechatAppSecret;
         _wechatToken = s.WechatToken;
         _wechatPort = s.WechatPort.ToString();
+        _channelsUrl = s.ChannelsUrl ?? "";
+        _cloudSaveEnabled = s.CloudSaveEnabled;
+        _cloudRepo = s.CloudRepo ?? "";
+        _cloudToken = s.CloudToken ?? "";
+        _cloudBranch = s.CloudBranch ?? "";
+        _cloudDeviceName = s.CloudDeviceName ?? "";
+        _cloudAutoUpload = s.CloudAutoUpload;
+        _cloudReconcileMemory = s.CloudReconcileMemory;
         _statusText = _bridge.Status;
         _betaChannel = s.BetaChannel;
 
@@ -511,35 +542,42 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private double _bgmLevel = 0.7;
     [ObservableProperty] private double _sfxLevel = 0.8;
-    // 玻璃模式：磨砂/毛玻璃/液态本来是三个互相牵制的开关，用户要的是一句话选一种——
-    // 合成一个下拉，顺手把「开关禁用了却点不动」那类困惑一起去掉。
-    public List<string> GlassModeChoices { get; } = new() { "关闭", "磨砂玻璃", "毛玻璃", "液态玻璃" };
+    // 风格世界：原来的「磨砂 / 毛玻璃 / 液态玻璃」三个互相牵制的开关已经退役成一个选择。
+    // 世界管材质（圆角、缝、影、字号台阶），色板管颜色，深浅色跟随系统 —— 三条轴各管各的，
+    // 所以这里只留一句话的入口，不再新增任何设置项。
+    public List<string> GlassModeChoices { get; } = new() { "轻质感", "柔和极简", "柔和渐变", "液态玻璃" };
 
-    /// <summary>玻璃模式（下拉显示值）：由三个开关推导，选择时反向设置。</summary>
+    /// <summary>
+    /// 风格世界（下拉显示值）。选中时同时把旧的三个布尔摆到对应的台阶上：
+    /// 它们仍是持久化字段，也是 CanGlass 这类可见性判断的依据，留着不管就会和界面自相矛盾。
+    /// </summary>
     public string GlassModeDisplay
     {
-        get => _liquidOn ? "液态玻璃" : _glassOn ? "毛玻璃" : _frostOn ? "磨砂玻璃" : "关闭";
+        get => WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.Display(SelectedWorld);
         set
         {
-            var want = value ?? "关闭";
-            if (want == GlassModeDisplay) return;
-            switch (want)
-            {
-                case "液态玻璃":
-                    LiquidOn = true; GlassOn = true; FrostOn = true;
-                    break;
-                case "毛玻璃":
-                    LiquidOn = false; GlassOn = true; FrostOn = true;
-                    break;
-                case "磨砂玻璃":
-                    LiquidOn = false; GlassOn = false; FrostOn = true;
-                    break;
-                default:
-                    LiquidOn = false; GlassOn = false; FrostOn = false;
-                    break;
-            }
+            var want = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromDisplay(value);
+            if (SelectedWorld == want) return;
+            SelectedWorld = want;
+            ApplyWorldFlags(want);
             OnPropertyChanged(nameof(GlassModeDisplay));
+            PersistSettings();
         }
+    }
+
+    [ObservableProperty] private WarmAsBefore.DesignSystem.Worlds.StyleWorld _selectedWorld
+        = WarmAsBefore.DesignSystem.Worlds.StyleWorld.Soft;
+
+    partial void OnSelectedWorldChanged(WarmAsBefore.DesignSystem.Worlds.StyleWorld value)
+    {
+        _theme.World = value;
+    }
+
+    /// <summary>世界 → 旧玻璃三开关的等价档位（仅用于持久化与依赖它们的可见性判断）。</summary>
+    private void ApplyWorldFlags(WarmAsBefore.DesignSystem.Worlds.StyleWorld w)
+    {
+        var (liquid, glass, frost) = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.GlassFlags(w);
+        LiquidOn = liquid; GlassOn = glass; FrostOn = frost;
     }
 
     /// <summary>光源方向那四个滑杆属于微调，默认收起（用户反馈：一排近似设置太占地方）。</summary>
@@ -1065,15 +1103,14 @@ public sealed partial class SettingsViewModel : ObservableObject
                 if (!string.IsNullOrEmpty(c.Profile.Name) && !QqBoundChoices.Contains(c.Profile.Name))
                     QqBoundChoices.Add(c.Profile.Name);
             }
-            if (!string.IsNullOrEmpty(_qqBoundCharacterId))
-            {
-                var bound = list.FirstOrDefault(c => c.Profile.Id == _qqBoundCharacterId);
-                QqBoundCharacter = bound is null ? "（用当前角色）" : bound.Profile.Name;
-            }
-            else
-            {
-                QqBoundCharacter = "（用当前角色）";
-            }
+            // 显示名回填走后备字段 + 手动通知：赋属性会触发 OnQqBoundCharacterChanged → PersistSettings，
+            // 于是「打开设置页看一眼」就等于把整本设置重新落盘并重新下发一遍运行时配置。
+            // 构造期读到的还是刚加载进来的那一份，写回去只是白做一遍，还会在进页面时抢一次 UI 线程。
+            var bound = string.IsNullOrEmpty(_qqBoundCharacterId)
+                ? null
+                : list.FirstOrDefault(c => c.Profile.Id == _qqBoundCharacterId);
+            _qqBoundCharacter = bound?.Profile.Name ?? "（用当前角色）";
+            OnPropertyChanged(nameof(QqBoundCharacter));
         }
         catch (Exception ex) { App.WriteLog("Settings.LoadQqBoundChoices -> " + ex.Message); }
     }
@@ -1099,7 +1136,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception ex) { App.WriteLog("Settings.ResolveQqBound -> " + ex.Message); }
     }
 
-    // ============ #13 API 预设 & 识图模型 ============
+    // ============ #13 API 预设 & 识图模型 & 量化模型 ============
 
     /// <summary>预设显示名（Picker 绑定）。</summary>
     [ObservableProperty] private string _aiPreset = "自定义";
@@ -1107,6 +1144,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _visionUrl = "";
     [ObservableProperty] private string _visionKey = "";
     [ObservableProperty] private string _visionModel = "";
+
+    /// <summary>
+    /// 量化模型（embedding）：把说法换成数值向量的那个角色。
+    /// 地址与密钥留空就复用对话那套（量化模型通常和对话模型在同一家厂商）。
+    /// </summary>
+    [ObservableProperty] private bool _embeddingEnabled = true;
+    [ObservableProperty] private string _embeddingUrl = "";
+    [ObservableProperty] private string _embeddingKey = "";
+    [ObservableProperty] private string _embeddingModel = "";
+    /// <summary>向量维度：0 = 由模型自己定。</summary>
+    [ObservableProperty] private int _embeddingDimensions;
+
+    /// <summary>可选维度（Picker 数据源；0 表示不传 dimensions）。</summary>
+    public List<int> EmbeddingDimensionChoices { get; } = new() { 0, 256, 512, 768, 1024, 1536, 2048 };
 
     /// <summary>预设列表（Picker 数据源）。</summary>
     public ObservableCollection<string> AiPresetChoices { get; } = new();
@@ -1158,6 +1209,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnVisionUrlChanged(string value) => PersistSettings();
     partial void OnVisionKeyChanged(string value) => PersistSettings();
     partial void OnVisionModelChanged(string value) => PersistSettings();
+
+    partial void OnEmbeddingEnabledChanged(bool value) => PersistSettings();
+    partial void OnEmbeddingUrlChanged(string value) => PersistSettings();
+    partial void OnEmbeddingKeyChanged(string value) => PersistSettings();
+    partial void OnEmbeddingModelChanged(string value) => PersistSettings();
+    partial void OnEmbeddingDimensionsChanged(int value) => PersistSettings();
 
     // 自动更新
     [ObservableProperty] private bool _betaChannel;
@@ -1350,7 +1407,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ => "经典"
     };
 
-    private static string WindowText(double days) => days <= 0 ? "不限" : $"{days:0.#} 天";
+    /// <summary>把「天」讲成人话：不足一天说小时，一年上下说月，免得用户看到 0.25 天要心算。</summary>
+    private static string WindowText(double days) => days switch
+    {
+        <= 0 => "不限",
+        < 1 => $"{days * 24:0.#} 小时",
+        < 30 => $"{days:0.#} 天",
+        _ => $"{days / 30:0.#} 个月"
+    };
 
     private string MaterialsSummary()
     {
@@ -1453,9 +1517,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _smartSavingEnabled = true;
     partial void OnSmartSavingEnabledChanged(bool value) => PersistSettings();
 
-    /// <summary>是否让模型辅助建立词义关系网（默认关闭：默认只靠共现统计）。</summary>
+    /// <summary>是否让模型辅助建立关系网（默认关闭：默认只靠共现统计）。</summary>
     [ObservableProperty] private bool _semanticAiAssist;
     partial void OnSemanticAiAssistChanged(bool value) => PersistSettings();
+
+    /// <summary>是否让同一个角色跨存档共用一份记忆（默认关闭 = 每个存档各记各的）。</summary>
+    [ObservableProperty] private bool _crossSaveMemory;
+    partial void OnCrossSaveMemoryChanged(bool value) => PersistSettings();
 
     /// <summary>API 可用的模型列表（由 FetchModelsAsync 填充）。</summary>
     public ObservableCollection<string> AiModelChoices { get; } = new();
@@ -2131,6 +2199,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             await Shell.Current.DisplayAlert("能力包", message, "好");
             if (ok)
             {
+                _tools.RescanExternalTools();
                 await _tools.RefreshSkillHintAsync();
                 await RefreshSkillsAsync();
             }
@@ -2184,6 +2253,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                     break;
                 }
         }
+        _tools.RescanExternalTools();
         await _tools.RefreshSkillHintAsync();
         await RefreshSkillsAsync();
     }
@@ -2264,7 +2334,70 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _wechatAppSecret = "";
     [ObservableProperty] private string _wechatToken = "";
     [ObservableProperty] private string _wechatPort = "8012";
+    /// <summary>视频号外链（社交壳里点「视频号」直接跳转；留空则壳里提示去填）。</summary>
+    [ObservableProperty] private string _channelsUrl = "";
     [ObservableProperty] private string _statusText = "";
+
+    // ===== 云存档（GitHub 仓库托管）=====
+    [ObservableProperty] private bool _cloudSaveEnabled;
+    [ObservableProperty] private string _cloudRepo = "";
+    [ObservableProperty] private string _cloudToken = "";
+    [ObservableProperty] private string _cloudBranch = "";
+    [ObservableProperty] private string _cloudDeviceName = "";
+    [ObservableProperty] private bool _cloudAutoUpload = true;
+    [ObservableProperty] private bool _cloudReconcileMemory = true;
+    [ObservableProperty] private string _cloudStatus = "";
+    [ObservableProperty] private bool _cloudBusy;
+
+    partial void OnCloudSaveEnabledChanged(bool value)
+    {
+        PersistSettings();
+        if (value) _ = RunCloudSyncAsync(justEnabled: true);
+    }
+    partial void OnCloudRepoChanged(string value) => PersistSettings();
+    partial void OnCloudTokenChanged(string value) => PersistSettings();
+    partial void OnCloudBranchChanged(string value) => PersistSettings();
+    partial void OnCloudDeviceNameChanged(string value) => PersistSettings();
+    partial void OnCloudAutoUploadChanged(bool value) => PersistSettings();
+    partial void OnCloudReconcileMemoryChanged(bool value) => PersistSettings();
+
+    [RelayCommand]
+    private async Task TestCloudAsync()
+    {
+        if (CloudBusy) return;
+        CloudBusy = true;
+        CloudStatus = "正在连接…";
+        try
+        {
+            await PersistNowAsync();
+            var (ok, message) = await _cloud.TestAsync();
+            CloudStatus = (ok ? "✓ " : "✗ ") + message;
+        }
+        catch (Exception ex) { CloudStatus = "测试失败：" + ex.Message; }
+        finally { CloudBusy = false; }
+    }
+
+    [RelayCommand]
+    private async Task SyncCloudNowAsync() => await RunCloudSyncAsync(justEnabled: false);
+
+    /// <summary>先落盘设置再同步：否则服务读到的还是上一版仓库/令牌。</summary>
+    private async Task RunCloudSyncAsync(bool justEnabled)
+    {
+        if (CloudBusy) return;
+        CloudBusy = true;
+        CloudStatus = justEnabled ? "已开启，正在做首次同步…" : "正在同步…";
+        try
+        {
+            await PersistNowAsync();
+            CloudStatus = await _cloud.SyncNowAsync();
+        }
+        catch (Exception ex)
+        {
+            CloudStatus = "同步失败：" + ex.Message;
+            App.WriteLog("SettingsViewModel.CloudSync -> " + ex);
+        }
+        finally { CloudBusy = false; }
+    }
 
     // MCP 配置
     [ObservableProperty] private bool _mcpEnabled;
@@ -2308,8 +2441,28 @@ public sealed partial class SettingsViewModel : ObservableObject
     public List<string> KeySfxChoices { get; } = new() { "default", "soft", "typewriter", "none" };
     public List<int> MemoryTurnsChoices { get; } = new() { 3, 5, 8, 10, 12, 15, 20 };
 
-    /// <summary>人类记忆调取窗口（天）：0 = 不限（能想起最早的记忆）。</summary>
-    public List<double> MemoryWindowChoices { get; } = new() { 1, 3, 7, 14, 30, 90, 0 };
+    /// <summary>
+    /// 遗忘档位（天）：0 = 不限（能想起最早的记忆）。0.25 / 0.5 是给人看的低值档——
+    /// 原来最低 1 天，想演示「TA 转头就忘」都快不起来。
+    /// </summary>
+    public List<double> MemoryWindowChoices { get; } = new() { 0.25, 0.5, 1, 3, 7, 14, 30, 90, 0 };
+
+    /// <summary>档位可读名：Picker 直接绑小数会显示成「0.25」，看不出那是 6 小时。</summary>
+    public List<string> MemoryWindowLabels { get; } = new()
+        { "6 小时", "12 小时", "1 天", "3 天", "1 周", "2 周", "1 个月", "3 个月", "不限" };
+
+    /// <summary>设置页显示的档位名，与 <see cref="MemoryWindowDays"/> 互转。</summary>
+    [ObservableProperty] private string _memoryWindowDisplay = "3 天";
+
+    /// <summary>当前档位下的大白话说明（半衰期 + 永久成分），随档位重算。</summary>
+    [ObservableProperty] private string _memoryWindowExplain = "";
+
+    partial void OnMemoryWindowDisplayChanged(string value)
+    {
+        var idx = MemoryWindowLabels.IndexOf(value);
+        if (idx >= 0 && Math.Abs(MemoryWindowDays - MemoryWindowChoices[idx]) > 1e-9)
+            MemoryWindowDays = MemoryWindowChoices[idx];
+    }
     public List<int> CycleChoices { get; } = Enumerable.Range(21, 15).ToList();
     public List<int> PeriodChoices { get; } = Enumerable.Range(3, 5).ToList();
     /// <summary>桌宠闲置时长可选值（分钟）：0=关闭闲置自动桌宠。</summary>
@@ -2460,7 +2613,30 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnDeepThinkChanged(bool value) => PersistSettings();
     partial void OnDeepModelChanged(string value) => PersistSettings();
     partial void OnMemoryTurnsChanged(int value) => PersistSettings();
-    partial void OnMemoryWindowDaysChanged(double value) => PersistSettings();
+    partial void OnMemoryWindowDaysChanged(double value)
+    {
+        SyncWindowDisplay();
+        PersistSettings();
+    }
+
+    /// <summary>档位数字 → Picker 上的可读名 + 一句半衰期说明（载入时也走这里，避免显示成 0.25）。</summary>
+    private void SyncWindowDisplay()
+    {
+        var idx = MemoryWindowChoices.IndexOf(MemoryWindowDays);
+        var label = idx >= 0 ? MemoryWindowLabels[idx] : WindowText(MemoryWindowDays);
+        if (_memoryWindowDisplay != label) _memoryWindowDisplay = label;   // 直写后备字段：不再绕回 Display 的 changed
+        MemoryWindowExplain = BuildWindowExplain(MemoryWindowDays);
+    }
+
+    /// <summary>把当前档位翻译成人话：普通事多久剩一半、重要的事最后停在哪儿。</summary>
+    private static string BuildWindowExplain(double days)
+    {
+        if (days <= 0) return "不限窗口：记忆不随时间淡掉，只按重要性与被想起的次数排序。";
+        var half = HumanMemoryMath.HalfLifeDays(days, 0.5);
+        var keep = HumanMemoryMath.Asymptote(1.0);
+        return $"普通事（重要性 0.5）约 {WindowText(half)}后只剩一半清晰，久了就沉底；"
+             + $"记得很牢的事（重要性 1）最后会停在 {keep:P0} 左右，不会彻底忘掉。";
+    }
     partial void OnMemoryRecallRandomnessChanged(double value) => PersistSettings();
 
     partial void OnTtsEnabledChanged(bool value) => PersistSettings();
@@ -2528,6 +2704,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnWechatAppSecretChanged(string value) => PersistSettings();
     partial void OnWechatTokenChanged(string value) => PersistSettings();
     partial void OnWechatPortChanged(string value) => PersistSettings();
+    partial void OnChannelsUrlChanged(string value) => PersistSettings();
 
     partial void OnMcpEnabledChanged(bool value) => PersistSettings();
     partial void OnMcpNetworkUrlChanged(string value) { _mcp.NetworkUrl = value; PersistSettings(); }
@@ -2623,6 +2800,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 FrostEnabled = FrostOn,
                 GlassEnabled = GlassOn,
                 LiquidEnabled = LiquidOn,
+                StyleWorldName = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.NameOf(SelectedWorld),
                 GlassTranslucency = GlassTranslucency,
                 GlassReducedTransparency = GlassReducedTransparency,
 GlassFrost = GlassFrost,
@@ -2649,6 +2827,11 @@ GlassLightWidth = GlassLightWidth,
                 VisionUrl = VisionUrl.Trim(),
                 VisionKey = VisionKey.Trim(),
                 VisionModel = VisionModel.Trim(),
+                EmbeddingEnabled = EmbeddingEnabled,
+                EmbeddingUrl = EmbeddingUrl.Trim(),
+                EmbeddingKey = EmbeddingKey.Trim(),
+                EmbeddingModel = EmbeddingModel.Trim(),
+                EmbeddingDimensions = EmbeddingDimensionChoices.Contains(EmbeddingDimensions) ? EmbeddingDimensions : 0,
                 AiTemperature = AiTemperature,
                 AiMaxTokens = Math.Clamp((int)AiMaxTokens, 100, 8000),
                 DeepThink = DeepThink,
@@ -2658,6 +2841,7 @@ GlassLightWidth = GlassLightWidth,
                 MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),
                 SubProfileAiRewrite = SubProfileAiRewrite,
                 SemanticAiAssist = SemanticAiAssist,
+                CrossSaveMemory = CrossSaveMemory,
                 SmartSavingEnabled = SmartSavingEnabled,
                 LightMode = LightMode,
                 PreferDiscreteGpu = PreferDiscreteGpu,
@@ -2717,6 +2901,15 @@ GlassLightWidth = GlassLightWidth,
                 WechatAppSecret = WechatAppSecret.Trim(),
                 WechatToken = WechatToken.Trim(),
                  WechatPort = port,
+                 ChannelsUrl = ChannelsUrl.Trim(),
+
+                 CloudSaveEnabled = CloudSaveEnabled,
+                 CloudRepo = Services.CloudSync.CloudSyncService.NormalizeRepo(CloudRepo),
+                 CloudToken = CloudToken.Trim(),
+                 CloudBranch = CloudBranch.Trim(),
+                 CloudDeviceName = CloudDeviceName.Trim(),
+                 CloudAutoUpload = CloudAutoUpload,
+                 CloudReconcileMemory = CloudReconcileMemory,
 
                  McpEnabled = McpEnabled,
                  McpAutoApprove = McpAutoApprove,

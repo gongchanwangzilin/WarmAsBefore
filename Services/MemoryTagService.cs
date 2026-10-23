@@ -12,35 +12,53 @@ namespace WarmAsBefore.Services;
 /// </summary>
 public sealed class MemoryTagService
 {
-    private const string StoreKey = "memory_tags";
+    private const string StoreName = "memory_tags";
     private const int InjectMin = 10;
     private const int InjectMax = 20;
 
     private readonly StorageProvider _store;
     private readonly HumanMemoryService _human;
+    private readonly MemoryScope _scope;
     private readonly object _gate = new();
     private Dictionary<string, List<MemoryTag>> _cache = new(StringComparer.Ordinal);
-    private bool _loaded;
+    private Task? _loading;
+    private string _scopeKey = StoreName;
 
-    public MemoryTagService(StorageProvider store, HumanMemoryService human)
+    public MemoryTagService(StorageProvider store, HumanMemoryService human, MemoryScope scope)
     {
         _store = store;
         _human = human;
+        _scope = scope;
+        _scopeKey = scope.Key(StoreName);
+        scope.Changed += OnScopeChanged;
     }
 
-    private async Task EnsureLoadedAsync()
+    private void OnScopeChanged()
     {
         lock (_gate)
         {
-            if (_loaded) return;
-            _loaded = true;
+            _cache = new(StringComparer.Ordinal);
+            _loading = null;
+            _scopeKey = _scope.Key(StoreName);
         }
+    }
+
+    /// <summary>同 <see cref="HumanMemoryService"/>：以「读完」而不是「开始读」为已加载。</summary>
+    private Task EnsureLoadedAsync()
+    {
+        lock (_gate) return _loading ??= LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var key = _scopeKey;
         try
         {
-            var saved = await _store.Load<Dictionary<string, List<MemoryTag>>>(StoreKey);
+            var saved = await _store.Load<Dictionary<string, List<MemoryTag>>>(key);
             lock (_gate)
             {
-                if (saved is not null) _cache = new Dictionary<string, List<MemoryTag>>(saved, StringComparer.Ordinal);
+                if (saved is not null && key == _scopeKey)
+                    _cache = new Dictionary<string, List<MemoryTag>>(saved, StringComparer.Ordinal);
             }
         }
         catch (Exception ex)
@@ -52,8 +70,13 @@ public sealed class MemoryTagService
     private Task PersistAsync()
     {
         Dictionary<string, List<MemoryTag>> snapshot;
-        lock (_gate) snapshot = _cache.ToDictionary(kv => kv.Key, kv => kv.Value.ToList(), StringComparer.Ordinal);
-        return _store.Save(StoreKey, snapshot);
+        string key;
+        lock (_gate)
+        {
+            snapshot = _cache.ToDictionary(kv => kv.Key, kv => kv.Value.ToList(), StringComparer.Ordinal);
+            key = _scopeKey;
+        }
+        return _store.Save(key, snapshot);
     }
 
     /// <summary>
@@ -73,21 +96,7 @@ public sealed class MemoryTagService
         await EnsureLoadedAsync();
         lock (_gate)
         {
-            if (!_cache.TryGetValue(charId, out var list)) _cache[charId] = list = new List<MemoryTag>();
-            foreach (var tag in clean)
-            {
-                var idx = list.FindIndex(t => string.Equals(t.Name, tag, StringComparison.OrdinalIgnoreCase)
-                                              && t.Subject == subject);
-                if (idx >= 0)
-                {
-                    var old = list[idx];
-                    list[idx] = old with { Count = old.Count + 1, LastUsedAt = DateTime.UtcNow };
-                }
-                else
-                {
-                    list.Add(new MemoryTag { Name = tag, Subject = subject, Count = 1 });
-                }
-            }
+            foreach (var tag in clean) Upsert(_cache, charId, tag, subject);
         }
         await PersistAsync();
 
@@ -95,6 +104,33 @@ public sealed class MemoryTagService
         var text = string.IsNullOrWhiteSpace(target) ? $"（{subject}）{string.Join("、", clean)}" : target.Trim();
         await _human.StoreAsync(charId, text, HumanMemoryMath.GuessKind(text, ""), importance, "", clean);
         return clean.Count;
+    }
+
+    /// <summary>
+    /// 只登记「这个标签属于哪一类」，不新建记忆条目。
+    /// 句级标签是贴在本就存在的记忆上的，若走 <see cref="ApplyAsync"/> 会额外造一条
+    /// 「（talk）某某」的假记忆，列表里就多了没人说过的事。
+    /// </summary>
+    public async Task RegisterAsync(string charId, string tag, string subject)
+    {
+        var name = tag?.Trim() ?? "";
+        if (string.IsNullOrWhiteSpace(charId) || name.Length is 0 or > 12) return;
+        await EnsureLoadedAsync();
+        lock (_gate) Upsert(_cache, charId, name, subject);
+        await PersistAsync();
+    }
+
+    private static void Upsert(Dictionary<string, List<MemoryTag>> table, string charId, string tag, string subject)
+    {
+        if (!table.TryGetValue(charId, out var list)) table[charId] = list = new List<MemoryTag>();
+        var idx = list.FindIndex(t => string.Equals(t.Name, tag, StringComparison.OrdinalIgnoreCase)
+                                      && t.Subject == subject);
+        if (idx >= 0)
+        {
+            var old = list[idx];
+            list[idx] = old with { Count = old.Count + 1, LastUsedAt = DateTime.UtcNow };
+        }
+        else list.Add(new MemoryTag { Name = tag, Subject = subject, Count = 1 });
     }
 
     /// <summary>按标签（可组合）检索记得住的事；<paramref name="matchAll"/> = true 时要求同时具备全部标签。</summary>

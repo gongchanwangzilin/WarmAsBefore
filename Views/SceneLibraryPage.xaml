@@ -11,125 +11,145 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <!-- 顶部栏 -->
-        <Border Grid.Row="0" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Grid ColumnDefinitions="Auto,*,Auto">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+        <!-- 顶部栏：与内容区同一块地，只靠底下一条发丝线分界（LineColor 是退役别名，早没人发这个键了） -->
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                        VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="场景工坊" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
                 <Button Grid.Column="2" Text="＋ 新建" Style="{StaticResource BtnPrimary}"
-                        FontSize="13" Padding="14,6" Command="{Binding AddEntryCommand}" />
+                        VerticalOptions="Center"
+                        Command="{Binding AddEntryCommand}" />
             </Grid>
         </Border>
+        <BoxView Grid.Row="0" Style="{StaticResource HSep}" VerticalOptions="End" />
 
         <!-- 主区：条目列表 + 选中详情 -->
-        <Grid Grid.Row="1" RowDefinitions="*,Auto">
+        <Grid Grid.Row="1" RowDefinitions="*,Auto" RowSpacing="{DynamicResource WGapSection}"
+              Padding="{DynamicResource WPadCard}">
 
-            <ScrollView Grid.Row="0">
+            <!-- 一个场景 = 一行，全部装进同一张 CardGroup：
+                 原来每条一张带描边的浮卡，卡间距比卡内间距还大，「一批场景」被读成「一摞牌子」。 -->
+            <Border Grid.Row="0" Style="{StaticResource CardGroup}">
                 <CollectionView ItemsSource="{Binding Entries}"
+                                BackgroundColor="Transparent"
                                 SelectionMode="Single"
                                 SelectedItem="{Binding SelectedEntry}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="models:SceneLibraryEntry">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}" Padding="16,12" Margin="16,8,16,8"
-                                    Stroke="{DynamicResource LineColor}" StrokeThickness="1">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                    <Label Grid.Row="0" Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtTitle}" />
-                                    <Label Grid.Row="1" Grid.Column="0" Style="{StaticResource TxtMuted}" Margin="0,4,0,0"
-                                           Text="{Binding MapSceneRef, StringFormat='地图引用：{0}'}" />
-                                    <!-- #8 点击式工坊：点一下就把当前场景切到这个条目（无需拖拽）。 -->
-                                    <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Text="应用"
-                                            Style="{StaticResource BtnPrimary}" FontSize="12" Padding="14,6"
-                                            VerticalOptions="Center"
-                                            Command="{Binding BindingContext.ApplyEntryCommand, Source={x:Reference Page}}"
-                                            CommandParameter="{Binding .}" />
-                                </Grid>
-                            </Border>
+                            <VerticalStackLayout Spacing="0">
+                                <Border Style="{StaticResource SettingRow}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="3" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
+                                                   LineBreakMode="TailTruncation" />
+                                            <Label Text="{Binding MapSceneRef, StringFormat='地图引用：{0}'}"
+                                                   Style="{StaticResource TxtRowDesc}" LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <!-- #8 点击式工坊：点一下就把当前场景切到这个条目（无需拖拽）。
+                                             每行一颗实心强调钮会把整列压成「一屏全是主行动」，这里用次级档。 -->
+                                        <Button Grid.Column="1" Text="应用"
+                                                Style="{StaticResource BtnGhostSm}"
+                                                VerticalOptions="Center" HorizontalOptions="End"
+                                                Command="{Binding BindingContext.ApplyEntryCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </Border>
+                                <BoxView Style="{StaticResource HSep}" />
+                            </VerticalStackLayout>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
-            </ScrollView>
+            </Border>
 
-            <!-- 选中条目操作区 -->
-            <Border Grid.Row="1" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12"
-                    IsVisible="{Binding CanEdit}">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto">
-                    <StackLayout Grid.Row="0" Orientation="Horizontal" Spacing="8">
-                        <Button Text="重命名" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+            <!-- 选中条目操作区：一块平的面板，里面的模式列表靠发丝线分行，不再套第二层卡 -->
+            <Border Grid.Row="1" Style="{StaticResource CardSolid}" IsVisible="{Binding CanEdit}">
+                <VerticalStackLayout Spacing="10">
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="重命名" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding RenameEntryCommand}" />
-                        <Button Text="引用地图场景" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                        <Button Text="引用地图场景" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding LinkMapSceneCommand}" />
-                        <Button Text="变换规则" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                        <Button Text="变换规则" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding EditRulesCommand}" />
-                    </StackLayout>
-                    <StackLayout Grid.Row="1" Orientation="Horizontal" Spacing="8" Margin="0,10,0,0">
-                        <Button Text="＋ 加模式" Style="{StaticResource BtnGhost}" FontSize="13" Padding="14,6"
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="＋ 加模式" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding AddModeCommand}" />
-                        <Button Text="删除条目" Style="{StaticResource BtnDanger}" FontSize="13" Padding="14,6"
+                        <Button Text="删除条目" Style="{StaticResource BtnDangerSm}"
                                 Command="{Binding RemoveEntryCommand}" />
-                    </StackLayout>
+                    </HorizontalStackLayout>
 
                     <!-- 模式列表：可选中，下面的按钮作用于选中项 -->
-                    <CollectionView Grid.Row="2" ItemsSource="{Binding SelectedModes}" Margin="0,12,0,0"
+                    <CollectionView ItemsSource="{Binding SelectedModes}" Margin="0,4,0,0"
                                     HeightRequest="132"
+                                    BackgroundColor="Transparent"
                                     SelectionMode="Single"
                                     SelectedItem="{Binding SelectedModeRow}">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:SceneModeRow">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Margin="0,0,0,8">
-                                    <VerticalStackLayout Grid.Column="0">
-                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" />
-                                        <Label Text="{Binding Detail}" Style="{StaticResource TxtMuted}" FontSize="11" />
-                                    </VerticalStackLayout>
-                                    <!-- #8 点击式工坊：点一下直接切到该「条目/模式」（此刻不可用也会给出原因）。 -->
-                                    <Button Grid.Column="1" Text="应用"
-                                            Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
-                                            VerticalOptions="Center"
-                                            Command="{Binding BindingContext.ApplyModeCommand, Source={x:Reference Page}}"
-                                            CommandParameter="{Binding .}" />
-                                </Grid>
+                                <VerticalStackLayout Spacing="0">
+                                    <Border Style="{StaticResource SettingRow}">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                                <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
+                                                       LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}"
+                                                       LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                            <!-- #8 点击式工坊：点一下直接切到该「条目/模式」（此刻不可用也会给出原因）。 -->
+                                            <Button Grid.Column="1" Text="应用"
+                                                    Style="{StaticResource BtnGhostSm}"
+                                                    VerticalOptions="Center" HorizontalOptions="End"
+                                                    Command="{Binding BindingContext.ApplyModeCommand, Source={x:Reference Page}}"
+                                                    CommandParameter="{Binding .}" />
+                                        </Grid>
+                                    </Border>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
 
-                    <StackLayout Grid.Row="3" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
-                        <Button Text="模式名" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="模式名" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeNameCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
-                        <Button Text="背景" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                        <Button Text="背景" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeBgCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
-                        <Button Text="BGM" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                        <Button Text="BGM" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeBgmCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
-                    </StackLayout>
-                    <StackLayout Grid.Row="4" Orientation="Horizontal" Spacing="8" Margin="0,8,0,0">
-                        <Button Text="灯光" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="灯光" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeLightingCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
-                        <Button Text="时间区间" Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,5"
+                        <Button Text="时间区间" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeTimesCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
-                        <Button Text="删除模式" Style="{StaticResource BtnDanger}" FontSize="12" Padding="12,5"
+                        <Button Text="删除模式" Style="{StaticResource BtnDangerSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding RemoveModeCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
-                    </StackLayout>
-                </Grid>
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
             </Border>
 
         </Grid>
 
-        <!-- 底部：当前生效状态（解释「AI 为什么切不动」）+ 用法提示 -->
-        <VerticalStackLayout Grid.Row="2" Padding="16" Spacing="4">
-            <Label Style="{StaticResource TxtBody}" FontSize="12" Text="{Binding StateText}" />
-            <Label Style="{StaticResource TxtMuted}"
+        <!-- 底部：当前生效状态（解释「AI 为什么切不动」）+ 用法提示，直接落在地上 -->
+        <VerticalStackLayout Grid.Row="2" Padding="{DynamicResource WPadCard}" Spacing="4">
+            <Label Style="{StaticResource TxtBodySm}" Text="{Binding StateText}" />
+            <Label Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap"
                    Text="点条目或模式右侧的「应用」即可立刻切换当前场景（点击式，无需拖拽）；切换结果与此刻可用性会显示在上方状态栏。时间到点自动切换，AI 只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。" />
         </VerticalStackLayout>
 

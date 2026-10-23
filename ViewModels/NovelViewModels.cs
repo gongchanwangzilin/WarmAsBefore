@@ -218,13 +218,9 @@ public sealed partial class NovelWorldViewModel : ObservableObject
     private void AddMessage(string role, string text)
     {
         var isUser = role == "user";
-        Messages.Add(new NovelMessage
-        {
-            Text = text,
-            Align = isUser ? LayoutOptions.End : LayoutOptions.Start,
-            BgColor = isUser ? new Color(0.86f, 0.78f, 0.63f) : new Color(1f, 0.97f, 0.94f),
-            TextColor = isUser ? Color.FromArgb("#4A3D2C") : Color.FromArgb("#5D4A3A")
-        });
+        // 颜色与对齐不再由视图模型写死：气泡底/墨归风格世界令牌（BubbleMine / BubbleTheirs），
+        // VM 只回答「这句是谁说的」。旧写法把奶油 hex 写在这里，换世界后气泡仍停在旧色。
+        Messages.Add(new NovelMessage { Text = text, IsMine = isUser });
     }
 
     [RelayCommand]
@@ -234,7 +230,7 @@ public sealed partial class NovelWorldViewModel : ObservableObject
 public sealed class NovelMessage
 {
     public string Text { get; init; } = "";
-    public LayoutOptions Align { get; init; }
-    public Color BgColor { get; init; } = Colors.White;
-    public Color TextColor { get; init; } = Colors.Black;
+    public bool IsMine { get; init; }
+    public bool ShowMine => IsMine;
+    public bool ShowTheirs => !IsMine;
 }

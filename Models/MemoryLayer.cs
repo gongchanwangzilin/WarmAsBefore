@@ -12,7 +12,7 @@ public enum MemoryLayer
     /// <summary>人类记忆：事件、抽象印象、重要时刻、单张照片；按重要性与时间衰减，像人一样会忘。</summary>
     Human = 1,
 
-    /// <summary>词义关系网：词与词的联系，负责「由一个词想起另一件事」的联想式回忆。</summary>
+    /// <summary>关系网：词、人、事、地点、照片挂在同一张网上，负责「由一个词想起另一件事」的联想式回忆。</summary>
     Semantic = 2,
 
     /// <summary>长时记忆库：全量对话与好感记录，全部留着，供检索工具按需翻查。</summary>
@@ -34,7 +34,7 @@ public static class MemoryLayers
     {
         MemoryLayer.Working => "工作记忆",
         MemoryLayer.Human => "人类记忆",
-        MemoryLayer.Semantic => "词义关系网",
+        MemoryLayer.Semantic => "关系网",
         MemoryLayer.Vault => "长时记忆库",
         MemoryLayer.Archive => "档案层",
         _ => "未知层"

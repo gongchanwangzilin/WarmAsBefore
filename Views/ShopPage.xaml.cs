@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -10,7 +11,7 @@ public partial class ShopPage : ContentPage
         BindingContext = vm;
     }
 
-    protected override async void OnAppearing()
+    protected override void OnAppearing()
     {
         base.OnAppearing();
         try
@@ -21,10 +22,8 @@ public partial class ShopPage : ContentPage
         {
             App.WriteLog($"ShopPage.OnAppearing -> {ex.Message}");
         }
-        // 入场：内容轻微上浮 + 渐入
-        Content.Opacity = 0;
-        Content.TranslationY = 12;
-        _ = Content.FadeTo(1, 200, Easing.CubicOut);
-        _ = Content.TranslateTo(0, 0, 240, Easing.CubicOut);
+        // 进场：原来是 Content.Opacity = 0 + FadeTo(1)——和 GamePage 同一个坑，透明度被进场占用，
+        // 动画一被打断整页就留在看不见那一头。改成全站唯一入口，只做位移。
+        Motion.ArrivePage(this);
     }
 }

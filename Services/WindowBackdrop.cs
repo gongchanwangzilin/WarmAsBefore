@@ -62,7 +62,7 @@ public static class WindowBackdrop
         {
             try
             {
-                var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null);
+                var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow);
                 if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window w) return;
 
                 var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(w);

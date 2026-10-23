@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -44,6 +45,8 @@ public partial class MainGamePage : ContentPage
         base.OnAppearing();
         ResumeSceneVideo();
         HookDesktopArrowKeys();
+        // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
+        Motion.ArrivePage(this);
     }
 
     // ============ #9 电脑端键盘方向键切换地点 ============

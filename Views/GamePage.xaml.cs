@@ -1,5 +1,7 @@
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Graphics;
+using WarmAsBefore.DesignSystem.Theme;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.GameModule;
 using WarmAsBefore.ViewModels;
@@ -31,11 +33,10 @@ public partial class GamePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
-        // 页面入场：轻微上浮 + 渐入
-        Content.Opacity = 0;
-        Content.TranslationY = 10;
-        _ = Content.FadeTo(1, 180, Easing.CubicOut);
-        _ = Content.TranslateTo(0, 0, 220, Easing.CubicOut);
+        // 进场：全站唯一入口，只做位移。
+        // 原来这里是 Content.Opacity = 0 + FadeTo(1)——淡入的起点是「看不见」，
+        // 动画回调一丢就把整页留在透明上（和「再续情缘」按钮消失同一个成因），所以整段删掉。
+        Motion.ArrivePage(this);
     }
 
     private void OnVmPropChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -52,12 +53,14 @@ public partial class GamePage : ContentPage
             if (!_wasGameOver)
             {
                 _wasGameOver = true;
-                _ = BoardView.ScaleTo(1.04, 160, Easing.CubicOut);
-                _ = BoardView.FadeTo(0.82, 160, Easing.CubicOut);
-                _ = Task.Delay(320).ContinueWith(_ => MainThread.BeginInvokeOnMainThread(() =>
+                // 终局庆祝：只用缩放，不再 FadeTo(0.82)→FadeTo(1)。
+                // BoardView 的透明度不属于动效，棋盘上还有「该不该看得见」的其它输出方。
+                var push = (uint)MotionTokens.Ms(MotionTokens.SettleMs);
+                var back = (uint)MotionTokens.Ms(MotionTokens.EnterMs);
+                _ = BoardView.ScaleTo(1.04, push, Easing.CubicOut);
+                _ = Task.Delay(MotionTokens.Ms(MotionTokens.SettleMs) * 2).ContinueWith(_ => MainThread.BeginInvokeOnMainThread(() =>
                 {
-                    _ = BoardView.ScaleTo(1.0, 260, Easing.CubicOut);
-                    _ = BoardView.FadeTo(1.0, 260, Easing.CubicOut);
+                    _ = BoardView.ScaleTo(1.0, back, Easing.CubicOut);
                 }));
             }
         }
@@ -69,7 +72,7 @@ public partial class GamePage : ContentPage
             BoardView.CancelAnimations();
             _ = BoardView.ScaleTo(1.012, 90, Easing.CubicOut);
             _ = Task.Delay(100).ContinueWith(_ => MainThread.BeginInvokeOnMainThread(() =>
-                _ = BoardView.ScaleTo(1.0, 160, Easing.CubicOut)));
+                _ = BoardView.ScaleTo(1.0, (uint)MotionTokens.Ms(MotionTokens.SettleMs), Easing.CubicOut)));
         }
         if (_lastCellCount == -1 || _vm.BoardCells.Count != _lastCellCount)
             _lastCellCount = _vm.BoardCells.Count;

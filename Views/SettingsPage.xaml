@@ -8,70 +8,85 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*" Padding="0">
-        <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
-                        Command="{Binding GoBackCommand}" />
-                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                    <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"
-                           VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                </Grid>
+    <!--
+      分类页。结构对标桌面系统设置窗：一整块中性地面，眉栏不再是「另一种材质贴上去的条」，
+      只有一根发丝线把它和正文分开；分类项不是一张张牌子，而是**一张卡里的一组行**。
+      两级的壳（分类页 → 子页）保持不动，那是先前定下来的导航方式。
+    -->
+    <Grid RowDefinitions="Auto,1,*">
+        <Grid Grid.Row="0" Padding="24,16,24,12" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
+                    FontSize="14" Padding="0" VerticalOptions="Center"
+                    Command="{Binding GoBackCommand}" />
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Image Source="titlelogo.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFill"
+                       VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
             </Grid>
-        </Border>
+        </Grid>
 
-        <ScrollView Grid.Row="1" Padding="24,16,24,24">
-            <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Fill" Spacing="14"
-                                 >
+        <Border Grid.Row="1" Background="{DynamicResource WRule}" HeightRequest="1" StrokeThickness="0" />
 
-                <!-- 搜索：设置项多，先搜再点比一页页翻快 -->
-                <Border Style="{StaticResource CardNeumorph}" Padding="12,10">
-                    <VerticalStackLayout Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <Entry Grid.Column="0" Text="{Binding SettingsSearchText}" Placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
-                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" ClearButtonVisibility="WhileEditing" />
-                            <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}" FontSize="12"
-                                    Command="{Binding ClearSettingsSearchCommand}" />
-                        </Grid>
-                        <Label Text="{Binding Filter.MatchCount, StringFormat='匹配到 {0} 个设置项（进子页后只显示这些）'}" Style="{StaticResource TxtCaption}"
-                               IsVisible="{Binding Filter.IsSearching}" />
-                        <Label Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
-                               TextColor="{DynamicResource AccentWarmFg}" />
-                    </VerticalStackLayout>
+        <ScrollView Grid.Row="2" Padding="24,18,24,24">
+            <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Fill" Spacing="16">
+
+                <!-- 搜索：设置项多，先搜再点比一页页翻快。它是工具条不是内容，所以自己一张卡。 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Entry Grid.Column="0" Text="{Binding SettingsSearchText}" Placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
+                               BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" ClearButtonVisibility="WhileEditing" />
+                        <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}" FontSize="12"
+                                VerticalOptions="Center"
+                                Command="{Binding ClearSettingsSearchCommand}" />
+                    </Grid>
                 </Border>
 
-                <Label Text="选择一个分类进入" Style="{StaticResource TxtCaption}" Margin="2,0,0,0" />
-
-                <!-- 分类条目：每行 = 图标 + 名称 + 当前值摘要，点一下进子页 -->
-                <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding SectionRows}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SettingsViewModel+SettingsSectionRow">
-                            <Border Style="{StaticResource CardNeumorph}" Padding="16,12"
-                                    IsVisible="{Binding Visible}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
-                                    <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
-                                        <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                        <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" />
-                                    </VerticalStackLayout>
-                                    <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center"
-                                           TextColor="{DynamicResource MutedFg}" />
-                                </Grid>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=OpenSectionCommand}"
-                                        CommandParameter="{Binding Key}" />
-                                </Border.GestureRecognizers>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
+                <!-- 匹配计数与空结果提示：挂在卡外，避免搜索时卡片高度反复跳。 -->
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="{Binding Filter.MatchCount, StringFormat='匹配到 {0} 个设置项（进子页后只显示这些）'}" Style="{StaticResource TxtCaption}"
+                           IsVisible="{Binding Filter.IsSearching}" />
+                    <Label Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
+                           TextColor="{DynamicResource AccentWarmFg}" />
                 </VerticalStackLayout>
+
+                <Label Text="选择一个分类进入" Style="{StaticResource TxtCaption}" Margin="2,-8,0,0" />
+
+                <!-- 分类条目：一张卡装一组行。每行自带一条底部分线，最后一行那条正好压在卡底，
+                     被 12 的圆角裁掉，读起来是「卡收口」而不是「多了一根线」。 -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding SectionRows}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:SettingsViewModel+SettingsSectionRow">
+                                <Border Style="{StaticResource SettingRow}" Padding="0" IsVisible="{Binding Visible}">
+                                    <!-- 行高用纵向堆叠，不用 RowDefinitions="*,1"：ScrollView 给内容的是
+                                         「无限高」，星号行在无限高里算不出确定值，整页合成因此卡死
+                                         （实测：进设置页后渲染线程 100% CPU，窗口停在一张没画完的白帧，
+                                         点返回也没反应）。分线本来就是行尾一条边，堆叠与撑开的观感一样。 -->
+                                    <VerticalStackLayout Spacing="0">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14"
+                                              Padding="{DynamicResource WPadRow}">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                                <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                                <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center"
+                                                   TextColor="{DynamicResource WarmFaint}" />
+                                        </Grid>
+                                        <Border Background="{DynamicResource WSep}" HeightRequest="1" StrokeThickness="0" />
+                                    </VerticalStackLayout>
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=OpenSectionCommand}"
+                                            CommandParameter="{Binding Key}" />
+                                    </Border.GestureRecognizers>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

@@ -38,12 +38,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<PortraitCalibrationService>();
         // 立绘规范化：非标素材重采样成 1080×1920 标准画布文件
         builder.Services.AddSingleton<PortraitNormalizer>();
+        // 记忆作用域：默认按存档隔离，打开「跨存档共用记忆」后合成一份（各记忆服务跟着它分文件）
+        builder.Services.AddSingleton<MemoryScope>();
         // 人类记忆层：按重要性×时间衰减×复述×随机存取（与全量记忆库并存）
         builder.Services.AddSingleton<HumanMemoryService>();
-        // 词义关系网：后台随对话自动长出来（纯统计，不花模型钱）
-        builder.Services.AddSingleton<SemanticNetworkService>();
+        // 关系网：后台随对话自动长出来。按数值找近邻优先问量化模型，没配上就用本地统计（不花钱）
+        builder.Services.AddSingleton<RelationNetworkService>();
         // 标签层：AI 打标签 → 分类检索 → 标签清单注入
         builder.Services.AddSingleton<MemoryTagService>();
+        // 独立窗口：关系网 / 搜事件各开一扇，主窗口继续聊天
+        builder.Services.AddSingleton<PageWindowService>();
         // 记忆分层总览：五层规模与现状汇总（界面/提示词统一从这里取）
         builder.Services.AddSingleton<MemoryOverviewService>();
         // 智能省钱：真实 token 用量 + 单价 → 花费表与「该不该总结」建议
@@ -64,6 +68,9 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.RealWorld.LocationService>();
         builder.Services.AddSingleton<Modules.RealWorld.PhysiologicalTracker>();
         builder.Services.AddSingleton<Modules.ApiManager.ApiGateway>();
+        // 云存档：GitHub 仓库托管 + 每台设备独立目录 + 时间戳合并；合并后的记忆用对话模型去重
+        builder.Services.AddSingleton<Services.CloudSync.MemoryReconcileService>();
+        builder.Services.AddSingleton<Services.CloudSync.CloudSyncService>();
         builder.Services.AddSingleton<Modules.AiChat.ChatEngine>();
         builder.Services.AddSingleton<Modules.AiChat.MemoryVault>();
         builder.Services.AddSingleton<Modules.Automation.TaskOrchestrator>();
@@ -117,9 +124,16 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         // #13 识图服务：独立配置的识图模型（表情包自动描述等看图任务）
         builder.Services.AddSingleton<Services.VisionService>(sp =>
             new Services.VisionService(sp.GetRequiredService<SettingsManager>()));
+        // 量化模型（embedding）：把说法与记忆换成数值，近似的说法数值就近，按数值搜近邻
+        // 没配置 / 调用失败 / 额度用完时各页自动退回本地共现统计（不花钱的那条路）
+        builder.Services.AddSingleton<Services.EmbeddingService>(sp =>
+            new Services.EmbeddingService(sp.GetRequiredService<StorageProvider>(),
+                sp.GetRequiredService<SettingsManager>(),
+                sp.GetRequiredService<HumanMemoryService>()));
 
         // ViewModels
         builder.Services.AddTransient<TitleViewModel>();
+        builder.Services.AddTransient<SetupViewModel>();
         builder.Services.AddTransient<MainGameViewModel>();
         builder.Services.AddTransient<CharacterSelectViewModel>();
         builder.Services.AddTransient<SettingsViewModel>();
@@ -135,12 +149,17 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
 
         // Pages
         builder.Services.AddTransient<TitlePage>();
+        builder.Services.AddTransient<SetupPage>();
         builder.Services.AddTransient<MainGamePage>();
         builder.Services.AddTransient<CharacterSelectPage>();
         builder.Services.AddTransient<SettingsPage>();
         builder.Services.AddTransient<SettingsSectionPage>();
         builder.Services.AddTransient<PhonePage>();
         builder.Services.AddTransient<WeChatPage>();
+        // QQ 壳：复用 WeChatViewModel（构造后 SetShell("qq")）；论坛页另有本地数据 VM
+        builder.Services.AddTransient<Views.QqPage>();
+        builder.Services.AddTransient<Views.QqForumPage>();
+        builder.Services.AddTransient<QqForumViewModel>();
         builder.Services.AddTransient<MapPage>();
         builder.Services.AddTransient<SceneCalibrationViewModel>();
         builder.Services.AddTransient<SceneCalibrationPage>();
@@ -164,6 +183,12 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<PortraitCalibrationPage>();
         builder.Services.AddTransient<SubProfilePage>();
         builder.Services.AddTransient<MemoryManagePage>();
+        // 关系网：会生长的枝条视图 + 参数模型 + 思考模型
+        builder.Services.AddTransient<Views.MemoryGraphPage>();
+        builder.Services.AddTransient<MemoryGraphViewModel>();
+        // 搜事件：可另开一扇窗（PageWindowService 按类型从 DI 取页，所以这页必须注册）
+        builder.Services.AddTransient<Views.MemorySearchPage>();
+        builder.Services.AddTransient<MemorySearchViewModel>();
         builder.Services.AddTransient<Views.SceneLibraryPage>();
         builder.Services.AddTransient<SceneLibraryViewModel>();
         // 中文页面别名已由 global using 类型别名提供，无需额外在 DI 中注册

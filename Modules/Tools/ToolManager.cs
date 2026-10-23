@@ -34,6 +34,14 @@ public sealed class ToolManager : IDisposable
     private int _rpcId;
     private bool _disposed;
 
+    /// <summary>清单是手写的：小写字段、注释、尾逗号都该认（否则插件会被静默跳过）。</summary>
+    private static readonly JsonSerializerOptions ManifestJson = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true
+    };
+
     public ToolManager(RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy? injectedSandbox = null,
         SkillLibrary? skills = null)
     {
@@ -81,6 +89,21 @@ public sealed class ToolManager : IDisposable
 
     public ToolDefinition? Find(string name) =>
         _tools.TryGetValue(name, out var t) ? t : null;
+
+    /// <summary>
+    /// 重新扫描外部工具与 skill 的可执行入口：导入 / 启停 / 删除后调用，
+    /// 否则新装的可执行技能要重启应用才出现。内置工具不动。
+    /// </summary>
+    public void RescanExternalTools()
+    {
+        foreach (var (name, tool) in _tools)
+        {
+            if (!tool.IsExternal) continue;
+            if (_tools.TryRemove(name, out _) && _sessions.TryRemove(name, out var session))
+                session.Dispose();
+        }
+        ScanExternalTools();
+    }
 
     /// <summary>
     /// 以 DeepSeek Harness / OpenAI tools 契约格式输出全部工具的 schema。
@@ -406,7 +429,7 @@ public sealed class ToolManager : IDisposable
                 if (!Directory.Exists(dir) || !File.Exists(manifestPath)) continue;
                 try
                 {
-                    var manifest = JsonSerializer.Deserialize<ExternalToolManifest>(File.ReadAllText(manifestPath));
+                    var manifest = JsonSerializer.Deserialize<ExternalToolManifest>(File.ReadAllText(manifestPath), ManifestJson);
                     if (manifest is null || string.IsNullOrWhiteSpace(manifest.Name)) continue;
                     var language = manifest.Language?.ToLowerInvariant() switch
                     {
@@ -415,9 +438,16 @@ public sealed class ToolManager : IDisposable
                         _ => ToolLanguage.Builtin
                     };
                     if (language == ToolLanguage.Builtin) continue;
-                    _tools[manifest.Name.Trim()] = new ToolDefinition
+                    var toolName = manifest.Name.Trim();
+                    // 外部工具不得顶掉内置工具：同名会让聊天侧的核心能力凭空消失
+                    if (_builtins.ContainsKey(toolName))
                     {
-                        Name = manifest.Name.Trim(),
+                        App.WriteLog($"ToolManager: 外部工具 {toolName} 与内置工具重名，已跳过");
+                        continue;
+                    }
+                    _tools[toolName] = new ToolDefinition
+                    {
+                        Name = toolName,
                         Description = manifest.Description ?? "",
                         Language = language,
                         Entry = string.IsNullOrWhiteSpace(manifest.Entry) ? (language == ToolLanguage.Java ? "tool.jar" : "main.py") : manifest.Entry,
@@ -442,7 +472,7 @@ public sealed class ToolManager : IDisposable
                     var manifestPath = Path.Combine(skill.Dir, "tool.json");
                     try
                     {
-                        var manifest = JsonSerializer.Deserialize<ExternalToolManifest>(File.ReadAllText(manifestPath));
+                        var manifest = JsonSerializer.Deserialize<ExternalToolManifest>(File.ReadAllText(manifestPath), ManifestJson);
                         if (manifest is null) continue;
                         var language = manifest.Language?.ToLowerInvariant() switch
                         {
@@ -452,6 +482,11 @@ public sealed class ToolManager : IDisposable
                         };
                         if (language == ToolLanguage.Builtin) continue;
                         var toolName = string.IsNullOrWhiteSpace(manifest.Name) ? $"skill_{skill.Name}" : manifest.Name.Trim();
+                        if (_builtins.ContainsKey(toolName))
+                        {
+                            App.WriteLog($"ToolManager: skill 工具 {toolName} 与内置工具重名，已跳过");
+                            continue;
+                        }
                         _tools[toolName] = new ToolDefinition
                         {
                             Name = toolName,
@@ -806,9 +841,9 @@ public sealed class ToolManager : IDisposable
 
                 var all = await memory.All(charId);
                 IEnumerable<MemoryEntry> hits = all;
-                // 联想检索：先用词义关系网把关键词扩散成一组相关词（想到「咖啡」也该想起「加班」）
+                // 联想检索：先用关系网把关键词扩散成一组相关词（想到「咖啡」也该想起「加班」）
                 var relatedTerms = new List<string>();
-                var semantic = services.GetService(typeof(SemanticNetworkService)) as SemanticNetworkService;
+                var semantic = services.GetService(typeof(RelationNetworkService)) as RelationNetworkService;
                 if (semantic is not null && keyword.Length > 0)
                 {
                     try
@@ -1506,7 +1541,9 @@ public sealed class ExternalToolManifest
     public string Language { get; set; } = "python";
     public string Entry { get; set; } = "";
     /// <summary>可选：参数 JSON Schema（DeepSeek Harness 契约）；缺省时由内置参数列表生成。</summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(FlexibleSchemaConverter))]
     public string? Schema { get; set; }
     /// <summary>可选：输出 JSON Schema。</summary>
+    [System.Text.Json.Serialization.JsonConverter(typeof(FlexibleSchemaConverter))]
     public string? OutputSchema { get; set; }
 }

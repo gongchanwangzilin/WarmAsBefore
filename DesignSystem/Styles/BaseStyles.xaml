@@ -3,7 +3,8 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
                     x:Class="WarmAsBefore.DesignSystem.Styles.BaseStyles">
 
-    <!-- 语义色随主题切换，见 DesignSystem/Theme/ColorPalette*.xaml -->
+    <!-- 语义色由 StyleWorld 每次换档时写进应用级顶层字典，色板（Theme/ColorPalette*.xaml）只提供色相种子；
+         这里因此只可能引用名字，任何写死的颜色都会在换世界/换明暗时留下一半不属于当前档的界面。 -->
 
     <!-- Page Defaults -->
     <Style TargetType="Page" ApplyToDerivedTypes="True">

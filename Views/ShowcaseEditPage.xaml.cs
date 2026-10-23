@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -17,5 +18,6 @@ public partial class ShowcaseEditPage : ContentPage
         var id = ShowcaseEditViewModel.PendingScriptId;
         ShowcaseEditViewModel.PendingScriptId = null;
         _vm.LoadCommand.Execute(id);
+        Motion.ArrivePage(this);
     }
 }

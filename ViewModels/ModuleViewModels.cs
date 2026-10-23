@@ -57,6 +57,10 @@ public sealed partial class PhoneViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenChat() => await SafeNav("chat");
 
+    /// <summary>QQ 壳：与微信壳同构的青蓝换皮会话（多论坛、无礼物/支付）。</summary>
+    [RelayCommand]
+    private async Task OpenQq() => await SafeNav("qqchat");
+
     [RelayCommand]
     private async Task OpenMap() => await SafeNav("map");
 
@@ -127,6 +131,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     private readonly Modules.Market.GiftPanelService _gifts;
     private readonly Services.WeChatService _wechat;
     private readonly Services.StickerLibrary _stickerLib;
+    private readonly Services.VisionService _vision;
 
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
@@ -154,10 +159,23 @@ public sealed partial class WeChatViewModel : ObservableObject
     public bool HasStickers => Stickers.Count > 0;
     private string StickerDir => Path.Combine(_store.Root, "Stickers");
 
+    // ============ 壳形态（微信 / QQ 共用一个会话模型，只在品牌与功能开关上不同） ============
+    /// <summary>是否 QQ 壳：QQ 壳去掉礼品/支付面板（不进 GiftPanel），加上「论坛」入口。默认微信壳。</summary>
+    public bool IsQq { get; private set; }
+    /// <summary>顶栏品牌字（「微信」/「QQ」）。</summary>
+    public string ShellTitle { get; private set; } = "微信";
+
+    /// <summary>由页面在构造后调用：QQPage 设 "qq"，WeChatPage 保持默认。</summary>
+    public void SetShell(string shell)
+    {
+        IsQq = shell == "qq";
+        ShellTitle = IsQq ? "QQ" : "微信";
+    }
+
     public WeChatViewModel(GameEngine engine, ChatEngine chat, SpeechService speech,
         Modules.RealChat.OfficialChatBridge bridge, CharacterLibrary library,
         StorageProvider store, SettingsManager settings, Modules.Market.GiftPanelService gifts,
-        Services.WeChatService wechat, Services.StickerLibrary stickerLib)
+        Services.WeChatService wechat, Services.StickerLibrary stickerLib, Services.VisionService vision)
     {
         _engine = engine;
         _chat = chat;
@@ -169,6 +187,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         _gifts = gifts;
         _wechat = wechat;
         _stickerLib = stickerLib;
+        _vision = vision;
         _bridge.Incoming += OnRealIncoming;
         _bridge.Replied += OnRealReplied;
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshMode);
@@ -233,9 +252,48 @@ public sealed partial class WeChatViewModel : ObservableObject
     /// <summary>真微信（公众号接入）未开启时，用本地假微信：界面不变，AI 直接陪聊。</summary>
     private void RefreshMode()
     {
+        if (IsQq)
+        {
+            var qqReal = _settings.Current.QqBotEnabled
+                && _bridge.Channels.Length > 0 && _bridge.Channels[0].IsRunning;
+            ModeLabel = qqReal ? "QQ 官方机器人 · 已接入" : "本地 QQ · TA 还在";
+            return;
+        }
         var real = _settings.Current.WechatEnabled
             && _bridge.Channels.Length > 1 && _bridge.Channels[1].IsRunning;
         ModeLabel = real ? "真微信 · 已接入" : "本地微信 · TA 还在";
+    }
+
+    // ============ 视频号 / 论坛（社交壳外链与 QQ 特性面） ============
+
+    /// <summary>
+    /// 视频号：直接跳「设置 → 外部接入 → 视频号链接」里填的 URL（应用内浏览器打开；
+    /// 没填则提示去填）。纯数据跳转，不走 AI。
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenChannels()
+    {
+        var url = (_settings.Current.ChannelsUrl ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            try
+            {
+                await Shell.Current.DisplayAlert("视频号",
+                    "还没填视频号链接。到「设置 → 外部接入 → 视频号链接」里填一个 https:// 地址再试。", "好");
+            }
+            catch (Exception ex) { App.WriteLog("WeChatViewModel.OpenChannels(alert) -> " + ex.Message); }
+            return;
+        }
+        try { await Browser.OpenAsync(url); }
+        catch (Exception ex) { App.WriteLog("WeChatViewModel.OpenChannels -> " + ex.Message); }
+    }
+
+    /// <summary>QQ 壳的「论坛」入口（微信壳没有）：进 QQ 论坛页（纯本地数据，不走 AI）。</summary>
+    [RelayCommand]
+    private async Task OpenForum()
+    {
+        try { await Shell.Current.GoToAsync("qqforum"); }
+        catch (Exception ex) { App.WriteLog("WeChatViewModel.OpenForum -> " + ex.Message); }
     }
 
     private void OnRealIncoming(Modules.RealChat.RealChatMessage msg)
@@ -294,6 +352,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     [RelayCommand]
     private void ToggleGiftPanel()
     {
+        if (IsQq) return;   // QQ 壳砍掉了支付/送礼：不进 GiftPanel，UI 上也没有入口
         IsGiftPanelVisible = !IsGiftPanelVisible;
         if (IsGiftPanelVisible) OnPropertyChanged(nameof(GiftItems));
     }
@@ -348,7 +407,8 @@ public sealed partial class WeChatViewModel : ObservableObject
         _ = ReplyToStickerAsync();
     }
 
-    /// <summary>导入表情：选任何文件 → 复制进表情库 → 立即出现在面板。</summary>
+    /// <summary>导入表情：选任何文件 → 复制进表情库 → 立即出现在面板。
+    /// 图片类且配了识图模型时顺手 OCR 一句描述，登记进统一表情库（AI 按描述选表情）。</summary>
     [RelayCommand]
     private async Task ImportSticker()
     {
@@ -358,14 +418,69 @@ public sealed partial class WeChatViewModel : ObservableObject
         {
             var dir = StickerDir;
             Directory.CreateDirectory(dir);
+            var originalName = Path.GetFileNameWithoutExtension(path);
             var dest = Path.Combine(dir, $"{DateTime.Now:yyyyMMddHHmmss}_{Path.GetFileName(path)}");
             File.Copy(path, dest, overwrite: true);
             Stickers.Add(dest);
             OnPropertyChanged(nameof(HasStickers));
+            await RegisterStickerIntoLibraryAsync(dest, originalName);
         }
         catch (Exception ex)
         {
             App.WriteLog("WeChatViewModel.ImportSticker -> " + ex);
+        }
+    }
+
+    /// <summary>把壳里导入的表情登记进统一表情库（不复制文件）；图片且识图模型可用时先 OCR 描述。</summary>
+    private async Task RegisterStickerIntoLibraryAsync(string path, string name)
+    {
+        try
+        {
+            var desc = "";
+            if (_vision.IsConfigured && IsStickerImagePath(path))
+            {
+                desc = (await _vision.DescribeImageAsync(path, StickerOcrPrompt)) ?? "";
+            }
+            await _stickerLib.RegisterAsync(path, name, desc);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WeChatViewModel.RegisterSticker -> " + ex.Message);
+        }
+    }
+
+    private static bool IsStickerImagePath(string path) =>
+        Path.GetExtension(path).ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".webp" or ".bmp";
+
+    /// <summary>识图提示词（与设置页「表情自动描述」同款：一句中文，30 字内）。</summary>
+    private const string StickerOcrPrompt =
+        "这是一张聊天用的表情包。请用一句中文描述它的内容、情绪和适合的使用场景（30 字以内，直接给描述，不要客套）。";
+
+    /// <summary>
+    /// 收到的表情（AI 发来的）若还没描述且识图模型可用，补一次 OCR 存进表情库 ——
+    /// 让 AI 之后也「认得」这张图。未配置模型时完全 no-op（纯数据面，不强制走 AI）。
+    /// </summary>
+    private void MaybeOcrStickerAsync(string name)
+    {
+        var item = _stickerLib.Find(name);
+        if (item is null || !string.IsNullOrWhiteSpace(item.Description)) return;
+        if (!_vision.IsConfigured || !IsStickerImagePath(item.Path)) return;
+        _ = OcrStickerBackgroundAsync(item, name);
+    }
+
+    private async Task OcrStickerBackgroundAsync(StickerItem item, string name)
+    {
+        try
+        {
+            var desc = await _vision.DescribeImageAsync(item.Path, StickerOcrPrompt);
+            if (string.IsNullOrWhiteSpace(desc)) return;
+            var fresh = _stickerLib.Find(name);
+            if (fresh is null || !string.IsNullOrWhiteSpace(fresh.Description)) return;
+            await _stickerLib.UpdateDescriptionAsync(fresh.Id, desc);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WeChatViewModel.OcrSticker -> " + ex.Message);
         }
     }
 
@@ -458,6 +573,7 @@ public sealed partial class WeChatViewModel : ObservableObject
                 if (path is null) continue;
                 AddMediaMessage(path, isUser: false);
                 hit = true;
+                MaybeOcrStickerAsync(nm);   // 识图模型可用时补 OCR，让 AI 之后也「认得」这张表情
             }
         }
         if (hit) return;
@@ -507,7 +623,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         try
         {
-            var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null);
+            var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow);
             if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window xw) return null;
             var picker = new Windows.Storage.Pickers.FileOpenPicker();
             picker.FileTypeFilter.Add("*");   // 什么文件都可以选
@@ -670,8 +786,9 @@ public sealed partial class GalleryViewModel : ObservableObject
 
     private readonly Services.MemoryOverviewService _overview;
     private readonly Services.HumanMemoryService _human;
-    private readonly Services.SemanticNetworkService _semantic;
+    private readonly Services.RelationNetworkService _network;
     private readonly Services.MemoryTagService _tags;
+    private readonly Services.PageWindowService _windows;
     [ObservableProperty] private bool _isMemoirSelected = true;
     [ObservableProperty] private bool _isDiarySelected;
     [ObservableProperty] private bool _isCgSelected;
@@ -688,8 +805,8 @@ public sealed partial class GalleryViewModel : ObservableObject
     public GalleryViewModel(Modules.AiChat.MemoryVault memory, GameEngine engine,
         Modules.Automation.DailyDiaryWriter diary, Modules.Cg.CgStore cg,
         Modules.Cg.CgViewPayload cgView, Services.MemoryOverviewService overview,
-        Services.HumanMemoryService human, Services.SemanticNetworkService semantic,
-        Services.MemoryTagService tags)
+        Services.HumanMemoryService human, Services.RelationNetworkService semantic,
+        Services.MemoryTagService tags, Services.PageWindowService windows)
     {
         _memory = memory;
         _engine = engine;
@@ -698,8 +815,9 @@ public sealed partial class GalleryViewModel : ObservableObject
         _cgView = cgView;
         _overview = overview;
         _human = human;
-        _semantic = semantic;
+        _network = semantic;
         _tags = tags;
+        _windows = windows;
     }
 
     private string CharacterId
@@ -742,6 +860,19 @@ public sealed partial class GalleryViewModel : ObservableObject
     private async Task OpenMemoryManage() =>
         await Shell.Current.GoToAsync($"memoryManage?charId={Uri.EscapeDataString(CharacterId)}");
 
+    /// <summary>关系网、搜事件各自另开一扇窗：这边翻记录，那边同时看着网。</summary>
+    [RelayCommand]
+    private async Task OpenGraph() =>
+        await _windows.OpenOrNavigateAsync(PageWindowKeys.Graph, "关系网",
+            typeof(Views.MemoryGraphPage), PageWindowKeys.Graph,
+            new Dictionary<string, object> { ["charId"] = CharacterId });
+
+    [RelayCommand]
+    private async Task OpenSearch() =>
+        await _windows.OpenOrNavigateAsync(PageWindowKeys.Search, "搜事件",
+            typeof(Views.MemorySearchPage), PageWindowKeys.Search,
+            new Dictionary<string, object> { ["charId"] = CharacterId });
+
     private async Task ReloadRememberedAsync()
     {        try
         {
@@ -779,7 +910,7 @@ public sealed partial class GalleryViewModel : ObservableObject
                 ? string.Join("　", tags.Select(t => $"{t.Name}×{t.Count}"))
                 : "";
 
-            var links = await _semantic.TopLinksAsync(CharacterId, 8);
+            var links = await _network.TopLinksAsync(CharacterId, 8);
             HasSemantic = links.Count > 0;
             SemanticSummary = HasSemantic
                 ? string.Join("\n", links.Select(l => $"{l.A} ↔ {l.B}（{l.Weight:0}，{SourceText(l.Source)}）"))

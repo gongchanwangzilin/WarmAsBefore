@@ -14,18 +14,18 @@ public sealed class MemoryOverviewService
     private readonly ChatEngine _chat;
     private readonly MemoryVault _vault;
     private readonly HumanMemoryService _human;
-    private readonly SemanticNetworkService _semantic;
+    private readonly RelationNetworkService _network;
     private readonly MemoryTagService _tags;
     private readonly SettingsManager _settings;
     private readonly GameEngine _engine;
 
     public MemoryOverviewService(ChatEngine chat, MemoryVault vault, HumanMemoryService human,
-        SemanticNetworkService semantic, MemoryTagService tags, SettingsManager settings, GameEngine engine)
+        RelationNetworkService semantic, MemoryTagService tags, SettingsManager settings, GameEngine engine)
     {
         _chat = chat;
         _vault = vault;
         _human = human;
-        _semantic = semantic;
+        _network = semantic;
         _tags = tags;
         _settings = settings;
         _engine = engine;
@@ -53,8 +53,8 @@ public sealed class MemoryOverviewService
             MemoryLayers.Describe(MemoryLayer.Human), human.Count, "条",
             $"其中照片 {photos} 张 · 重要时刻 {important} 条 · 回想窗口 {WindowText()}"));
 
-        var links = await _semantic.LinkCountAsync(id);
-        var topLinks = await _semantic.TopLinksAsync(id, 3);
+        var links = await _network.LinkCountAsync(id);
+        var topLinks = await _network.TopLinksAsync(id, 3);
         list.Add(new LayerStat(MemoryLayer.Semantic, MemoryLayers.Name(MemoryLayer.Semantic),
             MemoryLayers.Describe(MemoryLayer.Semantic), links, "条联系",
             topLinks.Count == 0 ? "还没长出来（多聊几句就会积累）"
@@ -85,7 +85,8 @@ public sealed class MemoryOverviewService
     private string WindowText()
     {
         var days = _settings.Current.MemoryWindowDays;
-        return days <= 0 ? "不限" : $"{days:0.#} 天";
+        if (days <= 0) return "不限";
+        return days < 1 ? $"{days * 24:0.#} 小时" : $"{days:0.#} 天";
     }
 
     private string ResolveCharId(string? charId)

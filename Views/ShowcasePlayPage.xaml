@@ -7,7 +7,7 @@
              x:Class="WarmAsBefore.Views.ShowcasePlayPage"
              Title="播放展示案"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="Black">
+             Background="{DynamicResource PageBgBrush}">
 
     <ContentPage.Resources>
         <conv:SpritePathToImageSourceConverter x:Key="PathConv" />
@@ -20,7 +20,8 @@
             <TapGestureRecognizer Tapped="OnTap" />
         </ContentPage.GestureRecognizers>
 
-        <!-- 背景 -->
+        <!-- 这一页内容（背景 + 立绘）就是主角：地面保持中性，没有铺满的黑底。
+             原来钉死一个 Black，四套色板与明暗切过来都无效，浮层只好自己也涂一层黑玻璃。 -->
         <Image Source="{Binding BgSource}" IsVisible="{Binding BgVisible}" Aspect="AspectFill" />
 
         <!-- 立绘舞台 -->
@@ -39,14 +40,15 @@
                    Aspect="AspectFit" HorizontalOptions="End" VerticalOptions="End" HeightRequest="480" WidthRequest="280" />
         </Grid>
 
-        <!-- 顶栏 -->
-        <Border BackgroundColor="#88000000" Padding="12,4" VerticalOptions="Start" StrokeThickness="0">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="◀ 退出" TextColor="#FFF" BackgroundColor="#44000000" FontSize="12"
-                        CornerRadius="14" Padding="14,6" Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="{Binding ProgressText}" TextColor="#FFF" FontSize="13"
+        <!-- 顶栏：浮在内容上的面板一律用 CardFrost —— 到底通不透由世界决定，这里不自己调玻璃色。 -->
+        <Border Style="{StaticResource CardFrost}" VerticalOptions="Start" HorizontalOptions="Fill"
+                Margin="{DynamicResource WPadCard}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WGapSection}">
+                <Button Grid.Column="0" Text="◀ 退出" Style="{StaticResource BtnGhostSm}"
+                        VerticalOptions="Center" Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="{Binding ProgressText}" Style="{StaticResource TxtBodySm}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
-                <Label Grid.Column="2" Text="{Binding Script.Name}" TextColor="#FFF" FontSize="12"
+                <Label Grid.Column="2" Text="{Binding Script.Name}" Style="{StaticResource TxtCaption}"
                        HorizontalOptions="End" VerticalOptions="Center" />
             </Grid>
         </Border>
@@ -55,24 +57,25 @@
         <Image Source="{Binding CgSource}" IsVisible="{Binding CgVisible}" Aspect="AspectFit" />
 
         <!-- 底部对话 -->
-        <Border IsVisible="{Binding DialogueVisible}" BackgroundColor="#E6000000"
-                Padding="20,18" Margin="0,0,0,36"
-                VerticalOptions="End" StrokeThickness="0">
-            <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
-            <VerticalStackLayout Spacing="6">
-                <Label Text="{Binding SpeakerName}" TextColor="{DynamicResource AccentWarm}" FontSize="15" FontAttributes="Bold" />
-                <Label Text="{Binding DialogueText}" TextColor="#FFF" FontSize="16" LineBreakMode="WordWrap" />
+        <Border Style="{StaticResource CardFrost}" IsVisible="{Binding DialogueVisible}"
+                VerticalOptions="End" Margin="{DynamicResource WPadCard}">
+            <VerticalStackLayout Spacing="4">
+                <!-- 说话人以前挂的是 AccentWarm：那是一张「面」，压在浅面上只有 1.1:1，等于没写。
+                     换成信号墨 —— 整屏唯一的一颗饱和色，正好用来指「此刻是谁在说」。 -->
+                <Label Text="{Binding SpeakerName}" Style="{StaticResource TxtRowTitle}"
+                       TextColor="{DynamicResource SignalFg}" />
+                <Label Text="{Binding DialogueText}" Style="{StaticResource TxtBody}"
+                       LineBreakMode="WordWrap" />
             </VerticalStackLayout>
         </Border>
 
-        <!-- 播放结束 -->
-        <Border IsVisible="{Binding IsFinished}" BackgroundColor="#C0000000"
-                Padding="40,28" HorizontalOptions="Center" VerticalOptions="Center"
-                StrokeThickness="0">
-            <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
-            <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
-                <Label Text="🎉 播放结束" TextColor="#FFF" FontSize="20" FontAttributes="Bold" HorizontalOptions="Center" />
-                <Button Text="返回列表" Style="{StaticResource BtnNeumorphSm}" Command="{Binding BackCommand}" />
+        <!-- 播放结束：这是盖住整页的对话框，所以用 CardDialog（边和那档影子由世界发） -->
+        <Border Style="{StaticResource CardDialog}" IsVisible="{Binding IsFinished}"
+                HorizontalOptions="Center" VerticalOptions="Center">
+            <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
+                <Label Text="🎉 播放结束" Style="{StaticResource TxtTitle}" HorizontalOptions="Center" />
+                <Button Text="返回列表" Style="{StaticResource BtnNeumorphSm}" HorizontalOptions="Center"
+                        Command="{Binding BackCommand}" />
             </VerticalStackLayout>
         </Border>
     </Grid>

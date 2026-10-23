@@ -14,26 +14,50 @@ namespace WarmAsBefore.Services;
 /// </summary>
 public sealed class HumanMemoryService
 {
-    private const string StoreKey = "human_memories";
+    private const string StoreName = "human_memories";
 
     private readonly StorageProvider _store;
+    private readonly MemoryScope _scope;
     private readonly object _gate = new();
     private List<HumanMemoryEntry> _cache = new();
-    private bool _loaded;
+    private Task? _loading;
+    private string _scopeKey = StoreName;
 
-    public HumanMemoryService(StorageProvider store) => _store = store;
+    public HumanMemoryService(StorageProvider store, MemoryScope scope)
+    {
+        _store = store;
+        _scope = scope;
+        _scopeKey = scope.Key(StoreName);
+        scope.Changed += OnScopeChanged;
+    }
 
-    private async Task EnsureLoadedAsync()
+    /// <summary>换档/换开关：上一个存档的记忆不能留在缓存里，否则会被写进这个存档的文件。</summary>
+    private void OnScopeChanged()
     {
         lock (_gate)
         {
-            if (_loaded) return;
-            _loaded = true;
+            _cache = new();
+            _loading = null;
+            _scopeKey = _scope.Key(StoreName);
         }
+    }
+
+    /// <summary>
+    /// 只读一次盘，但「读过」以读完为准：拿缓存的 Task 而不是布尔标记，
+    /// 因为标记先置位的话，同一瞬间进来的第二个调用会以为已经加载好，捧着空缓存就返回。
+    /// </summary>
+    private Task EnsureLoadedAsync()
+    {
+        lock (_gate) return _loading ??= LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var key = _scopeKey;
         try
         {
-            var saved = await _store.Load<List<HumanMemoryEntry>>(StoreKey);
-            lock (_gate) { if (saved is not null) _cache = saved; }
+            var saved = await _store.Load<List<HumanMemoryEntry>>(key);
+            lock (_gate) { if (saved is not null && key == _scopeKey) _cache = saved; }
         }
         catch (Exception ex)
         {
@@ -44,8 +68,13 @@ public sealed class HumanMemoryService
     private Task PersistAsync()
     {
         List<HumanMemoryEntry> snapshot;
-        lock (_gate) snapshot = _cache.ToList();
-        return _store.Save(StoreKey, snapshot);
+        string key;
+        lock (_gate)
+        {
+            snapshot = _cache.ToList();
+            key = _scopeKey;
+        }
+        return _store.Save(key, snapshot);
     }
 
     /// <summary>记下一件事（默认按内容推测类型与重要性）。</summary>
@@ -57,6 +86,7 @@ public sealed class HumanMemoryService
 
         var line = text.Trim();
         if (line.Length > 60) line = line[..60];
+        var clean = tags is null ? new List<string>() : tags.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList();
         var entry = new HumanMemoryEntry
         {
             CharacterId = charId,
@@ -64,7 +94,9 @@ public sealed class HumanMemoryService
             ImagePath = imagePath ?? "",
             Kind = kind ?? HumanMemoryMath.GuessKind(line, imagePath ?? ""),
             Importance = importance ?? HumanMemoryMath.EstimateImportance(line),
-            Tags = tags is null ? new List<string>() : tags.Where(t => !string.IsNullOrWhiteSpace(t)).Distinct().ToList()
+            Tags = clean,
+            SentenceTags = HumanMemoryMath.AutoTag(line, clean),
+            Emotion = EmotionMix.FromText(line)
         };
 
         lock (_gate)
@@ -74,7 +106,25 @@ public sealed class HumanMemoryService
             if (dup is not null)
             {
                 var idx = _cache.IndexOf(dup);
-                _cache[idx] = dup with { Importance = Math.Max(dup.Importance, entry.Importance) };
+                // 命中旧条目时标签要并进去：AI 第二次给同一件事打标签，不能只留新那一批
+                var merged = (dup.SentenceTags.Count > 0
+                        ? dup.SentenceTags
+                        : HumanMemoryMath.AutoTag(dup.Text, dup.Tags))
+                    .Select(s => s with { Tags = s.Tags.ToList() }).ToList();
+                foreach (var add in entry.SentenceTags)
+                {
+                    var at = merged.FindIndex(m => m.Index == add.Index);
+                    if (at < 0) merged.Add(new SentenceTag { Index = add.Index, Tags = add.Tags.ToList() });
+                    else foreach (var t in add.Tags)
+                        if (!merged[at].Tags.Contains(t, StringComparer.OrdinalIgnoreCase)) merged[at].Tags.Add(t);
+                }
+                _cache[idx] = dup with
+                {
+                    Importance = Math.Max(dup.Importance, entry.Importance),
+                    SentenceTags = merged.OrderBy(m => m.Index).ToList(),
+                    Emotion = MergeEmotion(dup.Emotion, entry.Emotion),
+                    Tags = merged.SelectMany(m => m.Tags).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+                };
             }
             else
             {
@@ -176,6 +226,126 @@ public sealed class HumanMemoryService
         lock (_gate) removed = _cache.RemoveAll(m => m.CharacterId == charId && m.Id == memoryId) > 0;
         if (removed) await PersistAsync();
         return removed;
+    }
+
+    /// <summary>
+    /// 手工给某一句贴 / 摘标签（AI 自动贴的经常差一句）。改完把整条的标签表重算成各句的并集，
+    /// 免得「按标签检索」和「界面上看到的」各说一套。
+    /// </summary>
+    public async Task<SentenceTagChange> ToggleSentenceTagAsync(string charId, string memoryId, int sentenceIndex, string tag)
+    {
+        await EnsureLoadedAsync();
+        var name = tag?.Trim() ?? "";
+        if (name.Length is 0 or > 12) return SentenceTagChange.None;
+        var change = SentenceTagChange.None;
+        lock (_gate)
+        {
+            var at = _cache.FindIndex(m => m.CharacterId == charId && m.Id == memoryId);
+            if (at < 0) return SentenceTagChange.None;
+            var e = _cache[at];
+            // 老数据没有句级标签：先按现文本自动铺一遍，再在这份副本上改
+            var marks = (e.SentenceTags.Count > 0
+                    ? e.SentenceTags.Select(s => s with { Tags = s.Tags.ToList() })
+                    : HumanMemoryMath.AutoTag(e.Text, e.Tags)).ToList();
+            var hit = marks.FindIndex(m => m.Index == sentenceIndex);
+            var on = hit >= 0 && marks[hit].Tags.Contains(name, StringComparer.OrdinalIgnoreCase);
+            if (on)
+            {
+                marks[hit].Tags.RemoveAll(t => string.Equals(t, name, StringComparison.OrdinalIgnoreCase));
+                if (marks[hit].Tags.Count == 0) marks.RemoveAt(hit);
+                change = SentenceTagChange.Removed;
+            }
+            else
+            {
+                if (hit < 0) marks.Add(new SentenceTag { Index = sentenceIndex, Tags = new List<string>() });
+                marks[marks.FindIndex(m => m.Index == sentenceIndex)].Tags.Add(name);
+                change = SentenceTagChange.Added;
+            }
+            _cache[at] = e with
+            {
+                SentenceTags = marks.OrderBy(m => m.Index).ToList(),
+                Tags = marks.SelectMany(m => m.Tags).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
+            };
+        }
+        if (change != SentenceTagChange.None) await PersistAsync();
+        return change;
+    }
+
+    /// <summary>同一件事第二次被记起：两份配比加权合成，越常想起的那份越重。</summary>
+    private static EmotionMix? MergeEmotion(EmotionMix? old, EmotionMix? fresh)
+    {
+        if (old is null || old.IsEmpty) return fresh;
+        if (fresh is null || fresh.IsEmpty) return old;
+        return EmotionMix.Merge(new[] { (old, 1.0), (fresh, 1.0) });
+    }
+
+    /// <summary>人工改这件事的情绪配比（本地词表读错的时候，人可以说算什么）。</summary>
+    public async Task<bool> SetEmotionAsync(string charId, string memoryId, EmotionMix mix)
+    {
+        await EnsureLoadedAsync();
+        lock (_gate)
+        {
+            var at = _cache.FindIndex(m => m.CharacterId == charId && m.Id == memoryId);
+            if (at < 0) return false;
+            _cache[at] = _cache[at] with { Emotion = mix };
+        }
+        await PersistAsync();
+        return true;
+    }
+
+    /// <summary>
+    /// 搜事件：话里、标签里、情绪配比里、甚至「哪天」都算命中。
+    /// 人找回一件事从来不是按相关度找的，是「那天…」「因为…」「有点委屈的」——
+    /// 所以时间说法和情绪名字也得能搜，不然搜出来的只是全文检索。
+    /// </summary>
+    public async Task<List<HumanMemoryHit>> SearchAsync(string charId, string? query, int limit = 80)
+    {
+        await EnsureLoadedAsync();
+        var q = (query ?? "").Trim();
+        List<HumanMemoryEntry> pool;
+        lock (_gate) pool = _cache.Where(m => m.CharacterId == charId).ToList();
+        if (string.IsNullOrEmpty(q))
+            return pool.OrderByDescending(m => m.CreatedAt).Take(Math.Max(1, limit))
+                .Select(m => new HumanMemoryHit(m, 0, "")).ToList();
+
+        var hits = new List<HumanMemoryHit>();
+        foreach (var m in pool)
+        {
+            var score = 0.0;
+            var why = new List<string>();
+            if (Contains(m.Text, q)) { score += 3; why.Add("话里说到"); }
+            var tag = m.Tags.FirstOrDefault(t => Contains(t, q));
+            if (tag is not null) { score += 2.2; why.Add("贴着「" + tag + "」"); }
+            var feel = m.Emotion?.Parts.FirstOrDefault(p => Contains(p.Name, q));
+            if (feel is not null) { score += 1.6 + feel.Ratio; why.Add($"那份情绪里「{feel.Name}」占{(int)Math.Round(feel.Ratio * 10)}成"); }
+            if (m.ImagePath.Length > 0 && Contains(System.IO.Path.GetFileNameWithoutExtension(m.ImagePath), q))
+            { score += 1.2; why.Add("照片名对上"); }
+            if (DateHit(m.CreatedAt, q)) { score += 1.8; why.Add("就是那天"); }
+            if (score <= 0) continue;
+            hits.Add(new HumanMemoryHit(m, score + m.Importance, string.Join(" · ", why)));
+        }
+        return hits
+            .OrderByDescending(h => h.Score)
+            .ThenByDescending(h => h.Entry.CreatedAt)
+            .Take(Math.Max(1, limit))
+            .ToList();
+    }
+
+    private static bool Contains(string? haystack, string needle)
+        => !string.IsNullOrEmpty(haystack) && haystack.IndexOf(needle, StringComparison.OrdinalIgnoreCase) >= 0;
+
+    /// <summary>「8月24」「2026-08-24」「24号」这类说法命中那一天（单日数字太容易误命中，不算）。</summary>
+    private static bool DateHit(DateTime at, string q)
+    {
+        if (q.Length < 2) return false;
+        var u = at.ToLocalTime();
+        var forms = new[]
+        {
+            $"{u.Year}-{u.Month:00}-{u.Day:00}", $"{u.Year}/{u.Month}/{u.Day}",
+            $"{u.Month}月{u.Day}日", $"{u.Month}月{u.Day}号", $"{u.Day}号", $"{u.Day}日"
+        };
+        foreach (var f in forms) if (Contains(f, q)) return true;
+        return false;
     }
 
     public async Task<int> CountAsync(string charId)

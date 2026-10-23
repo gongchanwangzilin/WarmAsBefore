@@ -113,7 +113,7 @@ public static class WindowTopmost
     /// <summary>主窗口（承载 Shell 的那个）；桌宠是独立窗口，不参与对话框抬升。</summary>
     private static IntPtr GetMainHwnd()
     {
-        var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null);
+        var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow);
         return win?.Handler?.PlatformView is Microsoft.UI.Xaml.Window w ? GetHwnd(w) : IntPtr.Zero;
     }
 

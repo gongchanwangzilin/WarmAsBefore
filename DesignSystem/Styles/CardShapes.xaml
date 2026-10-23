@@ -1,69 +1,127 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+                    xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
                     x:Class="WarmAsBefore.DesignSystem.Styles.CardShapes">
 
     <!--
       卡片 / 弹窗表面。
-      玻璃档位是全局设置（设置页的磨砂 / 毛玻璃 / 液态玻璃三个开关），
-      所以这里不再各写一套颜色，统一引用 GlassTokens 下发的画刷：
-        GlassCardBg / GlassCardStroke / GlassCardStrokeThickness
-      关掉玻璃就是实心表面，开启后整体变通透并带上亮边。
-      各风格之间只保留圆角与内边距的差别。
+      这里**不再有任何具体的颜色、圆角、内距或影子** —— 它们全部来自 StyleWorld 下发的令牌：
+        面   WSurfaceBrush / WSurfaceRaised / WWellBrush / WBarBrush
+        缝   WEdgeBrush + WEdgeWidth
+        角   WRadiusCard / WRadiusWell / WRadiusDialog
+        距   WPadCard / WPadWell
+        影   WShadowCardBrush / WShadowDialogBrush（样式里内联 Shadow 对象，世界只换它的颜色；
+             轻质感与柔和极简发到全透明 —— 这两档本来就不靠影子，靠缝和台阶）
+      所以换世界只改令牌，样式对象本身不动；而 {DynamicResource} 写的是应用级顶层字典，
+      已经渲染的页面会跟着一起换档，不需要重建 Shell。
+    -->
+
+    <!--
+      三档深度（这套界面里「高低」就是「轻重」）：
+        凹 Well    CardNeumorphInset（在 NeumorphicStyles 里）—— 底色比容器沉，边上压一道线
+        平 Flat    CardSolid / CardFrost        —— 页面结构、说明、图例
+        浮 Raised  CardNeumorph                 —— 此刻要动它的那张卡
+      三个世界用三种方式表达同一件事：轻质感靠缝，柔和极简靠底色台阶，液态玻璃靠通透与发光边。
     -->
 
     <Style x:Key="CardSolid" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
-        <Setter Property="StrokeThickness" Value="0" />
-        <Setter Property="Padding" Value="16" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="16" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Background" Value="{DynamicResource WSurfaceBrush}" />
+        <Setter Property="Stroke" Value="{DynamicResource WEdgeBrush}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource WEdgeWidth}" />
+        <Setter Property="Padding" Value="{DynamicResource WPadCard}" />
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusCard}" />
     </Style>
 
+    <!-- 通透版：压在画布/图片上的卡片。世界决定它到底通不通（极简档就是实心面）。 -->
     <Style x:Key="CardFrost" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
         <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
         <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
-        <Setter Property="Padding" Value="16" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="16" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Padding" Value="{DynamicResource WPadCard}" />
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusCard}" />
     </Style>
 
-    <Style x:Key="CardGlass" TargetType="Border" BasedOn="{StaticResource CardFrost}" />
-
-    <Style x:Key="CardLiquid" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
-        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
-        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
-        <Setter Property="Padding" Value="20" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="20" />
-            </Setter.Value>
-        </Setter>
-    </Style>
-
-    <!-- 弹窗 / 对话框表面（免责声明、确认框等） -->
+    <!-- 弹窗 / 对话框表面（免责声明、确认框等）：对话框在任何世界都该有影子，
+         它必须盖住整页，靠边线站不住。 -->
     <Style x:Key="CardDialog" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
-        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
-        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
+        <Setter Property="Background" Value="{DynamicResource WSurfaceRaised}" />
+        <Setter Property="Stroke" Value="{DynamicResource WEdgeStrongBrush}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource WEdgeWidth}" />
         <Setter Property="Padding" Value="24" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="24" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusDialog}" />
+        <!-- Shadow 对象内联、只有 Brush 跟世界走：换整个 Shadow 对象 = 重建合成层，
+             症状是「导航回来元素位置还在、不再绘制」。不要影子时世界把颜色发到全透明。 -->
         <Setter Property="Shadow">
-            <Setter.Value>
-                <Shadow Brush="{DynamicResource ShadowDeep}" Offset="0,8" Radius="28" Opacity="0.28" />
-            </Setter.Value>
+            <Shadow Brush="{DynamicResource WShadowDialogBrush}" Offset="0,10" Radius="26" Opacity="1" />
+        </Setter>
+    </Style>
+
+    <!--
+      成组的行（对标桌面系统设置窗那张图）：一张白卡装若干条设置项，
+      卡自己不留内距（内距归每一行），行与行之间压一条发丝线。
+      为什么不是一行一张卡：一行一张卡时，卡片间距比行内间距还大，
+      眼睛读到的是「一摞牌子」而不是「一个分组」，分组关系因此消失。
+    -->
+    <Style x:Key="CardGroup" TargetType="Border" BasedOn="{StaticResource CardSolid}">
+        <Setter Property="Padding" Value="0" />
+    </Style>
+
+    <!-- 一行：左标题（+说明）、右控件、垂直居中。横向内距跟 WPadCard 同档，
+         卡和行的左边线因此对齐；行高由 WRowHeight 给 —— 它 = 上下内距 + 一行字，
+         所以窗口尺度一变、字号一换档，行会跟着长缩，不再钉死在 52 上。
+         （52 那档实测比内容需要的高出 8px，一整屏十条行就是 80px 的空白，
+         读起来是「一屏没装几件事」而不是「这事做得从容」。） -->
+    <Style x:Key="SettingRow" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="{DynamicResource WPadRow}" />
+        <Setter Property="MinimumHeightRequest" Value="{DynamicResource WRowHeight}" />
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
+    </Style>
+
+    <!-- 发丝线：用 BoxView 而不是 Border —— Border 的描边会绕四角，线只需要一条边。
+         BoxView.Color 只吃 Color，所以取 WSep（纯色版），不是 WSepBrush（画刷版给 Border 用）。
+         1px 是底线：低于一像素在 100% 缩放下会被抹平，分组感直接消失。 -->
+    <Style x:Key="HSep" TargetType="BoxView">
+        <Setter Property="Color" Value="{DynamicResource WSep}" />
+        <Setter Property="HeightRequest" Value="1" />
+        <Setter Property="HorizontalOptions" Value="Fill" />
+    </Style>
+
+    <!-- 缩进版：前面有图标或头像时，线从文字起，不从卡边起 —— 线跨过图标会把它读成「上一行的底」。 -->
+    <Style x:Key="HSepInset" TargetType="BoxView" BasedOn="{StaticResource HSep}">
+        <Setter Property="Margin" Value="{DynamicResource WPadRowInset}" />
+    </Style>
+
+    <!-- 出血版：给「卡自己带内距、行不写内距」的老结构用（设置子页就是这种）。
+         行还是靠卡的内距对齐，只有线往外顶回卡边的宽度 —— 参考窗的分线是通到卡边的。
+         比把每一行改成 SettingRow 安全得多：那是几十处结构改动，一处写错就整块错位。 -->
+    <Style x:Key="HSepBleed" TargetType="BoxView" BasedOn="{StaticResource HSep}">
+        <Setter Property="Margin" Value="{DynamicResource WPadCardBleed}" />
+    </Style>
+
+    <!-- 左侧导航条的一项：静止态透明，选中态只把底沉一档。
+         选中不靠整块饱和色 —— 参考窗的做法是「浅灰圆角块 + 左缘一根细胶囊 + 字加粗」，
+         饱和色占满一行会把读者的视线钉死在这一行上，反而看不清其余项。
+         胶囊由页面自己放一个 Border（WSignalBrush），因为它要不要出现取决于绑定，不归样式管。 -->
+    <Style x:Key="NavRailItem" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="10,8" />
+        <Setter Property="MinimumHeightRequest" Value="40" />
+        <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="VisualStateManager.VisualStateGroups">
+            <VisualStateGroupList>
+                <VisualStateGroup Name="CommonStates">
+                    <VisualState Name="Normal" />
+                    <VisualState Name="Selected">
+                        <VisualState.Setters>
+                            <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                        </VisualState.Setters>
+                    </VisualState>
+                </VisualStateGroup>
+            </VisualStateGroupList>
         </Setter>
     </Style>
 

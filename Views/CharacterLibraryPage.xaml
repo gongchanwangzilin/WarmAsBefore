@@ -8,95 +8,102 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0">
+        <!-- Header：顶栏与内容区同一块地，靠一条发丝线分界，不靠描边盒子 -->
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
+                        Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="角色库" Style="{StaticResource TxtTitle}"
                        VerticalOptions="Center" />
-                <Border Grid.Column="2" BackgroundColor="{DynamicResource BeigeAccent50}"
-                        StrokeThickness="0" Padding="10,5">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="AI 也会用到其他角色" FontSize="11" TextColor="{DynamicResource WarmDark}" />
+                <!-- 说明性徽章：井面 + 淡墨字。淡彩（*Tint / BeigeAccent*）只能当面，
+                     面上摆的仍然是墨 —— 徽章读起来是「一句注解」而不是一颗按钮。 -->
+                <Border Grid.Column="2" Background="{DynamicResource WWellBrush}"
+                        StrokeThickness="0" Padding="{DynamicResource WPadWell}" VerticalOptions="Center"
+                        StrokeShape="{DynamicResource WRadiusWell}">
+                    <Label Text="AI 也会用到其他角色" Style="{StaticResource TxtCaption}" />
                 </Border>
             </Grid>
         </Border>
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-        <!-- Library list -->
-        <CollectionView Grid.Row="1" ItemsSource="{Binding Items}"
-                        Margin="24,16,24,0" SelectionMode="None">
-            <CollectionView.EmptyView>
-                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                     Spacing="12" Padding="32">
-                    <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                            StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
-                            WidthRequest="96" HeightRequest="96">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
-                        <Label Text="♡" TextColor="{DynamicResource WarmFaint}" FontSize="40"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
-                    <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
-                           HorizontalOptions="Center" />
-                    <Label Text="在角色选择页新建或导入角色后，新角色会出现在这里" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="13" />
-                </VerticalStackLayout>
-            </CollectionView.EmptyView>
-            <CollectionView.ItemTemplate>
-                <DataTemplate x:DataType="vm:CharacterLibraryItem">
-                    <Border Style="{StaticResource CardNeumorph}" Margin="0,0,0,14"
-                            Padding="16,14">
-                        <Grid ColumnDefinitions="72,*,Auto" ColumnSpacing="16">
-                            <Border BackgroundColor="{DynamicResource BeigeAccent50}"
-                                    WidthRequest="64" HeightRequest="64"
-                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
-                                <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
-                                       IsVisible="{Binding HasAvatar}"
-                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
-                                <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
-                                       TextColor="{DynamicResource WarmDark}" FontSize="24"
-                                       HorizontalOptions="Center" VerticalOptions="Center"
-                                       FontAttributes="Bold"
-                                       IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+        <!-- Library list：一个角色 = 一行，全部装在同一张 CardGroup 里 -->
+        <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
+            <CollectionView ItemsSource="{Binding Items}"
+                            SelectionMode="None" BackgroundColor="Transparent">
+                <CollectionView.EmptyView>
+                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                         Spacing="12" Padding="{DynamicResource WPadCard}">
+                        <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                WidthRequest="72" HeightRequest="72"
+                                StrokeShape="{DynamicResource WRadiusPill}">
+                            <!-- 空态图形也得是墨档：WarmFaint 在这套语言里是淡档面，
+                                 压在井面上只剩 1.x:1，圆片里等于什么都没有。 -->
+                            <Label Text="♡" Style="{StaticResource TxtDisplay}"
+                                   TextColor="{DynamicResource MutedFg}"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+                        <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
+                               HorizontalOptions="Center" />
+                        <Label Text="在角色选择页新建或导入角色后，新角色会出现在这里" Style="{StaticResource TxtMuted}"
+                               HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </CollectionView.EmptyView>
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:CharacterLibraryItem">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                    <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
+                                            StrokeThickness="0" WidthRequest="56" HeightRequest="56"
+                                            VerticalOptions="Center"
+                                            StrokeShape="{DynamicResource WRadiusWell}">
+                                        <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
+                                               IsVisible="{Binding HasAvatar}"
+                                               HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                        <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
+                                               Style="{StaticResource TxtRowTitle}"
+                                               HorizontalOptions="Center" VerticalOptions="Center"
+                                               IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                    </Border>
+                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                            <!-- 主角标记同样留在墨阶（MutedFg）：
+                                                 强调淡彩是面，当文字色在浅色档只有 1.x:1，读不出「这是标记」 -->
+                                            <Label Text="{Binding IsMainLabel}"
+                                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                                   IsVisible="{Binding IsMain}" />
+                                        </HorizontalStackLayout>
+                                        <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
+                                        <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtMuted}" />
+                                    </VerticalStackLayout>
+                                    <!-- 触屏：「···」菜单入口（点按弹 ActionSheet），保留原有 Tap 手势 -->
+                                    <Button Grid.Column="2" Text="···" Style="{StaticResource BtnText}"
+                                            TextColor="{DynamicResource MutedFg}"
+                                            FontSize="{DynamicResource WSizeTitle}" Padding="8,0"
+                                            VerticalOptions="Center" HorizontalOptions="End"
+                                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
+                                            CommandParameter="{Binding Id}" />
+                                </Grid>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
+                                                          CommandParameter="{Binding Id}" />
+                                </Border.GestureRecognizers>
                             </Border>
-                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-                                <HorizontalStackLayout Spacing="8">
-                                    <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
-                                    <!-- 主角标签：BeigeAccent300 在浅色背景上对比度不足，用 WarmDark -->
-                                    <Label Text="{Binding IsMainLabel}"
-                                           TextColor="{DynamicResource WarmDark}" FontSize="11"
-                                           VerticalOptions="Center"
-                                           IsVisible="{Binding IsMain}" />
-                                </HorizontalStackLayout>
-                                <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
-                                <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtCaption}"
-                                       TextColor="{DynamicResource WarmMuted}" FontSize="11" />
-                            </VerticalStackLayout>
-                            <!-- 触屏：「···」菜单入口（点按弹 ActionSheet），保留原有 Tap 手势 -->
-                            <Button Grid.Column="2" Text="···" TextColor="{DynamicResource WarmMuted}"
-                                   BackgroundColor="Transparent" FontSize="20" Padding="8,0"
-                                   VerticalOptions="Center"
-                                   Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
-                                   CommandParameter="{Binding Id}" />
-                        </Grid>
-                        <Border.GestureRecognizers>
-                            <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
-                                                  CommandParameter="{Binding Id}" />
-                        </Border.GestureRecognizers>
-                    </Border>
-                </DataTemplate>
-            </CollectionView.ItemTemplate>
-        </CollectionView>
+                            <!-- 行首是头像：线从文字起，不跨过圆片 -->
+                            <BoxView Style="{StaticResource HSepInset}" />
+                        </VerticalStackLayout>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+        </Border>
 
         <!-- Footer hint -->
-        <Border Grid.Row="2" Background="{DynamicResource PageBgBrush}" Padding="24,4,24,20">
-            <Label Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开 TA 让 AI 改写人设即可。"
-                   Style="{StaticResource TxtCaption}" FontSize="12" HorizontalTextAlignment="Center" />
-        </Border>
+        <Label Grid.Row="3" Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开 TA 让 AI 改写人设即可。"
+               Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadWell}"
+               HorizontalTextAlignment="Center" />
     </Grid>
 </ContentPage>

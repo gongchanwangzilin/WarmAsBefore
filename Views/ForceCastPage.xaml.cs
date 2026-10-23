@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 namespace WarmAsBefore.Views;
 public partial class ForceCastPage : ContentPage
@@ -11,5 +12,6 @@ public partial class ForceCastPage : ContentPage
     {
         base.OnAppearing();
         if (BindingContext is ForceCastViewModel vm) _ = vm.LoadAsync();
+        Motion.ArrivePage(this);
     }
 }

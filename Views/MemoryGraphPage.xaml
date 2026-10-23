@@ -1,0 +1,369 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.MemoryGraphPage"
+             x:Name="GraphRoot"
+             x:DataType="vm:MemoryGraphViewModel"
+             Title="关系网"
+             BackgroundColor="{DynamicResource PageBg}">
+
+    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="0">
+
+        <!-- ============ 顶栏：身份 · 读数 · 这一片 · 动作 ============ -->
+        <Border Grid.Row="0" Style="{StaticResource CardSolid}" Padding="12,8">
+            <VerticalStackLayout Spacing="7">
+
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <HorizontalStackLayout Grid.Column="0" Spacing="8">
+                        <Button Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
+                                IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" />
+                        <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                               TextColor="{DynamicResource WarmDark}" VerticalTextAlignment="Center" />
+                    </HorizontalStackLayout>
+
+                    <ScrollView Grid.Column="1" Orientation="Horizontal" HeightRequest="22">
+                        <HorizontalStackLayout Spacing="12">
+                            <Label Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                   VerticalTextAlignment="Center" />
+                            <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+                            <Label Text="{Binding GrowthHint}" FontSize="12" TextColor="{DynamicResource WarmDark}"
+                                   VerticalTextAlignment="Center" />
+                        </HorizontalStackLayout>
+                    </ScrollView>
+
+                    <HorizontalStackLayout Grid.Column="2" Spacing="6">
+                        <Button Text="重播生长" Style="{StaticResource BtnGhostSm}" Command="{Binding ReplayCommand}" />
+                        <Button Text="铺满屏幕" Style="{StaticResource BtnGhostSm}" Command="{Binding FitViewCommand}" />
+                        <Button Text="跳到一个说法" Style="{StaticResource BtnGhostSm}" Command="{Binding JumpToTermCommand}" />
+                        <Button Text="搜事件" Style="{StaticResource BtnGhostSm}" Command="{Binding OpenSearchCommand}" />
+                        <Button Text="参数模型" Style="{StaticResource BtnGhostSm}"
+                                Command="{Binding TogglePanelsCommand}" CommandParameter="params" />
+                        <Button Text="量化模型" Style="{StaticResource BtnGhostSm}"
+                                Command="{Binding TogglePanelsCommand}" CommandParameter="quant" />
+                        <Button Text="思考模型" Style="{StaticResource BtnGhostSm}"
+                                Command="{Binding TogglePanelsCommand}" CommandParameter="think" />
+                        <Button Text="JSON" Style="{StaticResource BtnGhostSm}"
+                                Command="{Binding TogglePanelsCommand}" CommandParameter="json" />
+                        <Button Text="重新摊网" Style="{StaticResource BtnText}" FontSize="12"
+                                Command="{Binding ResyncCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <!-- 好几片、互相牵着：点一枚只看这一片，再点回去看整张。没有哪片是中心。 -->
+                <ScrollView Orientation="Horizontal" HeightRequest="38">
+                    <HorizontalStackLayout Spacing="6">
+                        <Button Text="整张都看" Style="{StaticResource BtnGhostSm}" Padding="10,0"
+                                Command="{Binding ShowAllNetsCommand}" />
+                        <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding NetChips}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MemoryGraphViewModel+NetChip">
+                                    <!-- 是按钮不是可点的画片：键盘 tab 得到、读屏念得出、自检也点得动。 -->
+                                    <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
+                                            BackgroundColor="{Binding Fill}" TextColor="{Binding Ink}"
+                                            Padding="10,0"
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=ShowOnlyNetCommand}"
+                                            CommandParameter="{Binding .}" />
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </HorizontalStackLayout>
+                </ScrollView>
+
+                <Label Text="{Binding LinkPendingText}" IsVisible="{Binding LinkPending}"
+                       FontSize="12" TextColor="{DynamicResource WarmDark}"
+                       BackgroundColor="{DynamicResource AccentWarm}" Padding="8,4">
+                    <Label.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding CancelLinkCommand}" />
+                    </Label.GestureRecognizers>
+                </Label>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- ============ 画布 + 浮层 ============ -->
+        <Grid Grid.Row="1" x:Name="CanvasHost">
+
+            <GraphicsView x:Name="GraphCanvas"
+                          StartInteraction="OnCanvasStart"
+                          DragInteraction="OnCanvasDrag"
+                          EndInteraction="OnCanvasEnd"
+                          BackgroundColor="Transparent" />
+
+            <!-- 左下：缩放与说明（铺在实色卡上：画布底色会变，浮字会糊） -->
+            <Border Style="{StaticResource CardSolid}" Padding="10,8" Margin="10"
+                    HorizontalOptions="Start" VerticalOptions="End" WidthRequest="246">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding OnlyNetName, StringFormat='只看这一片：{0}'}"
+                           Style="{StaticResource TxtCaption}" FontSize="11" IsVisible="{Binding HasNetFilter}" />
+                    <Label Text="{Binding HiddenCount, StringFormat='还有 {0} 个在更深处，摊开就能看到'}"
+                           IsVisible="{Binding HasHidden}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                    <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
+                        <Button Text="－" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
+                                Command="{Binding ZoomOutCommand}" />
+                        <Button Text="＋" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
+                                Command="{Binding ZoomInCommand}" />
+                        <Button Text="铺满" Style="{StaticResource BtnGhostSm}" Command="{Binding FitViewCommand}" />
+                    </HorizontalStackLayout>
+                    <Label Text="拖动=挪画面 · 滚轮=缩放 · 点一下=选中 · 再点一下=钉住它"
+                           Style="{StaticResource TxtCaption}" FontSize="11" />
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- 右边一条栏：选中了什么 + 打开的那个面板。同一宽度、同一列，不再互相盖住。 -->
+            <ScrollView HorizontalOptions="End" VerticalOptions="Fill" WidthRequest="352" Margin="10,10,12,10">
+                <VerticalStackLayout Spacing="10">
+
+                    <!-- 选中了什么 -->
+                    <Border IsVisible="{Binding HasSelection}" Style="{StaticResource CardFrost}" Padding="12,10">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="{Binding SelectedLabel}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                                   TextColor="{DynamicResource WarmDark}" />
+                            <Label Text="{Binding SelectedKind}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding SelectedMeta}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding SelectedDetail}" Style="{StaticResource TxtBody}"
+                                   FontSize="12" TextColor="{DynamicResource WarmBody}" />
+                            <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
+                                <Button Text="钉住它" Style="{StaticResource BtnNeumorphSm}" Command="{Binding MarkSelectedCommand}" />
+                                <Button Text="和它连…" Style="{StaticResource BtnNeumorphSm}" Command="{Binding LinkFromSelectedCommand}" />
+                                <Button Text="忘掉" Style="{StaticResource BtnDangerSm}" Command="{Binding ForgetNodeCommand}" />
+                            </HorizontalStackLayout>
+                            <Border HeightRequest="1" BackgroundColor="{DynamicResource BorderLine}" Stroke="Transparent"
+                                    StrokeThickness="0" Margin="0,4" />
+                            <Label Text="身上的联系（点一条过去看）" Style="{StaticResource TxtCaption}" />
+                            <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding Neighbors}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MemoryGraphViewModel+NeighborRow">
+                                        <Border BackgroundColor="Transparent" Stroke="Transparent" StrokeThickness="0" Padding="6,5">
+                                            <Border.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=PickNeighborCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            </Border.GestureRecognizers>
+                                            <HorizontalStackLayout Spacing="6">
+                                                <Label Text="{Binding Text}" FontSize="12" TextColor="{DynamicResource WarmDark}" />
+                                                <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}" />
+                                            </HorizontalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="点枝（不是点疙瘩）能选中一条联系，然后调弱或断开。"
+                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <HorizontalStackLayout Spacing="6">
+                                <Button Text="调弱这条" Style="{StaticResource BtnGhostSm}" Command="{Binding WeakenSelectedEdgeCommand}" />
+                                <Button Text="断开这条" Style="{StaticResource BtnDangerSm}" Command="{Binding BreakSelectedEdgeCommand}" />
+                            </HorizontalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 参数模型 -->
+                    <Border IsVisible="{Binding ShowParams}" Style="{StaticResource CardFrost}" Padding="12,10">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="参数模型：这张网怎么算" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                                   TextColor="{DynamicResource WarmDark}" />
+                            <Label Text="同样的网，参数不同就是不同的脑子。改一个数字，下面立刻按新参数重算「现在能想起什么」。"
+                                   Style="{StaticResource TxtCaption}" />
+
+                            <Label Text="联想饱和 K：要多强的联系才算数" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="0.5" Maximum="40" Value="{Binding PSaturation, Mode=TwoWay}" />
+                            <Label Text="扇形抑制：连得越杂，单条越容易被挤掉（0=不抑制）" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="0" Maximum="2" Value="{Binding PFan, Mode=TwoWay}" />
+                            <Label Text="二跳衰减：想到第二步时还剩多少" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="0.05" Maximum="1" Value="{Binding PHop, Mode=TwoWay}" />
+                            <Label Text="联系半衰期（天，0=不忘）" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="0" Maximum="365" Value="{Binding PHalfLife, Mode=TwoWay}" />
+                            <Label Text="永久成分：久到极限还剩几分" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="0" Maximum="0.9" Value="{Binding PPermanent, Mode=TwoWay}" />
+                            <Label Text="想不起来的线（低于它就当没想到）" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="0.005" Maximum="0.2" Value="{Binding PFloor, Mode=TwoWay}" />
+                            <Label Text="往外看几圈" Style="{StaticResource TxtCaption}" />
+                            <Slider Minimum="1" Maximum="4" Value="{Binding MaxDepth, Mode=TwoWay}" />
+
+                            <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Border HeightRequest="1" BackgroundColor="{DynamicResource BorderLine}" Stroke="Transparent"
+                                    StrokeThickness="0" Margin="0,2" />
+                            <Label Text="现在顺着钉住的那个说法能想起：" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding RecallText}" Style="{StaticResource TxtBody}" FontSize="12"
+                                   TextColor="{DynamicResource WarmBody}" />
+                            <HorizontalStackLayout Spacing="6">
+                                <Button Text="存成 TA 的联想方式" Style="{StaticResource BtnPrimarySm}" Command="{Binding SaveParamsCommand}" />
+                                <Button Text="回到默认" Style="{StaticResource BtnGhostSm}" Command="{Binding ResetParamsCommand}" />
+                            </HorizontalStackLayout>
+                            <Label Text="存了之后，聊天时检索记忆也按这套参数走 —— 不只是画面变了。"
+                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 量化模型：把说法换算成数值，再按数值找近邻、牵线 -->
+                    <Border IsVisible="{Binding ShowQuant}" Style="{StaticResource CardFrost}" Padding="12,10">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="量化模型：把说法换算成数值" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                                   TextColor="{DynamicResource WarmDark}" />
+                            <Label Text="知识库管理员干的是这件事：词进去、一组数值出来，活得像同一类东西的说法数值就挨得近。它看得见从没同框出现过的近义 —— 共现统计和全文检索都到不了这一层。"
+                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Label Text="{Binding QuantSelected}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                   IsVisible="{Binding HasQuantSelected}" />
+                            <Label Text="{Binding QuantBackend}" Style="{StaticResource TxtCaption}" FontSize="11" />
+
+                            <VerticalStackLayout Spacing="3" BindableLayout.ItemsSource="{Binding QuantNear}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MemoryGraphViewModel+QuantRow">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
+                                                <Label Text="{Binding Text}" FontSize="12" TextColor="{DynamicResource WarmDark}" />
+                                                <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}" />
+                                            </VerticalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="4">
+                                                <Button Text="跳过去" Style="{StaticResource BtnGhostSm}" Padding="8,2" FontSize="11"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=JumpToQuantCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                <Button Text="牵上" Style="{StaticResource BtnNeumorphSm}" Padding="8,2" FontSize="11"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=WeaveQuantCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+
+                            <Label Text="{Binding QuantHint}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Button Text="整张网按数值再织一遍" Style="{StaticResource BtnPrimarySm}"
+                                    Command="{Binding WeaveByNumbersCommand}" />
+                            <Label Text="「牵上」= 把这一对按数值落一条线；「再织一遍」= 让模型把所有挨得近又没连上的对子都补一遍（贵，按一次就好）。"
+                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 思考模型 -->
+                    <Border IsVisible="{Binding ShowThink}" Style="{StaticResource CardFrost}" Padding="12,10">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="思考模型：让模型读一遍网" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                                   TextColor="{DynamicResource WarmDark}" />
+                            <Label Text="下面列出的是所有配好的对话模型，任何一款都能当思考模型来用。名字带「会想」的会先想一步再答，其余的直接出建议 —— 这不是一道门槛。建议都要你点头才落地。"
+                                   Style="{StaticResource TxtCaption}" />
+                            <Picker Title="选一个模型" ItemsSource="{Binding ModelOptions}"
+                                    SelectedIndex="{Binding ModelIndex, Mode=TwoWay}"
+                                    TextColor="{DynamicResource WarmDark}" />
+                            <HorizontalStackLayout Spacing="6">
+                                <Button Text="读网出建议" Style="{StaticResource BtnPrimarySm}"
+                                        Command="{Binding RunThinkCommand}" IsVisible="{Binding IsThinking, Converter={StaticResource InverseBool}}" />
+                                <Button Text="正在想…" Style="{StaticResource BtnGhostSm}" IsVisible="{Binding IsThinking}" IsEnabled="False" />
+                                <Button Text="全部采纳" Style="{StaticResource BtnGhostSm}" Command="{Binding ApplyAllCommand}"
+                                        IsVisible="{Binding HasProposals}" />
+                                <Button Text="收起" Style="{StaticResource BtnGhostSm}" Command="{Binding ClearProposalsCommand}"
+                                        IsVisible="{Binding HasProposals}" />
+                            </HorizontalStackLayout>
+                            <Label Text="{Binding ThinkStatus}" Style="{StaticResource TxtCaption}" />
+                            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Proposals}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MemoryGraphViewModel+ProposalRow">
+                                        <Border Style="{StaticResource CardNeumorphInset}" Padding="10,8">
+                                            <VerticalStackLayout Spacing="4">
+                                                <Label Text="{Binding Head}" FontSize="12" FontAttributes="Bold"
+                                                       TextColor="{DynamicResource WarmDark}" />
+                                                <Label Text="{Binding Reason}" Style="{StaticResource TxtCaption}" />
+                                                <Label Text="{Binding ConfText}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                                                <HorizontalStackLayout Spacing="6">
+                                                    <Button Text="采纳" Style="{StaticResource BtnNeumorphSm}"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=ApplyCommand}"
+                                                            CommandParameter="{Binding .}" />
+                                                    <Button Text="忽略" Style="{StaticResource BtnGhostSm}"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=IgnoreCommand}"
+                                                            CommandParameter="{Binding .}" />
+                                                    <Label Text="{Binding Result}" VerticalTextAlignment="Center"
+                                                           FontSize="11" TextColor="{DynamicResource MutedFg}" />
+                                                </HorizontalStackLayout>
+                                            </VerticalStackLayout>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- JSON：存的就是这份东西（网状是看法，JSON 才是存法） -->
+                    <Border IsVisible="{Binding ShowJson}" Style="{StaticResource CardFrost}" Padding="12,10">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="这张网的 JSON（和磁盘上的文件同一份）" Style="{StaticResource TxtBodySm}"
+                                   FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" />
+                            <Label Text="节点、边、权重、来历都在里面，改它等于改 TA 的脑子。"
+                                   Style="{StaticResource TxtCaption}" />
+                            <Border Style="{StaticResource CardNeumorphInset}" Padding="10,8">
+                                <Label Text="{Binding JsonText}" FontSize="11" FontFamily="Consolas"
+                                       TextColor="{DynamicResource WarmBody}" LineBreakMode="WordWrap" />
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+
+        <!-- ============ 图例：先给样子，再给名字 ============ -->
+        <Border Grid.Row="2" Style="{StaticResource CardSolid}" Padding="12,7">
+            <ScrollView Orientation="Horizontal">
+                <HorizontalStackLayout Spacing="12">
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#E8B87A" Stroke="Transparent"
+                                StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
+                        <Label Text="人" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="13" HeightRequest="9" BackgroundColor="#FAEBD7" Stroke="#8A6A48"
+                                StrokeThickness="1" StrokeShape="{RoundRectangle CornerRadius=2}" VerticalOptions="Center" />
+                        <Label Text="记得的事" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#A5D6A7" Stroke="Transparent"
+                                StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
+                        <Label Text="标签" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#AFCFEA" Stroke="Transparent"
+                                StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
+                        <Label Text="地点" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#EFB0AE" Stroke="Transparent"
+                                StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
+                        <Label Text="东西" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#F2C4D6" Stroke="Transparent"
+                                StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
+                        <Label Text="情绪" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+                    <HorizontalStackLayout Spacing="5">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#F5D8B8" Stroke="Transparent"
+                                StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
+                        <Label Text="词" Style="{StaticResource TxtCaption}" />
+                    </HorizontalStackLayout>
+
+                    <BoxView WidthRequest="1" HeightRequest="16" Color="{DynamicResource BorderLine}" VerticalOptions="Center" />
+
+                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                        <BoxView HeightRequest="2" WidthRequest="24" Color="{DynamicResource WarmDark}" Opacity="0.72" />
+                        <BoxView HeightRequest="2" WidthRequest="24" Color="{DynamicResource WarmDark}" Opacity="0.72" />
+                    </VerticalStackLayout>
+                    <Label Text="等价（就是它）" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+
+                    <BoxView HeightRequest="4" WidthRequest="24" Color="{DynamicResource WarmDark}" Opacity="0.55"
+                             VerticalOptions="Center" />
+                    <Label Text="片里的枝" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+
+                    <BoxView HeightRequest="1" WidthRequest="24" Color="{DynamicResource WarmDark}" Opacity="0.4"
+                             VerticalOptions="Center" />
+                    <Label Text="跨片的细藤" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+
+                    <BoxView HeightRequest="3" WidthRequest="24" Color="{DynamicResource WarmDark}" Opacity="0.16"
+                             VerticalOptions="Center" />
+                    <Label Text="淡=快要想不起来了" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+
+                    <Border WidthRequest="8" HeightRequest="8" BackgroundColor="#8FA8C8" Stroke="Transparent" StrokeThickness="0"
+                            StrokeShape="{RoundRectangle CornerRadius=4}" VerticalOptions="Center" />
+                    <Label Text="这个点是 AI 整理出来的" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+                </HorizontalStackLayout>
+            </ScrollView>
+        </Border>
+    </Grid>
+</ContentPage>

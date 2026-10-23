@@ -9,92 +9,132 @@
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*">
-        <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Label Text="编辑展示案" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Button Grid.Column="1" Text="保存" Style="{StaticResource BtnNeumorphSm}"
-                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
-                        FontAttributes="Bold" Command="{Binding SaveCommand}" />
-            </Grid>
-        </Border>
+        <!-- 顶栏不是一张卡：它跟地面同档、只比地面沉一点，靠下面那条发丝线跟内容区分界。
+             原来挂的是 GlassBar 那圈发光边，在极简档上是一圈不属于这个世界的轮廓。 -->
+        <VerticalStackLayout Grid.Row="0" Spacing="0">
+            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                    Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Label Grid.Column="0" Text="编辑展示案" Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                    <!-- 主行动只用强调档样式：面是 WAccentBrush、字是钉在它上面的 WAccentInk，
+                         页面里再内联 AccentWarm/AccentWarmFg 就是把两个令牌当装饰手抄一遍。 -->
+                    <Button Grid.Column="1" Text="保存" Style="{StaticResource BtnNeumorphAccent}"
+                            Command="{Binding SaveCommand}" />
+                </Grid>
+            </Border>
+            <BoxView Style="{StaticResource HSep}" />
+        </VerticalStackLayout>
 
-        <ScrollView Grid.Row="1" Padding="16,8">
-            <VerticalStackLayout Spacing="12">
-                <!-- 基本信息 -->
-                <Border Style="{StaticResource CardNeumorph}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="基本信息" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="80,*">
-                            <Label Text="名称" VerticalOptions="Center" Style="{StaticResource TxtBodySm}" />
-                            <Entry Grid.Column="1" Text="{Binding ScriptName}" BackgroundColor="{DynamicResource InputBg}"
-                                   TextColor="{DynamicResource SurfaceFg}" FontSize="13" />
-                        </Grid>
-                        <Grid ColumnDefinitions="80,*">
-                            <Label Text="主角" VerticalOptions="Center" Style="{StaticResource TxtBodySm}" />
-                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
-                                <Label Text="{Binding CharacterName}" VerticalOptions="Center" Style="{StaticResource TxtCaption}" FontSize="12" />
-                                <Button Text="选择角色" Style="{StaticResource BtnNeumorphSm}" FontSize="11" Command="{Binding PickCharacterCommand}" />
-                            </HorizontalStackLayout>
-                        </Grid>
+        <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
+            <!-- Spacing 归 0：分组之间的距离由 TxtSection 自带的上方留白给。
+                 再叠一层卡间距，读起来就又变成「一摞牌子」而不是「三组内容」了。 -->
+            <VerticalStackLayout Spacing="0" MaximumWidthRequest="760">
+
+                <!-- 基本信息：一组两行 -->
+                <Label Text="基本信息" Style="{StaticResource TxtSection}" />
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                <Label Grid.Column="0" Text="名称" Style="{StaticResource TxtRowTitle}" />
+                                <!-- 输入框是「井」，不是「贴在卡上的白条」：底走 WWellBrush、角走 WRadiusWell，
+                                     Entry 自己那层底色透明掉，四个世界才会一起换档。 -->
+                                <Border Grid.Column="1" Style="{StaticResource CardNeumorphInset}" WidthRequest="280">
+                                    <Entry Text="{Binding ScriptName}" BackgroundColor="Transparent"
+                                           TextColor="{DynamicResource SurfaceFg}"
+                                           FontSize="{DynamicResource WSizeBody}" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                                <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                    <Label Text="主角" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="选择角色" Style="{StaticResource BtnNeumorphSm}"
+                                        VerticalOptions="Center" Command="{Binding PickCharacterCommand}" />
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- 步骤列表 -->
-                <Border Style="{StaticResource CardNeumorph}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="步骤列表" Style="{StaticResource TxtSubhead}" />
-                        <CollectionView ItemsSource="{Binding Steps}" SelectionMode="None" HeightRequest="260">
-                            <CollectionView.EmptyView>
-                                <Label Text="暂无步骤，点击下方按钮添加" Style="{StaticResource TxtCaption}" Padding="4,8" />
-                            </CollectionView.EmptyView>
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ShowcaseStepDisplay">
-                                    <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}"
-                                            StrokeThickness="0.5" Padding="10,6" Margin="0,2">
-                                        <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
-                                            <VerticalStackLayout Spacing="2">
-                                                <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" FontSize="12" />
-                                                <Label Text="{Binding Sub}" Style="{StaticResource TxtCaption}" FontSize="10" IsVisible="{Binding Sub, Converter={StaticResource StringNotEmpty}}" />
+                <!-- 步骤：一组多行。原来每条步骤各套一个描边小盒，小盒之间的缝比行内的行距还大，
+                     眼睛读到的是「一摞小牌」，不是「这个案子的第几步」。 -->
+                <Label Text="步骤列表" Style="{StaticResource TxtSection}" />
+                <Border Style="{StaticResource CardGroup}">
+                    <CollectionView ItemsSource="{Binding Steps}" SelectionMode="None" HeightRequest="260">
+                        <CollectionView.EmptyView>
+                            <Label Text="暂无步骤，点击下方按钮添加" Style="{StaticResource TxtCaption}"
+                                   Padding="{DynamicResource WPadRow}" />
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:ShowcaseStepDisplay">
+                                <VerticalStackLayout Spacing="0">
+                                    <Border Style="{StaticResource SettingRow}">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                                <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" />
+                                                <Label Text="{Binding Sub}" Style="{StaticResource TxtRowDesc}"
+                                                       IsVisible="{Binding Sub, Converter={StaticResource StringNotEmpty}}" />
                                             </VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                                <Button Text="↑" Style="{StaticResource BtnText}" FontSize="12"
+                                                <Button Text="↑" Style="{StaticResource BtnTextSm}"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=MoveUpCommand}"
                                                         CommandParameter="{Binding .}" />
-                                                <Button Text="↓" Style="{StaticResource BtnText}" FontSize="12"
+                                                <Button Text="↓" Style="{StaticResource BtnTextSm}"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=MoveDownCommand}"
                                                         CommandParameter="{Binding .}" />
-                                                <Button Text="×" TextColor="#E94560" Style="{StaticResource BtnText}" FontSize="12"
+                                                <!-- 行内小动作只把字染成危险墨：这里要的是「删掉这一条」，
+                                                     不是一整块红色面把三条步骤的次序打断。 -->
+                                                <Button Text="×" Style="{StaticResource BtnTextSm}"
+                                                        TextColor="{DynamicResource DangerInk}"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=DeleteStepCommand}"
                                                         CommandParameter="{Binding .}" />
                                             </HorizontalStackLayout>
                                         </Grid>
                                     </Border>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
+                                    <!-- 行尾发丝线：最后一条的那条正好当这张卡的底边。 -->
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Border>
+
+                <!-- 添加步骤：动作也是行，右侧给按钮位 -->
+                <Label Text="添加步骤" Style="{StaticResource TxtSection}" />
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Grid.Column="0" Text="💬 添加对话" Style="{StaticResource BtnNeumorphSm}"
+                                        Command="{Binding AddDialogueCommand}" />
+                                <Button Grid.Column="1" Text="🖼️ 插入CG" Style="{StaticResource BtnNeumorphSm}"
+                                        Command="{Binding InsertCgCommand}" />
+                            </Grid>
+                        </Border>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                <Button Grid.Column="0" Text="✨ 添加立绘" Style="{StaticResource BtnNeumorphSm}"
+                                        Command="{Binding AddSpriteCommand}" />
+                                <Button Grid.Column="1" Text="🚫 清空立绘" Style="{StaticResource BtnNeumorphSm}"
+                                        Command="{Binding ClearSpritesCommand}" />
+                            </Grid>
+                        </Border>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Button Text="📁 导入临时素材" Style="{StaticResource BtnNeumorphSm}"
+                                    HorizontalOptions="Fill" Command="{Binding ImportTempMaterialCommand}" />
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- 操作区 -->
-                <Border Style="{StaticResource CardNeumorph}">
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="添加步骤" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                            <Button Text="💬 添加对话" Style="{StaticResource BtnNeumorphSm}" Command="{Binding AddDialogueCommand}" />
-                            <Button Grid.Column="1" Text="🖼️ 插入CG" Style="{StaticResource BtnNeumorphSm}" Command="{Binding InsertCgCommand}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                            <Button Text="✨ 添加立绘" Style="{StaticResource BtnNeumorphSm}" Command="{Binding AddSpriteCommand}" />
-                            <Button Grid.Column="1" Text="🚫 清空立绘" Style="{StaticResource BtnNeumorphSm}" Command="{Binding ClearSpritesCommand}" />
-                        </Grid>
-                        <Button Text="📁 导入临时素材" Style="{StaticResource BtnNeumorphSm}" Command="{Binding ImportTempMaterialCommand}" />
-                    </VerticalStackLayout>
-                </Border>
-
-                <Button Text="返回" Style="{StaticResource BtnNeumorphSm}" Command="{Binding BackCommand}" Margin="0,12,0,24" />
+                <Button Text="返回" Style="{StaticResource BtnNeumorph}" HorizontalOptions="Fill"
+                        Margin="{DynamicResource WPadCard}" Command="{Binding BackCommand}" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

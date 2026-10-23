@@ -10,70 +10,53 @@
 
     <Grid Padding="0" RowDefinitions="Auto,*,Auto">
 
-        <!-- Header -->
-        <Border BackgroundColor="{DynamicResource WarmDark}" StrokeThickness="0" Padding="16,10">
+        <!-- Header：工具条与画布之外是同一块地，不再是一块深色板 ——
+             深底逼着所有文字都用 OffWhite50/Cream200 这些「面」当字，切到深色世界时整排糊掉。 -->
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadWell}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                 <!-- 第一行：标题 + 模式切换 + 工具 -->
                 <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <VerticalStackLayout Spacing="4" VerticalOptions="Center">
-                        <Label Text="🗺️ 地图编辑器" TextColor="{DynamicResource OffWhite50}" FontSize="18" FontAttributes="Bold" />
-                        <Label Text="{Binding StatusText}" TextColor="{DynamicResource BeigeAccent200}" FontSize="12"
+                        <Label Text="🗺️ 地图编辑器" Style="{StaticResource TxtTitle}" />
+                        <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
                                LineBreakMode="TailTruncation" MaxLines="1" />
                         <Label Text="{Binding LocationLabel, StringFormat='📍 当前位置：{0}'}"
-                               TextColor="{DynamicResource Cream200}" FontSize="12" FontAttributes="Bold" />
+                               TextColor="{DynamicResource SurfaceFg}" FontSize="{DynamicResource WSizeCaption}"
+                               FontAttributes="Bold" />
                     </VerticalStackLayout>
-                    <Button Grid.Column="1" Text="{Binding ViewModeLabel}" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34"
+                    <!-- 一排同档的次级钮（白底 + 一道缝）：当前模式由文字前的「●」说，不靠其中一颗涂成深色 -->
+                    <Button Grid.Column="1" Text="{Binding ViewModeLabel}" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding SetModeCommand}" CommandParameter="view" />
-                    <Button Grid.Column="2" Text="{Binding EditModeLabel}" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34"
+                    <Button Grid.Column="2" Text="{Binding EditModeLabel}" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding SetModeCommand}" CommandParameter="edit" />
-                    <Button Grid.Column="3" Text="{Binding LinkModeLabel}" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34"
+                    <Button Grid.Column="3" Text="{Binding LinkModeLabel}" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding SetModeCommand}" CommandParameter="link" />
-                    <Button Grid.Column="4" Text="{Binding LinkKindText}" TextColor="{DynamicResource WarmDark}"
-                            BackgroundColor="{DynamicResource Cream200}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34"
+                    <Button Grid.Column="4" Text="{Binding LinkKindText}" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding ToggleLinkKindCommand}"
                             IsVisible="{Binding IsLinkMode}" />
-                    <Button Grid.Column="5" Text="{Binding DoodleModeLabel}" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34"
+                    <Button Grid.Column="5" Text="{Binding DoodleModeLabel}" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding SetModeCommand}" CommandParameter="doodle" />
-                    <Button Grid.Column="6" Text="↻ 重置布局" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
-                            CornerRadius="6" HeightRequest="34" Command="{Binding ResetLayoutCommand}" />
-                    <Button Grid.Column="7" Text="导出" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
-                            CornerRadius="6" HeightRequest="34" Command="{Binding ExportMapCommand}" />
-                    <Button Grid.Column="8" Text="返回" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34" Command="{Binding BackCommand}" />
-                    <Button Grid.Column="9" Text="ℹ 帮助" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmDark}" FontSize="12" Padding="14,0"
-                            CornerRadius="6" HeightRequest="34" Command="{Binding HelpCommand}" />
+                    <Button Grid.Column="6" Text="↻ 重置布局" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding ResetLayoutCommand}" />
+                    <Button Grid.Column="7" Text="导出" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding ExportMapCommand}" />
+                    <Button Grid.Column="8" Text="返回" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding BackCommand}" />
+                    <Button Grid.Column="9" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding HelpCommand}" />
                 </Grid>
 
                 <!-- 编辑模式提示行 -->
                 <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="编辑：拖卡片=移动 · 空白拖动=平移 · 按住空白 0.6秒再拖=框选地点 · 右键=菜单" 
-                           TextColor="{DynamicResource BeigeAccent200}" FontSize="12" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="＋ 新地点" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
-                            CornerRadius="6" HeightRequest="32"
-                            Command="{Binding AddLocationCommand}" />
-                    <Button Grid.Column="2" Text="＋ 新场景 / 临时节点" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
-                            CornerRadius="6" HeightRequest="32"
-                            Command="{Binding AddSceneCommand}" />
-                    <Button Grid.Column="3" Text="🖼 背景（素材库）" TextColor="{DynamicResource OffWhite50}"
-                            BackgroundColor="{DynamicResource WarmBody}" FontSize="12" Padding="12,0"
-                            CornerRadius="6" HeightRequest="32"
-                            Command="{Binding BackgroundFromLibraryCommand}" />
+                           TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="＋ 新地点" Style="{StaticResource BtnNeumorphSm}"
+                            HeightRequest="32" Command="{Binding AddLocationCommand}" />
+                    <Button Grid.Column="2" Text="＋ 新场景 / 临时节点" Style="{StaticResource BtnNeumorphSm}"
+                            HeightRequest="32" Command="{Binding AddSceneCommand}" />
+                    <Button Grid.Column="3" Text="🖼 背景（素材库）" Style="{StaticResource BtnNeumorphSm}"
+                            HeightRequest="32" Command="{Binding BackgroundFromLibraryCommand}" />
                 </Grid>
             </Grid>
         </Border>
@@ -85,27 +68,24 @@
                       EndInteraction="OnCanvasEnd"
                       BackgroundColor="Transparent" />
 
-        <!-- 底部：模式操作提示 -->
-        <Border Grid.Row="2" IsVisible="{Binding IsEditMode}"
-                BackgroundColor="{DynamicResource SurfaceBg}"
-                StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
-                Padding="16,10" Margin="12,0,12,12" VerticalOptions="End">
-            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+        <!-- 底部：模式操作提示。CardSolid 已经把缝发到画刷（WEdgeBrush）上 ——
+             原来这里写 Stroke="{DynamicResource BorderLine}"，那是个 Color 键，Border.Stroke 只吃画刷。 -->
+        <Border Grid.Row="2" Style="{StaticResource CardSolid}"
+                IsVisible="{Binding IsEditMode}"
+                Margin="12,0,12,12" VerticalOptions="End">
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
-                <Border BackgroundColor="{DynamicResource Cream200}" StrokeThickness="0" Padding="12,0">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                    <Label Text="{Binding SelectedNodeLabel}" TextColor="{DynamicResource WarmDark}" FontSize="13"
+                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0" Padding="12,0"
+                        StrokeShape="{DynamicResource WRadiusWell}">
+                    <Label Text="{Binding SelectedNodeLabel}" Style="{StaticResource TxtBodySm}"
                            VerticalOptions="Center" />
                 </Border>
-                <Label Grid.Column="1" Text="拖拽卡片调整位置" TextColor="{DynamicResource WarmMuted}" FontSize="12"
+                <Label Grid.Column="1" Text="拖拽卡片调整位置" Style="{StaticResource TxtMuted}"
                        VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="🗑 删除" TextColor="{DynamicResource DangerInk}"
-                        BackgroundColor="{DynamicResource SecondaryBg}" FontSize="12" Padding="12,0"
-                        CornerRadius="8" HeightRequest="36" Command="{Binding RemoveSceneCommand}"
+                <Button Grid.Column="2" Text="🗑 删除" Style="{StaticResource BtnDangerSm}"
+                        HeightRequest="36" Command="{Binding RemoveSceneCommand}"
                         IsVisible="{Binding HasSelection}" />
-                <Button Grid.Column="3" Text="返回" TextColor="{DynamicResource WarmDark}"
-                        BackgroundColor="{DynamicResource Cream200}" FontSize="12" Padding="14,0"
-                        CornerRadius="8" HeightRequest="36" Command="{Binding BackCommand}" />
+                <Button Grid.Column="3" Text="返回" Style="{StaticResource BtnGhostSm}"
+                        HeightRequest="36" Command="{Binding BackCommand}" />
             </Grid>
         </Border>
     </Grid>

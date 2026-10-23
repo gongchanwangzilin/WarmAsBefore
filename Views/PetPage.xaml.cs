@@ -1,4 +1,5 @@
 using System.IO;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Services;
 
@@ -41,6 +42,14 @@ public partial class PetPage : ContentPage
         _speech = speech;
         Loaded += OnLoaded;
         Unloaded += (_, _) => { _alive = false; _hoverTimer?.Stop(); };
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        // 桌宠页没有 ViewModel，也没有「数据到位」这个时刻（立绘是 Loaded 里逐张换的），
+        // 所以进场只让根浮一次；骨架留给有装载信号的页面。
+        Motion.ArrivePage(this);
     }
 
     private async void OnLoaded(object? sender, EventArgs e)

@@ -24,12 +24,13 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly ApiGateway _api;
     private readonly LingshuImporter _lingshu;
     private readonly CharacterSubProfileService _subProfiles;
+    private readonly PageWindowService _windows;
 
     [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
 
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
         SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu,
-        CharacterSubProfileService subProfiles)
+        CharacterSubProfileService subProfiles, PageWindowService windows)
     {
         _engine = engine;
         _library = library;
@@ -38,6 +39,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         _api = api;
         _lingshu = lingshu;
         _subProfiles = subProfiles;
+        _windows = windows;
     }
 
     [RelayCommand]
@@ -70,7 +72,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             $"「{item.Name}」", "取消", null,
             item.IsMain ? "移除主角标记" : "设为当前主角",
             "AI 优化人设", "修改性格", "修改性别", "编辑设定",
-            "复制角色", "补充素材",
+            "复制角色", "复制角色 · 连记忆一起复制", "补充素材",
             "导入灵枢记忆");
         switch (act)
         {
@@ -96,7 +98,10 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
                 await EditProfileAsync(id);
                 break;
             case "复制角色":
-                await DuplicateCharacterAsync(id, item.Name);
+                await DuplicateCharacterAsync(id, item.Name, withMemory: false);
+                break;
+            case "复制角色 · 连记忆一起复制":
+                await DuplicateCharacterAsync(id, item.Name, withMemory: true);
                 break;
             case "补充素材":
                 await ImportSupplementAsync(id, item.Name);
@@ -173,6 +178,10 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     }
 
     /// <summary>编辑角色主设定/副设定（性格、背景描述、用户称呼、昵称、问候语等）。</summary>
+    /// <summary>另开一扇窗时递过去的角色（值原样给，Shell 退路那条由 PageWindowService 转义）。</summary>
+    private static Dictionary<string, object> CharQuery(CharacterLibraryItem item) =>
+        new() { ["charId"] = item.Data.Profile.Id };
+
     private async Task EditProfileAsync(string id)
     {
         var item = Items.FirstOrDefault(i => i.Id == id);
@@ -183,11 +192,23 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             "修改性格（外在表现/内在坚定）", "修改背景/前情提要（主设定）",
             "修改用户称呼", "修改昵称", "修改问候语",
             "查看副设定（当下之我）", "副设定回正到主设定",
-            "记忆管理（关系网/标签/记得的事）",
+            "记忆管理（标签 / 记得的事 / 副设定）", "关系网（另开一扇窗看它长出来）", "搜事件（另开一扇窗）",
             (IsAllowedInSave(item.Data.Profile.Id) ? "移出本存档可用角色" : "加入本存档可用角色"),
             "参数覆写（记忆/采样）");
         if (field is null || field == "取消") return;
         if (field.Contains("参数覆写")) { await EditOverridesAsync(item); return; }
+        if (field.Contains("搜事件"))
+        {
+            await _windows.OpenOrNavigateAsync(PageWindowKeys.Search, $"搜事件 · {p.Name}",
+                typeof(Views.MemorySearchPage), PageWindowKeys.Search, CharQuery(item));
+            return;
+        }
+        if (field.Contains("关系网"))
+        {
+            await _windows.OpenOrNavigateAsync(PageWindowKeys.Graph, $"关系网 · {p.Name}",
+                typeof(Views.MemoryGraphPage), PageWindowKeys.Graph, CharQuery(item));
+            return;
+        }
         if (field.Contains("记忆管理"))
         {
             await Shell.Current.GoToAsync($"memoryManage?charId={Uri.EscapeDataString(item.Data.Profile.Id)}");
@@ -248,7 +269,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             $"记忆条数：{ShowOverride(o.MemoryTurns)}",
             $"上下文上限：{ShowOverride(o.ContextTokenLimit)}",
             $"温度：{ShowOverride(o.AiTemperature)}",
-            $"记忆窗口天数：{ShowOverride(o.MemoryWindowDays)}",
+            $"遗忘指数（天）：{ShowOverride(o.MemoryWindowDays)}",
             $"回忆随机度：{ShowOverride(o.MemoryRecallRandomness)}");
         if (pick is null || pick == "取消") return;
 
@@ -258,10 +279,10 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             "记忆条数" => ("带进上下文的最近记忆条数（1-200），留空跟随全局", o.MemoryTurns?.ToString() ?? ""),
             "上下文上限" => ("上下文 Token 上限（如 32000），留空跟随全局", o.ContextTokenLimit?.ToString() ?? ""),
             "温度" => ("采样温度 0-2，留空跟随全局", o.AiTemperature?.ToString(CultureInfo.InvariantCulture) ?? ""),
-            "记忆窗口天数" => ("人类记忆能回忆的天数，0=不限，留空跟随全局（默认 3 天）", o.MemoryWindowDays?.ToString(CultureInfo.InvariantCulture) ?? ""),
+            "遗忘指数（天）" => ("遗忘指数（天）：越小忘得越快，可填 0.25=6 小时；0=不限，留空跟随全局", o.MemoryWindowDays?.ToString(CultureInfo.InvariantCulture) ?? ""),
             _ => ("回忆随机扰动 0-1：越大越像人一样跳着想起，留空跟随全局", o.MemoryRecallRandomness?.ToString(CultureInfo.InvariantCulture) ?? "")
         };
-        var input = await Shell.Current.DisplayPromptAsync(title, hint, initialValue: initial, maxLength: 12);
+        var input = await Shell.Current.DisplayPromptAsync(title, hint, "确定", "取消", initialValue: initial, maxLength: 12);
         if (input is null) return;
 
         var updated = title switch
@@ -269,7 +290,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             "记忆条数" => ParseInt(input, v => o with { MemoryTurns = v }),
             "上下文上限" => ParseInt(input, v => o with { ContextTokenLimit = v }),
             "温度" => ParseDouble(input, v => o with { AiTemperature = v }),
-            "记忆窗口天数" => ParseDouble(input, v => o with { MemoryWindowDays = v }),
+            "遗忘指数（天）" => ParseDouble(input, v => o with { MemoryWindowDays = v }),
             _ => ParseDouble(input, v => o with { MemoryRecallRandomness = v })
         };
         if (updated is null)
@@ -333,14 +354,19 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         return $"当前可用角色（{allowed.Count} 个）：{string.Join("、", names)}。";
     }
 
-    /// <summary>复制角色（共享引用所有立绘，不重复保存素材文件）。</summary>
-    private async Task DuplicateCharacterAsync(string sourceId, string sourceName)
+    /// <summary>
+    /// 复制角色（共享引用所有立绘，不重复保存素材文件）。
+    /// <paramref name="withMemory"/> = 真时连 TA 记得的一切一起带走 —— 只带当前作用域里的那一份：
+    /// 按存档隔离时副本只在同一个存档里记得这些事，开了「跨存档共用」才跟着那份共用的走。
+    /// </summary>
+    private async Task DuplicateCharacterAsync(string sourceId, string sourceName, bool withMemory)
     {
-        var newName = await Shell.Current.DisplayPromptAsync("复制角色",
-            $"为「{sourceName}」的副本命名：", initialValue: sourceName + "（副本）", maxLength: 30);
+        var title = withMemory ? "复制角色 · 连记忆" : "复制角色";
+        var newName = await Shell.Current.DisplayPromptAsync(title,
+            $"为「{sourceName}」的副本命名：", "确定", "取消", initialValue: sourceName + "（副本）", maxLength: 30);
         if (string.IsNullOrWhiteSpace(newName)) return;
-        var (ok, msg, _, _) = await _library.DuplicateAsync(sourceId, newName);
-        await Shell.Current.DisplayAlert("复制角色", msg, "好");
+        var (ok, msg, _, _) = await _library.DuplicateAsync(sourceId, newName, withMemory);
+        await Shell.Current.DisplayAlert(title, msg, "好");
         if (ok) await Refresh();
     }
 
@@ -375,11 +401,11 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task CreateCharacter()
     {
-        var name = await Shell.Current.DisplayPromptAsync("新建角色", "角色姓名：", maxLength: 30);
+        var name = await Shell.Current.DisplayPromptAsync("新建角色", "角色姓名：", "确定", "取消", maxLength: 30);
         if (string.IsNullOrWhiteSpace(name)) return;
         var gender = await Helpers.GenderPrompt.PickAsync("角色性别");
         if (string.IsNullOrWhiteSpace(gender)) return;
-        var personality = await Shell.Current.DisplayPromptAsync("新建角色", "性格描述（一句话）：", maxLength: 100);
+        var personality = await Shell.Current.DisplayPromptAsync("新建角色", "性格描述（一句话）：", "确定", "取消", maxLength: 100);
         if (personality is null) return;
         var ch = _library.CreateDefault(name.Trim(), gender, string.IsNullOrWhiteSpace(personality) ? "温柔可爱" : personality.Trim());
         var ok = await _library.AddAsync(ch);

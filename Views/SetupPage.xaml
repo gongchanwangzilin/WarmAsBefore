@@ -1,0 +1,255 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.SetupPage"
+             x:Name="Page"
+             x:DataType="vm:SetupViewModel"
+
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      选项行：铺满整行的真按钮当命中区；选中时下方浮一层 SecondaryBg 圆角底（浅档沉一档、深档提一档），
+      最左一枚竖杠读得清。文字与预览都压在最上、不接管点击。
+      预览两选一：色板行给一条色卡（Swatches），材质行给一枚圆角样卡（SampleRadius），其余行都不画。
+      命令挂在每颗选项身上（SetupOption.Pick），四组共用这一份模板。
+      底色 / 样卡 / 色卡都用 BoxView.Color 而不是 Border.Background：这份编译过的模板里
+      Border.Background={DynamicResource 颜色令牌} 会顶住 XamlC（XC0009），BoxView.Color 才稳。
+      文字一律绑 LocalizationService.Current —— App 里那枚 I18n 是另一实例、不随 SetCulture 刷新，
+      绑它换语言时这里的说明就永远停在中文。
+    -->
+    <ContentPage.Resources>
+        <DataTemplate x:Key="OptionRow" x:DataType="vm:SetupOption">
+            <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="12"
+                  HeightRequest="{DynamicResource WRowHeight}">
+                <BoxView Grid.ColumnSpan="3" Color="{DynamicResource SecondaryBg}"
+                         CornerRadius="10" Margin="8,0" VerticalOptions="Fill" HorizontalOptions="Fill"
+                         InputTransparent="True" IsVisible="{Binding Selected}" />
+                <Button Grid.ColumnSpan="3" Text="" Style="{StaticResource BtnText}" Padding="0"
+                        HorizontalOptions="Fill" Command="{Binding Pick}"
+                        CommandParameter="{Binding Index}"
+                        SemanticProperties.Description="{Binding Label}" />
+                <BoxView Grid.Column="0" WidthRequest="3" HeightRequest="20" CornerRadius="2"
+                         Color="{DynamicResource Signal}" VerticalOptions="Center"
+                         InputTransparent="True" IsVisible="{Binding Selected}" />
+                <Label Grid.Column="1" Text="{Binding Label}" Style="{StaticResource TxtBody}"
+                       VerticalOptions="Center" InputTransparent="True" />
+                <HorizontalStackLayout Grid.Column="2" Spacing="3" VerticalOptions="Center"
+                                       InputTransparent="True" IsVisible="{Binding HasSwatches}"
+                                       BindableLayout.ItemsSource="{Binding Swatches}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <BoxView WidthRequest="16" HeightRequest="12" CornerRadius="3" Color="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+                <BoxView Grid.Column="2" WidthRequest="40" HeightRequest="26"
+                         Color="{DynamicResource WellBg}"
+                         CornerRadius="{Binding SampleRadius}"
+                         VerticalOptions="Center"
+                         InputTransparent="True" IsVisible="{Binding HasSample}" />
+            </Grid>
+        </DataTemplate>
+    </ContentPage.Resources>
+
+    <!--
+      版式学的是 Windows 的首次配置，内容一个字都不抄：
+      地面上只浮一张卡 · 左上角一枚裸返回箭头 · 标题大而不粗 · 主行动是右下角一颗实心、
+      它的左边一枚文字按钮 · 整页的最右下角留给工具位。
+      没有微软账号，也没有 PIN 和隐私球 —— 那三样和这个软件无关。
+      卡面走 CardSolid：四档世界里只有液态玻璃那一档会真的透，其余三档是不透明的面。
+    -->
+    <Grid RowDefinitions="*,Auto" Padding="{DynamicResource WPageMargin}">
+
+        <Border x:Name="SetupCard" Grid.Row="0" Style="{StaticResource CardSolid}"
+                WidthRequest="{DynamicResource WCardWidth}"
+                HorizontalOptions="Center" VerticalOptions="Center"
+                Padding="{DynamicResource WPadCard}">
+            <Grid RowDefinitions="Auto,*,Auto" RowSpacing="0">
+
+                <!-- ── 抬头：左箭头（只有第二步之后才在）· 右边一枚步数 ── -->
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" Margin="0,0,0,18">
+                    <Button Grid.Column="0" Text="←" Style="{StaticResource BtnText}"
+                            Padding="6,2" FontSize="{DynamicResource WSizeSubhead}"
+                            Command="{Binding BackCommand}" IsVisible="{Binding CanBack}"
+                            SemanticProperties.Description="{Binding [Setup_Back], Source={x:Static i18n:LocalizationService.Current}}" />
+                    <Label Grid.Column="2" Text="{Binding StepEyebrow}"
+                           Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}"
+                           VerticalOptions="Center" />
+                </Grid>
+
+                <!-- ── 正文：一屏一件事，五块里只有一块是可见的 ── -->
+                <Grid Grid.Row="1">
+
+                    <!-- 1 · 语言 -->
+                    <VerticalStackLayout x:Name="StepLang" Spacing="6" IsVisible="{Binding AtLang}">
+                        <Label Text="{Binding [Setup_Lang_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                               FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
+                        <Label Text="{Binding [Setup_Lang_Sub], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}"
+                               Margin="0,0,0,10" />
+                        <VerticalStackLayout Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding LangOptions}"
+                                             BindableLayout.ItemTemplate="{StaticResource OptionRow}" />
+                    </VerticalStackLayout>
+
+                    <!-- 2 · 材质与色板：选一颗，整页当场换 -->
+                    <VerticalStackLayout x:Name="StepStyle" Spacing="6" IsVisible="{Binding AtStyle}">
+                        <Label Text="{Binding [Setup_Style_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                               FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
+                        <Label Text="{Binding [Setup_Style_Sub], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}"
+                               Margin="0,0,0,10" />
+                        <Label Text="{Binding [Setup_Style_Material], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
+                        <VerticalStackLayout Spacing="2" Margin="0,0,0,14"
+                                             BindableLayout.ItemsSource="{Binding WorldOptions}"
+                                             BindableLayout.ItemTemplate="{StaticResource OptionRow}" />
+                        <Label Text="{Binding [Setup_Style_Palette], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
+                        <VerticalStackLayout Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding PaletteOptions}"
+                                             BindableLayout.ItemTemplate="{StaticResource OptionRow}" />
+                    </VerticalStackLayout>
+
+                    <!-- 3 · 常驻与桌宠（只有 Windows 走这一步） -->
+                    <VerticalStackLayout x:Name="StepReside" Spacing="6" IsVisible="{Binding AtReside}">
+                        <Label Text="{Binding [Setup_Reside_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                               FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
+                        <Label Text="{Binding [Setup_Reside_Sub], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}"
+                               Margin="0,0,0,10" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,8">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="{Binding [Setup_Reside_Top], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtBodySm}" />
+                                <Label Text="{Binding [Setup_Reside_TopHint], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmMuted}" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" VerticalOptions="Center"
+                                    OnColor="{DynamicResource Signal}"
+                                    IsToggled="{Binding Topmost, Mode=TwoWay}" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Label Text="{Binding [Setup_Reside_Pet], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}"
+                               Margin="0,10,0,0" />
+                        <VerticalStackLayout Spacing="2"
+                                             BindableLayout.ItemsSource="{Binding PetOptions}"
+                                             BindableLayout.ItemTemplate="{StaticResource OptionRow}" />
+                    </VerticalStackLayout>
+
+                    <!-- 4 · AI 端点：只有这一屏要打字，所以只有它用下划线输入 -->
+                    <VerticalStackLayout x:Name="StepAi" Spacing="18" IsVisible="{Binding AtAi}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="{Binding [Setup_Ai_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                                   FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
+                            <Label Text="{Binding [Setup_Ai_Sub], Source={x:Static i18n:LocalizationService.Current}}"
+                                   Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding [Settings_AiUrl], Source={x:Static i18n:LocalizationService.Current}}"
+                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
+                            <Entry Text="{Binding AiUrl, Mode=TwoWay}"
+                                   Placeholder="https://api.example.com/v1/chat/completions"
+                                   BackgroundColor="Transparent"
+                                   TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeBody}" />
+                            <BoxView HeightRequest="1" Color="{DynamicResource EdgeStrong}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding [Settings_AiKey], Source={x:Static i18n:LocalizationService.Current}}"
+                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
+                            <Entry Text="{Binding AiKey, Mode=TwoWay}" IsPassword="True" Placeholder="sk-…"
+                                   BackgroundColor="Transparent"
+                                   TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeBody}" />
+                            <BoxView HeightRequest="1" Color="{DynamicResource EdgeStrong}" />
+                        </VerticalStackLayout>
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="{Binding [Settings_AiModel], Source={x:Static i18n:LocalizationService.Current}}"
+                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
+                            <Entry Text="{Binding AiModel, Mode=TwoWay}" Placeholder="gpt-4o"
+                                   BackgroundColor="Transparent"
+                                   TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeBody}" />
+                            <BoxView HeightRequest="1" Color="{DynamicResource EdgeStrong}" />
+                        </VerticalStackLayout>
+                        <Label Text="{Binding [Setup_Ai_Hint], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmMuted}" />
+                    </VerticalStackLayout>
+
+                    <!-- 5 · 收尾：不只是「完事了」，还教一眼 —— 有什么、去哪调、最低要什么 -->
+                    <VerticalStackLayout x:Name="StepDone" Spacing="6" IsVisible="{Binding AtDone}">
+                        <Label Text="{Binding [Setup_Done_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                               FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
+                        <Label Text="{Binding [Setup_Done_Sub], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}" />
+
+                        <Label Text="{Binding [Setup_Teach_Head], Source={x:Static i18n:LocalizationService.Current}}"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}"
+                               Margin="0,14,0,2" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                    Color="{DynamicResource Signal}" VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                <Label Text="{Binding [Setup_Teach_Char], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtBody}" />
+                                <Label Text="{Binding [Setup_Teach_CharHint], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmMuted}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                    Color="{DynamicResource Signal}" VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                <Label Text="{Binding [Setup_Teach_Ai], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtBody}" />
+                                <Label Text="{Binding [Setup_Teach_AiHint], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmMuted}" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,6">
+                            <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                    Color="{DynamicResource Signal}" VerticalOptions="Center" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                <Label Text="{Binding [Setup_Teach_More], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtBody}" />
+                                <Label Text="{Binding [Setup_Teach_MoreHint], Source={x:Static i18n:LocalizationService.Current}}"
+                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmMuted}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Grid>
+
+                <!-- ── 行动：文字次行动在左，实心主行动在最右 ── -->
+                <HorizontalStackLayout Grid.Row="2" Spacing="10" HorizontalOptions="End" Margin="0,22,0,0">
+                    <Button Text="{Binding [Setup_Back], Source={x:Static i18n:LocalizationService.Current}}"
+                            Style="{StaticResource BtnText}" Command="{Binding BackCommand}"
+                            IsVisible="{Binding CanBack}" />
+                    <Button Text="{Binding [Setup_SkipStep], Source={x:Static i18n:LocalizationService.Current}}"
+                            Style="{StaticResource BtnText}" Command="{Binding NextCommand}"
+                            IsVisible="{Binding AtAi}" />
+                    <Button Text="{Binding [Setup_Later], Source={x:Static i18n:LocalizationService.Current}}"
+                            Style="{StaticResource BtnText}" Command="{Binding SkipAllCommand}"
+                            IsVisible="{Binding AtDone}" />
+                    <Button Text="{Binding NextLabel}" Style="{StaticResource BtnPrimary}"
+                            Command="{Binding NextCommand}" MinimumWidthRequest="132"
+                            IsVisible="{Binding AtDone, Converter={StaticResource InverseBool}}" />
+                    <Button Text="{Binding [Setup_CreateGo], Source={x:Static i18n:LocalizationService.Current}}"
+                            Style="{StaticResource BtnPrimary}" Command="{Binding ToCreateCommand}"
+                            MinimumWidthRequest="132" IsVisible="{Binding AtDone}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+
+        <!-- 工具位：钉在整页的最右下角，和卡里的行动钮不抢位置。
+             跳过不是撤销 —— 已经选过的语言、材质、色板都留着。 -->
+        <Button Grid.Row="1" Text="{Binding [Setup_SkipAll], Source={x:Static i18n:LocalizationService.Current}}"
+                Style="{StaticResource BtnText}" HorizontalOptions="End" Margin="0,8,4,0"
+                Command="{Binding SkipAllCommand}"
+                IsVisible="{Binding AtDone, Converter={StaticResource InverseBool}}" />
+    </Grid>
+</ContentPage>
