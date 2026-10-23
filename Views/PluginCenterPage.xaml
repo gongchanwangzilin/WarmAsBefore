@@ -25,7 +25,7 @@
                 <VerticalStackLayout Spacing="4">
                     <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                            TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
-                    <Label Text="插件可以改人设、改写发送前/回复后的文本、读取上下文、按轮次记账，也能带自己的设置页与页面。钩子运行在受限 JS 沙箱里（300ms / 2 万条语句 / 16MB）；设置页三选一是硬性要求，没声明就不能运行。"
+                    <Label Text="插件可以改人设、改写发送前/回复后的文本、读取上下文、按轮次记账，也能带自己的设置页与页面。钩子运行在受限 JS 沙箱里（语句数与内存有硬上限，等授权的时间不计入预算）；设置页三选一是硬性要求，没声明就不能运行。每项能力都要两边点头才生效：插件在 plugin.json 里声明过，你在「权限」里放行——没声明的允许了也不给，声明了但被禁止的一律拦下。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
 
@@ -67,7 +67,9 @@
                                            IsVisible="{Binding HasPages}" LineBreakMode="WordWrap" />
                                     <Label Text="{Binding OverridesLabel}" Style="{StaticResource TxtCaption}"
                                            IsVisible="{Binding HasOverrides}" LineBreakMode="WordWrap" />
-                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
+                                    <Label Text="{Binding PermissionLabel}" Style="{StaticResource TxtCaption}"
+                                           LineBreakMode="WordWrap" />
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
                                         <Button Text="{Binding ToggleLabel}" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
                                                 Command="{Binding BindingContext.ToggleCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
@@ -84,11 +86,14 @@
                                                 IsVisible="{Binding HasPages}"
                                                 Command="{Binding BindingContext.OpenPageCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="6" Text="安装地址" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        <Button Grid.Column="5" Text="权限" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.OpenPermsCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="7" Text="安装地址" Style="{StaticResource BtnGhost}" FontSize="12"
                                                 IsVisible="{Binding CanOpenMissing}"
                                                 Command="{Binding BindingContext.OpenMissingUrlCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="7" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        <Button Grid.Column="8" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
                                                 Command="{Binding BindingContext.DeleteCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
                                     </Grid>

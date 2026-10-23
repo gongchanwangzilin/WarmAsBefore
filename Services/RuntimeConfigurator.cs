@@ -42,6 +42,7 @@ public sealed class RuntimeConfigurator
     private readonly PluginHost _plugins;
     private readonly McpOrchestrator _mcp;
     private readonly MapService _map;
+    private readonly Modules.MinecraftBridge.MaidBridgeService _maidBridge;
     private bool _notifyHooked;
     private bool _sceneHooked;
 
@@ -55,7 +56,8 @@ public sealed class RuntimeConfigurator
         Modules.ApiManager.ApiGateway api, CostEstimatorService cost,
         Modules.SaveSystem.SaveManager save, GameEngine engine,
         GenderLibrary genders, MentalHealthService mental, PhysiologyService body,
-        ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map)
+        ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map,
+        Modules.MinecraftBridge.MaidBridgeService maidBridge)
     {
         _settings = settings;
         _chat = chat;
@@ -86,10 +88,17 @@ public sealed class RuntimeConfigurator
         _plugins = plugins;
         _mcp = mcp;
         _map = map;
+        _maidBridge = maidBridge;
         _plugins.ToolInvoker = (name, args) => _tools.ExecuteAsync(name, args);
         // 存档级权限：工具与插件都从同一个存档状态取，读档后立即跟着变
         _tools.SavePermissionsProvider = () => _engine.State.Permissions;
         _plugins.PermissionsProvider = () => _engine.State.Permissions;
+        // 插件权限：判定走到「问一次」时得回主线程问人，插件的通知也走同一条恢复窗口的路。
+        _plugins.Permissions.Prompter = AskPluginPermissionAsync;
+        _plugins.Notifier = NotifyPluginAsync;
+        // Minecraft 没连上时不把 maid_* 放进提示词：模型不该看见用不了的工具。
+        _tools.ToolVisibility = name =>
+            !name.StartsWith("maid_", StringComparison.Ordinal) || _maidBridge.IsConnected;
     }
 
     /// <summary>把设置里的单价表同步进成本服务，并把真实 usage 接到成本账上。</summary>
@@ -155,6 +164,7 @@ public sealed class RuntimeConfigurator
             };
         }
         // 设置立即下发，保证首帧即生效
+        _maidBridge.Start();
         Apply();
         _settings.Applied += Apply;
         // 能力包清单（skill）：只放名字与用途，正文由 AI 按需 read_skill
@@ -238,6 +248,70 @@ public sealed class RuntimeConfigurator
         });
     }
 
+    /// <summary>
+    /// 插件权限的「问一次」：判定线程可能是线程池（JS 沙箱里同步等），弹窗必须在主线程，
+    /// 所以用 TCS 把答复递回去。桌宠模式下主窗口是隐藏的，先恢复再问——
+    /// 不然这一次 await 永远等不到答复，钩子会一直卡在授权上（时间预算不计等待时间，它不会自己醒）。
+    /// 等太久按最安全的答复收场：这次不给，也不落盘，下次照旧再问。
+    /// </summary>
+    private async Task<PluginAnswer> AskPluginPermissionAsync(PluginAskRequest req)
+    {
+        var tcs = new TaskCompletionSource<PluginAnswer>(TaskCreationOptions.RunContinuationsAsynchronously);
+        MainThread.BeginInvokeOnMainThread(async () =>
+        {
+            try
+            {
+                PetService.ShowMainWindowStatic();
+                WindowTopmost.BringToFront();
+                var shell = Shell.Current;
+                if (shell is null)
+                {
+                    tcs.TrySetResult(PluginAnswer.DenyOnce);
+                    return;
+                }
+                var target = req.Capability.ArgScoped && !string.IsNullOrWhiteSpace(req.Arg)
+                    ? "\n对象：" + req.Arg
+                    : "";
+                var pick = await shell.DisplayActionSheet(
+                    $"「{req.PluginName}」想用：{req.Capability.Title}",
+                    "这次先不给", null, "总是允许", "仅这一次");
+                tcs.TrySetResult(pick switch
+                {
+                    "总是允许" => PluginAnswer.Allow,
+                    "仅这一次" => PluginAnswer.Once,
+                    _ => PluginAnswer.DenyOnce
+                });
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("RuntimeConfigurator.AskPermission -> " + ex.Message);
+                tcs.TrySetResult(PluginAnswer.DenyOnce);
+            }
+        });
+        try
+        {
+            return await tcs.Task.WaitAsync(TimeSpan.FromMinutes(5));
+        }
+        catch (TimeoutException)
+        {
+            App.WriteLog($"RuntimeConfigurator.AskPermission -> 五分钟没人答话，按未放行处理（{req.PluginId}:{req.Capability.Name}）");
+            return PluginAnswer.DenyOnce;
+        }
+    }
+
+    /// <summary>插件调 notify：只负责把内容交回主线程，弹窗本身复用通知那条路。</summary>
+    private Task NotifyPluginAsync(string title, string text)
+    {
+        var tcs = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            try { OnNotify(string.IsNullOrWhiteSpace(title) ? "插件提醒" : title, text); }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.PluginNotify -> " + ex.Message); }
+            tcs.TrySetResult(true);
+        });
+        return tcs.Task;
+    }
+
     private const string NarratorProtocol =
         "【旁白模式】在回复里可以先用一两句第三人称的旁白写环境与动作（雨声、灯光、手指的动作），再进入对话。"
         + "旁白只写看得见、听得到的东西，不替对方说出内心，不总结道理；不必每回合都写，安静的对话可以没有旁白。";
@@ -267,6 +341,12 @@ public sealed class RuntimeConfigurator
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MentalPersona -> " + ex.Message); }
         }
         if (s.NarratorAiEnabled) parts.Add(NarratorProtocol);
+        try
+        {
+            var maid = _maidBridge.BuildPersona(charId);
+            if (!string.IsNullOrWhiteSpace(maid)) parts.Add(maid);
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MaidPersona -> " + ex.Message); }
         return string.Join("\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
     }
 
@@ -384,7 +464,8 @@ public sealed class RuntimeConfigurator
             try
             {
                 if (_settings.Current.PluginHooksEnabled)
-                    await _plugins.RunHookAsync(charId, "afterTurn", new { charId, note });
+                    // RunHookAsync 的第一个参数是插件 id，把角色 id 传进去等于从来没有插件收到过回合结束。
+                    await _plugins.RunAllHookAsync("afterTurn", new { charId, note });
             }
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.PluginAfterTurn -> " + ex.Message); }
             if (!_settings.Current.LowMemoryMode) return;
@@ -396,15 +477,23 @@ public sealed class RuntimeConfigurator
         _chat.ExtraPersonaProvider = BuildExtraPersona;
         // 身体感受：每轮都取最新（放在动态上下文里，人设不必重建）
         _chat.ExtraContextProvider = _ => _settings.Current.PhysiologyEnabled ? _body.PromptText() : "";
-        // 插件 persona / context：异步读钩子文件，避免在 UI 线程上同步阻塞
+        // 动态上下文：Minecraft 身体感知始终在；插件 persona / context 只在钩子启用时追加
         _chat.ExtraContextProviderAsync = async charId =>
         {
-            if (!_settings.Current.PluginHooksEnabled) return "";
             var parts = new List<string>();
-            var persona = await _plugins.PersonaTextAsync(charId);
-            if (!string.IsNullOrWhiteSpace(persona)) parts.Add(persona);
-            var context = await _plugins.TransformAsync("context", charId, "");
-            if (!string.IsNullOrWhiteSpace(context)) parts.Add(context);
+            try
+            {
+                var maid = _maidBridge.BuildContext(charId);
+                if (!string.IsNullOrWhiteSpace(maid)) parts.Add(maid);
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MaidContext -> " + ex.Message); }
+            if (_settings.Current.PluginHooksEnabled)
+            {
+                var persona = await _plugins.PersonaTextAsync(charId);
+                if (!string.IsNullOrWhiteSpace(persona)) parts.Add(persona);
+                var context = await _plugins.TransformAsync("context", charId, "");
+                if (!string.IsNullOrWhiteSpace(context)) parts.Add(context);
+            }
             return string.Join("\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
         };
         // 插件改写回复管线（beforeSend / afterReply）：失败保留原文

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
@@ -115,6 +116,7 @@ public sealed class PluginHost
 
     private readonly StorageProvider _store;
     private readonly SettingsManager _settings;
+    private readonly PluginPermissions _permissions;
     private readonly object _gate = new();
     private readonly Dictionary<string, PluginEntry> _plugins = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _disabled = new(StringComparer.OrdinalIgnoreCase);
@@ -122,17 +124,25 @@ public sealed class PluginHost
     private readonly Dictionary<string, HttpListener> _callbackServers = new(StringComparer.OrdinalIgnoreCase);
     private bool _loaded;
     private int _pluginCallDepth;
+    private int _emitDepth;
+
+    /// <summary>能力授权表（声明 ∩ 授予）。界面与钩子判定共用同一个实例。</summary>
+    public PluginPermissions Permissions => _permissions;
 
     /// <summary>调用工具（由 RuntimeConfigurator 注入）：插件 JS 里用 callTool(name, argsJson)。</summary>
     public Func<string, string, Task<string>>? ToolInvoker { get; set; }
 
+    /// <summary>发用户可见通知（由 RuntimeConfigurator 注入）：notify(title,text) 要走 notify 授权。</summary>
+    public Func<string, string, Task>? Notifier { get; set; }
+
     /// <summary>当前存档的插件白名单；null = 不限制。</summary>
     public Func<Models.SavePermissions?>? PermissionsProvider { get; set; }
 
-    public PluginHost(StorageProvider store, SettingsManager settings)
+    public PluginHost(StorageProvider store, SettingsManager settings, PluginPermissions? permissions = null)
     {
         _store = store;
         _settings = settings;
+        _permissions = permissions ?? new PluginPermissions(store);
     }
 
     /// <summary>插件目录变了 / 需要最新状态：丢缓存重扫。</summary>
@@ -236,6 +246,8 @@ public sealed class PluginHost
         await EnsureLoadedAsync();
         // 停用前先跑 onUnload：RunHookAsync 会拒绝已停用的插件，顺序反了就永远收不到清理信号。
         if (!enabled) await RunHookAsync(id, "onUnload", new { plugin = id });
+        // 「仅这一次」的临时允许不该活过一轮停用：重新启用就当重新认识一次。
+        if (!enabled) _permissions.ForgetSession(id);
         lock (_gate)
         {
             if (enabled) _disabled.Remove(id);
@@ -331,6 +343,8 @@ public sealed class PluginHost
             StopCallbackServer(id);
             Directory.Delete(entry.Dir, true);
             lock (_gate) _plugins.Remove(id);
+            // 授权跟着插件一起删：留着的话，日后重装一个同名 id 的插件就直接继承了用户给过的允许。
+            await _permissions.ResetAsync(id);
             return true;
         }
         catch (Exception ex)
@@ -374,8 +388,9 @@ public sealed class PluginHost
             var input = JsonSerializer.Serialize(context);
             var settings = await GetSettingsAsync(pluginId);
             // JS 里的 callTool/callPlugin 会同步等待；钩子留在 UI 线程上等会把它锁死，统一放到线程池里跑。
+            var gate = new PermissionGate(this, entry);
             var result = await Task.Run(() =>
-                RunJs(code, input, settings, (key, value) => SetSettingAsync(pluginId, key, value)));
+                RunJs(code, input, settings, (key, value) => SetSettingAsync(pluginId, key, value), gate));
             return result;
         }
         catch (Exception ex)
@@ -396,39 +411,69 @@ public sealed class PluginHost
         }
     }
 
-    /// <summary>JS 沙箱：可用 input（JSON）、getSetting/setSetting/log/callTool/now，结果写进 result。</summary>
+    /// <summary>
+    /// JS 沙箱。每个宿主函数都先过「声明 ∩ 授予」：被拦时函数返回空值或错误 JSON，
+    /// 钩子不炸、主程序不炸，原因同时进插件崩溃日志与权限留痕。
+    /// 可用：input / result / getSetting / setSetting / log / now / callTool / callPlugin /
+    /// fetch / emit / notify / writeFile / readFile / listFiles / deleteFile。
+    /// </summary>
     private string? RunJs(string code, string input, IReadOnlyDictionary<string, string> settings,
-        Action<string, string> setSetting)
+        Action<string, string> setSetting, PermissionGate gate)
     {
+        var entry = gate.Entry;
+        var budget = BudgetMs(entry);
+        using var cts = new CancellationTokenSource();
         var engine = new Engine(options =>
         {
-            options.TimeoutInterval(TimeSpan.FromMilliseconds(300));
+            // 时间预算自己数，不用 Jint 的 TimeoutInterval：那条从引擎启动算墙上时间，
+            // 一次「问用户要不要放行」的等待就能把它吃光，钩子会在答完后的下一条语句上被误杀。
+            options.CancellationToken(cts.Token);
             options.MaxStatements(20_000);
             options.LimitMemory(16_000_000);
         });
+        // 看门狗只算 JS 真正在跑的时间：gate.PausedMs 把等用户授权的那段单独记着，从总耗时里扣掉。
+        var elapsed = Stopwatch.StartNew();
+        using var watchdog = new Timer(
+            _ => { if (elapsed.ElapsedMilliseconds - gate.PausedMs > budget) cts.Cancel(); },
+            null, 25, 25);
         engine.SetValue("input", input);
         engine.SetValue("result", "");
         engine.SetValue("getSetting", new Func<string, string>(k =>
-            settings.TryGetValue(k ?? "", out var v) ? v : ""));
-        engine.SetValue("setSetting", new Action<string, string>((k, v) => setSetting?.Invoke(k ?? "", v ?? "")));
-        engine.SetValue("log", new Action<object?>(m => App.WriteLog("[plugin] " + m)));
+        {
+            if (!gate.Allowed(PluginCapabilities.Settings)) return "";
+            return settings.TryGetValue(k ?? "", out var v) ? v : "";
+        }));
+        engine.SetValue("setSetting", new Action<string, string>((k, v) =>
+        {
+            if (!gate.Allowed(PluginCapabilities.Settings)) return;
+            setSetting?.Invoke(k ?? "", v ?? "");
+        }));
+        engine.SetValue("log", new Action<object?>(m =>
+        {
+            if (!gate.Allowed(PluginCapabilities.Log)) return;
+            App.WriteLog("[plugin:" + entry.Manifest.Id + "] " + m);
+        }));
         engine.SetValue("now", new Func<string>(() => DateTime.Now.ToString("yyyy-MM-dd HH:mm")));
         if (ToolInvoker is not null)
         {
             engine.SetValue("callTool", new Func<string, string, string>((name, args) =>
             {
+                var d = gate.Decide(PluginCapabilities.Tools, name);
+                if (!d.Allowed) return ErrorJson(d.Reason);
                 try { return ToolInvoker(name ?? "", args ?? "{}").GetAwaiter().GetResult(); }
-                catch (Exception ex) { return JsonSerializer.Serialize(new { error = ex.Message }); }
+                catch (Exception ex) { return ErrorJson(ex.Message); }
             }));
         }
         // 插件之间互相调用：callPlugin("other.id", "hook", '{"...":1}')。
         // 嵌套上限是硬的——A 调 B、B 又调 A 时不能把宿主拖进无限递归。
         engine.SetValue("callPlugin", new Func<string, string, string, string>((id, hook, args) =>
         {
+            var d = gate.Decide(PluginCapabilities.Plugins, id);
+            if (!d.Allowed) return ErrorJson(d.Reason);
             if (Interlocked.Increment(ref _pluginCallDepth) > 4)
             {
                 Interlocked.Decrement(ref _pluginCallDepth);
-                return JsonSerializer.Serialize(new { error = "插件互相调用的嵌套太深（上限 4 层）。" });
+                return ErrorJson("插件互相调用的嵌套太深（上限 4 层）。");
             }
             try
             {
@@ -447,13 +492,389 @@ public sealed class PluginHost
             }
             catch (Exception ex)
             {
-                return JsonSerializer.Serialize(new { error = ex.Message });
+                return ErrorJson(ex.Message);
             }
             finally { Interlocked.Decrement(ref _pluginCallDepth); }
         }));
-        engine.Execute(code);
+        engine.SetValue("fetch", new Func<string, string, string>((url, options) => FetchJson(gate, url, options)));
+        engine.SetValue("emit", new Func<string, string, string>((topic, payload) => EmitJson(gate, topic, payload)));
+        engine.SetValue("notify", new Func<string, string, string>((title, text) => NotifyJson(gate, title, text)));
+        engine.SetValue("writeFile", new Func<string, string, string>((name, text) => WriteFileJson(gate, name, text)));
+        engine.SetValue("readFile", new Func<string, string>((name) => ReadFileJson(gate, name)));
+        engine.SetValue("listFiles", new Func<string>(() => ListFilesJson(gate)));
+        engine.SetValue("deleteFile", new Func<string, string>((name) => DeleteFileJson(gate, name)));
+        try
+        {
+            engine.Execute(code);
+        }
+        catch (Exception ex) when (cts.IsCancellationRequested)
+        {
+            LogCrash(entry.Manifest.Id,
+                $"JS 超过 {budget}ms 时间预算（等用户授权的时间不算在内），钩子已中断：{ex.GetType().Name}");
+            return null;
+        }
         var value = engine.GetValue("result");
         return value.IsUndefined() || value.IsNull() ? null : value.ToString();
+    }
+
+    private static string ErrorJson(string? reason)
+        => JsonSerializer.Serialize(new { error = reason ?? "没有权限" });
+
+    /// <summary>
+    /// 一次钩子运行内的授权判定缓存：同一条「能力:对象」只判一次、只记一次，
+    /// 免得一个每轮都调的 getSetting 把留痕刷满、把弹窗问烦。
+    /// </summary>
+    private sealed class PermissionGate
+    {
+        private readonly PluginHost _host;
+        private readonly Dictionary<string, PluginDecision> _memo = new(StringComparer.OrdinalIgnoreCase);
+        private readonly Stopwatch _paused = new();
+        public PluginEntry Entry { get; }
+
+        public PermissionGate(PluginHost host, PluginEntry entry)
+        {
+            _host = host;
+            Entry = entry;
+        }
+
+        public string PluginId => Entry.Manifest.Id;
+
+        /// <summary>等用户授权累计掉的毫秒数——这段时间不能算进钩子的时间预算。</summary>
+        public long PausedMs => _paused.ElapsedMilliseconds;
+
+        public PluginDecision Decide(string capability, string? arg = null)
+        {
+            var key = capability + "|" + (arg ?? "");
+            lock (_memo) if (_memo.TryGetValue(key, out var cached)) return cached;
+            PluginDecision d;
+            // 只有会走「问一次」这条路的能力才真的阻塞；Stopwatch 在等待期间是活着的，
+            // 所以看门狗看到的「已用预算」在人没答话时几乎不增长。
+            _paused.Start();
+            try
+            {
+                d = _host._permissions
+                    .CheckAsync(Entry.Manifest.Id, Entry.Manifest.Name, Entry.Manifest, capability, arg)
+                    .GetAwaiter().GetResult();
+            }
+            finally { _paused.Stop(); }
+            lock (_memo) _memo[key] = d;
+            if (!d.Allowed)
+                _host.LogCrash(Entry.Manifest.Id, "[权限] " + capability
+                    + (string.IsNullOrWhiteSpace(arg) ? "" : ":" + arg) + " 被拦：" + d.Reason);
+            return d;
+        }
+
+        public bool Allowed(string capability, string? arg = null) => Decide(capability, arg).Allowed;
+    }
+
+    /// <summary>
+    /// 钩子的时间预算。出网与调工具是同步等的，300ms 的 JS 看门狗会在响应回来后的下一条语句上
+    /// 把整个钩子掐掉，所以按「声明了会等待的能力」留出预算；语句数与内存上限不跟着放宽。
+    /// </summary>
+    private static int BudgetMs(PluginEntry entry)
+    {
+        bool Has(string cap) => PluginPermissions.DeclaredFor(entry.Manifest,
+            PluginCapabilities.ByName[cap]);
+        if (Has(PluginCapabilities.Network) || Has(PluginCapabilities.LocalNet)) return 12_000;
+        if (Has(PluginCapabilities.Tools) || Has(PluginCapabilities.Plugins) || Has(PluginCapabilities.Broadcast)) return 5_000;
+        return 300;
+    }
+
+    // ==================== 能力实现：网络 / 广播 / 通知 / 文件 ====================
+
+    private const int MaxFetchBytes = 512 * 1024;
+    private const int MaxRequestBodyBytes = 64 * 1024;
+    private const int MaxPayloadBytes = 64 * 1024;
+    private const int MaxStorageFileBytes = 1024 * 1024;
+    private const long MaxStorageTotalBytes = 8 * 1024 * 1024;
+
+    private static readonly HttpClient Net = new(new SocketsHttpHandler
+    {
+        // 不自动跟跳转：302 把请求转到 127.0.0.1 就等于插件用一条 network:api.x.com 摸到了本机。
+        AllowAutoRedirect = false,
+        ConnectTimeout = TimeSpan.FromSeconds(6),
+        PooledConnectionLifetime = TimeSpan.FromMinutes(5)
+    })
+    { Timeout = TimeSpan.FromSeconds(10) };
+
+    private static readonly HashSet<string> BlockedHeaders = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "Host", "Content-Length", "Transfer-Encoding", "Connection", "Upgrade", "Keep-Alive", "TE", "Trailer"
+    };
+
+    private string FetchJson(PermissionGate gate, string rawUrl, string optionsJson)
+    {
+        try
+        {
+            var url = (rawUrl ?? "").Trim();
+            if (url.Length == 0 || url.Length > 2000) return ErrorJson("地址为空或太长。");
+            if (!Uri.TryCreate(url, UriKind.Absolute, out var uri)) return ErrorJson("不是完整 URL（要带 http:// 或 https://）。");
+            if (uri.Scheme is not ("http" or "https")) return ErrorJson("只允许 http / https。");
+
+            var host = uri.IdnHost;
+            var d = LooksLocal(host)
+                ? gate.Decide(PluginCapabilities.LocalNet, null)
+                : gate.Decide(PluginCapabilities.Network, host);
+            if (!d.Allowed) return ErrorJson(d.Reason);
+
+            string method = "GET", body = "";
+            var headers = new List<(string Name, string Value)>();
+            if (!string.IsNullOrWhiteSpace(optionsJson))
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(optionsJson);
+                    var root = doc.RootElement;
+                    if (root.TryGetProperty("method", out var m) && m.ValueKind == JsonValueKind.String)
+                        method = (m.GetString() ?? "GET").Trim().ToUpperInvariant();
+                    if (root.TryGetProperty("body", out var b))
+                        body = b.ValueKind == JsonValueKind.String ? (b.GetString() ?? "") : b.GetRawText();
+                    if (root.TryGetProperty("headers", out var hs) && hs.ValueKind == JsonValueKind.Object)
+                        foreach (var p in hs.EnumerateObject())
+                            headers.Add((p.Name, p.Value.ValueKind == JsonValueKind.String
+                                ? p.Value.GetString() ?? "" : p.Value.GetRawText()));
+                }
+                catch (Exception ex) { return ErrorJson("options 不是合法 JSON：" + ex.Message); }
+            }
+            if (method is not ("GET" or "POST" or "PUT" or "PATCH" or "DELETE" or "HEAD"))
+                return ErrorJson("不支持的方法：" + method);
+            if (System.Text.Encoding.UTF8.GetByteCount(body) > MaxRequestBodyBytes)
+                return ErrorJson("请求体超过 64KB。");
+
+            using var req = new HttpRequestMessage(new HttpMethod(method), uri);
+            if (body.Length > 0 && method is not ("GET" or "HEAD"))
+                req.Content = new StringContent(body, Encoding.UTF8, "application/json");
+            foreach (var (name, value) in headers)
+            {
+                if (BlockedHeaders.Contains(name)) continue;
+                if (name.StartsWith("access-control-", StringComparison.OrdinalIgnoreCase)) continue;
+                req.Headers.TryAddWithoutValidation(name, value);
+            }
+
+            using var resp = Net.SendAsync(req).GetAwaiter().GetResult();
+            var status = (int)resp.StatusCode;
+            string text = "";
+            bool truncated = false;
+            if (method != "HEAD")
+            {
+                using var stream = resp.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
+                using var ms = new MemoryStream();
+                var buffer = new byte[8192];
+                int read;
+                while (ms.Length < MaxFetchBytes && (read = stream.Read(buffer, 0, buffer.Length)) > 0)
+                    ms.Write(buffer, 0, read);
+                if (ms.Length >= MaxFetchBytes)
+                {
+                    var extra = new byte[1];
+                    truncated = stream.Read(extra, 0, 1) > 0;
+                }
+                text = Encoding.UTF8.GetString(ms.ToArray());
+            }
+            var location = resp.Headers.Location?.ToString() ?? "";
+            return JsonSerializer.Serialize(new
+            {
+                ok = resp.IsSuccessStatusCode,
+                status,
+                body = text,
+                truncated,
+                location,
+                error = ""
+            });
+        }
+        catch (TaskCanceledException)
+        {
+            return ErrorJson("请求超时（10 秒）。");
+        }
+        catch (Exception ex)
+        {
+            return ErrorJson("请求失败：" + ex.Message);
+        }
+    }
+
+    private static bool LooksLocal(string host)
+    {
+        if (string.IsNullOrWhiteSpace(host)) return true;
+        var h = host.Trim('[', ']').TrimEnd('.');
+        if (h.Equals("localhost", StringComparison.OrdinalIgnoreCase)) return true;
+        if (h.EndsWith(".local", StringComparison.OrdinalIgnoreCase)
+            || h.EndsWith(".internal", StringComparison.OrdinalIgnoreCase)) return true;
+        if (IPAddress.TryParse(h, out var literal)) return IsLocalIp(literal);
+        try
+        {
+            // 域名解析后是内网/回环，也算本机访问：否则 network:me 一条就能把请求送到 127.0.0.1 的服务上
+            return System.Net.Dns.GetHostAddresses(h).Any(IsLocalIp);
+        }
+        catch { return false; }   // 解析不了就让 network 那条判定去处理（连接自然也会失败）
+    }
+
+    private static bool IsLocalIp(IPAddress a)
+    {
+        if (IPAddress.IsLoopback(a)) return true;
+        if (a.IsIPv6LinkLocal || a.IsIPv6SiteLocal || a.IsIPv6Multicast) return true;
+        var b = a.GetAddressBytes();
+        if (b.Length == 4)
+            return b[0] == 0 || b[0] == 10 || b[0] == 127
+                   || (b[0] == 169 && b[1] == 254)
+                   || (b[0] == 172 && b[1] >= 16 && b[1] <= 31)
+                   || (b[0] == 192 && b[1] == 168)
+                   || b[0] >= 224;
+        if (b.Length == 16)
+            return b[0] == 0xfc || b[0] == 0xfd || b[0] == 0xfe;
+        return false;
+    }
+
+    /// <summary>广播：把 payload 送给所有声明了 on:&lt;topic&gt; 且被授权收听这个 topic 的插件。</summary>
+    private string EmitJson(PermissionGate gate, string topic, string payload)
+    {
+        var t = (topic ?? "").Trim();
+        if (t.Length == 0 || t.Length > 64) return ErrorJson("话题名要 1~64 个字符。");
+        var d = gate.Decide(PluginCapabilities.Broadcast, t);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        if (System.Text.Encoding.UTF8.GetByteCount(payload ?? "") > MaxPayloadBytes)
+            return ErrorJson("载荷超过 64KB。");
+        try
+        {
+            var delivered = DispatchBroadcastAsync(gate.PluginId, t, payload ?? "").GetAwaiter().GetResult();
+            return JsonSerializer.Serialize(new { ok = true, delivered, error = "" });
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
+    }
+
+    private async Task<int> DispatchBroadcastAsync(string fromId, string topic, string payload)
+    {
+        // A 发 T、B 的监听里再发 T…——两层就够把整个应用绕晕，硬性停在第二层。
+        if (Interlocked.Increment(ref _emitDepth) > 2)
+        {
+            Interlocked.Decrement(ref _emitDepth);
+            App.WriteLog("[插件广播] topic=" + topic + " 嵌套超过 2 层，本条已丢弃。");
+            return 0;
+        }
+        try
+        {
+            var hookName = "on:" + topic;
+            var targets = (await AllAsync()).Where(p => p.Enabled
+                && !string.Equals(p.Manifest.Id, fromId, StringComparison.OrdinalIgnoreCase)
+                && p.Manifest.Hooks.ContainsKey(hookName)).ToList();
+            var delivered = 0;
+            foreach (var t in targets)
+            {
+                // 收听方自己也得声明并拿到这个 topic：有人愿意发不等于谁都可以收。
+                var d = await _permissions.CheckAsync(t.Manifest.Id, t.Manifest.Name,
+                    t.Manifest, PluginCapabilities.Broadcast, topic);
+                if (!d.Allowed) continue;
+                try
+                {
+                    await RunHookAsync(t.Manifest.Id, hookName,
+                        new { from = fromId, topic, payload, data = payload });
+                    delivered++;
+                }
+                catch (Exception ex) { LogCrash(t.Manifest.Id, $"广播 {topic} 投递失败：{ex.Message}"); }
+            }
+            return delivered;
+        }
+        finally { Interlocked.Decrement(ref _emitDepth); }
+    }
+
+    private string NotifyJson(PermissionGate gate, string title, string text)
+    {
+        var d = gate.Decide(PluginCapabilities.Notify, null);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        var sender = Notifier;
+        if (sender is null) return ErrorJson("主程序没有接上通知通道。");
+        try
+        {
+            sender((title ?? "").Trim(), (text ?? "").Trim()).GetAwaiter().GetResult();
+            return JsonSerializer.Serialize(new { ok = true, error = "" });
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
+    }
+
+    private static string StorageDir(PluginEntry entry) => Path.Combine(entry.Dir, "files");
+
+    /// <summary>文件区里的名字：只要一个纯文件名，路径分隔符、盘符、.. 全不要。</summary>
+    private static string? SafeFileName(string? raw)
+    {
+        var name = (raw ?? "").Trim().Replace('\\', '/');
+        if (name.Length == 0 || name.Length > 120) return null;
+        if (name.Contains('/')) name = name[(name.LastIndexOf('/') + 1)..];
+        if (name is "." or ".." || name.Contains(':')) return null;
+        if (name.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0) return null;
+        return name.Length == 0 ? null : name;
+    }
+
+    private string WriteFileJson(PermissionGate gate, string name, string text)
+    {
+        var d = gate.Decide(PluginCapabilities.Storage, null);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        var safe = SafeFileName(name);
+        if (safe is null) return ErrorJson("文件名不合法。");
+        try
+        {
+            var dir = StorageDir(gate.Entry);
+            var bytes = Encoding.UTF8.GetByteCount(text ?? "");
+            if (bytes > MaxStorageFileBytes) return ErrorJson("单文件不能超过 1MB。");
+            Directory.CreateDirectory(dir);
+            var path = Path.Combine(dir, safe);
+            var root = Path.GetFullPath(dir) + Path.DirectorySeparatorChar;
+            if (!Path.GetFullPath(path).StartsWith(root, StringComparison.OrdinalIgnoreCase))
+                return ErrorJson("文件路径越出了插件自己的文件区。");
+            var used = new DirectoryInfo(dir).EnumerateFiles().Sum(f => (long)f.Length);
+            if (used + bytes - (File.Exists(path) ? new FileInfo(path).Length : 0) > MaxStorageTotalBytes)
+                return ErrorJson("插件文件区已满（上限 8MB）。");
+            File.WriteAllText(path, text ?? "");
+            return JsonSerializer.Serialize(new { ok = true, bytes, error = "" });
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
+    }
+
+    private string ReadFileJson(PermissionGate gate, string name)
+    {
+        var d = gate.Decide(PluginCapabilities.Storage, null);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        var safe = SafeFileName(name);
+        if (safe is null) return ErrorJson("文件名不合法。");
+        try
+        {
+            var root = Path.GetFullPath(StorageDir(gate.Entry)) + Path.DirectorySeparatorChar;
+            var path = Path.GetFullPath(Path.Combine(root, safe));
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase) || !File.Exists(path))
+                return JsonSerializer.Serialize(new { ok = false, content = "", error = "" });
+            return JsonSerializer.Serialize(new { ok = true, content = File.ReadAllText(path), error = "" });
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
+    }
+
+    private string ListFilesJson(PermissionGate gate)
+    {
+        var d = gate.Decide(PluginCapabilities.Storage, null);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        try
+        {
+            var dir = StorageDir(gate.Entry);
+            if (!Directory.Exists(dir)) return "[]";
+            var list = new DirectoryInfo(dir).EnumerateFiles()
+                .Select(f => new { name = f.Name, bytes = f.Length, at = f.LastWriteTime.ToString("yyyy-MM-dd HH:mm") })
+                .ToList();
+            return JsonSerializer.Serialize(list);
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
+    }
+
+    private string DeleteFileJson(PermissionGate gate, string name)
+    {
+        var d = gate.Decide(PluginCapabilities.Storage, null);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        var safe = SafeFileName(name);
+        if (safe is null) return ErrorJson("文件名不合法。");
+        try
+        {
+            var root = Path.GetFullPath(StorageDir(gate.Entry)) + Path.DirectorySeparatorChar;
+            var path = Path.GetFullPath(Path.Combine(root, safe));
+            if (!path.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return ErrorJson("路径越出了插件自己的文件区。");
+            if (File.Exists(path)) File.Delete(path);
+            return JsonSerializer.Serialize(new { ok = true, error = "" });
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
     }
 
     /// <summary>人设扩展：按启用顺序执行 persona 钩子；声明 overridePersona 的非空结果会替换后续内容。</summary>
@@ -463,13 +884,14 @@ public sealed class PluginHost
         var parts = new List<string>();
         foreach (var p in (await AllAsync()).Where(p => p.Enabled))
         {
+            // 被 deny 就别跑：persona 钩子唯一的作用是往提示词里加字，跑一遍只留一条崩溃日志没用。
+            if (!await AllowAsync(p, PluginCapabilities.PromptWrite)) continue;
             var text = await RunHookAsync(p.Manifest.Id, "persona", new { charId, character = charId });
-            if (!string.IsNullOrWhiteSpace(text))
-            {
-                if (p.Manifest.Overrides.Contains("persona", StringComparer.OrdinalIgnoreCase))
-                    parts.Clear();
-                parts.Add(text.Trim());
-            }
+            if (string.IsNullOrWhiteSpace(text)) continue;
+            if (p.Manifest.Overrides.Contains("persona", StringComparer.OrdinalIgnoreCase)
+                && await AllowAsync(p, PluginCapabilities.PipelineOverride))
+                parts.Clear();
+            parts.Add(text.Trim());
         }
         return string.Join("\n", parts);
     }
@@ -477,9 +899,11 @@ public sealed class PluginHost
     public async Task<string> TransformAsync(string hook, string charId, string text, string extraKey = "", string extraValue = "")
     {
         if (!_settings.Current.PluginHooksEnabled) return text;
+        var capability = CapabilityOfHook(hook);
         var current = text;
         foreach (var p in (await AllAsync()).Where(p => p.Enabled))
         {
+            if (capability.Length > 0 && !await AllowAsync(p, capability)) continue;
             var input = new Dictionary<string, string>
             {
                 ["charId"] = charId,
@@ -491,6 +915,26 @@ public sealed class PluginHost
             if (!string.IsNullOrWhiteSpace(result)) current = result;
         }
         return current;
+    }
+
+    /// <summary>
+    /// 钩子名 → 它其实要动用哪一项能力。副作用型钩子（afterTurn、on:topic）不改文本，不额外要能力。
+    /// </summary>
+    private static string CapabilityOfHook(string hook) => (hook ?? "").ToLowerInvariant() switch
+    {
+        "persona" or "context" => PluginCapabilities.PromptWrite,
+        "beforesend" or "afterreply" => PluginCapabilities.PipelineTransform,
+        _ => ""
+    };
+
+    /// <summary>宿主侧（不在 JS 沙箱里）的一轮授权判定：拦下时留痕已经写好，这里只要布尔。</summary>
+    public async Task<bool> AllowAsync(PluginEntry entry, string capability, string? arg = null)
+    {
+        var d = await _permissions.CheckAsync(entry.Manifest.Id, entry.Manifest.Name, entry.Manifest, capability, arg);
+        if (d.Allowed) return true;
+        LogCrash(entry.Manifest.Id, "[权限] " + capability
+            + (string.IsNullOrWhiteSpace(arg) ? "" : ":" + arg) + " 被拦：" + d.Reason);
+        return false;
     }
 
     // ==================== 设置 ====================
@@ -575,7 +1019,7 @@ public sealed class PluginHost
         if (string.IsNullOrWhiteSpace(spec.Page)) return (false, "插件没有填设置页地址。");
         try
         {
-            var port = StartCallbackServer(id);
+            var (port, token) = StartCallbackServer(id);
             var page = spec.Page.Trim();
             string url;
             if (page.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
@@ -589,8 +1033,11 @@ public sealed class PluginHost
             }
             if (spec.Callback)
             {
+                // token 放进 callback 这条 URL 里面，而不是只当页面 URL 的并列参数：
+                // 已有页面都是「拿到 callback 就原样 POST」，让它自己记得附 token 等于把它们全弄坏。
                 var sep = url.Contains('?') ? '&' : '?';
-                url += $"{sep}callback={Uri.EscapeDataString($"http://127.0.0.1:{port}/save")}&plugin={Uri.EscapeDataString(id)}";
+                url += $"{sep}callback={Uri.EscapeDataString($"http://127.0.0.1:{port}/save?token={token}")}"
+                     + $"&plugin={Uri.EscapeDataString(id)}";
             }
             await Launcher.Default.OpenAsync(url);
             return (true, "已在浏览器打开设置页；保存后会写回应用。");
@@ -612,6 +1059,8 @@ public sealed class PluginHost
         var entry = await FindAsync(id);
         if (entry is null) return (false, "插件不存在。");
         if (index < 0 || index >= entry.Manifest.Pages.Count) return (false, "没有这个页面。");
+        if (!await AllowAsync(entry, PluginCapabilities.Page))
+            return (false, "「打开自带页面」这项权限没放行，插件的页面开不了。");
         var page = entry.Manifest.Pages[index];
         var target = string.IsNullOrWhiteSpace(page.File) ? page.Route : page.File;
         if (string.IsNullOrWhiteSpace(target)) return (false, "这个页面的 route/file 都是空的。");
@@ -627,9 +1076,10 @@ public sealed class PluginHost
                 if (!File.Exists(file)) return (false, "找不到页面文件：" + target);
                 url = new Uri(file).AbsoluteUri;
             }
-            var port = StartCallbackServer(id);
+            var (port, token) = StartCallbackServer(id);
             var sep = url.Contains('?') ? '&' : '?';
-            url += $"{sep}callback={Uri.EscapeDataString($"http://127.0.0.1:{port}/save")}&plugin={Uri.EscapeDataString(id)}";
+            url += $"{sep}callback={Uri.EscapeDataString($"http://127.0.0.1:{port}/save?token={token}")}"
+                 + $"&plugin={Uri.EscapeDataString(id)}";
             await Launcher.Default.OpenAsync(url);
             return (true, $"已在浏览器打开「{page.Title}」。");
         }
@@ -640,17 +1090,23 @@ public sealed class PluginHost
         }
     }
 
-    /// <summary>回调服务器：只监听 127.0.0.1，处理 POST /save 与 GET /settings。</summary>
-    private int StartCallbackServer(string pluginId)
+    /// <summary>
+    /// 回调服务器：只监听 127.0.0.1，处理 POST /save 与 GET /settings。
+    /// 返回一次性 token——回调端口上没有身份验证，谁都连得上；没有 token，
+    /// 「任何本机进程/任何被打开的网页」都能往插件设置里写字。
+    /// </summary>
+    private (int Port, string Token) StartCallbackServer(string pluginId)
     {
         lock (_gate)
         {
             if (_callbackServers.TryGetValue(pluginId, out var existing) && existing.IsListening
-                && _callbackPorts.TryGetValue(pluginId, out var runningPort))
-                return runningPort;
+                && _callbackPorts.TryGetValue(pluginId, out var runningPort)
+                && _callbackTokens.TryGetValue(pluginId, out var runningToken))
+                return (runningPort, runningToken);
         }
         var listener = new HttpListener();
         var port = FreePort();
+        var token = Guid.NewGuid().ToString("N")[..20];
         listener.Prefixes.Add($"http://127.0.0.1:{port}/");
         try { listener.Start(); }
         catch
@@ -662,6 +1118,7 @@ public sealed class PluginHost
         {
             _callbackServers[pluginId] = listener;
             _callbackPorts[pluginId] = port;
+            _callbackTokens[pluginId] = token;
         }
         _ = Task.Run(async () =>
         {
@@ -673,14 +1130,16 @@ public sealed class PluginHost
                 _ = Task.Run(() => HandleCallbackAsync(pluginId, ctx));
             }
         });
-        return port;
+        return (port, token);
     }
 
     private readonly Dictionary<string, int> _callbackPorts = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, string> _callbackTokens = new(StringComparer.Ordinal);
 
     private async Task HandleCallbackAsync(string pluginId, HttpListenerContext ctx)
     {
         var res = ctx.Response;
+        // Origin 仍是 *（本地 file:// 页面没有可用的 Origin），身份全靠 URL 里那条一次性 token。
         res.Headers["Access-Control-Allow-Origin"] = "*";
         res.Headers["Access-Control-Allow-Headers"] = "Content-Type";
         res.Headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS";
@@ -692,27 +1151,33 @@ public sealed class PluginHost
                 res.Close();
                 return;
             }
+            var handed = "";
+            lock (_gate) _callbackTokens.TryGetValue(pluginId, out handed);
+            var given = ctx.Request.QueryString["token"] ?? "";
+            if (string.IsNullOrEmpty(handed) || !string.Equals(handed, given, StringComparison.Ordinal))
+            {
+                await WriteJsonAsync(res, 403, new { ok = false, error = "回调凭据不对（token 缺失或已失效），请重新从应用里打开页面。" });
+                return;
+            }
             if (ctx.Request.HttpMethod == "POST" && ctx.Request.Url?.AbsolutePath == "/save")
             {
                 using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
                 var body = await reader.ReadToEndAsync();
                 var values = ParseSettingsBody(body);
+                var entry = await FindAsync(pluginId);
+                if (entry is not null && !await AllowAsync(entry, PluginCapabilities.Settings))
+                {
+                    await WriteJsonAsync(res, 403, new { ok = false, error = "「自己的设置」这项权限没放行，写不回设置。" });
+                    return;
+                }
                 await SaveSettingsAsync(pluginId, values);
-                var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(new { ok = true, saved = values.Count }));
-                res.ContentType = "application/json; charset=utf-8";
-                res.ContentLength64 = bytes.Length;
-                await res.OutputStream.WriteAsync(bytes);
-                res.Close();
+                await WriteJsonAsync(res, 200, new { ok = true, saved = values.Count });
                 return;
             }
             if (ctx.Request.HttpMethod == "GET" && ctx.Request.Url?.AbsolutePath == "/settings")
             {
                 var all = await GetSettingsAsync(pluginId);
-                var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(all));
-                res.ContentType = "application/json; charset=utf-8";
-                res.ContentLength64 = bytes.Length;
-                await res.OutputStream.WriteAsync(bytes);
-                res.Close();
+                await WriteJsonAsync(res, 200, all);
                 return;
             }
             res.StatusCode = 404;
@@ -723,6 +1188,16 @@ public sealed class PluginHost
             App.WriteLog("PluginHost.Callback -> " + ex.Message);
             try { res.StatusCode = 500; res.Close(); } catch { }
         }
+    }
+
+    private static async Task WriteJsonAsync(HttpListenerResponse res, int status, object payload)
+    {
+        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload));
+        res.StatusCode = status;
+        res.ContentType = "application/json; charset=utf-8";
+        res.ContentLength64 = bytes.Length;
+        await res.OutputStream.WriteAsync(bytes);
+        res.Close();
     }
 
     private static Dictionary<string, string> ParseSettingsBody(string body)
@@ -770,6 +1245,8 @@ public sealed class PluginHost
                 try { listener.Stop(); listener.Close(); } catch { }
                 _callbackServers.Remove(id);
                 _callbackPorts.Remove(id);
+                // token 一起丢：端口会被下一个插件的回调复用，留着旧凭据等于旧页面还能写新插件的设置。
+                _callbackTokens.Remove(id);
             }
         }
     }

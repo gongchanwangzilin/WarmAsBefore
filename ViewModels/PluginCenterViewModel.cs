@@ -50,8 +50,15 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             foreach (var p in list)
             {
                 var settingsKind = p.Manifest.Settings?.Kind ?? "";
+                // 一行摘要就够：用户要的是「这个插件能用几件事、我改过没有」，细节在权限台里。
+                var caps = await _plugins.Permissions.RowsAsync(p.Manifest.Id, p.Manifest);
+                var declaredCount = caps.Count(c => c.Declared);
+                var usableCount = caps.Count(c => c.Declared && c.Policy != PluginGrant.Deny);
+                var customCount = caps.Count(c => c.Dirty);
                 Rows.Add(new PluginRow
                 {
+                    PermissionLabel = $"权限：声明 {declaredCount} 项 · 可用 {usableCount} 项"
+                        + (customCount == 0 ? " · 全按默认" : $" · 你改过 {customCount} 项"),
                     Id = p.Manifest.Id,
                     Name = p.Manifest.Name,
                     Version = p.Manifest.Version,
@@ -151,6 +158,13 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             return;
         }
         await Shell.Current.DisplayAlert("插件设置", "这个插件声明了「无需设置」，没有可改的项。", "好");
+    }
+
+    [RelayCommand]
+    private async Task OpenPerms(PluginRow? row)
+    {
+        if (row is null) return;
+        await Shell.Current.GoToAsync($"pluginPerms?id={Uri.EscapeDataString(row.Id)}");
     }
 
     [RelayCommand]
@@ -551,6 +565,19 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                     .Distinct(StringComparer.OrdinalIgnoreCase)
                     .ToList();
                 if (hooks.Count == 0) hooks.Add("persona");
+                // 权限名只认能力目录里有的：拼错的那几条丢在这里说清楚，
+                // 不带进 plugin.json——一条谁也不认识的声明，在权限台上永远不会亮。
+                var declared = new List<string>();
+                var unknownPerm = new List<string>();
+                foreach (var raw in draft.Permissions ?? new List<string>())
+                {
+                    var perm = (raw ?? "").Trim();
+                    if (perm.Length == 0) continue;
+                    PluginCapabilities.SplitDeclaration(perm, out var cap, out var arg);
+                    var found = PluginCapabilities.Find(cap);
+                    if (found is null) { unknownPerm.Add(perm); continue; }
+                    declared.Add(found.ArgScoped && arg.Length > 0 ? found.Name + ":" + arg : found.Name);
+                }
                 var manifest = new PluginManifest
                 {
                     Id = draft.Id ?? "",
@@ -558,6 +585,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                     Version = string.IsNullOrWhiteSpace(draft.Version) ? "1.0.0" : draft.Version.Trim(),
                     Description = (draft.Description ?? "").Trim(),
                     Author = string.IsNullOrWhiteSpace(draft.Author) ? "AI 工坊" : draft.Author.Trim(),
+                    Permissions = declared.Distinct(StringComparer.OrdinalIgnoreCase).ToList(),
                     Settings = new PluginSettingsSpec
                     {
                         Kind = kind,
@@ -571,7 +599,10 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                 await File.WriteAllTextAsync(Path.Combine(temp, "hooks.js"), draft.Code);
                 var (ok, message) = await _plugins.InstallFromFolderAsync(temp, overwrite: true);
                 WorkshopResult = ok
-                    ? message + $"\n钩子：{string.Join("、", hooks)}；设置：{manifest.Settings.Kind}。已经可以直接试跑。"
+                    ? message + $"\n钩子：{string.Join("、", hooks)}；设置：{manifest.Settings.Kind}；"
+                      + $"声明的能力：{(manifest.Permissions.Count == 0 ? "无（只用钩子本身隐含的那几项）" : string.Join("、", manifest.Permissions))}"
+                      + (unknownPerm.Count == 0 ? "" : $"。这几条权限名程序不认识，已丢弃：{string.Join("、", unknownPerm)}")
+                      + "。装好后到「插件中心 → 权限」逐条看，网络与工具那类默认还要问你一次。已经可以直接试跑。"
                     : message;
                 if (ok) await OfferMissingDependenciesAsync();
             }
@@ -621,16 +652,25 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             { "key": "tone", "label": "语气", "type": "text", "default": "温柔", "help": "..." }
           ]},
           "hooks": ["persona"],
+          "permissions": ["tools:send_to_user"],
           "code": "JS 源码"
         }
 
         硬性规则：
         - settings.kind 只能是 "native" 或 "none"。需要用户调节就 native 并给出 fields；否则 none。field.type 用 text / number / switch / select / secret；select 要带 options。
-        - hooks 只能从 persona、context、beforeSend、afterReply、afterTurn 中选。
-        - code 是一整段 JS：运行时可用 input（JSON 字符串）、getSetting(key)、setSetting(key,value)、log(x)、now()、callTool(name,argsJson)。把最终文本赋给 result。
-        - persona/context：input 形如 {"charId":"..."}，返回要加进人设/上下文的文字。
-        - beforeSend/afterReply：input 形如 {"charId":"...","text":"...","reply":"..."}，返回改写后的文本。
-        - 不得读取磁盘、不得联网、不得调用未列出的 API；不写自伤/伤人的具体做法。
+        - hooks 只能从 persona、context、beforeSend、afterReply、afterTurn、onSceneChange、onToolResult 中选。
+        - code 是一整段 JS：运行时可用 input（JSON 字符串）、result（最终文本）、getSetting(key)、setSetting(key,value)、log(x)、now()。
+        - persona/context：input 形如 {"charId":"..."}，把要加进人设/上下文的文字赋给 result。
+        - beforeSend/afterReply：input 形如 {"charId":"...","text":"...","reply":"..."}，把改写后的文本赋给 result。
+        - 越出自己家门的四个入口，每一个都要在 permissions 里先声明，否则宿主直接把它拦死（函数返回错误 JSON，不会报错，但什么也不会发生）：
+          · callTool(name,argsJson) → "tools:工具名"；
+          · callPlugin(id,hook,argsJson) → "plugins:插件id"；
+          · emit(topic,payloadJson) → "broadcast:话题名"；
+          · fetch(url,optionsJson) → "network:主机名"（只写主机，不要写 http:// 和路径）。
+          还可以用 notify(title,text)（声明 "notify"）发一条用户可见通知。writeFile/readFile/listFiles/deleteFile 只在插件自己的文件区里工作，不用声明。
+        - permissions 只认这些名字：settings、storage、log、prompt.write、pipeline.transform、pipeline.override、tools、plugins、broadcast、notify、page、network、localnet。不认识的名字会被丢掉。
+        - 默认策略按风险走：自己家里的直接放行；动提示词与文本的放行；工具、别的插件、广播、通知、联网要问用户；localnet 与不在 permissions 里的联网主机直接禁止。所以别默认用户会同意联网——能不联网就别联网。
+        - 不写自伤/伤人的具体做法；不要为了绕过限制去猜路径、拼接主机名或伪装成本地地址。
         - 不要输出插件设置页 HTML（工坊不代写网页），需要界面就用 native。
         """;
 
@@ -643,6 +683,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         public string? Author { get; set; }
         public PluginSettingsSpec? Settings { get; set; }
         public List<string>? Hooks { get; set; }
+        public List<string>? Permissions { get; set; }
         public string? Code { get; set; }
     }
 }
@@ -666,6 +707,7 @@ public sealed partial class PluginRow : ObservableObject
 
     public string ToggleLabel => Enabled ? "停用" : "启用";
     public string StateLabel => Issue.Length > 0 ? "不能运行" : Enabled ? "生效中" : "已停用";
+    public string PermissionLabel { get; init; } = "";
     public bool HasIssue => Issue.Length > 0;
     public bool HasMissing => DependenciesLabel.StartsWith("缺少", StringComparison.Ordinal);
     public bool CanOpenMissing => MissingUrls.Count > 0;
