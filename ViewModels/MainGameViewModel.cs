@@ -210,6 +210,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly ScreenBlackoutService _blackout;
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.ApiManager.ApiGateway _api;
+    private readonly PageWindowService _pageWindows;
     private MapScene? _currentScene;
 
     // ---- 标定闸门 ----
@@ -294,7 +295,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
         Services.MapActorService mapActors, Services.StickerLibrary stickers,
         PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout,
-        Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api)
+        Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api,
+        PageWindowService pageWindows)
     {
         _engine = engine;
         _chat = chat;
@@ -323,6 +325,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _blackout = blackout;
         _bridge = bridge;
         _api = api;
+        _pageWindows = pageWindows;
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
         _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
@@ -1968,8 +1971,22 @@ public sealed partial class MainGameViewModel : ObservableObject
         await AutoSave();
     }
 
+    /// <summary>
+    /// 手机桌面：设置里开着「手机独立窗口」且平台支持时另开一扇（主窗口继续聊天）。
+    /// 窗口里的图标点下去仍然导航主窗口 —— 只有一整套 Shell 路由，另起一套会让所有页的返回键失灵；
+    /// 所以点图标时先把主窗口抬到前面，用户知道内容去哪了。
+    /// </summary>
     [RelayCommand]
-    private async Task OpenPhone() => await Shell.Current.GoToAsync("phone");
+    private async Task OpenPhone()
+    {
+        if (_settings.Current.PhoneStandaloneWindow)
+        {
+            await _pageWindows.OpenOrNavigateAsync(
+                PageWindowKeys.Phone, "手机", typeof(Views.PhonePage), "phone", null, 460, 900);
+            return;
+        }
+        await Shell.Current.GoToAsync("phone");
+    }
 
     [RelayCommand]
     private async Task OpenMap() => await Shell.Current.GoToAsync("map");

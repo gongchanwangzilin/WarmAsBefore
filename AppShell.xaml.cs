@@ -74,5 +74,13 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
         Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
         Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));
+        // 心理状况：按当前角色设置轻重与稳定度（设置 → 身份与心理）
+        Routing.RegisterRoute("mentalHealth", typeof(Views.MentalHealthPage));
+        // 插件中心：列表 / 启停 / 依赖 / 设置 / 崩溃日志 / 工坊
+        Routing.RegisterRoute("pluginCenter", typeof(Views.PluginCenterPage));
+        // 原生设置：按 plugin.json 的 fields 现场生成表单
+        Routing.RegisterRoute("pluginSettings", typeof(Views.PluginSettingsPage));
+        // 存档高级设置：这份存档能用哪些插件 / 工具 / 角色
+        Routing.RegisterRoute("saveRules", typeof(Views.SaveRulesPage));
     }
 }

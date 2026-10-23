@@ -84,6 +84,10 @@
                                                 TextColor="{DynamicResource MutedFg}"
                                                 Command="{Binding Path=BindingContext.ExportSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                 CommandParameter="{Binding Id}" />
+                                        <Button Text="权限" Style="{StaticResource BtnTextSm}"
+                                                TextColor="{DynamicResource MutedFg}"
+                                                Command="{Binding Path=BindingContext.OpenRulesCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                                CommandParameter="{Binding Id}" />
                                         <Button Text="删除" Style="{StaticResource BtnTextSm}"
                                                 TextColor="{DynamicResource DangerInk}"
                                                 Command="{Binding Path=BindingContext.DeleteSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"

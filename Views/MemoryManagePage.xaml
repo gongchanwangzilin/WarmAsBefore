@@ -97,6 +97,8 @@
                        Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
                 <Label Text="点了标签的句子会铺上底色：颜色 = 这句记的是人 / 话题 / 事 / 地点 / 物。想改就点那句。"
                        Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+                <Label Text="核心记忆是人格的锚点：永不遗忘、每次都会被想起，还会影响周围的记忆；创伤是特殊的核心记忆，只会随具体互动慢慢降温，内容不会消失。"
+                       Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
                 <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding TagLegend}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="helpers:MemoryHighlight+LegendItem">
@@ -139,14 +141,31 @@
                                                 </BindableLayout.ItemTemplate>
                                             </VerticalStackLayout>
                                             <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
+                                            <Label Text="{Binding CoreLabel}" Style="{StaticResource TxtCaption}"
+                                                   IsVisible="{Binding HasCoreLabel}" TextColor="{DynamicResource AccentWarmFg}"
+                                                   FontAttributes="Bold" />
+                                            <Label Text="{Binding TraumaLabel}" Style="{StaticResource TxtCaption}"
+                                                   IsVisible="{Binding HasTraumaLabel}" TextColor="{DynamicResource DangerInk}"
+                                                   LineBreakMode="WordWrap" />
                                             <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
                                                    Aspect="AspectFill" HeightRequest="120" HorizontalOptions="Start" />
                                         </VerticalStackLayout>
-                                        <Button Grid.Column="1" Text="忘掉" Style="{StaticResource BtnTextSm}"
-                                                TextColor="{DynamicResource DangerInk}"
-                                                VerticalOptions="Center"
-                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryManageViewModel}}, Path=RemoveMemoryCommand}"
-                                                CommandParameter="{Binding .}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="8"
+                                                             VerticalOptions="Center" HorizontalOptions="End">
+                                            <Button Text="{Binding CoreActionLabel}" Style="{StaticResource BtnTextSm}"
+                                                    HorizontalOptions="End"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryManageViewModel}}, Path=ToggleCoreCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="疗愈" Style="{StaticResource BtnTextSm}"
+                                                    IsVisible="{Binding CanHeal}" HorizontalOptions="End"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryManageViewModel}}, Path=HealTraumaCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="忘掉" Style="{StaticResource BtnTextSm}"
+                                                    TextColor="{DynamicResource DangerInk}"
+                                                    HorizontalOptions="End"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryManageViewModel}}, Path=RemoveMemoryCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </VerticalStackLayout>
                                     </Grid>
                                 </Border>
                                 <BoxView Style="{StaticResource HSep}" />

@@ -48,7 +48,7 @@
                 </Grid>
 
                 <!-- 编辑模式提示行 -->
-                <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="编辑：拖卡片=移动 · 空白拖动=平移 · 按住空白 0.6秒再拖=框选地点 · 右键=菜单" 
                            TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}" VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="＋ 新地点" Style="{StaticResource BtnNeumorphSm}"
@@ -57,6 +57,8 @@
                             HeightRequest="32" Command="{Binding AddSceneCommand}" />
                     <Button Grid.Column="3" Text="🖼 背景（素材库）" Style="{StaticResource BtnNeumorphSm}"
                             HeightRequest="32" Command="{Binding BackgroundFromLibraryCommand}" />
+                    <Button Grid.Column="4" Text="✨ AI 画背景" Style="{StaticResource BtnNeumorphSm}"
+                            HeightRequest="32" Command="{Binding GenerateBackgroundCommand}" />
                 </Grid>
             </Grid>
         </Border>

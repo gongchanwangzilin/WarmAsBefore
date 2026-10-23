@@ -87,6 +87,18 @@ public sealed record McpToolDef
     public string Description { get; init; } = string.Empty;
     public string Category { get; init; } = "utility";
     public bool Active { get; set; } = true;
+    /// <summary>所属 MCP 数据包（McpPacks 下的目录名）；内置工具为 system。</summary>
+    public string Server { get; init; } = "";
+    /// <summary>执行方式：builtin（内置实现）/ js（沙箱脚本）/ http（远程端点）。</summary>
+    public string Kind { get; init; } = "builtin";
+    /// <summary>js 模式的源码。</summary>
+    public string Code { get; init; } = "";
+    /// <summary>http 模式的端点地址。</summary>
+    public string Url { get; init; } = "";
+    public string Method { get; init; } = "POST";
+    public Dictionary<string, string> Headers { get; init; } = new();
+    /// <summary>参数 JSON Schema（字符串），给模型看它该传什么。</summary>
+    public string ParametersSchema { get; init; } = "";
 }
 
 public sealed record ScenarioResult

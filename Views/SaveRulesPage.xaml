@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.SaveRulesPage"
+             x:Name="Page"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="存档高级设置" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,28">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding SaveLabel}" Style="{StaticResource TxtSubhead}" />
+                    <Label Text="这些白名单只属于这一份存档：换档就换一套。插件与工具被关掉时不会执行；角色白名单决定 AI 能在这份存档里让谁出场。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <!-- 总开关 -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                    <Label Text="允许全部插件" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="关掉后，只有下面勾选的插件能在这份存档里跑" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding AllowAllPlugins}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <BoxView Style="{StaticResource HSepInset}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                    <Label Text="允许全部工具" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="工具包括内置工具与外部 Java/Python 工具" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding AllowAllTools}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                        <BoxView Style="{StaticResource HSepInset}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                    <Label Text="AI 可以自行安装插件" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="默认关闭：装代码应该由你做决定" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding AllowAiInstallPlugins}" VerticalOptions="Center" />
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 插件 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="可以运行的插件" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Plugins}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                               IsVisible="{Binding HasHint}" />
+                                                    </VerticalStackLayout>
+                                                    <Switch Grid.Column="1" IsToggled="{Binding Allowed}"
+                                                            IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="还没有装插件。插件中心可以从 zip / 文件夹安装，也可以让工坊写一个。"
+                                   Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                   IsVisible="{Binding NoPlugins}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 工具 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="可以调用的工具" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Tools}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                               LineBreakMode="TailTruncation" MaxLines="1"
+                                                               IsVisible="{Binding HasHint}" />
+                                                    </VerticalStackLayout>
+                                                    <Switch Grid.Column="1" IsToggled="{Binding Allowed}"
+                                                            IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 角色 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="可以出场的角色" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="允许全部角色" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="关掉后只让勾选的角色进入这份存档的剧情" Style="{StaticResource TxtRowDesc}" />
+                                    </VerticalStackLayout>
+                                    <Switch Grid.Column="1" IsToggled="{Binding AllowAllCharacters}" VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Characters}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                               LineBreakMode="TailTruncation" MaxLines="1"
+                                                               IsVisible="{Binding HasHint}" />
+                                                    </VerticalStackLayout>
+                                                    <Switch Grid.Column="1" IsToggled="{Binding Allowed}"
+                                                            IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="角色库里还没有别的角色。"
+                                   Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                   IsVisible="{Binding NoCharacters}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                       TextColor="{DynamicResource AccentWarmFg}" />
+                <Button Text="保存这份存档的规则" Style="{StaticResource BtnPrimary}" FontSize="13"
+                        Padding="16,7" HorizontalOptions="Start" Command="{Binding SaveCommand}" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

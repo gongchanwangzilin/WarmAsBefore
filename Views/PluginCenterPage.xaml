@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.PluginCenterPage"
+             x:Name="Page"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="插件中心" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                <Button Grid.Column="2" Text="从 zip 安装" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                        Command="{Binding InstallZipCommand}" />
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,28">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="1000" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                           TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
+                    <Label Text="插件可以改人设、改写发送前/回复后的文本、读取上下文、按轮次记账，也能带自己的设置页与页面。钩子运行在受限 JS 沙箱里（300ms / 2 万条语句 / 16MB）；设置页三选一是硬性要求，没声明就不能运行。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource CardSolid}">
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
+                                            <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
+                                                   LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+                                        <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"
+                                                StrokeThickness="0" Padding="10,4" VerticalOptions="Start">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                            <Label Text="{Binding StateLabel}" FontSize="12"
+                                                   TextColor="{DynamicResource WarmDark}" />
+                                        </Border>
+                                    </Grid>
+                                    <Label Style="{StaticResource TxtCaption}">
+                                        <Label.FormattedText>
+                                            <FormattedString>
+                                                <Span Text="v" />
+                                                <Span Text="{Binding Version}" />
+                                                <Span Text=" · " />
+                                                <Span Text="{Binding HookLabel}" />
+                                                <Span Text=" · " />
+                                                <Span Text="{Binding SettingsKindLabel}" />
+                                            </FormattedString>
+                                        </Label.FormattedText>
+                                    </Label>
+                                    <Label Text="{Binding DependenciesLabel}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasMissing}" TextColor="{DynamicResource AccentWarmFg}" />
+                                    <Label Text="{Binding Issue}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasIssue}" TextColor="{DynamicResource AccentWarmFg}" />
+                                    <Label Text="{Binding PagesLabel}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasPages}" LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding OverridesLabel}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasOverrides}" LineBreakMode="WordWrap" />
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
+                                        <Button Text="{Binding ToggleLabel}" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.ToggleCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="1" Text="设置" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.OpenSettingsCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="2" Text="试跑" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.RunTestCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="3" Text="日志" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.ToggleLogCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="4" Text="页面" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                IsVisible="{Binding HasPages}"
+                                                Command="{Binding BindingContext.OpenPageCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="6" Text="安装地址" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                IsVisible="{Binding CanOpenMissing}"
+                                                Command="{Binding BindingContext.OpenMissingUrlCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="7" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                Command="{Binding BindingContext.DeleteCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                    <Border IsVisible="{Binding LogVisible}" BackgroundColor="{DynamicResource InputBg}"
+                                            StrokeThickness="0" Padding="10">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                        <VerticalStackLayout Spacing="6">
+                                            <Label Text="{Binding LogText}" Style="{StaticResource TxtCaption}"
+                                                   LineBreakMode="WordWrap" />
+                                            <Button Text="清空日志" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                    HorizontalOptions="Start"
+                                                    Command="{Binding BindingContext.ClearLogCommand, Source={x:Reference Page}}"
+                                                    CommandParameter="{Binding .}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <!-- 插件工坊 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="插件工坊" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="用一句话说你要什么，AI 会写出清单、设置项和 JS 钩子，并直接安装。装完可以点「试跑」；坏了就到「日志」看原因，不影响主程序。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Editor Placeholder="例：让 TA 在回复末尾偶尔加一句极简的环境描写；给一个「克制程度」滑杆"
+                                Text="{Binding WorkshopPrompt}" HeightRequest="110" FontSize="13"
+                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                PlaceholderColor="{DynamicResource MutedFg}" />
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Button Text="生成并安装" Style="{StaticResource BtnPrimary}" FontSize="13" Padding="16,7"
+                                    Command="{Binding GeneratePluginCommand}"
+                                    IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}" />
+                            <ActivityIndicator Grid.Column="1" IsRunning="{Binding Busy}" IsVisible="{Binding Busy}"
+                                               HorizontalOptions="Start" Color="{DynamicResource AccentWarm}" />
+                        </Grid>
+                        <Label Text="{Binding WorkshopResult}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding WorkshopResult, Converter={StaticResource StringNotEmpty}}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="插件能做什么：README 里的 plugin.json 清单（hooks 指向 JS 文件）+ 沙箱运行时。它们可以互相依赖；缺依赖且给了安装地址时，上面的「安装地址」会直接打开。深度改写仍受权限与沙箱约束——这是有意为之：插件不该能悄悄替换主程序。"
+                               Style="{StaticResource TxtCaption}" Opacity="0.8" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- MCP 工坊：说一句话，AI 写数据包 + 工具，直接注册并可试跑 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="MCP 工坊" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="用一句话描述你要的外部能力，AI 会生成一个 MCP 数据包（服务器 + 若干工具），直接注册并试跑。本地工具跑在受限 JS 沙箱里；只有给了远程地址的工具才会走 HTTP。装好后 AI 用 mcp_list / mcp_call 调用。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Editor Placeholder="例：做一个「情绪色彩」工具，把一句话映射成一种颜色和一句环境描写；再做「随机小剧场」给三个开场"
+                                Text="{Binding McpPrompt}" HeightRequest="100" FontSize="13"
+                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                PlaceholderColor="{DynamicResource MutedFg}" />
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                            <Button Text="生成并注册" Style="{StaticResource BtnPrimary}" FontSize="13" Padding="16,7"
+                                    Command="{Binding GenerateMcpCommand}"
+                                    IsEnabled="{Binding McpBusy, Converter={StaticResource InverseBool}}" />
+                            <ActivityIndicator Grid.Column="1" IsRunning="{Binding McpBusy}" IsVisible="{Binding McpBusy}"
+                                               HorizontalOptions="Start" Color="{DynamicResource AccentWarm}" />
+                        </Grid>
+                        <Label Text="{Binding McpResult}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding McpResult, Converter={StaticResource StringNotEmpty}}"
+                               LineBreakMode="WordWrap" />
+
+                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                        <Label Text="已装 MCP 数据包" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="还没有 MCP 数据包。可以在上面生成，或到设置 → MCP 导入。"
+                               Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding HasMcpServers, Converter={StaticResource InverseBool}}" />
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding McpServers}" Spacing="10">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate>
+                                    <Border Style="{StaticResource CardSolid}">
+                                        <VerticalStackLayout Spacing="8">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                <VerticalStackLayout Spacing="2">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                    <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
+                                                           IsVisible="{Binding HasDescription}" LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
+                                                           IsVisible="{Binding Url, Converter={StaticResource StringNotEmpty}}"
+                                                           LineBreakMode="WordWrap" />
+                                                </VerticalStackLayout>
+                                                <Label Grid.Column="1" Text="{Binding ToolsLabel}" Style="{StaticResource TxtCaption}"
+                                                       VerticalOptions="Center" />
+                                                <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                        Command="{Binding BindingContext.DeleteMcpServerCommand, Source={x:Reference Page}}"
+                                                        CommandParameter="{Binding .}" />
+                                            </Grid>
+                                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Tools}" Spacing="8">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10">
+                                                            <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                                            <VerticalStackLayout Spacing="6">
+                                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                                                                    <HorizontalStackLayout Spacing="6">
+                                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
+                                                                               FontAttributes="Bold" VerticalOptions="Center" />
+                                                                        <Label Text="{Binding KindLabel}" Style="{StaticResource TxtCaption}"
+                                                                               VerticalOptions="Center" />
+                                                                        <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
+                                                                               TextColor="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
+                                                                    </HorizontalStackLayout>
+                                                                    <Button Grid.Column="1" Text="试跑" Style="{StaticResource BtnNeumorphSm}"
+                                                                            FontSize="12" Padding="12,4"
+                                                                            Command="{Binding BindingContext.TestMcpToolCommand, Source={x:Reference Page}}"
+                                                                            CommandParameter="{Binding .}" />
+                                                                    <Button Grid.Column="2" Text="{Binding ToggleLabel}" Style="{StaticResource BtnGhost}"
+                                                                            FontSize="12"
+                                                                            Command="{Binding BindingContext.ToggleMcpToolCommand, Source={x:Reference Page}}"
+                                                                            CommandParameter="{Binding .}" />
+                                                                </Grid>
+                                                                <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
+                                                                       LineBreakMode="WordWrap" />
+                                                                <Border IsVisible="{Binding ResultVisible}" BackgroundColor="{DynamicResource WWellBrush}"
+                                                                        StrokeThickness="0" Padding="8">
+                                                                    <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
+                                                                    <Label Text="{Binding LastResult}" Style="{StaticResource TxtCaption}"
+                                                                           LineBreakMode="WordWrap" />
+                                                                </Border>
+                                                            </VerticalStackLayout>
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

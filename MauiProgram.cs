@@ -42,6 +42,16 @@ public static class MauiProgram
         builder.Services.AddSingleton<MemoryScope>();
         // 人类记忆层：按重要性×时间衰减×复述×随机存取（与全量记忆库并存）
         builder.Services.AddSingleton<HumanMemoryService>();
+        // 自定义性别库：素材包 JSON 导入 / 设置里手写 / JS·Python·Java 逻辑
+        builder.Services.AddSingleton<GenderLibrary>();
+        // 心理状态：目录 + 每个角色身上那几条（严重度/稳定度）
+        builder.Services.AddSingleton<MentalHealthService>();
+        // 身体感受：冷热饥渴想念，跟真实时间与天气缓慢变化
+        builder.Services.AddSingleton<PhysiologyService>();
+        // 画面生成：装扮 / 背景 / 立绘 / 地图背景
+        builder.Services.AddSingleton<ImageGenerationService>();
+        // 插件宿主：JS 钩子、设置声明、依赖表、崩溃日志、HTML 设置回调
+        builder.Services.AddSingleton<PluginHost>();
         // 关系网：后台随对话自动长出来。按数值找近邻优先问量化模型，没配上就用本地统计（不花钱）
         builder.Services.AddSingleton<RelationNetworkService>();
         // 标签层：AI 打标签 → 分类检索 → 标签清单注入
@@ -83,7 +93,8 @@ public static class MauiProgram
             new Modules.Tools.ToolManager(
                 sp.GetRequiredService<Modules.Tools.RuntimeManager>(),
                 sp.GetRequiredService<Modules.Sandbox.SandboxPolicy>(),
-                sp.GetRequiredService<SkillLibrary>()));
+                sp.GetRequiredService<SkillLibrary>(),
+                sp.GetRequiredService<PluginHost>()));
         builder.Services.AddSingleton<Modules.Affection.AffectionLevelUpService>();
         builder.Services.AddSingleton<Modules.Battle.BattleDriverManager>();
         builder.Services.AddSingleton<Modules.Cg.CgStore>();
@@ -165,6 +176,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<SceneCalibrationPage>();
         builder.Services.AddTransient<GalleryPage>();
         builder.Services.AddTransient<OutfitPage>();
+        builder.Services.AddTransient<OutfitViewModel>();
         builder.Services.AddTransient<SavePage>();
         builder.Services.AddTransient<GamePage>();
         builder.Services.AddTransient<PetPage>();
@@ -206,6 +218,16 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<SubProfileViewModel>();
         builder.Services.AddTransient<MemoryManageViewModel>();
         builder.Services.AddTransient<Views.ForceCastPage>();
+        // 心理状况：按当前角色编辑轻重与稳定度
+        builder.Services.AddTransient<Views.MentalHealthPage>();
+        builder.Services.AddTransient<MentalHealthViewModel>();
+        // 插件中心：启停 / 依赖 / 原生设置 / 崩溃日志 / 工坊
+        builder.Services.AddTransient<Views.PluginCenterPage>();
+        builder.Services.AddTransient<PluginCenterViewModel>();
+        builder.Services.AddTransient<Views.PluginSettingsPage>();
+        // 存档高级设置：按存档编辑插件 / 工具 / 角色白名单
+        builder.Services.AddTransient<Views.SaveRulesPage>();
+        builder.Services.AddTransient<SaveRulesViewModel>();
         // 中文视图模型别名已由 global using 类型别名提供，无需额外在 DI 中注册
 
         App.WriteLog("CreateMauiApp: building");

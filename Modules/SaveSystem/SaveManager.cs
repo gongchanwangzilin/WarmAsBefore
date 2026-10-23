@@ -1,4 +1,6 @@
+using System.IO.Compression;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.Screen;
 using WarmAsBefore.Services;
@@ -11,13 +13,16 @@ public sealed class SaveManager
     private readonly GameEngine _engine;
     private readonly CharacterLibrary _library;
     private readonly MemoryScope _scope;
+    private readonly PluginHost _plugins;
 
-    public SaveManager(StorageProvider store, GameEngine engine, CharacterLibrary library, MemoryScope scope)
+    public SaveManager(StorageProvider store, GameEngine engine, CharacterLibrary library, MemoryScope scope,
+        PluginHost plugins)
     {
         _store = store;
         _engine = engine;
         _library = library;
         _scope = scope;
+        _plugins = plugins;
     }
 
     /// <summary>当前会话的聊天记录：随每次保存写入存档，读档后恢复聊天界面。</summary>
@@ -216,6 +221,32 @@ public sealed class SaveManager
         }
     }
 
+    /// <summary>
+    /// 从已有存档分出一个新档（插件 / AI 的「新增存档」）：复制同一份进度，换新 id 与新名字，
+    /// 不改动原档，也不打断当前进度。
+    /// </summary>
+    public async Task<(bool Ok, string Message, string Id)> BranchAsync(string sourceId, string label)
+    {
+        try
+        {
+            var json = await _store.LoadRawAsync($"saves/{sourceId}");
+            if (string.IsNullOrEmpty(json)) return (false, "原存档不存在。", "");
+            if (JsonNode.Parse(json) is not JsonObject root || root["meta"] is not JsonObject meta)
+                return (false, "原存档结构不完整。", "");
+            var newId = Guid.NewGuid().ToString("N")[..12];
+            meta["Id"] = newId;
+            meta["Label"] = string.IsNullOrWhiteSpace(label) ? "分支存档" : label.Trim();
+            meta["SavedAt"] = JsonSerializer.SerializeToNode(DateTime.Now);
+            await _store.WriteRawAsync($"saves/{newId}", root.ToJsonString(WriteJson));
+            return (true, $"已从当前进度新增存档「{meta["Label"]}」。", newId);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.Branch -> " + ex);
+            return (false, "新增存档失败：" + ex.Message, "");
+        }
+    }
+
     /// <summary>某角色名下的全部存档（用于角色选择页显示「继续」入口）。</summary>
     public async Task<List<SaveSlot>> ListByCharacter(string charId)
     {
@@ -263,22 +294,112 @@ public sealed class SaveManager
         return true;
     }
 
-    /// <summary>导出单个存档（文件名 + 字节流，供系统保存对话框使用）。</summary>
-    public async Task<(string name, byte[] bytes)?> ExportStream(string id)
+    /// <summary>
+    /// 导出单个存档（文件名 + 字节流，供系统保存对话框使用）。
+    /// includePlugins = true 时打成 .wbsave：存档 JSON + 所用插件代码，防止「有数据没代码」。
+    /// 插件设置（settings.json）不随包外带——里面可能有密钥，用户把存档发给别人时不该泄露。
+    /// </summary>
+    public async Task<(string name, byte[] bytes)?> ExportStream(string id, bool includePlugins = false)
     {
         var json = await _store.LoadRawAsync($"saves/{id}");
         if (string.IsNullOrEmpty(json)) return null;
         var label = id;
+        var characterId = "";
         using (var doc = JsonDocument.Parse(json))
         {
             if (doc.RootElement.TryGetProperty("meta", out var m))
             {
                 var slot = m.Deserialize<SaveSlot>();
-                if (slot is not null) label = slot.Label;
+                if (slot is not null)
+                {
+                    label = slot.Label;
+                    characterId = slot.Character;
+                }
             }
         }
-        return ($"存档_{label}.json", System.Text.Encoding.UTF8.GetBytes(json));
+        if (!includePlugins)
+            return ($"存档_{label}.json", System.Text.Encoding.UTF8.GetBytes(json));
+
+        try
+        {
+            using var ms = new MemoryStream();
+            using (var zip = new ZipArchive(ms, ZipArchiveMode.Create, true))
+            {
+                WriteZipText(zip, "save.json", json);
+                var used = await PluginsUsedByAsync(characterId, json);
+                var manifest = new
+                {
+                    format = "wab-save-bundle",
+                    bundleVersion = 1,
+                    app = "WarmAsBefore",
+                    exportedAt = DateTime.Now,
+                    saveId = id,
+                    label,
+                    character = characterId,
+                    pluginSettingsIncluded = false,
+                    plugins = used.Select(p => new { p.Manifest.Id, p.Manifest.Name, p.Manifest.Version })
+                };
+                WriteZipText(zip, "manifest.json", JsonSerializer.Serialize(manifest, WriteJson));
+                foreach (var p in used)
+                {
+                    var baseDir = Path.GetFullPath(p.Dir);
+                    foreach (var file in Directory.GetFiles(baseDir, "*", SearchOption.AllDirectories))
+                    {
+                        var rel = Path.GetRelativePath(baseDir, file).Replace('\\', '/');
+                        // 插件设置不随存档外带（里面可能有用户填的密钥）；
+                        // 旧版本误把绝对路径当存储键，落盘成 settings.json.json，那种残留文件同样不能带。
+                        if (Path.GetFileName(rel).StartsWith("settings.json", StringComparison.OrdinalIgnoreCase)) continue;
+                        var entry = zip.CreateEntry($"plugins/{p.Manifest.Id}/{rel}", CompressionLevel.Optimal);
+                        await using var es = entry.Open();
+                        await using var fs = File.OpenRead(file);
+                        await fs.CopyToAsync(es);
+                    }
+                }
+            }
+            var safeLabel = string.Concat(label.Where(ch => !Path.GetInvalidFileNameChars().Contains(ch)));
+            if (string.IsNullOrWhiteSpace(safeLabel)) safeLabel = id;
+            return ($"存档_{safeLabel}.wbsave", ms.ToArray());
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.ExportBundle -> " + ex);
+            return null;
+        }
     }
+
+    /// <summary>这份存档实际用到的插件：存档权限白名单里点名的，加上启用中的全部。</summary>
+    private async Task<List<PluginEntry>> PluginsUsedByAsync(string characterId, string saveJson)
+    {
+        var all = await _plugins.AllAsync();
+        if (all.Count == 0) return new();
+        SavePermissions? permissions = null;
+        try
+        {
+            using var doc = JsonDocument.Parse(saveJson);
+            if (doc.RootElement.TryGetProperty("state", out var st)
+                && st.TryGetProperty(nameof(GameState.Permissions), out var perm))
+                permissions = perm.Deserialize<SavePermissions>();
+        }
+        catch { }
+        return all
+            .Where(p => p.Enabled)
+            .Where(p => permissions is null || permissions.AllowAllPlugins
+                        || permissions.AllowedPlugins.Contains(p.Manifest.Id, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+    }
+
+    private static void WriteZipText(ZipArchive zip, string path, string text)
+    {
+        var entry = zip.CreateEntry(path, CompressionLevel.Optimal);
+        using var writer = new StreamWriter(entry.Open(), new System.Text.UTF8Encoding(false));
+        writer.Write(text);
+    }
+
+    private static readonly JsonSerializerOptions WriteJson = new()
+    {
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        WriteIndented = true
+    };
 
     /// <summary>备份全部存档到指定文件夹（复制 saves 目录）。</summary>
     public async Task<int> Backup(string destFolder)
@@ -295,22 +416,146 @@ public sealed class SaveManager
         return n;
     }
 
-    public async Task<bool> Import(string path)
+    /// <summary>导入存档：普通 .json 直接写入；.wbsave 是 zip，先取存档，再补齐缺失的插件。</summary>
+    public async Task<(bool Ok, string Message)> Import(string path)
     {
         try
         {
+            if (IsZip(path)) return await ImportBundleAsync(path);
             var json = await File.ReadAllTextAsync(path);
-            using var doc = JsonDocument.Parse(json);
-            if (!doc.RootElement.TryGetProperty("meta", out var m)) return false;
-            var slot = m.Deserialize<SaveSlot>();
-            if (slot is null) return false;
-            var dest = Path.Combine(_store.Root, "saves", slot.Id + ".json");
-            var dir = Path.GetDirectoryName(dest);
-            if (dir is not null) Directory.CreateDirectory(dir);
-            await File.WriteAllTextAsync(dest, json);   // 原样写入，不做二次序列化
-            return true;
+            var (ok, label) = await ImportSaveJsonAsync(json);
+            return ok ? (true, $"已导入存档「{label}」。") : (false, "导入失败：文件格式不正确。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.Import -> " + ex);
+            return (false, "导入失败：" + ex.Message);
+        }
+    }
+
+    private static bool IsZip(string path)
+    {
+        try
+        {
+            using var fs = File.OpenRead(path);
+            Span<byte> head = stackalloc byte[4];
+            return fs.Read(head) == 4 && head[0] == 0x50 && head[1] == 0x4B
+                   && head[2] is 0x03 or 0x05 or 0x07;
         }
         catch { return false; }
+    }
+
+    private async Task<(bool Ok, string Label)> ImportSaveJsonAsync(string json)
+    {
+        using var doc = JsonDocument.Parse(json);
+        if (!doc.RootElement.TryGetProperty("meta", out var m)) return (false, "");
+        var slot = m.Deserialize<SaveSlot>();
+        if (slot is null || string.IsNullOrWhiteSpace(slot.Id)) return (false, "");
+        var dest = Path.Combine(_store.Root, "saves", slot.Id + ".json");
+        var dir = Path.GetDirectoryName(dest);
+        if (dir is not null) Directory.CreateDirectory(dir);
+        await File.WriteAllTextAsync(dest, json);   // 原样写入，不做二次序列化
+        return (true, slot.Label);
+    }
+
+    /// <summary>
+    /// 导入 .wbsave：存档本体优先，插件只补缺、不覆盖已装版本（避免别人的旧插件盖掉本地新版本）。
+    /// 缺依赖时不失败，交给插件中心显示安装入口。
+    /// </summary>
+    private async Task<(bool Ok, string Message)> ImportBundleAsync(string path)
+    {
+        var tmp = Path.Combine(Path.GetTempPath(), "wab_save_" + Guid.NewGuid().ToString("N")[..8]);
+        try
+        {
+            Directory.CreateDirectory(tmp);
+            ZipFile.ExtractToDirectory(path, tmp, true);
+            var saveFile = Directory.GetFiles(tmp, "save.json", SearchOption.AllDirectories).FirstOrDefault();
+            if (saveFile is null) return (false, "这个包里没有 save.json，不是有效的存档包。");
+            var (ok, label) = await ImportSaveJsonAsync(await File.ReadAllTextAsync(saveFile));
+            if (!ok) return (false, "包里的存档格式不正确。");
+
+            var installed = 0;
+            var skipped = 0;
+            var failed = 0;
+            var pluginsRoot = Path.Combine(Path.GetDirectoryName(saveFile)!, "plugins");
+            if (Directory.Exists(pluginsRoot))
+            {
+                foreach (var dir in Directory.GetDirectories(pluginsRoot))
+                {
+                    if (!File.Exists(Path.Combine(dir, "plugin.json"))) continue;
+                    try
+                    {
+                        using var doc = JsonDocument.Parse(await File.ReadAllTextAsync(Path.Combine(dir, "plugin.json")));
+                        var id = doc.RootElement.TryGetProperty("id", out var idv) && idv.ValueKind == JsonValueKind.String
+                            ? idv.GetString() ?? Path.GetFileName(dir)
+                            : Path.GetFileName(dir);
+                        if (await _plugins.FindAsync(id) is not null)
+                        {
+                            skipped++;
+                            continue;
+                        }
+                    }
+                    catch { }
+                    var result = await _plugins.InstallFromFolderAsync(dir);
+                    if (result.Ok) installed++;
+                    else failed++;
+                }
+            }
+
+            var pluginsNote = installed == 0 && skipped == 0 && failed == 0
+                ? "这个包没有附带插件。"
+                : $"附带插件：新装 {installed} 个，已存在跳过 {skipped} 个" + (failed > 0 ? $"，失败 {failed} 个" : "") + "。";
+            return (true, $"已导入存档「{label}」。{pluginsNote}");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.ImportBundle -> " + ex);
+            return (false, "导入失败：" + ex.Message);
+        }
+        finally
+        {
+            try { Directory.Delete(tmp, true); } catch { }
+        }
+    }
+
+    /// <summary>存档高级设置：不进入游戏也能读写这份存档的插件/工具/角色白名单。</summary>
+    public async Task<(SavePermissions Permissions, List<string> AllowedCharacters)?> LoadRulesAsync(string id)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("state", out var st)) return null;
+            var state = st.Deserialize<GameState>();
+            if (state is null) return null;
+            return (state.Permissions, state.AllowedCharacters.ToList());
+        }
+        catch { return null; }
+    }
+
+    public async Task<bool> SaveRulesAsync(string id, SavePermissions permissions, IEnumerable<string> allowedCharacters)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return false;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root) return false;
+            if (root["state"] is not JsonObject stateNode) return false;
+            var state = stateNode.Deserialize<GameState>();
+            if (state is null) return false;
+            state.Permissions = permissions;
+            state.AllowedCharacters.Clear();
+            foreach (var c in allowedCharacters) state.AllowedCharacters.Add(c);
+            root["state"] = JsonSerializer.SerializeToNode(state);
+            await _store.WriteRawAsync($"saves/{id}", root.ToJsonString(WriteJson));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.SaveRules -> " + ex);
+            return false;
+        }
     }
 
     public Task<bool> Delete(string id)

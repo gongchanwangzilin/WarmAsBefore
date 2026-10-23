@@ -27,7 +27,7 @@
                    VerticalOptions="Center" HorizontalOptions="Center" />
             <Button Grid.Column="2" Text="＋" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
                     FontSize="20" Padding="0" WidthRequest="30"
-                    Command="{Binding CreateCharacterCommand}" />
+                    Command="{Binding AddMenuCommand}" />
         </Grid>
         <BoxView HeightRequest="1" Color="{StaticResource WcSep}" />
 

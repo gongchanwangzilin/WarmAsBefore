@@ -21,6 +21,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly MaterialLibrary _materials;
     private readonly AudioController _audio;
     private readonly SceneCalibrationService _cal;
+    private readonly ImageGenerationService _images;
     public MapCanvasDrawable Drawable { get; } = new();
 
     [ObservableProperty] private ModeKind _mode = ModeKind.View;
@@ -79,13 +80,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     // 长按左键框选（编辑模式）：空白处按下并拖动即进入框选，松开结算。点击（未拖动）= 仅取消选择
 
     public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio,
-        SceneCalibrationService cal)
+        SceneCalibrationService cal, ImageGenerationService images)
     {
         _engine = engine;
         _maps = maps;
         _materials = materials;
         _audio = audio;
         _cal = cal;
+        _images = images;
         _maps.SceneChanged += OnSceneChanged;
         Drawable.AttachBgResolver(node => _maps.ResolveBackground(node.Scene));
         Drawable.AttachLocationThumbResolver(loc =>
@@ -365,6 +367,68 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
         await PickBackgroundFromLibraryAsync(node.Scene);
         Refresh();
+    }
+
+    /// <summary>
+    /// AI 画背景：用一句描述为选中的场景生成一张背景。
+    /// 生成后走与「素材库背景」相同的落地路径（复制进 maps/、保存、标定），
+    /// 这样新旧背景在地图里没有两套行为。
+    /// </summary>
+    [RelayCommand]
+    private async Task GenerateBackground()
+    {
+        var node = SelectedNode;
+        var scene = node?.Scene ?? _maps.CurrentScene;
+        if (scene is null)
+        {
+            StatusText = "请先在地图上点选一个场景卡片，再点「AI 画背景」";
+            return;
+        }
+        if (!_images.Enabled)
+        {
+            await Shell.Current.DisplayAlert("AI 画背景",
+                "画面生成没有开启。请到 设置 → AI → 画面生成 填接口地址与 API Key。", "好");
+            return;
+        }
+        var place = node?.LocationName ?? "";
+        var prompt = await Shell.Current.DisplayPromptAsync(
+            "AI 画背景",
+            $"描述「{scene.Name}」此刻的画面（光线、时间、气氛）。",
+            "生成", "取消", placeholder: "例如：傍晚的旧书店，暖黄灯光，窗外下着小雨");
+        if (string.IsNullOrWhiteSpace(prompt)) return;
+
+        StatusText = "正在生成背景…";
+        try
+        {
+            var (path, message) = await _images.GenerateAsync(
+                $"场景背景：{(place.Length > 0 ? place + " · " : "")}{scene.Name}，{prompt.Trim()}。横向构图，不要人物，不要文字",
+                "bg_" + scene.Id, "1536x1024");
+            if (path is null) { StatusText = message; return; }
+
+            var oldBg = scene.Background;
+            var oldPlacement = scene.Placement;
+            var rel = _maps.ImportBackgroundForScene(path, scene);
+            if (rel is null) { StatusText = "背景复制失败"; return; }
+            scene.Background = rel;
+            scene.Placement = null;
+            await _maps.SaveAsync();
+
+            if (!await _cal.EnsureCalibratedAsync(scene, SceneCalibrationService.DefaultTargetAspect))
+            {
+                scene.Background = oldBg;
+                scene.Placement = oldPlacement;
+                await _maps.SaveAsync();
+                StatusText = "已取消，背景未更换";
+                return;
+            }
+            StatusText = $"已为「{scene.Name}」生成并应用新背景";
+            Refresh();
+        }
+        catch (Exception ex)
+        {
+            StatusText = "生成失败：" + ex.Message;
+            App.WriteLog("MapViewModel.GenerateBackground -> " + ex);
+        }
     }
 
     [RelayCommand]
