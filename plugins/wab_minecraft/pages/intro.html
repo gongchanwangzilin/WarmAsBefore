@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft 女仆桥 · 说明</title>
+<style>
+  :root {
+    --bg: #14100e;
+    --bg-2: #1d1815;
+    --card: #221c18;
+    --card-2: #2a231d;
+    --line: #3a312a;
+    --fg: #f3ece3;
+    --fg-2: #c9bfae;
+    --fg-3: #8d8172;
+    --amber: #f0a848;
+    --amber-2: #ffc885;
+    --teal: #6fd3c7;
+    --rose: #e58ea0;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    color: var(--fg);
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(1100px 500px at 85% -5%, rgba(240,168,72,.14), transparent 60%),
+      radial-gradient(900px 420px at 0% 100%, rgba(111,211,199,.08), transparent 55%),
+      var(--bg);
+    line-height: 1.75;
+  }
+  .wrap { max-width: 880px; margin: 0 auto; padding: 48px 24px 96px; }
+
+  /* 深度分层：页眉 / 主卡 / 卡内小节 */
+  header { margin-bottom: 40px; }
+  .kicker {
+    display: inline-block; font-size: 12px; letter-spacing: .22em; color: var(--amber);
+    text-transform: uppercase; border: 1px solid rgba(240,168,72,.35);
+    padding: 3px 12px; border-radius: 999px; margin-bottom: 14px;
+  }
+  h1 { font-size: clamp(30px, 5vw, 42px); line-height: 1.15; margin: 0 0 10px; letter-spacing: .01em; }
+  h1 small { display: block; font-size: 15px; color: var(--fg-3); font-weight: 400; margin-top: 8px; letter-spacing: .04em; }
+  .lede { color: var(--fg-2); font-size: 16.5px; max-width: 62ch; }
+
+  section {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 26px 28px; margin: 22px 0;
+    box-shadow: 0 14px 34px rgba(0,0,0,.28);
+    animation: rise .5s ease both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { section { animation: none; } }
+  h2 { font-size: 20px; margin: 0 0 14px; color: var(--amber-2); letter-spacing: .02em; }
+  h3 { font-size: 15px; color: var(--fg); margin: 20px 0 8px; }
+  p, li { color: var(--fg-2); font-size: 14.5px; }
+  strong { color: var(--fg); }
+  code {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 12.5px;
+    background: var(--card-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 6px; color: var(--amber-2);
+  }
+
+  /* 流程图 */
+  .flow { display: grid; grid-template-columns: 1fr 150px 1fr; gap: 0; align-items: stretch; margin: 18px 0 6px; }
+  .side {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 12px; padding: 18px 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .side .tag { font-size: 11px; letter-spacing: .18em; color: var(--fg-3); margin-bottom: 2px; }
+  .node {
+    background: var(--card-2); border: 1px solid var(--line); border-radius: 9px;
+    padding: 9px 12px; font-size: 13px; color: var(--fg-2); position: relative;
+  }
+  .node b { display: block; color: var(--fg); font-size: 13.5px; margin-bottom: 2px; }
+  .node.wab { border-left: 3px solid var(--amber); }
+  .node.mc { border-left: 3px solid var(--teal); }
+  .mid { display: flex; flex-direction: column; justify-content: center; gap: 14px; padding: 0 6px; }
+  .link { font-size: 11px; color: var(--fg-3); text-align: center; }
+  .link .arrow { display: block; font-size: 15px; color: var(--amber); }
+  .link .arrow.t { color: var(--teal); }
+  .link em { display: block; font-style: normal; color: var(--fg-2); font-weight: 600; margin: 2px 0; }
+
+  /* 步骤 */
+  .steps { counter-reset: step; list-style: none; margin: 14px 0 0; padding: 0; }
+  .steps li {
+    counter-increment: step; position: relative; padding: 0 0 16px 44px; color: var(--fg-2); font-size: 14.5px;
+  }
+  .steps li::before {
+    content: counter(step); position: absolute; left: 0; top: 0;
+    width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center;
+    background: var(--card-2); border: 1px solid var(--line); color: var(--amber); font-weight: 700; font-size: 13px;
+  }
+  .steps li::after {
+    content: ""; position: absolute; left: 13px; top: 30px; bottom: 2px; width: 1px; background: var(--line);
+  }
+  .steps li:last-child::after { display: none; }
+
+  /* 表格 */
+  table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 13.5px; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--fg-3); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; font-weight: 600; }
+  td { color: var(--fg-2); }
+  td:first-child { color: var(--fg); font-weight: 600; white-space: nowrap; }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .pill { display: inline-block; font-size: 11px; padding: 1px 9px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-3); }
+  .pill.amber { color: var(--amber); border-color: rgba(240,168,72,.4); }
+  .pill.teal { color: var(--teal); border-color: rgba(111,211,199,.4); }
+
+  .note {
+    background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--rose);
+    border-radius: 10px; padding: 12px 16px; font-size: 13.5px; color: var(--fg-2); margin: 14px 0;
+  }
+  footer { margin-top: 40px; color: var(--fg-3); font-size: 12.5px; text-align: center; }
+  footer a { color: var(--amber); text-decoration: none; }
+  .hide { display: none; }
+  .settings-live { background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px; font-size: 13px; color: var(--fg-2); margin-top: 12px; }
+  .settings-live b { color: var(--amber-2); }
+  @media (max-width: 720px) {
+    .flow { grid-template-columns: 1fr; }
+    .mid { flex-direction: row; justify-content: space-between; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <span class="kicker">WarmAsBefore × Touhou Little Maid</span>
+  <h1>Minecraft 女仆桥
+    <small>让存档里的角色，在 Minecraft 世界里有一具真的会行动的身体</small>
+  </h1>
+  <p class="lede">
+    温暖如初是<strong>大脑</strong>——人格、好感、信任、记忆、日程都在这里；
+    游戏模组是<strong>身体</strong>——坐标、背包、饥饿、挖掘、取水、投喂发生在方块世界里。
+    数值面板只显示，权威值在 WAB 存档；游戏里的每一次互动都会回到 WAB 的记忆层。
+  </p>
+</header>
+
+<section>
+  <h2>一、两台机器怎么对话</h2>
+  <div class="flow">
+    <div class="side">
+      <div class="tag">WarmAsBefore（大脑）</div>
+      <div class="node wab"><b>桥服务</b>UDP 发现 + TCP 会话，收状态发指令</div>
+      <div class="node wab"><b>maid_* 工具 ×9</b>聊天里 AI 直接调用</div>
+      <div class="node wab"><b>存档与记忆层</b>好感/信任/记忆/NBT 快照</div>
+    </div>
+    <div class="mid">
+      <div class="link"><span class="arrow">⇄</span><em>UDP 27321</em>beacon / offer</div>
+      <div class="link"><span class="arrow t">⇄</span><em>TCP 27322</em>NDJSON 帧</div>
+    </div>
+    <div class="side">
+      <div class="tag">Minecraft Forge 1.20.1（身体）</div>
+      <div class="node mc"><b>WabBridge</b>生命周期 / 会话 / 心跳</div>
+      <div class="node mc"><b>WabActions</b>挖、舀、丢、喂、抱、放</div>
+      <div class="node mc"><b>WabAutonomy</b>日程与随机自发行为</div>
+    </div>
+  </div>
+
+  <h3>配对的五个步骤</h3>
+  <ol class="steps">
+    <li><strong>选端口</strong>：插件设置 <code>port</code>（默认 <code>27322</code>，0 = 自动挑空闲口）。宿主启动时读取。</li>
+    <li><strong>游戏里广播</strong>：模组每 3 秒向 UDP <code>27321</code> 发 <code>beacon</code>（回环 + 广播地址都发，覆盖同机与局域网），带世界名、玩家名、女仆清单。</li>
+    <li><strong>宿主应答</strong>：收到 beacon 后向来源单播 <code>offer</code>：TCP 端口 + 一次性 token + 30 秒证明（HMAC-SHA256）。</li>
+    <li><strong>校验握手</strong>：模组连上 TCP 先发 <code>hello</code>（nonce + token）。宿主核对 token 与证明后回 <code>welcome</code>，绑定存档与角色。</li>
+    <li><strong>开始协作</strong>：之后是常态循环——模组上报 <code>state</code> 快照与 <code>event</code> 事件；宿主下发 <code>command</code>（九种指令）与 <code>stats</code>；每 10 秒一次 <code>ping/pong</code> 心跳，30 秒没心跳就断开重来。</li>
+  </ol>
+  <div class="note">
+    安全边界：token 30 秒过期且只用一次；默认只听回环地址，局域网要显式打开；
+    模组只执行白名单动作；JS 插件本身<strong>没有网络能力</strong>，出网的只有宿主桥服务这一条路。
+  </div>
+</section>
+
+<section>
+  <h2>二、AI 能对她做的九件事</h2>
+  <table>
+    <tr><th>工具</th><th>作用</th><th>举例</th></tr>
+    <tr><td>maid_status</td><td>她此刻的真实状况：维度、时间、天气、生命、饥饿、坐标、背包、附近玩家、爱恋数值</td><td>“你现在怎么样？”</td></tr>
+    <tr><td>maid_scan</td><td>环顾四周：附近生物、矿石、容器、作物、水/岩浆、亮度</td><td>挖矿前先看看</td></tr>
+    <tr><td>maid_go</td><td>真的走过去：to / near / follow / wait / home / wander，寻路不瞬移</td><td>“来我这儿”</td></tr>
+    <tr><td>maid_gather</td><td>动手采集：mine / collect / chop / harvest / scoop / fill，返回实际拿到的东西</td><td>挖 16 个矿石</td></tr>
+    <tr><td>maid_hold</td><td>物品与投喂：give / drop / take / feed_player / place / equip</td><td>直接把食物喂给玩家</td></tr>
+    <tr><td>maid_act</td><td>动作：attack / use / gesture / say / sit / stand / sleep / look / interact_addon</td><td>主动抱抱</td></tr>
+    <tr><td>maid_plan</td><td>一天的日程：几点去哪做什么、执行概率、空闲时的自发行为；由模组本地执行</td><td>“晚上 9 点来喊我”</td></tr>
+    <tr><td>maid_bind</td><td>把她绑定到某个角色；女仆太多时可以新建角色甚至新建存档</td><td>每个女仆一个角色</td></tr>
+    <tr><td>maid_backup</td><td>把她完整的 NBT（背包/状态/AI/日程）快照进 WAB 存档，保留最近 40 份</td><td>大动作前留底</td></tr>
+  </table>
+  <p>
+    原则：<span class="pill amber">不瞬移</span> 移动靠寻路，太远会先 <code>go</code>；
+    <span class="pill amber">不凭空造物</span> 矿是真的挖出来的，进她背包；
+    <span class="pill amber">不隔空取物</span> 投喂要站在 3 格内；
+    <span class="pill amber">可中断</span> 每个长动作都有 tick 预算，超时返回已完成的部分；
+    <span class="pill teal">一次只做一件</span> 新指令会取消旧动作并如实说明。
+  </p>
+</section>
+
+<section>
+  <h2>三、谁说了算（数据归属）</h2>
+  <table>
+    <tr><th>数据</th><th>权威方</th><th>说明</th></tr>
+    <tr><td>好感 / 信任 / 心情 / 精力</td><td>WarmAsBefore</td><td>游戏端只显示；模组只能“请求加分”，宿主决定接不接受</td></tr>
+    <tr><td>生命 / 饥饿 / 坐标 / 背包</td><td>Minecraft 模组</td><td>WAB 只读 + 定期快照备份，不回写</td></tr>
+    <tr><td>爱憎分明的信任/恐惧/饱食</td><td>爱恋模组</td><td>读取展示；动作通过反射调用，装了才生效，不装只记日志</td></tr>
+    <tr><td>记忆 / 关系网 / 日程计划</td><td>WarmAsBefore</td><td>游戏事件回传后写入记忆层，聊天加好感（每句 +1，每 5 句 +1 信任）</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>四、设置键（宿主按这些键工作）</h2>
+  <table>
+    <tr><th>键</th><th>默认</th><th>说明</th></tr>
+    <tr><td>enabled</td><td>true</td><td>总开关。关掉后宿主不监听端口，游戏回落到原版行为</td></tr>
+    <tr><td>port</td><td>27322</td><td>TCP 端口，0 = 自动；改动会热更新，不断已有会话</td></tr>
+    <tr><td>lan</td><td>false</td><td>允许局域网连接，默认只听回环</td></tr>
+    <tr><td>auto_create_characters</td><td>true</td><td>匹配不到角色时按女仆名新建</td></tr>
+    <tr><td>allow_world_actions</td><td>true</td><td>挖/放/取水/丢物这类改世界的动作</td></tr>
+    <tr><td>allow_gestures</td><td>true</td><td>动作与语录这类不改世界的动作</td></tr>
+    <tr><td>chat_affection</td><td>true</td><td>游戏内聊天回传并加好感</td></tr>
+    <tr><td>autonomy_pulse_minutes</td><td>0</td><td>WAB 主动思考间隔；0 = 完全交给游戏里日程</td></tr>
+    <tr><td>backup_minutes</td><td>10</td><td>NBT 快照间隔；0 = 只在连接与手动时备份</td></tr>
+  </table>
+  <div id="live" class="settings-live hide"></div>
+</section>
+
+<section>
+  <h2>五、安装与联调</h2>
+  <ol>
+    <li>游戏端：把编译好的 <code>touhoulittlemaid-*.jar</code>（含 WAB 桥）放进 Forge 1.20.1 的 mods 目录；<strong>同一台机器</strong>上开世界，模组会在服务端每 3 秒广播 beacon。</li>
+    <li>WAB 端：插件中心安装本插件（<code>plugin.json</code> 所在的目录或 zip），确认上面「设置」里 <code>enabled</code> 为开。</li>
+    <li>两边都在跑之后无需手动操作：握手自动完成。游戏内女仆头顶会出现行动栏提示（好感/信任），聊天里问“她在哪”时 AI 会自己调 <code>maid_status</code> 回答。</li>
+  </ol>
+  <div class="note">
+    连不上先查：① 同一个 world + 同一个玩家；② 防火墙放 UDP 27321 与 TCP 端口；
+    ③ 日志——WAB 在 <code>logs/app.log</code>（前缀 <code>MaidBridge</code>），游戏在 <code>logs/latest.log</code>（前缀 <code>[WAB]</code>）。
+    模组崩溃或 WAB 没开都不影响游戏本身运行。
+  </div>
+</section>
+
+<footer>
+  协议 v1 · 冻结于 2026-10-24 · 完整字段定义见 <a href="../docs/minecraft-maid-bridge.md">docs/minecraft-maid-bridge.md</a>
+</footer>
+
+<script>
+  // 从应用打开时 URL 会带 callback（http://127.0.0.1:<port>/save?token=...）；
+  // 把 /save 换成 /settings 可读当前设置。直接本地打开时静默跳过。
+  (function () {
+    var c = new URLSearchParams(location.search).get("callback");
+    if (!c || c.indexOf("/save") === -1) return;
+    fetch(c.replace("/save", "/settings")).then(function (r) { return r.json(); })
+      .then(function (s) {
+        var el = document.getElementById("live");
+        var keys = ["enabled", "port", "lan", "auto_create_characters", "allow_world_actions", "allow_gestures", "chat_affection", "autonomy_pulse_minutes", "backup_minutes"];
+        var parts = keys.map(function (k) { return "<b>" + k + "</b> = " + (s[k] == null ? "(默认)" : s[k]); });
+        el.innerHTML = "当前设置：" + parts.join("，");
+        el.classList.remove("hide");
+      }).catch(function () {});
+  })();
+</script>
+</body>
+</html>
