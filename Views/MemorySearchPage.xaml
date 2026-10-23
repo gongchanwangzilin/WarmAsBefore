@@ -15,7 +15,7 @@
               内距与圆角都归 CardSolid，不再自己写 14,12 ============ -->
         <Border Grid.Row="0" Style="{StaticResource CardSolid}">
             <VerticalStackLayout Spacing="10">
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                     <Entry Grid.Column="0"
                            Text="{Binding Query, Mode=TwoWay}"
                            Placeholder="一句话、#标签、一种感觉、或者 8月24号…"
@@ -25,7 +25,13 @@
                     <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}"
                             VerticalOptions="Center"
                             Command="{Binding ClearQueryCommand}" />
-                    <Button Grid.Column="2" Text="关系网" Style="{StaticResource BtnGhostSm}"
+                    <!-- 链式：一个线索顺着字词、标签、时间连出去，不是「哪几条直接提到」。
+                         亮着的时候背面填暖色，和筛选条用同一套「选中」语言。 -->
+                    <Button Grid.Column="2" Text="{Binding ChainText}" Style="{StaticResource BtnGhostSm}"
+                            BackgroundColor="{Binding ChainFill}" TextColor="{Binding ChainInk}"
+                            VerticalOptions="Center" Padding="10,0"
+                            Command="{Binding ToggleChainCommand}" />
+                    <Button Grid.Column="3" Text="关系网" Style="{StaticResource BtnGhostSm}"
                             VerticalOptions="Center"
                             Command="{Binding OpenGraphCommand}" />
                 </Grid>

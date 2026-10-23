@@ -1,0 +1,96 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.MentalHealthPage"
+             x:Name="Page"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="心理状况" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,28">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="4">
+                    <Label Text="{Binding CharacterLabel, StringFormat='{0} · 心理状况'}" Style="{StaticResource TxtTitle}" />
+                    <Label Text="这不是诊断，也不会把病名写进对话：只决定 TA 怎么感受、怎么应对。安慰与陪伴会提高稳定度；时间几乎不起作用。涉及自伤、自杀、伤人的条目有硬边界——可以写痛苦与冲动，不写方法、不美化，始终引向现实求助。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                           TextColor="{DynamicResource AccentWarmFg}" />
+                </VerticalStackLayout>
+
+                <!-- 当前生效的状况 -->
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Active}" Spacing="10">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Border Style="{StaticResource CardSolid}">
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Spacing="2">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
+                                            <Label Text="{Binding Category, StringFormat='{0} · 目录条目'}" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"
+                                                StrokeThickness="0" Padding="10,4" VerticalOptions="Start">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                            <Label Text="{Binding SeverityText}" FontSize="12"
+                                                   TextColor="{DynamicResource WarmDark}" />
+                                        </Border>
+                                    </Grid>
+                                    <Label Text="{Binding StabilityText}" Style="{StaticResource TxtCaption}" />
+                                    <Label Text="{Binding Note}" Style="{StaticResource TxtCaption}" IsVisible="{Binding Note, Converter={StaticResource StringNotEmpty}}" />
+                                    <Label Text="这条有安全边界：不提供做法、不美化，只做陪伴与转向求助。"
+                                           Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}"
+                                           IsVisible="{Binding Safety}" />
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="6">
+                                        <Button Text="轻" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.SetMildCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="1" Text="中" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.SetModerateCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="2" Text="重" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.SetSevereCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="4" Text="移除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                Command="{Binding BindingContext.RemoveCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <!-- 添加一条 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="添加一条" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Picker Title="选择心理状况（115 条）" ItemsSource="{Binding CatalogNames}"
+                                    SelectedItem="{Binding NewCondition}" FontSize="13" />
+                            <Picker Grid.Column="1" WidthRequest="100" ItemsSource="{Binding SeverityChoices}"
+                                    SelectedItem="{Binding NewSeverity}" FontSize="13" />
+                        </Grid>
+                        <Entry Placeholder="备注：触发点 / 来源 / 想被怎么对待（可留空）" Text="{Binding NewNote}"
+                               BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        <Button Text="加到当前角色" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                Padding="16,7" HorizontalOptions="Start" Command="{Binding AddCommand}" />
+                        <Label Text="目录按类别分：情绪、焦虑、创伤、强迫、进食、睡眠、精神病性、人格、神经发育、神经、躯体、冲动、特质与安全类。轻度不等于没事，重度也不等于随时失控——严重度决定的是波动幅度与恢复速度。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

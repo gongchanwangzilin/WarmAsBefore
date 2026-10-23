@@ -69,7 +69,44 @@ public sealed record HumanMemoryEntry
 
     public DateTime CreatedAt { get; init; } = DateTime.UtcNow;
     public DateTime LastRecalledAt { get; init; } = DateTime.UtcNow;
+
+    // ===== 核心记忆 / 情绪强度 / 关联 / 遗忘融合 / 创伤（v1.47） =====
+
+    /// <summary>
+    /// 核心记忆：TA 人格的锚点。永不衰减、不参与复述计数、每次回想都能被取到；
+    /// 它不只是一个条目，还会「辐射」到与它共享标签/字词的普通记忆上，给它们加权。
+    /// </summary>
+    public bool IsCore { get; init; }
+
+    /// <summary>情绪强度 0~1：由情绪配比的浓度决定。核心记忆与创伤都靠它立住。</summary>
+    public double EmotionalIntensity { get; init; }
+
+    /// <summary>记忆之间的关联词（比标签更自由，链式搜索用它搭桥）。</summary>
+    public List<string> Associations { get; init; } = new();
+
+    /// <summary>创伤：一种特殊的核心记忆，不会被遗忘；疗愈只降低情绪强度，不删除内容。</summary>
+    public bool IsTrauma { get; init; }
+
+    /// <summary>创伤阶段 0=无 1=应激（强烈生理/情绪反应）2=灼痛 3=结痂（能平静地叹口气）4=融入人格。</summary>
+    public int TraumaStage { get; init; }
+
+    /// <summary>有效疗愈次数：只在特定事件/互动里增加，时间几乎不改变它。</summary>
+    public int TraumaHeals { get; init; }
+
+    public DateTime? LastHealedAt { get; init; }
+
+    /// <summary>已被融合进哪条记忆：遗忘不是删除，是化进周围的事里，仍然影响判断。</summary>
+    public string FusedIntoId { get; init; } = "";
+    public DateTime? FusedAt { get; init; }
+
+    public bool IsForgotten => !string.IsNullOrEmpty(FusedIntoId);
 }
+
+/// <summary>链式搜索的一环：从线索出发，经由哪条记忆、凭什么连上。</summary>
+public sealed record HumanChainHit(HumanMemoryEntry Entry, double Score, string Why, int Depth, string Bridge);
+
+/// <summary>链式搜索的结果：默认 5 条，按「新的在前；同一天里更像的在前」排。</summary>
+public sealed record HumanChainResult(IReadOnlyList<HumanChainHit> Hits, string Summary);
 
 /// <summary>
 /// 一次搜索命中：除条目本身，还带回「凭什么命中」和分值。
@@ -146,13 +183,167 @@ public static class HumanMemoryMath
 
     public static double Score(HumanMemoryEntry e, double windowDays, double randomness, DateTime now)
     {
+        // 核心记忆完全绕开遗忘机制：不打折、不靠复述，什么时候想都在。
+        if (e.IsCore) return 10;
+
         var ageDays = Math.Max(0, (now - e.CreatedAt).TotalDays);
         var importance = Math.Clamp(e.Importance, 0.05, 1.0);
         var retention = Decay(ageDays, windowDays, importance, e.RecallCount);
         var repetition = 1 + Math.Log(1 + Math.Max(0, e.RecallCount)) * 0.5;
+        var emotion = 1 + Math.Clamp(e.EmotionalIntensity, 0, 1) * 0.9;
         var jitter = 1 + Math.Clamp(randomness, 0, 1) * (Random.Shared.NextDouble() * 2 - 1);
-        return Math.Max(0, importance * retention * repetition * jitter);
+        return Math.Max(0, importance * retention * repetition * emotion * jitter);
     }
+
+    /// <summary>
+    /// 情绪强度：由配比的集中度决定（三成害怕两成安心，比「一点点难过」更抓人）。
+    /// 没有情绪配比时给一个保守值，避免老数据全部变成零情绪。
+    /// </summary>
+    public static double EmotionalIntensityOf(EmotionMix? mix, double fallback = 0.35)
+    {
+        if (mix is null || mix.IsEmpty) return fallback;
+        var concentration = Math.Sqrt(mix.Parts.Sum(p => p.Ratio * p.Ratio));
+        var top = mix.Parts.Max(p => p.Ratio);
+        return Math.Clamp(0.35 + concentration * 0.45 + top * 0.2, 0, 1);
+    }
+
+    /// <summary>该不该升为核心：重要性够高，且情绪够浓或本身就是创作伤。</summary>
+    public static bool CoreEligible(double importance, double emotionalIntensity, bool isTrauma, double threshold)
+    {
+        if (isTrauma) return true;
+        var t = Math.Clamp(threshold <= 0 ? 0.82 : threshold, 0.5, 1.0);
+        return importance >= 0.85 && importance * Math.Max(0.35, emotionalIntensity) >= t;
+    }
+
+    /// <summary>创伤阶段：强度越高越靠前；疗愈次数把阶段一格一格往下推。只降强度，不删记忆。</summary>
+    public static int TraumaStageOf(double intensity, int heals)
+    {
+        var i = Math.Clamp(intensity - heals * 0.12, 0, 1);
+        if (i >= 0.7) return 1;
+        if (i >= 0.45) return 2;
+        if (i >= 0.2) return 3;
+        return 4;
+    }
+
+    public static string TraumaStageName(int stage) => stage switch
+    {
+        1 => "应激（一点点相关的东西都会让身体先于理智起反应）",
+        2 => "灼痛（记得很清楚，情绪还很烫）",
+        3 => "结痂（能平静地提起，偶尔叹一口气）",
+        4 => "融入（已经成了「我为什么是现在的我」的一部分）",
+        _ => "无"
+    };
+
+    // ===== 链式搜索 =====
+
+    /// <summary>把一段话拆成可比较的小单位：中文按单字，西文按词，数字串整体算一个词。</summary>
+    public static HashSet<string> Units(string? text)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(text)) return set;
+        var word = new System.Text.StringBuilder();
+        foreach (var ch in text)
+        {
+            if (char.IsLetterOrDigit(ch))
+            {
+                if (ch <= 0x7F) { word.Append(ch); continue; }
+                // 中文单字本身就是「共同的字」，直接入集合
+                if (word.Length > 0) { set.Add(word.ToString()); word.Clear(); }
+                set.Add(ch.ToString());
+            }
+            else if (word.Length > 0) { set.Add(word.ToString()); word.Clear(); }
+        }
+        if (word.Length > 0) set.Add(word.ToString());
+        return set;
+    }
+
+    /// <summary>两条记忆共享的「字/词」个数（越像越大）。</summary>
+    public static int SharedUnits(string? a, string? b)
+    {
+        var ua = Units(a);
+        if (ua.Count == 0) return 0;
+        var ub = Units(b);
+        if (ub.Count == 0) return 0;
+        return ua.Count(u => ub.Contains(u));
+    }
+
+    /// <summary>相对重叠率 0~1。</summary>
+    public static double Overlap(string? a, string? b)
+    {
+        var ua = Units(a);
+        var ub = Units(b);
+        if (ua.Count == 0 || ub.Count == 0) return 0;
+        var shared = ua.Count(u => ub.Contains(u));
+        return shared / Math.Sqrt(ua.Count * (double)ub.Count);
+    }
+
+    /// <summary>
+    /// 两个条目之间的链强度：共享字词、共享标签、时间靠近、情绪相似、事件类型一致。
+    /// 这是链式搜索里「凭什么连上」的依据，也直接显示给用户看。
+    /// </summary>
+    public static (double Score, string Why) ChainEdge(HumanMemoryEntry a, HumanMemoryEntry b, DateTime now)
+    {
+        var score = 0.0;
+        var why = new List<string>();
+
+        var shared = SharedUnits(a.Text, b.Text);
+        var overlap = Overlap(a.Text, b.Text);
+        if (shared > 0)
+        {
+            score += Math.Min(0.45, overlap * 1.2);
+            why.Add($"共同的字词 {shared} 个");
+        }
+
+        var sharedTags = a.Tags.Intersect(b.Tags, StringComparer.OrdinalIgnoreCase).ToList();
+        if (sharedTags.Count > 0)
+        {
+            score += Math.Min(0.35, sharedTags.Count * 0.16);
+            why.Add("都贴着「" + string.Join("、", sharedTags.Take(3)) + "」");
+        }
+
+        var tagOverlap = a.Associations.Intersect(b.Associations, StringComparer.OrdinalIgnoreCase).ToList();
+        if (tagOverlap.Count > 0)
+        {
+            score += Math.Min(0.2, tagOverlap.Count * 0.1);
+            why.Add("想起时会带出「" + string.Join("、", tagOverlap.Take(2)) + "」");
+        }
+
+        var days = Math.Abs((a.CreatedAt - b.CreatedAt).TotalDays);
+        if (days <= 3)
+        {
+            score += 0.22 * (1 - days / 3.0);
+            why.Add(days < 1 ? "就是同一阵子的事" : $"相隔不到 {Math.Ceiling(days)} 天");
+        }
+        else if (days <= 14)
+        {
+            score += 0.08 * (1 - (days - 3) / 11.0);
+            why.Add($"时间上也挨着（{Math.Round(days)} 天）");
+        }
+
+        var feel = a.Emotion?.SimilarityTo(b.Emotion) ?? 0;
+        if (feel >= 0.5)
+        {
+            score += feel * 0.12;
+            why.Add("那时的情绪很像");
+        }
+
+        if (a.Kind == b.Kind)
+        {
+            score += 0.04;
+        }
+
+        return (Math.Clamp(score, 0, 1.5), string.Join(" · ", why));
+    }
+
+    /// <summary>
+    /// 链式搜索排序：新的在前；同一天里，越像线索的越前。
+    /// 这是用户要的「默认 5 条、按时间倒序、同一时间相似度优先」。
+    /// </summary>
+    public static IEnumerable<HumanChainHit> OrderChain(IEnumerable<HumanChainHit> hits)
+        => hits
+            .OrderByDescending(h => h.Entry.CreatedAt.Date)
+            .ThenByDescending(h => h.Score)
+            .ThenByDescending(h => h.Entry.CreatedAt);
 
     /// <summary>从一句记忆里估重要性：出现约定/第一次/重要/承诺这类词就抬高。</summary>
     public static double EstimateImportance(string text)

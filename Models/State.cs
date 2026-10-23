@@ -24,6 +24,79 @@ public sealed record GameState
     public bool Blackout { get; set; }
     /// <summary>黑屏原因（AI 给的说明，供用户理解此刻在发生什么）。</summary>
     public string BlackoutReason { get; set; } = "";
+
+    /// <summary>
+    /// 这份存档的插件/工具权限：默认全开，只有用户在「存档高级设置」里收紧后才生效。
+    /// 它跟着存档走——同一个插件在 A 档可用、在 B 档不可用是合理需求。
+    /// </summary>
+    public SavePermissions Permissions { get; set; } = new();
+
+    /// <summary>身体状态（冷热饥渴想念）：跟着存档走，读档后不会突然全空。</summary>
+    public PhysiologyState Body { get; set; } = new();
+}
+
+/// <summary>
+/// 存档级权限：能装什么都由全局决定，但某个存档里「允许哪些插件/工具碰这份数据」是另一回事。
+/// 白名单为空 + AllowAll=true 表示不限制（默认），否则按白名单放行。
+/// </summary>
+public sealed record SavePermissions
+{
+    public bool AllowAllPlugins { get; init; } = true;
+    public bool AllowAllTools { get; init; } = true;
+
+    /// <summary>允许使用的插件目录名（tools/skills/plugins 的统一 id）。</summary>
+    public List<string> AllowedPlugins { get; init; } = new();
+
+    /// <summary>允许调用的工具名（外部工具与内置工具都算）。</summary>
+    public List<string> AllowedTools { get; init; } = new();
+
+    /// <summary>允许 AI 在这份存档里自行安装插件（默认否：装代码是用户才该做的决定）。</summary>
+    public bool AllowAiInstallPlugins { get; init; }
+
+    /// <summary>允许出现在这份存档里的角色；空 = 不限制（与 GameState.AllowedCharacters 共用语义）。</summary>
+    public List<string> AllowedCharacters { get; init; } = new();
+
+    public bool AllowsPlugin(string id)
+        => AllowAllPlugins || AllowedPlugins.Contains(id, StringComparer.OrdinalIgnoreCase);
+
+    public bool AllowsTool(string name)
+        => AllowAllTools || AllowedTools.Contains(name, StringComparer.OrdinalIgnoreCase);
+
+    public bool AllowsCharacter(string id)
+        => AllowedCharacters.Count == 0 || AllowedCharacters.Contains(id, StringComparer.OrdinalIgnoreCase);
+}
+
+/// <summary>
+/// 身体感受：不是数值面板，而是「TA 现在冷不冷、渴不渴、饿不饿、多久没见到你了」。
+/// 全部 0~1，由时间与天气缓慢变化，AI 通过 body_state 工具读取并写进对话。
+/// </summary>
+public sealed record PhysiologyState
+{
+    /// <summary>体温感受：0=冷得发抖，0.5=舒适，1=热得发晕。</summary>
+    public double Warmth { get; set; } = 0.5;
+    /// <summary>口渴 0~1。</summary>
+    public double Thirst { get; set; }
+    /// <summary>饥饿 0~1。</summary>
+    public double Hunger { get; set; }
+    /// <summary>想念 0~1：越久没见越涨，见面或对话会回落。</summary>
+    public double Longing { get; set; }
+    /// <summary>上次结算时间（UTC）：用于按真实时间推移，不靠轮询。</summary>
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+
+    /// <summary>给提示词的人话描述：只描述感受，不报数值。</summary>
+    public string Describe()
+    {
+        var parts = new List<string>();
+        if (Warmth < 0.32) parts.Add("有点冷，手指发凉");
+        else if (Warmth > 0.7) parts.Add("有些热，额角出汗");
+        if (Thirst > 0.65) parts.Add("口渴得厉害");
+        else if (Thirst > 0.4) parts.Add("有点渴");
+        if (Hunger > 0.65) parts.Add("饿得胃里发空");
+        else if (Hunger > 0.4) parts.Add("有点饿");
+        if (Longing > 0.7) parts.Add("非常想见你");
+        else if (Longing > 0.45) parts.Add("有些想你");
+        return parts.Count == 0 ? "" : string.Join("，", parts) + "。";
+    }
 }
 
 public sealed record AffectionTick
@@ -489,6 +562,78 @@ public sealed record UserSettings
 
     /// <summary>AI 单独出行时，用户是否可以「跟上」（显示跟上按钮）。</summary>
     public bool AllowFollowAi { get; init; } = true;
+
+    // ===== 窗口与界面（v1.47） =====
+
+    /// <summary>手机页开成独立窗口：桌面端点「手机」另开一扇，主窗口继续聊天。</summary>
+    public bool PhoneStandaloneWindow { get; init; } = true;
+
+    /// <summary>关主窗口时怎么处理其他窗口：ask=每次问 · closeAll=连同其他窗口一起关 · keepOthers=只关主窗口。</summary>
+    public string MainWindowCloseBehavior { get; init; } = "ask";
+
+    /// <summary>旁白 AI：在角色对话之外，由旁白用第三人称补一句场景/氛围描写。</summary>
+    public bool NarratorAiEnabled { get; init; }
+
+    /// <summary>用户性别（自由文本，可来自自定义性别库）。空 = 未设置，提示词里不提。</summary>
+    public string UserGender { get; init; } = "";
+
+    /// <summary>超省内存模式：记忆/关系网按需从盘上读、闲置即释放，插件网页默认不加载。</summary>
+    public bool LowMemoryMode { get; init; }
+
+    // ===== 记忆与心理（v1.47） =====
+
+    /// <summary>核心记忆：情绪强度/重要性足够高的记忆升为核心，永不衰减、永远可被想起。</summary>
+    public bool CoreMemoryEnabled { get; init; } = true;
+
+    /// <summary>升为核心的自动阈值（重要性 × 情绪强度），0~1，默认 0.82。</summary>
+    public double CoreMemoryThreshold { get; init; } = 0.82;
+
+    /// <summary>创伤疗愈：允许特定事件/互动让创伤核心记忆的情绪强度缓慢下降（记忆本身不删除）。</summary>
+    public bool TraumaHealingEnabled { get; init; } = true;
+
+    /// <summary>链式搜索默认返回条数（1~20）。</summary>
+    public int ChainSearchLimit { get; init; } = 5;
+
+    /// <summary>心理状态系统总开关：关闭后不生成/注入任何心理疾病设定。</summary>
+    public bool MentalHealthEnabled { get; init; } = true;
+
+    /// <summary>心理状态驱动行为：自伤/自杀/暴力等倾向只作为叙事倾向，不提供任何操作细节。</summary>
+    public bool PsychologyBehaviorEnabled { get; init; } = true;
+
+    // ===== 生成（v1.47）：装扮/背景/角色/地图 =====
+
+    /// <summary>AI 实时生成图片总开关（装扮、背景、立绘、地图插画）。关闭时工具直接返回不可用。</summary>
+    public bool ImageGenEnabled { get; init; }
+
+    /// <summary>生图端点（OpenAI 兼容，实际请求 {base}/images/generations）。</summary>
+    public string ImageGenUrl { get; init; } = "https://api.openai.com/v1";
+
+    public string ImageGenKey { get; init; } = "";
+
+    /// <summary>生图模型，如 gpt-image-1 / dall-e-3 / flux。</summary>
+    public string ImageGenModel { get; init; } = "gpt-image-1";
+
+    /// <summary>生成尺寸，如 1024x1024 / 1024x1792。</summary>
+    public string ImageGenSize { get; init; } = "1024x1024";
+
+    // ===== 生活与金钱（v1.47） =====
+
+    /// <summary>冷热饥渴与想念：开启后身体状态随时间/天气变化，并注入提示词。</summary>
+    public bool PhysiologyEnabled { get; init; } = true;
+
+    /// <summary>金钱系统：关闭后购买不扣币，钱包显示「已停用」。</summary>
+    public bool MoneyEnabled { get; init; } = true;
+
+    // ===== 插件与存档（v1.47） =====
+
+    /// <summary>导出存档时把插件代码一起打包（避免「有数据没代码」）。</summary>
+    public bool SaveBundleWithPlugins { get; init; } = true;
+
+    /// <summary>允许插件通过 JS 钩子改写页面/主流程（默认关闭；关闭时插件只能用自己的设置页与工具）。</summary>
+    public bool PluginHooksEnabled { get; init; } = true;
+
+    /// <summary>插件崩溃时把 stderr 与堆栈写进插件日志（默认开）。</summary>
+    public bool PluginCrashLogs { get; init; } = true;
 }
 
 /// <summary>

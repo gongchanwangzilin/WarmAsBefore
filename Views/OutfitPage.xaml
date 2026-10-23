@@ -3,20 +3,105 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.OutfitPage"
+             x:Name="Page"
              x:DataType="vm:OutfitViewModel"
              Title="换装"
+             Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <!--
-      占位页：装扮视图模型目前没有任何内容，所以这里只做「并进这套语言」的事，
-      不给它发明内容（那需要新的文案与新绑定，都不在这次的范围里）。
-      眉栏与内容区是同一块地，靠下面一条发丝线分界；地面/线/内距全部跟世界走。
-    -->
     <Grid RowDefinitions="Auto,Auto,*" Padding="0">
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Label Text="换装" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                        Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="换装" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+            </Grid>
         </Border>
-        <BoxView Grid.Row="1" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+
+        <ScrollView Grid.Row="2" Padding="24,16,24,28">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
+                <!-- 当前立绘：一张图 + 一行说明，不再做成一排缩略图 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="{Binding CharacterName}" Style="{StaticResource TxtSubhead}" />
+                        <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                HeightRequest="360" HorizontalOptions="Fill"
+                                StrokeShape="{DynamicResource WRadiusCard}">
+                            <Image Source="{Binding CurrentImage}" Aspect="AspectFit"
+                                   IsVisible="{Binding HasCurrentImage}"
+                                   HorizontalOptions="Fill" VerticalOptions="Fill" />
+                        </Border>
+                        <Label Text="{Binding CurrentOutfit, StringFormat='当前：{0}'}"
+                               Style="{StaticResource TxtRowDesc}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                       TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
+
+                <!-- 已有装扮 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="已有的装扮" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Outfits}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:OutfitItem">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                                    <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
+                                                            StrokeThickness="0" WidthRequest="56" HeightRequest="84"
+                                                            VerticalOptions="Center"
+                                                            StrokeShape="{DynamicResource WRadiusWell}">
+                                                        <Image Source="{Binding Image}" Aspect="AspectFill"
+                                                               IsVisible="{Binding HasImage}"
+                                                               HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                                        <Label Text="♡" Style="{StaticResource TxtMuted}"
+                                                               HorizontalOptions="Center" VerticalOptions="Center"
+                                                               IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
+                                                    </Border>
+                                                    <Label Grid.Column="1" Text="{Binding Name}"
+                                                           Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
+                                                    <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                                        <Label Text="{Binding CurrentLabel}" Style="{StaticResource TxtCaption}"
+                                                               TextColor="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
+                                                        <Button Text="穿上" Style="{StaticResource BtnNeumorphSm}" FontSize="12"
+                                                                Padding="12,4"
+                                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.WearCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                    </HorizontalStackLayout>
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 生成新装扮 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="用一句话生成新装扮" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="描述衣服与场景即可（例如：白色针织衫配浅色长裙，站在午后窗边）。生成的是全身立绘，会直接穿上并登记进这个角色。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Entry Placeholder="想给 TA 穿什么？" Text="{Binding Prompt}"
+                               BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        <Button Text="生成并穿上" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                Padding="16,7" HorizontalOptions="Start"
+                                IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}"
+                                Command="{Binding GenerateCommand}" />
+                        <Label Text="没有开启画面生成？去设置 → AI → 画面生成填接口与密钥。"
+                               Style="{StaticResource TxtMuted}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
     </Grid>
 </ContentPage>

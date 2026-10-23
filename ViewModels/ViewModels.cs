@@ -17,17 +17,25 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
     private readonly Modules.SaveSystem.SaveManager _save;
     private readonly StorageProvider _store;
     private readonly SceneCalibrationService _cal;
+    private readonly Modules.ApiManager.ApiGateway _api;
+    private readonly ImageGenerationService _images;
+    private readonly MapService _maps;
 
     [ObservableProperty] private ObservableCollection<CharacterCardItem> _cards = new();
+    [ObservableProperty] private bool _aiBusy;
 
     public CharacterSelectViewModel(GameEngine engine, CharacterLibrary library,
-        Modules.SaveSystem.SaveManager save, StorageProvider store, SceneCalibrationService cal)
+        Modules.SaveSystem.SaveManager save, StorageProvider store, SceneCalibrationService cal,
+        Modules.ApiManager.ApiGateway api, ImageGenerationService images, MapService maps)
     {
         _engine = engine;
         _library = library;
         _save = save;
         _store = store;
         _cal = cal;
+        _api = api;
+        _images = images;
+        _maps = maps;
     }
 
     [RelayCommand]
@@ -115,6 +123,162 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
         }
     }
 
+    /// <summary>顶栏「＋」：手动新建与 AI 造角色放同一张菜单，不把两个入口都塞进顶栏。</summary>
+    [RelayCommand]
+    private async Task AddMenu()
+    {
+        var act = await Shell.Current.DisplayActionSheet("添加角色", "取消", null, "手动新建", "AI 造角色");
+        if (act == "手动新建") await CreateCharacter();
+        else if (act == "AI 造角色") await AiCreateCharacter();
+    }
+
+    /// <summary>
+    /// 角色工坊：一句描述 → AI 交出角色设定与配景描述 → 建角色、画头像、按需把配景画成背景接进地图。
+    /// 生成失败只提示，不落半成品；画面生成没开时仍然可以只建角色。
+    /// </summary>
+    [RelayCommand]
+    private async Task AiCreateCharacter()
+    {
+        var prompt = await Shell.Current.DisplayPromptAsync("AI 造角色",
+            "想要一个什么样的角色？（外貌、性格、和你的关系、世界背景都可以写）",
+            "生成", "取消", placeholder: "例如：住在海边的旧书店老板，安静，喜欢在雨天煮茶");
+        if (string.IsNullOrWhiteSpace(prompt)) return;
+
+        AiBusy = true;
+        CharacterWorkshopDraft? draft;
+        try
+        {
+            const string system =
+                "你是角色设计师。根据用户描述设计一个角色，只输出一个 JSON 对象，不要 markdown 代码块，不要解释。"
+                + "字段：name（名字）、gender（必须是 女/男/其他/保密 之一）、personality（性格，80 字内）、"
+                + "description（外貌与背景，200 字内）、greeting（初次见面说的一句话）、"
+                + "userAddress（TA 怎么称呼用户）、scenes（2~3 个场景，每项 {\"name\":\"场景名\",\"prompt\":\"背景画面描述\"}，"
+                + "prompt 只写环境、光线、气氛，不要出现人物）。所有文本用中文。";
+            var raw = await _api.Chat(new List<ChatMessage>
+            {
+                new() { Role = "system", Content = system },
+                new() { Role = "user", Content = prompt.Trim() }
+            });
+            draft = ParseWorkshop(raw);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterSelect.AiCreate -> " + ex);
+            draft = null;
+        }
+        finally { AiBusy = false; }
+
+        if (draft is null || string.IsNullOrWhiteSpace(draft.Name))
+        {
+            await Shell.Current.DisplayAlert("AI 造角色", "这次没有生成出可用的角色设定，请稍后再试或换个描述。", "好");
+            return;
+        }
+
+        var scenes = draft.Scenes.Where(s => !string.IsNullOrWhiteSpace(s.Name)).Take(3).ToList();
+        var detail = $"性别：{draft.Gender}\n性格：{draft.Personality}\n\n{draft.Description}";
+        if (scenes.Count > 0) detail += "\n\n配景：" + string.Join("、", scenes.Select(s => s.Name));
+        if (!await Shell.Current.DisplayAlert($"「{draft.Name}」", detail, "创建", "取消")) return;
+
+        var created = _library.CreateDefault(draft.Name, draft.Gender, draft.Personality);
+        var profile = created.Profile with
+        {
+            Description = string.IsNullOrWhiteSpace(draft.Description) ? prompt.Trim() : draft.Description.Trim(),
+            Greeting = string.IsNullOrWhiteSpace(draft.Greeting) ? created.Profile.Greeting : draft.Greeting.Trim(),
+            UserAddress = string.IsNullOrWhiteSpace(draft.UserAddress) ? created.Profile.UserAddress : draft.UserAddress.Trim()
+        };
+        created = created with { Profile = profile };
+        if (!await _library.AddAsync(created))
+        {
+            await Shell.Current.DisplayAlert("AI 造角色", "角色保存失败。", "好");
+            return;
+        }
+
+        // 头像：有画面生成就顺手画一张；失败不影响角色本身
+        if (_images.Enabled)
+        {
+            var look = string.IsNullOrWhiteSpace(profile.Description) ? profile.Personality : profile.Description;
+            var (path, _) = await _images.GenerateAsync(
+                $"{profile.Name} 的头像，{look}。干净背景，不要文字", "character_" + profile.Id);
+            if (path is not null)
+            {
+                var dir = Path.Combine(_store.Root, "assets", "characters", profile.Id, "avatar");
+                Directory.CreateDirectory(dir);
+                var dest = Path.Combine(dir, "avatar.png");
+                File.Copy(path, dest, true);
+                created = created with { Avatar = $"assets/characters/{profile.Id}/avatar/avatar.png" };
+                await _library.UpdateAsync(created);
+            }
+        }
+
+        // 配景：经用户同意才画，毕竟每张都要花时间与额度
+        var madeScenes = 0;
+        if (scenes.Count > 0 && _images.Enabled
+            && await Shell.Current.DisplayAlert("配景",
+                $"要现在为 TA 生成 {scenes.Count} 张场景背景并接进地图吗？", "生成", "稍后"))
+        {
+            try
+            {
+                await _maps.InitializeAsync();
+                var location = _maps.Map.Locations.FirstOrDefault();
+                if (location is not null)
+                {
+                    foreach (var s in scenes)
+                    {
+                        var scene = _maps.AddScene(location.Id, s.Name.Trim());
+                        var current = _maps.CurrentScene;
+                        if (current is not null) _maps.AddEdge(current.Id, scene.Id);
+                        var (path, _) = await _images.GenerateAsync(
+                            $"场景背景：{s.Name}，{s.Prompt}。横向构图，不要人物，不要文字",
+                            "scene_" + scene.Id, "1536x1024");
+                        if (path is null) continue;
+                        var rel = _maps.ImportBackgroundForScene(path, scene);
+                        if (rel is null) continue;
+                        scene.Background = rel;
+                        scene.Placement = null;
+                        madeScenes++;
+                    }
+                    await _maps.SaveAsync();
+                    _maps.NotifyChanged();
+                }
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("CharacterSelect.WorkshopScenes -> " + ex);
+            }
+        }
+
+        await Refresh();
+        var tail = madeScenes > 0 ? $"\n已生成 {madeScenes} 个场景，第一次进入地图时会请你标定。" : "";
+        if (await Shell.Current.DisplayAlert("AI 造角色",
+                $"「{profile.Name}」已加入角色库。{tail}\n\n现在和 TA 开始一局吗？", "开始", "稍后"))
+        {
+            _engine.Boot();
+            _engine.SetCharacter(profile.Id);
+            if (_engine.ActiveCharacter is { } fresh) CharacterLibrary.RandomizeSpriteState(fresh);
+            _save.NewRun();
+            await Shell.Current.GoToAsync("main");
+        }
+    }
+
+    private static CharacterWorkshopDraft? ParseWorkshop(string? raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return null;
+        var start = raw.IndexOf('{');
+        var end = raw.LastIndexOf('}');
+        if (start < 0 || end <= start) return null;
+        try
+        {
+            return System.Text.Json.JsonSerializer.Deserialize<CharacterWorkshopDraft>(
+                raw[start..(end + 1)],
+                new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterSelect.ParseWorkshop -> " + ex.Message);
+            return null;
+        }
+    }
+
     [RelayCommand]
     private async Task ImportCharacter()
     {
@@ -177,6 +341,24 @@ public sealed class CharacterCardItem
     /// <summary>微信式列表项副标题：优先显示性格，空则给一句默认。</summary>
     public string Subtitle =>
         string.IsNullOrWhiteSpace(Personality) ? "点击开始聊天" : Personality;
+}
+
+/// <summary>角色工坊的 AI 产物：只用来填表单，落盘仍走 CharacterLibrary 的正常路径。</summary>
+public sealed class CharacterWorkshopDraft
+{
+    public string Name { get; set; } = "";
+    public string Gender { get; set; } = "";
+    public string Personality { get; set; } = "";
+    public string Description { get; set; } = "";
+    public string Greeting { get; set; } = "";
+    public string UserAddress { get; set; } = "";
+    public List<CharacterWorkshopScene> Scenes { get; set; } = new();
+}
+
+public sealed class CharacterWorkshopScene
+{
+    public string Name { get; set; } = "";
+    public string Prompt { get; set; } = "";
 }
 
 /// <summary>设置页「表情包库」列表的一行（#12）。</summary>
@@ -284,6 +466,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Modules.RealWorld.LocationService _cities;
     private readonly Modules.RealWorld.WeatherProvider _weather;
     private readonly Services.CloudSync.CloudSyncService _cloud;
+    private readonly Modules.Market.ShopService _shop;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
@@ -292,7 +475,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision,
         Services.SkillLibrary skills, Services.CostEstimatorService cost,
         Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather,
-        Services.CloudSync.CloudSyncService cloud)
+        Services.CloudSync.CloudSyncService cloud, Services.GenderLibrary genders,
+        Modules.Market.ShopService shop)
     {
         _settings = settings;
         _theme = theme;
@@ -311,6 +495,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _cities = cities;
         _weather = weather;
         _cloud = cloud;
+        _genders = genders;
+        _shop = shop;
+        _ = shop.InitializeAsync();
         _cloudStatus = cloud.Status;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
         PythonManualPath = _runtimes.ManualPythonPath;
@@ -368,6 +555,30 @@ public sealed partial class SettingsViewModel : ObservableObject
         _chatStyle = string.IsNullOrEmpty(s.ChatStyle) ? "galgame" : s.ChatStyle;
         _chatStyleDisplay = ChatStyleDisplayOf(_chatStyle);
         _allowSilence = s.AllowSilence;
+        _phoneStandaloneWindow = s.PhoneStandaloneWindow;
+        _mainWindowCloseBehavior = string.IsNullOrWhiteSpace(s.MainWindowCloseBehavior) ? "ask" : s.MainWindowCloseBehavior;
+        _mainWindowCloseBehaviorDisplay = MainCloseBehaviorDisplayOf(_mainWindowCloseBehavior);
+        _narratorAiEnabled = s.NarratorAiEnabled;
+        _userGender = s.UserGender ?? "";
+        _userGenderDisplay = string.IsNullOrWhiteSpace(_userGender) ? "未设置" : _userGender;
+        _lowMemoryMode = s.LowMemoryMode;
+        _coreMemoryEnabled = s.CoreMemoryEnabled;
+        _coreMemoryThreshold = s.CoreMemoryThreshold;
+        _traumaHealingEnabled = s.TraumaHealingEnabled;
+        _chainSearchLimit = s.ChainSearchLimit;
+        _mentalHealthEnabled = s.MentalHealthEnabled;
+        _psychologyBehaviorEnabled = s.PsychologyBehaviorEnabled;
+        _physiologyEnabled = s.PhysiologyEnabled;
+        _moneyEnabled = s.MoneyEnabled;
+        _imageGenEnabled = s.ImageGenEnabled;
+        _imageGenUrl = s.ImageGenUrl;
+        _imageGenKey = s.ImageGenKey;
+        _imageGenModel = s.ImageGenModel;
+        _imageGenSize = s.ImageGenSize;
+        _saveBundleWithPlugins = s.SaveBundleWithPlugins;
+        _pluginHooksEnabled = s.PluginHooksEnabled;
+        _pluginCrashLogs = s.PluginCrashLogs;
+        _ = LoadGenderChoicesAsync();
         _lang = s.Lang;
         _langDisplay = LangDisplayOf(s.Lang);
         _textSpeed = s.TextSpeed;
@@ -1336,6 +1547,81 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _chatStyle = "galgame";
     [ObservableProperty] private string _chatStyleDisplay = "剧本式";
     [ObservableProperty] private bool _allowSilence;
+
+    // ============ 窗口 / 旁白 / 性别 / 低内存 / 记忆 / 心理 / 身体 / 金钱 / 画面 / 插件 ============
+
+    /// <summary>手机页开成独立窗口（关掉则仍跳转应用内页面）。</summary>
+    [ObservableProperty] private bool _phoneStandaloneWindow = true;
+    /// <summary>关主窗口时：ask 每次问 / closeOthers 连其他窗口一起关 / keepOthers 只关主窗口。</summary>
+    [ObservableProperty] private string _mainWindowCloseBehavior = "ask";
+    [ObservableProperty] private string _mainWindowCloseBehaviorDisplay = "每次询问";
+    /// <summary>旁白 AI：回复里允许出现简短的第三人称环境/动作描写。</summary>
+    [ObservableProperty] private bool _narratorAiEnabled;
+    /// <summary>用户（你）的性别；空 = 未设置。称呼与相处方式会参考它，但不刻板化。</summary>
+    [ObservableProperty] private string _userGender = "";
+    [ObservableProperty] private string _userGenderDisplay = "未设置";
+    [ObservableProperty] private List<string> _genderChoices = new();
+    /// <summary>超省内存：记忆/关系网读后就丢缓存，闲置会话清空，后台预热不做。</summary>
+    [ObservableProperty] private bool _lowMemoryMode;
+    [ObservableProperty] private bool _coreMemoryEnabled = true;
+    [ObservableProperty] private double _coreMemoryThreshold = 0.82;
+    [ObservableProperty] private bool _traumaHealingEnabled = true;
+    [ObservableProperty] private double _chainSearchLimit = 5;
+    [ObservableProperty] private bool _mentalHealthEnabled = true;
+    [ObservableProperty] private bool _psychologyBehaviorEnabled = true;
+    [ObservableProperty] private bool _physiologyEnabled = true;
+    [ObservableProperty] private bool _moneyEnabled = true;
+    [ObservableProperty] private bool _imageGenEnabled;
+    [ObservableProperty] private string _imageGenUrl = "https://api.openai.com/v1";
+    [ObservableProperty] private string _imageGenKey = "";
+    [ObservableProperty] private string _imageGenModel = "gpt-image-1";
+    [ObservableProperty] private string _imageGenSize = "1024x1024";
+    [ObservableProperty] private bool _saveBundleWithPlugins = true;
+    [ObservableProperty] private bool _pluginHooksEnabled = true;
+    [ObservableProperty] private bool _pluginCrashLogs = true;
+    [ObservableProperty] private string _genderNewName = "";
+    [ObservableProperty] private string _genderNewDescription = "";
+    [ObservableProperty] private string _genderNewPronoun = "TA";
+    [ObservableProperty] private string _genderNewScript = "";
+    [ObservableProperty] private string _genderNewScriptLanguage = "js";
+    private readonly Services.GenderLibrary? _genders;
+
+    /// <summary>关窗行为的中文档（与 <see cref="MainWindowCloseBehavior"/> 一一对应）。</summary>
+    public IReadOnlyList<string> WindowCloseChoices { get; } = new[] { "每次询问", "连其他窗口一起关", "只关主窗口" };
+    public IReadOnlyList<string> GenderScriptLanguageChoices { get; } = new[] { "js", "python", "java" };
+    /// <summary>自定义性别（内置的不列在这里，删也删不掉内置的）。</summary>
+    [ObservableProperty] private List<string> _customGenderNames = new();
+    [ObservableProperty] private string _selectedCustomGender = "";
+    [ObservableProperty] private string _walletText = "";
+    [ObservableProperty] private string _moneyInput = "100";
+
+    private static string MainCloseBehaviorDisplayOf(string? key) => key switch
+    {
+        "closeOthers" => "连其他窗口一起关",
+        "keepOthers" => "只关主窗口",
+        _ => "每次询问"
+    };
+
+    private async Task LoadGenderChoicesAsync()
+    {
+        try
+        {
+            if (_genders is null) return;
+            var all = await _genders.AllAsync();
+            var names = all.Select(g => g.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+            var customs = all.Where(g => !g.Builtin).Select(g => g.Name).Where(n => !string.IsNullOrWhiteSpace(n)).ToList();
+            MainThread.BeginInvokeOnMainThread(() =>
+            {
+                GenderChoices = names;
+                CustomGenderNames = customs;
+                if (!customs.Contains(SelectedCustomGender))
+                    SelectedCustomGender = customs.FirstOrDefault() ?? "";
+                WalletText = _shop.WalletLabel;
+            });
+        }
+        catch (Exception ex) { App.WriteLog("SettingsViewModel.Genders -> " + ex.Message); }
+    }
+
     [ObservableProperty] private string _lang = "zh-CN";
     [ObservableProperty] private string _langDisplay = "简体中文";
     [ObservableProperty] private double _textSpeed = 1.0;
@@ -2560,6 +2846,152 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnAiTravelAloneChanged(bool value) => PersistSettings();
     partial void OnAllowFollowAiChanged(bool value) => PersistSettings();
 
+    partial void OnPhoneStandaloneWindowChanged(bool value) => PersistSettings();
+    partial void OnMainWindowCloseBehaviorChanged(string value)
+    {
+        MainWindowCloseBehaviorDisplay = MainCloseBehaviorDisplayOf(value);
+        PersistSettings();
+    }
+    partial void OnNarratorAiEnabledChanged(bool value) => PersistSettings();
+    partial void OnUserGenderChanged(string value)
+    {
+        UserGenderDisplay = string.IsNullOrWhiteSpace(value) ? "未设置" : value;
+        PersistSettings();
+    }
+    partial void OnLowMemoryModeChanged(bool value) => PersistSettings();
+    partial void OnCoreMemoryEnabledChanged(bool value) => PersistSettings();
+    partial void OnCoreMemoryThresholdChanged(double value) => PersistSettings();
+    partial void OnTraumaHealingEnabledChanged(bool value) => PersistSettings();
+    partial void OnChainSearchLimitChanged(double value) => PersistSettings();
+    partial void OnMentalHealthEnabledChanged(bool value) => PersistSettings();
+    partial void OnPsychologyBehaviorEnabledChanged(bool value) => PersistSettings();
+    partial void OnPhysiologyEnabledChanged(bool value) => PersistSettings();
+    partial void OnImageGenEnabledChanged(bool value) => PersistSettings();
+    partial void OnImageGenUrlChanged(string value) => PersistSettings();
+    partial void OnImageGenKeyChanged(string value) => PersistSettings();
+    partial void OnImageGenModelChanged(string value) => PersistSettings();
+    partial void OnImageGenSizeChanged(string value) => PersistSettings();
+    partial void OnSaveBundleWithPluginsChanged(bool value) => PersistSettings();
+    partial void OnPluginHooksEnabledChanged(bool value) => PersistSettings();
+    partial void OnPluginCrashLogsChanged(bool value) => PersistSettings();
+
+    /// <summary>Picker 选的是中文，存的是稳定键（下次启动还能读回来）。</summary>
+    partial void OnMainWindowCloseBehaviorDisplayChanged(string value)
+    {
+        var key = value switch
+        {
+            "连其他窗口一起关" => "closeOthers",
+            "只关主窗口" => "keepOthers",
+            _ => "ask"
+        };
+        if (key != MainWindowCloseBehavior) MainWindowCloseBehavior = key;
+    }
+
+    partial void OnMoneyEnabledChanged(bool value)
+    {
+        WalletText = _shop.WalletLabel;
+        PersistSettings();
+    }
+
+    // ============ 金钱：自由增加 / 设为指定余额 ============
+
+    [RelayCommand]
+    private async Task AddMoney()
+    {
+        if (!int.TryParse((MoneyInput ?? "").Trim(), out var amount) || amount == 0)
+        {
+            await Shell.Current.DisplayAlert("金钱", "输入一个整数金额（可负数，用于扣减）。", "好");
+            return;
+        }
+        await _shop.InitializeAsync();
+        await _shop.AddCoinsAsync(amount);
+        WalletText = _shop.WalletLabel;
+    }
+
+    [RelayCommand]
+    private async Task SetMoney()
+    {
+        if (!int.TryParse((MoneyInput ?? "").Trim(), out var amount) || amount < 0)
+        {
+            await Shell.Current.DisplayAlert("金钱", "输入一个不小于 0 的整数。", "好");
+            return;
+        }
+        await _shop.InitializeAsync();
+        await _shop.SetCoinsAsync(amount);
+        WalletText = _shop.WalletLabel;
+    }
+
+    [RelayCommand]
+    private Task DeleteSelectedCustomGender() => DeleteCustomGender(SelectedCustomGender);
+
+    /// <summary>插件中心（列表 / 启停 / 依赖 / 设置 / 崩溃日志 / 工坊）。</summary>
+    [RelayCommand]
+    private async Task OpenPluginCenter() => await Shell.Current.GoToAsync("pluginCenter");
+
+    /// <summary>心理状况：按角色设定轻/中/重度，AI 只读取当前角色生效的那几条。</summary>
+    [RelayCommand]
+    private async Task OpenMentalHealth() => await Shell.Current.GoToAsync("mentalHealth");
+
+    // ============ 自定义性别：新建 / 导入 / 删除 ============
+
+    [RelayCommand]
+    private async Task SaveCustomGender()
+    {
+        if (_genders is null) return;
+        var name = (GenderNewName ?? "").Trim();
+        if (name.Length == 0)
+        {
+            await Shell.Current.DisplayAlert("自定义性别", "先给它起个名字。", "好");
+            return;
+        }
+        var def = new Services.GenderDefinition
+        {
+            Name = name,
+            Description = (GenderNewDescription ?? "").Trim(),
+            Pronoun = string.IsNullOrWhiteSpace(GenderNewPronoun) ? "TA" : GenderNewPronoun.Trim(),
+            Script = string.IsNullOrWhiteSpace(GenderNewScript)
+                ? null
+                : new Services.GenderScript { Language = GenderNewScriptLanguage, Code = GenderNewScript }
+        };
+        var (ok, message) = await _genders.SaveAsync(def);
+        await LoadGenderChoicesAsync();
+        if (ok)
+        {
+            GenderNewName = "";
+            GenderNewDescription = "";
+            GenderNewScript = "";
+        }
+        await Shell.Current.DisplayAlert("自定义性别", message, "好");
+    }
+
+    [RelayCommand]
+    private async Task ImportGenderJson()
+    {
+        if (_genders is null) return;
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = "选择性别定义 JSON" });
+            if (pick is null) return;
+            var (ok, message) = await _genders.ImportJsonAsync(pick.FullPath);
+            await LoadGenderChoicesAsync();
+            await Shell.Current.DisplayAlert("导入性别", message, "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ImportGender -> " + ex);
+        }
+    }
+
+    [RelayCommand]
+    private async Task DeleteCustomGender(string? name)
+    {
+        if (_genders is null || string.IsNullOrWhiteSpace(name)) return;
+        if (!await Shell.Current.DisplayAlert("删除性别", $"确定删除自定义性别「{name}」？", "删除", "取消")) return;
+        await _genders.DeleteAsync(name);
+        if (string.Equals(UserGender, name, StringComparison.OrdinalIgnoreCase)) UserGender = "";
+        await LoadGenderChoicesAsync();
+    }
+
     /// <summary>把多行文本按行拆成路径列表（去空行与首尾空白）。设置页「每行一个路径」用。</summary>
     private static List<string> SplitLines(string? text)
     {
@@ -2797,6 +3229,27 @@ public sealed partial class SettingsViewModel : ObservableObject
                 WeatherEffectFrameMs = ParseFrameMs(WeatherEffectFrameMs),
                 AiTravelAlone = AiTravelAlone,
                 AllowFollowAi = AllowFollowAi,
+                PhoneStandaloneWindow = PhoneStandaloneWindow,
+                MainWindowCloseBehavior = MainWindowCloseBehavior,
+                NarratorAiEnabled = NarratorAiEnabled,
+                UserGender = (UserGender ?? "").Trim(),
+                LowMemoryMode = LowMemoryMode,
+                CoreMemoryEnabled = CoreMemoryEnabled,
+                CoreMemoryThreshold = Math.Clamp(CoreMemoryThreshold, 0.5, 0.99),
+                TraumaHealingEnabled = TraumaHealingEnabled,
+                ChainSearchLimit = Math.Clamp((int)ChainSearchLimit, 1, 30),
+                MentalHealthEnabled = MentalHealthEnabled,
+                PsychologyBehaviorEnabled = PsychologyBehaviorEnabled,
+                PhysiologyEnabled = PhysiologyEnabled,
+                MoneyEnabled = MoneyEnabled,
+                ImageGenEnabled = ImageGenEnabled,
+                ImageGenUrl = (ImageGenUrl ?? "").Trim(),
+                ImageGenKey = (ImageGenKey ?? "").Trim(),
+                ImageGenModel = (ImageGenModel ?? "").Trim(),
+                ImageGenSize = string.IsNullOrWhiteSpace(ImageGenSize) ? "1024x1024" : ImageGenSize.Trim(),
+                SaveBundleWithPlugins = SaveBundleWithPlugins,
+                PluginHooksEnabled = PluginHooksEnabled,
+                PluginCrashLogs = PluginCrashLogs,
                 FrostEnabled = FrostOn,
                 GlassEnabled = GlassOn,
                 LiquidEnabled = LiquidOn,

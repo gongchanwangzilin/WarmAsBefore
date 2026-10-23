@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.PluginSettingsPage"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Clicked="OnBackClicked" />
+                <Label x:Name="TitleLabel" Grid.Column="1" Text="插件设置" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
+            </Grid>
+        </Border>
+        <ScrollView Grid.Row="1" Padding="24,16,24,28">
+            <VerticalStackLayout Spacing="14" MaximumWidthRequest="760" HorizontalOptions="Fill">
+                <Label x:Name="DescLabel" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                <VerticalStackLayout x:Name="FieldsHost" Spacing="14" />
+                <Label x:Name="StatusLabel" Style="{StaticResource TxtCaption}"
+                       TextColor="{DynamicResource AccentWarmFg}" IsVisible="False" />
+                <Button x:Name="SaveButton" Text="保存设置" Style="{StaticResource BtnPrimary}" FontSize="13"
+                        Padding="16,7" HorizontalOptions="Start" Clicked="OnSaveClicked" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

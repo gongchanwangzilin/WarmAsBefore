@@ -56,6 +56,9 @@ public sealed class SettingsManager
     private readonly StorageProvider _store;
     private UserSettings _current = new();
 
+    /// <summary>上一次读 settings.json 失败：这时内存里是默认值，写盘等于把用户的设置整份盖掉。</summary>
+    private bool _loadFaulted;
+
     public UserSettings Current => _current;
     public event Action? Applied;
 
@@ -67,12 +70,50 @@ public sealed class SettingsManager
         Applied?.Invoke();
     }
 
-    public async Task Persist() => await _store.Save("settings", _current);
+    public async Task Persist()
+    {
+        // 上一次没读出来 → 内存里是默认值，这时候写盘等于把用户的设置整份盖掉。先试着重读，读不通就不写。
+        if (!await RetryRestoreAsync())
+        {
+            App.WriteLog("SettingsManager.Persist -> 已跳过落盘：settings.json 这次读不出来，不拿默认值盖用户的设置");
+            return;
+        }
+        await _store.Save("settings", _current);
+    }
+
     public async Task Restore()
     {
-        var s = await _store.Load<UserSettings>("settings");
-        if (s is not null) _current = s;
+        try
+        {
+            var s = await _store.Load<UserSettings>("settings");
+            if (s is not null) _current = s;
+            _loadFaulted = false;
+        }
+        catch (Exception ex)
+        {
+            _loadFaulted = true;
+            App.WriteLog("SettingsManager.Restore -> " + ex.Message);
+        }
         await MigrateLegacyAsync();
+    }
+
+    /// <summary>读盘失败过就惰性重试：读回来了才允许写盘（重试成功时以磁盘那份为准）。</summary>
+    private async Task<bool> RetryRestoreAsync()
+    {
+        if (!_loadFaulted) return true;
+        try
+        {
+            var retry = await _store.Load<UserSettings>("settings");
+            if (retry is not null) _current = retry;
+            _loadFaulted = false;
+            App.WriteLog("SettingsManager: settings.json 这次读出来了，恢复落盘");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsManager.RetryRestore -> " + ex.Message);
+            return false;
+        }
     }
 
     /// <summary>
@@ -89,6 +130,8 @@ public sealed class SettingsManager
     /// <summary>旧版单一 GlassStyle → 新的三个独立开关；毛玻璃隐含磨砂。</summary>
     private async Task MigrateLegacyAsync()
     {
+        // 上一次没读成功时 _current 是默认值：这时候迁移完回写，等于把用户全部设置换成出厂值。
+        if (_loadFaulted) return;
         var c = _current;
         var changed = false;
 
@@ -199,8 +242,16 @@ public sealed class StorageProvider
     {
         var path = KeyPath(key);
         if (!File.Exists(path)) return null;
-        var json = await File.ReadAllTextAsync(path);
-        return JsonSerializer.Deserialize<T>(json);
+        var json = await ReadWithRetryAsync(path);
+        try
+        {
+            return JsonSerializer.Deserialize<T>(json);
+        }
+        catch (JsonException)
+        {
+            BackupCorrupt(path);
+            throw;
+        }
     }
 
     /// <summary>读取原始 JSON 文本（供需要分段/多次反序列化的调用方使用，避免 Dictionary&lt;object&gt; 双重序列化）。</summary>
@@ -208,7 +259,61 @@ public sealed class StorageProvider
     {
         var path = KeyPath(key);
         if (!File.Exists(path)) return null;
-        return await File.ReadAllTextAsync(path);
+        return await ReadWithRetryAsync(path);
+    }
+
+    /// <summary>
+    /// 云同步与杀毒常常只占用文件几十毫秒，直接失败会让调用方把「读不到」当成「没有数据」。
+    /// 所以先重试一次，真的读不出来再抛。
+    /// </summary>
+    private static async Task<string> ReadWithRetryAsync(string path)
+    {
+        try
+        {
+            return await File.ReadAllTextAsync(path);
+        }
+        catch (IOException)
+        {
+            await Task.Delay(80);
+            return await File.ReadAllTextAsync(path);
+        }
+    }
+
+    /// <summary>
+    /// 内容解析不了就留一份带时间戳的原件再抛。调用方一律按「这份数据没有」继续跑，
+    /// 下一次保存会整表覆盖——没有这份备份，用户的东西就真的没了。
+    /// </summary>
+    private static void BackupCorrupt(string path)
+    {
+        try
+        {
+            // 后缀留在最后（characters.corrupt-时间戳.json）：这份备份是要给用户手工救回来的，
+            // 名字里还认得出是 JSON，编辑器与资源管理器才不会把它当成无关文件。
+            var bak = Path.Combine(Path.GetDirectoryName(path) ?? "",
+                Path.GetFileNameWithoutExtension(path) + ".corrupt-"
+                + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + Path.GetExtension(path));
+            if (!File.Exists(bak)) File.Copy(path, bak);
+            App.WriteLog("StorageProvider: 文件读坏了，已备份原件 → " + bak);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("StorageProvider.BackupCorrupt -> " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 这个键能不能安全地落在数据目录里。
+    /// 远端云清单的键、数据包与角色 id 都是外部输入，它们不该有能力把文件写到数据目录外面。
+    /// </summary>
+    public static bool IsSafeKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return false;
+        // 冒号是盘符/备用数据流的写法：Windows 文件名里本来就不能有，留着只会被路径语义捡走。
+        if (key.Contains(':')) return false;
+        if (Path.IsPathRooted(key)) return false;
+        foreach (var seg in key.Split('/', '\\'))
+            if (seg == ".." || seg == ".") return false;
+        return true;
     }
 
     public async Task Save<T>(string key, T data) where T : class
@@ -259,8 +364,8 @@ public sealed class StorageProvider
         }
     }
 
-    /// <summary>存储键对应的绝对路径（同步工具与调试用）。</summary>
-    public string PathOf(string key) => KeyPath(key);
+    /// <summary>存储键对应的绝对路径（同步工具与调试用）；越界的键返回空串，让调用处的 File.Exists 自然为 false。</summary>
+    public string PathOf(string key) => IsSafeKey(key) ? KeyPath(key) : "";
 
     /// <summary>中文原样写出去（默认会把「妈妈」转成 \u5988\u5988，人就没法直接读这些文件了）。</summary>
     private static readonly JsonSerializerOptions WriteOptions = new()
@@ -275,10 +380,14 @@ public sealed class StorageProvider
         Changed?.Invoke(key);
     }
 
-    public bool Exists(string key) => File.Exists(KeyPath(key));
+    public bool Exists(string key) => IsSafeKey(key) && File.Exists(KeyPath(key));
 
-    private string KeyPath(string key) =>
-        Path.Combine(_root, key.Replace('/', Path.DirectorySeparatorChar) + ".json");
+    private string KeyPath(string key)
+    {
+        // 硬边界：键必须是数据目录内的相对路径。少这一道，一个 "../settings" 就能把文件写到目录外面。
+        if (!IsSafeKey(key)) throw new ArgumentException("存储键不合法（要相对路径，且不含 . / ..）：" + key);
+        return Path.Combine(_root, key.Replace('/', Path.DirectorySeparatorChar) + ".json");
+    }
 }
 
 public sealed class NotificationService

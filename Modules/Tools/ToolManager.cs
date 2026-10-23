@@ -21,7 +21,7 @@ internal static class ServicesHelper
 /// 外部工具直接以 JSON-RPC 2.0（stdin/stdout）与主进程通信，Java 与 Python 使用同一套协议，
 /// 不分成两个独立区域。工具的 JavaScript 风格 schema 用 ToolDefinition 描述。
 /// </summary>
-public sealed class ToolManager : IDisposable
+public sealed partial class ToolManager : IDisposable
 {
     private readonly RuntimeManager _runtimes;
     private readonly ConcurrentDictionary<string, ToolDefinition> _tools = new();
@@ -31,8 +31,26 @@ public sealed class ToolManager : IDisposable
     private readonly CancellationTokenSource _cts = new();
     private readonly Modules.Sandbox.SandboxPolicy _sandbox;
     private readonly SkillLibrary? _skills;
+    private readonly PluginHost? _plugins;
     private int _rpcId;
+    private int _toolResultHookDepth;
     private bool _disposed;
+
+    /// <summary>
+    /// 当前存档的工具白名单。为 null 表示还没进存档 / 不限制；非 null 时按 SavePermissions 过滤。
+    /// 存在这里而不是每次去翻 GameEngine，是为了让插件 callTool 与聊天工具走同一道门。
+    /// </summary>
+    public Func<SavePermissions?>? SavePermissionsProvider { get; set; }
+
+    private bool ToolAllowed(string name)
+    {
+        try
+        {
+            var p = SavePermissionsProvider?.Invoke();
+            return p is null || p.AllowsTool(name);
+        }
+        catch { return true; }
+    }
 
     /// <summary>清单是手写的：小写字段、注释、尾逗号都该认（否则插件会被静默跳过）。</summary>
     private static readonly JsonSerializerOptions ManifestJson = new()
@@ -43,14 +61,16 @@ public sealed class ToolManager : IDisposable
     };
 
     public ToolManager(RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy? injectedSandbox = null,
-        SkillLibrary? skills = null)
+        SkillLibrary? skills = null, PluginHost? plugins = null)
     {
         _runtimes = runtimes;
         _skills = skills;
+        _plugins = plugins;
         // 优先使用 DI 注入的共享 SandboxPolicy（设置页保存后指纹刷新对所有调用方生效）；
         // 未注入时（非 DI 路径）才自建，保证兼容。
         _sandbox = injectedSandbox ?? new Modules.Sandbox.SandboxPolicy(new StorageProvider());
         RegisterSystemTools();
+        RegisterWorldTools();
         Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
 #if ANDROID
@@ -85,6 +105,10 @@ public sealed class ToolManager : IDisposable
     }
 
     public List<ToolDefinition> ListTools() =>
+        _tools.Values.Where(t => ToolAllowed(t.Name)).OrderBy(t => t.Name).ToList();
+
+    /// <summary>全部工具（不按存档过滤）：存档高级设置要拿它列出可以放行的名字。</summary>
+    public List<ToolDefinition> AllTools() =>
         _tools.Values.OrderBy(t => t.Name).ToList();
 
     public ToolDefinition? Find(string name) =>
@@ -532,40 +556,71 @@ public sealed class ToolManager : IDisposable
     /// <summary>按工具名执行工具。argsJson 为 JSON 参数字符串或空。</summary>
     public async Task<string> ExecuteAsync(string name, string argsJson)
     {
+        if (!ToolAllowed(name))
+            return JsonSerializer.Serialize(new { error = $"这份存档不允许使用工具「{name}」。可在存档高级设置里放行。" });
         if (!_tools.TryGetValue(name, out var tool))
             return JsonSerializer.Serialize(new { error = $"未知工具：{name}，可用工具：{string.Join(", ", _tools.Keys.OrderBy(k => k))}" });
 
         try
         {
+            string result;
             if (tool.IsExternal is false && _builtins.TryGetValue(name, out var handler))
-                return await handler(NormalizeBuiltinArgs(tool, argsJson));
-
-            // 外部工具：沙箱网关（敏感词过滤 + 信任名单 + 防篡改审计）
-            var toolPath = tool.WorkDir;
-            var gate = await _sandbox.GateInputAsync(name, toolPath, argsJson ?? "", isExternal: true);
-            if (!gate.Allowed)
-                return JsonSerializer.Serialize(new { error = gate.BlockReason });
-
-            // 确保运行时可用
-            var resolved = await _runtimes.ResolveRuntimeAsync(tool.Language);
-            if (resolved is null)
-                return JsonSerializer.Serialize(new { error = $"{tool.RuntimeNeeded}。可在设置页 -> 工具模式中「一键下载」或手动配置路径" });
-
-            var session = await GetSessionAsync(tool, resolved.Value.Exe, resolved.Value.Args);
-            object? parameters = null;
-            if (!string.IsNullOrWhiteSpace(gate.MaskedArgs))
             {
-                try { parameters = JsonDocument.Parse(gate.MaskedArgs).RootElement; }
-                catch { parameters = gate.MaskedArgs; }
+                result = await handler(NormalizeBuiltinArgs(tool, argsJson));
             }
-            var raw = await session.CallAsync(parameters);
-            return _sandbox.GateOutput(name, raw);
+            else
+            {
+                // 外部工具：沙箱网关（敏感词过滤 + 信任名单 + 防篡改审计）
+                var toolPath = tool.WorkDir;
+                var gate = await _sandbox.GateInputAsync(name, toolPath, argsJson ?? "", isExternal: true);
+                if (!gate.Allowed)
+                    return JsonSerializer.Serialize(new { error = gate.BlockReason });
+
+                // 确保运行时可用
+                var resolved = await _runtimes.ResolveRuntimeAsync(tool.Language);
+                if (resolved is null)
+                    return JsonSerializer.Serialize(new { error = $"{tool.RuntimeNeeded}。可在设置页 -> 工具模式中「一键下载」或手动配置路径" });
+
+                var session = await GetSessionAsync(tool, resolved.Value.Exe, resolved.Value.Args);
+                object? parameters = null;
+                if (!string.IsNullOrWhiteSpace(gate.MaskedArgs))
+                {
+                    try { parameters = JsonDocument.Parse(gate.MaskedArgs).RootElement; }
+                    catch { parameters = gate.MaskedArgs; }
+                }
+                var raw = await session.CallAsync(parameters);
+                result = _sandbox.GateOutput(name, raw);
+            }
+            await NotifyToolResultAsync(name, result);
+            return result;
         }
         catch (Exception ex)
         {
             App.WriteLog("ToolManager.ExecuteAsync(" + name + ") -> " + ex);
             return JsonSerializer.Serialize(new { error = ex.Message });
         }
+    }
+
+    /// <summary>工具返回后广播 onToolResult，让插件能对任何一次工具调用做记录或补救。</summary>
+    private async Task NotifyToolResultAsync(string name, string result)
+    {
+        if (_plugins is null) return;
+        // 插件在 onToolResult 里再调工具会再次触发广播，层层套下去没有底；只放行最外层。
+        if (Interlocked.Increment(ref _toolResultHookDepth) > 1)
+        {
+            Interlocked.Decrement(ref _toolResultHookDepth);
+            return;
+        }
+        try
+        {
+            await _plugins.RunAllHookAsync("onToolResult", new
+            {
+                tool = name,
+                result = result.Length > 8000 ? result[..8000] : result
+            });
+        }
+        catch (Exception ex) { App.WriteLog("ToolManager.onToolResult -> " + ex.Message); }
+        finally { Interlocked.Decrement(ref _toolResultHookDepth); }
     }
 
     private async Task<ToolSession> GetSessionAsync(ToolDefinition tool, string exe, string args)

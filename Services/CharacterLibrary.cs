@@ -23,7 +23,10 @@ public sealed partial class CharacterLibrary
     private readonly PackImporter _packs;
     private readonly MemoryScope _scope;
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
-    private bool _loaded;
+    private Task? _loading;
+
+    /// <summary>characters.json 没能读出来：这时任何「按当前花名册整表落盘」都会把全部角色抹掉。</summary>
+    private bool _loadFaulted;
 
     public CharacterLibrary(GameEngine engine, StorageProvider store, PackImporter packs, MemoryScope scope)
     {
@@ -61,10 +64,20 @@ public sealed partial class CharacterLibrary
         App.WriteLog($"RandomizeSpriteState: {ch.Profile.Name} -> {outfit}/{ch.State.CurrentEmotion}");
     }
 
-    public async Task LoadAsync()
+    private readonly object _loadGate = new();
+
+    /// <summary>
+    /// 「读过盘」以读完为准：原来先置标记再 await，同一瞬间进来的第二个调用会以为已经加载好了，
+    /// 捧着空角色表往下走；装载失败时更惨——空表会被当成花名册整表写回，全部角色消失。
+    /// </summary>
+    public Task LoadAsync()
     {
-        if (_loaded) return;
-        _loaded = true;
+        lock (_loadGate) return _loading ??= LoadCoreAsync();
+    }
+
+    private async Task LoadCoreAsync()
+    {
+        _loadFaulted = false;
         try
         {
             var saved = await _store.Load<List<CharacterData>>("characters");
@@ -95,12 +108,27 @@ public sealed partial class CharacterLibrary
                 if (!_engine.Roster.ContainsKey(fixedCh.Profile.Id))
                     _engine.Register(fixedCh);
             }
-            if (seeded) await _store.Save("characters", _engine.Roster.Values.ToList());
+            if (seeded) await SaveRosterAsync();
         }
         catch (Exception ex)
         {
+            // 读不出来就当这张表还没见过：放开重读，并拒绝任何整表落盘。
+            _loadFaulted = true;
+            lock (_loadGate) _loading = null;
             App.WriteLog("CharacterLibrary.Load -> " + ex);
         }
+    }
+
+    /// <summary>整表落盘。装载失败过就一律拒绝——那份「当前花名册」其实是空的。</summary>
+    private async Task<bool> SaveRosterAsync()
+    {
+        if (_loadFaulted)
+        {
+            App.WriteLog("CharacterLibrary.Save -> 已跳过落盘：characters.json 这次没能读出来，不拿当前花名册盖盘");
+            return false;
+        }
+        await _store.Save("characters", _engine.Roster.Values.ToList());
+        return true;
     }
 
     /// <summary>
@@ -110,7 +138,8 @@ public sealed partial class CharacterLibrary
     public async Task ReloadAsync()
     {
         if (!_store.Exists("characters")) return;
-        _loaded = false;
+        _loadFaulted = false;
+        lock (_loadGate) _loading = null;
         _engine.Roster.Clear();
         await LoadAsync();
         _engine.RestoreState(_engine.State);   // 活动角色指回重读后的新对象
@@ -142,8 +171,7 @@ public sealed partial class CharacterLibrary
         {
             await LoadAsync();
             _engine.Register(ch);
-            await _store.Save("characters", _engine.Roster.Values.ToList());
-            return true;
+            return await SaveRosterAsync();
         }
         catch (Exception ex)
         {
@@ -159,8 +187,7 @@ public sealed partial class CharacterLibrary
         {
             await LoadAsync();
             _engine.Register(updated);
-            await _store.Save("characters", _engine.Roster.Values.ToList());
-            return true;
+            return await SaveRosterAsync();
         }
         catch (Exception ex)
         {

@@ -79,6 +79,9 @@ public sealed class RelationNetworkService
     private Task? _loading;
     private Task? _paramsLoading;
     private Task? _statsLoading;
+    private bool _loadFaulted;
+    private bool _statsFaulted;
+    private bool _paramsFaulted;
     private string _netKey = StoreKey, _paramKey = ParamsKey, _statKey = StatsKey;
 
     /// <summary>已经顺手补过底账的角色（见 <see cref="HealEmptyStatsAsync"/>：一次运行只补一遍）。</summary>
@@ -113,6 +116,20 @@ public sealed class RelationNetworkService
         _statKey = _scope.Key(StatsKey);
     }
 
+    /// <summary>超省内存模式：网、统计、参数、分片都交还给系统，下次用时重读盘。</summary>
+    public void ReleaseCache()
+    {
+        lock (_gate)
+        {
+            _cache = new(StringComparer.Ordinal);
+            _params = new(StringComparer.Ordinal);
+            _stats = new(StringComparer.Ordinal);
+            _nets = new(StringComparer.Ordinal);
+            _loading = _paramsLoading = _statsLoading = null;
+            _loadFaulted = _statsFaulted = _paramsFaulted = false;
+        }
+    }
+
     /// <summary>换档：网、统计、参数、分片全是这个存档的东西，一个都不能留到下一个存档。</summary>
     private void OnScopeChanged()
     {
@@ -124,6 +141,7 @@ public sealed class RelationNetworkService
             _nets = new(StringComparer.Ordinal);
             _statsHealed.Clear();          // 补过的底账属于上一个存档，新档还得补自己那一份
             _loading = _paramsLoading = _statsLoading = null;
+            _loadFaulted = _statsFaulted = _paramsFaulted = false;
             Rekey();
         }
     }
@@ -141,17 +159,28 @@ public sealed class RelationNetworkService
 
     private async Task LoadAsync()
     {
+        string key;
+        lock (_gate)
+        {
+            _loadFaulted = false;
+            key = _netKey;
+        }
         try
         {
-            var saved = await _store.Load<Dictionary<string, RelationGraph>>(_netKey);
+            var saved = await _store.Load<Dictionary<string, RelationGraph>>(key);
             lock (_gate)
             {
-                if (saved is not null)
+                if (saved is not null && key == _netKey)
                     _cache = new Dictionary<string, RelationGraph>(saved, StringComparer.Ordinal);
             }
         }
         catch (Exception ex)
         {
+            // 读不通的时候这张网是空的。这时候落盘 = 这一档的关系网只剩这一次新织的几条，
+            // 所以标记故障并放开重读（多数是被云同步/杀毒占用了一瞬），
+            // 宁可这次没织上，不可把旧的抹了。
+            _loadFaulted = true;
+            lock (_gate) _loading = null;
             App.WriteLog("RelationNetwork.Load -> " + ex.Message);
         }
         await MigrateLegacyAsync();
@@ -164,7 +193,7 @@ public sealed class RelationNetworkService
     private async Task MigrateLegacyAsync()
     {
         bool needs;
-        lock (_gate) needs = _cache.Count == 0;
+        lock (_gate) needs = _cache.Count == 0 && !_loadFaulted;
         if (!needs) return;
         try
         {
@@ -211,6 +240,11 @@ public sealed class RelationNetworkService
         Dictionary<string, RelationGraph> snapshot;
         lock (_gate)
         {
+            if (_loadFaulted)
+            {
+                App.WriteLog("RelationNetwork.Persist -> 已跳过落盘：这一档的关系网没能读出来，不拿空表盖盘");
+                return Task.CompletedTask;
+            }
             snapshot = _cache.ToDictionary(kv => kv.Key,
                 kv => new RelationGraph
                 {
@@ -739,6 +773,7 @@ public sealed class RelationNetworkService
 
     private async Task LoadStatsAsync()
     {
+        lock (_gate) _statsFaulted = false;
         try
         {
             var saved = await _store.Load<Dictionary<string, RelationStats>>(_statKey);
@@ -760,6 +795,8 @@ public sealed class RelationNetworkService
         }
         catch (Exception ex)
         {
+            // 底账读不出来时 _stats 是空的，落盘就等于把这一档攒了很久的共现计数换成这一轮的。
+            lock (_gate) { _statsFaulted = true; _statsLoading = null; }
             App.WriteLog("RelationNetwork.LoadStats -> " + ex.Message);
         }
     }
@@ -769,6 +806,11 @@ public sealed class RelationNetworkService
         Dictionary<string, RelationStats> snapshot;
         lock (_gate)
         {
+            if (_statsFaulted)
+            {
+                App.WriteLog("RelationNetwork.PersistStats -> 已跳过落盘：这一档的共现底账没能读出来，不拿空表盖盘");
+                return Task.CompletedTask;
+            }
             snapshot = _stats.ToDictionary(kv => kv.Key,
                 kv => new RelationStats
                 {
@@ -1077,7 +1119,15 @@ public sealed class RelationNetworkService
         try
         {
             Dictionary<string, RelationParams> snapshot;
-            lock (_gate) snapshot = new Dictionary<string, RelationParams>(_params, StringComparer.Ordinal);
+            lock (_gate)
+            {
+                if (_paramsFaulted)
+                {
+                    App.WriteLog("RelationNetwork.SaveParams -> 已跳过落盘：参数表没能读出来，不拿单张改动的覆写整份");
+                    return;
+                }
+                snapshot = new Dictionary<string, RelationParams>(_params, StringComparer.Ordinal);
+            }
             await _store.Save(_paramKey, snapshot);
         }
         catch (Exception ex)
@@ -1093,6 +1143,7 @@ public sealed class RelationNetworkService
 
     private async Task LoadParamsAsync()
     {
+        lock (_gate) _paramsFaulted = false;
         try
         {
             var saved = await _store.Load<Dictionary<string, RelationParams>>(_paramKey);
@@ -1105,6 +1156,7 @@ public sealed class RelationNetworkService
         }
         catch (Exception ex)
         {
+            lock (_gate) { _paramsFaulted = true; _paramsLoading = null; }
             App.WriteLog("RelationNetwork.LoadParams -> " + ex.Message);
         }
     }

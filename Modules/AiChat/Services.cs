@@ -390,6 +390,24 @@ public sealed class ChatEngine
     /// <summary>关系网：后台随对话自动长出来，用于联想检索（默认不花模型钱）。</summary>
     public RelationNetworkService? Network { get; set; }
 
+    /// <summary>
+    /// 额外人设段（性别、心理状态、身体感受、旁白模式……）：建会话时拼进 system。
+    /// 这些内容来自设置与存档状态，变化后调用 <see cref="RefreshPersona"/> 即可生效。
+    /// </summary>
+    public Func<string, string>? ExtraPersonaProvider { get; set; }
+
+    /// <summary>每轮动态上下文（当前状态等），拼在用户消息前。</summary>
+    public Func<string, string>? ExtraContextProvider { get; set; }
+
+    /// <summary>异步动态上下文（插件钩子读文件，不能同步阻塞在 UI 线程上）。</summary>
+    public Func<string, Task<string>>? ExtraContextProviderAsync { get; set; }
+
+    /// <summary>发送前异步改写用户消息（插件钩子）：入参 (角色 id, 正文)。</summary>
+    public Func<string, string, Task<string>>? BeforeSendTransformAsync { get; set; }
+
+    /// <summary>回复后异步改写正文（插件钩子）：入参 (角色 id, 回复)。</summary>
+    public Func<string, string, Task<string>>? AfterReplyTransformAsync { get; set; }
+
     /// <summary>标签层：AI 打的标签会注入人设（每次刷新取前 10~20 个）。</summary>
     public MemoryTagService? Tags { get; set; }
 
@@ -450,12 +468,34 @@ public sealed class ChatEngine
         var buff = "";
         try { buff = BuffContextProvider?.Invoke() ?? ""; }
         catch (Exception ex) { App.WriteLog("ChatEngine.BuffContext -> " + ex.Message); }
-        var payload = string.IsNullOrWhiteSpace(buff) ? text : $"{buff}\n{text}";
+        var extra = "";
+        try { extra = ExtraContextProvider?.Invoke(charId) ?? ""; }
+        catch (Exception ex) { App.WriteLog("ChatEngine.ExtraContext -> " + ex.Message); }
+        try
+        {
+            if (ExtraContextProviderAsync is not null)
+            {
+                var more = await ExtraContextProviderAsync(charId);
+                if (!string.IsNullOrWhiteSpace(more))
+                    extra = string.IsNullOrWhiteSpace(extra) ? more : extra + "\n" + more;
+            }
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.ExtraContextAsync -> " + ex.Message); }
+        var prefix = string.Join("\n", new[] { buff, extra }.Where(x => !string.IsNullOrWhiteSpace(x)));
+        var payload = prefix.Length == 0 ? text : $"{prefix}\n{text}";
 
         // #10 附件注入：文本类拼正文，二进类只给元信息
         var fileBlock = BuildAttachmentBlock(attachments);
         if (fileBlock.Length > 0)
             payload = payload.Length > 0 ? $"{payload}\n{fileBlock}" : fileBlock;
+
+        // 插件 beforeSend：只改写用户正文，记忆与上下文保持原样
+        try
+        {
+            if (BeforeSendTransformAsync is not null)
+                payload = await BeforeSendTransformAsync(charId, payload);
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.BeforeSend -> " + ex.Message); }
 
         var userMsg = new ChatMessage { Role = "user", Content = $"[{ctx}]\n{payload}" };
         if (attachments is { Count: > 0 })
@@ -485,6 +525,13 @@ public sealed class ChatEngine
             }
             // 正文为 null（而不是空串）＝模型没给正文，沿用原来的提示语；空串是"沉默"，必须原样保留
             reply ??= "（AI 暂时无法回应，请检查 API 配置或网络连接）";
+            // 插件 afterReply：可加时间戳、语气词、改写结尾；失败时保留原文
+            try
+            {
+                if (AfterReplyTransformAsync is not null)
+                    reply = await AfterReplyTransformAsync(charId, reply);
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.AfterReply -> " + ex.Message); }
             session.Add(new ChatMessage { Role = "assistant", Content = reply });
             var digest = await TrimAsync(session, cfg);
 
@@ -819,6 +866,13 @@ public sealed class ChatEngine
         }
     }
 
+    /// <summary>超省内存：只留当前角色的会话，其余角色的历史从内存里放掉（需要时会话会重建）。</summary>
+    public void TrimSessions(string keepCharId)
+    {
+        foreach (var key in _sessions.Keys.Where(k => !string.Equals(k, keepCharId, StringComparison.Ordinal)).ToList())
+            _sessions.Remove(key);
+    }
+
     /// <summary>把会话里最后一条 assistant 回复替换为补正后的文本（保持后续上下文一致）。</summary>
     public void ReplaceLastAssistant(string charId, string newText)
     {
@@ -860,6 +914,13 @@ public sealed class ChatEngine
                 if (!string.IsNullOrWhiteSpace(subProfile)) persona += "\n" + subProfile;
             }
             catch (Exception ex) { App.WriteLog("ChatEngine.SubProfile -> " + ex.Message); }
+            // 性别 / 心理状态 / 身体 / 旁白 / 插件扩展点：都走同一个额外人设入口
+            try
+            {
+                var extra = ExtraPersonaProvider?.Invoke(charId);
+                if (!string.IsNullOrWhiteSpace(extra)) persona += "\n" + extra;
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.ExtraPersona -> " + ex.Message); }
             // 标签层：角色「自己怎么记人」的清单（10~20 个），先给个空的话就由下次刷新补上
             string tagText;
             lock (_tagContext)

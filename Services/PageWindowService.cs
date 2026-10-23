@@ -110,4 +110,6 @@ public static class PageWindowKeys
 {
     public const string Graph = "memoryGraph";
     public const string Search = "memorySearch";
+    /// <summary>手机桌面：主窗口聊天时把手机摊在一边。键同时是 Shell 路由（<c>AppShell</c> 里注册的 phone）。</summary>
+    public const string Phone = "phone";
 }

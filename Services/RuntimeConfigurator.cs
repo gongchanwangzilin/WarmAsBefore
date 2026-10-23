@@ -1,5 +1,6 @@
 using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Modules.Automation;
+using WarmAsBefore.Modules.Mcp;
 using WarmAsBefore.Modules.RealChat;
 using WarmAsBefore.Modules.RealWorld;
 using WarmAsBefore.Models;
@@ -34,7 +35,15 @@ public sealed class RuntimeConfigurator
     private readonly GameEngine _engine;
     private readonly Modules.ApiManager.ApiGateway _api;
     private readonly CostEstimatorService _cost;
+    private readonly GenderLibrary _genders;
+    private readonly MentalHealthService _mental;
+    private readonly PhysiologyService _body;
+    private readonly ImageGenerationService _images;
+    private readonly PluginHost _plugins;
+    private readonly McpOrchestrator _mcp;
+    private readonly MapService _map;
     private bool _notifyHooked;
+    private bool _sceneHooked;
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
@@ -44,7 +53,9 @@ public sealed class RuntimeConfigurator
         RelationNetworkService semantic, MemoryTagService tags,
         Modules.AiChat.MemoryVault memory, Modules.Tools.ToolManager tools,
         Modules.ApiManager.ApiGateway api, CostEstimatorService cost,
-        Modules.SaveSystem.SaveManager save, GameEngine engine)
+        Modules.SaveSystem.SaveManager save, GameEngine engine,
+        GenderLibrary genders, MentalHealthService mental, PhysiologyService body,
+        ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map)
     {
         _settings = settings;
         _chat = chat;
@@ -68,6 +79,17 @@ public sealed class RuntimeConfigurator
         _cost = cost;
         _save = save;
         _engine = engine;
+        _genders = genders;
+        _mental = mental;
+        _body = body;
+        _images = images;
+        _plugins = plugins;
+        _mcp = mcp;
+        _map = map;
+        _plugins.ToolInvoker = (name, args) => _tools.ExecuteAsync(name, args);
+        // 存档级权限：工具与插件都从同一个存档状态取，读档后立即跟着变
+        _tools.SavePermissionsProvider = () => _engine.State.Permissions;
+        _plugins.PermissionsProvider = () => _engine.State.Permissions;
     }
 
     /// <summary>把设置里的单价表同步进成本服务，并把真实 usage 接到成本账上。</summary>
@@ -110,14 +132,41 @@ public sealed class RuntimeConfigurator
             _diary.Start();
             _ = LoadCharactersAsync();
         });
+        // 场景切换也广播给插件：插件能据此换一套旁白、灯光或记账，而不只是改写回复。
+        if (!_sceneHooked)
+        {
+            _sceneHooked = true;
+            _map.SceneChanged += scene =>
+            {
+                if (!_settings.Current.PluginHooksEnabled) return;
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _plugins.RunAllHookAsync("onSceneChange", new
+                        {
+                            charId = _engine.State.CharacterId,
+                            scene = scene.Id,
+                            sceneName = scene.Name
+                        });
+                    }
+                    catch (Exception ex) { App.WriteLog("RuntimeConfigurator.onSceneChange -> " + ex.Message); }
+                });
+            };
+        }
         // 设置立即下发，保证首帧即生效
         Apply();
         _settings.Applied += Apply;
         // 能力包清单（skill）：只放名字与用途，正文由 AI 按需 read_skill
         _ = _tools.RefreshSkillHintAsync();
-        // 空闲预热：启动几秒后把「打开页面要读的数据」先读进内存，
-        // 用户点设置/角色库/回忆录时就不用等这一次 IO。数据侧可并行，UI 侧不能。
-        _ = WarmUpAsync();
+        // 自定义性别：先读一遍，脚本逻辑的样例结果热进缓存，人设拼装才能同步取到
+        _ = Task.Run(async () =>
+        {
+            try { await _genders.AllAsync(); await _genders.RefreshScriptsAsync(); }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.Genders -> " + ex.Message); }
+        });
+        // 空闲预热：超省内存模式下跳过（那些数据本来就要在用时才读）
+        if (!_settings.Current.LowMemoryMode) _ = WarmUpAsync();
     }
 
     /// <summary>
@@ -189,6 +238,38 @@ public sealed class RuntimeConfigurator
         });
     }
 
+    private const string NarratorProtocol =
+        "【旁白模式】在回复里可以先用一两句第三人称的旁白写环境与动作（雨声、灯光、手指的动作），再进入对话。"
+        + "旁白只写看得见、听得到的东西，不替对方说出内心，不总结道理；不必每回合都写，安静的对话可以没有旁白。";
+
+    /// <summary>额外人设：性别、心理状态、旁白。插件人设走异步上下文（避免 UI 线程阻塞）。</summary>
+    private string BuildExtraPersona(string charId)
+    {
+        var s = _settings.Current;
+        var parts = new List<string>();
+        try
+        {
+            var ch = _engine.ActiveCharacter
+                     ?? (_engine.Roster.TryGetValue(charId, out var data) ? data : null);
+            if (ch is not null) parts.Add(_genders.PromptFor(ch.Profile.Gender));
+            if (!string.IsNullOrWhiteSpace(s.UserGender)) parts.Add(_genders.UserPromptFor(s.UserGender));
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.GenderPersona -> " + ex.Message); }
+        if (s.MentalHealthEnabled)
+        {
+            try
+            {
+                var text = _mental.PromptText(charId);
+                if (!string.IsNullOrWhiteSpace(text)) parts.Add(text);
+                var safety = _mental.SafetyText(charId);
+                if (!string.IsNullOrWhiteSpace(safety)) parts.Add(safety);
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MentalPersona -> " + ex.Message); }
+        }
+        if (s.NarratorAiEnabled) parts.Add(NarratorProtocol);
+        return string.Join("\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+    }
+
     /// <summary>上一份已下发的设置：用来跳过「这次没变」的分区（每次点击都会走一遍 Apply）。</summary>
     private UserSettings? _lastApplied;
     private string _lastPriceSignature = "";
@@ -199,6 +280,7 @@ public sealed class RuntimeConfigurator
         using var _total = PerfLog.Measure("Apply 总计");
         var prev = _lastApplied;
         _lastApplied = s;
+        _mcp.Enabled = s.McpEnabled;
 
         // 多端点轮换池（厂商 × 模型）：一家厂商可挂多款模型，按「启用的厂商 × 启用的模型」展开；
         // 每条端点的密钥池会轮流使用；轮换开启时任一失灵自动切下一条，保证对话不间断。
@@ -285,9 +367,56 @@ public sealed class RuntimeConfigurator
         }
         // 角色级覆写：Send/Retry 时按当前角色叠加，未设置覆写的角色行为不变
         _chat.Resolver = _charSettings;
-        // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次
+        // 副设定：人设里带上「当下之我」，每回合结束后按状态漂移一次。
+        // 同一回合里还要结算心理稳定度、身体想念，并在超省内存模式把缓存交还系统。
         _chat.SubProfileProvider = _subProfiles.Describe;
-        _chat.AfterTurn = (charId, note) => _subProfiles.DriftAsync(charId, "对话之后", note);
+        _chat.AfterTurn = async (charId, note) =>
+        {
+            await _subProfiles.DriftAsync(charId, "对话之后", note);
+            try
+            {
+                if (_settings.Current.MentalHealthEnabled && _settings.Current.PsychologyBehaviorEnabled)
+                    await _mental.AfterTurnAsync(charId, note ?? "", "");
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MentalAfterTurn -> " + ex.Message); }
+            try { _body.OnTalk(); }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.BodyAfterTurn -> " + ex.Message); }
+            try
+            {
+                if (_settings.Current.PluginHooksEnabled)
+                    await _plugins.RunHookAsync(charId, "afterTurn", new { charId, note });
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.PluginAfterTurn -> " + ex.Message); }
+            if (!_settings.Current.LowMemoryMode) return;
+            _human.ReleaseCache();
+            _network.ReleaseCache();
+            _chat.TrimSessions(charId);
+        };
+        // 性别 / 心理 / 旁白 / 插件人设：只在建会话与刷新人设时拼一次
+        _chat.ExtraPersonaProvider = BuildExtraPersona;
+        // 身体感受：每轮都取最新（放在动态上下文里，人设不必重建）
+        _chat.ExtraContextProvider = _ => _settings.Current.PhysiologyEnabled ? _body.PromptText() : "";
+        // 插件 persona / context：异步读钩子文件，避免在 UI 线程上同步阻塞
+        _chat.ExtraContextProviderAsync = async charId =>
+        {
+            if (!_settings.Current.PluginHooksEnabled) return "";
+            var parts = new List<string>();
+            var persona = await _plugins.PersonaTextAsync(charId);
+            if (!string.IsNullOrWhiteSpace(persona)) parts.Add(persona);
+            var context = await _plugins.TransformAsync("context", charId, "");
+            if (!string.IsNullOrWhiteSpace(context)) parts.Add(context);
+            return string.Join("\n", parts.Where(p => !string.IsNullOrWhiteSpace(p)));
+        };
+        // 插件改写回复管线（beforeSend / afterReply）：失败保留原文
+        _chat.BeforeSendTransformAsync = (charId, text) => _settings.Current.PluginHooksEnabled
+            ? _plugins.TransformAsync("beforeSend", charId, text)
+            : Task.FromResult(text);
+        _chat.AfterReplyTransformAsync = (charId, reply) => _settings.Current.PluginHooksEnabled
+            ? _plugins.TransformAsync("afterReply", charId, reply)
+            : Task.FromResult(reply);
+        // 超省内存：读后就丢缓存，并把闲置角色会话放掉
+        _human.AutoRelease = s.LowMemoryMode;
+        if (s.LowMemoryMode) _chat.TrimSessions(_engine.State.CharacterId);
         // 副设定的模型改写（默认关闭）：每 12 轮才问一次模型「TA 现在是怎样的人」
         _chat.SubProfileAiRewriteEnabled = s.SubProfileAiRewrite;
         _chat.SubProfileMaterial = _subProfiles.BuildRewriteMaterialAsync;
@@ -308,6 +437,7 @@ public sealed class RuntimeConfigurator
         _weather.Configure(s.WeatherSource, s.WeatherApiUrl, s.WeatherApiKey);
         _weather.SetLocation(s.WeatherCity, s.WeatherLatitude, s.WeatherLongitude);
         _phys.SetCycle(s.CycleRuleFor(_engine.ActiveCharacter?.Profile.Gender));
+        if (s.PhysiologyEnabled) _ = _body.RefreshWeatherAsync();
         _speech.TtsEnabled = s.TtsEnabled;
         _speech.TtsRate = s.TtsRate;
         _speech.SttEnabled = s.SttEnabled;

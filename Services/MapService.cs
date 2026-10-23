@@ -40,9 +40,18 @@ public sealed class MapService
 
     // ==================== 初始化 ====================
 
-    public async Task InitializeAsync()
+    private Task? _loading;
+    private readonly object _loadGate = new();
+
+    public Task InitializeAsync()
     {
-        if (_isLoaded) return;
+        // 「读过」以读完为准：布尔标记要等 await 之后才置位，十几个入口会同时挤进来重复载图，
+        // 后完成的那份直接把还没落盘的地图编辑盖掉。
+        lock (_loadGate) return _loading ??= LoadCoreAsync();
+    }
+
+    private async Task LoadCoreAsync()
+    {
         var loaded = await _store.Load<MapDefinition>(MapKey);
         _map = loaded ?? BuildDefaultMap();
         Sanitize();

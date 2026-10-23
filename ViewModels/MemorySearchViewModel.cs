@@ -35,6 +35,7 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
     private readonly RelationNetworkService _network;
     private readonly EmbeddingService _embed;
     private readonly MemoryScope _scope;
+    private readonly SettingsManager _settings;
 
     private string _charId = "";
     private List<HumanMemoryHit> _all = new();
@@ -43,7 +44,7 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
 
     public MemorySearchViewModel(GameEngine engine, HumanMemoryService human,
         MemoryTagService tags, PageWindowService windows, RelationNetworkService network,
-        EmbeddingService embed, MemoryScope scope)
+        EmbeddingService embed, MemoryScope scope, SettingsManager settings)
     {
         _engine = engine;
         _human = human;
@@ -52,6 +53,7 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
         _network = network;
         _embed = embed;
         _scope = scope;
+        _settings = settings;
         scope.Changed += () => MainThread.BeginInvokeOnMainThread(() => ScopeNote = scope.Label);
     }
 
@@ -81,6 +83,25 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
 
     /// <summary>这些结果是按数值捞回来的（字面没命中），得让人一眼分辨出来。</summary>
     [ObservableProperty] private bool _approximate;
+
+    /// <summary>
+    /// 链式模式：不是「哪几条直接提到」，而是从线索出发沿共享字词/标签/时间/情绪一段段连下去。
+    /// 默认 5 条（设置里可改），新的在前，同一天里越像线索的越前。
+    /// </summary>
+    [ObservableProperty] private bool _chainMode;
+    private string _chainSummary = "";
+
+    public string ChainText => ChainMode ? "链式 · 开" : "链式";
+    public Color ChainFill => Fill(ChainMode);
+    public Color ChainInk => Ink(ChainMode);
+
+    partial void OnChainModeChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ChainText));
+        OnPropertyChanged(nameof(ChainFill));
+        OnPropertyChanged(nameof(ChainInk));
+        if (Query.Trim().Length > 0) _ = SearchCoreAsync(Query);
+    }
 
     /// <summary>这份记忆记在哪个作用域下：「只在这份存档里」还是「所有存档共用」。</summary>
     [ObservableProperty] private string _scopeNote = "";
@@ -133,6 +154,9 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
     [RelayCommand]
     private void ClearQuery() => Query = "";
 
+    [RelayCommand]
+    private void ToggleChain() => ChainMode = !ChainMode;
+
     // ==================== 搜 ====================
 
     private async Task SearchCoreAsync(string text)
@@ -148,6 +172,7 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
                 _near = new List<QuantMatch>();
                 Approximate = false;
                 _quantNote = "";
+                _chainSummary = "";
                 RebuildQuantChips("");
                 RebuildRows();
                 Status = "还没定下跟谁说话";
@@ -155,6 +180,28 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
                 return;
             }
             var q = text.Trim();
+
+            // 链式：先钉住线索本身，再一跳一跳往外连。这条路上的结果不按「像不像」排，
+            // 而是按「新的在前、同一天里更像的在前」——人顺着一条线回忆时就是这个顺序。
+            if (ChainMode && q.Length > 0)
+            {
+                var limit = Math.Clamp(_settings.Current.ChainSearchLimit <= 0 ? 5 : _settings.Current.ChainSearchLimit, 1, 30);
+                var chain = await _human.ChainSearchAsync(CharId, q, limit);
+                _chainSummary = chain.Summary;
+                _all = chain.Hits.Select(h => new HumanMemoryHit(h.Entry, h.Score,
+                        h.Depth <= 0
+                            ? h.Why
+                            : $"第 {h.Depth + 1} 层 · {h.Why} · 由「{h.Bridge}」连过来"))
+                    .ToList();
+                Approximate = false;
+                _quantNote = "";
+                _near = new List<QuantMatch>();
+                RebuildQuantChips(q);
+                _subjectCache = await SubjectsAsync();
+                RebuildRows();
+                return;
+            }
+            _chainSummary = "";
             _all = await _human.SearchAsync(CharId, q, MaxHits);
             Approximate = false;
             _quantNote = "";
@@ -260,15 +307,19 @@ public sealed partial class MemorySearchViewModel : ObservableObject, IQueryAttr
         var q = Query.Trim();
         Status = q.Length == 0
             ? $"TA 记得 {rows.Count} 件（最新在这些）"
-            : Approximate
-                ? $"「{q}」字面上没命中 · {_quantNote}，捞回 {rows.Count} 件"
-                : $"「{q}」命中 {rows.Count} 件" + (KindFilter.Length > 0 ? $" · 只看{KindFilter}" : "");
+            : ChainMode
+                ? _chainSummary + (KindFilter.Length > 0 ? $" · 只看{KindFilter}" : "")
+                : Approximate
+                    ? $"「{q}」字面上没命中 · {_quantNote}，捞回 {rows.Count} 件"
+                    : $"「{q}」命中 {rows.Count} 件" + (KindFilter.Length > 0 ? $" · 只看{KindFilter}" : "");
         EmptyHint = q.Length == 0
             ? "还没记下什么事。多聊几句，重要的那些会被 TA 自己记住。"
-            : _near.Count > 0
-                ? $"按数值问了 {_near.Count} 个近的说法（{string.Join("、", _near.Take(3).Select(x => x.Term))}），也没有哪件事对上。"
-                : $"没有哪件事对上「{q}」。换条路试试：贴过的标签名、那种感觉的名字、或者那天的日子（8月24号）。" +
-                  (_embed.IsConfigured ? "" : "\n按整句话的数值找近义这条路还没开：设置 → AI 与模型 → 量化模型（现在是本地统计在顶）。");
+            : ChainMode
+                ? $"顺着「{q}」一条也没连上。换个线索：那个人名、那天的天气、当时说过的半句话。"
+                : _near.Count > 0
+                    ? $"按数值问了 {_near.Count} 个近的说法（{string.Join("、", _near.Take(3).Select(x => x.Term))}），也没有哪件事对上。"
+                    : $"没有哪件事对上「{q}」。换条路试试：贴过的标签名、那种感觉的名字、或者那天的日子（8月24号）。" +
+                      (_embed.IsConfigured ? "" : "\n按整句话的数值找近义这条路还没开：设置 → AI 与模型 → 量化模型（现在是本地统计在顶）。");
 
         KindChips = new ObservableCollection<Chip>(BuildKindChips());
         var names = _all.SelectMany(h => h.Entry.Emotion?.Parts ?? (IReadOnlyList<EmotionPart>)Array.Empty<EmotionPart>())

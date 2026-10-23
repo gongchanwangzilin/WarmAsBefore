@@ -96,6 +96,8 @@ public partial class App : Application
             {
                 if (viewportHooked || win.Handler?.PlatformView is not Microsoft.UI.Xaml.Window xw) return;
                 viewportHooked = true;
+                // 关窗询问：WinUI 的 Closing 可取消，MAUI 的 Destroying 不能（见 WindowCloseGuard）
+                Services.WindowCloseGuard.Attach(win, xw);
                 // 不读事件参数（那个 args 类型和 MAUI 引进来的同名类型撞了），直接问窗口现在的 Bounds。
                 xw.SizeChanged += (_, _) => { var b = xw.Bounds; ApplyViewport(b.Width, b.Height); };
             };

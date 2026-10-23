@@ -64,6 +64,18 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
 
         public ImageSource? Image { get; init; }
         public bool HasImage => Image is not null;
+
+        // ===== 核心记忆 / 创伤（v1.47） =====
+        public bool IsCore { get; init; }
+        public bool IsTrauma { get; init; }
+        public int TraumaStage { get; init; }
+
+        public string CoreLabel => !IsCore ? "" : IsTrauma ? "核心 · 创伤" : "核心记忆";
+        public bool HasCoreLabel => CoreLabel.Length > 0;
+        public string TraumaLabel => !IsTrauma ? "" : $"第 {TraumaStage} 阶段 · {HumanMemoryMath.TraumaStageName(TraumaStage)}";
+        public bool HasTraumaLabel => IsTrauma;
+        public string CoreActionLabel => IsCore ? "取消核心" : "设为核心";
+        public bool CanHeal => IsTrauma && TraumaStage < 4;
     }
 
     [ObservableProperty] private ObservableCollection<MemoryRow> _memories = new();
@@ -126,9 +138,13 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
                         HumanMemoryKind.Abstraction => "印象",
                         _ => "事件"
                     },
-                    Meta = $"{e.CreatedAt.ToLocalTime():MM-dd HH:mm} · 重要性 {e.Importance:0.00} · 被想起 {e.RecallCount} 次",
+                    Meta = $"{e.CreatedAt.ToLocalTime():MM-dd HH:mm} · 重要性 {e.Importance:0.00} · 被想起 {e.RecallCount} 次"
+                         + (e.IsTrauma ? $" · 疗愈 {e.TraumaHeals} 次" : ""),
                     Lines = MemoryHighlight.Build(e, key => subjectOf.TryGetValue(key, out var s) ? s : null),
-                    Image = img
+                    Image = img,
+                    IsCore = e.IsCore,
+                    IsTrauma = e.IsTrauma,
+                    TraumaStage = e.TraumaStage
                 });
             }
             Memories = new ObservableCollection<MemoryRow>(rows);
@@ -264,5 +280,51 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
         if (!yes) return;
         await _human.ForgetAsync(CharId, row.Id);
         await LoadAsync();
+    }
+
+    /// <summary>
+    /// 核心记忆：人格的锚点，永不衰减、不参与复述计数、每次回想都在。
+    /// 这是一个有后果的操作，所以先把后果说清楚再改。
+    /// </summary>
+    [RelayCommand]
+    private async Task ToggleCore(MemoryRow? row)
+    {
+        if (row is null) return;
+        var preview = row.Lines.Count == 0 ? "（空）" : string.Join(" ", row.Lines.Select(l => l.Plain));
+        if (row.IsCore)
+        {
+            var yes = await Shell.Current.DisplayAlert("取消核心记忆",
+                $"让这件事重新受遗忘影响？\n\n{preview}\n\n取消后它不再被无条件想起，但内容仍在。", "取消核心", "保留");
+            if (!yes) return;
+            await _human.SetCoreAsync(CharId, row.Id, false);
+        }
+        else
+        {
+            var yes = await Shell.Current.DisplayAlert("设为核心记忆",
+                $"这件事会成为 TA 人格的锚点：\n\n{preview}\n\n核心记忆永远不会忘，每次回想都能被取到，"
+                + "还会影响周围记忆的权重、塑造 TA 的性格。确定吗？", "设为核心", "再想想");
+            if (!yes) return;
+            await _human.SetCoreAsync(CharId, row.Id, true);
+        }
+        await LoadAsync();
+    }
+
+    /// <summary>
+    /// 创伤疗愈：只降低情绪强度、推进阶段，绝不删除内容。强调「需要具体互动」，
+    /// 不让它变成点一下按钮就痊愈的魔法。
+    /// </summary>
+    [RelayCommand]
+    private async Task HealTrauma(MemoryRow? row)
+    {
+        if (row is null || !row.IsTrauma) return;
+        var preview = row.Lines.Count == 0 ? "（空）" : string.Join(" ", row.Lines.Select(l => l.Plain));
+        var yes = await Shell.Current.DisplayAlert("记下一次疗愈",
+            $"创伤不会被抹掉，只会随着具体的互动慢慢降温。\n\n{preview}\n\n"
+            + $"现在：{HumanMemoryMath.TraumaStageName(row.TraumaStage)}\n"
+            + "只在你确实陪 TA 面对过这件事之后再点。要继续吗？", "记下这次疗愈", "还没");
+        if (!yes) return;
+        var (ok, message, _, _) = await _human.HealTraumaAsync(CharId, row.Id);
+        await LoadAsync();
+        if (ok) await Shell.Current.DisplayAlert("创伤疗愈", message, "好");
     }
 }

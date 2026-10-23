@@ -13,9 +13,9 @@ namespace WarmAsBefore.Services;
 /// 其下是 assets\ 立绘、saves\ 存档、characters.json、settings.json 等。
 /// 所以导出 = 把该目录整体压成一个 zip；导入 = 解压到临时目录校验后替换回该目录。
 ///
-/// 密钥处理：导出时默认把 settings.json 里 4 个敏感字段（AiKey / QqAppSecret /
-/// WechatAppSecret / VoiceApiKey）清成空串，其余设置原样保留；只有用户显式勾选
-/// 「包含 API 密钥与机器人密钥」时才原样写入。
+/// 密钥处理：导出时默认按名字递归清掉所有 *Key / *Keys / *Token / *Secret / *Password / *Passphrase
+/// 的值（顶层的 AiKey、厂商数组里每条的 Keys 池、CloudToken 都算），其余设置原样保留；
+/// 只有用户显式勾选「包含 API 密钥与机器人密钥」时才原样写入。
 /// </summary>
 public static class DataPackageService
 {
@@ -25,9 +25,32 @@ public static class DataPackageService
     /// <summary>旧版数据包外层多套的那一层目录名，导入时自动剥掉以兼容。</summary>
     public const string PackageRootName = "WarmAsBefore";
 
-    /// <summary>导出时会被清空的 settings.json 敏感键。</summary>
-    public static readonly string[] SensitiveKeys =
-        { "AiKey", "QqAppSecret", "WechatAppSecret", "VoiceApiKey" };
+    /// <summary>
+    /// 判断一个 JSON 属性名是不是密钥。导出前按名字递归清扫，因为密钥散落各处：
+    /// 顶层的 AiKey/VisionKey/…，厂商数组里每条的 Keys 池，还有 CloudToken 这种一眼看不出是密钥的。
+    /// 只清顶层四个字段的老写法会把整池轮换密钥和 GitHub 令牌原样带出去。
+    ///
+    /// 反过来也要准：KeyPressId（音效）、Keywords / KeyEvents（世界书触发词）、KeySfx 这些
+    /// 以 Key 开头的正常字段不能误伤，所以判的是「结尾是不是密钥词」。
+    /// </summary>
+    private static bool IsSecretName(string name)
+    {
+        if (string.IsNullOrEmpty(name)) return false;
+        foreach (var word in SecretNameWords)
+            if (name.EndsWith(word, StringComparison.OrdinalIgnoreCase)) return true;
+        // KeyPool / TokenPool：轮换密钥池的结尾是 Pool，光看后缀会整池漏出去
+        if (!name.EndsWith("Pool", StringComparison.OrdinalIgnoreCase)) return false;
+        var head = name[..^"Pool".Length];
+        return head.Equals("Key", StringComparison.OrdinalIgnoreCase)
+               || head.Equals("Keys", StringComparison.OrdinalIgnoreCase)
+               || head.Equals("Token", StringComparison.OrdinalIgnoreCase)
+               || head.Equals("Secret", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static readonly string[] SecretNameWords =
+    {
+        "Key", "Keys", "Token", "Secret", "Password", "Passphrase", "Authorization"
+    };
 
     /// <summary>导出时跳过的目录名（构建产物 / 上次导入的临时目录）。</summary>
     private static readonly string[] ExcludedDirNames = { "publish", "bin", "obj", "temp_import" };
@@ -86,9 +109,13 @@ public static class DataPackageService
                 var rel = System.IO.Path.GetRelativePath(root, f).Replace(System.IO.Path.DirectorySeparatorChar, '/');
                 try
                 {
-                    if (!includeSensitive && rel.Equals("settings.json", StringComparison.OrdinalIgnoreCase))
+                    // 文件名以 settings.json 开头的都是设置文件：根设置、plugins/<id>/settings.json，
+                    // 以及旧版写歪的 settings.json.json（那句存档排除同样按这个口径认）
+                    if (!includeSensitive && System.IO.Path.GetFileName(rel)
+                            .StartsWith("settings.json", StringComparison.OrdinalIgnoreCase))
                     {
-                        // 不能整目录打包：settings.json 里混着普通设置和密钥，要逐字段清空
+                        // 不能整目录打包：settings.json 里混着普通设置和密钥，要逐字段清空。
+                        // 插件自己的 plugins/<id>/settings.json 也一样——用户在插件设置页填的密钥就存在那里。
                         var sanitized = SanitizeSettings(File.ReadAllText(f));
                         if (sanitized is null) settingsSkipped = true;   // 解析失败：宁可不带，也不外泄
                         else WriteTextEntry(archive, rel, sanitized);
@@ -117,22 +144,42 @@ public static class DataPackageService
         return zipFull;
     }
 
-    /// <summary>把 settings.json 里的敏感字段清成 ""，其余设置原样保留。解析失败返回 null。</summary>
+    /// <summary>
+    /// 把 JSON 里所有按名字判定为密钥的字段清掉（字符串清成 ""、密钥池清成 []），逐层递归进子对象与数组。
+    /// 返回 null 表示解析不了——这时候调用方宁可不带这个文件，也不冒外泄的风险。
+    /// </summary>
     private static string? SanitizeSettings(string json)
     {
         try
         {
             if (JsonNode.Parse(json) is not JsonObject obj) return null;
-            foreach (var key in SensitiveKeys)
-            {
-                // 只清已存在的键，不给旧版本设置文件凭空造字段
-                if (obj.ContainsKey(key)) obj[key] = string.Empty;
-            }
+            Scrub(obj);
             return obj.ToJsonString(PrettyJson);
         }
         catch
         {
             return null;
+        }
+    }
+
+    private static void Scrub(JsonNode node)
+    {
+        if (node is JsonArray arrs)
+        {
+            foreach (var item in arrs)
+                if (item is not null) Scrub(item);
+            return;
+        }
+        if (node is not JsonObject obj) return;
+        // 取一份键名快照再改：边枚举边写同一个对象的属性，枚举器是会翻脸的
+        foreach (var name in obj.Select(p => p.Key).ToList())
+        {
+            if (IsSecretName(name))
+            {
+                obj[name] = obj[name] is JsonArray ? new JsonArray() : JsonValue.Create(string.Empty);
+                continue;
+            }
+            if (obj[name] is { } child) Scrub(child);
         }
     }
 
@@ -147,6 +194,9 @@ public static class DataPackageService
     private static bool IsExcluded(string root, string file)
     {
         var rel = System.IO.Path.GetRelativePath(root, file);
+        // 读坏时的时间戳备份不进包：一份 settings.json.corrupt-* 就是用户密钥的另一个副本，
+        // 而且它对导入端毫无用处。
+        if (System.IO.Path.GetFileName(rel).Contains(".corrupt-", StringComparison.OrdinalIgnoreCase)) return true;
         var parts = rel.Split(new[] { System.IO.Path.DirectorySeparatorChar, '/' }, StringSplitOptions.RemoveEmptyEntries);
         foreach (var p in parts)
             if (ExcludedDirNames.Contains(p, StringComparer.OrdinalIgnoreCase)) return true;

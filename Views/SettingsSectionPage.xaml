@@ -1646,6 +1646,248 @@
                 </Border>
             </VerticalStackLayout>
         </DataTemplate>
+
+        <!-- 卡片 27：窗口与运行 -->
+        <DataTemplate x:Key="Card27">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="窗口与运行" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="手机开成独立窗口" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开着：主窗口继续聊天，手机桌面在旁边单开一扇（Windows）。关掉：仍然跳转到应用内的手机页。手机上始终是页内页面。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding PhoneStandaloneWindow}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="关主窗口时，其他窗口怎么办" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="「每次询问」会在真有关着的窗口时弹一次选择；选择时可勾选记住，之后来这里改回。只关主窗口时其他窗口继续开，全部关完程序才退出。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="160" FontSize="13"
+                                    ItemsSource="{Binding WindowCloseChoices}"
+                                    SelectedItem="{Binding MainWindowCloseBehaviorDisplay}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="超省内存模式" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="记忆、关系网读完就丢缓存，闲置角色的会话清空，启动时不再后台预热；代价是下次回忆要多读一次盘。低配机/大存档时打开。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding LowMemoryMode}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 28：身份、旁白与自定义性别 -->
+        <DataTemplate x:Key="Card28">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="身份与旁白" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="旁白 AI" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开启后，回复里允许出现简短的第三人称环境/动作描写（「她把杯子放回桌上」）。不替你做决定，也不描写你的心理。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding NarratorAiEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="你的性别" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="只影响称呼与相处方式，不写死刻板印象；留空 = 不指定。角色自己的性别在角色库里设。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" Title="未设置" WidthRequest="140" FontSize="13"
+                                    ItemsSource="{Binding GenderChoices}"
+                                    SelectedItem="{Binding UserGender}" /></Grid>
+                        <Label Text="自定义性别" Style="{StaticResource TxtSubhead}" Margin="0,14,0,2" />
+                        <Label Text="名字 + 称呼 + 一段说明即可；还可以挂一段脚本（JS/Python/Java），让性别决定周期、称呼或随经历变化的描述。脚本输入 JSON、输出文字，超时与语句数都有硬上限。" Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,10">
+                            <Entry Placeholder="名字（如：扶她 / 无性别 / 流性）" Text="{Binding GenderNewName}"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                            <Entry Grid.Column="1" WidthRequest="110" Placeholder="自称（TA）" Text="{Binding GenderNewPronoun}"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+                        <Entry Placeholder="一句话说明（会进提示词）" Text="{Binding GenderNewDescription}"
+                               BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                               PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" Padding="0,10">
+                            <Label Text="脚本语言" VerticalOptions="Center" FontSize="13" />
+                            <Picker Grid.Column="1" FontSize="13" WidthRequest="110" HorizontalOptions="Start"
+                                    ItemsSource="{Binding GenderScriptLanguageChoices}"
+                                    SelectedItem="{Binding GenderNewScriptLanguage}" />
+                        </Grid>
+                        <Editor Placeholder="可选：脚本代码（输入 JSON：{&quot;name&quot;:&quot;...&quot;}，返回一段文字）"
+                                Text="{Binding GenderNewScript}" HeightRequest="110" FontSize="12"
+                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                PlaceholderColor="{DynamicResource MutedFg}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,10">
+                            <Button Text="保存自定义性别" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                    Padding="14,6" Command="{Binding SaveCustomGenderCommand}" />
+                            <Button Grid.Column="1" Text="从 JSON 导入" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                                    Command="{Binding ImportGenderJsonCommand}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
+                            <Picker Title="选择要删除的自定义性别" ItemsSource="{Binding CustomGenderNames}"
+                                    SelectedItem="{Binding SelectedCustomGender}" FontSize="13" />
+                            <Button Grid.Column="1" Text="删除" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Command="{Binding DeleteSelectedCustomGenderCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 29：心理与身体 -->
+        <DataTemplate x:Key="Card29">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="心理与身体" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="心理状况系统" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="可为角色设置轻/中/重度心理状况（内置 115 条：情绪、焦虑、创伤、强迫、进食、睡眠、精神病性、人格、神经发育、神经、躯体、冲动与特质）。只把当前角色生效的条目写进提示词，不贴标签。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding MentalHealthEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,4" ColumnSpacing="8">
+                            <Label Text="打开后可逐角色设定；涉及自伤/自杀/伤人的条目有硬边界：不提供方法、不美化，只做陪伴与转向求助。" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="管理心理状况" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                                    Command="{Binding OpenMentalHealthCommand}" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="心理驱动的行为" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="允许角色因心理状态做出回避、依赖、易怒等反应。安全条目永远优先：不会生成自伤/伤人的具体做法，也不会鼓励。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding PsychologyBehaviorEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="身体感受（冷暖 / 饥渴 / 想念）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="按天气与时间缓慢漂移，聊天与亲密互动会改变它；角色会说「有点冷」「想你了」，而不是报数值。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding PhysiologyEnabled}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 30：核心记忆、创伤与链式回忆 -->
+        <DataTemplate x:Key="Card30">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="记忆的深处" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="核心记忆" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="情绪强度与重要性都过线的事会成为核心记忆：永不遗忘、完整豁免重复机制、始终可回想，并像锚一样影响周围的记忆。阈值越高越难成为核心。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding CoreMemoryEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,6">
+                            <Label Text="成为核心的阈值" FontSize="13" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" WidthRequest="140" Minimum="0.5" Maximum="0.99"
+                                    Value="{Binding CoreMemoryThreshold}" IsEnabled="{Binding CoreMemoryEnabled}" />
+                        </Grid>
+                        <Label Text="{Binding CoreMemoryThreshold, StringFormat='当前阈值：{0:F2}'}" Style="{StaticResource TxtCaption}" />
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="创伤可以被治愈" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="创伤不会被删除，只能被治愈：靠具体的安慰与陪伴慢慢降低情绪强度，时间几乎不起作用。会从一碰就痛，走到能平静地叹口气，最后融进性格与行为里。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding TraumaHealingEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="链式搜索条数" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="从一条线索顺着共用词、邻近时间、同一个字与相同特质往下找。默认 5 条；同时间内越相似越靠前，新事优先。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" WidthRequest="140" Minimum="1" Maximum="20"
+                                    Value="{Binding ChainSearchLimit}" /></Grid>
+                        <Label Text="{Binding ChainSearchLimit, StringFormat='每次最多找 {0:F0} 条'}" Style="{StaticResource TxtCaption}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 31：AI 绘画 -->
+        <DataTemplate x:Key="Card31">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="AI 绘画（装扮 / 背景 / 立绘）" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="启用图片生成" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="用 OpenAI 兼容的 /images/generations 接口生成装扮、场景背景与角色立绘；生成结果落在本地 generated 目录，可再导入素材库。关闭时不花钱。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding ImageGenEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="接口地址" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding ImageGenUrl}" Placeholder="https://api.openai.com/v1"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="密钥" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding ImageGenKey}" IsPassword="True" Placeholder="只存本地设置，不进云存档"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="模型" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding ImageGenModel}" Placeholder="gpt-image-1 / flux / sd…"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="尺寸" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding ImageGenSize}" Placeholder="1024x1024"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 32：金钱系统 -->
+        <DataTemplate x:Key="Card32">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="金钱系统" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="启用金钱" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="关闭后商店与礼物不再扣钱，余额原样保留；再打开时继续用原来的数。开着时也可以在这里随意加钱或改余额。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding MoneyEnabled}" /></Grid>
+                        <Label Text="{Binding WalletText}" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource AccentWarmFg}" />
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,10">
+                            <Entry Text="{Binding MoneyInput}" Keyboard="Numeric" FontSize="13"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   Placeholder="金额（可负数）" PlaceholderColor="{DynamicResource MutedFg}" />
+                            <Button Grid.Column="1" Text="增加" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                    Padding="14,6" Command="{Binding AddMoneyCommand}" />
+                            <Button Grid.Column="2" Text="设为余额" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                                    Command="{Binding SetMoneyCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 33：插件与工坊入口 -->
+        <DataTemplate x:Key="Card33">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="插件" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="启用插件钩子" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="插件可以改人设、改写发送前/回复后的文本、加设置页、加页面、调用已注册的工具。钩子跑在受限的 JS 沙箱里（超时、语句数、内存都有上限）；关掉后所有插件效果立即停用，但文件与设置保留。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding PluginHooksEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="存档连同插件一起打包" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="导出存档时把插件代码与设置一并带走，换设备不会出现「有数据没程序」。插件文件较大时会让存档变大；敏感密钥（云存档令牌）不会进包。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveBundleWithPlugins}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="记录插件崩溃日志" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="插件钩子抛错时写日志（单文件 256KB 轮转）并弹出可查看的原因；关闭后只静默跳过。无论开关与否，一个插件的错误不会拖垮主程序。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding PluginCrashLogs}" /></Grid>
+                        <Button Text="打开插件中心与工坊" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                HorizontalOptions="Start" Padding="16,7" Command="{Binding OpenPluginCenterCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
     </ContentPage.Resources>
 
 <Grid RowDefinitions="Auto,*" Padding="0">

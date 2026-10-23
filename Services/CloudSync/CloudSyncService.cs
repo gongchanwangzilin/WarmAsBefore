@@ -789,11 +789,17 @@ public sealed class CloudSyncService : IDisposable
 
     private static bool IsSyncable(string key)
     {
+        // 清单是远端发来的：键必须是数据目录内的相对路径。
+        // 少这一道，一个 "../settings" 就能把文件写到数据目录外面，还能绕过下面那条 settings 排除。
+        if (!StorageProvider.IsSafeKey(key)) return false;
         if (string.IsNullOrWhiteSpace(key)) return false;
         if (key.Equals(SettingsKey, StringComparison.OrdinalIgnoreCase)) return false;   // 令牌/设备身份不外传
         var top = key.Split('/')[0];
         if (top.Equals("cloud", StringComparison.OrdinalIgnoreCase)) return false;       // 同步状态与冲突备份
         if (top.Equals("perf", StringComparison.OrdinalIgnoreCase)) return false;
+        // 读坏时的时间戳备份不上云：坏掉的历史副本既不是任何键的当前内容，
+        // 多一份就等于把同一份私密数据（可能含 settings 的旧密钥）多推一个分支到仓库里。
+        if (Path.GetFileName(key).Contains(".corrupt-", StringComparison.OrdinalIgnoreCase)) return false;
         return true;
     }
 

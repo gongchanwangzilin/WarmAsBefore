@@ -44,7 +44,7 @@ public sealed class ShopService
     /// <summary>商品目录（内置 + AI 生成 + GitHub 同步）。</summary>
     public IReadOnlyList<ShopItem> Catalog => _catalog;
     public int Coins => _state.Coins;
-    public string WalletLabel => $"亲密币 {_state.Coins}";
+    public string WalletLabel => _settings.Current.MoneyEnabled ? $"亲密币 {_state.Coins}" : "金钱系统已关闭";
     public IReadOnlyList<GameRecord> GameRecords => _state.GameRecords;
     public int GameWins => _state.GameRecords.Count(r => r.Won);
     public int GameLosses => _state.GameRecords.Count(r => !r.Won);
@@ -157,11 +157,13 @@ public sealed class ShopService
         });
     }
 
-    /// <summary>购买。返回 (成功, 消息)。场景券购买后立即解锁地图场景。</summary>
+    /// <summary>购买。返回 (成功, 消息)。场景券购买后立即解锁地图场景。
+    /// 关闭金钱系统时不检查也不扣币（「买东西不扣钱」是该开关的定义）。</summary>
     public async Task<(bool ok, string msg)> BuyAsync(ShopItem item)
     {
-        if (_state.Coins < item.Price) return (false, "亲密币不够啦，多陪陪小雨、赢几局游戏赚币吧！");
-        _state.Coins -= item.Price;
+        var moneyOn = _settings.Current.MoneyEnabled;
+        if (moneyOn && _state.Coins < item.Price) return (false, "亲密币不够啦，多陪陪小雨、赢几局游戏赚币吧！");
+        if (moneyOn) _state.Coins -= item.Price;
         _state.Owned.TryGetValue(item.Id, out var n);
         _state.Owned[item.Id] = n + 1;
         item.Owned = n + 1;
@@ -172,6 +174,24 @@ public sealed class ShopService
         _ = SaveAsync();        // 后台落盘，购买立即反馈不等待
         RaiseChanged();
         return (true, $"已购买「{item.Name}」{(item.IsTicket ? "，场景已解锁！" : "，去找小雨一起用吧")}");
+    }
+
+    /// <summary>随意加钱（AI 工具与设置页共用）。负数会被夹到 0。</summary>
+    public async Task<int> AddCoinsAsync(int amount)
+    {
+        _state.Coins = Math.Max(0, _state.Coins + amount);
+        await SaveAsync();
+        RaiseChanged();
+        return _state.Coins;
+    }
+
+    /// <summary>设置一个确定的余额。</summary>
+    public async Task<int> SetCoinsAsync(int value)
+    {
+        _state.Coins = Math.Max(0, value);
+        await SaveAsync();
+        RaiseChanged();
+        return _state.Coins;
     }
 
     /// <summary>场景券解锁：把券对应场景挂到地图指定地点，并立即移动过去。</summary>
