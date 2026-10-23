@@ -1,3 +1,5 @@
+using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -9,5 +11,13 @@ public partial class SubProfilePage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
+        // 设定文本要等服务读出来：MainPersonality 初始为空，落值即算就绪。
+        LoadingVeil.Attach(this, vm, "MainPersonality");
+    }
+
+    protected override void OnAppearing()
+    {
+        base.OnAppearing();
+        Motion.ArrivePage(this);
     }
 }

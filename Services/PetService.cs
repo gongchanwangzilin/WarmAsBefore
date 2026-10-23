@@ -398,7 +398,8 @@ public sealed class PetService
     {
         // 显式排除桌宠窗：MAUI 窗口集合按创建顺序排，一旦桌宠窗成为第一个，
         // 「隐藏主窗口」就会把桌宠自己藏起来。
-        var win = Application.Current?.Windows.FirstOrDefault(w => !ReferenceEquals(w, _instance?._petWindow) && w.Handler is not null);
+        var win = Application.Current?.Windows.FirstOrDefault(w => !ReferenceEquals(w, _instance?._petWindow) && w.Handler is not null
+            && w is not WarmAsBefore.Views.ToolWindow);
         return win?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
     }
 

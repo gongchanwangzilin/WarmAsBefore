@@ -90,7 +90,8 @@ public partial class SettingsSectionPage : ContentPage
                 // 时长仍然很短（130ms）——这一页的首要任务是别让人觉得慢。
                 // 这里不淡入：这些卡片带着阴影，透明度被多处共写容易把它们留在看不见的那一头。
                 CardsHost.Add(content);
-                _ = Motion.Rise(content, (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
+                Motion.Arrive(new Microsoft.Maui.Controls.VisualElement[] { content },
+                    (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
 
                 var chart = content.FindByName("CostChartView") as GraphicsView;
                 if (chart is not null)

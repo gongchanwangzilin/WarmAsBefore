@@ -10,50 +10,66 @@
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*">
-        <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*">
-                <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="开发者展示模式" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-            </Grid>
-        </Border>
+        <!-- 顶栏跟地面同档、不是一张卡，也不带发光边：内容区靠下面那条发丝线开始。 -->
+        <VerticalStackLayout Grid.Row="0" Spacing="0">
+            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                    Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                    <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
+                            Style="{StaticResource BtnText}" Padding="0" VerticalOptions="Center"
+                            Command="{Binding BackCommand}" />
+                    <Label Grid.Column="1" Text="开发者展示模式" Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                </Grid>
+            </Border>
+            <BoxView Style="{StaticResource HSep}" />
+        </VerticalStackLayout>
 
-        <Grid Grid.Row="1" RowDefinitions="*,Auto" Padding="16,8">
-            <CollectionView ItemsSource="{Binding Scripts}" SelectionMode="None"
-                            EmptyView="{Binding [Common_Empty], Source={x:Static i18n:LocalizationService.Current}}">
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="models:ShowcaseScript">
-                        <Border Style="{StaticResource CardNeumorph}" Padding="12,8" Margin="0,4">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                <VerticalStackLayout Spacing="2">
-                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBody}" FontAttributes="Bold" />
-                                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtCaption}" FontSize="11" />
-                                    <Label Text="{Binding Steps.Count, StringFormat='步骤 {0}'}" Style="{StaticResource TxtCaption}" FontSize="10" />
-                                </VerticalStackLayout>
-                                <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
-                                    <Button Text="编辑" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=EditCommand}"
-                                            CommandParameter="{Binding .}" />
-                                    <Button Text="▶" Style="{StaticResource BtnNeumorphSm}" FontSize="11" BackgroundColor="{DynamicResource AccentWarm}"
-                                            TextColor="{DynamicResource AccentWarmFg}"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=PlayCommand}"
-                                            CommandParameter="{Binding .}" />
-                                    <Button Text="×" Style="{StaticResource BtnNeumorphSm}" FontSize="11" BackgroundColor="#E94560" TextColor="#FFF"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=DeleteCommand}"
-                                            CommandParameter="{Binding .}" />
-                                </HorizontalStackLayout>
-                            </Grid>
-                        </Border>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
+        <Grid Grid.Row="1" RowDefinitions="*,Auto" RowSpacing="{DynamicResource WGapSection}"
+              Padding="{DynamicResource WPadCard}">
+            <!-- 一个案列 = 一张卡里的一行。原来一案一张浮档卡，卡间距比行内间距还大，
+                 分组关系（「这些是同一批案」）就被卡片之间的沟冲掉了。 -->
+            <Border Grid.Row="0" Style="{StaticResource CardGroup}">
+                <CollectionView ItemsSource="{Binding Scripts}" SelectionMode="None"
+                                EmptyView="{Binding [Common_Empty], Source={x:Static i18n:LocalizationService.Current}}">
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="models:ShowcaseScript">
+                            <VerticalStackLayout Spacing="0">
+                                <Border Style="{StaticResource SettingRow}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowDesc}" />
+                                            <Label Text="{Binding Steps.Count, StringFormat='步骤 {0}'}"
+                                                   Style="{StaticResource TxtRowDesc}" />
+                                        </VerticalStackLayout>
+                                        <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                            <Button Text="编辑" Style="{StaticResource BtnGhostSm}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=EditCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <!-- 一行里只有「播」是主行动，所以只有它拿强调面；
+                                                 三个钮一样的重量时，眼睛找不到先按哪个。 -->
+                                            <Button Text="▶" Style="{StaticResource BtnNeumorphAccent}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=PlayCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <!-- 整案删除是危险动作：面留普通卡面，危险由 DangerInk 的字
+                                                 和 RedSoft 的缝说（原来是一块死红 + 白字，浅色档只有 2.1:1）。 -->
+                                            <Button Text="×" Style="{StaticResource BtnDangerSm}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=DeleteCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </HorizontalStackLayout>
+                                    </Grid>
+                                </Border>
+                                <!-- 行尾发丝线：最后一条的那条正好当这张卡的底边。 -->
+                                <BoxView Style="{StaticResource HSep}" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </Border>
 
-            <Button Grid.Row="1" Text="＋ 新建展示案"
-                    Style="{StaticResource BtnNeumorph}" HorizontalOptions="FillAndExpand"
-                    FontAttributes="Bold" Margin="0,8,0,0"
-                    Command="{Binding NewCommand}" />
+            <Button Grid.Row="1" Text="＋ 新建展示案" Style="{StaticResource BtnNeumorph}"
+                    HorizontalOptions="Fill" Command="{Binding NewCommand}" />
         </Grid>
     </Grid>
 </ContentPage>

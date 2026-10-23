@@ -7,7 +7,16 @@
              Title="换装"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid Padding="16">
-        <Label Text="换装" Style="{StaticResource TxtTitle}" />
+    <!--
+      占位页：装扮视图模型目前没有任何内容，所以这里只做「并进这套语言」的事，
+      不给它发明内容（那需要新的文案与新绑定，都不在这次的范围里）。
+      眉栏与内容区是同一块地，靠下面一条发丝线分界；地面/线/内距全部跟世界走。
+    -->
+    <Grid RowDefinitions="Auto,Auto,*" Padding="0">
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Label Text="换装" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+        </Border>
+        <BoxView Grid.Row="1" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
     </Grid>
 </ContentPage>

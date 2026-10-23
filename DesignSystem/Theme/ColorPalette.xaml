@@ -27,7 +27,7 @@
 
     <!-- 暖中性色 / Warm Neutrals -->
     <Color x:Key="WarmWhite">#FFFEFA</Color>
-    <Color x:Key="WarmDark">#5D4A3A</Color>
+    <Color x:Key="WarmDark">#443626</Color>
     <Color x:Key="WarmBody">#4A3D2C</Color>
     <Color x:Key="WarmMuted">#8B7D6B</Color>
     <Color x:Key="WarmFaint">#C4B89A</Color>
@@ -63,9 +63,16 @@
     <Color x:Key="PrimaryHover">#CEB583</Color>
     <Color x:Key="PrimaryFg">#5D4A3A</Color>
     <Color x:Key="SecondaryBg">#FAEBD7</Color>
-    <Color x:Key="MutedFg">#4A3D2C</Color>
+    <!-- 注释/次要文字专用墨：以前 MutedFg 与正文同色（9.28:1），说明行和正文一个重量，
+         整页读下来没有台阶。这一档落在 5~6:1 —— 比正文轻一档、仍然读得动。 -->
+    <Color x:Key="MutedFg">#6B5D4B</Color>
     <Color x:Key="BorderLine">#F5DFC0</Color>
     <Color x:Key="InputBg">#F5F0E8</Color>
+    <!-- 三档深度的两处台阶（原来只有 BorderLine 一档，平档与凹档看不出高低）：
+         WellBg = 凹进去的底色，比 PageBg 还沉一档；EdgeStrong = 平档卡片的边，比 BorderLine 重一档。
+         两个都是填充/描边色，绝不当文字色用。 -->
+    <Color x:Key="WellBg">#EADCC0</Color>
+    <Color x:Key="EdgeStrong">#DAC49E</Color>
     <Color x:Key="SuccessTint">#A5D6A7</Color>
     <Color x:Key="DangerTint">#EF9A9A</Color>
     <Color x:Key="InfoTint">#90CAF9</Color>
@@ -75,6 +82,7 @@
 
     <!-- 紫粉强调色 / Pink Accent（发送胶囊、心情胶囊） -->
     <Color x:Key="AccentWarm">#F5D8B8</Color>
-    <Color x:Key="AccentWarmFg">#8A6A4F</Color>
+    <!-- 胶囊上的字：#8A6A4F 压在 AccentWarm #F5D8B8 上只有 3.6:1，16px 加粗也读不动；压到 5.2:1。 -->
+    <Color x:Key="AccentWarmFg">#6E523A</Color>
 
 </ResourceDictionary>

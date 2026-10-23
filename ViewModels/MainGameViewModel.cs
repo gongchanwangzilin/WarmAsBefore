@@ -1875,7 +1875,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         try
         {
-            var wnd = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null)
+            var wnd = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow)
                 ?.Handler?.PlatformView as Microsoft.UI.Xaml.Window;
             if (wnd is null) return null;
             var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(wnd);

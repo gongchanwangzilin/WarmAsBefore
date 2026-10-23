@@ -1,4 +1,6 @@
 using Microsoft.Maui.Controls;
+using WarmAsBefore.DesignSystem.Theme;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Modules.Affection;
 using WarmAsBefore.ViewModels;
 
@@ -39,11 +41,11 @@ public partial class AffectionLevelUpPage : ContentPage
         v.BackgroundPath = _service.BackgroundPath;
         v.Refresh();
 
-        // 入场：淡入 + 上移
-        Opacity = 0;
-        TranslationY = 40;
-        await Task.WhenAll(this.FadeTo(1, 520, Easing.CubicOut),
-                           this.TranslateTo(0, 0, 520, Easing.CubicOut));
+        // 入场：整页一次「上浮 6px」，不再把页面 Opacity 归 0 后淡入。
+        // 用 Arrive(this) 而不是 ArrivePage：根 Grid 的孩子里有满屏背景，
+        // 逐个错峰会把背景一层层揭开，看着像资源没加载完。
+        // Arrive 自带「演过一次就不再演」，从别的页面返回时不会重播。
+        Motion.Arrive(this);
 
         _animating = true;
         _ = LaunchHeartsAsync();
@@ -69,8 +71,11 @@ public partial class AffectionLevelUpPage : ContentPage
             AbsoluteLayout.SetLayoutBounds(heart, new Rect(x, y, -1, -1));
             HeartsLayer.Children.Add(heart);
 
-            _ = heart.FadeTo(0, 1500, Easing.CubicIn);
-            _ = heart.TranslateTo((rnd.NextDouble() - 0.5) * 120, -(rnd.Next(180, 320)), 1500, Easing.Linear);
+            // 飘散粒子的寿命：走令牌（减少动画时整段为 0，粒子直接停在原地而不是慢慢淡掉）。
+            // 这里的 FadeTo 是粒子自己的生命周期（生出来→消亡→被清掉），不是页面进场，所以保留透明度。
+            var life = (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.EnterMs * 6));
+            _ = heart.FadeTo(0, life, Easing.CubicIn);
+            _ = heart.TranslateTo((rnd.NextDouble() - 0.5) * 120, -(rnd.Next(180, 320)), life, Easing.Linear);
             await Task.Delay(rnd.Next(180, 360));
         }
     }

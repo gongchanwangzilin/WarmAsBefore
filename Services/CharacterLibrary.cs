@@ -16,19 +16,21 @@ namespace WarmAsBefore.Services;
 /// 2) 角色包（纯角色）：角色/&lt;角色名&gt;/ 下放 角色主设定.txt 或 character.json，
 ///    以及若干服装文件夹（内含表情立绘 png，文件名带 （表情Aor表情B） 标签）
 /// </summary>
-public sealed class CharacterLibrary
+public sealed partial class CharacterLibrary
 {
     private readonly GameEngine _engine;
     private readonly StorageProvider _store;
     private readonly PackImporter _packs;
+    private readonly MemoryScope _scope;
     private static readonly JsonSerializerOptions Json = new() { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
     private bool _loaded;
 
-    public CharacterLibrary(GameEngine engine, StorageProvider store, PackImporter packs)
+    public CharacterLibrary(GameEngine engine, StorageProvider store, PackImporter packs, MemoryScope scope)
     {
         _engine = engine;
         _store = store;
         _packs = packs;
+        _scope = scope;
     }
 
     /// <summary>
@@ -99,6 +101,19 @@ public sealed class CharacterLibrary
         {
             App.WriteLog("CharacterLibrary.Load -> " + ex);
         }
+    }
+
+    /// <summary>
+    /// 云存档把远端的 characters.json 落到本地后调用：丢掉「已加载」缓存，按磁盘重建角色表，
+    /// 否则要重启应用才能看见另一台设备新建的角色。
+    /// </summary>
+    public async Task ReloadAsync()
+    {
+        if (!_store.Exists("characters")) return;
+        _loaded = false;
+        _engine.Roster.Clear();
+        await LoadAsync();
+        _engine.RestoreState(_engine.State);   // 活动角色指回重读后的新对象
     }
 
     /// <summary>修复立绘路径：确保带 assets/ 前缀。</summary>
@@ -253,15 +268,22 @@ public sealed class CharacterLibrary
     /// <summary>
     /// 复制角色：仅复制资料（新 ID），共享引用所有立绘/头像文件，不重复保存素材。
     /// 可选重命名；返回新角色 ID 与显示名称。
+    ///
+    /// <paramref name="withMemory"/> 为真时连记忆一起带走（见 <c>CharacterLibrary.MemoryClone.cs</c>）：
+    /// 只在当前记忆作用域里复制，副本与原角色共享同一个存档的记忆边界，不跨存档搬。
     /// </summary>
-    public async Task<(bool ok, string message, string newId, string newName)> DuplicateAsync(string sourceId, string? newName = null)
+    public async Task<(bool ok, string message, string newId, string newName)> DuplicateAsync(
+        string sourceId, string? newName = null, bool withMemory = false)
     {
+        MemoryWrites? writes = null;
         try
         {
             await LoadAsync();
             if (!_engine.Roster.TryGetValue(sourceId, out var src))
                 return (false, "源角色不存在", "", "");
             var newId = Guid.NewGuid().ToString("N")[..10];
+            if (_engine.Roster.ContainsKey(newId))
+                return (false, "副本撞上了已有角色，请再试一次", "", "");
             var displayName = string.IsNullOrWhiteSpace(newName) ? src.Profile.Name : newName.Trim();
             var destProfile = src.Profile with { Id = newId, Name = displayName };
             // 立绘/头像共享引用（路径不变，同一份文件）
@@ -274,17 +296,50 @@ public sealed class CharacterLibrary
                 // 副本从主设定重新播种副设定：不继承原角色漂移出来的当下心境与心事
                 SubProfile = CharacterSubProfileService.Seed(destProfile)
             };
+
+            // 记忆先全部算完再落盘：这一步只读盘，失败的话角色还没注册、磁盘一个字没动
+            if (withMemory)
+            {
+                var (built, buildMsg, pending) = await BuildMemoryWritesAsync(sourceId, newId);
+                if (!built || pending is null)
+                    return (false, buildMsg.Length > 0 ? buildMsg : "记忆复制失败（已回滚），角色没动。", "", "");
+                if (!await ApplyMemoryWritesAsync(pending))
+                    return (false, "记忆复制失败（已回滚），角色没动。", "", "");
+                writes = pending;
+            }
+
             var ok = await AddAsync(dest);
-            return ok
-                ? (true, $"已复制为「{displayName}」（共用素材，不重复保存）", newId, displayName)
-                : (false, "保存失败", "", "");
+            if (!ok)
+            {
+                // 角色没登记上，刚写好的记忆不能留成没人认领的一坨
+                if (writes is not null) await UndoMemoryWritesAsync(writes.Items);
+                return (false, writes is null ? "保存失败" : "保存失败（记忆已撤回）", "", "");
+            }
+            if (writes is not null)
+            {
+                // 四个记忆服务都带着缓存，不叫它们重读，下一次 Persist 就把刚写的副本抹了
+                _scope.InvalidateCaches();
+                var c = writes.Counts;
+                return (true,
+                    $"已复制为「{displayName}」（共用素材，不重复保存）\n"
+                    + (c.IsEmpty ? "TA 还没有记忆，副本是空白的。" : $"带走记忆：{c.Describe()}\n复制范围：{ScopeText()}"),
+                    newId, displayName);
+            }
+            return (true, $"已复制为「{displayName}」（共用素材，不重复保存）", newId, displayName);
         }
         catch (Exception ex)
         {
             App.WriteLog("CharacterLibrary.Duplicate -> " + ex);
-            return (false, "复制失败：" + ex.Message, "", "");
+            // 已经落盘的记忆要是没跟着角色一起撤，下次复制同一号角色就会凭空多出一批不属于它的记忆
+            if (writes is not null) await UndoMemoryWritesAsync(writes.Items);
+            return (false, writes is null
+                ? "复制失败：" + ex.Message
+                : "复制失败：" + ex.Message + "（记忆已撤回）", "", "");
         }
     }
+
+    /// <summary>作用域说人话：让用户知道这次复制的是哪一份记忆。</summary>
+    private string ScopeText() => _scope.IsShared ? "跨存档共用的那一份" : $"本存档（{_scope.Current}）";
 
     private static readonly HashSet<string> ImageExtensions = new(StringComparer.OrdinalIgnoreCase)
         { ".png", ".jpg", ".jpeg", ".bmp", ".webp" };

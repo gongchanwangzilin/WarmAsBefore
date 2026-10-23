@@ -5,70 +5,52 @@
                     x:Class="WarmAsBefore.DesignSystem.Styles.NeumorphicStyles">
 
     <!--
-    Neumorphism Design System
-    - Background & components share the same color (SurfaceBg)
-    - Raised: dark shadow (bottom-right) + light stroke (top-left)
-    - Inset/Pressed: 背景压暗 + PressFeel 补的下沉；影子只在静止态声明一次，状态之间不换
-      （WinUI 换 Shadow 会重建合成层，实测点过的按钮返回后保住布局位却不再绘制）
-    - Pressed/PointerOver 里不写 TranslationY（那是驱动的输出量）；透明度归状态，驱动不碰
+      浮档 / 凹档 / 按钮 / 标签块。
+      键名里的 Neumorph 是历史包袱（这套拟物已经退役），但页面里有几百处按名字引用，
+      改名只会制造一次没有意义的机械替换 —— 留名，换掉里面的材质。
+      现在这里没有任何具体数值：颜色、圆角、缝、影、内距全部由 StyleWorld 下发。
+
+      状态组里**永远不换 Shadow**：WinUI 换阴影会重建合成层，实测点过的按钮返回后
+      保住布局位置却不再绘制。位移交给 PressFeel，缩放留给布局重算的坑，都不在这里做。
     -->
 
-    <!-- Neumorphic Card (raised) —— 玻璃材质由 GlassTokens 按档位下发
-         关掉玻璃 = 不透明实心表面；磨砂/毛玻璃/液态逐档增加通透与亮边。
-         这里用 DynamicResource 而不是写死画刷，切档位时所有卡片一起变，
-         且不会像整页叠加层那样挡住内容与输入。 -->
+    <!-- 浮档：此刻要动它的那一张。轻质感靠更亮的缝 + 大一圈的角站起来，
+         渐变档补一团近而柔的影子，液态档则由通透面 + 发光边成立。 -->
     <Style x:Key="CardNeumorph" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
-        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
-        <Setter Property="Padding" Value="20" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="20" />
-            </Setter.Value>
-        </Setter>
-        <!-- 高度感：投影随「液态高度」变化，是玻璃看起来有厚度的关键之一 -->
-        <Setter Property="Shadow" Value="{DynamicResource GlassCardShadow}" />
-    </Style>
-
-    <!-- Neumorphic Card (inset / depressed) -->
-    <Style x:Key="CardNeumorphInset" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
-        <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="{DynamicResource ShadowDim}" />
-        <Setter Property="Padding" Value="20" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="20" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
+        <Setter Property="Padding" Value="{DynamicResource WPadCard}" />
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusRaised}" />
         <Setter Property="Shadow">
-            <Setter.Value>
-                <Shadow Brush="{DynamicResource ShadowLight}"
-                        Offset="-3,-3" Radius="8" Opacity="0.3" />
-            </Setter.Value>
+            <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,5" Radius="14" Opacity="1" />
         </Setter>
     </Style>
 
-    <!-- Neumorphic Button (raised)：本档 46，另有 Sm 34 / Lg 56（对齐 ButtonShapes 的高度梯度），不再自成一档 54 -->
+    <!-- 凹档：细节的井。成立靠**底色比容器沉 + 上沿压一道线**，不是影子 ——
+         落影永远意味着「浮着」，凹的地方不能有影子。 -->
+    <Style x:Key="CardNeumorphInset" TargetType="Border">
+        <Setter Property="Background" Value="{DynamicResource WWellBrush}" />
+        <Setter Property="Stroke" Value="{DynamicResource WControlEdgeBrush}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource WControlEdgeWidth}" />
+        <Setter Property="Padding" Value="{DynamicResource WPadWell}" />
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusWell}" />
+    </Style>
+
+    <!-- 通用按钮：本档 46，另有 Sm 34 / Lg 56（与 ButtonShapes 的高度梯度对齐）。 -->
     <Style x:Key="BtnNeumorph" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
+        <Setter Property="Background" Value="{DynamicResource WSurfaceBrush}" />
         <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
-        <Setter Property="FontSize" Value="14" />
+        <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="14" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
-        <Setter Property="BorderWidth" Value="1" />
-        <!-- 描边取 BorderLine：这套材质近白，白色描边等于没画，静止态就看不出边界 -->
-        <Setter Property="BorderColor" Value="{DynamicResource BorderLine}" />
-        <Setter Property="Shadow">
-            <Setter.Value>
-                <Shadow Brush="{DynamicResource ShadowDim}"
-                        Offset="2,3" Radius="10" Opacity="0.30" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
+        <!-- 按钮不再挂影子：可点击性来自面与底的台阶 + 那一圈缝，不来自浮起。
+             而且这是全站数量最多的元素，每个一个合成层，换页时最贵的一笔开销就省下了。 -->
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -76,21 +58,18 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgHover}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgPressed}" />
                         </VisualState.Setters>
                     </VisualState>
-                    <VisualState Name="Focused">
-                        <VisualState.Setters>
-                            <Setter Property="BorderWidth" Value="2" />
-                            <!-- 焦点环不能用 AccentWarm：四套主题里它都比静止描边还淡，一聚焦边框反而消失 -->
-                            <Setter Property="BorderColor" Value="{DynamicResource BeigeAccent300}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <!-- 焦点不再自绘一圈：WinUI 本来就在按钮外沿画一条系统焦点框，
+                         我们再加一圈就成了「双边框」——首屏那颗主按钮自动获得焦点，
+                         用户第一眼看到的是一圈不该有的黑框（实测截图已确认）。 -->
+                    <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
                             <Setter Property="Opacity" Value="0.4" />
@@ -101,102 +80,42 @@
         </Setter>
     </Style>
 
-    <!-- Neumorphic Button (small, for inline use)：紧凑档，替代表单里内联覆写字号/内距的写法 -->
+    <!-- 紧凑档：替代表单里内联覆写字号/内距的写法 -->
     <Style x:Key="BtnNeumorphSm" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
         <Setter Property="HeightRequest" Value="34" />
         <Setter Property="MinimumHeightRequest" Value="34" />
-        <Setter Property="FontSize" Value="12" />
+        <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
         <Setter Property="Padding" Value="12,0" />
-        <Setter Property="CornerRadius" Value="10" />
     </Style>
 
-    <!-- 首屏档（56/16/24）：标题页那种「一屏只有几个大钮」的场合。
-         以前这里是拿 BtnNeumorph 再内联覆写 MinimumHeightRequest=56 凑出来的，凑了五遍，
-         等于在 34/40/46 之外偷偷发明了第四档，却没人知道。要留就把它写下来。 -->
+    <!-- 首屏档：标题页那种「一屏只有几个大钮」的场合。 -->
     <Style x:Key="BtnNeumorphLg" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
         <Setter Property="HeightRequest" Value="56" />
         <Setter Property="MinimumHeightRequest" Value="56" />
         <Setter Property="Padding" Value="24,0" />
-        <Setter Property="CornerRadius" Value="16" />
     </Style>
 
-    <!-- Neumorphic Button (accent — beige tint, raised) -->
+    <!-- 强调按钮：胶囊底 + 钉在上面的字（AccentWarmFg 是按 AccentWarm 算出来的对比墨） -->
     <Style x:Key="BtnNeumorphAccent" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
-        <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
-        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+        <Setter Property="Background" Value="{DynamicResource WAccentBrush}" />
+        <Setter Property="TextColor" Value="{DynamicResource WAccentInk}" />
+        <Setter Property="BorderColor" Value="Transparent" />
     </Style>
 
-    <!--
-    Apple Liquid Glass 材质卡片（iOS 26 标准）：
-    半透明白色渐变 + 1px 内发光描边 + 折射高光；
-    按下 200ms ease-out 回弹（Scale 0.96），悬停微浮起（1.02）。
-    与 GlassOverlay.Liquid 档配合，整体呈液态玻璃观感。
-    -->
+    <!-- 液态玻璃卡：材质完全交给 GlassTokens —— 它按当前世界算色标，
+         所以这一段不再需要自己写死一串渐变 hex（那正是「换到蓝灰还剩一块奶油」的来源）。 -->
     <Style x:Key="CardLiquidGlass" TargetType="Border">
-        <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Padding" Value="20" />
-        <Setter Property="Background">
-            <Setter.Value>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-                    <GradientStop Color="#66FFFFFF" Offset="0.0" />
-                    <GradientStop Color="#2AFDF6EE" Offset="0.35" />
-                    <GradientStop Color="#12FDF6EE" Offset="0.7" />
-                    <GradientStop Color="#5AC9BFA8" Offset="1.0" />
-                </LinearGradientBrush>
-            </Setter.Value>
-        </Setter>
-        <Setter Property="Stroke">
-            <Setter.Value>
-                <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="#CCFFFFFF" Offset="0.0" />
-                    <GradientStop Color="#24FFFFFF" Offset="0.5" />
-                    <GradientStop Color="#7AC9BFA8" Offset="1.0" />
-                </LinearGradientBrush>
-            </Setter.Value>
-        </Setter>
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="16" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
+        <Setter Property="Padding" Value="{DynamicResource WPadCard}" />
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusRaised}" />
         <Setter Property="Shadow">
-            <Setter.Value>
-                <Shadow Brush="{DynamicResource ShadowDim}"
-                        Offset="0,4" Radius="14" Opacity="0.25" />
-            </Setter.Value>
+            <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,8" Radius="18" Opacity="1" />
         </Setter>
     </Style>
 
-    <!--
-    可点击液态玻璃卡片：按下时描边稍微加粗，位移过渡由 PressFeel 补。
-    只用 StrokeThickness + 位移，不用 Scale 也不换 Shadow——
-    Scale 的视觉状态切换会触发重新布局（layout thrash），快速点按时会「卡死」；
-    换 Shadow 会重建合成层，导航回来时元素保住布局位却不再绘制（实测：点过的按钮返回后整块空白）。
-    -->
-    <Style x:Key="PressableCardLiquidGlass" TargetType="Border" BasedOn="{StaticResource CardLiquidGlass}">
-        <Setter Property="motion:PressFeel.Enabled" Value="True" />
-        <Setter Property="VisualStateManager.VisualStateGroups">
-            <VisualStateGroupList>
-                <VisualStateGroup Name="CommonStates">
-                    <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver" />
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="StrokeThickness" Value="1.5" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Disabled">
-                        <VisualState.Setters>
-                            <Setter Property="Opacity" Value="0.4" />
-                        </VisualState.Setters>
-                    </VisualState>
-                </VisualStateGroup>
-            </VisualStateGroupList>
-        </Setter>
-    </Style>
-
-    <!-- 可点击卡片（游戏入口/功能块）：悬停提亮、按下压暗，位移交给 PressFeel。
-         不用 Scale，避免 WinUI 下视觉状态切换触发重新布局 → 快速点按时「按键卡死」。 -->
+    <!-- 可点击卡片（游戏入口/功能块）：悬停提亮、按下压暗，位移交给 PressFeel。 -->
     <Style x:Key="PressableCard" TargetType="Border" BasedOn="{StaticResource CardNeumorph}">
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -205,12 +124,12 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+                            <Setter Property="Background" Value="{DynamicResource WSurfaceRaised}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
+                            <Setter Property="Background" Value="{DynamicResource WWellBrush}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Disabled">
@@ -223,17 +142,13 @@
         </Setter>
     </Style>
 
-    <!-- 分类/标签选择块：选中态米黄填充；按压位移由 PressFeel 补，状态里不写 TranslationY -->
+    <!-- 分类/标签选择块：选中态用强调填充，按压位移由 PressFeel 补，状态里不写 TranslationY。 -->
     <Style x:Key="TagChip" TargetType="Border">
-        <Setter Property="BackgroundColor" Value="{DynamicResource Cream200}" />
-        <Setter Property="StrokeThickness" Value="1" />
-        <Setter Property="Stroke" Value="#30C9A96B" />
+        <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
+        <Setter Property="Stroke" Value="{DynamicResource WControlEdgeBrush}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource WControlEdgeWidth}" />
         <Setter Property="Padding" Value="12,5" />
-        <Setter Property="StrokeShape">
-            <Setter.Value>
-                <RoundRectangle CornerRadius="14" />
-            </Setter.Value>
-        </Setter>
+        <Setter Property="StrokeShape" Value="{DynamicResource WRadiusWell}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -241,14 +156,12 @@
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
-                            <Setter Property="Stroke" Value="#59C9A96B" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource WSurfaceRaised}" />
                         </VisualState.Setters>
                     </VisualState>
                     <VisualState Name="Pressed">
                         <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
-                            <Setter Property="Stroke" Value="#80C9A96B" />
+                            <Setter Property="BackgroundColor" Value="{DynamicResource WAccentBrush}" />
                         </VisualState.Setters>
                     </VisualState>
                 </VisualStateGroup>

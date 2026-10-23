@@ -1,11 +1,71 @@
 namespace WarmAsBefore.DesignSystem.Theme;
 
+using WarmAsBefore.DesignSystem.Worlds;
+
 public class ThemeManager
 {
     private bool _glass;
     private bool _frost;
     private bool _liquid;
     private string _themeName = "classic";
+    private StyleWorld _world = StyleWorld.Soft;
+    private bool _dark;
+
+    /// <summary>
+    /// 风格世界（材质）：轻质感 / 柔和极简 / 柔和渐变 / 液态玻璃。
+    /// 它接管了原来「磨砂 / 毛玻璃 / 液态玻璃」三个开关的位置 —— 开关是互相牵制的三个布尔，
+    /// 用户要的是一句话选一种，而世界的数量正好是四。
+    /// </summary>
+    public StyleWorld World
+    {
+        get => _world;
+        set
+        {
+            if (_world == value) return;
+            _world = value;
+            OnChange();
+        }
+    }
+
+    /// <summary>深色档：明暗属于世界而不是色板 —— 四套色板在每个世界里都各算一条暗阶。
+    /// 它不是设置项：跟随系统的深浅色偏好（Windows / Android 都有），用户在系统里切，界面跟着换。</summary>
+    public bool Dark
+    {
+        get => _dark;
+        set
+        {
+            if (_dark == value) return;
+            _dark = value;
+            OnChange();
+        }
+    }
+
+    private static bool _systemDark;
+    public static ThemeManager? Current { get; private set; }
+
+    public ThemeManager()
+    {
+        _dark = _systemDark;
+        Current = this;
+    }
+
+    /// <summary>
+    /// 把深色档接到系统偏好上。必须在 App 构造时调用一次：
+    /// ThemeManager 由 DI 懒建，可能比首帧晚，所以系统值先存在静态里，构造时再取。
+    /// </summary>
+    public static void FollowSystemTheme()
+    {
+        var app = Application.Current;
+        if (app is null) return;
+        Apply(app.RequestedTheme);
+        app.RequestedThemeChanged += (_, e) => Apply(e.RequestedTheme);
+    }
+
+    private static void Apply(AppTheme theme)
+    {
+        _systemDark = theme == AppTheme.Dark;
+        if (Current is { } tm) tm.Dark = _systemDark;
+    }
 
     /// <summary>毛玻璃（磨砂的高级版）：开启时自动同时启用磨砂。</summary>
     public bool Glass
@@ -305,7 +365,8 @@ public class ThemeManager
     private static void UpdateColorsFromXaml(ResourceDictionary dict, string xaml)
     {
         var keys = new[] { "PageBg", "SurfaceBg", "SurfaceFg", "PrimaryAction", "PrimaryHover", "PrimaryFg",
-            "SecondaryBg", "MutedFg", "BorderLine", "InputBg", "WarmDark", "WarmBody", "WarmMuted", "WarmFaint",
+            "SecondaryBg", "MutedFg", "BorderLine", "InputBg", "WellBg", "EdgeStrong",
+            "WarmDark", "WarmBody", "WarmMuted", "WarmFaint",
             "AccentWarm", "AccentWarmFg", "BubbleMine", "BubbleTheirs", "OverlayDim",
             "Cream50", "Cream100", "Cream200", "Beige100", "Beige200", "BeigeAccent50", "BeigeAccent100",
             "BeigeAccent200", "BeigeAccent300", "OffWhite50", "OffWhite100", "OffWhite200", "ShadowLight",
@@ -352,6 +413,12 @@ public class ThemeManager
         }
     }
 
+    /// <summary>
+    /// 窗口尺度跨档时重发令牌。走 ScheduleApply 而不是直接 Flush：拖窗口一次会报几十次尺寸变化，
+    /// 而重发是整屏重排 —— 让它和换色共用同一个防抖窗口，拖动手感才不会变成抽风。
+    /// </summary>
+    public void RepublishForScale() => ScheduleApply();
+
     private void Flush()
     {
         string? theme;
@@ -365,32 +432,30 @@ public class ThemeManager
         {
             try
             {
-                // 先换调色板，再下发画刷 —— 顺序保证 GlassTokens 读到的是新配色
+                // 先换调色板，再算世界，最后下发画刷 —— 顺序保证世界读到的是本色相种子，
+                // 而 GlassTokens 读到的是世界算好的色标（GTint* / GEdge*）。
                 if (theme is not null)
                 {
                     ApplyThemeResources(theme);
                 }
-                GlassTokens.Publish(new GlassParams(ActiveEffect, GlassTranslucency, GlassFrost, GlassHeight,
+                StyleWorldTokens.Publish(_world, _dark, _themeName);
+                var (tBias, fBias, hBias) = StyleWorldTokens.GlassBias(_world);
+                GlassTokens.Publish(new GlassParams(StyleWorldTokens.GlassTier,
+                    GlassTranslucency * tBias, GlassFrost * fBias, GlassHeight * hBias,
                     GlassLightX, GlassLightY, GlassLightZ, GlassLightWidth, ReducedTransparency));
+                StyleWorldTokens.ApplyFace();   // 玻璃档把算好的面接回世界的名字上（顺序不能颠倒）
+                if (Application.Current?.Resources.TryGetValue("PageBg", out var pb) == true && pb is Color pageBg)
+                    Services.AppBackgroundService.Recolor(pageBg);   // 纯色背景要跟世界一起换档
                 Services.AppBackgroundService.Publish();   // 换主题别把自定义背景冲掉
-                FadeCurrentPage();
+                // 这里刻意不给整页做淡入过场。换主题常常发生在「刚导航到新页面」的那一刻
+                // （进设置首页就会顺手存一次设置 → 下发 → 走到这里），而此时 Shell.Current.CurrentPage
+                // 可能还是上一个页面，或者新页面的平台视图还没建好。整页 Opacity 是抢不过导航的：
+                // 实测把设置页留在完全透明，窗口只剩一张白底，鼠标点什么都没反应
+                // （元素还在树里，所以读屏能读到、界面看不见）。画刷是 DynamicResource，
+                // 换完自己就重绘了，不需要再叠一层「换好了」的暗示。
             }
             catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }
         });
-    }
-
-    /// <summary>
-    /// 整页淡入：换主题是全局重绘，给一个短促的过场，
-    /// 观感上是「换好了」而不是「卡了一下」。
-    /// </summary>
-    private static void FadeCurrentPage()
-    {
-        var page = Shell.Current?.CurrentPage;
-        if (page is null) return;
-        var ms = MotionTokens.Ms(MotionTokens.PageFadeMs);
-        if (ms <= 0) { page.Opacity = 1; return; }   // 减少动画：别从半透明起步，那本身就是一次动效
-        page.Opacity = 0.55;
-        _ = page.FadeTo(1, (uint)ms, Easing.CubicOut);
     }
 
     public void Reset()

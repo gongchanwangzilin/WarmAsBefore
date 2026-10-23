@@ -185,7 +185,7 @@ public void AddRange(IEnumerable<T> items)      // 单次 Add 事件，分页追
   - `SecondaryBg #F9DFE5` `MutedFg #B98A96` `BorderLine #F3CBD5` `OverlayDim #C87A4A56`
   - `AccentWarm #F6DCC6` `AccentWarmFg #8A6A4F` `BeigeAccent200 #ECA9BB` `WarmMuted #B98A96`
   - `ShadowDim #F0CFD8`（弹窗阴影）
-- **样式**：`NeumorphicStyles`（按钮/卡片/输入框），`CardShapes`，`GlassEffects`，`ButtonShapes`，`TextTypography`。
+- **样式**：`NeumorphicStyles`（按钮/卡片/输入框），`CardShapes`，`ButtonShapes`，`TextTypography`。
 - **转换器**：`InverseBool`、`StringNotEmpty`、`GreaterThanZero`、`IsEmptyConverter` 等（`Converters/` + `App.xaml` 注册）。
 
 ---

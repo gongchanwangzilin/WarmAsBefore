@@ -23,10 +23,11 @@
   <data name="Title_ThemePrefix" xml:space="preserve"><value>Theme</value></data>
   <data name="Title_Coexist" xml:space="preserve"><value>✦ Co-living Experience</value></data>
   <data name="Title_CoexistDesc" xml:space="preserve"><value>Every day with them — chatting, living, mini-games — warm as before.</value></data>
-  <data name="Title_ThemeClassic" xml:space="preserve"><value>Classic</value></data>
-  <data name="Title_ThemeGlass" xml:space="preserve"><value>Frosted Glass</value></data>
-  <data name="Title_ThemeFrost" xml:space="preserve"><value>Matte Glass</value></data>
-  <data name="Title_ThemeLiquid" xml:space="preserve"><value>Liquid Glass</value></data>
+  <!-- 启动卡的两行：上面那行是图形化的中文名牌（不翻译，它就是那颗印章），
+       下面这行才跟语言设置走。跳过提示跟着同一张卡，只在卡片期间出现。 -->
+  <data name="Brand_Mark" xml:space="preserve"><value>温暖如初</value></data>
+  <data name="Brand_Name" xml:space="preserve"><value>Warm As Before</value></data>
+  <data name="Intro_Skip" xml:space="preserve"><value>Click to skip</value></data>
   <data name="Settings_Interface" xml:space="preserve"><value>Interface</value></data>
   <data name="Settings_Theme" xml:space="preserve"><value>Color Theme</value></data>
   <data name="Settings_ThemeHint" xml:space="preserve"><value>Classic / Sakura / Bamboo / Mist — applies to all pages after returning to title</value></data>
@@ -118,6 +119,7 @@
   <data name="Settings_ImportUnzip" xml:space="preserve"><value>Extracting…</value></data>
   <data name="Settings_ImportCopy" xml:space="preserve"><value>Copying files…</value></data>
   <data name="Common_Back" xml:space="preserve"><value>&lt; Back</value></data>
+  <data name="Common_Loading" xml:space="preserve"><value>Getting things ready…</value></data>
   <data name="Settings_Title" xml:space="preserve"><value>Settings</value></data>
   <data name="Settings_Volume" xml:space="preserve"><value>Volume</value></data>
   <data name="Settings_Bgm" xml:space="preserve"><value>BGM</value></data>
@@ -153,4 +155,73 @@
   <data name="Settings_NotifyHint" xml:space="preserve"><value>Notify when real WeChat / QQ messages arrive</value></data>
   <data name="Settings_Greeting" xml:space="preserve"><value>Idle Greetings</value></data>
   <data name="Settings_GreetingHint" xml:space="preserve"><value>They greet you when idle</value></data>
+  <data name="Setup_Lang_Title" xml:space="preserve"><value>Choose a language first</value></data>
+  <data name="Setup_Lang_Sub" xml:space="preserve"><value>It switches the moment you tap — no restart.</value></data>
+  <data name="Setup_Style_Title" xml:space="preserve"><value>Pick a feel</value></data>
+  <data name="Setup_Style_Sub" xml:space="preserve"><value>Material sets the corners, seams and light; the palette sets the colours. Tap one and this page becomes it.</value></data>
+  <data name="Setup_Style_Material" xml:space="preserve"><value>Material</value></data>
+  <data name="Setup_Style_Palette" xml:space="preserve"><value>Palette</value></data>
+  <data name="Setup_Reside_Title" xml:space="preserve"><value>Keep it around</value></data>
+  <data name="Setup_Reside_Sub" xml:space="preserve"><value>These two only apply on Windows, and Settings can change them back any time.</value></data>
+  <data name="Setup_Reside_Top" xml:space="preserve"><value>Always on top</value></data>
+  <data name="Setup_Reside_TopHint" xml:space="preserve"><value>Stays in front instead of getting covered</value></data>
+  <data name="Setup_Reside_Pet" xml:space="preserve"><value>How often the desk pet appears</value></data>
+  <data name="Setup_Ai_Title" xml:space="preserve"><value>Connect the part that talks</value></data>
+  <data name="Setup_Ai_Sub" xml:space="preserve"><value>Real replies need an endpoint. Skip it and everything else still works.</value></data>
+  <data name="Setup_Ai_Hint" xml:space="preserve"><value>The key goes only to the address above — never to logs, never anywhere else.</value></data>
+  <data name="Setup_Done_Title" xml:space="preserve"><value>That is all</value></data>
+  <data name="Setup_Done_Sub" xml:space="preserve"><value>Everything else can wait until you are using it. Meet your first character now?</value></data>
+  <data name="Setup_Teach_Head" xml:space="preserve"><value>Before you start</value></data>
+  <data name="Setup_Teach_Char" xml:space="preserve"><value>Start with a character</value></data>
+  <data name="Setup_Teach_CharHint" xml:space="preserve"><value>New is enough: name, gender, personality — no art needed. Or import a character pack (.zip)</value></data>
+  <data name="Setup_Teach_Ai" xml:space="preserve"><value>Real replies need an AI</value></data>
+  <data name="Setup_Teach_AiHint" xml:space="preserve"><value>Settings → AI &amp; models: endpoint, key, model</value></data>
+  <data name="Setup_Teach_More" xml:space="preserve"><value>Tweak it anytime</value></data>
+  <data name="Setup_Teach_MoreHint" xml:space="preserve"><value>Appearance &amp; theme to restyle; Data &amp; assets to import or export packs</value></data>
+  <data name="Setup_Next" xml:space="preserve"><value>Next</value></data>
+  <data name="Setup_Back" xml:space="preserve"><value>Back</value></data>
+  <data name="Setup_Begin" xml:space="preserve"><value>Get started</value></data>
+  <data name="Setup_CreateGo" xml:space="preserve"><value>Create a character</value></data>
+  <data name="Setup_Later" xml:space="preserve"><value>Do this later</value></data>
+  <data name="Setup_SkipStep" xml:space="preserve"><value>Skip this step</value></data>
+  <data name="Setup_SkipAll" xml:space="preserve"><value>Skip setup</value></data>
+  <data name="Setup_World_Soft" xml:space="preserve"><value>Soft touch</value></data>
+  <data name="Setup_World_Minimal" xml:space="preserve"><value>Quiet minimal</value></data>
+  <data name="Setup_World_Gradient" xml:space="preserve"><value>Soft gradient</value></data>
+  <data name="Setup_World_Liquid" xml:space="preserve"><value>Liquid glass</value></data>
+  <data name="Setup_Pal_Classic" xml:space="preserve"><value>Classic</value></data>
+  <data name="Setup_Pal_Sakura" xml:space="preserve"><value>Sakura</value></data>
+  <data name="Setup_Pal_Bamboo" xml:space="preserve"><value>Bamboo</value></data>
+  <data name="Setup_Pal_Mist" xml:space="preserve"><value>Mist</value></data>
+  <data name="Setup_Pet_Off" xml:space="preserve"><value>Never on its own</value></data>
+  <data name="Setup_Pet_Min" xml:space="preserve"><value>After {0} minutes idle</value></data>
+  <data name="Settings_ChannelsUrl" xml:space="preserve"><value>Channels URL</value></data>
+  <data name="Settings_ChannelsUrlPlaceholder" xml:space="preserve"><value>https://... (your Channels page; leave empty to disable)</value></data>
+  <data name="Shell_Channels" xml:space="preserve"><value>Channels</value></data>
+  <data name="Shell_Qq" xml:space="preserve"><value>QQ</value></data>
+  <data name="Shell_Forum" xml:space="preserve"><value>Forum</value></data>
+  <data name="Forum_Title" xml:space="preserve"><value>QQ Forum</value></data>
+  <data name="Forum_Placeholder" xml:space="preserve"><value>Say something on the forum...</value></data>
+  <data name="Forum_Post" xml:space="preserve"><value>Post</value></data>
+  <data name="Forum_Empty" xml:space="preserve"><value>No posts yet - start one~</value></data>
+  <data name="Forum_TopicDaily" xml:space="preserve"><value>Daily</value></data>
+  <data name="Forum_TopicWish" xml:space="preserve"><value>Wishes</value></data>
+  <data name="Forum_TopicToday" xml:space="preserve"><value>What do you want to do today</value></data>
+  <data name="Settings_CloudTitle" xml:space="preserve"><value>Cloud save</value></data>
+  <data name="Settings_CloudHint" xml:space="preserve"><value>Mirror saves, characters and chats to your own GitHub repository. Each device writes to its own folder and the newest timestamp wins, so they never overwrite each other. If both are used at once, the losing copy is moved into a conflicts backup.</value></data>
+  <data name="Settings_CloudEnable" xml:space="preserve"><value>Enable cloud save</value></data>
+  <data name="Settings_CloudEnableHint" xml:space="preserve"><value>When off, everything stays on this device; when on, changes upload automatically</value></data>
+  <data name="Settings_CloudRepo" xml:space="preserve"><value>Repository</value></data>
+  <data name="Settings_CloudRepoPlaceholder" xml:space="preserve"><value>owner/repo (a private repository is recommended)</value></data>
+  <data name="Settings_CloudToken" xml:space="preserve"><value>Access token</value></data>
+  <data name="Settings_CloudTokenPlaceholder" xml:space="preserve"><value>github_pat_... (Contents read &amp; write is enough)</value></data>
+  <data name="Settings_CloudDevice" xml:space="preserve"><value>Device name</value></data>
+  <data name="Settings_CloudDevicePlaceholder" xml:space="preserve"><value>Home PC / My phone</value></data>
+  <data name="Settings_CloudAutoUpload" xml:space="preserve"><value>Auto-upload after changes</value></data>
+  <data name="Settings_CloudAutoUploadHint" xml:space="preserve"><value>Uploads about two seconds after you stop typing, so it never interrupts input</value></data>
+  <data name="Settings_CloudReconcile" xml:space="preserve"><value>Tidy memories after syncing</value></data>
+  <data name="Settings_CloudReconcileHint" xml:space="preserve"><value>After merging both devices, the chat model removes duplicate memories; skipped when no model is configured</value></data>
+  <data name="Settings_CloudSyncNow" xml:space="preserve"><value>Sync now</value></data>
+  <data name="Settings_CloudTest" xml:space="preserve"><value>Test connection</value></data>
+  <data name="Settings_CloudPrivacy" xml:space="preserve"><value>The token stays in this device's settings and settings.json is never uploaded; the repository only holds saves and data files — sprites, backgrounds and other images are not uploaded.</value></data>
 </root>

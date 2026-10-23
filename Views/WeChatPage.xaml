@@ -1,134 +1,149 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:mdl="clr-namespace:WarmAsBefore.Models"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.WeChatPage"
              x:Name="Page"
 
              Shell.NavBarIsVisible="False"
-             Background="{DynamicResource PageBgBrush}">
+             Background="{StaticResource WcChatBg}">
 
+    <!--
+      微信壳 · 单聊会话（移动端观感，白 + 蓝）。
+      灰色会话底（WcChatBg）上浮「我=浅蓝气泡 / 对方=白气泡」；顶栏浅灰、发丝线分界。
+      品牌色一律 Wc*（WeChatBrand.xaml），静态、不随风格世界与明暗档走。
+      所有命令/绑定保持原样，只换皮。
+    -->
     <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
-        <!-- 联系人列表层：微信风格，点联系人进入单聊 -->
+        <!-- 联系人列表层：白底浮在会话之上，点联系人进入单聊 -->
         <Grid Grid.RowSpan="5" IsVisible="{Binding IsContactListVisible}"
-              BackgroundColor="{DynamicResource SurfaceBg}" ZIndex="10">
+              BackgroundColor="{StaticResource WcPageBg}" ZIndex="10">
             <Grid RowDefinitions="Auto,*" Padding="0">
-                <Border BackgroundColor="#2E2E2E" StrokeThickness="0" Padding="12,12,12,12">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
-                        <Button Text="&lt;" Style="{StaticResource BtnText}"
-                                TextColor="White" FontSize="20" Padding="0" WidthRequest="28"
-                                Command="{Binding BackCommand}" />
-                        <Label Grid.Column="1" Text="微信" TextColor="White" FontSize="17"
-                               FontAttributes="Bold" VerticalOptions="Center" HorizontalOptions="Center" />
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+                      BackgroundColor="{StaticResource WcHeader}" Padding="14,14,14,14">
+                    <Button Text="&lt;" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
+                            FontSize="20" Padding="0" WidthRequest="30"
+                            Command="{Binding BackCommand}" />
+                    <Label Grid.Column="1" Text="微信" TextColor="{StaticResource WcInk}" FontSize="18"
+                           FontAttributes="Bold" VerticalOptions="Center" HorizontalOptions="Center" />
+                    <!-- 视频号入口：跳「设置 → 外部接入 → 视频号链接」里填的 URL（应用内浏览器） -->
+                    <Grid Grid.Column="2" ColumnDefinitions="*,Auto">
+                        <BoxView Grid.Column="0" Color="Transparent" InputTransparent="True" />
+                        <Button Grid.Column="1" Text="{Binding [Shell_Channels], Source={x:Static i18n:LocalizationService.Current}}"
+                                Style="{StaticResource BtnText}" TextColor="{StaticResource WcAccent}"
+                                FontSize="13" Padding="4,0" VerticalOptions="Center"
+                                Command="{Binding OpenChannelsCommand}" />
                     </Grid>
-                </Border>
+                </Grid>
+                <BoxView HeightRequest="1" Color="{StaticResource WcSep}" />
                 <CollectionView Grid.Row="1" ItemsSource="{Binding ContactList}"
-                                SelectionMode="None" Margin="0,4,0,0">
+                                SelectionMode="None" BackgroundColor="Transparent" Margin="0">
                     <CollectionView.EmptyView>
                         <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                              Spacing="10" Padding="32">
                             <Label Text="💬" FontSize="40" HorizontalOptions="Center" />
-                            <Label Text="还没有微信好友" Style="{StaticResource TxtTitle}"
-                                   HorizontalOptions="Center" />
+                            <Label Text="还没有微信好友" TextColor="{StaticResource WcSub}"
+                                   FontSize="17" HorizontalOptions="Center" />
                             <Label Text="让 AI 用「add_wechat」把剧情里的角色加为好友"
-                                   Style="{StaticResource TxtMuted}" FontSize="12"
-                                   HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+                                   TextColor="{StaticResource WcFaint}" FontSize="13"
+                                   HorizontalOptions="Center" HorizontalTextAlignment="Center"
+                                   LineBreakMode="WordWrap" />
                         </VerticalStackLayout>
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:WeChatContactItem">
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
-                                  Padding="16,10" BackgroundColor="{DynamicResource SurfaceBg}">
-                                <Border BackgroundColor="{DynamicResource BeigeAccent50}"
-                                        WidthRequest="48" HeightRequest="48" StrokeThickness="0">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <Image Source="{Binding Avatar}" Aspect="AspectFill"
-                                           IsVisible="{Binding HasAvatar}"
-                                           HorizontalOptions="Fill" VerticalOptions="Fill" />
-                                    <Label Text="{Binding Initial}" TextColor="White" FontSize="18"
-                                           FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center"
-                                           IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                            <VerticalStackLayout Spacing="0">
+                                <Border BackgroundColor="{StaticResource WcRow}" Padding="14,12">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                        <Grid Grid.Column="0" WidthRequest="48" HeightRequest="48">
+                                            <BoxView WidthRequest="48" HeightRequest="48" CornerRadius="24"
+                                                     Color="{StaticResource WcAvatar}" InputTransparent="True" />
+                                            <Image Source="{Binding Avatar}" Aspect="AspectFill"
+                                                   WidthRequest="48" HeightRequest="48"
+                                                   IsVisible="{Binding HasAvatar}"
+                                                   HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                            <Label Text="{Binding Initial}" TextColor="{StaticResource WcInk}"
+                                                   FontSize="18" FontAttributes="Bold"
+                                                   HorizontalOptions="Center" VerticalOptions="Center"
+                                                   IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                        </Grid>
+                                        <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
+                                            <Label Text="{Binding Name}" TextColor="{StaticResource WcInk}"
+                                                   FontSize="17" FontAttributes="Bold" />
+                                            <Label Text="{Binding LastMessage}" TextColor="{StaticResource WcSub}"
+                                                   FontSize="13" LineBreakMode="TailTruncation" MaxLines="1" />
+                                        </VerticalStackLayout>
+                                        <BoxView Grid.Column="2" IsVisible="{Binding Unread}"
+                                                 Color="{StaticResource WcBadge}"
+                                                 WidthRequest="18" HeightRequest="18" CornerRadius="9"
+                                                 VerticalOptions="Center" />
+                                    </Grid>
                                 </Border>
-                                <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-                                    <Label Text="{Binding Name}" FontSize="16" FontAttributes="Bold"
-                                           TextColor="{DynamicResource SurfaceFg}" />
-                                    <Label Text="{Binding LastMessage}" FontSize="12"
-                                           TextColor="{DynamicResource MutedFg}"
-                                           LineBreakMode="TailTruncation" MaxLines="1" />
-                                </VerticalStackLayout>
-                                <Border Grid.Column="2" IsVisible="{Binding Unread}"
-                                        BackgroundColor="#C0392B" WidthRequest="18" HeightRequest="18"
-                                        StrokeThickness="0" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                </Border>
+                                <BoxView HeightRequest="1" Color="{StaticResource WcSep}" Margin="64,0,0,0" />
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.OpenContactCommand}"
                                         CommandParameter="{Binding .}" />
                                 </Grid.GestureRecognizers>
-                            </Grid>
+                            </VerticalStackLayout>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
             </Grid>
         </Grid>
 
-        <!-- Header: back + avatar + name + mode chip -->
-        <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
-                Padding="12,10,16,10">
+        <!-- Header: 返回 + 头像 + 名字 + 「微信」徽标 -->
+        <Border BackgroundColor="{StaticResource WcHeaderChat}" StrokeThickness="0"
+                Padding="14,10,16,10">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
-                <Button Text="&lt;" Style="{StaticResource BtnText}" FontSize="18" Padding="0"
-                        WidthRequest="28" VerticalOptions="Center"
+                <Button Text="&lt;" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
+                        FontSize="18" Padding="0" WidthRequest="28" VerticalOptions="Center"
                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.BackCommand}" />
-                <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"
-                        WidthRequest="38" HeightRequest="38" StrokeThickness="1"
-                        Stroke="{DynamicResource BorderLine}">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="19" /></Border.StrokeShape>
+                <Grid Grid.Column="1" WidthRequest="38" HeightRequest="38" VerticalOptions="Center">
+                    <BoxView WidthRequest="38" HeightRequest="38" CornerRadius="19"
+                             Color="{StaticResource WcAvatar}" InputTransparent="True" />
                     <Image Source="{Binding PartnerAvatar}" Aspect="AspectFill"
                            IsVisible="{Binding HasPartnerAvatar}"
                            HorizontalOptions="Fill" VerticalOptions="Fill" />
                     <Label Text="{Binding PartnerName, Converter={StaticResource CharInitials}}"
-                           TextColor="{DynamicResource WarmDark}" FontSize="15"
+                           TextColor="{StaticResource WcInk}" FontSize="15"
                            HorizontalOptions="Center" VerticalOptions="Center" FontAttributes="Bold"
                            IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" />
-                </Border>
+                </Grid>
                 <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="1">
-                    <Label Text="{Binding PartnerName}" Style="{StaticResource TxtSubhead}" FontSize="15" />
-                    <Label Text="{Binding ModeLabel}" Style="{StaticResource TxtCaption}" FontSize="10" />
+                    <Label Text="{Binding PartnerName}" TextColor="{StaticResource WcInk}"
+                           FontSize="16" FontAttributes="Bold" />
+                    <Label Text="{Binding ModeLabel}" TextColor="{StaticResource WcSub}" FontSize="11" />
                 </VerticalStackLayout>
-                <Border Grid.Column="3" BackgroundColor="{DynamicResource BeigeAccent50}"
-                        StrokeThickness="0" Padding="10,5" VerticalOptions="Center">
+                <Border Grid.Column="3" BackgroundColor="{StaticResource WcAccentSoft}"
+                        StrokeThickness="0" Padding="10,4" VerticalOptions="Center">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="微信" FontSize="11" TextColor="{DynamicResource WarmDark}" />
+                    <Label Text="微信" FontSize="11" TextColor="{StaticResource WcAccent}" />
                 </Border>
             </Grid>
         </Border>
+        <BoxView HeightRequest="1" Color="{StaticResource WcSep}" />
 
-        <!-- Chat messages: 文字 / 图片(表情包) / 视频内联 / 文件卡片 四态 -->
+        <!-- 会话：文字 / 图片(表情包) / 视频内联 / 文件卡片 四态。我=浅蓝右，对方=白左 -->
         <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}"
                         ItemsUpdatingScrollMode="KeepLastItemInView"
-                        Margin="10,8,10,4">
+                        BackgroundColor="Transparent" Margin="10,8,10,4">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="mdl:ChatItem">
                     <Grid Padding="0,3">
-                        <!-- User message (right) -->
+                        <!-- 我发的（右侧，浅蓝气泡） -->
                         <Border IsVisible="{Binding IsUser}"
-                                BackgroundColor="{DynamicResource BubbleMine}"
-                                StrokeThickness="0"
-                                Padding="10,8"
-                                HorizontalOptions="End"
-                                MaximumWidthRequest="300">
+                                BackgroundColor="{StaticResource WcMine}"
+                                StrokeThickness="0" Padding="10,8"
+                                HorizontalOptions="End" MaximumWidthRequest="300">
                             <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                             <Grid>
-                                <Label Text="{Binding DisplayText}"
-                                       TextColor="{DynamicResource WarmDark}"
-                                       FontSize="14" LineBreakMode="WordWrap"
-                                       IsVisible="{Binding IsText}" />
+                                <Label Text="{Binding DisplayText}" TextColor="{StaticResource WcMineInk}"
+                                       FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
                                 <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                        WidthRequest="150" HeightRequest="150"
                                        IsVisible="{Binding HasImage}" />
@@ -138,11 +153,11 @@
                                        ShouldAutoPlay="False" ShouldShowPlaybackControls="True"
                                        BackgroundColor="Black" />
                                 <Border IsVisible="{Binding IsFile}"
-                                        BackgroundColor="{DynamicResource SurfaceBg}"
-                                        StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                                        BackgroundColor="{StaticResource WcTheirs}"
+                                        StrokeThickness="1" Stroke="{StaticResource WcSep}"
                                         Padding="10,8">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                    <Label Text="{Binding FileName}" TextColor="{DynamicResource WarmDark}"
+                                    <Label Text="{Binding FileName}" TextColor="{StaticResource WcInk}"
                                            FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer
@@ -153,20 +168,16 @@
                             </Grid>
                         </Border>
 
-                        <!-- AI message (left) -->
+                        <!-- 对方发的（左侧，白气泡） -->
                         <HorizontalStackLayout IsVisible="{Binding IsUser, Converter={StaticResource InverseBool}}"
                                                Spacing="8">
-                            <Border BackgroundColor="{DynamicResource BubbleTheirs}"
-                                    StrokeThickness="0"
-                                    Padding="10,8"
-                                    HorizontalOptions="Start"
-                                    MaximumWidthRequest="300">
+                            <Border BackgroundColor="{StaticResource WcTheirs}"
+                                    StrokeThickness="0" Padding="10,8"
+                                    HorizontalOptions="Start" MaximumWidthRequest="300">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                 <Grid>
-                                    <Label Text="{Binding DisplayText}"
-                                           TextColor="{DynamicResource WarmDark}"
-                                           FontSize="14" LineBreakMode="WordWrap"
-                                           IsVisible="{Binding IsText}" />
+                                    <Label Text="{Binding DisplayText}" TextColor="{StaticResource WcTheirsInk}"
+                                           FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
                                     <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                            WidthRequest="150" HeightRequest="150"
                                            IsVisible="{Binding HasImage}" />
@@ -176,11 +187,11 @@
                                            ShouldAutoPlay="False" ShouldShowPlaybackControls="True"
                                            BackgroundColor="Black" />
                                     <Border IsVisible="{Binding IsFile}"
-                                            BackgroundColor="{DynamicResource SurfaceBg}"
-                                            StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
+                                            BackgroundColor="{StaticResource WcTheirs}"
+                                            StrokeThickness="1" Stroke="{StaticResource WcSep}"
                                             Padding="10,8">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                        <Label Text="{Binding FileName}" TextColor="{DynamicResource WarmDark}"
+                                        <Label Text="{Binding FileName}" TextColor="{StaticResource WcInk}"
                                                FontSize="12" LineBreakMode="TailTruncation" MaxLines="2" />
                                         <Border.GestureRecognizers>
                                             <TapGestureRecognizer
@@ -196,39 +207,37 @@
             </CollectionView.ItemTemplate>
         </CollectionView>
 
-        <!-- Typing indicator -->
+        <!-- 正在输入提示 -->
         <Border Grid.Row="2" IsVisible="{Binding IsTyping}"
                 BackgroundColor="Transparent" StrokeThickness="0"
                 Padding="16,2,0,2">
             <HorizontalStackLayout Spacing="6">
-                <Border BackgroundColor="{DynamicResource BubbleTheirs}"
-                        StrokeThickness="0"
+                <Border BackgroundColor="{StaticResource WcTheirs}"
+                        StrokeThickness="1" Stroke="{StaticResource WcSep}"
                         Padding="10,6">
                     <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                    <Label Text="{Binding TypingLabel}"
-                           TextColor="{DynamicResource WarmMuted}"
-                           FontSize="12" FontAttributes="Italic" />
+                    <Label Text="{Binding TypingLabel}" TextColor="{StaticResource WcSub}"
+                           FontSize="12" />
                 </Border>
             </HorizontalStackLayout>
         </Border>
 
-        <!-- Sticker panel: 用户导入的表情库 -->
+        <!-- 表情面板：用户导入的表情库 -->
         <Border Grid.Row="3" IsVisible="{Binding IsStickerPanelVisible}"
-                BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
-                Padding="10,6">
+                BackgroundColor="{StaticResource WcPageBg}" StrokeThickness="0"
+                Padding="10,8">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid RowDefinitions="Auto,*" RowSpacing="4">
+            <BoxView HeightRequest="1" Color="{StaticResource WcSep}" VerticalOptions="Start" HorizontalOptions="Fill" />
+            <Grid RowDefinitions="Auto,*" RowSpacing="6">
                 <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="我的表情包" FontSize="11"
-                           TextColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="📥 导入表情" FontSize="11"
-                            BackgroundColor="{DynamicResource BeigeAccent200}"
-                            TextColor="{DynamicResource WarmDark}"
+                    <Label Text="我的表情包" TextColor="{StaticResource WcSub}" FontSize="12"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="📥 导入表情" FontSize="12"
+                            BackgroundColor="{StaticResource WcAccentSoft}" TextColor="{StaticResource WcAccent}"
                             CornerRadius="10" Padding="10,4"
                             Command="{Binding ImportStickerCommand}" />
                 </Grid>
-                <ScrollView Grid.Row="1" Orientation="Horizontal"
-                            HorizontalScrollBarVisibility="Never">
+                <ScrollView Grid.Row="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
                     <HorizontalStackLayout Spacing="10" VerticalOptions="Center">
                         <BindableLayout.ItemsSource>
                             <Binding Path="Stickers" />
@@ -247,35 +256,34 @@
                         </BindableLayout.ItemTemplate>
                     </HorizontalStackLayout>
                 </ScrollView>
-                <Label Grid.Row="1" Text="还没有表情，点右上角「📥 导入表情」添加（图片/动图/视频/任意文件均可）"
-                       FontSize="11" TextColor="{DynamicResource MutedFg}"
+                <Label Grid.Row="1" Text="还没有表情，点「📥 导入表情」添加（图片/动图/视频/任意文件均可）"
+                       TextColor="{StaticResource WcFaint}" FontSize="12"
                        IsVisible="{Binding HasStickers, Converter={StaticResource InverseBool}}"
                        VerticalOptions="Center" />
             </Grid>
         </Border>
 
-        <!-- Input bar: 多行输入框 + 表情 + 文件 + 发送 -->
-        <Border Grid.Row="4" BackgroundColor="{DynamicResource SurfaceBg}"
+        <!-- 输入条：语音 + 礼物 + 多行输入 + 表情 + 文件 + 发送（蓝） -->
+        <Border Grid.Row="4" BackgroundColor="{StaticResource WcPageBg}"
                 Padding="8,8,8,10" StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+            <BoxView HeightRequest="1" Color="{StaticResource WcSep}" VerticalOptions="Start" HorizontalOptions="Fill" />
+            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
                 <Button Grid.Column="0" Text="语音"
-                        Style="{StaticResource BtnText}"
-                        FontSize="12"
-                        HeightRequest="40" WidthRequest="40"
+                        Style="{StaticResource BtnText}" TextColor="{StaticResource WcSub}"
+                        FontSize="12" HeightRequest="40" WidthRequest="40"
                         Command="{Binding VoiceInputCommand}" />
                 <Button Grid.Column="1" Text="🎁"
                         Style="{StaticResource BtnText}"
-                        FontSize="14"
-                        HeightRequest="40" WidthRequest="40"
+                        FontSize="14" HeightRequest="40" WidthRequest="40"
                         Command="{Binding ToggleGiftPanelCommand}" />
-                <Border Grid.Column="2" BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="12,4">
+                <Border Grid.Column="2" BackgroundColor="{StaticResource WcInputBg}" StrokeThickness="0" Padding="12,4">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <Editor x:Name="TextEditor" Placeholder="输入…" Text="{Binding InputText}"
                             BackgroundColor="Transparent"
-                            TextColor="{DynamicResource SurfaceFg}"
-                            PlaceholderColor="{DynamicResource MutedFg}"
-                            FontSize="13"
+                            TextColor="{StaticResource WcInk}"
+                            PlaceholderColor="{StaticResource WcFaint}"
+                            FontSize="14"
                             AutoSize="TextChanges"
                             MinimumHeightRequest="32" MaximumHeightRequest="96"
                             Completed="OnEditorCompleted"
@@ -292,9 +300,8 @@
                         HeightRequest="40" WidthRequest="40"
                         Command="{Binding PickFileCommand}" />
                 <Button Grid.Column="5" Text="发送"
-                        BackgroundColor="{DynamicResource BeigeAccent200}"
-                        TextColor="{DynamicResource WarmDark}"
-                        FontSize="12" FontAttributes="Bold"
+                        BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
+                        FontSize="13" FontAttributes="Bold"
                         CornerRadius="18" HeightRequest="40" WidthRequest="56" Padding="0"
                         Command="{Binding SendCommand}" />
             </Grid>
@@ -303,7 +310,7 @@
         <!-- 送礼 / 使用面板 -->
         <Grid Grid.RowSpan="5" IsVisible="{Binding IsGiftPanelVisible}"
               BackgroundColor="{DynamicResource OverlayDim}">
-            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
+            <Border BackgroundColor="{StaticResource WcPageBg}" StrokeThickness="0"
                     Padding="0" Margin="30" VerticalOptions="Center"
                     MaximumWidthRequest="400">
                 <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
@@ -311,94 +318,87 @@
                     <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
                 </Border.Shadow>
                 <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="18,16" RowSpacing="12">
-                    <!-- 标题 -->
-                    <Label Text="礼物箱 🎁" TextColor="{DynamicResource SurfaceFg}" FontSize="16"
+                    <Label Text="礼物箱 🎁" TextColor="{StaticResource WcInk}" FontSize="16"
                            FontAttributes="Bold" HorizontalOptions="Center" />
-                    <Label Text="点一下送出心意，小雨会收下并回应" TextColor="{DynamicResource MutedFg}" FontSize="11"
+                    <Label Text="点一下送出心意，对方会收下并回应" TextColor="{StaticResource WcSub}" FontSize="12"
                            HorizontalOptions="Center" />
 
-                    <!-- 模式切换：送礼 / 使用 -->
                     <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button Text="🎁 送礼" FontSize="13" HeightRequest="34" CornerRadius="10" Padding="0"
-                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource PrimaryFg}"
+                        <Button Text="🎁 送礼" FontSize="13" HeightRequest="36" CornerRadius="10" Padding="0"
+                                BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
                                 Command="{Binding ToggleGiftModeCommand}">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsGiftMode}" Value="False">
-                                    <Setter Property="BackgroundColor" Value="Transparent" />
-                                    <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+                                    <Setter Property="BackgroundColor" Value="{StaticResource WcInputBg}" />
+                                    <Setter Property="TextColor" Value="{StaticResource WcSub}" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Grid.Column="1" Text="✨ 使用" FontSize="13" HeightRequest="34" CornerRadius="10" Padding="0"
-                                BackgroundColor="Transparent" TextColor="{DynamicResource MutedFg}"
+                        <Button Grid.Column="1" Text="✨ 使用" FontSize="13" HeightRequest="36" CornerRadius="10" Padding="0"
+                                BackgroundColor="{StaticResource WcInputBg}" TextColor="{StaticResource WcSub}"
                                 Command="{Binding ToggleGiftModeCommand}">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsGiftMode}" Value="True">
-                                    <Setter Property="BackgroundColor" Value="{DynamicResource AccentWarm}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource AccentWarmFg}" />
+                                    <Setter Property="BackgroundColor" Value="{StaticResource WcAccent}" />
+                                    <Setter Property="TextColor" Value="{StaticResource WcAccentInk}" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
                     </Grid>
 
-                    <!-- 商品列表（有已购时显示） -->
                     <ScrollView Grid.Row="3" MaximumHeightRequest="300" IsVisible="{Binding HasGiftItems}">
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding GiftItems}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate>
                                     <VerticalStackLayout>
                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="4,8">
-                                            <Border BackgroundColor="{DynamicResource SecondaryBg}" StrokeThickness="0"
+                                            <Border BackgroundColor="{StaticResource WcInputBg}" StrokeThickness="0"
                                                     WidthRequest="40" HeightRequest="40" Padding="0">
                                                 <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                                                 <Label Text="{Binding Emoji}" FontSize="20"
                                                        HorizontalOptions="Center" VerticalOptions="Center" />
                                             </Border>
                                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                                <Label Text="{Binding Name}" TextColor="{DynamicResource SurfaceFg}"
+                                                <Label Text="{Binding Name}" TextColor="{StaticResource WcInk}"
                                                        FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                                <Label Text="{Binding Desc}" TextColor="{DynamicResource MutedFg}"
-                                                       FontSize="11" MaxLines="1" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Desc}" TextColor="{StaticResource WcSub}" FontSize="11"
+                                                       MaxLines="1" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <VerticalStackLayout Grid.Column="2" HorizontalOptions="End"
                                                                  VerticalOptions="Center" Spacing="6">
-                                                <Border BackgroundColor="{DynamicResource Beige100}" StrokeThickness="0"
+                                                <Border BackgroundColor="{StaticResource WcInputBg}" StrokeThickness="0"
                                                         Padding="9,2" HorizontalOptions="End">
                                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                                     <Label Text="{Binding Owned, StringFormat='×{0}'}"
-                                                           TextColor="{DynamicResource WarmMuted}" FontSize="10" />
+                                                           TextColor="{StaticResource WcSub}" FontSize="10" />
                                                 </Border>
-                                                <!-- 送礼（送礼模式下可见） -->
                                                 <Button Text="送礼" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
-                                                        BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource PrimaryFg}"
+                                                        BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
                                                         IsVisible="{Binding Path=BindingContext.IsGiftMode, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         Command="{Binding Path=BindingContext.GiftItemCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
-                                                <!-- 使用（使用模式下可见） -->
                                                 <Button Text="使用" FontSize="11" HeightRequest="28" Padding="12,0" CornerRadius="10"
-                                                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
+                                                        BackgroundColor="{StaticResource WcAccentSoft}" TextColor="{StaticResource WcAccent}"
                                                         IsVisible="{Binding Path=BindingContext.IsGiftMode, Source={RelativeSource AncestorType={x:Type ContentPage}}, Converter={StaticResource InverseBool}}"
                                                         Command="{Binding Path=BindingContext.UseItemCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
                                             </VerticalStackLayout>
                                         </Grid>
-                                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="4,0" />
+                                        <BoxView HeightRequest="1" Color="{StaticResource WcSep}" Margin="4,0" />
                                     </VerticalStackLayout>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                     </ScrollView>
 
-                    <!-- 空态 -->
                     <VerticalStackLayout Grid.Row="3" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8"
                                          IsVisible="{Binding HasGiftItems, Converter={StaticResource InverseBool}}">
                         <Label Text="🎁" FontSize="34" HorizontalOptions="Center" />
-                        <Label Text="还没有已购商品，先去商店逛逛吧～" TextColor="{DynamicResource MutedFg}" FontSize="12" />
+                        <Label Text="还没有已购商品，先去商店逛逛吧～" TextColor="{StaticResource WcSub}" FontSize="12" />
                     </VerticalStackLayout>
 
-                    <!-- 关闭 -->
                     <Button Grid.Row="4" Text="关闭" FontSize="13" HeightRequest="40" CornerRadius="12"
-                            BackgroundColor="Transparent" TextColor="{DynamicResource WarmMuted}"
+                            BackgroundColor="Transparent" TextColor="{StaticResource WcSub}"
                             Command="{Binding ToggleGiftPanelCommand}" />
                 </Grid>
             </Border>

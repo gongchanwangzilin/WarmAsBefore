@@ -3,20 +3,28 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              x:Class="WarmAsBefore.Views.PortraitCalibrationPage"
              Title="立绘标定"
-             BackgroundColor="{DynamicResource PageBg}">
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
 
-    <ScrollView>
-        <VerticalStackLayout Padding="16" Spacing="14">
+    <!--
+      立绘标定页。控制项改成「一张卡装一组行」：左标题（+说明）、右控件、垂直居中，
+      相邻行之间一根发丝线。预览与脚底基准线是功能性取景框，保持原样不重排，
+      只把写死的颜色换成令牌（画布留在黑底上：要看的就是素材在深色底上的边缘与透明余量，
+      这块黑是测量条件而不是装饰，跟背景标定页的画布同理）。
+    -->
+    <ScrollView Padding="{DynamicResource WPadCard}">
+        <VerticalStackLayout Spacing="{DynamicResource WGapSection}" MaximumWidthRequest="760">
 
-            <Label Text="{Binding Title}" FontSize="20" FontAttributes="Bold"
-                   TextColor="{DynamicResource PrimaryFg}" />
-            <Label Text="立绘按 1080×1920 的逻辑画布对齐。允许角色溢出画布，但脚底必须落在这块画布的下沿线上，大小与朝向也要正确。"
-                   FontSize="12" TextColor="{DynamicResource MutedFg}" />
+            <VerticalStackLayout Spacing="4">
+                <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" LineBreakMode="WordWrap" />
+                <Label Text="立绘按 1080×1920 的逻辑画布对齐。允许角色溢出画布，但脚底必须落在这块画布的下沿线上，大小与朝向也要正确。"
+                       Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
 
             <!-- 预览：与游戏同一套换算（含背景 AspectFill 与落脚点），所见即所得 -->
-            <Border BackgroundColor="Black" Stroke="{DynamicResource BorderLine}" StrokeThickness="1"
-                    HorizontalOptions="Center" Padding="0" WidthRequest="270" HeightRequest="480">
-                <Border.StrokeShape><RoundRectangle CornerRadius="6" /></Border.StrokeShape>
+            <Border BackgroundColor="Black" Stroke="{DynamicResource WEdgeStrongBrush}" StrokeThickness="1"
+                    HorizontalOptions="Center" Padding="0" WidthRequest="270" HeightRequest="480"
+                    StrokeShape="{DynamicResource WRadiusWell}">
                 <Grid>
                     <!-- 真实场景背景：与游戏一样 AspectFill，用来复现裁切后的落脚位置 -->
                     <Image Source="{Binding BgAbsPath}" Aspect="AspectFill"
@@ -31,80 +39,147 @@
                            TranslationX="{Binding PreviewX}"
                            TranslationY="{Binding PreviewY}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
-                    <!-- 脚底基准线：位置由与游戏相同的锚点公式算出 -->
-                    <BoxView Color="#FF5252" HeightRequest="1.5" Opacity="0.9"
+                    <!-- 脚底基准线：位置由与游戏相同的锚点公式算出。#FF5252 换成 RedSoft（同为 Color，
+                         世界把它锁到过对比：浅档 L0.42、深档 L0.58，压在这块黑画布上两地都看得见）。 -->
+                    <BoxView Color="{DynamicResource RedSoft}" HeightRequest="1.5" Opacity="0.9"
                              HorizontalOptions="Fill"
                              VerticalOptions="Start"
                              TranslationY="{Binding GroundLineY}" />
-                    <Label Text="脚底基准线" FontSize="9" TextColor="#FF5252"
-                           HorizontalOptions="End" VerticalOptions="Start"
-                           TranslationY="{Binding GroundLineY}" Margin="0,-12,4,0" />
+                    <!-- 标注不能把墨直接放在黑画布上：任何世界的墨都是跟**地面**锁的对比，跟画布无关。
+                         所以给它一块卡面当底，字仍走 MutedFg 这一档墨。 -->
+                    <Border Background="{DynamicResource WSurfaceRaised}" StrokeThickness="0"
+                            Padding="6,2" HorizontalOptions="End" VerticalOptions="Start"
+                            TranslationY="{Binding GroundLineY}" Margin="0,-12,4,0"
+                            StrokeShape="{DynamicResource WRadiusWell}">
+                        <Label Text="脚底基准线" Style="{StaticResource TxtCaption}" />
+                    </Border>
                 </Grid>
             </Border>
 
-            <Label Text="{Binding SourceLabel, StringFormat='素材尺寸：{0}'}"
-                   FontSize="12" TextColor="{DynamicResource MutedFg}" HorizontalOptions="Center" />
-            <Label Text="{Binding Status}" FontSize="12"
-                   TextColor="{DynamicResource MutedFg}" HorizontalOptions="Center" />
-            <Label Text="{Binding AnchorNote}" FontSize="11"
-                   TextColor="{DynamicResource MutedFg}" HorizontalOptions="Center" />
+            <!-- 三条读数：卡自己带内距、行不写内距，所以线用 HSepBleed 顶回卡边 -->
+            <Border Style="{StaticResource CardSolid}">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding SourceLabel, StringFormat='素材尺寸：{0}'}"
+                           Style="{StaticResource TxtBodySm}" />
+                    <BoxView Style="{StaticResource HSepBleed}" />
+                    <Label Text="{Binding Status}" Style="{StaticResource TxtBodySm}" />
+                    <BoxView Style="{StaticResource HSepBleed}" />
+                    <Label Text="{Binding AnchorNote}" Style="{StaticResource TxtCaption}" />
+                </VerticalStackLayout>
+            </Border>
 
-            <!-- 方向 -->
-            <Label Text="方向" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
-            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                <Button Text="水平翻转" Command="{Binding ToggleFlipHorizontalCommand}" FontSize="12" />
-                <Button Text="垂直翻转" Command="{Binding ToggleFlipVerticalCommand}" FontSize="12" />
-                <Button Text="旋转 90°" Command="{Binding RotateRightCommand}" FontSize="12" />
-            </HorizontalStackLayout>
+            <!-- 方向：左标题、右三个动作 -->
+            <Border Style="{StaticResource CardGroup}">
+                <Border Style="{StaticResource SettingRow}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Grid.Column="0" Text="方向" Style="{StaticResource TxtRowTitle}" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <Button Text="水平翻转" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding ToggleFlipHorizontalCommand}" />
+                            <Button Text="垂直翻转" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding ToggleFlipVerticalCommand}" />
+                            <Button Text="旋转 90°" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding RotateRightCommand}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Border>
+            </Border>
 
             <!-- 大小 -->
-            <Label Text="大小（&gt;100% 即溢出画布）" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
-            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                <Button Text="缩小" Command="{Binding ScaleDownCommand}" FontSize="12" WidthRequest="80" />
-                <Label Text="{Binding Scale, StringFormat='{0:P0}'}" VerticalOptions="Center" FontSize="14"
-                       TextColor="{DynamicResource PrimaryFg}" />
-                <Button Text="放大" Command="{Binding ScaleUpCommand}" FontSize="12" WidthRequest="80" />
-            </HorizontalStackLayout>
+            <Border Style="{StaticResource CardGroup}">
+                <Border Style="{StaticResource SettingRow}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Label Grid.Column="0" Text="大小（&gt;100% 即溢出画布）"
+                               Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <Button Text="缩小" Style="{StaticResource BtnGhostSm}" WidthRequest="80"
+                                    Command="{Binding ScaleDownCommand}" />
+                            <!-- 当前值是这一行的「读数」：夹在两个动作中间、占固定宽，数字跳动时不推挤按钮 -->
+                            <Label Text="{Binding Scale, StringFormat='{0:P0}'}" Style="{StaticResource TxtBodySm}"
+                                   WidthRequest="56" HorizontalOptions="Center" VerticalOptions="Center"
+                                   HorizontalTextAlignment="Center" />
+                            <Button Text="放大" Style="{StaticResource BtnGhostSm}" WidthRequest="80"
+                                    Command="{Binding ScaleUpCommand}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Border>
+            </Border>
 
-            <!-- 位置与脚底线 -->
-            <Label Text="位置与脚底线" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
-            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                <Button Text="←" Command="{Binding NudgeLeftCommand}" FontSize="12" WidthRequest="52" />
-                <Button Text="→" Command="{Binding NudgeRightCommand}" FontSize="12" WidthRequest="52" />
-                <Button Text="↑" Command="{Binding NudgeUpCommand}" FontSize="12" WidthRequest="52" />
-                <Button Text="↓" Command="{Binding NudgeDownCommand}" FontSize="12" WidthRequest="52" />
-            </HorizontalStackLayout>
-            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                <Label Text="脚底线" VerticalOptions="Center" FontSize="12" TextColor="{DynamicResource MutedFg}" />
-                <Button Text="抬脚线上移" Command="{Binding FootUpCommand}" FontSize="11" WidthRequest="96" />
-                <Button Text="回到底边" Command="{Binding FootDownCommand}" FontSize="11" WidthRequest="96" />
-            </HorizontalStackLayout>
+            <!-- 位置与脚底线：两行，中间一根发丝线 -->
+            <Border Style="{StaticResource CardGroup}">
+                <VerticalStackLayout Spacing="0">
+                    <Border Style="{StaticResource SettingRow}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Grid.Column="0" Text="位置与脚底线" Style="{StaticResource TxtRowTitle}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                                <Button Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="52"
+                                        Command="{Binding NudgeLeftCommand}" />
+                                <Button Text="→" Style="{StaticResource BtnGhostSm}" WidthRequest="52"
+                                        Command="{Binding NudgeRightCommand}" />
+                                <Button Text="↑" Style="{StaticResource BtnGhostSm}" WidthRequest="52"
+                                        Command="{Binding NudgeUpCommand}" />
+                                <Button Text="↓" Style="{StaticResource BtnGhostSm}" WidthRequest="52"
+                                        Command="{Binding NudgeDownCommand}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Border>
+                    <BoxView Style="{StaticResource HSep}" />
+                    <Border Style="{StaticResource SettingRow}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Grid.Column="0" Text="脚底线" Style="{StaticResource TxtRowTitle}" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                                <Button Text="抬脚线上移" Style="{StaticResource BtnGhostSm}" WidthRequest="96"
+                                        Command="{Binding FootUpCommand}" />
+                                <Button Text="回到底边" Style="{StaticResource BtnGhostSm}" WidthRequest="96"
+                                        Command="{Binding FootDownCommand}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
 
-            <!-- 校验结果 -->
-            <Border IsVisible="{Binding HasProblems}"
-                    BackgroundColor="#33FF5252" Stroke="#88FF5252" StrokeThickness="1" Padding="10">
-                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                <Label Text="{Binding ProblemsText}" FontSize="12" TextColor="{DynamicResource PrimaryFg}" />
+            <!-- 校验结果：不铺一块写死的半透明红（#33FF5252/#88FF5252 在浅色档上就是一团脏粉）。
+                 面留普通卡面，危险只由 DangerInk 的字来说。 -->
+            <Border Style="{StaticResource CardSolid}" IsVisible="{Binding HasProblems}">
+                <Label Text="{Binding ProblemsText}" Style="{StaticResource TxtBodySm}"
+                       TextColor="{DynamicResource DangerInk}" LineBreakMode="WordWrap" />
             </Border>
 
             <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
-                <Button Text="重置" Command="{Binding ResetCommand}" FontSize="13" />
-                <Button Text="清除标定" Command="{Binding ClearCalibrationCommand}" FontSize="13" />
-                <Button Text="保存" Command="{Binding SaveCommand}" FontSize="13"
-                        BackgroundColor="{DynamicResource PrimaryAction}" TextColor="White" />
+                <Button Text="重置" Style="{StaticResource BtnGhostSm}" Command="{Binding ResetCommand}" />
+                <!-- 清除标定是可撤销的损失：走危险档，不再是三颗一模一样的钮 -->
+                <Button Text="清除标定" Style="{StaticResource BtnDangerSm}"
+                        Command="{Binding ClearCalibrationCommand}" />
+                <Button Text="保存" Style="{StaticResource BtnPrimarySm}" Command="{Binding SaveCommand}" />
             </HorizontalStackLayout>
 
             <!-- 规范化：真的重采样出 1080×1920 标准画布文件（素材歪得离谱时更省事） -->
-            <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
-            <Label Text="规范化（可选）" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource PrimaryFg}" />
-            <Label Text="标定只记「怎么映射」，不改文件；规范化会按当前的翻转与旋转，真的生成一张 1080×1920 的 PNG（等比居中、余量透明），并把角色的立绘指向它。"
-                   FontSize="11" TextColor="{DynamicResource MutedFg}" />
-            <Label Text="余量留透明会让角色的显示占比变小——素材比例越接近 9:16，透明边越少、越贴合。"
-                   FontSize="11" TextColor="{DynamicResource MutedFg}" />
-            <Label Text="{Binding NormalizeNote}" FontSize="11" TextColor="{DynamicResource PrimaryFg}"
-                   IsVisible="{Binding NormalizeNote, Converter={StaticResource IsNotNull}}" />
-            <Button Text="生成 1080×1920 标准画布文件" Command="{Binding NormalizeCommand}" FontSize="13"
-                    HorizontalOptions="Center" />
+            <Border Style="{StaticResource CardGroup}">
+                <VerticalStackLayout Spacing="0">
+                    <Border Style="{StaticResource SettingRow}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0" Spacing="4" VerticalOptions="Center">
+                                <Label Text="规范化（可选）" Style="{StaticResource TxtRowTitle}" />
+                                <Label Text="标定只记「怎么映射」，不改文件；规范化会按当前的翻转与旋转，真的生成一张 1080×1920 的 PNG（等比居中、余量透明），并把角色的立绘指向它。"
+                                       Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                                <Label Text="余量留透明会让角色的显示占比变小——素材比例越接近 9:16，透明边越少、越贴合。"
+                                       Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="生成 1080×1920 标准画布文件"
+                                    Style="{StaticResource BtnGhostSm}" VerticalOptions="Center"
+                                    Command="{Binding NormalizeCommand}" />
+                        </Grid>
+                    </Border>
+                    <BoxView Style="{StaticResource HSep}" />
+                    <Border Style="{StaticResource SettingRow}"
+                            IsVisible="{Binding NormalizeNote, Converter={StaticResource IsNotNull}}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Grid.Column="0" Text="{Binding NormalizeNote}"
+                                   Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap" />
+                        </Grid>
+                    </Border>
+                </VerticalStackLayout>
+            </Border>
         </VerticalStackLayout>
     </ScrollView>
 </ContentPage>

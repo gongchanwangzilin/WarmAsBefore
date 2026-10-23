@@ -1,0 +1,162 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:helpers="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.MemorySearchPage"
+             x:DataType="vm:MemorySearchViewModel"
+             Title="搜事件"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*" RowSpacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}">
+
+        <!-- ============ 搜索条：一张平卡（此刻要「动」的是结果行，不是这条输入），
+              内距与圆角都归 CardSolid，不再自己写 14,12 ============ -->
+        <Border Grid.Row="0" Style="{StaticResource CardSolid}">
+            <VerticalStackLayout Spacing="10">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Entry Grid.Column="0"
+                           Text="{Binding Query, Mode=TwoWay}"
+                           Placeholder="一句话、#标签、一种感觉、或者 8月24号…"
+                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeBody}"
+                           ClearButtonVisibility="WhileEditing" ReturnCommand="{Binding SearchNowCommand}" />
+                    <Button Grid.Column="1" Text="清空" Style="{StaticResource BtnText}"
+                            VerticalOptions="Center"
+                            Command="{Binding ClearQueryCommand}" />
+                    <Button Grid.Column="2" Text="关系网" Style="{StaticResource BtnGhostSm}"
+                            VerticalOptions="Center"
+                            Command="{Binding OpenGraphCommand}" />
+                </Grid>
+
+                <!-- 类型：先说清要哪一类，省得「手机」这件事把那句夸手机的话也捞上来 -->
+                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding KindChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MemorySearchViewModel+Chip">
+                            <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
+                                    BackgroundColor="{Binding Fill}" TextColor="{Binding Ink}" Padding="10,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemorySearchViewModel}}, Path=PickChipCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+
+                <!-- 感觉：命中里出现过的情绪名，点一下就按那种感觉再搜一遍 -->
+                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding EmotionChips}"
+                                       IsVisible="{Binding HasEmotionChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MemorySearchViewModel+Chip">
+                            <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
+                                    BackgroundColor="{Binding Fill}" TextColor="{Binding Ink}" Padding="10,0"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemorySearchViewModel}}, Path=PickChipCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </HorizontalStackLayout>
+
+                <!-- 数值：字面没对上时的第二条路。这些说法是量化模型把这句话换算成数值之后，
+                     挨得最近的一批 —— 从没和它同框出现过的近义词，只有语境向量看得见。 -->
+                <HorizontalStackLayout Spacing="6" IsVisible="{Binding HasQuantChips}">
+                    <Label Text="数值上接近：" Style="{StaticResource TxtCaption}"
+                           VerticalTextAlignment="Center" />
+                    <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding QuantChips}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MemorySearchViewModel+Chip">
+                                <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
+                                        BackgroundColor="{Binding Fill}" TextColor="{Binding Ink}" Padding="10,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemorySearchViewModel}}, Path=PickChipCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </HorizontalStackLayout>
+
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <ActivityIndicator Grid.Column="0" IsRunning="{Binding Searching}" WidthRequest="16" HeightRequest="16"
+                                       Color="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                           VerticalTextAlignment="Center" />
+                    <Label Grid.Column="2" Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}"
+                           VerticalTextAlignment="Center" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- ============ 结果 ============ -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="{DynamicResource WGapSection}">
+
+                <!-- 空结果是「一句话井」：比卡沉一档，读起来是提示不是另一条命中 -->
+                <Border Style="{StaticResource CardNeumorphInset}" IsVisible="{Binding HasNoResults}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="没找着。" Style="{StaticResource TxtRowTitle}" />
+                        <Label Text="{Binding EmptyHint}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 一条命中 = 一行，全部装进同一张 CardGroup：
+                     一行一张浮卡时「一批命中」被读成「一摞牌子」，条与条的比较关系就没了。 -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Results}">
+                        <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:MemorySearchViewModel+HitRow">
+                            <VerticalStackLayout Spacing="0">
+                                <Border Style="{StaticResource SettingRow}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding Kind}" Style="{StaticResource TxtRowTitle}"
+                                                       VerticalTextAlignment="Center" />
+                                                <Label Text="{Binding Why}" Style="{StaticResource TxtBodySm}"
+                                                       TextColor="{DynamicResource AccentWarmFg}"
+                                                       IsVisible="{Binding HasWhy}" VerticalTextAlignment="Center" />
+                                            </HorizontalStackLayout>
+
+                                            <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding Lines}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="helpers:MemoryHighlight+Line">
+                                                        <Border BackgroundColor="{Binding Tint}" Stroke="Transparent"
+                                                                StrokeThickness="0" Padding="8,5" StrokeShape="{RoundRectangle CornerRadius=6}">
+                                                            <Label FormattedText="{Binding Text}" />
+                                                        </Border>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </VerticalStackLayout>
+
+                                            <!-- 情绪配比：条是几分几分，字是名字与成数 —— 只留一个词就说不清那晚 -->
+                                            <HorizontalStackLayout Spacing="8" IsVisible="{Binding HasEmotion}">
+                                                <HorizontalStackLayout Spacing="1" VerticalOptions="Center"
+                                                                       BindableLayout.ItemsSource="{Binding Slices}">
+                                                    <BindableLayout.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:MemorySearchViewModel+EmotionSlice">
+                                                            <BoxView Color="{Binding Tint}" WidthRequest="{Binding Width}"
+                                                                     HeightRequest="9" CornerRadius="2" />
+                                                        </DataTemplate>
+                                                    </BindableLayout.ItemTemplate>
+                                                </HorizontalStackLayout>
+                                                <Label Text="{Binding EmotionText}" Style="{StaticResource TxtMuted}"
+                                                       VerticalTextAlignment="Center" />
+                                            </HorizontalStackLayout>
+
+                                            <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
+                                            <Image Source="{Binding Image}" IsVisible="{Binding HasImage}" Aspect="AspectFill"
+                                                   HeightRequest="112" WidthRequest="168" HorizontalOptions="Start" />
+                                        </VerticalStackLayout>
+
+                                        <Button Grid.Column="1" Text="在网里看它" Style="{StaticResource BtnGhostSm}"
+                                                VerticalOptions="Center" HorizontalOptions="End"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemorySearchViewModel}}, Path=OpenInGraphCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </Grid>
+                                </Border>
+                                <BoxView Style="{StaticResource HSep}" />
+                            </VerticalStackLayout>
+                        </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

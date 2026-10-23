@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.MaterialsPage"
              x:Name="Page"
              x:DataType="vm:MaterialsViewModel"
@@ -9,26 +10,23 @@
              Background="{DynamicResource PageBgBrush}">
 
     <ContentPage.Resources>
-        <Style x:Key="TabOn" TargetType="Button">
-            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent300}" />
-            <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="FontAttributes" Value="Bold" />
-            <Setter Property="CornerRadius" Value="16" />
-            <Setter Property="Padding" Value="10,6" />
-        </Style>
+        <!-- 页签：静止态没有底、没有描边，选中只把底沉一档 + 字加粗（跟导航选中同一档语言）。
+             原来选中是 BeigeAccent300 一整块饱和奶油 + SurfaceBg 当字色 —— 填充令牌不能当文字色。
+             基键名保留给两个页签各自的状态触发器引用。 -->
         <Style x:Key="TabOff" TargetType="Button">
-            <Setter Property="BackgroundColor" Value="{DynamicResource SurfaceBg}" />
-            <Setter Property="TextColor" Value="{DynamicResource WarmMuted}" />
-            <Setter Property="FontSize" Value="14" />
-            <Setter Property="CornerRadius" Value="16" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
             <Setter Property="Padding" Value="10,6" />
+            <Setter Property="BorderWidth" Value="0" />
+            <Setter Property="motion:PressFeel.Enabled" Value="True" />
         </Style>
         <Style x:Key="TabBackgrounds" TargetType="Button" BasedOn="{StaticResource TabOff}">
             <Style.Triggers>
                 <DataTrigger TargetType="Button" Binding="{Binding IsMusicTab}" Value="False">
-                    <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent300}" />
-                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
                     <Setter Property="FontAttributes" Value="Bold" />
                 </DataTrigger>
             </Style.Triggers>
@@ -36,35 +34,61 @@
         <Style x:Key="TabMusic" TargetType="Button" BasedOn="{StaticResource TabOff}">
             <Style.Triggers>
                 <DataTrigger TargetType="Button" Binding="{Binding IsMusicTab}" Value="True">
-                    <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent300}" />
-                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
                     <Setter Property="FontAttributes" Value="Bold" />
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!-- 素材格子：图是内容而不是设置项，所以留在网格里，但面只用卡面（无影、缝由世界决定）。
+             状态只换底色档位，不加彩框。 -->
+        <Style x:Key="AssetCell" TargetType="Border" BasedOn="{StaticResource CardSolid}">
+            <Setter Property="Padding" Value="{DynamicResource WPadWell}" />
+            <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="VisualStateManager.VisualStateGroups">
+                <VisualStateGroupList>
+                    <VisualStateGroup Name="CommonStates">
+                        <VisualState Name="Normal" />
+                        <VisualState Name="Pressed">
+                            <VisualState.Setters>
+                                <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                            </VisualState.Setters>
+                        </VisualState>
+                        <VisualState Name="Disabled">
+                            <VisualState.Setters>
+                                <Setter Property="Opacity" Value="0.4" />
+                            </VisualState.Setters>
+                        </VisualState>
+                    </VisualStateGroup>
+                </VisualStateGroupList>
+            </Setter>
+        </Style>
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="素材库" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" />
-                <Border Grid.Column="2" BackgroundColor="{DynamicResource BeigeAccent50}"
-                        StrokeThickness="0" Padding="10,5">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="背景 · 音乐" FontSize="11" TextColor="{DynamicResource WarmDark}" />
-                </Border>
-            </Grid>
-        </Border>
+        <!-- Header：眉栏是一块地而不是一张卡，底下用发丝线收住 -->
+        <VerticalStackLayout Spacing="0">
+            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                            FontSize="{DynamicResource WSizeSmall}" Padding="0"
+                            Command="{Binding BackCommand}" />
+                    <Label Grid.Column="1" Text="素材库" Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                    <Border Grid.Column="2" Background="{DynamicResource WWellBrush}"
+                            StrokeThickness="0" Padding="10,5"
+                            StrokeShape="{DynamicResource WRadiusPill}">
+                        <Label Text="背景 · 音乐" Style="{StaticResource TxtBodySm}"
+                               TextColor="{DynamicResource WarmDark}" />
+                    </Border>
+                </Grid>
+            </Border>
+            <BoxView Style="{StaticResource HSep}" />
+        </VerticalStackLayout>
 
         <!-- Tabs -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="24,12,24,4">
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="{DynamicResource WPadCard}">
             <Button Text="背景库" Style="{StaticResource TabBackgrounds}"
                     Command="{Binding ShowBackgroundsCommand}" />
             <Button Grid.Column="1" Text="音乐库" Style="{StaticResource TabMusic}"
@@ -73,48 +97,48 @@
 
         <!-- Background grid -->
         <CollectionView Grid.Row="2" ItemsSource="{Binding Backgrounds}"
-                        Margin="20,8,20,0"
+                        Margin="{DynamicResource WPadCard}"
                         IsVisible="{Binding IsMusicTab, Converter={StaticResource InverseBool}}"
                         ItemsLayout="VerticalGrid, 3">
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                      Spacing="12" Padding="32">
-                    <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                            StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
-                            WidthRequest="96" HeightRequest="96">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
-                        <Label Text="🖼" FontSize="40" HorizontalOptions="Center" VerticalOptions="Center" />
+                    <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                            WidthRequest="96" HeightRequest="96"
+                            StrokeShape="{DynamicResource WRadiusPill}">
+                        <Label Text="🖼" FontSize="{DynamicResource WSizeDisplay}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                     <Label Text="背景库还是空的" Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
                     <Label Text="导入 JPG / PNG / MP4 背景，可在地图里选用" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="13" />
+                           HorizontalOptions="Center" />
                     <Label Text="（触屏设备：导入后可在地图页选中场景点「🖼 背景（素材库）」选用）" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="11"
+                           HorizontalOptions="Center"
                            IsVisible="{OnIdiom Phone=True, Desktop=False, Tablet=True}" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:BackgroundGridItem">
-                    <Border Style="{StaticResource CardNeumorph}" Margin="0,0,10,12">
-                        <Grid RowDefinitions="64,*,Auto" Padding="6">
-                            <Border BackgroundColor="{DynamicResource BeigeAccent50}"
-                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Border Style="{StaticResource AssetCell}" Margin="0,0,10,12">
+                        <VerticalStackLayout Spacing="6">
+                            <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                    HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">
                                 <Image Source="{Binding Thumb}" Aspect="AspectFill"
                                        IsVisible="{Binding HasThumb}"
                                        HorizontalOptions="Fill" VerticalOptions="Fill" />
-                                <Label Text="🖼" TextColor="{DynamicResource WarmFaint}" FontSize="22"
+                                <!-- 无缩略图时的占位符要有对比才看得见：WarmFaint 是面档的淡色，
+                                     压在井底上等于一片空 —— 用 MutedFg 这一档墨 -->
+                                <Label Text="🖼" TextColor="{DynamicResource MutedFg}"
+                                       FontSize="{DynamicResource WSizeSubhead}"
                                        HorizontalOptions="Center" VerticalOptions="Center"
                                        IsVisible="{Binding HasThumb, Converter={StaticResource InverseBool}}" />
                             </Border>
-                            <Label Grid.Row="1" Text="{Binding Name}" Style="{StaticResource TxtCaption}"
-                                   FontSize="12" LineBreakMode="TailTruncation"
-                                   HorizontalOptions="Center" Margin="0,6,0,0" />
-                            <Label Grid.Row="2" Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
-                                   FontSize="10" TextColor="{DynamicResource WarmMuted}"
-                                   HorizontalOptions="Center" />
-                        </Grid>
+                            <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"
+                                   LineBreakMode="TailTruncation" HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding Meta}" Style="{StaticResource TxtMuted}"
+                                   HorizontalTextAlignment="Center" />
+                        </VerticalStackLayout>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapBackgroundCommand}"
                                                   CommandParameter="{Binding .}" />
@@ -126,45 +150,43 @@
 
         <!-- Music grid -->
         <CollectionView Grid.Row="2" ItemsSource="{Binding Musics}"
-                        Margin="20,8,20,0"
+                        Margin="{DynamicResource WPadCard}"
                         IsVisible="{Binding IsMusicTab}"
                         ItemsLayout="VerticalGrid, 3">
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                      Spacing="12" Padding="32">
-                    <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                            StrokeThickness="1" Stroke="{DynamicResource BorderLine}"
-                            WidthRequest="96" HeightRequest="96">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="48" /></Border.StrokeShape>
-                        <Label Text="🎵" FontSize="40" HorizontalOptions="Center" VerticalOptions="Center" />
+                    <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                            WidthRequest="96" HeightRequest="96"
+                            StrokeShape="{DynamicResource WRadiusPill}">
+                        <Label Text="🎵" FontSize="{DynamicResource WSizeDisplay}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                     <Label Text="音乐库还是空的" Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
                     <Label Text="导入音乐后可设为左键音/右键音/按键音/背景音" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="13"
+                           HorizontalOptions="Center"
                            IsVisible="{OnIdiom Phone=False, Desktop=True, Tablet=False}" />
                     <Label Text="导入音乐后可设为背景音/按键音" Style="{StaticResource TxtMuted}"
-                           HorizontalOptions="Center" FontSize="13"
+                           HorizontalOptions="Center"
                            IsVisible="{OnIdiom Phone=True, Desktop=False, Tablet=True}" />
                 </VerticalStackLayout>
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:MusicGridItem">
-                    <Border Style="{StaticResource CardNeumorph}" Margin="0,0,10,12">
-                        <Grid RowDefinitions="64,*,Auto" Padding="6">
-                            <Border BackgroundColor="{DynamicResource BeigeAccent50}"
-                                    StrokeThickness="1" Stroke="{DynamicResource BorderLine}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                <Label Text="🎵" TextColor="{DynamicResource WarmFaint}" FontSize="26"
+                    <Border Style="{StaticResource AssetCell}" Margin="0,0,10,12">
+                        <VerticalStackLayout Spacing="6">
+                            <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                    HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">
+                                <Label Text="🎵" TextColor="{DynamicResource MutedFg}"
+                                       FontSize="{DynamicResource WSizeSubhead}"
                                        HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
-                            <Label Grid.Row="1" Text="{Binding Name}" Style="{StaticResource TxtCaption}"
-                                   FontSize="12" LineBreakMode="TailTruncation"
-                                   HorizontalOptions="Center" Margin="0,6,0,0" />
-                            <Label Grid.Row="2" Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
-                                   FontSize="10" TextColor="{DynamicResource WarmMuted}"
-                                   HorizontalOptions="Center" />
-                        </Grid>
+                            <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"
+                                   LineBreakMode="TailTruncation" HorizontalTextAlignment="Center" />
+                            <Label Text="{Binding Meta}" Style="{StaticResource TxtMuted}"
+                                   HorizontalTextAlignment="Center" />
+                        </VerticalStackLayout>
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapMusicCommand}"
                                                   CommandParameter="{Binding .}" />
@@ -175,7 +197,7 @@
         </CollectionView>
 
         <!-- Footer: import buttons -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="12" Padding="24,8,24,20">
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="12" Padding="{DynamicResource WPadCard}">
             <Button Text="导入背景" Style="{StaticResource BtnPrimary}"
                     Command="{Binding ImportBackgroundCommand}"
                     IsVisible="{Binding IsMusicTab, Converter={StaticResource InverseBool}}" />

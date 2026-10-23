@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -27,6 +28,7 @@ public partial class SettingsPage : ContentPage
         ApplyResponsiveWidth();
         // 首页只建 11 行分类，构建量极小；各分类的数据装载在子页里按需做
         _vm.PrepareHome();
+        Motion.ArrivePage(this);
     }
 
     /// <summary>宽度匹配屏幕：窄屏铺满，宽屏最多 1080（一行文字再长就难读）。</summary>

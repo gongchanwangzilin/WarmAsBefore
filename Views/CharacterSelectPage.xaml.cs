@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -15,5 +16,6 @@ public partial class CharacterSelectPage : ContentPage
         base.OnAppearing();
         if (BindingContext is CharacterSelectViewModel vm)
             vm.RefreshCommand.Execute(null);
+        Motion.ArrivePage(this);
     }
 }

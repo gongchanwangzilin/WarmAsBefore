@@ -122,6 +122,11 @@ public sealed record UserSettings
     /// <summary>好感等级提升动画：满 500 好感积分升 1 级时播放全屏动画。</summary>
     public bool AffectionLevelUpEnabled { get; init; } = true;
     public string GlassStyle { get; init; } = "none";   // 旧版单一效果字段（仅用于迁移，不再写入）
+    /// <summary>
+    /// 风格世界：soft（轻质感，默认）/ minimal（柔和极简）/ gradient（柔和渐变）/ liquid（液态玻璃）。
+    /// 空串表示这份存档还没有选过 —— 由旧的三个玻璃布尔推出来，老用户的观感不会一夜变样。
+    /// </summary>
+    public string StyleWorldName { get; init; } = "";
     public bool FrostEnabled { get; init; }             // 磨砂玻璃（半透明磨砂）
     public bool GlassEnabled { get; init; }             // 毛玻璃（磨砂的高级版）
     public bool LiquidEnabled { get; init; }            // 液态玻璃
@@ -176,6 +181,20 @@ public sealed record UserSettings
     public string VisionUrl { get; init; } = "";
     public string VisionKey { get; init; } = "";
     public string VisionModel { get; init; } = "";
+
+    // 量化模型（embedding）：把说法换成数值，近义的说法数值就近
+    /// <summary>
+    /// 量化模型总开关。开着但没填模型名时不会打网络 —— 该角色自动退回本地共现统计（不花钱的那条路）。
+    /// </summary>
+    public bool EmbeddingEnabled { get; init; } = true;
+    /// <summary>量化端点（OpenAI 兼容，实际请求 {base}/embeddings）。留空则复用对话端点或厂商地址。</summary>
+    public string EmbeddingUrl { get; init; } = "";
+    /// <summary>量化密钥。留空则复用对话密钥或厂商密钥池（轮换时逐枚试，额度耗尽换下一枚）。</summary>
+    public string EmbeddingKey { get; init; } = "";
+    /// <summary>量化模型名，如 <c>text-embedding-3-small</c> / <c>BAAI/bge-m3</c>。空 = 只用本地统计。</summary>
+    public string EmbeddingModel { get; init; } = "";
+    /// <summary>向量维度：0 = 由模型自己定。换维度等于换一套向量，缓存按「模型 + 维度」分开存。</summary>
+    public int EmbeddingDimensions { get; init; }
     public double AiTemperature { get; init; } = 0.8;
     public int AiMaxTokens { get; init; } = 500;
     public bool DeepThink { get; init; }
@@ -183,8 +202,9 @@ public sealed record UserSettings
     public int MemoryTurns { get; init; } = 5;
 
     /// <summary>
-    /// 人类记忆的调取窗口（天）：默认回想三天内的事为主，越久越模糊。
-    /// 0 = 不限（能想起最早的记忆）。可按角色覆写。
+    /// 遗忘指数（天）：人类记忆衰减的时间常数，默认以三天内的事为主，越久越模糊。
+    /// 可以小于 1（0.25 = 6 小时，用来演示「转头就忘」）；0 = 不限（能想起最早的记忆）。
+    /// 衰减是叠加曲线，重要的事留有永久成分，不会一路掉到零。可按角色覆写。
     /// </summary>
     public double MemoryWindowDays { get; init; } = HumanMemoryMath.DefaultWindowDays;
 
@@ -198,11 +218,19 @@ public sealed record UserSettings
     public bool SubProfileAiRewrite { get; init; }
 
     /// <summary>
-    /// 允许模型辅助建立词义关系网（默认关闭）。
+    /// 允许模型辅助建立关系网（默认关闭）。
     /// 关闭时关联网只靠共现统计自动长；打开后每 20 轮让模型补几条它认为相关的联系，
     /// 这些边标记为 ai 来源，人工纠错仍然优先。
     /// </summary>
     public bool SemanticAiAssist { get; init; }
+
+    /// <summary>
+    /// 让同一个角色跨存档共用一份记忆（默认关闭）。
+    /// 关掉时每个存档各记各的：换一个档，TA 不记得别处发生过什么——
+    /// 「这段关系是在这个存档里慢慢长出来的」是产品的底座，串档记忆会把它抹平。
+    /// 打开后所有存档读写同一份；那时想把两个人分开，只能复制角色（连记忆一起复制一份）。
+    /// </summary>
+    public bool CrossSaveMemory { get; init; }
 
     // 多端点轮换（供应商 × AI × 密钥）：保存多条端点，自动轮流用，保证对话不间断
     /// <summary>
@@ -356,6 +384,12 @@ public sealed record UserSettings
     public string WechatToken { get; init; } = "";
     public int WechatPort { get; init; } = 8012;
 
+    /// <summary>
+    /// 视频号外链：社交壳（微信/QQ）里点「视频号」时直接跳转到的用户链接（留空则提示去设置里填）。
+    /// 微信壳与 QQ 壳共用这一个链接（都是「视频号」入口，只是宿主 App 不同）。
+    /// </summary>
+    public string ChannelsUrl { get; init; } = "";
+
     // MCP 配置
     public bool McpEnabled { get; init; }
     /// <summary>MCP 工具调用是否自动确认（false 时主界面调用 MCP 工具需人工确认）。</summary>
@@ -372,6 +406,23 @@ public sealed record UserSettings
 
     // 商店 GitHub 仓库同步：形如 "owner/repo"，仓库根目录须含 shop/catalog.json（含菜品图片）
     public string ShopGitHubRepo { get; init; } = "";
+
+    // ===== 云存档（GitHub 仓库托管） =====
+    // 只镜像数据文件，不镜像 settings.json：令牌与设备身份留在本机，绝不进仓库。
+    /// <summary>云存档总开关。</summary>
+    public bool CloudSaveEnabled { get; init; }
+    /// <summary>托管仓库，形如 "owner/repo"（建议私有仓库）。</summary>
+    public string CloudRepo { get; init; } = "";
+    /// <summary>GitHub 细粒度访问令牌（需要该仓库的 Contents 读写权限）。</summary>
+    public string CloudToken { get; init; } = "";
+    /// <summary>分支；空则用仓库默认分支。</summary>
+    public string CloudBranch { get; init; } = "";
+    /// <summary>设备名（只用于仓库里的目录说明与状态显示）。</summary>
+    public string CloudDeviceName { get; init; } = "";
+    /// <summary>改动停手后自动上传。</summary>
+    public bool CloudAutoUpload { get; init; } = true;
+    /// <summary>跨设备合并后用对话模型整理重复记忆。</summary>
+    public bool CloudReconcileMemory { get; init; } = true;
 
     // 云端棋力脑：可选接入 OpenAI 兼容下棋 API（未配置时纯本地启发式 AI）
     public bool ChessApiEnabled { get; init; }

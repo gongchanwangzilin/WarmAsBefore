@@ -8,66 +8,82 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*,Auto" Padding="0">
+    <!--
+      世界对话页。上下两条 bar 原来是「整宽的描边条」（GlassBarBg/Stroke），
+      在这套语言里读起来像贴上去的另一种材质：改成与内容区同一块地 + 一根发丝线。
+      气泡的底与字由 BubbleMine / BubbleTheirs 两档令牌给出，视图模型只标「谁说的」。
+    -->
+    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="0">
+
         <!-- Header -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="16,12,16,12"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
+                        Padding="0" VerticalOptions="Center"
                         Command="{Binding GoBackCommand}" />
                 <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
                     <Label Text="{Binding Title}" Style="{StaticResource TxtSubhead}"
-                           FontSize="16" LineBreakMode="TailTruncation" />
+                           LineBreakMode="TailTruncation" />
                     <Label Text="{Binding WorldLabel}" Style="{StaticResource TxtCaption}"
-                           FontSize="11" LineBreakMode="TailTruncation" />
+                           LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
                 <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsThinking}"
                                    IsVisible="{Binding IsThinking}" Color="{DynamicResource PrimaryAction}"
                                    WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
             </Grid>
         </Border>
+        <BoxView Grid.Row="1" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
 
         <!-- Messages -->
-        <ScrollView Grid.Row="1" Margin="0,4" x:Name="MsgScroll">
-            <VerticalStackLayout Spacing="6" Padding="12,8"
+        <ScrollView Grid.Row="2" x:Name="MsgScroll">
+            <VerticalStackLayout Spacing="6" Padding="{DynamicResource WPadCard}"
                                  BindableLayout.ItemsSource="{Binding Messages}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:NovelMessage">
-                        <Border BackgroundColor="{Binding BgColor}" StrokeThickness="0"
-                                Padding="10,8" Margin="0,2"
-                                HorizontalOptions="{Binding Align}"
-                                MaximumWidthRequest="480">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                            <Label Text="{Binding Text}" TextColor="{Binding TextColor}"
-                                   FontSize="14" LineBreakMode="WordWrap" />
-                        </Border>
+                        <Grid>
+                            <Border IsVisible="{Binding ShowMine}"
+                                    BackgroundColor="{DynamicResource BubbleMine}" StrokeThickness="0"
+                                    Padding="{DynamicResource WPadWell}"
+                                    HorizontalOptions="End"
+                                    MaximumWidthRequest="480"
+                                    StrokeShape="{DynamicResource WRadiusWell}">
+                                <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}"
+                                       Style="{StaticResource TxtBody}" LineBreakMode="WordWrap" />
+                            </Border>
+                            <Border IsVisible="{Binding ShowTheirs}"
+                                    BackgroundColor="{DynamicResource BubbleTheirs}" StrokeThickness="0"
+                                    Padding="{DynamicResource WPadWell}"
+                                    HorizontalOptions="Start"
+                                    MaximumWidthRequest="480"
+                                    StrokeShape="{DynamicResource WRadiusWell}">
+                                <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}"
+                                       Style="{StaticResource TxtBody}" LineBreakMode="WordWrap" />
+                            </Border>
+                        </Grid>
                     </DataTemplate>
                 </BindableLayout.ItemTemplate>
             </VerticalStackLayout>
         </ScrollView>
 
         <!-- Input -->
-        <Border Grid.Row="2" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
-                Padding="12,8,12,12" StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+        <BoxView Grid.Row="3" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
+        <Border Grid.Row="4" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10,0">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
+                <!-- 输入是一条井（比卡面沉一档），不是一块贴上去的白 -->
+                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0" Padding="10,0"
+                        StrokeShape="{DynamicResource WRadiusPill}">
                     <Entry Text="{Binding InputText}"
                            Placeholder="对这个世界说点什么…"
-                           PlaceholderColor="{DynamicResource WarmMuted}"
+                           PlaceholderColor="{DynamicResource MutedFg}"
                            BackgroundColor="Transparent"
-                           TextColor="{DynamicResource SurfaceFg}" FontSize="13"
+                           TextColor="{DynamicResource SurfaceFg}" FontSize="{DynamicResource WSizeBody}"
                            ReturnCommand="{Binding SendCommand}"
                            HeightRequest="40" />
                 </Border>
-                <Button Grid.Column="1" Text="发送"
-                        BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource PrimaryFg}"
-                        FontSize="13" FontAttributes="Bold"
-                        CornerRadius="20" HeightRequest="40" WidthRequest="64"
-                        Padding="0"
+                <Button Grid.Column="1" Text="发送" Style="{StaticResource BtnPrimary}"
+                        HeightRequest="40" WidthRequest="64" Padding="0"
                         Command="{Binding SendCommand}" />
             </Grid>
         </Border>

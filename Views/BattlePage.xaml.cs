@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -15,6 +16,7 @@ public partial class BattlePage : ContentPage
     {
         base.OnAppearing();
         var vm = (BattleViewModel)BindingContext;
+        Motion.ArrivePage(this);
         if (vm.IsInBattle) return;
         _ = StartBattleSafeAsync(vm);
     }

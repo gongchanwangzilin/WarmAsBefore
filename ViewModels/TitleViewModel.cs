@@ -20,6 +20,11 @@ public sealed partial class TitleViewModel : ObservableObject
         [ObservableProperty] private int _menuColumn;
         [ObservableProperty] private int _decorColumn = 1;
         [ObservableProperty] private bool _showDisclaimer = true;
+        /// <summary>
+        /// 启动卡。一趟进程只放一次：标题页每次导航都是新建的（DI 里是 Transient），
+        /// 而「启动」按进程算，不按页面实例算 —— 从设置页返回时再放一遍开机动画就成了故障。
+        /// </summary>
+        [ObservableProperty] private bool _showIntro = !Helpers.IntroCard.HasPlayed;
 
     public TitleViewModel(GameEngine engine, SettingsManager settings,
         DesignSystem.Theme.ThemeManager theme, SaveManager save)
@@ -73,6 +78,23 @@ public sealed partial class TitleViewModel : ObservableObject
             await _settings.Persist();
         }
         catch (Exception ex) { App.WriteLog("Title: AcknowledgeDisclaimer EX -> " + ex); }
+
+        OpenSetupIfPending();
+    }
+
+    /// <summary>
+    /// 没走过首次配置的人，在这里被交给配置页。两个入口共用这一条：
+    /// 启动卡收掉时（条款早就确认过的老用户），和按下「同意并继续」时（真正的第一次）。
+    /// </summary>
+    public void OpenSetupIfPending()
+    {
+        try
+        {
+            if (ShowDisclaimer) return;                                  // 先谈条款，再谈配置
+            if (Preferences.Get(SetupViewModel.DonePrefKey, false)) return;
+            _ = Shell.Current.GoToAsync("setup");
+        }
+        catch (Exception ex) { App.WriteLog("Title: OpenSetup EX -> " + ex.Message); }
     }
 
     /// <summary>不同意免责声明：直接退出应用（用户明确要求「不同意则退出」）。</summary>
@@ -113,14 +135,11 @@ public sealed partial class TitleViewModel : ObservableObject
         MenuLeft = _settings.Current.MenuSide != "right";
         MenuColumn = MenuLeft ? 0 : 1;
         DecorColumn = MenuLeft ? 1 : 0;
-        var effect = _theme.ActiveEffect switch
-        {
-            "glass" => LocalizationService.Current["Title_ThemeGlass"],
-            "frost" => LocalizationService.Current["Title_ThemeFrost"],
-            "liquid" => LocalizationService.Current["Title_ThemeLiquid"],
-            _ => LocalizationService.Current["Title_ThemeClassic"]
-        };
-        ThemeEffectName = $"{LocalizationService.Current["Title_ThemePrefix"]} · {effect}";
+        // 名字取自世界本身，不在这里另立一套叫法：设置里那个外观下拉框用的就是同一个 Display，
+        // 两处不同名就成了「设置里叫柔和渐变，首页上叫毛玻璃」。
+        // 只发材质名：这一串在页面上是「配色 · 风格」读数的右半，前面还有一道分隔符兜着，
+        // 自己再带一个「当前主题 ·」就成了「当前 · 晨雾蓝灰 · 当前主题 · 液态玻璃」。
+        ThemeEffectName = DesignSystem.Worlds.StyleWorldTokens.Display(_theme.World);
         ThemeColorName = DesignSystem.Theme.ThemeManager.ThemeDisplay(_theme.ThemeName);
     }
 

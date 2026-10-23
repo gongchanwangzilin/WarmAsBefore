@@ -1,4 +1,6 @@
 using Microsoft.Maui.Controls;
+using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Modules.Cg;
 using WarmAsBefore.Services;
 
@@ -15,6 +17,8 @@ public partial class CgViewPage : ContentPage
         _payload = payload;
         _audio = audio;
         BindingContext = new ViewModels.CgViewViewModel();
+        // CG 图路径要等 OnAppearing 才落值：ImagePath 非空即就绪。
+        LoadingVeil.Attach(this, BindingContext, "ImagePath");
     }
 
     protected override void OnAppearing()
@@ -26,6 +30,7 @@ public partial class CgViewPage : ContentPage
         v.ImagePath = _payload.ImagePath;
         v.Title = _payload.Title;
         v.Refresh();
+        Motion.ArrivePage(this);
         if (!_payload.HasPayload || string.IsNullOrWhiteSpace(v.ImagePath))
         {
             // 无图像直接退回

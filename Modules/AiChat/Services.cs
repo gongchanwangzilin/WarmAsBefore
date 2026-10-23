@@ -72,7 +72,7 @@ public sealed class ChatEngine
     public int SubProfileRewriteEveryTurns { get; set; } = 12;
 
     /// <summary>
-    /// 词义关系网的模型辅助开关（默认关闭）：打开后每 20 轮请模型补几条关联。
+    /// 关系网的模型辅助开关（默认关闭）：打开后每 20 轮请模型补几条关联。
     /// 补出来的边标记为 ai 来源，人工纠错不会被它冲淡。
     /// </summary>
     public bool SemanticAiAssistEnabled { get; set; }
@@ -220,7 +220,7 @@ public sealed class ChatEngine
     }
 
     /// <summary>
-    /// 回合收尾：记人类记忆、学词义关系网、刷新标签清单、通知副设定漂移，再让人设即时生效。
+    /// 回合收尾：记人类记忆、学关系网、刷新标签清单、通知副设定漂移，再让人设即时生效。
     /// </summary>
     private async Task RunAfterTurnAsync(string charId, string? digest, string userText = "", string? reply = "")
     {
@@ -229,14 +229,14 @@ public sealed class ChatEngine
             try { await Human.StoreFromDigestAsync(charId, digest); }
             catch (Exception ex) { App.WriteLog("ChatEngine.HumanStore -> " + ex.Message); }
         }
-        // 词义关系网：同一轮里一起出现的词互相加强（纯统计，不花模型钱）
-        if (Semantic is not null)
+        // 关系网：同一轮里一起出现的词互相加强（纯统计，不花模型钱）
+        if (Network is not null)
         {
-            try { await Semantic.LearnAsync(charId, userText, reply); }
+            try { await Network.LearnAsync(charId, userText, reply); }
             catch (Exception ex) { App.WriteLog("ChatEngine.SemanticLearn -> " + ex.Message); }
         }
         // 模型辅助增边（默认关闭）：每 20 轮请模型补几条关联，标为 ai 来源
-        if (SemanticAiAssistEnabled && Semantic is not null)
+        if (SemanticAiAssistEnabled && Network is not null)
         {
             try
             {
@@ -246,7 +246,7 @@ public sealed class ChatEngine
                     _turnsSinceSemanticAssist[charId] = 0;
                     var pairs = await SuggestLinksAsync(charId, new[] { userText, reply ?? "" });
                     foreach (var (a, b) in pairs)
-                        await Semantic.LinkAsync(charId, a, b, 2, "ai");
+                        await Network.LinkAsync(charId, a, b, 2, "ai");
                 }
                 else
                 {
@@ -387,8 +387,8 @@ public sealed class ChatEngine
     /// </summary>
     public HumanMemoryService? Human { get; set; }
 
-    /// <summary>词义关系网：后台随对话自动长出来，用于联想检索（默认不花模型钱）。</summary>
-    public SemanticNetworkService? Semantic { get; set; }
+    /// <summary>关系网：后台随对话自动长出来，用于联想检索（默认不花模型钱）。</summary>
+    public RelationNetworkService? Network { get; set; }
 
     /// <summary>标签层：AI 打的标签会注入人设（每次刷新取前 10~20 个）。</summary>
     public MemoryTagService? Tags { get; set; }
@@ -1123,26 +1123,50 @@ public sealed class ChatEngine
 public sealed class MemoryVault
 {
     private readonly StorageProvider _store;
+    private readonly MemoryScope _scope;
     private readonly object _gate = new();
     private List<MemoryEntry> _cache = new();
-    private bool _loaded;
+    private Task? _loading;
+    private string _scopeKey = "memories";
 
-    public MemoryVault(StorageProvider store) => _store = store;
+    public MemoryVault(StorageProvider store, MemoryScope scope)
+    {
+        _store = store;
+        _scope = scope;
+        _scopeKey = scope.Key("memories");
+        scope.Changed += OnScopeChanged;
+    }
 
-    /// <summary>惰性加载：首次真正读写前 await，避免构造函数 fire-and-forget 造成「旧记忆还没读进来就被覆盖」的竞态。</summary>
-    private async Task EnsureLoadedAsync()
+    /// <summary>换档：全量记忆库也是这个存档的，不能带着上一个存档的缓存继续写。</summary>
+    private void OnScopeChanged()
     {
         lock (_gate)
         {
-            if (_loaded) return;
-            _loaded = true;   // 先置位，后续并发调用直接走快路径
+            _cache = new();
+            _loading = null;
+            _scopeKey = _scope.Key("memories");
         }
+    }
+
+    /// <summary>日记按作用域分文件；共用那份沿用旧的 <c>diary_&lt;角色&gt;.json</c> 命名。</summary>
+    private string DiaryKey(string charId)
+        => _scope.IsShared ? $"diary_{charId}" : $"diary/{_scope.Current}/{charId}";
+
+    /// <summary>惰性加载：首次真正读写前 await，避免构造函数 fire-and-forget 造成「旧记忆还没读进来就被覆盖」的竞态。</summary>
+    private Task EnsureLoadedAsync()
+    {
+        lock (_gate) return _loading ??= LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        var key = _scopeKey;
         try
         {
-            var saved = await _store.Load<List<MemoryEntry>>("memories");
+            var saved = await _store.Load<List<MemoryEntry>>(key);
             lock (_gate)
             {
-                if (saved is not null && saved.Count > 0) _cache = saved;
+                if (saved is not null && saved.Count > 0 && key == _scopeKey) _cache = saved;
             }
         }
         catch (Exception ex)
@@ -1161,7 +1185,7 @@ public sealed class MemoryVault
             // 快照整份列表再序列化，避免序列化到一半列表被另一线程修改
             snapshot = new List<MemoryEntry>(_cache);
         }
-        await _store.Save("memories", snapshot);
+        await _store.Save(_scopeKey, snapshot);
     }
 
     /// <summary>记录好感提升瞬间（回忆录的「全部好感时刻」来源，随记忆持久化）。</summary>
@@ -1237,7 +1261,7 @@ public sealed class MemoryVault
 
     public async Task<List<DiaryNote>> Diary(string charId)
     {
-        var all = await _store.Load<List<DiaryNote>>($"diary_{charId}");
+        var all = await _store.Load<List<DiaryNote>>(DiaryKey(charId));
         return all ?? new();
     }
 
@@ -1245,6 +1269,6 @@ public sealed class MemoryVault
     {
         var d = await Diary(charId);
         d.Add(new DiaryNote { CharacterId = charId, Content = content, Mood = mood });
-        await _store.Save($"diary_{charId}", d);
+        await _store.Save(DiaryKey(charId), d);
     }
 }

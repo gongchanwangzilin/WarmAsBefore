@@ -1,3 +1,4 @@
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -22,5 +23,6 @@ public partial class NovelWorldPage : ContentPage, IQueryAttributable
         base.OnAppearing();
         if (BindingContext is NovelWorldViewModel vm && !string.IsNullOrEmpty(_novelId))
             _ = vm.LoadAsync(_novelId);
+        Motion.ArrivePage(this);
     }
 }

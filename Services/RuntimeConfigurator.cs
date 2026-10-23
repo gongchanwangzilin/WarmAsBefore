@@ -26,7 +26,7 @@ public sealed class RuntimeConfigurator
     private readonly CharacterSettingsResolver _charSettings;
     private readonly CharacterSubProfileService _subProfiles;
     private readonly HumanMemoryService _human;
-    private readonly SemanticNetworkService _semantic;
+    private readonly RelationNetworkService _network;
     private readonly MemoryTagService _tags;
     private readonly Modules.AiChat.MemoryVault _memory;
     private readonly Modules.Tools.ToolManager _tools;
@@ -41,7 +41,7 @@ public sealed class RuntimeConfigurator
         CharacterLibrary characters, OfficialChatBridge bridge, DesignSystem.Theme.ThemeManager theme,
         NotificationService notify, CharacterSettingsResolver charSettings,
         CharacterSubProfileService subProfiles, HumanMemoryService human,
-        SemanticNetworkService semantic, MemoryTagService tags,
+        RelationNetworkService semantic, MemoryTagService tags,
         Modules.AiChat.MemoryVault memory, Modules.Tools.ToolManager tools,
         Modules.ApiManager.ApiGateway api, CostEstimatorService cost,
         Modules.SaveSystem.SaveManager save, GameEngine engine)
@@ -60,7 +60,7 @@ public sealed class RuntimeConfigurator
         _charSettings = charSettings;
         _subProfiles = subProfiles;
         _human = human;
-        _semantic = semantic;
+        _network = semantic;
         _tags = tags;
         _memory = memory;
         _tools = tools;
@@ -133,7 +133,7 @@ public sealed class RuntimeConfigurator
             {
                 ("预热 · 存档列表", () => _save.List()),
                 ("预热 · 记忆库", async () => { await _human.CountAsync(_engine.State.CharacterId); }),
-                ("预热 · 关系网", () => _semantic.LinkCountAsync(_engine.State.CharacterId)),
+                ("预热 · 关系网", () => _network.LinkCountAsync(_engine.State.CharacterId)),
                 ("预热 · 标签", async () => { await _tags.ListAsync(_engine.State.CharacterId); }),
                 ("预热 · 用量与单价", () => _cost.ReportTextAsync()),
                 ("预热 · 能力包", async () => { await _skillsHintWarm(); }),
@@ -297,8 +297,8 @@ public sealed class RuntimeConfigurator
         _chat.Human = _human;
         // 智能省钱：总结前先算「现在总结 vs 不总结」哪个更省（关掉则恢复老行为）
         _chat.Cost = s.SmartSavingEnabled ? _cost : null;
-        // 词义关系网与标签层：对话自动长网、标签清单注入人设
-        _chat.Semantic = _semantic;
+        // 关系网与标签层：对话自动长网、标签清单注入人设
+        _chat.Network = _network;
         _chat.Tags = _tags;
         // 关系网的模型辅助（默认关闭）：每 20 轮补几条关联
         _chat.SemanticAiAssistEnabled = s.SemanticAiAssist;
@@ -336,7 +336,8 @@ public sealed class RuntimeConfigurator
             || prev.GlassLightX != s.GlassLightX || prev.GlassLightY != s.GlassLightY
             || prev.GlassLightZ != s.GlassLightZ || prev.GlassLightWidth != s.GlassLightWidth
             || prev.LightMode != s.LightMode
-            || !string.Equals(prev.ThemeName, s.ThemeName, StringComparison.Ordinal);
+            || !string.Equals(prev.ThemeName, s.ThemeName, StringComparison.Ordinal)
+            || !string.Equals(prev.StyleWorldName, s.StyleWorldName, StringComparison.Ordinal);
         if (themeChanged)
         {
             using var _themeScope = PerfLog.Measure("  · 主题下发");
@@ -347,6 +348,8 @@ public sealed class RuntimeConfigurator
             _theme.GlassTranslucency = s.GlassTranslucency;
             _theme.ReducedTransparency = s.GlassReducedTransparency;
             _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
+            // 材质由世界决定，三个玻璃布尔只留下「这一档该多透」的调制量。
+            _theme.World = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromName(s.StyleWorldName);
         }
 
         // 置顶：开启 AlwaysOnTop 时持续强制常驻顶层（3 秒重断言防被抢占）；关闭则回落。

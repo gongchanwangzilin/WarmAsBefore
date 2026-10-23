@@ -608,7 +608,9 @@ public sealed class ChatBubble
 {
     public string Text { get; set; } = "";
     public bool IsAi { get; set; }
-    public Color BgColor => IsAi ? Color.FromArgb("#F5EFE0") : Color.FromArgb("#FFCA28");
-    public Color TextColor => IsAi ? Color.FromArgb("#4A3D2C") : Color.FromArgb("#5D4A3A");
-    public LayoutOptions Align => IsAi ? LayoutOptions.Start : LayoutOptions.End;
+
+    // 颜色不在这里写死：气泡必须跟着风格世界换档，而 VM 里的一次性 Color 取值不会重算。
+    // 视图只问「这句是谁说的」，材质归 BubbleMine / BubbleTheirs 两个令牌（见 GamePage 模板）。
+    public bool ShowBubbleTheirs => IsAi;
+    public bool ShowBubbleMine => !IsAi;
 }

@@ -1,5 +1,7 @@
 namespace WarmAsBefore.Services;
 
+using WarmAsBefore.DesignSystem.Worlds;
+
 /// <summary>
 /// 页面背景：纯色 / 自定义图片 / 窗口透视。
 ///
@@ -40,7 +42,8 @@ public static class AppBackgroundService
         }
         else
         {
-            pageBrush = new SolidColorBrush(pageBg);
+            // 纯色档也归世界管：渐变/液态档要把地面铺成一层斜向浅渐变，玻璃才有东西可透。
+            pageBrush = StyleWorldTokens.GroundBrush(pageBg);
             _imagePath = "";
         }
 
@@ -51,6 +54,17 @@ public static class AppBackgroundService
             Shell.Current.Background = transparent ? new SolidColorBrush(Colors.Transparent) : null;
         Publish();
         ApplyPlatform();
+    }
+
+    /// <summary>
+    /// 换世界/换色板后重算纯色档的页面背景。
+    /// 图片档与透明档要让窗口层透出来，那里的 brush 是刻意设成 Transparent 的，
+    /// 不能被这里改回实心 —— 否则切一次风格就把用户的自定义背景糊掉。
+    /// </summary>
+    public static void Recolor(Color pageBg)
+    {
+        if (_current is null || _transparent) return;
+        _current = StyleWorldTokens.GroundBrush(pageBg);
     }
 
     /// <summary>把当前背景回写到资源字典（换主题后要重放，否则会被纯色覆盖）。</summary>
@@ -72,7 +86,7 @@ public static class AppBackgroundService
         {
             try
             {
-                var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null);
+                var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow);
                 if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window w) return;
                 if (w.Content is not Microsoft.UI.Xaml.Controls.Panel root) return;
 

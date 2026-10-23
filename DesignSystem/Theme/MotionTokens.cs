@@ -22,8 +22,6 @@ public static class MotionTokens
     public const int EnterMs = 220;
     /// <summary>设置子页逐张建卡的浮起时长（曾实测：再长就开始显得拖沓）。</summary>
     public const int CardEnterMs = 130;
-    /// <summary>主题切换后的整页过场。</summary>
-    public const int PageFadeMs = 200;
     /// <summary>多个元素依次进场的间隔。</summary>
     public const int StaggerMs = 45;
     /// <summary>帧驱动的节奏，约 60fps。</summary>
@@ -41,8 +39,17 @@ public static class MotionTokens
     /// </summary>
     public static bool Disabled { get; set; } = Environment.GetEnvironmentVariable("WARM_NO_MOTION") == "1";
 
-    /// <summary>时长出口：禁用动效时一律 0ms（调用处直接落到终值）。</summary>
-    public static int Ms(int duration) => Disabled ? 0 : Math.Max(0, duration);
+    /// <summary>
+    /// 世界给的节奏倍率与按压行程。换风格如果只换颜色和圆角，切过去像只改了描边——
+    /// 「干脆」和「松弛」是材质差别的另一半天：极简沉 1px、70% 时长回来；玻璃沉到近 2px、余韵拖长。
+    /// 行程上限锁在 2px：超过它就不像材料被压下去，而像按钮在跳。
+    /// </summary>
+    public static double Scale { get; set; } = 1.0;
+    public static double Press { get; set; } = SinkPx;
+
+    /// <summary>时长出口：禁用动效时一律 0ms（调用处直接落到终值）；否则按世界的节奏缩放。</summary>
+    public static int Ms(int duration) =>
+        Disabled ? 0 : Math.Max(0, (int)Math.Round(Math.Max(0, duration) * Scale));
 
     /// <summary>快出：先冲到位再收，用于按下、状态浮起这类「要有回应」的过渡。</summary>
     public static double OutCubic(double t)

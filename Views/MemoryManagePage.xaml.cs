@@ -1,3 +1,5 @@
+using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -12,11 +14,14 @@ public partial class MemoryManagePage : ContentPage
         InitializeComponent();
         _vm = vm;
         BindingContext = vm;
+        // 记忆要跨几个存储读：Memories / HasMemories 都是 VM 已有的信号。
+        LoadingVeil.Attach(this, vm, "Memories", "HasMemories");
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
         _vm.LoadCommand.Execute(null);
+        Motion.ArrivePage(this);
     }
 }

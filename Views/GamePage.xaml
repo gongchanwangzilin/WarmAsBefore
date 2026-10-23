@@ -11,27 +11,28 @@
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
 
         <!-- ========== Header ========== -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" Padding="8,6,12,6"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}">
+        <!-- 顶栏与底部控制条用同一块 bar 面：玻璃档那圈描边在浅底上会被读成一条不属于地面的框 -->
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="8,6,12,6">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         FontSize="13" Padding="8,0"
                         Command="{Binding GoBackCommand}" />
                 <Label Grid.Column="1" Text="{Binding GameTitle}"
-                       Style="{StaticResource TxtSubhead}" FontSize="18"
+                       Style="{StaticResource TxtSubhead}"
                        VerticalOptions="Center" />
                 <Label Grid.Column="2" Text="小雨"
-                       Style="{StaticResource TxtCaption}" FontSize="12"
+                       Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" />
+                <!-- 热度块是一块饱和填充，字只能取最深那档墨（写死 White 在浅底世界会糊成一团） -->
                 <Border Grid.Column="3"
                         BackgroundColor="{Binding Affection, Converter={StaticResource AffectionTint}}"
                         StrokeThickness="0"
                         WidthRequest="32" HeightRequest="20"
-                        VerticalOptions="Center">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                        VerticalOptions="Center"
+                        StrokeShape="{DynamicResource WRadiusWell}">
                     <Label Text="{Binding Affection, StringFormat='{0}'}"
-                           TextColor="White" FontSize="10"
+                           TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeCaption}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
                 </Border>
             </Grid>
@@ -67,19 +68,35 @@
                         </CollectionView.ItemsLayout>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:ChatBubble">
-                                <Border BackgroundColor="{Binding BgColor}"
-                                        StrokeThickness="0"
-                                        Padding="8,6"
-                                        HorizontalOptions="{Binding Align}"
-                                        MaximumWidthRequest="260">
-                                    <Border.StrokeShape>
-                                        <RoundRectangle CornerRadius="8" />
-                                    </Border.StrokeShape>
-                                    <Label Text="{Binding Text}"
-                                           Style="{StaticResource TxtBodySm}"
-                                           FontSize="13"
-                                           TextColor="{Binding TextColor}" />
-                                </Border>
+                                <!-- 气泡：颜色归令牌（BubbleMine/BubbleTheirs 由风格世界算出来，换档时跟随），
+                                     VM 只回答「这句是谁说的」。旧写法在 VM 里写死 hex，切世界后气泡还停在旧色。
+                                     形状与内距也归令牌：角用井档、内距用 WPadWell，气泡和面板才不会各说各话。 -->
+                                <Grid>
+                                    <Border IsVisible="{Binding ShowBubbleMine}"
+                                            BackgroundColor="{DynamicResource BubbleMine}"
+                                            StrokeThickness="0"
+                                            Padding="{DynamicResource WPadWell}"
+                                            HorizontalOptions="End"
+                                            MaximumWidthRequest="260"
+                                            StrokeShape="{DynamicResource WRadiusWell}">
+                                        <Label Text="{Binding Text}"
+                                               Style="{StaticResource TxtBodySm}"
+                                               TextColor="{DynamicResource SurfaceFg}"
+                                               LineBreakMode="WordWrap" />
+                                    </Border>
+                                    <Border IsVisible="{Binding ShowBubbleTheirs}"
+                                            BackgroundColor="{DynamicResource BubbleTheirs}"
+                                            StrokeThickness="0"
+                                            Padding="{DynamicResource WPadWell}"
+                                            HorizontalOptions="Start"
+                                            MaximumWidthRequest="260"
+                                            StrokeShape="{DynamicResource WRadiusWell}">
+                                        <Label Text="{Binding Text}"
+                                               Style="{StaticResource TxtBodySm}"
+                                               TextColor="{DynamicResource SurfaceFg}"
+                                               LineBreakMode="WordWrap" />
+                                    </Border>
+                                </Grid>
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
@@ -87,13 +104,16 @@
                     <!-- 聊天输入框 -->
                     <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="6"
                           IsVisible="{Binding InGame}">
-                        <Border Style="{StaticResource CardNeumorph}" Padding="4,0">
-                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                        <!-- 输入框是「凹」的那一档：井底 + 上沿一道线。浮档（CardNeumorph）会给它一团落影，
+                             读起来像一颗能按下去的按钮，而它其实是承接文字的地方。 -->
+                        <Border Style="{StaticResource CardNeumorphInset}" Padding="10,0">
                             <Entry x:Name="ChatEntry"
                                    Text="{Binding ChatInput}"
                                    Placeholder="和小雨说点什么…"
-                                   FontSize="13"
+                                   FontSize="{DynamicResource WSizeSmall}"
                                    BackgroundColor="Transparent"
+                                   TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}"
                                    ReturnCommand="{Binding SendChatCommand}" />
                         </Border>
                         <Button Grid.Column="1" Text="发送" Style="{StaticResource BtnPrimary}"
@@ -107,7 +127,7 @@
 
         <!-- ========== Control Bar ========== -->
         <Border Grid.Row="2"
-                BackgroundColor="{DynamicResource SurfaceBg}"
+                Background="{DynamicResource WBarBrush}"
                 Padding="8,6,8,10"
                 IsVisible="{Binding InGame}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
@@ -116,8 +136,10 @@
                     <Button Text="嘲讽" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" Padding="14,0" FontSize="12"
                             Command="{Binding TauntCommand}" />
+                    <!-- DangerTint 是淡色「面」，当文字色在浅底上几乎看不见；投降这种「说出来但别喊」的
+                         动作要的是 DangerInk 那档墨。 -->
                     <Button Text="投降" Style="{StaticResource BtnText}"
-                            TextColor="{StaticResource DangerTint}"
+                            TextColor="{DynamicResource DangerInk}"
                             HeightRequest="34" Padding="14,0" FontSize="12"
                             Command="{Binding ConcedeCommand}" />
                     <Button Text="朗读" Style="{StaticResource BtnNeumorphic}"
@@ -125,7 +147,7 @@
                             Command="{Binding SpeakLastCommand}" />
                     <Button Text="语音" Style="{StaticResource BtnText}"
                             BackgroundColor="{DynamicResource Cream200}"
-                            CornerRadius="8"
+                            CornerRadius="{DynamicResource WRadiusButton}"
                             HeightRequest="34" WidthRequest="44" FontSize="11" Padding="0"
                             Command="{Binding VoiceInputCommand}"
                             IsEnabled="{Binding IsListening, Converter={StaticResource InverseBool}}" />
@@ -137,13 +159,13 @@
                     <Button Text="⚪ 点目结算" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" Padding="16,0" FontSize="12"
                             Command="{Binding SettleGoCommand}" />
-                    <Border BackgroundColor="{DynamicResource Cream200}"
+                    <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0"
                             HeightRequest="34" Padding="10,0"
-                            VerticalOptions="Center">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                            VerticalOptions="Center"
+                            StrokeShape="{DynamicResource WRadiusWell}">
                         <Label Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
-                               FontSize="12" VerticalOptions="Center" />
+                               VerticalOptions="Center" />
                     </Border>
                 </HorizontalStackLayout>
 
@@ -153,13 +175,13 @@
                     <Button Text="🎲 掷骰子" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" Padding="16,0" FontSize="12"
                             Command="{Binding RollLudoCommand}" />
-                    <Border BackgroundColor="{DynamicResource Cream200}"
+                    <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0"
                             HeightRequest="34" Padding="10,0"
-                            VerticalOptions="Center">
-                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                            VerticalOptions="Center"
+                            StrokeShape="{DynamicResource WRadiusWell}">
                         <Label Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
-                               FontSize="12" VerticalOptions="Center" />
+                               VerticalOptions="Center" />
                     </Border>
                 </HorizontalStackLayout>
 

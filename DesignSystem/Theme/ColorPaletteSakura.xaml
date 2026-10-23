@@ -27,8 +27,10 @@
 
     <!-- 暖中性色 / Warm Neutrals -->
     <Color x:Key="WarmWhite">#FFFBFB</Color>
-    <Color x:Key="WarmDark">#7A4A56</Color>
-    <Color x:Key="WarmBody">#A46273</Color>
+    <Color x:Key="WarmDark">#5A3340</Color>
+    <!-- 粉底上的正文墨以前是 #7A4A56（6.4:1，四套主题里最弱的一档），压深一档，
+         给标题→正文→注释留出三级台阶。 -->
+    <Color x:Key="WarmBody">#8A4A5E</Color>
     <Color x:Key="WarmMuted">#B98A96</Color>
     <Color x:Key="WarmFaint">#D9B6C0</Color>
 
@@ -56,14 +58,17 @@
     <!-- ============ Semantic Palette ============ -->
     <Color x:Key="PageBg">#FBF1F3</Color>
     <Color x:Key="SurfaceBg">#FEF8F9</Color>
-    <Color x:Key="SurfaceFg">#7A4A56</Color>
+    <Color x:Key="SurfaceFg">#693C49</Color>
     <Color x:Key="PrimaryAction">#ECA9BB</Color>
     <Color x:Key="PrimaryHover">#E08BA4</Color>
     <Color x:Key="PrimaryFg">#7A4A56</Color>
     <Color x:Key="SecondaryBg">#F9DFE5</Color>
-    <Color x:Key="MutedFg">#7A4A56</Color>
+    <Color x:Key="MutedFg">#7B5765</Color>
     <Color x:Key="BorderLine">#F3CBD5</Color>
     <Color x:Key="InputBg">#FBF1F3</Color>
+    <!-- 深度台阶：凹档底色 / 平档描边（与经典档同一层级关系，只是跟着粉调走） -->
+    <Color x:Key="WellBg">#F1D9DE</Color>
+    <Color x:Key="EdgeStrong">#EAB6C4</Color>
     <Color x:Key="SuccessTint">#A5D6A7</Color>
     <Color x:Key="DangerTint">#EF9A9A</Color>
     <Color x:Key="InfoTint">#90CAF9</Color>
@@ -73,6 +78,6 @@
 
     <!-- 粉调强调色 / Pink Accent（发送胶囊、心情等） -->
     <Color x:Key="AccentWarm">#F6DCC6</Color>
-    <Color x:Key="AccentWarmFg">#8A6A4F</Color>
+    <Color x:Key="AccentWarmFg">#6E4652</Color>
 
 </ResourceDictionary>

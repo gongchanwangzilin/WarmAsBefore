@@ -1,3 +1,5 @@
+using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -10,12 +12,15 @@ public partial class WeChatPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
+        // 会话列表与消息都要现拉：两个集合任一非空就收骨架。
+        LoadingVeil.Attach(this, vm, "ContactList", "Messages");
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
         if (BindingContext is WeChatViewModel vm) _ = vm.LoadAsync();
+        Motion.ArrivePage(this);
     }
 
     /// <summary>多行输入框上按回车 = 发送（复用 SendCommand）。</summary>

@@ -1,3 +1,5 @@
+using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -11,6 +13,7 @@ public partial class SavePage : ContentPage
         InitializeComponent();
         _vm = vm;
         BindingContext = vm;
+        LoadingVeil.Attach(this, vm, "Slots");   // 存档要逐个读盘：Slots 是 VM 已有的属性
     }
 
     protected override void OnAppearing()
@@ -19,5 +22,6 @@ public partial class SavePage : ContentPage
         // 回到存档列表：撤掉「进存档自动横屏」，恢复用户原来的方向选择
         WarmAsBefore.Modules.Screen.ScreenOrientationService.ExitSaveLandscape();
         _vm.RefreshCommand.Execute(null);
+        Motion.ArrivePage(this);
     }
 }

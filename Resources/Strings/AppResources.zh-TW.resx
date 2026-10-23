@@ -23,10 +23,11 @@
   <data name="Title_ThemePrefix" xml:space="preserve"><value>當前主題</value></data>
   <data name="Title_Coexist" xml:space="preserve"><value>✦ 同居體驗</value></data>
   <data name="Title_CoexistDesc" xml:space="preserve"><value>每天有 TA 的陪伴，聊天、生活、小遊戲，溫暖如初。</value></data>
-  <data name="Title_ThemeClassic" xml:space="preserve"><value>經典</value></data>
-  <data name="Title_ThemeGlass" xml:space="preserve"><value>毛玻璃</value></data>
-  <data name="Title_ThemeFrost" xml:space="preserve"><value>磨砂玻璃</value></data>
-  <data name="Title_ThemeLiquid" xml:space="preserve"><value>液態玻璃</value></data>
+  <!-- 启动卡的两行：上面那行是图形化的中文名牌（不翻译，它就是那颗印章），
+       下面这行才跟语言设置走。跳过提示跟着同一张卡，只在卡片期间出现。 -->
+  <data name="Brand_Mark" xml:space="preserve"><value>溫暖如初</value></data>
+  <data name="Brand_Name" xml:space="preserve"><value>Warm As Before</value></data>
+  <data name="Intro_Skip" xml:space="preserve"><value>點擊跳過</value></data>
   <data name="Settings_Interface" xml:space="preserve"><value>介面</value></data>
   <data name="Settings_Theme" xml:space="preserve"><value>配色主題</value></data>
   <data name="Settings_ThemeHint" xml:space="preserve"><value>經典 / 櫻花粉 / 翠竹綠 / 晨霧藍灰，回到標題後全部頁面生效</value></data>
@@ -118,6 +119,7 @@
   <data name="Settings_ImportUnzip" xml:space="preserve"><value>解壓中…</value></data>
   <data name="Settings_ImportCopy" xml:space="preserve"><value>複製檔案中…</value></data>
   <data name="Common_Back" xml:space="preserve"><value>＜ 返回</value></data>
+  <data name="Common_Loading" xml:space="preserve"><value>正在準備…</value></data>
   <data name="Settings_Title" xml:space="preserve"><value>設定</value></data>
   <data name="Settings_Volume" xml:space="preserve"><value>音量</value></data>
   <data name="Settings_Bgm" xml:space="preserve"><value>BGM</value></data>
@@ -153,4 +155,73 @@
   <data name="Settings_NotifyHint" xml:space="preserve"><value>真實微信 / QQ 訊息到達時提示</value></data>
   <data name="Settings_Greeting" xml:space="preserve"><value>空閒問候</value></data>
   <data name="Settings_GreetingHint" xml:space="preserve"><value>TA 會在空閒時主動問候你</value></data>
+  <data name="Setup_Lang_Title" xml:space="preserve"><value>先選一種語言</value></data>
+  <data name="Setup_Lang_Sub" xml:space="preserve"><value>點了立刻換，整個軟體跟著變，不用重啟。</value></data>
+  <data name="Setup_Style_Title" xml:space="preserve"><value>選一種手感</value></data>
+  <data name="Setup_Style_Sub" xml:space="preserve"><value>材質管圓角、縫和光影，色板管顏色。點一顆，這一頁當場就變成那樣。</value></data>
+  <data name="Setup_Style_Material" xml:space="preserve"><value>材質</value></data>
+  <data name="Setup_Style_Palette" xml:space="preserve"><value>色板</value></data>
+  <data name="Setup_Reside_Title" xml:space="preserve"><value>讓它常在</value></data>
+  <data name="Setup_Reside_Sub" xml:space="preserve"><value>這兩項只管 Windows 上的它，之後在設定裡隨時改回來。</value></data>
+  <data name="Setup_Reside_Top" xml:space="preserve"><value>視窗置頂</value></data>
+  <data name="Setup_Reside_TopHint" xml:space="preserve"><value>留在最前面，不被別的視窗蓋住</value></data>
+  <data name="Setup_Reside_Pet" xml:space="preserve"><value>桌寵自己出現的間隔</value></data>
+  <data name="Setup_Ai_Title" xml:space="preserve"><value>接上會說話的那部分</value></data>
+  <data name="Setup_Ai_Sub" xml:space="preserve"><value>填了才有真實回覆。先跳過也行，人物和頁面照常用。</value></data>
+  <data name="Setup_Ai_Hint" xml:space="preserve"><value>金鑰只發給你填的這個網址，不進日誌，也不走別處。</value></data>
+  <data name="Setup_Done_Title" xml:space="preserve"><value>就這些</value></data>
+  <data name="Setup_Done_Sub" xml:space="preserve"><value>其餘的邊用邊調。現在去認識第一個人？</value></data>
+  <data name="Setup_Teach_Head" xml:space="preserve"><value>開始之前</value></data>
+  <data name="Setup_Teach_Char" xml:space="preserve"><value>先有一位角色</value></data>
+  <data name="Setup_Teach_CharHint" xml:space="preserve"><value>新建就夠：名字、性別、性格，不用立繪；也可匯入角色包（.zip）</value></data>
+  <data name="Setup_Teach_Ai" xml:space="preserve"><value>真實回覆要接 AI</value></data>
+  <data name="Setup_Teach_AiHint" xml:space="preserve"><value>設定 →「AI 與模型」：填位址、金鑰、模型</value></data>
+  <data name="Setup_Teach_More" xml:space="preserve"><value>隨時再調</value></data>
+  <data name="Setup_Teach_MoreHint" xml:space="preserve"><value>外觀與主題 換風格與配色；資料與素材 裡匯入匯出素材包</value></data>
+  <data name="Setup_Next" xml:space="preserve"><value>下一步</value></data>
+  <data name="Setup_Back" xml:space="preserve"><value>返回</value></data>
+  <data name="Setup_Begin" xml:space="preserve"><value>開始</value></data>
+  <data name="Setup_CreateGo" xml:space="preserve"><value>去建立角色</value></data>
+  <data name="Setup_Later" xml:space="preserve"><value>以後再說</value></data>
+  <data name="Setup_SkipStep" xml:space="preserve"><value>跳過這步</value></data>
+  <data name="Setup_SkipAll" xml:space="preserve"><value>跳過設定</value></data>
+  <data name="Setup_World_Soft" xml:space="preserve"><value>輕質感</value></data>
+  <data name="Setup_World_Minimal" xml:space="preserve"><value>柔和極簡</value></data>
+  <data name="Setup_World_Gradient" xml:space="preserve"><value>柔和漸層</value></data>
+  <data name="Setup_World_Liquid" xml:space="preserve"><value>液態玻璃</value></data>
+  <data name="Setup_Pal_Classic" xml:space="preserve"><value>經典</value></data>
+  <data name="Setup_Pal_Sakura" xml:space="preserve"><value>櫻花粉</value></data>
+  <data name="Setup_Pal_Bamboo" xml:space="preserve"><value>翠竹綠</value></data>
+  <data name="Setup_Pal_Mist" xml:space="preserve"><value>晨霧藍灰</value></data>
+  <data name="Setup_Pet_Off" xml:space="preserve"><value>不主動出現</value></data>
+  <data name="Setup_Pet_Min" xml:space="preserve"><value>空閒 {0} 分鐘後</value></data>
+  <data name="Settings_ChannelsUrl" xml:space="preserve"><value>視頻號連結</value></data>
+  <data name="Settings_ChannelsUrlPlaceholder" xml:space="preserve"><value>https://…（視頻號/頻道頁面，留空則無法開啟）</value></data>
+  <data name="Shell_Channels" xml:space="preserve"><value>視頻號</value></data>
+  <data name="Shell_Qq" xml:space="preserve"><value>QQ</value></data>
+  <data name="Shell_Forum" xml:space="preserve"><value>論壇</value></data>
+  <data name="Forum_Title" xml:space="preserve"><value>QQ 論壇</value></data>
+  <data name="Forum_Placeholder" xml:space="preserve"><value>在論壇上說點什麼…</value></data>
+  <data name="Forum_Post" xml:space="preserve"><value>發文</value></data>
+  <data name="Forum_Empty" xml:space="preserve"><value>還沒有帖子，來開個頭吧～</value></data>
+  <data name="Forum_TopicDaily" xml:space="preserve"><value>日常</value></data>
+  <data name="Forum_TopicWish" xml:space="preserve"><value>願望</value></data>
+  <data name="Forum_TopicToday" xml:space="preserve"><value>今天想做什麼</value></data>
+  <data name="Settings_CloudTitle" xml:space="preserve"><value>雲端存檔</value></data>
+  <data name="Settings_CloudHint" xml:space="preserve"><value>把存檔、角色與聊天記錄鏡像到你自己的 GitHub 倉庫。兩台裝置各寫各的目錄，依時間取新，不會互相覆蓋；同時使用最壞也只是舊的一份被放進 conflicts 備份。</value></data>
+  <data name="Settings_CloudEnable" xml:space="preserve"><value>啟用雲端存檔</value></data>
+  <data name="Settings_CloudEnableHint" xml:space="preserve"><value>關閉時只保存在本機；開啟後變更會自動上傳</value></data>
+  <data name="Settings_CloudRepo" xml:space="preserve"><value>倉庫</value></data>
+  <data name="Settings_CloudRepoPlaceholder" xml:space="preserve"><value>owner/repo（建議私有倉庫）</value></data>
+  <data name="Settings_CloudToken" xml:space="preserve"><value>存取權杖</value></data>
+  <data name="Settings_CloudTokenPlaceholder" xml:space="preserve"><value>github_pat_…（只需 Contents 讀寫）</value></data>
+  <data name="Settings_CloudDevice" xml:space="preserve"><value>裝置名稱</value></data>
+  <data name="Settings_CloudDevicePlaceholder" xml:space="preserve"><value>家裡電腦 / 我的手機</value></data>
+  <data name="Settings_CloudAutoUpload" xml:space="preserve"><value>變更後自動上傳</value></data>
+  <data name="Settings_CloudAutoUploadHint" xml:space="preserve"><value>停手約兩秒後上傳一次，不打斷輸入</value></data>
+  <data name="Settings_CloudReconcile" xml:space="preserve"><value>同步後整理記憶</value></data>
+  <data name="Settings_CloudReconcileHint" xml:space="preserve"><value>雙端合併後讓對話模型去掉重複記憶；未設定模型時跳過</value></data>
+  <data name="Settings_CloudSyncNow" xml:space="preserve"><value>立即同步</value></data>
+  <data name="Settings_CloudTest" xml:space="preserve"><value>測試連線</value></data>
+  <data name="Settings_CloudPrivacy" xml:space="preserve"><value>權杖只保存在這台裝置的設定裡，settings.json 不會上傳；倉庫裡只有存檔與資料檔案，立繪／背景等圖片素材不會上傳。</value></data>
 </root>

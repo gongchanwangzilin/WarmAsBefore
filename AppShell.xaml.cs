@@ -35,9 +35,13 @@ public partial class AppShell : Shell
     {
         Routing.RegisterRoute("main", typeof(Views.MainGamePage));
         Routing.RegisterRoute("select", typeof(Views.CharacterSelectPage));
+        Routing.RegisterRoute("setup", typeof(Views.SetupPage));
         Routing.RegisterRoute("settings", typeof(Views.SettingsPage));
         Routing.RegisterRoute("phone", typeof(Views.PhonePage));
         Routing.RegisterRoute("chat", typeof(Views.WeChatPage));
+        // QQ 壳：与微信壳同构的青蓝换皮会话页（无支付/礼物面板，多「论坛」）+ QQ 论坛页
+        Routing.RegisterRoute("qqchat", typeof(Views.QqPage));
+        Routing.RegisterRoute("qqforum", typeof(Views.QqForumPage));
         Routing.RegisterRoute("map", typeof(Views.MapPage));
         Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
@@ -61,6 +65,10 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("subProfile", typeof(Views.SubProfilePage));
         // 记忆管理：关系网 / 标签 / 记得的事 / 副设定
         Routing.RegisterRoute("memoryManage", typeof(Views.MemoryManagePage));
+        // 关系网：看得见长出来的那张网（点节点就能改）
+        Routing.RegisterRoute(Services.PageWindowKeys.Graph, typeof(Views.MemoryGraphPage));
+        // 搜事件：桌面上通常另开一扇窗，这里的路由是手机上那条退路
+        Routing.RegisterRoute(Services.PageWindowKeys.Search, typeof(Views.MemorySearchPage));
         // 设置分类子页（首页 → 分类）
         Routing.RegisterRoute("settingssection", typeof(Views.SettingsSectionPage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));

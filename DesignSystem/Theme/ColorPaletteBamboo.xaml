@@ -27,7 +27,7 @@
 
     <!-- 暖中性色 / Warm Neutrals -->
     <Color x:Key="WarmWhite">#FCFFFA</Color>
-    <Color x:Key="WarmDark">#4C6150</Color>
+    <Color x:Key="WarmDark">#3C4E40</Color>
     <Color x:Key="WarmBody">#5F7A64</Color>
     <Color x:Key="WarmMuted">#8FA393</Color>
     <Color x:Key="WarmFaint">#BCCBBE</Color>
@@ -61,9 +61,12 @@
     <Color x:Key="PrimaryHover">#A3C97E</Color>
     <Color x:Key="PrimaryFg">#4C6150</Color>
     <Color x:Key="SecondaryBg">#E6EFDD</Color>
-    <Color x:Key="MutedFg">#4C6150</Color>
+    <Color x:Key="MutedFg">#55685A</Color>
     <Color x:Key="BorderLine">#DAE7CE</Color>
     <Color x:Key="InputBg">#F0F5EC</Color>
+    <!-- 深度台阶：凹档底色 / 平档描边（与经典档同一层级关系，只是跟着竹绿走） -->
+    <Color x:Key="WellBg">#D5E4CB</Color>
+    <Color x:Key="EdgeStrong">#AFD09A</Color>
     <Color x:Key="SuccessTint">#A5D6A7</Color>
     <Color x:Key="DangerTint">#EF9A9A</Color>
     <Color x:Key="InfoTint">#90CAF9</Color>

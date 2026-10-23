@@ -1,3 +1,6 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
 namespace WarmAsBefore.Modules.Tools;
 
 /// <summary>工具宿主语言。Builtin=进程内 C# 实现（系统/内置工具）；Python/Java=外部脚本运行时。</summary>
@@ -6,6 +9,24 @@ public enum ToolLanguage
     Builtin,
     Python,
     Java
+}
+
+/// <summary>schema 字段两种写法都认：JSON 字符串（旧约定）或直接写 JSON 对象（手写更自然）。</summary>
+public sealed class FlexibleSchemaConverter : JsonConverter<string?>
+{
+    public override string? Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+    {
+        if (reader.TokenType == JsonTokenType.Null) return null;
+        if (reader.TokenType == JsonTokenType.String) return reader.GetString();
+        using var doc = JsonDocument.ParseValue(ref reader);
+        return doc.RootElement.GetRawText();
+    }
+
+    public override void Write(Utf8JsonWriter writer, string? value, JsonSerializerOptions options)
+    {
+        if (value is null) writer.WriteNullValue();
+        else writer.WriteStringValue(value);
+    }
 }
 
 /// <summary>工具参数描述（供 AI / 外部调用方按 schema 传参）。</summary>
