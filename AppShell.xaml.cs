@@ -80,6 +80,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("pluginCenter", typeof(Views.PluginCenterPage));
         // 原生设置：按 plugin.json 的 fields 现场生成表单
         Routing.RegisterRoute("pluginSettings", typeof(Views.PluginSettingsPage));
+        // 插件权限台：声明 ∩ 授予，一插件一屏
+        Routing.RegisterRoute("pluginPerms", typeof(Views.PluginPermissionsPage));
         // 存档高级设置：这份存档能用哪些插件 / 工具 / 角色
         Routing.RegisterRoute("saveRules", typeof(Views.SaveRulesPage));
     }

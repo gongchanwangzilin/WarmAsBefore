@@ -104,8 +104,30 @@ public sealed partial class ToolManager : IDisposable
         _builtins[name] = handler;
     }
 
+    /// <summary>注册内置工具，参数直接给 JSON Schema（模型据此生成调用参数）。</summary>
+    public void RegisterBuiltin(string name, string description, Func<string, Task<string>> handler, string parametersSchema)
+    {
+        _tools[name] = new ToolDefinition
+        {
+            Name = name,
+            Description = description,
+            Language = ToolLanguage.Builtin,
+            ParametersSchema = parametersSchema
+        };
+        _builtins[name] = handler;
+    }
+
+    /// <summary>
+    /// 按运行状态隐藏工具（例如 Minecraft 未连接时的 maid_*）。只影响可见清单，
+    /// 已注册工具仍可按名执行——断开瞬间的收尾调用不应该突然变成「未知工具」。
+    /// </summary>
+    public Func<string, bool>? ToolVisibility { get; set; }
+
     public List<ToolDefinition> ListTools() =>
-        _tools.Values.Where(t => ToolAllowed(t.Name)).OrderBy(t => t.Name).ToList();
+        _tools.Values
+            .Where(t => ToolVisibility?.Invoke(t.Name) ?? true)
+            .Where(t => ToolAllowed(t.Name))
+            .OrderBy(t => t.Name).ToList();
 
     /// <summary>全部工具（不按存档过滤）：存档高级设置要拿它列出可以放行的名字。</summary>
     public List<ToolDefinition> AllTools() =>

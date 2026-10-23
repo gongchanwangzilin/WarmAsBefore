@@ -51,6 +51,8 @@ public static class MauiProgram
         // 画面生成：装扮 / 背景 / 立绘 / 地图背景
         builder.Services.AddSingleton<ImageGenerationService>();
         // 插件宿主：JS 钩子、设置声明、依赖表、崩溃日志、HTML 设置回调
+        // 权限表要先注册：宿主的每个宿主函数都过它判定，DI 也不会替可选参数兜底。
+        builder.Services.AddSingleton<PluginPermissions>();
         builder.Services.AddSingleton<PluginHost>();
         // 关系网：后台随对话自动长出来。按数值找近邻优先问量化模型，没配上就用本地统计（不花钱）
         builder.Services.AddSingleton<RelationNetworkService>();
@@ -103,6 +105,8 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
         builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
         builder.Services.AddSingleton<Modules.SaveSystem.SaveManager>();
+        // Minecraft 桥：UDP 发现 + TCP 会话；插件启用后才监听端口，未启用时保持安静
+        builder.Services.AddSingleton<Modules.MinecraftBridge.MaidBridgeService>();
         builder.Services.AddSingleton<Modules.NovelImport.NovelAnalyzer>();
 builder.Services.AddSingleton<Modules.GameModule.MiniGameEngine>();
 builder.Services.AddSingleton<Modules.GameModule.ChessBrainService>();
@@ -225,6 +229,9 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<Views.PluginCenterPage>();
         builder.Services.AddTransient<PluginCenterViewModel>();
         builder.Services.AddTransient<Views.PluginSettingsPage>();
+        // 插件权限台：一个插件一整套「声明 ∩ 授予」的开关与留痕
+        builder.Services.AddTransient<Views.PluginPermissionsPage>();
+        builder.Services.AddTransient<PluginPermissionsViewModel>();
         // 存档高级设置：按存档编辑插件 / 工具 / 角色白名单
         builder.Services.AddTransient<Views.SaveRulesPage>();
         builder.Services.AddTransient<SaveRulesViewModel>();
