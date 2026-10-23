@@ -16,8 +16,12 @@ public sealed record MaidBridgeSettings
     public int AutonomyPulseMinutes { get; init; }
     public int BackupMinutes { get; init; } = 10;
 
-    public string Signature =>
-        $"{Enabled}|{Port}|{Lan}|{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{ChatAffection}|{AutonomyPulseMinutes}|{BackupMinutes}";
+    /// <summary>要不要重开监听、重握手：只有端口和网卡模式变了才算。</summary>
+    public string ListenerSignature => $"{Enabled}|{Port}|{Lan}";
+
+    /// <summary>行为开关：变了只需把新配置换进内存，现有会话不该跟着抖一下。</summary>
+    public string BehaviorSignature =>
+        $"{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{ChatAffection}|{AutonomyPulseMinutes}|{BackupMinutes}";
 
     public static MaidBridgeSettings From(IReadOnlyDictionary<string, string> values)
     {
@@ -188,16 +192,25 @@ public sealed class MaidBridgeMaidBinding
 /// <summary>轻量 JSON 读取：协议字段可能是数字/字符串/对象，任何类型不符都退回默认值，不让一条坏字段打断整帧。</summary>
 internal static class BridgeJson
 {
+    /// <summary>
+    /// 协议里的字符串一律在入口掐长度。模组那边的字段是外部输入，
+    /// 一个 4 MB 的 name/task/id 会原样流进绑定表、文件名和提示词，不该等到用的时候才发现。
+    /// </summary>
+    public const int MaxStringChars = 2000;
+
     public static string Str(JsonObject o, string key, string fallback = "")
     {
         var node = o[key];
         if (node is JsonValue v)
         {
-            if (v.TryGetValue<string>(out var s)) return s ?? fallback;
+            if (v.TryGetValue<string>(out var s)) return Clip(s ?? fallback, MaxStringChars);
             if (v.TryGetValue<bool>(out var b)) return b ? "true" : "false";
         }
         return fallback;
     }
+
+    public static string Clip(string? text, int max)
+        => string.IsNullOrEmpty(text) || text.Length <= max ? (text ?? "") : text[..max];
 
     public static double Num(JsonObject o, string key, double fallback = 0)
         => o.TryGetPropertyValue(key, out var node) ? Num(node, fallback) : fallback;
@@ -205,12 +218,19 @@ internal static class BridgeJson
     public static double Num(JsonNode? node, double fallback = 0)
     {
         if (node is not JsonValue v) return fallback;
-        if (v.TryGetValue<double>(out var d)) return d;
-        if (v.TryGetValue<long>(out var l)) return l;
+        if (v.TryGetValue<double>(out var d)) return Clean(d, fallback);
+        if (v.TryGetValue<long>(out var l)) return Clean(l, fallback);
         if (v.TryGetValue<int>(out var i)) return i;
-        if (v.TryGetValue<string>(out var s) && double.TryParse(s, out var parsed)) return parsed;
+        if (v.TryGetValue<string>(out var s) && double.TryParse(s, out var parsed)) return Clean(parsed, fallback);
         return fallback;
     }
+
+    /// <summary>
+    /// 对端是 Java，NaN 与 Infinity 能原样传过来，而 Math.Clamp 拿到 NaN 会照样返回 NaN，
+    /// 后面无论是格式化显示还是当权重取整都会被打穿。读到非有限数就退回默认值。
+    /// </summary>
+    private static double Clean(double value, double fallback)
+        => double.IsNaN(value) || double.IsInfinity(value) ? fallback : value;
 
     public static int Int(JsonObject o, string key, int fallback = 0)
     {
