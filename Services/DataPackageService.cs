@@ -15,6 +15,8 @@ namespace WarmAsBefore.Services;
 ///
 /// 密钥处理：导出时默认按名字递归清掉所有 *Key / *Keys / *Token / *Secret / *Password / *Passphrase
 /// 的值（顶层的 AiKey、厂商数组里每条的 Keys 池、CloudToken 都算），其余设置原样保留；
+/// MCP 接入配置（McpPacks/&lt;服务&gt;/server.json）里的 Env 与 Headers 整个清空——那两面放的就是密钥，
+/// 而键名由用户自己起，按名字扫不保证扫得着。
 /// 只有用户显式勾选「包含 API 密钥与机器人密钥」时才原样写入。
 /// </summary>
 public static class DataPackageService
@@ -111,13 +113,22 @@ public static class DataPackageService
                 {
                     // 文件名以 settings.json 开头的都是设置文件：根设置、plugins/<id>/settings.json，
                     // 以及旧版写歪的 settings.json.json（那句存档排除同样按这个口径认）
-                    if (!includeSensitive && System.IO.Path.GetFileName(rel)
-                            .StartsWith("settings.json", StringComparison.OrdinalIgnoreCase))
+                    var fileName = System.IO.Path.GetFileName(rel);
+                    if (!includeSensitive && fileName.StartsWith("settings.json", StringComparison.OrdinalIgnoreCase))
                     {
                         // 不能整目录打包：settings.json 里混着普通设置和密钥，要逐字段清空。
                         // 插件自己的 plugins/<id>/settings.json 也一样——用户在插件设置页填的密钥就存在那里。
                         var sanitized = SanitizeSettings(File.ReadAllText(f));
                         if (sanitized is null) settingsSkipped = true;   // 解析失败：宁可不带，也不外泄
+                        else WriteTextEntry(archive, rel, sanitized);
+                    }
+                    // MCP 服务的接入配置（McpPacks/<服务>/server.json）里必然带着 Env 与 Headers：
+                    // 那两面就是放 API KEY 和 Bearer 令牌的地方，按名字扫不一定扫得到（键名是用户自己起的）。
+                    // 清掉值、留下「有这个服务、怎么启动」——换机后重填一次密钥即可。
+                    else if (!includeSensitive && fileName.Equals("server.json", StringComparison.OrdinalIgnoreCase))
+                    {
+                        var sanitized = SanitizeServerConfig(File.ReadAllText(f));
+                        if (sanitized is null) settingsSkipped = true;
                         else WriteTextEntry(archive, rel, sanitized);
                     }
                     else
@@ -139,7 +150,7 @@ public static class DataPackageService
         });
 
         if (settingsSkipped)
-            App.WriteLog("DataPackageService: settings.json 解析失败，已从数据包中跳过（避免密钥外泄）");
+            App.WriteLog("DataPackageService: 设置/接入配置解析失败，已从数据包中跳过（避免密钥外泄）");
 
         return zipFull;
     }
@@ -154,6 +165,33 @@ public static class DataPackageService
         {
             if (JsonNode.Parse(json) is not JsonObject obj) return null;
             Scrub(obj);
+            return obj.ToJsonString(PrettyJson);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// MCP 接入配置（server.json）专用：先按名字递归清一遍，再把 Env / Headers 里所有值清成 ""。
+    /// 这两面放的就是密钥，而键名由用户自己起（叫 KEY、TOKEN 还是 FOO 说不准），只按名字扫不保证扫得着。
+    /// 返回 null 表示解析不了——和设置文件同一口径：宁可不带这个文件。
+    /// </summary>
+    private static string? SanitizeServerConfig(string json)
+    {
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject obj) return null;
+            Scrub(obj);
+            foreach (var pair in obj)
+            {
+                if (pair.Value is not JsonObject dict) continue;
+                if (!pair.Key.Equals("Env", StringComparison.OrdinalIgnoreCase)
+                    && !pair.Key.Equals("Headers", StringComparison.OrdinalIgnoreCase)) continue;
+                foreach (var name in dict.Select(p => p.Key).ToList())
+                    dict[name] = JsonValue.Create(string.Empty);
+            }
             return obj.ToJsonString(PrettyJson);
         }
         catch

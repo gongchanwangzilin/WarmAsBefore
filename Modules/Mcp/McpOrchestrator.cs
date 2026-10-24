@@ -20,9 +20,6 @@ public sealed class McpOrchestrator
     /// <summary>MCP 总开关：关掉后一切 MCP 工具（含聊天里的 mcp_call）都不可用。</summary>
     public bool Enabled { get; set; } = true;
 
-    /// <summary>网络 MCP 的默认接入地址（来自设置页）。</summary>
-    public string NetworkUrl { get; set; } = "";
-
     /// <summary>MCP 数据包统一存放目录（导入/新建的服务器都在这里）。</summary>
     public string McpPackDir => System.IO.Path.Combine(WarmAsBefore.App.RootDirectory, "McpPacks");
 
@@ -34,6 +31,18 @@ public sealed class McpOrchestrator
         AllowTrailingCommas = true,
         WriteIndented = true
     };
+
+    /// <summary>server.json 与 tools.json 同一套宽松读法：用户可以手改这个文件。</summary>
+    private static readonly JsonSerializerOptions ServerJson = new()
+    {
+        PropertyNameCaseInsensitive = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        AllowTrailingCommas = true,
+        WriteIndented = true
+    };
+
+    /// <summary>正在连接中的服务：DisconnectServerAsync 靠它把在途握手掐掉。</summary>
+    private readonly Dictionary<string, CancellationTokenSource> _connecting = new(StringComparer.OrdinalIgnoreCase);
 
     private bool _toolsLoaded;
 
@@ -213,6 +222,16 @@ public sealed class McpOrchestrator
                 return false;
             }
             foreach (var t in ToolsOf(server)) _registry.Remove(t.Name);
+            // 递归删目录，server.json（接入配置与 stdio 启动命令）自然一起没了。
+            // 在途握手先掐掉，否则它会在删完之后又把工具注册回内存、再把 tools.json 写回来。
+            CancellationTokenSource? inFlight;
+            lock (_connecting)
+            {
+                _connecting.TryGetValue(server, out inFlight);
+                _connecting.Remove(server);
+            }
+            try { inFlight?.Cancel(); }
+            catch (ObjectDisposedException) { App.WriteLog("[MCP] 删包时连接刚好已收尾（无需处理）"); }
             if (Directory.Exists(dir)) Directory.Delete(dir, true);
             return true;
         }
@@ -242,6 +261,7 @@ public sealed class McpOrchestrator
             {
                 "js" => await Task.Run(() => RunJs(t, args)),
                 "http" => await RunHttpAsync(t, args),
+                "mcp" => await RunMcpAsync(t, args),
                 _ => await RunBuiltinAsync(t, name, args)
             };
         }
@@ -321,6 +341,303 @@ public sealed class McpOrchestrator
         catch { return args ?? ""; }
     }
 
+    /// <summary>
+    /// 真正的 MCP 远端调用：协议握手与传输都在 McpProtocol 里，这里只管取配置与同意闸。
+    /// args 是模型传来的 JSON 字符串，空/坏 JSON 由协议层当 {} 处理。
+    /// </summary>
+    private async Task<string> RunMcpAsync(McpToolDef t, string args)
+    {
+        var cfg = LoadServerConfig(t.Server);
+        if (cfg is null)
+            return $"[MCP] 工具 {t.Name} 所属的服务「{t.Server}」没有 server.json（服务配置被删了？重新连一次）";
+        // stdio 会在用户机器上起进程，调用这一路也要过同意闸，不能只在「点连接」那一次把关
+        if (McpProtocol.UsesStdio(cfg) && !cfg.Allowed)
+            return "[MCP] " + McpProtocol.NeedConsentMessage + $"（服务「{cfg.Name}」）";
+
+        var tool = new McpRemoteTool(t.Name, t.Description, t.ParametersSchema);
+        return await McpProtocol.CallToolAsync(cfg, tool, args ?? "", CancellationToken.None);
+    }
+
+    // ============ 服务配置（server.json：从哪里启动 / 连到哪里） ============
+
+    /// <summary>把数据包名解析成 McpPacks 内的绝对路径；越界的一律 null（数据包名是外部输入）。</summary>
+    private string? SafePackDir(string key)
+    {
+        var safe = Sanitize(key ?? "");
+        if (string.IsNullOrWhiteSpace(safe)) return null;
+        var dir = Path.GetFullPath(Path.Combine(McpPackDir, safe));
+        var root = Path.GetFullPath(McpPackDir) + Path.DirectorySeparatorChar;
+        if (!dir.StartsWith(root, StringComparison.OrdinalIgnoreCase))
+        {
+            App.WriteLog("[MCP] 拒绝越出 McpPacks 的目录：" + key);
+            return null;
+        }
+        return Directory.Exists(dir) ? dir : null;
+    }
+
+    /// <summary>读 McpPacks/&lt;key&gt;/server.json；没有这个文件（纯数据包）返回 null。</summary>
+    public McpServerConfig? LoadServerConfig(string key)
+    {
+        try
+        {
+            var dir = SafePackDir(key);
+            if (dir is null) return null;
+            var path = Path.Combine(dir, "server.json");
+            if (!File.Exists(path)) return null;
+            var cfg = JsonSerializer.Deserialize<McpServerConfig>(File.ReadAllText(path), ServerJson);
+            if (cfg is null) return null;
+            // 落盘的 Key 可能被手改成别的值：以目录名为准，否则工具归属与删除会错位
+            cfg.Key = Path.GetFileName(dir);
+            return cfg;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"[MCP] server.json 读不出来（{key}）：{ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>写 server.json（目录不存在就建）。先写临时文件再替换：半截 JSON 会让下次启动读不出配置。</summary>
+    public bool SaveServerConfig(McpServerConfig cfg)
+    {
+        if (cfg is null) return false;
+        try
+        {
+            var safe = Sanitize(cfg.Key ?? "");
+            if (string.IsNullOrWhiteSpace(safe)) return false;
+            var dir = Path.GetFullPath(Path.Combine(McpPackDir, safe));
+            var root = Path.GetFullPath(McpPackDir) + Path.DirectorySeparatorChar;
+            if (!dir.StartsWith(root, StringComparison.OrdinalIgnoreCase)) return false;
+            Directory.CreateDirectory(dir);
+            if (string.IsNullOrWhiteSpace(cfg.CreatedAt))
+                cfg.CreatedAt = DateTime.Now.ToString("yyyy-MM-dd HH:mm");
+            cfg.Key = safe;
+            var tmp = Path.Combine(dir, "server.json.tmp");
+            File.WriteAllText(tmp, JsonSerializer.Serialize(cfg, ServerJson));
+            File.Move(tmp, Path.Combine(dir, "server.json"), overwrite: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"[MCP] server.json 落盘失败（{cfg.Key}）：{ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 登记一个外部 MCP 服务。commandLineOrUrl：stdio 传「整行命令」（自己拆成 Command + Args，
+    /// 带空格的路径要加引号），http 传 URL。名字撞已有的数据包时加后缀而不是覆盖。
+    /// 参数不合法返回 null，并且不会在磁盘上留下半个目录。
+    /// </summary>
+    public McpServerConfig? AddService(string name, string transport, string commandLineOrUrl, string description)
+    {
+        var t = (transport ?? "").Trim().ToLowerInvariant();
+        if (t != "stdio" && t != "http")
+        {
+            App.WriteLog("[MCP] 添加服务被拒：传输方式只支持 stdio 与 http，收到「" + transport + "」");
+            return null;
+        }
+        var input = (commandLineOrUrl ?? "").Trim();
+        if (input.Length == 0)
+        {
+            App.WriteLog("[MCP] 添加服务被拒：命令行为空");
+            return null;
+        }
+
+        var cfg = new McpServerConfig { Transport = t };
+        if (t == "http")
+        {
+            if (!McpProtocol.IsHttpEndpoint(input, out var urlError))
+            {
+                App.WriteLog("[MCP] 添加服务被拒：" + urlError);
+                return null;
+            }
+            cfg.Url = input;
+        }
+        else
+        {
+            var parts = McpProtocol.SplitCommandLine(input);
+            if (parts.Count == 0 || string.IsNullOrWhiteSpace(parts[0]))
+            {
+                App.WriteLog("[MCP] 添加服务被拒：这一行里没有可执行文件名");
+                return null;
+            }
+            cfg.Command = parts[0];
+            cfg.Args = parts.GetRange(1, parts.Count - 1);
+        }
+
+        cfg.Key = UniqueKey(Sanitize(name));
+        if (string.IsNullOrWhiteSpace(cfg.Key)) return null;
+        cfg.Name = string.IsNullOrWhiteSpace(name) ? cfg.Key : name.Trim();
+        cfg.Description = (description ?? "").Trim();
+
+        if (!SaveServerConfig(cfg)) return null;
+
+        // metadata.json 是数据包列表一直在读的那份：同步写一份，服务才在旧列表里看得见、也才删得掉。
+        // stdio 没有地址，就把启动命令放进 Url 字段位上显示。
+        var dir = Path.Combine(McpPackDir, cfg.Key);
+        var meta = new McpServerMeta
+        {
+            Name = cfg.Name,
+            Description = cfg.Description,
+            Url = t == "http" ? cfg.Url : cfg.Command + (cfg.Args.Count > 0 ? " " + string.Join(" ", cfg.Args) : ""),
+            CreatedAt = cfg.CreatedAt
+        };
+        try
+        {
+            File.WriteAllText(Path.Combine(dir, "metadata.json"), JsonSerializer.Serialize(meta, ServerJson));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("[MCP] metadata.json 没写进去（服务配置已存，不影响连接）：" + ex.Message);
+        }
+        return cfg;
+    }
+
+    /// <summary>目录名撞车时加 _2 / _3 …，绝不覆盖已存在的数据包。</summary>
+    private string UniqueKey(string baseKey)
+    {
+        var safe = Sanitize(baseKey);
+        if (string.IsNullOrWhiteSpace(safe)) return "mcp_" + Guid.NewGuid().ToString("N")[..6];
+        if (!Directory.Exists(Path.Combine(McpPackDir, safe))) return safe;
+        for (var i = 2; i < 1000; i++)
+        {
+            var candidate = Sanitize(baseKey) + "_" + i;
+            if (!Directory.Exists(Path.Combine(McpPackDir, candidate))) return candidate;
+        }
+        return "mcp_" + Guid.NewGuid().ToString("N")[..6];
+    }
+
+    /// <summary>
+    /// 用户同意让这个服务在本机启动进程（stdio 的同意闸，UI 上那一次「启动并连接」才调它）。
+    /// 落盘之后重启也还在；要收回就在设置页把它关掉。
+    /// </summary>
+    public bool AllowServer(string key)
+    {
+        var cfg = LoadServerConfig(key);
+        if (cfg is null) return false;
+        if (cfg.Allowed) return true;
+        cfg.Allowed = true;
+        var ok = SaveServerConfig(cfg);
+        App.WriteLog($"[MCP] 用户已放行 stdio 启动：「{cfg.Name}」→ {cfg.Command} {string.Join(" ", cfg.Args)}");
+        return ok;
+    }
+
+    /// <summary>收回同意（下次连接与调用都会被拒）。</summary>
+    public bool RevokeServer(string key)
+    {
+        var cfg = LoadServerConfig(key);
+        if (cfg is null || !cfg.Allowed) return cfg is not null;
+        cfg.Allowed = false;
+        App.WriteLog($"[MCP] 已取消「{cfg.Name}」的启动许可");
+        return SaveServerConfig(cfg);
+    }
+
+    /// <summary>
+    /// 握手 + tools/list，把远端工具登记成 Kind="mcp" 并落盘（启停状态因此保留）。
+    /// 只替换这个服务自己的 mcp 工具：数据包里原有的 js/http 工具是用户手写的，不能跟着一起掉。
+    /// </summary>
+    public async Task<(bool Ok, string Message, int ToolCount)> ConnectServerAsync(string key)
+    {
+        var cfg = LoadServerConfig(key);
+        if (cfg is null) return (false, "没读到这个服务的 server.json（它可能是纯数据包，没有接入配置）", 0);
+        CancellationTokenSource cts;
+        lock (_connecting)
+        {
+            if (_connecting.ContainsKey(key)) return (false, "这个服务正在连接中", 0);
+            cts = new CancellationTokenSource();
+            _connecting[key] = cts;
+        }
+
+        try
+        {
+            var (ok, message, tools) = await McpProtocol.DiscoverAsync(cfg, cts.Token);
+            if (!ok)
+            {
+                cfg.LastError = message;
+                SaveServerConfig(cfg);
+                return (false, message, 0);
+            }
+
+            foreach (var stale in _registry.Values
+                         .Where(x => string.Equals(x.Server, cfg.Key, StringComparison.OrdinalIgnoreCase)
+                                     && x.Kind == "mcp")
+                         .Select(x => x.Name).ToList())
+                _registry.Remove(stale);
+
+            var registered = 0;
+            foreach (var remote in tools)
+            {
+                var def = new McpToolDef
+                {
+                    Name = remote.Name,
+                    Description = remote.Description,
+                    Category = "mcp",
+                    Kind = "mcp",
+                    Server = cfg.Key,
+                    ParametersSchema = remote.ParametersSchema
+                };
+                // 工具名在整个注册表里是唯一的键：撞了别的服务就跳过，别把别人的工具顶掉
+                if (_registry.TryGetValue(def.Name, out var clash)
+                    && !string.Equals(clash.Server, cfg.Key, StringComparison.OrdinalIgnoreCase))
+                {
+                    App.WriteLog($"[MCP] 工具 {def.Name} 已属于服务 {clash.Server}，本次跳过");
+                    continue;
+                }
+                _registry[def.Name] = def;
+                registered++;
+            }
+
+            cfg.LastError = "";
+            cfg.LastConnectedUtc = DateTime.UtcNow;
+            SaveServerConfig(cfg);
+            await SaveToolsAsync(cfg.Key);
+            return (true, message, registered);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"[MCP] 连接 {key} 失败：{ex}");
+            cfg.LastError = ex.Message;
+            SaveServerConfig(cfg);
+            return (false, "连接失败：" + ex.Message, 0);
+        }
+        finally
+        {
+            lock (_connecting) _connecting.Remove(key);
+            cts.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// 断开：掐掉在途握手、注销这个服务的远端工具并落盘、清掉连接标记。
+    /// stdio 没有常驻进程要收（每次调用起一个、用完就杀），所以这里只处理内存里的登记与在途请求。
+    /// </summary>
+    public async Task DisconnectServerAsync(string key)
+    {
+        CancellationTokenSource? cts;
+        lock (_connecting)
+        {
+            _connecting.TryGetValue(key, out cts);
+            _connecting.Remove(key);
+        }
+        try { cts?.Cancel(); }
+        catch (ObjectDisposedException) { App.WriteLog("[MCP] 断开时连接刚好已收尾（无需处理）"); }
+
+        foreach (var name in _registry.Values
+                     .Where(x => string.Equals(x.Server, key, StringComparison.OrdinalIgnoreCase) && x.Kind == "mcp")
+                     .Select(x => x.Name).ToList())
+            _registry.Remove(name);
+
+        var cfg = LoadServerConfig(key);
+        if (cfg is not null)
+        {
+            cfg.LastConnectedUtc = default;
+            SaveServerConfig(cfg);
+        }
+        await SaveToolsAsync(key);
+        App.WriteLog($"[MCP] 已断开服务「{(cfg?.Name ?? key)}」登记的远端工具");
+    }
+
     // ============ 服务器管理（列表 / 新建 / 详情） ============
 
     /// <summary>列出 McpPacks 下所有已导入/新建的 MCP 数据包。</summary>
@@ -342,17 +659,24 @@ public sealed class McpOrchestrator
                         try { size += new FileInfo(f).Length; } catch { }
                     }
                     var key = Path.GetFileName(dir);
+                    var service = LoadServerConfig(key);
                     items.Add(new McpServerItem
                     {
                         Key = key,
                         Name = meta?.Name ?? key,
                         Description = meta?.Description ?? "",
                         FolderPath = dir,
-                        Url = meta?.Url ?? "",
+                        Url = service is null ? meta?.Url ?? "" : (string.IsNullOrWhiteSpace(service.Url) ? service.Command : service.Url),
                         FileCount = files.Length,
                         SizeLabel = FormatSize(size),
                         CreatedLabel = meta?.CreatedAt ?? "",
-                        Tools = ToolsOf(key)
+                        Tools = ToolsOf(key),
+                        HasServiceConfig = service is not null,
+                        Transport = service?.Transport ?? "",
+                        Allowed = service?.Allowed ?? false,
+                        CommandLine = service is null ? "" : BuildCommandLinePreview(service),
+                        LastError = service?.LastError ?? "",
+                        LastConnectedUtc = service?.LastConnectedUtc ?? default
                     });
                 }
                 catch { }
@@ -433,6 +757,12 @@ public sealed class McpOrchestrator
         if (bytes < 1024 * 1024) return $"{bytes / 1024.0:0.#} KB";
         return $"{bytes / 1024.0 / 1024.0:0.#} MB";
     }
+
+    /// <summary>stdio 的「从哪里启动」那一行，给设置页原样显示。</summary>
+    private static string BuildCommandLinePreview(McpServerConfig cfg)
+        => McpProtocol.UsesStdio(cfg)
+            ? (cfg.Command + " " + string.Join(" ", cfg.Args)).Trim()
+            : cfg.Url;
 
     /// <summary>执行网络 MCP 请求（通过 URL 接入外部 MCP 服务）。</summary>
     private async Task<string> ExecNetworkMcp(string args)
@@ -652,9 +982,50 @@ public sealed class McpServerItem
     public string SizeLabel { get; set; } = "";
     public string CreatedLabel { get; set; } = "";
     public List<McpToolDef> Tools { get; set; } = new();
+
+    /// <summary>有没有 server.json（false 表示这是纯数据包，只靠 tools.json）。</summary>
+    public bool HasServiceConfig { get; set; }
+    /// <summary>"stdio" / "http"；纯数据包为空。</summary>
+    public string Transport { get; set; } = "";
+    /// <summary>stdio 是否已被用户放行；未放行时连接与调用都会被拒。</summary>
+    public bool Allowed { get; set; }
+    /// <summary>stdio 是整行启动命令，http 是地址。</summary>
+    public string CommandLine { get; set; } = "";
+    public string LastError { get; set; } = "";
+    /// <summary>默认值表示从没握手成功过。</summary>
+    public DateTime LastConnectedUtc { get; set; }
+
+    public bool IsStdio => string.Equals(Transport, "stdio", StringComparison.OrdinalIgnoreCase);
+    public string TransportLabel => IsStdio ? "本机进程" : string.Equals(Transport, "http", StringComparison.OrdinalIgnoreCase) ? "网络服务" : "数据包";
+    public string ConnectLabel => !HasServiceConfig ? "无接入配置"
+        : LastConnectedUtc == default ? "未连接"
+        : "已连接 " + LastConnectedUtc.ToLocalTime().ToString("MM-dd HH:mm");
     public string SizeLine => $"{SizeLabel} · 文件 {FileCount} 个";
+
+    /// <summary>握手成功过一次就算「在连」：stdio 不留常驻进程，这里表示的是配置可用且曾握手。</summary>
+    public bool IsConnected => HasServiceConfig && LastConnectedUtc != default;
+
+    /// <summary>列表里那颗连接按钮的文案：没握过手是「连接」，握过是「重新握手」，纯数据包没得连。</summary>
+    public string ConnectButtonLabel => !HasServiceConfig ? "连接" : IsConnected ? "重新握手" : "连接";
+
+    /// <summary>stdio 才有同意闸；http 不需要用户放行一个进程。</summary>
+    public bool ShowConsent => IsStdio;
+    public string ConsentLabel => Allowed ? "收回许可" : "允许启动";
+
+    /// <summary>这一行给列表看「它从哪儿来」：接入的服务用启动预览，纯数据包只能给 metadata 里的地址。</summary>
+    public string EndpointLine => string.IsNullOrWhiteSpace(CommandLine) ? Url : CommandLine;
+
+    /// <summary>数据包（只靠 tools.json）没有远端工具，就不显示这一行，免得看着像坏了。</summary>
+    public bool HasToolCount => HasServiceConfig;
+    public string ToolCountLabel => Tools.Count == 0
+        ? (IsConnected ? "这个服务没给出工具" : "还没握手，不知道有几个工具")
+        : $"工具 {Tools.Count} 个";
     public string Detail =>
-        $"路径: {FolderPath}\n简介: {(string.IsNullOrWhiteSpace(Description) ? "（无）" : Description)}\n地址: {(string.IsNullOrWhiteSpace(Url) ? "（无）" : Url)}\n文件数: {FileCount}\n大小: {SizeLabel}\n创建: {(string.IsNullOrWhiteSpace(CreatedLabel) ? "（无）" : CreatedLabel)}";
+        $"路径: {FolderPath}\n类型: {TransportLabel}\n简介: {(string.IsNullOrWhiteSpace(Description) ? "（无）" : Description)}\n" +
+        $"地址/启动命令: {(string.IsNullOrWhiteSpace(Url) ? "（无）" : Url)}\n" +
+        $"同意启动: {(HasServiceConfig ? (Allowed ? "已允许" : "未允许") : "—")}\n连接状态: {ConnectLabel}\n" +
+        $"最近错误: {(string.IsNullOrWhiteSpace(LastError) ? "（无）" : LastError)}\n" +
+        $"文件数: {FileCount}\n大小: {SizeLabel}\n创建: {(string.IsNullOrWhiteSpace(CreatedLabel) ? "（无）" : CreatedLabel)}";
 }
 
 internal sealed class McpServerMeta

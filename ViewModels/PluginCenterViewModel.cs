@@ -32,6 +32,10 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     [ObservableProperty] private string _mcpResult = "";
     [ObservableProperty] private bool _mcpBusy;
     public bool HasMcpServers => McpServers.Count > 0;
+    public bool HasPlugins => Rows.Count > 0;
+
+    /// <summary>插件目录。手工拷一份进去也是合法入口，所以把路径亮出来，而不是只给两颗按钮。</summary>
+    public string PluginsDirLabel => PluginHost.PluginsDir;
 
     public PluginCenterViewModel(PluginHost plugins, ApiGateway api, McpOrchestrator mcp)
     {
@@ -92,8 +96,9 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                 });
             }
             Status = Rows.Count == 0
-                ? "还没有插件。可以用下面的工坊生成一个，或从 zip / 文件夹安装。"
+                ? "还没有插件。"
                 : $"共 {Rows.Count} 个插件，{Rows.Count(r => r.CanRun)} 个正在生效。";
+            OnPropertyChanged(nameof(HasPlugins));
             RefreshMcp();
         }
         catch (Exception ex)
@@ -108,7 +113,16 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     {
         try
         {
-            var pick = await FilePicker.Default.PickAsync(new PickOptions { PickerTitle = "选择插件 zip" });
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择插件 zip",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                })
+            });
             if (pick is null) return;
             Busy = true;
             var (ok, message) = await _plugins.InstallFromZipAsync(pick.FullPath, overwrite: true);
@@ -122,6 +136,69 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             Status = "安装失败：" + ex.Message;
         }
         finally { Busy = false; }
+    }
+
+    /// <summary>
+    /// 从一个文件夹装：开发中的插件（改了 hooks/*.js 只想重载一次）不该被迫先打包成 zip。
+    /// MAUI 自己那套 FolderPicker 只在 Windows/macOS 存在，Android 编译不过也选不了，
+    /// 所以桌面走 WinRT 原生选择器（和设置页的 MCP 文件夹导入同一条路），移动端明说改用 zip。
+    /// </summary>
+    [RelayCommand]
+    private async Task InstallFolder()
+    {
+        try
+        {
+#if WINDOWS
+            var wnd = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null)?.Handler?.PlatformView
+                as Microsoft.UI.Xaml.Window;
+            if (wnd is null)
+            {
+                await Shell.Current.DisplayAlert("从文件夹安装", "还没拿到主窗口，稍后再试一次。", "好");
+                return;
+            }
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(wnd));
+            picker.FileTypeFilter.Add("*");
+            var picked = await picker.PickSingleFolderAsync();
+            if (picked is null) return;
+            Busy = true;
+            var (ok, message) = await _plugins.InstallFromFolderAsync(picked.Path, overwrite: true);
+#else
+            await Shell.Current.DisplayAlert("从文件夹安装", "Android 端选不了文件夹，请把插件压成 zip 再装。", "好");
+            return;
+#endif
+            Status = message;
+            if (!ok) await Shell.Current.DisplayAlert("从文件夹安装", message, "好");
+            if (ok) await OfferMissingDependenciesAsync();
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Status = "安装失败：" + ex.Message;
+        }
+        finally { Busy = false; }
+    }
+
+    /// <summary>手工往插件目录拷了东西之后要能重扫，不必重启应用。</summary>
+    [RelayCommand]
+    private Task Refresh() => RefreshAsync();
+
+    /// <summary>把插件目录在文件管理器里打开：想直接拷一份进去的人，需要的是那条路径。</summary>
+    [RelayCommand]
+    private async Task RevealPluginsFolder()
+    {
+        try
+        {
+            Directory.CreateDirectory(PluginHost.PluginsDir);
+            if (OperatingSystem.IsWindows())
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{PluginHost.PluginsDir}\"") { UseShellExecute = true });
+            else
+                await Shell.Current.DisplayAlert("插件目录", PluginHost.PluginsDir, "好");
+        }
+        catch (Exception ex)
+        {
+            Status = "打不开插件目录：" + ex.Message;
+        }
     }
 
     [RelayCommand]
@@ -302,6 +379,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                         {
                             "js" => "本地 JS",
                             "http" => "远程 HTTP",
+                            "mcp" => "外部服务",
                             "builtin" => "内置",
                             _ => t.Kind
                         }
@@ -347,6 +425,89 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         _mcp.RemoveServer(row.Key);
         Status = $"已删除 MCP「{row.Name}」。";
         RefreshMcp();
+    }
+
+    // ==================== MCP 数据包导入 ====================
+    //
+    // 数据包（McpPacks/<名字>/tools.json 那一套）是「往机器里装东西」，和插件同类，所以入口在这里；
+    // 设置页那张卡只管外部服务从哪儿启动、连哪儿，不再混着文件导入。
+
+    [RelayCommand]
+    private async Task ImportPackZip()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择 MCP 数据包 zip",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                })
+            });
+            if (pick is null) return;
+            McpBusy = true;
+            McpResult = "正在解压数据包…";
+            McpResult = await _mcp.ImportZip(pick.FullPath, _mcp.McpPackDir, null);
+            RefreshMcp();
+        }
+        catch (Exception ex)
+        {
+            McpResult = "数据包导入失败：" + ex.Message;
+        }
+        finally { McpBusy = false; }
+    }
+
+    [RelayCommand]
+    private async Task ImportPackFolder()
+    {
+        try
+        {
+#if WINDOWS
+            var wnd = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null)?.Handler?.PlatformView
+                as Microsoft.UI.Xaml.Window;
+            if (wnd is null) { McpResult = "还没拿到主窗口，稍后再试一次。"; return; }
+            var picker = new Windows.Storage.Pickers.FolderPicker();
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, WinRT.Interop.WindowNative.GetWindowHandle(wnd));
+            picker.FileTypeFilter.Add("*");
+            var picked = await picker.PickSingleFolderAsync();
+            if (picked is null) return;
+            McpBusy = true;
+            McpResult = "正在复制数据包…";
+            McpResult = await _mcp.ImportFolder(picked.Path, _mcp.McpPackDir, null);
+#else
+            await Shell.Current.DisplayAlert("导入数据包", "Android 端选不了文件夹，请把数据包压成 zip 再导入。", "好");
+            return;
+#endif
+            RefreshMcp();
+        }
+        catch (Exception ex)
+        {
+            McpResult = "数据包导入失败：" + ex.Message;
+        }
+        finally { McpBusy = false; }
+    }
+
+    [RelayCommand]
+    private async Task ImportPackGitHub()
+    {
+        try
+        {
+            var repo = await Shell.Current.DisplayPromptAsync("从 GitHub 导入数据包",
+                "仓库地址（按 McpPacks 的结构抓取）", "导入", "取消", "https://github.com/作者/仓库");
+            if (string.IsNullOrWhiteSpace(repo)) return;
+            McpBusy = true;
+            McpResult = "正在抓取仓库…";
+            McpResult = await _mcp.ImportFromGitHub(repo, _mcp.McpPackDir, new Progress<string>(s => McpResult = s));
+            RefreshMcp();
+        }
+        catch (Exception ex)
+        {
+            McpResult = "GitHub 导入失败：" + ex.Message;
+        }
+        finally { McpBusy = false; }
     }
 
     /// <summary>

@@ -1126,6 +1126,8 @@
                                         IsVisible="{Binding Filter.Runtime}">
                                     <VerticalStackLayout Spacing="14">
                                         <Label Text="{Binding [Settings_Mcp], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                                        <Label Text="MCP 是外部服务，不是文件：要么让本机按一条命令把服务起起来（stdio），要么连一个已经跑着的地址（HTTP）。登记时写清楚从哪儿启动，握手之后它自己报工具清单。"
+                                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_McpEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_McpHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
@@ -1137,11 +1139,13 @@
 
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
 
-                                        <!-- 已接入服务器列表 -->
-                                        <Grid ColumnDefinitions="*,Auto">
-                                            <Label Text="已接入服务器" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" VerticalOptions="Center" />
-                                            <Button Grid.Column="1" Text="＋ 新建" Style="{StaticResource BtnNeumorphSm}"
-                                                    Command="{Binding NewMcpServerCommand}" />
+                                        <!-- 已接入的服务：这一节的动词是「接入 / 连接 / 断开」，不是「导入」 -->
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                            <Label Text="已接入的服务" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" VerticalOptions="Center" />
+                                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnText}" FontSize="12"
+                                                    Command="{Binding RefreshMcpCommand}" />
+                                            <Button Grid.Column="2" Text="＋ 接入服务" Style="{StaticResource BtnNeumorphSm}"
+                                                    Command="{Binding AddMcpServiceCommand}" />
                                         </Grid>
                                         <!-- 用 BindableLayout 而不是 CollectionView：CollectionView 嵌在页面 ScrollView 里
                                              时两边抢滚动手势，内层列表常常滚不动（用户实测反馈）。列表跟着页面一起滚最稳。 -->
@@ -1152,70 +1156,67 @@
                                                     <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}"
                                                             StrokeThickness="0.8" Padding="10,8" Margin="0,4">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                                        <Border.GestureRecognizers>
-                                                            <TapGestureRecognizer>
-                                                                <TapGestureRecognizer.Command>
-                                                                    <Binding Source="{RelativeSource AncestorType={x:Type vm:SettingsViewModel}}" Path="ShowMcpServerDetailsCommand" />
-                                                                </TapGestureRecognizer.Command>
-                                                                <TapGestureRecognizer.CommandParameter>
-                                                                    <Binding Path="." />
-                                                                </TapGestureRecognizer.CommandParameter>
-                                                            </TapGestureRecognizer>
-                                                        </Border.GestureRecognizers>
-                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                            <VerticalStackLayout Spacing="2">
-                                                                <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                                                <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
-                                                                       LineBreakMode="TailTruncation" MaxLines="1" />
-                                                                <Label Text="{Binding SizeLine}" Style="{StaticResource TxtCaption}"
-                                                                       FontSize="10" Opacity="0.7" />
-                                                            </VerticalStackLayout>
-                                                            <Button Grid.Column="1" Text="简介/属性" Style="{StaticResource BtnText}" FontSize="11"
-                                                                    VerticalOptions="Center"
-                                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ShowMcpServerDetailsCommand}"
-                                                                    CommandParameter="{Binding .}" />
-                                                        </Grid>
+                                                        <VerticalStackLayout Spacing="6">
+                                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                                                <VerticalStackLayout Spacing="2">
+                                                                    <HorizontalStackLayout Spacing="6">
+                                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                                        <Label Text="{Binding TransportLabel}" Style="{StaticResource TxtCaption}"
+                                                                               FontSize="11" VerticalOptions="Center" Opacity="0.75" />
+                                                                    </HorizontalStackLayout>
+                                                                    <Label Text="{Binding EndpointLine}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                           TextColor="{DynamicResource MutedFg}" LineBreakMode="CharacterWrap"
+                                                                           IsVisible="{Binding EndpointLine, Converter={StaticResource StringNotEmpty}}" />
+                                                                    <Label Style="{StaticResource TxtCaption}" FontSize="11" Opacity="0.8">
+                                                                        <Label.FormattedText>
+                                                                            <FormattedString>
+                                                                                <Span Text="{Binding ConnectLabel}" />
+                                                                                <Span Text=" · " />
+                                                                                <Span Text="{Binding ToolCountLabel}" />
+                                                                            </FormattedString>
+                                                                        </Label.FormattedText>
+                                                                    </Label>
+                                                                    <Label Text="{Binding LastError}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                           TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="CharacterWrap"
+                                                                           IsVisible="{Binding LastError, Converter={StaticResource StringNotEmpty}}" />
+                                                                </VerticalStackLayout>
+                                                                <Button Grid.Column="1" Text="{Binding ConnectButtonLabel}"
+                                                                        Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                                        VerticalOptions="Center"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ConnectMcpServerCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                <Button Grid.Column="2" Text="断开" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                        VerticalOptions="Center" IsVisible="{Binding IsConnected}"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DisconnectMcpServerCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                            </Grid>
+                                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+                                                                <Button Text="{Binding ConsentLabel}" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                        IsVisible="{Binding ShowConsent}"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleMcpAllowCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                <Button Grid.Column="2" Text="详情" Style="{StaticResource BtnText}" FontSize="12"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ShowMcpServerDetailsCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DeleteMcpServerCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                            </Grid>
+                                                        </VerticalStackLayout>
                                                     </Border>
                                                 </DataTemplate>
                                             </BindableLayout.ItemTemplate>
                                         </VerticalStackLayout>
-                                        <Label Text="还没有接入的服务器。点「＋ 新建」登记一个，或用下方功能导入数据包"
+                                        <Label Text="还没有接入的服务。点「＋ 接入服务」登记一个：本机进程要给启动命令，网络服务要给地址。"
                                                Style="{StaticResource TxtCaption}" Padding="4,6"
-                                               IsVisible="{Binding McpServersLoading, Converter={StaticResource InverseBool}}" />
+                                               IsVisible="{Binding HasMcpServers, Converter={StaticResource InverseBool}}" />
                                         <VerticalStackLayout IsVisible="{Binding McpServersLoading}" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
                                             <ActivityIndicator IsRunning="{Binding McpServersLoading}" IsVisible="{Binding McpServersLoading}" HeightRequest="32" WidthRequest="32" Color="{DynamicResource AccentWarm}" />
                                             <Label Text="正在加载已接入服务器…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
                                         </VerticalStackLayout>
 
-                                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_McpUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
-                                            <Entry Grid.Column="1" Text="{Binding McpNetworkUrl}" Placeholder="{Binding [Settings_McpUrlPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
-
-                                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_GitHub], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
-                                            <Entry Grid.Column="1" Text="{Binding McpGitHubRepo}" Placeholder="{Binding [Settings_GitHubPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
-                                        <Button Text="{Binding [Settings_ImportGithub], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFromGitHubCommand}"
-                                                Style="{StaticResource BtnNeumorphSm}" />
-
-                                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_ZipImport], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
-                                            <Entry Grid.Column="1" Text="{Binding McpImportZipPath}" Placeholder="{Binding [Settings_ZipPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
-                                        <Button Text="{Binding [Settings_ImportZip], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpZipCommand}"
-                                                Style="{StaticResource BtnNeumorphSm}" />
-
-                                        <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_FolderImport], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
-                                            <Entry Grid.Column="1" Text="{Binding McpImportFolderPath}" Placeholder="{Binding [Settings_FolderPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
-                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
-                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" IsEnabled="False" /></Grid>
-                                        <Button Text="{Binding [Settings_ImportFolder], Source={x:Static i18n:LocalizationService.Current}}" Command="{Binding ImportMcpFolderCommand}"
-                                                Style="{StaticResource BtnNeumorphSm}"
-                                                IsVisible="{OnIdiom Phone=False, Desktop=True, Tablet=False}" />
-                                        <ProgressBar Progress="{Binding ImportProgress}" IsVisible="{Binding IsImporting}" />
-                                        <Label Text="{Binding ImportStatus}" Style="{StaticResource TxtCaption}"
-                                               IsVisible="{Binding IsImporting}" />
+                                        <Label Text="下面列出的工具由服务自己报上来：握手成功后 AI 用 mcp_list 就能看到。MCP 数据包（自己写 tools.json 的那种）不在这里导入——它在插件中心，跟插件一样属于「往机器里装东西」。"
+                                               Style="{StaticResource TxtCaption}" Opacity="0.8" LineBreakMode="WordWrap" />
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>

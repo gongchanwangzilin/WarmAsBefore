@@ -467,10 +467,6 @@ public sealed record UserSettings
     public bool McpEnabled { get; init; }
     /// <summary>MCP 工具调用是否自动确认（false 时主界面调用 MCP 工具需人工确认）。</summary>
     public bool McpAutoApprove { get; init; } = true;
-    public string McpNetworkUrl { get; init; } = "";
-    public string McpGitHubRepo { get; init; } = "";
-    public string McpImportZipPath { get; init; } = "";
-    public string McpImportFolderPath { get; init; } = "";
 
     // 小游戏 AI 难度：easy/normal/hard（默认 normal）
     public string GameDifficulty { get; init; } = "normal";
