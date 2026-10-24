@@ -167,11 +167,12 @@
     <li><strong>游戏里广播</strong>：模组每 3 秒向 UDP <code>27321</code> 发 <code>beacon</code>（回环 + 广播地址都发，覆盖同机与局域网），带世界名、玩家名、女仆清单。</li>
     <li><strong>宿主应答</strong>：收到 beacon 后向来源单播 <code>offer</code>：TCP 端口 + 一次性 token + 30 秒证明（HMAC-SHA256）。</li>
     <li><strong>校验握手</strong>：模组连上 TCP 先发 <code>hello</code>（nonce + token）。宿主核对 token 与证明后回 <code>welcome</code>，绑定存档与角色。</li>
-    <li><strong>开始协作</strong>：之后是常态循环——模组上报 <code>state</code> 快照与 <code>event</code> 事件；宿主下发 <code>command</code>（九种指令）与 <code>stats</code>；每 10 秒一次 <code>ping/pong</code> 心跳，30 秒没心跳就断开重来。</li>
+    <li><strong>开始协作</strong>：之后是常态循环——模组上报 <code>state</code> 快照与 <code>event</code> 事件；宿主下发 <code>command</code>（九种指令）与 <code>stats</code>；模组每 10 秒发一次 <code>ping</code>、宿主最迟 15 秒发一次，任何一侧 <strong>35 秒</strong>没收到动静就断开重来。</li>
   </ol>
   <div class="note">
     安全边界：token 30 秒过期且只用一次；默认只听回环地址，局域网要显式打开；
-    模组只执行白名单动作；JS 插件本身<strong>没有网络能力</strong>，出网的只有宿主桥服务这一条路。
+    模组只执行白名单动作；JS 插件本身<strong>没有网络能力</strong>（清单里没声明 <code>network</code> / <code>localnet</code>，
+    出网的只有宿主桥服务这一条路）。
   </div>
 </section>
 
@@ -227,35 +228,74 @@
 </section>
 
 <section>
-  <h2>五、安装与联调</h2>
+  <h2>五、能力声明与三道闸</h2>
+  <p>
+    这个插件的 JS 只用到三项能力，<code>plugin.json</code> 里就是这三条，一条不多：
+  </p>
+  <table>
+    <tr><th>能力</th><th>默认</th><th>用来做什么</th></tr>
+    <tr><td>settings</td><td>允许</td><td>读上面那几个开关，拼进人设。只能看自己的设置，看不到游戏设置和别的插件</td></tr>
+    <tr><td>prompt.write</td><td>允许</td><td>persona 钩子往提示词里加一段「你在 Minecraft 里有一具身体」</td></tr>
+    <tr><td>page</td><td>允许</td><td>就是这一页——用户点了才开，插件自己弹不出来</td></tr>
+  </table>
+  <p>
+    <strong>没有</strong> <code>tools</code>、<code>network</code>、<code>localnet</code>、<code>broadcast</code>：
+    调工具、连游戏、写记忆全部由宿主的桥服务完成，JS 侧一个都不碰。
+  </p>
+  <h3>装了却像没生效，按这三道闸查</h3>
+  <ol class="steps">
+    <li><strong>设置页有没有声明</strong>：<code>settings.kind</code> 必须是 <code>native</code> / <code>html</code> / <code>none</code> 之一，缺了的话<strong>所有钩子都不执行</strong>（插件中心那一行会写「不能运行」）。本页插件是 <code>native</code>。</li>
+    <li><strong>这份存档放不放行它</strong>：存档高级设置里有插件白名单。同一个插件在 A 档能跑、在 B 档被跳过是设计如此；被跳过时会在 <code>plugin_logs/wab_minecraft.log</code> 留一行。</li>
+    <li><strong>权限台里这几项有没有被改成禁止</strong>：<code>prompt.write</code> 设为禁止后 persona 钩子直接不跑，于是 AI 不再知道自己有身体——表现就是「桥连得好、工具也还在，但 TA 不提 Minecraft」。</li>
+  </ol>
+  <div class="note">
+    预算：没声明等待型能力，钩子的时间预算是 300 ms。这个插件的人设钩子只做几次字符串比较与拼接，远在预算内；
+    等用户授权的那段时间不计入预算。
+  </div>
+</section>
+
+<section>
+  <h2>六、安装与联调</h2>
   <ol>
     <li>游戏端：把编译好的 <code>touhoulittlemaid-*.jar</code>（含 WAB 桥）放进 Forge 1.20.1 的 mods 目录；<strong>同一台机器</strong>上开世界，模组会在服务端每 3 秒广播 beacon。</li>
-    <li>WAB 端：插件中心安装本插件（<code>plugin.json</code> 所在的目录或 zip），确认上面「设置」里 <code>enabled</code> 为开。</li>
+    <li>WAB 端：插件中心「从 zip 安装」或「从文件夹安装」（开发时改完 <code>hooks/persona.js</code> 直接重装文件夹最快），确认上面「设置」里 <code>enabled</code> 为开。</li>
+    <li>刚装好、一次「保存」都没点过时，<code>settings.json</code> 是空的——宿主与本页都按 <code>plugin.json</code> 里的 <code>default</code> 跑，不是按「关着」跑。</li>
     <li>两边都在跑之后无需手动操作：握手自动完成。游戏内女仆头顶会出现行动栏提示（好感/信任），聊天里问“她在哪”时 AI 会自己调 <code>maid_status</code> 回答。</li>
   </ol>
   <div class="note">
     连不上先查：① 同一个 world + 同一个玩家；② 防火墙放 UDP 27321 与 TCP 端口；
-    ③ 日志——WAB 在 <code>logs/app.log</code>（前缀 <code>MaidBridge</code>），游戏在 <code>logs/latest.log</code>（前缀 <code>[WAB]</code>）。
+    ③ 日志——WAB 在 <code>logs/app.log</code>（前缀 <code>MaidBridge</code>），游戏在 <code>logs/latest.log</code>（前缀 <code>[WAB]</code>），
+    钩子层面的问题在 <code>plugin_logs/wab_minecraft.log</code>。
     模组崩溃或 WAB 没开都不影响游戏本身运行。
   </div>
 </section>
 
 <footer>
-  协议 v1 · 冻结于 2026-10-24 · 完整字段定义见 <a href="../docs/minecraft-maid-bridge.md">docs/minecraft-maid-bridge.md</a>
+  协议 v1 · 冻结于 2026-10-24 · 帧字段与指令表见仓库内 <code>docs/minecraft-maid-bridge.md</code>（插件包里不带，随源码看）
 </footer>
 
 <script>
   // 从应用打开时 URL 会带 callback（http://127.0.0.1:<port>/save?token=...）；
   // 把 /save 换成 /settings 可读当前设置。直接本地打开时静默跳过。
   (function () {
+    // 未保存的键按 plugin.json 的 default 解释：宿主 MaidBridgeSettings.From 就是这个口径。
+    var DEF = { enabled: "true", port: "27322", lan: "false", auto_create_characters: "true",
+                allow_world_actions: "true", allow_gestures: "true", chat_affection: "true",
+                autonomy_pulse_minutes: "0", backup_minutes: "10" };
     var c = new URLSearchParams(location.search).get("callback");
     if (!c || c.indexOf("/save") === -1) return;
     fetch(c.replace("/save", "/settings")).then(function (r) { return r.json(); })
       .then(function (s) {
         var el = document.getElementById("live");
-        var keys = ["enabled", "port", "lan", "auto_create_characters", "allow_world_actions", "allow_gestures", "chat_affection", "autonomy_pulse_minutes", "backup_minutes"];
-        var parts = keys.map(function (k) { return "<b>" + k + "</b> = " + (s[k] == null ? "(默认)" : s[k]); });
-        el.innerHTML = "当前设置：" + parts.join("，");
+        var keys = Object.keys(DEF);
+        var saved = 0;
+        var parts = keys.map(function (k) {
+          var v = s[k];
+          if (v == null || v === "") return "<b>" + k + "</b> = " + DEF[k] + "（默认）";
+          saved++;
+          return "<b>" + k + "</b> = " + v;
+        });
+        el.innerHTML = "生效设置（" + (saved === 0 ? "全部按默认，尚未保存过" : saved + " 项已保存") + "）：" + parts.join("，");
         el.classList.remove("hide");
       }).catch(function () {});
   })();
