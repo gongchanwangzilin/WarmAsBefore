@@ -678,6 +678,9 @@ public sealed class McpOrchestrator
                         LastError = service?.LastError ?? "",
                         LastConnectedUtc = service?.LastConnectedUtc ?? default
                     });
+                    // 状态与「怎么改」在列表这一刻就要有：用户不该为了看一句指引再点一次按钮。
+                    // 这里只做纯字符串映射与本地判断，不起进程也不联网，所以每次刷新都便宜。
+                    items[^1].Advice = McpDoctor.AdviceFor(items[^1].LastError, service);
                 }
                 catch { }
             }
@@ -994,6 +997,29 @@ public sealed class McpServerItem
     public string LastError { get; set; } = "";
     /// <summary>默认值表示从没握手成功过。</summary>
     public DateTime LastConnectedUtc { get; set; }
+
+    /// <summary>
+    /// 一句「怎么改」：由 LastError 的原文映射而来，在列表刷新时就算好。
+    /// MCP 的报错来自别人的进程与别人的服务，原话基本没法用，所以那句人话要跟着一起显示，
+    /// 而不是等用户再点一次按钮才知道。
+    /// </summary>
+    public string Advice { get; set; } = "";
+
+    /// <summary>体检详情：逐条结论与修改意见。点「体检」之后填，列表重建时由 ViewModel 回填保留。</summary>
+    public string DoctorText { get; set; } = "";
+
+    public bool HasAdvice => Advice.Length > 0;
+    public bool HasDoctorText => DoctorText.Length > 0;
+
+    /// <summary>
+    /// 状态灯。只看配置与上一次的结果，不代表此刻真的活着——stdio 不留常驻进程，
+    /// 「在连」说的是「配置通了且握过手」，这一点和 ConnectLabel 一个口径。
+    /// </summary>
+    public string StatusLabel => !HasServiceConfig ? "数据包"
+        : Advice.Length > 0 || LastError.Length > 0 ? "要改"
+        : IsConnected ? "在连"
+        : ShowConsent && !Allowed ? "未放行"
+        : "待连接";
 
     public bool IsStdio => string.Equals(Transport, "stdio", StringComparison.OrdinalIgnoreCase);
     public string TransportLabel => IsStdio ? "本机进程" : string.Equals(Transport, "http", StringComparison.OrdinalIgnoreCase) ? "网络服务" : "数据包";

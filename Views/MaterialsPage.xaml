@@ -120,7 +120,7 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:BackgroundGridItem">
-                    <Border Style="{StaticResource AssetCell}" Margin="0,0,10,12">
+                    <Border motion:HoverFeel.Enabled="True" Style="{StaticResource AssetCell}" Margin="0,0,10,12">
                         <VerticalStackLayout Spacing="6">
                             <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                     HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">
@@ -174,7 +174,7 @@
             </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:MusicGridItem">
-                    <Border Style="{StaticResource AssetCell}" Margin="0,0,10,12">
+                    <Border motion:HoverFeel.Enabled="True" Style="{StaticResource AssetCell}" Margin="0,0,10,12">
                         <VerticalStackLayout Spacing="6">
                             <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                     HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">

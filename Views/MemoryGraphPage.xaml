@@ -134,7 +134,7 @@
                             <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding Neighbors}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MemoryGraphViewModel+NeighborRow">
-                                        <Border BackgroundColor="Transparent" Stroke="Transparent" StrokeThickness="0" Padding="6,5">
+                                        <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" BackgroundColor="Transparent" Stroke="Transparent" StrokeThickness="0" Padding="6,5">
                                             <Border.GestureRecognizers>
                                                 <TapGestureRecognizer
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=PickNeighborCommand}"

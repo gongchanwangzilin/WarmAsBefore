@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:viewmodels="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:converters="clr-namespace:WarmAsBefore.Converters"
@@ -62,7 +62,7 @@
                 <StackLayout BindableLayout.ItemsSource="{Binding PlayerCharacters}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                         <Border StrokeThickness="2"
+                         <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" StrokeThickness="2"
                                  Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
                                  BackgroundColor="#16213e"
                                  Padding="10"
@@ -116,7 +116,7 @@
                 <StackLayout BindableLayout.ItemsSource="{Binding EnemyCharacters}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
-                         <Border StrokeThickness="2"
+                         <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" StrokeThickness="2"
                                  Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
                                  BackgroundColor="#16213e"
                                  Padding="10"

@@ -1163,6 +1163,8 @@
                                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                                                                         <Label Text="{Binding TransportLabel}" Style="{StaticResource TxtCaption}"
                                                                                FontSize="11" VerticalOptions="Center" Opacity="0.75" />
+                                                                        <Label Text="{Binding StatusLabel}" Style="{StaticResource TxtCaption}"
+                                                                               FontSize="11" VerticalOptions="Center" Opacity="0.75" />
                                                                     </HorizontalStackLayout>
                                                                     <Label Text="{Binding EndpointLine}" Style="{StaticResource TxtCaption}" FontSize="11"
                                                                            TextColor="{DynamicResource MutedFg}" LineBreakMode="CharacterWrap"
@@ -1179,6 +1181,9 @@
                                                                     <Label Text="{Binding LastError}" Style="{StaticResource TxtCaption}" FontSize="11"
                                                                            TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="CharacterWrap"
                                                                            IsVisible="{Binding LastError, Converter={StaticResource StringNotEmpty}}" />
+                                                                    <Label Text="{Binding Advice}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                           TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
+                                                                           IsVisible="{Binding HasAdvice}" />
                                                                 </VerticalStackLayout>
                                                                 <Button Grid.Column="1" Text="{Binding ConnectButtonLabel}"
                                                                         Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
@@ -1190,18 +1195,33 @@
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DisconnectMcpServerCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </Grid>
-                                                            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+                                                            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
                                                                 <Button Text="{Binding ConsentLabel}" Style="{StaticResource BtnGhost}" FontSize="12"
                                                                         IsVisible="{Binding ShowConsent}"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleMcpAllowCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Grid.Column="2" Text="详情" Style="{StaticResource BtnText}" FontSize="12"
+                                                                <Button Grid.Column="1" Text="体检" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                                        IsEnabled="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=McpDoctorBusy, Converter={StaticResource InverseBool}}"
+                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DiagnoseMcpServerCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                <Button Grid.Column="3" Text="详情" Style="{StaticResource BtnText}" FontSize="12"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ShowMcpServerDetailsCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                <Button Grid.Column="4" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DeleteMcpServerCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </Grid>
+                                                            <!-- 体检结论：就地展开，不弹窗。弹窗会挡住列表，
+                                                                 而查错时正需要「一边看结论一边改上面的命令」。 -->
+                                                            <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10"
+                                                                    IsVisible="{Binding HasDoctorText}">
+                                                                <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                                                <VerticalStackLayout Spacing="6">
+                                                                    <Label Text="体检结论" Style="{StaticResource TxtCaption}" FontSize="11" Opacity="0.7" />
+                                                                    <Label Text="{Binding DoctorText}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                           LineBreakMode="WordWrap" />
+                                                                </VerticalStackLayout>
+                                                            </Border>
                                                         </VerticalStackLayout>
                                                     </Border>
                                                 </DataTemplate>
@@ -1264,6 +1284,53 @@
                                                     IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DownloadJavaCommand}" />
                                         </Grid>
+
+                                        <!-- MCP 服务与插件依赖的那批运行时：上面那颗「检测」只看 Python/Java，
+                                             接一个 npx 起的 MCP 或装一个带网页的插件时，缺的是这里的某一项。 -->
+                                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="MCP 与插件要用的外部运行时" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                <Label Text="{Binding ExternalRuntimeNote}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                       LineBreakMode="WordWrap" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                    VerticalOptions="Center"
+                                                    IsEnabled="{Binding ExternalRuntimeBusy, Converter={StaticResource InverseBool}}"
+                                                    Command="{Binding DetectExternalRuntimesCommand}" />
+                                        </Grid>
+                                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding ExternalRuntimes}"
+                                                             IsVisible="{Binding HasExternalRuntimes}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="0,4">
+                                                        <Label Text="✅" FontSize="11" VerticalOptions="Start"
+                                                               IsVisible="{Binding Present}" />
+                                                        <Label Text="❌" FontSize="11" VerticalOptions="Start"
+                                                               IsVisible="{Binding Present, Converter={StaticResource InverseBool}}" />
+                                                        <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                                                            <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                   Opacity="0.75" LineBreakMode="CharacterWrap"
+                                                                   IsVisible="{Binding Detail, Converter={StaticResource StringNotEmpty}}" />
+                                                            <Label Text="{Binding Advice}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                   TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
+                                                                   IsVisible="{Binding Present, Converter={StaticResource InverseBool}}" />
+                                                            <Label Text="{Binding Fallback}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                   Opacity="0.7" LineBreakMode="WordWrap"
+                                                                   IsVisible="{Binding Fallback, Converter={StaticResource StringNotEmpty}}" />
+                                                        </VerticalStackLayout>
+                                                        <Button Grid.Column="2" Text="装它" Style="{StaticResource BtnText}" FontSize="11"
+                                                                VerticalOptions="Start"
+                                                                IsVisible="{Binding Present, Converter={StaticResource InverseBool}}"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=OpenRuntimeDownloadCommand}"
+                                                                CommandParameter="{Binding}" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                        <ActivityIndicator IsRunning="{Binding ExternalRuntimeBusy}" IsVisible="{Binding ExternalRuntimeBusy}"
+                                                           HorizontalOptions="Center" Color="{DynamicResource AccentWarm}" />
 
                                         <!-- Android Linux 沙箱（proot）安装向导 -->
                                         <VerticalStackLayout Spacing="8" IsVisible="{Binding SandboxAvailable}">

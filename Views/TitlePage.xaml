@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
@@ -198,7 +198,7 @@
              地面吃本世界的纯色 PageBg（不是 PageBgBrush：用户可能把背景设成一张照片，
              而这一刻只有一团字要压在上面，底色必须是被锁过对比的那一档）。
              四档世界在这一屏只有字号与线色不同，没有一块玻璃。 -->
-        <Grid x:Name="IntroCurtain" BackgroundColor="{DynamicResource PageBg}"
+        <Grid motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" x:Name="IntroCurtain" BackgroundColor="{DynamicResource PageBg}"
               Padding="{DynamicResource WPadCard}" IsVisible="{Binding ShowIntro}">
             <Grid.GestureRecognizers>
                 <TapGestureRecognizer Tapped="OnIntroTapped" />

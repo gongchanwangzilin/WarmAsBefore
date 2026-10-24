@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.CharacterLibraryPage"
@@ -54,7 +54,7 @@
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:CharacterLibraryItem">
                         <VerticalStackLayout Spacing="0">
-                            <Border Style="{StaticResource SettingRow}">
+                            <Border motion:HoverFeel.Enabled="True" Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                                     <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
                                             StrokeThickness="0" WidthRequest="56" HeightRequest="56"

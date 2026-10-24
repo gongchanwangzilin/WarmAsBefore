@@ -1,5 +1,5 @@
 ﻿<?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
 xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
@@ -344,7 +344,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="16">
                     <!-- 互动按钮：液态玻璃圆形材质（BtnLiquidGlassIcon 径向渐变 + 1px 内发光描边 + 柔和按下），无 Scale 避免卡死 -->
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="摸" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -355,7 +355,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="抱" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -366,7 +366,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="吻" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -377,7 +377,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="存" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>
@@ -389,7 +389,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     </VerticalStackLayout>
                     <!-- #12 发一个表情（从已导入的表情包里挑） -->
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                        <Border Style="{StaticResource BtnLiquidGlassIcon}">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
                             <Label Text="表" TextColor="{DynamicResource WarmDark}" FontSize="18"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                             <Border.GestureRecognizers>

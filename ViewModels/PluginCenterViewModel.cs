@@ -50,6 +50,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         try
         {
             var list = await _plugins.AllAsync();
+            var installedIds = list.Select(p => p.Manifest.Id).ToList();
             Rows.Clear();
             foreach (var p in list)
             {
@@ -59,6 +60,13 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                 var declaredCount = caps.Count(c => c.Declared);
                 var usableCount = caps.Count(c => c.Declared && c.Policy != PluginGrant.Deny);
                 var customCount = caps.Count(c => c.Dirty);
+                // 体检：清单 + 钩子文件 + JS 源码 + 声明 + 依赖 + 运行时放在一起对一遍。
+                // 只读文件、只解析语法，不执行插件的 JS——没审过的代码不该被体检跑起来。
+                var need = PluginDoctor.RequiredRuntimeIds(p.Manifest);
+                IReadOnlyList<RuntimeState>? runtimes = need.Count > 0 ? await RuntimeProbe.ProbeAsync(need) : null;
+                var findings = PluginDoctor.Inspect(p, installedIds, runtimes);
+                var blocking = PluginDoctor.CountBlocking(findings);
+                var warns = findings.Count(x => x.Level == DoctorLevel.Warn);
                 Rows.Add(new PluginRow
                 {
                     PermissionLabel = $"权限：声明 {declaredCount} 项 · 可用 {usableCount} 项"
@@ -86,6 +94,19 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                         .Select(d => d.Url).ToList(),
                     Issue = p.SettingsIssue,
                     CanRun = p.Enabled && string.IsNullOrEmpty(p.SettingsIssue),
+                    HasBlocking = blocking > 0,
+                    DoctorLabel = findings.Count == 0
+                        ? "体检：没查出问题，能跑"
+                        : blocking > 0
+                            ? $"体检：{blocking} 个跑不起来的点，{warns} 个提醒"
+                            : warns > 0
+                                ? $"体检：{warns} 个提醒，其余能跑"
+                                : "体检：没查出问题，能跑",
+                    DoctorText = PluginDoctor.Render(findings),
+                    RuntimeInstallUrls = runtimes is null
+                        ? new()
+                        : runtimes.Where(r => !r.Present && r.InstallUrl.Length > 0)
+                            .Select(r => r.InstallUrl).Distinct().ToList(),
                     HasPages = p.Manifest.Pages.Count > 0,
                     PagesLabel = p.Manifest.Pages.Count == 0
                         ? ""
@@ -128,7 +149,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             var (ok, message) = await _plugins.InstallFromZipAsync(pick.FullPath, overwrite: true);
             Status = message;
             if (!ok) await Shell.Current.DisplayAlert("安装插件", message, "好");
-            if (ok) await OfferMissingDependenciesAsync();
+            if (ok) await OfferDoctorAfterInstallAsync();
             await RefreshAsync();
         }
         catch (Exception ex)
@@ -169,7 +190,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
 #endif
             Status = message;
             if (!ok) await Shell.Current.DisplayAlert("从文件夹安装", message, "好");
-            if (ok) await OfferMissingDependenciesAsync();
+            if (ok) await OfferDoctorAfterInstallAsync();
             await RefreshAsync();
         }
         catch (Exception ex)
@@ -263,6 +284,85 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private Task ToggleDoctor(PluginRow? row)
+    {
+        if (row is not null) row.DoctorVisible = !row.DoctorVisible;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>缺运行时时把那几条下载页打开：光说「没装 Node」不够，要把装它的地方递到眼前。</summary>
+    [RelayCommand]
+    private async Task OpenRuntimeInstall(PluginRow? row)
+    {
+        var url = row?.RuntimeInstallUrls.FirstOrDefault();
+        if (string.IsNullOrWhiteSpace(url)) return;
+        try
+        {
+            await Launcher.Default.OpenAsync(url);
+            Status = "已在浏览器里打开运行时安装页。装完回到这里点「刷新」，体检会重新扫一遍本机。";
+        }
+        catch (Exception ex)
+        {
+            Status = "打不开安装页：" + ex.Message;
+        }
+    }
+
+    /// <summary>
+    /// 装完就体检一次，有跑不起来的点当场说——不要等用户聊了半天才发现插件一声不响。
+    ///
+    /// 这里最要紧的是缺运行时：插件的 JS 钩子跑在我们自带的沙箱里，本来不靠外部运行时，
+    /// 一旦它声明了 runtime（要 node / webview2 / browser）或者带着网页设置与页面，
+    /// 机器上没有就是真的用不了，而它的表现只是「装了，什么也没发生」。
+    /// </summary>
+    private async Task OfferDoctorAfterInstallAsync()
+    {
+        try
+        {
+            var id = _plugins.LastInstalledId;
+            if (string.IsNullOrWhiteSpace(id)) return;
+            var entry = await _plugins.FindAsync(id);
+            if (entry is null) return;
+            var list = await _plugins.AllAsync();
+            var need = PluginDoctor.RequiredRuntimeIds(entry.Manifest);
+            var runtimes = need.Count > 0 ? await RuntimeProbe.ProbeAsync(need) : null;
+            var findings = PluginDoctor.Inspect(entry, list.Select(p => p.Manifest.Id).ToList(), runtimes);
+            var blocking = findings.Where(f => f.Blocking).ToList();
+            if (blocking.Count == 0)
+            {
+                Status = $"已装好「{entry.Manifest.Name}」并通过体检：没查出跑不起来的点。";
+                return;
+            }
+            var missing = runtimes?.Where(r => !r.Present && r.InstallUrl.Length > 0).ToList() ?? new();
+            var lines = string.Join("\n", blocking.Take(5).Select(f => f.Line));
+            if (blocking.Count > 5) lines += $"\n…另外 {blocking.Count - 5} 条点「体检」看全。";
+            // 缺运行时装一个就行（有下载页）；缺依赖是被依赖的那个插件，也给地址。
+            // 两样合成一次询问：装完一个插件连弹两个「要不要打开地址」，只会让人只想关掉。
+            var links = missing.Select(r => r.InstallUrl)
+                .Concat(entry.MissingDependencies.Where(d => !string.IsNullOrWhiteSpace(d.Url)).Select(d => d.Url))
+                .Where(u => !string.IsNullOrWhiteSpace(u)).Distinct().ToList();
+            if (links.Count > 0)
+            {
+                var go = await Shell.Current.DisplayAlert("这个插件现在还跑不起来",
+                    $"「{entry.Manifest.Name}」装上了，但体检发现 {blocking.Count} 个跑不起来的点：\n\n{lines}\n\n现在打开安装页面吗？"
+                    + "（装完回来点「刷新」，体检会重新扫本机）",
+                    "打开安装页面", "稍后再说");
+                if (go)
+                    foreach (var url in links)
+                    {
+                        try { await Launcher.Default.OpenAsync(url); }
+                        catch (Exception ex) { Status = "打不开安装页：" + ex.Message; }
+                    }
+            }
+            else
+                await Shell.Current.DisplayAlert("体检发现 " + blocking.Count + " 个跑不起来的点", lines, "好");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginCenter.DoctorOffer -> " + ex);
+        }
+    }
+
+    [RelayCommand]
     private async Task RunTest(PluginRow? row)
     {
         if (row is null) return;
@@ -317,38 +417,6 @@ public sealed partial class PluginCenterViewModel : ObservableObject
 
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");
-
-    /// <summary>刚装好的插件缺依赖时，直接把安装地址摆出来问一句（不是装完了才发现它不能跑）。</summary>
-    private readonly HashSet<string> _offeredMissing = new(StringComparer.OrdinalIgnoreCase);
-
-    private async Task OfferMissingDependenciesAsync()
-    {
-        try
-        {
-            var list = await _plugins.AllAsync();
-            var entry = list.FirstOrDefault(p =>
-                !_offeredMissing.Contains(p.Manifest.Id)
-                && p.MissingDependencies.Any(d => !string.IsNullOrWhiteSpace(d.Url)));
-            if (entry is null) return;
-            _offeredMissing.Add(entry.Manifest.Id);
-            var missing = entry.MissingDependencies
-                .Where(d => !string.IsNullOrWhiteSpace(d.Url)).ToList();
-            var detail = string.Join("\n", missing.Select(d => $"{d.Id}：{d.Url}"));
-            var go = await Shell.Current.DisplayAlert("缺少依赖",
-                $"「{entry.Manifest.Name}」需要先装好以下依赖：\n\n{detail}\n\n现在打开安装地址吗？",
-                "打开地址", "稍后再说");
-            if (!go) return;
-            foreach (var d in missing)
-            {
-                try { await Launcher.Default.OpenAsync(d.Url); }
-                catch (Exception ex) { Status = $"打不开 {d.Id} 的安装地址：{ex.Message}"; }
-            }
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("PluginCenter.OfferMissing -> " + ex);
-        }
-    }
 
     // ==================== MCP 工坊 ====================
 
@@ -765,7 +833,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                       + (unknownPerm.Count == 0 ? "" : $"。这几条权限名程序不认识，已丢弃：{string.Join("、", unknownPerm)}")
                       + "。装好后到「插件中心 → 权限」逐条看，网络与工具那类默认还要问你一次。已经可以直接试跑。"
                     : message;
-                if (ok) await OfferMissingDependenciesAsync();
+                if (ok) await OfferDoctorAfterInstallAsync();
             }
             finally
             {
@@ -799,7 +867,15 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     private static string Truncate(string text, int max)
         => text.Length <= max ? text : text[..max] + "…";
 
-    private const string WorkshopSystemPrompt = """
+    /// <summary>钩子名单只有一份：PluginDoctor.HookNames。工坊照着它生成，体检照着它判——
+    /// 两处各抄一遍迟早漂移，漂移的结果是刚生成的插件当场被判「钩子名不认识」。</summary>
+    private static readonly string WorkshopSystemPrompt = WorkshopSystemPromptBody.Replace(
+        "HOOK_RULE",
+        "hooks 只能从 " + string.Join("、", PluginDoctor.HookNames) + " 里选。" +
+        "persona/context/beforeSend/afterReply 的返回值会被用上（要把文字赋给 result）；" +
+        "afterTurn/onSceneChange/onToolResult 只看副作用；onLoad/onUnload/onInstall 在启用、停用、装好时各触发一次。");
+
+    private const string WorkshopSystemPromptBody = """
         你在为「温暖如初」写一个插件。只输出一个 JSON 对象，不要 Markdown、不要解释。
 
         格式：
@@ -819,7 +895,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
 
         硬性规则：
         - settings.kind 只能是 "native" 或 "none"。需要用户调节就 native 并给出 fields；否则 none。field.type 用 text / number / switch / select / secret；select 要带 options。
-        - hooks 只能从 persona、context、beforeSend、afterReply、afterTurn、onSceneChange、onToolResult 中选。
+        - HOOK_RULE
         - code 是一整段 JS：运行时可用 input（JSON 字符串）、result（最终文本）、getSetting(key)、setSetting(key,value)、log(x)、now()。
         - persona/context：input 形如 {"charId":"..."}，把要加进人设/上下文的文字赋给 result。
         - beforeSend/afterReply：input 形如 {"charId":"...","text":"...","reply":"..."}，把改写后的文本赋给 result。
@@ -867,11 +943,21 @@ public sealed partial class PluginRow : ObservableObject
     public string Issue { get; init; } = "";
 
     public string ToggleLabel => Enabled ? "停用" : "启用";
-    public string StateLabel => Issue.Length > 0 ? "不能运行" : Enabled ? "生效中" : "已停用";
+    public string StateLabel => HasBlocking ? "跑不起来" : Issue.Length > 0 ? "不能运行" : Enabled ? "生效中" : "已停用";
     public string PermissionLabel { get; init; } = "";
     public bool HasIssue => Issue.Length > 0;
     public bool HasMissing => DependenciesLabel.StartsWith("缺少", StringComparison.Ordinal);
     public bool CanOpenMissing => MissingUrls.Count > 0;
+
+    /// <summary>体检里有没有「不修就跑不起来」的那几条（不只看启用没启用）。</summary>
+    public bool HasBlocking { get; init; }
+    /// <summary>一行结论，永远显示：装了到底能不能跑，不该要用户点一下才知道。</summary>
+    public string DoctorLabel { get; init; } = "";
+    /// <summary>逐条结论 + 修改意见，点「体检」就地展开。</summary>
+    public string DoctorText { get; init; } = "";
+    /// <summary>缺的那些运行时的下载页（按 plugin.json 的 runtime 与页面依赖探出来的）。</summary>
+    public List<string> RuntimeInstallUrls { get; init; } = new();
+    public bool CanOpenRuntimeInstall => RuntimeInstallUrls.Count > 0;
 
     public bool HasPages { get; init; }
     public string PagesLabel { get; init; } = "";
@@ -880,6 +966,7 @@ public sealed partial class PluginRow : ObservableObject
 
     [ObservableProperty] private string _logText = "";
     [ObservableProperty] private bool _logVisible;
+    [ObservableProperty] private bool _doctorVisible;
 }
 
 /// <summary>插件中心里的一张 MCP 数据包卡（含它登记的工具）。</summary>

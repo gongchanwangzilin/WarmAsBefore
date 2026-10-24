@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
@@ -48,7 +48,7 @@
 
         <!-- 立绘区域：只有移动端用。Windows 的角色站在桌面上，不在这一页里。
              双击回主窗口（输入行与气泡不挂手势，避免抢焦点） -->
-        <Grid x:Name="SpriteArea" VerticalOptions="Fill" Margin="0,58,0,50"
+        <Grid motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" x:Name="SpriteArea" VerticalOptions="Fill" Margin="0,58,0,50"
               IsVisible="{OnPlatform WinUI=False, Default=True}">
             <Grid.GestureRecognizers>
                 <!-- 单击=思考（自言自语嘀咕一句）；双击=回主窗口。单击在 code-behind 里延迟判定，避免被双击抢走。 -->
