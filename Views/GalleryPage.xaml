@@ -97,7 +97,7 @@
 
             <!-- Tab switch -->
             <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
-                <Border Style="{StaticResource TabMemoir}">
+                <Border motion:HoverFeel.Enabled="True" Style="{StaticResource TabMemoir}">
                     <Label Text="回忆录" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmDark}"
                            FontAttributes="{Binding IsMemoirSelected, Converter={StaticResource BoolFontBold}}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
@@ -105,7 +105,7 @@
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="memoir" />
                     </Border.GestureRecognizers>
                 </Border>
-                <Border Grid.Column="1" Style="{StaticResource TabRemembered}">
+                <Border motion:HoverFeel.Enabled="True" Grid.Column="1" Style="{StaticResource TabRemembered}">
                     <Label Text="记得的事" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmDark}"
                            FontAttributes="{Binding IsRememberedSelected, Converter={StaticResource BoolFontBold}}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
@@ -113,7 +113,7 @@
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="remembered" />
                     </Border.GestureRecognizers>
                 </Border>
-                <Border Grid.Column="2" Style="{StaticResource TabDiary}">
+                <Border motion:HoverFeel.Enabled="True" Grid.Column="2" Style="{StaticResource TabDiary}">
                     <Label Text="日记" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmDark}"
                            FontAttributes="{Binding IsDiarySelected, Converter={StaticResource BoolFontBold}}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
@@ -121,7 +121,7 @@
                         <TapGestureRecognizer Command="{Binding SelectTabCommand}" CommandParameter="diary" />
                     </Border.GestureRecognizers>
                 </Border>
-                <Border Grid.Column="3" Style="{StaticResource TabCg}">
+                <Border motion:HoverFeel.Enabled="True" Grid.Column="3" Style="{StaticResource TabCg}">
                     <Label Text="CG收藏册" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmDark}"
                            FontAttributes="{Binding IsCgSelected, Converter={StaticResource BoolFontBold}}"
                            HorizontalOptions="Center" VerticalOptions="Center" />
@@ -338,7 +338,7 @@
                 <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding CgItems}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:CgCollectionItem">
-                            <Border Style="{StaticResource CgCell}" WidthRequest="220"
+                            <Border motion:HoverFeel.Enabled="True" Style="{StaticResource CgCell}" WidthRequest="220"
                                     Margin="0,0,12,12">
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:GalleryViewModel}}, Path=OpenCgCommand}"

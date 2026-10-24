@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
@@ -55,7 +55,7 @@
                     </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:WeChatContactItem">
-                            <VerticalStackLayout Spacing="0">
+                            <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Spacing="0">
                                 <Border BackgroundColor="{StaticResource WcRow}" Padding="14,12">
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
                                         <Grid Grid.Column="0" WidthRequest="48" HeightRequest="48">
@@ -152,7 +152,7 @@
                                        WidthRequest="240" HeightRequest="160"
                                        ShouldAutoPlay="False" ShouldShowPlaybackControls="True"
                                        BackgroundColor="Black" />
-                                <Border IsVisible="{Binding IsFile}"
+                                <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" IsVisible="{Binding IsFile}"
                                         BackgroundColor="{StaticResource WcTheirs}"
                                         StrokeThickness="1" Stroke="{StaticResource WcSep}"
                                         Padding="10,8">
@@ -186,7 +186,7 @@
                                            WidthRequest="240" HeightRequest="160"
                                            ShouldAutoPlay="False" ShouldShowPlaybackControls="True"
                                            BackgroundColor="Black" />
-                                    <Border IsVisible="{Binding IsFile}"
+                                    <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" IsVisible="{Binding IsFile}"
                                             BackgroundColor="{StaticResource WcTheirs}"
                                             StrokeThickness="1" Stroke="{StaticResource WcSep}"
                                             Padding="10,8">
@@ -244,7 +244,7 @@
                         </BindableLayout.ItemsSource>
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="x:String">
-                                <Image Source="{Binding}" WidthRequest="52" HeightRequest="52"
+                                <Image motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Source="{Binding}" WidthRequest="52" HeightRequest="52"
                                        Aspect="AspectFit">
                                     <Image.GestureRecognizers>
                                         <TapGestureRecognizer

@@ -2689,6 +2689,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _mcpServersLoading = true;
     /// <summary>设置页级 loading 遮罩（首帧渲染前盖住内容；OnAppearing 后收起，让转场动画完整播放）。</summary>
     [ObservableProperty] private bool _pageLoading = true;
+    /// <summary>MCP 体检进行中：握手要起进程、等回话，期间禁用其他「体检」按钮。</summary>
+    [ObservableProperty] private bool _mcpDoctorBusy;
+    /// <summary>
+    /// 体检结论按服务 key 存着。列表每刷新一次就重建一批 McpServerItem 对象，
+    /// 结论不落在 VM 上就会在下一次刷新时凭空消失。
+    /// </summary>
+    private readonly Dictionary<string, string> _mcpDoctorText = new(StringComparer.OrdinalIgnoreCase);
 
     // ---- 工具模式运行时（Java / Python）----
     [ObservableProperty] private string _pythonStatus = "未检测（点击下方「检测运行时」）";
@@ -3487,7 +3494,11 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         {
             McpServers.Clear();
             foreach (var item in _mcp.ListServers())
+            {
+                if (_mcpDoctorText.TryGetValue(item.Key, out var saved))
+                    item.DoctorText = saved;
                 McpServers.Add(item);
+            }
             OnPropertyChanged(nameof(HasMcpServers));
         }
         catch (Exception ex)
@@ -3620,6 +3631,54 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         RefreshMcpServers();
     }
 
+    /// <summary>
+    /// 体检一个 MCP 服务：静态项（配置、运行时、工作目录、同意闸）先过一遍，再把上次失败的原文
+    /// 翻成一句「怎么改」，最后真的握一次手，看它此刻答不答应。
+    ///
+    /// 结论就地写在列表里而不是弹窗：查错时人要一边看结论一边改上面那条命令，
+    /// 弹窗把两边隔开，只能凭记忆抄。
+    /// </summary>
+    [RelayCommand]
+    private async Task DiagnoseMcpServer(Modules.Mcp.McpServerItem? item)
+    {
+        if (item is null || McpDoctorBusy) return;
+        McpDoctorBusy = true;
+        try
+        {
+            var cfg = _mcp.LoadServerConfig(item.Key);
+            if (cfg is null)
+            {
+                _mcpDoctorText[item.Key] = "这一条是 MCP 数据包（只有 tools.json），没有外部服务可体检。"
+                    + "它的工具能不能跑，去插件中心点每条工具的「试跑」验；这张卡只管本机进程与网络地址。";
+                RefreshMcpServers();
+                return;
+            }
+
+            // 启动命令属于哪个运行时，就去探哪一个：扫不到 Node 直接说「没装、去哪装」，
+            // 比等一次注定失败的启动再读它的错误原文快，也更准。
+            var stdio = McpProtocol.UsesStdio(cfg);
+            var spec = stdio ? RuntimeCatalog.ByCommand(cfg.Command) : null;
+            var runtimes = spec is null ? null : await RuntimeProbe.ProbeAsync(new[] { spec.Id });
+
+            // 没放行的 stdio 不替用户点头：那条闸就是给他拦的，体检只报「还没允许」。
+            var findings = await McpDoctor.DiagnoseAsync(cfg, probe: !stdio || cfg.Allowed, runtimes);
+            _mcpDoctorText[item.Key] = findings.Count == 0
+                ? "没查出问题：配置完整，握手也通了。"
+                : PluginDoctor.Render(findings);
+            RefreshMcpServers();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DiagnoseMcp -> " + ex);
+            _mcpDoctorText[item.Key] = "体检出错：" + ex.Message;
+            RefreshMcpServers();
+        }
+        finally
+        {
+            McpDoctorBusy = false;
+        }
+    }
+
     [RelayCommand]
     private async Task DeleteMcpServer(Modules.Mcp.McpServerItem? item)
     {
@@ -3672,10 +3731,61 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
     }
 
+    /// <summary>
+    /// MCP 服务与插件真正依赖的那批运行时（Node / npx / uvx / WebView2 / 系统浏览器…）。
+    /// 上面那颗「检测」只管工具模式要用的 Python 与 Java，扫不到这些——所以插件装上了却一声不响时，
+    /// 这里才是能看见「原来这台机器没有 Node」的地方。
+    /// </summary>
+    public ObservableCollection<Services.RuntimeState> ExternalRuntimes { get; } = new();
+    [ObservableProperty] private bool _externalRuntimeBusy;
+    [ObservableProperty] private string _externalRuntimeNote = "未检测：接 MCP 服务或装带网页的插件之前点一次。";
+    public bool HasExternalRuntimes => ExternalRuntimes.Count > 0;
+
+    [RelayCommand]
+    private async Task DetectExternalRuntimes()
+    {
+        if (ExternalRuntimeBusy) return;
+        ExternalRuntimeBusy = true;
+        try
+        {
+            RuntimeProbe.Invalidate();
+            // 扫 PATH 是同步磁盘活，别把它放在 UI 线程上：一次十几个命令 × 每个 PATH 目录，
+            // 慢机器上够卡一下帧了。
+            var states = await Task.Run(() => RuntimeProbe.ProbeAsync(RuntimeCatalog.All.Select(s => s.Id)));
+            ExternalRuntimes.Clear();
+            foreach (var s in states) ExternalRuntimes.Add(s);
+            var missing = states.Count(s => !s.Present);
+            ExternalRuntimeNote = missing == 0
+                ? $"都齐了（{states.Count} 项）。接 MCP 与装插件时不用再装东西。"
+                : $"缺 {missing} 项：下面每一条都写了去哪装；本应用能自带的（Python / Java）用上面那两颗下载按钮。";
+            OnPropertyChanged(nameof(HasExternalRuntimes));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.DetectExternalRuntimes -> " + ex);
+            ExternalRuntimeNote = "检测出错：" + ex.Message;
+        }
+        finally
+        {
+            ExternalRuntimeBusy = false;
+        }
+    }
+
+    /// <summary>直接把官方下载页递到用户面前，比让他自己搜「nodejs 下载」少一步猜。</summary>
+    [RelayCommand]
+    private async Task OpenRuntimeDownload(Services.RuntimeState? state)
+    {
+        if (state is null || string.IsNullOrWhiteSpace(state.InstallUrl)) return;
+        try { await Launcher.Default.OpenAsync(state.InstallUrl); }
+        catch (Exception ex)
+        {
+            ExternalRuntimeNote = "打不开 " + state.InstallUrl + "：" + ex.Message;
+        }
+    }
+
     [RelayCommand]
     private async Task SetPythonPath()
-    {
-        var input = await Shell.Current.DisplayPromptAsync("Python 路径",
+    {        var input = await Shell.Current.DisplayPromptAsync("Python 路径",
             "输入 python.exe 的完整路径，或包含 python.exe 的目录（清空可解除）：", "确定", "取消", _runtimes.ManualPythonPath);
         if (input is null) return;
         _runtimes.SetManualPythonPath(input);

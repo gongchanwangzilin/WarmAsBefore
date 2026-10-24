@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.PhonePage"
@@ -48,7 +48,7 @@
 
                     <Label Text="TA 的世界" Style="{StaticResource TxtSection}" Margin="4,0,0,12" />
                     <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="*,*" ColumnSpacing="0" RowSpacing="22">
-                        <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -70,7 +70,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenChatCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -92,7 +92,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenLibraryCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -114,7 +114,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenMapCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -136,7 +136,7 @@
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
                         <!-- QQ 壳：青蓝换皮的会话 + 论坛（与微信壳同构，无礼物/支付） -->
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -161,7 +161,7 @@
 
                     <Label Text="内容与设定" Style="{StaticResource TxtSection}" />
                     <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="0" RowSpacing="22">
-                        <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -182,7 +182,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenGalleryCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -205,7 +205,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenMaterialsCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -226,7 +226,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenSceneWorkshopCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -251,7 +251,7 @@
 
                     <Label Text="一起玩" Style="{StaticResource TxtSection}" />
                     <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="0" RowSpacing="22">
-                        <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -272,7 +272,7 @@
                                 <TapGestureRecognizer Command="{Binding OpenForceCastCommand}" />
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
                                     StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
@@ -294,7 +294,7 @@
                             </Border.GestureRecognizers>
                         </VerticalStackLayout>
                         <!-- 战斗在设置里关掉时，入口跟着一起消失 -->
-                        <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" Spacing="6"
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6"
                                              IsVisible="{Binding ShowBattle}">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
                                     WidthRequest="58" HeightRequest="58" Padding="0"
@@ -321,7 +321,7 @@
                     <Label Text="小游戏" Style="{StaticResource TxtSection}" />
                     <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto"
                           ColumnSpacing="0" RowSpacing="20">
-                        <VerticalStackLayout HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
@@ -330,7 +330,7 @@
                             </Border>
                             <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="gobang" /></Grid.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
@@ -339,7 +339,7 @@
                             </Border>
                             <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="animalchess" /></Grid.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
@@ -348,7 +348,7 @@
                             </Border>
                             <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="ludo" /></Grid.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
@@ -357,7 +357,7 @@
                             </Border>
                             <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="chess" /></Grid.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Row="1" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
@@ -366,7 +366,7 @@
                             </Border>
                             <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="chinesechess" /></Grid.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
@@ -375,7 +375,7 @@
                             </Border>
                             <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="snake" /></Grid.GestureRecognizers>
                         </VerticalStackLayout>
-                        <VerticalStackLayout Grid.Row="1" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
+                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
                             <Border Style="{StaticResource PressableCard}"
                                     WidthRequest="54" HeightRequest="54" Padding="0">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>

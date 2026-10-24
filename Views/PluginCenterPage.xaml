@@ -105,7 +105,10 @@
                                            IsVisible="{Binding HasOverrides}" LineBreakMode="WordWrap" />
                                     <Label Text="{Binding PermissionLabel}" Style="{StaticResource TxtCaption}"
                                            LineBreakMode="WordWrap" />
-                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
+                                    <Label Text="{Binding DoctorLabel}" Style="{StaticResource TxtCaption}"
+                                           LineBreakMode="WordWrap"
+                                           TextColor="{DynamicResource AccentWarmFg}" />
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
                                         <Button Text="{Binding ToggleLabel}" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
                                                 Command="{Binding BindingContext.ToggleCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
@@ -118,21 +121,45 @@
                                         <Button Grid.Column="3" Text="日志" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
                                                 Command="{Binding BindingContext.ToggleLogCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="4" Text="页面" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                        <Button Grid.Column="4" Text="体检" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                Command="{Binding BindingContext.ToggleDoctorCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="5" Text="页面" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
                                                 IsVisible="{Binding HasPages}"
                                                 Command="{Binding BindingContext.OpenPageCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="5" Text="权限" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                        <Button Grid.Column="6" Text="权限" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
                                                 Command="{Binding BindingContext.OpenPermsCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="7" Text="安装地址" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        <Button Grid.Column="8" Text="安装地址" Style="{StaticResource BtnGhost}" FontSize="12"
                                                 IsVisible="{Binding CanOpenMissing}"
                                                 Command="{Binding BindingContext.OpenMissingUrlCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="8" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        <Button Grid.Column="9" Text="装运行时" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                IsVisible="{Binding CanOpenRuntimeInstall}"
+                                                Command="{Binding BindingContext.OpenRuntimeInstallCommand, Source={x:Reference Page}}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Grid.Column="10" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
                                                 Command="{Binding BindingContext.DeleteCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
                                     </Grid>
+                                    <!-- 体检结论就地展开，不弹窗：改 plugin.json 的人要一边看结论一边改文件，
+                                         弹窗把两边隔开，只能凭记忆抄。 -->
+                                    <Border IsVisible="{Binding DoctorVisible}" BackgroundColor="{DynamicResource InputBg}"
+                                            StrokeThickness="0" Padding="10">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                        <VerticalStackLayout Spacing="6">
+                                            <Label Text="体检结论（✕ 跑不起来 · △ 提醒 · · 说明）" Style="{StaticResource TxtCaption}"
+                                                   FontSize="11" Opacity="0.7" />
+                                            <Label Text="{Binding DoctorText}" Style="{StaticResource TxtCaption}"
+                                                   LineBreakMode="WordWrap" />
+                                            <Button Text="去装它缺的运行时" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                    HorizontalOptions="Start"
+                                                    IsVisible="{Binding CanOpenRuntimeInstall}"
+                                                    Command="{Binding BindingContext.OpenRuntimeInstallCommand, Source={x:Reference Page}}"
+                                                    CommandParameter="{Binding .}" />
+                                        </VerticalStackLayout>
+                                    </Border>
                                     <Border IsVisible="{Binding LogVisible}" BackgroundColor="{DynamicResource InputBg}"
                                             StrokeThickness="0" Padding="10">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>

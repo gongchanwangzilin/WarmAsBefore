@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 using Jint;
 using Jint.Runtime;
 
@@ -65,6 +66,13 @@ public sealed class PluginManifest
     public List<PluginPageSpec> Pages { get; set; } = new();
     /// <summary>声明要接管的内部环节（persona / reply / beforeSend / afterReply / scene）。</summary>
     public List<string> Overrides { get; set; } = new();
+    /// <summary>
+    /// 声明需要的外部运行时（node / python / java / webview2 / browser / git / dotnet / uv / deno / bun）。
+    /// 只用于「装之前先告诉用户缺什么、去哪装、本应用有什么替代」——不是安全边界，也不拦启用。
+    /// 写 `"runtime": "node"` 这种单个字符串也算对（作者常忘了数组写法）。
+    /// </summary>
+    [JsonConverter(typeof(OneOrManyConverter))]
+    public List<string> Runtime { get; set; } = new();
 }
 
 public sealed class PluginEntry
@@ -128,6 +136,12 @@ public sealed class PluginHost
 
     /// <summary>能力授权表（声明 ∩ 授予）。界面与钩子判定共用同一个实例。</summary>
     public PluginPermissions Permissions => _permissions;
+
+    /// <summary>
+    /// 最近一次安装成功的插件 id（安装入口在它非空时立刻做一次体检）。
+    /// 只记成功的那次：装失败时留着上一条 id，会把体检结论报到别的插件身上。
+    /// </summary>
+    public string? LastInstalledId { get; private set; }
 
     /// <summary>调用工具（由 RuntimeConfigurator 注入）：插件 JS 里用 callTool(name, argsJson)。</summary>
     public Func<string, string, Task<string>>? ToolInvoker { get; set; }
@@ -285,6 +299,7 @@ public sealed class PluginHost
             ReleaseCache();
             await EnsureLoadedAsync();
             await RunHookAsync(id, "onInstall", new { plugin = id });
+            LastInstalledId = id;
             return (true, $"已安装插件「{manifest.Name}」。");
         }
         catch (Exception ex)
@@ -388,9 +403,10 @@ public sealed class PluginHost
             var input = JsonSerializer.Serialize(context);
             var settings = await GetSettingsAsync(pluginId);
             // JS 里的 callTool/callPlugin 会同步等待；钩子留在 UI 线程上等会把它锁死，统一放到线程池里跑。
+            // 写设置也在这里同步等完：setSetting 是同步语义，异步飘走会让两条连续写互相盖掉，异常也进不了插件日志。
             var gate = new PermissionGate(this, entry);
-            var result = await Task.Run(() =>
-                RunJs(code, input, settings, (key, value) => SetSettingAsync(pluginId, key, value), gate));
+            var result = await Task.Run(() => RunJs(code, input, settings,
+                (key, value) => SetSettingAsync(pluginId, key, value).GetAwaiter().GetResult(), gate));
             return result;
         }
         catch (Exception ex)
@@ -438,15 +454,23 @@ public sealed class PluginHost
             null, 25, 25);
         engine.SetValue("input", input);
         engine.SetValue("result", "");
+        // settings 是进钩子时的一次性快照，写盘刷不到它。不留这层本地副本，
+        // setSetting('k','v') 紧接着 getSetting('k') 会读回旧值——插件作者只会当成「没写进去」。
+        var written = new Dictionary<string, string>(StringComparer.Ordinal);
         engine.SetValue("getSetting", new Func<string, string>(k =>
         {
             if (!gate.Allowed(PluginCapabilities.Settings)) return "";
-            return settings.TryGetValue(k ?? "", out var v) ? v : "";
+            var name = k ?? "";
+            return written.TryGetValue(name, out var fresh) ? fresh
+                 : settings.TryGetValue(name, out var v) ? v : "";
         }));
         engine.SetValue("setSetting", new Action<string, string>((k, v) =>
         {
             if (!gate.Allowed(PluginCapabilities.Settings)) return;
-            setSetting?.Invoke(k ?? "", v ?? "");
+            var name = k ?? "";
+            // 先落盘再记账：写失败要沿着钩子的异常路径进插件日志，不能留下「JS 以为写好了」的假账。
+            setSetting?.Invoke(name, v ?? "");
+            written[name] = v ?? "";
         }));
         engine.SetValue("log", new Action<object?>(m =>
         {

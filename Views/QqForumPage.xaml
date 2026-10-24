@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8" ?>
-<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+<ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
@@ -35,7 +35,7 @@
             </BindableLayout.ItemsSource>
             <BindableLayout.ItemTemplate>
                 <DataTemplate>
-                    <Border BackgroundColor="{StaticResource QqInputBg}" StrokeThickness="0"
+                    <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" BackgroundColor="{StaticResource QqInputBg}" StrokeThickness="0"
                             Padding="12,6" Margin="2">
                         <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                         <Border.GestureRecognizers>

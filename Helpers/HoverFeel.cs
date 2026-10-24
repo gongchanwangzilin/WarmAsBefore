@@ -8,33 +8,37 @@ namespace WarmAsBefore.Helpers;
 /// 「鼠标现在在这儿」：桌面端唯一能实时证明「这一行可以点」的信号。
 ///
 /// 为什么非得写代码：WinUI 上 MAUI 不进 PointerOver 视觉状态，PointerGestureRecognizer 的
-/// PointerEntered/Exited 也不回调 —— PressFeel 的注释里记着那次实测（把整个驱动去掉，按钮照样纹丝不动）。
-/// 但事件本身没有丢：它只在平台原生元素那一层才会来。所以这里接的是
-/// Microsoft.UI.Xaml.UIElement 的 PointerEntered/Exited/Pressed/Released/Canceled，
-/// 而且必须用 AddHandler(ev, h, handledEventsToo: true) —— Border 的原生视图是 MAUI 自己的
-/// ContentPanel，可见的那层 Border 是它的孩子，MAUI 的输入栈在冒泡途中就把事件标成已处理，
+/// PointerEntered/Exited 也不回调 —— PressFeel 的注释里记着那次实测。
+/// 但事件本身没有丢：它只在平台原生元素那一层才会来，而且必须用
+/// AddHandler(ev, handler, handledEventsToo: true) 才收得到 —— Border 的原生视图是 MAUI 自己的
+/// ContentPanel，真正被点中的是它下面那层可见 Border，MAUI 的输入栈在冒泡途中就把事件标成已处理，
 /// 用 += 订阅一个像素也换不来（运行时日志里 attach 成功、enter 一次没来）。
 ///
 /// 验证只能靠真人推鼠标：SetCursorPos 那种「瞬移」不产生输入包，WinUI 的悬停管线不认，
-/// 截图比对会得到「移上去毫无变化」的假阴性（踩过，别照着这条再测一遍）。
+/// 拿截图比对会得到「移上去毫无变化」的假阴性（踩过，别再照这条测一遍）。
 ///
-/// 只写 Background，不碰 Opacity / Shadow / Scale：那三条分别被进场动画、禁用态和合成层管着，
+/// 只画 Background，不碰 Opacity / Shadow / Scale：那三条分别被进场动画、禁用态和合成层管着，
 /// 抢过来就是「按键莫名其妙消失」「点过的按钮返回后整块空白」那两类回归（见 ButtonShapes.xaml 顶部）。
 /// 位移仍归 PressFeel：静止→悬停→按下是颜色上的三级台阶，沉下去那 1.6px 是它的事。
 ///
-/// 颜色从元素**自己当前这张面**算（StyleWorldTokens.Step / Wash），不发固定令牌：
+/// 关键取舍：**改的是原生画刷，不是 MAUI 的 Background 属性**。
+/// 早先的写法是「往 Forms 侧写一个色，离开时 ClearValue 还给样式」，那样只有静止底由样式给出的
+/// 元素才敢接线——页面里内联写了 Background="{DynamicResource …}" 的一律不能碰，因为本地值一旦压上去，
+/// 那条动态链接就接不回来了（换风格世界时那一行会钉死在旧色上）。而全应用 155 条可点的 Border
+/// 里绝大多数正是内联写法：靠样式那一档，等于只修了主页四条行，别处照旧没反馈。
+/// 现在整条链路都在原生侧：进找到那张真正在画的面、记下它原来的画刷、换成压深一档的色，
+/// 离开时**只在没人动过它的前提下**换回去。MAUI 的属性系统从头到尾没被碰，动态链接原样有效；
+/// 悬停期间万一真的换了主题，MAUI 会把新画刷写进来，那时我们只交还自己那份判断（值不是我们写的那个
+/// 就不还），不会把旧世界的颜色盖回去。
+///
+/// 颜色从那张面**自己的颜色**算（StyleWorldTokens.Step / Wash），不发固定令牌：
 /// 同一条行可能站在页底上、卡在卡面上、盖在一张图上，固定值必然在其中一处变成「没变化」。
 /// 半透明的玻璃面只往同一方向压一点，Alpha 原样保留 —— 换成一颗不透明的灰会把玻璃糊成一块塑料。
-///
-/// 离开时把值**交还给样式**（ClearValue）而不是还原成「我记得的那个颜色」：样式里的 DynamicResource
-/// 只有一值不被本地值压着才继续跟着世界换档；本地哪怕写回一个原值，这条动态链接也就永久断了，
-/// 那一行从此钉死在旧世界上（换风格时它不会跟着换）。所以只有静止那一档确实由样式给出时才接线，
-/// 页面自己内联写 Background 的元素直接不亮 —— 少一次悬停，换一个不会坏的主题跟随。
-/// 同理不碰渐变画刷：用纯色盖上去会把它的底纹整个抹掉。
+/// 渐变画刷直接不接：用纯色盖上去会把它的底纹整个抹掉。
 ///
 /// 触屏没有悬停这件事，所以整套驱动只在 Windows 上接线；Android 那边附加属性照样能写，只是不接。
 ///
-/// 用法：&lt;Setter Property="motion:HoverFeel.Enabled" Value="True" /&gt;（只认 Border）。
+/// 用法：&lt;Setter Property="motion:HoverFeel.Enabled" Value="True" /&gt;，或在内联元素上直接写这颗附加属性。
 /// </summary>
 public static class HoverFeel
 {
@@ -54,38 +58,44 @@ public static class HoverFeel
 
     private static void OnEnabledChanged(BindableObject bindable, object oldValue, object newValue)
     {
-        if (newValue is not true || bindable is not Border border) return;
+        if (newValue is not true || bindable is not VisualElement e) return;
 #if WINDOWS
-        _ = Drivers.GetValue(border, static e => new Driver(e));   // 样式重复套用不会重复接线
+        _ = Drivers.GetValue(e, static v => new Driver(v));   // 样式重复套用不会重复接线
 #endif
     }
 
 #if WINDOWS
-    private static readonly ConditionalWeakTable<Border, Driver> Drivers = new();
+    private static readonly ConditionalWeakTable<VisualElement, Driver> Drivers = new();
 
     private sealed class Driver
     {
-        private readonly Border _e;
+        private readonly VisualElement _e;
         private Microsoft.UI.Xaml.UIElement? _native;
         private Microsoft.UI.Xaml.Input.PointerEventHandler? _onEnter, _onExit, _onDown, _onUp, _onCancel;
 
         private bool _inside;
         private bool _pressed;
-        private bool _hasBase;
 
-        /// <summary>静止时那张面。null 和 Transparent 都算「什么都没画」，那时改用盖色偏那一档。</summary>
-        private Brush? _baseFace;
+        /// <summary>那张面的读写把手（原生侧），加进/离开时抓一次。</summary>
+        private Func<Microsoft.UI.Xaml.Media.Brush>? _get;
+        private Action<Microsoft.UI.Xaml.Media.Brush>? _set;
+
+        /// <summary>进悬停前它自己那颗画刷，和本次写进去的那颗（用来判断有没有人插手动过）。</summary>
+        private Microsoft.UI.Xaml.Media.Brush? _rest;
+        private Microsoft.UI.Xaml.Media.Brush? _painted;
+        /// <summary>
+        /// 那张面自己的颜色。存成 MAUI 的 Color（通道 0~1）而不是原生的（0~255）：
+        /// 压深那套算法 StyleWorldTokens.Step / Wash 收的就是 MAUI Color，两头各一套单位
+        /// 早先踩过一次 —— 拿原生 byte 的 A 去和 0.02f 比，透明底永远判成「有颜色」。
+        /// </summary>
         private Color _face;
-        private BindableProperty? _styleProp;
-
-        /// <summary>渐变之类的画刷一律不碰：用纯色盖上去会把它的底纹整个抹掉。</summary>
         private bool _skip;
 
-        public Driver(Border e)
+        public Driver(VisualElement e)
         {
             _e = e;
             e.HandlerChanged += (_, _) => Attach();
-            e.Unloaded += (_, _) => Release();
+            e.Unloaded += (_, _) => Restore();
             Attach();
         }
 
@@ -95,14 +105,11 @@ public static class HoverFeel
             if (_e.Handler?.PlatformView is not Microsoft.UI.Xaml.UIElement native) return;
             _native = native;
             _onEnter = (_, _) => { _inside = true; Capture(); Paint(); SetHand(true); };
-            _onExit = (_, _) => { _inside = false; _pressed = false; Release(); SetHand(false); };
+            _onExit = (_, _) => { _inside = false; _pressed = false; Restore(); SetHand(false); };
             _onDown = (_, _) => { _pressed = true; Paint(); };
             _onUp = (_, _) => { _pressed = false; Paint(); };
             // 指针被系统收走（拖出窗口、弹出模态）时不会有抬起，也没有离开 —— 不补这一下会留下一行永远亮着的底。
-            _onCancel = (_, _) => { _inside = false; _pressed = false; Release(); SetHand(false); };
-            // 必须 AddHandler(..., handledEventsToo: true)：Border 的原生视图是 MAUI 自己的 ContentPanel，
-            // 它下面那层可见 Border 才是被点中的东西，而 MAUI 的输入栈会在事件冒泡上来时把它标成已处理。
-            // 用 += 订阅实测一个像素都换不来（运行时日志里 attach 成功、enter 一次没来）。
+            _onCancel = (_, _) => { _inside = false; _pressed = false; Restore(); SetHand(false); };
             Add(native, Microsoft.UI.Xaml.UIElement.PointerEnteredEvent, _onEnter);
             Add(native, Microsoft.UI.Xaml.UIElement.PointerExitedEvent, _onExit);
             Add(native, Microsoft.UI.Xaml.UIElement.PointerPressedEvent, _onDown);
@@ -135,56 +142,110 @@ public static class HoverFeel
             _native = null;
             _inside = false;
             _pressed = false;
-            Release();
+            Restore();
             SetHand(false);
         }
 
-        /// <summary>基准只在真正进入悬停时抓一次：按下/抬起都在这份基准上走，不会越按越深。</summary>
+        /// <summary>
+        /// 进悬停时抓一次基准：按下/抬起都在这份基准上走，不会越按越深。
+        /// 面只在两层里找，理由写在 FindFace 上。
+        /// </summary>
         private void Capture()
         {
-            if (_hasBase) return;
-            _baseFace = _e.Background;
-            _styleProp = StyleBackgroundProperty(_e.Style);
-            // 静止那一档必须真是样式给的，才有人能还回去：页面内联写的 {DynamicResource}
-            // 一旦被本地值顶掉就再也接不回主题，写回原画刷也接不回来（丢的是那条动态链接）。
-            // 宁可这一行不亮，也不给它留一个「换风格后它不换」的暗伤。
-            _skip = _styleProp is null || _baseFace is not null and not SolidColorBrush;
-            _face = (_baseFace as SolidColorBrush)?.Color ?? Colors.Transparent;
-            _hasBase = true;
+            if (_get is not null || _skip) return;
+            if (_native is null) { _skip = true; return; }
+            var face = FindFace(_native);
+            if (face is null) { _skip = true; return; }
+            (_get, _set) = face.Value;
+            _rest = _get();
+            // 渐变/贴图之类的底不碰：纯色盖上去会把它的底纹整个抹掉。
+            if (_rest is not null and not Microsoft.UI.Xaml.Media.SolidColorBrush) { _skip = true; return; }
+            _face = (_rest as Microsoft.UI.Xaml.Media.SolidColorBrush) is { } solid
+                ? ToMaui(solid.Color)
+                : Colors.Transparent;
         }
+
+        private static Color ToMaui(Windows.UI.Color c) =>
+            new(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
+
+        private static byte ToByte(float v) => (byte)Math.Clamp(v * 255f + 0.5f, 0f, 255f);
+
+        /// <summary>
+        /// 找这张元素自己的那层面，只看两层，顺序是「谁在画就压谁」：
+        /// ① 原生视图本身是 Border（MAUI 的 Border 直接落到一颗 Border）；
+        /// ② 原生视图本身是铺了**看得见**的底的 Panel（页眉条、整块卡头）；
+        /// ③ 唯一的子级 Border——MAUI 常在外面再包一层 ContentPanel，真正带圆角在画的是里面那颗
+        ///    （PhonePage 的桌面图标：竖排本身透明，有底的是那块 58px 的图标）。
+        /// ④ 都不成立就不画。
+        ///
+        /// 三条都是挡回归的：
+        /// · 子级要「唯一」才敢用。全屏遮罩（AffectionLevelUp 那种「点任何地方关掉」）根 Grid 是透明的，
+        ///   底下摆着好几张卡，蒙对哪张都不对——鼠标一进全屏变深，那是故障不是反馈。
+        /// · Panel 那档要 Alpha 够大才算：透明 Panel 铺的是方角，压上去会把圆角卡盖出一圈直角。
+        /// · 再往里（孙辈）不找，那里已经是别人的内容。
+        /// </summary>
+        private static (Func<Microsoft.UI.Xaml.Media.Brush>, Action<Microsoft.UI.Xaml.Media.Brush>)? FindFace(
+            Microsoft.UI.Xaml.UIElement root)
+        {
+            if (BorderFace(root) is { } own) return own;
+            if (PanelFace(root) is { } plate) return plate;
+
+            (Func<Microsoft.UI.Xaml.Media.Brush>, Action<Microsoft.UI.Xaml.Media.Brush>)? only = null;
+            var ambiguous = false;
+            for (var i = 0; i < Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(root) && !ambiguous; i++)
+            {
+                var child = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(root, i);
+                if (BorderFace(child) is not { } face) continue;
+                if (only is not null) { ambiguous = true; break; }
+                only = face;
+            }
+            return only;
+        }
+
+        private static (Func<Microsoft.UI.Xaml.Media.Brush>, Action<Microsoft.UI.Xaml.Media.Brush>)? BorderFace(
+            Microsoft.UI.Xaml.DependencyObject vo) =>
+            vo is Microsoft.UI.Xaml.Controls.Border { Background: not null } b
+                ? (() => b.Background, value => b.Background = value)
+                : null;
+
+        private static (Func<Microsoft.UI.Xaml.Media.Brush>, Action<Microsoft.UI.Xaml.Media.Brush>)? PanelFace(
+            Microsoft.UI.Xaml.DependencyObject vo) =>
+            vo is Microsoft.UI.Xaml.Controls.Panel
+                { Background: Microsoft.UI.Xaml.Media.SolidColorBrush { Color: { A: > 5 } } } p
+                ? (() => p.Background, value => p.Background = value)
+                : null;
 
         private void Paint()
         {
-            if (_skip) return;
-            if (!_inside && !_pressed) { Release(); return; }
+            if (_skip || _set is null) return;
+            if (!_inside && !_pressed) { Restore(); return; }
             var step = _pressed ? PressStep : HoverStep;
-            // Alpha 大于 0 就是「这里有一张面」：在它身上沉（Mix 保留 Alpha，玻璃还是玻璃）。
+            // Alpha 大于 0 就是「这里有一张面」：在它身上沉（Step 保留 Alpha，玻璃还是玻璃）。
             // 完全透明才改成往父面上压一层色偏。
             var color = _face.Alpha > 0.02f
                 ? StyleWorldTokens.Step(_face, step)
                 : StyleWorldTokens.Wash(step);
-            _e.Background = new SolidColorBrush(color);
+            _painted = new Microsoft.UI.Xaml.Media.SolidColorBrush(
+                Windows.UI.Color.FromArgb(ToByte(color.Alpha), ToByte(color.Red),
+                    ToByte(color.Green), ToByte(color.Blue)));
+            _set(_painted);
         }
 
-        /// <summary>把这一档还给静止态：ClearValue 之后样式那条 DynamicResource 重新生效，跟着世界换档。</summary>
-        private void Release()
+        /// <summary>
+        /// 交还静止那一档。只在「这块底还是我写进去的那颗」时才还：
+        /// 悬停途中主题换了、MAUI 把自己的新画刷写了进来，那就让它留着，我们那份已经过期。
+        /// </summary>
+        private void Restore()
         {
-            _hasBase = false;
-            if (_skip) return;
-            if (_styleProp is not null) _e.ClearValue(_styleProp);
-            _styleProp = null;
-            _baseFace = null;
+            if (_get is not null && _set is not null && _painted is not null &&
+                ReferenceEquals(_get(), _painted))
+                _set(_rest);
+            _get = null;
+            _set = null;
+            _rest = null;
+            _painted = null;
             _face = Colors.Transparent;
-        }
-
-        /// <summary>沿 BasedOn 链找样式里那条 Background 的绑定属性 —— 借它才敢 ClearValue。</summary>
-        private static BindableProperty? StyleBackgroundProperty(Style? style)
-        {
-            for (var s = style; s is not null; s = s.BasedOn)
-                foreach (var setter in s.Setters)
-                    if (setter is Setter st && st.Property.PropertyName == nameof(Border.Background))
-                        return st.Property;
-            return null;
+            _skip = false;
         }
 
         /// <summary>
@@ -196,11 +257,7 @@ public static class HoverFeel
         private void SetHand(bool on)
         {
             if (_native is null) return;
-            try
-            {
-                object? shape = on ? Hand : null;
-                CursorProp?.SetValue(_native, shape);
-            }
+            try { CursorProp?.SetValue(_native, on ? Hand : null); }
             catch { /* 这一版运行时没给这颗手型 */ }
         }
 
