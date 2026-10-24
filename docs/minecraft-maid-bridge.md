@@ -199,6 +199,7 @@ WAB → 模组：
 - `hours` 是持续时长；采矿这类长动作会分 tick 执行，不做瞬移。
 - 模组只执行“可安全执行”的步骤：目标不存在、工具不够、距离太远会跳过并记 `event`。
 - AI 不需要每分钟思考：日程由模组本地跑；WAB 只在收到 `event` 或用户说话时参与。
+- 但日程**只在会话存续期间**跑：WAB 没开或断开时模组不执行任何自主步骤，为的是「换上我们这个 jar、不开 WAB，女仆行为与上游一致」。
 
 ---
 
@@ -330,13 +331,22 @@ WAB → 模组：
 | `port` | `27322` | TCP 端口，0 = 自动 |
 | `lan` | `false` | 允许局域网连接（否则只回环） |
 | `auto_create_characters` | `true` | 匹配不到角色时自动建角色 |
-| `allow_world_actions` | `true` | 允许挖/放/取水/丢物 |
+| `allow_world_actions` | `true` | 允许挖/放/取水/丢物/攻击/物品操作（模组侧 `gather`、`attack`、`hold` 全部过这道闸） |
 | `allow_gestures` | `true` | 允许动作与语录 |
 | `chat_affection` | `true` | 游戏内聊天加好感 |
 | `autonomy_pulse_minutes` | `0` | WAB 主动思考间隔（0 = 只靠模组日程） |
 | `backup_minutes` | `10` | 快照间隔 |
 
 设置页只写这些键；真正的连接状态用 WAB 的工具/日志查看，插件页面不直接碰套接字。
+
+两条与插件系统升级有关的口径，改键时必须三处一起动：
+
+- **未保存 ≠ 关闭**。用户没点过一次「保存」时 `settings.json` 是空的，`getSetting` 返回空串；
+  宿主 `MaidBridgeSettings.From` 与 JS 里的 `persona.js` 都按上表的默认解释空值，
+  中文「开/关」也认（与 `From` 的 `Bool` 同一套词表）。只认字面量 `"true"` 会让新装的桥悄悄少一段人设。
+- **能力声明**。`plugin.json` 显式声明 `settings`、`prompt.write`、`page` 三项，其余一律不声明：
+  JS 侧不出网、不调工具，连接与写记忆全在宿主。`settings.kind` 缺失会让整个插件的钩子停跑，
+  存档级插件白名单与权限台各是一道独立闸，症状都是「装了但 AI 不提 Minecraft」。
 
 ---
 
