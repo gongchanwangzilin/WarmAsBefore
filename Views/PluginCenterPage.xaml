@@ -15,8 +15,8 @@
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="插件中心" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="从 zip 安装" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
-                        Command="{Binding InstallZipCommand}" />
+                <Button Grid.Column="2" Text="刷新" Style="{StaticResource BtnText}" FontSize="14"
+                        Command="{Binding RefreshCommand}" />
             </Grid>
         </Border>
 
@@ -28,6 +28,42 @@
                     <Label Text="插件可以改人设、改写发送前/回复后的文本、读取上下文、按轮次记账，也能带自己的设置页与页面。钩子运行在受限 JS 沙箱里（语句数与内存有硬上限，等授权的时间不计入预算）；设置页三选一是硬性要求，没声明就不能运行。每项能力都要两边点头才生效：插件在 plugin.json 里声明过，你在「权限」里放行——没声明的允许了也不给，声明了但被禁止的一律拦下。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
+
+                <!-- 安装入口：这一张卡存在的全部理由——之前只有顶栏那颗小字按钮，
+                     找不到入口的人只会得出「只能把文件夹拖进去」这个结论。 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="安装插件" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                            <Button Text="从 zip 安装" Style="{StaticResource BtnPrimary}" FontSize="13" Padding="16,7"
+                                    Command="{Binding InstallZipCommand}"
+                                    IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}" />
+                            <Button Grid.Column="1" Text="从文件夹安装" Style="{StaticResource BtnNeumorph}" FontSize="13" Padding="16,7"
+                                    Command="{Binding InstallFolderCommand}"
+                                    IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}" />
+                            <Button Grid.Column="2" Text="打开插件目录" Style="{StaticResource BtnGhost}" FontSize="13"
+                                    Command="{Binding RevealPluginsFolderCommand}" />
+                            <ActivityIndicator Grid.Column="3" IsRunning="{Binding Busy}" IsVisible="{Binding Busy}"
+                                               HorizontalOptions="Start" VerticalOptions="Center"
+                                               Color="{DynamicResource AccentWarm}" />
+                        </Grid>
+                        <Label Text="zip 的根目录、或根目录里那层同名文件夹里，都要有一个 plugin.json（写 name、settings 三选一、hooks 指向包内的 JS）。同名插件会被直接覆盖，不会另开一份。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Label Style="{StaticResource TxtCaption}" LineBreakMode="CharacterWrap">
+                            <Label.FormattedText>
+                                <FormattedString>
+                                    <Span Text="插件装在 " />
+                                    <Span Text="{Binding PluginsDirLabel}" />
+                                    <Span Text=" —— 直接拷进这个目录再点右上角「刷新」也一样装得上。" />
+                                </FormattedString>
+                            </Label.FormattedText>
+                        </Label>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="还没有插件。可以用下面的工坊生成一个，或用上面那两颗按钮装现成的。"
+                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
+                       IsVisible="{Binding HasPlugins, Converter={StaticResource InverseBool}}" />
 
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="10">
                     <BindableLayout.ItemTemplate>
@@ -163,8 +199,21 @@
 
                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                         <Label Text="已装 MCP 数据包" Style="{StaticResource TxtSubhead}" />
-                        <Label Text="还没有 MCP 数据包。可以在上面生成，或到设置 → MCP 导入。"
-                               Style="{StaticResource TxtCaption}"
+                        <Label Text="数据包＝自己写的 tools.json（本地 JS 工具或远程 HTTP 端点），是往机器里装东西，所以和插件放在一起。要接的是外部 MCP 服务（本机启动进程或连一个地址），去设置 → 外部与接入 → MCP。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                            <Button Text="导入数据包 zip" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                    Command="{Binding ImportPackZipCommand}"
+                                    IsEnabled="{Binding McpBusy, Converter={StaticResource InverseBool}}" />
+                            <Button Grid.Column="1" Text="从文件夹导入" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                    Command="{Binding ImportPackFolderCommand}"
+                                    IsEnabled="{Binding McpBusy, Converter={StaticResource InverseBool}}" />
+                            <Button Grid.Column="2" Text="从 GitHub 导入" Style="{StaticResource BtnGhost}" FontSize="12"
+                                    Command="{Binding ImportPackGitHubCommand}"
+                                    IsEnabled="{Binding McpBusy, Converter={StaticResource InverseBool}}" />
+                        </Grid>
+                        <Label Text="还没有 MCP 数据包。可以在上面用一句话生成，或用这三颗按钮导入现成的。"
+                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
                                IsVisible="{Binding HasMcpServers, Converter={StaticResource InverseBool}}" />
                         <VerticalStackLayout BindableLayout.ItemsSource="{Binding McpServers}" Spacing="10">
                             <BindableLayout.ItemTemplate>

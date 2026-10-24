@@ -140,7 +140,7 @@
                      改成一张卡里的三行：左名称、右指向，一屏只有一种「点这里过去」的读法。 -->
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="0">
-                        <Border Style="{StaticResource SettingRow}">
+                        <Border Style="{StaticResource TappableRow}">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenMemoryManageCommand}" />
                             </Border.GestureRecognizers>
@@ -152,7 +152,7 @@
                             </Grid>
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
+                        <Border Style="{StaticResource TappableRow}">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenGraphCommand}" />
                             </Border.GestureRecognizers>
@@ -164,7 +164,7 @@
                             </Grid>
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
+                        <Border Style="{StaticResource TappableRow}">
                             <Border.GestureRecognizers>
                                 <TapGestureRecognizer Command="{Binding OpenSearchCommand}" />
                             </Border.GestureRecognizers>

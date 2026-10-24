@@ -733,12 +733,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         // MCP 设置
         _mcpEnabled = s.McpEnabled;
         _mcpAutoApprove = s.McpAutoApprove;
-        _mcp.NetworkUrl = s.McpNetworkUrl;
         _mcp.AutoApprove = _mcpAutoApprove;
-        _mcpNetworkUrl = s.McpNetworkUrl;
-        _mcpGitHubRepo = s.McpGitHubRepo;
-        _mcpImportZipPath = s.McpImportZipPath;
-        _mcpImportFolderPath = s.McpImportFolderPath;
         // 这里不能同步 RefreshMcpServers()：McpOrchestrator.ListServers() 会递归
         // Directory.GetFiles(dir, "*", SearchOption.AllDirectories) 并对每个文件取
         // FileInfo.Length —— 全部跑在 UI 线程上。设置页是 transient，每次点「设置」
@@ -2688,14 +2683,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     // MCP 配置
     [ObservableProperty] private bool _mcpEnabled;
     [ObservableProperty] private bool _mcpAutoApprove = true;
-    [ObservableProperty] private string _mcpNetworkUrl = "";
-    [ObservableProperty] private string _mcpGitHubRepo = "";
-    [ObservableProperty] private string _mcpImportZipPath = "";
-    [ObservableProperty] private string _mcpImportFolderPath = "";
-    [ObservableProperty] private bool _isImporting;
-    [ObservableProperty] private double _importProgress;
-    [ObservableProperty] private string _importStatus = "";
-    /// <summary>MCP 数据包列表（已导入 / 新建）。</summary>
+    /// <summary>MCP 服务与数据包列表。</summary>
     public ObservableCollection<Modules.Mcp.McpServerItem> McpServers { get; } = new();
     /// <summary>MCP 列表加载中标记（true 时设置页显示 loading 圈圈，防止 UI 动画停滞）。</summary>
     [ObservableProperty] private bool _mcpServersLoading = true;
@@ -3138,12 +3126,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnWechatPortChanged(string value) => PersistSettings();
     partial void OnChannelsUrlChanged(string value) => PersistSettings();
 
-    partial void OnMcpEnabledChanged(bool value) => PersistSettings();
-    partial void OnMcpNetworkUrlChanged(string value) { _mcp.NetworkUrl = value; PersistSettings(); }
+    partial void OnMcpEnabledChanged(bool value) { _mcp.Enabled = value; PersistSettings(); }
     partial void OnMcpAutoApproveChanged(bool value) { _mcp.AutoApprove = value; PersistSettings(); }
-    partial void OnMcpGitHubRepoChanged(string value) => PersistSettings();
-    partial void OnMcpImportZipPathChanged(string value) => PersistSettings();
-    partial void OnMcpImportFolderPathChanged(string value) => PersistSettings();
 
     private static string ThemeKeyOf(string display) => display switch
     {
@@ -3366,10 +3350,6 @@ GlassLightWidth = GlassLightWidth,
 
                  McpEnabled = McpEnabled,
                  McpAutoApprove = McpAutoApprove,
-                 McpNetworkUrl = McpNetworkUrl.Trim(),
-                 McpGitHubRepo = McpGitHubRepo.Trim(),
-                 McpImportZipPath = McpImportZipPath.Trim(),
-                 McpImportFolderPath = McpImportFolderPath.Trim(),
 
                  GameDifficulty = GameDifficulty,
                  AiAutoDifficulty = AiAutoDifficulty,
@@ -3469,116 +3449,6 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
     }
 
-    [RelayCommand]
-    private async Task ImportMcpFromGitHub()
-    {
-        if (IsImporting) return;
-        try
-        {
-            if (string.IsNullOrWhiteSpace(McpGitHubRepo))
-            {
-                await Shell.Current.DisplayAlert("MCP", "请先输入 GitHub 仓库 URL", "好");
-                return;
-            }
-            IsImporting = true;
-            ImportProgress = 0;
-            ImportStatus = LocalizationService.Current["Settings_ImportReady"];
-            var progress = new Progress<string>(s => ImportStatus = s);
-            var result = await _mcp.ImportFromGitHub(McpGitHubRepo, _mcp.McpPackDir, progress);
-            RefreshMcpServers();
-            await Shell.Current.DisplayAlert("MCP GitHub 导入", result, "好");
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("SettingsViewModel.ImportMcpFromGitHub -> " + ex);
-        }
-        finally
-        {
-            IsImporting = false;
-            ImportProgress = 0;
-        }
-    }
-
-    [RelayCommand]
-    private async Task ImportMcpZip()
-    {
-        if (IsImporting) return;
-        try
-        {
-            var pick = await FilePicker.Default.PickAsync(new PickOptions
-            {
-                PickerTitle = "选择 MCP 数据包 ZIP",
-                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                {
-                    { DevicePlatform.WinUI, new[] { ".zip" } },
-                    { DevicePlatform.Android, new[] { "application/zip" } },
-                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
-                })
-            });
-            if (pick is null) return;
-            McpImportZipPath = pick.FullPath;
-            IsImporting = true;
-            ImportProgress = 0;
-            ImportStatus = LocalizationService.Current["Settings_ImportUnzip"];
-            var progress = new Progress<(int done, int total)>(t =>
-                ImportProgress = t.total == 0 ? 0 : (double)t.done / t.total);
-            var result = await _mcp.ImportZip(pick.FullPath, _mcp.McpPackDir, progress);
-            RefreshMcpServers();
-            await Shell.Current.DisplayAlert("MCP ZIP 导入", result, "好");
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("SettingsViewModel.ImportMcpZip -> " + ex);
-        }
-        finally
-        {
-            IsImporting = false;
-            ImportProgress = 0;
-        }
-    }
-
-    [RelayCommand]
-    private async Task ImportMcpFolder()
-    {
-        if (IsImporting) return;
-        try
-        {
-#if WINDOWS
-            var wnd = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null)?.Handler?.PlatformView
-                as Microsoft.UI.Xaml.Window;
-            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(wnd);
-            var picker = new Windows.Storage.Pickers.FolderPicker();
-            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-            picker.FileTypeFilter.Add("*");
-            var picked = await picker.PickSingleFolderAsync();
-            if (picked is null) return;
-            McpImportFolderPath = picked.Path;
-#else
-            // MAUI 的 FolderPicker 只在 Windows / macOS 上存在，Android 没有文件夹选择器。
-            // 之前这里直接调 FolderPicker.Default，Android 目标因此编译不过。
-            await Shell.Current.DisplayAlert("导入 MCP 文件夹",
-                "Android 端暂不支持选择文件夹，请改用「导入 zip」。", "好");
-            return;
-#endif
-            IsImporting = true;
-            ImportProgress = 0;
-            ImportStatus = LocalizationService.Current["Settings_ImportCopy"];
-            var progress = new Progress<(int done, int total)>(t =>
-                ImportProgress = t.total == 0 ? 0 : (double)t.done / t.total);
-            var result = await _mcp.ImportFolder(McpImportFolderPath, _mcp.McpPackDir, progress);
-            RefreshMcpServers();
-            await Shell.Current.DisplayAlert("MCP 文件夹导入", result, "好");
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("SettingsViewModel.ImportMcpFolder -> " + ex);
-        }
-        finally
-        {
-            IsImporting = false;
-            ImportProgress = 0;
-        }
-    }
 
     /// <summary>后台线程扫描 MCP 数据包目录，再回 UI 线程回填集合（首次进入设置页不再阻塞）。</summary>
     private async Task LoadMcpServersAsync()
@@ -3606,6 +3476,10 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
     /// <summary>列表是否为空（空态提示用；列表本身改成 BindableLayout，外层页面统一滚动）。</summary>
     public bool HasMcpServers => McpServers.Count > 0;
 
+    /// <summary>手动重扫：接一个服务、删一个目录之后不必重启设置页。</summary>
+    [RelayCommand]
+    private void RefreshMcp() => RefreshMcpServers();
+
     /// <summary>刷新 MCP 数据包列表（从 McpPacks 目录扫描）。</summary>
     private void RefreshMcpServers()
     {
@@ -3622,31 +3496,6 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
     }
 
-    /// <summary>新建 MCP 服务器：名称 + 简介 + 可选地址。</summary>
-    [RelayCommand]
-    private async Task NewMcpServer()
-    {
-        try
-        {
-            var name = await Shell.Current.DisplayPromptAsync("新建 MCP 服务器", "输入名称（将作为数据包目录名）", "下一步", "取消", "例如: 天气服务");
-            if (string.IsNullOrWhiteSpace(name)) return;
-            var desc = await Shell.Current.DisplayPromptAsync("新建 MCP 服务器", "简介（说明这个服务器的用途）", "下一步", "取消", "例如: 提供实时天气查询");
-            if (string.IsNullOrWhiteSpace(desc)) return;
-            var url = await Shell.Current.DisplayPromptAsync("新建 MCP 服务器", "接入地址（可选，留空则仅本地数据包）", "创建", "取消", "https://…");
-            var item = _mcp.CreateServer(name, desc, url);
-            if (item is null)
-            {
-                await Shell.Current.DisplayAlert("新建 MCP 服务器", "创建失败（名称可能包含非法字符）", "好");
-                return;
-            }
-            RefreshMcpServers();
-            await Shell.Current.DisplayAlert("新建 MCP 服务器", $"已创建: {item.Name}\n{item.Detail}", "好");
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("SettingsViewModel.NewMcpServer -> " + ex);
-        }
-    }
 
     /// <summary>查看某条 MCP 服务器的简介与属性详情。</summary>
     [RelayCommand]
@@ -3661,6 +3510,127 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         {
             App.WriteLog("SettingsViewModel.ShowMcpServerDetails -> " + ex);
         }
+    }
+
+    /// <summary>
+    /// 接入一个外部 MCP 服务。MCP 的本体是「服务」，不是压缩包：要么本机起一个进程用 stdio 说话，
+    /// 要么连一个 HTTP 地址。所以这里问的是接入方式与启动命令，而不是文件从哪儿来 ——
+    /// 数据包（tools.json 那种）的导入已经搬去插件中心，那里才是「装东西」的地方。
+    /// </summary>
+    [RelayCommand]
+    private async Task AddMcpService()
+    {
+        try
+        {
+            var name = await Shell.Current.DisplayPromptAsync("接入 MCP 服务",
+                "给这个服务起个名字（也用作 McpPacks 下的目录名）", "下一步", "取消", "例如: 天气服务");
+            if (string.IsNullOrWhiteSpace(name)) return;
+            var pick = await Shell.Current.DisplayActionSheet("接入方式", "取消", null,
+                "本机启动一个进程（stdio）", "连接一个网络地址（HTTP）");
+            if (string.IsNullOrWhiteSpace(pick)) return;
+            var stdio = pick.StartsWith("本机");
+            var target = await Shell.Current.DisplayPromptAsync(stdio ? "启动命令" : "服务地址",
+                stdio
+                    ? "整行写：可执行文件在最前，参数用空格分开；路径里有空格给整段加引号。\n例如 npx -y @modelcontextprotocol/server-filesystem \"D:\\共享\""
+                    : "以 http:// 或 https:// 开头。\n例如 http://127.0.0.1:8787/mcp",
+                "下一步", "取消");
+            if (string.IsNullOrWhiteSpace(target)) return;
+            var desc = await Shell.Current.DisplayPromptAsync("接入 MCP 服务", "简介（可以留空，只在列表里显示）", "登记", "取消");
+
+            var cfg = _mcp.AddService(name, stdio ? "stdio" : "http", target, desc ?? "");
+            if (cfg is null)
+            {
+                await Shell.Current.DisplayAlert("接入 MCP 服务",
+                    "没能登记：接入方式只认 stdio 与 http，命令行或地址也不能是空的。具体原因看应用日志。", "好");
+                return;
+            }
+            RefreshMcpServers();
+            var go = await Shell.Current.DisplayAlert("接入 MCP 服务",
+                $"已登记「{cfg.Name}」（{cfg.Transport}）。\n现在握手一次吗？握手会跑 initialize 和 tools/list，之后 AI 才看得到它的工具。",
+                "连接", "先不");
+            if (go) await ConnectByKey(cfg.Key, cfg.Name, stdio);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.AddMcpService -> " + ex);
+        }
+    }
+
+    /// <summary>握手一次。stdio 要先让用户点头才允许在这台机器上启动进程。</summary>
+    private async Task ConnectByKey(string key, string name, bool stdio)
+    {
+        if (stdio)
+        {
+            var cfg = _mcp.LoadServerConfig(key);
+            if (cfg is null)
+            {
+                await Shell.Current.DisplayAlert("连接 MCP 服务", "没读回这份接入配置，重新登记一次再试。", "好");
+                return;
+            }
+            if (!cfg.Allowed)
+            {
+                var line = (cfg.Command + " " + string.Join(" ", cfg.Args)).Trim();
+                var grant = await Shell.Current.DisplayAlert("允许在本机启动",
+                    $"「{name}」要用这条命令启动一个进程：\n{line}\n\n这个进程能读这台机器上的东西，也能联网。允许吗？",
+                    "允许", "这次不");
+                if (!grant)
+                {
+                    await Shell.Current.DisplayAlert("接入 MCP 服务",
+                        "没放行就不会启动它。列表里那颗「允许启动」随时可以点。", "好");
+                    return;
+                }
+                _mcp.AllowServer(key);
+            }
+        }
+
+        var (ok, message, count) = await _mcp.ConnectServerAsync(key);
+        RefreshMcpServers();
+        await Shell.Current.DisplayAlert(ok ? $"已连接「{name}」" : $"连不上「{name}」",
+            ok ? $"{message}\n拿到 {count} 个工具，AI 用 mcp_list 就能看到它们。" : message, "好");
+    }
+
+    [RelayCommand]
+    private async Task ConnectMcpServer(Modules.Mcp.McpServerItem? item)
+    {
+        if (item is null) return;
+        await ConnectByKey(item.Key, item.Name, item.IsStdio);
+    }
+
+    [RelayCommand]
+    private async Task DisconnectMcpServer(Modules.Mcp.McpServerItem? item)
+    {
+        if (item is null) return;
+        await _mcp.DisconnectServerAsync(item.Key);
+        RefreshMcpServers();
+    }
+
+    /// <summary>stdio 的同意闸：放行与收回都在这一颗按钮上，改完立刻落盘。</summary>
+    [RelayCommand]
+    private async Task ToggleMcpAllow(Modules.Mcp.McpServerItem? item)
+    {
+        if (item is null || !item.IsStdio) return;
+        if (item.Allowed)
+        {
+            var back = await Shell.Current.DisplayAlert("收回启动许可",
+                $"收回之后「{item.Name}」不再能启动进程，它的工具会在调用时被拒绝。收回吗？", "收回", "先留着");
+            if (!back) return;
+            _mcp.RevokeServer(item.Key);
+        }
+        else _mcp.AllowServer(item.Key);
+        RefreshMcpServers();
+    }
+
+    [RelayCommand]
+    private async Task DeleteMcpServer(Modules.Mcp.McpServerItem? item)
+    {
+        if (item is null) return;
+        var go = await Shell.Current.DisplayAlert("删除 MCP 服务",
+            $"会连 McpPacks\\{item.Key} 这个目录一起删掉——数据包里手写的 tools.json 也一并没了。删除吗？", "删除", "取消");
+        if (!go) return;
+        await _mcp.DisconnectServerAsync(item.Key);
+        var ok = _mcp.RemoveServer(item.Key);
+        RefreshMcpServers();
+        if (!ok) await Shell.Current.DisplayAlert("删除 MCP 服务", "没能删掉，目录可能正被占用。", "好");
     }
 
     [RelayCommand]
@@ -3927,8 +3897,6 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
     }
     // ============ 数据包导出 / 导入 ============
-    // 注意：这里不要复用 MCP 区域的 ImportStatus / ImportProgress，两者在同一个类里，
-    // 重复声明会直接编译失败；分开也避免两块卡片的状态互相串。
     [ObservableProperty] private string _exportStatus = "";
     [ObservableProperty] private double _exportProgress;
     [ObservableProperty] private string _dataImportStatus = "";

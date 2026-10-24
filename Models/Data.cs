@@ -89,7 +89,7 @@ public sealed record McpToolDef
     public bool Active { get; set; } = true;
     /// <summary>所属 MCP 数据包（McpPacks 下的目录名）；内置工具为 system。</summary>
     public string Server { get; init; } = "";
-    /// <summary>执行方式：builtin（内置实现）/ js（沙箱脚本）/ http（远程端点）。</summary>
+    /// <summary>执行方式：builtin（内置实现）/ js（沙箱脚本）/ http（远程端点）/ mcp（外部 MCP 服务握手后登记的工具）。</summary>
     public string Kind { get; init; } = "builtin";
     /// <summary>js 模式的源码。</summary>
     public string Code { get; init; } = "";

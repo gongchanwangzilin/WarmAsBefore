@@ -115,9 +115,12 @@
         </Setter>
     </Style>
 
-    <!-- 可点击卡片（游戏入口/功能块）：悬停提亮、按下压暗，位移交给 PressFeel。 -->
+    <!-- 可点击卡片（游戏入口/功能块）：悬停提亮、按下压暗，位移交给 PressFeel。
+         上面那份 PointerOver 在桌面端不会触发（MAUI 不进这个态），真正会亮的是 HoverFeel 那条线；
+         PointerOver 留着是因为它在别的控件路径上是对的。 -->
     <Style x:Key="PressableCard" TargetType="Border" BasedOn="{StaticResource CardNeumorph}">
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">

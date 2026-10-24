@@ -53,9 +53,12 @@
                     </HorizontalStackLayout>
                     <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-                <!-- 带 3 · 四个次要入口：行，不是按钮。它们和主行动的区别只靠「没有颜色」来说。 -->
+                <!-- 带 3 · 四个次要入口：行，不是按钮。它们和主行动的区别只靠「没有颜色」来说 ——
+                     但「没有颜色」只能说明它不重要，不能说明它不能点，所以静止态留空、
+                     鼠标进来才压出一档底（TappableRow）。少了这一档，桌面端就没有任何东西
+                     能证明「鼠标此刻在这儿」，四条行读起来和四段死文字一样。 -->
                 <VerticalStackLayout Grid.Row="2" x:Name="MenuStack" Spacing="0" VerticalOptions="Start">
-                    <Border Style="{StaticResource SettingRow}">
+                    <Border Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSaveCommand}" />
                         </Border.GestureRecognizers>
@@ -67,7 +70,7 @@
                         </Grid>
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
-                    <Border Style="{StaticResource SettingRow}">
+                    <Border Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenNovelsCommand}" />
                         </Border.GestureRecognizers>
@@ -79,7 +82,7 @@
                         </Grid>
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
-                    <Border Style="{StaticResource SettingRow}">
+                    <Border Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenRosterCommand}" />
                         </Border.GestureRecognizers>
@@ -91,7 +94,7 @@
                         </Grid>
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
-                    <Border Style="{StaticResource SettingRow}">
+                    <Border Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
                         </Border.GestureRecognizers>

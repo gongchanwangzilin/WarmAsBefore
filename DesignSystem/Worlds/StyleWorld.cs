@@ -636,6 +636,25 @@ public static class StyleWorldTokens
     /// <summary>向白提：k=1 时到纯白。用于深色档的墨。</summary>
     private static Color Lift(Color c, double k) => Mix(c, Colors.White, k);
 
+    /// <summary>
+    /// 悬停/按下的一档，从元素**自己这张面**算出来，而不是发一个固定令牌：
+    /// 同一条行可能站在页底上，也可能站在卡面或淡彩徽章上，固定值必然在其中一处
+    /// 变成「鼠标移上去没变化」—— 参照物只能是它自己。方向跟着这张面的明度走：
+    /// 亮面往黑沉、暗面往白提，两边都是「更亮一档的注意」，不是「变灰」。
+    /// </summary>
+    public static Color Step(Color face, double k) =>
+        Lum(face) > 0.5 ? Sink(face, k) : Lift(face, Math.Clamp(k * 1.2, 0, 1));
+
+    /// <summary>
+    /// 透明底（静止时什么都不画、鼠标进来才盖一层）用的那一档：不换成实色，而是往父面上
+    /// 压一层极浅的色偏 —— 这样它盖在什么颜色上都成立，也不必知道底下是什么。
+    /// 浅档压黑、深档压白（暗地上压黑等于什么都没发生）；深档要多给一点，
+    /// 因为白光在黑地上被瞳孔读成的台阶比黑光在白地上短。
+    /// </summary>
+    public static Color Wash(double k) => Dark
+        ? new Color(1f, 1f, 1f, (float)Math.Clamp(k * 1.1, 0, 1))
+        : new Color(0f, 0f, 0f, (float)Math.Clamp(k, 0, 1));
+
     private static Color Mix(Color a, Color b, double k)
     {
         var t = (float)Math.Clamp(k, 0, 1);
