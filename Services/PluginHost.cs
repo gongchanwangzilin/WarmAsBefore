@@ -157,6 +157,13 @@ public sealed class PluginHost
     /// </summary>
     public Func<string, Task<string?>>? RuntimeProvider { get; set; }
 
+    /// <summary>
+    /// 调角色数值（由 RuntimeConfigurator 注入）：插件 JS 里用 adjustStat(charId, stat, delta)。
+    /// 走与主流程同一套钳制与落盘，按角色逐个授权（stats 能力，对象是角色 id）。
+    /// 返回错误文案，null 表示改好了。
+    /// </summary>
+    public Func<string, string, int, Task<string?>>? StatAdjuster { get; set; }
+
     /// <summary>当前存档的插件白名单；null = 不限制。</summary>
     public Func<Models.SavePermissions?>? PermissionsProvider { get; set; }
 
@@ -439,7 +446,7 @@ public sealed class PluginHost
     /// JS 沙箱。每个宿主函数都先过「声明 ∩ 授予」：被拦时函数返回空值或错误 JSON，
     /// 钩子不炸、主程序不炸，原因同时进插件崩溃日志与权限留痕。
     /// 可用：input / result / getSetting / setSetting / log / now / callTool / callPlugin /
-    /// fetch / emit / notify / writeFile / readFile / listFiles / deleteFile。
+    /// fetch / emit / notify / writeFile / readFile / listFiles / deleteFile / adjustStat。
     /// </summary>
     private string? RunJs(string code, string input, IReadOnlyDictionary<string, string> settings,
         Action<string, string> setSetting, PermissionGate gate)
@@ -528,6 +535,12 @@ public sealed class PluginHost
             }
             finally { Interlocked.Decrement(ref _pluginCallDepth); }
         }));
+        if (StatAdjuster is not null)
+        {
+            // 数值结算的通用口：只按角色 id 授权（stats:charId），改哪个人由插件点名。
+            engine.SetValue("adjustStat", new Func<string, string, int, string>((charId, stat, delta) =>
+                AdjustStatJson(gate, charId, stat, delta)));
+        }
         engine.SetValue("fetch", new Func<string, string, string>((url, options) => FetchJson(gate, url, options)));
         engine.SetValue("emit", new Func<string, string, string>((topic, payload) => EmitJson(gate, topic, payload)));
         engine.SetValue("notify", new Func<string, string, string>((title, text) => NotifyJson(gate, title, text)));
@@ -817,6 +830,26 @@ public sealed class PluginHost
         {
             sender((title ?? "").Trim(), (text ?? "").Trim()).GetAwaiter().GetResult();
             return JsonSerializer.Serialize(new { ok = true, error = "" });
+        }
+        catch (Exception ex) { return ErrorJson(ex.Message); }
+    }
+
+    /// <summary>
+    /// 调角色数值：先按「stats:角色 id」过授权闸，再走宿主注入的结算（同一套钳制与落盘）。
+    /// 主程序没接上结算口时明确说清，不假装改成功。
+    /// </summary>
+    private string AdjustStatJson(PermissionGate gate, string charId, string stat, int delta)
+    {
+        var target = (charId ?? "").Trim();
+        if (target.Length == 0) return ErrorJson("adjustStat 要带角色 id。");
+        var d = gate.Decide(PluginCapabilities.Stats, target);
+        if (!d.Allowed) return ErrorJson(d.Reason);
+        var adjuster = StatAdjuster;
+        if (adjuster is null) return ErrorJson("主程序没有接上数值结算口。");
+        try
+        {
+            var err = adjuster(target, (stat ?? "").Trim(), delta).GetAwaiter().GetResult();
+            return err is null ? JsonSerializer.Serialize(new { ok = true, error = "" }) : ErrorJson(err);
         }
         catch (Exception ex) { return ErrorJson(ex.Message); }
     }
