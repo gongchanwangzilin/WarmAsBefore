@@ -84,10 +84,15 @@
          分开成两个样式是故意的：SettingRow 里有大半是「左边一句话、右边一个开关」的说明行，
          它们不可点，给它们加深底等于把每一行都谎报成按钮。
          悬停由 HoverFeel 接原生指针事件做（MAUI 的 PointerOver 视觉状态在 WinUI 上不触发），
-         静止底是透明，所以那一档是往父面上压一层极浅的色偏 —— 主页左边那四个入口靠的就是它，
-         没有它，鼠标移上去和移开没有任何区别。 -->
+         静止底是透明，所以那一档是往父面上压一层色偏 —— 主页左边那四个入口靠的就是它，
+         没有它，鼠标移上去和移开没有任何区别。
+         压深从 0.07 起：量得出数字、读不出变化（用户原话是「不能看到按键会变身」）。
+         所以可点的行改走 Accent 那一档——整块换成世界算出来的强调底，一眼认得出「鼠标在这儿」。
+         字色跟着样式走不动：强调底在浅档世界是被提亮的、深档世界是被压暗的，
+         现有的墨色压在两边都读得通，再扫一遍字色就是和样式抢同一位。 -->
     <Style x:Key="TappableRow" TargetType="Border" BasedOn="{StaticResource SettingRow}">
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Accent" Value="True" />
     </Style>
 
     <!-- 发丝线：用 BoxView 而不是 Border —— Border 的描边会绕四角，线只需要一条边。

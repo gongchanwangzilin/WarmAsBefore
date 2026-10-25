@@ -9,19 +9,19 @@
     换世界只改令牌、字典本身不动；{DynamicResource} 解析的是应用级顶层字典，
     所以已经渲染出来的页面会跟着一起换档，不需要重建 Shell。
 
-    按下去应该发生什么（这套界面里按钮就是「摸/抱/吻」这类身体动作，反馈必须像材料被压住）：
-      1. 表面压暗：往当前世界的强调色里沉，不是变灰（变灰会被读成禁用）。这是主线索。
-      2. 下沉 1.6px：由 PressFeel 补出过渡。视觉状态的 Setter 是瞬时的，
-         想让状态之间「走过去」只能补中间帧，这就是之前手感发脆的根因。
-      3. 悬停：静止→悬停→按下是三级台阶，只加粗 1px 描边实测看不出来。
-         但实测 WinUI 上 MAUI 根本不进 PointerOver 态，PointerEntered/Exited 也不回调，
-         所以这些声明在当前桌面端不会生效 —— 保留是因为它们在别的控件路径上是对的，
-         而驱动不再为此给每个按钮挂一套指针手势：换不来一个像素，却拖慢每一次鼠标移动。
-         桌面端的「可按」信号因此必须由静止态自己成立：缝（BorderLine/GlassButtonStroke）
-         或实心填充，而不是等一次不会来的悬停。
-      4. 键盘焦点：描一圈 2px 的 EdgeStrong。不能用 AccentWarm —— 四套世界里它都比静止的缝更淡，
-         结果是一聚焦边框反倒消失，等于把焦点弄丢了；EdgeStrong 是构造上最重的一档线。
-      5. 禁用：压暗到 0.4。
+    按钮的颜色与位移是两条互不重叠的通道（用户的原话：「变深效果和按下效果要分开：
+    移到那里变深，按下的时候再往下有按动」）：
+      1. 悬停变深：HoverFeel 直接压原生画刷，离开时按原路收回。这是全站唯一的悬停色作者。
+      2. 按下下沉：PressFeel 补 2.4px 的位移（TapMs 70 / SettleMs 170），颜色不动。
+         视觉状态里**不再**写任何悬停/按下颜色：视觉状态的 Setter 是瞬时的，写进去只有两级跳变；
+         更要命的是带导航的按钮——按下时指针还压在按钮上，页面就切走了，抬起事件不再送达，
+         MAUI 的 VisualStateManager 会一直停在 Pressed，那一档颜色就长在按钮脸上。
+         用户报的「点过一次就变深、再也不还原」（续情缘、角色页顶栏的返回/保存）正是这一条。
+         现在 PointerOver / Pressed 留空壳：空壳不是占位，Normal 是 MAUI 收回上一档 Setter 的落点。
+      3. 键盘焦点：系统在控件外沿画一条，不自绘第二圈。
+      4. 禁用：只留这一档，压暗到 0.4。
+      5. 悬停要读得出「可按」：HoverFeel 的压深量按面自己的颜色算（Step/Wash），
+         所以同一颗按钮站在页底、卡面或图上都不会变成「没变化」。
 
     影子只在静止态声明一次，状态之间不再换它。听起来最该有影子收拢的就是按下，但代价太大：
     WinUI 换 Shadow 等于重建一次合成层，实测「点过的按钮返回后整块空白」—— 布局位还在、
@@ -30,7 +30,7 @@
     需要影子的只有卡与对话框，它们的样式里写的是**内联 Shadow 对象 +  DynamicResource 的 Brush**，
     对象身份不变、只换颜色，合成层不会被重建。
 
-    分工：样式负责每个状态长什么样，PressFeel 只负责 TranslationY 怎么走。
+    分工：样式只管静止档与禁用档；悬停色由 HoverFeel 现算现还，按下位移由 PressFeel 走。
     约束：状态里绝不用 Scale（WinUI 下按压缩放触发重新布局，快速连点会卡住），
           也不换 Shadow（理由见上一段）；
           Pressed/PointerOver 里别写 TranslationY —— 那是驱动的输出量，写了会跟它抢。
@@ -54,6 +54,7 @@
         <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusPill}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
@@ -87,22 +88,14 @@
         <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
         <Setter Property="BorderColor" Value="{DynamicResource WControlEdge}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <!-- 悬停要有真实色阶：这套材质近白，只加粗描边在实测里看不出来 -->
-                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgHover}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <!-- 压暗集中在底部才像被压进去；这两份画刷由当前玻璃档位算出来，换档不会脱离主题 -->
-                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgPressed}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
@@ -129,23 +122,14 @@
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryHover}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <!-- 按下必须比悬停更沉。BeigeAccent300 是世界算出来的最深一档强调色：
-                                 浅色档它比 PrimaryHover 沉，深色档 PrimaryHover 是提亮的、它是压暗的，
-                                 两个地上台阶方向都还对得上，字色因此不用跟着换。 -->
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent300}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
@@ -178,20 +162,14 @@
         <Setter Property="Padding" Value="30,0" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 续情缘就是这一档：按下那一下不再换色，只下沉，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource SignalHover}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource SignalPressed}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
@@ -211,8 +189,8 @@
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
     </Style>
 
-    <!-- Glass：跟随设置页玻璃档位的按钮。底与描边来自 GlassTokens，
-         按下态另有一份压暗背景（同样是当前档位算出来的），所以切档位时按钮不会脱离主题。 -->
+    <!-- Glass：跟随设置页玻璃档位的按钮。底与描边来自 GlassTokens；
+         悬停压深由 HoverFeel 按当前档位算，不在这里另挂一份写死的悬停画刷。 -->
     <Style x:Key="BtnGlass" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
@@ -224,21 +202,14 @@
         <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
         <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgHover}" />
-                            <Setter Property="BorderWidth" Value="1.5" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgPressed}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
@@ -270,7 +241,9 @@
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
     </Style>
 
-    <!-- Text-only（ghost 文字钮）：透明底，只靠颜色与位移说话 -->
+    <!-- Text-only（ghost 文字钮）：透明底，只靠颜色与位移说话。
+         透明面的悬停染色由 HoverFeel 的 Wash 算（它认得「没有自己的面」这一档），
+         不再写 BeigeAccent50/100 —— 那两个令牌是晨雾主题的固定填充，换世界就不跟地走了。 -->
     <Style x:Key="BtnText" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
@@ -279,24 +252,16 @@
         <Setter Property="Padding" Value="12,6" />
         <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。
+                         文字钮以前在这里挂暖沙色作悬停底，点完不还原就留成一块色斑；
+                         而且字色也归这里管，鼠标一过字就换一档墨，读起来像被禁用了。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
-                            <!-- 悬停时字色不能变淡：这档以前落到 WarmMuted（晨雾主题 2.6:1），
-                                 一摸上去字就没了。底已经染色，字保持最重的一档。 -->
-                            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
-                            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
@@ -331,21 +296,16 @@
         <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
         <Setter Property="BorderColor" Value="{DynamicResource RedSoft}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。
+                         删除钮的「凹进去」以前写在 Pressed 里，同样会在导航后卡住；
+                         现在按下只有下沉，危险感由 DangerInk 的字和 RedSoft 的缝来说。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="Background" Value="{DynamicResource WSurfaceRaised}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <!-- 凹进去一档：井面比卡面沉，读起来才是「被压住」而不是「变灰了」 -->
-                            <Setter Property="Background" Value="{DynamicResource WWellBrush}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
@@ -376,20 +336,14 @@
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="10" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent50}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="BackgroundColor" Value="{DynamicResource BeigeAccent100}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
                             <Setter Property="Opacity" Value="0.4" />

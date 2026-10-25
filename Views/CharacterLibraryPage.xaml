@@ -8,7 +8,18 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0">
+    <ContentPage.Resources>
+        <!-- 眉标：宽体大写拉丁，压在小字上。参考站拿它当「这一段是什么」的分行符，
+             这里照同一套用法：抬头一排、列表头一排、预览里一排，三排说的是三件事。 -->
+        <Style x:Key="Eyebrow" TargetType="Label">
+            <Setter Property="FontFamily" Value="Bahnschrift" />
+            <Setter Property="CharacterSpacing" Value="3" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*">
         <!-- Header：顶栏与内容区同一块地，靠一条发丝线分界，不靠描边盒子 -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
@@ -16,8 +27,10 @@
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0"
                         Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="角色库" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" />
+                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                    <Label Text="// ROSTER" Style="{StaticResource Eyebrow}" />
+                    <Label Text="角色库" Style="{StaticResource TxtTitle}" />
+                </VerticalStackLayout>
                 <!-- 说明性徽章：井面 + 淡墨字。淡彩（*Tint / BeigeAccent*）只能当面，
                      面上摆的仍然是墨 —— 徽章读起来是「一句注解」而不是一颗按钮。 -->
                 <Border Grid.Column="2" Background="{DynamicResource WWellBrush}"
@@ -29,81 +42,216 @@
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-        <!-- Library list：一个角色 = 一行，全部装在同一张 CardGroup 里 -->
-        <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
-            <CollectionView ItemsSource="{Binding Items}"
-                            SelectionMode="None" BackgroundColor="Transparent">
-                <CollectionView.EmptyView>
-                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                         Spacing="12" Padding="{DynamicResource WPadCard}">
-                        <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
-                                WidthRequest="72" HeightRequest="72"
-                                StrokeShape="{DynamicResource WRadiusPill}">
-                            <!-- 空态图形也得是墨档：WarmFaint 在这套语言里是淡档面，
-                                 压在井面上只剩 1.x:1，圆片里等于什么都没有。 -->
-                            <Label Text="♡" Style="{StaticResource TxtDisplay}"
-                                   TextColor="{DynamicResource MutedFg}"
-                                   HorizontalOptions="Center" VerticalOptions="Center" />
-                        </Border>
-                        <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
-                               HorizontalOptions="Center" />
-                        <Label Text="在角色选择页新建或导入角色后，新角色会出现在这里" Style="{StaticResource TxtMuted}"
-                               HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-                    </VerticalStackLayout>
-                </CollectionView.EmptyView>
-                <CollectionView.ItemTemplate>
-                    <DataTemplate x:DataType="vm:CharacterLibraryItem">
-                        <VerticalStackLayout Spacing="0">
-                            <Border motion:HoverFeel.Enabled="True" Style="{StaticResource SettingRow}">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
-                                    <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
-                                            StrokeThickness="0" WidthRequest="56" HeightRequest="56"
-                                            VerticalOptions="Center"
-                                            StrokeShape="{DynamicResource WRadiusWell}">
-                                        <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
-                                               IsVisible="{Binding HasAvatar}"
-                                               HorizontalOptions="Fill" VerticalOptions="Fill" />
-                                        <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
-                                               Style="{StaticResource TxtRowTitle}"
-                                               HorizontalOptions="Center" VerticalOptions="Center"
-                                               IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
-                                    </Border>
-                                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
-                                        <HorizontalStackLayout Spacing="8">
-                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
-                                            <!-- 主角标记同样留在墨阶（MutedFg）：
-                                                 强调淡彩是面，当文字色在浅色档只有 1.x:1，读不出「这是标记」 -->
-                                            <Label Text="{Binding IsMainLabel}"
-                                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center"
-                                                   IsVisible="{Binding IsMain}" />
-                                        </HorizontalStackLayout>
-                                        <Label Text="{Binding Personality}" Style="{StaticResource TxtCaption}" />
-                                        <Label Text="{Binding SavesLabel}" Style="{StaticResource TxtMuted}" />
-                                    </VerticalStackLayout>
-                                    <!-- 触屏：「···」菜单入口（点按弹 ActionSheet），保留原有 Tap 手势 -->
-                                    <Button Grid.Column="2" Text="···" Style="{StaticResource BtnText}"
-                                            TextColor="{DynamicResource MutedFg}"
-                                            FontSize="{DynamicResource WSizeTitle}" Padding="8,0"
-                                            VerticalOptions="Center" HorizontalOptions="End"
-                                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
-                                            CommandParameter="{Binding Id}" />
-                                </Grid>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.TapCommand}"
-                                                          CommandParameter="{Binding Id}" />
-                                </Border.GestureRecognizers>
-                            </Border>
-                            <!-- 行首是头像：线从文字起，不跨过圆片 -->
-                            <BoxView Style="{StaticResource HSepInset}" />
-                        </VerticalStackLayout>
-                    </DataTemplate>
-                </CollectionView.ItemTemplate>
-            </CollectionView>
-        </Border>
+        <!--
+          左右两栏：左边是名册，右边是此刻选中的那个人。
+          以前整页只有一张列表，点一行直接换页 —— 进来时看不见任何人的脸，中间还空着一整块。
+          现在名册只负责「选」，预览负责「看」，改设定留到工作室：一页只做一件事，空间才立得住。
+          手机上下叠：名册固定 300，预览吃掉剩下的高度。
+        -->
+        <FlexLayout Grid.Row="2" Direction="{OnIdiom Desktop=Row, Phone=Column}"
+                    AlignItems="Stretch" Padding="{DynamicResource WPadCard}">
 
-        <!-- Footer hint -->
-        <Label Grid.Row="3" Text="聊天时，AI 会在合适的时机提到角色库里的其他人；觉得谁不合适，点开 TA 让 AI 改写人设即可。"
-               Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadWell}"
-               HorizontalTextAlignment="Center" />
+            <!-- ── 名册 ─────────────────────────────────────────────── -->
+            <Border Style="{StaticResource CardSolid}" Padding="0"
+                    WidthRequest="{OnIdiom Desktop=372, Phone=-1}"
+                    HeightRequest="{OnIdiom Desktop=-1, Phone=300}"
+                    FlexLayout.Shrink="0">
+                <Grid RowDefinitions="Auto,Auto,*,Auto">
+                    <Grid Padding="{DynamicResource WPadRow}" ColumnDefinitions="*,Auto">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="// ALL SUBJECTS" Style="{StaticResource Eyebrow}" />
+                            <Label Text="这里的人" Style="{StaticResource TxtSubhead}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="{Binding CountLabel}"
+                               Style="{StaticResource TxtCaption}"
+                               VerticalOptions="End" />
+                    </Grid>
+                    <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+
+                    <CollectionView Grid.Row="2" ItemsSource="{Binding Items}"
+                                    SelectionMode="None"
+                                    BackgroundColor="Transparent">
+                        <CollectionView.EmptyView>
+                            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                                 Spacing="12" Padding="{DynamicResource WPadCard}">
+                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                        WidthRequest="72" HeightRequest="72"
+                                        StrokeShape="{DynamicResource WRadiusPill}">
+                                    <!-- 空态图形也得是墨档：WarmFaint 在这套语言里是淡档面，
+                                         压在井面上只剩 1.x:1，圆片里等于什么都没有。 -->
+                                    <Label Text="♡" Style="{StaticResource TxtDisplay}"
+                                           TextColor="{DynamicResource MutedFg}"
+                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                </Border>
+                                <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="在角色选择页新建或导入角色后，新角色会出现在这里"
+                                       Style="{StaticResource TxtMuted}"
+                                       HorizontalOptions="Center" HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </CollectionView.EmptyView>
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CharacterLibraryItem">
+                                <Grid>
+                                    <Border Style="{StaticResource TappableRow}" Padding="{DynamicResource WPadRow}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        </Border.GestureRecognizers>
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                            <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
+                                                    StrokeThickness="0" WidthRequest="46" HeightRequest="46"
+                                                    VerticalOptions="Center"
+                                                    StrokeShape="{DynamicResource WRadiusWell}">
+                                                <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
+                                                       IsVisible="{Binding HasAvatar}"
+                                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                                                <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
+                                                       Style="{StaticResource TxtRowTitle}"
+                                                       HorizontalOptions="Center" VerticalOptions="Center"
+                                                       IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                            </Border>
+                                            <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
+                                                <HorizontalStackLayout Spacing="8">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <!-- 主角标记同样留在墨阶（MutedFg）：
+                                                         强调淡彩是面，当文字色在浅色档只有 1.x:1，读不出「这是标记」 -->
+                                                    <Label Text="{Binding IsMainLabel}"
+                                                           Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                                           IsVisible="{Binding IsMain}" />
+                                                </HorizontalStackLayout>
+                                                <Label Text="{Binding Personality}" Style="{StaticResource TxtRowDesc}"
+                                                       LineBreakMode="TailTruncation" MaxLines="1" />
+                                            </VerticalStackLayout>
+                                            <Label Grid.Column="2" Text="›" FontSize="18"
+                                                   TextColor="{DynamicResource WarmFaint}"
+                                                   VerticalOptions="Center" />
+                                        </Grid>
+                                    </Border>
+                                    <!-- 选中那一行：左边压一根强调色短杠。只靠底色深浅，隔着两个主题读不出来。 -->
+                                    <BoxView WidthRequest="2" Color="{DynamicResource WAccentInk}"
+                                             HorizontalOptions="Start" VerticalOptions="Fill"
+                                             InputTransparent="True" IsVisible="{Binding IsSelected}" />
+                                    <!-- 行与行之间的发丝线：从文字起，不跨过头像 -->
+                                    <BoxView VerticalOptions="End" Style="{StaticResource HSepInset}" />
+                                </Grid>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+
+                    <Border Grid.Row="3" Background="{DynamicResource WWellBrush}" StrokeThickness="0">
+                        <Label Text="点一行看右边的预览；改设定再进 TA 的工作室。" Style="{StaticResource TxtCaption}"
+                               Margin="{DynamicResource WPadRow}" />
+                    </Border>
+                </Grid>
+            </Border>
+
+            <!-- ── 预览：一进页就有人站着 ────────────────────────────── -->
+            <Border Style="{StaticResource CardSolid}" Padding="0"
+                    FlexLayout.Grow="1" FlexLayout.Shrink="1"
+                    Margin="{OnIdiom Desktop='12,0,0,0', Phone='0,10,0,0'}">
+                <Grid>
+                    <!-- 选中的人 -->
+                    <Grid IsVisible="{Binding HasSelection}" RowDefinitions="*,Auto">
+                        <Grid IsClippedToBounds="True" Background="{DynamicResource WWellBrush}">
+                            <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}"
+                                   Margin="16" HorizontalOptions="Start" VerticalOptions="Start" />
+                            <Image Source="{Binding PreviewSource}" Aspect="AspectFit" Margin="24,34,24,16"
+                                   IsVisible="{Binding HasPreviewImage}" />
+                            <!-- 没有立绘也没有头像：露缺图说明，不拿姓名首字顶成一个「大字」——
+                                 用户原话是「大字放在那里无疑是太丑的」。 -->
+                            <VerticalStackLayout Spacing="8" HorizontalOptions="Center" VerticalOptions="Center"
+                                                 IsVisible="{Binding HasPreviewImage, Converter={StaticResource InverseBool}}">
+                                <Image Source="studio_mark.png" WidthRequest="72" HeightRequest="72"
+                                       Opacity="0.30" InputTransparent="True"
+                                       IsVisible="{Binding IsDarkWorld, Converter={StaticResource InverseBool}}" />
+                                <Image Source="studio_mark_dark.png" WidthRequest="72" HeightRequest="72"
+                                       Opacity="0.30" InputTransparent="True"
+                                       IsVisible="{Binding IsDarkWorld}" />
+                                <Label Text="还没有立绘" Style="{StaticResource TxtSubhead}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="进 TA 的工作室生成一套，或从 zip 补进来"
+                                       Style="{StaticResource TxtCaption}" HorizontalTextAlignment="Center" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <VerticalStackLayout Grid.Row="1" Padding="{DynamicResource WPadCard}" Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="0">
+                                    <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}" />
+                                    <Label Text="{Binding PreviewName}" Style="{StaticResource TxtDisplay}"
+                                           CharacterSpacing="-1.5" LineBreakMode="TailTruncation" />
+                                </VerticalStackLayout>
+                                <Border Grid.Column="1" Background="{DynamicResource WWellBrush}"
+                                        StrokeThickness="0" Padding="8,3" VerticalOptions="Start"
+                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                    <Label Text="{Binding PreviewStatus}" Style="{StaticResource TxtCaption}" />
+                                </Border>
+                            </Grid>
+
+                            <Label Text="{Binding PreviewPersonality}" Style="{StaticResource TxtBody}"
+                                   LineBreakMode="TailTruncation" MaxLines="1" />
+                            <Label Text="{Binding PreviewDescription}" Style="{StaticResource TxtCaption}"
+                                   LineHeight="1.35" LineBreakMode="TailTruncation" MaxLines="2" />
+
+                            <BoxView Style="{StaticResource HSep}" Margin="0,2" />
+
+                            <!-- 读数条：和工作室的信息栏同一套语言 —— 大数字、小标签、发丝线分开 -->
+                            <Grid ColumnDefinitions="*,1,*,1,*" Margin="0,2">
+                                <VerticalStackLayout Spacing="0">
+                                    <Label Text="AFFECTION" Style="{StaticResource Eyebrow}" />
+                                    <HorizontalStackLayout Spacing="4">
+                                        <Label Text="{Binding PreviewAffection}" FontFamily="Bahnschrift"
+                                               FontSize="24" TextColor="{DynamicResource WarmDark}" />
+                                        <Label Text="好感" Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="End" Margin="0,0,0,4" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                                <BoxView Grid.Column="1" WidthRequest="1" Color="{DynamicResource WRule}"
+                                         VerticalOptions="Fill" Margin="0,2" />
+                                <VerticalStackLayout Grid.Column="2" Spacing="0" Padding="10,0">
+                                    <Label Text="SPRITES" Style="{StaticResource Eyebrow}" />
+                                    <HorizontalStackLayout Spacing="4">
+                                        <Label Text="{Binding PreviewCells}" FontFamily="Bahnschrift"
+                                               FontSize="24" TextColor="{DynamicResource WarmDark}" />
+                                        <Label Text="张立绘" Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="End" Margin="0,0,0,4" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                                <BoxView Grid.Column="3" WidthRequest="1" Color="{DynamicResource WRule}"
+                                         VerticalOptions="Fill" Margin="0,2" />
+                                <VerticalStackLayout Grid.Column="4" Spacing="0" Padding="10,0,0,0">
+                                    <Label Text="SAVES" Style="{StaticResource Eyebrow}" />
+                                    <HorizontalStackLayout Spacing="4">
+                                        <Label Text="{Binding PreviewSaves}" FontFamily="Bahnschrift"
+                                               FontSize="24" TextColor="{DynamicResource WarmDark}" />
+                                        <Label Text="个存档" Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="End" Margin="0,0,0,4" />
+                                    </HorizontalStackLayout>
+                                </VerticalStackLayout>
+                            </Grid>
+
+                            <Button Text="进入 TA 的工作室  →" Style="{StaticResource BtnPrimary}"
+                                    HorizontalOptions="Fill" Margin="0,4,0,0"
+                                    Command="{Binding EnterCommand}" />
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <!-- 名册为空 -->
+                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center" VerticalOptions="Center"
+                                         Padding="{DynamicResource WPadCard}"
+                                         IsVisible="{Binding HasSelection, Converter={StaticResource InverseBool}}">
+                        <Label Text="// NO SUBJECTS" Style="{StaticResource Eyebrow}"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="还没有人可以站上这块舞台" Style="{StaticResource TxtSubhead}"
+                               HorizontalTextAlignment="Center" />
+                        <Label Text="去角色选择页新建或导入一个角色，回来就能在这里看见 TA。"
+                               Style="{StaticResource TxtCaption}" HorizontalTextAlignment="Center" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Border>
+        </FlexLayout>
     </Grid>
 </ContentPage>

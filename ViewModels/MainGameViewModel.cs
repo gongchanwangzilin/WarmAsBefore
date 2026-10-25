@@ -976,29 +976,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         string? full = null;
         if (!string.IsNullOrEmpty(rel))
         {
-            // 尝试多种路径组合
-            var candidates = new List<string>();
-            // rel 本身可能带 assets/ 前缀或不带
-            candidates.Add(Path.Combine(_store.Root, rel));
-            candidates.Add(Path.Combine(App.RootDirectory, rel));
-            candidates.Add(Path.Combine(Directory.GetCurrentDirectory(), rel));
-            // 如果 rel 没有 assets/ 前缀，添加它
-            if (!rel.StartsWith("assets/", StringComparison.Ordinal)
-                && !rel.StartsWith(Path.DirectorySeparatorChar.ToString()))
-                candidates.Add(Path.Combine(_store.Root, "assets", rel));
-            // 去掉可能的 assets/ 前缀再试
-            if (rel.StartsWith("assets/", StringComparison.Ordinal))
-                candidates.Add(Path.Combine(_store.Root, rel["assets/".Length..]));
-            // 如果 rel 是绝对路径
-            if (rel.StartsWith(Path.DirectorySeparatorChar.ToString()) || rel.StartsWith("/"))
-                candidates.Add(rel);
-            // 也尝试原始路径不带 assets 前缀
-            if (!rel.StartsWith("assets/", StringComparison.Ordinal) && !rel.StartsWith(Path.DirectorySeparatorChar.ToString()))
-            {
-                var withoutAssets = rel;
-                if (withoutAssets.StartsWith("characters/", StringComparison.Ordinal))
-                    candidates.Add(Path.Combine(_store.Root, "assets", withoutAssets));
-            }
+            // 候选路径和工作室、好感动画共用同一份（SpritePathResolver）：
+            // 各处各猜各的，就会出现「同一张图这一屏有、那一屏没有」。
+            var candidates = Modules.Affection.SpritePathResolver.Candidates(rel, _store.Root);
             full = candidates
                 .Where(p => !string.IsNullOrEmpty(p) && File.Exists(p))
                 .FirstOrDefault();

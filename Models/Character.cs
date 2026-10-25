@@ -4,7 +4,7 @@ public sealed record CharacterProfile
 {
     public string Id { get; init; } = Guid.NewGuid().ToString();
     public string Name { get; init; } = string.Empty;
-    /// <summary>性别：必填，没有默认值。采集走 Helpers.GenderPrompt（女/男/其他/自定义），
+    /// <summary>性别：必填，没有默认值。采集在角色工作室的「设定」栏（本机性别库里的候选 + 设置里的自定义），
     /// 它同时是周期规则的键 —— 猜一个出来会把周期算到错的人身上。</summary>
     public string Gender { get; init; } = string.Empty;
     public string Nickname { get; init; } = string.Empty;

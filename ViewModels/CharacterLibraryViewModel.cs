@@ -1,19 +1,22 @@
 using System.Collections.ObjectModel;
-using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
 using WarmAsBefore.Models;
-using WarmAsBefore.Modules.ApiManager;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.ViewModels;
 
 /// <summary>
-/// 角色库：所有已创建/导入的角色集中管理。
-/// 除主角外，AI 在对话里可以自由调用角色库中的其他角色；
-/// 觉得某个角色不合适，可以让 AI 帮 TA 改写人设（AI 优化人设）。
+/// 角色库：左边「有谁」，右边「TA 是谁」。
+///
+/// 以前点一行直接换页，进来时右半页什么都没有——用户的原话是「最大的问题是空间不足，
+/// 以及没有刚开始就显示角色预览」。现在一进页就选中第一个人，右边立刻有立绘、名字、性格、
+/// 好感与存档数；点另一行只是换预览，真要改东西再按预览里那颗「进入 TA 的工作室」。
+/// 这样这一页先回答「这里有哪些人」，而不是把人直接推进编辑表单。
+///
+/// 除主角外，AI 在对话里仍会按存档白名单调用库里的其他角色。
 /// </summary>
 public sealed partial class CharacterLibraryViewModel : ObservableObject
 {
@@ -21,25 +24,32 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     private readonly CharacterLibrary _library;
     private readonly SaveManager _save;
     private readonly StorageProvider _store;
-    private readonly ApiGateway _api;
-    private readonly LingshuImporter _lingshu;
-    private readonly CharacterSubProfileService _subProfiles;
-    private readonly PageWindowService _windows;
 
     [ObservableProperty] private ObservableCollection<CharacterLibraryItem> _items = new();
+    [ObservableProperty] private CharacterLibraryItem? _selected;
+    [ObservableProperty] private string _countLabel = "";
+    [ObservableProperty] private ImageSource? _previewSource;
+    [ObservableProperty] private string _previewName = "";
+    [ObservableProperty] private string _previewPersonality = "";
+    [ObservableProperty] private string _previewDescription = "";
+    [ObservableProperty] private string _previewSaves = "";
+    [ObservableProperty] private string _previewAffection = "";
+    [ObservableProperty] private string _previewCells = "";
+    [ObservableProperty] private string _previewStatus = "";
+
+    public bool HasSelection => Selected is not null;
+    public bool HasPreviewImage => PreviewSource is not null;
+
+    /// <summary>这一屏是暗档世界：缺图时垫的图记是黑色印刷件，暗底上要换反白那一版。</summary>
+    public bool IsDarkWorld => WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.Dark;
 
     public CharacterLibraryViewModel(GameEngine engine, CharacterLibrary library,
-        SaveManager save, StorageProvider store, ApiGateway api, LingshuImporter lingshu,
-        CharacterSubProfileService subProfiles, PageWindowService windows)
+        SaveManager save, StorageProvider store)
     {
         _engine = engine;
         _library = library;
         _save = save;
         _store = store;
-        _api = api;
-        _lingshu = lingshu;
-        _subProfiles = subProfiles;
-        _windows = windows;
     }
 
     [RelayCommand]
@@ -48,7 +58,9 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         var list = await _library.ListAsync();
         var allSaves = await _save.List();
         var mainId = _engine.ActiveCharacter?.Profile.Id ?? _engine.State.CharacterId;
-        Items = new ObservableCollection<CharacterLibraryItem>(list.Select(ch =>
+        var keep = Selected?.Id;
+
+        var items = list.Select(ch =>
         {
             var saves = allSaves.Where(s => s.Character == ch.Profile.Id).ToList();
             ImageSource? avatar = null;
@@ -57,436 +69,112 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
                 var full = Path.Combine(_store.Root, ch.Avatar);
                 if (File.Exists(full)) avatar = ImageSource.FromFile(full);
             }
-            return new CharacterLibraryItem(ch, avatar,
-                isMain: ch.Profile.Id == mainId,
-                savesLabel: saves.Count == 0 ? "暂无存档" : $"存档 {saves.Count} 个");
-        }));
+            return new CharacterLibraryItem(ch, avatar, isMain: ch.Profile.Id == mainId, savesCount: saves.Count);
+        }).ToList();
+
+        Items = new ObservableCollection<CharacterLibraryItem>(items);
+        CountLabel = items.Count == 0 ? "还没有人" : $"{items.Count} 个角色";
+        // 一进页就有人站着：优先保持上次选中的那一个，其次才是第一个。
+        Selected = items.FirstOrDefault(i => i.Id == keep) ?? items.FirstOrDefault();
     }
 
+    partial void OnSelectedChanged(CharacterLibraryItem? value)
+    {
+        foreach (var item in Items) item.IsSelected = ReferenceEquals(item, value);
+        OnPropertyChanged(nameof(HasSelection));
+
+        if (value is null)
+        {
+            PreviewSource = null;
+            PreviewName = "";
+            PreviewPersonality = "";
+            PreviewDescription = "";
+            PreviewSaves = "";
+            PreviewAffection = "";
+            PreviewCells = "";
+            PreviewStatus = "";
+            OnPropertyChanged(nameof(HasPreviewImage));
+            return;
+        }
+
+        var ch = value.Data;
+        PreviewSource = FindPreview(ch);
+        PreviewName = value.Name;
+        PreviewPersonality = string.IsNullOrWhiteSpace(value.Personality) ? "还没写性格" : value.Personality;
+        PreviewDescription = string.IsNullOrWhiteSpace(ch.Profile.Description)
+            ? "还没有背景故事：进工作室补一段，AI 才会照着这个人回话。"
+            : ch.Profile.Description;
+        PreviewSaves = value.SaveCount.ToString();
+        PreviewAffection = ch.State.Affection.ToString("F0");
+        PreviewCells = value.CellCount.ToString();
+        PreviewStatus = value.IsMain ? "当前主角" : "配角";
+        OnPropertyChanged(nameof(HasPreviewImage));
+    }
+
+    /// <summary>
+    /// 预览优先立绘：这张脸是「这一页的主角」，头像只是第二选择。
+    /// 两样都没有才返回 null —— 界面据此露出缺图说明，而不是空着一块。
+    /// </summary>
+    private ImageSource? FindPreview(CharacterData ch)
+    {
+        foreach (var rel in ch.SpriteMap.Values)
+        {
+            if (string.IsNullOrWhiteSpace(rel)) continue;
+            if (Modules.Affection.SpritePathResolver.ResolveFile(rel, _store.Root) is { } full)
+                return ImageSource.FromFile(full);
+        }
+        if (string.IsNullOrWhiteSpace(ch.Avatar)) return null;
+        if (Modules.Affection.SpritePathResolver.ResolveFile(ch.Avatar, _store.Root) is { } avatar)
+            return ImageSource.FromFile(avatar);
+        var raw = Path.Combine(_store.Root, ch.Avatar);
+        return File.Exists(raw) ? ImageSource.FromFile(raw) : null;
+    }
+
+    /// <summary>
+    /// 选一行只换预览，不换页。不用 CollectionView 自带的选中：它在 ItemsSource 整表替换时
+    /// 会把 SelectedItem 写回 null，刚好把 Refresh 挑好的第一个人又清掉 —— 预览就白做了。
+    /// </summary>
     [RelayCommand]
-    private async Task Tap(string id)
+    private void Select(CharacterLibraryItem? item)
     {
-        var item = Items.FirstOrDefault(i => i.Id == id);
-        if (item is null) return;
-        var act = await Shell.Current.DisplayActionSheet(
-            $"「{item.Name}」", "取消", null,
-            item.IsMain ? "移除主角标记" : "设为当前主角",
-            "AI 优化人设", "修改性格", "修改性别", "编辑设定",
-            "复制角色", "复制角色 · 连记忆一起复制", "补充素材",
-            "导入灵枢记忆");
-        switch (act)
-        {
-            case "设为当前主角":
-                _engine.SetCharacter(id);
-                await Refresh();
-                await Shell.Current.DisplayAlert("角色库", $"「{item.Name}」现在是你的主角了。\n回到角色选择页可以和 TA 开始新的一局。", "好");
-                break;
-            case "移除主角标记":
-                _engine.State.CharacterId = "";
-                await Refresh();
-                break;
-            case "AI 优化人设":
-                await OptimizeAsync(id);
-                break;
-            case "修改性格":
-                await EditPersonalityAsync(id);
-                break;
-            case "修改性别":
-                await EditGenderAsync(id);
-                break;
-            case "编辑设定":
-                await EditProfileAsync(id);
-                break;
-            case "复制角色":
-                await DuplicateCharacterAsync(id, item.Name, withMemory: false);
-                break;
-            case "复制角色 · 连记忆一起复制":
-                await DuplicateCharacterAsync(id, item.Name, withMemory: true);
-                break;
-            case "补充素材":
-                await ImportSupplementAsync(id, item.Name);
-                break;
-            case "导入灵枢记忆":
-                await ImportLingshuAsync(id, item.Name);
-                break;
-        }
+        if (item is not null) Selected = item;
     }
 
-    /// <summary>让 AI 依据现有设定给出改进版性格，确认后应用（不满意可以反复让 AI 改）。</summary>
-    private async Task OptimizeAsync(string id)
-    {
-        var item = Items.FirstOrDefault(i => i.Id == id);
-        if (item is null) return;
-        var p = item.Data.Profile;
-        try
-        {
-            var history = new List<ChatMessage>
-            {
-                new() { Role = "system", Content = "你是角色设计助手。根据给出的角色现有设定，提出一版更鲜明、更有魅力的性格描述。只用中文输出改进后的性格描述本身（一到两句话，50 字以内），不要任何解释。" },
-                new() { Role = "user", Content = $"角色「{p.Name}」，性别 {p.Gender}。现有性格：{p.Personality}。背景：{p.Description}" }
-            };
-            var suggested = await _api.Chat(history);
-            if (string.IsNullOrWhiteSpace(suggested))
-            {
-                await Shell.Current.DisplayAlert("AI 优化人设", "AI 没有回应，请检查 AI 配置后重试。", "好");
-                return;
-            }
-            var apply = await Shell.Current.DisplayAlert("AI 优化人设",
-                $"AI 的建议（可用于「{p.Name}」）：\n\n「{suggested.Trim()}」\n\n应用这份新设定吗？", "应用", "放弃");
-            if (!apply) return;
-            var updated = item.Data with
-            {
-                Profile = p with { Personality = suggested.Trim() }
-            };
-            if (await _library.UpdateAsync(updated))
-            {
-                await Refresh();
-                await Shell.Current.DisplayAlert("角色库", $"「{p.Name}」的新人设已生效。", "好");
-            }
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("CharacterLibrary.Optimize -> " + ex);
-            await Shell.Current.DisplayAlert("AI 优化人设", "出错了：" + ex.Message, "好");
-        }
-    }
-
-    private async Task EditPersonalityAsync(string id)
-    {
-        var item = Items.FirstOrDefault(i => i.Id == id);
-        if (item is null) return;
-        var p = item.Data.Profile;
-        var input = await Shell.Current.DisplayPromptAsync("修改性格",
-            $"「{p.Name}」的当前性格：{p.Personality}", "保存", "取消");
-        if (string.IsNullOrWhiteSpace(input)) return;
-        var updated = item.Data with { Profile = p with { Personality = input.Trim() } };
-        if (await _library.UpdateAsync(updated)) await Refresh();
-    }
-
-    /// <summary>改性别：导入包没写性别（记成「未知」）或当初随手选了一个，都从这里纠正。
-    /// 性别是周期规则的键，改完这一条，角色的周期表述立刻跟着变。</summary>
-    private async Task EditGenderAsync(string id)
-    {
-        var item = Items.FirstOrDefault(i => i.Id == id);
-        if (item is null) return;
-        var p = item.Data.Profile;
-        var current = string.IsNullOrWhiteSpace(p.Gender) ? "未填" : p.Gender;
-        var gender = await Helpers.GenderPrompt.PickAsync($"「{p.Name}」的性别（当前：{current}）");
-        if (string.IsNullOrWhiteSpace(gender)) return;
-        var updated = item.Data with { Profile = p with { Gender = gender.Trim() } };
-        if (await _library.UpdateAsync(updated)) await Refresh();
-    }
-
-    /// <summary>编辑角色主设定/副设定（性格、背景描述、用户称呼、昵称、问候语等）。</summary>
-    /// <summary>另开一扇窗时递过去的角色（值原样给，Shell 退路那条由 PageWindowService 转义）。</summary>
-    private static Dictionary<string, object> CharQuery(CharacterLibraryItem item) =>
-        new() { ["charId"] = item.Data.Profile.Id };
-
-    private async Task EditProfileAsync(string id)
-    {
-        var item = Items.FirstOrDefault(i => i.Id == id);
-        if (item is null) return;
-        var p = item.Data.Profile;
-        var field = await Shell.Current.DisplayActionSheet(
-            $"编辑「{p.Name}」设定", "取消", null,
-            "修改性格（外在表现/内在坚定）", "修改背景/前情提要（主设定）",
-            "修改用户称呼", "修改昵称", "修改问候语",
-            "查看副设定（当下之我）", "副设定回正到主设定",
-            "记忆管理（标签 / 记得的事 / 副设定）", "关系网（另开一扇窗看它长出来）", "搜事件（另开一扇窗）",
-            (IsAllowedInSave(item.Data.Profile.Id) ? "移出本存档可用角色" : "加入本存档可用角色"),
-            "参数覆写（记忆/采样）");
-        if (field is null || field == "取消") return;
-        if (field.Contains("参数覆写")) { await EditOverridesAsync(item); return; }
-        if (field.Contains("搜事件"))
-        {
-            await _windows.OpenOrNavigateAsync(PageWindowKeys.Search, $"搜事件 · {p.Name}",
-                typeof(Views.MemorySearchPage), PageWindowKeys.Search, CharQuery(item));
-            return;
-        }
-        if (field.Contains("关系网"))
-        {
-            await _windows.OpenOrNavigateAsync(PageWindowKeys.Graph, $"关系网 · {p.Name}",
-                typeof(Views.MemoryGraphPage), PageWindowKeys.Graph, CharQuery(item));
-            return;
-        }
-        if (field.Contains("记忆管理"))
-        {
-            await Shell.Current.GoToAsync($"memoryManage?charId={Uri.EscapeDataString(item.Data.Profile.Id)}");
-            return;
-        }
-        if (field.Contains("本存档可用角色")) { await ToggleAllowedAsync(item); return; }
-        if (field.Contains("查看副设定"))
-        {
-            await Shell.Current.GoToAsync($"subProfile?charId={Uri.EscapeDataString(item.Data.Profile.Id)}");
-            return;
-        }
-        if (field.Contains("回正"))
-        {
-            var yes = await Shell.Current.DisplayAlert("副设定回正",
-                $"把「{p.Name}」的副设定退回主设定的副本？这会清空累积的当下心境与心事，主设定不受影响。",
-                "回正", "取消");
-            if (!yes) return;
-            if (await _subProfiles.ResetAsync(item.Data.Profile.Id)) await Refresh();
-            return;
-        }
-
-        string? promptTitle = null, initialValue = null;
-        if (field.Contains("性格")) { promptTitle = "修改性格"; initialValue = p.Personality; }
-        else if (field.Contains("背景")) { promptTitle = "修改背景设定"; initialValue = p.Description; }
-        else if (field.Contains("称呼")) { promptTitle = "修改用户称呼"; initialValue = p.UserAddress; }
-        else if (field.Contains("昵称")) { promptTitle = "修改昵称"; initialValue = p.Nickname; }
-        else if (field.Contains("问候")) { promptTitle = "修改问候语"; initialValue = p.Greeting; }
-        if (promptTitle is null) return;
-
-        var input = await Shell.Current.DisplayPromptAsync(promptTitle,
-            $"「{p.Name}」的{promptTitle}：", initialValue: initialValue, maxLength: 2000);
-        if (input is null) return;
-
-        var updated = item.Data with
-        {
-            Profile = p with
-            {
-                Personality = field.Contains("性格") ? input.Trim() : p.Personality,
-                Description = field.Contains("背景") ? input.Trim() : p.Description,
-                UserAddress = field.Contains("称呼") ? input.Trim() : p.UserAddress,
-                Nickname = field.Contains("昵称") ? input.Trim() : p.Nickname,
-                Greeting = field.Contains("问候") ? input.Trim() : p.Greeting
-            }
-        };
-        if (await _library.UpdateAsync(updated)) await Refresh();
-    }
-
-    /// <summary>
-    /// 角色级参数覆写：每个字段留空 = 沿用全局设置（清除该角色的覆写）。
-    /// 用于让不同角色有各自的记忆与采样参数——有的记得久，有的转头就忘。
-    /// </summary>
-    private async Task EditOverridesAsync(CharacterLibraryItem item)
-    {
-        var o = item.Data.Overrides ?? new CharacterOverrides();
-        var name = item.Data.Profile.Name;
-        var pick = await Shell.Current.DisplayActionSheet(
-            $"「{name}」参数覆写（留空=跟随全局）", "取消", null,
-            $"记忆条数：{ShowOverride(o.MemoryTurns)}",
-            $"上下文上限：{ShowOverride(o.ContextTokenLimit)}",
-            $"温度：{ShowOverride(o.AiTemperature)}",
-            $"遗忘指数（天）：{ShowOverride(o.MemoryWindowDays)}",
-            $"回忆随机度：{ShowOverride(o.MemoryRecallRandomness)}");
-        if (pick is null || pick == "取消") return;
-
-        var title = pick.Split('：')[0];
-        var (hint, initial) = title switch
-        {
-            "记忆条数" => ("带进上下文的最近记忆条数（1-200），留空跟随全局", o.MemoryTurns?.ToString() ?? ""),
-            "上下文上限" => ("上下文 Token 上限（如 32000），留空跟随全局", o.ContextTokenLimit?.ToString() ?? ""),
-            "温度" => ("采样温度 0-2，留空跟随全局", o.AiTemperature?.ToString(CultureInfo.InvariantCulture) ?? ""),
-            "遗忘指数（天）" => ("遗忘指数（天）：越小忘得越快，可填 0.25=6 小时；0=不限，留空跟随全局", o.MemoryWindowDays?.ToString(CultureInfo.InvariantCulture) ?? ""),
-            _ => ("回忆随机扰动 0-1：越大越像人一样跳着想起，留空跟随全局", o.MemoryRecallRandomness?.ToString(CultureInfo.InvariantCulture) ?? "")
-        };
-        var input = await Shell.Current.DisplayPromptAsync(title, hint, "确定", "取消", initialValue: initial, maxLength: 12);
-        if (input is null) return;
-
-        var updated = title switch
-        {
-            "记忆条数" => ParseInt(input, v => o with { MemoryTurns = v }),
-            "上下文上限" => ParseInt(input, v => o with { ContextTokenLimit = v }),
-            "温度" => ParseDouble(input, v => o with { AiTemperature = v }),
-            "遗忘指数（天）" => ParseDouble(input, v => o with { MemoryWindowDays = v }),
-            _ => ParseDouble(input, v => o with { MemoryRecallRandomness = v })
-        };
-        if (updated is null)
-        {
-            await Shell.Current.DisplayAlert("参数覆写", "请输入数字；留空表示跟随全局设置。", "好");
-            return;
-        }
-        if (await _library.SetOverridesAsync(item.Data.Profile.Id, updated)) await Refresh();
-    }
-
-    private static string ShowOverride<T>(T? v) where T : struct =>
-        v?.ToString() is { Length: > 0 } s ? s : "跟随全局";
-
-    /// <summary>空串 = 清除覆写（返回去掉该字段的副本）；非法输入 = null。</summary>
-    private static CharacterOverrides? ParseInt(string raw, Func<int?, CharacterOverrides> apply)
-    {
-        var t = raw?.Trim() ?? "";
-        if (t.Length == 0) return apply(null);
-        return int.TryParse(t, out var v) ? apply(v) : null;
-    }
-
-    private static CharacterOverrides? ParseDouble(string raw, Func<double?, CharacterOverrides> apply)
-    {
-        var t = raw?.Trim() ?? "";
-        if (t.Length == 0) return apply(null);
-        return double.TryParse(t, NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? apply(v) : null;
-    }
-
-    /// <summary>
-    /// 存档可用角色白名单：不设限时 AI 会看到角色库里所有人，容易疯狂加配角。
-    /// 加入白名单后，只有名单里的人会出现在提示词里（空名单 = 不限制）。
-    /// </summary>
-    private async Task ToggleAllowedAsync(CharacterLibraryItem item)
-    {
-        var id = item.Data.Profile.Id;
-        var allowed = _engine.State.AllowedCharacters;
-        var name = item.Data.Profile.Name;
-        if (allowed.Contains(id))
-        {
-            allowed.Remove(id);
-            await Shell.Current.DisplayAlert("存档可用角色",
-                $"已把「{name}」移出本存档的可用角色。\n" + WhitelistSummary(), "好");
-        }
-        else
-        {
-            allowed.Add(id);
-            await Shell.Current.DisplayAlert("存档可用角色",
-                $"已把「{name}」加入本存档的可用角色。\n" + WhitelistSummary(), "好");
-        }
-    }
-
-    private bool IsAllowedInSave(string id) => _engine.State.AllowedCharacters.Contains(id);
-
-    private string WhitelistSummary()
-    {
-        var allowed = _engine.State.AllowedCharacters;
-        if (allowed.Count == 0) return "当前名单为空 = 不限制（AI 可以使用角色库里任何角色当配角）。";
-        var names = _engine.Roster.Values
-            .Where(c => allowed.Contains(c.Profile.Id))
-            .Select(c => c.Profile.Name);
-        return $"当前可用角色（{allowed.Count} 个）：{string.Join("、", names)}。";
-    }
-
-    /// <summary>
-    /// 复制角色（共享引用所有立绘，不重复保存素材文件）。
-    /// <paramref name="withMemory"/> = 真时连 TA 记得的一切一起带走 —— 只带当前作用域里的那一份：
-    /// 按存档隔离时副本只在同一个存档里记得这些事，开了「跨存档共用」才跟着那份共用的走。
-    /// </summary>
-    private async Task DuplicateCharacterAsync(string sourceId, string sourceName, bool withMemory)
-    {
-        var title = withMemory ? "复制角色 · 连记忆" : "复制角色";
-        var newName = await Shell.Current.DisplayPromptAsync(title,
-            $"为「{sourceName}」的副本命名：", "确定", "取消", initialValue: sourceName + "（副本）", maxLength: 30);
-        if (string.IsNullOrWhiteSpace(newName)) return;
-        var (ok, msg, _, _) = await _library.DuplicateAsync(sourceId, newName, withMemory);
-        await Shell.Current.DisplayAlert(title, msg, "好");
-        if (ok) await Refresh();
-    }
-
-    /// <summary>补充导入角色素材（zip 中的图片自动归入服装目录并解析表情标签）。</summary>
-    private async Task ImportSupplementAsync(string charId, string charName)
-    {
-        try
-        {
-            var file = await FilePicker.PickAsync(new PickOptions
-            {
-                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                {
-                    { DevicePlatform.WinUI, new[] { ".zip" } },
-                    { DevicePlatform.Android, new[] { "application/zip" } },
-                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
-                }),
-                PickerTitle = $"选择「{charName}」的补充素材包（zip）"
-            });
-            if (file is null) return;
-            var (ok, msg) = await _library.ImportSupplementaryZipAsync(charId, file.FullPath);
-            await Shell.Current.DisplayAlert("补充素材", msg, "好");
-            if (ok) await Refresh();
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("CharacterLibraryVM.ImportSupplement -> " + ex);
-            await Shell.Current.DisplayAlert("补充素材", "导入失败：" + ex.Message, "好");
-        }
-    }
-
-    /// <summary>新建角色（无需素材包，仅创建角色资料，之后可随时补充立绘）。</summary>
+    /// <summary>预览里那颗主按钮：id 是 GUID，转义只是不让路由替我们猜。</summary>
     [RelayCommand]
-    private async Task CreateCharacter()
+    private async Task Enter()
     {
-        var name = await Shell.Current.DisplayPromptAsync("新建角色", "角色姓名：", "确定", "取消", maxLength: 30);
-        if (string.IsNullOrWhiteSpace(name)) return;
-        var gender = await Helpers.GenderPrompt.PickAsync("角色性别");
-        if (string.IsNullOrWhiteSpace(gender)) return;
-        var personality = await Shell.Current.DisplayPromptAsync("新建角色", "性格描述（一句话）：", "确定", "取消", maxLength: 100);
-        if (personality is null) return;
-        var ch = _library.CreateDefault(name.Trim(), gender, string.IsNullOrWhiteSpace(personality) ? "温柔可爱" : personality.Trim());
-        var ok = await _library.AddAsync(ch);
-        await Shell.Current.DisplayAlert("新建角色",
-            ok ? $"「{name.Trim()}」已创建（暂无立绘，可在角色库右键补充素材）" : "创建失败", "好");
-        if (ok) await Refresh();
+        if (Selected is null) return;
+        await Shell.Current.GoToAsync($"studio?id={Uri.EscapeDataString(Selected.Id)}");
     }
 
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");
-
-    /// <summary>导入灵枢 AI 记忆 JSON 到角色世界书。</summary>
-    private async Task ImportLingshuAsync(string charId, string charName)
-    {
-        try
-        {
-            var file = await FilePicker.PickAsync(new PickOptions
-            {
-                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
-                {
-                    { DevicePlatform.WinUI, new[] { ".json" } },
-                    { DevicePlatform.Android, new[] { "application/json" } },
-                    { DevicePlatform.iOS, new[] { "public.json" } }
-                }),
-                PickerTitle = "选择灵枢记忆 JSON 文件"
-            });
-            
-            if (file == null) return;
-            
-            var valid = await _lingshu.ValidateAsync(file.FullPath);
-            if (!valid)
-            {
-                await Shell.Current.DisplayAlert("导入失败", "文件格式不正确，请选择灵枢导出的 JSON 文件。", "好");
-                return;
-            }
-            
-            var mode = await Shell.Current.DisplayActionSheet(
-                $"导入到「{charName}」", "取消", null,
-                "追加到现有记忆", "替换所有记忆");
-            
-            if (mode == "取消") return;
-            
-            var result = await _lingshu.ImportToCharacterAsync(
-                charId, 
-                file.FullPath, 
-                mode == "替换所有记忆" ? "replace" : "append");
-            
-            await Shell.Current.DisplayAlert(
-                result.ok ? "导入成功" : "导入失败", 
-                result.message, 
-                "好");
-            
-            if (result.ok) await Refresh();
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("CharacterLibrary.ImportLingshu -> " + ex);
-            await Shell.Current.DisplayAlert("导入失败", ex.Message, "好");
-        }
-    }
 }
 
 /// <summary>角色库展示项。</summary>
-public sealed class CharacterLibraryItem
+public sealed partial class CharacterLibraryItem : ObservableObject
 {
-    public CharacterLibraryItem(CharacterData ch, ImageSource? avatar, bool isMain, string savesLabel)
+    public CharacterLibraryItem(CharacterData ch, ImageSource? avatar, bool isMain, int savesCount)
     {
         Data = ch;
         AvatarSource = avatar;
         IsMain = isMain;
-        SavesLabel = savesLabel;
+        SaveCount = savesCount;
     }
 
     public CharacterData Data { get; init; }
     public string Id => Data.Profile.Id;
     public string Name => Data.Profile.Name;
     public string Personality => Data.Profile.Personality;
-    public string Description => Data.Profile.Description;
     public ImageSource? AvatarSource { get; init; }
     public bool HasAvatar => AvatarSource is not null;
     public bool IsMain { get; init; }
     public string IsMainLabel => IsMain ? "当前主角" : "";
-    public string SavesLabel { get; init; }
+    public int SaveCount { get; init; }
+
+    /// <summary>有图的格子数：预览里那个 SPRITES 读数，不是「文件夹里有多少文件」。</summary>
+    public int CellCount => Data.SpriteMap.Values.Count(v => !string.IsNullOrWhiteSpace(v));
+
+    [ObservableProperty] private bool _isSelected;
 }

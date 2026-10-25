@@ -22,13 +22,22 @@ public static class MotionTokens
     public const int EnterMs = 220;
     /// <summary>设置子页逐张建卡的浮起时长（曾实测：再长就开始显得拖沓）。</summary>
     public const int CardEnterMs = 130;
+    /// <summary>
+    /// 弹层展开（角色工作室这种盖住整页的一层）。比页面进场长一档：
+    /// 进场是「东西摆上来」，弹层是「把注意力从整屏收到一张卡上」，太快会像被硬拽过去。
+    /// </summary>
+    public const int SheetMs = 320;
     /// <summary>多个元素依次进场的间隔。</summary>
     public const int StaggerMs = 45;
     /// <summary>帧驱动的节奏，约 60fps。</summary>
     public const int FrameMs = 16;
 
-    /// <summary>按下时下沉的像素。超过 2px 就不像「材料被压下去」，而像按钮在跳。</summary>
-    public const double SinkPx = 1.6;
+    /// <summary>
+    /// 按下时下沉的像素。原来 1.6px 只在颜色上加深，用户在 125% 缩放下看不到「按动」——
+    /// 现在颜色只归悬停，按下这一下必须由位移自己说出来。2.4px 约 3 个物理像素，看得见；
+    /// 再超过 3px 就会从「材料被压住」变成「按钮掉了一格」。
+    /// </summary>
+    public const double SinkPx = 2.4;
     /// <summary>进场时的上浮距离。</summary>
     public const double EnterRisePx = 6;
 
@@ -66,6 +75,17 @@ public static class MotionTokens
     {
         var x = Clamp01(t);
         return x >= 1 ? 1 : 1 - Math.Exp(-6 * x) * Math.Cos(6.2 * x);
+    }
+
+    /// <summary>
+    /// 硬切机械曲线：起得有点迟疑、中段冲到位、末段收干净（终末地那套 mech cubic-bezier(0.7,0,0.2,1) 的多项式近似）。
+    /// 快门、擦入、灌满和所有退出走这条；元素「出现」走 <see cref="OutCubic"/>。
+    /// 用它是因为这三样都是**机器在动作**，不是软材料在回弹——OutCubic 铺在擦入上会显得黏。
+    /// </summary>
+    public static double Mech(double t)
+    {
+        var x = Clamp01(t);
+        return x < 0.5 ? 4 * x * x * x : 1 - System.Math.Pow(-2 * x + 2, 3) / 2;
     }
 
     /// <summary>曲线取值一律先夹到 0..1，避免调用方传进负数或超界后算出越界的透明度/位移。</summary>

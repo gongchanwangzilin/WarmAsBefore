@@ -21,6 +21,7 @@
             <Setter Property="Padding" Value="10,6" />
             <Setter Property="BorderWidth" Value="0" />
             <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         </Style>
         <Style x:Key="TabBackgrounds" TargetType="Button" BasedOn="{StaticResource TabOff}">
             <Style.Triggers>
@@ -46,6 +47,7 @@
         <Style x:Key="AssetCell" TargetType="Border" BasedOn="{StaticResource CardSolid}">
             <Setter Property="Padding" Value="{DynamicResource WPadWell}" />
             <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
             <Setter Property="VisualStateManager.VisualStateGroups">
                 <VisualStateGroupList>
                     <VisualStateGroup Name="CommonStates">

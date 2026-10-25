@@ -51,6 +51,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("novelworld", typeof(Views.NovelWorldPage));
         Routing.RegisterRoute("worldbook", typeof(Views.WorldbookPage));
         Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
+        // 角色工作室：列表那一行点进来的一页（改 TA 的一切都在这儿，不在列表里）
+        Routing.RegisterRoute("studio", typeof(Views.CharacterStudioPage));
         Routing.RegisterRoute("shop", typeof(Views.ShopPage));
         Routing.RegisterRoute("showcase-list", typeof(Views.ShowcaseListPage));
         Routing.RegisterRoute("showcase-edit", typeof(Views.ShowcaseEditPage));

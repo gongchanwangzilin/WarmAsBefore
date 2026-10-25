@@ -8,7 +8,7 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid>
+    <Grid x:Name="Root">
         <!--
           地面不再自己铺渐变、也不摆两团光晕：这一档语言里层次只来自
           「浅灰地 / 纯白卡 / 一条发丝线」，装饰性光斑会把白卡压成「灰底上一块糊掉的亮斑」。
@@ -58,7 +58,7 @@
                      鼠标进来才压出一档底（TappableRow）。少了这一档，桌面端就没有任何东西
                      能证明「鼠标此刻在这儿」，四条行读起来和四段死文字一样。 -->
                 <VerticalStackLayout Grid.Row="2" x:Name="MenuStack" Spacing="0" VerticalOptions="Start">
-                    <Border Style="{StaticResource TappableRow}">
+                    <Border x:Name="RowSave" Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSaveCommand}" />
                         </Border.GestureRecognizers>
@@ -70,7 +70,7 @@
                         </Grid>
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
-                    <Border Style="{StaticResource TappableRow}">
+                    <Border x:Name="RowNovels" Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenNovelsCommand}" />
                         </Border.GestureRecognizers>
@@ -82,7 +82,7 @@
                         </Grid>
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
-                    <Border Style="{StaticResource TappableRow}">
+                    <Border x:Name="RowRoster" Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenRosterCommand}" />
                         </Border.GestureRecognizers>
@@ -94,7 +94,7 @@
                         </Grid>
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
-                    <Border Style="{StaticResource TappableRow}">
+                    <Border x:Name="RowSettings" Style="{StaticResource TappableRow}">
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
                         </Border.GestureRecognizers>
@@ -119,7 +119,8 @@
                         </VerticalStackLayout>
                         <!-- 退出原来是「一行浮空的文字」，看着像哪个控件坏了没画完；
                              给它一颗真的次要钮，它才读得出是「可以按，但不重要」。 -->
-                        <Button Grid.Row="1" Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Button x:Name="ExitButton" Grid.Row="1"
+                                Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}"
                                 Style="{StaticResource BtnGhostSm}" HorizontalOptions="Start"
                                 Command="{Binding ExitGameCommand}" />
                     </Grid>
@@ -152,13 +153,26 @@
                         <Label Text="{Binding [Title_Tagline], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}"
                                HorizontalOptions="Start" LineBreakMode="WordWrap" />
-                        <Button Text="{Binding StartLabel}" Style="{StaticResource BtnSignal}"
+                        <Button x:Name="EnterButton" Text="{Binding StartLabel}"
+                                Style="{StaticResource BtnSignal}"
                                 HorizontalOptions="Start" MinimumWidthRequest="200"
                                 Command="{Binding StartGameCommand}" />
                     </VerticalStackLayout>
                 </Grid>
             </Grid>
         </Border>
+
+        <!-- ── 键盘光标 ─────────────────────────────────────────────────────
+             方向键那一套操作模式的「光标」。只有按过方向键才现身，鼠标用户从头到尾看不见它，
+             所以这一屏的观感和原来一模一样，改的只是「怎么选」。
+             圈画在自己这一层、跟着量到的位置滑，而不是描到每一行身上：那一行的底归悬停反馈管
+             （HoverFeel 压的是原生画刷），再来一层「选中底」就是两边抢同一块面。
+             方角而不是本世界的圆角：这一颗要读成操作台上的光标，不是读成一张卡。 -->
+        <Border x:Name="FocusRing" IsVisible="False" InputTransparent="True"
+                HorizontalOptions="Start" VerticalOptions="Start"
+                BackgroundColor="Transparent" StrokeThickness="2"
+                Stroke="{DynamicResource WEdgeStrongBrush}"
+                StrokeShape="RoundRectangle 0" />
 
         <!-- 免责声明：留在主菜单之后（放在主菜单之前会被菜单整块盖住，「知道了」点不到），
              但**不是**根 Grid 的最后一个 —— 启动卡比它更早、也要盖在它上面（首次开机先看见品牌，再读条款）。

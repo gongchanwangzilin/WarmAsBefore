@@ -52,20 +52,16 @@
         <!-- 按钮不再挂影子：可点击性来自面与底的台阶 + 那一圈缝，不来自浮起。
              而且这是全站数量最多的元素，每个一个合成层，换页时最贵的一笔开销就省下了。 -->
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
+                    <!-- 颜色归 HoverFeel、位移归 PressFeel。这里不写悬停/按下色：
+                         带导航的按钮按下时页面就切走，抬起事件收不到，Pressed 的 Setter
+                         会一直挂在按钮上（用户报的「点一次就永远变深」）。 -->
                     <VisualState Name="Normal" />
-                    <VisualState Name="PointerOver">
-                        <VisualState.Setters>
-                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgHover}" />
-                        </VisualState.Setters>
-                    </VisualState>
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="Background" Value="{DynamicResource GlassButtonBgPressed}" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <VisualState Name="PointerOver" />
+                    <VisualState Name="Pressed" />
                     <!-- 焦点不再自绘一圈：WinUI 本来就在按钮外沿画一条系统焦点框，
                          我们再加一圈就成了「双边框」——首屏那颗主按钮自动获得焦点，
                          用户第一眼看到的是一圈不该有的黑框（实测截图已确认）。 -->
@@ -153,6 +149,7 @@
         <Setter Property="Padding" Value="12,5" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusWell}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
