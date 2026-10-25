@@ -184,14 +184,14 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             if (picked is null) return;
             Busy = true;
             var (ok, message) = await _plugins.InstallFromFolderAsync(picked.Path, overwrite: true);
-#else
-            await Shell.Current.DisplayAlert("从文件夹安装", "Android 端选不了文件夹，请把插件压成 zip 再装。", "好");
-            return;
-#endif
             Status = message;
             if (!ok) await Shell.Current.DisplayAlert("从文件夹安装", message, "好");
             if (ok) await OfferDoctorAfterInstallAsync();
             await RefreshAsync();
+#else
+            await Shell.Current.DisplayAlert("从文件夹安装", "Android 端选不了文件夹，请把插件压成 zip 再装。", "好");
+            return;
+#endif
         }
         catch (Exception ex)
         {
