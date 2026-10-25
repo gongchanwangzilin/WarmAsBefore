@@ -119,7 +119,7 @@ internal static class MaidBridgeTools
         ,"action":{"type":"string","enum":["attack","use","gesture","say","sit","stand","sleep","look","interact_addon"],"description":"动作类型"},
         "target":{"type":"string","description":"目标玩家/生物/方块/角色"},
         "text":{"type":"string","description":"say 时的台词"},
-        "arg":{"type":"string","description":"gesture 的动作名（如 hug、wave）；interact_addon 的行为 id"},
+        "arg":{"type":"string","maxLength":64,"description":"gesture 的动作名（如 hug、wave）；interact_addon 的行为 id"},
         "duration":{"type":"number","description":"持续时间（秒）"}
         },"required":["action"],"additionalProperties":false}
         """;
@@ -133,7 +133,7 @@ internal static class MaidBridgeTools
           "random":{"type":"number","description":"执行概率 0~1"},
           "hours":{"type":"number","description":"持续游戏内小时"},
           "filter":{"type":"string","description":"mine/scoop 的目标"},
-          "arg":{"type":"string","description":"gesture 动作名或 interact_addon 行为 id"},
+          "arg":{"type":"string","maxLength":64,"description":"gesture 动作名或 interact_addon 行为 id"},
           "text":{"type":"string","description":"say 的台词"},
           "target":{"type":"string","description":"动作目标"},
           "item":{"type":"string","description":"涉及的物品"},

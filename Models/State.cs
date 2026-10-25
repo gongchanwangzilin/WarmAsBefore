@@ -352,6 +352,10 @@ public sealed record UserSettings
     /// <summary>免费模型预判的节流：每多少轮问一次。越大越省，默认 8。</summary>
     public int BrainAiEveryTurns { get; init; } = 8;
 
+    /// <summary>数值由 AI 控制：好感/信任/精力不再写死，改由 AI 判定增减（回复内联指令为主，未输出时兜底问一次）。
+    /// 关闭则回退到旧的固定增量（说一句 +1、动作 +2/+3/+5、精力纯按清醒时长）。</summary>
+    public bool StatAiControl { get; init; } = true;
+
     // 语音
     public bool TtsEnabled { get; init; } = true;
     public double TtsRate { get; init; } = 1.0;

@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft 女仆桥 · 实时面板</title>
+<style>
+  :root {
+    --bg: #14100e; --bg-2: #1d1815; --card: #221c18; --card-2: #2a231d;
+    --line: #3a312a; --fg: #f3ece3; --fg-2: #c9bfae; --fg-3: #8d8172;
+    --amber: #f0a848; --amber-2: #ffc885; --teal: #6fd3c7; --rose: #e58ea0;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--fg); line-height: 1.7;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(1100px 500px at 85% -5%, rgba(240,168,72,.14), transparent 60%),
+      radial-gradient(900px 420px at 0% 100%, rgba(111,211,199,.08), transparent 55%),
+      var(--bg);
+  }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 40px 24px 88px; }
+  .kicker {
+    display: inline-block; font-size: 12px; letter-spacing: .22em; color: var(--amber);
+    text-transform: uppercase; border: 1px solid rgba(240,168,72,.35);
+    padding: 3px 12px; border-radius: 999px; margin-bottom: 12px;
+  }
+  h1 { font-size: clamp(26px, 4.4vw, 36px); line-height: 1.2; margin: 0 0 6px; }
+  h1 small { display: block; font-size: 14px; color: var(--fg-3); font-weight: 400; margin-top: 6px; }
+  section {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px; margin: 20px 0; box-shadow: 0 14px 34px rgba(0,0,0,.28);
+    animation: rise .45s ease both;
+  }
+  @keyframes rise { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+  @media (prefers-reduced-motion: reduce) { section { animation: none; } }
+  h2 { font-size: 17px; margin: 0 0 4px; color: var(--amber-2); letter-spacing: .02em; }
+  .sub { font-size: 13px; color: var(--fg-3); margin: 0 0 16px; }
+
+  .pill { display: inline-block; font-size: 11.5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-3); }
+  .pill.on { color: var(--teal); border-color: rgba(111,211,199,.4); }
+  .pill.off { color: var(--rose); border-color: rgba(229,142,160,.4); }
+  .pill.amber { color: var(--amber); border-color: rgba(240,168,72,.4); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 4px 0 0; }
+  .fact { font-size: 13.5px; color: var(--fg-3); }
+  .fact b { display: block; font-size: 15px; color: var(--fg); font-weight: 600; letter-spacing: .01em; }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13.5px; margin-top: 6px; }
+  th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--fg-3); font-size: 11.5px; letter-spacing: .12em; text-transform: uppercase; }
+  td { color: var(--fg-2); }
+  td:first-child { color: var(--fg); font-weight: 600; }
+  td b { color: var(--teal); font-weight: 600; }
+  td b.warn { color: var(--rose); }
+  tr:hover td { background: rgba(255,255,255,.02); }
+
+  .row { display: grid; grid-template-columns: 210px 1fr; gap: 14px; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row:last-of-type { border-bottom: 0; }
+  .row label { font-size: 14px; color: var(--fg); font-weight: 600; }
+  .row label em { display: block; font-style: normal; font-size: 12px; color: var(--fg-3); font-weight: 400; line-height: 1.5; }
+  .ctl { display: flex; align-items: center; gap: 10px; }
+  input[type=text], input[type=number] {
+    background: var(--bg-2); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 11px; font-size: 14px; width: 140px; font-family: inherit;
+  }
+  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--amber); }
+  .sw {
+    position: relative; width: 46px; height: 26px; border-radius: 999px; cursor: pointer;
+    background: var(--bg-2); border: 1px solid var(--line); transition: background .18s ease, border-color .18s ease;
+    flex: none;
+  }
+  .sw::after {
+    content: ""; position: absolute; left: 3px; top: 3px; width: 18px; height: 18px; border-radius: 50%;
+    background: var(--fg-3); transition: transform .18s ease, background .18s ease;
+  }
+  .sw[aria-checked=true] { background: rgba(240,168,72,.22); border-color: var(--amber); }
+  .sw[aria-checked=true]::after { transform: translateX(20px); background: var(--amber); }
+  .sw:focus-visible { outline: 2px solid var(--amber-2); outline-offset: 2px; }
+
+  .bar { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
+  button {
+    background: var(--amber); color: #201509; border: 0; border-radius: 10px;
+    padding: 9px 22px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: transform .12s ease, filter .12s ease;
+  }
+  button:hover { filter: brightness(1.07); }
+  button:active { transform: translateY(2px); }
+  button[disabled] { filter: grayscale(.6) brightness(.75); cursor: default; transform: none; }
+  .ghost { background: none; border: 1px solid var(--line); color: var(--fg-2); font-weight: 400; padding: 8px 16px; }
+  .msg { font-size: 13px; color: var(--fg-3); }
+  .msg.ok { color: var(--teal); }
+  .msg.bad { color: var(--rose); }
+  .note {
+    background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--rose);
+    border-radius: 10px; padding: 12px 16px; font-size: 13.5px; color: var(--fg-2); margin-top: 14px;
+  }
+  .note.teal { border-left-color: var(--teal); }
+  footer { margin-top: 34px; color: var(--fg-3); font-size: 12.5px; text-align: center; }
+  .hide { display: none; }
+  @media (max-width: 700px) { .row { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">实时面板</div>
+  <h1>Minecraft 女仆桥<small>左边是 WAB 的权威值，右边是游戏里的实际值 —— 两张表不一致的地方，就是她不干活的原因</small></h1>
+
+  <div id="nocab" class="note hide">
+    这个页面要由插件中心打开：URL 上得带上一次性的 <b>callback</b> 凭据，直接双击文件是读不到任何实时值的。
+  </div>
+
+  <section>
+    <h2>连接</h2>
+    <p class="sub" id="cSrc">每 3 秒现取一次，不缓存。</p>
+    <div class="facts">
+      <div class="fact"><b id="cState">—</b>会话状态</div>
+      <div class="fact"><b id="cWorld">—</b>存档 / 玩家</div>
+      <div class="fact"><b id="cPort">—</b>本机监听端口</div>
+      <div class="fact"><b id="cMaids">—</b>已绑定女仆</div>
+      <div class="fact"><b id="cAge">—</b>游戏上次上报</div>
+    </div>
+  </section>
+
+  <section>
+    <h2>插件设置</h2>
+    <p class="sub">改完点保存。只动开关不重连；改端口或局域网才会重开监听。</p>
+    <div id="fields"></div>
+    <div class="bar">
+      <button id="save" disabled>保存</button>
+      <button id="reload" class="ghost">重新读取</button>
+      <span id="smsg" class="msg">还没改动。</span>
+    </div>
+  </section>
+
+  <section>
+    <h2>游戏里的实际值</h2>
+    <p class="sub">模组 <code>touhou_little_maid-wab-server.toml</code> 里现在的值。要改请在游戏的模组配置页里改。</p>
+    <table>
+      <thead><tr><th>项目</th><th>游戏里</th><th>WAB 这边</th><th>会不会打架</th></tr></thead>
+      <tbody id="compare"><tr><td colspan="4">正在读…</td></tr></tbody>
+    </table>
+    <div id="clash"></div>
+  </section>
+
+  <footer>凭据只在这一次打开期间有效；关掉窗口就作废。</footer>
+</div>
+
+<script>
+(function () {
+  var FIELDS = [
+    { key: "enabled", label: "启用桥接", type: "switch", def: "true",
+      help: "关闭后宿主不再监听端口，游戏里的女仆回落到原版行为。" },
+    { key: "port", label: "TCP 端口", type: "number", def: "27322",
+      help: "模组连进来的端口；0 = 启动时自动挑一个空闲端口。改完保存会自动重连。" },
+    { key: "lan", label: "允许局域网连接", type: "switch", def: "false",
+      help: "默认只接受本机回环。" },
+    { key: "auto_create_characters", label: "自动建角色", type: "switch", def: "true",
+      help: "匹配不到角色时，用她的名字新建一个再绑定。" },
+    { key: "allow_world_actions", label: "允许世界动作", type: "switch", def: "true",
+      help: "挖/放/取水/丢物这类会改世界的动作。" },
+    { key: "allow_gestures", label: "允许动作与语录", type: "switch", def: "true",
+      help: "招手、抱抱、说话、坐下这类不改世界的动作。" },
+    { key: "chat_affection", label: "游戏内聊天让她判好感", type: "switch", def: "true",
+      help: "把这段对话交给她本人判该涨还是该跌；关掉就只记记忆、不动数值。" },
+    { key: "autonomy_pulse_minutes", label: "主动思考间隔（分钟）", type: "number", def: "0",
+      help: "0 = 完全交给游戏里的日程。" },
+    { key: "backup_minutes", label: "快照间隔（分钟）", type: "number", def: "10",
+      help: "0 = 只在连接时和手动调用时备份。" }
+  ];
+
+  // 游戏侧的键与这里是否要对照，写死白名单：认不出的键不参与判断，也不显示。
+  // plugin 这一栏取 /runtime 里内存中正在跑的值，不取落盘的字符串 —— 那是「此刻生效的」，不是「上次保存的」。
+  var MOD_ROWS = [
+    { mod: "enabled", label: "桥接总开关", plugin: "enabled" },
+    { mod: "autonomyEnabled", label: "自主行动", plugin: "allowWorldActions" },
+    { mod: "lanDiscovery", label: "局域网发现", plugin: "lan" },
+    { mod: "showHud", label: "头顶行动栏", plugin: null },
+    { mod: "chatRange", label: "聊天拾取范围", plugin: null },
+    { mod: "discoveryPort", label: "发现端口（UDP）", plugin: null },
+    { mod: "beaconIntervalSeconds", label: "广播间隔（秒）", plugin: null },
+    { mod: "debug", label: "调试日志", plugin: null }
+  ];
+
+  var cb = new URLSearchParams(location.search).get("callback");
+  if (!cb || cb.indexOf("/save") === -1) {
+    document.getElementById("nocab").classList.remove("hide");
+    // 没凭据就永远等不到实时值：把「正在读」「每 3 秒」这类话撤掉，别让页面挂着假装在读。
+    document.getElementById("cSrc").textContent = "这一栏不会更新：没有凭据，什么都读不到。";
+    var body = document.getElementById("compare");
+    body.textContent = "";
+    var row = document.createElement("tr"), cell = document.createElement("td");
+    cell.colSpan = 4; cell.textContent = "没读到 —— 这不是「关」，是没有可问的主程序。";
+    row.appendChild(cell); body.appendChild(row);
+    return;
+  }
+  var settingsUrl = cb.replace("/save", "/settings");
+  var runtimeUrl = cb.replace("/save", "/runtime");
+
+  var saved = {}, live = null, nodes = {};
+  var $ = function (id) { return document.getElementById(id); };
+
+  function build() {
+    var host = $("fields");
+    FIELDS.forEach(function (f) {
+      var row = document.createElement("div"); row.className = "row";
+      var lab = document.createElement("label");
+      lab.textContent = f.label;
+      var em = document.createElement("em"); em.textContent = f.help; lab.appendChild(em);
+      var ctl = document.createElement("div"); ctl.className = "ctl";
+      if (f.type === "switch") {
+        var sw = document.createElement("button");
+        sw.className = "sw"; sw.type = "button"; sw.setAttribute("role", "switch");
+        sw.setAttribute("aria-checked", "false");
+        sw.addEventListener("click", function () {
+          sw.setAttribute("aria-checked", sw.getAttribute("aria-checked") === "true" ? "false" : "true");
+          touch();
+        });
+        ctl.appendChild(sw); nodes[f.key] = sw;
+      } else {
+        var inp = document.createElement("input");
+        inp.type = "text"; inp.inputMode = "numeric";
+        inp.addEventListener("input", touch); nodes[f.key] = inp;
+        ctl.appendChild(inp);
+      }
+      row.appendChild(lab); row.appendChild(ctl); host.appendChild(row);
+    });
+  }
+
+  function value(key) {
+    var n = nodes[key];
+    return n.tagName === "INPUT" ? n.value : n.getAttribute("aria-checked");
+  }
+
+  function setAll(map) {
+    FIELDS.forEach(function (f) {
+      var v = map && map[f.key] != null ? String(map[f.key]) : f.def;
+      var n = nodes[f.key];
+      if (n.tagName === "INPUT") n.value = v; else n.setAttribute("aria-checked", String(v === "true"));
+    });
+  }
+
+  function touch() {
+    var dirty = FIELDS.some(function (f) { return String(value(f.key)) !== String(saved[f.key] != null ? saved[f.key] : f.def); });
+    $("save").disabled = !dirty;
+    $("smsg").className = "msg";
+    $("smsg").textContent = dirty ? "有改动没保存。" : "已跟这边一致。";
+  }
+
+  function fmt(v) { return v === "true" ? "开" : v === "false" ? "关" : v; }
+
+  function renderCompare() {
+    var body = $("compare"), mod = live && live.mod ? live.mod : null;
+    body.textContent = "";
+    function oneLine(text) {
+      var r = document.createElement("tr"), c = document.createElement("td");
+      c.colSpan = 4; c.textContent = text; r.appendChild(c); body.appendChild(r);
+      $("clash").textContent = "";
+    }
+    if (!live || live.ok === false) { oneLine("实时状态没供进来，这一栏不猜——原因写在上面那块。"); return; }
+    if (!live.connected) {
+      oneLine("没连上游戏，拿不到游戏里的值。下面这张表不留旧值 —— 旧值看起来和新值一模一样。");
+      return;
+    }
+    if (!mod) {
+      var r2 = document.createElement("tr"), c2 = document.createElement("td");
+      c2.colSpan = 4; c2.textContent = "连上了，但这一版模组还没在 state 帧里带 config —— 等游戏端换上支持上报的 jar，这张表才会有内容。";
+      r2.appendChild(c2); body.appendChild(r2); $("clash").textContent = ""; return;
+    }
+    var clash = [];
+    MOD_ROWS.forEach(function (row) {
+      var mv = mod[row.mod];
+      if (mv == null) return;
+      var mtxt = String(mv), tr = document.createElement("tr");
+      var n = document.createElement("td"); n.textContent = row.label;
+      var g = document.createElement("td"); g.textContent = fmt(mtxt);
+      var p = document.createElement("td"), b = document.createElement("b");
+      var ptxt = row.plugin && live.plugin ? String(live.plugin[row.plugin] != null ? live.plugin[row.plugin] : "") : "";
+      b.textContent = row.plugin ? fmt(ptxt) : "—";
+      p.appendChild(b);
+      var v = document.createElement("td"), note = document.createElement("span");
+      if (!row.plugin) { note.textContent = "各管各的"; }
+      else if (ptxt === mtxt) { note.textContent = "一致"; }
+      else {
+        note.textContent = "不一致"; b.className = "warn";
+        clash.push(row);
+      }
+      v.appendChild(note);
+      tr.appendChild(n); tr.appendChild(g); tr.appendChild(p); tr.appendChild(v); body.appendChild(tr);
+    });
+    var box = $("clash"); box.textContent = "";
+    if (!clash.length) {
+      var ok = document.createElement("div"); ok.className = "note teal";
+      ok.textContent = "两边不打架。"; box.appendChild(ok); return;
+    }
+    clash.forEach(function (row) {
+      var d = document.createElement("div"); d.className = "note";
+      d.textContent = "「" + row.label + "」游戏里是 " + fmt(String(mod[row.mod])) +
+        "，WAB 这边是 " + fmt(String(live.plugin[row.plugin])) + "。" + why(row);
+      box.appendChild(d);
+    });
+  }
+
+  function why(row) {
+    if (row.mod === "autonomyEnabled")
+      return "日程要她自己走去挖矿，得游戏里的自主行动也开着才行 —— 这边允许改世界，只决定她愿不愿意执行你点的指令。";
+    if (row.mod === "lanDiscovery")
+      return "发现走的是游戏那边的广播：它不广播，这台机器以外的 WAB 就找不到这个世界。";
+    if (row.mod === "enabled")
+      return "游戏里这个开关关掉后，模组不再发信也不连端口，这边只能显示未连接。";
+    return "";
+  }
+
+  function renderLive() {
+    if (!live || live.ok === false) {
+      $("cState").textContent = "不知道"; $("cState").className = "pill";
+      $("cWorld").textContent = "—"; $("cPort").textContent = "—";
+      $("cMaids").textContent = "—"; $("cAge").textContent = "—";
+      $("cSrc").textContent = (live && live.error) ||
+        "取不到实时状态：这条凭据可能已经作废，关掉窗口从插件中心重新打开一次。";
+      return;
+    }
+    $("cSrc").textContent = "实时值由「" + (live.host || "主程序") +
+      "」在这一刻供进来，页面自己编不出这一栏；每 3 秒重取一次，关掉窗口就没有了。";
+    var on = $("cState");
+    on.textContent = live.connected ? "已连接" : "未连接";
+    on.className = live.connected ? "pill on" : "pill off";
+    $("cWorld").textContent = live.connected ? (live.world || "未知") + " / " + (live.player || "—") : "—";
+    $("cPort").textContent = live.listeningPort ? String(live.listeningPort) : "没在监听";
+    $("cMaids").textContent = live.connected ? String(live.boundMaids) : "—";
+    var age = $("cAge");
+    if (!live.connected) { age.textContent = "—"; age.className = "pill"; }
+    else if (live.modAgeSeconds == null) { age.textContent = "还没上报"; age.className = "pill amber"; }
+    else {
+      var s = Number(live.modAgeSeconds);
+      age.textContent = s < 60 ? s + " 秒前" : Math.round(s / 60) + " 分钟前";
+      age.className = s > 90 ? "pill amber" : "pill on";
+    }
+  }
+
+  function pull() {
+    var a = fetch(runtimeUrl).then(function (r) { return r.json(); }).catch(function () { return null; });
+    var b = fetch(settingsUrl).then(function (r) { return r.json(); }).catch(function () { return null; });
+    return Promise.all([a, b]).then(function (res) {
+      live = res[0];
+      if (res[1] && typeof res[1] === "object") {
+        saved = res[1];
+        // 只在「没有待保存的改动」时回灌：3 秒一次的刷新不该把光标和半截输入吞掉。
+        if ($("save").disabled) setAll(saved);
+      }
+      renderLive(); renderCompare();
+    });
+  }
+
+  $("save").addEventListener("click", function () {
+    var body = {};
+    FIELDS.forEach(function (f) { body[f.key] = value(f.key); });
+    $("smsg").className = "msg"; $("smsg").textContent = "正在写回…";
+    fetch(cb, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        var oky = j && j.ok;
+        if (oky) {
+          // 本机回环上的回调没有身份验证：写没写成，以回调的答复为准，不信浏览器这一侧。
+          saved = body; $("save").disabled = true;
+        }
+        $("smsg").className = oky ? "msg ok" : "msg bad";
+        $("smsg").textContent = oky ? "已保存，下一次检查就把新值推给游戏。"
+                                    : "没写进去：" + ((j && j.error) || "回调没认这个请求");
+        pull();
+      })
+      .catch(function (e) { $("smsg").className = "msg bad"; $("smsg").textContent = "保存失败：" + e; });
+  });
+  $("reload").addEventListener("click", pull);
+
+  build();
+  setAll({});   // 先按默认值铺一遍：回调没答上来时这一栏是默认值，不是空白
+  pull();
+  setInterval(pull, 3000);
+})();
+</script>
+</body>
+</html>

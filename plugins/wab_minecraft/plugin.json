@@ -14,7 +14,7 @@
       { "key": "auto_create_characters", "label": "自动建角色", "type": "switch", "default": "true", "help": "游戏里出现匹配不到角色的女仆时，用她的名字新建一个角色再绑定。" },
       { "key": "allow_world_actions", "label": "允许世界动作", "type": "switch", "default": "true", "help": "挖/放/取水/丢物等会改变游戏世界的动作。关掉后这些指令一律拒绝。" },
       { "key": "allow_gestures", "label": "允许动作与语录", "type": "switch", "default": "true", "help": "招手、抱抱、说话、坐下这类不改世界的动作。" },
-      { "key": "chat_affection", "label": "游戏内聊天加好感", "type": "switch", "default": "true", "help": "玩家在游戏里对女仆说话会回传 WAB 并增加好感/信任。" },
+      { "key": "chat_affection", "label": "游戏内聊天让她判好感", "type": "switch", "default": "true", "help": "玩家在游戏里对女仆说话会回传 WAB，并把这段对话交给她本人判该涨还是该跌（可以是负的）。关掉就只记记忆、不动数值。" },
       { "key": "autonomy_pulse_minutes", "label": "主动思考间隔（分钟）", "type": "number", "default": "0", "help": "WAB 每隔多久主动让 AI 想想女仆接下来该干嘛；0 = 完全交给模组里的日程。" },
       { "key": "backup_minutes", "label": "快照间隔（分钟）", "type": "number", "default": "10", "help": "每隔多久给女仆做一次完整 NBT 快照存进当前存档；0 = 只在连接时和手动调用时备份。" }
     ]
@@ -23,6 +23,7 @@
     "persona": "hooks/persona.js"
   },
   "pages": [
-    { "file": "pages/intro.html", "title": "Minecraft 女仆桥 · 说明" }
+    { "file": "pages/intro.html", "title": "Minecraft 女仆桥 · 说明" },
+    { "file": "pages/config.html", "title": "Minecraft 女仆桥 · 实时面板" }
   ]
 }

@@ -98,6 +98,11 @@ public sealed class RuntimeConfigurator
         // 插件权限：判定走到「问一次」时得回主线程问人，插件的通知也走同一条恢复窗口的路。
         _plugins.Permissions.Prompter = AskPluginPermissionAsync;
         _plugins.Notifier = NotifyPluginAsync;
+        // 设置页要能看见「游戏里现在实际是什么值」：回调口的 GET /runtime 从这里现取，不缓存也不落盘。
+        _plugins.RuntimeProvider = id =>
+            string.Equals(id, Modules.MinecraftBridge.MaidBridgeService.PluginId, StringComparison.Ordinal)
+                ? Task.FromResult<string?>(_maidBridge.RuntimeJson())
+                : Task.FromResult<string?>(null);
         // Minecraft 没连上时不把 maid_* 放进提示词：模型不该看见用不了的工具。
         _tools.ToolVisibility = name =>
             !name.StartsWith("maid_", StringComparison.Ordinal) || _maidBridge.IsConnected;
@@ -490,6 +495,18 @@ public sealed class RuntimeConfigurator
         _chat.ExtraContextProvider = charId =>
         {
             var parts = new List<string>();
+            if (_settings.Current.StatAiControl)
+            {
+                var ch = _engine.ActiveCharacter
+                         ?? (_engine.Roster.TryGetValue(charId, out var data) ? data : null);
+                if (ch is not null)
+                {
+                    var st = ch.State;
+                    parts.Add("数值结算：本轮请在回复最后附一条只给程序读、绝不要念给用户听的指令，格式为【状态:好感±n 信任±n 精力±n】，" +
+                              "n 是整数、可正可负，三项都写（没变化就写 0）。依据刚才这段互动里的亲疏与 TA 此刻心情，给小幅增减，别一次加太多。" +
+                              $"当前：好感 {Math.Clamp(st.Affection, 0, 100)}/100、信任 {Math.Clamp(st.Trust, 0, 100)}/100、精力 {Math.Clamp(st.Energy, 0, 100)}/100。");
+                }
+            }
             if (_settings.Current.PhysiologyEnabled)
             {
                 var b = _body.PromptText();

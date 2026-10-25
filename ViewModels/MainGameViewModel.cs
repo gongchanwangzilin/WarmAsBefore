@@ -1144,6 +1144,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             IsThinking = true;
             var segments = new List<string>();
             var display = "";
+            var rawForStats = "";
             var stickerNames = new List<string>(); // #12：AI 本轮要发的表情（稍后渲染成图）
             try
             {
@@ -1173,6 +1174,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 segments = segs;
                 if (segments.Count == 0) segments.Add(reply.Trim());
                 display = string.Join(" ", segments);
+                rawForStats = reply;
             }
             catch (Exception ex)
             {
@@ -1200,7 +1202,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 var sticker = _stickers.Find(sn);
                 if (sticker is not null) AddMessage("assistant", "", sticker.Path);
             }
-            ApplyChatAffection(charId);
+            _ = ApplyChatAffectionAsync(charId, msg, rawForStats, display);
             CaptureMoment(charId, 1, "聊天");
             var e = ResolveEmotion(display);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
@@ -1285,7 +1287,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             _chat.SetStickerContext(_stickers.BuildContextForAi());
             var desc = string.IsNullOrWhiteSpace(item.Description) ? "" : $"，{item.Description}";
-            var reply = await _chat.Send(charId, $"(用户发来一个表情包：「{item.Name}」{desc})");
+            var prompt = $"(用户发来一个表情包：「{item.Name}」{desc})";
+            var reply = await _chat.Send(charId, prompt);
+            var rawForStats = reply;
             var (replyClean, found) = Services.StickerLibrary.SplitMarkers(reply);
             reply = replyClean;
             stickerNames.AddRange(found);
@@ -1297,7 +1301,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 var st = _stickers.Find(sn);
                 if (st is not null) AddMessage("assistant", "", st.Path);
             }
-            ApplyChatAffection(charId);
+            _ = ApplyChatAffectionAsync(charId, prompt, reply, string.Join(" ", segs));
             _ = AutoSave();
         }
         catch (Exception ex)
@@ -1341,14 +1345,16 @@ public sealed partial class MainGameViewModel : ObservableObject
         IsThinking = true;
         try
         {
-            var reply = await _gifts.GiftAsync(item);
-            reply = await ExecuteMoveMarkersAsync(reply);
-            AddMessage("assistant", reply);
-            CaptureMoment(_engine.State.CharacterId, item.Price >= 50 ? 5 : 3, $"送礼：{item.Name}");
-            AddAffectionPoints(item.Price >= 50 ? 5 : 3, true);
-            var e = ResolveEmotion(reply);
+            var charId = _engine.State.CharacterId;
+            var raw = await _gifts.GiftAsync(item);
+            raw = await ExecuteMoveMarkersAsync(raw);
+            var clean = StripStatDirective(raw);
+            AddMessage("assistant", clean);
+            _ = ApplyChatAffectionAsync(charId, $"你送 TA 了一份「{item.Name}」", raw, clean);
+            CaptureMoment(charId, item.Price >= 50 ? 5 : 3, $"送礼：{item.Name}");
+            var e = ResolveEmotion(clean);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
-            _ = _speech.Speak(reply);
+            _ = _speech.Speak(clean);
             _ = AutoSave();
         }
         catch (Exception ex)
@@ -1369,12 +1375,15 @@ public sealed partial class MainGameViewModel : ObservableObject
         IsThinking = true;
         try
         {
-            var reply = await _gifts.UseAsync(item);
-            reply = await ExecuteMoveMarkersAsync(reply);
-            AddMessage("assistant", reply);
-            var e = ResolveEmotion(reply);
+            var charId = _engine.State.CharacterId;
+            var raw = await _gifts.UseAsync(item);
+            raw = await ExecuteMoveMarkersAsync(raw);
+            var clean = StripStatDirective(raw);
+            AddMessage("assistant", clean);
+            _ = ApplyChatAffectionAsync(charId, $"你自己用了「{item.Name}」。", raw, clean);
+            var e = ResolveEmotion(clean);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
-            _ = _speech.Speak(reply);
+            _ = _speech.Speak(clean);
             _ = AutoSave();
         }
         catch (Exception ex)
@@ -1576,9 +1585,12 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private static readonly HashSet<string> ActionMarkerNames = new() { "下沉", "雀跃", "颤抖" };
 
-    private static readonly Regex ReplyMarkersRegex = new(@"【(移动:[^】]+|CG:[^】]+|下沉|雀跃|颤抖)】", RegexOptions.Compiled);
+    private static readonly Regex ReplyMarkersRegex = new(@"【(移动:[^】]+|CG:[^】]+|状态:[^】]+|下沉|雀跃|颤抖)】", RegexOptions.Compiled);
 
     private static readonly Regex ActionMarkerRegex = new(@"【(下沉|雀跃|颤抖)】", RegexOptions.Compiled);
+
+    /// <summary>数值指令标记：给机器读的（送礼/自用等直接 AddMessage 的路径要用它把标记从展示文本里剥掉）。</summary>
+    private static readonly Regex StatDirectiveRegex = new(@"【\s*状态[^】]*】", RegexOptions.Compiled);
 
     /// <summary>
     /// 把 AI 回复拆成多段：正文按标记位置切段，移动/CG 工具调用就地执行（各自算一段），
@@ -1778,6 +1790,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     private static string StripActionMarkers(string text)
         => ActionMarkerRegex.Replace(text, "");
 
+    /// <summary>去掉数值指令标记（【状态:...】）：它是给机器读的，不该出现在展示/朗读文本里。</summary>
+    private static string StripStatDirective(string text)
+        => StatDirectiveRegex.Replace(text ?? "", "").Trim();
+
     /// <summary>CG 好感增量：AI 评定 → 累加积分 → 写入回忆录。</summary>
     private async Task AskCgAffectionAsync(string file, string title)
     {
@@ -1909,28 +1925,21 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task Headpat()
     {
-        Affection = Math.Min(100, Affection + 2);
         AddMessage("assistant", "小雨被摸了摸头，害羞地笑了~");
-        UpdateStats();
-        AddAffectionPoints(2, true);
         SetEmotionAny("害羞", "闭眼微笑", "开心");
         CaptureMoment(_engine.State.CharacterId, 2, "摸头");
         _ = SinkAnimationAsync();
-        await AutoSave();
+        await JudgeSceneAsync("你轻轻摸了摸 TA 的头，TA 害羞地笑了笑。", 2, 0);
     }
 
     [RelayCommand]
     private async Task Hug()
     {
-        Affection = Math.Min(100, Affection + 3);
-        Trust = Math.Min(100, Trust + 2);
         AddMessage("assistant", "小雨轻轻抱住了你，感觉很温暖。");
-        UpdateStats();
-        AddAffectionPoints(3, true);
         SetEmotionAny("温柔", "闭眼微笑", "开心");
         CaptureMoment(_engine.State.CharacterId, 3, "拥抱");
         _ = JumpAnimationAsync();
-        await AutoSave();
+        await JudgeSceneAsync("你轻轻抱住了 TA，TA 靠在你怀里，很安心。", 3, 2);
     }
 
     [RelayCommand]
@@ -1941,15 +1950,11 @@ public sealed partial class MainGameViewModel : ObservableObject
             AddMessage("assistant", "小雨脸红了，躲开了... 好感度还不够呢。");
             return;
         }
-        Affection = Math.Min(100, Affection + 5);
-        Trust = Math.Min(100, Trust + 3);
         AddMessage("assistant", "小雨踮起脚尖，在你脸颊上轻轻一吻~");
-        UpdateStats();
-        AddAffectionPoints(5, true);
         SetEmotionAny("害羞", "惊讶", "开心");
         CaptureMoment(_engine.State.CharacterId, 5, "亲吻");
         _ = ShakeAnimationAsync();
-        await AutoSave();
+        await JudgeSceneAsync("你踮起脚，在 TA 脸颊上轻轻一吻，TA 害羞地红了脸。", 5, 3);
     }
 
     /// <summary>
@@ -2168,17 +2173,100 @@ public sealed partial class MainGameViewModel : ObservableObject
         TrustPct = Trust / 100.0;
     }
 
-    /// <summary>聊天好感结算：好感走大脑预判倍率（超预期涨快、低于预期涨慢，多轮小数均摊），信任仍固定 +1（信任独立）。</summary>
-    private void ApplyChatAffection(string charId)
+    /// <summary>
+    /// 聊天好感结算，数值全走 AI 判定（混合）：
+    /// ① 内联指令：AI 在回复里直接给出 <c>【状态:好感±n 信任±n 精力±n】</c> 就照它来（零额外调用）；
+    /// ② 兜底：没带指令、但配了模型 → 结构化问一次 AskFeelingDelta；
+    /// ③ 无 AI / 问不出：安全默认，一句不动（不假装涨）。
+    /// 关掉「数值由 AI 控制」时不判 AI，回到旧的固定增量（聊天 +1 好感 +1 信任，精力不动）。
+    /// <paramref name="rawReply"/> 保留机器标记用于解析指令；<paramref name="displayReply"/> 是剥掉标记的正文，供兜底问句。
+    /// </summary>
+    private async Task ApplyChatAffectionAsync(string charId, string text, string rawReply, string displayReply)
     {
-        var gain = 1;
-        try { gain = _brain.ApplyChatGain(charId, 1); }
-        catch (Exception ex) { App.WriteLog("MainGameViewModel.BrainGain -> " + ex.Message); }
-        Affection = Math.Clamp(Affection + gain, 0, 100);
-        Trust = Math.Min(100, Trust + 1);
-        UpdateStats();
-        if (gain > 0) AddAffectionPoints(gain, true);
+        static string Clip(string s) => s.Length <= 120 ? s : s[..120];
+
+        // 0) 关掉 AI 数值控制：不判 AI，回旧固定增量
+        if (!_settings.Current.StatAiControl)
+        {
+            Settle(1, 1, 0);
+            return;
+        }
+
+        // ① 内联指令（零额外调用）
+        var inline = _chat.ParseStatDirective(rawReply);
+        if (inline.Has)
+        {
+            Settle(inline.Affection, inline.Trust, inline.Energy);
+            return;
+        }
+
+        // ② 兜底：配了模型才问；问不出 → ③
+        if (_api.HasAnyEndpoint)
+        {
+            (int Affection, int Trust, string Note)? judged = null;
+            try
+            {
+                judged = await _chat.AskFeelingDeltaAsync($"用户说：{Clip(text)}\nTA 回答：{Clip(displayReply)}");
+            }
+            catch (Exception ex) { App.WriteLog("MainGameViewModel.Judge -> " + ex.Message); }
+            if (judged is not null)
+            {
+                Settle(judged.Value.Affection, judged.Value.Trust, 0);
+                if (!string.IsNullOrWhiteSpace(judged.Value.Note))
+                    App.WriteLog("MainGameViewModel.Feeling -> " + judged.Value.Affection + "/" + judged.Value.Trust + "：" + judged.Value.Note);
+                return;
+            }
+        }
+
+        // ③ 无 AI：不假装涨，只刷新大脑状态面板
         RefreshBrainStatus();
+    }
+
+    /// <summary>
+    /// 动作类（摸头/拥抱/亲吻）没有 AI 回复可解析，走「兜底问一次 / 无 AI 不动」——数值仍由 AI 判，不写死。
+    /// 关掉「数值由 AI 控制」时按 <paramref name="fixedAffection"/>/<paramref name="fixedTrust"/> 的固定增量结算（摸头 +2、拥抱 +3/+2、亲吻 +5/+3），精力不动。
+    /// </summary>
+    private async Task JudgeSceneAsync(string scene, int fixedAffection = 0, int fixedTrust = 0)
+    {
+        if (!_settings.Current.StatAiControl)
+        {
+            Settle(fixedAffection, fixedTrust, 0);
+            return;
+        }
+        if (_api.HasAnyEndpoint)
+        {
+            try
+            {
+                // 判不动时返回 null（没配端点、答非所问）：那就一句不动，别拿「没判」冒充「判成 0」。
+                var judged = await _chat.AskFeelingDeltaAsync(scene);
+                if (judged is null)
+                {
+                    RefreshBrainStatus();
+                    return;
+                }
+                Settle(judged.Value.Affection, judged.Value.Trust, 0);
+                return;
+            }
+            catch (Exception ex) { App.WriteLog("MainGameViewModel.JudgeScene -> " + ex.Message); }
+        }
+        RefreshBrainStatus();
+    }
+
+    /// <summary>把 AI 判出来的增减落到三条数值上：好感/信任可涨可跌，积分只涨不退；精力只累进「AI 修正项」，
+    /// 基线仍随清醒时长走（时间基线 + AI 修正）。</summary>
+    private void Settle(int affectionDelta, int trustDelta, int energyDelta)
+    {
+        Affection = Math.Clamp(Affection + affectionDelta, 0, 100);
+        Trust = Math.Clamp(Trust + trustDelta, 0, 100);
+        if (energyDelta != 0 && _engine.ActiveCharacter is { } ch)
+        {
+            ch.State.EnergyOffset = Math.Clamp(ch.State.EnergyOffset + energyDelta, -60, 40);
+            UpdateEnergy(_time.Now().Now);
+        }
+        UpdateStats();
+        if (affectionDelta > 0) AddAffectionPoints(affectionDelta, true);
+        RefreshBrainStatus();
+        _ = AutoSave();
     }
 
     /// <summary>刷新信息面板「TA 现在什么心情」一句话；总开关关着就整行隐藏。</summary>
@@ -2260,12 +2348,15 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private static readonly string[] WeekCn = { "日", "一", "二", "三", "四", "五", "六" };
 
-    /// <summary>精力值：按「今天醒来的时长」递减——从当天 7 点起算，醒得越久精力越低，午夜清零重算。</summary>
+    /// <summary>精力值 = 时间基线 + AI 修正：基线按「今天醒来的时长」递减（当天 7 点起算，醒得越久越低），
+    /// 再叠上 AI 对本次互动判的修正（EnergyOffset，有界 -60..40，随存档落盘）。</summary>
     private void UpdateEnergy(DateTime now)
     {
         var wake = now.Date.AddHours(7);          // 设定每日早上 7 点为醒来时刻
         var awakeHours = Math.Max(0, (now - wake).TotalHours);
-        Energy = Math.Clamp(100 - (int)(awakeHours * 2.5), 0, 100);   // 每清醒 1 小时约掉 2.5，醒 40 小时才接近 0
+        var baseline = 100 - (int)(awakeHours * 2.5);   // 每清醒 1 小时约掉 2.5，醒 40 小时才接近 0
+        var offset = _engine.ActiveCharacter?.State.EnergyOffset ?? 0;
+        Energy = Math.Clamp(baseline + offset, 0, 100);
         EnergyPct = Energy / 100.0;
     }
 

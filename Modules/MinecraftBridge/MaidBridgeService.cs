@@ -160,7 +160,13 @@ public sealed class MaidBridgeService : IDisposable
             _behaviorSignature = behavior;
             // 只动了白名单/节拍这类行为开关：配置已经在内存里生效，端口和会话都不碰。
             // 以前把这些也当成「配置变了」去重开监听，用户勾一下开关游戏里就掉线重握手一次。
-            if (listener == _configSignature && !retry) return;
+            if (listener == _configSignature && !retry)
+            {
+                // 只是动作开关这类行为项变了：不重开监听，但要把新值当场推给游戏里那位。
+                var live = CurrentSession;
+                if (live is not null) await PushSettingsAsync(live);
+                return;
+            }
 
             _configSignature = listener;
             if (!config.Enabled)
@@ -612,6 +618,7 @@ public sealed class MaidBridgeService : IDisposable
             };
 
             ReadMaids(hello["maids"], session);
+            ApplyModConfig(session, hello);
             var boundChanged = await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
             world.SaveId = _engine.CurrentSaveId;
             await SaveBindingsLockedAsync();
@@ -663,12 +670,7 @@ public sealed class MaidBridgeService : IDisposable
             });
         }
 
-        var settings = new JsonObject
-        {
-            ["allowWorldActions"] = _config.AllowWorldActions,
-            ["allowGestures"] = _config.AllowGestures,
-            ["chatAffection"] = _config.ChatAffection
-        };
+        var settings = BuildSettingsJson();
         return new JsonObject
         {
             ["v"] = ProtocolVersion,
@@ -681,6 +683,126 @@ public sealed class MaidBridgeService : IDisposable
             ["bound"] = bound,
             ["settings"] = settings
         };
+    }
+
+    private JsonObject BuildSettingsJson() => new()
+    {
+        ["allowWorldActions"] = _config.AllowWorldActions,
+        ["allowGestures"] = _config.AllowGestures,
+        ["chatAffection"] = _config.ChatAffection
+    };
+
+    /// <summary>端口没动、只改了动作开关：会话不断，直接把新值推给游戏，省掉退出重连那一步。</summary>
+    private async Task PushSettingsAsync(MaidSession session)
+    {
+        try
+        {
+            await session.SendAsync(new JsonObject
+            {
+                ["v"] = ProtocolVersion,
+                ["type"] = "settings",
+                ["settings"] = BuildSettingsJson()
+            });
+        }
+        catch (Exception ex) { App.WriteLog("MaidBridge.PushSettings -> " + ex.Message); }
+    }
+
+    private static readonly string[] ModConfigKeys =
+    {
+        "enabled", "discoveryPort", "lanDiscovery", "beaconIntervalSeconds",
+        "chatRange", "showHud", "autonomyEnabled", "debug"
+    };
+
+    /// <summary>模组帧里的 config 镜像下来 —— 游戏里 Cloth 面板改的东西只有这一条路回到 WAB。</summary>
+    private void ApplyModConfig(MaidSession session, JsonObject msg)
+    {
+        if (msg["config"] is not JsonObject cfg) return;
+        foreach (var key in ModConfigKeys)
+        {
+            if (cfg[key] is not JsonNode node) continue;
+            var text = ConfigValue(node);
+            if (text.Length == 0) continue;
+            if (session.ModConfig.TryGetValue(key, out var old) && old == text) continue;
+            session.ModConfig[key] = text;
+            session.ModConfigAtUtc = DateTime.UtcNow;
+        }
+        WarnIfSidesDisagree(session);
+    }
+
+    private static string ConfigValue(JsonNode node)
+    {
+        if (node is not JsonValue value) return "";
+        if (value.TryGetValue<bool>(out var b)) return b ? "true" : "false";
+        if (value.TryGetValue<int>(out var i)) return i.ToString(System.Globalization.CultureInfo.InvariantCulture);
+        if (value.TryGetValue<double>(out var d)) return d.ToString("0.###", System.Globalization.CultureInfo.InvariantCulture);
+        return value.TryGetValue<string>(out var s) ? s : "";
+    }
+
+    /// <summary>插件与游戏各有一个开关时，两边不一致要当场说破，别让「她怎么不去挖矿」变成 bug 单。</summary>
+    private void WarnIfSidesDisagree(MaidSession session)
+    {
+        var modAutonomyOff = session.ModConfig.TryGetValue("autonomyEnabled", out var autonomy) && autonomy == "false";
+        if (!_config.AllowWorldActions || !modAutonomyOff)
+        {
+            _autonomyWarned = false;
+            return;
+        }
+        if (_autonomyWarned) return;
+        _autonomyWarned = true;
+        const string text = "游戏里 WAB 配置的「自主行动」是关的，插件这边虽然允许改世界的动作，她也不会自己去挖矿——要她在游戏里跑日程，得把模组配置里的 autonomyEnabled 也打开。";
+        App.WriteLog("MaidBridge.ConfigMismatch -> " + text);
+        var notifier = _plugins.Notifier;
+        if (notifier is null) return;
+        _ = Task.Run(async () =>
+        {
+            try { await notifier("Minecraft 女仆桥", text); }
+            catch (Exception ex) { App.WriteLog("MaidBridge.ConfigMismatch.Notify -> " + ex.Message); }
+        });
+    }
+
+    private bool _autonomyWarned;
+
+    /// <summary>
+    /// 给插件设置页的实时快照：宿主这边的权威值、模组上报的游戏内实际值、以及那份上报有多旧。
+    /// 走 GET /runtime，不落盘 —— 运行时的值一旦写进 settings.json，断线重启后就再也分不清是新是旧。
+    /// </summary>
+    public string RuntimeJson()
+    {
+        var session = CurrentSession;
+        var mod = new JsonObject();
+        if (session is not null)
+            foreach (var (key, value) in session.ModConfig)
+                mod[key] = value;
+
+        var root = new JsonObject
+        {
+            ["ok"] = true,
+            ["connected"] = session is not null,
+            ["world"] = session?.WorldName ?? "",
+            ["player"] = session?.Player ?? "",
+            ["boundMaids"] = session?.MaidCharacters.Count ?? 0,
+            ["listeningPort"] = _tcpPort,
+            ["plugin"] = new JsonObject
+            {
+                ["enabled"] = _config.Enabled,
+                ["port"] = _config.Port,
+                ["lan"] = _config.Lan,
+                ["autoCreateCharacters"] = _config.AutoCreateCharacters,
+                ["allowWorldActions"] = _config.AllowWorldActions,
+                ["allowGestures"] = _config.AllowGestures,
+                ["chatAffection"] = _config.ChatAffection,
+                ["autonomyPulseMinutes"] = _config.AutonomyPulseMinutes,
+                ["backupMinutes"] = _config.BackupMinutes
+            }
+        };
+        if (session is null) root["mod"] = null;
+        else
+        {
+            root["mod"] = mod;
+            if (mod.Count > 0)
+                root["modAgeSeconds"] = (int)Math.Round((DateTime.UtcNow - session.ModConfigAtUtc).TotalSeconds);
+        }
+        return root.ToJsonString(WireJson);
     }
 
     private static string WabVersion()
@@ -841,6 +963,7 @@ public sealed class MaidBridgeService : IDisposable
     private async Task OnStateAsync(MaidSession session, JsonObject msg)
     {
         ApplyWorld(session, msg);
+        ApplyModConfig(session, msg);
         if (msg["maids"] is JsonArray) ReadMaids(msg["maids"], session);
 
         await EnsureBindingsLoadedAsync();
@@ -1200,7 +1323,7 @@ public sealed class MaidBridgeService : IDisposable
 
             await StoreGameChatAsync(charId, text, reply);
             if (_config.ChatAffection)
-                await ApplyChatAffectionAsync(session, charId, maidId);
+                await JudgeChatFeelingAsync(session, charId, maidId, text, reply);
             await PushStatsAsync(session, maidId, charId);
             await MaybeCommitAsync(force: true);
         }
@@ -1231,40 +1354,44 @@ public sealed class MaidBridgeService : IDisposable
         }
     }
 
-    private async Task ApplyChatAffectionAsync(MaidSession session, string charId, string maidId)
+    private async Task JudgeChatFeelingAsync(MaidSession session, string charId, string maidId, string text, string reply)
     {
+        // 「说一句 +1、说五句信任 +1」那种数法没有起伏，说多说的少一个样，敷衍和被惹恼也是一个样。
+        // 把这段对话交回给模型自己判：可以是负的，敷衍就该跌。
+        var judged = await OnUiAsync(() => _chat.AskFeelingDeltaAsync(
+            $"主人刚在游戏里对她说：{Truncate(text, 120)}\n她回答：{Truncate(reply, 120)}"));
+
+        // 聊天次数照记 —— 那是她理过多少回话的凭据，不是发奖的计数器。
+        await EnsureBindingsLoadedAsync();
+        await _bindingOpsLock.WaitAsync();
         try
         {
-            if (!_engine.Roster.TryGetValue(charId, out var ch)) return;
-            ch.State.Affection = Math.Clamp(ch.State.Affection + 1, 0, 100);
-            ch.State.AffectionPoints = Math.Clamp(ch.State.AffectionPoints + 5, 0, 5000);
-            ch.State.LastSeen = DateTime.UtcNow;
-
-            await EnsureBindingsLoadedAsync();
-            await _bindingOpsLock.WaitAsync();
-            try
+            var world = GetOrCreateWorldLocked(session.WorldKey);
+            if (world.Maids.TryGetValue(maidId, out var binding))
             {
-                var world = GetOrCreateWorldLocked(session.WorldKey);
-                if (world.Maids.TryGetValue(maidId, out var binding))
-                {
-                    binding.Chats++;
-                    binding.LastSeen = DateTime.UtcNow;
-                    if (binding.Chats % 5 == 0)
-                        ch.State.Trust = Math.Clamp(ch.State.Trust + 1, 0, 100);
-                    await SaveBindingsLockedAsync();
-                }
+                binding.Chats++;
+                binding.LastSeen = DateTime.UtcNow;
+                await SaveBindingsLockedAsync();
             }
-            finally
-            {
-                _bindingOpsLock.Release();
-            }
+        }
+        finally
+        {
+            _bindingOpsLock.Release();
+        }
 
+        // 判不动就什么都不做：不拿「没判」冒充「判成 0」，也不退回数句子那套。
+        if (judged is null) return;
+        var (affection, trust, note) = judged.Value;
+
+        if (trust != 0 && _engine.Roster.TryGetValue(charId, out var ch))
+        {
+            ch.State.Trust = Math.Clamp(ch.State.Trust + trust, 0, 100);
             await OnUiAsync(() => _characters.UpdateAsync(ch));
         }
-        catch (Exception ex)
-        {
-            App.WriteLog("MaidBridge.ChatAffection -> " + ex.Message);
-        }
+
+        if (affection != 0)
+            await ApplyAffectionAsync(charId, affection,
+                string.IsNullOrWhiteSpace(note) ? "游戏里的一段对话" : note);
     }
 
     private async Task ApplyAffectionAsync(string charId, int delta, string reason)
@@ -2090,6 +2217,9 @@ public sealed class MaidBridgeService : IDisposable
         public ConcurrentDictionary<string, string> MaidCharacters { get; } = new(StringComparer.Ordinal);
         public ConcurrentDictionary<string, string> LastEvents { get; } = new(StringComparer.Ordinal);
         public ConcurrentDictionary<string, DateTime> LastEventAt { get; } = new(StringComparer.Ordinal);
+        /// <summary>模组报回来的游戏内实际配置（Cloth 面板改完就是这个值），键与 WabConfig 一致。</summary>
+        public ConcurrentDictionary<string, string> ModConfig { get; } = new(StringComparer.Ordinal);
+        public DateTime ModConfigAtUtc { get; set; }
         public ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> Pending { get; } = new(StringComparer.Ordinal);
         private readonly SemaphoreSlim _writeLock = new(1, 1);
         private int _requestId;
