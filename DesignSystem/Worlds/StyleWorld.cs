@@ -261,10 +261,10 @@ public static class StyleWorldTokens
     /// </summary>
     public static (double Scale, double Press) MotionOf(StyleWorld w) => w switch
     {
-        StyleWorld.Minimal => (0.68, 1.0),
-        StyleWorld.Gradient => (1.30, 1.5),
-        StyleWorld.Liquid => (1.48, 1.9),
-        _ => (1.0, 1.6)
+        StyleWorld.Minimal => (0.68, 1.8),
+        StyleWorld.Gradient => (1.30, 2.2),
+        StyleWorld.Liquid => (1.48, 2.6),
+        _ => (1.0, 2.4)
     };
 
     // ── 下发 ────────────────────────────────────────────────────────────

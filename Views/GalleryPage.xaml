@@ -20,6 +20,7 @@
             <Setter Property="MinimumHeightRequest" Value="40" />
             <Setter Property="StrokeShape" Value="{DynamicResource WRadiusWell}" />
             <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         </Style>
         <Style x:Key="TabMemoir" TargetType="Border" BasedOn="{StaticResource TabCell}">
             <Style.Triggers>
@@ -54,6 +55,7 @@
         <Style x:Key="CgCell" TargetType="Border" BasedOn="{StaticResource CardSolid}">
             <Setter Property="Padding" Value="0" />
             <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         </Style>
     </ContentPage.Resources>
 

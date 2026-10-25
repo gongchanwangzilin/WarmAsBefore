@@ -1,3 +1,4 @@
+using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
@@ -38,6 +39,18 @@ public partial class TitlePage : ContentPage
         // 走全站唯一的进场入口（见 Motion.Arrive）：起点、步长、只演一次都由它管，
         // 页面这里只负责交出「有哪些带」。
         Motion.Arrive(BrandBand, MenuStack, HeroBand, RailFoot);
+
+        Root.SizeChanged += (_, _) => PlaceRing();
+        HookKeys();
+    }
+
+    protected override void OnDisappearing()
+    {
+        base.OnDisappearing();
+        // 键挂在窗口根上，不属于这一页：不摘掉的话，人已经进了主界面，
+        // 方向键还在替一页看不见的标题页挪光标（e.Handled 也会把键吃掉）。
+        UnhookKeys();
+        SetCaret(-1, -1);
     }
 
     /// <summary>点卡片任意处收掉：等不及的人要的是「进去」，不是「看完整版」。</summary>
@@ -90,4 +103,202 @@ public partial class TitlePage : ContentPage
             IntroNameRow.Children.Add(glyph);
         }
     }
+
+    // ============ 科技风操作模式：方向键选 + Enter 确认 ============
+    // 版式、颜色、字号一律没动 —— 改的只是「怎么选」。
+    // MAUI 的 ContentPage 没有 KeyDown，按项目已有做法（见 MainGamePage.HookDesktopArrowKeys）
+    // 在 WinUI 窗口根上挂；不同的是这里在离开时摘掉，不让一页把键占死。
+    // 光标只在按过方向键之后才现身，所以鼠标用户看到的还是原来那一屏。
+
+    private List<List<NavTarget>>? _cols;
+    private int _col = -1;
+    private int _row;
+    private int _lastRailRow;
+
+    private sealed record NavTarget(VisualElement Element, Action Run);
+
+    private void EnsureTargets()
+    {
+        if (_cols is not null || BindingContext is not TitleViewModel vm) return;
+        _cols = new List<List<NavTarget>>
+        {
+            new()
+            {
+                new(RowSave, () => vm.OpenSaveCommand.Execute(null)),
+                new(RowNovels, () => vm.OpenNovelsCommand.Execute(null)),
+                new(RowRoster, () => vm.OpenRosterCommand.Execute(null)),
+                new(RowSettings, () => vm.OpenSettingsCommand.Execute(null)),
+                new(ExitButton, () => vm.ExitGameCommand.Execute(null))
+            },
+            new() { new(EnterButton, () => vm.StartGameCommand.Execute(null)) }
+        };
+    }
+
+    /// <summary>选中这一格；越界一律夹住不回绕 —— 回绕的指针在人眼里是「怎么又跳回去了」。</summary>
+    private void MoveCaret(int col, int row)
+    {
+        EnsureTargets();
+        if (_cols is null) return;
+        _col = Math.Clamp(col, 0, _cols.Count - 1);
+        var count = _cols[_col].Count;
+        if (_col == 0)
+        {
+            _row = Math.Clamp(row < 0 ? _lastRailRow : row, 0, count - 1);
+            _lastRailRow = _row;
+        }
+        else
+        {
+            _row = Math.Clamp(row < 0 ? _row : row, 0, count - 1);
+        }
+        PlaceRing();
+    }
+
+    private void SetCaret(int col, int row)
+    {
+        _col = col;
+        _row = row;
+        FocusRing.IsVisible = false;
+    }
+
+    /// <summary>
+    /// 把圈摆到当前那一格外面，四周各让出 4px。位置沿父链一路加 Bounds 量出来：
+    /// 平台那套「取元素屏幕坐标」的 API 在 MAUI 各版本间换过名字，而 Bounds 每版都跟着排版走。
+    /// 尺寸直接给（这一层是个空心的 Border，重排它不牵动别人），位移走动画 ——
+    /// 光标一跳会读成「界面自己动了」，滑过去才读成「是我在移动选择」。
+    /// </summary>
+    private void PlaceRing()
+    {
+        var target = CurrentTarget();
+        if (target is null || _col < 0) { FocusRing.IsVisible = false; return; }
+        var (x, y) = OffsetIn(target.Element, Root);
+        FocusRing.WidthRequest = Math.Max(24, target.Element.Width + 8);
+        FocusRing.HeightRequest = Math.Max(20, target.Element.Height + 8);
+        var toX = Math.Max(0, x - 4);
+        var toY = Math.Max(0, y - 4);
+        if (!FocusRing.IsVisible)
+        {
+            FocusRing.TranslationX = toX;
+            FocusRing.TranslationY = toY;
+            FocusRing.IsVisible = true;
+            return;
+        }
+        var ms = MotionTokens.Ms(130);
+        if (ms <= 0)
+        {
+            FocusRing.TranslationX = toX;
+            FocusRing.TranslationY = toY;
+            return;
+        }
+        _ = FocusRing.TranslateTo(toX, toY, (uint)ms, Easing.CubicOut);
+    }
+
+    private NavTarget? CurrentTarget() =>
+        _cols is not null && _col >= 0 && _col < _cols.Count && _row >= 0 && _row < _cols[_col].Count
+            ? _cols[_col][_row]
+            : null;
+
+    private static (double X, double Y) OffsetIn(VisualElement v, VisualElement ancestor)
+    {
+        double x = 0, y = 0;
+        for (VisualElement? c = v; c is not null && !ReferenceEquals(c, ancestor); c = c.Parent as VisualElement)
+        {
+            x += c.Bounds.X;
+            y += c.Bounds.Y;
+        }
+        return (x, y);
+    }
+
+    /// <summary>
+    /// 平台无关的按键解释，返回 true 表示这一键已经被吃掉。
+    /// 两层挡在前面：启动卡（此时底下还看不见，任何键都先去收卡）、条款（模态，不替它选人）。
+    /// </summary>
+    private bool OnKey(TerminalKey key)
+    {
+        if (BindingContext is not TitleViewModel vm) return false;
+        if (IntroCurtain.IsVisible && key != TerminalKey.None)
+        {
+            IntroCard.Skip();
+            return true;
+        }
+        if (vm.ShowDisclaimer) return false;
+
+        switch (key)
+        {
+            case TerminalKey.Up: MoveCaret(_col < 0 ? 0 : _col, _row - 1); return true;
+            case TerminalKey.Down: MoveCaret(_col < 0 ? 0 : _col, _row + 1); return true;
+            case TerminalKey.Left: MoveCaret(0, _col == 1 ? -1 : _row - 1); return true;
+            case TerminalKey.Right: MoveCaret(1, _col == 1 ? _row : -1); return true;
+            case TerminalKey.Enter:
+                if (CurrentTarget() is not { } t) return false;
+                t.Run();
+                return true;
+            case TerminalKey.Escape:
+                SetCaret(-1, -1);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+#if WINDOWS
+    private Microsoft.UI.Xaml.UIElement? _keySink;
+    private Microsoft.UI.Xaml.Input.KeyEventHandler? _keyHandler;
+
+    private void HookKeys()
+    {
+        if (_keySink is not null) return;
+        try
+        {
+            if (Application.Current?.Windows.Count > 0
+                && Application.Current.Windows[0].Handler?.PlatformView is Microsoft.UI.Xaml.Window w
+                && w.Content is Microsoft.UI.Xaml.UIElement root)
+            {
+                _keyHandler = (_, e) =>
+                {
+                    if (OnKey(Map(e.Key))) e.Handled = true;
+                };
+                _keySink = root;
+                root.KeyDown += _keyHandler;
+            }
+        }
+        catch (Exception ex) { App.WriteLog("Title.HookKeys -> " + ex); }
+    }
+
+    private void UnhookKeys()
+    {
+        try
+        {
+            if (_keySink is not null && _keyHandler is not null) _keySink.KeyDown -= _keyHandler;
+        }
+        catch (Exception ex) { App.WriteLog("Title.UnhookKeys -> " + ex); }
+        _keySink = null;
+        _keyHandler = null;
+    }
+
+    private static TerminalKey Map(Windows.System.VirtualKey k) => k switch
+    {
+        Windows.System.VirtualKey.Up or Windows.System.VirtualKey.K => TerminalKey.Up,
+        Windows.System.VirtualKey.Down or Windows.System.VirtualKey.J => TerminalKey.Down,
+        Windows.System.VirtualKey.Left or Windows.System.VirtualKey.H => TerminalKey.Left,
+        Windows.System.VirtualKey.Right or Windows.System.VirtualKey.L => TerminalKey.Right,
+        Windows.System.VirtualKey.Enter or Windows.System.VirtualKey.Space => TerminalKey.Enter,
+        Windows.System.VirtualKey.Escape => TerminalKey.Escape,
+        _ => TerminalKey.None
+    };
+#else
+    private void HookKeys() { }
+    private void UnhookKeys() { }
+#endif
+}
+
+/// <summary>按键到「这一屏听得懂的动作」的翻译：平台层只负责报键名，含义归页面。</summary>
+internal enum TerminalKey
+{
+    None,
+    Up,
+    Down,
+    Left,
+    Right,
+    Enter,
+    Escape
 }

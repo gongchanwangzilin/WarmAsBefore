@@ -1,0 +1,1047 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.CharacterStudioPanel"
+             x:Name="Root"
+             x:DataType="vm:CharacterStudioViewModel">
+
+    <!--
+      角色工作室：左边是「活人」（立绘 + 服装/表情/朝向），右边是分段的资料。
+      原来这里是两层 ActionSheet 加一串输入框：改一句话要按四下，全程看不见 TA 长什么样。
+      现在改哪一条，左边那张脸当场跟着换，反馈写在最底下那一行字里。
+
+      样式全取自现成的令牌与按钮档，本页只补了两件确实需要新东西的地方：
+        · Chip —— 选项块（服装/表情/性别/心情/分类）：静止没有底，选中只把底沉一档，和导航选中同一语言。
+        · Field —— 输入行：一行一句说明加一个框，不发明第四种卡片。
+      几何底板用 BoxView（圆角与色都跟世界走），不画新图形：这是「底板」而不是「装饰」。
+    -->
+    <ContentView.Resources>
+        <Style x:Key="Chip" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinimumHeightRequest" Value="30" />
+            <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+            <Setter Property="BorderColor" Value="{DynamicResource WControlEdge}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource WPillRadius}" />
+            <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        </Style>
+
+        <!-- 输入行：标签在字上、框在下（左右两列在窄屏会挤掉标签，上下排永远放得下） -->
+        <Style x:Key="FieldLabel" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="Margin" Value="2,0,0,4" />
+        </Style>
+        <Style x:Key="Field" TargetType="Entry">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+        <Style x:Key="FieldMulti" TargetType="Editor">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+
+        <Style x:Key="PaneTitle" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSubhead}" />
+            <Setter Property="FontAttributes" Value="Bold" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+        </Style>
+
+        <!-- 眉标：宽体大写拉丁压在小字上，说的是「这一段叫什么」，不是装饰。 -->
+        <Style x:Key="Eyebrow" TargetType="Label">
+            <Setter Property="FontFamily" Value="Bahnschrift" />
+            <Setter Property="CharacterSpacing" Value="3" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
+        </Style>
+
+        <!-- 段号：六段资料共用一条编号脊，翻到哪一栏都认得出「现在在第几段」。 -->
+        <Style x:Key="SectionNo" TargetType="Label">
+            <Setter Property="FontFamily" Value="Bahnschrift" />
+            <Setter Property="FontSize" Value="26" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
+            <Setter Property="VerticalOptions" Value="Center" />
+            <Setter Property="WidthRequest" Value="40" />
+        </Style>
+
+        <!-- 素材格：图是内容，面用卡面，缺图那一格只标一个字，不画红框 -->
+        <Style x:Key="ArtCell" TargetType="Border" BasedOn="{StaticResource CardSolid}">
+            <Setter Property="Padding" Value="4" />
+            <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        </Style>
+    </ContentView.Resources>
+
+    <!--
+      这是一**页**，不是一层弹层：没有 CardDialog 的圆角板、影子和那圈 24px 留白。
+      以前它是弹层，于是抬头挂着一颗 ✕（关闭一个窗口的说法），四周浮着一层灰（页面之间不该有灰），
+      而窗口一窄，内容就横向溢出去——人站在「这是一页」和「这是一个框」之间，两头都读不顺。
+      现在它和角色库、存档页同一级：进来是一页，出去靠返回。
+    -->
+    <Border x:Name="Shell" BackgroundColor="Transparent" StrokeThickness="0"
+            Padding="{OnIdiom Desktop='0,0,0,16', Phone='0,0,0,10'}"
+            HorizontalOptions="Fill" VerticalOptions="Fill">
+        <!-- 抬头 / 分线 / 主体 / 回话条各占一行。分线以前和主体挤在同一行（"Auto,1,Auto"）：
+             那是一根 HeightRequest=1 的 BoxView 掉进 * 行里，被拉成整块主体那么高的底色板，
+             主体又恰好是「五栏全藏」时读起来就成了一片空。 -->
+        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
+
+            <!-- ── 抬头：从档案柜里翻出来的那一格 ─────────────────────────── -->
+            <Grid x:Name="HeadBand" Padding="{OnIdiom Desktop='20,14,20,10', Phone='12,10,12,8'}"
+                  ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" VerticalOptions="Center"
+                        Command="{Binding CloseCommand}" />
+                <!-- 定位条：一屏只有一次，就放在这一屏的开始。三格里只有一格是强调色，另两格是墨与缝。 -->
+                <BoxView Grid.Column="1" WidthRequest="14" VerticalOptions="Fill" Margin="0,2"
+                         Color="{DynamicResource MutedFg}" InputTransparent="True" />
+                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
+                    <!-- 眉标是宽体大写拉丁，压在粗体中文名上：这一对说的是「这一页是什么」，不是装饰字。 -->
+                    <Label Text="// SUBJECT STUDIO" Style="{StaticResource Eyebrow}" />
+                    <Label Text="{Binding Headline}" Style="{StaticResource TxtTitle}"
+                           LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding MetaLine}" Style="{StaticResource TxtCaption}"
+                           LineBreakMode="TailTruncation" />
+                </VerticalStackLayout>
+                <HorizontalStackLayout Grid.Column="3" Spacing="8" VerticalOptions="Center">
+                    <Label Text="{Binding DirtyLabel}" Style="{StaticResource TxtCaption}"
+                           VerticalOptions="Center"
+                           IsVisible="{Binding IsDirty}" />
+                    <Button Text="放弃" Style="{StaticResource BtnGhostSm}"
+                            Command="{Binding RevertCommand}" IsVisible="{Binding IsDirty}" />
+                    <Button Text="{Binding SaveLabel}" Style="{StaticResource BtnPrimarySm}"
+                            Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
+                </HorizontalStackLayout>
+            </Grid>
+            <BoxView Grid.Row="1" x:Name="HeadSep" Style="{StaticResource HSep}"
+                     ScaleX="1" AnchorX="0" />
+
+            <!-- ── 主体：桌面左右两栏，手机上下两段 ───────────────────────
+                 Grid 而不是 FlexLayout：FlexLayout 量 Row 方向的孩子时用「无限宽」，
+                 右栏那些长句会把它的基准宽度撑到远超窗口；舞台虽然写了 352，也会被 Shrink
+                 挤成半宽。用户截图里左栏滑出窗外、右栏压在立绘上的正是这一条。
+                 Grid 的 352 列是硬的，右栏拿 * 列 —— 横向上再没有互相挤压的余地。 -->
+            <Grid Grid.Row="2" x:Name="BodyGrid" ColumnDefinitions="352,*" RowDefinitions="*"
+                  IsClippedToBounds="True">
+
+                <!-- 立绘舞台。整栏可滚：服装/表情芯片比一屏高，滚轮够得着；
+                     立绘框固定 300，不再用 * —— 在 ScrollView 里 * 量出来是 0，人像区会直接消失。 -->
+                <Border x:Name="Stage" Grid.Column="0" BackgroundColor="Transparent" StrokeThickness="0"
+                        Padding="{DynamicResource WPadCard}">
+                    <ScrollView Orientation="Vertical">
+                    <Grid RowDefinitions="300,Auto,Auto,Auto" RowSpacing="0">
+
+                        <!-- 立绘区。
+                             以前立绘身后压着一颗 190px 的姓名首字当底纹，用户的原话是
+                             「大字放在那里无疑是太丑的」：那一个字既不像人，也不提供信息（名字就在下面写着）。
+                             现在这块只放 TA 自己 —— 有立绘放立绘，没有立绘先放头像，两样都没有才露缺图说明。
+                             缺图说明里那枚图记来自 ignoredone.space 的个人图标包（免费工程），
+                             黑/白两版按世界切换 —— 暗档里黑图记会直接消失。 -->
+                        <Grid IsClippedToBounds="True">
+                            <Image x:Name="Portrait" Source="{Binding PreviewSource}" Aspect="AspectFit"
+                                   ScaleX="{Binding MirrorX}"
+                                   IsVisible="{Binding HasPreview}"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+
+                            <!-- 没有立绘时这块底必须说清楚「缺什么」，而不是留一张空舞台 -->
+                            <VerticalStackLayout Spacing="8" IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}"
+                                                 HorizontalOptions="Center" VerticalOptions="Center">
+                                <Image Source="studio_mark.png" WidthRequest="92" HeightRequest="92"
+                                       Opacity="0.32" InputTransparent="True"
+                                       IsVisible="{Binding IsDarkWorld, Converter={StaticResource InverseBool}}" />
+                                <Image Source="studio_mark_dark.png" WidthRequest="92" HeightRequest="92"
+                                       Opacity="0.32" InputTransparent="True"
+                                       IsVisible="{Binding IsDarkWorld}" />
+                                <Label Text="还没有立绘" Style="{StaticResource TxtSubhead}"
+                                       HorizontalOptions="Center" />
+                                <Label Text="在下面「素材」里用一句话生成一套，或从 zip 补进来"
+                                       Style="{StaticResource TxtCaption}" HorizontalTextAlignment="Center"
+                                       HorizontalOptions="Center" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <!-- 名字牌：一条发丝线压住立绘区，下面才是这个人是谁。
+                             这里刻意不用胶囊底 —— 名字是「这一页的主题」，不是一枚标签。
+                             右端那颗方格是 TA 的头像：点它就换一张，空着就露一个加号。
+                             头像不是立绘的缩略图，它是「谁」的那张小照片（列表、对话、手机都用它）。 -->
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                <BoxView Style="{StaticResource HSep}" />
+                                <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}" Margin="0,8,0,0" />
+                                <Label Text="{Binding Headline}" FontSize="27" FontAttributes="Bold"
+                                       TextColor="{DynamicResource WarmDark}" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding PreviewCaption}" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <Border Grid.Column="1" WidthRequest="64" HeightRequest="64"
+                                    VerticalOptions="End" Padding="0"
+                                    BackgroundColor="{DynamicResource WWellBrush}"
+                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                                    StrokeShape="{DynamicResource WRadiusWell}"
+                                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding PickAvatarCommand}" />
+                                </Border.GestureRecognizers>
+                                <Grid>
+                                    <Image Source="{Binding AvatarSource}" Aspect="AspectFill"
+                                           IsVisible="{Binding HasAvatar}" />
+                                    <VerticalStackLayout Spacing="0" InputTransparent="True"
+                                                         HorizontalOptions="Center" VerticalOptions="Center"
+                                                         IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}">
+                                        <Label Text="＋" FontSize="20" TextColor="{DynamicResource MutedFg}"
+                                               HorizontalTextAlignment="Center" />
+                                        <Label Text="头像" Style="{StaticResource TxtCaption}"
+                                               HorizontalTextAlignment="Center" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </Grid>
+
+                        <!-- 读数条：三个真实数字，中间用发丝线隔开。控制台的做法是「大数字 + 小标签」，
+                             不是三张带边框的小卡。 -->
+                        <Grid Grid.Row="2" ColumnDefinitions="*,1,*,1,*" Margin="0,12,0,2">
+                            <VerticalStackLayout Spacing="1">
+                                <Label Text="AFFECTION" Style="{StaticResource Eyebrow}" />
+                                <HorizontalStackLayout Spacing="4">
+                                    <Label Text="{Binding Affection, StringFormat='{0:F0}'}"
+                                           FontFamily="Bahnschrift" FontSize="24"
+                                           TextColor="{DynamicResource WarmDark}" />
+                                    <Label Text="好感" Style="{StaticResource TxtCaption}"
+                                           VerticalOptions="End" Margin="0,0,0,4" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                            <BoxView Grid.Column="1" WidthRequest="1" Color="{DynamicResource WRule}"
+                                     VerticalOptions="Fill" Margin="0,2" />
+                            <VerticalStackLayout Grid.Column="2" Spacing="1" Padding="10,0">
+                                <Label Text="TRUST" Style="{StaticResource Eyebrow}" />
+                                <HorizontalStackLayout Spacing="4">
+                                    <Label Text="{Binding Trust, StringFormat='{0:F0}'}"
+                                           FontFamily="Bahnschrift" FontSize="24"
+                                           TextColor="{DynamicResource WarmDark}" />
+                                    <Label Text="信任" Style="{StaticResource TxtCaption}"
+                                           VerticalOptions="End" Margin="0,0,0,4" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                            <BoxView Grid.Column="3" WidthRequest="1" Color="{DynamicResource WRule}"
+                                     VerticalOptions="Fill" Margin="0,2" />
+                            <VerticalStackLayout Grid.Column="4" Spacing="1" Padding="10,0,0,0">
+                                <Label Text="ENERGY" Style="{StaticResource Eyebrow}" />
+                                <HorizontalStackLayout Spacing="4">
+                                    <Label Text="{Binding Energy, StringFormat='{0:F0}'}"
+                                           FontFamily="Bahnschrift" FontSize="24"
+                                           TextColor="{DynamicResource WarmDark}" />
+                                    <Label Text="精力" Style="{StaticResource TxtCaption}"
+                                           VerticalOptions="End" Margin="0,0,0,4" />
+                                </HorizontalStackLayout>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <!-- 「服装/表情」这两行用 Grid 而不是 HorizontalStackLayout：横排的 stack 会用
+                             「无限宽」去测量子元素，里面的 FlexLayout 因此永远不折行——几十颗选项排成一条
+                             几千像素长的直线，整块面板被顶出屏幕，看到的就是「扭成了一团」。
+                             Grid 的 * 列把宽度还回来，折行才是真的折行。 -->
+                        <VerticalStackLayout Grid.Row="3" Spacing="8" Margin="0,12,0,0">
+                            <BoxView Style="{StaticResource HSep}" Margin="0,0,0,4" />
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <Label Text="服装" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                       WidthRequest="34" />
+                                <FlexLayout Grid.Column="1" Direction="Row" Wrap="Wrap"
+                                            BindableLayout.ItemsSource="{Binding Outfits}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StudioAxisItem">
+                                            <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                    Margin="0,0,6,6"
+                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.WearCommand}"
+                                                    CommandParameter="{Binding Key}">
+                                                <Button.Triggers>
+                                                    <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                                        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                                        <Setter Property="FontAttributes" Value="Bold" />
+                                                        <Setter Property="BorderColor" Value="Transparent" />
+                                                    </DataTrigger>
+                                                </Button.Triggers>
+                                            </Button>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                            </Grid>
+
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                                <Label Text="表情" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                       WidthRequest="34" />
+                                <FlexLayout Grid.Column="1" Direction="Row" Wrap="Wrap"
+                                            BindableLayout.ItemsSource="{Binding Emotions}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StudioAxisItem">
+                                            <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                    Margin="0,0,6,6"
+                                                    Command="{Binding Source={x:Reference Root}, Path=BindingContext.FaceCommand}"
+                                                    CommandParameter="{Binding Key}">
+                                                <Button.Triggers>
+                                                    <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                                        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                                        <Setter Property="FontAttributes" Value="Bold" />
+                                                        <Setter Property="BorderColor" Value="Transparent" />
+                                                    </DataTrigger>
+                                                </Button.Triggers>
+                                            </Button>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                            </Grid>
+
+                            <FlexLayout Direction="Row" Wrap="Wrap">
+                                <Button Text="↔ 换朝向" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                        Command="{Binding FlipCommand}" />
+                                <Button Text="换头像" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                        Command="{Binding PickAvatarCommand}" />
+                            </FlexLayout>
+
+                            <!-- 跨存档共用记忆：原来只有翻到「记忆」那一栏才够得着，而它改的是全局设置、
+                                 影响的是所有角色所有存档——这种分量的档位值得站在随时读得到的地方。
+                                 和「记忆」栏里那颗是同一个开关（都读 VM.CrossSave，改完由 VM 回写），不会各说各话。 -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                                    <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="关掉就一份存档记一份，互不串" Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+                                <Switch x:Name="CrossSwitchStage" Grid.Column="1" VerticalOptions="Center"
+                                        IsToggled="{Binding CrossSave, Mode=OneWay}" />
+                            </Grid>
+
+                            <!-- 缺立绘时那枚图记出自 ignoredone.space 的免费图标包，按来源署名。 -->
+                            <Label Text="占位图记 · 鸣谢 ignoredone.space 个人图标包"
+                                   Style="{StaticResource TxtCaption}"
+                                   TextColor="{DynamicResource WarmFaint}"
+                                   HorizontalOptions="End" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    </ScrollView>
+                </Border>
+
+                <!-- 资料：页签 + 六段内容。拿 BodyGrid 的 * 列，宽度由布局给定，
+                     不再需要 FlexLayout 的 Grow/Shrink 去和舞台抢空间。 -->
+                <Grid x:Name="PaneCol" Grid.Column="1" RowDefinitions="Auto,*"
+                      Padding="{OnIdiom Desktop='0,0,8,0', Phone='0'}">
+                    <FlexLayout Direction="Row" Wrap="Wrap" Padding="{DynamicResource WPadRow}">
+                        <Button Text="01 设定" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                Command="{Binding GoTabCommand}" CommandParameter="set">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabSet}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="02 状态" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                Command="{Binding GoTabCommand}" CommandParameter="state">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabState}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="03 素材" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                Command="{Binding GoTabCommand}" CommandParameter="art">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabArt}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <Button Text="04 记忆" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                Command="{Binding GoTabCommand}" CommandParameter="mem">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabMem}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <!-- 关联那一栏对着一个还不存在的人没有意义：草稿阶段藏起来，建好角色后自己回来 -->
+                        <Button Text="05 关联" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                                IsVisible="{Binding IsNew, Converter={StaticResource InverseBool}}"
+                                Command="{Binding GoTabCommand}" CommandParameter="link">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabLink}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <!-- 试句话对草稿同样成立（它读的是这一屏此刻的字段，不是盘上的人），所以藏不藏不分新旧 -->
+                        <Button Text="06 说句话" Style="{StaticResource Chip}" Margin="0,0,6,0"
+                                Command="{Binding GoTabCommand}" CommandParameter="talk">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabTalk}" Value="True">
+                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="FontAttributes" Value="Bold" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                    </FlexLayout>
+
+                    <ScrollView Grid.Row="1" Padding="{DynamicResource WPadRow}">
+                        <VerticalStackLayout Spacing="14">
+
+                            <!-- ══ 设定 ══════════════════════════════════════ -->
+                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabSet}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="01" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// WHO" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="TA 是谁" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="姓名" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding Name}" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                        <Label Text="昵称（叫 TA 什么）" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding Nickname}"
+                                               Placeholder="留空就用姓名" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="称呼 TA 对你的叫法" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding UserAddress}"
+                                               Placeholder="主人 / 哥哥 / 名字" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="性别" Style="{StaticResource FieldLabel}" />
+                                        <FlexLayout Direction="Row" Wrap="Wrap"
+                                                    BindableLayout.ItemsSource="{Binding GenderChoices}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                    <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                            Margin="0,0,6,4"
+                                                            Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickGenderCommand}"
+                                                            CommandParameter="{Binding Key}">
+                                                        <Button.Triggers>
+                                                            <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                                <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                                                <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                                                <Setter Property="FontAttributes" Value="Bold" />
+                                                                <Setter Property="BorderColor" Value="Transparent" />
+                                                            </DataTrigger>
+                                                        </Button.Triggers>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </FlexLayout>
+                                        <Label Text="想要别的性别？设置 → 性别库里加一个，这里立刻多一颗。"
+                                               Style="{StaticResource TxtCaption}" Margin="2,4,0,0" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="恋爱对象" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="关掉后 TA 不会主动推进关系，周期与亲密内容也不进提示词。"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </VerticalStackLayout>
+                                    <Switch Grid.Column="1" VerticalOptions="Center"
+                                            IsToggled="{Binding IsRomance}" />
+                                </Grid>
+
+                                <VerticalStackLayout Spacing="0">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Text="性格" Style="{StaticResource FieldLabel}" VerticalOptions="End" />
+                                        <Button Grid.Column="1" Text="AI 改写" Style="{StaticResource BtnGhostSm}"
+                                                IsEnabled="{Binding CanAi}"
+                                                Command="{Binding AiCommand}" CommandParameter="性格" />
+                                    </Grid>
+                                    <Editor Style="{StaticResource FieldMulti}" HeightRequest="76"
+                                            Text="{Binding Personality}" Placeholder="TA 的说话方式与脾气" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="0">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Text="背景 / 前情" Style="{StaticResource FieldLabel}" VerticalOptions="End" />
+                                        <Button Grid.Column="1" Text="AI 改写" Style="{StaticResource BtnGhostSm}"
+                                                IsEnabled="{Binding CanAi}"
+                                                Command="{Binding AiCommand}" CommandParameter="背景" />
+                                    </Grid>
+                                    <Editor Style="{StaticResource FieldMulti}" HeightRequest="104"
+                                            Text="{Binding Description}" Placeholder="你们之间发生过什么" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="0">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Text="开场白" Style="{StaticResource FieldLabel}" VerticalOptions="End" />
+                                        <Button Grid.Column="1" Text="AI 改写" Style="{StaticResource BtnGhostSm}"
+                                                IsEnabled="{Binding CanAi}"
+                                                Command="{Binding AiCommand}" CommandParameter="开场白" />
+                                    </Grid>
+                                    <Editor Style="{StaticResource FieldMulti}" HeightRequest="64"
+                                            Text="{Binding Greeting}" Placeholder="TA 上线第一句说什么" />
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <!-- AI 生成整套设定：一句话 → 七行资料，落进字段还要按保存 -->
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="让 AI 写一整份设定" Style="{StaticResource PaneTitle}" />
+                                    <Label Text="一句话描述想要的人，TA 的名字、性别、性格、背景、开场白一次填好。写进字段后仍要按「保存」才落到盘上。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Entry Style="{StaticResource Field}" Text="{Binding AiBrief}"
+                                               Placeholder="例：青梅竹马的邻居姐姐，学医，嘴上嫌弃其实很惦记人" />
+                                        <Button Grid.Column="1" Text="生成" Style="{StaticResource BtnPrimarySm}"
+                                                IsEnabled="{Binding CanAi}"
+                                                Command="{Binding AiWholeCardCommand}" />
+                                    </Grid>
+                                    <ActivityIndicator IsRunning="{Binding AiBusy}"
+                                                       IsVisible="{Binding AiBusy}" HeightRequest="20" />
+
+                                    <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                            Padding="{DynamicResource WPadWell}"
+                                            StrokeShape="{DynamicResource WRadiusWell}"
+                                            IsVisible="{Binding HasAiDraft}">
+                                        <VerticalStackLayout Spacing="8">
+                                            <Label Text="{Binding AiTarget, StringFormat='AI 写的{0}'}"
+                                                   Style="{StaticResource TxtCaption}" />
+                                            <Label Text="{Binding AiDraft}" Style="{StaticResource TxtBodySm}"
+                                                   LineHeight="1.35" />
+                                            <FlexLayout Direction="Row" Wrap="Wrap">
+                                                <Button Text="用这一版" Style="{StaticResource BtnPrimarySm}"
+                                                        Margin="0,0,6,0" Command="{Binding ApplyAiCommand}" />
+                                                <Button Text="再来一版" Style="{StaticResource BtnGhostSm}"
+                                                        Margin="0,0,6,0" Command="{Binding RegenerateAiCommand}" />
+                                                <Button Text="不要了" Style="{StaticResource BtnText}"
+                                                        Command="{Binding DiscardAiCommand}" />
+                                            </FlexLayout>
+                                        </VerticalStackLayout>
+                                    </Border>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+
+                            <!-- ══ 状态 ══════════════════════════════════════ -->
+                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabState}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="02" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// STATUS" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="TA 此刻的状态" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+                                <Label Text="拖动就改，但和设定一样：按「保存」才写进角色。这几项直接进 AI 的提示词。"
+                                       Style="{StaticResource TxtCaption}" />
+
+                                <VerticalStackLayout Spacing="2">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Text="好感" Style="{StaticResource FieldLabel}" />
+                                        <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0:F0} / 100'}"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </Grid>
+                                    <Slider Minimum="0" Maximum="100" Value="{Binding Affection}" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="2">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Text="信任" Style="{StaticResource FieldLabel}" />
+                                        <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0:F0} / 100'}"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </Grid>
+                                    <Slider Minimum="0" Maximum="100" Value="{Binding Trust}" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="2">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Text="精力" Style="{StaticResource FieldLabel}" />
+                                        <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0:F0} / 100'}"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </Grid>
+                                    <Slider Minimum="0" Maximum="100" Value="{Binding Energy}" />
+                                    <Label Text="精力低的时候 TA 会想睡、说话也短。" Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="好感积分（升级用的那把数）" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding AffectionPoints}"
+                                               Keyboard="Numeric" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="此刻在哪" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding Location}"
+                                               Placeholder="家 / 学校 / 医院" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <VerticalStackLayout Spacing="0">
+                                    <Label Text="心情" Style="{StaticResource FieldLabel}" />
+                                    <FlexLayout Direction="Row" Wrap="Wrap"
+                                                BindableLayout.ItemsSource="{Binding MoodChoices}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                        Margin="0,0,6,6"
+                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickMoodCommand}"
+                                                        CommandParameter="{Binding Key}">
+                                                    <Button.Triggers>
+                                                        <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                            <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
+                                                            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+                                                            <Setter Property="FontAttributes" Value="Bold" />
+                                                            <Setter Property="BorderColor" Value="Transparent" />
+                                                        </DataTrigger>
+                                                    </Button.Triggers>
+                                                </Button>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                            <Label Text="记身体周期" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="关掉后提示词里不会出现周期，与 TA 的性别无关。"
+                                                   Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Switch Grid.Column="1" VerticalOptions="Center"
+                                                IsToggled="{Binding CycleTracked}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10"
+                                          IsVisible="{Binding CycleTracked}">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="第几天" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding CycleDay}"
+                                                   Keyboard="Numeric" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="阶段" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding CyclePhase}"
+                                                   Placeholder="menstrual / follicular / luteal" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <Label Text="{Binding CycleNote}" Style="{StaticResource TxtCaption}"
+                                           LineHeight="1.3" />
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="副设定（当下这一阵的 TA）" Style="{StaticResource PaneTitle}" />
+                                    <Label Text="主设定是「TA 是什么样的人」，副设定是「TA 最近怎么样」。它会自己漂，也能回正。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                    <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                            Padding="{DynamicResource WPadWell}"
+                                            StrokeShape="{DynamicResource WRadiusWell}">
+                                        <VerticalStackLayout Spacing="6">
+                                            <Label Text="{Binding SubTone}" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding SubNotes}" Style="{StaticResource TxtCaption}"
+                                                   LineHeight="1.3" />
+                                            <Label Text="{Binding SubDiff}" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+                                    <FlexLayout Direction="Row" Wrap="Wrap">
+                                        <Button Text="看完整副设定" Style="{StaticResource BtnGhostSm}"
+                                                Margin="0,0,6,6" Command="{Binding OpenSubProfileCommand}" />
+                                        <Button Text="回正到主设定" Style="{StaticResource BtnGhostSm}"
+                                                Margin="0,0,6,6" Command="{Binding ResetSubProfileCommand}" />
+                                        <Button Text="心理状况" Style="{StaticResource BtnGhostSm}"
+                                                Command="{Binding OpenMentalHealthCommand}" />
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
+
+                            <!-- ══ 素材 ══════════════════════════════════════ -->
+                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabArt}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="03" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// PORTRAIT" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="服装 × 表情" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+                                <Label Text="一格就是一张立绘。点有图的格子换成那张，点空的格子直接去生成它。"
+                                       Style="{StaticResource TxtCaption}" />
+
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding ArtRows}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StudioArtRow">
+                                            <VerticalStackLayout Spacing="6" Margin="0,0,0,10">
+                                                <Grid ColumnDefinitions="*,Auto">
+                                                    <Label Text="{Binding OutfitName}" Style="{StaticResource TxtBodySm}" />
+                                                    <Label Grid.Column="1" Text="{Binding FillLabel}"
+                                                           Style="{StaticResource TxtCaption}" />
+                                                </Grid>
+                                                <FlexLayout Direction="Row" Wrap="Wrap"
+                                                            BindableLayout.ItemsSource="{Binding Cells}">
+                                                    <BindableLayout.ItemTemplate>
+                                                        <DataTemplate x:DataType="vm:StudioArtCell">
+                                                            <Border Style="{StaticResource ArtCell}"
+                                                                    WidthRequest="76" HeightRequest="86"
+                                                                    Margin="0,0,6,6">
+                                                                <Border.GestureRecognizers>
+                                                                    <TapGestureRecognizer
+                                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickCellCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                </Border.GestureRecognizers>
+                                                                <Grid>
+                                                                    <BoxView WidthRequest="68" HeightRequest="78"
+                                                                             Color="{DynamicResource WellBg}"
+                                                                             IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
+                                                                    <Image Source="{Binding Image}" Aspect="AspectFill"
+                                                                           HeightRequest="78" IsVisible="{Binding HasImage}" />
+                                                                    <Label Text="{Binding CornerLabel}" FontSize="11"
+                                                                           TextColor="{DynamicResource MutedFg}"
+                                                                           HorizontalOptions="End" VerticalOptions="Start" />
+                                                                </Grid>
+                                                            </Border>
+                                                        </DataTemplate>
+                                                    </BindableLayout.ItemTemplate>
+                                                </FlexLayout>
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="生成这一格" Style="{StaticResource PaneTitle}" />
+                                    <Editor Style="{StaticResource FieldMulti}" HeightRequest="64"
+                                            Text="{Binding ArtPrompt}"
+                                            Placeholder="例：白色针织衫配浅色长裙，站在午后窗边，微微笑" />
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                        <Button Text="画立绘" Style="{StaticResource BtnPrimarySm}"
+                                                IsEnabled="{Binding CanGenerateArt}"
+                                                Command="{Binding GenerateArtCommand}" />
+                                        <ActivityIndicator Grid.Column="1" IsRunning="{Binding Busy}"
+                                                           IsVisible="{Binding Busy}" HorizontalOptions="Start" />
+                                    </Grid>
+                                    <Label Text="{Binding ArtHint}" Style="{StaticResource TxtCaption}"
+                                           LineHeight="1.3" />
+                                </VerticalStackLayout>
+
+                                <FlexLayout Direction="Row" Wrap="Wrap">
+                                    <Button Text="导入素材包（zip）" Style="{StaticResource BtnGhostSm}"
+                                            Margin="0,0,6,6" Command="{Binding ImportArtZipCommand}" />
+                                    <Button Text="换头像" Style="{StaticResource BtnGhostSm}"
+                                            Command="{Binding PickAvatarCommand}" />
+                                </FlexLayout>
+                            </VerticalStackLayout>
+
+                            <!-- ══ 记忆 ══════════════════════════════════════ -->
+                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabMem}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="04" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// MEMORY" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="TA 记得什么" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Layers}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StudioLayerRow">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,5">
+                                                <VerticalStackLayout Spacing="1">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                                    <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
+                                                           LineBreakMode="TailTruncation" />
+                                                </VerticalStackLayout>
+                                                <Label Grid.Column="1" Text="{Binding Count}"
+                                                       Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="这份记忆归谁" Style="{StaticResource PaneTitle}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                            <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding ScopePath}" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Switch x:Name="CrossSwitch" Grid.Column="1" VerticalOptions="Center"
+                                                IsToggled="{Binding CrossSave, Mode=OneWay}" />
+                                    </Grid>
+                                    <Label Text="{Binding ScopeLabel}" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="{Binding MemoryHint}" Style="{StaticResource TxtCaption}"
+                                           LineHeight="1.35" />
+                                    <Label Text="这颗开关是全应用的：改了它，所有角色、所有存档一起换档。"
+                                           Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="10">
+                                    <Label Text="这一个角色的 AI 参数" Style="{StaticResource PaneTitle}" />
+                                    <Label Text="留空 = 跟随全局设置。填了就只改 TA，别人的不动。"
+                                           Style="{StaticResource TxtCaption}" />
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="记忆条数" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding OvMemoryTurns}"
+                                                   Placeholder="全局" Keyboard="Numeric" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                            <Label Text="上下文上限" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding OvContextLimit}"
+                                                   Placeholder="全局" Keyboard="Numeric" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="2" Spacing="0">
+                                            <Label Text="温度" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding OvTemperature}"
+                                                   Placeholder="全局" Keyboard="Numeric" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="遗忘指数（天）" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding OvWindowDays}"
+                                                   Placeholder="全局" Keyboard="Numeric" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                            <Label Text="回忆随机度" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding OvRecall}"
+                                                   Placeholder="全局" Keyboard="Numeric" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="把别处的记忆搬进来" Style="{StaticResource PaneTitle}" />
+                                    <Label Text="灵枢（Lingshu）导出的记忆 JSON 可以直接读进来：追加是并进来，替换是先清掉 TA 现在记得的。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                    <FlexLayout Direction="Row" Wrap="Wrap">
+                                        <Button Text="追加记忆" Style="{StaticResource BtnGhostSm}"
+                                                Margin="0,0,6,6" Command="{Binding ImportLingshuCommand}"
+                                                CommandParameter="append" />
+                                        <Button Text="替换记忆" Style="{StaticResource BtnDangerSm}"
+                                                Margin="0,0,6,6" Command="{Binding ImportLingshuCommand}"
+                                                CommandParameter="replace" />
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+
+                                <FlexLayout Direction="Row" Wrap="Wrap">
+                                    <Button Text="核心记忆" Style="{StaticResource BtnGhostSm}"
+                                            Margin="0,0,6,6" Command="{Binding OpenMemoryManageCommand}" />
+                                    <Button Text="关系网" Style="{StaticResource BtnGhostSm}"
+                                            Margin="0,0,6,6" Command="{Binding OpenGraphCommand}" />
+                                    <Button Text="搜事件" Style="{StaticResource BtnGhostSm}"
+                                            Command="{Binding OpenSearchCommand}" />
+                                </FlexLayout>
+                            </VerticalStackLayout>
+
+                            <!-- ══ 关联 ══════════════════════════════════════ -->
+                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabLink}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="05" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// THIS SAVE" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="TA 在这份存档里" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="这份存档的可用配角" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="{Binding AllowedHint}" Style="{StaticResource TxtCaption}"
+                                               LineHeight="1.3" />
+                                    </VerticalStackLayout>
+                                    <Switch x:Name="AllowedSwitch" Grid.Column="1" VerticalOptions="Center"
+                                            IsToggled="{Binding AllowedInSave, Mode=OneWay}" />
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="主角" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="换成别的主角不会删掉 TA，只是这一局不从 TA 开始。"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="1" Text="{Binding MainLabel}"
+                                            Style="{StaticResource BtnGhostSm}"
+                                            Command="{Binding ToggleMainCommand}" />
+                                </Grid>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <VerticalStackLayout Spacing="8">
+                                    <Label Text="复制一个 TA" Style="{StaticResource PaneTitle}" />
+                                    <Label Text="副本共用同一批立绘文件，不占双份磁盘。记忆可以一起带走，也可以从零开始。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="副本名字" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding DuplicateName}" />
+                                    </VerticalStackLayout>
+                                    <FlexLayout Direction="Row" Wrap="Wrap">
+                                        <Button Text="只要资料" Style="{StaticResource BtnGhostSm}"
+                                                Margin="0,0,6,6" Command="{Binding DuplicateCommand}"
+                                                CommandParameter="0" />
+                                        <Button Text="连记忆一起复制" Style="{StaticResource BtnPrimarySm}"
+                                                Margin="0,0,6,6" Command="{Binding DuplicateCommand}"
+                                                CommandParameter="1" />
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+
+                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                        Padding="{DynamicResource WPadWell}"
+                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                    <Label Text="{Binding SaveCountLabel}" Style="{StaticResource TxtCaption}"
+                                           HorizontalOptions="Center" />
+                                </Border>
+                            </VerticalStackLayout>
+
+                            <!-- ══ 说句话 ════════════════════════════════════
+                                 这一栏不是存档：它把「此刻这一屏上填着的设定」临时拼成一个人，
+                                 发给模型听一句回话，读完就算。所以顶上第一句就把这件事说清楚，
+                                 免得用户聊完以为 TA 记住了。 -->
+                            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsTabTalk}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="06" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// REPLY" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="先听听 TA 怎么接话" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+                                <Label Text="这几句只按你现在填的设定回答（还没保存的也算），不写进 TA 的记忆、不进存档。"
+                                       Style="{StaticResource TxtCaption}" LineHeight="1.35" />
+
+                                <VerticalStackLayout Spacing="0" IsVisible="{Binding HasTalkLines, Converter={StaticResource InverseBool}}">
+                                    <Label Text="还没开口。" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="试一句平时会说的话，比如「今天怎么这么早」——口气对不对，一句就能听出来。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding TalkLines}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:TalkLine">
+                                            <!-- 颜色、圆角、内距全吃令牌（BubbleMine/BubbleTheirs 由风格世界算），
+                                                与对话页、GamePage 同一套：换到暗档世界时气泡不会停在旧色。
+                                                用「两个孩子 + IsVisible 互换」而不是 DataTrigger 改 HorizontalOptions：
+                                                这是全站气泡的既有写法，触发器改布局属性在 WinUI 上不总生效。 -->
+                                            <Grid>
+                                                <Border IsVisible="{Binding FromMe}" BackgroundColor="{DynamicResource BubbleMine}"
+                                                        StrokeThickness="0" Padding="{DynamicResource WPadWell}"
+                                                        HorizontalOptions="End" MaximumWidthRequest="380"
+                                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                                    <Label Text="{Binding Text}" Style="{StaticResource TxtBodySm}"
+                                                           TextColor="{DynamicResource SurfaceFg}" LineBreakMode="WordWrap" />
+                                                </Border>
+                                                <Border IsVisible="{Binding FromMe, Converter={StaticResource InverseBool}}"
+                                                        BackgroundColor="{DynamicResource BubbleTheirs}" StrokeThickness="0"
+                                                        Padding="{DynamicResource WPadWell}" HorizontalOptions="Start"
+                                                        MaximumWidthRequest="380" StrokeShape="{DynamicResource WRadiusWell}">
+                                                    <VerticalStackLayout Spacing="2">
+                                                        <Label Text="{Binding Who}" Style="{StaticResource TxtCaption}"
+                                                               TextColor="{DynamicResource MutedFg}" />
+                                                        <Label Text="{Binding Text}" Style="{StaticResource TxtBodySm}"
+                                                               TextColor="{DynamicResource SurfaceFg}" LineBreakMode="WordWrap" />
+                                                    </VerticalStackLayout>
+                                                </Border>
+                                            </Grid>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+
+                                <!-- 输入栏：和上面那条读数同一套语言 —— 眉标交代这一段是什么、
+                                     一根强调色短杠起头、方角、发丝线分隔，按钮不再散在框下面。
+                                     以前它是一个系统输入框下面挂两颗按钮：放在信息栏旁边读起来
+                                     像另一个软件的控件，用户的原话是「信息栏满足了风格，输入栏没有」。 -->
+                                <Border Background="{DynamicResource WWellBrush}"
+                                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                                        StrokeShape="{DynamicResource WRadiusWell}" Padding="0">
+                                    <Grid ColumnDefinitions="2,*" RowDefinitions="Auto,Auto,Auto">
+                                        <BoxView Grid.RowSpan="3" WidthRequest="2" Color="{DynamicResource WAccentInk}"
+                                                 HorizontalOptions="Start" VerticalOptions="Fill" />
+                                        <Grid Grid.Column="1" Padding="12,8,12,4" ColumnDefinitions="*,Auto">
+                                            <Label Text="// SAY" Style="{StaticResource Eyebrow}" />
+                                            <Label Grid.Column="1" Text="回车送出" Style="{StaticResource TxtCaption}" />
+                                        </Grid>
+                                        <Grid Grid.Column="1" Grid.Row="1" Padding="12,0,8,0"
+                                              ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                            <Label Text="›" FontFamily="Bahnschrift" FontSize="18"
+                                                   TextColor="{DynamicResource WarmFaint}"
+                                                   VerticalOptions="Center" />
+                                            <Entry Grid.Column="1" Style="{StaticResource Field}"
+                                                   Text="{Binding TalkInput}"
+                                                   Placeholder="想对 TA 说的话"
+                                                   ReturnCommand="{Binding TalkCommand}" />
+                                            <Button Grid.Column="2" Text="说出去 →" Style="{StaticResource BtnPrimarySm}"
+                                                    IsVisible="{Binding CanTalk}" Command="{Binding TalkCommand}" />
+                                        </Grid>
+                                        <Grid Grid.Column="1" Grid.Row="2" Padding="12,0,12,8" ColumnDefinitions="*,Auto">
+                                            <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                                <ActivityIndicator IsRunning="{Binding TalkBusy}"
+                                                                   IsVisible="{Binding TalkBusy}"
+                                                                   WidthRequest="16" HeightRequest="16" />
+                                                <Label Text="{Binding TalkHint}" Style="{StaticResource TxtCaption}"
+                                                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                            </HorizontalStackLayout>
+                                            <Button Grid.Column="1" Text="擦掉这几句" Style="{StaticResource BtnTextSm}"
+                                                    IsVisible="{Binding HasTalkLines}"
+                                                    Command="{Binding ClearTalkCommand}" />
+                                        </Grid>
+                                    </Grid>
+                                </Border>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Grid>
+            </Grid>
+
+            <!-- ── 底部：任何操作都要有一句回话 ─────────────────────────── -->
+            <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                    Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <ActivityIndicator IsRunning="{Binding Busy}" IsVisible="{Binding Busy}"
+                                       WidthRequest="18" HeightRequest="18" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="{Binding Status}" Style="{StaticResource TxtBodySm}"
+                           VerticalOptions="Center" LineBreakMode="WordWrap" />
+                </Grid>
+            </Border>
+        </Grid>
+    </Border>
+</ContentView>

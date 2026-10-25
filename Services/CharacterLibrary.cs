@@ -652,7 +652,12 @@ public sealed partial class CharacterLibrary
             if (open.Success) m = open;
         }
         var tag = m.Success ? m.Groups[1].Value : fileNameWithoutExt;
-        var emotions = Regex.Split(tag, @"\s*or\s*").Where(e => !string.IsNullOrWhiteSpace(e)).ToList();
+        // 「or」必须是一个独立的词才算分隔符：\s*or\s* 会把 normal 拆成 n + mal（而 normal 正是缺省表情键），
+        // story、history 同理。汉字两侧本来就没有空白，所以用「不是字母数字」当边界，笑or哭 照旧拆得开。
+        var emotions = Regex.Split(tag, @"(?<![0-9A-Za-z])or(?![0-9A-Za-z])", RegexOptions.IgnoreCase)
+            .Select(e => e.Trim())
+            .Where(e => e.Length > 0)
+            .ToList();
         return emotions.Count > 0 ? emotions : new[] { fileNameWithoutExt };
     }
 

@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:views="clr-namespace:WarmAsBefore.Views"
+             x:Class="WarmAsBefore.Views.CharacterStudioPage"
+
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      一个角色的一页。角色库那一列只管「有谁」，要改 TA 的一切就点进来。
+      面板（CharacterStudioPanel）本身就是这一屏的全部内容：左边立绘舞台、右边分段资料；
+      窄屏（手机或把桌面窗口拖窄）由面板自己换成上下排。
+    -->
+    <views:CharacterStudioPanel x:Name="Studio" SizeChanged="OnStudioResized" />
+</ContentPage>

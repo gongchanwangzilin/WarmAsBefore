@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
 
@@ -11,9 +12,12 @@ public sealed partial class TitleViewModel : ObservableObject
     private readonly SettingsManager _settings;
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly SaveManager _save;
+    private readonly CharacterLibrary _library;
+    private readonly NovelLibrary _novels;
 
     [ObservableProperty] private bool _hasSave;
     [ObservableProperty] private string _startLabel = "";
+
         [ObservableProperty] private bool _menuLeft = true;
         [ObservableProperty] private string _themeEffectName = "";
         [ObservableProperty] private string _themeColorName = "经典";
@@ -27,12 +31,15 @@ public sealed partial class TitleViewModel : ObservableObject
         [ObservableProperty] private bool _showIntro = !Helpers.IntroCard.HasPlayed;
 
     public TitleViewModel(GameEngine engine, SettingsManager settings,
-        DesignSystem.Theme.ThemeManager theme, SaveManager save)
+        DesignSystem.Theme.ThemeManager theme, SaveManager save,
+        CharacterLibrary library, NovelLibrary novels)
     {
         _engine = engine;
         _settings = settings;
         _theme = theme;
         _save = save;
+        _library = library;
+        _novels = novels;
         ApplySettings();
         _settings.Applied += ApplySettings;
         _theme.Changed += ApplySettings;
@@ -147,6 +154,8 @@ public sealed partial class TitleViewModel : ObservableObject
     private async Task StartGame()
     {
         App.WriteLog("Title: StartGame clicked, HasSave=" + HasSave);
+        // 进去要用的名册先读起来，但不挡路：验证过场没了，导航不再等这段预载。
+        _ = Prefetch(Gate.Universe);
         // 有存档：再续情缘——直接读最后一次游玩的存档继续；无存档：创建新欢（新开一局）
         if (HasSave)
         {
@@ -159,7 +168,10 @@ public sealed partial class TitleViewModel : ObservableObject
                 }
             }
             catch (Exception ex) { App.WriteLog("Title: LoadLatest EX -> " + ex); }
-            await OpenSave();
+            // 读不到最后一局就交给存档页。这里直连、不再走 OpenGate：
+            // 刚念完一串「载入模拟宇宙」，接着又念一串「挂载存档库」，读起来像程序没听懂那一句。
+            try { await Shell.Current.GoToAsync("save"); }
+            catch (Exception ex) { App.WriteLog("Title: StartGame->save EX -> " + ex); }
             return;
         }
         try
@@ -171,38 +183,57 @@ public sealed partial class TitleViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task OpenSave()
-    {
-        App.WriteLog("Title: OpenSave clicked");
-        try { await Shell.Current.GoToAsync("save"); App.WriteLog("Title: OpenSave nav ok"); }
-        catch (Exception ex) { App.WriteLog("Title: OpenSave EX -> " + ex); }
-    }
+    private Task OpenSave() => OpenGate(Gate.Saves, "save");
 
     [RelayCommand]
-    private async Task OpenSettings()
-    {
-        App.WriteLog("Title: OpenSettings clicked");
-        try { await Shell.Current.GoToAsync("settings"); App.WriteLog("Title: OpenSettings nav ok"); }
-        catch (Exception ex) { App.WriteLog("Title: OpenSettings EX -> " + ex); }
-    }
+    private Task OpenSettings() => OpenGate(Gate.Settings, "settings");
 
     /// <summary>平行宇宙：进入已导入的小说世界选择页。</summary>
     [RelayCommand]
-    private async Task OpenNovels()
-    {
-        App.WriteLog("Title: OpenNovels clicked");
-        try { await Shell.Current.GoToAsync("novelselect"); App.WriteLog("Title: OpenNovels nav ok"); }
-        catch (Exception ex) { App.WriteLog("Title: OpenNovels EX -> " + ex); }
-    }
+    private Task OpenNovels() => OpenGate(Gate.Novels, "novelselect");
 
     /// <summary>角色库：管理所有角色，AI 可调用其他角色，也可让 AI 改写人设。</summary>
     [RelayCommand]
-    private async Task OpenRoster()
+    private Task OpenRoster() => OpenGate(Gate.Roster, "roster");
+
+    /// <summary>一扇门共用这一条：先记一笔日志，再去预载，然后立刻走——不再有等人看完的过场。</summary>
+    private async Task OpenGate(Gate gate, string route)
     {
-        App.WriteLog("Title: OpenRoster clicked");
-        try { await Shell.Current.GoToAsync("roster"); App.WriteLog("Title: OpenRoster nav ok"); }
-        catch (Exception ex) { App.WriteLog("Title: OpenRoster EX -> " + ex); }
+        App.WriteLog($"Title: open {route} clicked");
+        _ = Prefetch(gate);
+        try
+        {
+            await Shell.Current.GoToAsync(route);
+            App.WriteLog($"Title: open {route} nav ok");
+        }
+        catch (Exception ex) { App.WriteLog($"Title: open {route} EX -> " + ex); }
     }
+
+    /// <summary>
+    /// 下一页要用的名册先读起来。导航不等它 —— 它只是让磁盘先转，
+    /// 读失败也不该影响「门已经开了」这件事。
+    /// </summary>
+    private async Task Prefetch(Gate gate)
+    {
+        try
+        {
+            switch (gate)
+            {
+                case Gate.Universe:
+                case Gate.Saves:
+                case Gate.Roster:
+                    await _library.ListAsync();
+                    break;
+                case Gate.Novels:
+                    await _novels.ListAsync();
+                    break;
+            }
+        }
+        catch (Exception ex) { App.WriteLog("Title: Prefetch EX -> " + ex.Message); }
+    }
+
+    /// <summary>预载要看哪一扇门。只为「读什么」而存在，和界面上的入口一一对应。</summary>
+    private enum Gate { Universe, Saves, Settings, Novels, Roster }
 
     [RelayCommand]
     private async Task ExitGame()

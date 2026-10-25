@@ -188,6 +188,9 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<NovelWorldPage>();
         builder.Services.AddTransient<WorldbookPage>();
         builder.Services.AddTransient<CharacterLibraryPage>();
+        // 角色工作室：列表那一行点进来的一页
+        builder.Services.AddTransient<CharacterStudioPage>();
+        builder.Services.AddTransient<CharacterStudioViewModel>();
         builder.Services.AddTransient<ShopPage>();
         builder.Services.AddTransient<ShowcaseListPage>();
         builder.Services.AddTransient<ShowcaseEditPage>();

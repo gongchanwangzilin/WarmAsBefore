@@ -96,32 +96,13 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
         await Shell.Current.GoToAsync("main");
     }
 
+    /// <summary>
+    /// 新建角色 = 进那一页的空白草稿（带 new=1）。这一颗从前连弹三个输入框：名字 → 性别 → 性格，
+    /// 全程看不见 TA 长什么样，写完直接落盘、想改只能再去列表里翻那层菜单。
+    /// start=1 是「建好就按 TA 开一局」：草稿进名册那一刻由那一页接手 Boot / SetCharacter / NewRun。
+    /// </summary>
     [RelayCommand]
-    private async Task CreateCharacter()
-    {
-        var name = await Shell.Current.DisplayPromptAsync("新建角色", "TA 的名字：", "下一步", "取消", "小雨");
-        if (string.IsNullOrWhiteSpace(name)) return;
-        var gender = await Helpers.GenderPrompt.PickAsync("角色性别");
-        if (string.IsNullOrWhiteSpace(gender)) return;
-        var personality = await Shell.Current.DisplayPromptAsync("角色性格", "用几句话描述 TA 的性格：", "创建", "取消", "温柔、害羞、喜欢黏人");
-        if (personality is null) return;
-
-        var ch = _library.CreateDefault(name, gender, personality);
-        if (await _library.AddAsync(ch))
-        {
-            await Refresh();
-            _engine.Boot();
-            _engine.SetCharacter(ch.Profile.Id);
-            // 新角色新一局：立绘随机只在这一刻发生
-            if (_engine.ActiveCharacter is { } fresh2) CharacterLibrary.RandomizeSpriteState(fresh2);
-            _save.NewRun();
-            await Shell.Current.GoToAsync("main");
-        }
-        else
-        {
-            await Shell.Current.DisplayAlert("新建角色", "创建失败", "好");
-        }
-    }
+    private async Task CreateCharacter() => await Shell.Current.GoToAsync("studio?new=1&start=1");
 
     /// <summary>顶栏「＋」：手动新建与 AI 造角色放同一张菜单，不把两个入口都塞进顶栏。</summary>
     [RelayCommand]
