@@ -57,7 +57,7 @@ flowchart LR
 ## 2. 发现与配对（用户描述的五步）
 
 1. **插件选端口**：插件设置 `port`（默认 27322，0 = 自动挑空闲端口）。WAB 启动时读取。
-2. **模组广播**：模组每 3 秒向 UDP `27321` 发一次 `beacon`（同时发广播地址与 `127.0.0.1`，覆盖同机与局域网）。
+2. **模组广播**：模组每 3 秒向 UDP `27321` 发一次 `beacon`，默认只发 `127.0.0.1`（同机）；跨机器要在模组配置里显式打开 `lanDiscovery` 才会朝广播地址与每张网卡发。
 3. **插件（WAB）应答**：WAB 收到广播后，向报文来源单播 `offer`，带上 TCP 端口、一次性 token 与证明。
 4. **验证**：模组连 TCP 并先发 `hello`（nonce + token）。WAB 校验 nonce/token/proof 后回 `welcome`。
 5. **交换信息**：模组上报世界与女仆清单，WAB 回绑定的存档/角色；随后双方互发指令、状态与事件。
@@ -71,7 +71,7 @@ sequenceDiagram
   participant W as WAB 存档/记忆
 
   loop 每 3 秒，直到连上
-    M->>U: beacon {magic, v, nonce, instance, world, player, maids}
+    M->>U: beacon {magic, v, nonce, instance}（不含世界/玩家/女仆）
     U->>M: offer {nonce, port, token, proof, expires}
   end
   M->>H: hello {nonce, token, mod, mc, world, player, maids}
@@ -98,11 +98,12 @@ sequenceDiagram
 
 ```json
 {"magic":"WAB-MAID","v":1,"type":"beacon","nonce":"9f2c…","instance":"a1b2c3",
- "mod":"touhou_little_maid","modVersion":"1.5.3","mc":"1.20.1",
- "world":"MyWorld","player":"Steve","maids":[
-   {"id":"uuid","name":"小女仆","model":"foxmaid","health":20,"bound":false}
- ]}
+ "mod":"touhou_little_maid","modVersion":"1.5.3","mc":"1.20.1"}
 ```
+
+beacon 只带「谁在这儿」这一件事：`world` / `player` / `maids` 都挪到 TCP 的 `hello` 里发，
+因为 WAB 只在配对时才需要它们。未配对的模组因此不会每 3 秒把世界名、玩家名和每个女仆的
+名字、UUID、血量朝局域网广播一遍。
 
 WAB → 模组（UDP 单播，发回来源地址）：
 
@@ -156,7 +157,7 @@ WAB → 模组：
 | --- | --- |
 | `hello` | 握手 |
 | `state` | 女仆与世界快照（5 秒一次或变化时） |
-| `result` | `{id, ok, data, error}` |
+| `result` | `{id, ok, data, error}`；一次性动作的 `data.message` 是她实际做了什么（「正在靠近 Steve」） |
 | `event` | 自主行动、互动、受伤、死亡、日程完成 |
 | `chat` | 玩家在游戏里对女仆说话 |
 | `pong` | 心跳 |
@@ -176,8 +177,8 @@ WAB → 模组：
 | `go` | `maid?, mode, target?, pos?, distance?` | `to/near/follow/wait/home/wander` |
 | `gather` | `maid?, action, pos?, filter?, radius?, count?` | `mine/collect/chop/harvest/scoop/fill` |
 | `hold` | `maid?, action, item?, count?, target?, pos?` | `give/drop/take/feed_player/place/equip` |
-| `act` | `maid?, action, target?, text?, arg?, duration?` | `attack/use/gesture/say/sit/stand/sleep/look/interact_addon` |
-| `plan` | `maid?, action, steps?, autonomy?` | `set/clear/get`；日程步骤由模组本地执行 |
+| `act` | `maid?, action, target?, text?, arg?, duration?` | `attack/use/gesture/say/sit/stand/sleep/look/interact_addon`；`arg` 钳到 64 字符且只留 `a-z0-9_.:-`，`duration` 上限 60 秒 |
+| `plan` | `maid?, action, steps?, autonomy?` | `set/clear/get`；日程步骤由模组本地执行，`clear` 会删掉实体 NBT 里的日程与自发配置 |
 | `bind` | `maid?, character?, create?, gender?, newSave?` | 绑定/新建角色/新建存档 |
 | `backup` | `maid?, label?` | 返回 NBT 快照，WAB 落盘 |
 | `chat` | `maid?, text` | 游戏内聊天转给 WAB |
@@ -198,7 +199,10 @@ WAB → 模组：
 - `random` 是执行概率；`weight` 用于同一时段多步时的抽取。
 - `hours` 是持续时长；采矿这类长动作会分 tick 执行，不做瞬移。
 - 模组只执行“可安全执行”的步骤：目标不存在、工具不够、距离太远会跳过并记 `event`。
+- 坐标类参数（`go`/`gather`/`hold` 的 `pos`）过同一道校验：区块已加载、在 y 上下限和世界边界内、且在她够得到的半径里（移动 128 格、作业 24 格、观察 64 格）；过不了就回明确的失败，不会拿一个不存在的坐标去寻路。
+- `autonomy` 三项都生效：`idleMinutes` 决定空闲多久后自己找事做（默认 5 分钟），`maxActionsPerHour` 是滚动一小时窗口内的自发次数上限（0 或负数 = 不限），`wanderRadius` 限制自发漫游半径。日程换掉时这些缓存一并重置。
 - AI 不需要每分钟思考：日程由模组本地跑；WAB 只在收到 `event` 或用户说话时参与。
+- 日程存在实体 NBT 里（`WabPlan` / `WabAutonomy`，即 `getPersistentData()`），随存档落盘；`plan clear` 真的把这两段删掉，不是只回一句「已清空」。
 - 但日程**只在会话存续期间**跑：WAB 没开或断开时模组不执行任何自主步骤，为的是「换上我们这个 jar、不开 WAB，女仆行为与上游一致」。
 
 ---
@@ -288,19 +292,26 @@ WAB → 模组：
 2. **不凭空造物**：采矿必须真的破坏方块，掉落进女仆背包；工具不对、方块不可破坏就失败。
 3. **不隔空取物**：投喂/给予要求距离 ≤ 3 格，且目标在线。
 4. **不越权**：只操作自己主人所在维度的女仆；不碰其他玩家的女仆。
-5. **可中断**：每个长动作都有 tick 预算（默认 200 tick），超时返回 `timeout` 与已完成部分。
-6. **一次只做一件**：同一女仆同时只接受一个长动作；新指令会取消旧动作并如实返回。
+5. **不绕过保护**：任何破坏方块前先过女仆自己的 `canDestroyBlock`（内含 Forge 的 `onEntityDestroyBlock`），领地/保护类模组的拒绝照常生效；舀水只认源方块、要带空桶，一个桶换一桶，不会再从一个源方块接出 16 桶。
+6. **拿到的东西不会凭空消失**：`give` 目标背包放不下时把余量落到地上，`equip` 换下原槽位物品时把它放回背包或掉落，不会静默吞掉物品。
+7. **可中断**：每个长动作都有 tick 预算（默认 200 tick），超时返回 `timeout` 与已完成部分；取消走统一的 `cancel()`，会把任务压下去的 GUI 状态还原，不然她停服前都不会再动。
+8. **一次只做一件**：同一女仆同时只接受一个长动作；新指令会取消旧动作并如实返回。
 
 ---
 
 ## 9. 安全
 
 - 默认只接受带有效 token 的 TCP 连接；token 30 秒过期、一次使用。
-- 发现（UDP 27321）与会话（TCP）在 `lan=false` 时都只绑 `127.0.0.1`：非局域网模式下本机防火墙看不到任何监听口。局域网连接要在插件设置里显式打开 `lan`，那时才绑 `0.0.0.0`，`host` 也跟着报本机内网地址。
+- **两侧各管一段，都不开就出不了本机**：WAB 的 `lan` 管监听（`lan=false` 时 UDP 27321 与 TCP 只绑 `127.0.0.1`，防火墙看不到任何监听口；打开才绑 `0.0.0.0`，`host` 跟着报本机内网地址）；模组的 `lanDiscovery` 管广播（默认 false 时 beacon 只发 `127.0.0.1`）。跨机器要两边都显式打开，只开一侧连不上。
+- beacon 只带 `magic/v/type/nonce/instance/mod/modVersion/mc`，世界名、玩家名和女仆名单（名字 + UUID + 血量）改由配好之后的 TCP `hello` 上报——没配对的模组不会每 3 秒把这些隐私朝局域网撒一遍。
 - 模组报上来的字符串字段在读取入口统一钳到 2000 字；一帧的上限是 4 MB，超过上限（含一直不发换行）直接断连接，不会先把整帧物化在内存里。
+- 远端来的动画名先归一化再进网络包：小写、去掉 `a-z0-9_.:-` 之外的字符、截到 64，写包时再挡一次 128 上限和孤立代理项。`maid_act gesture arg=<一段话>` 以前会让 `writeUtf(animation, 128)` 抛异常，现在只会安静地停在当前姿态。
 - 回给模型的工具结果超过 8000 字会被裁成骨架 + 前文摘录，并带 `truncated`/`totalChars`，不让一帧 scan 把上下文吃满。
 - 单次会话的女仆数、事件缓存、世界绑定分别封顶 256 / 128 / 64。
-- 模组只执行白名单动作；`allowWorldActions=false` 时 `gather/hold/place` 全部拒绝。
+- 模组只执行白名单动作；`allowWorldActions=false` 时 `gather`、`attack`、`hold`（give/drop/take/feed_player/place/equip）与 `act` 里的 `use`/`attack`/`interact_addon` 全部拒绝，`go` 只挪身体不受限。判断收在 `WabGate` 一处，会话指令和本地日程走同一条闸——关掉开关后日程里的挖矿步骤照样拆不了家。
+- 写 socket 不在服务器线程上做：帧进一条有界队列（256 帧），由独立写线程落盘。对端不收包时队列满、会话直接关掉，游戏主循环不会卡在 TCP 缓冲上。
+- 单条指令执行中抛出任何异常（远端给了 `"pos":[1,2,"abc"]` 这类畸形参数）由分发处兜住，回 `internal_error` 并继续跑，不掀翻 tick 循环。
+- 游戏内聊天只转主人本人的话；别人的发言原样发给全服，不会被桥吞掉。
 - 不执行任意代码、不读文件、不联网（除了连 WAB）。
 - WAB 侧所有工具仍受存档 `SavePermissions` 白名单约束。
 - 日志：WAB `logs/app.log` 的 `MaidBridge` 前缀；模组 `logs/latest.log` 的 `[WAB]` 前缀。
@@ -317,9 +328,14 @@ WAB → 模组：
 | 主动脉冲正在跑 | 心跳循环照旧 ping 与判活（脉冲挪到循环外，不占心跳） |
 | 模组崩溃/退出 | WAB 保留绑定与备份；下次 beacon 重新握手 |
 | WAB 未启动 | 模组继续原版行为，不阻塞游戏 |
+| WAB 停收包（卡住/断网） | 写队列攒满 256 帧 → 模组关会话回到发现；服务器线程一帧都不等 |
+| WAB 断开或崩溃 | 会话一掉，模组就撤掉跟随表、停掉在跑的采集任务（还原 `guiOpening`）并叫停当前寻路——这些都在服务器线程上做；她随即回到上游 AI，不会自己挖到 tick 预算用完 |
+| 对端不收 heartbeat 也收不到包 | 35 秒判活同样会关会话，写线程跟着退出 |
 | 指令超时 | WAB 返回 `error: timeout`；工具结果如实告诉 AI |
+| 指令执行中抛异常 | 模组回 `internal_error`，会话与 tick 循环照常跑 |
 | 存档被用户切换 | 会话保持，绑定指向新存档时以用户当前存档为准 |
 | 同名女仆 | 以实体 UUID 为准；名字只用于首次自动绑定 |
+| `plan clear` | 实体 NBT 里的 `WabPlan`/`WabAutonomy` 一起删掉；换回上游模组或删了 WAB，日程不会继续按点跑 |
 
 ---
 
@@ -338,6 +354,23 @@ WAB → 模组：
 | `backup_minutes` | `10` | 快照间隔 |
 
 设置页只写这些键；真正的连接状态用 WAB 的工具/日志查看，插件页面不直接碰套接字。
+
+### 11.1 模组侧（`config/touhou_little_maid-wab-server.toml`）
+
+单独一个文件、单独注册，不与模组自身的 `touhou_little_maid-server.toml` 抢路径；删掉这个文件回到默认值即可。端口与允许的动作不在这儿——那些由 WAB 的 `welcome`/插件设置下发，这里只回答「这台游戏愿不愿意参与」。
+
+| key | 默认 | 说明 |
+| --- | --- | --- |
+| `enabled` | `true` | 广播并接受 WAB 的指令；关掉就是纯原版 |
+| `discoveryPort` | `27321` | UDP 发现端口，除非 WAB 改了否则别动 |
+| `lanDiscovery` | `false` | 是否朝广播地址与每张网卡发 beacon；默认只发 `127.0.0.1` |
+| `beaconIntervalSeconds` | `3` | 未配对时的广播间隔（1–60） |
+| `chatRange` | `8` | 一句普通聊天会被转给最近的女仆的距离（1–64 格） |
+| `showHud` | `true` | 在 action bar 显示 WAB 侧的好感/信任 |
+| `autonomyEnabled` | `true` | 允许模组本地跑日程与自发行为（仍需会话在线） |
+| `debug` | `false` | 逐帧日志 |
+
+只有 `enabled`/`lanDiscovery` 会改变对外可见的流量，其余是本地行为。游戏侧改完这些不影响上游模组对其他女仆的逻辑。
 
 两条与插件系统升级有关的口径，改键时必须三处一起动：
 
@@ -367,14 +400,19 @@ docs/minecraft-maid-bridge.md
 ```
 src/main/java/com/github/tartaricacid/touhoulittlemaid/compat/wab/
   WabBridge.java          生命周期 / 配置 / 状态缓存
+  WabConfig.java          模组侧 toml 开关
   WabDiscovery.java       UDP beacon / offer
-  WabSession.java         TCP NDJSON / 心跳 / 重连
-  WabDispatcher.java      指令路由
+  WabSession.java         TCP NDJSON / 心跳 / 有界写队列 / 重连
+  WabDispatcher.java      指令路由 / 世界操作闸 / 异常兜底
+  WabGate.java            「会不会改世界」的唯一判据（会话与日程共用）
   WabSensors.java         世界与女仆感知
   WabActions.java         移动 / 挖 / 舀 / 丢 / 喂 / 动作
   WabAutonomy.java        日程 / 随机自发 / 语录
   WabStorage.java         快照 / 背包 / 绑定缓存
-  WabCompat.java          爱恋与其他附属的反射兼容
+  WabCompat.java          爱恋与其他附属的反射兼容、动画名归一化
+  WabAnimationMessage.java 把动画名广播给同维度玩家的网络包
+  WabJson.java            远端 JSON 读取 + 长度钳制
+  WabError.java           统一失败回执
   WabHud.java             好感/信任显示（action bar / BossBar）
 ```
 
