@@ -164,14 +164,14 @@
   <h3>配对的五个步骤</h3>
   <ol class="steps">
     <li><strong>选端口</strong>：插件设置 <code>port</code>（默认 <code>27322</code>，0 = 自动挑空闲口）。宿主启动时读取。</li>
-    <li><strong>游戏里广播</strong>：模组每 3 秒向 UDP <code>27321</code> 发 <code>beacon</code>，默认只发 <code>127.0.0.1</code>；跨机器要在模组配置里显式打开 <code>lanDiscovery</code> 才朝广播地址和每张网卡发。beacon 只说「谁在这儿」，世界名、玩家名、女仆清单等配对成功后才由 <code>hello</code> 上报。</li>
+    <li><strong>游戏里广播</strong>：模组每 3 秒向 UDP <code>27321</code> 发 <code>beacon</code>（回环 + 广播地址都发，覆盖同机与局域网），带世界名、玩家名、女仆清单。</li>
     <li><strong>宿主应答</strong>：收到 beacon 后向来源单播 <code>offer</code>：TCP 端口 + 一次性 token + 30 秒证明（HMAC-SHA256）。</li>
     <li><strong>校验握手</strong>：模组连上 TCP 先发 <code>hello</code>（nonce + token）。宿主核对 token 与证明后回 <code>welcome</code>，绑定存档与角色。</li>
     <li><strong>开始协作</strong>：之后是常态循环——模组上报 <code>state</code> 快照与 <code>event</code> 事件；宿主下发 <code>command</code>（九种指令）与 <code>stats</code>；模组每 10 秒发一次 <code>ping</code>、宿主最迟 15 秒发一次，任何一侧 <strong>35 秒</strong>没收到动静就断开重来。</li>
   </ol>
   <div class="note">
-    安全边界：token 30 秒过期且只用一次；默认只听回环地址，局域网要两侧都显式打开（宿主的 <code>lan</code> 管监听、模组的 <code>lanDiscovery</code> 管广播，只开一侧连不上）；
-    模组只执行白名单动作，破坏方块前走女仆自己的 <code>canDestroyBlock</code>，保护类模组的拒绝照常生效；JS 插件本身<strong>没有网络能力</strong>（清单里没声明 <code>network</code> / <code>localnet</code>，
+    安全边界：token 30 秒过期且只用一次；默认只听回环地址，局域网要显式打开；
+    模组只执行白名单动作；JS 插件本身<strong>没有网络能力</strong>（清单里没声明 <code>network</code> / <code>localnet</code>，
     出网的只有宿主桥服务这一条路）。
   </div>
 </section>
@@ -216,9 +216,9 @@
     <tr><th>键</th><th>默认</th><th>说明</th></tr>
     <tr><td>enabled</td><td>true</td><td>总开关。关掉后宿主不监听端口，游戏回落到原版行为</td></tr>
     <tr><td>port</td><td>27322</td><td>TCP 端口，0 = 自动；改动会热更新，不断已有会话</td></tr>
-    <tr><td>lan</td><td>false</td><td>允许局域网连接，默认只听回环；跨机器还要在模组配置里打开 <code>lanDiscovery</code>（那边管广播）</td></tr>
+    <tr><td>lan</td><td>false</td><td>允许局域网连接，默认只听回环</td></tr>
     <tr><td>auto_create_characters</td><td>true</td><td>匹配不到角色时按女仆名新建</td></tr>
-    <tr><td>allow_world_actions</td><td>true</td><td>挖/放/取水/丢物这类改世界的动作；关掉后游戏里跑日程也挖不了矿</td></tr>
+    <tr><td>allow_world_actions</td><td>true</td><td>挖/放/取水/丢物这类改世界的动作</td></tr>
     <tr><td>allow_gestures</td><td>true</td><td>动作与语录这类不改世界的动作</td></tr>
     <tr><td>chat_affection</td><td>true</td><td>游戏内聊天回传并加好感</td></tr>
     <tr><td>autonomy_pulse_minutes</td><td>0</td><td>WAB 主动思考间隔；0 = 完全交给游戏里日程</td></tr>
