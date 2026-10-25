@@ -58,6 +58,7 @@ public static class PluginCapabilities
     public const string PipelineOverride = "pipeline.override";
     public const string Network = "network";
     public const string LocalNet = "localnet";
+    public const string Stats = "stats";
 
     public static readonly IReadOnlyList<PluginCapability> All = new List<PluginCapability>
     {
@@ -91,6 +92,9 @@ public static class PluginCapabilities
         new(Notify, "发用户通知",
             "在应用里弹一条用户可见的提示。打扰归打扰，但它不改数据，所以默认问一次。",
             PluginRiskTier.Interact, PluginGrant.Ask, false, ""),
+        new(Stats, "调整角色数值",
+            "adjustStat 直接改动某个角色的好感 / 信任 / 精力（走与主流程同一套钳制与落盘）。这是改数据，不是弹提示，所以逐个角色放行。",
+            PluginRiskTier.Interact, PluginGrant.Ask, true, "角色 id，如 stats:mom"),
         new(Page, "打开自带页面",
             "manifest.pages 声明的页面，用系统浏览器打开。点了才开，插件自己弹不出来。",
             PluginRiskTier.Interact, PluginGrant.Allow, false, ""),

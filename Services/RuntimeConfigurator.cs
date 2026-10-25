@@ -103,9 +103,68 @@ public sealed class RuntimeConfigurator
             string.Equals(id, Modules.MinecraftBridge.MaidBridgeService.PluginId, StringComparison.Ordinal)
                 ? Task.FromResult<string?>(_maidBridge.RuntimeJson())
                 : Task.FromResult<string?>(null);
+        // 数值结算的通用口：插件申请到 stats 授权后，用 adjustStat(charId, stat, delta) 改某个角色的
+        // 好感 / 信任 / 精力。走与主流程同一套钳制边界，改动立刻经角色库落盘。
+        _plugins.StatAdjuster = AdjustCharacterStatAsync;
         // Minecraft 没连上时不把 maid_* 放进提示词：模型不该看见用不了的工具。
         _tools.ToolVisibility = name =>
             !name.StartsWith("maid_", StringComparison.Ordinal) || _maidBridge.IsConnected;
+    }
+
+    /// <summary>
+    /// 插件的数值结算口：按角色 id 改好感 / 信任 / 精力，边界与主流程一致
+    /// （好感/信任 0..100，精力走「时间基线 + AI 修正」里的修正项 -60..40）。
+    /// 改完立即经角色库落盘。返回 null 表示成功，否则是给人看的错误文案。
+    /// </summary>
+    private async Task<string?> AdjustCharacterStatAsync(string charId, string stat, int delta)
+    {
+        var target = (charId ?? "").Trim();
+        var name = (stat ?? "").Trim().ToLowerInvariant();
+        switch (name)
+        {
+            case "affection":
+            case "好感":
+            case "好感度":
+            case "trust":
+            case "信任":
+            case "信任度":
+            case "energy":
+            case "精力":
+            case "精力值":
+                break;
+            default:
+                return "不认识的数值名（要 affection / trust / energy）。";
+        }
+        if (delta == 0) return "增减量为 0，没做任何改动。";
+        try
+        {
+            await _characters.LoadAsync();
+            if (!_engine.Roster.TryGetValue(target, out var ch) || ch.State is not { } s)
+                return "没有这个角色的存档：" + target;
+            switch (name)
+            {
+                case "affection":
+                case "好感":
+                case "好感度":
+                    s.Affection = Math.Clamp(s.Affection + delta, 0, 100);
+                    break;
+                case "trust":
+                case "信任":
+                case "信任度":
+                    s.Trust = Math.Clamp(s.Trust + delta, 0, 100);
+                    break;
+                default:
+                    s.EnergyOffset = Math.Clamp(s.EnergyOffset + delta, -60, 40);
+                    break;
+            }
+            var ok = await _characters.UpdateAsync(ch);
+            return ok ? null : "角色库这次没写进去，数值没有落盘。";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("RuntimeConfigurator.adjustStat -> " + ex.Message);
+            return "结算失败：" + ex.Message;
+        }
     }
 
     /// <summary>把设置里的单价表同步进成本服务，并把真实 usage 接到成本账上。</summary>
