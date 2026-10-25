@@ -558,6 +558,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _brainAiKey = s.BrainAiKey;
         _brainAiModel = s.BrainAiModel;
         _brainAiEveryTurns = s.BrainAiEveryTurns;
+        _statAiControl = s.StatAiControl;
         _moneyEnabled = s.MoneyEnabled;
         _imageGenEnabled = s.ImageGenEnabled;
         _imageGenUrl = s.ImageGenUrl;
@@ -1563,6 +1564,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _brainAiKey = "";
     [ObservableProperty] private string _brainAiModel = "";
     [ObservableProperty] private int _brainAiEveryTurns = 8;
+    [ObservableProperty] private bool _statAiControl = true;
     [ObservableProperty] private bool _moneyEnabled = true;
     [ObservableProperty] private bool _imageGenEnabled;
     [ObservableProperty] private string _imageGenUrl = "https://api.openai.com/v1";
@@ -2867,6 +2869,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnBrainAiKeyChanged(string value) => PersistSettings();
     partial void OnBrainAiModelChanged(string value) => PersistSettings();
     partial void OnBrainAiEveryTurnsChanged(int value) => PersistSettings();
+    partial void OnStatAiControlChanged(bool value) => PersistSettings();
     partial void OnImageGenEnabledChanged(bool value) => PersistSettings();
     partial void OnImageGenUrlChanged(string value) => PersistSettings();
     partial void OnImageGenKeyChanged(string value) => PersistSettings();
@@ -3246,6 +3249,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 BrainAiKey = (BrainAiKey ?? "").Trim(),
                 BrainAiModel = (BrainAiModel ?? "").Trim(),
                 BrainAiEveryTurns = Math.Clamp(BrainAiEveryTurns, 2, 999),
+                StatAiControl = StatAiControl,
                 MoneyEnabled = MoneyEnabled,
                 ImageGenEnabled = ImageGenEnabled,
                 ImageGenUrl = (ImageGenUrl ?? "").Trim(),

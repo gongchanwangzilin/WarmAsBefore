@@ -1962,7 +1962,13 @@
             <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardSolid}" IsVisible="{Binding Filter.Brain}">
                     <VerticalStackLayout Spacing="0">
-                        <Label Text="大脑预判" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="数值结算" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="数值由 AI 控制" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="好感、信任、精力的增减交给 AI 判（回复里内联指令为主，没给就兜底问一次，判不动就不动）。关掉则回到旧的固定增量：说一句 +1、动作 +2/+3/+5、精力纯按清醒时长。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding StatAiControl}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Label Text="大脑预判" Style="{StaticResource TxtSubhead}" Margin="0,14,0,0" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="开启大脑预判" Style="{StaticResource TxtBodySm}" />
                             <Label Text="TA 会下意识预估你这次会有多热：超预期就受用、好感涨得快些，低于预期就把热情收着。关掉后一切照旧（好感恒定 +1）。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>

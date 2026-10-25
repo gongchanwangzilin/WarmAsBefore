@@ -154,12 +154,13 @@ public sealed class SaveManager
         if (_engine.ActiveCharacter is { } ch)
         {
             var st = ch.State;
-            var before = (st.Affection, st.AffectionPoints, st.Trust, st.Energy);
+            var before = (st.Affection, st.AffectionPoints, st.Trust, st.Energy, st.EnergyOffset);
             st.Affection = Math.Clamp(st.Affection, 0, 100);
             st.AffectionPoints = Math.Clamp(st.AffectionPoints, 0, 5000);
             st.Trust = Math.Clamp(st.Trust, 0, 100);
             st.Energy = Math.Clamp(st.Energy, 0, 100);
-            if (before != (st.Affection, st.AffectionPoints, st.Trust, st.Energy))
+            st.EnergyOffset = Math.Clamp(st.EnergyOffset, -60, 40);
+            if (before != (st.Affection, st.AffectionPoints, st.Trust, st.Energy, st.EnergyOffset))
                 fixes.Add("把越界的好感/信任/精力数值夹回合法范围");
         }
 

@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using Jint;
 using Jint.Runtime;
@@ -148,6 +149,13 @@ public sealed class PluginHost
 
     /// <summary>发用户可见通知（由 RuntimeConfigurator 注入）：notify(title,text) 要走 notify 授权。</summary>
     public Func<string, string, Task>? Notifier { get; set; }
+
+    /// <summary>
+    /// 实时状态供给（由 RuntimeConfigurator 注入）：插件设置页 GET /runtime 取这一段 JSON。
+    /// 只读、不落盘、不缓存 —— 运行中的值写进 settings.json 会在断线和重启后变成看着像真相的陈旧值。
+    /// 返回 null 表示这个插件没有实时状态。
+    /// </summary>
+    public Func<string, Task<string?>>? RuntimeProvider { get; set; }
 
     /// <summary>当前存档的插件白名单；null = 不限制。</summary>
     public Func<Models.SavePermissions?>? PermissionsProvider { get; set; }
@@ -1115,7 +1123,7 @@ public sealed class PluginHost
     }
 
     /// <summary>
-    /// 回调服务器：只监听 127.0.0.1，处理 POST /save 与 GET /settings。
+    /// 回调服务器：只监听 127.0.0.1，处理 POST /save、GET /settings 与 GET /runtime。
     /// 返回一次性 token——回调端口上没有身份验证，谁都连得上；没有 token，
     /// 「任何本机进程/任何被打开的网页」都能往插件设置里写字。
     /// </summary>
@@ -1204,6 +1212,11 @@ public sealed class PluginHost
                 await WriteJsonAsync(res, 200, all);
                 return;
             }
+            if (ctx.Request.HttpMethod == "GET" && ctx.Request.Url?.AbsolutePath == "/runtime")
+            {
+                await HandleRuntimeAsync(pluginId, res);
+                return;
+            }
             res.StatusCode = 404;
             res.Close();
         }
@@ -1212,6 +1225,53 @@ public sealed class PluginHost
             App.WriteLog("PluginHost.Callback -> " + ex.Message);
             try { res.StatusCode = 500; res.Close(); } catch { }
         }
+    }
+
+    /// <summary>
+    /// GET /runtime：把这插件此刻的实时值给页面。只读、不缓存、不落盘。
+    /// 状态由外部程序经 RuntimeProvider 供进来，页面无法自己证明它是谁给的，所以每条都带上 host。
+    /// </summary>
+    private async Task HandleRuntimeAsync(string pluginId, HttpListenerResponse res)
+    {
+        var host = HostName();
+        string? live;
+        try { live = RuntimeProvider is null ? null : await RuntimeProvider(pluginId); }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginHost.Runtime -> " + ex.Message);
+            await WriteJsonAsync(res, 200, new { ok = false, host, error = "取实时状态时出了错：" + ex.Message });
+            return;
+        }
+        if (string.IsNullOrEmpty(live))
+        {
+            // 没接状态供给不等于页面坏了：要让它区分「这个插件没有实时值」和「取到了但都是空」，后者才是真问题。
+            await WriteJsonAsync(res, 200, new { ok = false, host, error = host + "没给这个插件接实时状态，这一栏是「未知」不是「关」。" });
+            return;
+        }
+        JsonObject root;
+        try
+        {
+            root = JsonObject.Parse(live) as JsonObject ?? throw new InvalidOperationException("不是一段 JSON 对象。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginHost.Runtime.Parse -> " + ex.Message);
+            await WriteJsonAsync(res, 200, new { ok = false, host, error = "实时状态不是合法的 JSON 对象：" + ex.Message });
+            return;
+        }
+        root["host"] ??= host;
+        var raw = Encoding.UTF8.GetBytes(root.ToJsonString());
+        res.StatusCode = 200;
+        res.ContentType = "application/json; charset=utf-8";
+        res.ContentLength64 = raw.Length;
+        await res.OutputStream.WriteAsync(raw);
+        res.Close();
+    }
+
+    private static string HostName()
+    {
+        // AppInfo 在 UI 起来之前会抛；一条只读端点不该为它整个 500。
+        try { return AppInfo.Current.Name; } catch { return "主程序"; }
     }
 
     private static async Task WriteJsonAsync(HttpListenerResponse res, int status, object payload)

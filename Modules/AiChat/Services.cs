@@ -842,6 +842,81 @@ public sealed class ChatEngine
     }
 
     /// <summary>
+    /// 结构化询问：刚才这段对话让 TA 心里的好感与信任各涨还是跌。
+    /// 涨跌由模型判，不写死「说一句加一点」。判不动时返回 null ——
+    /// 把「没判出来」伪装成「判成 0」，界面上看起来就成了她真的无动于衷。
+    /// </summary>
+    public async Task<(int Affection, int Trust, string Note)?> AskFeelingDeltaAsync(string scene)
+    {
+        if (!_api.HasAnyEndpoint) return null;
+        try
+        {
+            var msgs = new List<ChatMessage>
+            {
+                new() { Role = "system", Content = "你是好感度评定器。依据下面这段对话，判断 TA 心里对用户的好感与信任各变化多少。" +
+                    "只输出一行，三个字段用竖线分隔：好感增减|信任增减|不超过二十字的理由。" +
+                    "增减都是整数，好感取 -3 到 3、信任取 -2 到 2，可以是负数；敷衍、冒犯、被惹恼就该给负数。不要输出其它文字。" },
+                new() { Role = "user", Content = scene }
+            };
+            var reply = await _api.Chat(msgs, _cfg);
+            if (string.IsNullOrWhiteSpace(reply)) return null;
+            var parts = reply.Split('|');
+            // 第一个字段都不是数字，整行就不可信：别拿半截输出结算。
+            if (!TrySignedInt(parts[0], -3, 3, out var affection)) return null;
+            var note = parts.Length > 2 ? parts[2].Trim() : "";
+            if (note.Length > 40) note = note[..40];
+            return (affection, parts.Length > 1 ? SignedInt(parts[1], -2, 2) : 0, note);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.AskFeelingDelta -> " + ex.Message);
+            return null;
+        }
+    }
+
+    private static int SignedInt(string text, int lo, int hi) =>
+        TrySignedInt(text, lo, hi, out var v) ? v : 0;
+
+    private static bool TrySignedInt(string text, int lo, int hi, out int value)
+    {
+        var m = Regex.Match(text ?? "", @"-?\d+");
+        if (m.Success && int.TryParse(m.Value, out var v))
+        {
+            value = Math.Clamp(v, lo, hi);
+            return true;
+        }
+        value = 0;
+        return false;
+    }
+
+    /// <summary>
+    /// 解析 AI 回复里的数值指令 <c>【状态:好感±n 信任±n 精力±n】</c>（数值内联主控，零额外调用）。
+    /// 三个字段都可省略；缺失或非法按 0 计，且各自夹回每轮幅度上限
+    /// （好感 -3..3、信任 -2..2、精力 -5..5，精力是「本次互动」的修正量，会累进精力修正项）。
+    /// <see href="#Has">Has</see>=true 表示回复里确实带了这条指令，调用方据此判断「AI 给了数值」
+    /// 还是「该走兜底 / 无 AI 默认」。同一回复出现多条只认第一条。
+    /// </summary>
+    public (int Affection, int Trust, int Energy, bool Has) ParseStatDirective(string? reply)
+    {
+        if (string.IsNullOrWhiteSpace(reply)) return (0, 0, 0, false);
+        var m = Regex.Match(reply, @"【\s*状态\s*[:：]?\s*([^】]*)】");
+        if (!m.Success) return (0, 0, 0, false);
+        var body = m.Groups[1].Value;
+        return (StatNum(body, "好感", -3, 3),
+            StatNum(body, "信任", -2, 2),
+            StatNum(body, "精力", -5, 5),
+            true);
+    }
+
+    private static int StatNum(string body, string label, int lo, int hi)
+    {
+        var m = Regex.Match(body, label + @"[度值]?\s*[:：]?\s*([+\-−]?\d+)");
+        if (!m.Success) return 0;
+        var raw = m.Groups[1].Value.Replace("−", "-");
+        return int.TryParse(raw, out var v) ? Math.Clamp(v, lo, hi) : 0;
+    }
+
+    /// <summary>
     /// 动作标记补正（System 提示，不会以用户身份要求）。
     /// 自动判别：回复有实质内容 → 重输出（要求 AI 完整重写并以标记结尾）；
     /// 回复为空/近乎为空 → 补输出（要求一句简短回应 + 标记）。

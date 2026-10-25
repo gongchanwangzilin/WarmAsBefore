@@ -25,6 +25,9 @@ public sealed record CharacterState
 
     public int Trust { get; set; }
     public int Energy { get; set; } = 100;
+    /// <summary>精力 AI 修正（有界）：叠加在时间基线之上。精力 = clamp(基线 + 修正, 0, 100)；
+    /// 让 AI 对本次互动造成的额外消耗/恢复说话，而不停摆——基线仍随清醒时长自然下滑。</summary>
+    public int EnergyOffset { get; set; }
     public string Mood { get; set; } = "normal";
     public string CurrentOutfit { get; set; } = "default";
     public string CurrentEmotion { get; set; } = "normal";
