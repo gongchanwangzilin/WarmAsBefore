@@ -114,7 +114,12 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddSingleton<Modules.Market.ShopService>();
         builder.Services.AddSingleton<Modules.Market.GiftPanelService>();
         builder.Services.AddSingleton<Modules.Scene.SceneDirector>();
-        builder.Services.AddSingleton<Modules.Update.UpdateService>();
+        // 更新器必须知道自己装的是哪一版，否则新版本会把自己当成 1.3.0，
+        // 反过来把已成为历史的旧版当更新推给用户。版本号在 csproj 的 ApplicationDisplayVersion。
+        builder.Services.AddSingleton(_ => new Modules.Update.UpdateService
+        {
+            CurrentVersion = Microsoft.Maui.ApplicationModel.AppInfo.Current.VersionString
+        });
         builder.Services.AddSingleton<Modules.Sandbox.SandboxPolicy>(sp =>
             new Modules.Sandbox.SandboxPolicy(
                 sp.GetRequiredService<StorageProvider>(),
