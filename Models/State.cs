@@ -334,6 +334,24 @@ public sealed record UserSettings
     /// <summary>上下文 Token 上限（估算值）：对话历史超过该值时，强制把旧对话总结成第一人称记忆。</summary>
     public int ContextTokenLimit { get; init; } = 32000;
 
+    // 大脑预判（两层）：默认本地跑（不花钱），可选配一枚免费小模型每 N 轮补一次「想」。
+    /// <summary>大脑预判总开关：关了两层都不参与好感结算、也不注入提示词，行为等同老版本。</summary>
+    public bool BrainEnabled { get; init; } = true;
+    /// <summary>第一层 · 期待差：AI 心里估你会有多热，实际超预期→多巴胺→好感涨得更快，低于预期→回落。</summary>
+    public bool BrainExpectationEnabled { get; init; } = true;
+    /// <summary>第二层 · 意料之外：让 AI 偶尔不完全顺着最顺的走向，人对自己预测不到的更心动。可关。</summary>
+    public bool BrainSurpriseEnabled { get; init; } = true;
+    /// <summary>可选：让一枚免费小模型每 N 轮补一次预判（更准、但仍省钱）。默认关；关掉就纯本地启发式。</summary>
+    public bool BrainAiAssistEnabled { get; init; }
+    /// <summary>预判模型端点（OpenAI 兼容 chat/completions）；留空则复用上面的对话端点。</summary>
+    public string BrainAiUrl { get; init; } = "";
+    /// <summary>预判模型密钥；留空则复用对话密钥/厂商密钥池。</summary>
+    public string BrainAiKey { get; init; } = "";
+    /// <summary>预判模型名（填免费档，如 qwen-flash / glm-4-flash / deepseek-chat）。留空 = 不启用。</summary>
+    public string BrainAiModel { get; init; } = "";
+    /// <summary>免费模型预判的节流：每多少轮问一次。越大越省，默认 8。</summary>
+    public int BrainAiEveryTurns { get; init; } = 8;
+
     // 语音
     public bool TtsEnabled { get; init; } = true;
     public double TtsRate { get; init; } = 1.0;

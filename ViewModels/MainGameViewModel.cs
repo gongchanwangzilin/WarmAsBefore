@@ -38,6 +38,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly Modules.Scene.SceneDirector _sceneDirector;
     private readonly Services.MapActorService _mapActors;
     private readonly Services.StickerLibrary _stickers;
+    private readonly Services.BrainAnticipationService _brain;
 
     [ObservableProperty] private string _locationLabel = "家";
     [ObservableProperty] private string _timeLabel = "";
@@ -135,6 +136,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _dateLabel = "";
     [ObservableProperty] private int _energy = 100;
     [ObservableProperty] private double _energyPct = 1.0;
+    /// <summary>大脑预判：信息面板里「TA 现在什么心情」的一句话（总开关关着就整行不显示）。</summary>
+    [ObservableProperty] private string _brainStatusText = "";
+    [ObservableProperty] private bool _brainVisible;
     // ============ 多角色单场景：气泡式开关 + 沉默提示 ============
     [ObservableProperty] private bool _useBubbleChat;
     [ObservableProperty] private string _silenceHintText = "";
@@ -294,6 +298,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
         Services.MapActorService mapActors, Services.StickerLibrary stickers,
+        Services.BrainAnticipationService brain,
         PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout,
         Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api,
         PageWindowService pageWindows)
@@ -321,6 +326,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _cal = cal;
         _mapActors = mapActors;
         _stickers = stickers;
+        _brain = brain;
         _portraits = portraits;
         _blackout = blackout;
         _bridge = bridge;
@@ -897,6 +903,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         AffectionLevel = Modules.Affection.AffectionLevel.LevelOf(ch.State.AffectionPoints);
         AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(AffectionLevel);
         UpdateStats();
+        RefreshBrainStatus();
 
         // 服装 / 表情：一律**读档恢复**，这里绝不重新随机。
         //
@@ -1193,10 +1200,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 var sticker = _stickers.Find(sn);
                 if (sticker is not null) AddMessage("assistant", "", sticker.Path);
             }
-            Affection = Math.Min(100, Affection + 1);
-            Trust = Math.Min(100, Trust + 1);
-            UpdateStats();
-            AddAffectionPoints(1, true);
+            ApplyChatAffection(charId);
             CaptureMoment(charId, 1, "聊天");
             var e = ResolveEmotion(display);
             SetEmotion(e ?? RandomEmotion() ?? _defaultEmotion);
@@ -1293,10 +1297,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 var st = _stickers.Find(sn);
                 if (st is not null) AddMessage("assistant", "", st.Path);
             }
-            Affection = Math.Min(100, Affection + 1);
-            Trust = Math.Min(100, Trust + 1);
-            UpdateStats();
-            AddAffectionPoints(1, true);
+            ApplyChatAffection(charId);
             _ = AutoSave();
         }
         catch (Exception ex)
@@ -2165,6 +2166,36 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         AffectionPct = Affection / 100.0;
         TrustPct = Trust / 100.0;
+    }
+
+    /// <summary>聊天好感结算：好感走大脑预判倍率（超预期涨快、低于预期涨慢，多轮小数均摊），信任仍固定 +1（信任独立）。</summary>
+    private void ApplyChatAffection(string charId)
+    {
+        var gain = 1;
+        try { gain = _brain.ApplyChatGain(charId, 1); }
+        catch (Exception ex) { App.WriteLog("MainGameViewModel.BrainGain -> " + ex.Message); }
+        Affection = Math.Clamp(Affection + gain, 0, 100);
+        Trust = Math.Min(100, Trust + 1);
+        UpdateStats();
+        if (gain > 0) AddAffectionPoints(gain, true);
+        RefreshBrainStatus();
+    }
+
+    /// <summary>刷新信息面板「TA 现在什么心情」一句话；总开关关着就整行隐藏。</summary>
+    private void RefreshBrainStatus()
+    {
+        var charId = _engine.State.CharacterId;
+        if (string.IsNullOrEmpty(charId)) { BrainVisible = false; BrainStatusText = ""; return; }
+        try
+        {
+            BrainVisible = _brain.IsVisible(charId);
+            BrainStatusText = _brain.StatusText(charId);
+        }
+        catch (Exception ex)
+        {
+            BrainVisible = false; BrainStatusText = "";
+            App.WriteLog("MainGameViewModel.BrainStatus -> " + ex.Message);
+        }
     }
 
     private void UpdateTime()

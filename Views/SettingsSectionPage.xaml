@@ -1956,6 +1956,61 @@
                 </Border>
             </VerticalStackLayout>
         </DataTemplate>
+
+        <!-- 卡片 34：大脑预判（期待差 + 意料之外，默认本地不花钱；可选免费小模型每 N 轮补一次预判） -->
+        <DataTemplate x:Key="Card34">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}" IsVisible="{Binding Filter.Brain}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="大脑预判" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="开启大脑预判" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="TA 会下意识预估你这次会有多热：超预期就受用、好感涨得快些，低于预期就把热情收着。关掉后一切照旧（好感恒定 +1）。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding BrainEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="期待差（多巴胺）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="按预测误差浮动好感涨速（约 0.2~1.8 倍）。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding BrainExpectationEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="意料之外（惊喜）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="偶尔不完全顺着最顺的走向：停半拍、换个角度、提一件好奇的小事。只微微制造一点预测不到的心动，情绪低落时自动停用。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding BrainSurpriseEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
+                        <Label Text="免费小模型辅助预判（可选）" Style="{StaticResource TxtSubhead}" Margin="0,14,0,2" />
+                        <Label Text="默认完全本地跑、不花钱。想更准可指定一枚便宜/免费的模型，每 N 轮补一次「预判下一条多热」，结果缓存进存档；不开就用本地启发式。" Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="用小模型补预判" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding BrainAiAssistEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="接口地址" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding BrainAiUrl}" Placeholder="留空则沿用上面的 AI 地址"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
+                                   IsEnabled="{Binding BrainAiAssistEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="密钥" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding BrainAiKey}" IsPassword="True" Placeholder="留空则沿用上面的 AI 密钥（只存本地，不进云存档）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
+                                   IsEnabled="{Binding BrainAiAssistEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="96,*" Padding="0,13">
+                            <Label Text="模型" VerticalOptions="Center" FontSize="13" />
+                            <Entry Text="{Binding BrainAiModel}" Placeholder="一个便宜/免费的模型名"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
+                                   IsEnabled="{Binding BrainAiAssistEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding BrainAiAssistEnabled}">
+                            <Label Text="{Binding BrainAiEveryTurns, StringFormat='每 {0} 轮补一次'}" FontSize="13" VerticalOptions="Center" />
+                            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
+                                <Slider WidthRequest="140" Minimum="2" Maximum="30" Value="{Binding BrainAiEveryTurns}" />
+                            </Grid>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
     </ContentPage.Resources>
 
 <Grid RowDefinitions="Auto,*" Padding="0">
