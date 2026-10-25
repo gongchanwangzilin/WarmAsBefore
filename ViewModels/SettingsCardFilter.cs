@@ -21,6 +21,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
     [ObservableProperty] private bool _textSfx = true;
     [ObservableProperty] private bool _ai = true;
     [ObservableProperty] private bool _memory = true;
+    [ObservableProperty] private bool _brain = true;
     [ObservableProperty] private bool _voice = true;
     [ObservableProperty] private bool _notify = true;
     [ObservableProperty] private bool _weather = true;
@@ -50,6 +51,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
         ("TextSfx", new[] { "文字音效", "打字音", "文字声音" }),
         ("Ai", new[] { "ai", "模型", "端点", "厂商", "密钥", "api", "温度", "超时", "识图", "视觉", "轮换" }),
         ("Memory", new[] { "记忆", "回忆", "上下文", "总结", "折叠", "关系网", "标签", "副设定", "省", "花费", "token", "价钱", "排行榜", "日记" }),
+        ("Brain", new[] { "大脑", "预判", "期待", "多巴胺", "意料", "意外", "惊喜", "心动", "猜心" }),
         ("Voice", new[] { "语音", "朗读", "tts", "stt", "识别", "音色", "sovits", "whisper" }),
         ("Notify", new[] { "通知", "问候", "提醒" }),
         ("Weather", new[] { "天气", "打雷", "下雨", "生活", "周期" }),
@@ -121,6 +123,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
             case "TextSfx": TextSfx = value; break;
             case "Ai": Ai = value; break;
             case "Memory": Memory = value; break;
+            case "Brain": Brain = value; break;
             case "Voice": Voice = value; break;
             case "Notify": Notify = value; break;
             case "Weather": Weather = value; break;

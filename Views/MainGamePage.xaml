@@ -469,6 +469,11 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感等级</Label>
                         <Label Text="{Binding AffectionLevelLabel}" TextColor="{DynamicResource AccentWarmFg}" FontSize="13" FontAttributes="Bold" />
                     </VerticalStackLayout>
+                    <!-- 大脑预判：一句话读出 TA 现在什么心情（总开关关着整行隐藏） -->
+                    <VerticalStackLayout Spacing="2" IsVisible="{Binding BrainVisible}">
+                        <Label TextColor="{DynamicResource MutedFg}" FontSize="11">TA 的心情</Label>
+                        <Label Text="{Binding BrainStatusText}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">信任度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">

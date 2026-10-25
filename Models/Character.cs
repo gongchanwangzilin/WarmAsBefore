@@ -32,6 +32,39 @@ public sealed record CharacterState
     public string Location { get; set; } = "home";
     public DateTime LastSeen { get; set; } = DateTime.UtcNow;
     public PhysiologicalData Cycle { get; set; } = new();
+    /// <summary>大脑预判（期待差 + 不可预测两层）：随角色一起落盘，换设备也带着 TA 的心理曲线。</summary>
+    public BrainState Brain { get; set; } = new();
+}
+
+/// <summary>
+/// 大脑预判的状态：TA 心里那条「你会怎么反应」的预期曲线、最近一轮预测误差带来的多巴胺，
+/// 以及（可选免费模型）下一次要用的预期与惊喜卡。全是有界小字段，默认值即老存档的兼容值。
+/// </summary>
+public sealed record BrainState
+{
+    /// <summary>TA 预计「你」这次会有多热（0..1）。按每轮实际温度做误差学习，也会随好感阶段均值回归。</summary>
+    public double ExpectedWarmth { get; set; } = 0.5;
+
+    /// <summary>最近一轮预测误差带来的多巴胺水平（0..100，50 为平静）：偏正=被击中，偏负=有点失落。</summary>
+    public double Dopamine { get; set; } = 50;
+
+    /// <summary>已结算的轮数：免费模型预判按它节流（每 N 轮才问一次）。</summary>
+    public int Turns { get; set; }
+
+    /// <summary>聊天好感结算的小数累积（0..1）：把每轮 0.2~1.8 的倍率攒成整数增量，均摊到跨轮。</summary>
+    public double Carry { get; set; }
+
+    /// <summary>免费模型预判出的「下一轮你会多热」（0..1）；-1 = 暂无，用本地期望。</summary>
+    public double HintWarmth { get; set; } = -1;
+
+    /// <summary>免费模型给的「意料之外」小提示（≤24 字）；空 = 用本地惊喜卡。</summary>
+    public string Hint { get; set; } = "";
+
+    /// <summary>Hint 对应的轮数：过了区间就失效，退回本地，避免拿旧预判套新情境。</summary>
+    public int HintTurn { get; set; }
+
+    /// <summary>最近用过的一张惊喜卡（避免连抽同一张）。</summary>
+    public string LastCard { get; set; } = "";
 }
 
 public sealed record PhysiologicalData

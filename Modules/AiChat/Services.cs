@@ -202,6 +202,12 @@ public sealed class ChatEngine
     public Func<string, string?, Task>? AfterTurn { get; set; }
 
     /// <summary>
+    /// 大脑预判：由 RuntimeConfigurator 注入。发送前本地结算期待差（PrepareTurn），
+    /// 回合末可选地请免费模型补一次预判（AfterTurnAsync，节流缓存、不阻塞）。
+    /// </summary>
+    public BrainAnticipationService? Brain { get; set; }
+
+    /// <summary>
     /// 副设定漂移后刷新人设：保留对话历史与折叠出的记忆段落，只重建人设部分，
     /// 让角色「现在是这个样子」立刻生效，而不必等新会话。
     /// </summary>
@@ -256,6 +262,10 @@ public sealed class ChatEngine
             catch (Exception ex) { App.WriteLog("ChatEngine.SemanticAiAssist -> " + ex.Message); }
         }
         await RefreshTagContextAsync(charId);
+
+        // 大脑预判：可选的免费模型每 N 轮补一次（节流、缓存、非阻塞；不启用/未到点时内部直接返回）
+        try { _ = Brain?.AfterTurnAsync(charId, userText, reply ?? ""); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.BrainAfterTurn -> " + ex.Message); }
 
         if (AfterTurn is null) return;
         try
@@ -446,6 +456,9 @@ public sealed class ChatEngine
     {
         var session = Session(charId);
         var cfg = CfgFor(charId);
+        // 大脑预判：本地结算本轮期待差与惊喜卡（无网络），供下面的动态上下文注入与好感结算用
+        try { Brain?.PrepareTurn(charId, text); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.PrepareTurn -> " + ex.Message); }
         var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
 

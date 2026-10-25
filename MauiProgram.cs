@@ -128,6 +128,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         // 官方接入（真微信 / QQ）与运行时配置
         builder.Services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
         builder.Services.AddSingleton<RuntimeConfigurator>();
+        builder.Services.AddSingleton<BrainAnticipationService>();
         builder.Services.AddSingleton<Services.NovelLibrary>();
         // 微信好友：谁加过微信、谁是常驻聊天对象（角色"假微信"联系人列表）
         builder.Services.AddSingleton<Services.WeChatService>(sp =>

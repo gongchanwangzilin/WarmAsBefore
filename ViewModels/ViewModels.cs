@@ -550,6 +550,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         _mentalHealthEnabled = s.MentalHealthEnabled;
         _psychologyBehaviorEnabled = s.PsychologyBehaviorEnabled;
         _physiologyEnabled = s.PhysiologyEnabled;
+        _brainEnabled = s.BrainEnabled;
+        _brainExpectationEnabled = s.BrainExpectationEnabled;
+        _brainSurpriseEnabled = s.BrainSurpriseEnabled;
+        _brainAiAssistEnabled = s.BrainAiAssistEnabled;
+        _brainAiUrl = s.BrainAiUrl;
+        _brainAiKey = s.BrainAiKey;
+        _brainAiModel = s.BrainAiModel;
+        _brainAiEveryTurns = s.BrainAiEveryTurns;
         _moneyEnabled = s.MoneyEnabled;
         _imageGenEnabled = s.ImageGenEnabled;
         _imageGenUrl = s.ImageGenUrl;
@@ -1546,6 +1554,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _mentalHealthEnabled = true;
     [ObservableProperty] private bool _psychologyBehaviorEnabled = true;
     [ObservableProperty] private bool _physiologyEnabled = true;
+    // 大脑预判：期待差 + 意料之外两层，默认本地跑；可选配一枚免费小模型每 N 轮补一次预判
+    [ObservableProperty] private bool _brainEnabled = true;
+    [ObservableProperty] private bool _brainExpectationEnabled = true;
+    [ObservableProperty] private bool _brainSurpriseEnabled = true;
+    [ObservableProperty] private bool _brainAiAssistEnabled;
+    [ObservableProperty] private string _brainAiUrl = "";
+    [ObservableProperty] private string _brainAiKey = "";
+    [ObservableProperty] private string _brainAiModel = "";
+    [ObservableProperty] private int _brainAiEveryTurns = 8;
     [ObservableProperty] private bool _moneyEnabled = true;
     [ObservableProperty] private bool _imageGenEnabled;
     [ObservableProperty] private string _imageGenUrl = "https://api.openai.com/v1";
@@ -2842,6 +2859,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnMentalHealthEnabledChanged(bool value) => PersistSettings();
     partial void OnPsychologyBehaviorEnabledChanged(bool value) => PersistSettings();
     partial void OnPhysiologyEnabledChanged(bool value) => PersistSettings();
+    partial void OnBrainEnabledChanged(bool value) => PersistSettings();
+    partial void OnBrainExpectationEnabledChanged(bool value) => PersistSettings();
+    partial void OnBrainSurpriseEnabledChanged(bool value) => PersistSettings();
+    partial void OnBrainAiAssistEnabledChanged(bool value) => PersistSettings();
+    partial void OnBrainAiUrlChanged(string value) => PersistSettings();
+    partial void OnBrainAiKeyChanged(string value) => PersistSettings();
+    partial void OnBrainAiModelChanged(string value) => PersistSettings();
+    partial void OnBrainAiEveryTurnsChanged(int value) => PersistSettings();
     partial void OnImageGenEnabledChanged(bool value) => PersistSettings();
     partial void OnImageGenUrlChanged(string value) => PersistSettings();
     partial void OnImageGenKeyChanged(string value) => PersistSettings();
@@ -3213,6 +3238,14 @@ public sealed partial class SettingsViewModel : ObservableObject
                 MentalHealthEnabled = MentalHealthEnabled,
                 PsychologyBehaviorEnabled = PsychologyBehaviorEnabled,
                 PhysiologyEnabled = PhysiologyEnabled,
+                BrainEnabled = BrainEnabled,
+                BrainExpectationEnabled = BrainExpectationEnabled,
+                BrainSurpriseEnabled = BrainSurpriseEnabled,
+                BrainAiAssistEnabled = BrainAiAssistEnabled,
+                BrainAiUrl = (BrainAiUrl ?? "").Trim(),
+                BrainAiKey = (BrainAiKey ?? "").Trim(),
+                BrainAiModel = (BrainAiModel ?? "").Trim(),
+                BrainAiEveryTurns = Math.Clamp(BrainAiEveryTurns, 2, 999),
                 MoneyEnabled = MoneyEnabled,
                 ImageGenEnabled = ImageGenEnabled,
                 ImageGenUrl = (ImageGenUrl ?? "").Trim(),
