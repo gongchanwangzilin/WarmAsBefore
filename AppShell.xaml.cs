@@ -37,13 +37,20 @@ public partial class AppShell : Shell
 
     /// <summary>
     /// Shell 在 WinUI 上没有页面过场——导航完成那一帧新页直接顶上来，读起来就是「卡了一下」。
-    /// 这里只补一个方向位移：前进从右、返回从左，190ms 收回去；幅度写小，别做成整页飞入。
+    /// 这里只补一个方向位移：前进从右、返回从左，260ms 收回去；幅度写小，别做成整页飞入。
     /// 退出方向不做：Shell 在 Navigated 之前已经换页，旧页拿不到，硬补只会拖慢导航本身。
     /// </summary>
     private void PlayPageTransition(ShellNavigatedEventArgs e)
     {
-        if (_firstNav) { _firstNav = false; return; }
         var back = e.Source is ShellNavigationSource.Pop or ShellNavigationSource.PopToRoot;
+        // 启动那次本来就不算「切换」，可 WinUI 上初始路由很少触发 Navigated，
+        // 原来那句「第一跳一律跳过」就落在了用户第一次点进角色库/工作室上。
+        // 只跳过落到根页（标题页）的那一次；其余第一跳照常播。
+        if (_firstNav)
+        {
+            _firstNav = false;
+            if (!back && CurrentPage is Views.TitlePage) return;
+        }
         _ = Helpers.Motion.PageIn(CurrentPage, back);
     }
 

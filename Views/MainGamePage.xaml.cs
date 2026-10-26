@@ -1,3 +1,4 @@
+using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
@@ -5,21 +6,35 @@ namespace WarmAsBefore.Views;
 
 public partial class MainGamePage : ContentPage
 {
+    private readonly MainGameViewModel _vm;
+    private MainGamePhoneView? _phone;
+    private bool _started;
+
     public MainGamePage(MainGameViewModel vm)
     {
-        InitializeComponent();
+        using (WarmAsBefore.Services.PerfLog.Measure("页 · 主界面 · XAML 膨胀"))
+            InitializeComponent();
         BindingContext = vm;
+        _vm = vm;
+        // 手机竖版整块只在手机版式下构建：Windows 上它永远不显示，却会和桌面版一起建完
+        // （两条 MediaElement、两个 CollectionView、两百来颗控件），那就是"进存档卡一下"的大头。
+        if (vm.IsPhoneLayout)
+        {
+            using var _ = WarmAsBefore.Services.PerfLog.Measure("页 · 主界面 · 手机版构建");
+            _phone = new MainGamePhoneView();
+            PhoneHost.Content = _phone;
+        }
     }
 
     /// <summary>
     /// 承载背景与立绘的容器尺寸变化 → 交给 VM 重算立绘位置与缩放。
-    /// 手机版与桌面版都有各自的容器，只认当前可见的那一个（隐藏的那个尺寸是陈旧的）。
+    /// 手机版在 MainGamePhoneView 里自己上报；这里只认桌面版这一块。
     /// </summary>
     private void OnStageSizeChanged(object? sender, EventArgs e)
     {
         if (BindingContext is not MainGameViewModel vm) return;
         if (sender is not VisualElement el || !el.IsVisible || el.Width <= 0 || el.Height <= 0) return;
-        vm.OnStageSizeChanged(el.Width, el.Height, ReferenceEquals(el, PhoneStage));
+        vm.OnStageSizeChanged(el.Width, el.Height, false);
     }
 
     /// <summary>
@@ -47,6 +62,21 @@ public partial class MainGamePage : ContentPage
         HookDesktopArrowKeys();
         // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
         Motion.ArrivePage(this);
+        StartGameOnce();
+    }
+
+    /// <summary>
+    /// 启动重活（读角色/立绘、地图、天气）等过场演完再跑：进门这段只留给画面。
+    /// 压在构造函数里会和 190ms 的进场位移抢主线程，读起来就是「卡一下、动画也没了」。
+    /// </summary>
+    private void StartGameOnce()
+    {
+        if (_started) return;
+        _started = true;
+        if (MotionTokens.Disabled) { _vm.Begin(); return; }
+        Dispatcher.DispatchDelayed(
+            TimeSpan.FromMilliseconds(MotionTokens.PageSlideMs + MotionTokens.FrameMs),
+            _vm.Begin);
     }
 
     // ============ #9 电脑端键盘方向键切换地点 ============
@@ -121,7 +151,7 @@ public partial class MainGamePage : ContentPage
     {
         try
         {
-            if (SceneVideoPhone is { Source: not null }) SceneVideoPhone.Pause();
+            _phone?.Pause();
             if (SceneVideoDesktop is { Source: not null }) SceneVideoDesktop.Pause();
         }
         catch { }
@@ -131,7 +161,7 @@ public partial class MainGamePage : ContentPage
     {
         try
         {
-            if (SceneVideoPhone is { Source: not null, IsVisible: true }) SceneVideoPhone.Play();
+            _phone?.Play();
             if (SceneVideoDesktop is { Source: not null, IsVisible: true }) SceneVideoDesktop.Play();
         }
         catch { }

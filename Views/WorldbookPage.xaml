@@ -5,7 +5,7 @@
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.WorldbookPage"
              x:DataType="vm:WorldbookViewModel"
-             Title="世界树"
+             Title="世界书"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
@@ -44,7 +44,7 @@
                     <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="{DynamicResource WSizeSmall}"
                             Padding="0" Command="{Binding GoBackCommand}" />
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
-                        <Label Text="世界树" Style="{StaticResource TxtTitle}" />
+                        <Label Text="世界书" Style="{StaticResource TxtTitle}" />
                         <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                                LineBreakMode="TailTruncation" />
                     </VerticalStackLayout>
@@ -130,14 +130,14 @@
                             </VerticalStackLayout>
                             <VerticalStackLayout IsVisible="{Binding HasNoWorlds}" Spacing="6"
                                                  Margin="{DynamicResource WPadRow}">
-                                <Label Text="还没有世界树" Style="{StaticResource TxtRowTitle}" />
+                                <Label Text="还没有世界书" Style="{StaticResource TxtRowTitle}" />
                                 <Label Text="上面写一句，让 AI 造第一个；或者点右上角「新建」自己写。"
                                        Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
                             </VerticalStackLayout>
                         </VerticalStackLayout>
                     </Border>
 
-                    <Label Text="没绑定世界树的存档是普通酒馆：只聊天，地图锁上。绑定之后随时可以换，也可以解绑。"
+                    <Label Text="没绑定世界书的存档是普通酒馆：只聊天，地图锁上。绑定之后随时可以换，也可以解绑。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
 

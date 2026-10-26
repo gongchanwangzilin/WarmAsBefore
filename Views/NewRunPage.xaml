@@ -64,7 +64,7 @@
                 <VerticalStackLayout Spacing="8">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <Label Text="这段关系发生在哪个世界" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
-                        <Button Grid.Column="1" Text="管理世界树" Style="{StaticResource BtnGhostSm}"
+                        <Button Grid.Column="1" Text="管理世界书" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding ManageWorldsCommand}" />
                     </Grid>
                     <Border Style="{StaticResource CardGroup}">
@@ -105,7 +105,7 @@
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
-                            <Label Text="还没有世界树。到「世界树」里手写一份，或者让 AI 帮你造一个世界。"
+                            <Label Text="还没有世界书。到「世界书」里手写一份，或者让 AI 帮你造一个世界。"
                                    Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
                                    IsVisible="{Binding HasNoWorlds}" />
                         </VerticalStackLayout>

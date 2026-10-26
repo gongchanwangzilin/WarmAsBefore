@@ -71,7 +71,7 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
         if (!_engine.MapUnlocked)
         {
             await Shell.Current.DisplayAlert("普通酒馆",
-                "这一局没有绑定世界树，所以没有地图。\n\n想解锁：游戏菜单 → 本局设定 → 选一份世界树。",
+                "这一局没有绑定世界书，所以没有地图。\n\n想解锁：游戏菜单 → 本局设定 → 选一份世界书。",
                 "知道了");
             return;
         }

@@ -90,7 +90,7 @@ public sealed class WorldTreeService
     /// <summary>AI 润色一份已有世界树：只改文字，不动 id / 创建时间，用户手写的角色名尽量保留。</summary>
     public async Task<(bool Ok, string Message)> PolishAsync(WorldbookEntry entry)
     {
-        if (entry is null) return (false, "没有可润色的世界树。");
+        if (entry is null) return (false, "没有可润色的世界书。");
         var prompt =
             "你是世界观编辑。在不改变事实与人物关系的前提下，把下面这份设定写得更具体、更有生活质感，"
             + "少用形容词堆砌，多给可被剧情用上的细节。只输出 JSON，不要 markdown 代码块：\n"

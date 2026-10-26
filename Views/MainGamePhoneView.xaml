@@ -1,0 +1,396 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.MainGamePhoneView">
+        <Grid IsVisible="{Binding IsPhoneLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
+            <!-- Status bar - 顶部状态栏 -->
+            <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
+                    Padding="16,8">
+                <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
+                <!-- 顶栏只放「正在玩」时会碰的东西：存档 / 菜单 / 手机 / 地图 / 临时换 AI。
+                     工坊、世界书这类「配置世界」的页面一律从手机桌面进，不在这里再开一扇门：
+                     入口混在一起，七个小按钮就没有主次了，等于没有入口。 -->
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="{Binding CurrentTimeStr}"
+                               TextColor="{DynamicResource WarmDark}" FontSize="22" FontAttributes="Bold" />
+                        <Label Text="{Binding DateLabel}"
+                               TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                    </VerticalStackLayout>
+                    <Label Text="{Binding WeatherDesc}"
+                           TextColor="{DynamicResource MutedFg}" FontSize="11"
+                           VerticalOptions="Center" Grid.Column="1" />
+                    <!-- 临时指定这次由哪个 AI 回答（指定后高亮） -->
+                    <Button Grid.Column="2" Text="AI" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
+                            FontSize="11" Padding="8,4" HeightRequest="32"
+                            Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
+                    <Button Grid.Column="3" Text="菜单" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="Transparent" FontSize="11" Padding="8,4"
+                            HeightRequest="32"
+                            Command="{Binding ToggleMenuCommand}" />
+                    <Button Grid.Column="4" Text="手机" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="Transparent" FontSize="11" Padding="8,4"
+                            HeightRequest="32"
+                            Command="{Binding OpenPhoneCommand}" />
+                </Grid>
+            </Border>
+
+            <!-- Character area (center, zoomed) -->
+            <Grid Grid.Row="1" x:Name="PhoneStage" SizeChanged="OnStageSizeChanged">
+                <!-- #9 手机左右滑动切换地点（无地点时命令内部静默忽略、按钮置灰） -->
+                <Grid.GestureRecognizers>
+                    <SwipeGestureRecognizer Direction="Left" Command="{Binding NextSceneCommand}" />
+                    <SwipeGestureRecognizer Direction="Right" Command="{Binding PrevSceneCommand}" />
+                </Grid.GestureRecognizers>
+                <!-- 左上角状态指示器 -->
+                <Border IsVisible="{Binding StatusText}"
+                        BackgroundColor="#CC000000" Padding="8,4" Margin="12,12,0,0"
+                        HorizontalOptions="Start" VerticalOptions="Start">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                    <Label Text="{Binding StatusText}" TextColor="White" FontSize="11" />
+                </Border>
+
+                <!-- 立绘加载进度条 -->
+                <ProgressBar IsVisible="{Binding SpriteLoadingProgress, Converter={StaticResource GreaterThanZero}}"
+                             Progress="{Binding SpriteLoadingProgress}"
+                             ProgressColor="{DynamicResource PrimaryAction}"
+                             BackgroundColor="{DynamicResource BeigeAccent200}"
+                             HeightRequest="3"
+                             HorizontalOptions="Fill" VerticalOptions="End"
+                             Margin="16,0,16,16" />
+                <BoxView Color="{Binding StageBackdropFill}" />
+                <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
+                       IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
+                       Opacity="0.5" />
+                <toolkit:MediaElement x:Name="SceneVideoPhone"
+                                      Source="{Binding SceneVideoPath}"
+                                      IsVisible="{Binding SceneVideoOn}"
+                                      Aspect="AspectFill" Opacity="0.5"
+                                      ShouldAutoPlay="True" ShouldLoopPlayback="True"
+                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 场景亮度遮罩：dim 模式压暗背景/视频（立绘在它之上，不受影响）。
+                      没有这层，"关灯"在画面上根本看不出来，也就无从判断某个选项是否真的生效。 -->
+                <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
+                         HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 天气特效帧层（打雷/下雨的图片或动画帧）：在亮度遮罩之上、立绘之下。 -->
+                <Image Source="{Binding WeatherFxImage}" IsVisible="{Binding WeatherFxVisible}"
+                       Aspect="AspectFill" InputTransparent="True"
+                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 打雷白闪层：覆盖整个画面（含立绘），默认「屏幕白一下再慢慢恢复」。 -->
+                <BoxView Color="White" Opacity="{Binding FlashOpacity}" InputTransparent="True"
+                         HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 立绘支持位置、透明度、缩放，手机模式更大。
+                     尺寸由 VM 显式给出（不再依赖 MaximumHeightRequest + 自动 measure）：
+                     标定要算"角色脚底落在哪个像素"，必须先有一个确定的基准尺寸，
+                     而 MAUI 的 measure 结果在 AspectFit + Scale 叠加下并不稳定。 -->
+                <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
+                       Aspect="AspectFit"
+                       WidthRequest="{Binding SpriteFitW}"
+                       HeightRequest="{Binding SpriteFitH}"
+                       Opacity="{Binding SpriteOpacity}"
+                       TranslationX="{Binding SpriteX}"
+                       TranslationY="{Binding SpriteY}"
+                       Scale="{Binding SpriteScale}"
+                       ScaleX="{Binding SpriteFlipScaleX}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <!-- 立绘不合规（像素比例不是 1080×1920 逻辑画布）时的调试入口：
+                     大小与底部对齐只认标定结果，所以这里给一条直达标定页的路，而不是静默拉伸。 -->
+                <Border IsVisible="{Binding HasSpriteCalibrationIssue}"
+                        BackgroundColor="Black" Opacity="0.72"
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                        Margin="12,12,12,0" Padding="10,8"
+                        HorizontalOptions="Fill" VerticalOptions="Start">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                    <HorizontalStackLayout Spacing="10">
+                        <Label Text="{Binding SpriteCalibrationIssue}" TextColor="White" FontSize="12"
+                               VerticalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="420" />
+                        <Button Text="去标定" FontSize="12" Padding="10,2"
+                                Command="{Binding OpenPortraitCalibrationCommand}"
+                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource AccentWarmFg}" />
+                    </HorizontalStackLayout>
+                </Border>
+                <!-- 角色想给你手机发消息：确认后才真的发出去 -->
+                <Border IsVisible="{Binding HasOutboundPending}"
+                        BackgroundColor="Black" Opacity="0.78"
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                        Margin="12,12,12,0" Padding="10,8"
+                        HorizontalOptions="Fill" VerticalOptions="Start">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                    <HorizontalStackLayout Spacing="10">
+                        <Label Text="{Binding OutboundPendingText, StringFormat='想发到你手机：{0}'}"
+                               TextColor="White" FontSize="12" VerticalOptions="Center"
+                               LineBreakMode="WordWrap" MaximumWidthRequest="380" />
+                        <Button Text="发出去" FontSize="12" Padding="10,2"
+                                Command="{Binding ConfirmOutboundCommand}"
+                                BackgroundColor="{DynamicResource PrimaryAction}" TextColor="{DynamicResource AccentWarmFg}" />
+                        <Button Text="不发" FontSize="12" Padding="10,2"
+                                Command="{Binding CancelOutboundCommand}"
+                                BackgroundColor="#33FFFFFF" TextColor="White" />
+                    </HorizontalStackLayout>
+                </Border>
+                <!-- 无立绘时的占位 -->
+                <Border BackgroundColor="#E8FFFFFF" Opacity="0.85"
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1.5"
+                        WidthRequest="180" HeightRequest="240"
+                        HorizontalOptions="Center" VerticalOptions="Center"
+                        IsVisible="{Binding NoSpriteVisible}">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="24" /></Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="12" Opacity="0.2" />
+                    </Border.Shadow>
+                    <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                        <Border BackgroundColor="{DynamicResource BeigeAccent100}"
+                                WidthRequest="64" HeightRequest="64" StrokeThickness="0">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
+                            <Label Text="{Binding CharacterName, Converter={StaticResource CharInitials}}"
+                                   TextColor="{DynamicResource WarmDark}" FontSize="28"
+                                   HorizontalOptions="Center" VerticalOptions="Center"
+                                   FontAttributes="Bold" />
+                        </Border>
+                        <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="16"
+                               HorizontalOptions="Center" FontAttributes="Bold" />
+                        <Label Text="暂无立绘" TextColor="{DynamicResource WarmBody}" FontSize="11"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </Border>
+                <!-- 名字胶囊 -->
+                <Border IsVisible="{Binding SpriteVisible}"
+                        BackgroundColor="#F0FDF8F0" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
+                        HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,8"
+                        Padding="20,6">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
+                    <Border.Shadow>
+                        <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,2" Radius="8" Opacity="0.15" />
+                    </Border.Shadow>
+                    <Label Text="{Binding CharacterName}"
+                           TextColor="{DynamicResource WarmDark}" FontSize="15" FontAttributes="Bold" />
+                </Border>
+
+                <!-- #9 左右竖条切换地点按键（左右两侧各一条）：无地点时置灰（IsEnabled 绑可用态）。
+                     电脑端另有键盘方向键、手机端另有左右滑动，三条入口共用同一对命令。 -->
+                <Button Text="◀"
+                        Command="{Binding PrevSceneCommand}"
+                        IsEnabled="{Binding CanGoPrevScene}"
+                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource WarmDark}"
+                        FontSize="18" WidthRequest="40" HeightRequest="96" Padding="0"
+                        CornerRadius="14" HorizontalOptions="Start" VerticalOptions="Center"
+                        Margin="6,0,0,0" />
+                <Button Text="▶"
+                        Command="{Binding NextSceneCommand}"
+                        IsEnabled="{Binding CanGoNextScene}"
+                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource WarmDark}"
+                        FontSize="18" WidthRequest="40" HeightRequest="96" Padding="0"
+                        CornerRadius="14" HorizontalOptions="End" VerticalOptions="Center"
+                        Margin="0,0,6,0" />
+
+                <!-- #9 用户可选跟上：AI 单独出行后出现（AI 不带用户走时）。 -->
+                <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
+                        Command="{Binding FollowAiCommand}"
+                        IsVisible="{Binding CanFollowAi}"
+                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
+                        FontSize="12" Padding="12,4" CornerRadius="16" HeightRequest="32"
+                        HorizontalOptions="End" VerticalOptions="Start" Margin="0,12,12,0" />
+            </Grid>
+
+            <!-- Dialogue area -->
+            <CollectionView Grid.Row="2" ItemsSource="{Binding Messages}"
+                            ItemsUpdatingScrollMode="KeepLastItemInView"
+                            HeightRequest="300" Margin="12,4"
+                            SelectionMode="None">
+                <CollectionView.ItemTemplate>
+                    <DataTemplate x:DataType="vm:DialogueMessage">
+                        <Grid Padding="0,3">
+                            <Border IsVisible="{Binding ShowBubbleMine}"
+                                    BackgroundColor="{DynamicResource BubbleMine}"
+                                    StrokeThickness="0"
+                                    Padding="12,8"
+                                    HorizontalOptions="End"
+                                    MaximumWidthRequest="300">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
+                                <Label Text="{Binding Text}"
+                                       TextColor="{DynamicResource SurfaceFg}"
+                                       FontSize="13" LineBreakMode="WordWrap" />
+                            </Border>
+                            <Border IsVisible="{Binding ShowBubbleTheirs}"
+                                    BackgroundColor="{DynamicResource BubbleTheirs}"
+                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
+                                    Padding="12,8"
+                                    HorizontalOptions="Start"
+                                    MaximumWidthRequest="300">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
+                                <Label Text="{Binding Text}"
+                                       TextColor="{DynamicResource SurfaceFg}"
+                                       FontSize="13" LineBreakMode="WordWrap" />
+                            </Border>
+                            <!-- #12 表情消息：图片形态（我发的靠右 / TA 发的靠左） -->
+                            <Image IsVisible="{Binding ShowStickerMine}"
+                                   Source="{Binding StickerPath}"
+                                   Aspect="AspectFit" HeightRequest="120" WidthRequest="120"
+                                   HorizontalOptions="End" />
+                            <Image IsVisible="{Binding ShowStickerTheirs}"
+                                   Source="{Binding StickerPath}"
+                                   Aspect="AspectFit" HeightRequest="120" WidthRequest="120"
+                                   HorizontalOptions="Start" />
+                        </Grid>
+                    </DataTemplate>
+                </CollectionView.ItemTemplate>
+            </CollectionView>
+
+            <!-- 气泡式多角色提示 + 沉默提示（同一 Grid.Row 槽位，按条件显示） -->
+            <Label Grid.Row="2" IsVisible="{Binding UseBubbleChat}"
+                   Text="气泡式已开启：多角色可直接以对话气泡交流"
+                   TextColor="{DynamicResource MutedFg}" FontSize="11"
+                   HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
+            <Label Grid.Row="2" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
+                   Text="{Binding SilenceHintText}"
+                   TextColor="{DynamicResource MutedFg}" FontSize="11"
+                   HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
+            <!-- Typing indicator -->
+            <Border Grid.Row="2" IsVisible="{Binding IsThinking}"
+                    BackgroundColor="Transparent" StrokeThickness="0"
+                    Padding="18,2,0,0" VerticalOptions="End" Margin="0,0,0,2">
+                <HorizontalStackLayout Spacing="6">
+                    <Border BackgroundColor="{DynamicResource BubbleTheirs}"
+                            Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                            Padding="10,6">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                        <Label Text="思考中…" TextColor="{DynamicResource MutedFg}"
+                               FontSize="12" FontAttributes="Italic" />
+                    </Border>
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- Input bar -->
+            <Border Grid.Row="3" BackgroundColor="#F7FDF8F0"
+                    Padding="10,8,10,10" StrokeThickness="0">
+                <Border.StrokeShape><RoundRectangle CornerRadius="16,16,0,0" /></Border.StrokeShape>
+                <VerticalStackLayout Spacing="0">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
+                    <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="10,0">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                        <Entry Text="{Binding InputText}"
+                               Placeholder="输入你想说的话..."
+                               PlaceholderColor="{DynamicResource MutedFg}"
+                               BackgroundColor="Transparent"
+                               TextColor="{DynamicResource SurfaceFg}" FontSize="13"
+                               ReturnCommand="{Binding SendMessageCommand}"
+                               HeightRequest="36" />
+                    </Border>
+                    <Button Grid.Column="1" Text="文件" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11"
+                            CornerRadius="18" HeightRequest="36"
+                            Padding="10,0"
+                            Command="{Binding PickAttachmentCommand}" />
+                    <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{DynamicResource SurfaceBg}" FontSize="13"
+                            CornerRadius="18" HeightRequest="36"
+                            Padding="10,0"
+                            Command="{Binding ToggleGiftPanelCommand}" />
+                    <Button Grid.Column="3" Text="语音" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11"
+                            CornerRadius="18" HeightRequest="36"
+                            Padding="10,0"
+                            Command="{Binding VoiceInputCommand}" />
+                    <Button Grid.Column="4" Text="发送"
+                            BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
+                            FontSize="12" FontAttributes="Bold"
+                            CornerRadius="18" HeightRequest="36"
+                            Padding="14,0"
+                            Command="{Binding SendMessageCommand}" />
+                </Grid>
+                <!-- #10 待发附件提示：有文件挂着时才显示，点"清空"卸下 -->
+                <Grid IsVisible="{Binding HasPendingAttachments}" Margin="0,6,0,0"
+                      ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Grid.Column="0" Text="{Binding PendingAttachmentsLabel}"
+                           TextColor="{DynamicResource MutedFg}" FontSize="11"
+                           VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="清空" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="Transparent" FontSize="11" Padding="8,2"
+                            HeightRequest="24" MinimumHeightRequest="24"
+                            Command="{Binding ClearAttachmentsCommand}" />
+                </Grid>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Action bar -->
+            <Border Grid.Row="4" BackgroundColor="#CCFCF8F0"
+                    Padding="0,4,0,12" StrokeThickness="0">
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="16">
+                    <!-- 互动按钮：液态玻璃圆形材质（BtnLiquidGlassIcon 径向渐变 + 1px 内发光描边 + 柔和按下），无 Scale 避免卡死 -->
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
+                            <Label Text="摸" TextColor="{DynamicResource WarmDark}" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding HeadpatCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                        <Label Text="摸头" TextColor="{DynamicResource MutedFg}" FontSize="10"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
+                            <Label Text="抱" TextColor="{DynamicResource WarmDark}" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding HugCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                        <Label Text="抱抱" TextColor="{DynamicResource MutedFg}" FontSize="10"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
+                            <Label Text="吻" TextColor="{DynamicResource WarmDark}" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding KissCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                        <Label Text="亲吻" TextColor="{DynamicResource MutedFg}" FontSize="10"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
+                            <Label Text="存" TextColor="{DynamicResource WarmDark}" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding QuickSaveCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                        <Label Text="保存" TextColor="{DynamicResource MutedFg}" FontSize="10"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                    <!-- #12 发一个表情（从已导入的表情包里挑） -->
+                    <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
+                        <Border motion:HoverFeel.Enabled="True" Style="{StaticResource BtnLiquidGlassIcon}">
+                            <Label Text="表" TextColor="{DynamicResource WarmDark}" FontSize="18"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                            <Border.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding SendStickerCommand}" />
+                            </Border.GestureRecognizers>
+                        </Border>
+                        <Label Text="表情" TextColor="{DynamicResource MutedFg}" FontSize="10"
+                               HorizontalOptions="Center" />
+                    </VerticalStackLayout>
+                </HorizontalStackLayout>
+            </Border>
+
+            <!-- AI 主动黑屏：只黑舞台，聊天与输入照常可用 -->
+            <Grid IsVisible="{Binding IsBlackout}" BackgroundColor="Black">
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
+                    <Label Text="（黑屏）" TextColor="#66FFFFFF" FontSize="14" HorizontalOptions="Center" />
+                    <Label Text="{Binding BlackoutReason}" TextColor="#99FFFFFF" FontSize="12"
+                           HorizontalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="260"
+                           IsVisible="{Binding BlackoutReason, Converter={StaticResource IsNotNull}}" />
+                    <Button Text="退出黑屏" FontSize="12" Padding="12,4"
+                            Command="{Binding ExitBlackoutCommand}"
+                            BackgroundColor="#33FFFFFF" TextColor="White" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Grid>
+        </Grid>
+</ContentView>

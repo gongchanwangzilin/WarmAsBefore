@@ -115,7 +115,7 @@ public sealed partial class WorldbookViewModel : ObservableObject
         var entry = await _worlds.GetAsync(id);
         if (entry is null)
         {
-            Status = "这份世界树已经不在了。";
+            Status = "这份世界书已经不在了。";
             await RefreshAsync();
             return;
         }
@@ -237,8 +237,8 @@ public sealed partial class WorldbookViewModel : ObservableObject
         var bound = string.Equals(_engine.State.WorldId, id, StringComparison.Ordinal);
         var text = bound
             ? $"「{entry.Title}」正绑在当前这一局上。删掉之后这一局会变回普通酒馆：地图锁上，世界里整理出的记忆也会清掉。"
-            : $"「{entry.Title}」会从世界树库里删掉。已经绑定它的其它存档将失去世界设定。";
-        if (!await Shell.Current.DisplayAlert("删除世界树", text, "删除", "算了")) return;
+            : $"「{entry.Title}」会从世界书库里删掉。已经绑定它的其它存档将失去世界设定。";
+        if (!await Shell.Current.DisplayAlert("删除世界书", text, "删除", "算了")) return;
 
         if (bound)
         {
@@ -247,7 +247,8 @@ public sealed partial class WorldbookViewModel : ObservableObject
             try
             {
                 await _human.RemoveTaggedCoreAsync(_engine.State.CharacterId, PersonaMemoryService.WorldTag);
-                await _save.Commit("世界树解绑");
+                await _human.RemoveTaggedCoreAsync(_engine.State.CharacterId, PersonaMemoryService.WorldTagLegacy);
+                await _save.Commit("世界书解绑");
             }
             catch (Exception ex) { App.WriteLog("Worldbook.Delete.Unbind -> " + ex.Message); }
         }

@@ -111,7 +111,7 @@ public static class Motion
     /// 新页入场时整块从右侧（前进）或左侧（返回）滑回原位，只动根布局的 TranslationX，
     /// 与 <see cref="ArrivePage"/> 给子元素排的纵向错峰各写各的通道，互不抢占。
     ///
-    /// 只滑 26px：这是「方向提示」，不是「整页飞进来」——幅度大了，页面底色与窗口底之间会露出缝。
+    /// 只滑 32px：这是「方向提示」，不是「整页飞进来」——幅度大了，页面底色与窗口底之间会露出缝。
     /// 大多数页在 ContentPage 上铺了 PageBgBrush，滑出去的那条边看到的是同一块底色，读不出位移的边界。
     /// </summary>
     public static async Task PageIn(Page page, bool back)
@@ -120,9 +120,66 @@ public static class Motion
         if (root is null || MotionTokens.Disabled) return;
         var ms = (uint)MotionTokens.Ms(MotionTokens.PageSlideMs);
         if (ms == 0) { root.TranslationX = 0; return; }
+        // 起点先落上（用户还看不到这一页），再等首帧。
         root.TranslationX = back ? -MotionTokens.PageSlidePx : MotionTokens.PageSlidePx;
-        try { await root.TranslateTo(0, 0, ms, SnapEase); }
+        try
+        {
+            // 导航完成 ≠ 首帧落地：重页（工作室、存档页这类要读盘装图的）在 Navigated 之后
+            // 还要排几百毫秒。在排版途中起跑的 190ms 会在第一次 tick 直接跳到终点，
+            // 读起来就是「没有过场」。等页面真的画出来两帧，32px 才是一段看得见的路。
+            await WaitLoaded(root);
+            await WaitPaintedAsync();
+            await root.TranslateTo(0, 0, ms, SnapEase);
+        }
         finally { root.TranslationX = 0; }
+    }
+
+    /// <summary>
+    /// 等这一屏真的合成过两帧再起跑。
+    ///
+    /// 单纯 Task.Delay 是墙上时钟：UI 线程被页面装载占住时，延时早已到期，
+    /// 恢复后动画的第一次 tick 拿到一个巨大的 elapsed，直接跳到终点——用户看到的就是没有动画。
+    /// 合成帧只会在主线程真的空出来以后才来，等它两次，起点才落在用户能看见的那一帧上。
+    /// 上限 1200ms：窗口被遮住/最小化时合成帧不来，也不能让页面一直停在偏移上。
+    /// </summary>
+    internal static async Task WaitPaintedAsync()
+    {
+#if WINDOWS
+        try
+        {
+            var tcs = new TaskCompletionSource();
+            var seen = 0;
+            void OnRendering(object? sender, object e)
+            {
+                if (++seen < 2) return;
+                Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering;
+                tcs.TrySetResult();
+            }
+            Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += OnRendering;
+            if (await Task.WhenAny(tcs.Task, Task.Delay(1200)) != tcs.Task)
+                Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= OnRendering;
+        }
+        catch
+        {
+            await Task.Delay(MotionTokens.FrameMs);
+        }
+#else
+        await Task.Delay(MotionTokens.FrameMs);
+#endif
+    }
+
+    private static async Task WaitLoaded(VisualElement element)
+    {
+        if (element.IsLoaded) return;
+        var tcs = new TaskCompletionSource();
+        void OnLoaded(object? sender, EventArgs e)
+        {
+            element.Loaded -= OnLoaded;
+            tcs.TrySetResult();
+        }
+        element.Loaded += OnLoaded;
+        // 上限：页面在装载途中被换掉（快速连点）时不能把这条过场挂死。
+        if (await Task.WhenAny(tcs.Task, Task.Delay(900)) != tcs.Task) element.Loaded -= OnLoaded;
     }
 
     // ── 进场契约 ────────────────────────────────────────────────────────

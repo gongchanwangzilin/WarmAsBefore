@@ -105,7 +105,7 @@ public sealed partial class NewRunViewModel : ObservableObject
                 Id = w.Id,
                 Title = string.IsNullOrWhiteSpace(w.Title) ? "未命名世界" : w.Title,
                 Summary = WorldTreeService.SummaryOf(w),
-                Marker = w.Characters.Count > 0 ? $"{w.Characters.Count} 位角色" : "世界树",
+                Marker = w.Characters.Count > 0 ? $"{w.Characters.Count} 位角色" : "世界书",
                 IsSelected = string.Equals(w.Id, keep, StringComparison.Ordinal)
             });
         }
@@ -161,7 +161,7 @@ public sealed partial class NewRunViewModel : ObservableObject
             }
             if (worldChanged && string.IsNullOrEmpty(worldId) && _engine.MapUnlocked)
             {
-                var sure = await Shell.Current.DisplayAlert("解绑世界树？",
+                var sure = await Shell.Current.DisplayAlert("解绑世界书？",
                     "解绑之后这份存档会变成普通酒馆：地图与「移动」会立刻锁上。走过的地方不会丢，重新绑回来还能用。",
                     "解绑", "算了");
                 if (!sure) return;
@@ -248,7 +248,7 @@ public sealed partial class NewRunViewModel : ObservableObject
         LoadingDetail = message;
         double step = message switch
         {
-            _ when message.Contains("读取世界树", StringComparison.Ordinal) => 0.18,
+            _ when message.Contains("读取世界书", StringComparison.Ordinal) => 0.18,
             _ when message.Contains("整理成记忆", StringComparison.Ordinal) => 0.42,
             _ when message.Contains("写入记忆", StringComparison.Ordinal) => 0.80,
             _ when message.Contains("没有要整理", StringComparison.Ordinal) => 0.82,
