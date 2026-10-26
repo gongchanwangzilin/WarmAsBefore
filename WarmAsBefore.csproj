@@ -10,8 +10,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationTitle>温暖如初</ApplicationTitle>
-    <ApplicationDisplayVersion>1.50.0</ApplicationDisplayVersion>
-    <ApplicationVersion>50</ApplicationVersion>
+    <ApplicationDisplayVersion>1.51.0</ApplicationDisplayVersion>
+    <ApplicationVersion>51</ApplicationVersion>
     <!-- 兼容目标：Android 11 (API 30) 及以上；minSdk 设 24 (Android 7.0) 留余量。
          若未来要求支持 Android 9 (API 28)，保持 24 不变即可（代码侧无 28+ 专属 API 依赖）。 -->
     <AndroidMinSdkVersion>24</AndroidMinSdkVersion>
