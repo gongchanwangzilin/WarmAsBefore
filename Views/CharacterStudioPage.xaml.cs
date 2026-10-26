@@ -16,21 +16,16 @@ namespace WarmAsBefore.Views;
 public partial class CharacterStudioPage : ContentPage
 {
     private readonly CharacterStudioViewModel _vm;
-    private readonly Services.GameEngine _engine;
-    private readonly Modules.SaveSystem.SaveManager _save;
     private bool _loaded;
     private bool _narrow;
     private bool _narrowSet;
     private bool _startAfterCreate;
     private bool _leaving;
 
-    public CharacterStudioPage(CharacterStudioViewModel vm, Services.GameEngine engine,
-        Modules.SaveSystem.SaveManager save)
+    public CharacterStudioPage(CharacterStudioViewModel vm)
     {
         InitializeComponent();
         _vm = vm;
-        _engine = engine;
-        _save = save;
         BindingContext = vm;
         Studio.BindingContext = vm;
         vm.CloseRequested = CloseAsync;
@@ -98,19 +93,15 @@ public partial class CharacterStudioPage : ContentPage
     }
 
     /// <summary>
-    /// 草稿真的进了名册，且这一趟是「建好就开一局」：照旧先 Boot 再 SetCharacter——
-    /// 顺序反了会把刚写进去的角色清掉（GameEngine.Boot 重置整份状态）。
+    /// 草稿真的进了名册，且这一趟是「建好就开一局」：交给开局页去定世界树与人设。
+    /// Boot / SetCharacter / NewRun 都在那一页里做，这里不再提前把引擎翻一遍。
     /// </summary>
     private async Task StartRunAsync(string id)
     {
         if (!_startAfterCreate) return;
         _startAfterCreate = false;
-        _engine.Boot();
-        _engine.SetCharacter(id);
-        if (_engine.ActiveCharacter is { } fresh) Services.CharacterLibrary.RandomizeSpriteState(fresh);
-        _save.NewRun();
         _leaving = true;
-        await Shell.Current.GoToAsync("main");
+        await Shell.Current.GoToAsync($"newrun?character={Uri.EscapeDataString(id)}");
     }
 
     protected override bool OnBackButtonPressed()

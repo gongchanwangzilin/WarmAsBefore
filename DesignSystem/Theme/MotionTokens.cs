@@ -29,6 +29,10 @@ public static class MotionTokens
     public const int SheetMs = 320;
     /// <summary>多个元素依次进场的间隔。</summary>
     public const int StaggerMs = 45;
+    /// <summary>页面切换的方向位移时长。Shell 在 WinUI 上没有过场，换页原本是硬切。</summary>
+    public const int PageSlideMs = 190;
+    /// <summary>页面切换的起手位移。只给方向感，不做出「整页飞进来」的大动作。</summary>
+    public const double PageSlidePx = 26;
     /// <summary>帧驱动的节奏，约 60fps。</summary>
     public const int FrameMs = 16;
 
@@ -65,6 +69,18 @@ public static class MotionTokens
     {
         var u = 1 - Clamp01(t);
         return 1 - u * u * u;
+    }
+
+    /// <summary>
+    /// 终末地的「snap」：cubic-bezier(0.16, 1, 0.3, 1) 的多项式近似。
+    /// 前三分之一走完九成、后三分之二是极慢的收敛 —— 元素出现读起来是「机器定位」，
+    /// 不是 OutCubic 那种软材料浮起（同一条 220ms 里，OutCubic 显得黏，也是「一帧一帧」观感的一半）。
+    /// 只给**入场**用；按下与回收仍走 OutCubic / Settle，那两处要的是材料的回弹。
+    /// </summary>
+    public static double Snap(double t)
+    {
+        var u = 1 - Clamp01(t);
+        return 1 - u * u * u * u * u * u;
     }
 
     /// <summary>

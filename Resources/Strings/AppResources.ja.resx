@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -93,7 +93,7 @@
   <data name="Settings_OfficialNote" xml:space="preserve"><value>注意：公式連携はグループチャット非対応。グループチャットが必要な場合はMCPサーバーを別途設定してください。</value></data>
   <data name="Settings_Mcp" xml:space="preserve"><value>MCP設定</value></data>
   <data name="Settings_McpEnable" xml:space="preserve"><value>MCPを有効化</value></data>
-  <data name="Settings_McpHint" xml:space="preserve"><value>有効にすると、ネットワークMCP、GitHub／ZIP／フォルダからデータパックをインポートできます</value></data>
+  <data name="Settings_McpHint" xml:space="preserve"><value>有効にすると外部 MCP サービス（ローカルプロセスの stdio または HTTP アドレス）を登録・接続できます。プラグインは別系統です</value></data>
   <data name="Settings_McpUrl" xml:space="preserve"><value>ネットワークMCP URL</value></data>
   <data name="Settings_McpUrlPlaceholder" xml:space="preserve"><value>https://mcp.example.com/api</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>GitHubリポジトリ</value></data>

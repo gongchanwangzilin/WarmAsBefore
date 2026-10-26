@@ -1235,7 +1235,7 @@
                                             <Label Text="正在加载已接入服务器…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
                                         </VerticalStackLayout>
 
-                                        <Label Text="下面列出的工具由服务自己报上来：握手成功后 AI 用 mcp_list 就能看到。MCP 数据包（自己写 tools.json 的那种）不在这里导入——它在插件中心，跟插件一样属于「往机器里装东西」。"
+                                        <Label Text="下面列出的工具由服务自己报上来：握手成功后 AI 用 mcp_list 就能看到。插件不在这里安装也不在这里显示——插件中心管的是应用内扩展，和 MCP 是两套系统。"
                                                Style="{StaticResource TxtCaption}" Opacity="0.8" LineBreakMode="WordWrap" />
                                     </VerticalStackLayout>
                                 </Border>
@@ -1950,8 +1950,67 @@
                             <Label Text="记录插件崩溃日志" Style="{StaticResource TxtBodySm}" />
                             <Label Text="插件钩子抛错时写日志（单文件 256KB 轮转）并弹出可查看的原因；关闭后只静默跳过。无论开关与否，一个插件的错误不会拖垮主程序。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Switch Grid.Column="1" IsToggled="{Binding PluginCrashLogs}" /></Grid>
-                        <Button Text="打开插件中心与工坊" Style="{StaticResource BtnPrimary}" FontSize="13"
-                                HorizontalOptions="Start" Padding="16,7" Command="{Binding OpenPluginCenterCommand}" />
+                        <BoxView Style="{StaticResource HSepBleed}" />
+
+                        <!-- 已安装的插件：与 MCP 的「已接入的服务」同级铺开，
+                             不再只留一个跳转按钮 —— 两套系统各自安装、各自管理。 -->
+                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,13,0,4">
+                            <Label Text="已安装的插件" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnText}" FontSize="12"
+                                    Command="{Binding RefreshPluginsCommand}" />
+                            <Button Grid.Column="2" Text="打开插件中心" Style="{StaticResource BtnNeumorphSm}" FontSize="12"
+                                    Padding="12,4" Command="{Binding OpenPluginCenterCommand}" />
+                        </Grid>
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding PluginRows}"
+                                             IsVisible="{Binding PluginsLoading, Converter={StaticResource InverseBool}}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PluginRow">
+                                    <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}"
+                                            StrokeThickness="0.8" Padding="10,8" Margin="0,4">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <VerticalStackLayout Spacing="3">
+                                                <HorizontalStackLayout Spacing="6">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                    <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
+                                                           FontSize="11" VerticalOptions="Center" Opacity="0.75" />
+                                                </HorizontalStackLayout>
+                                                <Label Style="{StaticResource TxtCaption}" FontSize="11" Opacity="0.8">
+                                                    <Label.FormattedText>
+                                                        <FormattedString>
+                                                            <Span Text="v" />
+                                                            <Span Text="{Binding Version}" />
+                                                        </FormattedString>
+                                                    </Label.FormattedText>
+                                                </Label>
+                                                <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                       LineBreakMode="WordWrap" MaxLines="2"
+                                                       IsVisible="{Binding Description, Converter={StaticResource StringNotEmpty}}" />
+                                                <Label Text="{Binding Issue}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                       TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
+                                                       IsVisible="{Binding HasIssue}" />
+                                            </VerticalStackLayout>
+                                            <Button Grid.Column="1" Text="{Binding ToggleLabel}"
+                                                    Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                    VerticalOptions="Center"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=TogglePluginCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </Grid>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="还没有安装插件。插件中心能装 zip / 文件夹，也能让 AI 按你的想法现场写一个。"
+                               Style="{StaticResource TxtCaption}" Padding="4,6"
+                               IsVisible="{Binding HasPlugins, Converter={StaticResource InverseBool}}" />
+                        <VerticalStackLayout IsVisible="{Binding PluginsLoading}" HorizontalOptions="Center" Spacing="8" Padding="0,8">
+                            <ActivityIndicator IsRunning="{Binding PluginsLoading}" HeightRequest="32" WidthRequest="32"
+                                               Color="{DynamicResource AccentWarm}" />
+                            <Label Text="正在读取已安装的插件…" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+
+                        <Label Text="插件是应用内的全栈扩展：改人设与回复、加设置页、加页面、调工具；MCP 是外部服务工具（本机进程或网络地址）。两套系统分开安装，插件不会出现在 MCP 列表里，MCP 也不会占用插件目录。"
+                               Style="{StaticResource TxtCaption}" Opacity="0.8" LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

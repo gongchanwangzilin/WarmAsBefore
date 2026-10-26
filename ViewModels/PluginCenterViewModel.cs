@@ -31,8 +31,13 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     [ObservableProperty] private string _mcpPrompt = "";
     [ObservableProperty] private string _mcpResult = "";
     [ObservableProperty] private bool _mcpBusy;
+    /// <summary>首轮扫描还没回来。空态标签要等它结束再决定露不露，否则每次进页都先闪一句「还没有插件」。</summary>
+    [ObservableProperty] private bool _scanning = true;
     public bool HasMcpServers => McpServers.Count > 0;
     public bool HasPlugins => Rows.Count > 0;
+    public bool ShowEmpty => !Scanning && Rows.Count == 0;
+
+    partial void OnScanningChanged(bool value) => OnPropertyChanged(nameof(ShowEmpty));
 
     /// <summary>插件目录。手工拷一份进去也是合法入口，所以把路径亮出来，而不是只给两颗按钮。</summary>
     public string PluginsDirLabel => PluginHost.PluginsDir;
@@ -42,90 +47,114 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         _plugins = plugins;
         _api = api;
         _mcp = mcp;
-        _ = RefreshAsync();
+        // 这里不再自己扫一遍：页面 OnAppearing 会调 RefreshAsync。
+        // 两边都调过，等于每次进插件中心都把目录、清单、运行时、体检各做两遍。
     }
 
-    public async Task RefreshAsync()
+    private Task? _refreshTask;
+
+    /// <summary>正在刷新时复用同一次任务：连续点「刷新」或装完立刻回到页面，都不该叠成两轮扫盘。</summary>
+    public Task RefreshAsync() => _refreshTask ??= RunRefreshAsync();
+
+    private async Task RunRefreshAsync()
     {
+        Scanning = true;
+        OnPropertyChanged(nameof(ShowEmpty));
         try
         {
-            var list = await _plugins.AllAsync();
-            var installedIds = list.Select(p => p.Manifest.Id).ToList();
-            Rows.Clear();
-            foreach (var p in list)
+            // 读目录、解析清单、探运行时、体检全是磁盘与注册表活，整段放后台。
+            // 以前全在 UI 线程上串行跑：进插件中心必卡几拍，列表越多越明显。
+            var rows = await Task.Run(async () =>
             {
-                var settingsKind = p.Manifest.Settings?.Kind ?? "";
-                // 一行摘要就够：用户要的是「这个插件能用几件事、我改过没有」，细节在权限台里。
-                var caps = await _plugins.Permissions.RowsAsync(p.Manifest.Id, p.Manifest);
-                var declaredCount = caps.Count(c => c.Declared);
-                var usableCount = caps.Count(c => c.Declared && c.Policy != PluginGrant.Deny);
-                var customCount = caps.Count(c => c.Dirty);
-                // 体检：清单 + 钩子文件 + JS 源码 + 声明 + 依赖 + 运行时放在一起对一遍。
-                // 只读文件、只解析语法，不执行插件的 JS——没审过的代码不该被体检跑起来。
-                var need = PluginDoctor.RequiredRuntimeIds(p.Manifest);
-                IReadOnlyList<RuntimeState>? runtimes = need.Count > 0 ? await RuntimeProbe.ProbeAsync(need) : null;
-                var findings = PluginDoctor.Inspect(p, installedIds, runtimes);
-                var blocking = PluginDoctor.CountBlocking(findings);
-                var warns = findings.Count(x => x.Level == DoctorLevel.Warn);
-                Rows.Add(new PluginRow
+                var list = await _plugins.AllAsync();
+                var installedIds = list.Select(p => p.Manifest.Id).ToList();
+                var built = new List<PluginRow>(list.Count);
+                foreach (var p in list)
                 {
-                    PermissionLabel = $"权限：声明 {declaredCount} 项 · 可用 {usableCount} 项"
-                        + (customCount == 0 ? " · 全按默认" : $" · 你改过 {customCount} 项"),
-                    Id = p.Manifest.Id,
-                    Name = p.Manifest.Name,
-                    Version = p.Manifest.Version,
-                    Author = p.Manifest.Author,
-                    Description = p.Manifest.Description,
-                    Enabled = p.Enabled,
-                    SettingsKind = settingsKind,
-                    SettingsKindLabel = settingsKind switch
+                    var settingsKind = p.Manifest.Settings?.Kind ?? "";
+                    // 一行摘要就够：用户要的是「这个插件能用几件事、我改过没有」，细节在权限台里。
+                    var caps = await _plugins.Permissions.RowsAsync(p.Manifest.Id, p.Manifest);
+                    var declaredCount = caps.Count(c => c.Declared);
+                    var usableCount = caps.Count(c => c.Declared && c.Policy != PluginGrant.Deny);
+                    var customCount = caps.Count(c => c.Dirty);
+                    // 体检：清单 + 钩子文件 + JS 源码 + 声明 + 依赖 + 运行时放在一起对一遍。
+                    // 只读文件、只解析语法，不执行插件的 JS——没审过的代码不该被体检跑起来。
+                    var need = PluginDoctor.RequiredRuntimeIds(p.Manifest);
+                    IReadOnlyList<RuntimeState>? runtimes = need.Count > 0 ? await RuntimeProbe.ProbeAsync(need) : null;
+                    var findings = PluginDoctor.Inspect(p, installedIds, runtimes);
+                    var blocking = PluginDoctor.CountBlocking(findings);
+                    var warns = findings.Count(x => x.Level == DoctorLevel.Warn);
+                    built.Add(new PluginRow
                     {
-                        "native" => "应用内设置",
-                        "html" => "网页设置",
-                        "none" => "无需设置",
-                        _ => "缺少设置声明"
-                    },
-                    HookLabel = p.Manifest.Hooks.Count == 0 ? "无钩子" : string.Join(" · ", p.Manifest.Hooks.Keys),
-                    FirstHook = p.Manifest.Hooks.Keys.FirstOrDefault() ?? "",
-                    DependenciesLabel = p.MissingDependencies.Count == 0
-                        ? (p.Manifest.Dependencies.Count == 0 ? "" : "依赖已满足")
-                        : "缺少依赖：" + string.Join("、", p.MissingDependencies.Select(d => d.Id)),
-                    MissingUrls = p.MissingDependencies.Where(d => !string.IsNullOrWhiteSpace(d.Url))
-                        .Select(d => d.Url).ToList(),
-                    Issue = p.SettingsIssue,
-                    CanRun = p.Enabled && string.IsNullOrEmpty(p.SettingsIssue),
-                    HasBlocking = blocking > 0,
-                    DoctorLabel = findings.Count == 0
-                        ? "体检：没查出问题，能跑"
-                        : blocking > 0
-                            ? $"体检：{blocking} 个跑不起来的点，{warns} 个提醒"
-                            : warns > 0
-                                ? $"体检：{warns} 个提醒，其余能跑"
-                                : "体检：没查出问题，能跑",
-                    DoctorText = PluginDoctor.Render(findings),
-                    RuntimeInstallUrls = runtimes is null
-                        ? new()
-                        : runtimes.Where(r => !r.Present && r.InstallUrl.Length > 0)
-                            .Select(r => r.InstallUrl).Distinct().ToList(),
-                    HasPages = p.Manifest.Pages.Count > 0,
-                    PagesLabel = p.Manifest.Pages.Count == 0
-                        ? ""
-                        : string.Join("、", p.Manifest.Pages.Select(pg => string.IsNullOrWhiteSpace(pg.Title) ? pg.Route : pg.Title)),
-                    OverridesLabel = p.Manifest.Overrides.Count == 0
-                        ? ""
-                        : "接管：" + string.Join("、", p.Manifest.Overrides)
-                });
-            }
+                        PermissionLabel = $"权限：声明 {declaredCount} 项 · 可用 {usableCount} 项"
+                            + (customCount == 0 ? " · 全按默认" : $" · 你改过 {customCount} 项"),
+                        Id = p.Manifest.Id,
+                        Name = p.Manifest.Name,
+                        Version = p.Manifest.Version,
+                        Author = p.Manifest.Author,
+                        Description = p.Manifest.Description,
+                        Enabled = p.Enabled,
+                        SettingsKind = settingsKind,
+                        SettingsKindLabel = settingsKind switch
+                        {
+                            "native" => "应用内设置",
+                            "html" => "网页设置",
+                            "none" => "无需设置",
+                            _ => "缺少设置声明"
+                        },
+                        HookLabel = p.Manifest.Hooks.Count == 0 ? "无钩子" : string.Join(" · ", p.Manifest.Hooks.Keys),
+                        FirstHook = p.Manifest.Hooks.Keys.FirstOrDefault() ?? "",
+                        DependenciesLabel = p.MissingDependencies.Count == 0
+                            ? (p.Manifest.Dependencies.Count == 0 ? "" : "依赖已满足")
+                            : "缺少依赖：" + string.Join("、", p.MissingDependencies.Select(d => d.Id)),
+                        MissingUrls = p.MissingDependencies.Where(d => !string.IsNullOrWhiteSpace(d.Url))
+                            .Select(d => d.Url).ToList(),
+                        Issue = p.SettingsIssue,
+                        CanRun = p.Enabled && string.IsNullOrEmpty(p.SettingsIssue),
+                        HasBlocking = blocking > 0,
+                        DoctorLabel = findings.Count == 0
+                            ? "体检：没查出问题，能跑"
+                            : blocking > 0
+                                ? $"体检：{blocking} 个跑不起来的点，{warns} 个提醒"
+                                : warns > 0
+                                    ? $"体检：{warns} 个提醒，其余能跑"
+                                    : "体检：没查出问题，能跑",
+                        DoctorText = PluginDoctor.Render(findings),
+                        RuntimeInstallUrls = runtimes is null
+                            ? new()
+                            : runtimes.Where(r => !r.Present && r.InstallUrl.Length > 0)
+                                .Select(r => r.InstallUrl).Distinct().ToList(),
+                        HasPages = p.Manifest.Pages.Count > 0,
+                        PagesLabel = p.Manifest.Pages.Count == 0
+                            ? ""
+                            : string.Join("、", p.Manifest.Pages.Select(pg => string.IsNullOrWhiteSpace(pg.Title) ? pg.Route : pg.Title)),
+                        OverridesLabel = p.Manifest.Overrides.Count == 0
+                            ? ""
+                            : "接管：" + string.Join("、", p.Manifest.Overrides)
+                    });
+                }
+                return built;
+            });
+
+            Rows.Clear();
+            foreach (var row in rows) Rows.Add(row);
             Status = Rows.Count == 0
                 ? "还没有插件。"
                 : $"共 {Rows.Count} 个插件，{Rows.Count(r => r.CanRun)} 个正在生效。";
             OnPropertyChanged(nameof(HasPlugins));
-            RefreshMcp();
+            OnPropertyChanged(nameof(ShowEmpty));
+            await RefreshMcpAsync();
         }
         catch (Exception ex)
         {
             Status = "读取失败：" + ex.Message;
             App.WriteLog("PluginCenter.Refresh -> " + ex);
+        }
+        finally
+        {
+            _refreshTask = null;
+            Scanning = false;
+            OnPropertyChanged(nameof(ShowEmpty));
         }
     }
 
@@ -420,12 +449,14 @@ public sealed partial class PluginCenterViewModel : ObservableObject
 
     // ==================== MCP 工坊 ====================
 
-    private void RefreshMcp()
+    private async Task RefreshMcpAsync()
     {
         try
         {
+            // ListServers 会递归扫 McpPacks 目录，离开 UI 线程再回填。
+            var items = await Task.Run(() => _mcp.ListServers().ToList());
             McpServers.Clear();
-            foreach (var item in _mcp.ListServers())
+            foreach (var item in items)
             {
                 var row = new McpServerRow
                 {
@@ -481,7 +512,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         if (row is null) return;
         await _mcp.SetToolActiveAsync(row.Server, row.Name, !row.Active);
         Status = $"MCP 工具「{row.Name}」已{(row.Active ? "停用" : "启用")}。";
-        RefreshMcp();
+        await RefreshMcpAsync();
     }
 
     [RelayCommand]
@@ -492,7 +523,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                 $"删除「{row.Name}」的全部文件与工具注册？这个操作不可恢复。", "删除", "取消")) return;
         _mcp.RemoveServer(row.Key);
         Status = $"已删除 MCP「{row.Name}」。";
-        RefreshMcp();
+        await RefreshMcpAsync();
     }
 
     // ==================== MCP 数据包导入 ====================
@@ -519,7 +550,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             McpBusy = true;
             McpResult = "正在解压数据包…";
             McpResult = await _mcp.ImportZip(pick.FullPath, _mcp.McpPackDir, null);
-            RefreshMcp();
+            await RefreshMcpAsync();
         }
         catch (Exception ex)
         {
@@ -549,7 +580,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             await Shell.Current.DisplayAlert("导入数据包", "Android 端选不了文件夹，请把数据包压成 zip 再导入。", "好");
             return;
 #endif
-            RefreshMcp();
+            await RefreshMcpAsync();
         }
         catch (Exception ex)
         {
@@ -569,7 +600,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             McpBusy = true;
             McpResult = "正在抓取仓库…";
             McpResult = await _mcp.ImportFromGitHub(repo, _mcp.McpPackDir, new Progress<string>(s => McpResult = s));
-            RefreshMcp();
+            await RefreshMcpAsync();
         }
         catch (Exception ex)
         {
@@ -679,7 +710,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                 ? "\n远程工具没有自动试跑，可点每条工具的「试跑」手动验证。"
                 : "\n\n自动试跑（空参数）：\n" + string.Join("\n", tests));
             Status = $"MCP 数据包「{server}」已就绪，AI 可通过 mcp_list / mcp_call 使用。";
-            RefreshMcp();
+            await RefreshMcpAsync();
         }
         catch (Exception ex)
         {

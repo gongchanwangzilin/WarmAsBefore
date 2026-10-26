@@ -319,6 +319,16 @@ public static class HoverFeel
         private double _wipeTarget;
         private Microsoft.UI.Xaml.DispatcherTimer? _tick;
 
+        /// <summary>
+        /// 擦入那颗渐变画刷整条生命周期只建一次，每一帧只改挡位（Offset / Color），不换实例。
+        /// 以前每个 tick 都新建一颗带 4 个 GradientStop 的原生画刷，80ms 的擦入要造五六套；
+        /// 鼠标在卡片阵列上扫过去时十几颗同时擦，分配与画刷重建恰好和 60Hz 合成节拍撞在一起，
+        /// 读起来就是用户说的「按键动画一阵一阵」。现在这条路上没有一次性对象。
+        /// </summary>
+        private Microsoft.UI.Xaml.Media.LinearGradientBrush? _wipeBrush;
+        private Microsoft.UI.Xaml.Media.GradientStop[]? _wipeStops;
+        private Windows.UI.Color _wipeInk;
+
         public Driver(VisualElement e)
         {
             _e = e;
@@ -834,6 +844,9 @@ public static class HoverFeel
         /// 一台表管两个方向：进也用它、收也用它，改方向只是改 <see cref="_wipeTarget"/>。
         /// 按真实时钟推进，不按「每 tick 加一帧」：DispatcherTimer 在 WinUI 上常隔 20~30ms
         /// 才跳一次，加法制会把 80ms 拖成两三百毫秒——这正是「滑过去时动画来不及反应」的另一半。
+        /// 节拍取 <see cref="MotionTokens.FrameMs"/>（16ms）：12ms 比 60Hz 的合成节拍还快，
+        /// 每两帧就有一次落在同一个合成帧里白算，屏幕上的位移反而一深一浅 ——
+        /// 那是「一阵一阵」的另一半来源。对齐到 16ms 后，每一帧恰好对应一次合成。
         /// </summary>
         private void StartWipe()
         {
@@ -841,7 +854,7 @@ public static class HoverFeel
             var clock = System.Diagnostics.Stopwatch.StartNew();
             var last = 0d;
             var t = new Microsoft.UI.Xaml.DispatcherTimer
-            { Interval = TimeSpan.FromMilliseconds(12) };
+            { Interval = TimeSpan.FromMilliseconds(MotionTokens.FrameMs) };
             t.Tick += (_, _) =>
             {
                 var now = clock.Elapsed.TotalMilliseconds;
@@ -904,24 +917,44 @@ public static class HoverFeel
             _set(_painted);
         }
 
-        /// <summary>硬边擦入画刷：0..frac 是强调色，frac..1 全透明，中间不设过渡带（软边读起来是「渐显」不是「擦」）。</summary>
-        private static Microsoft.UI.Xaml.Media.Brush WipeBrush(Color c, double frac)
+        /// <summary>
+        /// 硬边擦入画刷：0..frac 是强调色，frac..1 全透明，中间不设过渡带（软边读起来是「渐显」不是「擦」）。
+        /// 画刷与四个挡位只在第一次建，之后每帧原地改 Offset / Color —— 理由见 <see cref="_wipeBrush"/>。
+        /// </summary>
+        private Microsoft.UI.Xaml.Media.Brush WipeBrush(Color c, double frac)
         {
             var f = (float)Math.Clamp(frac, 0, 1);
-            var brush = new Microsoft.UI.Xaml.Media.LinearGradientBrush
-            {
-                StartPoint = new Windows.Foundation.Point(0, 0),
-                EndPoint = new Windows.Foundation.Point(1, 0),
-                MappingMode = Microsoft.UI.Xaml.Media.BrushMappingMode.RelativeToBoundingBox
-            };
             var ink = Windows.UI.Color.FromArgb(ToByte(c.Alpha), ToByte(c.Red), ToByte(c.Green), ToByte(c.Blue));
-            brush.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = ink, Offset = 0 });
-            brush.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop { Color = ink, Offset = f });
-            brush.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
-            { Color = Windows.UI.Color.FromArgb(0, 0, 0, 0), Offset = f });
-            brush.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
-            { Color = Windows.UI.Color.FromArgb(0, 0, 0, 0), Offset = 1 });
-            return brush;
+            var clear = Windows.UI.Color.FromArgb(0, 0, 0, 0);
+            if (_wipeBrush is null || _wipeStops is null)
+            {
+                _wipeBrush = new Microsoft.UI.Xaml.Media.LinearGradientBrush
+                {
+                    StartPoint = new Windows.Foundation.Point(0, 0),
+                    EndPoint = new Windows.Foundation.Point(1, 0),
+                    MappingMode = Microsoft.UI.Xaml.Media.BrushMappingMode.RelativeToBoundingBox
+                };
+                _wipeStops = new[]
+                {
+                    new Microsoft.UI.Xaml.Media.GradientStop { Color = ink, Offset = 0 },
+                    new Microsoft.UI.Xaml.Media.GradientStop { Color = ink, Offset = f },
+                    new Microsoft.UI.Xaml.Media.GradientStop { Color = clear, Offset = f },
+                    new Microsoft.UI.Xaml.Media.GradientStop { Color = clear, Offset = 1 }
+                };
+                foreach (var stop in _wipeStops) _wipeBrush.GradientStops.Add(stop);
+                _wipeInk = ink;
+                return _wipeBrush;
+            }
+            // 换风格世界时强调色会变，挡位颜色跟着换；同一程里颜色不变，那次比较是唯一的开销。
+            if (_wipeInk != ink)
+            {
+                _wipeStops[0].Color = ink;
+                _wipeStops[1].Color = ink;
+                _wipeInk = ink;
+            }
+            _wipeStops[1].Offset = f;
+            _wipeStops[2].Offset = f;
+            return _wipeBrush;
         }
 
         /// <summary>

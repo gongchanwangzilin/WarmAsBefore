@@ -63,9 +63,9 @@
 
                 <Label Text="还没有插件。可以用下面的工坊生成一个，或用上面那两颗按钮装现成的。"
                        Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
-                       IsVisible="{Binding HasPlugins, Converter={StaticResource InverseBool}}" />
+                       IsVisible="{Binding ShowEmpty}" />
 
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Rows}" Spacing="10">
+                <VerticalStackLayout x:Name="RowsHost" BindableLayout.ItemsSource="{Binding Rows}" Spacing="10">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource CardSolid}">

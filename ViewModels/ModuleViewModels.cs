@@ -15,6 +15,7 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
     private readonly SettingsManager _settings;
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.RealWorld.TimeProvider _time;
+    private readonly GameEngine _engine;
 
     [ObservableProperty] private string _timeLabel = "";
     [ObservableProperty] private string _weatherText = "晴天";
@@ -27,11 +28,12 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
     [ObservableProperty] private bool _inWindow;
 
     public PhoneViewModel(SettingsManager settings,
-        Modules.RealChat.OfficialChatBridge bridge, Modules.RealWorld.TimeProvider time)
+        Modules.RealChat.OfficialChatBridge bridge, Modules.RealWorld.TimeProvider time, GameEngine engine)
     {
         _settings = settings;
         _bridge = bridge;
         _time = time;
+        _engine = engine;
         RefreshStatus();
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshStatus);
         _settings.Applied += RefreshStatus;
@@ -64,7 +66,17 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
     private async Task OpenQq() => await SafeNav("qqchat");
 
     [RelayCommand]
-    private async Task OpenMap() => await SafeNav("map");
+    private async Task OpenMap()
+    {
+        if (!_engine.MapUnlocked)
+        {
+            await Shell.Current.DisplayAlert("普通酒馆",
+                "这一局没有绑定世界树，所以没有地图。\n\n想解锁：游戏菜单 → 本局设定 → 选一份世界树。",
+                "知道了");
+            return;
+        }
+        await SafeNav("map");
+    }
 
     [RelayCommand]
     private async Task OpenGallery() => await SafeNav("gallery");

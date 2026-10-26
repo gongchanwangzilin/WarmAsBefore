@@ -103,6 +103,10 @@ public static class MauiProgram
         builder.Services.AddSingleton<Modules.Cg.CgViewPayload>();
         builder.Services.AddSingleton<Modules.Showcase.ShowcaseStore>();
         builder.Services.AddSingleton<Modules.Worldbook.WorldbookGenerator>();
+        // 世界树：存档绑定的那一份设定。旧世界书在首次读取时并进来，人写/AI 写共用一套。
+        builder.Services.AddSingleton<WorldTreeService>();
+        // 人格记忆初始化：人设与世界树先整理成记忆，再由记忆层决定什么时候想起
+        builder.Services.AddSingleton<PersonaMemoryService>();
         builder.Services.AddSingleton<Modules.DataPack.PackImporter>();
         builder.Services.AddSingleton<Modules.SaveSystem.SaveManager>();
         // Minecraft 桥：UDP 发现 + TCP 会话；插件启用后才监听端口，未启用时保持安静
@@ -166,6 +170,7 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<SaveViewModel>();
         builder.Services.AddTransient<GameViewModel>();
         builder.Services.AddTransient<WorldbookViewModel>();
+        builder.Services.AddTransient<NewRunViewModel>();
         builder.Services.AddTransient<ForceCastViewModel>();
 
         // Pages
@@ -193,6 +198,8 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<NovelSelectPage>();
         builder.Services.AddTransient<NovelWorldPage>();
         builder.Services.AddTransient<WorldbookPage>();
+        // 开局前的一屏：绑定世界树 + 写人设；「本局设定」也走这一页
+        builder.Services.AddTransient<NewRunPage>();
         builder.Services.AddTransient<CharacterLibraryPage>();
         // 角色工作室：列表那一行点进来的一页
         builder.Services.AddTransient<CharacterStudioPage>();

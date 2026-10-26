@@ -15,11 +15,14 @@ public partial class AppShell : Shell
         };
         Navigated += (_, e) =>
         {
-            if (_navWatch is null) return;
-            var to = e.Current?.Location?.OriginalString ?? "";
-            Services.PerfLog.Note($"导航 {_navTarget} → {to}",
-                $"{_navWatch.ElapsedMilliseconds} ms{(_navWatch.ElapsedMilliseconds >= 300 ? "  <<< SLOW" : "")}");
-            _navWatch = null;
+            if (_navWatch is not null)
+            {
+                var to = e.Current?.Location?.OriginalString ?? "";
+                Services.PerfLog.Note($"导航 {_navTarget} → {to}",
+                    $"{_navWatch.ElapsedMilliseconds} ms{(_navWatch.ElapsedMilliseconds >= 300 ? "  <<< SLOW" : "")}");
+                _navWatch = null;
+            }
+            PlayPageTransition(e);
         };
         // 这里原先在每次导航时重新置顶/BringToFront。
         // 但那会让「设置 → 窗口置顶」关闭后仍被强制置顶（关不掉），
@@ -30,6 +33,19 @@ public partial class AppShell : Shell
 
     private System.Diagnostics.Stopwatch? _navWatch;
     private string _navTarget = "";
+    private bool _firstNav = true;
+
+    /// <summary>
+    /// Shell 在 WinUI 上没有页面过场——导航完成那一帧新页直接顶上来，读起来就是「卡了一下」。
+    /// 这里只补一个方向位移：前进从右、返回从左，190ms 收回去；幅度写小，别做成整页飞入。
+    /// 退出方向不做：Shell 在 Navigated 之前已经换页，旧页拿不到，硬补只会拖慢导航本身。
+    /// </summary>
+    private void PlayPageTransition(ShellNavigatedEventArgs e)
+    {
+        if (_firstNav) { _firstNav = false; return; }
+        var back = e.Source is ShellNavigationSource.Pop or ShellNavigationSource.PopToRoot;
+        _ = Helpers.Motion.PageIn(CurrentPage, back);
+    }
 
     private void RegisterRoutes()
     {
@@ -50,6 +66,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("novelselect", typeof(Views.NovelSelectPage));
         Routing.RegisterRoute("novelworld", typeof(Views.NovelWorldPage));
         Routing.RegisterRoute("worldbook", typeof(Views.WorldbookPage));
+        // 新开一局 / 本局设定：世界树绑定 + 用户人设 + 人格记忆初始化
+        Routing.RegisterRoute("newrun", typeof(Views.NewRunPage));
         Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
         // 角色工作室：列表那一行点进来的一页（改 TA 的一切都在这儿，不在列表里）
         Routing.RegisterRoute("studio", typeof(Views.CharacterStudioPage));

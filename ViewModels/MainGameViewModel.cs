@@ -377,6 +377,15 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>加载地图 → 注入 AI 地图语境 → 应用当前场景背景/位置。</summary>
     private async Task InitMapAsync()
     {
+        // 普通酒馆（未绑定世界树）：没有世界就没有地图。整块跳过，也不给 AI 注入场景与移动协议，
+        // 否则它会开始描述一个根本不存在的地方，用户点地图却什么也打不开。
+        if (!_engine.MapUnlocked)
+        {
+            _chat.SetMapContext("");
+            RefreshSceneOptions();
+            App.WriteLog("MainGame.InitMap -> 未绑定世界树，地图与移动协议已锁定");
+            return;
+        }
         try
         {
             await _map.InitializeAsync();
@@ -404,6 +413,7 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private string BuildMapContext()
     {
+        if (!_engine.MapUnlocked) return "";
         if (!_map.IsLoaded || _map.Map.AllScenes.Count() == 0) return "";
         var scenes = string.Join("、", _map.Map.AllScenes.Select(s =>
         {
@@ -1653,6 +1663,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private async Task<string?> ExecuteSingleMoveAsync(string sceneName)
     {
         if (string.IsNullOrEmpty(sceneName)) return null;
+        if (!_engine.MapUnlocked) return null;
         try
         {
             IsWalking = true;
@@ -1974,11 +1985,24 @@ public sealed partial class MainGameViewModel : ObservableObject
         await Shell.Current.GoToAsync("phone");
     }
 
-    [RelayCommand]
-    private async Task OpenMap() => await Shell.Current.GoToAsync("map");
+    /// <summary>地图按钮的文案：未绑定世界树时直接写「锁」，点之前就知道打不开。</summary>
+    public string MapButtonText => _engine.MapUnlocked ? "地图" : "地图·锁";
 
     [RelayCommand]
-    private async Task OpenFullMap() => await Shell.Current.GoToAsync("map");
+    private async Task OpenMap()
+    {
+        if (!_engine.MapUnlocked)
+        {
+            await Shell.Current.DisplayAlert("普通酒馆",
+                "这一局没有绑定世界树，所以没有地图。\n\n想解锁：菜单 → 本局设定 → 选一份世界树。",
+                "知道了");
+            return;
+        }
+        await Shell.Current.GoToAsync("map");
+    }
+
+    [RelayCommand]
+    private async Task OpenFullMap() => await OpenMap();
 
     // ============ #E4 电脑端：隐藏顶栏/侧栏（ESC）与全屏（F11，code-behind 处理） ============
 
@@ -2099,6 +2123,14 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     [RelayCommand]
     private async Task OpenSave() => await Shell.Current.GoToAsync("save");
+
+    /// <summary>本局设定：改人设、换绑世界树。改完会重新整理一次记忆。</summary>
+    [RelayCommand]
+    private async Task OpenRunSettings()
+    {
+        ShowMenu = false;
+        await Shell.Current.GoToAsync("newrun?edit=1");
+    }
 
     /// <summary>开关菜单浮层。名字里不再叫 settings：它开的不是设置，是这一局的菜单。</summary>
     [RelayCommand]
