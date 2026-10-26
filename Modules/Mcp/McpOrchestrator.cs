@@ -649,6 +649,9 @@ public sealed class McpOrchestrator
             if (!Directory.Exists(McpPackDir)) return items;
             foreach (var dir in Directory.GetDirectories(McpPackDir))
             {
+                // 插件与 MCP 是两套系统：McpPacks 里混进过插件目录（旧版导入什么都收），
+                // 列表只认真正的数据包标记，插件一律不在这里露面。
+                if (!LooksLikeMcpPack(dir) || LooksLikePlugin(dir)) continue;
                 try
                 {
                     var meta = LoadMeta(dir);
@@ -687,6 +690,33 @@ public sealed class McpOrchestrator
         }
         catch { }
         return items;
+    }
+
+    /// <summary>真正的 MCP 数据包至少要有一个包标记：tools.json / server.json / metadata.json。</summary>
+    public static bool LooksLikeMcpPack(string dir) =>
+        File.Exists(Path.Combine(dir, "tools.json"))
+        || File.Exists(Path.Combine(dir, "server.json"))
+        || File.Exists(Path.Combine(dir, "metadata.json"));
+
+    /// <summary>插件目录（plugin.json）。用来把误放到 McpPacks 里的插件挡在 MCP 列表之外。</summary>
+    public static bool LooksLikePlugin(string dir) =>
+        File.Exists(Path.Combine(dir, "plugin.json"))
+        || Directory.Exists(dir) && Directory.GetDirectories(dir)
+            .Any(d => File.Exists(Path.Combine(d, "plugin.json")));
+
+    private const string PluginNotMcpMessage =
+        "[MCP] 这是一个插件，不是 MCP 数据包。插件请到「插件中心」安装——"
+        + "MCP 是给 AI 的外部工具服务器，插件是对应用本身做扩展，两套系统不混装。";
+
+    private const string NotMcpMessage =
+        "[MCP] 这不是 MCP 数据包：根目录需要 tools.json / server.json / metadata.json 之一。";
+
+    /// <summary>zip 常见「根目录还套一层同名文件夹」：沿唯一子目录找到真正带标记的那层。</summary>
+    private static string? FindPackRoot(string dir)
+    {
+        if (LooksLikeMcpPack(dir) || LooksLikePlugin(dir)) return dir;
+        var subs = Directory.GetDirectories(dir);
+        return subs.Length == 1 ? FindPackRoot(subs[0]) : null;
     }
 
     /// <summary>新建一个 MCP 服务器条目（在 McpPacks 下建目录 + metadata.json）。</summary>
@@ -907,22 +937,37 @@ public sealed class McpOrchestrator
                 using var zip = ZipFile.OpenRead(zipPath);
                 var name = Path.GetFileNameWithoutExtension(zipPath);
                 var dest = Path.Combine(targetDir, name);
-                Directory.CreateDirectory(dest);
-
-                var entries = zip.Entries.Where(e => !string.IsNullOrEmpty(e.Name)).ToList();
-                int done = 0;
-                foreach (var entry in entries)
+                // 先解到临时目录再验身：验不过就把整份丢掉，不会覆盖同名旧包。
+                var staging = dest + ".importing-" + Guid.NewGuid().ToString("N")[..6];
+                Directory.CreateDirectory(staging);
+                try
                 {
-                    // 防路径穿越：确保解压目标始终落在 dest 内
-                    var target = Path.GetFullPath(Path.Combine(dest, entry.FullName));
-                    if (!target.StartsWith(dest, StringComparison.OrdinalIgnoreCase)) continue;
-                    Directory.CreateDirectory(Path.GetDirectoryName(target)!);
-                    entry.ExtractToFile(target, overwrite: true);
-                    done++;
-                    progress?.Report((done, entries.Count));
+                    var entries = zip.Entries.Where(e => !string.IsNullOrEmpty(e.Name)).ToList();
+                    int done = 0;
+                    foreach (var entry in entries)
+                    {
+                        // 防路径穿越：确保解压目标始终落在 staging 内
+                        var target = Path.GetFullPath(Path.Combine(staging, entry.FullName));
+                        if (!target.StartsWith(staging, StringComparison.OrdinalIgnoreCase)) continue;
+                        Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                        entry.ExtractToFile(target, overwrite: true);
+                        done++;
+                        progress?.Report((done, entries.Count));
+                    }
+
+                    var root = FindPackRoot(staging) ?? staging;
+                    if (LooksLikePlugin(root) && !LooksLikeMcpPack(root)) return PluginNotMcpMessage;
+                    if (!LooksLikeMcpPack(root)) return NotMcpMessage;
+
+                    if (Directory.Exists(dest)) Directory.Delete(dest, true);
+                    Directory.Move(root, dest);
+                    ReloadPersistedTools();
+                    return $"[MCP] ZIP 导入成功: {name} → {dest}";
                 }
-                ReloadPersistedTools();
-                return $"[MCP] ZIP 导入成功: {name} → {dest}";
+                finally
+                {
+                    try { if (Directory.Exists(staging)) Directory.Delete(staging, true); } catch { }
+                }
             });
         }
         catch (Exception ex)
@@ -937,6 +982,9 @@ public sealed class McpOrchestrator
         try
         {
             if (!Directory.Exists(folderPath)) return "[MCP] 文件夹不存在";
+            var sourceRoot = FindPackRoot(folderPath) ?? folderPath;
+            if (LooksLikePlugin(sourceRoot) && !LooksLikeMcpPack(sourceRoot)) return PluginNotMcpMessage;
+            if (!LooksLikeMcpPack(sourceRoot)) return NotMcpMessage;
             return await Task.Run(() =>
             {
                 var name = Path.GetFileName(folderPath);

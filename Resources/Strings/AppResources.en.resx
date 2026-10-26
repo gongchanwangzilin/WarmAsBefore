@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -93,7 +93,7 @@
   <data name="Settings_OfficialNote" xml:space="preserve"><value>Note: official integration does not support group chats; for group chat support, set up your own MCP server independently.</value></data>
   <data name="Settings_Mcp" xml:space="preserve"><value>MCP Config</value></data>
   <data name="Settings_McpEnable" xml:space="preserve"><value>Enable MCP</value></data>
-  <data name="Settings_McpHint" xml:space="preserve"><value>When enabled, import data packs via network MCP, GitHub / ZIP / folder</value></data>
+  <data name="Settings_McpHint" xml:space="preserve"><value>When enabled, register and connect external MCP services (local stdio process or HTTP endpoint). Plugins are a separate system</value></data>
   <data name="Settings_McpUrl" xml:space="preserve"><value>Network MCP URL</value></data>
   <data name="Settings_McpUrlPlaceholder" xml:space="preserve"><value>https://mcp.example.com/api</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>GitHub Repo</value></data>

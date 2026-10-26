@@ -12,7 +12,6 @@ namespace WarmAsBefore.ViewModels;
 
 public sealed partial class CharacterSelectViewModel : ObservableObject
 {
-    private readonly GameEngine _engine;
     private readonly CharacterLibrary _library;
     private readonly Modules.SaveSystem.SaveManager _save;
     private readonly StorageProvider _store;
@@ -24,11 +23,11 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<CharacterCardItem> _cards = new();
     [ObservableProperty] private bool _aiBusy;
 
-    public CharacterSelectViewModel(GameEngine engine, CharacterLibrary library,
+    public CharacterSelectViewModel(CharacterLibrary library,
         Modules.SaveSystem.SaveManager save, StorageProvider store, SceneCalibrationService cal,
         Modules.ApiManager.ApiGateway api, ImageGenerationService images, MapService maps)
     {
-        _engine = engine;
+        _library = library;
         _library = library;
         _save = save;
         _store = store;
@@ -87,13 +86,9 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
                 $"和「{ch.Profile.Name}」开始新的一局？", "取消", null, "开始游戏");
             if (confirm != "开始游戏") return;
         }
-        // 必须先 Boot（重置 State）再 SetCharacter（写入角色），否则角色会被 Boot 清掉
-        _engine.Boot();
-        _engine.SetCharacter(id);
-        // 新开一局：立绘随机只在这一刻发生，之后一律读档恢复
-        if (_engine.ActiveCharacter is { } fresh1) CharacterLibrary.RandomizeSpriteState(fresh1);
-        _save.NewRun();
-        await Shell.Current.GoToAsync("main");
+        // 新开一局先过「世界树 + 人设」这一屏：不绑世界树也能进，但地图会锁上。
+        // Boot / SetCharacter / NewRun 都搬到那一页，用户中途返回时不会留下半开的空档。
+        await Shell.Current.GoToAsync($"newrun?character={Uri.EscapeDataString(id)}");
     }
 
     /// <summary>
@@ -233,11 +228,7 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
         if (await Shell.Current.DisplayAlert("AI 造角色",
                 $"「{profile.Name}」已加入角色库。{tail}\n\n现在和 TA 开始一局吗？", "开始", "稍后"))
         {
-            _engine.Boot();
-            _engine.SetCharacter(profile.Id);
-            if (_engine.ActiveCharacter is { } fresh) CharacterLibrary.RandomizeSpriteState(fresh);
-            _save.NewRun();
-            await Shell.Current.GoToAsync("main");
+            await Shell.Current.GoToAsync($"newrun?character={Uri.EscapeDataString(profile.Id)}");
         }
     }
 
@@ -436,6 +427,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly DesignSystem.Theme.ThemeManager _theme;
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.Mcp.McpOrchestrator _mcp;
+    private readonly PluginHost _plugins;
     private readonly Modules.Tools.RuntimeManager _runtimes;
     private readonly Modules.Tools.ToolManager _tools;
     private readonly SpeechService _speech;
@@ -451,6 +443,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
+        PluginHost plugins,
         Modules.Tools.RuntimeManager runtimes, Modules.Sandbox.SandboxPolicy sandbox,
         Modules.Tools.ToolManager tools, SpeechService speech,
         Services.StickerLibrary stickers, CharacterLibrary library, Services.VisionService vision,
@@ -463,6 +456,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _theme = theme;
         _bridge = bridge;
         _mcp = mcp;
+        _plugins = plugins;
         _runtimes = runtimes;
         _tools = tools;
         _skills = skills;
@@ -729,6 +723,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         // FileInfo.Length —— 全部跑在 UI 线程上。设置页是 transient，每次点「设置」
         // 都会重新构造 ViewModel，于是每次导航都同步卡一次（「点设置卡死」的真实阻塞点）。
         _ = LoadMcpServersAsync();
+        // 插件与 MCP 同级：两边都是「往机器里装东西」，列表一起在「外部接入」里出现。
+        _ = LoadPluginsAsync();
         _ = LoadQqBoundChoicesAsync();
         _suppressPresetApply = false;
 
@@ -3503,26 +3499,95 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
 
     /// <summary>手动重扫：接一个服务、删一个目录之后不必重启设置页。</summary>
     [RelayCommand]
-    private void RefreshMcp() => RefreshMcpServers();
+    private Task RefreshMcp() => RefreshMcpServersAsync();
 
-    /// <summary>刷新 MCP 数据包列表（从 McpPacks 目录扫描）。</summary>
-    private void RefreshMcpServers()
+    /// <summary>
+    /// 刷新 MCP 数据包列表（从 McpPacks 目录扫描）。
+    /// 扫描递归读目录、逐文件取长度，必须离开 UI 线程——在列表里点一次「刷新」不该卡住整页。
+    /// </summary>
+    private async Task RefreshMcpServersAsync()
     {
         try
         {
+            var items = await Task.Run(() => _mcp.ListServers());
             McpServers.Clear();
-            foreach (var item in _mcp.ListServers())
+            foreach (var item in items)
             {
                 if (_mcpDoctorText.TryGetValue(item.Key, out var saved))
                     item.DoctorText = saved;
                 McpServers.Add(item);
             }
             OnPropertyChanged(nameof(HasMcpServers));
+            McpServersLoading = false;
         }
         catch (Exception ex)
         {
             App.WriteLog("SettingsViewModel.RefreshMcpServers -> " + ex);
         }
+    }
+
+    // ---- 插件：与 MCP 同级的内联列表 ----
+    // MCP 是「外部服务工具」，插件是「应用内全栈扩展」，两套系统各自安装、各自管理。
+    // 之前插件只有一个跳转按钮，MCP 却直接铺成列表，看着像插件比 MCP 低一级；这里并排。
+    public ObservableCollection<PluginRow> PluginRows { get; } = new();
+    [ObservableProperty] private bool _pluginsLoading = true;
+    public bool HasPlugins => PluginRows.Count > 0;
+
+    /// <summary>后台线程扫插件目录，再回 UI 线程回填（与 MCP 列表同样的装载方式）。</summary>
+    private async Task LoadPluginsAsync()
+    {
+        List<PluginRow> rows;
+        try
+        {
+            var all = await Task.Run(async () => await _plugins.AllAsync());
+            rows = all.Select(p => new PluginRow
+            {
+                Id = p.Manifest.Id,
+                Name = string.IsNullOrWhiteSpace(p.Manifest.Name) ? p.Manifest.Id : p.Manifest.Name,
+                Version = p.Manifest.Version,
+                Author = p.Manifest.Author,
+                Description = p.Manifest.Description,
+                Enabled = p.Enabled,
+                CanRun = p.Enabled,
+                Issue = p.SettingsIssue ?? ""
+            }).ToList();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.LoadPlugins -> " + ex);
+            rows = new();
+        }
+
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            PluginRows.Clear();
+            foreach (var row in rows) PluginRows.Add(row);
+            OnPropertyChanged(nameof(HasPlugins));
+            PluginsLoading = false;
+        });
+    }
+
+    [RelayCommand]
+    private async Task TogglePlugin(PluginRow? row)
+    {
+        if (row is null) return;
+        try
+        {
+            await _plugins.SetEnabledAsync(row.Id, !row.Enabled);
+            await LoadPluginsAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.TogglePlugin -> " + ex);
+            await Shell.Current.DisplayAlert("插件", "切换失败：" + ex.Message, "好");
+        }
+    }
+
+    [RelayCommand]
+    private async Task RefreshPlugins()
+    {
+        PluginsLoading = true;
+        await LoadPluginsAsync();
     }
 
 
@@ -3573,7 +3638,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
                     "没能登记：接入方式只认 stdio 与 http，命令行或地址也不能是空的。具体原因看应用日志。", "好");
                 return;
             }
-            RefreshMcpServers();
+            await RefreshMcpServersAsync();
             var go = await Shell.Current.DisplayAlert("接入 MCP 服务",
                 $"已登记「{cfg.Name}」（{cfg.Transport}）。\n现在握手一次吗？握手会跑 initialize 和 tools/list，之后 AI 才看得到它的工具。",
                 "连接", "先不");
@@ -3613,7 +3678,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         }
 
         var (ok, message, count) = await _mcp.ConnectServerAsync(key);
-        RefreshMcpServers();
+        await RefreshMcpServersAsync();
         await Shell.Current.DisplayAlert(ok ? $"已连接「{name}」" : $"连不上「{name}」",
             ok ? $"{message}\n拿到 {count} 个工具，AI 用 mcp_list 就能看到它们。" : message, "好");
     }
@@ -3630,7 +3695,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
     {
         if (item is null) return;
         await _mcp.DisconnectServerAsync(item.Key);
-        RefreshMcpServers();
+        await RefreshMcpServersAsync();
     }
 
     /// <summary>stdio 的同意闸：放行与收回都在这一颗按钮上，改完立刻落盘。</summary>
@@ -3646,7 +3711,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             _mcp.RevokeServer(item.Key);
         }
         else _mcp.AllowServer(item.Key);
-        RefreshMcpServers();
+        await RefreshMcpServersAsync();
     }
 
     /// <summary>
@@ -3668,7 +3733,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             {
                 _mcpDoctorText[item.Key] = "这一条是 MCP 数据包（只有 tools.json），没有外部服务可体检。"
                     + "它的工具能不能跑，去插件中心点每条工具的「试跑」验；这张卡只管本机进程与网络地址。";
-                RefreshMcpServers();
+                await RefreshMcpServersAsync();
                 return;
             }
 
@@ -3683,13 +3748,13 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             _mcpDoctorText[item.Key] = findings.Count == 0
                 ? "没查出问题：配置完整，握手也通了。"
                 : PluginDoctor.Render(findings);
-            RefreshMcpServers();
+            await RefreshMcpServersAsync();
         }
         catch (Exception ex)
         {
             App.WriteLog("SettingsViewModel.DiagnoseMcp -> " + ex);
             _mcpDoctorText[item.Key] = "体检出错：" + ex.Message;
-            RefreshMcpServers();
+            await RefreshMcpServersAsync();
         }
         finally
         {
@@ -3706,7 +3771,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         if (!go) return;
         await _mcp.DisconnectServerAsync(item.Key);
         var ok = _mcp.RemoveServer(item.Key);
-        RefreshMcpServers();
+        await RefreshMcpServersAsync();
         if (!ok) await Shell.Current.DisplayAlert("删除 MCP 服务", "没能删掉，目录可能正被占用。", "好");
     }
 

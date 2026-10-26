@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -93,7 +93,7 @@
   <data name="Settings_OfficialNote" xml:space="preserve"><value>注意：官方方案不支援群聊；如需要群聊，請自行接入 MCP 伺服器，與本應用無關。</value></data>
   <data name="Settings_Mcp" xml:space="preserve"><value>MCP 配置</value></data>
   <data name="Settings_McpEnable" xml:space="preserve"><value>啟用 MCP</value></data>
-  <data name="Settings_McpHint" xml:space="preserve"><value>開啟後可透過網路 MCP、GitHub/ZIP/資料夾匯入資料包</value></data>
+  <data name="Settings_McpHint" xml:space="preserve"><value>開啟後可登記並連線外部 MCP 服務（本機程序 stdio 或網路位址 HTTP）；外掛是另一套系統，不在此列</value></data>
   <data name="Settings_McpUrl" xml:space="preserve"><value>網路 MCP URL</value></data>
   <data name="Settings_McpUrlPlaceholder" xml:space="preserve"><value>https://mcp.example.com/api</value></data>
   <data name="Settings_GitHub" xml:space="preserve"><value>GitHub 倉庫</value></data>

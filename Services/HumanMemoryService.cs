@@ -14,6 +14,12 @@ namespace WarmAsBefore.Services;
 /// </summary>
 public sealed class HumanMemoryService
 {
+    /// <summary>
+    /// 用户人设的保留 id：人设不是某个角色的经历，但每个角色都该「本来就知道」。
+    /// 单独挂一份，读的人设记忆与角色经历互不污染删除。
+    /// </summary>
+    public const string UserSelfId = "__user_self__";
+
     private const string StoreName = "human_memories";
 
     private readonly StorageProvider _store;
@@ -200,6 +206,89 @@ public sealed class HumanMemoryService
             await StoreAsync(charId, line);
         }
     }
+
+    /// <summary>
+    /// 把用户人设整理成一组「本来就知道的事」：先清掉旧的，再整批写入。
+    /// 人设原文不进上下文——它只以记忆条目的形式存在，由回忆层按需带出。
+    /// </summary>
+    public async Task ReplaceUserSelfAsync(IEnumerable<string> lines)
+    {
+        await EnsureLoadedAsync();
+        var clean = (lines ?? Array.Empty<string>())
+            .Select(Snip)
+            .Where(l => l.Length >= 2)
+            .Distinct(StringComparer.Ordinal)
+            .Take(24)
+            .ToList();
+        lock (_gate)
+        {
+            _cache.RemoveAll(m => m.CharacterId == UserSelfId);
+            _cache.AddRange(clean.Select(line => MakeCore(UserSelfId, line, "用户人设")));
+        }
+        await PersistAsync();
+    }
+
+    /// <summary>把世界树整理成当前角色「刻在骨子里」的常识；重开一局/换绑世界时整批替换。</summary>
+    public async Task ReplaceTaggedCoreAsync(string charId, string tag, IEnumerable<string> lines)
+    {
+        if (string.IsNullOrWhiteSpace(charId) || string.IsNullOrWhiteSpace(tag)) return;
+        await EnsureLoadedAsync();
+        var clean = (lines ?? Array.Empty<string>())
+            .Select(Snip)
+            .Where(l => l.Length >= 2)
+            .Distinct(StringComparer.Ordinal)
+            .Take(24)
+            .ToList();
+        lock (_gate)
+        {
+            _cache.RemoveAll(m => m.CharacterId == charId && m.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase));
+            _cache.AddRange(clean.Select(line => MakeCore(charId, line, tag)));
+        }
+        await PersistAsync();
+    }
+
+    /// <summary>解绑世界树：把世界树带进来的常识撤掉，角色自己的记忆一条不动。</summary>
+    public async Task RemoveTaggedCoreAsync(string charId, string tag)
+    {
+        if (string.IsNullOrWhiteSpace(charId) || string.IsNullOrWhiteSpace(tag)) return;
+        await EnsureLoadedAsync();
+        int removed;
+        lock (_gate)
+            removed = _cache.RemoveAll(m => m.CharacterId == charId
+                                            && m.Tags.Contains(tag, StringComparer.OrdinalIgnoreCase));
+        if (removed > 0) await PersistAsync();
+    }
+
+    /// <summary>用户人设的记忆：每次回想都能取到，不参与时间衰减。</summary>
+    public async Task<List<HumanMemoryEntry>> RecallUserSelfAsync(int limit = 4)
+    {
+        await EnsureLoadedAsync();
+        lock (_gate) return _cache
+            .Where(m => m.CharacterId == UserSelfId && !m.IsForgotten)
+            .OrderByDescending(m => m.Importance)
+            .ThenByDescending(m => m.CreatedAt)
+            .Take(Math.Max(1, limit))
+            .ToList();
+    }
+
+    private static string Snip(string? text)
+    {
+        var line = (text ?? "").Trim().TrimStart('·', '-', '*', ' ', '\t');
+        return line.Length > 60 ? line[..60] : line;
+    }
+
+    private static HumanMemoryEntry MakeCore(string charId, string line, string tag) => new()
+    {
+        CharacterId = charId,
+        Text = line,
+        Kind = HumanMemoryKind.Abstraction,
+        Importance = 0.92,
+        Tags = new List<string> { tag },
+        SentenceTags = HumanMemoryMath.AutoTag(line, new[] { tag }),
+        Associations = BuildAssociations(line, new[] { tag }),
+        IsCore = true,
+        EmotionalIntensity = 0.6
+    };
 
     /// <summary>
     /// 回想：默认只回想三天内的为主，越久越模糊但不彻底消失；
@@ -614,9 +703,16 @@ public sealed class HumanMemoryService
         var hits = await RecallAsync(charId, windowDays, randomness, limit);
         var coreIds = cores.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
         hits = hits.Where(h => !coreIds.Contains(h.Id)).ToList();
-        if (hits.Count == 0 && cores.Count == 0) return "";
+        var user = await RecallUserSelfAsync();
+        if (hits.Count == 0 && cores.Count == 0 && user.Count == 0) return "";
 
         var sb = new System.Text.StringBuilder();
+        if (user.Count > 0)
+        {
+            sb.AppendLine("关于你身边这个人（你本来就知道的事，不用问也记得）：");
+            foreach (var u in user) sb.AppendLine("· " + u.Text);
+            sb.AppendLine();
+        }
         if (cores.Count > 0)
         {
             sb.AppendLine("刻在骨子里的事（它们不会被时间冲淡，一直在塑造你此刻是什么样的人）：");

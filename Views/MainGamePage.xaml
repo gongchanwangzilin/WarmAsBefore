@@ -440,7 +440,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
                     <Button Grid.Column="5" Text="菜单" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
                     <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
-                    <Button Grid.Column="7" Text="地图" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
+                    <Button Grid.Column="7" Text="{Binding MapButtonText}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
                     <!-- 临时指定这次由哪个 AI 回答（不动全局设置；指定后按钮高亮） -->
                     <Button Grid.Column="8" Text="AI" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                             BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
@@ -722,6 +722,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Button Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenPhoneCommand}" />
+                    <Button Text="本局设定" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
+                            CornerRadius="8" HeightRequest="40"
+                            Command="{Binding OpenRunSettingsCommand}" />
                     <Button Text="存档管理" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
                             CornerRadius="8" HeightRequest="40"
                             Command="{Binding OpenSaveCommand}" />

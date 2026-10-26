@@ -10,6 +10,9 @@ namespace WarmAsBefore.Helpers;
 /// </summary>
 public static class Motion
 {
+    /// <summary>入场统一曲线（终末地 snap）。MAUI 的 Easing 要一个委托，这里只建一次。</summary>
+    private static readonly Easing SnapEase = new(MotionTokens.Snap);
+
     /// <summary>
     /// 元素进场：从下方 6px 浮起（用位移而不是缩放，WinUI 下缩放会牵动布局）。
     ///
@@ -27,7 +30,7 @@ public static class Motion
             return;
         }
         e.TranslationY = rise;
-        await e.TranslateTo(0, 0, ms, Easing.CubicOut);
+        await e.TranslateTo(0, 0, ms, SnapEase);
         e.TranslationY = 0;
     }
 
@@ -65,7 +68,7 @@ public static class Motion
         // 现在只位移——最坏低 18px，内容不会消失。
         if (ms == 0) { e.TranslationY = 0; return; }
         e.TranslationY = MotionTokens.EnterRisePx * 3;
-        await e.TranslateTo(0, 0, ms, Easing.CubicOut);
+        await e.TranslateTo(0, 0, ms, SnapEase);
         e.TranslationY = 0;
     }
 
@@ -91,7 +94,7 @@ public static class Motion
             if (wait > 0) await Task.Delay(wait);
             if (ms == 0) return;
             e.TranslationY = MotionTokens.EnterRisePx;
-            await e.TranslateTo(0, 0, ms, Easing.CubicOut);
+            await e.TranslateTo(0, 0, ms, SnapEase);
         }
         finally
         {
@@ -102,6 +105,25 @@ public static class Motion
     /// <summary>一行的错位量：第 index 行该等多久（只算到 <paramref name="maxStagger"/> 行，后面的同时到位——三十行排三十次会显得拖沓）。</summary>
     public static int StaggerDelay(int index, int maxStagger = 8)
         => Math.Max(0, Math.Min(index, maxStagger)) * MotionTokens.Ms(MotionTokens.StaggerMs);
+
+    /// <summary>
+    /// 页面切换的方向感。WinUI 上的 Shell 换页是硬切，没有过场；用户读到的就是「每页都卡一下」。
+    /// 新页入场时整块从右侧（前进）或左侧（返回）滑回原位，只动根布局的 TranslationX，
+    /// 与 <see cref="ArrivePage"/> 给子元素排的纵向错峰各写各的通道，互不抢占。
+    ///
+    /// 只滑 26px：这是「方向提示」，不是「整页飞进来」——幅度大了，页面底色与窗口底之间会露出缝。
+    /// 大多数页在 ContentPage 上铺了 PageBgBrush，滑出去的那条边看到的是同一块底色，读不出位移的边界。
+    /// </summary>
+    public static async Task PageIn(Page page, bool back)
+    {
+        var root = (page as ContentPage)?.Content;
+        if (root is null || MotionTokens.Disabled) return;
+        var ms = (uint)MotionTokens.Ms(MotionTokens.PageSlideMs);
+        if (ms == 0) { root.TranslationX = 0; return; }
+        root.TranslationX = back ? -MotionTokens.PageSlidePx : MotionTokens.PageSlidePx;
+        try { await root.TranslateTo(0, 0, ms, SnapEase); }
+        finally { root.TranslationX = 0; }
+    }
 
     // ── 进场契约 ────────────────────────────────────────────────────────
     // 全站只有这一个入口负责「页面第一次出现时怎么进来」。之前是 26 个页面各自没有、

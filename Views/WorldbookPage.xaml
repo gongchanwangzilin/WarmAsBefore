@@ -2,135 +2,228 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
-             xmlns:models="clr-namespace:WarmAsBefore.Models"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.WorldbookPage"
-
-             Title="世界书"
+             x:DataType="vm:WorldbookViewModel"
+             Title="世界树"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
+    <ContentPage.Resources>
+        <Style x:Key="FieldLabel" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="Margin" Value="2,0,0,4" />
+        </Style>
+        <Style x:Key="Field" TargetType="Entry">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+        <Style x:Key="FieldMulti" TargetType="Editor">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+        <Style x:Key="Eyebrow" TargetType="Label">
+            <Setter Property="FontFamily" Value="Bahnschrift" />
+            <Setter Property="CharacterSpacing" Value="3" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
+        </Style>
+    </ContentPage.Resources>
+
     <Grid RowDefinitions="Auto,*">
 
-        <!-- Header：眉栏是同一块地上的一条，不是浮起来的一张卡；底下用发丝线收住 -->
+        <!-- Header -->
         <VerticalStackLayout Spacing="0">
             <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                     <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="{DynamicResource WSizeSmall}"
                             Padding="0" Command="{Binding GoBackCommand}" />
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
-                        <Label Text="世界书" Style="{StaticResource TxtTitle}" />
-                        <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="世界树" Style="{StaticResource TxtTitle}" />
+                        <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                               LineBreakMode="TailTruncation" />
                     </VerticalStackLayout>
-                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsThinking}"
-                                       IsVisible="{Binding IsThinking}" Color="{DynamicResource PrimaryAction}"
+                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsBusy}"
+                                       IsVisible="{Binding IsBusy}" Color="{DynamicResource BeigeAccent300}"
                                        WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
+                    <Button Grid.Column="3" Text="新建" Style="{StaticResource BtnGhostSm}"
+                            IsVisible="{Binding IsEditing, Converter={StaticResource InverseBool}}"
+                            Command="{Binding NewManualCommand}" />
                 </Grid>
             </Border>
             <BoxView Style="{StaticResource HSep}" />
         </VerticalStackLayout>
 
-        <!-- Content -->
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Spacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}">
+            <VerticalStackLayout Spacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}"
+                                 MaximumWidthRequest="960" HorizontalOptions="Fill">
 
-                <!-- 描述你的世界：输入 + 两个开关 + 主行动，本来就是「一件事的几条内容」，
-                     因此是一张卡里的四行，控件一律靠右、垂直居中 -->
-                <Border Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Spacing="0">
-                        <Border Style="{StaticResource SettingRow}">
-                            <Label Text="描述你的世界" Style="{StaticResource TxtRowTitle}" />
-                        </Border>
-                        <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
-                            <Editor Text="{Binding Description}"
-                                    Placeholder="描述你想要的世界观、角色、剧情…"
-                                    PlaceholderColor="{DynamicResource MutedFg}"
-                                    BackgroundColor="{DynamicResource InputBg}"
-                                    TextColor="{DynamicResource SurfaceFg}"
-                                    FontSize="{DynamicResource WSizeBody}" HeightRequest="100" />
-                        </Border>
-                        <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="生成封面" Style="{StaticResource TxtRowTitle}"
-                                       VerticalOptions="Center" />
-                                <Switch Grid.Column="1" IsToggled="{Binding GenerateCover}" VerticalOptions="Center" />
+                <!-- ============ 库 ============ -->
+                <VerticalStackLayout Spacing="{DynamicResource WGapSection}"
+                                     IsVisible="{Binding IsEditing, Converter={StaticResource InverseBool}}">
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="WORLDS" Style="{StaticResource Eyebrow}" />
+                        <Label Text="存档绑定的就是这里的一份。可以自己写，也可以让 AI 造一个，再由你改。"
+                               Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+
+                    <!-- AI 造世界 -->
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="让 AI 造一个世界" Style="{StaticResource TxtRowTitle}" />
+                            <Editor Style="{StaticResource FieldMulti}" Text="{Binding AiPrompt}"
+                                    HeightRequest="88" AutoSize="Disabled"
+                                    Placeholder="一句话就够：战后废土上的移动旅馆；或者一座只在雨夜出现的旧城。" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Picker ItemsSource="{Binding ModeChoices}" SelectedItem="{Binding ModeChoice}"
+                                        FontSize="{DynamicResource WSizeSmall}" VerticalOptions="Center"
+                                        WidthRequest="130" HorizontalOptions="Start" />
+                                <Button Grid.Column="1" Text="生成并编辑" Style="{StaticResource BtnPrimary}"
+                                        FontSize="13" Padding="16,7" Command="{Binding GenerateCommand}" />
                             </Grid>
-                        </Border>
-                        <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto">
-                                <Label Grid.Column="0" Text="模式" Style="{StaticResource TxtRowTitle}"
-                                       VerticalOptions="Center" />
-                                <Picker Grid.Column="1" ItemsSource="{Binding ModeChoices}"
-                                        SelectedItem="{Binding Mode}" FontSize="{DynamicResource WSizeSmall}"
-                                        WidthRequest="160" HorizontalOptions="End" VerticalOptions="Center" />
-                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 库列表 -->
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Items}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:WorldTreeCardItem">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}"
+                                                    motion:PressFeel.Enabled="True"
+                                                    motion:HoverFeel.Enabled="True"
+                                                    motion:HoverFeel.Accent="True">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WorldbookViewModel}}, Path=EditCommand}"
+                                                        CommandParameter="{Binding Id}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                                    <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                                                        <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
+                                                               LineBreakMode="WordWrap" IsVisible="{Binding HasSummary}" />
+                                                        <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
+                                                    </VerticalStackLayout>
+                                                    <Button Grid.Column="1" Text="编辑" Style="{StaticResource BtnGhostSm}"
+                                                            VerticalOptions="Center"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WorldbookViewModel}}, Path=EditCommand}"
+                                                            CommandParameter="{Binding Id}" />
+                                                    <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnDangerSm}"
+                                                            VerticalOptions="Center"
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WorldbookViewModel}}, Path=DeleteCommand}"
+                                                            CommandParameter="{Binding Id}" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <VerticalStackLayout IsVisible="{Binding HasNoWorlds}" Spacing="6"
+                                                 Margin="{DynamicResource WPadRow}">
+                                <Label Text="还没有世界树" Style="{StaticResource TxtRowTitle}" />
+                                <Label Text="上面写一句，让 AI 造第一个；或者点右上角「新建」自己写。"
+                                       Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="没绑定世界树的存档是普通酒馆：只聊天，地图锁上。绑定之后随时可以换，也可以解绑。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <!-- ============ 编辑 ============ -->
+                <VerticalStackLayout Spacing="{DynamicResource WGapSection}" IsVisible="{Binding IsEditing}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="EDIT WORLD" Style="{StaticResource Eyebrow}" />
+                        <Label Text="改哪一条都行。保存之后，绑定它的存档在下一次整理记忆时生效。"
+                               Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="10">
+                            <Label Text="标题" Style="{StaticResource FieldLabel}" />
+                            <Entry Style="{StaticResource Field}" Text="{Binding EditTitle}"
+                                   Placeholder="给这个世界一个名字" />
+
+                            <Label Text="世界设定" Style="{StaticResource FieldLabel}" Margin="2,8,0,4" />
+                            <Editor Style="{StaticResource FieldMulti}" Text="{Binding EditDescription}"
+                                    HeightRequest="180" AutoSize="Disabled"
+                                    Placeholder="这个世界一直成立的事：地理、规则、气氛、势力、日常。不要写具体剧情。" />
+
+                            <Label Text="最初的想法" Style="{StaticResource FieldLabel}" Margin="2,8,0,4" />
+                            <Editor Style="{StaticResource FieldMulti}" Text="{Binding EditIdea}"
+                                    HeightRequest="72" AutoSize="Disabled"
+                                    Placeholder="你当初用来生成它的那句话。留着自己看，也方便以后让 AI 重写。" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 角色 -->
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="世界里的人" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="添加角色" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding AddCharacterCommand}" />
+                        </Grid>
+                        <Border Style="{StaticResource CardGroup}">
+                            <VerticalStackLayout Spacing="0">
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding EditorCharacters}" Spacing="0">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:WorldCharacterDraft">
+                                            <VerticalStackLayout Spacing="0">
+                                                <Border Style="{StaticResource SettingRow}">
+                                                    <VerticalStackLayout Spacing="8">
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                            <Entry Style="{StaticResource Field}" Text="{Binding Name}"
+                                                                   Placeholder="角色名" />
+                                                            <Entry Grid.Column="1" Style="{StaticResource Field}"
+                                                                   Text="{Binding Gender}" WidthRequest="76"
+                                                                   Placeholder="性别" />
+                                                        </Grid>
+                                                        <Entry Style="{StaticResource Field}" Text="{Binding Personality}"
+                                                               Placeholder="性格（一两句话）" />
+                                                        <Editor Style="{StaticResource FieldMulti}" Text="{Binding Description}"
+                                                                HeightRequest="64" AutoSize="Disabled"
+                                                                Placeholder="外观、背景、在这个世界里的位置" />
+                                                        <Button Text="移除这个角色" Style="{StaticResource BtnDangerSm}"
+                                                                HorizontalOptions="Start"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:WorldbookViewModel}}, Path=RemoveCharacterCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                    </VerticalStackLayout>
+                                                </Border>
+                                                <BoxView Style="{StaticResource HSepInset}" />
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Label Text="这份世界还没有角色。可以只写世界，也可以在这里加几个人。"
+                                       Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                       IsVisible="{Binding HasNoEditorCharacters}" />
+                            </VerticalStackLayout>
                         </Border>
                     </VerticalStackLayout>
-                </Border>
 
-                <!-- 主行动留在卡外：卡内只放「读与改」，动手的那一颗不参与分组 -->
-                <Button Text="生成世界书" Command="{Binding GenerateCommand}"
-                        Style="{StaticResource BtnNeumorphAccent}" />
+                    <Label Text="{Binding EditStatus}" Style="{StaticResource TxtCaption}"
+                           TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
 
-                <!-- Result -->
-                <Border x:Name="ResultPanel" IsVisible="{Binding Result}"
-                        Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Spacing="0">
-                        <Border Style="{StaticResource SettingRow}">
-                            <Label Text="{Binding Result.Worldbook.Title}" Style="{StaticResource TxtTitle}"
-                                   LineBreakMode="WordWrap" />
-                        </Border>
-                        <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
-                            <Label Text="{Binding Result.Worldbook.Description}" Style="{StaticResource TxtBody}"
-                                   LineBreakMode="WordWrap" />
-                        </Border>
-                        <!-- 封面是图不是行，铺到卡边；行式卡片只装文字条目 -->
-                        <Image Source="{Binding Result.CoverImagePath}"
-                               IsVisible="{Binding Result.CoverGenerated}"
-                               Aspect="AspectFill" HeightRequest="200" />
-
-                        <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
-                            <Label Text="角色" Style="{StaticResource TxtRowTitle}" />
-                        </Border>
-                        <CollectionView ItemsSource="{Binding Result.Worldbook.Characters}">
-                            <CollectionView.ItemTemplate>
-                                <DataTemplate x:DataType="models:WorldbookCharacter">
-                                    <VerticalStackLayout Spacing="0">
-                                        <BoxView Style="{StaticResource HSep}" />
-                                        <Border Style="{StaticResource SettingRow}">
-                                            <Grid ColumnDefinitions="*,Auto">
-                                                <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
-                                                    <Label Text="{Binding Description}" Style="{StaticResource TxtBody}"
-                                                           LineBreakMode="WordWrap" />
-                                                    <Label Text="{Binding Personality}" Style="{StaticResource TxtRowDesc}"
-                                                           LineBreakMode="WordWrap" />
-                                                </VerticalStackLayout>
-                                            </Grid>
-                                        </Border>
-                                    </VerticalStackLayout>
-                                </DataTemplate>
-                            </CollectionView.ItemTemplate>
-                        </CollectionView>
-
-                        <BoxView Style="{StaticResource HSep}" />
-                        <Border Style="{StaticResource SettingRow}">
-                            <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                                <Button Text="润色" Command="{Binding PolishCommand}"
-                                        Style="{StaticResource BtnNeumorphSm}" />
-                                <Button Text="转为纯文字" Command="{Binding ConvertToTextOnlyCommand}"
-                                        Style="{StaticResource BtnNeumorphSm}" />
-                                <Button Text="转立绘模式" Command="{Binding ConvertToSpriteModeCommand}"
-                                        Style="{StaticResource BtnNeumorphSm}" />
-                            </HorizontalStackLayout>
-                        </Border>
-                    </VerticalStackLayout>
-                </Border>
-
+                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                        <Button Text="保存" Style="{StaticResource BtnPrimary}" FontSize="13" Padding="18,7"
+                                Command="{Binding SaveEditCommand}" />
+                        <Button Grid.Column="1" Text="AI 润色" Style="{StaticResource BtnGhostSm}"
+                                Command="{Binding PolishEditCommand}" />
+                        <Button Grid.Column="3" Text="取消编辑" Style="{StaticResource BtnText}"
+                                Command="{Binding CloseEditorCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

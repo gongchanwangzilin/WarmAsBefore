@@ -18,18 +18,14 @@ public sealed partial class ForceCastViewModel : ObservableObject
     private readonly CharacterLibrary _library;
     private readonly MapService _map;
     private readonly WeChatService _wechat;
-    private readonly GameEngine _engine;
-    private readonly Modules.SaveSystem.SaveManager _save;
     private readonly StorageProvider _store;
 
     public ForceCastViewModel(CharacterLibrary library, MapService map,
-        WeChatService wechat, GameEngine engine, Modules.SaveSystem.SaveManager save, StorageProvider store)
+        WeChatService wechat, StorageProvider store)
     {
         _library = library;
         _map = map;
         _wechat = wechat;
-        _engine = engine;
-        _save = save;
         _store = store;
     }
 
@@ -136,16 +132,10 @@ public sealed partial class ForceCastViewModel : ObservableObject
                 if (firstId is null) firstId = ch.Profile.Id;
             }
 
-            // 3) 第一个被点名的角色强制进入对话剧情
+            // 3) 第一个被点名的角色进入剧情：开局页负责绑定世界树与人设
             if (firstId is not null)
             {
-                _engine.Boot();
-                _engine.SetCharacter(firstId);
-                if (_engine.ActiveCharacter is { } active)
-                    CharacterLibrary.RandomizeSpriteState(active);
-                _save.NewRun();
-
-                await Shell.Current.GoToAsync("main");
+                await Shell.Current.GoToAsync($"newrun?character={Uri.EscapeDataString(firstId)}");
             }
         }
         catch (Exception ex)

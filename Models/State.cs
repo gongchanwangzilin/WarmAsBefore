@@ -33,6 +33,24 @@ public sealed record GameState
 
     /// <summary>身体状态（冷热饥渴想念）：跟着存档走，读档后不会突然全空。</summary>
     public PhysiologyState Body { get; set; } = new();
+
+    /// <summary>
+    /// 绑定的世界树（世界书条目 id）。空 = 普通酒馆模式：地图系统整块锁上，
+    /// 只保留聊天与记忆——「这段关系发生在哪儿」没有答案时，不该假装有一张地图。
+    /// </summary>
+    public string WorldId { get; set; } = "";
+    /// <summary>世界树名称快照：世界书被改名/删除后，存档列表仍能说清这局绑的是哪个世界。</summary>
+    public string WorldName { get; set; } = "";
+
+    /// <summary>
+    /// 用户人设（本存档内）：创建存档时写，之后可改。
+    /// 它不进上下文原文——由 <c>PersonaMemoryService</c> 整理成记忆条目，
+    /// 需要时再经记忆层被想起。
+    /// </summary>
+    public string UserPersona { get; set; } = "";
+
+    /// <summary>人设已整理入记忆：false 时下一次进游戏要补一次「人格记忆初始化」。</summary>
+    public bool PersonaMemoryReady { get; set; }
 }
 
 /// <summary>
@@ -114,6 +132,8 @@ public sealed record SaveSlot
     public string Character { get; init; } = string.Empty;
     public string Scene { get; init; } = string.Empty;
     public int PlayMinutes { get; init; }
+    /// <summary>绑定世界树 id；空 = 普通酒馆（无地图）。</summary>
+    public string World { get; init; } = string.Empty;
 }
 
 /// <summary>会话中的一条聊天记录：随存档一起持久化，读档后恢复聊天界面。</summary>

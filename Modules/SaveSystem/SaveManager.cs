@@ -54,7 +54,8 @@ public sealed class SaveManager
                 Id = _engine.CurrentSaveId,
                 Label = label,
                 Character = _engine.State.CharacterId,
-                Scene = _engine.State.Location
+                Scene = _engine.State.Location,
+                World = _engine.State.WorldId
             };
             var data = new Dictionary<string, object>
             {
@@ -265,6 +266,10 @@ public sealed class SaveManager
         return await Load(valid[0].Id);
     }
 
+    /// <summary>存档列表的 meta 缓存：角色库、存档页每次出现都要列表，整档 JSON 里只有 meta 有用。</summary>
+    private readonly Dictionary<string, (long Ticks, long Length, SaveSlot Slot)> _slotCache =
+        new(StringComparer.OrdinalIgnoreCase);
+
     public async Task<List<SaveSlot>> List()
     {
         var dir = Path.Combine(_store.Root, "saves");
@@ -274,12 +279,23 @@ public sealed class SaveManager
         {
             try
             {
+                var info = new FileInfo(f);
+                var ticks = info.LastWriteTimeUtc.Ticks;
+                if (_slotCache.TryGetValue(f, out var hit) && hit.Ticks == ticks && hit.Length == info.Length)
+                {
+                    list.Add(hit.Slot);
+                    continue;
+                }
                 var json = await File.ReadAllTextAsync(f);
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("meta", out var m))
                 {
                     var slot = m.Deserialize<SaveSlot>();
-                    if (slot is not null) list.Add(slot);
+                    if (slot is not null)
+                    {
+                        list.Add(slot);
+                        _slotCache[f] = (ticks, info.Length, slot);
+                    }
                 }
             }
             catch { }
@@ -563,6 +579,31 @@ public sealed class SaveManager
     {
         if (!_store.Exists($"saves/{id}")) return Task.FromResult(false);
         _store.Delete($"saves/{id}");
+        _slotCache.Remove(Path.Combine(_store.Root, "saves", id + ".json"));
         return Task.FromResult(true);
+    }
+
+    /// <summary>
+    /// 给已有存档换绑/解绑世界树（不进入游戏也能改）。只动 state 里的两个字段，其余原样保留。
+    /// 世界树自带的地图与常识在下次进游戏时生效；解绑时内存里的世界常识一并撤掉。
+    /// </summary>
+    public async Task<bool> BindWorldAsync(string id, string worldId, string worldName)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return false;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root || root["state"] is not JsonObject stateNode) return false;
+            stateNode["WorldId"] = worldId ?? "";
+            stateNode["WorldName"] = worldName ?? "";
+            await _store.WriteRawAsync($"saves/{id}", root.ToJsonString(WriteJson));
+            _slotCache.Remove(Path.Combine(_store.Root, "saves", id + ".json"));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.BindWorld -> " + ex);
+            return false;
+        }
     }
 }

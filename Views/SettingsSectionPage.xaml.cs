@@ -72,7 +72,12 @@ public partial class SettingsSectionPage : ContentPage
         SectionDescLabel.Text = section.Desc;
         try
         {
-            await Task.Delay(24);   // 先让标题出来，再建卡片
+            // 标题先出来，再一口气把这一页的卡片建完。
+            // 以前是「建一张 → 挂上去 → 播它自己的进场 → 等一帧 → 再建下一张」：
+            // 每张卡都触发一次布局，动画和下一次创建抢同一帧，几条卡叠起来就是一格一格的。
+            await Task.Delay(24);
+
+            var cards = new List<View>(section.CardKeys.Length);
             for (var i = 0; i < section.CardKeys.Length; i++)
             {
                 var key = section.CardKeys[i];
@@ -86,12 +91,11 @@ public partial class SettingsSectionPage : ContentPage
                     content = template.CreateContent() as Microsoft.Maui.Controls.View;
                 if (content is null) continue;
 
-                // 逐张浮起：让「一张张出来」读成有节奏的进场，而不是随机蹦出来。
-                // 时长仍然很短（130ms）——这一页的首要任务是别让人觉得慢。
-                // 这里不淡入：这些卡片带着阴影，透明度被多处共写容易把它们留在看不见的那一头。
+                // 入树前先摆到起点：随后统一错峰上浮时，排在后面的卡片不会先以终值出现、
+                // 等轮到自己再跳下去。这里只动位移，不碰 Opacity（沿用站里的进场契约）。
+                content.TranslationY = MotionTokens.EnterRisePx;
                 CardsHost.Add(content);
-                Motion.Arrive(new Microsoft.Maui.Controls.VisualElement[] { content },
-                    (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
+                cards.Add(content);
 
                 var chart = content.FindByName("CostChartView") as GraphicsView;
                 if (chart is not null)
@@ -99,8 +103,10 @@ public partial class SettingsSectionPage : ContentPage
                     chart.Drawable = _vm.CostChart;
                     _vm.InvalidateCostChart = () => chart.Invalidate();
                 }
-                await Task.Delay(MotionTokens.FrameMs);   // 让出一帧，这一张先画出来
             }
+
+            // 构建已经结束，动画不再和创建抢线程：一批卡共用同一条节奏（45ms 一张、130ms 走完）。
+            Motion.Arrive(cards, (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
             // 卡片就绪后再补该分类要用的数据（只做这一页需要的）
             _ = SeedAfterCardsAsync(section.Key);
         }

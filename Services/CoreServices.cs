@@ -12,6 +12,9 @@ public sealed class GameEngine
     /// <summary>当前会话的存档槽位：新开一局时创建，读取存档时恢复。快速存档/自动存档写入该槽位。</summary>
     public string CurrentSaveId { get; set; } = "";
 
+    /// <summary>地图是否可用：只有绑定了世界树的存档才有「发生在哪儿」，其余按普通酒馆走。</summary>
+    public bool MapUnlocked => !string.IsNullOrWhiteSpace(State.WorldId);
+
     public event Action<string>? ScreenChange;
     public event Action<ChatMessage>? MessageEmitted;
 
