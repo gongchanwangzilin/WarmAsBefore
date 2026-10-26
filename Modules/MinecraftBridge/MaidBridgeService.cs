@@ -21,7 +21,7 @@ namespace WarmAsBefore.Modules.MinecraftBridge;
 /// 发现走 UDP 27321，会话走 TCP NDJSON；token 一次性、30 秒过期，默认只接受回环地址。
 /// 所有世界动作都要经模组真实执行，工具结果就是唯一事实来源。
 /// </summary>
-public sealed class MaidBridgeService : IDisposable
+public sealed partial class MaidBridgeService : IDisposable
 {
     public const string PluginId = "wab_minecraft";
     public const int DefaultPort = 27322;
@@ -42,6 +42,8 @@ public sealed class MaidBridgeService : IDisposable
     private readonly ChatEngine _chat;
     private readonly MemoryVault _memory;
     private readonly HumanMemoryService _human;
+    private readonly VisionService _vision;
+    private readonly PersonaMemoryService _persona;
 
     private readonly object _gate = new();
     private readonly object _sessionGate = new();
@@ -84,7 +86,8 @@ public sealed class MaidBridgeService : IDisposable
 
     public MaidBridgeService(PluginHost plugins, StorageProvider store,
         Modules.SaveSystem.SaveManager save, GameEngine engine, CharacterLibrary characters,
-        ChatEngine chat, MemoryVault memory, HumanMemoryService human, Modules.Tools.ToolManager tools)
+        ChatEngine chat, MemoryVault memory, HumanMemoryService human, Modules.Tools.ToolManager tools,
+        VisionService vision, PersonaMemoryService persona)
     {
         _plugins = plugins;
         _store = store;
@@ -94,6 +97,8 @@ public sealed class MaidBridgeService : IDisposable
         _chat = chat;
         _memory = memory;
         _human = human;
+        _vision = vision;
+        _persona = persona;
         MaidBridgeTools.Register(this, tools);
     }
 
@@ -542,6 +547,7 @@ public sealed class MaidBridgeService : IDisposable
                 {
                     if (ReferenceEquals(_session, session)) _session = null;
                 }
+                ForgetWorldbookCache();
                 await session.DisposeAsync();
             }
             else
@@ -600,42 +606,61 @@ public sealed class MaidBridgeService : IDisposable
             lock (_bindingsGate)
                 if (_bindings.Worlds.TryGetValue(session.WorldKey, out var known)) saveId = known.SaveId;
 
-            if (string.IsNullOrEmpty(_engine.CurrentSaveId))
+            var world = GetOrCreateWorldLocked(session.WorldKey);
+            var active = _engine.CurrentSaveId;
+            var bound = saveId.Length > 0 ? saveId : world.SaveId;
+
+            // 桥是客人，不是主人。过去这里写的是「WAB 没开存档就替它 Load/新建一份」，
+            // 再往下还有「没有当前角色就抓第一个女仆顶上去」——一次 Minecraft 联机就能把
+            // WAB 打开成另一个存档、换成另一个角色，等于模组在改用户本体的功能。现在只有
+            // 用户在插件设置里明确勾了「允许桥切存档」，才把这两件事还给桥。
+            if (_config.AutoSwitchSave && active.Length == 0)
             {
-                var loaded = false;
-                if (!string.IsNullOrEmpty(saveId) && _store.Exists($"saves/{saveId}"))
-                    loaded = await _save.Load(saveId);
+                var loaded = bound.Length > 0 && _store.Exists($"saves/{bound}") && await _save.Load(bound);
                 if (!loaded) _save.NewRun();
+                active = _engine.CurrentSaveId;
+                bound = active;
             }
 
-            var world = GetOrCreateWorldLocked(session.WorldKey);
-            world.SaveId = _engine.CurrentSaveId;
+            session.SaveActive = active.Length > 0 && (bound.Length == 0 || bound == active);
+            session.SaveNotice = session.SaveActive
+                ? ""
+                : active.Length == 0
+                    ? "WAB 里还没打开存档，所以桥先不绑女仆、不让她开口。在主界面开一份存档；"
+                      + "或者到插件设置里打开「允许桥切存档」，让她自己去读这份世界绑定的那份。"
+                    : $"这个 Minecraft 世界绑的是存档「{bound}」，WAB 此刻打开的是「{active}」。"
+                      + "桥不替你切存档：在 WAB 里打开前者她就醒过来，"
+                      + "想让这份世界改绑当前存档，用 maid_bind 重设一次。";
+
+            // 绑定关系只在她本来就没绑过时才落；一旦绑过，就不许被「此刻碰巧打开的存档」盖掉。
+            if (session.SaveActive && bound.Length == 0) world.SaveId = active;
+
             session.World = new MaidBridgeWorldSnapshot
             {
                 World = session.WorldName,
                 Instance = session.Instance,
                 Player = session.Player
             };
-
             ReadMaids(hello["maids"], session);
             ApplyModConfig(session, hello);
-            var boundChanged = await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
-            world.SaveId = _engine.CurrentSaveId;
+            var boundChanged = session.SaveActive
+                               && await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
             await SaveBindingsLockedAsync();
-
-            if (_engine.ActiveCharacter is null && session.MaidCharacters.Count > 0)
-            {
-                var first = FirstBoundCharacter(session);
-                if (first.Length > 0) await OnUiAsync(() => _engine.SetCharacter(first));
-            }
 
             var welcome = BuildWelcome(session);
             if (boundChanged) welcome["bindingChanged"] = true;
+            if (session.SaveNotice.Length > 0) welcome["notice"] = session.SaveNotice;
             await session.SendAsync(welcome);
+            if (!session.SaveActive)
+            {
+                App.WriteLog("MaidBridge 不接手存档：" + session.SaveNotice);
+                _lastBackupUtc = DateTime.UtcNow;
+                _lastPulseUtc = DateTime.UtcNow;
+                return;
+            }
+
             await SendBindAsync(session, world, Array.Empty<string>());
             await CommitNowAsync();
-            if (!string.IsNullOrEmpty(_engine.State.CharacterId))
-                await OnUiAsync(() => _chat.RefreshPersona(_engine.State.CharacterId));
 
             _lastBackupUtc = DateTime.UtcNow;
             _lastPulseUtc = DateTime.UtcNow;
@@ -782,6 +807,11 @@ public sealed class MaidBridgeService : IDisposable
             ["player"] = session?.Player ?? "",
             ["boundMaids"] = session?.MaidCharacters.Count ?? 0,
             ["listeningPort"] = _tcpPort,
+            // 面板要说清「她现在到底在不在干活」，以及为什么不在——不能只报connected就完事。
+            ["saveActive"] = session?.SaveActive ?? false,
+            ["saveNotice"] = session?.SaveNotice ?? "",
+            ["worldbookNotice"] = session?.WorldbookNotice ?? "",
+            ["currentSave"] = _engine.CurrentSaveId,
             ["plugin"] = new JsonObject
             {
                 ["enabled"] = _config.Enabled,
@@ -907,6 +937,9 @@ public sealed class MaidBridgeService : IDisposable
                 case "result":
                     CompleteRequest(session, msg);
                     break;
+                case "photo":
+                    CompletePhoto(session, msg);
+                    break;
                 case "hello":
                     break;
                 case "error":
@@ -939,6 +972,13 @@ public sealed class MaidBridgeService : IDisposable
         tcs.TrySetException(new MaidCommandException(code, error));
     }
 
+    private static void CompletePhoto(MaidSession session, JsonObject msg)
+    {
+        var request = (int)Math.Clamp(BridgeJson.Num(msg, "request", -1), -1, int.MaxValue);
+        if (request < 0 || !session.Photos.TryRemove(request, out var tcs)) return;
+        tcs.TrySetResult((JsonObject)msg.DeepClone());
+    }
+
     private async Task RunSafe(string label, Func<Task> work)
     {
         try { await work(); }
@@ -962,9 +1002,21 @@ public sealed class MaidBridgeService : IDisposable
 
     private async Task OnStateAsync(MaidSession session, JsonObject msg)
     {
+        var prevWeather = session.Weather;
+        var prevPhase = DayPhase(session.GameTime);
         ApplyWorld(session, msg);
         ApplyModConfig(session, msg);
         if (msg["maids"] is JsonArray) ReadMaids(msg["maids"], session);
+
+        // 天变了、时段换了，让她替这个世界想一次。模组每 100 tick 就发一份状态，
+        // 所以只有真的跨到另一个天气/时段才算「变了」——不然她每分钟都要感慨一遍。
+        if (prevWeather.Length > 0 && session.Weather.Length > 0
+            && !string.Equals(prevWeather, session.Weather, StringComparison.OrdinalIgnoreCase))
+            await ThinkWorldAsync(session, "weather",
+                $"天气从{WeatherName(prevWeather)}变成{WeatherName(session.Weather)}");
+        var phase = DayPhase(session.GameTime);
+        if (prevPhase.Length > 0 && phase.Length > 0 && phase != prevPhase)
+            await ThinkWorldAsync(session, "time", $"时段从{prevPhase}变成{phase}");
 
         await EnsureBindingsLoadedAsync();
         await _bindingOpsLock.WaitAsync();
@@ -990,6 +1042,9 @@ public sealed class MaidBridgeService : IDisposable
         // 世界快照不要求每帧回存；但界面上的好感显示要跟着 WAB 的权威值走
         foreach (var (maidId, charId) in session.MaidCharacters)
             await PushStatsAsync(session, maidId, charId);
+
+        // 她得先知道这是个什么样的世界，才谈得上看见了什么。自己排，别挡住这一帧的收尾。
+        _ = RunSafe("Worldbook", () => SyncWorldbookAsync(session));
     }
 
     private static void ApplyWorld(MaidSession session, JsonObject msg)
@@ -1084,20 +1139,9 @@ public sealed class MaidBridgeService : IDisposable
             changed = true;
         }
 
-        if (session.MaidCharacters.Count > 0 && _engine.ActiveCharacter is null)
-        {
-            var first = FirstBoundCharacter(session);
-            if (first.Length > 0) await OnUiAsync(() => _engine.SetCharacter(first));
-        }
+        // 这里原来还会「界面上没选角色就把第一个女仆塞上去」。桥不决定用户在本体里跟谁说话：
+        // 人设已经改成按 charId 取（ChatEngine.ProfileProvider），不选也能正常让她开口。
         return changed;
-    }
-
-    private static string FirstBoundCharacter(MaidSession session)
-    {
-        var pair = session.MaidCharacters
-            .OrderBy(kv => session.Maids.TryGetValue(kv.Key, out var m) ? m.Name : "", StringComparer.OrdinalIgnoreCase)
-            .FirstOrDefault();
-        return pair.Value ?? "";
     }
 
     private static string MakeWorldKey(string world, string instance, string player)
@@ -1226,12 +1270,26 @@ public sealed class MaidBridgeService : IDisposable
 
     private async Task OnEventAsync(MaidSession session, JsonObject msg)
     {
+        // 存档对不上时她什么都不记、也不想：写的是别人家存档的记忆。
+        if (!session.SaveActive) return;
         var maidId = BridgeJson.Str(msg, "maid");
+        var kind = BridgeJson.Str(msg, "kind", "event");
+        var eventText = BridgeJson.Str(msg, "text").Trim();
+
+        // 主人上床这件事不属于某一个女仆：在场绑定的都各自想一次（每人一条独立冷却，
+        // 不至于一拥而上把模型打爆，也不会因为谁先想过就把别人堵住）。
+        if (string.Equals(kind, "owner_sleep", StringComparison.OrdinalIgnoreCase))
+        {
+            foreach (var pair in session.MaidCharacters)
+                await ThinkSceneAsync(session, kind,
+                    eventText.Length > 0 ? eventText : "主人上床睡觉了", pair.Key);
+            return;
+        }
+
         var charId = ResolveCharacter(session, maidId);
         if (charId.Length == 0) return;
 
-        var kind = BridgeJson.Str(msg, "kind", "event");
-        var text = BridgeJson.Str(msg, "text").Trim();
+        var text = eventText;
         var importance = Math.Clamp(BridgeJson.Num(msg, "importance", 0.5), 0.05, 1);
         if (kind is "death" or "hurt") importance = Math.Max(importance, kind == "death" ? 0.95 : 0.7);
 
@@ -1265,6 +1323,9 @@ public sealed class MaidBridgeService : IDisposable
 
         if (text.Length > 0) RememberEvent(session, maidId, Truncate(text, 200));
 
+        // 她碰上事了：按场景想一次。这个场景没在设置里勾上，这里就什么都不发生。
+        await ThinkSceneAsync(session, kind, text.Length > 0 ? text : SceneLabel(kind), maidId);
+
         await PushStatsAsync(session, maidId, charId);
         await MaybeCommitAsync();
     }
@@ -1273,6 +1334,18 @@ public sealed class MaidBridgeService : IDisposable
     {
         var maidId = BridgeJson.Str(msg, "maid");
         var text = BridgeJson.Str(msg, "text").Trim();
+        if (!session.SaveActive)
+        {
+            await session.SendAsync(new JsonObject
+            {
+                ["v"] = ProtocolVersion,
+                ["type"] = "chat_reply",
+                ["maid"] = maidId,
+                ["ok"] = false,
+                ["error"] = session.SaveNotice.Length > 0 ? session.SaveNotice : "桥当前没在工作。"
+            });
+            return;
+        }
         var charId = ResolveCharacter(session, maidId);
         if (charId.Length == 0)
         {
@@ -1641,6 +1714,7 @@ public sealed class MaidBridgeService : IDisposable
     private async Task MaybePulseAsync(MaidSession session)
     {
         if (_config.AutonomyPulseMinutes <= 0) return;
+        if (!session.SaveActive) return;
         if ((DateTime.UtcNow - _lastPulseUtc).TotalMinutes < _config.AutonomyPulseMinutes) return;
         if (_config.BackupMinutes > 0 && (DateTime.UtcNow - _lastCommitUtc).TotalSeconds < 30) return;
         _lastPulseUtc = DateTime.UtcNow;
@@ -1760,6 +1834,17 @@ public sealed class MaidBridgeService : IDisposable
 
             var parameters = (JsonObject)args.DeepClone();
             parameters["maid"] = maidId;
+
+            // 拍照要走主人的客户端，还要多等一帧；插件关了这根开关、
+            // 或 WAB 里压根没配置识图模型时，这一张没人能看——就别让模组白截一次图。
+            var wantPhoto = method == "see" && BridgeJson.Bool(parameters, "photo");
+            string? withhold = wantPhoto && !_config.AllowPhoto
+                ? "插件设置里「允许她看一眼画面」是关的，这一张不拍。"
+                : wantPhoto && !_vision.IsConfigured
+                    ? "WAB 里没配置识图模型，这张画面没人能读。设置里填好识图端点后她就能真的看见。"
+                    : null;
+            if (withhold is not null) parameters["photo"] = false;
+
             var timeout = method switch
             {
                 "status" or "scan" => TimeSpan.FromSeconds(12),
@@ -1768,6 +1853,8 @@ public sealed class MaidBridgeService : IDisposable
                 _ => TimeSpan.FromSeconds(20)
             };
             var data = await session.RequestAsync(method, parameters, timeout, session.Cts.Token);
+            if (wantPhoto && data is JsonObject seen)
+                await AttachPhotoAsync(session, seen, withhold);
             var charId = ResolveCharacter(session, maidId);
             return SuccessJson(method, maidId, charId, data);
         }
@@ -1785,6 +1872,97 @@ public sealed class MaidBridgeService : IDisposable
             return ErrorJson(ex.Message, "bridge_error");
         }
     }
+
+    /// <summary>
+    /// 把模组另送一帧的画面拼进 see 的结果：字节交给识图模型转成一段话，
+    /// 只把话写回工具结果——PNG 有几百 KB，塞进上下文一次就把这段对话烧穿。
+    /// </summary>
+    private async Task AttachPhotoAsync(MaidSession session, JsonObject data, string? withhold)
+    {
+        if (withhold is not null)
+        {
+            data["photo"] = new JsonObject { ["ok"] = false, ["error"] = withhold };
+            return;
+        }
+
+        var request = (int)Math.Clamp(BridgeJson.Num(data, "photoRequest", -1), -1, int.MaxValue);
+        if (request < 0)
+        {
+            data["photo"] = new JsonObject
+            {
+                ["ok"] = false,
+                ["error"] = BridgeJson.Str(data, "photoError", "这一会儿取不到画面。")
+            };
+            data.Remove("photoError");
+            return;
+        }
+        data.Remove("photoRequest");
+        data.Remove("photoNote");
+
+        // 模组那头 8 秒就会自己回一帧失败，这里多留几秒只算路上的时间。
+        var frame = await session.AwaitPhotoAsync(request, TimeSpan.FromSeconds(12), session.Cts.Token);
+        if (frame is null)
+        {
+            data["photo"] = new JsonObject { ["ok"] = false, ["error"] = "画面没有回来。" };
+            return;
+        }
+        if (!BridgeJson.Bool(frame, "ok"))
+        {
+            data["photo"] = new JsonObject
+            {
+                ["ok"] = false,
+                ["error"] = BridgeJson.Str(frame, "error", "客户端没能拍到画面。")
+            };
+            return;
+        }
+
+        var png = BridgeJson.Str(frame, "png");
+        var mime = BridgeJson.Str(frame, "mime", "image/png");
+        data["photo"] = new JsonObject
+        {
+            ["ok"] = true,
+            ["width"] = (int)BridgeJson.Num(frame, "width", 0),
+            ["height"] = (int)BridgeJson.Num(frame, "height", 0)
+        };
+        if (png.Length == 0)
+        {
+            data["photo"]!["ok"] = false;
+            data["photo"]!["error"] = "画面是空的，可能正卡在切换画面的那一帧。";
+            return;
+        }
+
+        byte[] bytes;
+        try { bytes = Convert.FromBase64String(png); }
+        catch (FormatException)
+        {
+            data["photo"]!["ok"] = false;
+            data["photo"]!["error"] = "画面编码不对，读不了。";
+            return;
+        }
+
+        var describe = _vision.DescribeBytesAsync(bytes, mime, PhotoPrompt);
+        // 识图模型自己给的是 60 秒超时，对一句对话太长了；等不到就把文字那份还给她。
+        var finished = await Task.WhenAny(describe, Task.Delay(TimeSpan.FromSeconds(25)));
+        if (finished != describe)
+        {
+            data["photo"]!["ok"] = false;
+            data["photo"]!["error"] = "画面拍到了，但识图模型 25 秒内没回话，先只看文字那份。";
+            return;
+        }
+        var text = await describe;
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            data["photo"]!["ok"] = false;
+            data["photo"]!["error"] = "画面拍到了，可识图模型什么也没说出来。";
+            return;
+        }
+        data["photo"]!["seen"] = Truncate(text.Trim(), 600);
+    }
+
+    private const string PhotoPrompt =
+        "这是 Minecraft 里一个女仆正面向方向的画面，从主人的客户端截下，可能带游戏界面。"
+        + "用两三句中文说她亲眼看到的东西：地形与光照、能认出的方块或建筑、生物或玩家、"
+        + "以及值得注意的异常。只说画面里真有的东西，认不出就讲认不出，别编。";
 
     private async Task<string> BindToolAsync(JsonObject args)
     {
@@ -1808,6 +1986,12 @@ public sealed class MaidBridgeService : IDisposable
             var world = GetOrCreateWorldLocked(session.WorldKey);
             if (newSave)
             {
+                // 分支存档会把她挪到一份新存档并立刻切过去——那是替用户换掉整个 WAB 的世界，
+                // 所以这条路默认关掉，只有用户在设置里打开「允许桥切存档」才走得通。
+                if (!_config.AutoSwitchSave)
+                    return ErrorJson(
+                        "桥不替你新建或切换存档。想让她换到另一份存档：在 WAB 里自己打开那份，再绑一次；"
+                        + "想让桥代劳，到插件设置里打开「允许桥切存档」。", "auto_switch_save_off");
                 if (string.IsNullOrEmpty(_engine.CurrentSaveId))
                 {
                     _save.NewRun();
@@ -1822,7 +2006,15 @@ public sealed class MaidBridgeService : IDisposable
                     notes.Add(branch.Message);
                 }
                 world.SaveId = _engine.CurrentSaveId;
+                session.SaveActive = true;
+                session.SaveNotice = "";
             }
+
+            // 存档对不上时连绑定都不改：改了就是把别人家存档里的角色塞进这个世界。
+            if (!session.SaveActive)
+                return ErrorJson(session.SaveNotice.Length > 0
+                    ? session.SaveNotice
+                    : "WAB 里还没打开存档，绑不了。", "save_mismatch");
 
             var charId = ResolveCharacterOrName(want);
             if (charId.Length == 0 && create)
@@ -1853,8 +2045,6 @@ public sealed class MaidBridgeService : IDisposable
             await SaveBindingsLockedAsync();
             await SendBindAsync(session, world, notes);
 
-            if (_engine.ActiveCharacter is null) await OnUiAsync(() => _engine.SetCharacter(charId));
-            await OnUiAsync(() => _chat.RefreshPersona(charId));
             await CommitNowAsync();
             await PushStatsAsync(session, maidId, charId);
 
@@ -2220,7 +2410,15 @@ public sealed class MaidBridgeService : IDisposable
         /// <summary>模组报回来的游戏内实际配置（Cloth 面板改完就是这个值），键与 WabConfig 一致。</summary>
         public ConcurrentDictionary<string, string> ModConfig { get; } = new(StringComparer.Ordinal);
         public DateTime ModConfigAtUtc { get; set; }
+        /// <summary>桥只在「用户自己打开的那份存档」里干活。对不上就是 false：不绑女仆、不调 AI、不改角色。</summary>
+        public bool SaveActive { get; set; } = true;
+        /// <summary>为什么没在干活（给模组、也给 WAB 的日志/提示），空串表示一切正常。</summary>
+        public string SaveNotice { get; set; } = "";
+        /// <summary>这份存档的世界书够不够她用一个字讲清这个世界；空串 = 没问题，不显示。</summary>
+        public string WorldbookNotice { get; set; } = "";
         public ConcurrentDictionary<string, TaskCompletionSource<JsonNode?>> Pending { get; } = new(StringComparer.Ordinal);
+        /// <summary>等模组发来的 photo 帧：键是模组给的画面请求号。见 RunToolAsync 的 see 分支。</summary>
+        public ConcurrentDictionary<int, TaskCompletionSource<JsonObject?>> Photos { get; } = new();
         private readonly SemaphoreSlim _writeLock = new(1, 1);
         private int _requestId;
 
@@ -2267,12 +2465,39 @@ public sealed class MaidBridgeService : IDisposable
             }
         }
 
+        /// <summary>
+        /// 等模组把这一号画面送回来。没等到就返回 null：文字那份感知已经到手，
+        /// 为一张照片把整次工具调用判失败不划算。
+        /// </summary>
+        public async Task<JsonObject?> AwaitPhotoAsync(int request, TimeSpan timeout, CancellationToken ct)
+        {
+            var tcs = new TaskCompletionSource<JsonObject?>(TaskCreationOptions.RunContinuationsAsynchronously);
+            Photos[request] = tcs;
+            try
+            {
+                using var deadline = CancellationTokenSource.CreateLinkedTokenSource(ct);
+                deadline.CancelAfter(timeout);
+                using var reg = deadline.Token.Register(() => tcs.TrySetCanceled(deadline.Token));
+                return await tcs.Task;
+            }
+            catch (OperationCanceledException) when (!ct.IsCancellationRequested)
+            {
+                return null;
+            }
+            finally
+            {
+                Photos.TryRemove(request, out _);
+            }
+        }
+
         public ValueTask DisposeAsync()
         {
             try { Cts.Cancel(); } catch { }
             foreach (var tcs in Pending.Values)
                 tcs.TrySetException(new IOException("Minecraft 会话已关闭。"));
             Pending.Clear();
+            foreach (var tcs in Photos.Values) tcs.TrySetCanceled();
+            Photos.Clear();
             try { Writer.Dispose(); } catch { }
             try { Reader.Dispose(); } catch { }
             try { Client.Close(); } catch { }
