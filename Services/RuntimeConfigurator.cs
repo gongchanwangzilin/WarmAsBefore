@@ -548,6 +548,10 @@ public sealed class RuntimeConfigurator
         };
         // 性别 / 心理 / 旁白 / 插件人设：只在建会话与刷新人设时拼一次
         _chat.ExtraPersonaProvider = BuildExtraPersona;
+        // 人设档案按 charId 取。ConfigureCharacter 只记「界面上正在聊的那位」，
+        // 桥让别的女仆开口时必须能从花名册拿到她自己的名字与性格，否则会借别人的脑子说话。
+        _chat.ProfileProvider = charId =>
+            _engine.Roster.TryGetValue(charId, out var data) ? data.Profile : null;
         // 大脑预判：本地每轮结算（PrepareTurn 在 ChatEngine.Send 里调），动态上下文注入期待差/惊喜卡
         _chat.Brain = _brain;
         // 身体感受：每轮都取最新（放在动态上下文里，人设不必重建）

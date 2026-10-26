@@ -23,6 +23,14 @@ internal static class MaidBridgeTools
             args => bridge.RunToolAsync("scan", args),
             ScanSchema);
 
+        tools.RegisterBuiltin("maid_see",
+            "以她的眼睛看一次：她正面向的方向上有什么——生物、玩家、别的女仆、矿石与容器、床、作物，"
+            + "会被方块挡住就不算看到，结果是一句人话加一份清单。photo=true 时再从主人的客户端取一帧游戏画面，"
+            + "交给识图模型讲给她听（要她在 WAB 设置里配好识图模型，插件设置里也要放开「允许她看一眼画面」）。"
+            + "想知道「你眼前现在是什么样子」「那个方向有什么」就调用它，别凭印象答。",
+            args => bridge.RunToolAsync("see", args),
+            SeeSchema);
+
         tools.RegisterBuiltin("maid_go",
             "让女仆移动身体。mode=to 去坐标或目标，near 靠近目标，follow 跟随玩家，wait 原地等，"
             + "home 回家，wander 在附近随意走走。远距离由模组寻路，她会真的走过去，不会瞬移。",
@@ -82,6 +90,14 @@ internal static class MaidBridgeTools
         "blocks":{"type":"boolean","description":"是否列出矿石与可交互方块，默认 true"},
         "fluids":{"type":"boolean","description":"是否找水与岩浆，默认 true"},
         "light":{"type":"boolean","description":"是否读取亮度，默认 true"}
+        },"additionalProperties":false}
+        """;
+
+    private static readonly string SeeSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"radius":{"type":"number","description":"看得最远多少格，默认 20，最大 48"},
+        "cone":{"type":"number","description":"视角张角（度），默认 70，最大 170"},
+        "photo":{"type":"boolean","description":"是否再取一帧真实画面给她看，默认 false（要识图模型已配置）"}
         },"additionalProperties":false}
         """;
 

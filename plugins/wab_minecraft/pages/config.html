@@ -78,6 +78,17 @@
   .sw[aria-checked=true]::after { transform: translateX(20px); background: var(--amber); }
   .sw:focus-visible { outline: 2px solid var(--amber-2); outline-offset: 2px; }
 
+  /* 场景多选：点一下就是一个布尔，值仍是逗号分隔的字符串存进 settings.json */
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: flex-start; }
+  .row:has(.chips) { align-items: start; }
+  .chip {
+    font: inherit; font-size: 12.5px; line-height: 1.4; padding: 6px 12px; border-radius: 999px;
+    cursor: pointer; color: var(--fg-3); background: var(--bg-2); border: 1px solid var(--line);
+    transition: background .16s ease, border-color .16s ease, color .16s ease;
+  }
+  .chip[aria-pressed=true] { background: rgba(240,168,72,.2); border-color: var(--amber); color: var(--fg); }
+  .chip:focus-visible { outline: 2px solid var(--amber-2); outline-offset: 2px; }
+
   .bar { display: flex; align-items: center; gap: 14px; margin-top: 16px; }
   button {
     background: var(--amber); color: #201509; border: 0; border-radius: 10px;
@@ -120,6 +131,8 @@
       <div class="fact"><b id="cMaids">—</b>已绑定女仆</div>
       <div class="fact"><b id="cAge">—</b>游戏上次上报</div>
     </div>
+    <p class="sub" id="saveNote"></p>
+    <p class="sub" id="worldNote"></p>
   </section>
 
   <section>
@@ -148,6 +161,19 @@
 
 <script>
 (function () {
+  // 场景键必须和宿主 MaidBridgeService.ThinkSceneCatalog 一字不差；
+  // 需要模组上报才能点亮的那几个，标签里就写明「要新版本模组」，不能让面板装着能用。
+  var SCENES = [
+    { k: "interaction", label: "玩家对她做动作", help: "摸头、拥抱、递东西、打开她的背包都算。" },
+    { k: "hurt", label: "她被打伤", help: "她可以委屈、可以躲、可以喊主人。" },
+    { k: "death", label: "她死了", help: "游戏里倒下。" },
+    { k: "respawn", label: "她复活回来", help: "要新版本模组上报 respawn 才会触发。" },
+    { k: "owner_sleep", label: "主人上床睡觉", help: "她靠过去睡下并说一句爱语。要新版本模组上报 owner_sleep。" },
+    { k: "maid_chat", label: "同伴搭话", help: "别的女仆跟她说话。要新版本模组上报 maid_chat。" },
+    { k: "weather", label: "天气变化", help: "放晴、落雨、打雷。" },
+    { k: "time", label: "时段变化", help: "天亮、天黑这种整段切换，不是每分钟。" }
+  ];
+
   var FIELDS = [
     { key: "enabled", label: "启用桥接", type: "switch", def: "true",
       help: "关闭后宿主不再监听端口，游戏里的女仆回落到原版行为。" },
@@ -161,10 +187,20 @@
       help: "挖/放/取水/丢物这类会改世界的动作。" },
     { key: "allow_gestures", label: "允许动作与语录", type: "switch", def: "true",
       help: "招手、抱抱、说话、坐下这类不改世界的动作。" },
+    { key: "allow_photo", label: "允许她看一眼画面", type: "switch", def: "true",
+      help: "看的时候顺带从主人的客户端取一张游戏内画面，交给识图模型讲给她听。关掉后只剩文字感知，不碰画面。" },
     { key: "chat_affection", label: "游戏内聊天让她判好感", type: "switch", def: "true",
       help: "把这段对话交给她本人判该涨还是该跌；关掉就只记记忆、不动数值。" },
     { key: "autonomy_pulse_minutes", label: "主动思考间隔（分钟）", type: "number", def: "0",
       help: "0 = 完全交给游戏里的日程。" },
+    { key: "think_scenes", label: "她会为什么事想一次", type: "scenes", def: "interaction",
+      help: "点一下就算勾选。留一个都不选，她就只在被叫、被动触发时回应。" },
+    { key: "think_cooldown_seconds", label: "同一件事的冷却（秒）", type: "number", def: "90",
+      help: "同一个人、同一类事，隔够这么久才允许再想一次。一屋子女仆互相搭话时靠它兜住调用量。" },
+    { key: "love_words", label: "陪睡时的爱语", type: "switch", def: "true",
+      help: "那句话由她自己判词，不写死。关掉后照样过去陪睡，只是这一晚不出声。" },
+    { key: "auto_switch_save", label: "允许桥替你切存档", type: "switch", def: "false",
+      help: "默认关：桥只在你自己打开的那份存档里干活，不新建、不切换、不改你正在跟谁说话。" },
     { key: "backup_minutes", label: "快照间隔（分钟）", type: "number", def: "10",
       help: "0 = 只在连接时和手动调用时备份。" }
   ];
@@ -217,6 +253,19 @@
           touch();
         });
         ctl.appendChild(sw); nodes[f.key] = sw;
+      } else if (f.type === "scenes") {
+        var box = document.createElement("div"); box.className = "chips";
+        SCENES.forEach(function (sc) {
+          var chip = document.createElement("button");
+          chip.type = "button"; chip.className = "chip"; chip.setAttribute("aria-pressed", "false");
+          chip.setAttribute("data-k", sc.k); chip.textContent = sc.label; chip.title = sc.help;
+          chip.addEventListener("click", function () {
+            chip.setAttribute("aria-pressed", chip.getAttribute("aria-pressed") === "true" ? "false" : "true");
+            touch();
+          });
+          box.appendChild(chip);
+        });
+        ctl.appendChild(box); nodes[f.key] = box;
       } else {
         var inp = document.createElement("input");
         inp.type = "text"; inp.inputMode = "numeric";
@@ -229,14 +278,30 @@
 
   function value(key) {
     var n = nodes[key];
-    return n.tagName === "INPUT" ? n.value : n.getAttribute("aria-checked");
+    if (n.tagName === "INPUT") return n.value;
+    if (n.className === "chips") {
+      var picked = [];
+      Array.prototype.forEach.call(n.children, function (c) {
+        if (c.getAttribute("aria-pressed") === "true") picked.push(c.getAttribute("data-k"));
+      });
+      return picked.join(",");
+    }
+    return n.getAttribute("aria-checked");
   }
 
   function setAll(map) {
     FIELDS.forEach(function (f) {
       var v = map && map[f.key] != null ? String(map[f.key]) : f.def;
       var n = nodes[f.key];
-      if (n.tagName === "INPUT") n.value = v; else n.setAttribute("aria-checked", String(v === "true"));
+      if (n.tagName === "INPUT") { n.value = v; return; }
+      if (n.className === "chips") {
+        var picked = String(v || "").split(/[,，、;；\s]+/);
+        Array.prototype.forEach.call(n.children, function (c) {
+          c.setAttribute("aria-pressed", String(picked.indexOf(c.getAttribute("data-k")) >= 0));
+        });
+        return;
+      }
+      n.setAttribute("aria-checked", String(v === "true"));
     });
   }
 
@@ -328,6 +393,16 @@
     $("cWorld").textContent = live.connected ? (live.world || "未知") + " / " + (live.player || "—") : "—";
     $("cPort").textContent = live.listeningPort ? String(live.listeningPort) : "没在监听";
     $("cMaids").textContent = live.connected ? String(live.boundMaids) : "—";
+    var note = live.saveActive === false
+      ? (live.saveNotice || "桥没在她该在的那份存档里。") : "";
+    var sn = $("saveNote");
+    sn.textContent = note ? "△ 她此刻不干活：" + note : "";
+    sn.className = note ? "sub" : "sub hide";
+    // 世界书那条只在真的缺的时候出现；她已经知道这个世界长什么样时不该有声音。
+    var wn = $("worldNote");
+    var wnote = live.saveActive === false ? "" : (live.worldbookNotice || "");
+    wn.textContent = wnote ? "△ " + wnote : "";
+    wn.className = wnote ? "sub" : "sub hide";
     var age = $("cAge");
     if (!live.connected) { age.textContent = "—"; age.className = "pill"; }
     else if (live.modAgeSeconds == null) { age.textContent = "还没上报"; age.className = "pill amber"; }

@@ -12,16 +12,33 @@ public sealed record MaidBridgeSettings
     public bool AutoCreateCharacters { get; init; } = true;
     public bool AllowWorldActions { get; init; } = true;
     public bool AllowGestures { get; init; } = true;
+
+    /// <summary>能不能从主人的客户端取一帧游戏画面给识图模型看。关掉后 maid_see 只剩文字。</summary>
+    public bool AllowPhoto { get; init; } = true;
     public bool ChatAffection { get; init; } = true;
     public int AutonomyPulseMinutes { get; init; }
     public int BackupMinutes { get; init; } = 10;
+
+    /// <summary>默认关：桥不许替用户切存档、新建存档、换界面上的当前角色。打开才恢复旧行为。</summary>
+    public bool AutoSwitchSave { get; init; }
+
+    /// <summary>哪些情况让她主动想一次（death/hurt/interaction/weather/time/respawn/owner_sleep/maid_chat）。</summary>
+    public IReadOnlyList<string> ThinkScenes { get; init; } = Array.Empty<string>();
+
+    /// <summary>陪睡时那句「爱语」的总开关：关掉后她照样过去睡下，只是这一晚不说话。</summary>
+    public bool LoveWords { get; init; } = true;
+
+    /// <summary>同一条触发最短间隔（秒）：多个女仆互相点着时不至于把 AI 调用打爆。</summary>
+    public int ThinkCooldownSeconds { get; init; } = 90;
 
     /// <summary>要不要重开监听、重握手：只有端口和网卡模式变了才算。</summary>
     public string ListenerSignature => $"{Enabled}|{Port}|{Lan}";
 
     /// <summary>行为开关：变了只需把新配置换进内存，现有会话不该跟着抖一下。</summary>
     public string BehaviorSignature =>
-        $"{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{ChatAffection}|{AutonomyPulseMinutes}|{BackupMinutes}";
+        $"{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{AllowPhoto}|{ChatAffection}|" +
+        $"{AutonomyPulseMinutes}|{BackupMinutes}|{AutoSwitchSave}|{LoveWords}|{ThinkCooldownSeconds}|" +
+        string.Join(",", ThinkScenes);
 
     public static MaidBridgeSettings From(IReadOnlyDictionary<string, string> values)
     {
@@ -42,6 +59,18 @@ public sealed record MaidBridgeSettings
             return int.TryParse(raw.Trim(), out var n) ? n : fallback;
         }
 
+        // 逗号/空格分隔的场景清单：native 表单里的多选只能这样表达（Picker 是单选）
+        string[] List(string key)
+        {
+            if (!values.TryGetValue(key, out var raw) || string.IsNullOrWhiteSpace(raw)) return Array.Empty<string>();
+            return raw.Split(new[] { ',', '，', '、', ';', '；', ' ', '\t', '\r', '\n' },
+                    StringSplitOptions.RemoveEmptyEntries)
+                .Select(s => s.Trim().ToLowerInvariant())
+                .Where(s => s.Length > 0)
+                .Distinct(StringComparer.Ordinal)
+                .ToArray();
+        }
+
         var port = Int("port", MaidBridgeService.DefaultPort);
         if (port is < 0 or > 65535) port = MaidBridgeService.DefaultPort;
         return new MaidBridgeSettings
@@ -52,9 +81,14 @@ public sealed record MaidBridgeSettings
             AutoCreateCharacters = Bool("auto_create_characters", true),
             AllowWorldActions = Bool("allow_world_actions", true),
             AllowGestures = Bool("allow_gestures", true),
+            AllowPhoto = Bool("allow_photo", true),
             ChatAffection = Bool("chat_affection", true),
             AutonomyPulseMinutes = Math.Clamp(Int("autonomy_pulse_minutes", 0), 0, 24 * 60),
-            BackupMinutes = Math.Clamp(Int("backup_minutes", 10), 0, 24 * 60)
+            BackupMinutes = Math.Clamp(Int("backup_minutes", 10), 0, 24 * 60),
+            AutoSwitchSave = Bool("auto_switch_save", false),
+            LoveWords = Bool("love_words", true),
+            ThinkScenes = List("think_scenes"),
+            ThinkCooldownSeconds = Math.Clamp(Int("think_cooldown_seconds", 90), 5, 24 * 60 * 60)
         };
     }
 }

@@ -406,6 +406,12 @@ public sealed class ChatEngine
     /// </summary>
     public Func<string, string>? ExtraPersonaProvider { get; set; }
 
+    /// <summary>
+    /// 按角色 id 取人设档案。界面切角色时会调 <see cref="ConfigureCharacter"/>，但那只有一个「当前」——
+    /// Minecraft 桥让「不是界面正在聊的那位」女仆思考时，没有这个入口就会拿别人的名字和性格建会话。
+    /// </summary>
+    public Func<string, CharacterProfile?>? ProfileProvider { get; set; }
+
     /// <summary>每轮动态上下文（当前状态等），拼在用户消息前。</summary>
     public Func<string, string>? ExtraContextProvider { get; set; }
 
@@ -521,7 +527,7 @@ public sealed class ChatEngine
             // AI 未配置：返回友好的提示
             var offlineReply = GenerateOfflineReply(text);
             session.Add(new ChatMessage { Role = "assistant", Content = offlineReply });
-            await TrimAsync(session, cfg);
+            await TrimAsync(session, cfg, charId);
             await RunAfterTurnAsync(charId, null, text, offlineReply);
             return offlineReply;
         }
@@ -546,7 +552,7 @@ public sealed class ChatEngine
             }
             catch (Exception ex) { App.WriteLog("ChatEngine.AfterReply -> " + ex.Message); }
             session.Add(new ChatMessage { Role = "assistant", Content = reply });
-            var digest = await TrimAsync(session, cfg);
+            var digest = await TrimAsync(session, cfg, charId);
 
             await _memory.Store(new MemoryEntry
             {
@@ -986,11 +992,30 @@ public sealed class ChatEngine
         return await Send(charId, $"现在是{time}，说一句自然的问候。");
     }
 
+    /// <summary>
+    /// 取这个 charId 的人设档案：界面当前角色命中就用它，否则问 <see cref="ProfileProvider"/>。
+    /// 两个都不中时返回 null（会话退化成「你是&amp;lt;id&amp;gt;」的通用开场），
+    /// 绝不能拿别人的名字和性格顶上——那等于让 A 女仆用 B 的脑子说话。
+    /// </summary>
+    private CharacterProfile? ProfileFor(string charId)
+    {
+        if (_active is not null && string.Equals(_active.Id, charId, StringComparison.Ordinal)) return _active;
+        try
+        {
+            return ProfileProvider?.Invoke(charId);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.ProfileFor -> " + ex.Message);
+            return null;
+        }
+    }
+
     private List<ChatMessage> Session(string charId)
     {
         if (!_sessions.ContainsKey(charId))
         {
-            var p = _active;
+            var p = ProfileFor(charId);
             var persona = p is null
                 ? $"你是{charId}，温柔可爱。用中文回复，保持自然连贯。"
                 : $"你是{p.Name}，{p.Personality}。用户是你的{p.UserAddress}。" +
@@ -1056,7 +1081,7 @@ public sealed class ChatEngine
     /// · 只取 user/assistant 正文做素材，绝不触碰 tool_calls / tool 成对消息
     ///   （裁历史绝不能把这两者裁散，否则严格端点会拒收整段历史）。
     /// </summary>
-    private async Task<string?> TrimAsync(List<ChatMessage> msgs, AiEndpoint cfg)
+    private async Task<string?> TrimAsync(List<ChatMessage> msgs, AiEndpoint cfg, string charId)
     {
         if (msgs.Count <= 2) return null;
 
@@ -1096,7 +1121,7 @@ public sealed class ChatEngine
         var light = isWork || advice?.Choice == "summarize" && isWork;
 
         msgs.RemoveRange(1, cutCount);
-        var digest = await SummarizeAsHumanAsync(dropped, cfg, light);
+        var digest = await SummarizeAsHumanAsync(dropped, cfg, charId, light);
         if (string.IsNullOrWhiteSpace(digest)) digest = BuildFallbackDigest(dropped);
         if (string.IsNullOrWhiteSpace(digest)) return null;
         MergeDigestIntoSystem(msgs, digest);
@@ -1141,7 +1166,7 @@ public sealed class ChatEngine
     /// 只在超上限时调用一次；调用失败（未配置/网络/端点拒绝）返回空串，由本地兜底接手。
     /// <paramref name="light"/> = 编程/办公类场景的轻总结：保住具体名词与结论，宁可长一点也不丢细节。
     /// </summary>
-    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped, AiEndpoint cfg, bool light = false)
+    private async Task<string> SummarizeAsHumanAsync(List<ChatMessage> dropped, AiEndpoint cfg, string charId, bool light = false)
     {
         if (!_api.HasAnyEndpoint) return "";
         var material = BuildMemoryMaterial(dropped);
@@ -1149,7 +1174,8 @@ public sealed class ChatEngine
 
         try
         {
-            var who = string.IsNullOrWhiteSpace(_active?.Name) ? "我" : _active!.Name;
+            var name = ProfileFor(charId)?.Name;
+            var who = string.IsNullOrWhiteSpace(name) ? "我" : name!;
             // 轻总结（编程/办公类对话）：保住具体名词、数字与结论，不追求极简——
             // 这类内容一旦被折叠得太狠，AI 后面会重新问一遍，反而更贵。
             var rules = light

@@ -31,14 +31,21 @@ public sealed class VisionService
     /// </summary>
     public async Task<string?> DescribeImageAsync(string imagePath, string prompt)
     {
+        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return null;
+        return await DescribeBytesAsync(await File.ReadAllBytesAsync(imagePath), GuessMime(imagePath), prompt);
+    }
+
+    /// <summary>
+    /// 图不在盘上、手上只有字节时的入口（Minecraft 桥的画面就是从 socket 上来的 PNG）。
+    /// </summary>
+    public async Task<string?> DescribeBytesAsync(byte[]? bytes, string mime, string prompt)
+    {
         var s = _settings.Current;
         if (!IsConfigured) return null;
-        if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return null;
+        if (bytes is null || bytes.Length == 0) return null;
         try
         {
-            var bytes = await File.ReadAllBytesAsync(imagePath);
             var b64 = Convert.ToBase64String(bytes);
-            var mime = GuessMime(imagePath);
             var payload = new
             {
                 model = s.VisionModel.Trim(),
@@ -50,7 +57,7 @@ public sealed class VisionService
                         content = new object[]
                         {
                             new { type = "text", text = prompt },
-                            new { type = "image_url", image_url = new { url = $"data:{mime};base64,{b64}" } }
+                            new { type = "image_url", image_url = new { url = $"data:{(string.IsNullOrWhiteSpace(mime) ? "image/png" : mime.Trim())};base64,{b64}" } }
                         }
                     }
                 },
