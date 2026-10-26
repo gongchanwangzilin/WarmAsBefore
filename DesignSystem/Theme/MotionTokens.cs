@@ -30,9 +30,9 @@ public static class MotionTokens
     /// <summary>多个元素依次进场的间隔。</summary>
     public const int StaggerMs = 45;
     /// <summary>页面切换的方向位移时长。Shell 在 WinUI 上没有过场，换页原本是硬切。</summary>
-    public const int PageSlideMs = 190;
+    public const int PageSlideMs = 260;
     /// <summary>页面切换的起手位移。只给方向感，不做出「整页飞进来」的大动作。</summary>
-    public const double PageSlidePx = 26;
+    public const double PageSlidePx = 32;
     /// <summary>帧驱动的节奏，约 60fps。</summary>
     public const int FrameMs = 16;
 

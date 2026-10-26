@@ -13,13 +13,14 @@
       现在改哪一条，左边那张脸当场跟着换，反馈写在最底下那一行字里。
 
       样式全取自现成的令牌与按钮档，本页只补了两件确实需要新东西的地方：
-        · Chip —— 选项块（服装/表情/性别/心情/分类）：静止没有底，选中只把底沉一档，和导航选中同一语言。
+        · Chip —— 选项块（服装/表情/性别/心情/分类）：静止是一格比卡面沉一档的淡井，
+          选中翻成墨底浅字（世界换档时两枚令牌跟着换），不再是一层 6% 的灰 —— 截图上那点灰肉眼看不出。
         · Field —— 输入行：一行一句说明加一个框，不发明第四种卡片。
       几何底板用 BoxView（圆角与色都跟世界走），不画新图形：这是「底板」而不是「装饰」。
     -->
     <ContentView.Resources>
         <Style x:Key="Chip" TargetType="Button">
-            <Setter Property="BackgroundColor" Value="Transparent" />
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
             <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
             <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
             <Setter Property="Padding" Value="10,5" />
@@ -96,13 +97,14 @@
         <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
 
             <!-- ── 抬头：从档案柜里翻出来的那一格 ─────────────────────────── -->
-            <Grid x:Name="HeadBand" Padding="{OnIdiom Desktop='20,14,20,10', Phone='12,10,12,8'}"
+            <Grid x:Name="HeadBand" Background="{DynamicResource WBarBrush}"
+                  Padding="{OnIdiom Desktop='20,14,20,10', Phone='12,10,12,8'}"
                   ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" VerticalOptions="Center"
                         Command="{Binding CloseCommand}" />
                 <!-- 定位条：一屏只有一次，就放在这一屏的开始。三格里只有一格是强调色，另两格是墨与缝。 -->
                 <BoxView Grid.Column="1" WidthRequest="14" VerticalOptions="Fill" Margin="0,2"
-                         Color="{DynamicResource MutedFg}" InputTransparent="True" />
+                         Color="{DynamicResource Signal}" InputTransparent="True" />
                 <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
                     <!-- 眉标是宽体大写拉丁，压在粗体中文名上：这一对说的是「这一页是什么」，不是装饰字。 -->
                     <Label Text="// SUBJECT STUDIO" Style="{StaticResource Eyebrow}" />
@@ -130,12 +132,12 @@
                  挤成半宽。用户截图里左栏滑出窗外、右栏压在立绘上的正是这一条。
                  Grid 的 352 列是硬的，右栏拿 * 列 —— 横向上再没有互相挤压的余地。 -->
             <Grid Grid.Row="2" x:Name="BodyGrid" ColumnDefinitions="352,*" RowDefinitions="*"
+                  Padding="{DynamicResource WPadCard}" ColumnSpacing="12" RowSpacing="12"
                   IsClippedToBounds="True">
 
                 <!-- 立绘舞台。整栏可滚：服装/表情芯片比一屏高，滚轮够得着；
                      立绘框固定 300，不再用 * —— 在 ScrollView 里 * 量出来是 0，人像区会直接消失。 -->
-                <Border x:Name="Stage" Grid.Column="0" BackgroundColor="Transparent" StrokeThickness="0"
-                        Padding="{DynamicResource WPadCard}">
+                <Border x:Name="Stage" Grid.Column="0" Style="{StaticResource CardSolid}">
                     <ScrollView Orientation="Vertical">
                     <Grid RowDefinitions="300,Auto,Auto,Auto" RowSpacing="0">
 
@@ -144,7 +146,11 @@
                              「大字放在那里无疑是太丑的」：那一个字既不像人，也不提供信息（名字就在下面写着）。
                              现在这块只放 TA 自己 —— 有立绘放立绘，没有立绘先放头像，两样都没有才露缺图说明。
                              缺图说明里那枚图记来自 ignoredone.space 的个人图标包（免费工程），
-                             黑/白两版按世界切换 —— 暗档里黑图记会直接消失。 -->
+                             黑/白两版按世界切换 —— 暗档里黑图记会直接消失。
+                             井底（WWellBrush）把「人在相框里」和「名字牌在卡上」分出一档：
+                             舞台现在是白卡，立绘再直接压在卡面上，图和卡就糊成一张纸。 -->
+                        <Border Background="{DynamicResource WWelBrush}" StrokeThickness="0"
+                                StrokeShape="{DynamicResource WRadiusWell}">
                         <Grid IsClippedToBounds="True">
                             <Image x:Name="Portrait" Source="{Binding PreviewSource}" Aspect="AspectFit"
                                    ScaleX="{Binding MirrorX}"
@@ -167,6 +173,7 @@
                                        HorizontalOptions="Center" />
                             </VerticalStackLayout>
                         </Grid>
+                        </Border>
 
                         <!-- 名字牌：一条发丝线压住立绘区，下面才是这个人是谁。
                              这里刻意不用胶囊底 —— 名字是「这一页的主题」，不是一枚标签。
@@ -182,7 +189,7 @@
                             </VerticalStackLayout>
                             <Border Grid.Column="1" WidthRequest="64" HeightRequest="64"
                                     VerticalOptions="End" Padding="0"
-                                    BackgroundColor="{DynamicResource WWellBrush}"
+                                    Background="{DynamicResource WWelBrush}"
                                     Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
                                     StrokeShape="{DynamicResource WRadiusWell}"
                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
@@ -262,9 +269,8 @@
                                                     CommandParameter="{Binding Key}">
                                                 <Button.Triggers>
                                                     <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                                        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                                        <Setter Property="FontAttributes" Value="Bold" />
+                                                        <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                        <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
                                                         <Setter Property="BorderColor" Value="Transparent" />
                                                     </DataTrigger>
                                                 </Button.Triggers>
@@ -287,9 +293,8 @@
                                                     CommandParameter="{Binding Key}">
                                                 <Button.Triggers>
                                                     <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
-                                                        <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                                        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                                        <Setter Property="FontAttributes" Value="Bold" />
+                                                        <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                        <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
                                                         <Setter Property="BorderColor" Value="Transparent" />
                                                     </DataTrigger>
                                                 </Button.Triggers>
@@ -329,76 +334,88 @@
                 </Border>
 
                 <!-- 资料：页签 + 六段内容。拿 BodyGrid 的 * 列，宽度由布局给定，
-                     不再需要 FlexLayout 的 Grow/Shrink 去和舞台抢空间。 -->
-                <Grid x:Name="PaneCol" Grid.Column="1" RowDefinitions="Auto,*"
-                      Padding="{OnIdiom Desktop='0,0,8,0', Phone='0'}">
-                    <FlexLayout Direction="Row" Wrap="Wrap" Padding="{DynamicResource WPadRow}">
-                        <Button Text="01 设定" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                     不再需要 FlexLayout 的 Grow/Shrink 去和舞台抢空间。
+                     它自己是一张卡（与舞台同一档面）：页签带与内容同在一张纸上，
+                     中间那道信号色细线是「纸页的切口」——它常驻，不再从左擦到右。 -->
+                <Border x:Name="PaneCard" Grid.Column="1" Style="{StaticResource CardGroup}">
+                <Grid x:Name="PaneCol" RowDefinitions="Auto,Auto,*">
+                    <!-- 页签是等分的：以前每颗按自己的字宽排，四字与五字差出十几像素，
+                         选中时再加粗一次又把整行推一下 —— 用户读到的就是「大小不均，点一下还抖」。
+                         等宽格子里字不再改字重，选中只换底与字色，位置从头到尾不动。
+                         窄屏由 SetNarrow 改成三列两行（见 CharacterStudioPanel.xaml.cs）。 -->
+                    <Grid x:Name="TabGrid" ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="6"
+                          Padding="{DynamicResource WPadRow}">
+                        <Button x:Name="TabSet" Text="01 设定" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="set">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabSet}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                    <Setter Property="FontAttributes" Value="Bold" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Text="02 状态" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                        <Button x:Name="TabState" Grid.Column="1" Text="02 状态" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="state">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabState}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                    <Setter Property="FontAttributes" Value="Bold" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Text="03 素材" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                        <Button x:Name="TabArt" Grid.Column="2" Text="03 素材" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="art">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabArt}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                    <Setter Property="FontAttributes" Value="Bold" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Text="04 记忆" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                        <Button x:Name="TabMem" Grid.Column="3" Text="04 记忆" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="mem">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabMem}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                    <Setter Property="FontAttributes" Value="Bold" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
                         <!-- 关联那一栏对着一个还不存在的人没有意义：草稿阶段藏起来，建好角色后自己回来 -->
-                        <Button Text="05 关联" Style="{StaticResource Chip}" Margin="0,0,6,6"
+                        <Button x:Name="TabLink" Grid.Column="4" Text="05 关联" Style="{StaticResource Chip}"
                                 IsVisible="{Binding IsNew, Converter={StaticResource InverseBool}}"
                                 Command="{Binding GoTabCommand}" CommandParameter="link">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabLink}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                    <Setter Property="FontAttributes" Value="Bold" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
                         <!-- 试句话对草稿同样成立（它读的是这一屏此刻的字段，不是盘上的人），所以藏不藏不分新旧 -->
-                        <Button Text="06 说句话" Style="{StaticResource Chip}" Margin="0,0,6,0"
+                        <Button x:Name="TabTalk" Grid.Column="5" Text="06 说句话" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="talk">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabTalk}" Value="True">
-                                    <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                    <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                    <Setter Property="FontAttributes" Value="Bold" />
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                    </FlexLayout>
+                    </Grid>
 
-                    <ScrollView Grid.Row="1" Padding="{DynamicResource WPadRow}">
+                    <!-- 切口线：常驻的一条信号色细线，和抬头那根定位条同色。
+                         以前换栏时它从左擦到右，那一扫比内容本身还抢眼，读起来就是「卡」。 -->
+                    <BoxView x:Name="TabRule" Grid.Row="1" HeightRequest="2"
+                             Color="{DynamicResource Signal}" ScaleX="1" AnchorX="0" />
+
+                    <ScrollView x:Name="PaneScroll" Grid.Row="2" Padding="{DynamicResource WPadRow}">
                         <VerticalStackLayout Spacing="14">
 
                             <!-- ══ 设定 ══════════════════════════════════════ -->
@@ -432,7 +449,7 @@
                                         <Entry Style="{StaticResource Field}" Text="{Binding UserAddress}"
                                                Placeholder="主人 / 哥哥 / 名字" />
                                     </VerticalStackLayout>
-                                    <VerticalStackLayout Spacing="0">
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0">
                                         <Label Text="性别" Style="{StaticResource FieldLabel}" />
                                         <FlexLayout Direction="Row" Wrap="Wrap"
                                                     BindableLayout.ItemsSource="{Binding GenderChoices}">
@@ -444,9 +461,8 @@
                                                             CommandParameter="{Binding Key}">
                                                         <Button.Triggers>
                                                             <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
-                                                                <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                                                <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                                                <Setter Property="FontAttributes" Value="Bold" />
+                                                                <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                                <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
                                                                 <Setter Property="BorderColor" Value="Transparent" />
                                                             </DataTrigger>
                                                         </Button.Triggers>
@@ -590,7 +606,7 @@
                                         <Entry Style="{StaticResource Field}" Text="{Binding AffectionPoints}"
                                                Keyboard="Numeric" />
                                     </VerticalStackLayout>
-                                    <VerticalStackLayout Spacing="0">
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0">
                                         <Label Text="此刻在哪" Style="{StaticResource FieldLabel}" />
                                         <Entry Style="{StaticResource Field}" Text="{Binding Location}"
                                                Placeholder="家 / 学校 / 医院" />
@@ -609,9 +625,8 @@
                                                         CommandParameter="{Binding Key}">
                                                     <Button.Triggers>
                                                         <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
-                                                            <Setter Property="Background" Value="{DynamicResource WNavSelBrush}" />
-                                                            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
-                                                            <Setter Property="FontAttributes" Value="Bold" />
+                                                            <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                            <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
                                                             <Setter Property="BorderColor" Value="Transparent" />
                                                         </DataTrigger>
                                                     </Button.Triggers>
@@ -640,7 +655,7 @@
                                             <Entry Style="{StaticResource Field}" Text="{Binding CycleDay}"
                                                    Keyboard="Numeric" />
                                         </VerticalStackLayout>
-                                        <VerticalStackLayout Spacing="0">
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0">
                                             <Label Text="阶段" Style="{StaticResource FieldLabel}" />
                                             <Entry Style="{StaticResource Field}" Text="{Binding CyclePhase}"
                                                    Placeholder="menstrual / follicular / luteal" />
@@ -1030,6 +1045,7 @@
                         </VerticalStackLayout>
                     </ScrollView>
                 </Grid>
+                </Border>
             </Grid>
 
             <!-- ── 底部：任何操作都要有一句回话 ─────────────────────────── -->

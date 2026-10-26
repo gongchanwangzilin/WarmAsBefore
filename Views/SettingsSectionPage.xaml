@@ -963,7 +963,7 @@
         <DataTemplate x:Key="Card14">
             <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardSolid}"
-                                        IsVisible="{Binding Filter.Official}">
+                                        IsVisible="{Binding Filter.Desktop}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="{Binding [Settings_Desktop], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
@@ -1006,7 +1006,7 @@
         <DataTemplate x:Key="Card15">
             <VerticalStackLayout Spacing="16">
                 <Border Style="{StaticResource CardSolid}"
-                                        IsVisible="{Binding Filter.Mcp}">
+                                        IsVisible="{Binding Filter.Official}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="{Binding [Settings_Official], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Label Text="{Binding [Settings_OfficialHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" Margin="0,6,0,0" />

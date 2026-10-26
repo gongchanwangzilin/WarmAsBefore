@@ -597,8 +597,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _smartSavingEnabled = s.SmartSavingEnabled;
         _lightMode = s.LightMode;
         _preferDiscreteGpu = s.PreferDiscreteGpu;
-        _gpuStatusText = Services.GpuPreferenceService.IsHighPerformancePreferred()
-            ? "当前已登记为「高性能」（重启程序后生效）" : "当前由 Windows 自动选择显卡";
+        _gpuStatusText = Services.GpuPreferenceService.DescribeState();
 
         // 多端点轮换 + 上下文 Token 上限
         _aiRotationEnabled = s.AiRotationEnabled;

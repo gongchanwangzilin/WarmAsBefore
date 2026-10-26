@@ -46,7 +46,9 @@ namespace WarmAsBefore.Helpers;
 /// 颜色从那张面**自己的颜色**算（StyleWorldTokens.Step / Wash），不发固定令牌：
 /// 同一条行可能站在页底上、卡在卡面上、盖在一张图上，固定值必然在其中一处变成「没变化」。
 /// 半透明的玻璃面只往同一方向压一点，Alpha 原样保留 —— 换成一颗不透明的灰会把玻璃糊成一块塑料。
-/// 渐变画刷直接不接：用纯色盖上去会把它的底纹整个抹掉。
+/// 渐变面（玻璃档的 BtnGlass / BtnGhost 就是）压的是**每一颗色标**，几何原样克隆：
+/// 以前整条不接，于是玻璃档里那几颗钮的悬停是死的，用户看到的正是「退出游戏没反应」。
+/// 贴图与径向渐变仍不接 —— 没有一种「压一档」能不改它们的底纹。
 ///
 /// 0.07 那一档是个量得出的数，不是一个读得见的变化。真正可点、又长得像纸的那一行
 /// （导航行、设置行）开 <see cref="AccentProperty"/>：那一档不是「沉一点」，而是**从左边擦进来的一颗强调底**——
@@ -63,11 +65,12 @@ namespace WarmAsBefore.Helpers;
 public static class HoverFeel
 {
     /// <summary>
-    /// 悬停压多少。地面 #F3F3F3 上 0.07 大约是 #E1E1E1，
-    /// 和导航选中块同一档（选中靠的是左缘那颗胶囊与加粗的字，不是这块底）。
+    /// 悬停压多少。0.10 那一档用户量得出来、看不见（「放上去没有 UX 效果」连报两次），
+    /// 0.16 在纸面上是从 #FEFDFC 到 #D5D4D2 的一步，不用比对就能看出这块被指到了。
+    /// 地面越深，Step 会改往白提同样一档，所以深浅两套世界都是「亮一档 / 暗一档」，不是变灰。
     /// 按下没有第二个颜色台阶：那一下交给 PressFeel 的位移，颜色停在悬停这一档。
     /// </summary>
-    public const double HoverStep = 0.10;
+    public const double HoverStep = 0.16;
 
     /// <summary>
     /// 强调档实际压下去的浓度。AccentWarm 是**填充档**（浅色世界 L≈0.80），直接铺上去
@@ -84,6 +87,21 @@ public static class HoverFeel
     /// 再短会退化成闪一下，所以配一个起手进度（见 <see cref="WipeHeadStart"/>）而不是靠拖长时长。
     /// </summary>
     public const int WipeMs = 80;
+
+    /// <summary>
+    /// 主行动那颗胶囊擦入要多久。140ms：它比一行导航宽得多（200px 起），
+    /// 80ms 擦完时眼睛还没落到按钮上，读起来是一次闪烁；再慢就拖住了「现在能按」。
+    /// 只有 <see cref="SweepProperty"/> 走这一档，行与卡片仍是 80ms。
+    /// </summary>
+    public const int SweepMs = 140;
+
+    /// <summary>
+    /// 整块渐变变深要多久。用户的原话是「不需要从左到右变黑，而是渐变黑」——
+    /// 不是把擦入改慢，而是让整块胶囊一起从静止色走到悬停色。
+    /// 160ms 是「看得出在变、但没等」的那一档：比行悬停的 80ms 慢，
+    /// 因为它是一整块大面积换色，走太快会读成闪一下。
+    /// </summary>
+    public const int TintMs = 160;
 
     /// <summary>
     /// 第一帧就先涂到的进度。擦入原本从 0 开始，第一帧等于什么都没画，
@@ -119,6 +137,45 @@ public static class HoverFeel
 
     public static bool GetAccent(VisualElement element) => (bool)element.GetValue(AccentProperty);
     public static void SetAccent(VisualElement element, bool value) => element.SetValue(AccentProperty, value);
+
+    /// <summary>
+    /// 这一块悬停时要换成的那颗色，不给就仍按面自己算一档。
+    /// 存在的理由：信号色 CTA 的悬停档在世界上早就发出来了（SignalHover），
+    /// 而按面算出来的是「提亮一档」—— 深浅两套世界里方向正好相反，
+    /// 用户看到的就是「那颗唯一的钮移上去没反应」。写明令牌，方向归设计，不归算法。
+    /// </summary>
+    public static readonly BindableProperty HoverFillProperty = BindableProperty.CreateAttached(
+        "HoverFill", typeof(Color), typeof(HoverFeel), null, propertyChanged: OnHoverFillChanged);
+
+    public static Color? GetHoverFill(VisualElement element) => (Color?)element.GetValue(HoverFillProperty);
+    public static void SetHoverFill(VisualElement element, Color? value) => element.SetValue(HoverFillProperty, value);
+
+    /// <summary>
+    /// 悬停时把 <see cref="HoverFillProperty"/> 从左擦进来，而不是整块换色。
+    /// 这是「终末地」那套操作感里唯一被搬进悬停的动作：一块硬边的底扫过去，
+    /// 眼睛读到的不是「亮度变了 16%」，而是「这块被指到了」。只给一屏一颗的主行动，不给每一颗钮。
+    /// </summary>
+    public static readonly BindableProperty SweepProperty = BindableProperty.CreateAttached(
+        "Sweep", typeof(bool), typeof(HoverFeel), false, propertyChanged: OnSweepChanged);
+
+    public static bool GetSweep(VisualElement element) => (bool)element.GetValue(SweepProperty);
+    public static void SetSweep(VisualElement element, bool value) => element.SetValue(SweepProperty, value);
+
+    private static void OnHoverFillChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (newValue is not Color || bindable is not VisualElement e) return;
+#if WINDOWS
+        _ = Drivers.GetValue(e, static v => new Driver(v));
+#endif
+    }
+
+    private static void OnSweepChanged(BindableObject bindable, object oldValue, object newValue)
+    {
+        if (newValue is not true || bindable is not VisualElement e) return;
+#if WINDOWS
+        _ = Drivers.GetValue(e, static v => new Driver(v));
+#endif
+    }
 
     private static void OnAccentChanged(BindableObject bindable, object oldValue, object newValue)
     {
@@ -313,6 +370,20 @@ public static class HoverFeel
         /// <summary>进悬停时读到的 <see cref="AccentProperty"/>：整块换成强调底，而不是在原底上沉一档。</summary>
         private bool _accent;
 
+        /// <summary>进悬停时读到的显式悬停色（<see cref="HoverFillProperty"/>）。不给就走按面算的那一档。</summary>
+        private Color? _hoverFill;
+        /// <summary>显式悬停色是否按擦入铺开（<see cref="SweepProperty"/>）。</summary>
+        private bool _sweep;
+        /// <summary>这一程擦入用哪一档时长：行 80ms、主行动 140ms。</summary>
+        private int _wipeMs = WipeMs;
+
+        /// <summary>
+        /// 渐变面悬停时铺的那颗：每个色标各压一档、几何原样克隆，整条画刷只建一次。
+        /// 以前渐变面直接不接（纯色盖上去会把底纹抹掉），代价是玻璃档里每一颗
+        /// BtnGlass / BtnGhost 都没有悬停 —— 「退出游戏」正好是那一档。
+        /// </summary>
+        private Microsoft.UI.Xaml.Media.Brush? _faceHover;
+
         /// <summary>擦入/回收进度（线性 0..1，画的时候再过 Mech 曲线）。只有 Accent 那一档用它。</summary>
         private double _wipeP;
         /// <summary>这一程要走到哪：1 = 涂满，0 = 收干净。改它就是换方向，表不必重建。</summary>
@@ -328,6 +399,12 @@ public static class HoverFeel
         private Microsoft.UI.Xaml.Media.LinearGradientBrush? _wipeBrush;
         private Microsoft.UI.Xaml.Media.GradientStop[]? _wipeStops;
         private Windows.UI.Color _wipeInk;
+        /// <summary>
+        /// 擦入右边那一截的颜色：Accent 档是全透明（行的静止底本来就是父面），
+        /// Sweep 档必须是这颗钮自己的静止底 —— 否则擦到一半时右半边会把胶囊底抠掉，
+        /// 露出页面，看起来像按钮正在被擦掉，而不是被涂满。
+        /// </summary>
+        private Windows.UI.Color _wipeTail;
 
         public Driver(VisualElement e)
         {
@@ -350,6 +427,10 @@ public static class HoverFeel
             {
                 if (args.PropertyName == VisualElement.IsEnabledProperty.PropertyName && !e.IsEnabled) Leave();
                 else if (args.PropertyName == VisualElement.IsVisibleProperty.PropertyName && !e.IsVisible) Leave();
+                // 静止底被 MAUI 那一侧改写：页签的选中/落选就是触发器在改 BackgroundColor。
+                // 原生面上可能还留着我们上次交还的旧静止色，不同步就得等鼠标再经过一次才回正。
+                else if (args.PropertyName == nameof(VisualElement.Background)
+                      || args.PropertyName == nameof(VisualElement.BackgroundColor)) SyncRest();
             };
             Live.Add(new WeakReference<Driver>(this));
             HookNavigationSweep();
@@ -580,6 +661,10 @@ public static class HoverFeel
             // （图标底板、外层卡壳），拿自己的底去还它会把别人的颜色抹掉。
             _formsWins = _ownFace || _native is Microsoft.UI.Xaml.Controls.Control;
             _accent = GetAccent(_e);
+            _hoverFill = GetHoverFill(_e);
+            _sweep = GetSweep(_e);
+            // Sweep 是硬边擦入（行，80ms/140ms）；只给了 HoverFill 的是整块渐变（TintMs）。
+            _wipeMs = _sweep ? SweepMs : _hoverFill is not null && !_accent ? TintMs : WipeMs;
             _rest = _get();
             // 这块面在我们动手之前压根没有画刷（全透明的底 MAUI 不往原生上写）。
             // 记下这一笔，离开时好把 null 原样还回去，而不是替 MAUI 留一颗它自己没写过的画刷。
@@ -587,13 +672,28 @@ public static class HoverFeel
             // 静止那档以 MAUI 那一侧为准（理由写在 FormsRest 上）：原生面此刻可能已经被
             // 按钮自己的视觉状态涂上了预备色，拿它当基准就等于把预备色还成新的静止值。
             if (FormsRest() is { } forms) _rest = Solid(forms);
-            // 渐变/贴图之类的底不碰：纯色盖上去会把它的底纹整个抹掉。
-            if (_rest is not null and not Microsoft.UI.Xaml.Media.SolidColorBrush) { _skip = true; return; }
-            _face = (_rest as Microsoft.UI.Xaml.Media.SolidColorBrush) is { } solid
-                ? ToMaui(solid.Color)
-                : Colors.Transparent;
+            _face = Colors.Transparent;
+            _faceHover = null;
+            switch (_rest)
+            {
+                case null:
+                    // ⑤⑥⑦：纸上连底都没画过，悬停按 Wash 压一层（见 Paint）。
+                    break;
+                case Microsoft.UI.Xaml.Media.SolidColorBrush solid:
+                    _face = ToMaui(solid.Color);
+                    break;
+                case Microsoft.UI.Xaml.Media.LinearGradientBrush gradient when gradient.GradientStops.Count > 0:
+                    _face = ToMaui(gradient.GradientStops
+                        .OrderByDescending(s => s.Color.A).First().Color);
+                    _faceHover = StepGradient(gradient);
+                    break;
+                default:
+                    // 贴图 / 径向渐变：没有一种「压一档」能不改它的底纹，宁可不接。
+                    _skip = true;
+                    return;
+            }
             Trace($"capture {_faceKind} rest={Describe(_rest)} forms={Describe(FormsRest())}"
-                + $" own={_ownFace} blank={_blank}");
+                + $" own={_ownFace} blank={_blank} hoverFill={Describe(_hoverFill)} sweep={_sweep}");
         }
 
         /// <summary>
@@ -605,23 +705,72 @@ public static class HoverFeel
         /// 所以离开时重算一遍比拿缓存那份准得多。
         /// 答不上来（没写底、底是渐变或贴图、画的是子级那张面）就返回 null，让调用方退回缓存。
         /// </summary>
-        private Color? FormsRest()
+        private Color? FormsRest() => _formsWins ? MauiRest() : null;
+
+        private Color? MauiRest()
         {
-            if (!_formsWins) return null;
-            // 画刷档优先：样式里写 Background="{DynamicResource …}" 的行就吃这一支。
-            // 注意 Brush.Default（没设过画刷）**不是 null**：它是 MAUI 的一颗空画刷占位，
-            // `is { }` 会把它当成「设过」，于是每颗只写 BackgroundColor 的按钮都答不上来 ——
-            // 全站的 BtnSignal / BtnPrimary / BtnText 正是这么写的，它们就是「悬停后不还原」的那一批。
-            if (_e.Background is SolidColorBrush solid) return solid.Color;
-            if (_e.Background is { } brush && !ReferenceEquals(brush, Brush.Default)) return null;
+            // 先看画刷档：样式里写 Background="{DynamicResource …}" 的行吃这一支。
+            // **Brush.Default 要排在前面排除**：它是 MAUI 的「没设过画刷」占位，自己却是一颗
+            // SolidColorBrush（Color 透明）。过去这里先匹配 `is SolidColorBrush`，于是每颗
+            // 只写 BackgroundColor 的按钮都被答成「静止是透明」——页签按下后选中底是 WarmDark，
+            // 鼠标一移开却被交还成透明，只剩白字浮在浅底上（用户截图里的「02 状态」）。
+            var brush = _e.Background;
+            if (brush is not null && !ReferenceEquals(brush, Brush.Default))
+                return brush is SolidColorBrush solid ? solid.Color : null;
             // 没有画刷才问颜色档。走 GetValue 而不是属性：那一位的默认值是 null，
-            // 直接取属性拿到的是一颗装箱前的 struct，判不了「到底设过没有」。
+            // 直接取属性拿不到「到底设过没有」。
             return _e.GetValue(VisualElement.BackgroundColorProperty) is Color c ? c : null;
         }
 
-        private static Microsoft.UI.Xaml.Media.SolidColorBrush Solid(Color c) =>
-            new(Windows.UI.Color.FromArgb(ToByte(c.Alpha), ToByte(c.Red),
-                ToByte(c.Green), ToByte(c.Blue)));
+        /// <summary>
+        /// 静止底换了（触发器选中/落选、换风格世界）且指针不在里面时，把新值直接写回原生面。
+        /// MAUI 的 BackgroundColor 与 HoverFeel 写的原生 Control.Background 是两条通道，
+        /// 它不会替我们抹掉上一次交还的旧静止色——页签点过去后旧页签要再悬停一次才回正，
+        /// 就是这一格空着。只同步不透明值：透明底原本没人画过，写一颗透明画刷只是留垃圾。
+        /// </summary>
+        private void SyncRest()
+        {
+            if (_inside || _pressed || _native is null) return;
+            var face = FindFace(_native);
+            if (face is null) return;
+            var (_, set, own, _) = face.Value;
+            // ⑤⑥⑦ 画的是别人的面（图标底板/外层卡壳），不能拿自己的静止值去涂。
+            if (!own && _native is not Microsoft.UI.Xaml.Controls.Control) return;
+            if (MauiRest() is not { } rest || rest.Alpha <= 0.001f) return;
+            set(Solid(rest));
+            Trace($"sync-rest {Describe(rest)}");
+        }
+
+        private static Microsoft.UI.Xaml.Media.SolidColorBrush Solid(Color c) => new(ToNative(c));
+
+        /// <summary>
+        /// 把渐变面整条压一档：挡位颜色各走一次 Step，起点/终点/映射/透明度原样克隆。
+        /// 浅档向黑、深档向白，方向仍跟着每一颗挡位自己的明度走 —— 一条从纸到影的渐变
+        /// 压完还是从纸到影，只是整块退了一档，不会变成一块塑料板。
+        /// </summary>
+        private static Microsoft.UI.Xaml.Media.Brush StepGradient(
+            Microsoft.UI.Xaml.Media.LinearGradientBrush source)
+        {
+            var clone = new Microsoft.UI.Xaml.Media.LinearGradientBrush
+            {
+                StartPoint = source.StartPoint,
+                EndPoint = source.EndPoint,
+                MappingMode = source.MappingMode,
+                Opacity = source.Opacity,
+                Transform = source.Transform,
+                RelativeTransform = source.RelativeTransform,
+            };
+            foreach (var stop in source.GradientStops)
+                clone.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+                {
+                    Offset = stop.Offset,
+                    Color = ToNative(StyleWorldTokens.Step(ToMaui(stop.Color), HoverStep)),
+                });
+            return clone;
+        }
+
+        private static Windows.UI.Color ToNative(Color c) => Windows.UI.Color.FromArgb(
+            ToByte(c.Alpha), ToByte(c.Red), ToByte(c.Green), ToByte(c.Blue));
 
         private static Color ToMaui(Windows.UI.Color c) =>
             new(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
@@ -819,9 +968,14 @@ public static class HoverFeel
         /// </summary>
         private void WipeIn()
         {
-            if (!_accent || MotionTokens.Disabled || _set is null || _skip) { _wipeP = 1; Paint(); return; }
-            // 从零开始才给起手那三分之一；收了一半又滑回来，就从那一半接着往满格走。
-            if (_wipeP <= 0.02) _wipeP = WipeHeadStart;
+            if (!(_accent || _sweep || _hoverFill is not null) || MotionTokens.Disabled || _set is null || _skip)
+            {
+                _wipeP = 1;
+                Paint();
+                return;
+            }
+            // 擦入才给起手那三分之一；整块渐变从 0 开始（起手就先深一档，读起来是闪）。
+            if ((_accent || _sweep) && _wipeP <= 0.02) _wipeP = WipeHeadStart;
             _wipeTarget = 1;
             StartWipe();
             Paint();
@@ -830,7 +984,7 @@ public static class HoverFeel
         /// <summary>离开时按原路回收。收干净了才交还静止值——半路交还就是「硬切」，用户看到的正是那一刀。</summary>
         private void WipeOut()
         {
-            if (!_accent || MotionTokens.Disabled || _set is null || _skip || _wipeP <= 0.001)
+            if (!(_accent || _sweep || _hoverFill is not null) || MotionTokens.Disabled || _set is null || _skip || _wipeP <= 0.001)
             {
                 Restore();
                 return;
@@ -858,7 +1012,7 @@ public static class HoverFeel
             t.Tick += (_, _) =>
             {
                 var now = clock.Elapsed.TotalMilliseconds;
-                var step = (now - last) / WipeMs;
+                var step = (now - last) / _wipeMs;
                 last = now;
                 if (_wipeTarget > _wipeP)
                 {
@@ -897,14 +1051,34 @@ public static class HoverFeel
             // 那是填充档，浅色世界里 L≈0.80，铺在白卡上 1.1:1 —— 涂是涂了，眼睛读到的是没变。
             // 现在铺的是「强调色相 + 墨水明度」的半透明覆盖：色相让人读得出「这块是热的」，
             // 明度让人读得出「这块被点到了」。只换填充、不扫文字颜色（覆盖掉不下字色对比）。
-            var accent = _accent ? AccentInk(AccentHoverAlpha) : null;
-            if (accent is { } a)
+            // 显式悬停色（HoverFill）是同一条路的另一半：那颗色由世界写好方向，
+            // 擦不擦由 Sweep 决定 —— 主行动擦进来，其余整块换。
+            var ink = _accent ? AccentInk(AccentHoverAlpha) : _hoverFill;
+            if (ink is { } a)
             {
-                // 擦入没走完就铺一颗硬边两段渐变：右边那段是全透明，读起来就是「这块正在被涂上来」。
-                // 到头之后换回纯色画刷——静止那一档不该留一颗渐变，别的样式再往里写东西时好认也好还。
-                _painted = _wipeP >= 1
-                    ? Solid(a)
-                    : WipeBrush(a, MotionTokens.Mech(_wipeP));
+                if (_accent || _sweep)
+                {
+                    // 擦入没走完就铺一颗硬边两段渐变：右边那段是全透明，读起来就是「这块正在被涂上来」。
+                    // 到头之后换回纯色画刷——静止那一档不该留一颗渐变，别的样式再往里写东西时好认也好还。
+                    _painted = _wipeP >= 1 ? Solid(a) : WipeBrush(a, MotionTokens.Mech(_wipeP));
+                }
+                else
+                {
+                    // 整块渐变变深（BtnSignal 走这条）：从这块面自己的静止色插值到世界给的悬停色，
+                    // 不再从左擦到右。进/出共用 _wipeP，指针在收回去的半路又滑回来时，
+                    // 就从当前那一段接着往满格推，不会从零重来。
+                    var k = MotionTokens.Mech(_wipeP);
+                    _painted = _wipeP >= 1
+                        ? Solid(a)
+                        : Solid(Blend(_face.Alpha > 0.02f ? _face : Colors.Transparent, a, k));
+                }
+                _set(_painted);
+                return;
+            }
+            // 渐变面：每颗色标各压一档，几何原样（见 StepGradient）。整条画刷抓的时候建好，这里只交出去。
+            if (_faceHover is not null)
+            {
+                _painted = _faceHover;
                 _set(_painted);
                 return;
             }
@@ -924,8 +1098,8 @@ public static class HoverFeel
         private Microsoft.UI.Xaml.Media.Brush WipeBrush(Color c, double frac)
         {
             var f = (float)Math.Clamp(frac, 0, 1);
-            var ink = Windows.UI.Color.FromArgb(ToByte(c.Alpha), ToByte(c.Red), ToByte(c.Green), ToByte(c.Blue));
-            var clear = Windows.UI.Color.FromArgb(0, 0, 0, 0);
+            var ink = ToNative(c);
+            var tail = WipeTail();
             if (_wipeBrush is null || _wipeStops is null)
             {
                 _wipeBrush = new Microsoft.UI.Xaml.Media.LinearGradientBrush
@@ -938,11 +1112,12 @@ public static class HoverFeel
                 {
                     new Microsoft.UI.Xaml.Media.GradientStop { Color = ink, Offset = 0 },
                     new Microsoft.UI.Xaml.Media.GradientStop { Color = ink, Offset = f },
-                    new Microsoft.UI.Xaml.Media.GradientStop { Color = clear, Offset = f },
-                    new Microsoft.UI.Xaml.Media.GradientStop { Color = clear, Offset = 1 }
+                    new Microsoft.UI.Xaml.Media.GradientStop { Color = tail, Offset = f },
+                    new Microsoft.UI.Xaml.Media.GradientStop { Color = tail, Offset = 1 }
                 };
                 foreach (var stop in _wipeStops) _wipeBrush.GradientStops.Add(stop);
                 _wipeInk = ink;
+                _wipeTail = tail;
                 return _wipeBrush;
             }
             // 换风格世界时强调色会变，挡位颜色跟着换；同一程里颜色不变，那次比较是唯一的开销。
@@ -952,9 +1127,37 @@ public static class HoverFeel
                 _wipeStops[1].Color = ink;
                 _wipeInk = ink;
             }
+            if (_wipeTail != tail)
+            {
+                _wipeStops[2].Color = tail;
+                _wipeStops[3].Color = tail;
+                _wipeTail = tail;
+            }
             _wipeStops[1].Offset = f;
             _wipeStops[2].Offset = f;
             return _wipeBrush;
+        }
+
+        /// <summary>
+        /// 擦入右半边该是什么色。Accent 档透明（底归父面），Sweep 档是这颗钮自己的静止底：
+        /// 若右半边也透明，胶囊会在擦到一半时先被抠空、露出页面，读起来像被擦掉而不是被涂满。
+        /// </summary>
+        private Windows.UI.Color WipeTail()
+        {
+            if (!_sweep) return Windows.UI.Color.FromArgb(0, 0, 0, 0);
+            if (_rest is Microsoft.UI.Xaml.Media.SolidColorBrush solid) return solid.Color;
+            return ToNative(_face);
+        }
+
+        /// <summary>两块颜色按 t∈[0,1] 线性插值（Alpha 一起走）。整块渐变变深用它，不做硬边。</summary>
+        private static Color Blend(Color from, Color to, double t)
+        {
+            var k = (float)Math.Clamp(t, 0, 1);
+            return new Color(
+                from.Red + (to.Red - from.Red) * k,
+                from.Green + (to.Green - from.Green) * k,
+                from.Blue + (to.Blue - from.Blue) * k,
+                from.Alpha + (to.Alpha - from.Alpha) * k);
         }
 
         /// <summary>
@@ -1006,10 +1209,14 @@ public static class HoverFeel
             _set = null;
             _rest = null;
             _painted = null;
+            _faceHover = null;
             _face = Colors.Transparent;
             _skip = false;
             _blank = false;
             _accent = false;
+            _hoverFill = null;
+            _sweep = false;
+            _wipeMs = WipeMs;
             _ownFace = false;
             _formsWins = false;
             _faceKind = "";

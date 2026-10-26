@@ -351,8 +351,22 @@ public sealed partial class MainGameViewModel : ObservableObject
             : "";
 
         _auto.GreetingReady += OnGreet;
-        _auto.Start();
+        // 时间/日期先有值，顶栏进门时就不是空白（纯计算，不碰盘）。
         UpdateTime();
+    }
+
+    private bool _begun;
+
+    /// <summary>
+    /// 启动重活：读角色与立绘、初始化地图、拉天气、起时钟。
+    /// 由页面在进场过场之后调用一次——压在构造函数里会和进场动画抢同一颗主线程，
+    /// 结果就是「进存档卡一下、动画还没播」。
+    /// </summary>
+    public void Begin()
+    {
+        if (_begun) return;
+        _begun = true;
+        _auto.Start();
         _ = FetchWeather();
         _ = LoadCharacterAsync();
         _ = InitMapAsync();
@@ -1994,7 +2008,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (!_engine.MapUnlocked)
         {
             await Shell.Current.DisplayAlert("普通酒馆",
-                "这一局没有绑定世界树，所以没有地图。\n\n想解锁：菜单 → 本局设定 → 选一份世界树。",
+                "这一局没有绑定世界书，所以没有地图。\n\n想解锁：菜单 → 本局设定 → 选一份世界书。",
                 "知道了");
             return;
         }

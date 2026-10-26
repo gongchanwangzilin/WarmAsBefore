@@ -132,6 +132,13 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     public ObservableCollection<StudioArtRow> ArtRows { get; } = new();
 
     /// <summary>
+    /// 素材矩阵还没铺（或者素材变了要重铺）。186 格、每格一整套控件，还挂着 69 条
+    /// 图片源——它不能挡在「这一页出现」前面，所以进页时只记一笔，等真的翻到「03 素材」再建。
+    /// </summary>
+    private bool _artGridDirty = true;
+    private bool _artGridBuilding;
+
+    /// <summary>
     /// 心情档位：盘上存的是小写英文键（<c>State.Mood</c>），界面给人话标签。
     /// 做成一排可点的块而不是下拉：这一档一天要改好几次，选择器每次都要先点开再找。
     /// </summary>
@@ -446,6 +453,9 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         IsTabMem = tab == "mem";
         IsTabLink = tab == "link";
         IsTabTalk = tab == "talk";
+        // 素材矩阵第一次被翻到时才铺（见 _artGridDirty）。不 await：页签与标题要先落地，
+        // 铺格子是这一栏自己的事，慢一点也只慢在它下面。
+        if (tab == "art") _ = EnsureArtGridAsync();
     }
 
     // ── 立绘：服装 × 表情 × 朝向 ────────────────────────────────────────
@@ -454,26 +464,30 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     /// 服装与表情是从这个角色的 SpriteMap 现算的两根轴（键就是「服装/表情」）。
     /// 表情名是从素材文件名里解析出来的自由词（可能是「微笑」也可能是 smile），
     /// 所以这里不假设固定五档，缺的格子如实标出来。
+    ///
+    /// 只建两根轴与预览，**不建素材矩阵**：那 186 个格子是进页卡顿的主因，
+    /// 而它所在的「03 素材」一开始根本看不见。矩阵由 <see cref="EnsureArtGridAsync"/>
+    /// 在第一次翻到那一栏时铺。轴按名字稳定排序，不把选中的排到最前——
+    /// 选中一颗就整排重排，读起来像按错了东西。
     /// </summary>
     private void RebuildArtAxes()
     {
         Outfits.Clear();
         Emotions.Clear();
         ArtRows.Clear();
+        _artGridDirty = true;
 
         var keys = _ch.SpriteMap.Keys
             .Where(k => k.Contains('/') && !string.IsNullOrWhiteSpace(_ch.SpriteMap[k]))
             .ToList();
         var outfits = keys.Select(k => k.Split('/')[0])
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(k => string.Equals(k, SelectedOutfit, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(k => k, StringComparer.CurrentCulture)
+            .OrderBy(k => k, StringComparer.CurrentCulture)
             .ToList();
         var emotions = keys.Select(k => k.Split('/')[1])
             .Where(e => !string.IsNullOrWhiteSpace(e))
             .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(e => string.Equals(e, SelectedEmotion, StringComparison.OrdinalIgnoreCase) ? 0 : 1)
-            .ThenBy(e => e, StringComparer.CurrentCulture)
+            .OrderBy(e => e, StringComparer.CurrentCulture)
             .ToList();
 
         if (outfits.Count == 0) outfits.Add(string.IsNullOrWhiteSpace(SelectedOutfit) ? "default" : SelectedOutfit);
@@ -481,21 +495,42 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
 
         foreach (var o in outfits) Outfits.Add(new StudioAxisItem(o, StudioCopy.OutfitName(o)) { IsOn = o == SelectedOutfit });
         foreach (var e in emotions) Emotions.Add(new StudioAxisItem(e, e) { IsOn = e == SelectedEmotion });
-
-        foreach (var o in outfits)
-        {
-            var row = new StudioArtRow(o, StudioCopy.OutfitName(o));
-            foreach (var e in emotions)
-            {
-                var rel = FindSprite(o, e);
-                row.Cells.Add(new StudioArtCell(o, e, rel is null ? null : ImageFromFile(rel),
-                    rel is not null, IsCurrentCell(o, e)));
-            }
-            var have = row.Cells.Count(c => c.HasImage);
-            row.FillLabel = $"{have}/{row.Cells.Count} 格有图";
-            ArtRows.Add(row);
-        }
         RebuildPreview();
+    }
+
+    /// <summary>
+    /// 铺素材矩阵。分拍卖出：一次建 186 格会把这一下压成半秒空白，
+    /// 每铺完一套服装（一行）就把线程让回给界面，页签与标题先落地、矩阵一行行长出来。
+    /// 已经铺过且素材没变就直接返回；重复切栏不会重建。
+    /// </summary>
+    private async Task EnsureArtGridAsync()
+    {
+        if (_artGridBuilding || (!_artGridDirty && ArtRows.Count > 0)) return;
+        _artGridBuilding = true;
+        try
+        {
+            ArtRows.Clear();
+            _artGridDirty = false;
+            // 先让换栏这一帧画出去，再开始铺。16ms 是一帧，用户看到的是「内容已到位，矩阵随后」。
+            await Task.Delay(16);
+            var outfits = Outfits.ToList();
+            var emotions = Emotions.ToList();
+            foreach (var o in outfits)
+            {
+                var row = new StudioArtRow(o.Key, o.Label);
+                foreach (var e in emotions)
+                {
+                    var rel = FindSprite(o.Key, e.Key);
+                    row.Cells.Add(new StudioArtCell(o.Key, e.Key, rel is null ? null : ImageFromFile(rel),
+                        rel is not null, IsCurrentCell(o.Key, e.Key)));
+                }
+                var have = row.Cells.Count(c => c.HasImage);
+                row.FillLabel = $"{have}/{row.Cells.Count} 格有图";
+                ArtRows.Add(row);
+                await Task.Yield();
+            }
+        }
+        finally { _artGridBuilding = false; }
     }
 
     private string? FindSprite(string outfit, string emotion)
@@ -527,7 +562,11 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         if (!HasSprite(outfit, SelectedEmotion))
             SelectedEmotion = Emotions.FirstOrDefault(e => HasSprite(outfit, e.Key))?.Key ?? SelectedEmotion;
         Note("服装/表情");
-        RebuildArtAxes();
+        // 只换预览与两颗选项的选中态，不重铺素材矩阵：矩阵里没有「选中」这一笔，
+        // 而重铺一次要重建 186 个格子 —— 点一下换装卡半秒，就是从这里来的。
+        SyncChoice(Outfits, SelectedOutfit);
+        SyncChoice(Emotions, SelectedEmotion);
+        RebuildPreview();
         Status = $"已换上「{StudioCopy.OutfitName(outfit)}」——还没保存，按「保存」才落到角色身上。";
     }
 
@@ -537,7 +576,9 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(emotion)) return;
         SelectedEmotion = emotion;
         Note("服装/表情");
-        RebuildArtAxes();
+        SyncChoice(Outfits, SelectedOutfit);
+        SyncChoice(Emotions, SelectedEmotion);
+        RebuildPreview();
         Status = HasSprite(SelectedOutfit, emotion)
             ? $"表情切到「{emotion}」。"
             : $"「{StudioCopy.OutfitName(SelectedOutfit)}」没有「{emotion}」这一格：预览先用这套衣服的其它图，补齐它去素材页生成。";
@@ -547,19 +588,21 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     private void PickCell(StudioArtCell? cell)
     {
         if (cell is null) return;
+        SelectedOutfit = cell.Outfit;
+        SelectedEmotion = cell.Emotion;
         if (cell.HasImage)
         {
-            SelectedOutfit = cell.Outfit;
-            SelectedEmotion = cell.Emotion;
             Note("服装/表情");
-            RebuildArtAxes();
+            SyncChoice(Outfits, SelectedOutfit);
+            SyncChoice(Emotions, SelectedEmotion);
+            RebuildPreview();
             Status = $"已选「{cell.OutfitName} / {cell.Emotion}」。";
             return;
         }
-        SelectedOutfit = cell.Outfit;
-        SelectedEmotion = cell.Emotion;
-        RebuildArtAxes();
         GoTab("art");
+        SyncChoice(Outfits, SelectedOutfit);
+        SyncChoice(Emotions, SelectedEmotion);
+        RebuildPreview();
         Status = $"缺「{cell.OutfitName} / {cell.Emotion}」这一格：在下面的描述里写下这套衣服与神情，生成立绘补上。";
     }
 
@@ -655,6 +698,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             if (_isNew) _draft = _ch;
             else await _library.UpdateAsync(_ch);
             RebuildArtAxes();
+            if (IsTabArt) _ = EnsureArtGridAsync();
             ArtPrompt = "";
             Status = $"「{StudioCopy.OutfitName(SelectedOutfit)} / {SelectedEmotion}」这一格已经补上" +
                      (_isNew ? "，建好角色时就正式属于 TA。" : "并登记。");
@@ -694,6 +738,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             var (ok, message) = await _library.ImportSupplementaryZipAsync(_ch.Profile.Id, file.FullPath);
             _ch = (await _library.ListAsync()).FirstOrDefault(c => c.Profile.Id == CharacterId) ?? _ch;
             RebuildArtAxes();
+            if (IsTabArt) _ = EnsureArtGridAsync();
             Status = ok ? message : "导入失败：" + message;
         }
         catch (Exception ex)

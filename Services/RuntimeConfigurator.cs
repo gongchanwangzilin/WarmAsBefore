@@ -687,6 +687,13 @@ public sealed class RuntimeConfigurator
             else
                 WindowTopmost.Release();
         }
+        // 显卡登记同样按「设置是意图」校正：清掉换目录后旧 exe 路径留下的条目，
+        // 否则开关关着、Windows 图形设置里仍显示本程序为高性能。
+        if (prev is null || prev.PreferDiscreteGpu != s.PreferDiscreteGpu)
+        {
+            using var _gpuScope = PerfLog.Measure("  · 显卡登记对账");
+            GpuPreferenceService.Reconcile(s.PreferDiscreteGpu);
+        }
         // 背景：纯色 / 自定义图片 / 窗口透视 —— 玻璃需要有东西可透
         var bgChanged = prev is null
             || !string.Equals(prev.BackgroundMode, s.BackgroundMode, StringComparison.Ordinal)

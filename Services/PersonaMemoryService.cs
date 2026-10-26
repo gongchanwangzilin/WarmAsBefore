@@ -15,8 +15,14 @@ namespace WarmAsBefore.Services;
 /// </summary>
 public sealed class PersonaMemoryService
 {
-    /// <summary>世界树整理出的常识统一带这个标签，重绑/重整理时按它整批替换。</summary>
-    public const string WorldTag = "世界树";
+    /// <summary>世界书整理出的常识统一带这个标签，重绑/重整理时按它整批替换。</summary>
+    public const string WorldTag = "世界书";
+
+    /// <summary>
+    /// 旧版本写下的标签（那时界面叫「世界树」）。老存档里的那批常识还带着它，
+    /// 重整理或解绑时要一并撤掉，否则同一份世界会在记忆里留下两套。
+    /// </summary>
+    public const string WorldTagLegacy = "世界树";
 
     private static readonly TimeSpan AiBudget = TimeSpan.FromSeconds(22);
 
@@ -42,7 +48,7 @@ public sealed class PersonaMemoryService
     {
         var persona = (state.UserPersona ?? "").Trim();
         var worldText = "";
-        progress?.Report("正在读取世界树…");
+        progress?.Report("正在读取世界书…");
         try { worldText = await _worlds.DescribeForPromptAsync(state.WorldId); }
         catch (Exception ex) { App.WriteLog("PersonaMemory.World -> " + ex.Message); }
 
@@ -67,6 +73,7 @@ public sealed class PersonaMemoryService
                 await _human.ReplaceTaggedCoreAsync(charId, WorldTag, split.World);
             else
                 await _human.RemoveTaggedCoreAsync(charId, WorldTag);
+            await _human.RemoveTaggedCoreAsync(charId, WorldTagLegacy);
         }
         state.PersonaMemoryReady = true;
         App.WriteLog($"PersonaMemory: 初始化完成 persona={split.Persona.Count} world={split.World.Count} ai={split.AiUsed}");
@@ -94,6 +101,7 @@ public sealed class PersonaMemoryService
         var split = await SplitAsync("", worldText, null, CancellationToken.None) ?? LocalSplit("", worldText);
         if (split.World.Count == 0) return 0;
         await _human.ReplaceTaggedCoreAsync(charId, WorldTag, split.World);
+        await _human.RemoveTaggedCoreAsync(charId, WorldTagLegacy);
         App.WriteLog($"PersonaMemory.SeedWorld: char={charId} world={split.World.Count} ai={split.AiUsed}");
         return split.World.Count;
     }

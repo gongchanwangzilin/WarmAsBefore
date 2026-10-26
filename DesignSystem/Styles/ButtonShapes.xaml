@@ -163,6 +163,10 @@
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        <!-- 悬停是「整块渐变到更深的信号色」：这颗钮是整屏唯一的饱和物，
+             按面算出来的那一档提亮在深色底上读不出方向，所以颜色由世界发（SignalHover）。
+             动效由 HoverFeel 的 TintMs 走整块插值——不从左擦到右（用户的原话是「渐变黑」）。 -->
+        <Setter Property="motion:HoverFeel.HoverFill" Value="{DynamicResource SignalHover}" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
