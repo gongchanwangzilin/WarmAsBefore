@@ -679,10 +679,10 @@ public sealed class PetService
             switch (evt)
             {
                 case WM_LBUTTONUP:
-                    MainThread.BeginInvokeOnMainThread(ShowMainWindow);
+                    Helpers.Ui.Post(ShowMainWindow);
                     return IntPtr.Zero;
                 case WM_LBUTTONDBLCLK:
-                    MainThread.BeginInvokeOnMainThread(ShowMainWindow);
+                    Helpers.Ui.Post(ShowMainWindow);
                     return IntPtr.Zero;
                 case WM_RBUTTONUP:
                     ShowMenu();
@@ -691,7 +691,7 @@ public sealed class PetService
         }
         else if (msg == WM_COMMAND && wParam.ToInt32() == ID_EXIT)
         {
-            MainThread.BeginInvokeOnMainThread(() => { RemoveTray(); Application.Current?.Quit(); });
+            Helpers.Ui.Post(() => { RemoveTray(); Application.Current?.Quit(); });
             return IntPtr.Zero;
         }
         return DefWindowProc(hWnd, msg, wParam, lParam);
@@ -708,9 +708,9 @@ public sealed class PetService
             var cmd = TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD, pt.X, pt.Y, 0, _msgWnd, IntPtr.Zero);
             _ = DestroyMenu(menu);
             if (cmd == (uint)ID_SHOW)
-                MainThread.BeginInvokeOnMainThread(ShowMainWindow);
+                Helpers.Ui.Post(ShowMainWindow);
             else if (cmd == (uint)ID_EXIT)
-                MainThread.BeginInvokeOnMainThread(() => { RemoveTray(); Application.Current?.Quit(); });
+                Helpers.Ui.Post(() => { RemoveTray(); Application.Current?.Quit(); });
         }
         catch (Exception ex)
         {

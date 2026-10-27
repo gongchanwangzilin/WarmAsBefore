@@ -15,13 +15,20 @@ public static class Program
     static void Main(string[] args)
     {
         AppDomain.CurrentDomain.UnhandledException += (s, e) =>
-            App.WriteLog("UnhandledException -> " + e.ExceptionObject);
+        {
+            App.WriteLogNow("UnhandledException -> " + e.ExceptionObject);
+            App.FlushLog();
+        };
         // 注意：FirstChance 处理器内任何抛出的异常都会再次触发 FirstChance，导致无限递归直至栈溢出(0xc00000fd)。
         // 必须用互斥门闩保证重入时立即返回，处理器本体绝不能做可能抛异常的操作。
+        // 文件探测（ImageSource 找不到图这类）量极大，以前把 1.8MB 日志刷成了同一句话，
+        // 真正出事的异常反而被埋掉——这类预期内的寻址失败直接不记。
         AppDomain.CurrentDomain.FirstChanceException += (s, e) =>
         {
+            if (e.Exception is FileNotFoundException or DirectoryNotFoundException
+                or UnauthorizedAccessException or IOException) return;
             if (Interlocked.CompareExchange(ref _firstChanceActive, 1, 0) != 0) return;
-            try { App.WriteLog("FirstChance -> " + e.Exception.Message); }
+            try { App.WriteLog("FirstChance -> " + e.Exception.GetType().Name + ": " + e.Exception.Message); }
             catch { }
             finally { Interlocked.Exchange(ref _firstChanceActive, 0); }
         };

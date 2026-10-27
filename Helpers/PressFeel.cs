@@ -48,7 +48,14 @@ public static class PressFeel
 
     private static void HookNavigationSweep()
     {
-        if (Shell.Current is not { } shell || ReferenceEquals(shell, _navShell)) return;
+        // 副窗口（手机页、工具窗）里没有 Shell。多窗口下 Shell.Current 会直接抛异常
+        // （提示改用 App.Windows），而这里挂在每个元素的 Loaded 上——一开手机窗就把进程带崩。
+        // 从窗口列表里找承载 Shell 的那一个：找不到就跳过，一次异常都不用抛。
+        var shell = Application.Current?.Windows
+            .Select(w => w.Page)
+            .OfType<Shell>()
+            .FirstOrDefault();
+        if (shell is null || ReferenceEquals(shell, _navShell)) return;
         _navShell = shell;
         shell.Navigating += (_, _) => SettleAll();
         shell.Navigated += (_, _) => SettleAll();

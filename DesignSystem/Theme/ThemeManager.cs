@@ -428,7 +428,8 @@ public class ThemeManager
             _pendingTheme = null;
         }
 
-        MainThread.BeginInvokeOnMainThread(() =>
+        // 回调在线程池上：走 Ui.Post，别让 MainThread 在现场找 DispatcherQueue（找不到即崩进程）。
+        Helpers.Ui.Post(() =>
         {
             try
             {

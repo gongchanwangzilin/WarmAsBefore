@@ -40,7 +40,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                         <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
@@ -60,6 +60,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                     <Button Grid.Column="8" Text="AI" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                             BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
                             Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
+                    <!-- #E4：收起信息栏与顶部（等同 ESC）。收起后舞台左上角留一枚「展开界面」 -->
+                    <Button Grid.Column="9" Text="收起" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                            Command="{Binding ToggleHidePanelsCommand}" ToolTipProperties.Text="隐藏信息栏与顶部（Esc）" />
                 </Grid>
             </Border>
 
@@ -191,10 +194,19 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                 BackgroundColor="#33FFFFFF" TextColor="White" HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Grid>
+
+                <!-- 沉浸态：栏都收起来了，留一枚轻量出口，免得只有知道 ESC 的人才能回来 -->
+                <Button Text="展开界面"
+                        Command="{Binding ToggleHidePanelsCommand}"
+                        IsVisible="{Binding HideDesktopPanels}"
+                        ToolTipProperties.Text="恢复信息栏与顶部（Esc）"
+                        BackgroundColor="#B3FDF8F0" TextColor="{DynamicResource SurfaceFg}"
+                        FontSize="11" Padding="10,0" CornerRadius="14" HeightRequest="28" MinimumWidthRequest="0"
+                        HorizontalOptions="Start" VerticalOptions="Start" Margin="12,12,0,0" />
             </Grid>
 
             <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间） -->
-            <Border Grid.Row="1" Grid.Column="2" BackgroundColor="#D9FCF8F0" WidthRequest="300" StrokeThickness="0"
+            <Border Grid.Row="1" Grid.Column="2" x:Name="RightChatPanel" BackgroundColor="#D9FCF8F0" WidthRequest="300" StrokeThickness="0"
                     IsVisible="{Binding IsRightPanelVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">

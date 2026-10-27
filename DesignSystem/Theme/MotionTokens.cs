@@ -29,10 +29,22 @@ public static class MotionTokens
     public const int SheetMs = 320;
     /// <summary>多个元素依次进场的间隔。</summary>
     public const int StaggerMs = 45;
-    /// <summary>页面切换的方向位移时长。Shell 在 WinUI 上没有过场，换页原本是硬切。</summary>
+    /// <summary>页面切换的方向位移时长（非 Windows 的退路，以及页签换栏的浮起）。</summary>
     public const int PageSlideMs = 260;
-    /// <summary>页面切换的起手位移。只给方向感，不做出「整页飞进来」的大动作。</summary>
+    /// <summary>页面切换的起手位移（退路）。只给方向感，不做出「整页飞进来」的大动作。</summary>
     public const double PageSlidePx = 32;
+    /// <summary>
+    /// 整页过场（Windows 走合成层）：新页从右侧带着一点点纵深收束进来。
+    /// 440ms 比元素进场长一档——过场是「这一屏换过来了」，太快又变回硬切；
+    /// 曲线前段极快、后段长收，读起来是「甩到位」而不是「匀速滑」。
+    /// </summary>
+    public const int PageSweepMs = 440;
+    /// <summary>返回时快一档：退出大约是进入的三分之二，多了会显得留恋。</summary>
+    public const int PageBackMs = 340;
+    public const double PageSweepPx = 56;
+    public const double PageBackPx = 44;
+    /// <summary>前进时同时上浮一点点，让整页像一块被摆进来，而不是贴着屏幕平移。</summary>
+    public const double PageSweepRisePx = 6;
     /// <summary>帧驱动的节奏，约 60fps。</summary>
     public const int FrameMs = 16;
 
