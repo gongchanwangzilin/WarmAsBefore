@@ -107,7 +107,7 @@ public sealed class ShopService
                 try
                 {
                     var full = BuildFullCatalog();
-                    MainThread.BeginInvokeOnMainThread(() =>
+                    Helpers.Ui.Post(() =>
                     {
                         var aiItems = _catalog.Where(x => x.AiGenerated).ToList();
                         _catalog = full;
@@ -700,11 +700,11 @@ public sealed class ShopService
                         it.ImagePath = "";   // 下载失败 → Emoji 兜底
                     }
                 }
-                MainThread.BeginInvokeOnMainThread(RaiseChanged);
+                Helpers.Ui.Post(RaiseChanged);
             });
 
             // 3) 合并进目录（仓库商品去重后置顶），持久化仓库地址
-            MainThread.BeginInvokeOnMainThread(() =>
+            Helpers.Ui.Post(() =>
             {
                 var existing = _catalog.Where(x => x.Source == "github").Select(x => x.Id).ToHashSet();
                 foreach (var it in items)

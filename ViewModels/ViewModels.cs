@@ -1759,7 +1759,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         lock (_persistLock)
         {
             _searchTimer ??= new System.Threading.Timer(
-                _ => MainThread.BeginInvokeOnMainThread(() => ApplySearch(SettingsSearchText)), null,
+                _ => Helpers.Ui.Post(() => ApplySearch(SettingsSearchText)), null,
                 Timeout.Infinite, Timeout.Infinite);
             _searchTimer.Change(250, Timeout.Infinite);
         }
@@ -2099,7 +2099,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         lock (_citySearchLock)
         {
             _citySearchTimer ??= new System.Threading.Timer(
-                _ => MainThread.BeginInvokeOnMainThread(RunCitySearch), null,
+                _ => Helpers.Ui.Post(RunCitySearch), null,
                 Timeout.Infinite, Timeout.Infinite);
             _citySearchTimer.Change(250, Timeout.Infinite);
         }
@@ -3188,7 +3188,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         lock (_persistLock)
         {
             _persistTimer ??= new System.Threading.Timer(
-                _ => MainThread.BeginInvokeOnMainThread(PersistNow), null,
+                _ => Helpers.Ui.Post(PersistNow), null,
                 Timeout.Infinite, Timeout.Infinite);
             _persistTimer.Change(300, Timeout.Infinite);
         }

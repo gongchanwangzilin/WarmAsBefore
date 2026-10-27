@@ -453,7 +453,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             LocationLabel = $"{_map.Map.LocationNameOf(scene.Id)} · {scene.Name}";
             RefreshSceneOptions();
             _ = Task.Delay(600).ContinueWith(_ =>
-                MainThread.BeginInvokeOnMainThread(() => IsWalking = false));
+                Helpers.Ui.Post(() => IsWalking = false));
         });
     }
 
@@ -2020,8 +2020,12 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     // ============ #E4 电脑端：隐藏顶栏/侧栏（ESC）与全屏（F11，code-behind 处理） ============
 
-    /// <summary>电脑端隐藏左侧信息栏与顶部状态栏（ESC 再按恢复）；手机端不生效。</summary>
-    [ObservableProperty] private bool _hideDesktopPanels;
+    /// <summary>
+    /// 电脑端隐藏左侧信息栏与顶部状态栏（ESC 或顶栏「收起」再按恢复）；手机端不生效。
+    /// 记在 Preferences 里：VM 是 transient，换页回来 / 重启客户端后收起状态不该自己弹开。
+    /// </summary>
+    [ObservableProperty] private bool _hideDesktopPanels =
+        Microsoft.Maui.Storage.Preferences.Default.Get("game.hideDesktopPanels", false);
 
     [RelayCommand]
     private void ToggleHidePanels() => HideDesktopPanels = !HideDesktopPanels;
@@ -2029,6 +2033,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>沉浸状态切换：周围栏隐藏后，空缺改由纯黑填充。</summary>
     partial void OnHideDesktopPanelsChanged(bool value)
     {
+        Microsoft.Maui.Storage.Preferences.Default.Set("game.hideDesktopPanels", value);
         OnPropertyChanged(nameof(StageBackdropFill));
         OnPropertyChanged(nameof(IsImmersive));
     }

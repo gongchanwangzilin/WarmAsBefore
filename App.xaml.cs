@@ -37,8 +37,11 @@ public partial class App : Application
             if (Microsoft.UI.Xaml.Application.Current is { } app)
                 app.UnhandledException += (_, e) =>
                 {
-                    WriteLog("WINUI UNHANDLED: " + e.Exception);
-                    WriteLog("WINUI UNHANDLED STACK: " + e.Exception?.StackTrace);
+                    // 这条路径上进程随时会没：同步写盘，不进后台队列（队列 500ms 才刷一次，
+                    // 崩溃前那几行恰好是最要紧的，之前几次就是这样丢掉的）。
+                    WriteLogNow("WINUI UNHANDLED: " + e.Exception);
+                    WriteLogNow("WINUI UNHANDLED STACK: " + e.Exception?.StackTrace);
+                    FlushLog();
                 };
 #endif
         }
@@ -287,6 +290,30 @@ public partial class App : Application
         {
             LogQueue.Enqueue($"[{DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}");
             _ = LogDrain.Value;
+        }
+        catch { }
+    }
+
+    /// <summary>
+    /// 同步写盘：只在「进程可能马上没了」的路径上用（未处理异常、崩溃）。
+    /// 常规日志走队列是为了不噎住 UI 线程，这条路径已经没有下一次机会了。
+    /// </summary>
+    public static void WriteLogNow(string msg)
+    {
+        try
+        {
+            File.AppendAllText(LogPath,
+                $"[{DateTime.Now.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}");
+        }
+        catch { }
+    }
+
+    /// <summary>崩溃前把队列里没落盘的几行一次写完。</summary>
+    public static void FlushLog()
+    {
+        try
+        {
+            while (LogQueue.TryDequeue(out var line)) File.AppendAllText(LogPath, line);
         }
         catch { }
     }

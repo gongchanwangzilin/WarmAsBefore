@@ -25,7 +25,10 @@ public static class WindowTopmost
         _assertTimer ??= new System.Threading.Timer(_ =>
         {
             if (!_forced) return;
-            MainThread.BeginInvokeOnMainThread(() =>
+            // 定时器回调在线程池上：这里绝不能直接调 MainThread.BeginInvokeOnMainThread。
+            // 它在 Windows 上要现场找「当前线程或活动窗口」的 DispatcherQueue，找不到就抛
+            // InvalidOperationException，线程池上的未处理异常会直接把进程带走（0xc000027b）。
+            Helpers.Ui.Post(() =>
             {
                 try { SetAll(true); } catch { }
             });
@@ -49,7 +52,7 @@ public static class WindowTopmost
     public static void BringToFront()
     {
 #if WINDOWS
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             try
             {

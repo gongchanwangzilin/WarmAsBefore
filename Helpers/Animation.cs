@@ -118,21 +118,107 @@ public static class Motion
     {
         var root = (page as ContentPage)?.Content;
         if (root is null || MotionTokens.Disabled) return;
+
+#if WINDOWS
+        // 合成层：位移/淡入/纵深都跑在渲染线程上，UI 线程在装载新页时再忙也吃不掉这段路。
+        // 这是「过场看不见」的根治——以前用 MAUI 的 TranslateTo（UI 线程 tick），
+        // 页面一沉，动画的第一帧就落在终点，用户看到的还是硬切。
+        if (PageInOnCompositor(root, back)) return;
+        // 页面刚被 Shell 顶上来时原生面板可能还没建好；等它进树（Loaded）再起跑一次。
+        // 合成动画的时钟从 StartAnimation 那刻算，等到的这一下正好落在它第一次能被看见之前。
+        await WaitLoaded(root);
+        if (PageInOnCompositor(root, back)) return;
+#endif
+
+        // 退路（非 Windows，或原生层还没挂上）：等真帧，再走 MAUI 的位移动画。
         var ms = (uint)MotionTokens.Ms(MotionTokens.PageSlideMs);
         if (ms == 0) { root.TranslationX = 0; return; }
-        // 起点先落上（用户还看不到这一页），再等首帧。
         root.TranslationX = back ? -MotionTokens.PageSlidePx : MotionTokens.PageSlidePx;
         try
         {
-            // 导航完成 ≠ 首帧落地：重页（工作室、存档页这类要读盘装图的）在 Navigated 之后
-            // 还要排几百毫秒。在排版途中起跑的 190ms 会在第一次 tick 直接跳到终点，
-            // 读起来就是「没有过场」。等页面真的画出来两帧，32px 才是一段看得见的路。
             await WaitLoaded(root);
             await WaitPaintedAsync();
             await root.TranslateTo(0, 0, ms, SnapEase);
         }
         finally { root.TranslationX = 0; }
     }
+
+#if WINDOWS
+    /// <summary>
+    /// 终末地式过场：整页从侧面带着一点点纵深「甩」到位。
+    /// 三段同时起跑——位移 56px（返回 44px，反向）、透明度从 0.3 迅速抬到 1、
+    /// 缩放 1.8% 收平。幅度都压在「看得出换了方向，但不觉得页面在飞」的范围内。
+    ///
+    /// 全部用合成动画（<see cref="Microsoft.UI.Composition.Compositor"/>）：
+    /// 不占 UI 线程，不怕导航后的排版把首帧拖住；终点一律显式落回基值，
+    /// 动画被打断也不会把页面留在偏移或半透明上。
+    /// </summary>
+    private static bool PageInOnCompositor(VisualElement root, bool back)
+    {
+        try
+        {
+            if (root.Handler?.PlatformView is not Microsoft.UI.Xaml.FrameworkElement fe) return false;
+            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(fe);
+            var comp = visual.Compositor;
+
+            var ms = MotionTokens.Ms(back ? MotionTokens.PageBackMs : MotionTokens.PageSweepMs);
+            if (ms <= 0) { fe.Translation = System.Numerics.Vector3.Zero; fe.Opacity = 1; return true; }
+            var dx = (float)(back ? -MotionTokens.PageBackPx : MotionTokens.PageSweepPx);
+            var dy = back ? 0f : (float)MotionTokens.PageSweepRisePx;
+
+            // XAML 元素的 Translation 默认只是普通属性，合成层上并没有这一条可动画的属性；
+            // 不开这个开关，StartAnimation("Translation") 会抛 ArgumentException
+            // （「The specified property was not found or cannot be animated」）。
+            Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.SetIsTranslationEnabled(fe, true);
+
+            // 基值先归位：合成动画只是在它上面叠一段过渡。
+            fe.Translation = System.Numerics.Vector3.Zero;
+            fe.Opacity = 1;
+
+            var ease = comp.CreateCubicBezierEasingFunction(
+                new System.Numerics.Vector2(0.16f, 1f),    // 前段极快
+                new System.Numerics.Vector2(0.30f, 1f));   // 后段长收，不起回弹
+
+            var move = comp.CreateVector3KeyFrameAnimation();
+            move.InsertKeyFrame(0f, new System.Numerics.Vector3(dx, dy, 0f));
+            move.InsertKeyFrame(1f, System.Numerics.Vector3.Zero, ease);
+            move.Duration = TimeSpan.FromMilliseconds(ms);
+            move.StopBehavior = Microsoft.UI.Composition.AnimationStopBehavior.SetToFinalValue;
+
+            var fade = comp.CreateScalarKeyFrameAnimation();
+            fade.InsertKeyFrame(0f, back ? 0.55f : 0.30f);
+            fade.InsertKeyFrame(0.30f, 0.94f);
+            fade.InsertKeyFrame(1f, 1f, ease);
+            fade.Duration = TimeSpan.FromMilliseconds(ms);
+            fade.StopBehavior = Microsoft.UI.Composition.AnimationStopBehavior.SetToFinalValue;
+
+            // 纵深只给前进方向：返回是「退回上一层」，再收一次会显得这一页在挽留。
+            if (!back)
+            {
+                var zoom = comp.CreateVector3KeyFrameAnimation();
+                zoom.InsertKeyFrame(0f, new System.Numerics.Vector3(1.018f, 1.018f, 1f));
+                zoom.InsertKeyFrame(1f, System.Numerics.Vector3.One, ease);
+                zoom.Duration = TimeSpan.FromMilliseconds(ms);
+                zoom.StopBehavior = Microsoft.UI.Composition.AnimationStopBehavior.SetToFinalValue;
+                // 缩放中心取元素中心；还没排版完（ActualWidth=0）时退到窗口中心。
+                var bounds = fe.XamlRoot?.Size ?? Windows.Foundation.Size.Empty;
+                var halfX = (float)(fe.ActualWidth > 1 ? fe.ActualWidth : bounds.Width) / 2f;
+                var halfY = (float)(fe.ActualHeight > 1 ? fe.ActualHeight : bounds.Height) / 2f;
+                visual.CenterPoint = new System.Numerics.Vector3(halfX, halfY, 0f);
+                visual.StartAnimation("Scale", zoom);
+            }
+
+            visual.StartAnimation("Translation", move);
+            visual.StartAnimation("Opacity", fade);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("Motion.PageIn(compositor) -> " + ex.Message);
+            return false;
+        }
+    }
+#endif
 
     /// <summary>
     /// 等这一屏真的合成过两帧再起跑。

@@ -58,7 +58,7 @@ public partial class GamePage : ContentPage
                 var push = (uint)MotionTokens.Ms(MotionTokens.SettleMs);
                 var back = (uint)MotionTokens.Ms(MotionTokens.EnterMs);
                 _ = BoardView.ScaleTo(1.04, push, Easing.CubicOut);
-                _ = Task.Delay(MotionTokens.Ms(MotionTokens.SettleMs) * 2).ContinueWith(_ => MainThread.BeginInvokeOnMainThread(() =>
+                _ = Task.Delay(MotionTokens.Ms(MotionTokens.SettleMs) * 2).ContinueWith(_ => Helpers.Ui.Post(() =>
                 {
                     _ = BoardView.ScaleTo(1.0, back, Easing.CubicOut);
                 }));
@@ -71,7 +71,7 @@ public partial class GamePage : ContentPage
         {
             BoardView.CancelAnimations();
             _ = BoardView.ScaleTo(1.012, 90, Easing.CubicOut);
-            _ = Task.Delay(100).ContinueWith(_ => MainThread.BeginInvokeOnMainThread(() =>
+            _ = Task.Delay(100).ContinueWith(_ => Helpers.Ui.Post(() =>
                 _ = BoardView.ScaleTo(1.0, (uint)MotionTokens.Ms(MotionTokens.SettleMs), Easing.CubicOut)));
         }
         if (_lastCellCount == -1 || _vm.BoardCells.Count != _lastCellCount)

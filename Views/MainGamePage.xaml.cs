@@ -16,6 +16,10 @@ public partial class MainGamePage : ContentPage
             InitializeComponent();
         BindingContext = vm;
         _vm = vm;
+        // 窗口尺寸一变（拉窗、分屏）舞台预算就变；栏的显隐同样会改预算，但那时舞台
+        // 未必收到 SizeChanged（它被立绘钉住了），所以两处都要主动再量一次。
+        SizeChanged += OnPageSizeChanged;
+        vm.PropertyChanged += OnVmPropertyChanged;
         // 手机竖版整块只在手机版式下构建：Windows 上它永远不显示，却会和桌面版一起建完
         // （两条 MediaElement、两个 CollectionView、两百来颗控件），那就是"进存档卡一下"的大头。
         if (vm.IsPhoneLayout)
@@ -32,9 +36,40 @@ public partial class MainGamePage : ContentPage
     /// </summary>
     private void OnStageSizeChanged(object? sender, EventArgs e)
     {
+        if (sender is VisualElement el) ReportStageSize(el);
+    }
+
+    private void OnPageSizeChanged(object? sender, EventArgs e)
+    {
+        if (BindingContext is MainGameViewModel { IsDesktopLayout: true }) ReportStageSize(DesktopStage);
+    }
+
+    private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(MainGameViewModel.HideDesktopPanels)
+            or nameof(MainGameViewModel.IsRightPanelVisible))) return;
+        if (!_vm.IsDesktopLayout) return;
+        // 等这一帧的布局跑完再量：此刻舞台的 X/Y 还是旧值。
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(32), () => ReportStageSize(DesktopStage));
+    }
+
+    /// <summary>
+    /// 上报给 VM 的舞台尺寸 = 「窗口可用空间」，而不是舞台自己被量出来的尺寸。
+    /// 星号行列会被子元素的期望尺寸撑大（MAUI GridLayoutManager 对星号列取
+    /// max(star, child.DesiredSize)），而立绘的固定宽高正是上一次测量算出来的：
+    /// 一旦舞台被撑得比窗口还大，它就再也收不回来 —— 尺寸不变 → SizeChanged 不触发
+    /// → 立绘不重算 → 舞台连同铺满它的输入栏一直顶在窗外。
+    /// 页面尺寸才是窗口，减去舞台偏移和可见的右栏，就是它真正能用的地方。
+    /// </summary>
+    private void ReportStageSize(VisualElement el)
+    {
         if (BindingContext is not MainGameViewModel vm) return;
-        if (sender is not VisualElement el || !el.IsVisible || el.Width <= 0 || el.Height <= 0) return;
-        vm.OnStageSizeChanged(el.Width, el.Height, false);
+        if (!el.IsVisible || el.Width <= 0 || el.Height <= 0 || Width <= 0 || Height <= 0) return;
+        var right = RightChatPanel.IsVisible ? Math.Max(RightChatPanel.Width, RightChatPanel.WidthRequest) : 0;
+        var w = Math.Min(el.Width, Width - el.X - right);
+        var h = Math.Min(el.Height, Height - el.Y);
+        if (w < 1 || h < 1) return;
+        vm.OnStageSizeChanged(w, h, false);
     }
 
     /// <summary>
@@ -108,11 +143,6 @@ public partial class MainGamePage : ContentPage
                             e.Handled = true;
                             if (vm.NextSceneCommand.CanExecute(null)) vm.NextSceneCommand.Execute(null);
                             break;
-                        // #E4：ESC 隐藏/恢复左侧信息栏与顶部状态栏
-                        case Windows.System.VirtualKey.Escape:
-                            e.Handled = true;
-                            vm.ToggleHidePanelsCommand.Execute(null);
-                            break;
                         // #E4：F11 全屏（完全全屏、覆盖任务栏）/ 退出全屏
                         case Windows.System.VirtualKey.F11:
                             e.Handled = true;
@@ -120,6 +150,19 @@ public partial class MainGamePage : ContentPage
                             break;
                     }
                 };
+                // #E4：ESC 收起/恢复信息栏与顶部。单独走 handledEventsToo 通道——
+                // 焦点在聊天输入框里时 KeyDown 会先被 Entry 消费，普通订阅根本收不到，
+                // 表现就是「明明可以收起，按 ESC 却没反应」。
+                root.AddHandler(
+                    Microsoft.UI.Xaml.UIElement.KeyDownEvent,
+                    new Microsoft.UI.Xaml.Input.KeyEventHandler((_, e) =>
+                    {
+                        if (e.Key != Windows.System.VirtualKey.Escape) return;
+                        if (BindingContext is not MainGameViewModel vm) return;
+                        vm.ToggleHidePanelsCommand.Execute(null);
+                        e.Handled = true;
+                    }),
+                    handledEventsToo: true);
                 _arrowsHooked = true;
             }
         }

@@ -142,7 +142,7 @@ public sealed class LoadingVeil : Border
         veil._timeout = new CancellationTokenSource();
         Task.Delay(timeoutMs, veil._timeout.Token).ContinueWith(t =>
         {
-            if (t.IsCompletedSuccessfully) MainThread.BeginInvokeOnMainThread(veil.Dismiss);
+            if (t.IsCompletedSuccessfully) Helpers.Ui.Post(veil.Dismiss);
         }, TaskScheduler.Default);
         return veil;
     }
@@ -152,7 +152,7 @@ public sealed class LoadingVeil : Border
     private void _Recheck(object? sender)
     {
         if (_dismissed || sender is null) return;
-        MainThread.BeginInvokeOnMainThread(() => _Evaluate(sender, _Signals));
+        Helpers.Ui.Post(() => _Evaluate(sender, _Signals));
     }
 
     private string[] _Signals = Array.Empty<string>();

@@ -217,7 +217,13 @@ public static class HoverFeel
     {
         // 记的是「哪一个壳」而不是「挂没挂过」：Shell 被重建时旧的那个已经不会再发 Navigating，
         // 一个 bool 会让新的壳永远接不上，换页后的收回就此失效。
-        if (Shell.Current is not { } shell || ReferenceEquals(shell, _sweepShell)) return;
+        // 副窗口里没有 Shell：多窗口下 Shell.Current 会抛（提示改用 App.Windows），
+        // 从窗口列表里找承载 Shell 的那一个，找不到就跳过。
+        var shell = Application.Current?.Windows
+            .Select(w => w.Page)
+            .OfType<Shell>()
+            .FirstOrDefault();
+        if (shell is null || ReferenceEquals(shell, _sweepShell)) return;
         _sweepShell = shell;
         shell.Navigating += (_, _) => RestoreAll(null);
         // Navigated 再收一次。Navigating 时旧页还在树上，过渡里重新布局可能让它再收到一次
