@@ -23,7 +23,7 @@ public partial class App : Application
                 e.SetObserved();
             };
             InitializeComponent();
-            // 首帧之前必须把世界令牌摆好：样式字典现在引用的是 W* / Glass* 这些计算出来的键，
+            // 首帧之前必须把世界令牌摆好：样式字典引用的是 W* / Glass* 这些计算出来的键，
             // 空着解析不到，卡片会既没有面也没有边（设置是异步恢复的，等不到那时候）。
             DesignSystem.Worlds.StyleWorldTokens.Publish(
                 DesignSystem.Worlds.StyleWorld.Soft, RequestedTheme == AppTheme.Dark, "classic");
@@ -38,7 +38,7 @@ public partial class App : Application
                 app.UnhandledException += (_, e) =>
                 {
                     // 这条路径上进程随时会没：同步写盘，不进后台队列（队列 500ms 才刷一次，
-                    // 崩溃前那几行恰好是最要紧的，之前几次就是这样丢掉的）。
+                    // 崩溃前那几行最要紧）。
                     WriteLogNow("WINUI UNHANDLED: " + e.Exception);
                     WriteLogNow("WINUI UNHANDLED STACK: " + e.Exception?.StackTrace);
                     FlushLog();
@@ -67,16 +67,15 @@ public partial class App : Application
     {
         try
         {
-            // 设置必须在构建界面之前读完：标题页要按 DisclaimerAcknowledged 决定弹不弹免责声明，
-            // 读晚了（原来的 fire-and-forget）首帧拿到的永远是默认值 →每次启动都弹一遍。
+            // 设置必须在构建界面之前读完：标题页要按 DisclaimerAcknowledged 决定是否弹免责声明；
+            // 读晚了首帧拿到默认值，每次启动都会弹一遍。
             try
             {
                 var sm = Application.Current?.Handler?.MauiContext?.Services
                     ?.GetService(typeof(SettingsManager)) as SettingsManager;
                 sm?.RestoreBlocking();
-                // 语言也必须在建界面之前落定。以前它是窗口起来之后才设的，于是首帧永远先按 zh-CN
-                // 排一遍、再被 PropertyChanged 重排一次；启动卡的名牌是逐字建出来的，
-                // 中途重排就是「换错一个字」（繁体那档的 溫 和简体的 温 不是同一个字）。
+                // 语言也必须在建界面之前落定，否则首帧先按 zh-CN 排一遍、再被 PropertyChanged 重排；
+                // 启动卡的名牌是逐字建出来的，中途重排会出现错字（繁体 溫 与简体 温 不是同一个字）。
                 LocalizationService.Current.SetCulture(sm?.Current.Lang ?? "zh-CN");
             }
             catch (Exception ex) { WriteLog("CreateWindow.RestoreSettings: " + ex); }
@@ -105,6 +104,8 @@ public partial class App : Application
                 xw.SizeChanged += (_, _) => { var b = xw.Bounds; ApplyViewport(b.Width, b.Height); };
             };
 #endif
+            // 焦点在时压住任务栏，失焦让位；永久置顶由 WindowTaskbarFocus 自己判断并保留。
+            Services.WindowTaskbarFocus.Attach(win);
             // 开局也要对一次尺：App 构造函数里那次 Publish 发生时窗口还不存在，
             // 尺度停在设计档。桌面端窗口就是请求的 1280×800（正好 1.0），
             // 但 Android 上 Window.Width 没有意义，退回主屏密度换算，否则手机会按 1280 的档排版。

@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Modules.Mcp;
 using WarmAsBefore.Services;
 using WarmAsBefore.Models;
@@ -146,7 +147,7 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
 
         if (draft is null || string.IsNullOrWhiteSpace(draft.Name))
         {
-            await Shell.Current.DisplayAlert("AI 造角色", "这次没有生成出可用的角色设定，请稍后再试或换个描述。", "好");
+            Toast.Error("这次没有生成出可用的角色设定，请稍后再试或换个描述。");
             return;
         }
 
@@ -165,11 +166,11 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
         created = created with { Profile = profile };
         if (!await _library.AddAsync(created))
         {
-            await Shell.Current.DisplayAlert("AI 造角色", "角色保存失败。", "好");
+            Toast.Error("角色保存失败。");
             return;
         }
 
-        // 头像：有画面生成就顺手画一张；失败不影响角色本身
+        // 头像：有画面生成时一并生成一张；失败不影响角色本身
         if (_images.Enabled)
         {
             var look = string.IsNullOrWhiteSpace(profile.Description) ? profile.Personality : profile.Description;
@@ -268,7 +269,8 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
             });
             if (pick is null) return;
             var import = await _library.ImportFromZipAsync(pick.FullPath);
-            await Shell.Current.DisplayAlert("导入角色", import.ok ? import.message : "导入失败：" + import.message, "好");
+            if (import.ok) Toast.Success(import.message);
+            else Toast.Error("导入失败：" + import.message);
             if (import.ok) await Refresh();
 
             // 素材包里的地图必须走同样的标定流程。这里把队列统一驱动一遍，
@@ -712,6 +714,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _cloudReconcileMemory = s.CloudReconcileMemory;
         _statusText = _bridge.Status;
         _betaChannel = s.BetaChannel;
+        LoadExtraOptions(s);
 
         // MCP 设置
         _mcpEnabled = s.McpEnabled;
@@ -733,9 +736,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private double _bgmLevel = 0.7;
     [ObservableProperty] private double _sfxLevel = 0.8;
-    // 风格世界：原来的「磨砂 / 毛玻璃 / 液态玻璃」三个互相牵制的开关已经退役成一个选择。
+    // 风格世界：三个互相牵制的玻璃开关合并为一个选择。
     // 世界管材质（圆角、缝、影、字号台阶），色板管颜色，深浅色跟随系统 —— 三条轴各管各的，
-    // 所以这里只留一句话的入口，不再新增任何设置项。
+    // 所以这里只留一个入口，不再新增设置项。
     public List<string> GlassModeChoices { get; } = new() { "轻质感", "柔和极简", "柔和渐变", "液态玻璃" };
 
     /// <summary>
@@ -896,7 +899,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             : Array.Empty<string>();
         if (dirs.Length == 0)
         {
-            await Shell.Current.DisplayAlert("工具目录", "工具目录里还没有任何工具，没什么可信任的。", "好");
+            Toast.Info("工具目录里还没有任何工具，没什么可信任的。");
             return;
         }
         var dir = await Microsoft.Maui.Controls.Shell.Current.DisplayActionSheet(
@@ -909,7 +912,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (!Directory.Exists(full))
         {
             App.WriteLog($"Sandbox.Trust: 拒绝「{dir}」，目录不存在：{full}");
-            await Shell.Current.DisplayAlert("工具目录", $"找不到目录：{dir}", "好");
+            Toast.Error($"找不到目录：{dir}");
             return;
         }
         _sandbox.Trust.Add(dir, full, "设置页手动放开");
@@ -1005,7 +1008,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             }
             await RefreshStickers();
             if (added > 0)
-                await Shell.Current.DisplayAlert("表情包", $"导入了 {added} 个表情。给它们写句描述，AI 用起来会更准。", "好");
+                Toast.Success($"导入了 {added} 个表情。给它们写句描述，AI 用起来会更准。");
         }
         catch (Exception ex) { App.WriteLog("Settings.ImportSticker -> " + ex.Message); }
     }
@@ -1029,14 +1032,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         if (row is null) return;
         if (!_vision.IsConfigured)
         {
-            await Shell.Current.DisplayAlert("识图", "还没有配置识图模型。到「API 设置 → 识图模型」填好端点 / Key / 模型后再试。", "好");
+            Toast.Warn("还没有配置识图模型。到「API 设置 → 识图模型」填好端点 / Key / 模型后再试。");
             return;
         }
         var desc = await _vision.DescribeImageAsync(row.Path,
             "这是一张聊天用的表情包。请用一句中文描述它的内容、情绪和适合的使用场景（30 字以内，直接给描述，不要客套）。");
         if (string.IsNullOrEmpty(desc))
         {
-            await Shell.Current.DisplayAlert("识图", "识图失败。检查识图模型配置或网络后再试。", "好");
+            Toast.Error("识图失败。检查识图模型配置或网络后再试。");
             return;
         }
         await _stickers.UpdateDescriptionAsync(row.Id, desc);
@@ -1087,7 +1090,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         AiProviders.Add(row);
     }
 
-    /// <summary>新增一家厂商（可顺手填第一款模型；之后还能继续加）。</summary>
+    /// <summary>新增一家厂商（可同时填第一款模型；之后还能继续加）。</summary>
     [RelayCommand]
     private void AddProvider()
     {
@@ -2235,7 +2238,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             "困难（步步紧逼）" => "hard",
             _ => "normal"
         };
-        // 旧实现只改字段不落盘：设置页显示「困难」，服务读到的仍是 normal，UI 与设置不一致
+        // 改字段后必须落盘：否则设置页显示「困难」，服务读到的仍是 normal，UI 与设置不一致
         PersistSettings();
     }
 
@@ -2380,12 +2383,12 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             var path = await _cost.ExportCsvAsync();
-            await Shell.Current.DisplayAlert("导出完成", $"已导出到：\n{path}", "好");
+            Toast.Success($"已导出到：{path}");
         }
         catch (Exception ex)
         {
             App.WriteLog("SettingsVM.ExportCostCsv -> " + ex);
-            await Shell.Current.DisplayAlert("导出失败", ex.Message, "好");
+            Toast.Error("导出失败：" + ex.Message);
         }
     }
 
@@ -2472,7 +2475,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             });
             if (picked is null) return;
             var (ok, message) = await _skills.ImportAsync(picked.FullPath);
-            await Shell.Current.DisplayAlert("能力包", message, "好");
+            if (ok) Toast.Success(message);
+            else Toast.Error(message);
             if (ok)
             {
                 _tools.RescanExternalTools();
@@ -2483,7 +2487,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         catch (Exception ex)
         {
             App.WriteLog("SettingsVM.ImportSkill -> " + ex);
-            await Shell.Current.DisplayAlert("能力包", "导入失败：" + ex.Message, "好");
+            Toast.Error("导入失败：" + ex.Message);
         }
     }
 
@@ -2494,7 +2498,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         var list = await _skills.ListAsync();
         if (list.Count == 0)
         {
-            await Shell.Current.DisplayAlert("能力包", "还没有装能力包。用「导入 zip / 目录」装上第一个。", "好");
+            Toast.Info("还没有装能力包。用「导入 zip / 目录」装上第一个。");
             return;
         }
         var pick = await Shell.Current.DisplayActionSheet("管理能力包", "取消", null,
@@ -2565,7 +2569,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         ScreenOrientationService.Set(_screenOrientation);
         // UI 同步（Picker 此时停留在旧方向显示，切回新方向）
         ScreenOrientationDisplay = display;
-        await Shell.Current.DisplayAlert("屏幕方向", $"已锁定为「{display}」。", "好");
+        Toast.Success($"已锁定为「{display}」。");
     }
 
     [ObservableProperty] private bool _qqBotEnabled;
@@ -2656,7 +2660,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncCloudNowAsync() => await RunCloudSyncAsync(justEnabled: false);
 
-    /// <summary>先落盘设置再同步：否则服务读到的还是上一版仓库/令牌。</summary>
+    /// <summary>先落盘设置再同步：否则服务读到的仍是改动前的仓库/令牌。</summary>
     private async Task RunCloudSyncAsync(bool justEnabled)
     {
         if (CloudBusy) return;
@@ -2718,8 +2722,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     public List<int> MemoryTurnsChoices { get; } = new() { 3, 5, 8, 10, 12, 15, 20 };
 
     /// <summary>
-    /// 遗忘档位（天）：0 = 不限（能想起最早的记忆）。0.25 / 0.5 是给人看的低值档——
-    /// 原来最低 1 天，想演示「TA 转头就忘」都快不起来。
+    /// 遗忘档位（天）：0 = 不限（能想起最早的记忆）。0.25 / 0.5 是低值档，
+    /// 用于演示「TA 转头就忘」。
     /// </summary>
     public List<double> MemoryWindowChoices { get; } = new() { 0.25, 0.5, 1, 3, 7, 14, 30, 90, 0 };
 
@@ -2899,7 +2903,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (!int.TryParse((MoneyInput ?? "").Trim(), out var amount) || amount == 0)
         {
-            await Shell.Current.DisplayAlert("金钱", "输入一个整数金额（可负数，用于扣减）。", "好");
+            Toast.Warn("输入一个整数金额（可负数，用于扣减）。");
             return;
         }
         await _shop.InitializeAsync();
@@ -2912,7 +2916,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (!int.TryParse((MoneyInput ?? "").Trim(), out var amount) || amount < 0)
         {
-            await Shell.Current.DisplayAlert("金钱", "输入一个不小于 0 的整数。", "好");
+            Toast.Warn("输入一个不小于 0 的整数。");
             return;
         }
         await _shop.InitializeAsync();
@@ -2940,7 +2944,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         var name = (GenderNewName ?? "").Trim();
         if (name.Length == 0)
         {
-            await Shell.Current.DisplayAlert("自定义性别", "先给它起个名字。", "好");
+            Toast.Warn("先给它起个名字。");
             return;
         }
         var def = new Services.GenderDefinition
@@ -2960,7 +2964,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             GenderNewDescription = "";
             GenderNewScript = "";
         }
-        await Shell.Current.DisplayAlert("自定义性别", message, "好");
+        if (ok) Toast.Success(message);
+        else Toast.Error(message);
     }
 
     [RelayCommand]
@@ -2973,7 +2978,8 @@ public sealed partial class SettingsViewModel : ObservableObject
             if (pick is null) return;
             var (ok, message) = await _genders.ImportJsonAsync(pick.FullPath);
             await LoadGenderChoicesAsync();
-            await Shell.Current.DisplayAlert("导入性别", message, "好");
+            if (ok) Toast.Success(message);
+            else Toast.Error(message);
         }
         catch (Exception ex)
         {
@@ -3179,7 +3185,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     // 防抖：拖动滑杆 / 连续改设置时，每次变更都要跑一遍
     // 「序列化整个 UserSettings + 落盘 + _settings.Apply → RuntimeConfigurator.Apply」
     // （Apply 里还会重配 AI / 天气 / 语音 / 问候 / 官方接入桥），代价很高，
-    // 连续操作会叠加成数秒卡死。这里改成只在停手后跑一次。
+    // 连续操作会叠加成数秒卡死。这里只在停手后跑一次。
     private System.Threading.Timer? _persistTimer;
     private readonly object _persistLock = new();
 
@@ -3200,9 +3206,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         try
         {
             var port = int.TryParse(WechatPort, out var p) && p > 0 && p < 65536 ? p : 8012;
-            // 必须以「当前设置」为基底：原来用 new UserSettings{...} 重建整份，
-            // 凡是没列在这个初始化器里的字段（免责声明确认标记、开发者模式解锁等）
-            // 每次保存设置都会被默认值冲掉——这正是「免责声明每次启动都弹」的真凶。
+            // 必须以「当前设置」为基底：用 new UserSettings{...} 重建整份时，
+            // 未列进初始化器的字段（免责声明确认标记、开发者模式解锁等）
+            // 会被默认值冲掉，免责声明就会每次启动都弹。
             var s = _settings.Current with
             {
                 BgmLevel = BgmLevel,
@@ -3383,6 +3389,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
                  PythonPath = _runtimes.ManualPythonPath,
                  JavaPath = _runtimes.ManualJavaPath
              };
+            s = ApplyExtraOptions(s);
             _settings.Apply(s);
             await _settings.Persist();
         }
@@ -3461,7 +3468,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         try
         {
             var result = await _bridge.TestAsync();
-            await Shell.Current.DisplayAlert("官方接入测试", result, "好的");
+            Toast.Info(result);
         }
         catch (Exception ex)
         {
@@ -3527,7 +3534,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
 
     // ---- 插件：与 MCP 同级的内联列表 ----
     // MCP 是「外部服务工具」，插件是「应用内全栈扩展」，两套系统各自安装、各自管理。
-    // 之前插件只有一个跳转按钮，MCP 却直接铺成列表，看着像插件比 MCP 低一级；这里并排。
+    // 两者并排展示，避免插件看起来比 MCP 低一级。
     public ObservableCollection<PluginRow> PluginRows { get; } = new();
     [ObservableProperty] private bool _pluginsLoading = true;
     public bool HasPlugins => PluginRows.Count > 0;
@@ -3578,7 +3585,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         catch (Exception ex)
         {
             App.WriteLog("SettingsViewModel.TogglePlugin -> " + ex);
-            await Shell.Current.DisplayAlert("插件", "切换失败：" + ex.Message, "好");
+            Toast.Error("切换失败：" + ex.Message);
         }
     }
 
@@ -3633,8 +3640,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             var cfg = _mcp.AddService(name, stdio ? "stdio" : "http", target, desc ?? "");
             if (cfg is null)
             {
-                await Shell.Current.DisplayAlert("接入 MCP 服务",
-                    "没能登记：接入方式只认 stdio 与 http，命令行或地址也不能是空的。具体原因看应用日志。", "好");
+                Toast.Error("没能登记：接入方式只认 stdio 与 http，命令行或地址也不能是空的。具体原因看应用日志。");
                 return;
             }
             await RefreshMcpServersAsync();
@@ -3657,7 +3663,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             var cfg = _mcp.LoadServerConfig(key);
             if (cfg is null)
             {
-                await Shell.Current.DisplayAlert("连接 MCP 服务", "没读回这份接入配置，重新登记一次再试。", "好");
+                Toast.Error("没读回这份接入配置，重新登记一次再试。");
                 return;
             }
             if (!cfg.Allowed)
@@ -3668,8 +3674,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
                     "允许", "这次不");
                 if (!grant)
                 {
-                    await Shell.Current.DisplayAlert("接入 MCP 服务",
-                        "没放行就不会启动它。列表里那颗「允许启动」随时可以点。", "好");
+                    Toast.Info("没放行就不会启动它。列表里那颗「允许启动」随时可以点。");
                     return;
                 }
                 _mcp.AllowServer(key);
@@ -3678,8 +3683,8 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
 
         var (ok, message, count) = await _mcp.ConnectServerAsync(key);
         await RefreshMcpServersAsync();
-        await Shell.Current.DisplayAlert(ok ? $"已连接「{name}」" : $"连不上「{name}」",
-            ok ? $"{message}\n拿到 {count} 个工具，AI 用 mcp_list 就能看到它们。" : message, "好");
+        if (ok) Toast.Success($"{message} 拿到 {count} 个工具，AI 用 mcp_list 就能看到它们。");
+        else Toast.Error(message);
     }
 
     [RelayCommand]
@@ -3771,7 +3776,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         await _mcp.DisconnectServerAsync(item.Key);
         var ok = _mcp.RemoveServer(item.Key);
         await RefreshMcpServersAsync();
-        if (!ok) await Shell.Current.DisplayAlert("删除 MCP 服务", "没能删掉，目录可能正被占用。", "好");
+        if (!ok) Toast.Error("没能删掉，目录可能正被占用。");
     }
 
     [RelayCommand]
@@ -3785,7 +3790,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
     {
         if (!_runtimes.IsDesktop)
         {
-            await Shell.Current.DisplayAlert("工具模式", "外部 Java/Python 工具仅桌面端可用（当前设备为移动端）。", "好");
+            Toast.Warn("外部 Java/Python 工具仅桌面端可用（当前设备为移动端）。");
             return;
         }
         IsRuntimeBusy = true;
@@ -3816,7 +3821,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
     /// <summary>
     /// MCP 服务与插件真正依赖的那批运行时（Node / npx / uvx / WebView2 / 系统浏览器…）。
     /// 上面那颗「检测」只管工具模式要用的 Python 与 Java，扫不到这些——所以插件装上了却一声不响时，
-    /// 这里才是能看见「原来这台机器没有 Node」的地方。
+    /// 这里才能看见「这台机器没有 Node」。
     /// </summary>
     public ObservableCollection<Services.RuntimeState> ExternalRuntimes { get; } = new();
     [ObservableProperty] private bool _externalRuntimeBusy;
@@ -3950,7 +3955,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         var installer = _runtimes.SandboxInstaller;
         if (installer is null)
         {
-            await Shell.Current.DisplayAlert("沙箱", "当前设备不支持 Linux 沙箱（仅 Android）。", "好");
+            Toast.Warn("当前设备不支持 Linux 沙箱（仅 Android）。");
             return;
         }
         IsRuntimeBusy = true;
@@ -4024,7 +4029,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             _settings.Apply(_settings.Current with { DeveloperShowcaseUnlocked = true });
             await _settings.Persist();
             SecretTapCount = 0;
-            await Shell.Current.DisplayAlert("🔓 开启成功", "开发者展示模式已开启：新增「开发者展示」入口（可编辑 / 播放展示案，含多立绘支持）。", "好");
+            Toast.Success("开发者展示模式已开启：新增「开发者展示」入口（可编辑 / 播放展示案，含多立绘支持）。");
         }
     }
 
@@ -4044,7 +4049,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             if (stamp != _secretStamp) return;
             if (ShowcaseUnlocked || SecretTapCount <= 0) return;
             SecretTapCount = 0;
-            await Shell.Current.DisplayAlert("密码是错误", "连击中断，未达到 114514 次，计数已重置。", "好");
+            Toast.Error("连击中断，未达到 114514 次，计数已重置。");
         }
         catch (Exception ex)
         {
@@ -4070,7 +4075,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         catch (Exception ex)
         {
             App.WriteLog("SettingsViewModel.OpenSponsor -> " + ex);
-            await Shell.Current.DisplayAlert("赞助", "无法打开赞助页面：" + ex.Message, "好");
+            Toast.Error("无法打开赞助页面：" + ex.Message);
         }
     }
 
@@ -4085,7 +4090,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
         catch (Exception ex)
         {
             App.WriteLog("SettingsViewModel.OpenBilibili -> " + ex);
-            await Shell.Current.DisplayAlert("B站", "无法打开B站主页：" + ex.Message, "好");
+            Toast.Error("无法打开B站主页：" + ex.Message);
         }
     }
     // ============ 数据包导出 / 导入 ============
@@ -4136,12 +4141,10 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             {
                 // 同步一份到下载文件夹（安卓自动备份；桌面 no-op）
                 Services.DownloadBackupService.AfterExport(tmp);
-                await Shell.Current.DisplayAlert("导出成功",
-                    $"数据包已保存（{DataPackageService.FormatSize(size)}）。"
+                Toast.Success($"数据包已保存（{DataPackageService.FormatSize(size)}）。"
                     + (IncludeSecrets
                         ? "包含 API 密钥与机器人密钥，请妥善保管。"
-                        : "已排除 API 密钥与机器人密钥。"),
-                    "好");
+                        : "已排除 API 密钥与机器人密钥。"));
             }
         }
         catch (Exception ex)
@@ -4192,8 +4195,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             if (!DataPackageService.IsValidPackage(picked))
             {
                 DataImportStatus = "导入失败：不是有效的数据包";
-                await Shell.Current.DisplayAlert("导入失败",
-                    "这个文件不像是「温暖如初」的数据包（缺少 characters.json / settings.json）。", "好");
+                Toast.Error("这个文件不像是「温暖如初」的数据包（缺少 characters.json / settings.json）。");
                 return;
             }
 
@@ -4219,8 +4221,8 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             DataImportStatus = "正在写入数据目录…";
             var (success, message) = await Task.Run(() => DataPackageService.ReplaceDataDir(tempDir!));
             DataImportStatus = success ? "导入完成，请重启应用生效。" : "导入失败：" + message;
-            await Shell.Current.DisplayAlert(success ? "导入完成" : "导入失败",
-                success ? "数据已导入。请完全关闭并重新打开应用，改动才会生效。" : message, "好");
+            if (success) Toast.Success("数据已导入。请完全关闭并重新打开应用，改动才会生效。");
+            else Toast.Error(message);
             if (success) App.WriteLog("Settings.ImportData: success");
         }
         catch (Exception ex)

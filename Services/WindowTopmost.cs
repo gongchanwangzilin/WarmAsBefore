@@ -5,17 +5,20 @@ namespace WarmAsBefore.Services;
 /// <summary>
 /// Windows 桌面端窗口置顶。
 ///
-/// 这里其实是两件不同的事，旧实现混为一谈，正是「置顶开关无效 + 切页卡顿」的来源：
+/// 这里其实是两件不同的事，混为一谈会导致「置顶开关无效 + 切页卡顿」：
 /// · 策略（持久）：<see cref="Force"/> / <see cref="Release"/> —— 跟随设置页「窗口置顶」开关，
 ///   开启时 3 秒周期重断言，防止被抢焦。
 /// · 一次性抬前台：<see cref="BringToFront"/> —— 弹通知/对话框前把窗口抬到前台并激活，
-///   **不改动策略**。旧实现 BringToFront 直接等于 SetAll(true)，于是任何一次导航都会把窗口
-///   永久置顶：设置里的「窗口置顶」关掉也失效，且每次切页都做一次 z-order 变更造成卡顿。
+///   **不改动策略**。若 BringToFront 等同于 SetAll(true)，任何一次导航都会把窗口永久置顶：
+///   设置里的「窗口置顶」关掉也失效，且每次切页都做一次 z-order 变更造成卡顿。
 /// </summary>
 public static class WindowTopmost
 {
     private static System.Threading.Timer? _assertTimer;
     private static bool _forced;
+
+    /// <summary>常驻置顶是否开着：给「焦点置顶」那套逻辑判断用，别在失焦时把用户的选择一起清掉。</summary>
+    public static bool IsForced => _forced;
 
     /// <summary>常驻置顶（跟随设置开关），3 秒周期重断言防被其他窗口抢占。</summary>
     public static void Force()

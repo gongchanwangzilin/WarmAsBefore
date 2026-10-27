@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 
@@ -105,7 +106,7 @@ public sealed partial class ForceCastViewModel : ObservableObject
         var picked = Entries.Where(e => e.Selected).ToList();
         if (picked.Count == 0)
         {
-            await Shell.Current.DisplayAlert("点名", "还没有勾选任何角色。", "好");
+            Toast.Warn("还没有勾选任何角色。");
             return;
         }
         IsBusy = true;
@@ -141,7 +142,7 @@ public sealed partial class ForceCastViewModel : ObservableObject
         catch (Exception ex)
         {
             App.WriteLog("ForceCastViewModel.Confirm -> " + ex);
-            await Shell.Current.DisplayAlert("点名失败", ex.Message, "好");
+            Toast.Error("点名失败：" + ex.Message);
         }
         finally
         {

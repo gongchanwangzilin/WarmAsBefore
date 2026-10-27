@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.Scene;
 using WarmAsBefore.Services;
@@ -107,8 +108,8 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 重建模式列表。旧实现只在选中条目时拷贝一次，模式改动后 UI 不刷新（新增/改名看不见），
-    /// 这里每次改动后整表重建，并按 Id 还原选中项。
+    /// 重建模式列表。每次改动后整表重建并按 Id 还原选中项，
+    /// 这样新增/改名后 UI 会立即刷新，而不是只在选中条目时拷贝一次。
     /// </summary>
     private void SyncModes()
     {
@@ -210,7 +211,7 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
         var scenes = MapScenes;
         if (scenes.Count == 0)
         {
-            await Shell.Current.DisplayAlert("", "地图尚未加载", "好");
+            Toast.Info("地图尚未加载");
             return;
         }
         var pick = await Shell.Current.DisplayActionSheet("选择要引用的地图场景", "取消", null,
@@ -262,7 +263,7 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
         var items = _materials.BackgroundItems;
         if (items.Count == 0)
         {
-            await Shell.Current.DisplayAlert("背景", "素材库里还没有背景，请先在「素材库」页导入。", "好");
+            Toast.Info("素材库里还没有背景，请先在「素材库」页导入。");
             return;
         }
         const string clear = "（清除，沿用条目背景）";
@@ -289,7 +290,7 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
         var items = _materials.MusicItems;
         if (items.Count == 0)
         {
-            await Shell.Current.DisplayAlert("BGM", "素材库里还没有音乐，请先在「素材库」页导入。", "好");
+            Toast.Info("素材库里还没有音乐，请先在「素材库」页导入。");
             return;
         }
         const string clear = "（清除，不改音乐）";
@@ -359,12 +360,10 @@ public sealed partial class SceneLibraryViewModel : ObservableObject
             if (SceneDirector.TryParseRange(items[i], out var from, out var to))
             {
                 if (from != to) continue; // 起止相同 = 永远不生效，属于写错
-                await Shell.Current.DisplayAlert("时间区间有误",
-                    $"第 {i + 1} 条「{items[i]}」起止时间相同，永远不会生效。", "好");
+                Toast.Error($"第 {i + 1} 条「{items[i]}」起止时间相同，永远不会生效。");
                 return;
             }
-            await Shell.Current.DisplayAlert("时间区间有误",
-                $"第 {i + 1} 条「{items[i]}」不是合法区间。正确写法：开始-结束（如 22:00-06:00），支持跨午夜。", "好");
+            Toast.Error($"第 {i + 1} 条「{items[i]}」不是合法区间。正确写法：开始-结束（如 22:00-06:00），支持跨午夜。");
             return;
         }
         m.TimeRanges = items;

@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.CharacterLibraryPage"
              x:Name="Page"
@@ -17,6 +18,22 @@
             <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
             <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
         </Style>
+
+        <!-- 背景适配的五档选项块：与工作室、新建向导同一档。
+             这里必须放在页内 Resources：BindableLayout 是在页面装载后才按模板建子项的，
+             模板里的 StaticResource 只会往页面这一层找，不会回头去解析 App 级资源。 -->
+        <Style x:Key="Chip" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinimumHeightRequest" Value="30" />
+            <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+            <Setter Property="BorderColor" Value="{DynamicResource WControlEdge}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource WPillRadius}" />
+            <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        </Style>
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*">
@@ -32,12 +49,18 @@
                     <Label Text="角色库" Style="{StaticResource TxtTitle}" />
                 </VerticalStackLayout>
                 <!-- 说明性徽章：井面 + 淡墨字。淡彩（*Tint / BeigeAccent*）只能当面，
-                     面上摆的仍然是墨 —— 徽章读起来是「一句注解」而不是一颗按钮。 -->
-                <Border Grid.Column="2" Background="{DynamicResource WWellBrush}"
-                        StrokeThickness="0" Padding="{DynamicResource WPadWell}" VerticalOptions="Center"
-                        StrokeShape="{DynamicResource WRadiusWell}">
-                    <Label Text="AI 也会用到其他角色" Style="{StaticResource TxtCaption}" />
-                </Border>
+                     面上摆的仍然是墨 —— 徽章读起来是「一句注解」而不是一颗按钮。
+                     窄屏收起注解，把位置让给「新建角色」：那一颗才是这一段唯一的行动。 -->
+                <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+                    <Border Background="{DynamicResource WWellBrush}"
+                            StrokeThickness="0" Padding="{DynamicResource WPadWell}" VerticalOptions="Center"
+                            StrokeShape="{DynamicResource WRadiusWell}"
+                            IsVisible="{OnIdiom Desktop=True, Phone=False}">
+                        <Label Text="AI 也会用到其他角色" Style="{StaticResource TxtCaption}" />
+                    </Border>
+                    <Button Text="＋ 新建角色" Style="{StaticResource BtnPrimarySm}"
+                            Command="{Binding NewCharacterCommand}" />
+                </HorizontalStackLayout>
             </Grid>
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
@@ -125,9 +148,21 @@
                                                 <Label Text="{Binding Personality}" Style="{StaticResource TxtRowDesc}"
                                                        LineBreakMode="TailTruncation" MaxLines="1" />
                                             </VerticalStackLayout>
-                                            <Label Grid.Column="2" Text="›" FontSize="18"
-                                                   TextColor="{DynamicResource WarmFaint}"
-                                                   VerticalOptions="Center" />
+                                            <HorizontalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                                                <!-- 行内动作不抢整行：点「导出」只打包这一个人，点行别处仍进工作室 -->
+                                                <Button Text="导出" Style="{StaticResource BtnTextSm}"
+                                                        Padding="6,2"
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.ExportCommand}"
+                                                        CommandParameter="{Binding .}"
+                                                        IsEnabled="{Binding IsExporting, Converter={StaticResource InverseBool}}" />
+                                                <ActivityIndicator IsRunning="{Binding IsExporting}"
+                                                                   IsVisible="{Binding IsExporting}"
+                                                                   WidthRequest="14" HeightRequest="14"
+                                                                   InputTransparent="True" />
+                                                <Label Text="›" FontSize="18"
+                                                       TextColor="{DynamicResource WarmFaint}"
+                                                       VerticalOptions="Center" />
+                                            </HorizontalStackLayout>
                                         </Grid>
                                     </Border>
                                     <!-- 选中那一行：左边压一根强调色短杠。只靠底色深浅，隔着两个主题读不出来。 -->
@@ -156,6 +191,12 @@
                     <!-- 选中的人 -->
                     <Grid IsVisible="{Binding HasSelection}" RowDefinitions="*,Auto">
                         <Grid IsClippedToBounds="True" Background="{DynamicResource WWellBrush}">
+                            <!-- 选中的人自带背景：两层 AnimatedImage 交叉淡入，换人时不会硬切。
+                                 视频由 code-behind 在真需要时创建 MediaElement。 -->
+                            <Grid x:Name="PreviewBgHost" InputTransparent="True">
+                                <ctl:AnimatedImage x:Name="PreviewBgA" IsVisible="False" Opacity="0" />
+                                <ctl:AnimatedImage x:Name="PreviewBgB" IsVisible="False" Opacity="0" />
+                            </Grid>
                             <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}"
                                    Margin="16" HorizontalOptions="Start" VerticalOptions="Start" />
                             <Image Source="{Binding PreviewSource}" Aspect="AspectFit" Margin="24,34,24,16"
@@ -195,6 +236,35 @@
                                    LineBreakMode="TailTruncation" MaxLines="1" />
                             <Label Text="{Binding PreviewDescription}" Style="{StaticResource TxtCaption}"
                                    LineHeight="1.35" LineBreakMode="TailTruncation" MaxLines="2" />
+
+                            <!-- 需求 5：单角色背景在这里设。换人时上面那块会交叉淡入，
+                                 适配五档跟着窗口尺寸走，游戏内与工作室读同一份。 -->
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding BackgroundHint}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                <Button Grid.Column="1" Text="换背景" Style="{StaticResource BtnGhostSm}"
+                                        Command="{Binding PickBackgroundCommand}" />
+                            </Grid>
+                            <FlexLayout Direction="Row" Wrap="Wrap"
+                                        BindableLayout.ItemsSource="{Binding BackgroundFits}"
+                                        IsVisible="{Binding HasBackground}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:BackgroundFitItem">
+                                        <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                Margin="0,0,6,6"
+                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.SetBackgroundFitCommand}"
+                                                CommandParameter="{Binding Key}">
+                                            <Button.Triggers>
+                                                <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                    <Setter Property="BorderColor" Value="Transparent" />
+                                                </DataTrigger>
+                                            </Button.Triggers>
+                                        </Button>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
 
                             <BoxView Style="{StaticResource HSep}" Margin="0,2" />
 

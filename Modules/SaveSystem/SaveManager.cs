@@ -64,6 +64,15 @@ public sealed class SaveManager
                 ["mode"] = mode,
                 ["version"] = SchemaVersion,
                 ["char_state"] = _engine.ActiveCharacter?.State,
+                // 非共享角色按存档各存一份：同一角色在 A 档走到好感 80，不该在 B 档也是 80。
+                // 共享角色（StateShared=true）不写这里——TA 的进度本来就只有一份。
+                ["char_states"] = _engine.Roster.Values
+                    .Where(c => !c.StateShared)
+                    .ToDictionary(c => c.Profile.Id, c => c.State),
+                // 副设定同理：非共享角色每档一份「此刻之我」，共享角色只有一份全局的。
+                ["sub_profiles"] = _engine.Roster.Values
+                    .Where(c => !c.StateShared)
+                    .ToDictionary(c => c.Profile.Id, c => c.SubProfile),
                 ["chat"] = ChatLog.TakeLast(60).ToList()
             };
             await _store.Save($"saves/{slot.Id}", data);
@@ -105,6 +114,47 @@ public sealed class SaveManager
             var cstate = cs.Deserialize<CharacterState>();
             if (cstate is not null) ch.State = cstate;
         }
+
+        // 非共享角色：有本档快照就用快照，没有就回到建档初始值——
+        // 「在别的档里刷到的好感」不该跟着人走进这一档。
+        var savedIds = new HashSet<string>(StringComparer.Ordinal);
+        if (root.TryGetProperty("char_states", out var css))
+        {
+            var saved = css.Deserialize<Dictionary<string, CharacterState>>();
+            if (saved is not null)
+            {
+                foreach (var (cid, cst) in saved)
+                {
+                    savedIds.Add(cid);
+                    if (_engine.Roster.TryGetValue(cid, out var c) && cst is not null) c.State = cst;
+                }
+            }
+        }
+        foreach (var c in _engine.Roster.Values)
+        {
+            if (c.StateShared || savedIds.Contains(c.Profile.Id)) continue;
+            c.State = SeedNonShared(c);
+        }
+
+        // 非共享角色的副设定：有本档快照就换进来，没有就回到未播种状态（由副设定服务按主设定重新长）。
+        var savedSubIds = new HashSet<string>(StringComparer.Ordinal);
+        if (root.TryGetProperty("sub_profiles", out var sps))
+        {
+            var subs = sps.Deserialize<Dictionary<string, CharacterSubProfile>>();
+            if (subs is not null)
+            {
+                foreach (var (cid, sub) in subs)
+                {
+                    savedSubIds.Add(cid);
+                    if (_engine.Roster.TryGetValue(cid, out var c) && sub is not null) c.SubProfile = sub;
+                }
+            }
+        }
+        foreach (var c in _engine.Roster.Values)
+        {
+            if (c.StateShared || savedSubIds.Contains(c.Profile.Id)) continue;
+            c.SubProfile = new CharacterSubProfile();
+        }
         ChatLog.Clear();
         if (root.TryGetProperty("chat", out var chat))
         {
@@ -124,6 +174,25 @@ public sealed class SaveManager
         catch (Exception ex) { App.WriteLog("SaveManager.EnterLandscape -> " + ex.Message); }
         return true;
     }
+
+    /// <summary>
+    /// 非共享角色在新档里的起点：数值取自角色的「建档初始值」，其余（心情、表情、精力修正、预判）
+    /// 一律回到新角色该有的样子——把上一个档的心理曲线带过来，会让 TA 一见面就带着不属于这段关系的情绪。
+    /// </summary>
+    private static CharacterState SeedNonShared(CharacterData ch) => new()
+    {
+        Affection = ch.Initial.Affection,
+        AffectionPoints = ch.Initial.AffectionPoints,
+        Trust = ch.Initial.Trust,
+        Energy = ch.Initial.Energy,
+        Libido = ch.Initial.Libido,
+        Mood = "normal",
+        CurrentOutfit = ch.State.CurrentOutfit,
+        CurrentEmotion = "normal",
+        Location = ch.State.Location,
+        LastSeen = DateTime.UtcNow,
+        Cycle = ch.State.Cycle,
+    };
 
     /// <summary>
     /// 过期存档修复：把结构落后的存档补齐到当前版本。
@@ -571,6 +640,99 @@ public sealed class SaveManager
         catch (Exception ex)
         {
             App.WriteLog("SaveManager.SaveRules -> " + ex);
+            return false;
+        }
+    }
+
+    /// <summary>这份存档里点名参与性欲系统的角色（不进存档也能读）。</summary>
+    public async Task<List<string>?> LoadLibidoCharactersAsync(string id)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("state", out var st)) return null;
+            return st.Deserialize<GameState>()?.LibidoCharacters.ToList();
+        }
+        catch { return null; }
+    }
+
+    /// <summary>只改「谁参与性欲系统」，存档里其余内容原样保留。</summary>
+    public async Task<bool> SaveLibidoCharactersAsync(string id, IEnumerable<string> characters)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return false;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root) return false;
+            if (root["state"] is not JsonObject stateNode) return false;
+            var state = stateNode.Deserialize<GameState>();
+            if (state is null) return false;
+            state.LibidoCharacters.Clear();
+            foreach (var c in characters.Where(c => !string.IsNullOrWhiteSpace(c)).Distinct(StringComparer.Ordinal))
+                state.LibidoCharacters.Add(c);
+            root["state"] = JsonSerializer.SerializeToNode(state);
+            await _store.WriteRawAsync($"saves/{id}", root.ToJsonString(WriteJson));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.SaveLibido -> " + ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 这份存档选用的角色世界观（不进存档也能读）。空 id = 用角色自己的默认。
+    /// 同时带回这份存档的主角 id，调用方才知道该把「跨存档」的修改写回谁。
+    /// </summary>
+    public async Task<(string CharacterId, string WorldviewId, bool ScopedToSave, List<string> ScopedBooks)?>
+        LoadWorldviewAsync(string id)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (!doc.RootElement.TryGetProperty("state", out var st)) return null;
+            var state = st.Deserialize<GameState>();
+            if (state is null) return null;
+            return (state.CharacterId ?? "", (state.CharacterWorldviewId ?? "").Trim(),
+                state.WorldviewScopedToSave, state.ScopedWorldbookIds.ToList());
+        }
+        catch { return null; }
+    }
+
+    /// <summary>
+    /// 只改「这份存档用哪套角色世界观」与它复合进来的额外世界书。
+    /// 跨存档开关为真时，角色自己的 ActiveWorldviewId 由调用方另行写回 —— 服务只认存档这一侧，
+    /// 避免「读存档规则」同时改动角色库。
+    /// </summary>
+    public async Task<bool> SaveWorldviewAsync(string id, string worldviewId, bool scopedToSave,
+        IEnumerable<string> scopedBooks)
+    {
+        var json = await _store.LoadRawAsync($"saves/{id}");
+        if (string.IsNullOrEmpty(json)) return false;
+        try
+        {
+            if (JsonNode.Parse(json) is not JsonObject root) return false;
+            if (root["state"] is not JsonObject stateNode) return false;
+            var state = stateNode.Deserialize<GameState>();
+            if (state is null) return false;
+            state.CharacterWorldviewId = (worldviewId ?? "").Trim();
+            state.WorldviewScopedToSave = scopedToSave;
+            state.ScopedWorldbookIds.Clear();
+            foreach (var book in scopedBooks.Where(b => !string.IsNullOrWhiteSpace(b))
+                         .Distinct(StringComparer.Ordinal))
+                state.ScopedWorldbookIds.Add(book);
+            root["state"] = JsonSerializer.SerializeToNode(state);
+            await _store.WriteRawAsync($"saves/{id}", root.ToJsonString(WriteJson));
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.SaveWorldview -> " + ex);
             return false;
         }
     }

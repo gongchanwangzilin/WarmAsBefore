@@ -51,6 +51,20 @@ public sealed record GameState
 
     /// <summary>人设已整理入记忆：false 时下一次进游戏要补一次「人格记忆初始化」。</summary>
     public bool PersonaMemoryReady { get; set; }
+
+    // ===== 角色世界观（#16） =====
+
+    /// <summary>本存档选用的角色世界观 id；空=用角色自己的默认（CharacterData.ActiveWorldviewId）。</summary>
+    public string CharacterWorldviewId { get; set; } = "";
+    /// <summary>在存档内换的世界观只对本存档生效（角色不跨存档改）。</summary>
+    public bool WorldviewScopedToSave { get; set; }
+    /// <summary>本存档里额外复合进来的世界书（只在 ScopedToSave 时有意义）。</summary>
+    public List<string> ScopedWorldbookIds { get; init; } = new();
+
+    // ===== 性欲系统（#17）：只在用户点名的角色上推进 =====
+
+    /// <summary>本存档启用性欲系统的角色 id（主角 + 指定配角）。空 = 全不启用。</summary>
+    public List<string> LibidoCharacters { get; init; } = new();
 }
 
 /// <summary>
@@ -672,6 +686,52 @@ public sealed record UserSettings
 
     /// <summary>插件崩溃时把 stderr 与堆栈写进插件日志（默认开）。</summary>
     public bool PluginCrashLogs { get; init; } = true;
+
+    // ===== 通知与小组件（v1.52） =====
+
+    /// <summary>轻量通知位置：top-left / top-right / bottom-left / bottom-right / top / bottom / center。</summary>
+    public string NotificationPosition { get; init; } = "top-right";
+    /// <summary>通知停留秒数（到点滑回/淡出）。</summary>
+    public double NotificationSeconds { get; init; } = 4;
+    /// <summary>轻量通知总开关（关掉后只有阻断性提示）。</summary>
+    public bool ToastEnabled { get; init; } = true;
+
+    /// <summary>主界面小组件模式：顶部/左侧栏改由 Widgets 配置决定显示项与位置。</summary>
+    public bool WidgetModeEnabled { get; init; } = true;
+    /// <summary>小组件配置（显示哪些项、放在哪个角）。</summary>
+    public List<WidgetPref> Widgets { get; init; } = new();
+    /// <summary>顶栏显示哪些按键 id（逗号分隔；空=全部）。</summary>
+    public string TopBarButtons { get; init; } = "";
+
+    // ===== 系统升级开关（v1.52） =====
+
+    /// <summary>着装系统新版：false = 回到旧版换装页。</summary>
+    public bool OutfitSystemNew { get; init; } = true;
+    /// <summary>关系网节点过多时自动跳过展开动画。</summary>
+    public bool GraphAutoSkipAnim { get; init; } = true;
+    /// <summary>超过这个节点数就跳过展开动画。</summary>
+    public int GraphSkipAnimNodes { get; init; } = 240;
+    /// <summary>新建存档走分步引导（关闭则回到单页表单）。</summary>
+    public bool SaveCreationOobe { get; init; } = true;
+
+    /// <summary>性欲系统总开关（每个存档还要点名具体角色）。</summary>
+    public bool LibidoSystemEnabled { get; init; }
+    /// <summary>周期对性欲的影响强度 0..1（设定锁优先，不受它影响）。</summary>
+    public double LibidoCycleInfluence { get; init; } = 0.5;
+
+    /// <summary>AI 自行加入的角色要自我介绍后才显示真名（先显示 ???）。</summary>
+    public bool MaskUnintroducedNames { get; init; } = true;
+}
+
+/// <summary>一个主界面小组件：显示什么、放哪儿、顺序。</summary>
+public sealed record WidgetPref
+{
+    /// <summary>clock · weather · location · energy · affection · trust · balance · brain · mood · date。</summary>
+    public string Id { get; init; } = "";
+    public bool Visible { get; init; } = true;
+    /// <summary>top=上侧栏；left=左侧信息栏。手机版只认 top（窄屏没有左栏）。</summary>
+    public string Slot { get; init; } = "left";
+    public int Order { get; init; }
 }
 
 /// <summary>

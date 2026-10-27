@@ -1,3 +1,4 @@
+using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
@@ -7,8 +8,10 @@ namespace WarmAsBefore.Views;
 public partial class MainGamePage : ContentPage
 {
     private readonly MainGameViewModel _vm;
+    private readonly CharacterBackdropPresenter _backdrop;
     private MainGamePhoneView? _phone;
     private bool _started;
+    private bool _backdropSynced;
 
     public MainGamePage(MainGameViewModel vm)
     {
@@ -16,6 +19,7 @@ public partial class MainGamePage : ContentPage
             InitializeComponent();
         BindingContext = vm;
         _vm = vm;
+        _backdrop = new CharacterBackdropPresenter(CharacterBgA, CharacterBgB, CharacterBgHost);
         // 窗口尺寸一变（拉窗、分屏）舞台预算就变；栏的显隐同样会改预算，但那时舞台
         // 未必收到 SizeChanged（它被立绘钉住了），所以两处都要主动再量一次。
         SizeChanged += OnPageSizeChanged;
@@ -46,11 +50,37 @@ public partial class MainGamePage : ContentPage
 
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(MainGameViewModel.CharacterBackdrop))
+        {
+            MainThread.BeginInvokeOnMainThread(() => _ = ApplyCharacterBackdropAsync());
+            return;
+        }
         if (e.PropertyName is not (nameof(MainGameViewModel.HideDesktopPanels)
-            or nameof(MainGameViewModel.IsRightPanelVisible))) return;
+            or nameof(MainGameViewModel.IsRightPanelVisible)
+            or nameof(MainGameViewModel.WidgetModeEnabled)
+            or nameof(MainGameViewModel.IsWidgetPanelVisible))) return;
         if (!_vm.IsDesktopLayout) return;
         // 等这一帧的布局跑完再量：此刻舞台的 X/Y 还是旧值。
         Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(32), () => ReportStageSize(DesktopStage));
+    }
+
+    /// <summary>角色背景换场：两层图片交叉淡入；没有新背景时收掉，露出场景底色。</summary>
+    private async Task ApplyCharacterBackdropAsync(bool instant = false)
+    {
+        if (!_vm.IsDesktopLayout) return;
+        var state = _vm.CharacterBackdrop;
+        try
+        {
+            if (state is null)
+            {
+                await _backdrop.ApplyAsync(null, "fill", 0, 0, 1, 1, false, instant);
+                return;
+            }
+            await _backdrop.ApplyAsync(
+                state.Path, state.Fit, state.CropX, state.CropY, state.CropW, state.CropH,
+                state.IsVideo, instant);
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.CharacterBackdrop -> " + ex.Message); }
     }
 
     /// <summary>
@@ -94,6 +124,16 @@ public partial class MainGamePage : ContentPage
     {
         base.OnAppearing();
         ResumeSceneVideo();
+        _vm.SyncWidgetModeFromSettings();
+        if (!_backdropSynced)
+        {
+            _backdropSynced = true;
+            _ = ApplyCharacterBackdropAsync(instant: true);
+        }
+        else
+        {
+            _backdrop.Resume();
+        }
         HookDesktopArrowKeys();
         // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
         Motion.ArrivePage(this);
@@ -196,6 +236,7 @@ public partial class MainGamePage : ContentPage
         {
             _phone?.Pause();
             if (SceneVideoDesktop is { Source: not null }) SceneVideoDesktop.Pause();
+            _backdrop.Pause();
         }
         catch { }
     }

@@ -4,11 +4,12 @@
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.MainGamePhoneView">
         <Grid IsVisible="{Binding IsPhoneLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
-            <!-- Status bar - 顶部状态栏 -->
+            <!-- Status bar - 旧版固定顶栏：小组件模式关闭时保持原样 -->
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
-                    Padding="16,8">
+                    Padding="16,8" IsVisible="{Binding LegacyPanelsVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <!-- 顶栏只放「正在玩」时会碰的东西：存档 / 菜单 / 手机 / 地图 / 临时换 AI。
                      工坊、世界书这类「配置世界」的页面一律从手机桌面进，不在这里再开一扇门：
@@ -39,6 +40,48 @@
                 </Grid>
             </Border>
 
+            <!-- 小组件顶栏：窄屏只取前三个顶栏组件，横向可滚；按钮只留最常用的三个 + 组件入口 -->
+            <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
+                    Padding="12,6" IsVisible="{Binding WidgetTopBarVisible}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                VerticalOptions="Center">
+                        <HorizontalStackLayout Spacing="14" VerticalOptions="Center"
+                                               BindableLayout.ItemsSource="{Binding PhoneTopWidgets}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:WidgetItemVm">
+                                    <VerticalStackLayout Spacing="0" IsVisible="{Binding Shown}" VerticalOptions="Center">
+                                        <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="8" />
+                                        <Label Text="{Binding Value}" TextColor="{DynamicResource WarmDark}"
+                                               FontSize="{Binding ValueFontSize}" FontAttributes="Bold"
+                                               LineBreakMode="TailTruncation" MaximumWidthRequest="90" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </ScrollView>
+                    <HorizontalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                        <Button Text="AI" IsVisible="{Binding ShowAiButton}" TextColor="{DynamicResource MutedFg}"
+                                BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
+                                FontSize="11" Padding="6,4" HeightRequest="32" MinimumWidthRequest="0"
+                                Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
+                        <Button Text="菜单" IsVisible="{Binding ShowMenuButton}" TextColor="{DynamicResource MutedFg}"
+                                BackgroundColor="Transparent" FontSize="11" Padding="6,4"
+                                HeightRequest="32" MinimumWidthRequest="0"
+                                Command="{Binding ToggleMenuCommand}" />
+                        <Button Text="手机" IsVisible="{Binding ShowPhoneButton}" TextColor="{DynamicResource MutedFg}"
+                                BackgroundColor="Transparent" FontSize="11" Padding="6,4"
+                                HeightRequest="32" MinimumWidthRequest="0"
+                                Command="{Binding OpenPhoneCommand}" />
+                        <Button Text="组件" TextColor="{DynamicResource AccentWarmFg}"
+                                BackgroundColor="{DynamicResource AccentWarm}" FontSize="10" Padding="6,4"
+                                HeightRequest="32" MinimumWidthRequest="0" CornerRadius="14"
+                                Command="{Binding ToggleWidgetPanelCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+
             <!-- Character area (center, zoomed) -->
             <Grid Grid.Row="1" x:Name="PhoneStage" SizeChanged="OnStageSizeChanged">
                 <!-- #9 手机左右滑动切换地点（无地点时命令内部静默忽略、按钮置灰） -->
@@ -63,6 +106,11 @@
                              HorizontalOptions="Fill" VerticalOptions="End"
                              Margin="16,0,16,16" />
                 <BoxView Color="{Binding StageBackdropFill}" />
+                <!-- 角色背景（场景/地图背景优先，空出来时才出现）；视频元素由代码按需创建 -->
+                <Grid x:Name="PhoneCharacterBgHost" InputTransparent="True">
+                    <ctl:AnimatedImage x:Name="PhoneCharacterBgA" IsVisible="False" Opacity="0" />
+                    <ctl:AnimatedImage x:Name="PhoneCharacterBgB" IsVisible="False" Opacity="0" />
+                </Grid>
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill"
                        IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}"
                        Opacity="0.5" />

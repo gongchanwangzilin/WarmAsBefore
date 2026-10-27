@@ -1,0 +1,169 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.CloudSavesPage"
+             x:Name="Page"
+             Title="云存档"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <ContentPage.Resources>
+        <!-- 行模板：名字是主语，设备/时间/体积压在下面一行，右侧只留一个动作钮 -->
+        <DataTemplate x:Key="SaveRowTemplate" x:DataType="vm:CloudSaveRow">
+            <VerticalStackLayout Spacing="0">
+                <Border Style="{StaticResource SettingRow}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                          RowDefinitions="Auto,Auto" RowSpacing="2">
+                        <Label Text="{Binding SaveName}" Style="{StaticResource TxtRowTitle}"
+                               LineBreakMode="TailTruncation" />
+                        <Label Grid.Row="1" Text="{Binding MetaLine}" Style="{StaticResource TxtRowDesc}"
+                               LineBreakMode="TailTruncation" />
+                        <Button Grid.Column="1" Grid.RowSpan="2" Text="{Binding ActionText}"
+                                Style="{StaticResource BtnNeumorphSm}" WidthRequest="80"
+                                VerticalOptions="Center"
+                                Command="{Binding Path=BindingContext.DownloadCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                CommandParameter="{Binding .}"
+                                IsEnabled="{Binding CanAct}" />
+                    </Grid>
+                </Border>
+                <BoxView Style="{StaticResource HSepInset}" />
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <DataTemplate x:Key="ConflictRowTemplate" x:DataType="vm:CloudConflictRow">
+            <VerticalStackLayout Spacing="0">
+                <Border Style="{StaticResource SettingRow}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                          RowDefinitions="Auto,Auto" RowSpacing="2">
+                        <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
+                               LineBreakMode="TailTruncation" />
+                        <Label Grid.Row="1" Text="{Binding MetaLine}" Style="{StaticResource TxtRowDesc}"
+                               LineBreakMode="TailTruncation" />
+                        <Button Grid.Column="1" Grid.RowSpan="2" Text="{Binding ActionText}"
+                                Style="{StaticResource BtnNeumorphSm}" WidthRequest="80"
+                                VerticalOptions="Center"
+                                Command="{Binding Path=BindingContext.RestoreCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                CommandParameter="{Binding .}"
+                                IsEnabled="{Binding CanAct}" />
+                    </Grid>
+                </Border>
+                <BoxView Style="{StaticResource HSepInset}" />
+            </VerticalStackLayout>
+        </DataTemplate>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+        <!-- 顶栏：标题与「上次同步」同列，刷新在右；手机宽度下也只占一行 -->
+        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                    <Label Text="云存档" Style="{StaticResource TxtTitle}" />
+                    <Label Text="{Binding SyncLine}" Style="{StaticResource TxtCaption}"
+                           LineBreakMode="TailTruncation" />
+                </VerticalStackLayout>
+                <Button Grid.Column="2" Text="{Binding RefreshText}"
+                        Style="{StaticResource BtnNeumorphSm}" WidthRequest="80"
+                        VerticalOptions="Center"
+                        Command="{Binding RefreshCommand}"
+                        IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBool}}" />
+            </Grid>
+        </Border>
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+
+        <ScrollView Grid.Row="2" Padding="16,14,16,32">
+            <VerticalStackLayout Spacing="14" MaximumWidthRequest="880" HorizontalOptions="Fill">
+
+                <VerticalStackLayout Spacing="3">
+                    <Label Text="{Binding DeviceLine}" Style="{StaticResource TxtCaption}"
+                           IsVisible="{Binding DeviceLine, Converter={StaticResource StringNotEmpty}}" />
+                    <Label Text="把另一台设备上传的存档取回本机；同步覆盖前留下的旧版本，也能从这里恢复。令牌只留在本机。"
+                           Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <HorizontalStackLayout Spacing="8" IsVisible="{Binding IsLoading}">
+                    <ActivityIndicator IsRunning="{Binding IsLoading}" WidthRequest="14" HeightRequest="14"
+                                       VerticalOptions="Center" Color="{DynamicResource AccentWarm}" />
+                    <Label Text="正在读取云端…" Style="{StaticResource TxtMuted}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+
+                <!-- 没配 / 没登录 / 断网：一句原因 + 下一步该去哪，不弹窗 -->
+                <Border IsVisible="{Binding HasHint}"
+                        BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                        Padding="{DynamicResource WPadCard}"
+                        StrokeShape="{DynamicResource WRadiusWell}">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="{Binding HintTitle}" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="{Binding HintText}" Style="{StaticResource TxtMuted}"
+                               LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 空状态：不是加载中，是真的没有 -->
+                <VerticalStackLayout IsVisible="{Binding ShowEmpty}" Spacing="6"
+                                     Padding="0,44,0,20" HorizontalOptions="Center">
+                    <Label Text="{Binding EmptyTitle}" Style="{StaticResource TxtSubhead}"
+                           HorizontalOptions="Center" />
+                    <Label Text="{Binding EmptyText}" Style="{StaticResource TxtMuted}"
+                           HorizontalTextAlignment="Center" LineBreakMode="WordWrap"
+                           MaximumWidthRequest="360" />
+                </VerticalStackLayout>
+
+                <!-- 第一段：当前设备 -->
+                <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowCurrentSection}">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="当前设备" Style="{StaticResource TxtSection}" />
+                        <Label Grid.Column="1" Text="{Binding CurrentCountText}"
+                               Style="{StaticResource TxtCaption}" VerticalOptions="End"
+                               Margin="0,0,4,12" />
+                    </Grid>
+                    <Label Text="这台设备还没有上传过存档，存一次档后会自动出现在这里。"
+                           IsVisible="{Binding ShowCurrentEmpty}" Style="{StaticResource TxtMuted}"
+                           Margin="4,0,0,4" LineBreakMode="WordWrap" />
+                    <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasCurrent}">
+                        <VerticalStackLayout Spacing="0"
+                                             BindableLayout.ItemsSource="{Binding CurrentRows}"
+                                             BindableLayout.ItemTemplate="{StaticResource SaveRowTemplate}" />
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 第二段：其他设备 / 历史 -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasHistorySection}">
+                    <Label Text="其他设备 / 历史" Style="{StaticResource TxtSection}" />
+
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding HasOther}">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="其他设备" Style="{StaticResource TxtSubhead}" FontSize="14" />
+                            <Label Grid.Column="1" Text="{Binding OtherCountText}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                        <Border Style="{StaticResource CardGroup}">
+                            <VerticalStackLayout Spacing="0"
+                                                 BindableLayout.ItemsSource="{Binding OtherRows}"
+                                                 BindableLayout.ItemTemplate="{StaticResource SaveRowTemplate}" />
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6" IsVisible="{Binding HasConflicts}">
+                        <Label Text="历史副本" Style="{StaticResource TxtSubhead}" FontSize="14" />
+                        <Label Text="云同步覆盖前自动留的旧版本。恢复后本机当前版本也会先留底，下一次同步会把它推回云端。"
+                               Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap"
+                               Margin="2,0,0,2" />
+                        <Border Style="{StaticResource CardGroup}">
+                            <VerticalStackLayout Spacing="0"
+                                                 BindableLayout.ItemsSource="{Binding ConflictRows}"
+                                                 BindableLayout.ItemTemplate="{StaticResource ConflictRowTemplate}" />
+                        </Border>
+                    </VerticalStackLayout>
+                </VerticalStackLayout>
+
+                <Label Text="历史副本保存在本机，断网时也能看、能恢复；访问令牌不会离开这台设备。"
+                       Style="{StaticResource TxtCaption}" Margin="4,8,0,0"
+                       LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

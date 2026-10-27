@@ -31,6 +31,21 @@ public sealed record CgRecord
     public string Condition { get; init; } = string.Empty;
     public string Dialogue { get; init; } = string.Empty;
     public bool Unlocked { get; set; }
+
+    // ===== 属性信息（工作室展示） =====
+
+    /// <summary>媒体时长（毫秒）：图片为 0，视频/GIF 由探测填写。</summary>
+    public int DurationMs { get; init; }
+    /// <summary>文件大小（字节）：0 = 未探测（展示时回退到文件实际大小）。</summary>
+    public long SizeBytes { get; init; }
+    /// <summary>关联背景路径（相对存储根，空=无）。</summary>
+    public string BackgroundPath { get; init; } = "";
+    /// <summary>关联场景 id（地图场景 / 场景库条目）。</summary>
+    public string SceneId { get; init; } = "";
+    /// <summary>引入条件的人话说明（Condition 是机器条件，这里给玩家看）。</summary>
+    public string UnlockHint { get; init; } = "";
+    /// <summary>分类标签：main / event / scene / ending。</summary>
+    public string Category { get; init; } = "event";
 }
 
 public sealed record AchievementDef

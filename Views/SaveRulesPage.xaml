@@ -165,6 +165,107 @@
                     </Border>
                 </VerticalStackLayout>
 
+                <!-- 角色世界观：这套设定属于角色，但「这一档用哪一套」可以按档覆盖 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="这一档的角色世界观" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="世界观改动跨存档生效" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="{Binding WorldviewCrossSaveHint}" Style="{StaticResource TxtRowDesc}"
+                                               LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                    <Switch Grid.Column="1" IsToggled="{Binding WorldviewCrossSave}"
+                                            IsVisible="{Binding HasWorldviews}" VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <Label Text="{Binding WorldviewHint}" Style="{StaticResource TxtRowDesc}"
+                                   Margin="{DynamicResource WPadRow}" LineBreakMode="WordWrap" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Worldviews}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickWorldviewCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                    <BoxView WidthRequest="9" HeightRequest="9" CornerRadius="4.5"
+                                                             Color="Transparent" VerticalOptions="Center">
+                                                        <BoxView.Triggers>
+                                                            <DataTrigger TargetType="BoxView" Binding="{Binding IsOn}" Value="True">
+                                                                <Setter Property="Color" Value="{DynamicResource Signal}" />
+                                                            </DataTrigger>
+                                                        </BoxView.Triggers>
+                                                    </BoxView>
+                                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                               LineBreakMode="WordWrap" IsVisible="{Binding HasHint}" />
+                                                    </VerticalStackLayout>
+                                                    <Label Grid.Column="2" Text="这一档在用"
+                                                           Style="{StaticResource TxtCaption}"
+                                                           TextColor="{DynamicResource WarmFaint}"
+                                                           VerticalOptions="Center" IsVisible="{Binding IsOn}" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 性欲系统：只在这份存档里点名的人生效 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="性欲系统参与角色" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <VerticalStackLayout Spacing="4">
+                                    <Label Text="只对这里点名的人生效" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="没点名的人完全不参与。数值由设定（写死的值）与女性周期共同决定，设定优先——写死时周期不再影响它。"
+                                           Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                                    <Label Text="总开关在「设置 → 体验」里，目前是关的；下面勾了也不会生效。"
+                                           Style="{StaticResource TxtCaption}" IsVisible="{Binding LibidoSystemOff}"
+                                           TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Libido}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                               IsVisible="{Binding HasHint}" LineBreakMode="WordWrap" />
+                                                    </VerticalStackLayout>
+                                                    <Switch Grid.Column="1" IsToggled="{Binding Participates}"
+                                                            IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="角色库里还没有别的角色。"
+                                   Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                   IsVisible="{Binding NoCharacters}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
                 <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" />
                 <Button Text="保存这份存档的规则" Style="{StaticResource BtnPrimary}" FontSize="13"

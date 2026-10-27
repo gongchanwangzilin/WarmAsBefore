@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.CharacterStudioPanel"
              x:Name="Root"
              x:DataType="vm:CharacterStudioViewModel">
@@ -83,17 +84,16 @@
     </ContentView.Resources>
 
     <!--
-      这是一**页**，不是一层弹层：没有 CardDialog 的圆角板、影子和那圈 24px 留白。
-      以前它是弹层，于是抬头挂着一颗 ✕（关闭一个窗口的说法），四周浮着一层灰（页面之间不该有灰），
-      而窗口一窄，内容就横向溢出去——人站在「这是一页」和「这是一个框」之间，两头都读不顺。
-      现在它和角色库、存档页同一级：进来是一页，出去靠返回。
+      这是一页，不是弹层：没有 CardDialog 的圆角板、影子和 24px 留白。
+      抬头用「< 返回」，四周不留灰；窗口变窄时内容改为竖排，不横向溢出。
+      它和角色库、存档页同级：进来是一页，出去靠返回。
     -->
     <Border x:Name="Shell" BackgroundColor="Transparent" StrokeThickness="0"
             Padding="{OnIdiom Desktop='0,0,0,16', Phone='0,0,0,10'}"
             HorizontalOptions="Fill" VerticalOptions="Fill">
-        <!-- 抬头 / 分线 / 主体 / 回话条各占一行。分线以前和主体挤在同一行（"Auto,1,Auto"）：
-             那是一根 HeightRequest=1 的 BoxView 掉进 * 行里，被拉成整块主体那么高的底色板，
-             主体又恰好是「五栏全藏」时读起来就成了一片空。 -->
+        <!-- 抬头 / 分线 / 主体 / 回话条各占一行。分线单独占一行：
+             否则 HeightRequest=1 的 BoxView 掉进 * 行会被拉成整块底色板，
+             五栏全藏时读起来就是一片空。 -->
         <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
 
             <!-- ── 抬头：从档案柜里翻出来的那一格 ─────────────────────────── -->
@@ -152,6 +152,11 @@
                         <Border Background="{DynamicResource WWelBrush}" StrokeThickness="0"
                                 StrokeShape="{DynamicResource WRadiusWell}">
                         <Grid IsClippedToBounds="True">
+                            <!-- 角色专属背景：和角色库、游戏内读同一条解析结果，换人时交叉淡入。 -->
+                            <Grid x:Name="StageBgHost" InputTransparent="True">
+                                <ctl:AnimatedImage x:Name="StageBgA" IsVisible="False" Opacity="0" />
+                                <ctl:AnimatedImage x:Name="StageBgB" IsVisible="False" Opacity="0" />
+                            </Grid>
                             <Image x:Name="Portrait" Source="{Binding PreviewSource}" Aspect="AspectFit"
                                    ScaleX="{Binding MirrorX}"
                                    IsVisible="{Binding HasPreview}"
@@ -311,9 +316,9 @@
                                         Command="{Binding PickAvatarCommand}" />
                             </FlexLayout>
 
-                            <!-- 跨存档共用记忆：原来只有翻到「记忆」那一栏才够得着，而它改的是全局设置、
-                                 影响的是所有角色所有存档——这种分量的档位值得站在随时读得到的地方。
-                                 和「记忆」栏里那颗是同一个开关（都读 VM.CrossSave，改完由 VM 回写），不会各说各话。 -->
+                            <!-- 跨存档共用记忆：改的是全局设置、影响所有角色所有存档，
+                                 因此在立绘下方也放一颗。和「记忆」栏里那颗读同一个 VM.CrossSave，
+                                 改完由 VM 回写，不会各说各话。 -->
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                 <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                     <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
@@ -333,17 +338,15 @@
                     </ScrollView>
                 </Border>
 
-                <!-- 资料：页签 + 六段内容。拿 BodyGrid 的 * 列，宽度由布局给定，
-                     不再需要 FlexLayout 的 Grow/Shrink 去和舞台抢空间。
+                <!-- 资料：页签 + 六段内容。宽度由 BodyGrid 的 * 列给定，
+                     不需要 FlexLayout 的 Grow/Shrink 去和舞台抢空间。
                      它自己是一张卡（与舞台同一档面）：页签带与内容同在一张纸上，
-                     中间那道信号色细线是「纸页的切口」——它常驻，不再从左擦到右。 -->
+                     中间那道信号色细线是常驻的纸页切口。 -->
                 <Border x:Name="PaneCard" Grid.Column="1" Style="{StaticResource CardGroup}">
                 <Grid x:Name="PaneCol" RowDefinitions="Auto,Auto,*">
-                    <!-- 页签是等分的：以前每颗按自己的字宽排，四字与五字差出十几像素，
-                         选中时再加粗一次又把整行推一下 —— 用户读到的就是「大小不均，点一下还抖」。
-                         等宽格子里字不再改字重，选中只换底与字色，位置从头到尾不动。
-                         窄屏由 SetNarrow 改成三列两行（见 CharacterStudioPanel.xaml.cs）。 -->
-                    <Grid x:Name="TabGrid" ColumnDefinitions="*,*,*,*,*,*" ColumnSpacing="6"
+                    <!-- 页签是等分的：每颗等宽、字重不变，选中只换底与字色，位置从头到尾不动。
+                         窄屏由 SetNarrow 改成四列两行（见 CharacterStudioPanel.xaml.cs）。 -->
+                    <Grid x:Name="TabGrid" ColumnDefinitions="*,*,*,*,*,*,*" ColumnSpacing="6"
                           Padding="{DynamicResource WPadRow}">
                         <Button x:Name="TabSet" Text="01 设定" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="set">
@@ -402,6 +405,18 @@
                                 Command="{Binding GoTabCommand}" CommandParameter="talk">
                             <Button.Triggers>
                                 <DataTrigger TargetType="Button" Binding="{Binding IsTabTalk}" Value="True">
+                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                    <Setter Property="BorderColor" Value="Transparent" />
+                                </DataTrigger>
+                            </Button.Triggers>
+                        </Button>
+                        <!-- CG 放在最后一栏：它是「这个人的画面收藏」，读完设定再看画面；
+                             草稿也留着（空态会说清「还没有 CG」），不为了少一颗钮去改排版。 -->
+                        <Button x:Name="TabCg" Grid.Column="6" Text="07 CG" Style="{StaticResource Chip}"
+                                Command="{Binding GoTabCommand}" CommandParameter="cg">
+                            <Button.Triggers>
+                                <DataTrigger TargetType="Button" Binding="{Binding IsTabCg}" Value="True">
                                     <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
                                     <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
                                     <Setter Property="BorderColor" Value="Transparent" />
@@ -555,9 +570,156 @@
                                         </VerticalStackLayout>
                                     </Border>
                                 </VerticalStackLayout>
-                            </VerticalStackLayout>
 
-                            <!-- ══ 状态 ══════════════════════════════════════ -->
+                                <BoxView Style="{StaticResource HSep}" />
+
+                                <!-- ══ 世界书 × 角色世界观 ═══════════════════════════
+                                     两件事在这一段里并排说：上面「TA 用哪几本世界书」（语料），
+                                     下面「TA 来自哪个世界」（可以有好几套，单选一套默认启用）。
+                                     世界书本身不在这一页编辑 —— 这里只管绑定，编辑去世界书那一页。 -->
+                                <VerticalStackLayout Spacing="10">
+                                    <Label Text="TA 的世界观" Style="{StaticResource PaneTitle}" />
+                                    <Label Text="可多本复合，作为生成 TA 世界观的语料。角色世界观可以与存档世界书不同；存档内仍可改世界观。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+
+                                    <VerticalStackLayout Spacing="6">
+                                        <Label Text="世界书（可多选）" Style="{StaticResource FieldLabel}" />
+                                        <FlexLayout Direction="Row" Wrap="Wrap"
+                                                    BindableLayout.ItemsSource="{Binding Worldbooks}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                    <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                            Margin="0,0,6,6"
+                                                            Command="{Binding Source={x:Reference Root}, Path=BindingContext.ToggleWorldbookCommand}"
+                                                            CommandParameter="{Binding Key}">
+                                                        <Button.Triggers>
+                                                            <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                                <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                                <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                                <Setter Property="BorderColor" Value="Transparent" />
+                                                            </DataTrigger>
+                                                        </Button.Triggers>
+                                                    </Button>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </FlexLayout>
+                                        <Label Text="{Binding WorldbookHint}" Style="{StaticResource TxtCaption}"
+                                               LineHeight="1.3" />
+                                    </VerticalStackLayout>
+
+                                    <BoxView Style="{StaticResource HSep}" />
+
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                                            <Label Text="角色世界观" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding ActiveWorldviewName, StringFormat='现在启用：{0}'}"
+                                                   Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="新建一套" Style="{StaticResource BtnGhostSm}"
+                                                Command="{Binding NewWorldviewCommand}" />
+                                    </Grid>
+                                    <Label Text="一套 = 几本世界书 + 一段描述。点一行就是指定 TA 默认用哪一套（单选）。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+
+                                    <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Worldviews}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StudioWorldviewItem">
+                                                <Border Style="{StaticResource ArtCell}" Padding="10,8">
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectWorldviewCommand}"
+                                                            CommandParameter="{Binding Id}" />
+                                                    </Border.GestureRecognizers>
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                                        <!-- 单选点：不画第二个圆环，选中只让这颗点亮起来 -->
+                                                        <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
+                                                                 Color="Transparent" VerticalOptions="Center">
+                                                            <BoxView.Triggers>
+                                                                <DataTrigger TargetType="BoxView" Binding="{Binding IsOn}" Value="True">
+                                                                    <Setter Property="Color" Value="{DynamicResource Signal}" />
+                                                                </DataTrigger>
+                                                            </BoxView.Triggers>
+                                                        </BoxView>
+                                                        <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                                            <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                                            <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}"
+                                                                   LineBreakMode="TailTruncation" />
+                                                        </VerticalStackLayout>
+                                                        <Label Grid.Column="2" Text="启用" Style="{StaticResource TxtCaption}"
+                                                               TextColor="{DynamicResource WarmFaint}"
+                                                               VerticalOptions="Center" IsVisible="{Binding IsOn}" />
+                                                    </Grid>
+                                                </Border>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+
+                                    <Label Text="还没有角色世界观：TA 就用上面勾的世界书，或者沿用这一档的世界树。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3"
+                                           IsVisible="{Binding HasWorldviews, Converter={StaticResource InverseBool}}" />
+
+                                    <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                            Padding="{DynamicResource WPadWell}"
+                                            StrokeShape="{DynamicResource WRadiusWell}"
+                                            IsVisible="{Binding HasWorldviewEditor}">
+                                        <VerticalStackLayout Spacing="8">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Label Text="正在编辑这一套" Style="{StaticResource TxtCaption}"
+                                                       VerticalOptions="Center" />
+                                                <Button Grid.Column="1" Text="删除这套" Style="{StaticResource BtnDangerSm}"
+                                                        Command="{Binding DeleteWorldviewCommand}" />
+                                            </Grid>
+                                            <VerticalStackLayout Spacing="0">
+                                                <Label Text="名字" Style="{StaticResource FieldLabel}" />
+                                                <Entry Style="{StaticResource Field}" Text="{Binding WorldviewName}"
+                                                       Placeholder="这套世界观叫什么" />
+                                            </VerticalStackLayout>
+                                            <VerticalStackLayout Spacing="0">
+                                                <Label Text="描述（这个世界里一直成立的事）" Style="{StaticResource FieldLabel}" />
+                                                <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
+                                                        Text="{Binding WorldviewDescription}"
+                                                        Placeholder="例：海风终年不断的小镇，教会管着潮汐表" />
+                                            </VerticalStackLayout>
+                                            <Label Text="这套用哪几本世界书" Style="{StaticResource FieldLabel}" />
+                                            <FlexLayout Direction="Row" Wrap="Wrap"
+                                                        BindableLayout.ItemsSource="{Binding WorldviewBooks}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                        <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                                Margin="0,0,6,6"
+                                                                Command="{Binding Source={x:Reference Root}, Path=BindingContext.ToggleWorldviewBookCommand}"
+                                                                CommandParameter="{Binding Key}">
+                                                            <Button.Triggers>
+                                                                <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                                    <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                                    <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                                    <Setter Property="BorderColor" Value="Transparent" />
+                                                                </DataTrigger>
+                                                            </Button.Triggers>
+                                                        </Button>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </FlexLayout>
+                                            <Button Text="保存这套" Style="{StaticResource BtnPrimarySm}"
+                                                    HorizontalOptions="Start" Command="{Binding SaveWorldviewCommand}" />
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                    <BoxView Style="{StaticResource HSep}" />
+
+                                    <!-- 跨存档：这颗开关说的是「在游戏里改世界观算谁的」，
+                                         不是「这一套给谁用」—— 文案要把这一步说死。 -->
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                            <Label Text="世界观改动跨存档生效" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="{Binding WorldviewCrossSaveHint}" Style="{StaticResource TxtCaption}"
+                                                   LineHeight="1.3" />
+                                        </VerticalStackLayout>
+                                        <Switch x:Name="WorldviewSwitch" Grid.Column="1" VerticalOptions="Center"
+                                                IsToggled="{Binding WorldviewCrossSave, Mode=OneWay}" />
+                                    </Grid>
+                                </VerticalStackLayout>
+                            </VerticalStackLayout>
                             <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabState}">
                                 <VerticalStackLayout Spacing="6">
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
@@ -572,7 +734,28 @@
                                 <Label Text="拖动就改，但和设定一样：按「保存」才写进角色。这几项直接进 AI 的提示词。"
                                        Style="{StaticResource TxtCaption}" />
 
-                                <VerticalStackLayout Spacing="2">
+                                <!-- 共享 / 非共享：这一屏改的到底是「现实」还是「建档起点」。
+                                     这句话必须常驻在最上面：两种口径下同样一根滑杆改的是两个不同的东西，
+                                     用户看不到这条界线，就会以为「非共享角色在这里拉一下 = 改了当前这一档」。 -->
+                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                        Padding="{DynamicResource WPadWell}"
+                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                    <VerticalStackLayout Spacing="6">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                <Label Text="共享状态" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="{Binding StateSharedHint}" Style="{StaticResource TxtCaption}"
+                                                       LineHeight="1.3" />
+                                            </VerticalStackLayout>
+                                            <Switch x:Name="SharedSwitch" Grid.Column="1" VerticalOptions="Center"
+                                                    IsToggled="{Binding StateShared, Mode=OneWay}" />
+                                        </Grid>
+                                        <Label Text="共享：好感/信任/精力/性欲只有一份「现实值」。非共享：每一档从下面的建档初始值起步，各记各的。切换不会把已有存档的数值倒回去。"
+                                               Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                    </VerticalStackLayout>
+                                </Border>
+
+                                <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <Label Text="好感" Style="{StaticResource FieldLabel}" />
                                         <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0:F0} / 100'}"
@@ -581,7 +764,7 @@
                                     <Slider Minimum="0" Maximum="100" Value="{Binding Affection}" />
                                 </VerticalStackLayout>
 
-                                <VerticalStackLayout Spacing="2">
+                                <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <Label Text="信任" Style="{StaticResource FieldLabel}" />
                                         <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0:F0} / 100'}"
@@ -590,7 +773,7 @@
                                     <Slider Minimum="0" Maximum="100" Value="{Binding Trust}" />
                                 </VerticalStackLayout>
 
-                                <VerticalStackLayout Spacing="2">
+                                <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <Label Text="精力" Style="{StaticResource FieldLabel}" />
                                         <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0:F0} / 100'}"
@@ -600,18 +783,111 @@
                                     <Label Text="精力低的时候 TA 会想睡、说话也短。" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
 
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <!-- 共享角色的性欲：实时值 + 设定锁。锁是「设定写死的值」，
+                                     AI 与周期都不能把它改走，所以它单独一行、单独一颗开关。 -->
+                                <Label Text="性欲系统在设置 → 角色与内容里是关着的：这里的数字只留在档案上，游戏里暂时不会参与。打开总开关后才会生效。"
+                                       Style="{StaticResource TxtCaption}" LineHeight="1.3"
+                                       IsVisible="{Binding LibidoSystemOff}" />
+                                <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <Label Text="性欲" Style="{StaticResource FieldLabel}" />
+                                        <Label Grid.Column="1" Text="{Binding Libido, StringFormat='{0:F0} / 100'}"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </Grid>
+                                    <Slider Minimum="0" Maximum="100" Value="{Binding Libido}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                                            <Label Text="设定锁" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="锁上之后性欲停在你写的值上：周期与 AI 判定都改不动它。"
+                                                   Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                        </VerticalStackLayout>
+                                        <Switch Grid.Column="1" VerticalOptions="Center"
+                                                IsToggled="{Binding LibidoLocked}" />
+                                    </Grid>
+                                    <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding LibidoLocked}">
+                                        <Label Text="锁在" Style="{StaticResource FieldLabel}" />
+                                        <Label Grid.Column="1" Text="{Binding LibidoLockValue, StringFormat='{0:F0}'}"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </Grid>
+                                    <Slider Minimum="0" Maximum="100" Value="{Binding LibidoLockValue}"
+                                            IsVisible="{Binding LibidoLocked}" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
+                                    <Label Text="好感积分（升级用的那把数）" Style="{StaticResource FieldLabel}" />
+                                    <Entry Style="{StaticResource Field}" Text="{Binding AffectionPoints}"
+                                           Keyboard="Numeric" />
+                                </VerticalStackLayout>
+
+                                <!-- 非共享角色：这一屏改的是「以后的存档从哪儿开始」，不是当前这一档。 -->
+                                <VerticalStackLayout Spacing="10"
+                                                     IsVisible="{Binding StateShared, Converter={StaticResource InverseBool}}">
+                                    <Label Text="建档初始值" Style="{StaticResource Eyebrow}" />
+                                    <Label Text="只决定新建存档时的初始状态，不影响已有存档。"
+                                           Style="{StaticResource TxtBodySm}" />
+
+                                    <VerticalStackLayout Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="好感" Style="{StaticResource FieldLabel}" />
+                                            <Label Grid.Column="1" Text="{Binding InitAffection, StringFormat='{0:F0} / 100'}"
+                                                   Style="{StaticResource TxtCaption}" />
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitAffection}" />
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="信任" Style="{StaticResource FieldLabel}" />
+                                            <Label Grid.Column="1" Text="{Binding InitTrust, StringFormat='{0:F0} / 100'}"
+                                                   Style="{StaticResource TxtCaption}" />
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitTrust}" />
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="精力" Style="{StaticResource FieldLabel}" />
+                                            <Label Grid.Column="1" Text="{Binding InitEnergy, StringFormat='{0:F0} / 100'}"
+                                                   Style="{StaticResource TxtCaption}" />
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitEnergy}" />
+                                    </VerticalStackLayout>
+
+                                    <VerticalStackLayout Spacing="2">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <Label Text="性欲" Style="{StaticResource FieldLabel}" />
+                                            <Label Grid.Column="1" Text="{Binding InitLibido, StringFormat='{0:F0} / 100'}"
+                                                   Style="{StaticResource TxtCaption}" />
+                                        </Grid>
+                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitLibido}" />
+                                    </VerticalStackLayout>
+
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="好感积分（升级用的那把数）" Style="{StaticResource FieldLabel}" />
-                                        <Entry Style="{StaticResource Field}" Text="{Binding AffectionPoints}"
+                                        <Entry Style="{StaticResource Field}" Text="{Binding InitAffectionPoints}"
                                                Keyboard="Numeric" />
                                     </VerticalStackLayout>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="0">
-                                        <Label Text="此刻在哪" Style="{StaticResource FieldLabel}" />
-                                        <Entry Style="{StaticResource Field}" Text="{Binding Location}"
-                                               Placeholder="家 / 学校 / 医院" />
+                                </VerticalStackLayout>
+
+                                <!-- 正在某一档里时，额外给一条只读对照：看得出「初始 20 / 这一档现在 47」。
+                                     它不属于角色，所以这里没有滑杆 —— 改这一档的进度要回游戏里相处。 -->
+                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                        Padding="{DynamicResource WPadWell}"
+                                        StrokeShape="{DynamicResource WRadiusWell}"
+                                        IsVisible="{Binding HasSaveStatePreview}">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="当前这一档的实际值（只读）" Style="{StaticResource TxtCaption}" />
+                                        <Label Text="{Binding SaveStatePreview}" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="这些数字属于这份存档，不写回角色；上面那组初始值改的是以后新建的档。"
+                                               Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                     </VerticalStackLayout>
-                                </Grid>
+                                </Border>
+
+                                <VerticalStackLayout Spacing="0">
+                                    <Label Text="此刻在哪" Style="{StaticResource FieldLabel}" />
+                                    <Entry Style="{StaticResource Field}" Text="{Binding Location}"
+                                           Placeholder="家 / 学校 / 医院" />
+                                </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="0">
                                     <Label Text="心情" Style="{StaticResource FieldLabel}" />
@@ -768,6 +1044,8 @@
                                 <FlexLayout Direction="Row" Wrap="Wrap">
                                     <Button Text="导入素材包（zip）" Style="{StaticResource BtnGhostSm}"
                                             Margin="0,0,6,6" Command="{Binding ImportArtZipCommand}" />
+                                    <Button Text="形象包…" Style="{StaticResource BtnGhostSm}"
+                                            Margin="0,0,6,6" Command="{Binding OpenFigurePackCommand}" />
                                     <Button Text="换头像" Style="{StaticResource BtnGhostSm}"
                                             Command="{Binding PickAvatarCommand}" />
                                 </FlexLayout>
@@ -860,6 +1138,109 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
+                                <!-- 需求 8 / 19：这一个角色怎么说话。关掉只影响 TA，
+                                     别的角色仍按各自的设置出声。视觉状态由 code-behind 的
+                                     SyncSwitches 回写，XAML 里一律 OneWay（同本页其它开关）。 -->
+                                <VerticalStackLayout Spacing="10">
+                                    <Label Text="这一个角色的声音" Style="{StaticResource PaneTitle}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                            <Label Text="让 TA 出声" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="关掉后 TA 不再开口朗读：对话照常，只是没有声音，别的角色不受影响。"
+                                                   Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                        </VerticalStackLayout>
+                                        <Switch x:Name="VoiceSwitch" Grid.Column="1" VerticalOptions="Center"
+                                                IsToggled="{Binding VoiceEnabled, Mode=OneWay}" />
+                                    </Grid>
+                                    <Label Text="{Binding VoiceSummary}" Style="{StaticResource TxtCaption}"
+                                           LineHeight="1.3" />
+
+                                    <Label Text="语音引擎" Style="{StaticResource FieldLabel}" />
+                                    <FlexLayout Direction="Row" Wrap="Wrap"
+                                                BindableLayout.ItemsSource="{Binding VoiceEngines}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                        Margin="0,0,6,6"
+                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickVoiceEngineCommand}"
+                                                        CommandParameter="{Binding Key}">
+                                                    <Button.Triggers>
+                                                        <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                            <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                            <Setter Property="BorderColor" Value="Transparent" />
+                                                        </DataTrigger>
+                                                    </Button.Triggers>
+                                                </Button>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="音色" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding VoiceNameText}"
+                                                   Placeholder="留空跟随全局" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                            <Label Text="额外参数" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding VoiceExtraText}"
+                                                   Placeholder="留空跟随全局" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <Button Text="保存这一档语音" Style="{StaticResource BtnGhostSm}"
+                                            HorizontalOptions="Start" Command="{Binding SaveVoiceCommand}" />
+
+                                    <BoxView Style="{StaticResource HSep}" Margin="0,4" />
+
+                                    <!-- 需求 19：模型绑定只给 TA 用，其余角色仍走全局轮换池。
+                                         厂商与模型是两级联动：换厂商会把模型重置成那家的默认。 -->
+                                    <Label Text="只给 TA 用的模型" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="{Binding ModelHint}" Style="{StaticResource TxtCaption}"
+                                           LineHeight="1.3" />
+                                    <Label Text="厂商" Style="{StaticResource FieldLabel}" />
+                                    <FlexLayout Direction="Row" Wrap="Wrap"
+                                                BindableLayout.ItemsSource="{Binding ModelProviders}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                        Margin="0,0,6,6"
+                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickModelProviderCommand}"
+                                                        CommandParameter="{Binding Key}">
+                                                    <Button.Triggers>
+                                                        <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                            <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                            <Setter Property="BorderColor" Value="Transparent" />
+                                                        </DataTrigger>
+                                                    </Button.Triggers>
+                                                </Button>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                    <Label Text="模型" Style="{StaticResource FieldLabel}" />
+                                    <FlexLayout Direction="Row" Wrap="Wrap"
+                                                BindableLayout.ItemsSource="{Binding ModelChoices}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                        Margin="0,0,6,6"
+                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickModelCommand}"
+                                                        CommandParameter="{Binding Key}">
+                                                    <Button.Triggers>
+                                                        <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                            <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                            <Setter Property="BorderColor" Value="Transparent" />
+                                                        </DataTrigger>
+                                                    </Button.Triggers>
+                                                </Button>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                </VerticalStackLayout>
+
+                                <BoxView Style="{StaticResource HSep}" />
+
                                 <VerticalStackLayout Spacing="8">
                                     <Label Text="把别处的记忆搬进来" Style="{StaticResource PaneTitle}" />
                                     <Label Text="灵枢（Lingshu）导出的记忆 JSON 可以直接读进来：追加是并进来，替换是先清掉 TA 现在记得的。"
@@ -944,6 +1325,81 @@
                                     <Label Text="{Binding SaveCountLabel}" Style="{StaticResource TxtCaption}"
                                            HorizontalOptions="Center" />
                                 </Border>
+                            </VerticalStackLayout>
+
+                            <!-- ══ CG ════════════════════════════════════════
+                                 需求 10：每张 CG 都要说清「多久 / 多大 / 关联哪一幕 / 怎么解锁」。
+                                 VM 已把四样都算成现成字符串（MetaLine / SceneLine / ConditionLine），
+                                 模板只负责摆位置，不再做判断。 -->
+                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabCg}">
+                                <VerticalStackLayout Spacing="6">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                                        <Label Text="07" Style="{StaticResource SectionNo}" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                                            <Label Text="// GALLERY" Style="{StaticResource Eyebrow}" />
+                                            <Label Text="TA 的画面收藏" Style="{StaticResource PaneTitle}" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                </VerticalStackLayout>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Label Text="剧情里触发过才算解锁；解锁前只看得到条件，看不到画面。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3"
+                                           VerticalOptions="Center" />
+                                    <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnGhostSm}"
+                                            Command="{Binding RefreshCgCommand}" />
+                                </Grid>
+                                <Label Text="{Binding CgSummary}" Style="{StaticResource TxtCaption}" />
+
+                                <VerticalStackLayout Spacing="8"
+                                                     IsVisible="{Binding HasCgItems, Converter={StaticResource InverseBool}}">
+                                    <Label Text="还没有 CG。" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="在剧情里触发第一张之后，这里会按类别列出它的时长、大小、关联场景与引入条件。"
+                                           Style="{StaticResource TxtCaption}" LineHeight="1.3" />
+                                </VerticalStackLayout>
+
+                                <VerticalStackLayout Spacing="10"
+                                                     BindableLayout.ItemsSource="{Binding CgItems}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:StudioCgItem">
+                                            <Border Style="{StaticResource ArtCell}" Padding="0">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCgCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="112,*" ColumnSpacing="10">
+                                                    <Grid HeightRequest="112">
+                                                        <Image Source="{Binding Thumb}" Aspect="AspectFill"
+                                                               IsVisible="{Binding HasThumb}" />
+                                                        <Label Text="{Binding MediaLabel}" Style="{StaticResource TxtCaption}"
+                                                               HorizontalOptions="Center" VerticalOptions="Center"
+                                                               IsVisible="{Binding HasThumb, Converter={StaticResource InverseBool}}" />
+                                                    </Grid>
+                                                    <VerticalStackLayout Grid.Column="1" Spacing="2"
+                                                                         Padding="0,10,10,10">
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
+                                                                   LineBreakMode="TailTruncation" />
+                                                            <Label Grid.Column="1" Text="{Binding UnlockLabel}"
+                                                                   Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" />
+                                                        </Grid>
+                                                        <Label Text="{Binding MetaLine}" Style="{StaticResource TxtCaption}" />
+                                                        <Label Text="{Binding SceneLine}" Style="{StaticResource TxtCaption}"
+                                                               LineBreakMode="TailTruncation" />
+                                                        <Label Text="{Binding ConditionLine}" Style="{StaticResource TxtCaption}"
+                                                               LineHeight="1.3" />
+                                                        <Label Text="{Binding LockedHint}" Style="{StaticResource TxtCaption}"
+                                                               TextColor="{DynamicResource WarmFaint}"
+                                                               IsVisible="{Binding Unlocked, Converter={StaticResource InverseBool}}" />
+                                                    </VerticalStackLayout>
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
                             </VerticalStackLayout>
 
                             <!-- ══ 说句话 ════════════════════════════════════

@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -291,6 +292,408 @@ public sealed class CloudSyncService : IDisposable
             SetBusy(false);
             _gate.Release();
         }
+    }
+
+    // ==================== 只读浏览：云端存档与历史副本 ====================
+    // 下面这一组只读：不写 manifest、不触发上传，失败一律折成中文原因返回，不往 UI 线程抛。
+
+    /// <summary>仓库与令牌是否齐全：页面靠它区分「没配置」与「令牌失效」。</summary>
+    public bool IsCloudConfigured => IsConfigured;
+
+    /// <summary>本机在云端使用的设备名（只用于展示）。</summary>
+    public string CurrentDeviceName => DeviceName();
+
+    /// <summary>最近一次成功拉取或上传的时间（UTC）；从没同步过是 null。</summary>
+    public DateTime? LastSyncUtc
+    {
+        get
+        {
+            lock (_stateLock)
+            {
+                var at = _state.LastPullUtc > _state.LastPushUtc ? _state.LastPullUtc : _state.LastPushUtc;
+                return at == default ? null : at;
+            }
+        }
+    }
+
+    /// <summary>
+    /// 列出云端所有设备写过的存档。每个设备读一次清单，每份存档再读一次本体拿存档名与体积
+    /// —— 清单里只有键和时间，没有「叫什么」，只靠它列表会全是随机 id。
+    /// </summary>
+    public async Task<CloudSaveSnapshot> ListRemoteSavesAsync(CancellationToken ct = default)
+    {
+        var deviceId = "";
+        try
+        {
+            await EnsureReadyAsync();
+            deviceId = EnsureDeviceId();
+            if (!IsEnabled)
+                return MakeSnapshot(CloudReadState.NotConfigured, deviceId,
+                    "云存档开关没打开。到 设置 → 数据 → 云存档 打开它，再回来点「刷新」。");
+            if (!IsConfigured)
+                return MakeSnapshot(CloudReadState.NotConfigured, deviceId,
+                    "还没填仓库与令牌。到 设置 → 数据 → 云存档 填好仓库（owner/repo）与访问令牌，再回来点「刷新」。");
+
+            var branch = await ResolveBranchAsync();
+            if (branch is null)
+            {
+                var err = LastError;
+                return MakeSnapshot(ClassifyIssue(err), deviceId, DescribeIssue(err));
+            }
+
+            var tree = await GetTreeAsync(branch);
+            if (!tree.ok)
+            {
+                var err = tree.error ?? LastError;
+                return MakeSnapshot(ClassifyIssue(err), deviceId, DescribeIssue(err));
+            }
+
+            var local = await LocalSaveInfosAsync();
+            var saves = new List<CloudSaveEntry>();
+            var groups = tree.nodes
+                .Where(n => n.Path.StartsWith(DevRoot + "/", StringComparison.Ordinal))
+                .GroupBy(n => n.Path.Split('/').Length > 2 ? n.Path.Split('/')[2] : "")
+                .Where(g => g.Key.Length > 0);
+
+            foreach (var group in groups)
+            {
+                ct.ThrowIfCancellationRequested();
+                var manNode = group.FirstOrDefault(n => n.Path.EndsWith("/manifest.json", StringComparison.Ordinal));
+                if (manNode is null) continue;
+                var man = await ReadJsonAsync<CloudManifest>(manNode.Sha);
+                if (man is null) continue;
+
+                var devId = man.DeviceId.Length > 0 ? man.DeviceId : group.Key;
+                var devName = string.IsNullOrWhiteSpace(man.DeviceName) ? devId : man.DeviceName.Trim();
+                foreach (var (key, entry) in man.Files)
+                {
+                    if (entry.Deleted || !IsSaveKey(key) || !StorageProvider.IsSafeKey(key)) continue;
+
+                    // 路径以目录树为准（清单里的 DeviceId 只是它自称），否则老仓库里改过设备名的目录对不上
+                    var remotePath = RemotePathOf(group.Key, key);
+                    var node = group.FirstOrDefault(n => n.Path == remotePath);
+                    if (node is null) continue;
+
+                    var json = await ReadBlobAsync(node.Sha);
+                    var label = SaveLabelOf(json);
+                    var exists = local.Any(l => l.key.Equals(key, StringComparison.Ordinal));
+                    var sameName = label.Length > 0 && local.Any(l =>
+                        !l.key.Equals(key, StringComparison.Ordinal) && l.label.Equals(label, StringComparison.Ordinal));
+
+                    saves.Add(new CloudSaveEntry
+                    {
+                        Key = key,
+                        RemotePath = remotePath,
+                        Sha = node.Sha,
+                        SaveId = key["saves/".Length..],
+                        SaveName = label,
+                        DeviceId = devId,
+                        DeviceName = devName,
+                        SavedAtUtc = ToUtc(entry.SavedAt),
+                        SizeBytes = json is null ? 0 : Encoding.UTF8.GetByteCount(json),
+                        IsCurrentDevice = devId == deviceId || group.Key == deviceId,
+                        ExistsLocally = exists,
+                        HasLocalSameName = sameName
+                    });
+                }
+            }
+
+            var ordered = saves
+                .OrderByDescending(s => s.IsCurrentDevice)
+                .ThenByDescending(s => s.SavedAtUtc)
+                .ToList();
+            return MakeSnapshot(CloudReadState.Ok, deviceId, "", ordered);
+        }
+        catch (OperationCanceledException)
+        {
+            return MakeSnapshot(CloudReadState.Failed, deviceId, "读取已取消，点「刷新」重新来一次。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSync.ListRemoteSaves -> " + ex);
+            return MakeSnapshot(CloudReadState.Failed, deviceId,
+                "读取云端失败：" + ex.Message + "。检查网络后点右上角「刷新」。");
+        }
+    }
+
+    /// <summary>把某台设备的一份存档取回本机；覆盖前先把本机旧版本留进历史副本。</summary>
+    public async Task<CloudActionResult> DownloadSaveAsync(CloudSaveEntry entry, CancellationToken ct = default)
+    {
+        try
+        {
+            if (entry is null || !IsSaveKey(entry.Key) || !StorageProvider.IsSafeKey(entry.Key))
+                return new CloudActionResult(false, "这份记录不是存档，无法下载。");
+            await EnsureReadyAsync();
+            if (!IsEnabled) return new CloudActionResult(false, "云存档开关没打开：到 设置 → 数据 → 云存档 打开它。");
+            if (!IsConfigured) return new CloudActionResult(false, "还没填仓库与令牌：到 设置 → 数据 → 云存档 填好再试。");
+
+            ct.ThrowIfCancellationRequested();
+            var json = entry.Sha.Length > 0 ? await ReadBlobAsync(entry.Sha) : null;
+            if (string.IsNullOrEmpty(json))
+            {
+                // sha 可能已过期：按路径再找一次，别让一次刷新把这次点击废掉
+                var branch = await ResolveBranchAsync();
+                if (branch is null) return new CloudActionResult(false, DescribeIssue(LastError));
+                var tree = await GetTreeAsync(branch);
+                if (!tree.ok) return new CloudActionResult(false, DescribeIssue(tree.error ?? LastError));
+                var node = tree.nodes.FirstOrDefault(n => n.Path == entry.RemotePath);
+                if (node is null) return new CloudActionResult(false, "云端这份存档已经不在了，点「刷新」看看最新列表。");
+                json = await ReadBlobAsync(node.Sha);
+            }
+            if (string.IsNullOrEmpty(json))
+                return new CloudActionResult(false, "下载失败：云端文件读不到（网络或权限），稍后再试。");
+
+            if (_store.Exists(entry.Key)) await BackupLocalAsync(entry.Key, entry.DeviceName);
+            await ApplyRawAsync(entry.Key, json, DateTime.UtcNow);
+            lock (_stateLock) _state.Deleted.Remove(entry.Key);
+            await SaveStateAsync();
+            await RefreshAfterPullAsync(NewPullResult(entry.Key));
+
+            var name = SaveLabelOf(json);
+            return new CloudActionResult(true, $"已下载「{(name.Length > 0 ? name : entry.SaveId)}」到本机存档。");
+        }
+        catch (OperationCanceledException)
+        {
+            return new CloudActionResult(false, "下载已取消。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSync.DownloadSave -> " + ex);
+            return new CloudActionResult(false, "下载失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>列出同步覆盖前自动留下的历史副本（cloud/conflicts，只在本机）。</summary>
+    public async Task<CloudConflictList> ListConflictsAsync()
+    {
+        var items = new List<CloudConflictEntry>();
+        try
+        {
+            var dir = Path.Combine(_store.Root, "cloud", "conflicts");
+            if (!Directory.Exists(dir)) return new CloudConflictList { Ok = true, Items = items };
+
+            var localKeys = ListLocalKeys();
+            var files = new DirectoryInfo(dir).GetFiles("*.json")
+                .OrderByDescending(f => f.LastWriteTimeUtc)
+                .Take(MaxConflictFiles)
+                .ToList();
+
+            foreach (var file in files)
+            {
+                var name = Path.GetFileNameWithoutExtension(file.Name);
+                var targetKey = ResolveConflictTarget(name, localKeys);
+                var label = "";
+                try { label = SaveLabelOf(await File.ReadAllTextAsync(file.FullName)); } catch { }
+                if (label.Length == 0 && targetKey.Length > 0)
+                {
+                    try { label = SaveLabelOf(await _store.LoadRawAsync(targetKey)); } catch { }
+                }
+
+                var at = ConflictTimeOf(name);
+                items.Add(new CloudConflictEntry
+                {
+                    ConflictKey = $"{ConflictRoot}/{name}",
+                    TargetKey = targetKey,
+                    TargetName = label.Length > 0 ? label
+                        : targetKey.Length > 0 ? targetKey[(targetKey.LastIndexOf('/') + 1)..]
+                        : name,
+                    DeviceName = ConflictDeviceOf(name, targetKey),
+                    SavedAtUtc = at == DateTime.MinValue ? file.LastWriteTimeUtc : at,
+                    SizeBytes = file.Length,
+                    TargetExists = targetKey.Length > 0 && _store.Exists(targetKey)
+                });
+            }
+            return new CloudConflictList { Ok = true, Items = items };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSync.ListConflicts -> " + ex);
+            return new CloudConflictList { Ok = false, Message = "读取历史副本失败：" + ex.Message, Items = items };
+        }
+    }
+
+    /// <summary>把一份历史副本写回它原来的键；恢复出来的内容会在下一次同步时推回云端。</summary>
+    public async Task<CloudActionResult> RestoreConflictAsync(CloudConflictEntry entry, CancellationToken ct = default)
+    {
+        try
+        {
+            if (entry is null || !entry.CanRestore || !StorageProvider.IsSafeKey(entry.TargetKey)
+                || !StorageProvider.IsSafeKey(entry.ConflictKey))
+                return new CloudActionResult(false, "这份副本找不到对应的存档位置，无法恢复。");
+
+            await EnsureReadyAsync();
+            ct.ThrowIfCancellationRequested();
+            var json = await _store.LoadRawAsync(entry.ConflictKey);
+            if (string.IsNullOrEmpty(json))
+                return new CloudActionResult(false, "这份历史副本已经不在了（可能被自动清理），点「刷新」看看列表。");
+
+            if (_store.Exists(entry.TargetKey)) await BackupLocalAsync(entry.TargetKey, "恢复前");
+            await ApplyRawAsync(entry.TargetKey, json, DateTime.UtcNow);
+            lock (_stateLock)
+            {
+                _state.Deleted.Remove(entry.TargetKey);
+                // 恢复出的内容与云端不同：抹掉「已推送」标记，下一次同步才会真的推上去
+                _state.Pushed.Remove(entry.TargetKey);
+            }
+            await SaveStateAsync();
+            await RefreshAfterPullAsync(NewPullResult(entry.TargetKey));
+            if (IsEnabled && IsConfigured && _settings.Current.CloudAutoUpload) ScheduleUpload(1200);
+
+            return new CloudActionResult(true, $"已恢复「{entry.TargetName}」到本机，下次同步会推回云端。");
+        }
+        catch (OperationCanceledException)
+        {
+            return new CloudActionResult(false, "恢复已取消。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSync.RestoreConflict -> " + ex);
+            return new CloudActionResult(false, "恢复失败：" + ex.Message);
+        }
+    }
+
+    private CloudSaveSnapshot MakeSnapshot(CloudReadState state, string deviceId, string message,
+        List<CloudSaveEntry>? saves = null) => new()
+    {
+        State = state,
+        Message = message,
+        DeviceId = deviceId,
+        DeviceName = DeviceName(),
+        LastSyncUtc = this.LastSyncUtc,
+        Saves = saves ?? new List<CloudSaveEntry>()
+    };
+
+    private static PullResult NewPullResult(string key)
+    {
+        var result = new PullResult { applied = 1 };
+        result.appliedKeys.Add(key);
+        return result;
+    }
+
+    /// <summary>清单里的时间是 UTC；早期手写清单可能没有时区，按 UTC 读，免得显示成几十年前。</summary>
+    private static DateTime ToUtc(DateTime t) => t.Kind switch
+    {
+        DateTimeKind.Utc => t,
+        DateTimeKind.Local => t.ToUniversalTime(),
+        _ => DateTime.SpecifyKind(t, DateTimeKind.Utc)
+    };
+
+    /// <summary>从存档 JSON 的 meta.Label 取名字；读不出来返回空串，由调用方退回 id。</summary>
+    private static string SaveLabelOf(string? json)
+    {
+        if (string.IsNullOrEmpty(json)) return "";
+        try
+        {
+            using var doc = JsonDocument.Parse(json);
+            if (doc.RootElement.TryGetProperty("meta", out var meta)
+                && meta.TryGetProperty("Label", out var label))
+                return (label.GetString() ?? "").Trim();
+        }
+        catch { }
+        return "";
+    }
+
+    private async Task<List<(string key, string label)>> LocalSaveInfosAsync()
+    {
+        var list = new List<(string key, string label)>();
+        foreach (var key in ListLocalKeys())
+        {
+            if (!IsSaveKey(key)) continue;
+            var label = "";
+            try { label = SaveLabelOf(await _store.LoadRawAsync(key)); } catch { }
+            list.Add((key, label));
+        }
+        return list;
+    }
+
+    /// <summary>把「401/403」「超时/拒连」折成页面上能读懂的三种失败，其余归为未知。</summary>
+    private static CloudReadState ClassifyIssue(string? error)
+    {
+        var e = error ?? "";
+        if (e.Contains("401", StringComparison.Ordinal) || e.Contains("403", StringComparison.Ordinal)
+            || e.Contains("Bad credentials", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("Unauthorized", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("Forbidden", StringComparison.OrdinalIgnoreCase))
+            return CloudReadState.NotSignedIn;
+        if (e.Contains("timeout", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("timed out", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("network", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("connection", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("No such host", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("actively refused", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("SSL", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("certificate", StringComparison.OrdinalIgnoreCase)
+            || e.Contains("canceled", StringComparison.OrdinalIgnoreCase)
+            // 中文系统上 Socket/HttpClient 的异常消息是本地化的，上面那串英文一个都对不上
+            || e.Contains("网络", StringComparison.Ordinal)
+            || e.Contains("连接", StringComparison.Ordinal)
+            || e.Contains("超时", StringComparison.Ordinal)
+            || e.Contains("主机", StringComparison.Ordinal)
+            || e.Contains("证书", StringComparison.Ordinal)
+            || e.Contains("远程", StringComparison.Ordinal)
+            || e.Contains("拒绝", StringComparison.Ordinal))
+            return CloudReadState.Offline;
+        return CloudReadState.Failed;
+    }
+
+    private static string DescribeIssue(string? error)
+    {
+        var e = error ?? "";
+        return ClassifyIssue(e) switch
+        {
+            CloudReadState.NotSignedIn =>
+                "令牌没通过 GitHub 校验（或没有 Contents 读写权限）。到 设置 → 数据 → 云存档 换一枚令牌，再回来点「刷新」。",
+            CloudReadState.Offline =>
+                "连不上 GitHub。检查网络（或代理）后点右上角「刷新」；历史副本在本机，断网也能恢复。",
+            _ when e.StartsWith("404", StringComparison.Ordinal) =>
+                "仓库不存在或令牌看不到它。到 设置 → 数据 → 云存档 核对仓库名（owner/repo）与分支。",
+            _ =>
+                "这次没读到云端：" + (e.Length == 0 ? "未知原因" : e)
+                + "。到 设置 → 数据 → 云存档 核对仓库与分支，或稍后刷新。"
+        };
+    }
+
+    /// <summary>
+    /// 冲突文件名是「时间_设备_键（斜杠换下划线）」，本机键表能反推出原键；
+    /// 存档已被删除时名字里仍留着 saves_ 段，按 12 位无下划线 id 兜底。
+    /// </summary>
+    private static string ResolveConflictTarget(string file, List<string> knownKeys)
+    {
+        foreach (var key in knownKeys.OrderByDescending(k => k.Length))
+        {
+            var safe = key.Replace('/', '_').Replace('\\', '_');
+            if (file.EndsWith("_" + safe, StringComparison.Ordinal)) return key;
+        }
+        const string marker = "_saves_";
+        var idx = file.IndexOf(marker, StringComparison.Ordinal);
+        if (idx >= 0)
+        {
+            var id = file[(idx + marker.Length)..];
+            if (id.Length > 0 && !id.Contains('_') && StorageProvider.IsSafeKey(id)) return "saves/" + id;
+        }
+        return "";
+    }
+
+    private static string ConflictDeviceOf(string file, string key)
+    {
+        var rest = file.Length > 16 ? file[16..] : "";
+        if (key.Length > 0)
+        {
+            var safe = key.Replace('/', '_').Replace('\\', '_');
+            if (rest.EndsWith("_" + safe, StringComparison.Ordinal))
+                rest = rest[..^(safe.Length + 1)];
+        }
+        rest = rest.Trim('_');
+        return rest.Length == 0 ? "历史副本" : rest;
+    }
+
+    private static DateTime ConflictTimeOf(string name)
+    {
+        if (name.Length <= 15) return DateTime.MinValue;
+        return DateTime.TryParseExact(name[..15], "yyyyMMdd-HHmmss", CultureInfo.InvariantCulture,
+            DateTimeStyles.AssumeLocal, out var local)
+            ? local.ToUniversalTime()
+            : DateTime.MinValue;
     }
 
     // ==================== 拉取与合并 ====================
@@ -968,3 +1371,65 @@ public sealed class CloudManifestEntry
     public DateTime SavedAt { get; set; }
     public bool Deleted { get; set; }
 }
+
+/// <summary>只读浏览的结果类型：够页面区分四种状态，不把异常带进 UI。</summary>
+public enum CloudReadState
+{
+    Ok,
+    NotConfigured,
+    NotSignedIn,
+    Offline,
+    Failed
+}
+
+public sealed class CloudSaveSnapshot
+{
+    public CloudReadState State { get; init; } = CloudReadState.Ok;
+    public string Message { get; init; } = "";
+    public string DeviceId { get; init; } = "";
+    public string DeviceName { get; init; } = "";
+    public DateTime? LastSyncUtc { get; init; }
+    public IReadOnlyList<CloudSaveEntry> Saves { get; init; } = Array.Empty<CloudSaveEntry>();
+    public bool Ok => State == CloudReadState.Ok;
+}
+
+/// <summary>云端某台设备的一份存档。SaveName 是存档里的 Label，读不出来时用 SaveId。</summary>
+public sealed class CloudSaveEntry
+{
+    public string Key { get; init; } = "";
+    public string RemotePath { get; init; } = "";
+    public string Sha { get; init; } = "";
+    public string SaveId { get; init; } = "";
+    public string SaveName { get; init; } = "";
+    public string DeviceId { get; init; } = "";
+    public string DeviceName { get; init; } = "";
+    public DateTime SavedAtUtc { get; init; }
+    public long SizeBytes { get; init; }
+    public bool IsCurrentDevice { get; init; }
+    /// <summary>本机是否已有同一槽位（下载会覆盖它，覆盖前留底）。</summary>
+    public bool ExistsLocally { get; init; }
+    /// <summary>本机另一份存档是否与它同名（给「来源不同、名字相同」提个醒）。</summary>
+    public bool HasLocalSameName { get; init; }
+}
+
+public sealed class CloudConflictList
+{
+    public bool Ok { get; init; } = true;
+    public string Message { get; init; } = "";
+    public IReadOnlyList<CloudConflictEntry> Items { get; init; } = Array.Empty<CloudConflictEntry>();
+}
+
+/// <summary>一份同步覆盖前留下的历史副本。ConflictKey 指向备份文件，TargetKey 是它原来的位置。</summary>
+public sealed class CloudConflictEntry
+{
+    public string ConflictKey { get; init; } = "";
+    public string TargetKey { get; init; } = "";
+    public string TargetName { get; init; } = "";
+    public string DeviceName { get; init; } = "";
+    public DateTime SavedAtUtc { get; init; }
+    public long SizeBytes { get; init; }
+    public bool TargetExists { get; init; }
+    public bool CanRestore => TargetKey.Length > 0;
+}
+
+public sealed record CloudActionResult(bool Ok, string Message);

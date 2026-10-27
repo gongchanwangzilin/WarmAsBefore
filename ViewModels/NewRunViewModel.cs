@@ -15,14 +15,23 @@ namespace WarmAsBefore.ViewModels;
 ///
 /// 同一个页面也承担「本局设定」：已经在跑的这一局可以回来改人设、换绑世界树，
 /// 改完重新整理一次记忆。
+///
+/// 新建走 OOBE：世界 → 人设 → 细则 → 回顾，一次只问一件事；
+/// 步数账本与 SetupViewModel 同一套（Position + AtXxx + _steps），不另起节奏。
+/// 「本局设定」不是首次配置，仍旧一屏到底；设置里关掉 OOBE 也回到同一屏。
 /// </summary>
 public sealed partial class NewRunViewModel : ObservableObject
 {
+    private const int StepWorld = 0, StepPersona = 1, StepRules = 2, StepReview = 3;
+    private static readonly int[] StepIds = { StepWorld, StepPersona, StepRules, StepReview };
+    private static readonly string[] StepNames = { "世界", "人设", "细则", "开始" };
+
     private readonly GameEngine _engine;
     private readonly CharacterLibrary _chars;
     private readonly SaveManager _save;
     private readonly WorldTreeService _worlds;
     private readonly PersonaMemoryService _persona;
+    private readonly SettingsManager _settings;
 
     private string _characterId = "";
     private bool _loaded;
@@ -41,6 +50,15 @@ public sealed partial class NewRunViewModel : ObservableObject
     [ObservableProperty] private bool _isEditMode;
     [ObservableProperty] private bool _hasNoWorlds;
 
+    // ── 分步 ──
+    [ObservableProperty] private bool _isOobe = true;
+    [ObservableProperty] private int _position;
+    [ObservableProperty] private bool _atWorld = true, _atPersona, _atRules, _atReview;
+    [ObservableProperty] private bool _canGoBack;
+    [ObservableProperty] private string _stepEyebrow = "1 / 4";
+    [ObservableProperty] private string _stepLabel = "世界";
+    [ObservableProperty] private bool _reached1 = true, _reached2, _reached3, _reached4;
+
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _loadingTitle = "人格记忆初始化中";
     [ObservableProperty] private string _loadingDetail = "正在准备…";
@@ -48,14 +66,45 @@ public sealed partial class NewRunViewModel : ObservableObject
     [ObservableProperty] private string _loadingPercent = "0%";
 
     public NewRunViewModel(GameEngine engine, CharacterLibrary chars, SaveManager save,
-        WorldTreeService worlds, PersonaMemoryService persona)
+        WorldTreeService worlds, PersonaMemoryService persona, SettingsManager settings)
     {
         _engine = engine;
         _chars = chars;
         _save = save;
         _worlds = worlds;
         _persona = persona;
+        _settings = settings;
+        // 构造时就定下来，切页不闪一下「分步」再退回单页
+        _isOobe = settings.Current.SaveCreationOobe;
     }
+
+    // ── 步骤视图的显隐：单页模式一次摊开全部内容，仍是同一份数据 ──
+    public bool ShowWorldBlock => !IsOobe || AtWorld;
+    public bool ShowPersonaBlock => !IsOobe || AtPersona;
+    public bool ShowRulesBlock => !IsOobe || AtRules;
+    public bool ShowReviewBlock => !IsOobe || AtReview;
+    public bool IsLastStep => Position >= StepIds.Length - 1;
+    public bool ShowNext => IsOobe && !AtReview;
+    public bool ShowBegin => !IsOobe || AtReview;
+
+    public string SelectedWorldDisplay => string.IsNullOrEmpty(SelectedWorldId)
+        ? "不绑定 · 普通酒馆"
+        : string.IsNullOrWhiteSpace(SelectedWorldName) ? "已选的世界" : SelectedWorldName;
+
+    public bool HasPersona => !string.IsNullOrWhiteSpace(PersonaText);
+    public string PersonaCount
+    {
+        get
+        {
+            var n = (PersonaText ?? "").Trim().Length;
+            return n == 0 ? "留空也可以" : $"{n} 字";
+        }
+    }
+
+    /// <summary>这一步决定的不只是地点：没绑世界树就没有地图，这句话在细则与回顾里都要看得见。</summary>
+    public string MapHint => string.IsNullOrEmpty(SelectedWorldId)
+        ? "地图锁定 · 这一局只有对话"
+        : "地图可用 · 地点来自世界书";
 
     public async Task LoadAsync(string characterId, bool edit)
     {
@@ -67,6 +116,8 @@ public sealed partial class NewRunViewModel : ObservableObject
         _loaded = true;
         _editMode = edit;
         IsEditMode = edit;
+        // 本局设定是回来改两样东西，不是首次配置：不分步
+        IsOobe = !edit && _settings.Current.SaveCreationOobe;
         _characterId = string.IsNullOrWhiteSpace(characterId) ? _engine.State.CharacterId : characterId;
 
         var data = (await _chars.ListAsync()).FirstOrDefault(c => c.Profile.Id == _characterId);
@@ -115,6 +166,14 @@ public sealed partial class NewRunViewModel : ObservableObject
             Worlds[0].IsSelected = true;
             SelectedWorldId = "";
         }
+        SyncWorldName();
+    }
+
+    /// <summary>选中行与底部摘要读同一个名字：换选之后摘要不能还停在上一个世界。</summary>
+    private void SyncWorldName()
+    {
+        var hit = Worlds.FirstOrDefault(w => string.Equals(w.Id, SelectedWorldId, StringComparison.Ordinal));
+        SelectedWorldName = hit is null || string.IsNullOrEmpty(hit.Id) ? "" : hit.Title;
     }
 
     [RelayCommand]
@@ -123,6 +182,7 @@ public sealed partial class NewRunViewModel : ObservableObject
         SelectedWorldId = id ?? "";
         foreach (var w in Worlds)
             w.IsSelected = string.Equals(w.Id, SelectedWorldId, StringComparison.Ordinal);
+        SyncWorldName();
     }
 
     [RelayCommand]
@@ -133,6 +193,73 @@ public sealed partial class NewRunViewModel : ObservableObject
     {
         if (IsBusy) return;
         await Shell.Current.GoToAsync("..");
+    }
+
+    // ── 走 ──────────────────────────────────────────────────────────────────
+
+    [RelayCommand]
+    private void NextStep()
+    {
+        if (!IsOobe) return;
+        if (Position < StepIds.Length - 1) Position++;
+    }
+
+    [RelayCommand]
+    private void PrevStep()
+    {
+        if (Position > 0) Position--;
+    }
+
+    /// <summary>细则里那两个「改」：只换步，不提交任何东西。</summary>
+    [RelayCommand]
+    private void JumpStep(string? index)
+    {
+        if (!int.TryParse(index, out var i)) return;
+        Position = Math.Clamp(i, 0, StepIds.Length - 1);
+    }
+
+    partial void OnPositionChanged(int value)
+    {
+        var id = StepIds[Math.Clamp(value, 0, StepIds.Length - 1)];
+        AtWorld = id == StepWorld;
+        AtPersona = id == StepPersona;
+        AtRules = id == StepRules;
+        AtReview = id == StepReview;
+        CanGoBack = value > 0;
+        StepEyebrow = $"{value + 1} / {StepIds.Length}";
+        StepLabel = StepNames[Math.Clamp(value, 0, StepNames.Length - 1)];
+        Reached1 = value >= 0;
+        Reached2 = value >= 1;
+        Reached3 = value >= 2;
+        Reached4 = value >= 3;
+        NotifyStepState();
+    }
+
+    partial void OnIsOobeChanged(bool value) => NotifyStepState();
+
+    partial void OnSelectedWorldIdChanged(string value)
+    {
+        OnPropertyChanged(nameof(SelectedWorldDisplay));
+        OnPropertyChanged(nameof(MapHint));
+    }
+
+    partial void OnSelectedWorldNameChanged(string value) => OnPropertyChanged(nameof(SelectedWorldDisplay));
+
+    partial void OnPersonaTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasPersona));
+        OnPropertyChanged(nameof(PersonaCount));
+    }
+
+    private void NotifyStepState()
+    {
+        OnPropertyChanged(nameof(ShowWorldBlock));
+        OnPropertyChanged(nameof(ShowPersonaBlock));
+        OnPropertyChanged(nameof(ShowRulesBlock));
+        OnPropertyChanged(nameof(ShowReviewBlock));
+        OnPropertyChanged(nameof(IsLastStep));
+        OnPropertyChanged(nameof(ShowNext));
+        OnPropertyChanged(nameof(ShowBegin));
     }
 
     [RelayCommand]

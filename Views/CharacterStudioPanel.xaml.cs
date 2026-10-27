@@ -1,4 +1,5 @@
 using System.Windows.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
@@ -7,8 +8,8 @@ namespace WarmAsBefore.Views;
 
 /// <summary>
 /// 角色工作室：立绘舞台 + 六段资料（设定 / 状态 / 素材 / 记忆 / 关联 / 说句话）。
-/// 它现在是一页的全部内容（CharacterStudioPage 直接放它），不再是一层弹起来的卡 ——
-/// 所以进场的写法是横向抽出，不是缩放弹出；离开靠抬头那颗「&lt; 返回」。
+/// 它是 CharacterStudioPage 的唯一内容，进场用横向抽出，不做缩放弹出；
+/// 离开靠抬头那颗「&lt; 返回」。
 ///
 /// 开关不在 XAML 里绑定 IsToggled：它们背后是命令而不是赋值 —— 一个要写全局设置并让记忆作用域丢缓存，
 /// 一个要改存档白名单。绑 IsToggled 会把值写进字段却什么都不做，
@@ -20,6 +21,7 @@ namespace WarmAsBefore.Views;
 public partial class CharacterStudioPanel : ContentView
 {
     private CharacterStudioViewModel? _vm;
+    private readonly CharacterBackdropPresenter _backdrop;
     private bool _syncingSwitch;
     private CancellationTokenSource? _breathe;
     private bool _ready;          // 进场演完之前，换栏不动画（那时整块还在往上走，两层位移会打架）
@@ -29,10 +31,16 @@ public partial class CharacterStudioPanel : ContentView
     public CharacterStudioPanel()
     {
         InitializeComponent();
+        _backdrop = new CharacterBackdropPresenter(StageBgA, StageBgB, StageBgHost);
         BindingContextChanged += (_, _) => HookVm();
         CrossSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleCrossSaveCommand);
         CrossSwitchStage.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleCrossSaveCommand);
         AllowedSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleAllowedCommand);
+        // 这三颗换的都不是一个字段，而是「盘上那份数据属于谁」或「要不要写全局/角色」：
+        // 直接绑 IsToggled 会只改内存里的布尔，盘上不动 —— 那比不接线更糟。
+        SharedSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleStateSharedCommand);
+        WorldviewSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleWorldviewCrossSaveCommand);
+        VoiceSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleVoiceEnabledCommand);
         HookVm();
     }
 
@@ -45,12 +53,21 @@ public partial class CharacterStudioPanel : ContentView
         if (_vm is not null) _vm.PropertyChanged += OnVmChanged;
         SyncSwitches();
         LayoutTabs();
+        _ = ApplyBackdropAsync(instant: true);
     }
 
     private void OnVmChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(CharacterStudioViewModel.StageBackdrop))
+        {
+            MainThread.BeginInvokeOnMainThread(() => _ = ApplyBackdropAsync());
+            return;
+        }
         if (e.PropertyName is nameof(CharacterStudioViewModel.CrossSave)
-                        or nameof(CharacterStudioViewModel.AllowedInSave))
+                        or nameof(CharacterStudioViewModel.AllowedInSave)
+                        or nameof(CharacterStudioViewModel.StateShared)
+                        or nameof(CharacterStudioViewModel.WorldviewCrossSave)
+                        or nameof(CharacterStudioViewModel.VoiceEnabled))
         {
             SyncSwitches();
             return;
@@ -66,7 +83,8 @@ public partial class CharacterStudioPanel : ContentView
                         or nameof(CharacterStudioViewModel.IsTabArt)
                         or nameof(CharacterStudioViewModel.IsTabMem)
                         or nameof(CharacterStudioViewModel.IsTabLink)
-                        or nameof(CharacterStudioViewModel.IsTabTalk))
+                        or nameof(CharacterStudioViewModel.IsTabTalk)
+                        or nameof(CharacterStudioViewModel.IsTabCg))
         {
             var key = TabKey();
             if (key == _tabKey) return;
@@ -86,6 +104,7 @@ public partial class CharacterStudioPanel : ContentView
         if (_vm.IsTabMem) return "mem";
         if (_vm.IsTabLink) return "link";
         if (_vm.IsTabTalk) return "talk";
+        if (_vm.IsTabCg) return "cg";
         return "";
     }
 
@@ -97,22 +116,23 @@ public partial class CharacterStudioPanel : ContentView
         "mem" => 3,
         "link" => 4,
         "talk" => 5,
+        "cg" => 6,
         _ => 0,
     };
 
     /// <summary>
-    /// 页签排成等分格：宽屏一行六颗（草稿五颗），窄屏三列两行。
-    /// 以前是 FlexLayout 按内容宽排，四字与五字差出一截；选中时再加粗一次，
-    /// 整行还会被推一下 —— 用户看到的就是「大小不均、点一下抖」。
-    /// 现在每颗等宽、字重不变，选中只换底与字色，位置从进页到离开一直不动。
+    /// 页签排成等分格：宽屏一行七颗（草稿六颗 —— 关联那一栏对着一个还不存在的人没有意义），
+    /// 窄屏四列两行。
+    /// 每颗等宽、字重不变，选中只换底与字色，位置从进页到离开一直不动。
     /// 放在代码里重排而不是在 XAML 里写死，是因为「草稿少一颗」与「窄屏换行」两个条件会互相打架。
     /// </summary>
     private void LayoutTabs()
     {
         if (TabGrid is null) return;
-        var all = new[] { TabSet, TabState, TabArt, TabMem, TabLink, TabTalk };
+        var all = new[] { TabSet, TabState, TabArt, TabMem, TabLink, TabTalk, TabCg };
         var shown = _vm?.IsNew == true ? all.Where(t => !ReferenceEquals(t, TabLink)).ToArray() : all;
-        var cols = _narrow ? 3 : shown.Length;
+        // 七颗时窄屏用四列（4+3）：三列会剩下孤零零一颗，六颗时三列正好两排。
+        var cols = _narrow ? (shown.Length > 6 ? 4 : 3) : shown.Length;
         var rows = (shown.Length + cols - 1) / cols;
 
         TabGrid.ColumnDefinitions.Clear();
@@ -136,6 +156,9 @@ public partial class CharacterStudioPanel : ContentView
         CrossSwitch.IsToggled = _vm.CrossSave;
         CrossSwitchStage.IsToggled = _vm.CrossSave;
         AllowedSwitch.IsToggled = _vm.AllowedInSave;
+        SharedSwitch.IsToggled = _vm.StateShared;
+        WorldviewSwitch.IsToggled = _vm.WorldviewCrossSave;
+        VoiceSwitch.IsToggled = _vm.VoiceEnabled;
         _syncingSwitch = false;
     }
 
@@ -148,13 +171,31 @@ public partial class CharacterStudioPanel : ContentView
         SyncSwitches();
     }
 
+    /// <summary>换人 / 换背景：有图交叉淡入，没图收掉露出舞台井面。</summary>
+    private async Task ApplyBackdropAsync(bool instant = false)
+    {
+        try
+        {
+            var state = _vm?.StageBackdrop;
+            if (state is null)
+            {
+                await _backdrop.ApplyAsync(null, "fill", 0, 0, 1, 1, false, instant);
+                return;
+            }
+            await _backdrop.ApplyAsync(
+                state.Path, state.Fit, state.CropX, state.CropY, state.CropW, state.CropH,
+                state.IsVideo, instant);
+        }
+        catch (Exception ex) { App.WriteLog("Studio.Backdrop -> " + ex.Message); }
+    }
+
     // ── 过场 ────────────────────────────────────────────────────────────
 
     /// <summary>
     /// 按「这一屏有多宽」排，不按设备类型排：桌面上把窗口拖窄时，左边那条 352px 的立绘
     /// 会把右边的表单挤成一列字，这时它要的是竖排 —— 和手机同一套。
     ///
-    /// 列宽/行高在这里重写成硬值，而不是去调子元素的 Request：以前用 FlexLayout，
+    /// 列宽/行高在这里重写成硬值，而不是去调子元素的 Request：FlexLayout 下
     /// 右栏的长句会把基准宽度撑到几千像素，舞台被 Shrink 挤成一半，整栏滑到窗外。
     /// Grid 的两列只有「352/剩余」与「全宽上下两行」两种，跨档时清空重加即可。
     /// </summary>
@@ -190,13 +231,11 @@ public partial class CharacterStudioPanel : ContentView
     /// <summary>
     /// 翻开这一页。
     ///
-    /// 上一版这里和 Shell 的过场各走各的横向位移（页面 +26、面板 -34），两层同轴叠起来
-    /// 只剩 8px，等于没有；而且两边都在 Navigated 那一刻起跑，UI 线程正忙着首屏排版，
-    /// 190ms 的行程在第一次 tick 就跳到终点 —— 用户看到的就只是「突然出现」。
-    /// 现在横向交给页面级的 PageIn（它等首帧落地才走），这里只做纵向的「分层摆上来」：
+    /// 横向位移交给页面级 PageIn（等首帧落地才走），这里只做纵向的「分层摆上来」：
     /// 抬头落 → 分线擦开 → 舞台升起 → 资料卡升起，一拍一层（终末地那种机械节拍）。
+    /// 两层同轴位移会互相抵消，且 UI 线程忙着首屏排版时动画第一帧就会跳到终点。
     ///
-    /// 三条老规矩不变：不缩放（那是弹层的说法）、不碰透明度（Opacity 归样式与禁用态管）、
+    /// 三条约定：不缩放（那是弹层的说法）、不碰透明度（Opacity 归样式与禁用态管）、
     /// 位移各归各的轴（呼吸走 Portrait.TranslationY，这里只碰 X 和容器的 Y）。
     /// 关掉动效时直接落终值，内容一个不少。
     /// </summary>
@@ -285,10 +324,9 @@ public partial class CharacterStudioPanel : ContentView
     /// <summary>
     /// 换栏：内容从翻页的方向浮进来（往后翻从下、往前翻从上），滚动回到顶上。
     ///
-    /// 上一版是「整块 PaneScroll 横向滑 16px + 切口线从左擦到右」。两件事都不划算：
-    /// 横向位移要重绘整棵子树（这一栏有六个大段），切口线又是一次从左到右的整行扫，
-    /// 两者叠起来，用户读到的就是「从左到右切换状态，很卡」。现在只做 8px 的纵向浮起，
-    /// 只动 TranslateY（合成层能直接搬，不触发重排），190ms 收回去；页签本身的选中态即时切换。
+    /// 只做 8px 的纵向浮起，只动 TranslateY（合成层能直接搬，不触发重排），190ms 收回去；
+    /// 页签本身的选中态即时切换。整块横向滑动会重绘这一栏的六个大段，切口线再扫一遍整行，
+    /// 两者叠加会明显卡顿。
     /// 素材矩阵的 186 格由 VM 延到这一帧之后再铺，所以第一次翻到「03 素材」也不会压住这一段动效。
     /// </summary>
     private async Task PlayTabAsync(bool forward)
@@ -330,7 +368,7 @@ public partial class CharacterStudioPanel : ContentView
 
     /// <summary>
     /// 呼吸：立绘每 4 秒上下走 1.5px。只在这一张卡开着时跑，关掉就停 ——
-    /// 一张没人看的图不该占着一条动画 ticker（这条 ticker 曾经把手机页的帧率拖下去过）。
+    /// 一张没人看的图不该占着一条动画 ticker。
     /// </summary>
     private void StartBreathing()
     {

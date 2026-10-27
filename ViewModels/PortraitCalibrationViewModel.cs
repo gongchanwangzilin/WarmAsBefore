@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 
@@ -300,14 +301,14 @@ public sealed partial class PortraitCalibrationViewModel : ObservableObject, IQu
     {
         await _cal.SaveAsync(_key, Snapshot());
         Status = "已保存：这张立绘现在按标定结果上场。";
-        await Shell.Current.DisplayAlert("立绘标定", "已保存。回到游戏即可看到效果。", "好");
+        Toast.Success("已保存。回到游戏即可看到效果。");
     }
 
     [RelayCommand]
     private async Task ClearCalibration()
     {
         await _cal.ClearAsync(_key);
-        await Shell.Current.DisplayAlert("立绘标定", "已清除这份标定，该素材恢复为未标定状态。", "好");
+        Toast.Info("已清除这份标定，该素材恢复为未标定状态。");
         Reset();
     }
 
@@ -338,7 +339,7 @@ public sealed partial class PortraitCalibrationViewModel : ObservableObject, IQu
                 Reset();
                 await LoadAsync();
             }
-            await Shell.Current.DisplayAlert("规范化为标准画布", NormalizeNote, "好");
+            Toast.Success(NormalizeNote);
         }
         catch (Exception ex)
         {

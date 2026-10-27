@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
@@ -10,7 +11,6 @@ namespace WarmAsBefore.ViewModels;
 /// <summary>
 /// 记忆管理：把「关系网入口」「标签」「人类记忆」「副设定」的查看与修改集中到一页。
 ///
-/// 以前这些东西散在角色库的弹窗里，找起来像捉迷藏（用户反馈「没有入口」）。
 /// 这一页按「层」分区，每区都能直接改：改错的联系删掉、标签能加能删、记错的事能删、副设定能回正。
 /// </summary>
 public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttributable
@@ -222,7 +222,7 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
         var change = await _human.ToggleSentenceTagAsync(CharId, line.MemoryId, line.Index, name);
         if (change == SentenceTagChange.None)
         {
-            await Shell.Current.DisplayAlert("贴标签", "这条记忆已经不在了，刷新一下就好。", "好");
+            Toast.Warn("这条记忆已经不在了，刷新一下就好。");
             await LoadAsync();
             return;
         }
@@ -256,7 +256,7 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
         if (string.IsNullOrWhiteSpace(input)) return;
         var removed = await _tags.RemoveAsync(CharId, input.Trim());
         await LoadAsync();
-        if (removed == 0) await Shell.Current.DisplayAlert("删除标签", "没有找到这个标签。", "好");
+        if (removed == 0) Toast.Info("没有找到这个标签。");
     }
 
     // ===== 人类记忆：加 / 删 =====
@@ -325,6 +325,6 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
         if (!yes) return;
         var (ok, message, _, _) = await _human.HealTraumaAsync(CharId, row.Id);
         await LoadAsync();
-        if (ok) await Shell.Current.DisplayAlert("创伤疗愈", message, "好");
+        if (ok) Toast.Success(message);
     }
 }

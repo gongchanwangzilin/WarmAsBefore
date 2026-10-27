@@ -44,6 +44,7 @@ public sealed class RuntimeConfigurator
     private readonly MapService _map;
     private readonly Modules.MinecraftBridge.MaidBridgeService _maidBridge;
     private readonly BrainAnticipationService _brain;
+    private readonly WorldTreeService _worlds;
     private bool _notifyHooked;
     private bool _sceneHooked;
 
@@ -58,7 +59,8 @@ public sealed class RuntimeConfigurator
         Modules.SaveSystem.SaveManager save, GameEngine engine,
         GenderLibrary genders, MentalHealthService mental, PhysiologyService body,
         ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map,
-        Modules.MinecraftBridge.MaidBridgeService maidBridge, BrainAnticipationService brain)
+        Modules.MinecraftBridge.MaidBridgeService maidBridge, BrainAnticipationService brain,
+        WorldTreeService worlds)
     {
         _settings = settings;
         _chat = chat;
@@ -91,6 +93,7 @@ public sealed class RuntimeConfigurator
         _map = map;
         _maidBridge = maidBridge;
         _brain = brain;
+        _worlds = worlds;
         _plugins.ToolInvoker = (name, args) => _tools.ExecuteAsync(name, args);
         // 存档级权限：工具与插件都从同一个存档状态取，读档后立即跟着变
         _tools.SavePermissionsProvider = () => _engine.State.Permissions;
@@ -383,6 +386,22 @@ public sealed class RuntimeConfigurator
         + "旁白只写看得见、听得到的东西，不替对方说出内心，不总结道理；不必每回合都写，安静的对话可以没有旁白。";
 
     /// <summary>额外人设：性别、心理状态、旁白。插件人设走异步上下文（避免 UI 线程阻塞）。</summary>
+    /// <summary>
+    /// 未介绍的角色被点名后一直显示「？？？」；等 TA 在回复里报上名字，这一位才算真的被认识。
+    /// 记在角色档案上并立即落盘 —— 只活在这一个会话里的话，重启就忘，等于又要重新认识一遍。
+    /// </summary>
+    private async Task MarkIntroducedAsync(string charId, string reply)
+    {
+        if (!_settings.Current.MaskUnintroducedNames) return;
+        try
+        {
+            if (!_engine.Roster.TryGetValue(charId, out var ch) || ch.Introduced) return;
+            if (!CharacterMask.TryMarkIntroduced(ch, reply)) return;
+            await _characters.UpdateAsync(ch);
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MarkIntroduced -> " + ex.Message); }
+    }
+
     private string BuildExtraPersona(string charId)
     {
         var s = _settings.Current;
@@ -570,6 +589,19 @@ public sealed class RuntimeConfigurator
                               $"当前：好感 {Math.Clamp(st.Affection, 0, 100)}/100、信任 {Math.Clamp(st.Trust, 0, 100)}/100、精力 {Math.Clamp(st.Energy, 0, 100)}/100。");
                 }
             }
+            // 性欲系统：只对用户在这份存档里点过名的角色生效；设定锁着时周期不参与（设定 > 周期）
+            try
+            {
+                var lch = _engine.ActiveCharacter
+                          ?? (_engine.Roster.TryGetValue(charId, out var ld) ? ld : null);
+                if (lch is not null)
+                {
+                    var line = LibidoService.Describe(lch.State, _settings.Current, _engine.State, charId);
+                    if (!string.IsNullOrWhiteSpace(line))
+                        parts.Add($"此刻身体的感受：{line}。它该自然地渗进 TA 的语气、距离感与小动作里，不要把数字念出来。");
+                }
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.LibidoContext -> " + ex.Message); }
             if (_settings.Current.PhysiologyEnabled)
             {
                 var b = _body.PromptText();
@@ -593,6 +625,35 @@ public sealed class RuntimeConfigurator
                 if (!string.IsNullOrWhiteSpace(maid)) parts.Add(maid);
             }
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MaidContext -> " + ex.Message); }
+            // 角色世界观（需求 16）：角色自己可以有多套、每套复合多本世界书；存档里选的那一套优先。
+            // 与「存档绑定的世界书」并存 —— 角色来自哪里，和这一局发生在哪里，是两件事。
+            try
+            {
+                var wch = _engine.Roster.TryGetValue(charId, out var wd) ? wd : _engine.ActiveCharacter;
+                if (wch is not null && (wch.Worldviews?.Count ?? 0) > 0)
+                {
+                    var wanted = (_engine.State.CharacterWorldviewId ?? "").Trim();
+                    if (wanted.Length == 0) wanted = (wch.ActiveWorldviewId ?? "").Trim();
+                    var wv = wch.Worldviews.FirstOrDefault(x => string.Equals(x.Id, wanted, StringComparison.Ordinal))
+                             ?? wch.Worldviews.FirstOrDefault(x => string.Equals(x.Id, wch.ActiveWorldviewId, StringComparison.Ordinal))
+                             ?? wch.Worldviews[0];
+                    var sb = new System.Text.StringBuilder();
+                    sb.Append("TA 来自的世界");
+                    if (!string.IsNullOrWhiteSpace(wv.Name)) sb.Append("（").Append(wv.Name.Trim()).Append("）");
+                    if (!string.IsNullOrWhiteSpace(wv.Description)) sb.Append("：").Append(wv.Description.Trim());
+                    var bookIds = (wv.WorldbookIds ?? new List<string>())
+                        .Concat(_engine.State.ScopedWorldbookIds ?? new List<string>())
+                        .Where(x => !string.IsNullOrWhiteSpace(x))
+                        .Distinct(StringComparer.Ordinal);
+                    foreach (var bookId in bookIds)
+                    {
+                        var text = await _worlds.DescribeForPromptAsync(bookId);
+                        if (!string.IsNullOrWhiteSpace(text)) sb.Append("\n").Append(text.Trim());
+                    }
+                    parts.Add(sb.ToString());
+                }
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.WorldviewContext -> " + ex.Message); }
             if (_settings.Current.PluginHooksEnabled)
             {
                 var persona = await _plugins.PersonaTextAsync(charId);
@@ -606,9 +667,13 @@ public sealed class RuntimeConfigurator
         _chat.BeforeSendTransformAsync = (charId, text) => _settings.Current.PluginHooksEnabled
             ? _plugins.TransformAsync("beforeSend", charId, text)
             : Task.FromResult(text);
-        _chat.AfterReplyTransformAsync = (charId, reply) => _settings.Current.PluginHooksEnabled
-            ? _plugins.TransformAsync("afterReply", charId, reply)
-            : Task.FromResult(reply);
+        _chat.AfterReplyTransformAsync = async (charId, reply) =>
+        {
+            await MarkIntroducedAsync(charId, reply);
+            return _settings.Current.PluginHooksEnabled
+                ? await _plugins.TransformAsync("afterReply", charId, reply)
+                : reply;
+        };
         // 超省内存：读后就丢缓存，并把闲置角色会话放掉
         _human.AutoRelease = s.LowMemoryMode;
         if (s.LowMemoryMode) _chat.TrimSessions(_engine.State.CharacterId);
@@ -646,6 +711,11 @@ public sealed class RuntimeConfigurator
         _speech.VoiceName = string.IsNullOrWhiteSpace(s.VoiceName) ? "alloy" : s.VoiceName;
         _speech.VoiceApiMode = string.IsNullOrWhiteSpace(s.VoiceApiMode) ? "openai" : s.VoiceApiMode;
         _speech.VoiceExtra = s.VoiceExtra ?? "";
+        // 角色级语音：绑过音色/引擎的那位用她自己的嗓子，Voice.Enabled=false 的那位直接不出声。
+        // CurrentCharacterId 让所有既有 Speak 调用点不必改动就自动按当前角色取嗓子。
+        _speech.VoiceOfCharacter = charId =>
+            _engine.Roster.TryGetValue(charId, out var vc) ? vc.Voice : null;
+        _speech.CurrentCharacterId = () => _engine.ActiveCharacter?.Profile.Id ?? _engine.State.CharacterId;
 
         _auto.Enabled = s.GreetingEnabled;
         if (s.GreetingEnabled && !_auto.Running) _auto.Start();

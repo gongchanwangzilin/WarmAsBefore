@@ -66,16 +66,75 @@ public sealed class CharacterSettingsResolver
 
     /// <summary>
     /// 把全局端点配置按该角色覆写改写一份：只动可覆写的字段，密钥/地址/模型等一律沿用。
+    /// 角色单独绑过模型时先换成它绑的那个端点（见 <see cref="BoundEndpoint"/>），覆写再叠在上面。
     /// </summary>
     public AiEndpoint EndpointFor(string? characterId, AiEndpoint baseCfg)
     {
+        var cfg = BoundEndpoint(characterId) ?? baseCfg;
         var o = OverridesOf(characterId);
-        if (o.IsEmpty) return baseCfg;
-        return baseCfg with
+        if (o.IsEmpty) return cfg;
+        return cfg with
         {
-            MemoryTurns = o.MemoryTurns is { } mt ? Math.Clamp(mt, 1, 200) : baseCfg.MemoryTurns,
-            ContextTokenLimit = o.ContextTokenLimit is { } tl && tl > 0 ? tl : baseCfg.ContextTokenLimit,
-            Temperature = o.AiTemperature is { } t ? Math.Clamp(t, 0, 2) : baseCfg.Temperature
+            MemoryTurns = o.MemoryTurns is { } mt ? Math.Clamp(mt, 1, 200) : cfg.MemoryTurns,
+            ContextTokenLimit = o.ContextTokenLimit is { } tl && tl > 0 ? tl : cfg.ContextTokenLimit,
+            Temperature = o.AiTemperature is { } t ? Math.Clamp(t, 0, 2) : cfg.Temperature
+        };
+    }
+
+    /// <summary>
+    /// 角色单独绑定的模型（设置里「这个角色用哪个 AI」）。
+    /// 只绑模型不绑厂商时，在已启用的厂商里找第一款提供它的；找不到就当没绑，回到全局轮换。
+    /// </summary>
+    private AiEndpoint? BoundEndpoint(string? characterId)
+    {
+        if (string.IsNullOrEmpty(characterId)) return null;
+        if (!_engine.Roster.TryGetValue(characterId, out var ch)) return null;
+        var bind = ch.Model;
+        if (bind is null) return null;
+        var providerId = (bind.ProviderId ?? "").Trim();
+        var model = (bind.Model ?? "").Trim();
+        if (providerId.Length == 0 && model.Length == 0) return null;
+
+        var s = _settings.Current;
+        var providers = (s.AiProviders ?? new List<AiProvider>())
+            .Where(p => p.Enabled && !string.IsNullOrWhiteSpace(p.Url))
+            .ToList();
+        if (providers.Count == 0) return null;
+
+        AiProvider? provider = null;
+        if (providerId.Length > 0)
+        {
+            provider = providers.FirstOrDefault(p => string.Equals(p.Id, providerId, StringComparison.Ordinal))
+                       ?? providers.FirstOrDefault(p => string.Equals(p.Name, providerId, StringComparison.OrdinalIgnoreCase));
+        }
+        if (provider is null && model.Length > 0)
+        {
+            provider = providers.FirstOrDefault(p => (p.Models ?? new List<AiProviderModel>())
+                .Any(m => m.Enabled && string.Equals(m.Model, model, StringComparison.OrdinalIgnoreCase)));
+        }
+        if (provider is null) return null;
+
+        var keys = (provider.Keys ?? new List<string>()).Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
+        if (keys.Count == 0) return null;
+        var picked = model.Length > 0
+            ? model
+            : (provider.Models ?? new List<AiProviderModel>()).FirstOrDefault(m => m.Enabled)?.Model ?? "";
+        if (picked.Length == 0) return null;
+
+        return new AiEndpoint
+        {
+            Provider = string.IsNullOrWhiteSpace(provider.Name) ? picked : provider.Name,
+            Url = provider.Url.Trim(),
+            Model = picked,
+            Key = keys[0],
+            KeyPool = keys,
+            Temperature = s.AiTemperature,
+            MaxTokens = s.AiMaxTokens,
+            DeepThink = s.DeepThink || s.ComplexPlot,
+            DeepModel = s.DeepModel,
+            MemoryTurns = s.MemoryTurns,
+            ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000,
+            TimeoutSeconds = provider.TimeoutSeconds
         };
     }
 }

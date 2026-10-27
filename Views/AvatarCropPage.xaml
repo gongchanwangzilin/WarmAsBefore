@@ -1,0 +1,122 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.AvatarCropPage"
+             x:Name="Page"
+             x:DataType="vm:AvatarCropViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      裁剪头像：中间一块正方形取景框，框外压暗，框内点亮。
+      框外的暗不是一块死黑——同一张图铺满整屏、压到很低，再盖一层暗；
+      眼睛能认出「框里框外是同一张脸」，拖动时也不会失去参照。
+    -->
+    <Grid RowDefinitions="Auto,*,Auto,Auto">
+
+        <!-- 顶栏 -->
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                    <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding SourceInfo}" Style="{StaticResource TxtCaption}"
+                           LineBreakMode="TailTruncation" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="↺ 重置" Style="{StaticResource BtnGhostSm}"
+                        VerticalOptions="Center" Command="{Binding ResetViewCommand}" />
+            </Grid>
+        </Border>
+
+        <!-- 取景舞台：框外压暗，框内是亮的原图 -->
+        <Grid Grid.Row="1" x:Name="Stage" BackgroundColor="#141110" SizeChanged="OnStageSizeChanged">
+            <Image Source="{Binding PreviewSource}" Aspect="AspectFill" Opacity="0.2"
+                   InputTransparent="True" />
+            <BoxView Color="#A6000000" InputTransparent="True" />
+
+            <Grid x:Name="CropFrame" WidthRequest="300" HeightRequest="300"
+                  HorizontalOptions="Center" VerticalOptions="Center"
+                  IsClippedToBounds="True" BackgroundColor="#0B0A09">
+                <!-- 图以 cover 尺寸摆进框心，Scale 只管视觉大小、不重排布局 -->
+                <Image x:Name="CropImage" Source="{Binding PreviewSource}" Aspect="Fill"
+                       WidthRequest="{Binding BaseWidth}" HeightRequest="{Binding BaseHeight}"
+                       Scale="{Binding Zoom}"
+                       TranslationX="{Binding OffsetX}" TranslationY="{Binding OffsetY}"
+                       HorizontalOptions="Center" VerticalOptions="Center"
+                       InputTransparent="True" />
+
+                <!-- 三分法：常显，可在下方关掉 -->
+                <Grid IsVisible="{Binding ShowGrid}" InputTransparent="True"
+                      ColumnDefinitions="*,1,*,1,*" RowDefinitions="*,1,*,1,*">
+                    <BoxView Grid.Column="1" Grid.RowSpan="5" Color="#4DFFFFFF" />
+                    <BoxView Grid.Column="3" Grid.RowSpan="5" Color="#4DFFFFFF" />
+                    <BoxView Grid.Row="1" Grid.ColumnSpan="5" Color="#4DFFFFFF" />
+                    <BoxView Grid.Row="3" Grid.ColumnSpan="5" Color="#4DFFFFFF" />
+                </Grid>
+
+                <!-- 框线自己画：Border 不设 Background，避免编译模板里 DynamicResource 填充的坑 -->
+                <Border Stroke="#E6FFFFFF" StrokeThickness="1" InputTransparent="True">
+                    <Border.StrokeShape>
+                        <RoundRectangle CornerRadius="2" />
+                    </Border.StrokeShape>
+                </Border>
+
+                <Grid.GestureRecognizers>
+                    <PanGestureRecognizer PanUpdated="OnFramePan" />
+                    <PinchGestureRecognizer PinchUpdated="OnFramePinch" />
+                </Grid.GestureRecognizers>
+            </Grid>
+        </Grid>
+
+        <!-- 缩放与网格 -->
+        <VerticalStackLayout Grid.Row="2" Padding="20,10,20,4" Spacing="8" IsVisible="{Binding HasImage}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Button Text="{Binding GridLabel}" Style="{StaticResource BtnGhostSm}"
+                        HeightRequest="32" Padding="12,4" Command="{Binding ToggleGridCommand}" />
+                <Label Grid.Column="1" Text="拖动取景 · 滚轮 / 双指缩放" Style="{StaticResource TxtCaption}"
+                       VerticalOptions="Center" HorizontalOptions="Center" />
+            </Grid>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Label Text="1×" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                <Slider Grid.Column="1" Minimum="1" Maximum="5" Value="{Binding Zoom, Mode=TwoWay}"
+                        MinimumTrackColor="{DynamicResource BeigeAccent300}"
+                        MaximumTrackColor="{DynamicResource WRule}"
+                        ThumbColor="{DynamicResource WarmDark}" />
+                <Label Grid.Column="2" Text="{Binding ZoomLabel}" Style="{StaticResource TxtCaption}"
+                       FontFamily="Bahnschrift" VerticalOptions="Center" WidthRequest="44"
+                       HorizontalTextAlignment="End" />
+            </Grid>
+            <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                   TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" MaxLines="2" />
+        </VerticalStackLayout>
+
+        <!-- 底部动作：手机端落在安全区里 -->
+        <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="16,10,16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+                  Margin="{OnPlatform WinUI='0', Default='0,0,0,12'}">
+                <Button Text="取消" Style="{StaticResource BtnText}"
+                        Clicked="OnCancelClicked" VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtCaption}"
+                       VerticalOptions="Center" HorizontalOptions="Center" LineBreakMode="TailTruncation" />
+                <Button Grid.Column="2" Text="确认" Style="{StaticResource BtnPrimary}"
+                        FontSize="13" Padding="20,7" IsEnabled="{Binding CanConfirm}"
+                        Clicked="OnConfirmClicked" />
+            </Grid>
+        </Border>
+
+        <!-- 真在处理（解码 / 降采样 / 编码）时的遮罩，不是假进度条 -->
+        <Grid Grid.RowSpan="4" IsVisible="{Binding IsBusy}" BackgroundColor="{DynamicResource OverlayDim}"
+              ZIndex="20">
+            <Border Style="{StaticResource CardGroup}" Padding="22,18" Margin="28"
+                    HorizontalOptions="Center" VerticalOptions="Center">
+                <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="18" HeightRequest="18"
+                                       Color="{DynamicResource BeigeAccent300}" />
+                    <Label Text="正在处理这张图…" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

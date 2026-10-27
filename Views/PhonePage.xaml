@@ -8,395 +8,792 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*,Auto">
-        <!-- Status bar: time + weather + back -->
-        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}" StrokeThickness="{DynamicResource GlassBarStrokeThickness}"
-                Padding="16,12,16,10">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0" VerticalOptions="Center"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="{Binding StatusTime, StringFormat='{0} · 手机'}"
-                       Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Border Grid.Column="2" BackgroundColor="{DynamicResource BeigeAccent50}"
-                        StrokeThickness="0" Padding="10,5" VerticalOptions="Center">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="{Binding WeatherText}" FontSize="11" TextColor="{DynamicResource WarmDark}" />
-                </Border>
-                <Label Grid.Column="3" Text="{Binding TimeLabel}" TextColor="{DynamicResource MutedFg}"
-                       FontSize="13" VerticalOptions="Center" />
-            </Grid>
-        </Border>
+    <!-- 手机页 = 摆在地面上的一台真机：宽屏给机身、圆角屏幕和一圈接地影；
+         窄屏（真手机/小窗）把机身整个撤掉，屏幕直接铺满——真机上再套一层假壳只会更假。 -->
+    <Grid x:Name="Stage">
+        <!-- 接地影：只落在机身下沿，淡淡一团，不发光 -->
+        <BoxView x:Name="GroundShade" WidthRequest="280" HeightRequest="18" CornerRadius="9"
+                 Color="#1C000000" HorizontalOptions="Center" VerticalOptions="Center" InputTransparent="True"
+                 IsVisible="{Binding IsCompactScreen, Converter={StaticResource InverseBool}}" />
 
-        <!-- Phone home: wallpaper + app grid -->
-        <Grid Grid.Row="1">
-            <Grid.Background>
+        <Border x:Name="Body" Padding="9" StrokeThickness="1" Stroke="#3DFFFFFF"
+                HorizontalOptions="Center" VerticalOptions="Center">
+            <Border.StrokeShape><RoundRectangle x:Name="BodyShape" CornerRadius="52" /></Border.StrokeShape>
+            <Border.Background>
                 <LinearGradientBrush StartPoint="0,0" EndPoint="1,1">
-                    <GradientStop Color="{DynamicResource Cream100}" Offset="0.0" />
-                    <GradientStop Color="{DynamicResource PageBg}" Offset="0.5" />
-                    <GradientStop Color="{DynamicResource Beige100}" Offset="1.0" />
+                    <GradientStop Color="#2B2622" Offset="0" />
+                    <GradientStop Color="#12100F" Offset="0.45" />
+                    <GradientStop Color="#241F1B" Offset="1" />
                 </LinearGradientBrush>
-            </Grid.Background>
+            </Border.Background>
+            <Border.Shadow>
+                <Shadow Brush="#4D000000" Offset="0,14" Radius="24" Opacity="0.8" />
+            </Border.Shadow>
 
-            <!-- 桌面 = 世界内的唯一功能入口：所有页面都能从这里一步到达。
-                 图标下面的小字一律「补充信息」，不重复图标上已有的字；
-                 颜色用 WarmBody 而不是 WarmMuted——次要文字也不该低到读不动。
-                 整块内容限宽居中：宽屏上四列被拉到 1280 就不像手机桌面了，像没排版的表格。 -->
-            <ScrollView Margin="20,24">
-                <VerticalStackLayout Spacing="0" MaximumWidthRequest="520">
+            <Border x:Name="Screen" Padding="0" StrokeThickness="0">
+                <Border.StrokeShape><RoundRectangle x:Name="ScreenShape" CornerRadius="44" /></Border.StrokeShape>
 
-                    <Label Text="TA 的世界" Style="{StaticResource TxtSection}" Margin="4,0,0,12" />
-                    <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="*,*" ColumnSpacing="0" RowSpacing="22">
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#28A745" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="微信" TextColor="White" FontSize="13" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
+                <Grid x:Name="ScreenRoot">
+                    <!-- 壁纸：一整块渐变，上面压两团从中心化开的光斑（径向渐变自带透明边，不需要裁切） -->
+                    <Grid.Background>
+                        <LinearGradientBrush StartPoint="0.12,0" EndPoint="0.88,1">
+                            <GradientStop Color="{DynamicResource Cream100}" Offset="0" />
+                            <GradientStop Color="{DynamicResource PageBg}" Offset="0.38" />
+                            <GradientStop Color="{DynamicResource Beige100}" Offset="0.74" />
+                            <GradientStop Color="{DynamicResource BeigeAccent200}" Offset="1" />
+                        </LinearGradientBrush>
+                    </Grid.Background>
+
+                    <Border WidthRequest="320" HeightRequest="320" HorizontalOptions="Start" VerticalOptions="Start"
+                            Margin="-70,-60,0,0" StrokeThickness="0" InputTransparent="True">
+                        <Border.Background>
+                            <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                                <GradientStop Color="#3DFFD9A8" Offset="0" />
+                                <GradientStop Color="#00FFD9A8" Offset="1" />
+                            </RadialGradientBrush>
+                        </Border.Background>
+                    </Border>
+                    <Border WidthRequest="280" HeightRequest="280" HorizontalOptions="End" VerticalOptions="End"
+                            Margin="0,0,-80,-60" StrokeThickness="0" InputTransparent="True">
+                        <Border.Background>
+                            <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                                <GradientStop Color="#30E4AF96" Offset="0" />
+                                <GradientStop Color="#00E4AF96" Offset="1" />
+                            </RadialGradientBrush>
+                        </Border.Background>
+                    </Border>
+
+                    <Grid RowDefinitions="Auto,*,Auto">
+                        <!-- 状态栏：左侧退出口袋、时间，右侧信号 / WiFi / 电池。图标全部用几何拼，没有一个 emoji。 -->
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8"
+                              Padding="18,10,18,0">
+                            <Border BackgroundColor="#26FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1" Padding="7,3"
+                                    VerticalOptions="Center"
+                                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="11" /></Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding BackCommand}" />
+                                </Border.GestureRecognizers>
+                                <HorizontalStackLayout Spacing="3">
+                                    <Label Text="‹" FontSize="15" TextColor="{DynamicResource WarmDark}" VerticalOptions="Center" />
+                                    <Label Text="游戏" FontSize="9.5" TextColor="{DynamicResource WarmBody}" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
                             </Border>
-                            <Label Text="{Binding WeChatLabel}" TextColor="{DynamicResource WarmBody}"
-                                   FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenChatCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
+                            <Label Grid.Column="1" Text="{Binding TimeLabel}" FontSize="12.5" FontAttributes="Bold"
+                                   TextColor="{DynamicResource WarmDark}" VerticalOptions="Center" />
+
+                            <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                                <HorizontalStackLayout Spacing="1.5" VerticalOptions="Center">
+                                    <BoxView Color="{DynamicResource WarmDark}" WidthRequest="2.5" HeightRequest="3.5"
+                                             CornerRadius="1" VerticalOptions="End" />
+                                    <BoxView Color="{DynamicResource WarmDark}" WidthRequest="2.5" HeightRequest="5.5"
+                                             CornerRadius="1" VerticalOptions="End" />
+                                    <BoxView Color="{DynamicResource WarmDark}" WidthRequest="2.5" HeightRequest="7.5"
+                                             CornerRadius="1" VerticalOptions="End" />
+                                    <BoxView Color="{DynamicResource WarmDark}" WidthRequest="2.5" HeightRequest="9.5"
+                                             CornerRadius="1" VerticalOptions="End" />
+                                </HorizontalStackLayout>
+                                <Label Text="WiFi" FontSize="9" FontAttributes="Bold" CharacterSpacing="0.3"
+                                       TextColor="{DynamicResource WarmDark}" VerticalOptions="Center" />
+                                <HorizontalStackLayout Spacing="1.5" VerticalOptions="Center">
+                                    <Border WidthRequest="21" HeightRequest="10.5" Padding="1.5"
+                                            StrokeThickness="1" BackgroundColor="Transparent">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="3" /></Border.StrokeShape>
+                                        <Border.Stroke><SolidColorBrush Color="{DynamicResource WarmDark}" /></Border.Stroke>
+                                        <BoxView Color="{DynamicResource WarmDark}" WidthRequest="12" HeightRequest="6"
+                                                 CornerRadius="1.5" HorizontalOptions="Start" VerticalOptions="Center" />
+                                    </Border>
+                                    <BoxView Color="{DynamicResource WarmDark}" WidthRequest="1.5" HeightRequest="4"
+                                             CornerRadius="0.7" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                            </HorizontalStackLayout>
+                        </Grid>
+
+                        <!-- 桌面：两页并排，翻页只改整条的 TranslationX（拖拽/滑动在 code-behind 里） -->
+                        <Grid x:Name="PagerClip" Grid.Row="1" IsClippedToBounds="True">
+                            <Grid.GestureRecognizers>
+                                <SwipeGestureRecognizer Direction="Left" Swiped="OnSwipeLeft" />
+                                <SwipeGestureRecognizer Direction="Right" Swiped="OnSwipeRight" />
+                            </Grid.GestureRecognizers>
+
+                            <Grid x:Name="PagerTrack" HorizontalOptions="Start" VerticalOptions="Fill"
+                                  ColumnDefinitions="*,*" WidthRequest="720">
+
+                                <!-- 第一页 · TA 的世界 / 内容与设定 -->
+                                <Grid Grid.Column="0">
+                                    <ScrollView VerticalScrollBarVisibility="Never">
+                                        <VerticalStackLayout Padding="22,4,22,10" Spacing="0">
+                                            <!-- 时钟组件：和状态栏的小时间是同一份数据，桌面上的这块只负责给出层次 -->
+                                            <Grid ColumnDefinitions="*,Auto" Margin="2,4,2,0">
+                                                <VerticalStackLayout Spacing="1">
+                                                    <Label Text="{Binding TimeLabel}" FontSize="38" FontAttributes="Bold"
+                                                           TextColor="{DynamicResource WarmDark}" />
+                                                    <Label Text="{Binding StatusTime}" FontSize="11.5"
+                                                           TextColor="{DynamicResource WarmBody}" />
+                                                    <Label Text="{Binding StatusLine}" FontSize="9.5"
+                                                           TextColor="{DynamicResource MutedFg}" Margin="0,2,0,0" />
+                                                </VerticalStackLayout>
+                                                <Border Grid.Column="1" VerticalOptions="Start"
+                                                        BackgroundColor="#26FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1"
+                                                        Padding="10,5">
+                                                    <Border.StrokeShape><RoundRectangle CornerRadius="13" /></Border.StrokeShape>
+                                                    <Label Text="{Binding WeatherText}" FontSize="10.5"
+                                                           TextColor="{DynamicResource WarmBody}" />
+                                                </Border>
+                                            </Grid>
+
+                                            <Label Text="TA 的世界" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
+                                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="16">
+                                                <!-- 微信 -->
+                                                <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FF58BE75" Offset="0" />
+                                                                <GradientStop Color="#FF1F8B4C" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="微信" TextColor="White" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="{Binding WeChatLabel}" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenChatCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 角色库 -->
+                                                <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFF0D6AE" Offset="0" />
+                                                                <GradientStop Color="#FFC99A5F" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#2EFFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="角色库" TextColor="#FF3B2A18" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="人设 · 改写" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenLibraryCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 地图 -->
+                                                <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFE3D2B8" Offset="0" />
+                                                                <GradientStop Color="#FFB49B76" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#2EFFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="地图" TextColor="#FF3A2E1E" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="去处 · 位置" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenMapCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 换装 -->
+                                                <VerticalStackLayout Grid.Column="3" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFCE6F93" Offset="0" />
+                                                                <GradientStop Color="#FF93385B" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="换装" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="立绘 · 服饰" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenOutfitCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- QQ 壳：青蓝换皮的会话 + 论坛（与微信壳同构，无礼物/支付） -->
+                                                <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FF49C4F5" Offset="0" />
+                                                                <GradientStop Color="#FF118AC4" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="QQ" TextColor="White" FontSize="13" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="QQ · 论坛" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenQqCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 回忆录 -->
+                                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFB79BDF" Offset="0" />
+                                                                <GradientStop Color="#FF7C5CBB" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="回忆录" TextColor="White" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="相册 · 日记" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGalleryCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                            <Label Text="内容与设定" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
+                                            <Grid ColumnDefinitions="*,*,*,*" RowSpacing="16">
+                                                <!-- 素材库 -->
+                                                <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFBFD7B7" Offset="0" />
+                                                                <GradientStop Color="#FF87A87D" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#2EFFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="素材库" TextColor="#FF26311F" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="背景 · 音乐" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenMaterialsCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 工坊 -->
+                                                <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FF57A697" Offset="0" />
+                                                                <GradientStop Color="#FF2F6C60" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="工坊" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="场景 · 模式" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenSceneWorkshopCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 世界书 -->
+                                                <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FF7183BE" Offset="0" />
+                                                                <GradientStop Color="#FF44517F" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="世界书" TextColor="White" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="设定 · 条目" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenWorldbookCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+                                            </Grid>
+                                        </VerticalStackLayout>
+                                    </ScrollView>
+                                </Grid>
+
+                                <!-- 第二页 · 一起玩 / 小游戏 -->
+                                <Grid Grid.Column="1">
+                                    <ScrollView VerticalScrollBarVisibility="Never">
+                                        <VerticalStackLayout Padding="22,4,22,10" Spacing="0">
+                                            <Label Text="一起玩" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
+                                            <Grid ColumnDefinitions="*,*,*,*" RowSpacing="16">
+                                                <!-- 点名 -->
+                                                <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFD26355" Offset="0" />
+                                                                <GradientStop Color="#FF9C3125" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="点名" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="强制入戏" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenForceCastCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 商店 -->
+                                                <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFCB8B3E" Offset="0" />
+                                                                <GradientStop Color="#FF8F5A18" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="商店" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="礼物 · 好感" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenShopCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 战斗在设置里关掉时，入口跟着一起消失 -->
+                                                <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center"
+                                                                     IsVisible="{Binding ShowBattle}"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FF53647C" Offset="0" />
+                                                                <GradientStop Color="#FF2D3A4C" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="战斗" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="回合制" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenBattleCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+                                            </Grid>
+
+                                            <Label Text="小游戏" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
+                                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="16">
+                                                <!-- 五子棋 -->
+                                                <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center" StyleId="gobang"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFF0E4CD" Offset="0" />
+                                                                <GradientStop Color="#FFCBB28A" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#33FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="五子棋" TextColor="#FF3A2F22" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="五连" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 斗兽棋 -->
+                                                <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center" StyleId="animalchess"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFEBC994" Offset="0" />
+                                                                <GradientStop Color="#FFC2924F" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#33FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="斗兽棋" TextColor="#FF3A2F22" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="兽棋" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 飞行棋 -->
+                                                <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center" StyleId="ludo"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFD3E0EF" Offset="0" />
+                                                                <GradientStop Color="#FFA3B8D2" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#33FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="飞行棋" TextColor="#FF3A2F22" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="四人" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 国际象棋 -->
+                                                <VerticalStackLayout Grid.Column="3" Spacing="7" HorizontalOptions="Center" StyleId="chess"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFE0DCD4" Offset="0" />
+                                                                <GradientStop Color="#FFABA398" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#33FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="国际象棋" TextColor="#FF3A2F22" FontSize="10" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="64 格" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 中国象棋 -->
+                                                <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="7" HorizontalOptions="Center" StyleId="chinesechess"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFEAC6AC" Offset="0" />
+                                                                <GradientStop Color="#FFC08C6A" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#33FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="中国象棋" TextColor="#FF3A2F22" FontSize="10" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="河界" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 贪吃蛇 -->
+                                                <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="7" HorizontalOptions="Center" StyleId="snake"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FFC4DFBD" Offset="0" />
+                                                                <GradientStop Color="#FF8FB986" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#33FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="贪吃蛇" TextColor="#FF26311F" FontSize="11.5" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="越吃越长" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+
+                                                <!-- 围棋 -->
+                                                <VerticalStackLayout Grid.Row="1" Grid.Column="2" Spacing="7" HorizontalOptions="Center" StyleId="go"
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
+                                                            StrokeThickness="1" Stroke="#33FFFFFF">
+                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
+                                                        <Border.Background>
+                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                                <GradientStop Color="#FF5D5D5D" Offset="0" />
+                                                                <GradientStop Color="#FF232323" Offset="1" />
+                                                            </LinearGradientBrush>
+                                                        </Border.Background>
+                                                        <Grid>
+                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
+                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
+                                                            <Label Text="围棋" TextColor="White" FontSize="12" FontAttributes="Bold"
+                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                                                        </Grid>
+                                                    </Border>
+                                                    <Label Text="19 路" FontSize="9.5" LineBreakMode="NoWrap"
+                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
+                                                    <VerticalStackLayout.GestureRecognizers>
+                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGameCommand}" />
+                                                    </VerticalStackLayout.GestureRecognizers>
+                                                </VerticalStackLayout>
+                                            </Grid>
+                                        </VerticalStackLayout>
+                                    </ScrollView>
+                                </Grid>
+                            </Grid>
+                        </Grid>
+
+                        <!-- 页码点 + Dock：点和 Dock 都在屏幕底部这一带，跟手走的不只是内容 -->
+                        <VerticalStackLayout Grid.Row="2" Spacing="0">
+                            <HorizontalStackLayout HorizontalOptions="Center" Spacing="0" Margin="0,10,0,8">
+                                <Grid WidthRequest="22" HeightRequest="18" BackgroundColor="Transparent">
+                                    <BoxView x:Name="DotOne" WidthRequest="6" HeightRequest="6" CornerRadius="3"
+                                             Color="{DynamicResource WarmDark}" HorizontalOptions="Center" VerticalOptions="Center" />
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnDotTapped" CommandParameter="0" />
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+                                <Grid WidthRequest="22" HeightRequest="18" BackgroundColor="Transparent">
+                                    <BoxView x:Name="DotTwo" WidthRequest="6" HeightRequest="6" CornerRadius="3"
+                                             Color="{DynamicResource WarmDark}" Opacity="0.26"
+                                             HorizontalOptions="Center" VerticalOptions="Center" />
+                                    <Grid.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnDotTapped" CommandParameter="1" />
+                                    </Grid.GestureRecognizers>
+                                </Grid>
+                            </HorizontalStackLayout>
+
+                            <Border Margin="18,0" Padding="9,8" BackgroundColor="#33FFFFFF"
+                                    Stroke="#40FFFFFF" StrokeThickness="1">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="26" /></Border.StrokeShape>
                                 <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
+                                    <Shadow Brush="#33000000" Offset="0,6" Radius="14" Opacity="0.9" />
                                 </Border.Shadow>
-                                <Border BackgroundColor="{DynamicResource BeigeAccent200}"
-                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
-                                        HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="角色库" TextColor="{DynamicResource WarmDark}" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
+                                <Grid ColumnDefinitions="*,*,*,*">
+                                    <!-- Dock · 微信 -->
+                                    <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center"
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                        <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                    <GradientStop Color="#FF58BE75" Offset="0" />
+                                                    <GradientStop Color="#FF1F8B4C" Offset="1" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <BoxView Color="#22FFFFFF" CornerRadius="11,11,6,6" HeightRequest="18"
+                                                         Margin="4,3,4,0" VerticalOptions="Start" InputTransparent="True" />
+                                                <Label Text="微信" TextColor="White" FontSize="10.5" FontAttributes="Bold"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <VerticalStackLayout.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenChatCommand}" />
+                                        </VerticalStackLayout.GestureRecognizers>
+                                    </VerticalStackLayout>
+                                    <!-- Dock · 角色库 -->
+                                    <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center"
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                        <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                    <GradientStop Color="#FFF0D6AE" Offset="0" />
+                                                    <GradientStop Color="#FFC99A5F" Offset="1" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <BoxView Color="#2EFFFFFF" CornerRadius="11,11,6,6" HeightRequest="18"
+                                                         Margin="4,3,4,0" VerticalOptions="Start" InputTransparent="True" />
+                                                <Label Text="角色库" TextColor="#FF3B2A18" FontSize="10.5" FontAttributes="Bold"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <VerticalStackLayout.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenLibraryCommand}" />
+                                        </VerticalStackLayout.GestureRecognizers>
+                                    </VerticalStackLayout>
+                                    <!-- Dock · 回忆录 -->
+                                    <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center"
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                        <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                    <GradientStop Color="#FFB79BDF" Offset="0" />
+                                                    <GradientStop Color="#FF7C5CBB" Offset="1" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <BoxView Color="#22FFFFFF" CornerRadius="11,11,6,6" HeightRequest="18"
+                                                         Margin="4,3,4,0" VerticalOptions="Start" InputTransparent="True" />
+                                                <Label Text="回忆录" TextColor="White" FontSize="10.5" FontAttributes="Bold"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <VerticalStackLayout.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenGalleryCommand}" />
+                                        </VerticalStackLayout.GestureRecognizers>
+                                    </VerticalStackLayout>
+                                    <!-- Dock · 素材库 -->
+                                    <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center"
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                        <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                            <Border.Background>
+                                                <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
+                                                    <GradientStop Color="#FFBFD7B7" Offset="0" />
+                                                    <GradientStop Color="#FF87A87D" Offset="1" />
+                                                </LinearGradientBrush>
+                                            </Border.Background>
+                                            <Grid>
+                                                <BoxView Color="#2EFFFFFF" CornerRadius="11,11,6,6" HeightRequest="18"
+                                                         Margin="4,3,4,0" VerticalOptions="Start" InputTransparent="True" />
+                                                <Label Text="素材库" TextColor="#FF26311F" FontSize="10.5" FontAttributes="Bold"
+                                                       HorizontalOptions="Center" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                        <VerticalStackLayout.GestureRecognizers>
+                                            <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenMaterialsCommand}" />
+                                        </VerticalStackLayout.GestureRecognizers>
+                                    </VerticalStackLayout>
+                                </Grid>
                             </Border>
-                            <Label Text="人设 · 改写" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenLibraryCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="{DynamicResource Cream200}"
-                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
-                                        HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="地图" TextColor="{DynamicResource WarmDark}" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="去处 · 位置" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenMapCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#A84A6E" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="换装" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="立绘 · 服饰" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenOutfitCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <!-- QQ 壳：青蓝换皮的会话 + 论坛（与微信壳同构，无礼物/支付） -->
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#12B7F5" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="QQ" TextColor="White" FontSize="13" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="QQ · 论坛" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenQqCommand}" />
-                            </Border.GestureRecognizers>
+
+                            <!-- 主屏指示条：真机上不该再画一条假 Home Bar -->
+                            <BoxView WidthRequest="108" HeightRequest="4" CornerRadius="2" Margin="0,9,0,7"
+                                     Color="{DynamicResource WarmDark}" Opacity="0.24" HorizontalOptions="Center"
+                                     IsVisible="{Binding IsCompactScreen, Converter={StaticResource InverseBool}}" />
                         </VerticalStackLayout>
                     </Grid>
 
-                    <Label Text="内容与设定" Style="{StaticResource TxtSection}" />
-                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="0" RowSpacing="22">
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#AF52DE" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="回忆录" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="相册 · 日记" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenGalleryCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="{DynamicResource BeigeAccent300}"
-                                        WidthRequest="40" HeightRequest="40" StrokeThickness="0"
-                                        HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <!-- 文字用深色（BeigeAccent300 偏浅，白字对比度不足） -->
-                                    <Label Text="素材库" TextColor="{DynamicResource WarmDark}" FontSize="10" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="背景 · 音乐" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenMaterialsCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#2E8B7A" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="工坊" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="场景 · 模式" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenSceneWorkshopCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#4B5A8C" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="世界书" TextColor="White" FontSize="11" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="设定 · 条目" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenWorldbookCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                    </Grid>
-
-                    <Label Text="一起玩" Style="{StaticResource TxtSection}" />
-                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="0" RowSpacing="22">
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="0" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#C0392B" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="点名" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="强制入戏" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenForceCastCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#A9611A" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="商店" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="礼物 · 好感" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenShopCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <!-- 战斗在设置里关掉时，入口跟着一起消失 -->
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6"
-                                             IsVisible="{Binding ShowBattle}">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    WidthRequest="58" HeightRequest="58" Padding="0"
-                                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="15" /></Border.StrokeShape>
-                                <Border.Shadow>
-                                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="2,3"
-                                            Radius="8" Opacity="0.18" />
-                                </Border.Shadow>
-                                <Border BackgroundColor="#34495E" WidthRequest="40" HeightRequest="40"
-                                        StrokeThickness="0" HorizontalOptions="Center" VerticalOptions="Center">
-                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                    <Label Text="战斗" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                            </Border>
-                            <Label Text="回合制" TextColor="{DynamicResource WarmBody}" FontSize="10" HorizontalOptions="Center" />
-                            <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding OpenBattleCommand}" />
-                            </Border.GestureRecognizers>
-                        </VerticalStackLayout>
-                    </Grid>
-
-                    <Label Text="小游戏" Style="{StaticResource TxtSection}" />
-                    <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto"
-                          ColumnSpacing="0" RowSpacing="20">
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="五子棋" TextColor="{DynamicResource WarmDark}" FontSize="11"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="gobang" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="斗兽棋" TextColor="{DynamicResource WarmDark}" FontSize="11"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="animalchess" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="飞行棋" TextColor="{DynamicResource WarmDark}" FontSize="11"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="ludo" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Column="3" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="国际象棋" TextColor="{DynamicResource WarmDark}" FontSize="10"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="chess" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="中国象棋" TextColor="{DynamicResource WarmDark}" FontSize="10"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="chinesechess" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" Grid.Column="1" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="贪吃蛇" TextColor="{DynamicResource WarmDark}" FontSize="11"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="snake" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                        <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Grid.Row="1" Grid.Column="2" HorizontalOptions="Center" Spacing="6">
-                            <Border Style="{StaticResource PressableCard}"
-                                    WidthRequest="54" HeightRequest="54" Padding="0">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                <Label Text="围棋" TextColor="{DynamicResource WarmDark}" FontSize="11"
-                                       HorizontalOptions="Center" VerticalOptions="Center" />
-                            </Border>
-                            <Grid.GestureRecognizers><TapGestureRecognizer Command="{Binding OpenGameCommand}" CommandParameter="go" /></Grid.GestureRecognizers>
-                        </VerticalStackLayout>
-                    </Grid>
-                </VerticalStackLayout>
-            </ScrollView>
-        </Grid>
-
-        <!-- Bottom dock -->
-        <Border Grid.Row="2" Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
-                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="0,10,0,16">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
-                <Label Text="{Binding StatusLine}" TextColor="{DynamicResource WarmBody}"
-                       FontSize="11" HorizontalOptions="Center" />
-            </VerticalStackLayout>
+                    <!-- 机身内那枚听筒/前摄：只在套了机身时画，真机上它只会和系统开孔打架 -->
+                    <Border WidthRequest="9" HeightRequest="9" BackgroundColor="#1A1512" StrokeThickness="0"
+                            HorizontalOptions="Center" VerticalOptions="Start" Margin="0,6,0,0" InputTransparent="True"
+                            IsVisible="{Binding IsCompactScreen, Converter={StaticResource InverseBool}}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="5" /></Border.StrokeShape>
+                    </Border>
+                </Grid>
+            </Border>
         </Border>
     </Grid>
 </ContentPage>

@@ -37,6 +37,12 @@ public sealed record CharacterState
     public PhysiologicalData Cycle { get; set; } = new();
     /// <summary>大脑预判（期待差 + 不可预测两层）：随角色一起落盘，换设备也带着 TA 的心理曲线。</summary>
     public BrainState Brain { get; set; } = new();
+
+    /// <summary>性欲 0~100（只在启用该系统的存档里推进）。</summary>
+    public int Libido { get; set; } = 20;
+
+    /// <summary>设定锁：用户/设定写死的性欲值优先于周期与 AI 判定（null=不锁）。</summary>
+    public int? LibidoLock { get; set; }
 }
 
 /// <summary>
@@ -97,7 +103,103 @@ public sealed record CharacterData
     /// <summary>
     /// 副设定（当下状态）：新角色时是主设定的副本，此后随时间与经历漂移，只有它会变。
     /// </summary>
-    public CharacterSubProfile SubProfile { get; init; } = new();
+    public CharacterSubProfile SubProfile { get; set; } = new();
+
+    // ===== 角色背景（角色库/工作室/游戏内共用） =====
+
+    /// <summary>角色专属背景（相对存储根，空=沿用当前场景背景）。图片/GIF/视频都走同一个字段。</summary>
+    public string Background { get; init; } = "";
+    /// <summary>背景适配：tile=平铺 · stretch=拉伸 · fill=填充（裁切多余） · fit=完整显示 · crop=自定义裁剪。</summary>
+    public string BackgroundFit { get; init; } = "fill";
+    /// <summary>自定义裁剪（0~1 归一化）：仅 BackgroundFit=crop 时生效。</summary>
+    public BackgroundCrop BackgroundCrop { get; init; } = new();
+    /// <summary>进游戏时是否用角色背景覆盖场景背景。</summary>
+    public bool BackgroundInGame { get; init; } = true;
+
+    // ===== 角色世界观 =====
+
+    /// <summary>角色绑定的世界书（可多个复合）：生成角色简介/世界观的基础语料。</summary>
+    public List<string> WorldbookIds { get; init; } = new();
+    /// <summary>角色可有多套世界观（每套由多个世界书复合）。</summary>
+    public List<CharacterWorldview> Worldviews { get; init; } = new();
+    /// <summary>当前启用的世界观 id（空=没有角色世界观，沿用存档世界书）。</summary>
+    public string ActiveWorldviewId { get; init; } = "";
+    /// <summary>在存档里改世界观是否跨存档生效（false=只改本存档的选择）。</summary>
+    public bool WorldviewCrossSave { get; init; } = true;
+
+    // ===== 状态共享与初始值 =====
+
+    /// <summary>
+    /// 状态是否跨存档共享：true=好感/信任等是全局实时值（工作室里改的是现实）；
+    /// false=每个存档从 <see cref="Initial"/> 播种，工作室里改的只是「建档初始状态」。
+    /// </summary>
+    public bool StateShared { get; init; } = true;
+    /// <summary>非共享角色在新建存档时的初始状态。</summary>
+    public CharacterInitialStats Initial { get; init; } = new();
+
+    // ===== 按角色的语音与模型 =====
+
+    public CharacterVoice Voice { get; init; } = new();
+    public CharacterModelBinding Model { get; init; } = new();
+
+    // ===== 出场与形象 =====
+
+    /// <summary>是否已完成自我介绍：AI 自行加入的角色在介绍前，名字在游戏里显示为 ???。</summary>
+    public bool Introduced { get; set; } = true;
+    /// <summary>新版着装形象包 id（空=用 SpriteMap 静态立绘）。</summary>
+    public string FigurePackId { get; init; } = "";
+}
+
+/// <summary>角色背景的自定义裁剪框（归一化坐标，左上原点）。</summary>
+public sealed record BackgroundCrop
+{
+    public double X { get; init; }
+    public double Y { get; init; }
+    public double W { get; init; } = 1;
+    public double H { get; init; } = 1;
+}
+
+/// <summary>角色世界观：一套由若干世界书复合出来的世界设定。</summary>
+public sealed record CharacterWorldview
+{
+    public string Id { get; init; } = Guid.NewGuid().ToString("N")[..8];
+    public string Name { get; init; } = "";
+    /// <summary>复合进来的世界书 id（按顺序拼接）。</summary>
+    public List<string> WorldbookIds { get; init; } = new();
+    /// <summary>这套世界观的补充说明（AI 生成或手写）。</summary>
+    public string Description { get; init; } = "";
+    public DateTime UpdatedAt { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>非共享角色的建档初始值（只决定新存档的开始状态，不影响已有存档）。</summary>
+public sealed record CharacterInitialStats
+{
+    public int Affection { get; init; }
+    public int AffectionPoints { get; init; }
+    public int Trust { get; init; }
+    public int Energy { get; init; } = 100;
+    public int Libido { get; init; } = 20;
+}
+
+/// <summary>角色级语音覆写：空字段沿用全局设置；Enabled=false 表示这个角色不说话。</summary>
+public sealed record CharacterVoice
+{
+    public bool Enabled { get; init; } = true;
+    /// <summary>音色名（系统 TTS 的 voice / API 的 voice）；空=全局。</summary>
+    public string VoiceName { get; init; } = "";
+    /// <summary>引擎覆写：system / api / sovits；空=全局。</summary>
+    public string Engine { get; init; } = "";
+    /// <summary>引擎扩展参数（SoVITS 的 spk_id 等）；空=全局。</summary>
+    public string Extra { get; init; } = "";
+}
+
+/// <summary>角色级 AI 模型覆写：空=沿用全局轮换池。</summary>
+public sealed record CharacterModelBinding
+{
+    /// <summary>厂商 id（UserSettings.AiProviders[].Id）；空=全局。</summary>
+    public string ProviderId { get; init; } = "";
+    /// <summary>模型名；空=全局。</summary>
+    public string Model { get; init; } = "";
 }
 
 /// <summary>

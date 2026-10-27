@@ -43,9 +43,8 @@ public partial class AppShell : Shell
     private void PlayPageTransition(ShellNavigatedEventArgs e)
     {
         var back = e.Source is ShellNavigationSource.Pop or ShellNavigationSource.PopToRoot;
-        // 启动那次本来就不算「切换」，可 WinUI 上初始路由很少触发 Navigated，
-        // 原来那句「第一跳一律跳过」就落在了用户第一次点进角色库/工作室上。
-        // 只跳过落到根页（标题页）的那一次；其余第一跳照常播。
+        // 启动那次不算「切换」，但 WinUI 上初始路由很少触发 Navigated；
+        // 只跳过落到根页（标题页）的那一次，其余第一跳照常播。
         if (_firstNav)
         {
             _firstNav = false;
@@ -68,7 +67,12 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("map", typeof(Views.MapPage));
         Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
+        Routing.RegisterRoute("figurePack", typeof(Views.FigurePackPage));
         Routing.RegisterRoute("save", typeof(Views.SavePage));
+        // 云存档：看远端有哪些、哪台机器什么时候存过，一键拉回本地
+        Routing.RegisterRoute("cloudsaves", typeof(Views.CloudSavesPage));
+        // 头像裁剪：相册/拍照之后就地裁剪，回传绝对路径
+        Routing.RegisterRoute("avatarcrop", typeof(Views.AvatarCropPage));
         Routing.RegisterRoute("game", typeof(Views.GamePage));
         Routing.RegisterRoute("novelselect", typeof(Views.NovelSelectPage));
         Routing.RegisterRoute("novelworld", typeof(Views.NovelWorldPage));
@@ -76,8 +80,12 @@ public partial class AppShell : Shell
         // 新开一局 / 本局设定：世界树绑定 + 用户人设 + 人格记忆初始化
         Routing.RegisterRoute("newrun", typeof(Views.NewRunPage));
         Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
+        // 新建角色：角色库顶上那颗按钮进来的四步向导
+        Routing.RegisterRoute("newcharacter", typeof(Views.NewCharacterPage));
         // 角色工作室：列表那一行点进来的一页（改 TA 的一切都在这儿，不在列表里）
         Routing.RegisterRoute("studio", typeof(Views.CharacterStudioPage));
+        // 新建角色：角色库顶上那颗按钮进来的四步向导（基本 → 人设 → 形象 → 世界观）
+        Routing.RegisterRoute("newcharacter", typeof(Views.NewCharacterPage));
         Routing.RegisterRoute("shop", typeof(Views.ShopPage));
         Routing.RegisterRoute("showcase-list", typeof(Views.ShowcaseListPage));
         Routing.RegisterRoute("showcase-edit", typeof(Views.ShowcaseEditPage));

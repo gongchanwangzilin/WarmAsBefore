@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System.Collections.ObjectModel;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.ApiManager;
 using WarmAsBefore.Modules.NovelImport;
@@ -62,7 +63,7 @@ public sealed partial class NovelSelectViewModel : ObservableObject
             var result = await _novel.Analyze(pick.FullPath);
             if (result is null)
             {
-                await Shell.Current.DisplayAlert("导入失败", "解析失败：请检查 AI 配置或文本内容", "好");
+                Toast.Error("解析失败：请检查 AI 配置或文本内容");
                 return;
             }
             var entry = await _library.AddAsync(result);

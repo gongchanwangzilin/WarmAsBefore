@@ -1,0 +1,474 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.NewCharacterPage"
+             x:Name="Page"
+             x:DataType="vm:NewCharacterViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      新建角色：一页分四步 —— 基本 → 人设 → 形象 → 世界观。
+      步数账本与 NewRunPage / SetupPage 同一套：一次只显示当前那一步，底部用 1/4 与四段进度说话。
+      宽屏左预览右表单，窄屏上下叠；两栏都放在同一个 ScrollView 里，所以手机上一根手指就能走完全程。
+      预览不是装饰：名字、性别、立绘/头像都在左边即时回话，填错一步不必等到创建后才发现。
+    -->
+    <ContentPage.Resources>
+        <Style x:Key="Eyebrow" TargetType="Label">
+            <Setter Property="FontFamily" Value="Bahnschrift" />
+            <Setter Property="CharacterSpacing" Value="3" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
+        </Style>
+
+        <Style x:Key="StepTitle" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeDisplay}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
+
+        <Style x:Key="StepSub" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmMuted}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
+
+        <Style x:Key="FieldLabel" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="Margin" Value="2,0,0,4" />
+        </Style>
+
+        <Style x:Key="Field" TargetType="Entry">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+
+        <Style x:Key="FieldMulti" TargetType="Editor">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+
+        <!-- 选项块：与工作室同一档，静止是比卡面沉一档的井，选中翻成墨底浅字。 -->
+        <Style x:Key="Chip" TargetType="Button">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="MinimumHeightRequest" Value="30" />
+            <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+            <Setter Property="BorderColor" Value="{DynamicResource WControlEdge}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource WPillRadius}" />
+            <Setter Property="motion:PressFeel.Enabled" Value="True" />
+            <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        </Style>
+
+        <Style x:Key="ErrorText" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource AccentWarmFg}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+            <Setter Property="Margin" Value="2,4,0,0" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- 顶栏 -->
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                        VerticalOptions="Center" Command="{Binding BackCommand}" />
+                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                    <Label Text="// NEW SUBJECT" Style="{StaticResource Eyebrow}" />
+                    <Label Text="新建角色" Style="{StaticResource TxtTitle}" />
+                </VerticalStackLayout>
+                <Label Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+                       FontFamily="Bahnschrift" VerticalOptions="Center" />
+            </Grid>
+        </Border>
+
+        <!-- 进度：四段等宽，走过的段点亮 -->
+        <Grid Grid.Row="1" Padding="24,14,24,0" RowDefinitions="Auto,Auto" RowSpacing="8">
+            <Grid ColumnDefinitions="*,6,*,6,*,6,*" HeightRequest="4">
+                <Grid Grid.Column="0">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached1}" />
+                </Grid>
+                <Grid Grid.Column="2">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached2}" />
+                </Grid>
+                <Grid Grid.Column="4">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached3}" />
+                </Grid>
+                <Grid Grid.Column="6">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached4}" />
+                </Grid>
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Label Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
+                <Label Grid.Column="1" Text="随时可以回上一步" Style="{StaticResource TxtCaption}" />
+            </Grid>
+        </Grid>
+
+        <!-- 正文：宽屏左右两栏，窄屏上下叠；两栏在同一个 ScrollView 里 -->
+        <ScrollView Grid.Row="2" x:Name="StepScroll" Padding="24,18,24,28">
+            <Grid x:Name="BodyGrid" ColumnSpacing="16" RowSpacing="16"
+                  MaximumWidthRequest="1180" HorizontalOptions="Center"
+                  SizeChanged="OnBodyResized">
+
+                <!-- 左：预览卡 -->
+                <Border x:Name="PreviewCard" Style="{StaticResource CardSolid}" VerticalOptions="Start">
+                    <VerticalStackLayout Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="// PREVIEW" Style="{StaticResource Eyebrow}" />
+                            <Label Grid.Column="1" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+                                   FontFamily="Bahnschrift" />
+                        </Grid>
+
+                        <Border x:Name="PreviewStage" HeightRequest="360"
+                                BackgroundColor="{DynamicResource WellBg}"
+                                StrokeThickness="0" StrokeShape="{DynamicResource WRadiusWell}">
+                            <Grid IsClippedToBounds="True">
+                                <Image Source="{Binding PreviewSource}" Aspect="AspectFit" Margin="14"
+                                       IsVisible="{Binding HasPreview}" />
+                                <VerticalStackLayout Spacing="8" HorizontalOptions="Center" VerticalOptions="Center"
+                                                     Padding="24"
+                                                     IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}">
+                                    <Image Source="studio_mark.png" WidthRequest="72" HeightRequest="72"
+                                           Opacity="0.30" InputTransparent="True"
+                                           IsVisible="{Binding IsDarkWorld, Converter={StaticResource InverseBool}}" />
+                                    <Image Source="studio_mark_dark.png" WidthRequest="72" HeightRequest="72"
+                                           Opacity="0.30" InputTransparent="True"
+                                           IsVisible="{Binding IsDarkWorld}" />
+                                    <Label Text="还没有立绘或头像" Style="{StaticResource TxtSubhead}"
+                                           HorizontalOptions="Center" />
+                                    <Label Text="到「形象」那一步挑一张，这块就亮起来"
+                                           Style="{StaticResource TxtCaption}"
+                                           HorizontalTextAlignment="Center" HorizontalOptions="Center" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </Border>
+
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding PreviewName}" FontSize="26" FontAttributes="Bold"
+                                   TextColor="{DynamicResource WarmDark}" LineBreakMode="TailTruncation" />
+                            <Label Text="{Binding PreviewMeta}" Style="{StaticResource TxtCaption}"
+                                   LineBreakMode="WordWrap" />
+                            <Label Text="{Binding PersonalityPreview}" Style="{StaticResource TxtBodySm}"
+                                   LineBreakMode="TailTruncation" MaxLines="2" Margin="0,4,0,0" />
+                        </VerticalStackLayout>
+
+                        <BoxView Style="{StaticResource HSep}" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="1">
+                                <Label Text="立绘" Style="{StaticResource Eyebrow}" />
+                                <Label Text="{Binding SpriteLabel}" Style="{StaticResource TxtCaption}"
+                                       LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                <Label Text="头像" Style="{StaticResource Eyebrow}" />
+                                <Label Text="{Binding AvatarLabel}" Style="{StaticResource TxtCaption}"
+                                       LineBreakMode="TailTruncation" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="这里只是预览：按「创建」之后，TA 才会出现在角色库与对话里。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 右：分步表单 -->
+                <Border x:Name="FormCard" Grid.Column="1" Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Padding="{DynamicResource WPadCard}" Spacing="18">
+
+                        <!-- ① 基本 -->
+                        <VerticalStackLayout x:Name="StepBasics" Spacing="14" IsVisible="{Binding AtStep1}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="01 · BASICS" Style="{StaticResource Eyebrow}" />
+                                <Label Text="先认识一下" Style="{StaticResource StepTitle}" />
+                                <Label Text="名字与性别是必填的；其余留空也能创建，之后在工作室里随时补。"
+                                       Style="{StaticResource StepSub}" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="名字" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding Name, Mode=TwoWay}"
+                                       Placeholder="比如：林晚" ReturnType="Next" />
+                                <Label Text="{Binding NameError}" Style="{StaticResource ErrorText}"
+                                       IsVisible="{Binding HasNameError}" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="性别" Style="{StaticResource FieldLabel}" />
+                                <FlexLayout Direction="Row" Wrap="Wrap"
+                                            BindableLayout.ItemsSource="{Binding Genders}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:GenderChoice">
+                                            <Button Text="{Binding Name}" Style="{StaticResource Chip}"
+                                                    Margin="0,0,6,6"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickGenderCommand}"
+                                                    CommandParameter="{Binding Name}">
+                                                <Button.Triggers>
+                                                    <DataTrigger TargetType="Button" Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                        <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                        <Setter Property="BorderColor" Value="Transparent" />
+                                                    </DataTrigger>
+                                                </Button.Triggers>
+                                            </Button>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </FlexLayout>
+                                <Label Text="{Binding GenderError}" Style="{StaticResource ErrorText}"
+                                       IsVisible="{Binding HasGenderError}" />
+                                <Label Text="候选来自本机性别库；想要别的，去设置 → 性别库加一个。"
+                                       Style="{StaticResource TxtCaption}" Margin="2,4,0,0" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="TA 怎么称呼你" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding UserAddress, Mode=TwoWay}"
+                                       Placeholder="主人 / 哥哥 / 名字" />
+                            </VerticalStackLayout>
+
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                    <Label Text="恋爱对象" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="关掉后 TA 不会主动推进关系，周期与亲密内容也不进提示词。"
+                                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" VerticalOptions="Center"
+                                        IsToggled="{Binding IsRomance, Mode=TwoWay}" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <!-- ② 人设 -->
+                        <VerticalStackLayout x:Name="StepPersona" Spacing="14" IsVisible="{Binding AtStep2}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="02 · PERSONA" Style="{StaticResource Eyebrow}" />
+                                <Label Text="TA 是什么样的人" Style="{StaticResource StepTitle}" />
+                                <Label Text="这三段直接进提示词。写具体一点，TA 回话时才有东西可抓。"
+                                       Style="{StaticResource StepSub}" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="性格" Style="{StaticResource FieldLabel}" />
+                                <Editor Style="{StaticResource FieldMulti}" HeightRequest="92"
+                                        Text="{Binding Personality, Mode=TwoWay}"
+                                        Placeholder="说话方式与脾气：嘴硬心软、慢热、爱开玩笑……" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="简介 / 前情" Style="{StaticResource FieldLabel}" />
+                                <Editor Style="{StaticResource FieldMulti}" HeightRequest="130"
+                                        Text="{Binding Description, Mode=TwoWay}"
+                                        Placeholder="你们之间发生过什么、TA 现在过着怎样的日子" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="开场白" Style="{StaticResource FieldLabel}" />
+                                <Editor Style="{StaticResource FieldMulti}" HeightRequest="80"
+                                        Text="{Binding Greeting, Mode=TwoWay}"
+                                        Placeholder="TA 上线第一句说什么" />
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+
+                        <!-- ③ 形象 -->
+                        <VerticalStackLayout x:Name="StepLooks" Spacing="14" IsVisible="{Binding AtStep3}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="03 · IMAGE" Style="{StaticResource Eyebrow}" />
+                                <Label Text="让 TA 站到光里" Style="{StaticResource StepTitle}" />
+                                <Label Text="立绘先支持一张默认表情；头像会用在列表、对话与手机里。两样都能之后在工作室换。"
+                                       Style="{StaticResource StepSub}" />
+                            </VerticalStackLayout>
+
+                            <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                                    Padding="{DynamicResource WPadWell}"
+                                    StrokeShape="{DynamicResource WRadiusWell}">
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Text="立绘" Style="{StaticResource TxtBodySm}"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="1" Text="{Binding SpriteLabel}"
+                                               Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                    </Grid>
+                                    <FlexLayout Direction="Row" Wrap="Wrap">
+                                        <Button Text="选一张立绘" Style="{StaticResource BtnGhostSm}"
+                                                Margin="0,0,6,6" Command="{Binding PickSpriteCommand}" />
+                                    </FlexLayout>
+                                    <Label Text="这张会记成 default/normal；要更多表情，创建后去工作室补。"
+                                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                                    Padding="{DynamicResource WPadWell}"
+                                    StrokeShape="{DynamicResource WRadiusWell}">
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Label Text="头像" Style="{StaticResource TxtBodySm}"
+                                               VerticalOptions="Center" />
+                                        <Label Grid.Column="1" Text="{Binding AvatarLabel}"
+                                               Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                                    </Grid>
+                                    <FlexLayout Direction="Row" Wrap="Wrap">
+                                        <Button Text="选头像并裁剪" Style="{StaticResource BtnPrimarySm}"
+                                                Margin="0,0,6,6" Command="{Binding PickAvatarCropCommand}" />
+                                        <Button Text="直接用这张图" Style="{StaticResource BtnGhostSm}"
+                                                Margin="0,0,6,6" Command="{Binding PickAvatarDirectCommand}" />
+                                    </FlexLayout>
+                                    <Label Text="裁剪会框成方脸，存成 512×512；直接用原图会保留原尺寸。"
+                                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                            </Border>
+
+                            <Label Text="没有图也能创建：TA 会先以姓名首字出现在列表里，之后随时补图。"
+                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+
+                        <!-- ④ 世界观与绑定（可跳过） -->
+                        <VerticalStackLayout x:Name="StepWorld" Spacing="14" IsVisible="{Binding AtStep4}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="04 · WORLD" Style="{StaticResource Eyebrow}" />
+                                <Label Text="TA 从哪个世界来" Style="{StaticResource StepTitle}" />
+                                <Label Text="这一步可以整步跳过：不绑世界书也能创建，之后在工作室里补。"
+                                       Style="{StaticResource StepSub}" />
+                            </VerticalStackLayout>
+
+                            <VerticalStackLayout Spacing="6">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Label Text="世界书（可多选）" Style="{StaticResource TxtSubhead}"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding SelectedWorldCountLabel}"
+                                           Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                </Grid>
+                                <Border Style="{StaticResource CardGroup}">
+                                    <VerticalStackLayout Spacing="0">
+                                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding Worlds}" Spacing="0">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:WorldbookChoice">
+                                                    <VerticalStackLayout Spacing="0">
+                                                        <Border Style="{StaticResource SettingRow}"
+                                                                motion:HoverFeel.Enabled="True"
+                                                                motion:HoverFeel.Accent="True">
+                                                            <Border.GestureRecognizers>
+                                                                <TapGestureRecognizer
+                                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleWorldCommand}"
+                                                                    CommandParameter="{Binding .}" />
+                                                            </Border.GestureRecognizers>
+                                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                                                <BoxView WidthRequest="3" HeightRequest="24"
+                                                                         Color="{DynamicResource WAccentInk}"
+                                                                         VerticalOptions="Center"
+                                                                         IsVisible="{Binding IsSelected}" />
+                                                                <VerticalStackLayout Grid.Column="1" Spacing="3"
+                                                                                     VerticalOptions="Center">
+                                                                    <Label Text="{Binding Title}"
+                                                                           Style="{StaticResource TxtRowTitle}"
+                                                                           LineBreakMode="TailTruncation" />
+                                                                    <Label Text="{Binding Summary}"
+                                                                           Style="{StaticResource TxtRowDesc}"
+                                                                           LineBreakMode="WordWrap"
+                                                                           IsVisible="{Binding HasSummary}" />
+                                                                </VerticalStackLayout>
+                                                                <Label Grid.Column="2" Text="已选"
+                                                                       Style="{StaticResource TxtCaption}"
+                                                                       VerticalOptions="Center"
+                                                                       IsVisible="{Binding IsSelected}" />
+                                                            </Grid>
+                                                        </Border>
+                                                        <BoxView Style="{StaticResource HSepInset}" />
+                                                    </VerticalStackLayout>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
+                                        <Label Text="还没有世界书。可以先去「世界书」手写一份，或者让 AI 造一个；这一步跳过也不影响创建。"
+                                               Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                               LineBreakMode="WordWrap"
+                                               IsVisible="{Binding HasNoWorlds}" />
+                                    </VerticalStackLayout>
+                                </Border>
+                                <Label Text="{Binding SelectedWorldLabel}" Style="{StaticResource TxtCaption}"
+                                       LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+
+                            <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                                    Padding="{DynamicResource WPadWell}"
+                                    StrokeShape="{DynamicResource WRadiusWell}">
+                                <VerticalStackLayout Spacing="10">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                            <Label Text="语音引擎" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="用哪套声音说话" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="跟随全局" Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                    <BoxView Style="{StaticResource HSep}" />
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                            <Label Text="AI 模型" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="用哪一档模型回话" Style="{StaticResource TxtCaption}" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="1" Text="跟随全局" Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="Center" />
+                                    </Grid>
+                                    <Label Text="想给 TA 单独指定，创建后在工作室的「记忆 / 素材」里改；这里先跟着全局。"
+                                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                            </Border>
+                        </VerticalStackLayout>
+
+                    </VerticalStackLayout>
+                </Border>
+            </Grid>
+        </ScrollView>
+
+        <!-- 底部动作：手机固定在安全区里，不跟内容一起滚 -->
+        <BoxView Grid.Row="3" Color="{DynamicResource WRule}" HeightRequest="1"
+                 HorizontalOptions="Fill" VerticalOptions="Start" InputTransparent="True" />
+        <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}" VerticalOptions="End">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+                  Margin="{OnPlatform WinUI='0', Default='0,0,0,12'}">
+                <Button Text="← 上一步" Style="{StaticResource BtnText}"
+                        Padding="6,2" FontSize="{DynamicResource WSizeCaption}"
+                        VerticalOptions="Center" IsVisible="{Binding CanGoBack}"
+                        Command="{Binding PrevCommand}" />
+                <Label Grid.Column="1" Text="{Binding StepLabel}" Style="{StaticResource TxtCaption}"
+                       VerticalOptions="Center" HorizontalTextAlignment="Center" />
+                <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                       WidthRequest="18" HeightRequest="18" />
+                    <Button Text="下一步 →" Style="{StaticResource BtnPrimary}"
+                            FontSize="13" Padding="18,7"
+                            IsVisible="{Binding ShowNext}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                            Command="{Binding NextCommand}" />
+                    <Button Text="创建角色" Style="{StaticResource BtnPrimary}"
+                            FontSize="13" Padding="18,7"
+                            IsVisible="{Binding IsLastStep}"
+                            IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                            Command="{Binding CreateCommand}" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

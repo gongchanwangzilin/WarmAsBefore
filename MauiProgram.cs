@@ -193,6 +193,9 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         builder.Services.AddTransient<OutfitPage>();
         builder.Services.AddTransient<OutfitViewModel>();
         builder.Services.AddTransient<SavePage>();
+        // 云存档：入口在存档页顶部那一行；配置与浏览都在这一页
+        builder.Services.AddTransient<CloudSavesPage>();
+        builder.Services.AddTransient<CloudSavesViewModel>();
         builder.Services.AddTransient<GamePage>();
         builder.Services.AddTransient<PetPage>();
         builder.Services.AddTransient<NovelSelectPage>();
@@ -201,9 +204,24 @@ builder.Services.AddSingleton<Modules.GameModule.GameSkillTracker>();
         // 开局前的一屏：绑定世界树 + 写人设；「本局设定」也走这一页
         builder.Services.AddTransient<NewRunPage>();
         builder.Services.AddTransient<CharacterLibraryPage>();
+        // 新建角色：角色库顶上那颗按钮进来的四步向导
+        builder.Services.AddTransient<NewCharacterPage>();
+        builder.Services.AddTransient<NewCharacterViewModel>();
+        // 角色包导出：列表每行的「导出」，打包在后台线程上做
+        builder.Services.AddSingleton<CharacterPackService>();
+        builder.Services.AddSingleton<Modules.Outfit.FigureComposer>();
+        builder.Services.AddSingleton<Modules.Outfit.FigurePackService>();
+        builder.Services.AddSingleton<Modules.Outfit.OutfitAssetPipeline>();
+        // 头像裁剪：从相册/拍照进来就地裁成方形，返回裁剪结果路径
+        builder.Services.AddTransient<AvatarCropPage>();
+        builder.Services.AddTransient<AvatarCropViewModel>();
+        // 单例：调用方在 OpenAsync 上等结果，页面必须拿到同一个实例才能把结果交回去
+        builder.Services.AddSingleton<AvatarCropService>();
         // 角色工作室：列表那一行点进来的一页
         builder.Services.AddTransient<CharacterStudioPage>();
         builder.Services.AddTransient<CharacterStudioViewModel>();
+        builder.Services.AddTransient<Views.FigurePackPage>();
+        builder.Services.AddTransient<FigurePackViewModel>();
         builder.Services.AddTransient<ShopPage>();
         builder.Services.AddTransient<ShowcaseListPage>();
         builder.Services.AddTransient<ShowcaseEditPage>();

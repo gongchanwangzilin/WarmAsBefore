@@ -1,0 +1,283 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.FigurePackPage"
+             x:Name="Page"
+             Title="形象包"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <ContentPage.Resources>
+        <!-- 输入行的样式原本只存在于工作室页；形象包页要填包 id / 提示词，照同一档补齐。 -->
+        <Style x:Key="FieldLabel" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="Margin" Value="2,0,0,4" />
+        </Style>
+        <Style x:Key="Field" TargetType="Entry">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+        <Style x:Key="FieldMulti" TargetType="Editor">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,Auto,*">
+        <Grid Background="{DynamicResource WBarBrush}"
+              Padding="{DynamicResource WPadWell}" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                    Command="{Binding BackCommand}" />
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="形象包" Style="{StaticResource TxtTitle}" />
+                <Label Text="新版着装 · 绑定后主界面与工作室一起换" Style="{StaticResource TxtCaption}" />
+            </VerticalStackLayout>
+        </Grid>
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+
+        <ScrollView Grid.Row="2" Padding="16,14,16,32">
+            <VerticalStackLayout Spacing="14" MaximumWidthRequest="880" HorizontalOptions="Fill">
+
+                <!-- 先选人：绑定与解绑都作用在这一位身上 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="绑给谁" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Picker ItemsSource="{Binding Characters}"
+                                    SelectedItem="{Binding SelectedCharacter}"
+                                    ItemDisplayBinding="{Binding Label}"
+                                    Title="选择角色"
+                                    FontSize="13" />
+                            <ActivityIndicator Grid.Column="1" IsRunning="{Binding Busy}"
+                                               IsVisible="{Binding Busy}" VerticalOptions="Center" />
+                        </Grid>
+                        <Label Text="{Binding CurrentPackLabel}" Style="{StaticResource TxtBodySm}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="绑定只改这个角色的形象来源；旧版 SpriteMap 立绘不会被删，随时能解绑回去。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 预览：点下面任意一个包，先看合成结果，再播动作 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Label Text="预览与动作" Style="{StaticResource TxtSubhead}" />
+                            <Label Grid.Column="1" Text="{Binding PreviewTitle}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                   LineBreakMode="TailTruncation" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                            <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                                    WidthRequest="128" HeightRequest="218"
+                                    StrokeShape="RoundRectangle 12">
+                                <Grid>
+                                    <Image Source="{Binding PreviewSource}" Aspect="AspectFit"
+                                           IsVisible="{Binding HasPreview}" />
+                                    <Label Text="点一个包开始预览" Style="{StaticResource TxtCaption}"
+                                           HorizontalOptions="Center" VerticalOptions="Center"
+                                           IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}" />
+                                </Grid>
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="8">
+                                <Picker ItemsSource="{Binding PreviewOutfits}"
+                                        SelectedItem="{Binding SelectedPreviewOutfit}"
+                                        ItemDisplayBinding="{Binding Label}"
+                                        Title="服装" FontSize="13" />
+                                <Picker ItemsSource="{Binding PreviewEmotions}"
+                                        SelectedItem="{Binding SelectedPreviewEmotion}"
+                                        ItemDisplayBinding="{Binding Label}"
+                                        Title="表情" FontSize="13" />
+                                <Picker ItemsSource="{Binding Motions}"
+                                        SelectedItem="{Binding SelectedMotion}"
+                                        ItemDisplayBinding="{Binding Label}"
+                                        Title="动作" FontSize="13" />
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                    <Button Text="{Binding PreviewPlayLabel}" Style="{StaticResource BtnPrimarySm}"
+                                            IsEnabled="{Binding CanPlayMotion}"
+                                            Command="{Binding PlayMotionCommand}" />
+                                    <Label Grid.Column="1" Text="{Binding PreviewStatus}"
+                                           Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                           LineBreakMode="WordWrap" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Label Text="动作预览只读当前包：走路动作按位移算相位，和主界面共用同一套 WalkCycle；页面离开会自动停。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- AI 素材流水线：生图 → 切图 → 动作录入 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="AI 着装素材" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="生图模型画一张部件素材表 → 这里按网格切开并写入包 → 动画由外部按帧渲染或录成透明视频 → 回到这里导入动作。没有开启画面生成时不会假装成功。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="包 id" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding GeneratePackId}"
+                                       Placeholder="figure_maid" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                <Label Text="显示名（可空）" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding GenerateName}"
+                                       Placeholder="新形象" />
+                            </VerticalStackLayout>
+                        </Grid>
+
+                        <Editor Style="{StaticResource FieldMulti}" HeightRequest="64"
+                                Text="{Binding GeneratePrompt}"
+                                Placeholder="例：同一位少女的头发、上衣、裙子、鞋子分件，透明背景" />
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="行" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding SliceRows}"
+                                       Keyboard="Numeric" WidthRequest="58" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                <Label Text="列" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding SliceColumns}"
+                                       Keyboard="Numeric" WidthRequest="58" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="2" Spacing="0">
+                                <Label Text="槽位" Style="{StaticResource FieldLabel}" />
+                                <Picker ItemsSource="{Binding Slots}" SelectedItem="{Binding SliceSlot}"
+                                        FontSize="13" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="3" Text="生成并切图" Style="{StaticResource BtnPrimarySm}"
+                                    VerticalOptions="End"
+                                    IsEnabled="{Binding PipelineBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding GeneratePartsCommand}" />
+                        </Grid>
+
+                        <BoxView Style="{StaticResource HSepInset}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <VerticalStackLayout Spacing="0">
+                                <Label Text="动作 id" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding MotionId}"
+                                       Placeholder="walk" />
+                            </VerticalStackLayout>
+                            <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                <Label Text="取样帧率" Style="{StaticResource FieldLabel}" />
+                                <Entry Style="{StaticResource Field}" Text="{Binding MotionFps}"
+                                       Keyboard="Numeric" WidthRequest="72" />
+                            </VerticalStackLayout>
+                        </Grid>
+                        <Label Text="把透明背景视频或按顺序排好的 PNG 帧录成动作。视频抽帧需要本机 ffmpeg；没有时请改用帧序列。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <FlexLayout Direction="Row" Wrap="Wrap">
+                            <Button Text="导入帧序列…" Style="{StaticResource BtnGhostSm}"
+                                    Margin="0,0,6,6"
+                                    IsEnabled="{Binding PipelineBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding ImportFramesCommand}" />
+                            <Button Text="导入透明视频…" Style="{StaticResource BtnGhostSm}"
+                                    Margin="0,0,6,6"
+                                    IsEnabled="{Binding PipelineBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding ImportVideoCommand}" />
+                        </FlexLayout>
+                        <Label Text="{Binding PipelineStatus}" Style="{StaticResource TxtCaption}"
+                               TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 导入：zip 里必须有 figure.json -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="导入形象包" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="选一个 zip。压缩包根目录（或唯一的一层文件夹）里要有 figure.json，贴图路径按包内相对路径解析。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Button Text="选择 zip 导入" Style="{StaticResource BtnPrimarySm}"
+                                HorizontalOptions="Start"
+                                IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}"
+                                Command="{Binding ImportCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                       TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
+
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text="已安装" Style="{StaticResource TxtSubhead}" />
+                        <Label Grid.Column="1" Text="{Binding Packs.Count, StringFormat='共 {0} 个'}"
+                               Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                    </Grid>
+
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="还没有形象包。导入一个 zip 就能开始用新版着装。"
+                                   Style="{StaticResource TxtCaption}" Margin="14,14"
+                                   IsVisible="{Binding HasPacks, Converter={StaticResource InverseBool}}" />
+
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Packs}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:FigurePackRow">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPackCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
+                                                               LineBreakMode="TailTruncation" />
+                                                        <Label Grid.Column="1" Text="预览中"
+                                                               Style="{StaticResource TxtCaption}"
+                                                               TextColor="{DynamicResource AccentWarmFg}"
+                                                               IsVisible="{Binding IsSelected}" />
+                                                    </Grid>
+                                                    <Label Grid.Row="1" Text="{Binding Detail}"
+                                                           Style="{StaticResource TxtRowDesc}"
+                                                           LineBreakMode="TailTruncation" />
+                                                    <FlexLayout Grid.Row="2" Direction="Row" Wrap="Wrap"
+                                                                JustifyContent="End">
+                                                        <Button Text="{Binding BindLabel}"
+                                                                Style="{StaticResource BtnNeumorphSm}"
+                                                                FontSize="12" Padding="12,4" Margin="0,0,6,4"
+                                                                IsEnabled="{Binding CanBind}"
+                                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.BindCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                        <Button Text="解绑" Style="{StaticResource BtnGhostSm}"
+                                                                FontSize="12" Padding="12,4" Margin="0,0,6,4"
+                                                                IsVisible="{Binding IsBound}"
+                                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.UnbindCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                        <Button Text="删除" Style="{StaticResource BtnGhostSm}"
+                                                                FontSize="12" Padding="12,4" Margin="0,0,0,4"
+                                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                    </FlexLayout>
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <Label Text="点任意一行选中它：上面会显示这一包的服装、表情与动作，绑定/解绑仍只作用于「绑给谁」里选中的角色。"
+                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+
+                <Label Text="形象包由部件、服装、配色与动作组成；缺图或包损坏时会自动回退到旧版立绘，不会把角色变空白。"
+                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>
