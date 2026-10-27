@@ -392,12 +392,19 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
 
         if (replay)
         {
-            _totalGrowMs = Math.Max(600, mesh.TotalGrowMs);
+            // 网大的时候先出图：几百个点还按顺序一片片长，等的人会以为页面卡死了。
+            // 阈值与开关都在设置里，默认 240 个点以上直接展开。
+            var auto = _settings.Current;
+            var skip = auto.GraphAutoSkipAnim && nodes.Count >= Math.Max(20, auto.GraphSkipAnimNodes);
+            _totalGrowMs = skip ? 1 : Math.Max(600, mesh.TotalGrowMs);
             _growStart = DateTime.UtcNow;
-            Drawable.Grown = false;
-            Drawable.ElapsedMs = 0;
-            GrowthHint = $"正在长出 {chips.Count} 片 · 每片 {depth} 圈";
-            ResumeClock();
+            Drawable.Grown = skip;
+            Drawable.ElapsedMs = skip ? _totalGrowMs : 0;
+            GrowthHint = skip
+                ? $"已直接展开 · {nodes.Count} 个概念"
+                : $"正在长出 {chips.Count} 片 · 每片 {depth} 圈";
+            // 跳过展开时连时钟都不开：静态出一张完整的网，也不必为呼吸效果空转。
+            if (skip) StopClock(); else ResumeClock();
         }
         FitToContent();
         Touch();
@@ -610,7 +617,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
 
     [ObservableProperty] private string? _selectedId;
 
-    /// <summary>选中态要立刻进画面：以前只有卡片在变，画布上看不出自己点了哪个。</summary>
+    /// <summary>选中态要立刻同步到画布，不能只更新卡片。</summary>
     partial void OnSelectedIdChanged(string? value)
     {
         Drawable.SelectedId = value;
@@ -746,7 +753,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         Touch();
     }
 
-    /// <summary>把当前选中的点钉住：画面挪到它，并顺手只看它那一片。</summary>
+    /// <summary>把当前选中的点钉住：画面挪到它，并只显示它那一片。</summary>
     [RelayCommand]
     private void MarkSelected()
     {

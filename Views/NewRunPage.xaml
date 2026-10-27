@@ -13,6 +13,10 @@
       新开一局 / 本局设定：世界树绑定与人设放在同一屏，因为它们是同一件事的两面——
       「这段关系发生在哪个世界」「你是谁」。不绑定世界树也能开始，但地图会锁上，
       这一条写在「普通酒馆」那一行里，不藏在帮助文档。
+
+      新建走四步：世界 → 人设 → 细则 → 回顾。步数账本与 SetupPage 同一套：
+      Position + AtXxx + 只有当前那块可见。关掉 OOBE 时同一份模板把四块一起摊开，
+      不复制任何业务，也不另做一个页面。
     -->
     <ContentPage.Resources>
         <Style x:Key="FieldLabel" TargetType="Label">
@@ -32,12 +36,22 @@
             <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
             <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
         </Style>
+        <Style x:Key="StepTitle" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeDisplay}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
+        <Style x:Key="StepSub" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmMuted}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- 顶栏 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
@@ -49,81 +63,127 @@
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
             </Grid>
         </Border>
-        <BoxView Grid.Row="1" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill"
-                 VerticalOptions="Start" InputTransparent="True" />
 
-        <ScrollView Grid.Row="1" Padding="24,20,24,28">
-            <VerticalStackLayout Spacing="18" MaximumWidthRequest="880" HorizontalOptions="Fill">
+        <!-- 进度：四段等宽，走过的段点亮；单页模式下不出现（一屏已经全在眼前） -->
+        <Grid Grid.Row="1" Padding="24,14,24,0" RowDefinitions="Auto,Auto" RowSpacing="8"
+              IsVisible="{Binding IsOobe}">
+            <Grid ColumnDefinitions="*,6,*,6,*,6,*" HeightRequest="4">
+                <Grid Grid.Column="0">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached1}" />
+                </Grid>
+                <Grid Grid.Column="2">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached2}" />
+                </Grid>
+                <Grid Grid.Column="4">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached3}" />
+                </Grid>
+                <Grid Grid.Column="6">
+                    <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
+                    <BoxView Color="{DynamicResource BeigeAccent300}" CornerRadius="2" HeightRequest="4"
+                             IsVisible="{Binding Reached4}" />
+                </Grid>
+            </Grid>
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                <Label Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
+                <Button Grid.Column="1" Text="← 上一步" Style="{StaticResource BtnText}"
+                        Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
+                        VerticalOptions="Center" IsVisible="{Binding CanGoBack}"
+                        Command="{Binding PrevStepCommand}" />
+                <Label Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+                       FontFamily="Bahnschrift" VerticalOptions="Center" />
+            </Grid>
+        </Grid>
 
-                <VerticalStackLayout Spacing="6">
-                    <Label Text="ORIGIN" Style="{StaticResource Eyebrow}" />
-                    <Label Text="{Binding Subtitle}" Style="{StaticResource TxtSubhead}" LineBreakMode="WordWrap" />
-                </VerticalStackLayout>
+        <!-- 正文：一次一块；单页模式下四块依次排开 -->
+        <ScrollView Grid.Row="2" x:Name="StepScroll" Padding="24,18,24,28">
+            <VerticalStackLayout Spacing="22" MaximumWidthRequest="880" HorizontalOptions="Fill">
 
-                <!-- 世界树 -->
-                <VerticalStackLayout Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <Label Text="这段关系发生在哪个世界" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
-                        <Button Grid.Column="1" Text="管理世界书" Style="{StaticResource BtnGhostSm}"
-                                Command="{Binding ManageWorldsCommand}" />
-                    </Grid>
-                    <Border Style="{StaticResource CardGroup}">
-                        <VerticalStackLayout Spacing="0">
-                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Worlds}" Spacing="0">
-                                <BindableLayout.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:WorldChoiceItem">
-                                        <VerticalStackLayout Spacing="0">
-                                            <Border Style="{StaticResource SettingRow}"
-                                                    motion:PressFeel.Enabled="True"
-                                                    motion:HoverFeel.Enabled="True"
-                                                    motion:HoverFeel.Accent="True">
-                                                <Border.GestureRecognizers>
-                                                    <TapGestureRecognizer
-                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NewRunViewModel}}, Path=SelectWorldCommand}"
-                                                        CommandParameter="{Binding Id}" />
-                                                </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                                    <BoxView WidthRequest="3" HeightRequest="24" VerticalOptions="Center"
-                                                             Color="{DynamicResource BeigeAccent300}"
-                                                             IsVisible="{Binding IsSelected}" />
-                                                    <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                                                        <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
-                                                        <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
-                                                               LineBreakMode="WordWrap" IsVisible="{Binding HasSummary}" />
-                                                    </VerticalStackLayout>
-                                                    <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center"
-                                                                         HorizontalOptions="End">
-                                                        <Label Text="已选" Style="{StaticResource TxtCaption}"
-                                                               TextColor="{DynamicResource BeigeAccent300}"
-                                                               IsVisible="{Binding IsSelected}" />
-                                                        <Label Text="{Binding Marker}" Style="{StaticResource TxtCaption}" />
-                                                    </VerticalStackLayout>
-                                                </Grid>
-                                            </Border>
-                                            <BoxView Style="{StaticResource HSepInset}" />
-                                        </VerticalStackLayout>
-                                    </DataTemplate>
-                                </BindableLayout.ItemTemplate>
+                <!-- ① 世界 -->
+                <VerticalStackLayout x:Name="StepWorld" Spacing="14" IsVisible="{Binding ShowWorldBlock}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="01 · WORLD" Style="{StaticResource Eyebrow}" IsVisible="{Binding IsOobe}" />
+                        <Label Text="这段关系发生在哪个世界" Style="{StaticResource StepTitle}" />
+                        <Label Text="{Binding Subtitle}" Style="{StaticResource StepSub}" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="世界书" Style="{StaticResource TxtSubhead}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="管理世界书" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding ManageWorldsCommand}" />
+                        </Grid>
+                        <Border Style="{StaticResource CardGroup}">
+                            <VerticalStackLayout Spacing="0">
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Worlds}" Spacing="0">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:WorldChoiceItem">
+                                            <VerticalStackLayout Spacing="0">
+                                                <Border Style="{StaticResource SettingRow}"
+                                                        motion:PressFeel.Enabled="True"
+                                                        motion:HoverFeel.Enabled="True"
+                                                        motion:HoverFeel.Accent="True">
+                                                    <Border.GestureRecognizers>
+                                                        <TapGestureRecognizer
+                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:NewRunViewModel}}, Path=SelectWorldCommand}"
+                                                            CommandParameter="{Binding Id}" />
+                                                    </Border.GestureRecognizers>
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                                        <BoxView WidthRequest="3" HeightRequest="24" VerticalOptions="Center"
+                                                                 Color="{DynamicResource BeigeAccent300}"
+                                                                 IsVisible="{Binding IsSelected}" />
+                                                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                                            <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
+                                                                   LineBreakMode="WordWrap" IsVisible="{Binding HasSummary}" />
+                                                        </VerticalStackLayout>
+                                                        <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center"
+                                                                             HorizontalOptions="End">
+                                                            <Label Text="已选" Style="{StaticResource TxtCaption}"
+                                                                   TextColor="{DynamicResource BeigeAccent300}"
+                                                                   IsVisible="{Binding IsSelected}" />
+                                                            <Label Text="{Binding Marker}" Style="{StaticResource TxtCaption}" />
+                                                        </VerticalStackLayout>
+                                                    </Grid>
+                                                </Border>
+                                                <BoxView Style="{StaticResource HSepInset}" />
+                                            </VerticalStackLayout>
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <Label Text="还没有世界书。到「世界书」里手写一份，或者让 AI 帮你造一个世界。"
+                                       Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                       IsVisible="{Binding HasNoWorlds}" />
                             </VerticalStackLayout>
-                            <Label Text="还没有世界书。到「世界书」里手写一份，或者让 AI 帮你造一个世界。"
-                                   Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
-                                   IsVisible="{Binding HasNoWorlds}" />
-                        </VerticalStackLayout>
-                    </Border>
-                    <Label Text="不绑定也能开始：那就是普通酒馆——只聊天，地图与移动会锁上。"
-                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        </Border>
+                        <Label Text="不绑定也能开始：那就是普通酒馆——只聊天，地图与移动会锁上。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
 
-                <!-- 人设 -->
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="你是谁" Style="{StaticResource TxtSection}" />
+                <!-- ② 人设 -->
+                <VerticalStackLayout x:Name="StepPersona" Spacing="14" IsVisible="{Binding ShowPersonaBlock}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="02 · YOU" Style="{StaticResource Eyebrow}" IsVisible="{Binding IsOobe}" />
+                        <Label Text="你是谁" Style="{StaticResource StepTitle}" />
+                        <Label Text="写你在这段关系里的身份：工作、习惯、和 TA 的关系、已经说好的事。留空也可以。"
+                               Style="{StaticResource StepSub}" />
+                    </VerticalStackLayout>
+
                     <Border Style="{StaticResource CardGroup}">
-                        <VerticalStackLayout Spacing="8">
-                            <Label Text="写你在这段关系里的身份：工作、习惯、和 TA 的关系、已经说好的事。留空也可以。"
-                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                            <Label Text="人设" Style="{StaticResource FieldLabel}" />
+                        <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadCard}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Label Text="人设" Style="{StaticResource FieldLabel}" VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding PersonaCount}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" />
+                            </Grid>
                             <Editor Style="{StaticResource FieldMulti}" Text="{Binding PersonaText}"
-                                    HeightRequest="150" AutoSize="Disabled"
+                                    HeightRequest="190" AutoSize="Disabled"
                                     Placeholder="比如：我叫林晚，做建筑设计，和 TA 已经结婚两年。怕冷，早上一定要喝一杯热茶；不喜欢被临时改计划。" />
                         </VerticalStackLayout>
                     </Border>
@@ -131,26 +191,133 @@
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
 
+                <!-- ③ 细则：现有 VM 只有世界与人设两项可控，这里只把它们摆清楚，不凭空造开关 -->
+                <VerticalStackLayout x:Name="StepRules" Spacing="14" IsVisible="{Binding ShowRulesBlock}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="03 · DETAILS" Style="{StaticResource Eyebrow}" IsVisible="{Binding IsOobe}" />
+                        <Label Text="开局细则" Style="{StaticResource StepTitle}" />
+                        <Label Text="没有额外要填的：这一页只把已经选好的东西摆清楚。之后也能随时从主界面回来改。"
+                               Style="{StaticResource StepSub}" />
+                    </VerticalStackLayout>
+
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Label Text="TA" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Grid.Column="2" Text="这一局的主角" Style="{StaticResource TxtRowDesc}"
+                                           VerticalOptions="Center" />
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Label Text="世界" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
+                                    </VerticalStackLayout>
+                                    <Button Grid.Column="2" Text="改" Style="{StaticResource BtnGhostSm}"
+                                            HeightRequest="32" Padding="12,4"
+                                            Command="{Binding JumpStepCommand}" CommandParameter="0" />
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                    <Label Text="人设" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding PersonaCount}" Style="{StaticResource TxtRowTitle}" />
+                                    <Button Grid.Column="2" Text="去写" Style="{StaticResource BtnGhostSm}"
+                                            HeightRequest="32" Padding="12,4"
+                                            Command="{Binding JumpStepCommand}" CommandParameter="1" />
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+                    <Label Text="开始前会先整理人格记忆，再落盘；整理好的记忆不占用之后的每一轮上下文。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <!-- ④ 回顾 -->
+                <VerticalStackLayout x:Name="StepReview" Spacing="14" IsVisible="{Binding ShowReviewBlock}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="04 · BEGIN" Style="{StaticResource Eyebrow}" IsVisible="{Binding IsOobe}" />
+                        <Label Text="就这样开始" Style="{StaticResource StepTitle}" />
+                        <Label Text="看一眼就好。开始之后，这个世界与你的人设会先变成 TA 的记忆。"
+                               Style="{StaticResource StepSub}" />
+                    </VerticalStackLayout>
+
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Label Text="与谁" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" />
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Label Text="世界" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                        <Label Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Label Text="人设" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Start" Margin="0,3,0,0" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                        <Label Text="{Binding PersonaText}" Style="{StaticResource TxtBodySm}"
+                                               LineBreakMode="WordWrap" MaxLines="4"
+                                               IsVisible="{Binding HasPersona}" />
+                                        <Label Text="还没写。开始后 TA 会先按世界书与已有的记忆认识你。"
+                                               Style="{StaticResource TxtCaption}"
+                                               IsVisible="{Binding HasPersona, Converter={StaticResource InverseBool}}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 错误与结果只在一处出现：不随步骤重复 -->
                 <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
             </VerticalStackLayout>
         </ScrollView>
 
-        <!-- 底部动作 -->
-        <BoxView Grid.Row="2" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill"
+        <!-- 底部动作：手机端固定在安全区里，不跟内容一起滚 -->
+        <BoxView Grid.Row="3" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill"
                  VerticalOptions="Start" InputTransparent="True" />
-        <Border Grid.Row="2" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+        <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}" VerticalOptions="End">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                <Label Text="{Binding SelectedWorldName, StringFormat='世界 · {0}'}" Style="{StaticResource TxtCaption}"
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                  Margin="{OnPlatform WinUI='0', Default='0,0,0,12'}">
+                <Label Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                <Button Grid.Column="1" Text="{Binding PrimaryText}" Style="{StaticResource BtnPrimary}"
-                        FontSize="13" Padding="18,7" Command="{Binding BeginCommand}" />
+                <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                    <Button Text="下一步" Style="{StaticResource BtnPrimary}"
+                            FontSize="13" Padding="18,7"
+                            Command="{Binding NextStepCommand}" IsVisible="{Binding ShowNext}" />
+                    <Button Text="{Binding PrimaryText}" Style="{StaticResource BtnPrimary}"
+                            FontSize="13" Padding="18,7"
+                            Command="{Binding BeginCommand}" IsVisible="{Binding ShowBegin}" />
+                </HorizontalStackLayout>
             </Grid>
         </Border>
 
         <!-- 人格记忆初始化：真实进度，不是循环假动画 -->
-        <Grid Grid.RowSpan="3" IsVisible="{Binding IsBusy}" BackgroundColor="{DynamicResource OverlayDim}"
+        <Grid Grid.RowSpan="4" IsVisible="{Binding IsBusy}" BackgroundColor="{DynamicResource OverlayDim}"
               ZIndex="20">
             <Border x:Name="LoadCard" Style="{StaticResource CardGroup}"
                     MaximumWidthRequest="440" Margin="28" Padding="24,22"

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 
@@ -41,7 +42,7 @@ public sealed partial class ShowcaseListViewModel : ObservableObject
         };
         if (!await _store.UpsertAsync(script))
         {
-            await Shell.Current.DisplayAlert("新建失败", "写入失败，重试", "好");
+            Toast.Error("写入失败，重试");
             return;
         }
         await LoadAsync();
@@ -63,7 +64,7 @@ public sealed partial class ShowcaseListViewModel : ObservableObject
         if (script is null) return;
         if (script.Steps.Count == 0)
         {
-            await Shell.Current.DisplayAlert("播放", "该展示案还没有任何步骤，无法播放。", "好");
+            Toast.Info("该展示案还没有任何步骤，无法播放。");
             return;
         }
         ShowcasePlayViewModel.PendingScriptId = script.Id;
@@ -177,7 +178,7 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
         var names = _allCharacters.Select(c => c.Profile.Name).ToList();
         if (names.Count == 0)
         {
-            await Shell.Current.DisplayAlert("角色", "角色库为空，请先在角色库中创建或导入角色。", "好");
+            Toast.Warn("角色库为空，请先在角色库中创建或导入角色。");
             return;
         }
         var choice = await Shell.Current.DisplayActionSheet("选择展示案主角", "取消", null, names.ToArray());
@@ -223,7 +224,7 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
         var rel = await _store.ImportMaterialAsync(_script.Id, pick.FullPath);
         if (rel == null)
         {
-            await Shell.Current.DisplayAlert("导入失败", "素材复制失败。", "好");
+            Toast.Error("素材复制失败。");
             return;
         }
         var step = new ShowcaseStep { Type = "cg", CgPath = rel };
@@ -235,7 +236,7 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
     {
         if (SpriteKeys.Count == 0)
         {
-            await Shell.Current.DisplayAlert("立绘", "请先选择一个拥有立绘素材的角色。", "好");
+            Toast.Info("请先选择一个拥有立绘素材的角色。");
             return;
         }
         var key = await Shell.Current.DisplayActionSheet("选择立绘", "取消", null, SpriteKeys.ToArray());
@@ -271,7 +272,8 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
         if (string.IsNullOrEmpty(_script.Id))
             _script = _script with { Id = Guid.NewGuid().ToString("N")[..10], CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow };
         var rel = await _store.ImportMaterialAsync(_script.Id, pick.FullPath);
-        await Shell.Current.DisplayAlert("导入完成", rel is null ? "失败" : $"已导入：{Path.GetFileName(rel)}", "好");
+        if (rel is null) Toast.Error("导入失败。");
+        else Toast.Success($"已导入：{Path.GetFileName(rel)}");
     }
 
     private void AppendStep(ShowcaseStep step)
@@ -333,7 +335,7 @@ public sealed partial class ShowcaseEditViewModel : ObservableObject
         _script.Steps = Steps.Select(d => d.Step).ToList();
         _script.UpdatedAt = DateTime.UtcNow;
         await _store.UpsertAsync(_script);
-        await Shell.Current.DisplayAlert("保存", "展示案已保存", "好");
+        Toast.Success("展示案已保存");
     }
 
     [RelayCommand]

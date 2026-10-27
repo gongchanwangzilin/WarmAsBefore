@@ -4,9 +4,11 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Dispatching;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Modules.Automation;
+using WarmAsBefore.Modules.Outfit;
 using WarmAsBefore.Modules.RealWorld;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
@@ -28,6 +30,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly SpeechService _speech;
     private readonly CharacterLibrary _chars;
     private readonly StorageProvider _store;
+    private readonly FigurePackService _figures;
     private readonly PetService _pet;
     private readonly MapService _map;
     private readonly Modules.Market.GiftPanelService _gifts;
@@ -113,6 +116,11 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private ImageSource? _sceneBackdrop;
     [ObservableProperty] private string _sceneVideoPath = "";
     [ObservableProperty] private bool _sceneVideoOn;
+    /// <summary>
+    /// 当前该显示的角色背景（场景背景缺席时才轮得到它）。
+    /// 视图层监听它做 220ms 交叉淡入；null 表示回到场景色。
+    /// </summary>
+    [ObservableProperty] private CharacterBackdropState? _characterBackdrop;
     [ObservableProperty] private bool _isWalking;
     [ObservableProperty] private double _spriteLoadingProgress = 0;
     [ObservableProperty] private string _statusText = "";
@@ -239,6 +247,25 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>标定算出的基准位移；动画在它之上做偏移，动画结束回到它。</summary>
     private double _baseSpriteX, _baseSpriteY;
 
+    // ---- 新版着装（形象包） ----
+    /// <summary>当前角色是否真的走形象包：开关开着、绑了包、包能读出来，三者缺一就回退 SpriteMap。</summary>
+    private bool _figureActive;
+    private FigurePack? _figurePack;
+    private List<string> _figureOutfits = new();
+    private List<string> _figureEmotions = new();
+    /// <summary>连续切表情时只认最后一次合成结果，防止慢的那一张盖掉新的一张。</summary>
+    private int _figureRenderVersion;
+    /// <summary>静态立绘的缓存路径：走路动画结束后回到这一张，不重新合成。</summary>
+    private string? _figureStaticPath;
+    /// <summary>行走动作的取消源；每次 IsWalking 切换都换一代，旧循环不会把旧帧贴回来。</summary>
+    private CancellationTokenSource? _walkMotionCts;
+    /// <summary>上一次采样到的行走相位（0~1）。从待机起步时沿用，避免跳回第 0 帧。</summary>
+    private double _walkPhase;
+    private int _walkFrameIndex = -1;
+    /// <summary>主界面行走帧的落盘尺寸；手机端降到 720×1280，避免多帧同时解码吃爆内存。</summary>
+    private const int WalkFrameDesktopWidth = 1080;
+    private const int WalkFramePhoneWidth = 720;
+
     [ObservableProperty] private double _spriteFitW = 260;
     [ObservableProperty] private double _spriteFitH = 420;
 
@@ -276,8 +303,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         var id = _outboundPendingId;
         if (string.IsNullOrEmpty(id)) return;
         var ok = await _bridge.ConfirmOutboundAsync(id);
-        if (!ok) await Shell.Current.DisplayAlert("发送失败",
-            "可能是超过 48 小时没互动，QQ 不允许机器人主动发起会话；让对方先给机器人发条消息即可。", "好");
+        if (!ok) Toast.Warn("发送失败：可能是超过 48 小时没互动，QQ 不允许机器人主动发起会话；让对方先给机器人发条消息即可。");
         RefreshOutbound();
     }
 
@@ -293,7 +319,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         TaskOrchestrator auto, SaveManager save, WeatherProvider weather, RealTimeProvider time,
         PhysiologicalTracker phys, AudioController audio, SpeechService speech,
         CharacterLibrary chars, StorageProvider store, PetService pet, MapService map,
-        Modules.Market.GiftPanelService gifts, SettingsManager settings,
+        FigurePackService figures, Modules.Market.GiftPanelService gifts, SettingsManager settings,
         Modules.Affection.AffectionLevelUpService levelUp,
         Modules.Cg.CgStore cg, Modules.Cg.CgViewPayload cgView,
         Modules.Scene.SceneDirector sceneDirector, SceneCalibrationService cal,
@@ -315,6 +341,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _speech = speech;
         _chars = chars;
         _store = store;
+        _figures = figures;
         _pet = pet;
         _map = map;
         _gifts = gifts;
@@ -344,6 +371,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
         _chat.SetAllowSilence(_settings.Current.AllowSilence);
+        // 小组件配置先合并好：顶栏/左栏进门时就该是用户摆过的样子，而不是先闪一下旧排版。
+        InitWidgets();
         // 设置变更时把天气事件参数同步进 SceneDirector（改概率/开关后无需重启即可生效）。
         _settings.Applied += SyncWeatherEventConfig;
         SilenceHintText = _settings.Current.AllowSilence
@@ -404,6 +433,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             await _map.InitializeAsync();
             _map.SceneChanged += OnMapSceneChanged;
+            _map.WalkSegmentStarted += OnWalkSegmentStarted;
+            _map.WalkRouteCompleted += OnWalkRouteCompleted;
             _map.MapChanged += OnMapChanged;
             _chat.SetMapContext(BuildMapContext() + "\n" + _sceneDirector.BuildContext());
             _sceneDirector.ModeApplied += OnSceneModeApplied;
@@ -448,6 +479,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
+            // 到达一站先收回走路帧，再换背景；下一段由 WalkSegmentStarted 重新起拍。
+            StopWalkMotion();
             ApplyScene(scene);
             IsWalking = true;
             LocationLabel = $"{_map.Map.LocationNameOf(scene.Id)} · {scene.Name}";
@@ -466,6 +499,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             SceneBackdrop = null;
             ClearCalibrationGate();
+            RefreshCharacterBackdrop();
             return;
         }
         var bg = _map.ResolveBackground(scene);
@@ -486,6 +520,33 @@ public sealed partial class MainGameViewModel : ObservableObject
 
         UpdateCalibrationGate(scene);
         _ = RefreshSpriteGeometryAsync(scene);
+        // 场景背景缺席时，角色自己的背景才有资格出现；有场景就一定压过角色背景。
+        RefreshCharacterBackdrop();
+    }
+
+    /// <summary>
+    /// 角色背景只在「场景模式背景 / 地图背景 / 场景视频都没有」时接管舞台。
+    /// 优先级是 场景背景 &gt; 角色背景 &gt; 纯色，所以这里不跟场景争抢，只负责算一个可显示项。
+    /// </summary>
+    private void RefreshCharacterBackdrop()
+    {
+        if (SceneBackdrop is not null || SceneVideoOn)
+        {
+            CharacterBackdrop = null;
+            return;
+        }
+        var ch = _char ?? _engine.ActiveCharacter;
+        var path = CharacterBackgroundService.Resolve(ch, _store.Root, inGame: true);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            CharacterBackdrop = null;
+            return;
+        }
+        var fit = CharacterBackgroundService.NormalizeFit(ch?.BackgroundFit);
+        var crop = ch?.BackgroundCrop ?? new BackgroundCrop();
+        CharacterBackdrop = new CharacterBackdropState(
+            path, fit, crop.X, crop.Y, crop.W, crop.H,
+            CharacterBackgroundService.IsVideo(path));
     }
 
     /// <summary>承载背景与立绘的容器尺寸变化（页面 SizeChanged 转发）。</summary>
@@ -891,7 +952,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         try
         {
             _levelUp.Level = newLevel;
-            _levelUp.CharacterName = _char.Profile.Name;
+            _levelUp.CharacterName = CharacterMask.DisplayName(_char, _settings.Current.MaskUnintroducedNames);
             _levelUp.Title = Modules.Affection.AffectionLevel.TitleOf(newLevel);
             _levelUp.SpritePath = Modules.Affection.SpritePathResolver.Resolve(
                 _char, _outfitKey, _currentEmotion, _defaultEmotion, _store.Root);
@@ -931,32 +992,49 @@ public sealed partial class MainGameViewModel : ObservableObject
 
         // 服装 / 表情：一律**读档恢复**，这里绝不重新随机。
         //
-        // 旧实现每次构造 VM 都 Random.Shared.Next 一次。而 MainGamePage / MainGameViewModel
-        // 是 transient，每次 GoToAsync("main") 都会新建 —— 于是「进入存档」「桌宠模式回来」
-        // 都会自动换立绘。随机只应发生在新建存档那一刻（见 CharacterSelectViewModel.Pick /
-        // CreateCharacter），其余一律沿用上次状态。
-        var outfits = ch.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList();
-        if (outfits.Count > 0)
+        // 随机只在新建存档那一刻发生（见 CharacterSelectViewModel.Pick / CreateCharacter），
+        // 其余一律沿用上次状态。MainGamePage / MainGameViewModel 是 transient，
+        // 每次 GoToAsync("main") 都会新建；若在构造函数里随机，「进入存档」「桌宠模式回来」
+        // 都会自动换立绘。
+        var savedOutfit = ch.State.CurrentOutfit;
+        var savedEmotion = ch.State.CurrentEmotion;
+        _figureActive = await TryLoadFigurePackAsync(ch);
+        if (_figureActive)
         {
-            // 存档里记过且该服装仍然存在 → 沿用；否则回退到第一个（老存档从没写过这两个字段，
-            // 只能用确定性回退，至少保证此后每次进来都一样）
-            var savedOutfit = ch.State.CurrentOutfit;
-            _outfitKey = outfits.Contains(savedOutfit) ? savedOutfit : outfits[0];
+            // 形象包的服装/表情是合成器的两条输入轴，不再依赖 SpriteMap 的键。
+            // 存档里记过且包里仍然存在 → 沿用；否则确定性回退，避免每次读档换一张脸。
+            _outfitKey = _figureOutfits.FirstOrDefault(o =>
+                            string.Equals(o, savedOutfit, StringComparison.OrdinalIgnoreCase))
+                         ?? _figureOutfits.FirstOrDefault()
+                         ?? "default";
+            _defaultEmotion = _figureEmotions.FirstOrDefault(e =>
+                                  string.Equals(e, savedEmotion, StringComparison.OrdinalIgnoreCase))
+                              ?? _figureEmotions.FirstOrDefault()
+                              ?? "normal";
         }
         else
         {
-            _outfitKey = ch.State.CurrentOutfit;
-        }
+            var outfits = ch.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList();
+            if (outfits.Count > 0)
+            {
+                // 存档里记过且该服装仍然存在 → 沿用；否则回退到第一个（老存档从没写过这两个字段，
+                // 只能用确定性回退，至少保证此后每次进来都一样）
+                _outfitKey = outfits.Contains(savedOutfit) ? savedOutfit : outfits[0];
+            }
+            else
+            {
+                _outfitKey = savedOutfit;
+            }
 
-        var emotions = ch.SpriteMap.Keys
-            .Where(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal))
-            .Select(k => k.Split('/')[1])
-            .Distinct()
-            .ToList();
-        var savedEmotion = ch.State.CurrentEmotion;
-        _defaultEmotion = emotions.Contains(savedEmotion)
-            ? savedEmotion
-            : (emotions.Count > 0 ? emotions[0] : "normal");
+            var emotions = ch.SpriteMap.Keys
+                .Where(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal))
+                .Select(k => k.Split('/')[1])
+                .Distinct()
+                .ToList();
+            _defaultEmotion = emotions.Contains(savedEmotion)
+                ? savedEmotion
+                : (emotions.Count > 0 ? emotions[0] : "normal");
+        }
         _currentEmotion = _defaultEmotion;
 
         // 写回角色状态，随存档一起持久化 —— 这是「按上次立绘状态恢复」能成立的前提
@@ -966,7 +1044,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         SetEmotion(_currentEmotion);
         MainThread.BeginInvokeOnMainThread(() =>
         {
-            CharacterName = ch.Profile.Name;
+            RefreshCharacterName();
             _chat.ConfigureCharacter(ch.Profile);
             _chat.SetRoster(_chars.RosterContext(ch.Profile.Id, _engine.State.AllowedCharacters));
             RestoreSession();
@@ -974,6 +1052,8 @@ public sealed partial class MainGameViewModel : ObservableObject
             _blackout.SyncFromState();
         });
         App.WriteLog($"LoadCharacterAsync: char={ch.Profile.Name}, outfit={_outfitKey}, emotion={_currentEmotion}, sprites={ch.SpriteMap.Count}");
+        // 角色读进来后才知道有没有专属背景；切角色/读档都走这里，视图会按新旧两层交叉淡入。
+        MainThread.BeginInvokeOnMainThread(RefreshCharacterBackdrop);
         _ = _audio.StartBgmRotationAsync();
     }
 
@@ -985,17 +1065,48 @@ public sealed partial class MainGameViewModel : ObservableObject
             Messages.Add(new DialogueMessage { Role = r.Role, Text = r.Text, Time = r.At.ToString("HH:mm") });
     }
 
+    /// <summary>
+    /// 主界面上的名字：AI 自行加进来的人还没自我介绍时先显示「？？？」。
+    /// 这一层只改显示，不动角色档案里的真名。
+    /// </summary>
+    private void RefreshCharacterName()
+    {
+        if (_char is null) return;
+        var wasCharacter = !string.IsNullOrEmpty(LastSpeakerName) && LastSpeakerName != "你";
+        CharacterName = CharacterMask.DisplayName(_char, _settings.Current.MaskUnintroducedNames);
+        if (wasCharacter) LastSpeakerName = CharacterName;
+    }
+
     private void SetEmotion(string emotion)
     {
         if (_char is null) return;
-        _currentEmotion = _char.SpriteMap.ContainsKey($"{_outfitKey}/{emotion}") ? emotion : _defaultEmotion;
+        _currentEmotion = _figureActive
+            ? (_figureEmotions.Contains(emotion, StringComparer.OrdinalIgnoreCase) ? emotion : _defaultEmotion)
+            : (_char.SpriteMap.ContainsKey($"{_outfitKey}/{emotion}") ? emotion : _defaultEmotion);
         // 表情也要写回角色状态，随存档持久化；否则下次进来又回到初次的表情
         _char.State.CurrentOutfit = _outfitKey;
         _char.State.CurrentEmotion = _currentEmotion;
         ApplySprite();
     }
 
+    /// <summary>
+    /// 选图顺序：新版形象包（开关开着、绑了包、包能读出来）优先；否则走旧的 SpriteMap。
+    /// 合成失败时同一次调用立刻回退旧路径，屏幕不会空着——旧版换装始终可用。
+    /// </summary>
     private void ApplySprite()
+    {
+        if (_char is null || string.IsNullOrEmpty(_outfitKey)) { SpriteVisible = false; return; }
+        if (_figureActive)
+        {
+            _ = ApplyFigurePackSpriteAsync();
+            return;
+        }
+        // 新版分支已经失效时，别让旧的行走循环继续往舞台上贴合成帧。
+        StopWalkMotion(restoreStatic: false);
+        ApplySpriteMap();
+    }
+
+    private void ApplySpriteMap()
     {
         if (_char is null || string.IsNullOrEmpty(_outfitKey)) { SpriteVisible = false; return; }
         var key = $"{_outfitKey}/{_currentEmotion}";
@@ -1023,6 +1134,107 @@ public sealed partial class MainGameViewModel : ObservableObject
             MainThread.BeginInvokeOnMainThread(() => _ = ApplySpriteCoreAsync(full));
     }
 
+    /// <summary>
+    /// 读形象包的服装轴与表情轴。失败不抛：调用方据此回退 SpriteMap。
+    /// 表情键来自部件的 EmotionTextures；包没给表情时至少保留 normal，合成器按基础表情出图。
+    /// </summary>
+    private async Task<bool> TryLoadFigurePackAsync(CharacterData ch)
+    {
+        try
+        {
+            if (FigureCompat.ShouldFallbackToSpriteMap(_settings, ch)) return false;
+            var pack = await _figures.LoadAsync(ch.FigurePackId);
+            if (pack is null) return false;
+
+            _figurePack = pack;
+            _figureOutfits = pack.Outfits
+                .Select(o => o.Id)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (_figureOutfits.Count == 0) _figureOutfits.Add("default");
+
+            _figureEmotions = new List<string> { "normal" };
+            foreach (var part in pack.Parts)
+            {
+                foreach (var emotion in part.EmotionTextures.Keys)
+                {
+                    if (string.IsNullOrWhiteSpace(emotion)) continue;
+                    if (!_figureEmotions.Contains(emotion, StringComparer.OrdinalIgnoreCase))
+                        _figureEmotions.Add(emotion);
+                }
+            }
+            return true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameVM.TryLoadFigurePack -> " + ex);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// 新版着装出图：按当前服装/表情合成一张 1080×1920 的透明 PNG。
+    /// 手机上同样走这张 PNG（不做透明视频解码）——合成一次，主界面、桌宠、工作室共用缓存。
+    /// </summary>
+    private async Task ApplyFigurePackSpriteAsync()
+    {
+        var ch = _char;
+        if (ch is null || !_figureActive) return;
+        var version = ++_figureRenderVersion;
+        try
+        {
+            var outfit = _figureOutfits.FirstOrDefault(o =>
+                string.Equals(o, _outfitKey, StringComparison.OrdinalIgnoreCase));
+            if (string.IsNullOrWhiteSpace(outfit) && _figurePack is { Outfits.Count: > 0 })
+                outfit = _figurePack.Outfits[0].Id;
+
+            var emotion = _figureEmotions.FirstOrDefault(e =>
+                string.Equals(e, _currentEmotion, StringComparison.OrdinalIgnoreCase)) ?? "normal";
+
+            var path = await _figures.RenderAsync(
+                ch.FigurePackId, outfit ?? "", "", emotion, 1080, 1920);
+
+            if (version != _figureRenderVersion
+                || _char is null
+                || !string.Equals(ch.Profile.Id, _char.Profile.Id, StringComparison.Ordinal))
+                return;
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                App.WriteLog("MainGameVM.ApplyFigurePack: 合成失败，回退 SpriteMap -> " + ch.FigurePackId);
+                _figureActive = false;
+                StopWalkMotion(restoreStatic: false);
+                ApplySpriteMap();
+                return;
+            }
+
+            // 合成图本来就是 1080×1920 标准画布；用缓存路径做标定键，改素材后换新键，
+            // 不会把旧图的偏移套到新图上。
+            _figureStaticPath = path;
+            _spriteKey = path;
+            // 行走中换服装/表情：静态图先备好，再让行走循环用新参数重新取帧；
+            // 不把当前行走帧盖成静态图，否则每换一次表情都会闪一下。
+            if (IsWalking)
+            {
+                StartWalkMotion();
+                return;
+            }
+            if (MainThread.IsMainThread) await ApplySpriteCoreAsync(path);
+            else await MainThread.InvokeOnMainThreadAsync(() => ApplySpriteCoreAsync(path));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameVM.ApplyFigurePack -> " + ex);
+            if (version == _figureRenderVersion)
+            {
+                _figureActive = false;
+                StopWalkMotion(restoreStatic: false);
+                ApplySpriteMap();
+            }
+        }
+    }
+
     private async Task ApplySpriteCoreAsync(string full)
     {
         SpriteLoadingProgress = 0.1;
@@ -1047,6 +1259,122 @@ public sealed partial class MainGameViewModel : ObservableObject
             StatusText = "立绘加载失败";
         }
     }
+
+    // ============ 新版着装：行走动作 ============
+
+    /// <summary>
+    /// 一段路线开始行走时切到 walk 动作；到达/取消时由 WalkRouteCompleted 收回静态立绘。
+    /// 节拍仍由 <see cref="AnimateWalkAsync"/> 里的 WalkCycle 按距离推进。
+    /// </summary>
+    private void OnWalkSegmentStarted()
+    {
+        if (MainThread.IsMainThread) StartWalkMotion();
+        else MainThread.BeginInvokeOnMainThread(StartWalkMotion);
+    }
+
+    private void OnWalkRouteCompleted()
+    {
+        if (MainThread.IsMainThread) StopWalkMotion();
+        else MainThread.BeginInvokeOnMainThread(() => StopWalkMotion());
+    }
+
+    private void StartWalkMotion()
+    {
+        StopWalkMotion(restoreStatic: false);
+        if (!_figureActive || _figurePack is null || _char is null) return;
+        var motion = FigureMotionPlayback.FindWalk(_figurePack);
+        if (motion?.Frames is not { Count: > 0 }) return;
+
+        var cts = new CancellationTokenSource();
+        _walkMotionCts = cts;
+        _walkFrameIndex = -1;
+        _ = AnimateWalkAsync(motion, cts.Token);
+    }
+
+    private void StopWalkMotion(bool restoreStatic = true)
+    {
+        var cts = _walkMotionCts;
+        _walkMotionCts = null;
+        if (cts is not null)
+        {
+            try { cts.Cancel(); } catch { }
+            cts.Dispose();
+        }
+        _walkFrameIndex = -1;
+
+        if (!restoreStatic || !_figureActive) return;
+        var staticPath = _figureStaticPath;
+        if (string.IsNullOrWhiteSpace(staticPath) || !File.Exists(staticPath)) return;
+        if (MainThread.IsMainThread)
+            SpriteSource = ImageSource.FromFile(staticPath);
+        else
+            MainThread.BeginInvokeOnMainThread(() => SpriteSource = ImageSource.FromFile(staticPath));
+    }
+
+    /// <summary>
+    /// 行走节拍的唯一驱动：每帧把「真实经过的时间 × 步行速度」换算成位移，
+    /// 再用 <see cref="WalkCycle.PhaseForDistance"/> 求相位。这样帧号只跟走过的距离有关，
+    /// 帧率抖动、变速、从待机起步都不会让脚在地上滑。
+    /// </summary>
+    private async Task AnimateWalkAsync(FigureMotion motion, CancellationToken ct)
+    {
+        try
+        {
+            var packId = _char?.FigurePackId ?? "";
+            var outfit = _outfitKey ?? "";
+            var frames = motion.Frames;
+            if (string.IsNullOrWhiteSpace(packId) || frames.Count == 0) return;
+
+            // 以角色显示高度作为「一个身长」：步长约 0.38 身长，速度约 0.9 身长/秒。
+            // 参数集中在 WalkCycle 的单位里，改速度时不必去改播放器。
+            var bodyHeight = Math.Max(120, SpriteFitH * Math.Max(0.1, SpriteScale));
+            var stepLength = Math.Max(24, bodyHeight * 0.38);
+            var speed = Math.Max(40, bodyHeight * 0.9);
+            var startPhase = _walkPhase;
+            var width = _isPhoneStage ? WalkFramePhoneWidth : WalkFrameDesktopWidth;
+            var height = (int)Math.Round(width * 1920.0 / 1080.0);
+
+            var clock = System.Diagnostics.Stopwatch.StartNew();
+            var lastSeconds = 0d;
+            var distance = 0d;
+
+            while (!ct.IsCancellationRequested)
+            {
+                var now = clock.Elapsed.TotalSeconds;
+                var dt = Math.Clamp(now - lastSeconds, 0, 0.12);
+                lastSeconds = now;
+                distance += speed * dt;
+
+                var phase = WalkCycle.PhaseForDistance(distance, stepLength, WalkCycle.DefaultStepsPerCycle, startPhase);
+                _walkPhase = phase;
+                var index = WalkCycle.FrameIndexAt(phase, frames.Count);
+                if (index != _walkFrameIndex && !ct.IsCancellationRequested)
+                {
+                    _walkFrameIndex = index;
+                    var path = await _figures.RenderMotionAsync(
+                        packId, outfit, "", motion.Id, index, width, height).ConfigureAwait(false);
+                    if (ct.IsCancellationRequested) return;
+                    if (!string.IsNullOrWhiteSpace(path))
+                    {
+                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        {
+                            if (ct.IsCancellationRequested) return;
+                            SpriteSource = ImageSource.FromFile(path);
+                            SpriteVisible = true;
+                        });
+                    }
+                }
+
+                await Task.Delay(33, ct).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGameVM.AnimateWalk -> " + ex);
+        }
+    }
+
 
     /// <summary>设置当前说话角色并更新立绘高亮。</summary>
     public void SetSpeakingCharacter(bool isSpeaking)
@@ -1090,6 +1418,20 @@ public sealed partial class MainGameViewModel : ObservableObject
     private string? ResolveEmotion(string text)
     {
         if (_char is null || string.IsNullOrEmpty(text)) return null;
+        if (_figureActive)
+        {
+            var hit = _figureEmotions
+                .Where(e => e.Length > 0 && text.Contains(e, StringComparison.Ordinal))
+                .OrderByDescending(e => e.Length)
+                .FirstOrDefault();
+            if (hit is not null) return hit;
+            foreach (var f in new[] { "开心", "高兴", "微笑", "害羞", "温柔", "平静", "惊讶", "伤心" })
+            {
+                var m = _figureEmotions.FirstOrDefault(e => e.Contains(f, StringComparison.Ordinal));
+                if (m is not null) return m;
+            }
+            return null;
+        }
         var best = "";
         foreach (var key in _char.SpriteMap.Keys)
         {
@@ -1112,6 +1454,16 @@ public sealed partial class MainGameViewModel : ObservableObject
     private void SetEmotionAny(params string[] hints)
     {
         if (_char is null) return;
+        if (_figureActive)
+        {
+            foreach (var hint in hints)
+            {
+                var m = _figureEmotions.FirstOrDefault(e => e.Contains(hint, StringComparison.Ordinal));
+                if (m is not null) { SetEmotion(m); return; }
+            }
+            SetEmotion(RandomEmotion() ?? _defaultEmotion);
+            return;
+        }
         foreach (var hint in hints)
         {
             var m = _char.SpriteMap.Keys.FirstOrDefault(k =>
@@ -1125,11 +1477,13 @@ public sealed partial class MainGameViewModel : ObservableObject
     private string? RandomEmotion()
     {
         if (_char is null || string.IsNullOrEmpty(_outfitKey)) return null;
-        var emotions = _char.SpriteMap.Keys
-            .Where(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal))
-            .Select(k => k.Split('/')[1])
-            .Distinct()
-            .ToArray();
+        var emotions = _figureActive
+            ? _figureEmotions.Distinct(StringComparer.OrdinalIgnoreCase).ToArray()
+            : _char.SpriteMap.Keys
+                .Where(k => k.StartsWith(_outfitKey + "/", StringComparison.Ordinal))
+                .Select(k => k.Split('/')[1])
+                .Distinct()
+                .ToArray();
         if (emotions.Length == 0) return null;
         return emotions[Random.Shared.Next(emotions.Length)];
     }
@@ -1208,6 +1562,10 @@ public sealed partial class MainGameViewModel : ObservableObject
                 display = "……";
             }
             finally { IsThinking = false; }
+
+            // 这一轮里 TA 可能在回复中报上了名字（RuntimeConfigurator 已落盘），
+            // 主界面与这一条气泡的署名要立刻从「？？？」换回真名。
+            RefreshCharacterName();
 
             // 沉默判定：AI 允许沉默且本轮无正文（仅有动作标记/为空）→ 本回合停止，不再追加回复
             var isSilent = _settings.Current.AllowSilence && stickerNames.Count == 0 &&
@@ -1293,7 +1651,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         var items = _stickers.Items;
         if (items.Count == 0)
         {
-            await Shell.Current.DisplayAlert("表情包", "还没有导入表情。到「设置 → 表情包库」导入几张吧。", "好");
+            Toast.Info("还没有导入表情。到「设置 → 表情包库」导入几张吧。");
             return;
         }
         var names = items.Select(i => i.Name).Distinct().Take(24).ToArray();
@@ -1319,6 +1677,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             stickerNames.AddRange(found);
             var (segs, _) = await ProcessReplyAsync(reply);
             if (segs.Count == 0) segs.Add(reply.Trim());
+            RefreshCharacterName();
             foreach (var seg in segs) AddMessage("assistant", seg);
             foreach (var sn in stickerNames)
             {
@@ -1562,6 +1921,8 @@ public sealed partial class MainGameViewModel : ObservableObject
             }
             // 背景换了，标定也得跟着换，否则角色会按上一张图的尺度站到错的位置
             ApplyModePlacement(entry, mode);
+            // 场景库模式也可能把背景让回纯色：这时角色背景要顶上来，反之则继续让位。
+            RefreshCharacterBackdrop();
         });
     }
 
@@ -2007,9 +2368,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         if (!_engine.MapUnlocked)
         {
-            await Shell.Current.DisplayAlert("普通酒馆",
-                "这一局没有绑定世界书，所以没有地图。\n\n想解锁：菜单 → 本局设定 → 选一份世界书。",
-                "知道了");
+            Toast.Info("这一局没有绑定世界书，所以没有地图。想解锁：菜单 → 本局设定 → 选一份世界书。");
             return;
         }
         await Shell.Current.GoToAsync("map");
@@ -2036,6 +2395,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Microsoft.Maui.Storage.Preferences.Default.Set("game.hideDesktopPanels", value);
         OnPropertyChanged(nameof(StageBackdropFill));
         OnPropertyChanged(nameof(IsImmersive));
+        NotifyPanelVisibility();
     }
 
     /// <summary>沉浸状态：周围栏（状态栏/信息栏）已隐藏。</summary>
@@ -2112,7 +2472,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 if (idx < 0 || idx >= profiles.Count) return;
                 var p = profiles[idx];
                 var keys = (p.Keys ?? new List<string>()).Where(k => !string.IsNullOrWhiteSpace(k)).ToList();
-                if (keys.Count == 0) { await Shell.Current.DisplayAlert("切换 AI", "这条端点没有可用密钥。", "好"); return; }
+                if (keys.Count == 0) { Toast.Warn("这条端点没有可用密钥。"); return; }
                 _api.SetTemporaryEndpoint(new AiEndpoint
                 {
                     Provider = string.IsNullOrWhiteSpace(p.Name) ? p.Model : p.Name!,
@@ -2151,7 +2511,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         await Shell.Current.GoToAsync("newrun?edit=1");
     }
 
-    /// <summary>开关菜单浮层。名字里不再叫 settings：它开的不是设置，是这一局的菜单。</summary>
+    /// <summary>开关菜单浮层。名字不叫 settings：它开的不是设置，是这一局的菜单。</summary>
     [RelayCommand]
     private void ToggleMenu() => ShowMenu = !ShowMenu;
 
@@ -2166,7 +2526,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private async Task QuickSave()
     {
         var ok = await _save.Commit("快速存档");
-        if (ok) await Shell.Current.DisplayAlert("", "已保存", "好");
+        if (ok) Toast.Success("已保存");
     }
 
     /// <summary>自动保存（防抖 5 秒）：聊天/互动后把进度写入当前槽位，不产生新档。</summary>
@@ -2384,9 +2744,9 @@ public sealed partial class MainGameViewModel : ObservableObject
             return;
         }
 
-        // 起点是「上次经期的第一天」，第一次跟踪时把今天记下来，之后一直按自然日往下数。
-        // 早先这里写的是 (now - 今天零点) 折算出来的数，那其实是「现在几点」——
-        // 于是角色每天 0 点进入经期、14 点排卵、午夜清零，周期跟着钟表一天转一圈。
+        // 起点是「上次经期的第一天」，首次跟踪时把今天记下来，之后按自然日累加。
+        // 不能用 (now - 今天零点) 折算：那实际是「现在几点」，会让角色每天 0 点进入经期、
+        // 14 点排卵、午夜清零，周期跟着钟表一天转一圈。
         var today = _time.Now().Now.Date;
         var anchor = cycle.LastPeriod == default ? today : cycle.LastPeriod.Date;
         // 长度按出厂区间夹一手：设置页写入时会夹，但存档 JSON 是用户能自己改的文件，
@@ -2443,3 +2803,16 @@ public sealed class MapSceneOption
     public string Label { get; init; } = "";
     public bool IsCurrent { get; init; }
 }
+
+/// <summary>
+/// 舞台要显示的角色背景：路径 + 适配方式 + 归一化裁剪框。
+/// 单独成一条记录，视图层只在它真正变化时切一场，而不是每次刷新都重放。
+/// </summary>
+public sealed record CharacterBackdropState(
+    string Path,
+    string Fit,
+    double CropX,
+    double CropY,
+    double CropW,
+    double CropH,
+    bool IsVideo);

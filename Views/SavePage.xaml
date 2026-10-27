@@ -9,7 +9,7 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="0">
         <!-- Header：顶栏不是卡，与内容区同一块地，下面一条发丝线就够了 -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
@@ -23,8 +23,33 @@
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-        <!-- Save slots：一个存档 = 一行，所有行装在同一张 CardGroup 里 -->
+        <!-- 云存档入口：用户找不到「打开口」，所以给它一条真行，而不是只藏在设置里。
+             路由由主智能体注册；这里只负责跳过去。 -->
         <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
+            <Border Style="{StaticResource TappableRow}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnCloudSavesTapped" />
+                </Border.GestureRecognizers>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                            WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
+                            StrokeShape="{DynamicResource WRadiusWell}">
+                        <Label Text="云" Style="{StaticResource TxtRowTitle}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                    <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                        <Label Text="云存档" Style="{StaticResource TxtRowTitle}" />
+                        <Label Text="取回其他设备的存档，或恢复同步覆盖前的历史版本"
+                               Style="{StaticResource TxtRowDesc}" LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                    <Label Grid.Column="2" Text="›" Style="{StaticResource TxtMuted}"
+                           FontSize="20" VerticalOptions="Center" />
+                </Grid>
+            </Border>
+        </Border>
+
+        <!-- Save slots：一个存档 = 一行，所有行装在同一张 CardGroup 里 -->
+        <Border Grid.Row="3" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
             <CollectionView ItemsSource="{Binding Slots}" BackgroundColor="Transparent">
                 <CollectionView.EmptyView>
                     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="6"
@@ -41,8 +66,8 @@
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14"
                                       RowDefinitions="Auto,Auto" RowSpacing="6">
-                                    <!-- 头像：凹一档的井就够了。原来那颗 44px 圆片自带一圈描边和一团
-                                         左上落影，是拟物时代剩下的「凸起」说法，跟这套语言反着。 -->
+                                    <!-- 头像：凹一档的井就够了。44px 圆片自带描边和左上落影，
+                                         会形成「凸起」的拟物感，与这套语言相反。 -->
                                     <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
                                             Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                             WidthRequest="44" HeightRequest="44" VerticalOptions="Center"
@@ -104,7 +129,7 @@
         </Border>
 
         <!-- Bottom bar: import / backup / novel-test -->
-        <VerticalStackLayout Grid.Row="3" Spacing="6" Margin="{DynamicResource WPadCard}">
+        <VerticalStackLayout Grid.Row="4" Spacing="6" Margin="{DynamicResource WPadCard}">
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                 <Button Text="导入存档" Style="{StaticResource BtnNeumorph}"
                         Command="{Binding ImportSaveCommand}" />

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Drawables;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.AiChat;
@@ -70,9 +71,7 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
     {
         if (!_engine.MapUnlocked)
         {
-            await Shell.Current.DisplayAlert("普通酒馆",
-                "这一局没有绑定世界书，所以没有地图。\n\n想解锁：游戏菜单 → 本局设定 → 选一份世界书。",
-                "知道了");
+            Toast.Warn("这一局没有绑定世界书，所以没有地图。想解锁：游戏菜单 → 本局设定 → 选一份世界书。");
             return;
         }
         await SafeNav("map");
@@ -312,8 +311,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         {
             try
             {
-                await Shell.Current.DisplayAlert("视频号",
-                    "还没填视频号链接。到「设置 → 外部接入 → 视频号链接」里填一个 https:// 地址再试。", "好");
+                Toast.Info("还没填视频号链接。到「设置 → 外部接入 → 视频号链接」里填一个 https:// 地址再试。");
             }
             catch (Exception ex) { App.WriteLog("WeChatViewModel.OpenChannels(alert) -> " + ex.Message); }
             return;
@@ -442,7 +440,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     }
 
     /// <summary>导入表情：选任何文件 → 复制进表情库 → 立即出现在面板。
-    /// 图片类且配了识图模型时顺手 OCR 一句描述，登记进统一表情库（AI 按描述选表情）。</summary>
+    /// 图片类且配了识图模型时同时 OCR 一句描述，登记进统一表情库（AI 按描述选表情）。</summary>
     [RelayCommand]
     private async Task ImportSticker()
     {
@@ -594,7 +592,7 @@ public sealed partial class WeChatViewModel : ObservableObject
 
     /// <summary>
     /// #12 升级：AI 回复里带 [表情:名字] 标记时，按名字找到图片发出（统一表情库优先，旧目录兜底）；
-    /// 一个都没命中时，保留原来的「小概率随机自发一张」行为，让聊天有生气。
+    /// 一个都没命中时，按小概率随机自发一张，让聊天有生气。
     /// </summary>
     private void MaybeAiSticker(string reply, List<string>? stickerNames = null)
     {
@@ -1374,9 +1372,9 @@ public sealed partial class SaveViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(_save.LastLoadNote))
         {
             var note = _save.LastLoadNote;
-            MainThread.BeginInvokeOnMainThread(async () =>
+            MainThread.BeginInvokeOnMainThread(() =>
             {
-                try { await Shell.Current.DisplayAlert("存档已自动修复", note, "好"); }
+                try { Toast.Warn(note); }
                 catch (Exception ex) { App.WriteLog("SaveVM.RepairNote -> " + ex.Message); }
             });
         }
@@ -1390,12 +1388,11 @@ public sealed partial class SaveViewModel : ObservableObject
         {
             var bundle = _settings.Current.SaveBundleWithPlugins;
             var data = await _save.ExportStream(id, bundle);
-            if (data is null) { await Shell.Current.DisplayAlert("导出", "存档不存在", "好"); return; }
+            if (data is null) { Toast.Error("存档不存在"); return; }
             using var ms = new MemoryStream(data.Value.bytes);
             var result = await CommunityToolkit.Maui.Storage.FileSaver.Default.SaveAsync(data.Value.name, ms);
             if (result.IsSuccessful)
-                await Shell.Current.DisplayAlert("导出",
-                    bundle ? "已导出存档包（含所用插件代码，不含插件设置里的密钥）。" : "已导出存档。", "好");
+                Toast.Success(bundle ? "已导出存档包（含所用插件代码，不含插件设置里的密钥）。" : "已导出存档。");
         }
         catch (Exception ex)
         {
@@ -1427,7 +1424,7 @@ public sealed partial class SaveViewModel : ObservableObject
             "新的存档名称？", "保存", "取消", slot?.Label ?? "");
         if (string.IsNullOrWhiteSpace(input)) return;
         var ok = await _save.Rename(id, input.Trim());
-        if (!ok) await Shell.Current.DisplayAlert("重命名", "重命名失败", "好");
+        if (!ok) Toast.Error("重命名失败");
         await Refresh();
     }
 
@@ -1447,8 +1444,9 @@ public sealed partial class SaveViewModel : ObservableObject
                 })
             });
             if (pick is null) return;
-            var (_, message) = await _save.Import(pick.FullPath);
-            await Shell.Current.DisplayAlert("导入存档", message, "好");
+            var (imported, message) = await _save.Import(pick.FullPath);
+            if (imported) Toast.Success(message);
+            else Toast.Error(message);
             await Refresh();
         }
         catch (Exception ex)
@@ -1465,7 +1463,8 @@ public sealed partial class SaveViewModel : ObservableObject
             var folder = await CommunityToolkit.Maui.Storage.FolderPicker.Default.PickAsync();
             if (folder?.Folder is null) return;
             var n = await _save.Backup(folder.Folder.Path);
-            await Shell.Current.DisplayAlert("备份", n > 0 ? $"已备份 {n} 个存档到 {folder.Folder.Path}" : "没有可备份的存档", "好");
+            if (n > 0) Toast.Success($"已备份 {n} 个存档到 {folder.Folder.Path}");
+            else Toast.Info("没有可备份的存档");
         }
         catch (Exception ex)
         {
@@ -1493,7 +1492,7 @@ public sealed partial class SaveViewModel : ObservableObject
             var result = await _novel.Analyze(pick.FullPath);
             if (result is null)
             {
-                await Shell.Current.DisplayAlert("小说导入（测试）", "解析失败：请检查 AI 配置或文本内容", "好");
+                Toast.Error("解析失败：请检查 AI 配置或文本内容");
                 return;
             }
             var chars = result.Characters.Count > 0 ? "角色：" + string.Join("、", result.Characters) : "角色：无";

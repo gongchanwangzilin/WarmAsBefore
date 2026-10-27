@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 
@@ -84,7 +85,8 @@ public sealed partial class MaterialsViewModel : ObservableObject
         });
         if (pick is null) return;
         var (ok, msg, _) = await _materials.ImportBackgroundAsync(pick.FullPath);
-        await Shell.Current.DisplayAlert(ok ? "导入成功" : "导入失败", msg, "好");
+        if (ok) Toast.Success(msg);
+        else Toast.Error(msg);
         if (ok) await Refresh();
     }
 
@@ -104,7 +106,8 @@ public sealed partial class MaterialsViewModel : ObservableObject
         });
         if (pick is null) return;
         var (ok, msg, _) = await _materials.ImportMusicAsync(pick.FullPath);
-        await Shell.Current.DisplayAlert(ok ? "导入成功" : "导入失败", msg, "好");
+        if (ok) Toast.Success(msg);
+        else Toast.Error(msg);
         if (ok) await Refresh();
     }
 

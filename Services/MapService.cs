@@ -28,6 +28,12 @@ public sealed class MapService
     /// <summary>角色到达新场景（已切到该场景，UI 可更新立绘/背景/位置标签）。</summary>
     public event Action<MapScene>? SceneChanged;
 
+    /// <summary>一段路线开始行走（在等待切场景之前触发）。主界面用它启动走路动作。</summary>
+    public event Action? WalkSegmentStarted;
+
+    /// <summary>整条路线结束（含取消/异常）。主界面用它收回走路动作。</summary>
+    public event Action? WalkRouteCompleted;
+
     /// <summary>地图数据变化（编辑/导入后刷新 UI）。</summary>
     public event Action? MapChanged;
 
@@ -210,14 +216,22 @@ public sealed class MapService
     public async Task WalkRouteAsync(IReadOnlyList<MapNodeRef> route, CancellationToken ct = default)
     {
         if (route is null || route.Count == 0) return;
-        foreach (var node in route)
+        try
         {
-            if (!node.IsScene) continue;   // 临时节点：只路过
-            if (node.Id == _currentSceneId) continue;
-            ct.ThrowIfCancellationRequested();
-            await Task.Delay(WalkMsPerSegment, ct);
-            _currentSceneId = node.Id;
-            SceneChanged?.Invoke(_map.SceneById(node.Id)!);
+            foreach (var node in route)
+            {
+                if (!node.IsScene) continue;   // 临时节点：只路过
+                if (node.Id == _currentSceneId) continue;
+                ct.ThrowIfCancellationRequested();
+                WalkSegmentStarted?.Invoke();
+                await Task.Delay(WalkMsPerSegment, ct);
+                _currentSceneId = node.Id;
+                SceneChanged?.Invoke(_map.SceneById(node.Id)!);
+            }
+        }
+        finally
+        {
+            WalkRouteCompleted?.Invoke();
         }
     }
 

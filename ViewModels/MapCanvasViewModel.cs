@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Drawables;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
@@ -386,8 +387,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
         if (!_images.Enabled)
         {
-            await Shell.Current.DisplayAlert("AI 画背景",
-                "画面生成没有开启。请到 设置 → AI → 画面生成 填接口地址与 API Key。", "好");
+            Toast.Warn("画面生成没有开启。请到 设置 → AI → 画面生成 填接口地址与 API Key。");
             return;
         }
         var place = node?.LocationName ?? "";
@@ -1255,7 +1255,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 if (scene is null) return;
                 if (_maps.ResolveBackground(scene) is null)
                 {
-                    await Shell.Current.DisplayAlert("标定背景", "这个场景还没有背景图，先选一张再来标定。", "好");
+                    Toast.Info("这个场景还没有背景图，先选一张再来标定。");
                     return;
                 }
                 // 已有标定的场景也能重标：改一个不满意的落脚点，不必重新导入背景
@@ -1896,7 +1896,7 @@ await _maps.SaveAsync();
             var items = _materials.BackgroundItems;
             if (items.Count == 0)
             {
-                await Shell.Current.DisplayAlert("背景库", "背景素材库是空的，可先到「素材库」页导入。", "好");
+                Toast.Info("背景素材库是空的，可先到「素材库」页导入。");
                 return;
             }
             var picked = await Shell.Current.DisplayActionSheet($"为「{scene.Name}」选择背景",

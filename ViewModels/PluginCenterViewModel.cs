@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.ApiManager;
 using WarmAsBefore.Modules.Mcp;
@@ -63,7 +64,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         try
         {
             // 读目录、解析清单、探运行时、体检全是磁盘与注册表活，整段放后台。
-            // 以前全在 UI 线程上串行跑：进插件中心必卡几拍，列表越多越明显。
+            // 在 UI 线程串行跑会让进插件中心卡几拍，列表越多越明显。
             var rows = await Task.Run(async () =>
             {
                 var list = await _plugins.AllAsync();
@@ -177,7 +178,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             Busy = true;
             var (ok, message) = await _plugins.InstallFromZipAsync(pick.FullPath, overwrite: true);
             Status = message;
-            if (!ok) await Shell.Current.DisplayAlert("安装插件", message, "好");
+            if (!ok) Toast.Error(message);
             if (ok) await OfferDoctorAfterInstallAsync();
             await RefreshAsync();
         }
@@ -203,7 +204,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                 as Microsoft.UI.Xaml.Window;
             if (wnd is null)
             {
-                await Shell.Current.DisplayAlert("从文件夹安装", "还没拿到主窗口，稍后再试一次。", "好");
+                Toast.Error("还没拿到主窗口，稍后再试一次。");
                 return;
             }
             var picker = new Windows.Storage.Pickers.FolderPicker();
@@ -214,11 +215,11 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             Busy = true;
             var (ok, message) = await _plugins.InstallFromFolderAsync(picked.Path, overwrite: true);
             Status = message;
-            if (!ok) await Shell.Current.DisplayAlert("从文件夹安装", message, "好");
+            if (!ok) Toast.Error(message);
             if (ok) await OfferDoctorAfterInstallAsync();
             await RefreshAsync();
 #else
-            await Shell.Current.DisplayAlert("从文件夹安装", "Android 端选不了文件夹，请把插件压成 zip 再装。", "好");
+            Toast.Info("Android 端选不了文件夹，请把插件压成 zip 再装。");
             return;
 #endif
         }
@@ -243,7 +244,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             if (OperatingSystem.IsWindows())
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo("explorer.exe", $"\"{PluginHost.PluginsDir}\"") { UseShellExecute = true });
             else
-                await Shell.Current.DisplayAlert("插件目录", PluginHost.PluginsDir, "好");
+                Toast.Info(PluginHost.PluginsDir);
         }
         catch (Exception ex)
         {
@@ -276,7 +277,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         {
             var (ok, message) = await _plugins.OpenHtmlSettingsAsync(row.Id);
             Status = message;
-            if (!ok) await Shell.Current.DisplayAlert("插件设置", message, "好");
+            if (!ok) Toast.Error(message);
             return;
         }
         if (row.SettingsKind == "native")
@@ -284,7 +285,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             await Shell.Current.GoToAsync($"pluginSettings?id={Uri.EscapeDataString(row.Id)}");
             return;
         }
-        await Shell.Current.DisplayAlert("插件设置", "这个插件声明了「无需设置」，没有可改的项。", "好");
+        Toast.Info("这个插件声明了「无需设置」，没有可改的项。");
     }
 
     [RelayCommand]
@@ -383,7 +384,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                     }
             }
             else
-                await Shell.Current.DisplayAlert("体检发现 " + blocking.Count + " 个跑不起来的点", lines, "好");
+                Toast.Warn($"体检发现 {blocking.Count} 个跑不起来的点：{lines}");
         }
         catch (Exception ex)
         {
@@ -441,7 +442,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         }
         var (ok, message) = await _plugins.OpenPageAsync(row.Id, index);
         Status = message;
-        if (!ok) await Shell.Current.DisplayAlert("插件页面", message, "好");
+        if (!ok) Toast.Error(message);
     }
 
     [RelayCommand]
@@ -529,7 +530,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     // ==================== MCP 数据包导入 ====================
     //
     // 数据包（McpPacks/<名字>/tools.json 那一套）是「往机器里装东西」，和插件同类，所以入口在这里；
-    // 设置页那张卡只管外部服务从哪儿启动、连哪儿，不再混着文件导入。
+    // 设置页那张卡只管外部服务从哪儿启动、连哪儿，文件导入统一放在这里。
 
     [RelayCommand]
     private async Task ImportPackZip()
@@ -577,7 +578,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             McpResult = "正在复制数据包…";
             McpResult = await _mcp.ImportFolder(picked.Path, _mcp.McpPackDir, null);
 #else
-            await Shell.Current.DisplayAlert("导入数据包", "Android 端选不了文件夹，请把数据包压成 zip 再导入。", "好");
+            Toast.Info("Android 端选不了文件夹，请把数据包压成 zip 再导入。");
             return;
 #endif
             await RefreshMcpAsync();

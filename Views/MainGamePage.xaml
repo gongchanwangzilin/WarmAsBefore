@@ -17,6 +17,84 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
         </LinearGradientBrush>
     </ContentPage.Background>
 
+    <ContentPage.Resources>
+        <!-- 顶栏小组件：标题小、读数大，靠字号差拉开层次，不画盒子 -->
+        <DataTemplate x:Key="TopWidgetItemTemplate" x:DataType="vm:WidgetItemVm">
+            <VerticalStackLayout Spacing="0" IsVisible="{Binding Shown}" VerticalOptions="Center">
+                <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="9" />
+                <Label Text="{Binding Value}" TextColor="{DynamicResource WarmDark}"
+                       FontSize="{Binding ValueFontSize}" FontAttributes="Bold"
+                       LineBreakMode="TailTruncation" MaximumWidthRequest="150" />
+                <Label Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
+                       TextColor="{DynamicResource MutedFg}" FontSize="9" />
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 左栏小组件：一列呼吸开的文字，不塞进等大的卡片盒 -->
+        <DataTemplate x:Key="LeftWidgetItemTemplate" x:DataType="vm:WidgetItemVm">
+            <VerticalStackLayout Spacing="1" IsVisible="{Binding Shown}">
+                <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                <Label Text="{Binding Value}" TextColor="{DynamicResource SurfaceFg}"
+                       FontSize="{Binding ValueFontSize}" FontAttributes="Bold" LineBreakMode="WordWrap" />
+                <Label Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
+                       TextColor="{DynamicResource MutedFg}" FontSize="9" />
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 组件配置的一行：说明常驻，开关和排序都直接改真配置 -->
+        <DataTemplate x:Key="WidgetSettingRowTemplate" x:DataType="vm:WidgetItemVm">
+            <Border BackgroundColor="{DynamicResource SecondaryBg}" StrokeThickness="0"
+                    Padding="10,7" Margin="0,0,0,6">
+                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Label Text="{Binding Title}" TextColor="{DynamicResource SurfaceFg}"
+                           FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                    <Switch Grid.Column="1" IsToggled="{Binding Visible, Mode=TwoWay}"
+                            OnColor="{DynamicResource AccentWarm}" VerticalOptions="Center" />
+                    <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Desc}"
+                           TextColor="{DynamicResource MutedFg}" FontSize="10"
+                           LineBreakMode="WordWrap" MaxLines="2" Margin="0,2,0,4" />
+                    <HorizontalStackLayout Grid.Row="2" Grid.ColumnSpan="2" Spacing="4"
+                                           HorizontalOptions="End">
+                        <Button Text="↑" FontSize="12" Padding="0" HeightRequest="26" WidthRequest="26"
+                                MinimumWidthRequest="0" CornerRadius="8"
+                                BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource SurfaceFg}"
+                                ToolTipProperties.Text="上移"
+                                Command="{Binding Path=BindingContext.MoveWidgetUpCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                CommandParameter="{Binding .}" />
+                        <Button Text="↓" FontSize="12" Padding="0" HeightRequest="26" WidthRequest="26"
+                                MinimumWidthRequest="0" CornerRadius="8"
+                                BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource SurfaceFg}"
+                                ToolTipProperties.Text="下移"
+                                Command="{Binding Path=BindingContext.MoveWidgetDownCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                CommandParameter="{Binding .}" />
+                        <Button Text="{Binding SlotSwitchLabel}" FontSize="10" Padding="8,0" HeightRequest="26"
+                                MinimumWidthRequest="0" CornerRadius="8"
+                                BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
+                                Command="{Binding Path=BindingContext.MoveWidgetSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                                CommandParameter="{Binding .}" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <!-- 顶栏按钮的勾选片 -->
+        <DataTemplate x:Key="TopBarButtonChipTemplate" x:DataType="vm:TopBarButtonVm">
+            <Button Text="{Binding Label}" FontSize="11" HeightRequest="30" Padding="12,0"
+                    MinimumWidthRequest="0" CornerRadius="15" Margin="0,0,6,6"
+                    BackgroundColor="Transparent" TextColor="{DynamicResource MutedFg}"
+                    Command="{Binding Path=BindingContext.ToggleTopBarButtonCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
+                    CommandParameter="{Binding .}">
+                <Button.Triggers>
+                    <DataTrigger TargetType="Button" Binding="{Binding Visible}" Value="True">
+                        <Setter Property="BackgroundColor" Value="{DynamicResource AccentWarm}" />
+                        <Setter Property="TextColor" Value="{DynamicResource AccentWarmFg}" />
+                    </DataTrigger>
+                </Button.Triggers>
+            </Button>
+        </DataTemplate>
+    </ContentPage.Resources>
+
     <Grid>
         <!-- 玻璃是「表面材质」：卡片 / 按钮 / 上下栏 / 弹窗的样式引用
              GlassTokens 下发的 {DynamicResource ...} 画刷（见 DesignSystem/Theme/GlassTokens.cs）。
@@ -35,9 +113,9 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
              仅桌面显示；手机/平板都不显（平板走上面的手机主题布局） -->
         <Grid IsVisible="{Binding IsDesktopLayout}"
               RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
-            <!-- Status bar（液态玻璃材质：半透明渐变 + 1px 内发光描边）；#E4：ESC 可隐藏 -->
+            <!-- 旧版固定顶栏：只在小组件模式关闭、且未沉浸时出现 -->
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
-                    IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}"
+                    IsVisible="{Binding LegacyPanelsVisible}"
                     Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
@@ -66,9 +144,37 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </Grid>
             </Border>
 
+            <!-- 小组件顶栏：左边只放勾选过的 top 组件，右边只放允许的按钮。
+                 组件再多也横向滚动，不去挤右边的操作键。 -->
+            <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
+                    IsVisible="{Binding WidgetTopBarVisible}" Padding="16,8,16,10">
+                <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                VerticalOptions="Center">
+                        <HorizontalStackLayout Spacing="20" VerticalOptions="Center"
+                                               BindableLayout.ItemsSource="{Binding TopWidgets}"
+                                               BindableLayout.ItemTemplate="{StaticResource TopWidgetItemTemplate}" />
+                    </ScrollView>
+                    <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                        <Button Text="存档" IsVisible="{Binding ShowSaveButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
+                        <Button Text="菜单" IsVisible="{Binding ShowMenuButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
+                        <Button Text="手机" IsVisible="{Binding ShowPhoneButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
+                        <Button Text="{Binding MapButtonText}" IsVisible="{Binding ShowMapButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
+                        <Button Text="AI" IsVisible="{Binding ShowAiButton}" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                                BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
+                                Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
+                        <Button Text="收起" IsVisible="{Binding ShowHideButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                                Command="{Binding ToggleHidePanelsCommand}" ToolTipProperties.Text="隐藏信息栏与顶部（Esc）" />
+                        <Button Text="组件" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource AccentWarm}" FontSize="12" Padding="10,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                                Command="{Binding ToggleWidgetPanelCommand}" ToolTipProperties.Text="选择顶栏与左栏显示什么" />
+                    </HorizontalStackLayout>
+                </Grid>
+            </Border>
+
             <!-- Left: Info panel（窄屏下允许压缩，避免与状态栏按钮挤压）；#E4：ESC 可隐藏 -->
             <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140" Margin="0"
-                    IsVisible="{Binding HideDesktopPanels, Converter={StaticResource InverseBool}}">
+                    IsVisible="{Binding LegacyPanelsVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
                     <Label Text="信息" TextColor="{DynamicResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
@@ -113,9 +219,36 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 </VerticalStackLayout>
             </Border>
 
+            <!-- 小组件左栏：按 Order 排，标题小字 + 主值大字；底部留「组件」入口 -->
+            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140"
+                    IsVisible="{Binding WidgetLeftBarVisible}">
+                <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,*,Auto" Padding="12,16" RowSpacing="8">
+                    <Label Text="信息" TextColor="{DynamicResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
+                    <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                        <VerticalStackLayout Spacing="14"
+                                             BindableLayout.ItemsSource="{Binding LeftWidgets}"
+                                             BindableLayout.ItemTemplate="{StaticResource LeftWidgetItemTemplate}" />
+                    </ScrollView>
+                    <Label Grid.Row="1" Text="还没有显示的信息" TextColor="{DynamicResource MutedFg}"
+                           FontSize="11" VerticalOptions="Start"
+                           IsVisible="{Binding HasLeftWidgets, Converter={StaticResource InverseBool}}" />
+                    <Button Grid.Row="2" Text="组件" TextColor="{DynamicResource AccentWarmFg}"
+                            BackgroundColor="{DynamicResource AccentWarm}" FontSize="11"
+                            Padding="10,0" HeightRequest="32" CornerRadius="16" MinimumWidthRequest="0"
+                            Command="{Binding ToggleWidgetPanelCommand}" />
+                </Grid>
+            </Border>
+
             <!-- Center: Character area -->
             <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage" SizeChanged="OnStageSizeChanged">
                 <BoxView Color="{Binding StageBackdropFill}" />
+                <!-- 角色背景：场景/地图都没有背景时才由 VM 给出；两层 AnimatedImage 交叉淡入，
+                     视频元素由 Presenter 在真需要时创建，避免每个存档都多挂一颗播放器。 -->
+                <Grid x:Name="CharacterBgHost" InputTransparent="True">
+                    <ctl:AnimatedImage x:Name="CharacterBgA" IsVisible="False" Opacity="0" />
+                    <ctl:AnimatedImage x:Name="CharacterBgB" IsVisible="False" Opacity="0" />
+                </Grid>
                 <Image Source="{Binding SceneBackdrop}" Aspect="AspectFill" IsVisible="{Binding SceneBackdrop, Converter={StaticResource IsNotNull}}" Opacity="0.55" />
                 <toolkit:MediaElement x:Name="SceneVideoDesktop"
                                       Source="{Binding SceneVideoPath}"
@@ -330,6 +463,72 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             </Border>
         </Grid>
 
+        <!-- ============ 组件配置面板（覆盖层，不新开页面） ============
+             面板不设「保存」：每个勾选、每次上下移都直接写回设置，关掉就是最终效果。 -->
+        <Grid IsVisible="{Binding IsWidgetPanelVisible}" ZIndex="30">
+            <BoxView Color="{DynamicResource OverlayDim}">
+                <BoxView.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CloseWidgetPanelCommand}" />
+                </BoxView.GestureRecognizers>
+            </BoxView>
+            <Border BackgroundColor="{DynamicResource SurfaceBg}"
+                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
+                    Margin="20" Padding="20,16" VerticalOptions="Center" HorizontalOptions="Center"
+                    MaximumWidthRequest="820" MaximumHeightRequest="640">
+                <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="组件" TextColor="{DynamicResource WarmDark}" FontSize="18" FontAttributes="Bold" />
+                            <Label Text="想看的留在栏上，暂时不看的收起来；改动即时保存。" TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="关闭" FontSize="11" Padding="12,0" HeightRequest="30"
+                                MinimumWidthRequest="0" CornerRadius="15" VerticalOptions="Center"
+                                BackgroundColor="{DynamicResource SecondaryBg}" TextColor="{DynamicResource SurfaceFg}"
+                                Command="{Binding CloseWidgetPanelCommand}" />
+                    </Grid>
+
+                    <Label Grid.Row="1" Text="顶栏按钮" TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                    <FlexLayout Grid.Row="2" Direction="Row" Wrap="Wrap" AlignItems="Center"
+                                BindableLayout.ItemsSource="{Binding TopBarButtonItems}"
+                                BindableLayout.ItemTemplate="{StaticResource TopBarButtonChipTemplate}" />
+
+                    <!-- 桌面：顶栏 / 左栏 两列 -->
+                    <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="16" IsVisible="{Binding IsDesktopLayout}">
+                        <Grid RowDefinitions="Auto,*" RowSpacing="6">
+                            <Label Text="顶栏" TextColor="{DynamicResource SurfaceFg}" FontSize="12" FontAttributes="Bold" />
+                            <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopWidgetSettings}"
+                                                     BindableLayout.ItemTemplate="{StaticResource WidgetSettingRowTemplate}" />
+                            </ScrollView>
+                        </Grid>
+                        <Grid Grid.Column="1" RowDefinitions="Auto,*" RowSpacing="6">
+                            <Label Text="左栏" TextColor="{DynamicResource SurfaceFg}" FontSize="12" FontAttributes="Bold" />
+                            <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                                <VerticalStackLayout BindableLayout.ItemsSource="{Binding LeftWidgetSettings}"
+                                                     BindableLayout.ItemTemplate="{StaticResource WidgetSettingRowTemplate}" />
+                            </ScrollView>
+                        </Grid>
+                    </Grid>
+
+                    <!-- 手机：同一份清单单列排 -->
+                    <ScrollView Grid.Row="3" VerticalScrollBarVisibility="Never" IsVisible="{Binding IsPhoneLayout}">
+                        <VerticalStackLayout>
+                            <Label Text="顶栏" TextColor="{DynamicResource SurfaceFg}" FontSize="12" FontAttributes="Bold" Margin="0,0,0,6" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding TopWidgetSettings}"
+                                                 BindableLayout.ItemTemplate="{StaticResource WidgetSettingRowTemplate}" />
+                            <Label Text="左栏" TextColor="{DynamicResource SurfaceFg}" FontSize="12" FontAttributes="Bold" Margin="0,10,0,6" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding LeftWidgetSettings}"
+                                                 BindableLayout.ItemTemplate="{StaticResource WidgetSettingRowTemplate}" />
+                        </VerticalStackLayout>
+                    </ScrollView>
+
+                    <Label Grid.Row="4" Text="窄屏顶栏只排前三个顶栏组件，其余仍在面板里随时调。"
+                           TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                </Grid>
+            </Border>
+        </Grid>
+
         <!-- ============ Overlays (shared by phone & desktop) ============ -->
 
         <!-- 菜单浮层：只放「这一局」的系统动作（设置/存档/收起/回标题）。
@@ -487,8 +686,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                            TextColor="{DynamicResource MutedFg}" />
                     <Label Text="标定确定两件事：角色能站在哪里（落脚点），以及近处远处该怎么缩放（缩放标定）。"
                            FontSize="12" TextColor="{DynamicResource MutedFg}" />
-                    <!-- 这两个钮原来写死「淡面 + 白字」：深色档里淡面令牌会变浅、白字随之糊掉。
-                         走共享样式，颜色交给世界，两个档位才都读得动。 -->
+                    <!-- 这两个钮走共享样式，颜色交给世界：写死「淡面 + 白字」会在深色档里
+                         让淡面令牌变浅、白字随之糊掉。 -->
                     <Button Text="✓ 现在去标定" Style="{StaticResource BtnNeumorphAccent}"
                             Command="{Binding GoCalibrateCommand}" />
                     <Button Text="移除这张背景（改用纯色）" Style="{StaticResource BtnDangerSm}"

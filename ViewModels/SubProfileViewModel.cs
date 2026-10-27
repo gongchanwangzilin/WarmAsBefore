@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.ViewModels;
@@ -98,7 +99,7 @@ public sealed partial class SubProfileViewModel : ObservableObject, IQueryAttrib
         if (await _sub.ResetAsync(_charId))
         {
             Load();
-            await Shell.Current.DisplayAlert("副设定", "已回正到主设定。", "好");
+            Toast.Success("已回正到主设定。");
         }
     }
 

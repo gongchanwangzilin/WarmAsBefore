@@ -57,8 +57,8 @@
                                                IsVisible="{Binding GlassInactive}"
                                                Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}" />
 
-                                                                                <!-- 玻璃模式：原来是三个互相牵制的开关（开着毛玻璃还得自己记得开磨砂），
-                                             现在是「一次选一种」。 -->
+                                        <!-- 玻璃模式：四种材质一次选一种。多个开关互相牵制时，
+                                             开着毛玻璃还得自己记得开磨砂。 -->
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
                                             <VerticalStackLayout>
                                                 <Label Text="风格" Style="{StaticResource TxtBodySm}" />
@@ -2071,6 +2071,98 @@
                             <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
                                 <Slider WidthRequest="140" Minimum="2" Maximum="30" Value="{Binding BrainAiEveryTurns}" />
                             </Grid>
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 35：浮动通知（不挡按键，几秒后自己滑回去） -->
+        <DataTemplate x:Key="Card35">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="浮动通知" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="用浮动通知代替弹窗" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="保存、同步、导入这类结果不再弹窗挡住按键：从屏幕边缘滑进来，几秒后自己滑回去。需要你确认的事（删除存档、覆盖文件）仍然用对话框。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding ToastEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding ToastEnabled}">
+                            <VerticalStackLayout>
+                                <Label Text="出现位置" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="默认右上角：贴着边缘但不压住顶栏按钮。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
+                                    ItemsSource="{Binding NotificationPositionChoices}"
+                                    SelectedItem="{Binding NotificationPositionDisplay}" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding ToastEnabled}">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding NotificationSeconds, StringFormat='停留 {0:0.#} 秒'}" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="从滑入到滑走的停留时长；滑入滑走本身另有 0.2 秒左右。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" WidthRequest="150" Minimum="1.5" Maximum="12"
+                                    Value="{Binding NotificationSeconds}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 36：界面组件、着装系统与角色内容开关 -->
+        <DataTemplate x:Key="Card36">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="界面组件" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="信息栏改用小组件" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="主界面左栏与顶栏由可挑选的小组件组成：时间、天气、好感、身体状态、当前地点各占一格，可自己决定显示哪些、放在哪一栏。关掉则回到固定排版。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding WidgetModeEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="关系网自动跳过展开动画" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="节点多的时候，长枝条动画要播很久才有反应。超过阈值就直接出图。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding GraphAutoSkipAnim}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding GraphAutoSkipAnim}">
+                            <Label Text="{Binding GraphSkipAnimNodes, StringFormat='节点超过 {0:0} 个就跳过'}" FontSize="13" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" WidthRequest="150" Minimum="40" Maximum="1200"
+                                    Value="{Binding GraphSkipAnimNodes}" VerticalOptions="Center" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="建档分步引导" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="开新档时一步一步问（世界 → 人设 → 细则 → 确认）。关掉则一屏填完。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveCreationOobe}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="着装系统" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="新版着装（形象包 + 服装轴）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="按部件拼立绘、换配色与服装，可让 AI 生成素材并录制动画。关掉则回到旧版：一张张静态立绘按表情切换。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding OutfitSystemNew}" /></Grid>
+                    </VerticalStackLayout>
+                </Border>
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="角色与内容" Style="{StaticResource TxtSubhead}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="允许 AI 随意加的角色先隐去名字" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="对放开角色白名单的存档：新角色登场时名字显示为「？？？」，等 TA 自我介绍或被介绍之后才显示真名。关掉则直接显示。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding MaskUnintroducedNames}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="性欲系统" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="只对你在存档里点名的角色生效（主角与指定配角），其余角色不参与。数值由 AI 与时间共同推进；你在设定里写死的值优先于周期。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding LibidoSystemEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding LibidoSystemEnabled}">
+                            <VerticalStackLayout>
+                                <Label Text="{Binding LibidoCycleInfluence, StringFormat='生理周期影响 {0:P0}'}" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="周期对性欲的抬升/压低幅度。0 = 完全不看周期，只按设定与情境。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Slider Grid.Column="1" WidthRequest="150" Minimum="0" Maximum="1"
+                                    Value="{Binding LibidoCycleInfluence}" VerticalOptions="Center" />
                         </Grid>
                     </VerticalStackLayout>
                 </Border>

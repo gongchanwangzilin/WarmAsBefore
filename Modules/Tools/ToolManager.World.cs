@@ -579,7 +579,8 @@ public sealed partial class ToolManager
                         Description = string.IsNullOrWhiteSpace(description) ? prompt : description,
                         Greeting = GetString(args, "greeting", created.Profile.Greeting)
                     };
-                    created = created with { Profile = profile };
+                    // AI 自己拉进来的人：在 TA 开口报名字之前，界面上先叫「？？？」
+                    created = created with { Profile = profile, Introduced = false };
                     var (path, msg) = await images.GenerateAsync(
                         $"{name} 的头像，{prompt}。干净背景，不要文字", "character_" + profile.Id);
                     if (path is not null)

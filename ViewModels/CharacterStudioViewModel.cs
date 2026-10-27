@@ -5,6 +5,7 @@ using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.ApiManager;
+using WarmAsBefore.Modules.Outfit;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.ViewModels;
@@ -12,11 +13,9 @@ namespace WarmAsBefore.ViewModels;
 /// <summary>
 /// 角色工作室：把一个角色的一切都收在同一屏里——左边立绘舞台（服装 × 表情 × 朝向），右边分段改。
 ///
-/// 存在的理由是把「一堆弹窗和提示」换掉：原来改一句性格要过两层 ActionSheet 加一次
-/// DisplayPromptAsync，用户根本不知道自己在改哪、改完有没有生效。这里所有反馈落在
-/// <see cref="Status"/> 一行字上，改的东西一律先进字段、按「保存」才落盘，随时能放弃。
+/// 所有反馈落在 <see cref="Status"/> 一行字上；改动一律先进字段，按「保存」才落盘，随时可以放弃。
 ///
-/// 分工要说清楚，不然是骗人：
+/// 写入时机分三类：
 /// · 文本/状态/覆写 = 延迟写（进字段，Save 才落盘，因为 CharacterData 是不可变记录，一次写好）；
 /// · 立绘生成/素材导入/灵枢导入/复制/主角标记/白名单 = 即时写（它们要动文件、要建角色，
 ///   攒到「保存」那一刻再一起做只会更难解释）。
@@ -39,16 +38,30 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     private readonly PageWindowService _windows;
     private readonly GenderLibrary _genders;
     private readonly Modules.SaveSystem.SaveManager _saves;
+    private readonly Modules.Cg.CgStore _cg;
+    private readonly Modules.Cg.CgViewPayload _cgView;
+    private readonly WorldTreeService _worldTree;
+    private readonly AvatarCropService _crop;
+    private readonly FigurePackService _figures;
 
     private CharacterData _ch = new();
     private bool _loading = true;
     private readonly HashSet<string> _changed = new(StringComparer.Ordinal);
 
+    // ---- 新版着装（形象包） ----
+    /// <summary>工作室是否走形象包；包读不出来时立即回退 SpriteMap，旧素材一格都不会少。</summary>
+    private bool _figureActive;
+    private FigurePack? _figurePack;
+    private List<string> _figureEmotions = new() { "normal" };
+    private int _figurePreviewVersion;
+
     public CharacterStudioViewModel(GameEngine engine, CharacterLibrary library, StorageProvider store,
         ApiGateway api, ImageGenerationService images, LingshuImporter lingshu,
         CharacterSubProfileService subProfiles, MemoryScope scope, SettingsManager settings,
         MemoryOverviewService memory, PageWindowService windows, GenderLibrary genders,
-        Modules.SaveSystem.SaveManager saves)
+        Modules.SaveSystem.SaveManager saves, Modules.Cg.CgStore cg,
+        Modules.Cg.CgViewPayload cgView, WorldTreeService worldTree, AvatarCropService crop,
+        FigurePackService figures)
     {
         _engine = engine;
         _library = library;
@@ -63,6 +76,11 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         _windows = windows;
         _genders = genders;
         _saves = saves;
+        _cg = cg;
+        _cgView = cgView;
+        _worldTree = worldTree;
+        _crop = crop;
+        _figures = figures;
         GenderChoices = genders.Names
             .Select(n => new StudioAxisItem(n, n)).ToList();
     }
@@ -75,7 +93,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
 
     /// <summary>
     /// 新建那一张真的进了名册（带着新 id）。和 <see cref="Saved"/> 分开是因为只有这一趟
-    /// 值得让调用方接着做「用 TA 开一局」——保存老角色不该把你从原来那局里踢出去。
+    /// 值得让调用方接着做「用 TA 开一局」——保存已有角色不应中断当前这一局。
     /// </summary>
     public Action<string>? Created { get; set; }
 
@@ -117,6 +135,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     [ObservableProperty] private bool _hasPreview;
     [ObservableProperty] private ImageSource? _avatarSource;
     [ObservableProperty] private bool _hasAvatar;
+    [ObservableProperty] private CharacterBackdropState? _stageBackdrop;
     [ObservableProperty] private string _previewCaption = "";
     [ObservableProperty] private string _previewHint = "";
     [ObservableProperty] private double _mirrorX = 1;
@@ -193,6 +212,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     [ObservableProperty] private bool _isTabMem;
     [ObservableProperty] private bool _isTabLink;
     [ObservableProperty] private bool _isTabTalk;
+    [ObservableProperty] private bool _isTabCg;
     [ObservableProperty] private bool _busy;
     [ObservableProperty] private string _status = "";
     [ObservableProperty] private bool _isDirty;
@@ -298,17 +318,16 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             Status = "这个角色的资料读不出来了。";
             return false;
         }
-        // 存档数自己数，不从调用方要：以前是列表页顺手递一句字符串进来，
-        // 于是「这一页能开在谁的几个存档上」只有从列表点进去才说得清，另开一扇窗就成了空白句。
+        // 存档数在这里自己数：由列表页传入字符串会让独立窗口只能显示空白句。
         var runs = (await _saves.List()).Count(s => s.Character == charId);
         Apply(found, runs == 0 ? "暂无存档" : $"存档 {runs} 个", false);
         return true;
     }
 
     /// <summary>
-    /// 新建角色：开一张空白卡，不再连弹三个输入框。
-    /// 姓名、性别、性格就写在右边的栏里，想省事用「让 AI 写一整份设定」一句话生成，
-    /// 看对了才按「建好角色」进名册——在那之前，这一切都只在草稿上。
+    /// 新建角色：开一张空白卡，姓名、性别、性格直接写在右边的栏里；
+    /// 想省事用「让 AI 写一整份设定」一句话生成，确认后才按「建好角色」进名册——
+    /// 在那之前，这一切都只存在草稿上。
     ///
     /// id 在卡片打开那一刻定下且不再换：中途画的立绘、换的头像都挂在这个 id 上，
     /// 「放弃改动」要是换成另一个 id，那些文件就成了没人认领的孤儿。
@@ -321,6 +340,23 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
 
     private CharacterData? _draft;
     private bool _isNew;
+
+    /// <summary>显示层的名字：还没自我介绍的人先叫「？？？」，真名仍留在档案里。</summary>
+    private string DisplayNameOf(CharacterData ch) => _isNew
+        ? ch.Profile.Name
+        : CharacterMask.DisplayName(ch, _settings.Current.MaskUnintroducedNames);
+
+    /// <summary>按「此刻填着的名字」算显示名（试话 / AI 填稿时用，还没保存的改动也要算进去）。</summary>
+    private string DisplayNameFor(string name) => _ch is null
+        ? name
+        : DisplayNameOf(_ch with { Profile = _ch.Profile with { Name = name } });
+
+    private string HeadlineOf(CharacterData ch)
+    {
+        var shown = DisplayNameOf(ch);
+        if (shown == CharacterMask.Placeholder) return shown;
+        return string.IsNullOrWhiteSpace(ch.Profile.Nickname) ? shown : $"{shown}·{ch.Profile.Nickname}";
+    }
 
     /// <summary>一张谁也不是的底：只有「必须由人来定的那四栏」留空，其余照出厂默认显示出来——框里写的就是盘上要写的。</summary>
     private CharacterData BlankDraft()
@@ -346,9 +382,8 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         OnPropertyChanged(nameof(HasTalkLines));
 
         CharacterId = _ch.Profile.Id;
-        DisplayName = _ch.Profile.Name;
-        Headline = isNew ? "新建角色"
-            : (string.IsNullOrWhiteSpace(_ch.Profile.Nickname) ? _ch.Profile.Name : $"{_ch.Profile.Name}·{_ch.Profile.Nickname}");
+        DisplayName = DisplayNameOf(_ch);
+        Headline = isNew ? "新建角色" : HeadlineOf(_ch);
         MetaLine = isNew ? "先起个名字、选个性别，其余都能之后补"
             : StudioCopy.Meta(_ch.Profile.Gender, _ch.Profile.UserAddress, _ch.Profile.IsRomanceTarget);
         IsMain = IsMainCharacter(_ch.Profile.Id);
@@ -399,9 +434,19 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         ScopePath = _scope.Key("memories") + ".json";
         MemoryHint = StudioCopy.MemoryScopeHint(_scope.IsShared);
 
+        // 形象包是异步读盘的：先把 SpriteMap 的轴铺出来，包到了再换成包的服装/表情轴。
+        // 这样旧存档、坏包、开关关闭三种情况都不会出现空工作室。
+        _figurePack = null;
+        _figureEmotions = new List<string> { "normal" };
+        _figureActive = !FigureCompat.ShouldFallbackToSpriteMap(_settings, _ch);
         RebuildArtAxes();
+        if (_figureActive) _ = LoadFigurePackAsync(_ch.FigurePackId);
         SyncChoice(GenderChoices, Gender);
         SyncChoice(MoodChoices, Mood);
+        RefreshStageBackdrop();
+        // 共享口径、CG、世界书/世界观、语音与模型（见 .Bindings.cs）。
+        // 放在这里而不是各自零散地赋值：换人时这几块必须一起换，漏一块就是把上一位的数字留在这一位身上。
+        LoadExtended(_ch);
         AiDraft = "";
         HasAiDraft = false;
         AiTarget = "";
@@ -453,9 +498,20 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         IsTabMem = tab == "mem";
         IsTabLink = tab == "link";
         IsTabTalk = tab == "talk";
+        IsTabCg = tab == "cg";
         // 素材矩阵第一次被翻到时才铺（见 _artGridDirty）。不 await：页签与标题要先落地，
         // 铺格子是这一栏自己的事，慢一点也只慢在它下面。
         if (tab == "art") _ = EnsureArtGridAsync();
+        // CG 每次翻到都重读：解锁是剧情里现发生的事，缓存里那一份可能已经落后。
+        if (tab == "cg") _ = RefreshCgCoreAsync();
+    }
+
+    /// <summary>打开形象包管理页；带上当前角色，绑定按钮就不用再让人选一次「绑给谁」。</summary>
+    [RelayCommand]
+    private async Task OpenFigurePack()
+    {
+        if (string.IsNullOrEmpty(CharacterId)) return;
+        await Shell.Current.GoToAsync($"figurePack?character={Uri.EscapeDataString(CharacterId)}");
     }
 
     // ── 立绘：服装 × 表情 × 朝向 ────────────────────────────────────────
@@ -477,25 +533,102 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         ArtRows.Clear();
         _artGridDirty = true;
 
-        var keys = _ch.SpriteMap.Keys
-            .Where(k => k.Contains('/') && !string.IsNullOrWhiteSpace(_ch.SpriteMap[k]))
-            .ToList();
-        var outfits = keys.Select(k => k.Split('/')[0])
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(k => k, StringComparer.CurrentCulture)
-            .ToList();
-        var emotions = keys.Select(k => k.Split('/')[1])
-            .Where(e => !string.IsNullOrWhiteSpace(e))
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .OrderBy(e => e, StringComparer.CurrentCulture)
-            .ToList();
+        List<string> outfits;
+        List<string> emotions;
+        if (_figureActive && _figurePack is not null)
+        {
+            outfits = _figurePack.Outfits
+                .Select(o => o.Id)
+                .Where(id => !string.IsNullOrWhiteSpace(id))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (outfits.Count == 0) outfits.Add("default");
+            emotions = _figureEmotions.ToList();
+        }
+        else
+        {
+            var keys = _ch.SpriteMap.Keys
+                .Where(k => k.Contains('/') && !string.IsNullOrWhiteSpace(_ch.SpriteMap[k]))
+                .ToList();
+            outfits = keys.Select(k => k.Split('/')[0])
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(k => k, StringComparer.CurrentCulture)
+                .ToList();
+            emotions = keys.Select(k => k.Split('/')[1])
+                .Where(e => !string.IsNullOrWhiteSpace(e))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(e => e, StringComparer.CurrentCulture)
+                .ToList();
 
-        if (outfits.Count == 0) outfits.Add(string.IsNullOrWhiteSpace(SelectedOutfit) ? "default" : SelectedOutfit);
-        if (emotions.Count == 0) emotions.Add(string.IsNullOrWhiteSpace(SelectedEmotion) ? "normal" : SelectedEmotion);
+            if (outfits.Count == 0) outfits.Add(string.IsNullOrWhiteSpace(SelectedOutfit) ? "default" : SelectedOutfit);
+            if (emotions.Count == 0) emotions.Add(string.IsNullOrWhiteSpace(SelectedEmotion) ? "normal" : SelectedEmotion);
+        }
 
-        foreach (var o in outfits) Outfits.Add(new StudioAxisItem(o, StudioCopy.OutfitName(o)) { IsOn = o == SelectedOutfit });
+        foreach (var o in outfits)
+        {
+            var label = StudioCopy.OutfitName(o);
+            if (_figureActive && _figurePack is not null)
+            {
+                var def = _figurePack.Outfits.FirstOrDefault(x =>
+                    string.Equals(x.Id, o, StringComparison.OrdinalIgnoreCase));
+                if (!string.IsNullOrWhiteSpace(def?.Name)) label = def!.Name;
+            }
+            Outfits.Add(new StudioAxisItem(o, label) { IsOn = o == SelectedOutfit });
+        }
         foreach (var e in emotions) Emotions.Add(new StudioAxisItem(e, e) { IsOn = e == SelectedEmotion });
         RebuildPreview();
+    }
+
+    /// <summary>
+    /// 读形象包并换成包里的服装/表情轴。读不出来就关掉新版分支、重铺旧的 SpriteMap 轴——
+    /// 「绑定了一个坏包」不该让工作室变成空白页。
+    /// </summary>
+    private async Task LoadFigurePackAsync(string packId)
+    {
+        try
+        {
+            var pack = await _figures.LoadAsync(packId);
+            if (!string.Equals(_ch.FigurePackId, packId, StringComparison.Ordinal)) return;
+            if (pack is null)
+            {
+                App.WriteLog("Studio: 形象包读取失败，回退 SpriteMap -> " + packId);
+                _figureActive = false;
+                _figurePack = null;
+                RebuildArtAxes();
+                return;
+            }
+
+            _figurePack = pack;
+            _figureEmotions = FigureEmotionKeys(pack);
+            if (!_figurePack.Outfits.Any(o => string.Equals(o.Id, SelectedOutfit, StringComparison.OrdinalIgnoreCase)))
+                SelectedOutfit = _figurePack.Outfits.FirstOrDefault()?.Id ?? "default";
+            if (!_figureEmotions.Contains(SelectedEmotion, StringComparer.OrdinalIgnoreCase))
+                SelectedEmotion = _figureEmotions.FirstOrDefault() ?? "normal";
+
+            RebuildArtAxes();
+            if (IsTabArt) _ = EnsureArtGridAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Studio.LoadFigurePack -> " + ex);
+            _figureActive = false;
+            _figurePack = null;
+            RebuildArtAxes();
+        }
+    }
+
+    private static List<string> FigureEmotionKeys(FigurePack pack)
+    {
+        var list = new List<string> { "normal" };
+        foreach (var part in pack.Parts)
+        {
+            foreach (var emotion in part.EmotionTextures.Keys)
+            {
+                if (string.IsNullOrWhiteSpace(emotion)) continue;
+                if (!list.Contains(emotion, StringComparer.OrdinalIgnoreCase)) list.Add(emotion);
+            }
+        }
+        return list;
     }
 
     /// <summary>
@@ -515,6 +648,35 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             await Task.Delay(16);
             var outfits = Outfits.ToList();
             var emotions = Emotions.ToList();
+
+            // 新版着装没有「一格一张图」的素材，格子是现场合成的：
+            // 只在这一栏真的被翻到时才做，按行让出线程，不拖慢换栏本身。
+            if (_figureActive && _figurePack is not null)
+            {
+                var packId = _ch.FigurePackId;
+                foreach (var o in outfits)
+                {
+                    if (!string.Equals(packId, _ch.FigurePackId, StringComparison.Ordinal) || !_figureActive) break;
+                    var row = new StudioArtRow(o.Key, o.Label);
+                    var outfitId = string.Equals(o.Key, "default", StringComparison.OrdinalIgnoreCase)
+                                   && _figurePack.Outfits.Count == 0
+                        ? ""
+                        : o.Key;
+                    foreach (var e in emotions)
+                    {
+                        var path = await _figures.RenderAsync(packId, outfitId, "", e.Key, 190, 280);
+                        row.Cells.Add(new StudioArtCell(o.Key, e.Key,
+                            string.IsNullOrWhiteSpace(path) ? null : ImageSource.FromFile(path),
+                            !string.IsNullOrWhiteSpace(path), IsCurrentCell(o.Key, e.Key)));
+                    }
+                    var have = row.Cells.Count(c => c.HasImage);
+                    row.FillLabel = $"{have}/{row.Cells.Count} 格合成";
+                    ArtRows.Add(row);
+                    await Task.Yield();
+                }
+                return;
+            }
+
             foreach (var o in outfits)
             {
                 var row = new StudioArtRow(o.Key, o.Label);
@@ -606,8 +768,11 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         Status = $"缺「{cell.OutfitName} / {cell.Emotion}」这一格：在下面的描述里写下这套衣服与神情，生成立绘补上。";
     }
 
-    private bool HasSprite(string outfit, string emotion) =>
-        _ch.SpriteMap.TryGetValue($"{outfit}/{emotion}", out var rel) && !string.IsNullOrWhiteSpace(rel);
+    private bool HasSprite(string outfit, string emotion)
+    {
+        if (_figureActive && _figurePack is not null) return true;   // 合成器总能把基础部件叠出来
+        return _ch.SpriteMap.TryGetValue($"{outfit}/{emotion}", out var rel) && !string.IsNullOrWhiteSpace(rel);
+    }
 
     private void RebuildPreview()
     {
@@ -616,6 +781,22 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         AvatarSource = string.IsNullOrWhiteSpace(_ch.Avatar) ? null : ImageFromFile(_ch.Avatar);
         HasAvatar = AvatarSource is not null;
 
+        if (_figureActive)
+        {
+            // 先给头像兜底，合成结果随后替换；连续切服装时只认最后一次。
+            PreviewSource = AvatarSource;
+            HasPreview = AvatarSource is not null;
+            PreviewCaption = _figurePack is null
+                ? "形象包 · 正在读取…"
+                : $"形象包 · {StudioCopy.OutfitName(SelectedOutfit)} · {SelectedEmotion}";
+            PreviewHint = _figurePack is null
+                ? "正在读形象包；读不出来会自动回到旧的立绘素材。"
+                : "正在合成这一格…";
+            if (_figurePack is not null) _ = RefreshFigurePreviewAsync(SelectedOutfit, SelectedEmotion);
+            return;
+        }
+
+        _figurePreviewVersion++;
         var rel = FindSprite(SelectedOutfit, SelectedEmotion);
         var src = rel is null ? null : ImageFromFile(rel);
         var fromAvatar = false;
@@ -638,9 +819,53 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             : "这个角色还没有任何立绘：先用一句话生成一套，或从 zip 补充素材。";
     }
 
+    /// <summary>工作室这一格的合成预览：1080×1920，和主界面共用同一份缓存。</summary>
+    private async Task RefreshFigurePreviewAsync(string outfit, string emotion)
+    {
+        var version = ++_figurePreviewVersion;
+        try
+        {
+            var packId = _ch.FigurePackId;
+            var path = await _figures.RenderAsync(packId, outfit, "", emotion, 1080, 1920);
+            if (version != _figurePreviewVersion
+                || !string.Equals(packId, _ch.FigurePackId, StringComparison.Ordinal))
+                return;
+
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                PreviewHint = "这一格没合成出来：检查形象包里的部件贴图是否完整。";
+                return;
+            }
+            PreviewSource = ImageSource.FromFile(path);
+            HasPreview = true;
+            PreviewHint = "";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("Studio.RefreshFigurePreview -> " + ex);
+            if (version == _figurePreviewVersion)
+                PreviewHint = "这一格没合成出来：" + ex.Message;
+        }
+    }
+
     /// <summary>
-    /// 朝向是角色状态里存着的一档（<c>State.IsFacingLeft</c>），走路人、桌宠、对话立绘都该照它站：
-    /// 以前它在盘上躺着，界面一处都不认，等于白存。这一屏是它第一次看得见、也第一次改得动。
+    /// 舞台背景：角色设了专属背景就用它，没设就露出舞台自己的井面。
+    /// 适配/裁剪/是否视频都从角色字段现算，和角色库、游戏内是同一条解析结果。
+    /// </summary>
+    private void RefreshStageBackdrop()
+    {
+        var path = CharacterBackgroundService.Resolve(_ch, _store.Root);
+        StageBackdrop = string.IsNullOrWhiteSpace(path)
+            ? null
+            : new CharacterBackdropState(
+                path, CharacterBackgroundService.NormalizeFit(_ch.BackgroundFit),
+                _ch.BackgroundCrop.X, _ch.BackgroundCrop.Y, _ch.BackgroundCrop.W, _ch.BackgroundCrop.H,
+                CharacterBackgroundService.IsVideo(path));
+    }
+
+    /// <summary>
+    /// 朝向存在角色状态里（<c>State.IsFacingLeft</c>），走路人、桌宠、对话立绘都照它站。
+    /// 这一屏是它的编辑入口：显示当前朝向，改动后等「保存」落盘。
     /// </summary>
     [RelayCommand]
     private void Flip()
@@ -765,19 +990,17 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                 PickerTitle = $"给「{_ch.Profile.Name}」挑一张头像"
             });
             if (file is null) return;
-            var ext = Path.GetExtension(file.FullPath);
-            if (string.IsNullOrWhiteSpace(ext)) ext = ".png";
-            var dir = Path.Combine(_store.Root, "assets", "characters", _ch.Profile.Id);
-            Directory.CreateDirectory(dir);
-            var rel = $"assets/characters/{_ch.Profile.Id}/avatar{ext}";
-            File.Copy(file.FullPath, Path.Combine(_store.Root, rel), true);
+            // 头像必须在游戏内裁成方形再入库：直接 File.Copy 会把竖图/横图原样塞进
+            // 列表与对话的圆框里，用户还得另找软件裁。取消裁剪 = 什么都不改。
+            var rel = await _crop.OpenAsync(_ch.Profile.Id, file.FullPath);
+            if (string.IsNullOrWhiteSpace(rel)) return;
             _ch = _ch with { Avatar = rel };
             if (_isNew) _draft = _ch;
             else await _library.UpdateAsync(_ch);
             RebuildPreview();
             Status = _isNew
-                ? "头像已经挑好，还在草稿上——建好角色后角色库与对话里都跟着换。"
-                : "头像已换，角色库与对话里的头像都跟着变。";
+                ? "头像已经裁好，还在草稿上——建好角色后角色库与对话里都跟着换。"
+                : "头像已裁好，角色库与对话里的头像都跟着变。";
             Saved?.Invoke();
         }
         catch (Exception ex)
@@ -908,8 +1131,13 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                 }
                 break;
         }
-        DisplayName = Name;
-        Headline = string.IsNullOrWhiteSpace(Nickname) ? Name : $"{Name}·{Nickname}";
+        var draftData = _ch is null
+            ? null
+            : _ch with { Profile = _ch.Profile with { Name = Name, Nickname = Nickname } };
+        DisplayName = draftData is null ? Name : DisplayNameOf(draftData);
+        Headline = draftData is null
+            ? (string.IsNullOrWhiteSpace(Nickname) ? Name : $"{Name}·{Nickname}")
+            : HeadlineOf(draftData);
         HasAiDraft = false;
         AiDraft = "";
         Status = $"已把 AI 的{AiTarget}填进字段，按「保存」落盘。";
@@ -952,8 +1180,9 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         TalkInput = "";
         TalkHint = "";
         var who = string.IsNullOrWhiteSpace(Name) ? "TA" : Name.Trim();
+        var shownWho = DisplayNameFor(who);
         TalkLines.Add(new TalkLine("我", line, true));
-        TalkLines.Add(new TalkLine(who, "在想…", false, true));
+        TalkLines.Add(new TalkLine(shownWho, "在想…", false, true));
         OnPropertyChanged(nameof(HasTalkLines));
         Status = $"正在听「{who}」怎么接…";
         try
@@ -968,18 +1197,18 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             var slot = TalkLines.Count - 1;
             if (string.IsNullOrWhiteSpace(reply))
             {
-                TalkLines[slot] = new TalkLine(who, "没接到话：检查设置 → AI 里的接口与密钥。", false);
+                TalkLines[slot] = new TalkLine(shownWho, "没接到话：检查设置 → AI 里的接口与密钥。", false);
                 Status = "TA 没接话——这一句试话没成功。";
             }
             else
             {
-                TalkLines[slot] = new TalkLine(who, reply.Trim(), false);
+                TalkLines[slot] = new TalkLine(shownWho, reply.Trim(), false);
                 Status = $"「{who}」回了一句（这几句只在这一屏，不进 TA 的记忆）。";
             }
         }
         catch (Exception ex)
         {
-            TalkLines[TalkLines.Count - 1] = new TalkLine(who, "出错了：" + ex.Message, false);
+            TalkLines[TalkLines.Count - 1] = new TalkLine(shownWho, "出错了：" + ex.Message, false);
             Status = "试句话出错：" + ex.Message;
             App.WriteLog("Studio.Talk -> " + ex);
         }
@@ -1170,7 +1399,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         if (allowed.Contains(id))
         {
             allowed.Remove(id);
-            // 空名单的语义是「不限制」：原来不限制时把一个人移出去，得把其余所有人都写进名单，
+            // 空名单的语义是「不限制」：不限制时把一个人移出去，要把其余所有人都写进名单，
             // 否则移除反而变成「所有人都能用」。
             if (allowed.Count == 0)
                 foreach (var c in _engine.Roster.Values.Where(c => c.Profile.Id != id))
@@ -1226,10 +1455,14 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             // 「放弃修改」会原样读回那被改过的一份，等于按钮是假的。
             var st = _ch.State with
             {
-                Affection = Clamp(Affection, 0, 100),
-                Trust = Clamp(Trust, 0, 100),
-                Energy = Clamp(Energy, 0, 100),
-                AffectionPoints = ParseInt(AffectionPoints, _ch.State.AffectionPoints),
+                Affection = StateShared ? Clamp(Affection, 0, 100) : _ch.State.Affection,
+                Trust = StateShared ? Clamp(Trust, 0, 100) : _ch.State.Trust,
+                Energy = StateShared ? Clamp(Energy, 0, 100) : _ch.State.Energy,
+                AffectionPoints = StateShared
+                    ? ParseInt(AffectionPoints, _ch.State.AffectionPoints)
+                    : _ch.State.AffectionPoints,
+                Libido = StateShared ? Clamp(Libido, 0, 100) : _ch.State.Libido,
+                LibidoLock = StateShared ? (LibidoLocked ? Clamp(LibidoLockValue, 0, 100) : null) : _ch.State.LibidoLock,
                 Mood = string.IsNullOrWhiteSpace(Mood) ? "normal" : Mood.Trim().ToLowerInvariant(),
                 Location = Fallback(Location, _ch.State.Location),
                 CurrentOutfit = Fallback(SelectedOutfit, _ch.State.CurrentOutfit),
@@ -1242,7 +1475,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                     Phase = Fallback(CyclePhase, _ch.State.Cycle.Phase)
                 }
             };
-            var updated = _ch with
+            var updated = WithExtended(_ch with
             {
                 Profile = p with
                 {
@@ -1257,7 +1490,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                 },
                 State = st,
                 Overrides = BuildOverrides()
-            };
+            });
 
             // 同一份「写盘」动作，对人是两件：草稿要登记，盘上的人要覆盖。
             var wrote = _isNew ? await _library.AddAsync(updated) : await _library.UpdateAsync(updated);
@@ -1267,17 +1500,19 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                 return;
             }
             var justCreated = _isNew;
-            // 进过名册就不再是草稿了：之后这颗按钮做的事回到「保存」，关联那一栏也才终于有意义。
+            // 进过名册后就不再是草稿：之后这颗按钮执行「保存」，关联那一栏也才有意义。
             _isNew = false;
             _draft = null;
             _ch = updated;
             CharacterId = updated.Profile.Id;
-            DisplayName = updated.Profile.Name;
-            Headline = string.IsNullOrWhiteSpace(updated.Profile.Nickname)
-                ? updated.Profile.Name : $"{updated.Profile.Name}·{updated.Profile.Nickname}";
+            DisplayName = DisplayNameOf(updated);
+            Headline = HeadlineOf(updated);
             MetaLine = StudioCopy.Meta(updated.Profile.Gender, updated.Profile.UserAddress, updated.Profile.IsRomanceTarget);
             CycleNote = StudioCopy.CycleNote(updated.State.Cycle);
             SubDiff = _subProfiles.DiffSummary(CharacterId);
+            // 共享口径提示、这一档的对照值、语音摘要、世界观单选：它们读的都不是滑杆本身，
+            // 保存之后要跟着新的那份记录重算一次，否则屏幕上还停着旧的解释。
+            RefreshExtendedAfterSave();
             AllowedInSave = AllowedNow(CharacterId);
             AllowedHint = StudioCopy.Whitelist(AllowedInSave, _engine.State.AllowedCharacters.Count);
             IsDirty = false;
@@ -1356,8 +1591,8 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
 }
 
 /// <summary>
-/// 工作室里说人话的那一层：三处界面要表达同一个意思（记忆归谁、白名单现在是什么状态、
-/// 周期走到哪一天），写在 XAML 里迟早各说各的，所以收在这里一次说清。
+/// 工作室的文案层：三处界面要表达同一个意思（记忆归谁、白名单当前是什么状态、
+/// 周期走到哪一天）。集中在 XAML 里迟早各说各的，所以收在这里统一生成。
 /// </summary>
 public static class StudioCopy
 {

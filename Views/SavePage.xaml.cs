@@ -26,4 +26,15 @@ public partial class SavePage : ContentPage
         using var _ = WarmAsBefore.Services.PerfLog.Measure("页 · 存档 · 刷新");
         await _vm.RefreshCommand.ExecuteAsync(null);
     }
+
+    /// <summary>云存档入口：路由注册在 AppShell，这里只负责跳过去；没接上时给一句可读提示，不崩。</summary>
+    private async void OnCloudSavesTapped(object sender, TappedEventArgs e)
+    {
+        try { await Shell.Current.GoToAsync("cloudsaves"); }
+        catch (Exception ex)
+        {
+            App.WriteLog("SavePage.OnCloudSavesTapped -> " + ex);
+            Toast.Warn("云存档页面还没接通，请先完成路由注册。");
+        }
+    }
 }

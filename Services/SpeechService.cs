@@ -1,11 +1,20 @@
+using WarmAsBefore.Models;
+
 namespace WarmAsBefore.Services;
 
 public sealed class SpeechService
 {
     private readonly StorageProvider _store;
+    private readonly SemaphoreSlim _speakGate = new(1, 1);
     private CancellationTokenSource? _listenCts;
 
     public SpeechService(StorageProvider store) => _store = store;
+
+    /// <summary>按角色取语音覆写（角色设置里单独绑的音色/引擎）；null = 沿用全局。</summary>
+    public Func<string, CharacterVoice?>? VoiceOfCharacter { get; set; }
+
+    /// <summary>当前该用谁的嗓子（界面正在陪的那位）；Speak 没显式传 charId 时用它。</summary>
+    public Func<string?>? CurrentCharacterId { get; set; }
 
     public bool TtsEnabled { get; set; } = true;
     public double TtsRate { get; set; } = 1.0;
@@ -42,11 +51,21 @@ public sealed class SpeechService
     /// Speak text aloud using the configured TTS engine.
     /// Android: TextToSpeech; Windows: system SpeechSynthesis or external API.
     /// </summary>
-    public async Task Speak(string text, string lang = "zh-CN")
+    public async Task Speak(string text, string lang = "zh-CN", string? charId = null)
     {
         if (!TtsEnabled) return;
+
+        var voice = VoiceOf(charId);
+        // 角色自己关掉了声音：不是全局静音，而是 TA 这一位不说话
+        if (voice is { Enabled: false }) return;
+
+        await _speakGate.WaitAsync();
+        var (savedName, savedEngine, savedExtra) = (VoiceName, TtsEngine, VoiceExtra);
         try
         {
+            if (!string.IsNullOrWhiteSpace(voice?.VoiceName)) VoiceName = voice.VoiceName;
+            if (!string.IsNullOrWhiteSpace(voice?.Engine)) TtsEngine = voice.Engine;
+            if (!string.IsNullOrWhiteSpace(voice?.Extra)) VoiceExtra = voice.Extra;
 #if ANDROID
             if (TtsEngine == "api")
                 await SpeakApiAndroid(text);
@@ -64,6 +83,25 @@ public sealed class SpeechService
         {
             System.Diagnostics.Debug.WriteLine($"[TTS] {ex.Message}");
         }
+        finally
+        {
+            VoiceName = savedName;
+            TtsEngine = savedEngine;
+            VoiceExtra = savedExtra;
+            _speakGate.Release();
+        }
+    }
+
+    private CharacterVoice? VoiceOf(string? charId)
+    {
+        try
+        {
+            var id = charId;
+            if (string.IsNullOrEmpty(id)) id = CurrentCharacterId?.Invoke();
+            if (string.IsNullOrEmpty(id) || VoiceOfCharacter is null) return null;
+            return VoiceOfCharacter(id!);
+        }
+        catch { return null; }
     }
 
     /// <summary>
