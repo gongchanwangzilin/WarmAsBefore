@@ -14,8 +14,8 @@ public sealed class ApiGateway
     /// <summary>全局请求超时（秒），由 RuntimeConfigurator 从设置下发；端点可单独覆写。</summary>
     public int GlobalTimeoutSeconds { get; set; } = 25;
 
-    /// <summary>一次请求的真实 token 消耗（模型名, 输入, 输出）。成本统计订阅它。</summary>
-    public event Action<string, int, int>? UsageReported;
+    /// <summary>一次请求的真实 token 消耗（模型名, 输入, 输出, 缓存输入, 缓存输出）。成本统计订阅它。</summary>
+    public event Action<string, int, int, int, int>? UsageReported;
 
     public void Configure(AiEndpoint cfg) => _cfg = cfg;
 
@@ -34,14 +34,32 @@ public sealed class ApiGateway
         try
         {
             using var doc = JsonDocument.Parse(raw);
-            if (!doc.RootElement.TryGetProperty("usage", out var usage)) return;
-            var prompt = usage.TryGetProperty("prompt_tokens", out var p) && p.TryGetInt32(out var pv) ? pv : 0;
-            var completion = usage.TryGetProperty("completion_tokens", out var c) && c.TryGetInt32(out var cv) ? cv : 0;
+            if (!doc.RootElement.TryGetProperty("usage", out var usage) || usage.ValueKind != JsonValueKind.Object) return;
+            var prompt = ReadInt(usage, "prompt_tokens");
+            var completion = ReadInt(usage, "completion_tokens");
             if (prompt == 0 && completion == 0) return;
-            UsageReported.Invoke(model, prompt, completion);
+
+            // 缓存输入：OpenAI 兼容口径藏在 prompt_tokens_details.cached_tokens；
+            // Anthropic 兼容代理放在顶层 cache_read / cache_creation。取不到就记 0——不返回明细是常态。
+            var cachedIn = ReadChild(usage, "prompt_tokens_details") is { } pin ? ReadInt(pin, "cached_tokens") : 0;
+            if (cachedIn == 0)
+                cachedIn = ReadInt(usage, "cache_read_input_tokens") + ReadInt(usage, "cache_creation_input_tokens");
+            // 缓存命中是 prompt 的子集，个别端点口径异常时钳住，免得下游出现负数
+            if (cachedIn > prompt) cachedIn = prompt;
+
+            // 思考输出（reasoning）与缓存输出同档处理：按单独一笔计，取不到记 0
+            var cachedOut = ReadChild(usage, "completion_tokens_details") is { } pout ? ReadInt(pout, "reasoning_tokens") : 0;
+
+            UsageReported.Invoke(model, prompt, completion, cachedIn, cachedOut);
         }
         catch (Exception ex) { App.WriteLog("ApiGateway.Usage -> " + ex.Message); }
     }
+
+    private static int ReadInt(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.TryGetInt32(out var n) ? Math.Max(0, n) : 0;
+
+    private static JsonElement? ReadChild(JsonElement el, string name) =>
+        el.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.Object ? v : null;
 
     // ============ 多端点 / 多密钥轮换 ============
 

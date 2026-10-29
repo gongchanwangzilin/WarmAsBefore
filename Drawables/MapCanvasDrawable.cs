@@ -1,5 +1,6 @@
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.DesignSystem.Worlds;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.ViewModels;
 
@@ -32,8 +33,54 @@ public sealed class MapCanvasDrawable : IDrawable
     public double OffsetY { get; set; }
     public double Scale { get; set; } = 1.0;
 
+    /// <summary>画布 1 单位 = 多少米（与 MapDefinition.MetersPerUnit 同步，标长度用）。</summary>
+    public double MetersPerUnit { get; set; } = 0.5;
+
+    /// <summary>只看某地点的某一层（楼层切换）；null = 全都看。其余房间会淡成影子，不挡路。</summary>
+    public string? FloorLocationId { get; set; }
+    public int? FloorFilter { get; set; }
+
+    /// <summary>
+    /// 细节档位：拉远了就只留主干道与大框，拉近了才长小巷、户型、备注卡。
+    /// 一是像真地图（从大地看到小地），二是城市级地图（几千条路）在远景不必逐条画字。
+    /// </summary>
+    public enum Lod { Far, Mid, Near }
+
+    public Lod Detail => Scale < 0.5 ? Lod.Far : Scale < 0.95 ? Lod.Mid : Lod.Near;
+
     public Point WorldToScreen(Point w) => new(w.X * Scale + OffsetX, w.Y * Scale + OffsetY);
     public Point ScreenToWorld(Point s) => new((s.X - OffsetX) / Scale, (s.Y - OffsetY) / Scale);
+
+    /// <summary>这个包围盒（世界坐标）在当前视口里看得见吗——看不见的直接不画、不算。</summary>
+    private bool InView(double x, double y, double w, double h, RectF dirty, double margin = 240)
+    {
+        var sx = x * Scale + OffsetX;
+        var sy = y * Scale + OffsetY;
+        var sw = w * Scale;
+        var sh = h * Scale;
+        return sx + sw >= dirty.Left - margin && sx <= dirty.Right + margin
+            && sy + sh >= dirty.Top - margin && sy <= dirty.Bottom + margin;
+    }
+
+    /// <summary>这个点在当前视口里看得见吗。</summary>
+    private bool InView(Point p, RectF dirty, double margin = 200)
+    {
+        var sx = p.X * Scale + OffsetX;
+        var sy = p.Y * Scale + OffsetY;
+        return sx >= dirty.Left - margin && sx <= dirty.Right + margin
+            && sy >= dirty.Top - margin && sy <= dirty.Bottom + margin;
+    }
+
+    /// <summary>这张卡片是否归当前楼层视图（没开楼层切换时永远为真）。</summary>
+    private bool OnFloor(MapCanvasNode n)
+    {
+        if (FloorLocationId is null || FloorFilter is null) return true;
+        if (n.Location.Id != FloorLocationId) return true;   // 别的地点不管，只切这栋楼的层
+        return n.Scene.Floor == FloorFilter;
+    }
+
+    /// <summary>这个场景是否被楼层视图淡出（还在画，只是成影子）。</summary>
+    private bool Ghosted(MapCanvasNode n) => FloorLocationId is not null && FloorFilter is not null && !OnFloor(n);
 
     // ---- 交互状态 ----
     public MapCanvasNode? SelectedNode { get; set; }
@@ -55,6 +102,9 @@ public sealed class MapCanvasDrawable : IDrawable
     private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage?> _imgCache = new();
     // ---- 地点缩略图缓存 ----
     private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage?> _locThumbCache = new();
+    // 两张缓存各自的入队顺序，用来「最久没画到的先扔」
+    private readonly List<string> _imgOrder = new();
+    private readonly List<string> _thumbOrder = new();
     private Action? _onInvalidate;
     public void AttachInvalidate(Action a) => _onInvalidate = a;
     private void NeedRedraw() => _onInvalidate?.Invoke();
@@ -77,24 +127,64 @@ public sealed class MapCanvasDrawable : IDrawable
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
+        _drawTick++;
+        _dirty = dirtyRect;
         DrawGrid(canvas, dirtyRect);
 
-        DrawLocationFrames(canvas);
+        // 远景只画大框：卡片与字在 0.3 倍下糊成一团，画了反而看不清城市结构。
+        var lod = Detail;
 
-        if (Edges is not null) foreach (var e in Edges) DrawEdge(canvas, e);
+        if (lod != Lod.Far) DrawLocationFrames(canvas, dirtyRect);
+
+        if (Edges is not null) foreach (var e in Edges) DrawEdge(canvas, e, dirtyRect);
         if (LinkStartNode is not null || LinkStartTransit is not null) DrawLinkPreview(canvas);
 
-        if (Transits is not null) foreach (var t in Transits) DrawTransit(canvas, t);
-        if (Nodes is not null) foreach (var n in Nodes) DrawCard(canvas, n);
+        if (lod != Lod.Far)
+        {
+            if (Transits is not null) foreach (var t in Transits) { if (InView(new Point(t.X, t.Y), dirtyRect)) DrawTransit(canvas, t); }
+            if (Nodes is not null) foreach (var n in Nodes) { if (InView(n.X, n.Y, CardW, CardH, dirtyRect)) DrawCard(canvas, n); }
+        }
+        else if (Nodes is not null)
+        {
+            DrawCityMass(canvas, dirtyRect);
+        }
 
-        DrawLocationNotes(canvas);
-        if (Nodes is not null) foreach (var n in Nodes) DrawNodeNote(canvas, n);
-        if (Transits is not null) foreach (var t in Transits) DrawTransitNote(canvas, t);
-        DrawEdgeNotes(canvas);
+        if (lod == Lod.Near)
+        {
+            DrawLocationNotes(canvas);
+            if (Nodes is not null) foreach (var n in Nodes) DrawNodeNote(canvas, n);
+            if (Transits is not null) foreach (var t in Transits) DrawTransitNote(canvas, t);
+            DrawEdgeNotes(canvas);
+        }
         DrawEdgeLengthLabels(canvas);
 
         DrawMarquee(canvas);
         if (Menu is not null) DrawMenu(canvas);
+    }
+
+    /// <summary>远景：地点不再画卡片，只画一团建筑块 + 名字，像地图上的街区底色。</summary>
+    private void DrawCityMass(ICanvas canvas, RectF dirty)
+    {
+        if (Locations is null) return;
+        foreach (var loc in Locations)
+        {
+            if (loc.Scenes.Count == 0) continue;
+            var frame = LocationFrame(loc);
+            if (frame is null) continue;
+            var f = frame.Value;
+            if (!InView(f.X, f.Y, f.Width, f.Height, dirty, 60)) continue;
+            var sp = new RectF((float)(f.X * Scale + OffsetX), (float)(f.Y * Scale + OffsetY),
+                (float)(f.Width * Scale), (float)(f.Height * Scale));
+            var c = GroupColor(loc.Id);
+            canvas.FillColor = c.WithAlpha(0.55f);
+            canvas.FillRoundedRectangle(sp, (float)Math.Max(2, 6 * Scale));
+            if (sp.Width < 46) continue;
+            canvas.FontColor = Color.FromArgb("#4A3226");
+            canvas.FontSize = (float)Math.Clamp(11 * Scale, 8, 12);
+            canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
+            canvas.DrawString(loc.Name, sp.X + 3, sp.Y, sp.Width - 6, (float)Math.Max(11, 15 * Scale),
+                HorizontalAlignment.Left, VerticalAlignment.Center);
+        }
     }
 
     private void DrawGrid(ICanvas canvas, RectF dirty)
@@ -116,66 +206,99 @@ public sealed class MapCanvasDrawable : IDrawable
 
     // ==================== 地点大框（标记容器，不参与连线） ====================
 
-    /// <summary>地点框的世界坐标矩形（含留白）。父框 = 自身场景 + 所有后代地点（含空子框锚点框）的并集包围盒；
-    /// 无任何内容的地点退化为以锚点(X,Y)为中心的最小空框（新建地点立刻可见）。</summary>
+    /// <summary>地点框的世界坐标矩形（含留白），带一遍算好的缓存。</summary>
     public RectF? LocationFrame(MapLocation loc)
     {
-        if (Locations is null) return null;
-        // 收集该地点及其所有后代地点（递归）
-        var ids = new List<string> { loc.Id };
-        bool added;
-        do
-        {
-            added = false;
-            foreach (var l in Locations)
-                if (!string.IsNullOrEmpty(l.ParentId) && !ids.Contains(l.Id) && ids.Contains(l.ParentId))
-                {
-                    ids.Add(l.Id);
-                    added = true;
-                }
-        } while (added);
+        EnsureFrames();
+        return _frames is not null && _frames.TryGetValue(loc.Id, out var f) ? f : null;
+    }
 
-        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
-        var found = false;
+    private Dictionary<string, RectF?>? _frames;
+    private int _frameBuiltFor = -1;
+    private int _drawTick;
+
+    /// <summary>
+    /// 框的位置只随卡片动，父子关系不常变——所以每帧扫一遍卡片分桶，而不是每个框各自递归扫全表。
+    /// 原来那写法在几百个地点的城区图上，一次重绘要算几十万次比较。
+    /// </summary>
+    private void EnsureFrames()
+    {
+        if (Locations is null) { _frames = null; return; }
+        if (_frames is not null && _frameBuiltFor == _drawTick) return;
+        _frameBuiltFor = _drawTick;
+
+        // 子地点表（只在地点增删改父时重建）
+        var children = new Dictionary<string, List<string>>();
+        var byId = new Dictionary<string, MapLocation>();
+        foreach (var l in Locations)
+        {
+            byId[l.Id] = l;
+            if (string.IsNullOrEmpty(l.ParentId)) continue;
+            if (!children.TryGetValue(l.ParentId, out var list)) children[l.ParentId] = list = new List<string>();
+            list.Add(l.Id);
+        }
+        // 环形展开时不该再去全表找自己：按 Id 直取
+        MapLocation? Find(string id) => byId.TryGetValue(id, out var l) ? l : null;
+
+        // 卡片包围盒分桶
+        var bucket = new Dictionary<string, (double MinX, double MinY, double MaxX, double MaxY)>();
         if (Nodes is not null)
             foreach (var n in Nodes)
             {
-                if (!ids.Contains(n.Location.Id)) continue;
-                minX = Math.Min(minX, n.X);
-                minY = Math.Min(minY, n.Y);
-                maxX = Math.Max(maxX, n.X + CardW);
-                maxY = Math.Max(maxY, n.Y + CardH);
-                found = true;
+                if (!bucket.TryGetValue(n.Location.Id, out var b))
+                    bucket[n.Location.Id] = b = (double.MaxValue, double.MaxValue, double.MinValue, double.MinValue);
+                bucket[n.Location.Id] = (Math.Min(b.MinX, n.X), Math.Min(b.MinY, n.Y),
+                    Math.Max(b.MaxX, n.X + CardW), Math.Max(b.MaxY, n.Y + CardH));
             }
-        // 关键：空后代（无卡片的子地点）也要计入父框包围盒，父框才能真正包住子框（一环套一环）
-        const double emptyW = 230, emptyH = 100;
-        foreach (var l in Locations)
+
+        var frames = new Dictionary<string, RectF?>();
+        const double emptyW = 230, emptyH = 100, pad = 56, title = 44;
+
+        foreach (var loc in Locations)
         {
-            if (!ids.Contains(l.Id)) continue;
-            var hasCard = Nodes is not null && Nodes.Any(n => n.Location.Id == l.Id);
-            if (hasCard) continue; // 有卡片的已由上面卡片包围盒覆盖
-            var a = new Point(l.X < 0 ? 0 : l.X, l.Y < 0 ? 0 : l.Y);
-            minX = Math.Min(minX, a.X - emptyW / 2);
-            minY = Math.Min(minY, a.Y - emptyH / 2);
-            maxX = Math.Max(maxX, a.X + emptyW / 2);
-            maxY = Math.Max(maxY, a.Y + emptyH / 2);
-            found = true;
+            // 自身 + 全部后代
+            var ids = new List<string> { loc.Id };
+            for (var i = 0; i < ids.Count; i++)
+                if (children.TryGetValue(ids[i], out var kids))
+                    ids.AddRange(kids);
+
+            double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+            var found = false;
+            foreach (var id in ids)
+            {
+                if (bucket.TryGetValue(id, out var b))
+                {
+                    found = true;
+                    minX = Math.Min(minX, b.MinX);
+                    minY = Math.Min(minY, b.MinY);
+                    maxX = Math.Max(maxX, b.MaxX);
+                    maxY = Math.Max(maxY, b.MaxY);
+                }
+                // 空子地点也要计入父框，父框才真能包住子框（一环套一环）
+                var me = Find(id);
+                if (me is null || bucket.ContainsKey(id)) continue;
+                found = true;
+                var a = new Point(me.X < 0 ? 0 : me.X, me.Y < 0 ? 0 : me.Y);
+                minX = Math.Min(minX, a.X - emptyW / 2);
+                minY = Math.Min(minY, a.Y - emptyH / 2);
+                maxX = Math.Max(maxX, a.X + emptyW / 2);
+                maxY = Math.Max(maxY, a.Y + emptyH / 2);
+            }
+            if (!found)
+            {
+                frames[loc.Id] = new RectF((float)((loc.X < 0 ? 0 : loc.X) - emptyW / 2), (float)((loc.Y < 0 ? 0 : loc.Y) - emptyH / 2),
+                    (float)emptyW, (float)emptyH);
+                continue;
+            }
+            var extraHead = ids.Count > 1 ? title + pad : 0;
+            frames[loc.Id] = new RectF((float)(minX - pad), (float)(minY - pad - title - extraHead),
+                (float)(maxX - minX + pad * 2), (float)(maxY - minY + pad * 2 + title + extraHead));
         }
-        if (!found)
-        {
-            return new RectF((float)((loc.X < 0 ? 0 : loc.X) - emptyW / 2), (float)((loc.Y < 0 ? 0 : loc.Y) - emptyH / 2),
-                (float)emptyW, (float)emptyH);
-        }
-        // 包裹框留白：为标题与卡片边缘留出空隙，嵌套后字不至于贴框/看不清
-        const double pad = 56, title = 44;
-        // 父框（有后代）顶部再多留一段标题带：防止“最高的子框顶边”与“父框顶边/父标题”重合
-        var extraHead = ids.Count > 1 ? title + pad : 0;
-        return new RectF((float)(minX - pad), (float)(minY - pad - title - extraHead),
-            (float)(maxX - minX + pad * 2), (float)(maxY - minY + pad * 2 + title + extraHead));
+        _frames = frames;
     }
 
     /// <summary>地点标记框：淡色底 + 色描边 + 地点名标题。框只做分组标记，不参与连线。</summary>
-    private void DrawLocationFrames(ICanvas canvas)
+    private void DrawLocationFrames(ICanvas canvas, RectF dirty)
     {
         if (Nodes is null || Locations is null) return;
         // 父框先画（在底层），子框后画（压在父框内层上），逐层嵌套
@@ -191,6 +314,7 @@ public sealed class MapCanvasDrawable : IDrawable
             var frame = LocationFrame(loc);
             if (frame is null) continue;
             var f = frame.Value;
+            if (!InView(f.X, f.Y, f.Width, f.Height, dirty)) continue;   // 屏外的大框不画
             var sp = new RectF((float)(f.X * Scale + OffsetX), (float)(f.Y * Scale + OffsetY),
                 (float)(f.Width * Scale), (float)(f.Height * Scale));
 
@@ -208,14 +332,40 @@ public sealed class MapCanvasDrawable : IDrawable
             canvas.DrawRoundedRectangle(sp, (float)(10 * Scale));
             canvas.StrokeDashPattern = null;
 
+            // 建筑外轮廓（真实导入才有）：按轮廓画，比圆角框像一栋楼
+            if (loc.Outline.Count >= 3 && Scale >= 0.35)
+            {
+                var ring = new PathF();
+                var first = new Point(loc.Outline[0].X, loc.Outline[0].Y);
+                ring.MoveTo(ScreenPt(first));
+                for (var i = 1; i < loc.Outline.Count; i++)
+                    ring.LineTo(ScreenPt(new Point(loc.Outline[i].X, loc.Outline[i].Y)));
+                ring.Close();
+                canvas.FillColor = GroupColor(loc.Id).WithAlpha(0.32f);
+                canvas.FillPath(ring);
+                canvas.StrokeSize = (float)Math.Max(0.6, 1.1 * Scale);
+                canvas.StrokeColor = GroupColor(loc.Id).WithAlpha(0.9f);
+                canvas.DrawPath(ring);
+            }
+
             // 标题（左上角）
             var titleH = (float)(24 * Scale);
             canvas.FontColor = GroupColor(loc.Id);
             canvas.FontSize = (float)Math.Max(10, 14 * Scale);
             canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
-            canvas.DrawString(loc.Name + (isChild ? " ▸" : ""), (float)(sp.X + 8 * Scale), (float)(sp.Y + 2 * Scale),
+            var floors = loc.FloorBadge;
+            canvas.DrawString(loc.Name + (isChild ? " ▸" : "") + floors, (float)(sp.X + 8 * Scale), (float)(sp.Y + 2 * Scale),
                 (float)(sp.Width - 16 * Scale), titleH,
                 HorizontalAlignment.Left, VerticalAlignment.Center);
+            // 真实地址（拉近了才写字，远景写字只会糊）
+            if (Scale >= 0.8 && !string.IsNullOrWhiteSpace(loc.Address))
+            {
+                canvas.FontColor = Color.FromArgb("#7A6252");
+                canvas.FontSize = (float)Math.Max(8, 10 * Scale);
+                canvas.Font = Microsoft.Maui.Graphics.Font.Default;
+                canvas.DrawString(loc.Address, (float)(sp.X + 8 * Scale), (float)(sp.Y + 24 * Scale),
+                    (float)(sp.Width - 16 * Scale), titleH, HorizontalAlignment.Left, VerticalAlignment.Center);
+            }
 
             // 地点缩略图（名字下方的方框内；有场景背景才显示）
             var thumb = GetLocationThumbImg(loc);
@@ -324,20 +474,66 @@ public sealed class MapCanvasDrawable : IDrawable
         return out_;
     }
 
-    private void DrawEdge(ICanvas canvas, MapEdge e)
+    /// <summary>
+    /// 一条路该多宽、涂什么色：MinScale 之下这一级路就不画了（远景只见高速与主街，拉近才长出小巷）。
+    /// 画两遍——先深一条路基、再亮一条路面，路与路相交时才有真地图那种「路网」层次。
+    /// </summary>
+    private static (double Width, string Surface, string Casing, double MinScale, bool Dash) RoadStyle(string? kind) => kind switch
     {
+        RoadKinds.Highway => (7.2, "#E3B34C", "#6B4A18", 0.28, false),
+        RoadKinds.Trunk => (5.6, "#E8C97A", "#7A5620", 0.30, false),
+        RoadKinds.Street => (4.0, "#D8C3AA", "#6E5240", 0.34, false),
+        RoadKinds.Lane => (2.4, "#E4D6C4", "#7A5F4A", 0.62, false),
+        RoadKinds.Walkway => (1.8, "#BFD6BC", "#4E6B4A", 0.60, true),
+        RoadKinds.Steps => (1.6, "#D6C8E2", "#5B4A6B", 0.62, true),
+        RoadKinds.Bridge => (4.6, "#DCCDB8", "#5D4037", 0.42, false),
+        RoadKinds.Tunnel => (4.0, "#BFCAD6", "#3E5163", 0.42, true),
+        RoadKinds.Waterway => (5.0, "#A8CFE0", "#2F6A85", 0.30, false),
+        RoadKinds.Interior => (1.4, "#E7D9A8", "#8A6D1A", 0.70, true),
+        _ => (4.0, "#D8C3AA", "#6E5240", 0.34, false),
+    };
+
+    /// <summary>这条路的可见包围盒（端点 + 折点），用来把屏外的路整条跳过。</summary>
+    private RectF EdgeBounds(MapEdge e)
+    {
+        var pts = EdgePoints(e);
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (var p in pts)
+        {
+            minX = Math.Min(minX, (float)p.X);
+            minY = Math.Min(minY, (float)p.Y);
+            maxX = Math.Max(maxX, (float)p.X);
+            maxY = Math.Max(maxY, (float)p.Y);
+        }
+        if (pts.Count == 0) return new RectF(0, 0, 0, 0);
+        return new RectF(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    private void DrawEdge(ICanvas canvas, MapEdge e, RectF dirty)
+    {
+        var style = RoadStyle(e.Road);
+        var selected = SelectedEdgeId == e.Id;
+        if (Scale < style.MinScale && !selected) return;                      // 这一级路在这个缩放还不该露面
+        var bounds = EdgeBounds(e);
+        if (!InView(bounds.X, bounds.Y, bounds.Width, bounds.Height, dirty, 120)) return;
+
         var pts = SampleEdge(e);
         if (pts.Count < 2) return;
-
-        var dashed = e.Length == 0;
-        var selected = SelectedEdgeId == e.Id;
-        canvas.StrokeSize = (float)(selected ? 3.2 : 2.2);
-        canvas.StrokeColor = selected ? Color.FromArgb("#5D4037") : Color.FromArgb("#B08968");
-        if (dashed) canvas.StrokeDashPattern = new[] { 7f, 5f };
 
         var path = new PathF();
         path.MoveTo(ScreenPt(pts[0]));
         for (var i = 1; i < pts.Count; i++) path.LineTo(ScreenPt(pts[i]));
+
+        var w = Math.Max(0.8, style.Width * Scale);
+        var dashed = e.Length == 0 || style.Dash;
+        if (dashed) canvas.StrokeDashPattern = new[] { 7f, 5f };
+
+        // 路基（深）→ 路面（亮）：两条叠出来才有「一条路」的分量
+        canvas.StrokeColor = selected ? Color.FromArgb("#5D4037") : ParseHex(style.Casing, "#5D4037").WithAlpha(0.85f);
+        canvas.StrokeSize = (float)(selected ? w + 3.4 : w + Math.Max(1.0, w * 0.34));
+        canvas.DrawPath(path);
+        canvas.StrokeColor = ParseHex(style.Surface, "#B08968");
+        canvas.StrokeSize = (float)w;
         canvas.DrawPath(path);
         canvas.StrokeDashPattern = null;
 
@@ -345,26 +541,81 @@ public sealed class MapCanvasDrawable : IDrawable
         if (pts.Count >= 2)
         {
             var tip = pts[^1];
-            var prev = pts[^2];
+            var prev = pts[Math.Max(0, pts.Count - 3)];
             var d = new Point(tip.X - prev.X, tip.Y - prev.Y);
             var len = Math.Sqrt(d.X * d.X + d.Y * d.Y);
             if (len > 0.001)
             {
                 d = new Point(d.X / len, d.Y / len);
-                DrawArrow(canvas, ScreenPt(tip), d, Color.FromArgb("#8A5A3B"));
+                DrawArrow(canvas, ScreenPt(pts[^1]), d, ParseHex(style.Casing, "#5D4037"));
             }
+            // 单行道再往中段补一支：一眼看出这路不许倒着开
+            if (e.OneWay && pts.Count > 5)
+            {
+                var m = pts.Count / 2;
+                var md = new Point(pts[m].X - pts[m - 1].X, pts[m].Y - pts[m - 1].Y);
+                var ml = Math.Sqrt(md.X * md.X + md.Y * md.Y);
+                if (ml > 0.001) DrawArrow(canvas, ScreenPt(pts[m]), new Point(md.X / ml, md.Y / ml), ParseHex(style.Casing, "#5D4037"));
+            }
+        }
+
+        // 红绿灯 / 收费站：路上釘个小记号，比在备注里写「有灯」直观
+        if (Scale >= 0.5 && (e.TrafficLight || e.Toll))
+        {
+            var mid = pts[pts.Count / 2];
+            var sp = ScreenPt(mid);
+            if (e.TrafficLight)
+            {
+                canvas.FillColor = Color.FromArgb("#D2544A");
+                canvas.FillEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
+                canvas.StrokeColor = Color.FromArgb("#FFFDF9");
+                canvas.StrokeSize = 1.4f;
+                canvas.DrawEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
+            }
+            if (e.Toll)
+            {
+                canvas.FillColor = Color.FromArgb("#8A5A3B");
+                canvas.FillRoundedRectangle((float)(sp.X + (e.TrafficLight ? 10 : 2)), (float)(sp.Y - 7), 22, 14, 4);
+                canvas.FontColor = Colors.White;
+                canvas.FontSize = 9;
+                canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
+                canvas.DrawString(e.TollFee > 0 ? $"¥{e.TollFee:0.#}" : "收费",
+                    (float)(sp.X + (e.TrafficLight ? 10 : 2)), (float)(sp.Y - 7), 22, 14,
+                    HorizontalAlignment.Center, VerticalAlignment.Center);
+            }
+        }
+
+        // 路名（长江路）：贴近中段，写字要有白底，不然压在路面色上看不清
+        if (Scale >= 0.5 && !string.IsNullOrWhiteSpace(e.RoadName))
+        {
+            var mid = pts[pts.Count / 2];
+            DrawRoadName(canvas, ScreenPt(mid), e.RoadName);
         }
 
         // 折点手柄（选中时显示）
         if (selected && e.Waypoints.Count > 0)
         {
             canvas.FillColor = Color.FromArgb("#8D6E63");
-            foreach (var w in e.Waypoints)
+            foreach (var w2 in e.Waypoints)
             {
-                var sp = ScreenPt(new Point(w.X, w.Y));
+                var sp = ScreenPt(new Point(w2.X, w2.Y));
                 canvas.FillEllipse((float)(sp.X - 5), (float)(sp.Y - 5), 10, 10);
             }
         }
+    }
+
+    private void DrawRoadName(ICanvas canvas, Point sp, string name)
+    {
+        var text = name.Length > 12 ? name[..12] : name;
+        var tw = (float)(text.Length * 11 + 8);
+        var th = 15f;
+        canvas.FillColor = Color.FromArgb("#C8FFFDF9");
+        canvas.FillRoundedRectangle((float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th, 4);
+        canvas.FontColor = Color.FromArgb("#4A3226");
+        canvas.FontSize = 11;
+        canvas.Font = Microsoft.Maui.Graphics.Font.Default;
+        canvas.DrawString(text, (float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th,
+            HorizontalAlignment.Center, VerticalAlignment.Center);
     }
 
     private static void DrawArrow(ICanvas canvas, Point tip, Point dir, Color color)
@@ -413,12 +664,35 @@ public sealed class MapCanvasDrawable : IDrawable
         var sp = ScreenPt(new Point(t.X, t.Y));
         var r = TransitSize / 2 * Scale;
         var selected = SelectedNode is not null && SelectedNode.Id == t.Id;
+        var kind = t.Transit.Junction;
 
-        canvas.FillColor = Color.FromArgb("#FFFDF9");
+        // 路口有自己的长相：环岛画圈、收费站画方、红绿灯画点、楼梯画个小梯子
+        canvas.FillColor = kind switch
+        {
+            JunctionKinds.Roundabout => Color.FromArgb("#FFFDF9"),
+            JunctionKinds.Toll => Color.FromArgb("#8A5A3B"),
+            JunctionKinds.Crossing => Color.FromArgb("#D2544A"),
+            JunctionKinds.Stop => Color.FromArgb("#5B8DEF"),
+            JunctionKinds.Junction => Color.FromArgb("#F0E0C8"),
+            _ => Color.FromArgb("#FFFDF9"),
+        };
         canvas.StrokeSize = selected ? (float)(3 * Scale) : (float)(2 * Scale);
         canvas.StrokeColor = selected ? Color.FromArgb("#5D4037") : Color.FromArgb("#8D6E63");
-        canvas.FillEllipse((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2));
-        canvas.DrawEllipse((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2));
+        if (kind == JunctionKinds.Toll || kind == JunctionKinds.Stop)
+        {
+            canvas.FillRoundedRectangle((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2), (float)(r * 0.4));
+            canvas.DrawRoundedRectangle((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2), (float)(r * 0.4));
+        }
+        else
+        {
+            canvas.FillEllipse((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2));
+            canvas.DrawEllipse((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2));
+            if (kind == JunctionKinds.Roundabout)
+            {
+                canvas.StrokeSize = (float)Math.Max(1, 1.4 * Scale);
+                canvas.DrawEllipse((float)(sp.X - r * 0.45), (float)(sp.Y - r * 0.45), (float)(r * 0.9), (float)(r * 0.9));
+            }
+        }
 
         canvas.FontColor = Color.FromArgb("#3E2A1C");
         canvas.FontSize = (float)Math.Max(8, 11 * Scale);
@@ -427,6 +701,14 @@ public sealed class MapCanvasDrawable : IDrawable
         if (name.Length > 10) name = name[..10];
         canvas.DrawString(name, (float)(sp.X - r), (float)(sp.Y + r + 2), (float)(r * 2), 16,
             HorizontalAlignment.Center, VerticalAlignment.Top);
+        // 性质写在名字下面一行（路口/环岛/收费站…），一眼能认出这是什么节点
+        if (kind.Length > 0 && Scale >= 0.55)
+        {
+            canvas.FontColor = Color.FromArgb("#8A7259");
+            canvas.FontSize = (float)Math.Max(7, 9 * Scale);
+            canvas.DrawString(JunctionKinds.Display(kind), (float)(sp.X - r), (float)(sp.Y + r + 15), (float)(r * 2), 12,
+                HorizontalAlignment.Center, VerticalAlignment.Top);
+        }
     }
 
     // ==================== 场景卡片 ====================
@@ -437,8 +719,19 @@ public sealed class MapCanvasDrawable : IDrawable
             (float)(CardW * Scale), (float)(CardH * Scale));
         var group = GroupColor(n.GroupKey);
 
+        // 这一层之外的房间淡成影子：还看得见它在哪，但不抢当前层的注意力
+        if (Ghosted(n))
+        {
+            canvas.FillColor = group.WithAlpha(0.22f);
+            canvas.FillRoundedRectangle(rect, 10);
+            canvas.StrokeSize = 1;
+            canvas.StrokeColor = group.WithAlpha(0.35f);
+            canvas.DrawRoundedRectangle(rect, 10);
+            return;
+        }
+
         // 主体：背景图或底色
-        var img = !string.IsNullOrWhiteSpace(n.Scene.Background) ? GetImage(n) : null;
+        var img = Detail == Lod.Near && !string.IsNullOrWhiteSpace(n.Scene.Background) ? GetImage(n) : null;
         if (img is not null)
         {
             canvas.DrawImage(img, rect.X, rect.Y, rect.Width, rect.Height);
@@ -542,6 +835,7 @@ public sealed class MapCanvasDrawable : IDrawable
 
     private void DrawNoteCard(ICanvas canvas, Point worldPos, string text, Color bg, Color fg)
     {
+        if (!InView(worldPos, _dirty)) return;
         var lines = Wrap(text, 16);
         if (lines.Count > 4) lines = lines.Take(4).ToList();
         var w = NoteW * Scale;
@@ -564,11 +858,16 @@ public sealed class MapCanvasDrawable : IDrawable
     private void DrawEdgeLengthLabels(ICanvas canvas)
     {
         if (Edges is null) return;
+        // 远景字比路多就成噪声了：只给选中的那条标尺，其余拉近了再说。
+        if (Detail == Lod.Far && SelectedEdgeId is null) return;
         canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
         canvas.FontSize = (float)Math.Max(9, 12 * Scale);
         foreach (var e in Edges)
         {
             if (e.Length == 0) continue;   // 未丈量：虚线，无长度
+            if (Detail == Lod.Far && e.Id != SelectedEdgeId) continue;
+            var bounds = EdgeBounds(e);
+            if (!InView(bounds.X, bounds.Y, bounds.Width, bounds.Height, _dirty)) continue;
             var vertexPts = EdgePoints(e); // 端点 + 折点（逐端点分段测量）
             if (e.Kind == "line" && !e.TotalLabel && vertexPts.Count >= 2)
             {
@@ -596,8 +895,8 @@ public sealed class MapCanvasDrawable : IDrawable
                     }
                     else
                     {
-                        // 自动：按几何像素 ×0.5 估算每段
-                        text = $"~{(int)Math.Round(segPxArr[i] * 0.5)}m";
+                        // 自动：按几何像素 × 比例尺估算每段
+                        text = $"~{(int)Math.Round(segPxArr[i] * MetersPerUnit)}m";
                     }
                     DrawLengthChip(canvas, new Point((a.X + b.X) / 2, (a.Y + b.Y) / 2), text);
                 }
@@ -610,11 +909,14 @@ public sealed class MapCanvasDrawable : IDrawable
             var mid = pts[pts.Count / 2];
             var auto = e.Length < 0;
             var text2 = auto
-                ? $"~{(int)Math.Round(EdgeLengthPixelsLocal(e) * 0.5)}m"
+                ? $"~{(int)Math.Round(EdgeLengthPixelsLocal(e) * MetersPerUnit)}m"
                 : $"{e.Length:0}m";
             DrawLengthChip(canvas, mid, text2);
         }
     }
+
+    /// <summary>本次绘制的可视区（剔除用）；Draw 开头赋值。</summary>
+    private RectF _dirty;
 
     private void DrawLengthChip(ICanvas canvas, Point worldMid, string text)
     {
@@ -695,6 +997,7 @@ public sealed class MapCanvasDrawable : IDrawable
         if (Nodes is null) return null;
         foreach (var n in Nodes)
         {
+            if (Ghosted(n)) continue;   // 淡出的那层不接鼠标：点它等于点到隔壁楼层
             var rect = new RectF((float)n.X, (float)n.Y, (float)CardW, (float)CardH);
             if (rect.Contains((float)world.X, (float)world.Y)) return n;
         }
@@ -719,6 +1022,10 @@ public sealed class MapCanvasDrawable : IDrawable
         var tolSq = tol * tol;
         foreach (var e in Edges)
         {
+            // 先按包围盒甩掉八成不挨着的边：城市级地图上每次移动都全表采样折线，光标会明显发涩。
+            var bb = EdgeBounds(e);
+            if (world.X < bb.X - tol || world.X > bb.X + bb.Width + tol
+                || world.Y < bb.Y - tol || world.Y > bb.Y + bb.Height + tol) continue;
             var pts = SampleEdge(e);
             for (var i = 0; i + 1 < pts.Count; i++)
             {
@@ -791,8 +1098,13 @@ public sealed class MapCanvasDrawable : IDrawable
 
     public Microsoft.Maui.Graphics.IImage? GetImage(MapCanvasNode n)
     {
-        if (_imgCache.TryGetValue(n.Id, out var img)) return img;
-        _imgCache[n.Id] = null; // 防重复加载
+        if (_imgCache.TryGetValue(n.Id, out var img))
+        {
+            // 这张这次真画到屏上了：顶到上限时才记账，免得把正在看的图当成最久没露面的踢掉
+            if (_imgOrder.Count >= ImageCache.Cap) ImageCache.Touch(_imgOrder, n.Id);
+            return img;
+        }
+        ImageCache.Put(_imgCache, _imgOrder, n.Id, null); // 占位，防重复加载
         LoadImageAsync(n);
         return null;
     }
@@ -823,9 +1135,9 @@ private Func<MapCanvasNode, string?>? _bgResolver;
                 try
                 {
                     using var ms = new MemoryStream(bytes);
-                    _imgCache[n.Id] = Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms);
+                    ImageCache.Put(_imgCache, _imgOrder, n.Id, Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms));
                 }
-                catch { _imgCache[n.Id] = null; }
+                catch { ImageCache.Put(_imgCache, _imgOrder, n.Id, null); }
                 NeedRedraw();
             });
         });
@@ -836,8 +1148,12 @@ private Func<MapCanvasNode, string?>? _bgResolver;
     public Microsoft.Maui.Graphics.IImage? GetLocationThumbImg(MapLocation loc)
     {
         if (_locThumbResolver is null) return null;
-        if (_locThumbCache.TryGetValue(loc.Id, out var img)) return img;
-        _locThumbCache[loc.Id] = null; // 防重复加载
+        if (_locThumbCache.TryGetValue(loc.Id, out var img))
+        {
+            if (_thumbOrder.Count >= ImageCache.Cap) ImageCache.Touch(_thumbOrder, loc.Id);
+            return img;
+        }
+        ImageCache.Put(_locThumbCache, _thumbOrder, loc.Id, null); // 占位，防重复加载
         LoadLocationThumbAsync(loc);
         return null;
     }
@@ -856,9 +1172,9 @@ private Func<MapCanvasNode, string?>? _bgResolver;
                 try
                 {
                     using var ms = new MemoryStream(bytes);
-                    _locThumbCache[loc.Id] = Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms);
+                    ImageCache.Put(_locThumbCache, _thumbOrder, loc.Id, Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms));
                 }
-                catch { _locThumbCache[loc.Id] = null; }
+                catch { ImageCache.Put(_locThumbCache, _thumbOrder, loc.Id, null); }
                 NeedRedraw();
             });
         });
@@ -869,18 +1185,18 @@ private Func<MapCanvasNode, string?>? _bgResolver;
     public static List<string> Wrap(string text, int maxChars)
     {
         var lines = new List<string>();
-        var cur = "";
-        foreach (var ch in text)
+        if (string.IsNullOrEmpty(text) || maxChars < 1)
         {
-            cur += ch;
-            if (cur.Length >= maxChars)
-            {
-                lines.Add(cur);
-                cur = "";
-            }
+            lines.Add(text ?? "");
+            return lines;
         }
-        if (cur.Length > 0) lines.Add(cur);
-        if (lines.Count == 0) lines.Add("");
+        // 直接按段切片：从前一个字符一个字符往上攒，长备注能白分配几百个中间字符串
+        var count = (text.Length + maxChars - 1) / maxChars;
+        for (var i = 0; i < count; i++)
+        {
+            var start = i * maxChars;
+            lines.Add(text.Substring(start, Math.Min(maxChars, text.Length - start)));
+        }
         return lines;
     }
 }

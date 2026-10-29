@@ -1,0 +1,270 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.MapCreatePage"
+             x:DataType="vm:MapCreateViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="创建地图"
+             Background="{DynamicResource PageBgBrush}">
+
+    <ContentPage.Resources>
+        <Style x:Key="FieldLabel" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="Margin" Value="2,0,0,4" />
+        </Style>
+        <Style x:Key="Field" TargetType="Entry">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+        <!-- 一颗圆角小片：范围预设与来源都长这样，不必为它们再发一套按钮 -->
+        <Style x:Key="Chip" TargetType="Border">
+            <Setter Property="BackgroundColor" Value="{DynamicResource WWellBrush}" />
+            <Setter Property="Stroke" Value="{DynamicResource WControlEdgeBrush}" />
+            <Setter Property="StrokeThickness" Value="{DynamicResource WControlEdgeWidth}" />
+            <Setter Property="StrokeShape" Value="{DynamicResource WRadiusPill}" />
+            <Setter Property="Padding" Value="12,6" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*">
+
+        <!-- 顶栏：标题 + 这一句现在正在发生什么；忙的时候只多一颗「取消」 -->
+        <VerticalStackLayout Spacing="0">
+            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="{DynamicResource WSizeSmall}"
+                            Padding="0" VerticalOptions="Center" Command="{Binding GoBackCommand}" />
+                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
+                        <Label Text="创建地图" Style="{StaticResource TxtTitle}" />
+                        <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                               LineBreakMode="WordWrap" MaxLines="2" />
+                    </VerticalStackLayout>
+                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+                                       Color="{DynamicResource BeigeAccent300}" WidthRequest="20" HeightRequest="20"
+                                       VerticalOptions="Center" />
+                    <Button Grid.Column="3" Text="取消" Style="{StaticResource BtnDangerSm}"
+                            IsVisible="{Binding IsBusy}" Command="{Binding CancelCommand}" />
+                </Grid>
+            </Border>
+            <BoxView Style="{StaticResource HSep}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}"
+                                 MaximumWidthRequest="920" HorizontalOptions="Fill">
+
+                <!-- ============ 一、检索 ============ -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Entry Style="{StaticResource Field}" Text="{Binding Query}"
+                                   Placeholder="城市 / 区县 / 街道，或直接写经纬度：120.15,30.27"
+                                   ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
+                            <Button Grid.Column="1" Text="检索" Style="{StaticResource BtnPrimary}"
+                                    FontSize="13" Padding="18,7" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding SearchCommand}" />
+                        </Grid>
+                        <Label Text="{Binding SourceNote}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding HasSourceNote}" LineBreakMode="WordWrap" />
+
+                        <!-- 结果：点一行就把它当中心 -->
+                        <VerticalStackLayout Spacing="0" IsVisible="{Binding Hits.Count, Converter={StaticResource GreaterThanZero}}">
+                            <Label Text="找到这些，点一处" Style="{StaticResource FieldLabel}" />
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Hits}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:MapHitRow">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource TappableRow}" BackgroundColor="Transparent">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MapCreateViewModel}}, Path=SelectHitCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
+                                                               FontAttributes="{Binding IsSelected, Converter={StaticResource BoolFontBold}}"
+                                                               LineBreakMode="TailTruncation" />
+                                                        <Label Text="{Binding Subtitle}" Style="{StaticResource TxtRowDesc}"
+                                                               LineBreakMode="WordWrap" MaxLines="2" />
+                                                    </VerticalStackLayout>
+                                                    <Border Grid.Column="1" Style="{StaticResource Chip}"
+                                                            VerticalOptions="Center" Padding="10,4">
+                                                        <Label Text="{Binding SourceLabel}" Style="{StaticResource TxtCaption}" />
+                                                    </Border>
+                                                </Grid>
+                                                <Border.Triggers>
+                                                    <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">
+                                                        <Setter Property="BackgroundColor" Value="{DynamicResource WAccentBrush}" />
+                                                    </DataTrigger>
+                                                </Border.Triggers>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ============ 二、取多大一片 ============ -->
+                <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasSelection}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="取多大一片" Style="{StaticResource TxtRowTitle}" />
+                        <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Presets}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:MapPresetChip">
+                                    <Border Style="{StaticResource Chip}"
+                                            motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MapCreateViewModel}}, Path=ApplyPresetCommand}"
+                                                CommandParameter="{Binding Radius}" />
+                                        </Border.GestureRecognizers>
+                                        <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}"
+                                               FontAttributes="{Binding IsCurrent, Converter={StaticResource BoolFontBold}}" />
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{DynamicResource WAccentBrush}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Label Text="半径" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Slider Grid.Column="1" Minimum="100" Maximum="3000" Value="{Binding RadiusMeters, Mode=TwoWay}"
+                                    MinimumTrackColor="{DynamicResource BeigeAccent300}"
+                                    MaximumTrackColor="{DynamicResource WRule}"
+                                    ThumbColor="{DynamicResource WarmDark}" />
+                            <Label Grid.Column="2" Text="{Binding RadiusMeters, StringFormat='{0:0} 米'}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                   MinimumWidthRequest="56" HorizontalTextAlignment="End" />
+                        </Grid>
+                        <Label Text="{Binding RadiusLabel}" Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding SelectedHasBox}">
+                            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                <Label Text="按检索到的整片边界取" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="城市与区县会带回自己的边界；整片取会把边界框收进可承受的最大范围。"
+                                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding UseHitBoundingBox, Mode=TwoWay}"
+                                    VerticalOptions="Center" OnColor="{DynamicResource BeigeAccent300}"
+                                    ThumbColor="{DynamicResource WarmWhite}" />
+                        </Grid>
+
+                        <Label Text="一次最多 6×6 公里，道路 1200 段 / 建筑 600 栋 / 带名字的店铺 300 家封顶：塞得太满，安卓端的画布与寻路会先撑不住，超了会砍并说明。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ============ 三、预览与导入 ============ -->
+                <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasSelection}">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Button Text="预览：先数一数" Style="{StaticResource BtnGhost}"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding PreviewCommand}" />
+                            <Label Grid.Column="1" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                   Text="预览不写进存档，只算一次给你看拿到多少东西" />
+                            <Button Grid.Column="2" Text="导入到游戏" Style="{StaticResource BtnPrimary}"
+                                    FontSize="13" Padding="18,7"
+                                    IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                    Command="{Binding ImportCommand}" />
+                        </Grid>
+
+                        <Border BackgroundColor="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                Padding="{DynamicResource WPadWell}" StrokeShape="{DynamicResource WRadiusWell}"
+                                IsVisible="{Binding HasPreviewText}">
+                            <Label Text="{Binding PreviewText}" Style="{StaticResource TxtBodySm}"
+                                   LineBreakMode="WordWrap" />
+                        </Border>
+
+                        <!-- 截断 / 这一片太稀：都是要改下一步决定的话，用信号色 -->
+                        <Label Text="{Binding PreviewWarning}" Style="{StaticResource TxtSignal}"
+                               IsVisible="{Binding HasPreviewWarning}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ============ 四、背景 ============ -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="背景：形状之外的那一层" Style="{StaticResource TxtRowTitle}" />
+                        <Label Text="{Binding BackgroundSummary}" Style="{StaticResource TxtBodySm}"
+                               LineBreakMode="WordWrap" />
+                        <Label Text="真实城市导进来只有建筑轮廓、道路命名与店名，画面是空的：自己拍的照片回到地图页右键场景 →「背景图（电脑导入）」挂上，这里只负责让 AI 补。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                            <Picker ItemsSource="{Binding BatchChoices}" SelectedItem="{Binding BatchChoice}"
+                                    FontSize="{DynamicResource WSizeSmall}" WidthRequest="96" VerticalOptions="Center"
+                                    IsEnabled="{Binding CanRunAi}" />
+                            <Button Grid.Column="1" Text="让 AI 补背景" Style="{StaticResource BtnGhost}"
+                                    IsEnabled="{Binding CanRunAi}"
+                                    Command="{Binding FillBackgroundCommand}" />
+                            <Button Grid.Column="3" Text="生成大地图底图" Style="{StaticResource BtnNeumorphSm}"
+                                    IsEnabled="{Binding CanRunAi}"
+                                    Command="{Binding BackdropCommand}" />
+                        </Grid>
+
+                        <!-- 只有真在一张张出图时才有条：进度按已经生成的张数走 -->
+                        <ProgressBar Progress="{Binding BgProgress}" IsVisible="{Binding IsFillingBackground}"
+                                     HeightRequest="4" />
+                        <Label Text="{Binding BgProgressText}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding IsFillingBackground}" LineBreakMode="WordWrap" />
+                        <Label Text="{Binding BackdropNote}" Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding HasBackdropNote}" LineBreakMode="WordWrap" />
+
+                        <Label Text="出图走「设置 → AI → 画面生成」那一套；这里只放 AI 现生成的图与你自己导入的文件，不用任何游戏自带或受版权保护的素材。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ============ 五、自己的文件 / 高德 Key ============ -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                    <Label Text="导入我自己准备好的地图" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="一份地图 JSON：只有形状与路名，背景同样要实地取材或让 AI 补。"
+                                           Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="选文件" Style="{StaticResource BtnNeumorphSm}"
+                                        VerticalOptions="Center"
+                                        IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                        Command="{Binding ImportJsonCommand}" />
+                            </Grid>
+                        </Border>
+                        <BoxView Style="{StaticResource HSepInset}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="高德 Key（选填）" Style="{StaticResource TxtRowTitle}" />
+                                <Label Text="{Binding AmapKeyState}" Style="{StaticResource TxtRowDesc}"
+                                       LineBreakMode="WordWrap" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Entry Style="{StaticResource Field}" Text="{Binding AmapKeyInput}"
+                                           Placeholder="高德 Web 服务的 key" />
+                                    <Button Grid.Column="1" Text="存 Key" Style="{StaticResource BtnGhostSm}"
+                                            Command="{Binding SaveKeyCommand}" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="导入的地图会整张换掉手上这一张；想回去接着改，回地图页即可。"
+                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" Margin="4,0,0,0" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

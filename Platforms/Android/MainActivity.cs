@@ -5,7 +5,12 @@ using Android.OS;
 namespace WarmAsBefore.Platforms.Android;
 
 [Activity(Theme = "@style/Maui.SplashTheme", MainLauncher = true,
-    ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.Orientation | ConfigChanges.UiMode)]
+    // 这些配置变化自己吃掉，别让系统重建 Activity：
+    // 旋转/折叠屏改尺寸、字体缩放、软键盘弹出，从前都会走一遍「销毁 → 重建 → 整页重排版」，
+    // 在手机上看就是聊天打字时画面猛得一顿、图片重新加载一遍。
+    ConfigurationChanges = ConfigChanges.ScreenSize | ConfigChanges.ScreenLayout | ConfigChanges.SmallestScreenSize
+        | ConfigChanges.Orientation | ConfigChanges.Density | ConfigChanges.Keyboard | ConfigChanges.KeyboardHidden
+        | ConfigChanges.UiMode | ConfigChanges.Navigation)]
 public class MainActivity : MauiAppCompatActivity
 {
     /// <summary>把当前 Activity 暴露给 ScreenOrientationService（锁屏需拿到 Activity 实例）。</summary>

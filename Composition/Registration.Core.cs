@@ -52,7 +52,13 @@ public static class CoreRegistration
         // 黑屏：AI 可主动黑屏，但对话不受影响
         services.AddSingleton<ScreenBlackoutService>();
         services.AddSingleton<PetService>();
+        // AI 制作桌宠：Q 版化 + 逐状态出帧 + 按步频算走动循环
+        services.AddSingleton<PetStudioService>();
         services.AddSingleton<MapService>();
+        // 真实城市地图：检索（高德/OSM）→ Overpass 拉道路与建筑 → 拼成游戏里的地图
+        services.AddSingleton<MapImportService>();
+        // 地图背景：大地图底图 + 缺背景的场景逐张补
+        services.AddSingleton<MapBackgroundService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
         services.AddSingleton<SceneCalibrationService>();
         services.AddSingleton<LingshuImporter>();

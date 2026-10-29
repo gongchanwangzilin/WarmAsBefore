@@ -14,6 +14,8 @@ public partial class MapPage : ContentPage
         BindingContext = vm;
         MapCanvas.Drawable = vm.Drawable;
         vm.AttachInvalidate(() => MapCanvas.Invalidate());
+        // 切层动画要把目标层摆进视口中心：中心在哪只有页面知道
+        MapCanvas.SizeChanged += (_, _) => vm.SetViewport(MapCanvas.Width, MapCanvas.Height);
         LoadingVeil.Attach(this, vm, "Nodes");   // 节点表读盘才有：Nodes 是 VM 已有的集合
     }
 

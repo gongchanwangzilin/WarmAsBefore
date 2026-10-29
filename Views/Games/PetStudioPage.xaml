@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.PetStudioPage"
+             x:Name="Page"
+             x:DataType="vm:PetStudioViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 眉栏：一块「地」而不是一张卡，底下用发丝线收住（与素材库同一处理） -->
+        <VerticalStackLayout Spacing="0">
+            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
+                            FontSize="{DynamicResource WSizeSmall}" Padding="0"
+                            Command="{Binding BackCommand}" />
+                    <Label Grid.Column="1" Text="AI 制作桌宠" Style="{StaticResource TxtTitle}"
+                           VerticalOptions="Center" />
+                    <Border Grid.Column="2" Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                            Padding="10,5" StrokeShape="{DynamicResource WRadiusPill}">
+                        <Label Text="{Binding WalkCadenceText}" Style="{StaticResource TxtBodySm}"
+                               TextColor="{DynamicResource WarmDark}" MaxLines="1"
+                               LineBreakMode="TailTruncation" />
+                    </Border>
+                </Grid>
+            </Border>
+            <BoxView Style="{StaticResource HSep}" />
+        </VerticalStackLayout>
+
+        <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="1000" HorizontalOptions="Fill">
+
+                <!-- ① 选角色 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="① 挑一位角色" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Characters}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PetStudioCharacterOption">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource TappableRow}">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickCharacterCommand}"
+                                                        CommandParameter="{Binding .}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                    <BoxView WidthRequest="9" HeightRequest="9" CornerRadius="4.5"
+                                                             Color="Transparent" VerticalOptions="Center">
+                                                        <BoxView.Triggers>
+                                                            <DataTrigger TargetType="BoxView" Binding="{Binding IsSelected}" Value="True">
+                                                                <Setter Property="Color" Value="{DynamicResource Signal}" />
+                                                            </DataTrigger>
+                                                        </BoxView.Triggers>
+                                                    </BoxView>
+                                                    <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                               LineBreakMode="TailTruncation" MaxLines="1" />
+                                                    </VerticalStackLayout>
+                                                    <Label Grid.Column="2" Text="已选中" Style="{StaticResource TxtCaption}"
+                                                           TextColor="{DynamicResource WarmFaint}"
+                                                           VerticalOptions="Center" IsVisible="{Binding IsSelected}" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="角色库里还没有角色，先去人物工作室建一位。"
+                                   Style="{StaticResource TxtCaption}" Margin="{DynamicResource WPadRow}"
+                                   IsVisible="{Binding NoCharacters}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- ② 一键生成：真实进度、逐帧回报、随时可取消 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="② 一键生成整套状态动画" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="12" Padding="{DynamicResource WPadRow}">
+                            <Label Text="代码先按走动速度算好走动循环的帧数与步频，再逐状态串行出图；每出一帧就点亮下面对应的一行。进度是真的，不会用假动画糊弄你。"
+                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap"
+                                   TextColor="{DynamicResource MutedFg}" />
+
+                            <!-- 画面生成没配好时的提醒（只在有文案时出现） -->
+                            <Label Text="{Binding ImageHint}" Style="{StaticResource TxtCaption}"
+                                   TextColor="{DynamicResource DangerInk}" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding ImageHint, Converter={StaticResource StringNotEmpty}}" />
+
+                            <!-- 真实进度条：只在生成时可见 -->
+                            <VerticalStackLayout Spacing="4" IsVisible="{Binding Busy}">
+                                <ProgressBar Progress="{Binding Progress}" ProgressColor="{DynamicResource Signal}"
+                                             HeightRequest="4" />
+                                <Label Text="{Binding ProgressText}" Style="{StaticResource TxtCaption}"
+                                       TextColor="{DynamicResource MutedFg}" />
+                            </VerticalStackLayout>
+
+                            <!-- 状态一句话：装载 / 生成中 / 结果都写在这 -->
+                            <Label Text="{Binding Status}" Style="{StaticResource TxtBodySm}"
+                                   TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding Status, Converter={StaticResource StringNotEmpty}}" />
+                            <Label Text="{Binding ResultMessage}" Style="{StaticResource TxtBodySm}"
+                                   TextColor="{DynamicResource WarmDark}" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding ResultMessage, Converter={StaticResource StringNotEmpty}}" />
+
+                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
+                                <Button Text="一键生成桌宠动画" Style="{StaticResource BtnPrimary}"
+                                        FontSize="{DynamicResource WSizeSmall}" Padding="16,7"
+                                        Command="{Binding GenerateCommand}" />
+                                <Button Grid.Column="1" Text="取消生成" Style="{StaticResource BtnGhost}"
+                                        FontSize="{DynamicResource WSizeSmall}" Padding="16,7"
+                                        Command="{Binding CancelCommand}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- ③ 逐状态出图与预览 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="③ 状态动画与预览" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0"
+                                             BindableLayout.ItemsSource="{Binding States}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PetStudioStateRow">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Border Style="{StaticResource SettingRow}">
+                                            <Grid ColumnDefinitions="64,*,Auto" ColumnSpacing="12">
+                                                <!-- 缩略图井：出好帧就放图，否则留占位（图是内容，面只用井底） -->
+                                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                                        HeightRequest="64" VerticalOptions="Center"
+                                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                                    <Image Source="{Binding Preview}" Aspect="AspectFit"
+                                                           IsVisible="{Binding HasPreview}"
+                                                           HorizontalOptions="Center" VerticalOptions="Center" />
+                                                    <Label Text="🐾" TextColor="{DynamicResource MutedFg}"
+                                                           FontSize="{DynamicResource WSizeSubhead}"
+                                                           HorizontalOptions="Center" VerticalOptions="Center"
+                                                           IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}" />
+                                                </Border>
+
+                                                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                    <Label Text="{Binding StateText}" Style="{StaticResource TxtRowDesc}"
+                                                           LineBreakMode="TailTruncation" MaxLines="1" />
+                                                </VerticalStackLayout>
+
+                                                <Border Grid.Column="2" VerticalOptions="Center"
+                                                        Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                                        Padding="10,5" StrokeShape="{DynamicResource WRadiusPill}">
+                                                    <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
+                                                           TextColor="{DynamicResource WarmDark}" />
+                                                </Border>
+                                            </Grid>
+                                        </Border>
+                                        <BoxView Style="{StaticResource HSepInset}" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+                    <Label Text="走动、跳跃是多帧循环，其余状态多为单帧；生成完成后可在桌宠设置里把这套素材包接上播放。"
+                           Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
+                           LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

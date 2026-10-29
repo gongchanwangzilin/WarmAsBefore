@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using Microsoft.Maui.ApplicationModel;
@@ -15,6 +16,10 @@ public sealed class ChatEngine
     private readonly MemoryVault _memory;
     private readonly ToolManager _tools;
     private readonly Dictionary<string, List<ChatMessage>> _sessions = new();
+    /// <summary>会话表的读写闸：主界面、QQ/微信、桌宠、存档运行时可能同时说到同一个角色。</summary>
+    private readonly object _sessionLock = new();
+    /// <summary>按角色串行：同一角色的两轮对话绝不能交错改写同一条历史。</summary>
+    private readonly ConcurrentDictionary<string, SemaphoreSlim> _charGates = new(StringComparer.Ordinal);
     private AiEndpoint _cfg = new();
     private CharacterProfile? _active;
     private string _rosterContext = "";
@@ -49,9 +54,16 @@ public sealed class ChatEngine
     /// <summary>工作记忆现状：活跃会话数与这些会话里的消息总数（记忆总览用）。</summary>
     public (int Sessions, int Messages) SessionStats()
     {
-        try { return (_sessions.Count, _sessions.Values.Sum(s => s.Count)); }
+        try
+        {
+            lock (_sessionLock)
+                return (_sessions.Count, _sessions.Values.Sum(s => s.Count));
+        }
         catch (InvalidOperationException) { return (_sessions.Count, 0); }   // 正好在发消息，忽略这一帧
     }
+
+    /// <summary>是否至少配了一个模型端点（存档运行时据此决定要不要跑 AI 生活回合）。</summary>
+    public bool HasEndpoint => _api.HasAnyEndpoint;
 
     /// <summary>
     /// 副设定文本提供者（按角色 id）。由副设定服务注入；为空时人设与从前逐字段一致。
@@ -446,8 +458,16 @@ public sealed class ChatEngine
         catch (Exception ex) { App.WriteLog("ChatEngine.RefreshTags -> " + ex.Message); }
     }
 
-    /// <summary>取本次对话实际生效的端点配置：全局配置叠加该角色的覆写。</summary>
-    private AiEndpoint CfgFor(string charId) => Resolver?.EndpointFor(charId, _cfg) ?? _cfg;
+    /// <summary>
+    /// 本次对话实际生效的端点：角色绑定 &gt; 顶栏临时指定 &gt; 全局轮换。
+    /// 临时指定要当 baseCfg 传进解析链，不能只在网关里比引用相等——
+    /// 叠了参数覆写的端点是新对象，那样连没绑模型的角色也会被自己的覆写顶掉，选择照样不生效。
+    /// </summary>
+    private AiEndpoint CfgFor(string charId)
+    {
+        var baseCfg = _api.TemporaryEndpoint ?? _cfg;
+        return Resolver?.EndpointFor(charId, baseCfg) ?? baseCfg;
+    }
 
     public async Task<string> Send(string charId, string text)
     {
@@ -459,7 +479,19 @@ public sealed class ChatEngine
     /// 与正文一起注入模型；二进制附件（图片/音频等）只报元信息，交由识图工具或用户后续处理。
     /// 附件清单同时存进这一条 user 消息（<see cref="ChatMessage.Attachments"/>），便于回显与追溯。
     /// </summary>
-    public async Task<string> Send(string charId, string text, IReadOnlyList<ChatAttachment>? attachments)
+    public async Task<string> Send(string charId, string text, IReadOnlyList<ChatAttachment>? attachments,
+        string memoryCategory = "dialogue")
+    {
+        // 同一角色一次只跑一轮：主界面、QQ/微信、桌宠与后台运行时都会走到这里，
+        // 两轮交错会把同一条历史写成乱序，也可能让模型看到自己还没说完的半句。
+        var gate = _charGates.GetOrAdd(charId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try { return await SendCore(charId, text, attachments, memoryCategory); }
+        finally { gate.Release(); }
+    }
+
+    private async Task<string> SendCore(string charId, string text, IReadOnlyList<ChatAttachment>? attachments,
+        string memoryCategory)
     {
         var session = Session(charId);
         var cfg = CfgFor(charId);
@@ -559,7 +591,7 @@ public sealed class ChatEngine
             {
                 CharacterId = charId,
                 Content = $"{text} → {reply}",
-                Category = "dialogue"
+                Category = memoryCategory
             });
             try { AfterSend?.Invoke(); }
             catch (Exception ex) { App.WriteLog("ChatEngine.AfterSend -> " + ex.Message); }
@@ -574,6 +606,77 @@ public sealed class ChatEngine
             // 直接返回给调用方展示。
             return errorMsg;
         }
+    }
+
+    /// <summary>
+    /// 存档运行时的生活回合：没有真人开口，让 TA 在自己的生活里走一段。
+    /// 不暴露工具（后台不能悄悄改界面或往外发消息）、不结算好感，只写一条有界的生活记忆；
+    /// 会话保留这两句，下次真人聊天时 TA 记得自己刚做过什么。
+    /// 返回 null 表示没跑（未配置模型或失败），调用方保持本地推演即可。
+    /// </summary>
+    public async Task<string?> SendAmbient(string charId, string prompt)
+    {
+        if (!_api.HasAnyEndpoint || string.IsNullOrWhiteSpace(prompt)) return null;
+        var gate = _charGates.GetOrAdd(charId, _ => new SemaphoreSlim(1, 1));
+        await gate.WaitAsync();
+        try
+        {
+            var session = Session(charId);
+            var cfg = CfgFor(charId);
+            List<ChatMessage> msgs;
+            lock (_sessionLock)
+            {
+                msgs = new List<ChatMessage> { session[0] };
+                // 只带上最近的对话尾巴：生活回合不是复读机，也不该把整本历史再读一遍。
+                for (var i = Math.Max(1, session.Count - 12); i < session.Count; i++)
+                    msgs.Add(session[i]);
+            }
+            var recent = await _memory.Recent(charId, 6);
+            if (recent.Count > 0)
+                msgs.Add(new ChatMessage
+                {
+                    Role = "user",
+                    Content = "（你最近记得的事）\n" + string.Join("\n", recent.Select(m => m.Content))
+                });
+            msgs.Add(new ChatMessage
+            {
+                Role = "system",
+                Content = "你现在在自己的一天里，没有人在跟你对话。不要调用任何工具，不要对任何人说话，"
+                        + "也不要用动作标记。只按下面的提示写一小段第一人称的生活。"
+            });
+            msgs.Add(new ChatMessage { Role = "user", Content = prompt });
+
+            var reply = await _api.Chat(msgs, cfg);
+            if (string.IsNullOrWhiteSpace(reply)) return null;
+            var clean = reply.Trim();
+
+            lock (_sessionLock)
+            {
+                session.Add(new ChatMessage { Role = "user", Content = "（生活片段）" + prompt });
+                session.Add(new ChatMessage { Role = "assistant", Content = clean });
+                CapSessionLocked(session);
+            }
+            return clean;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.SendAmbient -> " + ex.Message);
+            return null;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
+
+    /// <summary>后台回合只保留有限条：不靠对话裁剪兜底，历史不该被生活片段撑爆。必须在 _sessionLock 内调用。</summary>
+    private static void CapSessionLocked(List<ChatMessage> session)
+    {
+        const int max = 120;
+        if (session.Count <= max) return;
+        var cut = session.Count - max;
+        if (cut % 2 == 1) cut++;   // user/assistant 成对裁，别把一句留下半截
+        session.RemoveRange(1, cut);
     }
 
     /// <summary>单个文本附件注入模型的最大字符数（超出截断，避免一份大文件把上下文吃光）。</summary>
@@ -964,15 +1067,19 @@ public sealed class ChatEngine
     /// <summary>超省内存：只留当前角色的会话，其余角色的历史从内存里放掉（需要时会话会重建）。</summary>
     public void TrimSessions(string keepCharId)
     {
-        foreach (var key in _sessions.Keys.Where(k => !string.Equals(k, keepCharId, StringComparison.Ordinal)).ToList())
-            _sessions.Remove(key);
+        lock (_sessionLock)
+        {
+            foreach (var key in _sessions.Keys.Where(k => !string.Equals(k, keepCharId, StringComparison.Ordinal)).ToList())
+                _sessions.Remove(key);
+        }
     }
 
     /// <summary>把会话里最后一条 assistant 回复替换为补正后的文本（保持后续上下文一致）。</summary>
     public void ReplaceLastAssistant(string charId, string newText)
     {
-        if (_sessions.TryGetValue(charId, out var s))
+        lock (_sessionLock)
         {
+            if (!_sessions.TryGetValue(charId, out var s)) return;
             for (var i = s.Count - 1; i >= 0; i--)
             {
                 if (s[i].Role == "assistant")
@@ -1014,8 +1121,10 @@ public sealed class ChatEngine
 
     private List<ChatMessage> Session(string charId)
     {
-        if (!_sessions.ContainsKey(charId))
+        lock (_sessionLock)
         {
+            if (!_sessions.ContainsKey(charId))
+            {
             var p = ProfileFor(charId);
             var persona = p is null
                 ? $"你是{charId}，温柔可爱。用中文回复，保持自然连贯。"
@@ -1063,8 +1172,9 @@ public sealed class ChatEngine
             {
                 new() { Role = "system", Content = persona }
             };
+            }
+            return _sessions[charId];
         }
-        return _sessions[charId];
     }
 
     /// <summary>上下文 Token 上限的兜底值（用户没配置时）。</summary>

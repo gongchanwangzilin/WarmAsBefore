@@ -22,6 +22,10 @@ public static class ViewModelRegistration
         services.AddTransient<SaveViewModel>();
         services.AddTransient<CloudSavesViewModel>();
         services.AddTransient<GameViewModel>();
+        services.AddTransient<PetSettingsViewModel>();
+        services.AddTransient<PetStudioViewModel>();
+        services.AddTransient<MapCreateViewModel>();
+        services.AddTransient<UsageStatsViewModel>();
         services.AddTransient<WorldbookViewModel>();
         services.AddTransient<NewRunViewModel>();
         services.AddTransient<ForceCastViewModel>();

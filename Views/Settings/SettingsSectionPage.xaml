@@ -599,6 +599,8 @@
                                                     Command="{Binding RefreshCostCommand}" />
                                             <Button Text="按当前上限试算" Style="{StaticResource BtnGhost}" FontSize="12"
                                                     Command="{Binding TryAdviceCommand}" />
+                                            <Button Text="用量统计…" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                    Command="{Binding OpenUsageStatsCommand}" />
                                         </HorizontalStackLayout>
 
                                         <!-- 条形图 / 折线图：自绘，跟着主题色走 -->
@@ -993,11 +995,29 @@
                                                     ItemsSource="{Binding PetThinkIntervalChoices}" SelectedItem="{Binding PetThinkIntervalMinutes}"
                                                     FontSize="13" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
+                                        <!-- 桌宠体型：滚轮/捏合改的就是这个值，所以这里也是把它调回原样的出口 -->
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout Spacing="4">
+                                            <Label Text="桌宠体型" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="在「屏幕高的 42%」这个基准上再乘一刀：屏越大，基准顶得越高，这里才是真正调大小的地方。用滚轮或双指捏过之后，这里会跟着变" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                                <Slider WidthRequest="150" Minimum="0.4" Maximum="2.6" Value="{Binding PetScale}"
+                                                        VerticalOptions="Center" />
+                                                <Label Text="{Binding PetScaleText}" Style="{StaticResource TxtCaption}"
+                                                       WidthRequest="42" VerticalTextAlignment="Center" /></HorizontalStackLayout></Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 多显示器：头顶小窗能不能跟着角色跨到另一块屏 -->
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{OnPlatform WinUI=True, Default=False}"><VerticalStackLayout>
                                             <Label Text="对话小窗跨屏跟随" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="多显示器用：开启后角色拖到副屏，头顶输入条跟着跨过去；关闭时小窗只在角色那块屏里，贴到屏边会折回本屏。单屏无区别" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <Switch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" /></Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <!-- 桌宠那一页带实时预览，改一项就能在桌面上看见；AI 制作桌宠是它的上游 -->
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Padding="0,13">
+                                            <Button Grid.Column="0" Text="桌宠设置…" Style="{StaticResource BtnGhost}" FontSize="13"
+                                                    Command="{Binding OpenPetSettingsCommand}" />
+                                            <Button Grid.Column="1" Text="AI 制作桌宠…" Style="{StaticResource BtnGhost}" FontSize="13"
+                                                    Command="{Binding OpenPetStudioCommand}" />
+                                        </Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -1098,6 +1118,12 @@
                                             <Entry Grid.Column="1" Text="{Binding WechatPort}" Placeholder="{Binding [Settings_PortPlaceholder], Source={x:Static i18n:LocalizationService.Current}}" Keyboard="Numeric"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <!-- 微信机器人绑定陪聊角色：和 QQ 各绑各的，同一个角色两边都选就是同时在线 -->
+                                        <Grid ColumnDefinitions="110,*" Padding="0,13"><Label Text="陪聊角色" VerticalOptions="Center" FontSize="13" />
+                                            <Picker Grid.Column="1" Title="选一个角色（存档）" ItemsSource="{Binding QqBoundChoices}"
+                                                    SelectedItem="{Binding WechatBoundCharacter}" FontSize="13" /></Grid>
+                                        <Label Text="微信可以绑另一个角色；和 QQ 选同一个角色，就是 TA 在两个平台上同时在线。" Style="{StaticResource TxtCaption}" />
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 视频号外链：社交壳（微信/QQ）里点「视频号」直接跳到这里填的链接 -->
                                         <Grid ColumnDefinitions="110,*" Padding="0,13"><Label Text="{Binding [Settings_ChannelsUrl], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
@@ -2164,6 +2190,69 @@
                             <Slider Grid.Column="1" WidthRequest="150" Minimum="0" Maximum="1"
                                     Value="{Binding LibidoCycleInfluence}" VerticalOptions="Center" />
                         </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+        <!-- 卡片 37：存档运行时（存档一开，所有内部角色继续活着） -->
+        <DataTemplate x:Key="Card37">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}" IsVisible="{Binding Filter.SaveRuntime}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="存档运行时" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="存档打开后，这一档里的角色都在后台继续活着：有自己的作息，会自己下棋、玩小游戏，会用自己的模型写下此刻的生活片段，也会在你想聊的时候接着刚才的事说下去。回标题时这些状态一起存进这一档。"
+                               Style="{StaticResource TxtCaption}" Margin="0,6,0,0" />
+
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="存档打开时让角色继续运行" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="关掉则一切照旧：只有你主动找 TA 时角色才会动。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeEnabled}" /></Grid>
+
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
+                            <Label Text="让 TA 用模型写生活片段" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="角色用自己的模型写一小段此刻在做什么，记进 TA 的记忆。关掉只做本地作息推演，不花 token。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeAiEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"
+                              IsEnabled="{Binding SaveRuntimeEnabled}" IsVisible="{Binding SaveRuntimeAiEnabled}">
+                            <VerticalStackLayout>
+                                <Label Text="生活回合间隔" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="每个角色平均多久写一次；实际会按角色错开。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="120" ItemsSource="{Binding SaveRuntimeAiChoices}"
+                                    SelectedItem="{Binding SaveRuntimeAiDisplay}" FontSize="13" /></Grid>
+
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
+                            <Label Text="让 TA 自己下棋、玩小游戏" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="本地结算，不花 token；只写一条生活记忆，不影响你与 TA 对弈时的棋力记录。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimePlayGames}" /></Grid>
+
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
+                            <Label Text="允许 TA 主动给你发消息" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="还要在「外部接入 → QQ/微信」里打开「允许角色主动发消息」，并且让 TA 认识你。只有绑定该通道的角色才会发。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeProactive}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"
+                              IsEnabled="{Binding SaveRuntimeEnabled}" IsVisible="{Binding SaveRuntimeProactive}">
+                            <VerticalStackLayout>
+                                <Label Text="后台每小时最多跑几次 AI" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="所有角色共用这个预算，避免后台把额度吃光。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Picker Grid.Column="1" WidthRequest="120" ItemsSource="{Binding SaveRuntimeBudgetChoices}"
+                                    SelectedItem="{Binding SaveRuntimeBudgetDisplay}" FontSize="13" /></Grid>
+
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
+                            <Label Text="深夜安静（23:00–7:00）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="这段时间只换作息，不写生活片段、不下棋、不发消息，也不花 token。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeQuietHours}" /></Grid>
+
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
+                            <VerticalStackLayout>
+                                <Label Text="角色此刻在做什么" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="{Binding RuntimePresenceText}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding RefreshRuntimePresenceCommand}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

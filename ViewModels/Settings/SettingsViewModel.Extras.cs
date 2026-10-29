@@ -79,6 +79,93 @@ public sealed partial class SettingsViewModel
     [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
     private bool _maskUnintroducedNames = true;
 
+    // ---- 存档运行时：存档一打开，所有内部角色继续活着 ----
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private bool _saveRuntimeEnabled = true;
+
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private bool _saveRuntimeAiEnabled = true;
+
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private bool _saveRuntimePlayGames = true;
+
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private bool _saveRuntimeProactive;
+
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private bool _saveRuntimeQuietHours = true;
+
+    private int _saveRuntimeAiMinutes = 20;
+    private int _saveRuntimeHourlyBudget = 6;
+
+    /// <summary>生活回合间隔（分钟，存的是数，界面显示中文）。</summary>
+    public List<string> SaveRuntimeAiChoices { get; } = new()
+        { "每 10 分钟", "每 15 分钟", "每 20 分钟", "每 30 分钟", "每 45 分钟", "每 60 分钟" };
+    private static readonly int[] SaveRuntimeAiTable = { 10, 15, 20, 30, 45, 60 };
+
+    public string SaveRuntimeAiDisplay
+    {
+        get
+        {
+            var i = Array.IndexOf(SaveRuntimeAiTable, _saveRuntimeAiMinutes);
+            return SaveRuntimeAiChoices[i >= 0 ? i : 2];
+        }
+        set
+        {
+            var i = SaveRuntimeAiChoices.IndexOf(value ?? "");
+            _saveRuntimeAiMinutes = i >= 0 ? SaveRuntimeAiTable[i] : 20;
+            OnPropertyChanged();
+            PersistSettings();
+        }
+    }
+
+    /// <summary>每小时最多几个 AI 生活回合（所有角色共用）。</summary>
+    public List<string> SaveRuntimeBudgetChoices { get; } = new()
+        { "每小时 3 次", "每小时 6 次", "每小时 12 次", "每小时 20 次" };
+    private static readonly int[] SaveRuntimeBudgetTable = { 3, 6, 12, 20 };
+
+    public string SaveRuntimeBudgetDisplay
+    {
+        get
+        {
+            var i = Array.IndexOf(SaveRuntimeBudgetTable, _saveRuntimeHourlyBudget);
+            return SaveRuntimeBudgetChoices[i >= 0 ? i : 1];
+        }
+        set
+        {
+            var i = SaveRuntimeBudgetChoices.IndexOf(value ?? "");
+            _saveRuntimeHourlyBudget = i >= 0 ? SaveRuntimeBudgetTable[i] : 6;
+            OnPropertyChanged();
+            PersistSettings();
+        }
+    }
+
+    /// <summary>在线角色此刻在做什么（设置页展示用；后台线程写的，点刷新才重读）。</summary>
+    [CommunityToolkit.Mvvm.ComponentModel.ObservableProperty]
+    private string _runtimePresenceText = "";
+
+    [CommunityToolkit.Mvvm.Input.RelayCommand]
+    private void RefreshRuntimePresence()
+    {
+        try
+        {
+            var rows = _runtime.Snapshot();
+            var head = _runtime.Running ? "存档运行时正在跑" : "存档没开着，后台生活要等进存档才开始";
+            if (rows.Count == 0)
+            {
+                RuntimePresenceText = head + "｜还没有角色动起来，进存档待一会儿再来看看。";
+                return;
+            }
+            var lines = rows.Take(12).Select(r => $"· {r.Name}　{r.Activity}（{r.Place}）　{r.At:HH:mm}");
+            RuntimePresenceText = head + "\n" + string.Join("\n", lines);
+        }
+        catch (Exception ex)
+        {
+            RuntimePresenceText = "";
+            App.WriteLog("Settings.RefreshRuntimePresence -> " + ex.Message);
+        }
+    }
+
     partial void OnNotificationSecondsChanged(double value) => PersistSettings();
     partial void OnToastEnabledChanged(bool value) => PersistSettings();
     partial void OnWidgetModeEnabledChanged(bool value) => PersistSettings();
@@ -89,6 +176,11 @@ public sealed partial class SettingsViewModel
     partial void OnLibidoSystemEnabledChanged(bool value) => PersistSettings();
     partial void OnLibidoCycleInfluenceChanged(double value) => PersistSettings();
     partial void OnMaskUnintroducedNamesChanged(bool value) => PersistSettings();
+    partial void OnSaveRuntimeEnabledChanged(bool value) => PersistSettings();
+    partial void OnSaveRuntimeAiEnabledChanged(bool value) => PersistSettings();
+    partial void OnSaveRuntimePlayGamesChanged(bool value) => PersistSettings();
+    partial void OnSaveRuntimeProactiveChanged(bool value) => PersistSettings();
+    partial void OnSaveRuntimeQuietHoursChanged(bool value) => PersistSettings();
 
     private void LoadExtraOptions(UserSettings s)
     {
@@ -105,6 +197,13 @@ public sealed partial class SettingsViewModel
         _libidoSystemEnabled = s.LibidoSystemEnabled;
         _libidoCycleInfluence = Math.Clamp(s.LibidoCycleInfluence, 0, 1);
         _maskUnintroducedNames = s.MaskUnintroducedNames;
+        _saveRuntimeEnabled = s.SaveRuntimeEnabled;
+        _saveRuntimeAiEnabled = s.SaveRuntimeAiEnabled;
+        _saveRuntimeAiMinutes = Math.Clamp(s.SaveRuntimeAiMinutes > 0 ? s.SaveRuntimeAiMinutes : 20, 10, 120);
+        _saveRuntimePlayGames = s.SaveRuntimePlayGames;
+        _saveRuntimeProactive = s.SaveRuntimeProactive;
+        _saveRuntimeHourlyBudget = Math.Clamp(s.SaveRuntimeHourlyBudget > 0 ? s.SaveRuntimeHourlyBudget : 6, 1, 30);
+        _saveRuntimeQuietHours = s.SaveRuntimeQuietHours;
     }
 
     private UserSettings ApplyExtraOptions(UserSettings s) => s with
@@ -120,5 +219,12 @@ public sealed partial class SettingsViewModel
         LibidoSystemEnabled = _libidoSystemEnabled,
         LibidoCycleInfluence = Math.Clamp(_libidoCycleInfluence, 0, 1),
         MaskUnintroducedNames = _maskUnintroducedNames,
+        SaveRuntimeEnabled = _saveRuntimeEnabled,
+        SaveRuntimeAiEnabled = _saveRuntimeAiEnabled,
+        SaveRuntimeAiMinutes = Math.Clamp(_saveRuntimeAiMinutes, 10, 120),
+        SaveRuntimePlayGames = _saveRuntimePlayGames,
+        SaveRuntimeProactive = _saveRuntimeProactive,
+        SaveRuntimeHourlyBudget = Math.Clamp(_saveRuntimeHourlyBudget, 1, 30),
+        SaveRuntimeQuietHours = _saveRuntimeQuietHours,
     };
 }

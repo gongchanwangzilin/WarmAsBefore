@@ -82,10 +82,21 @@ public sealed class CharacterSettingsResolver
     }
 
     /// <summary>
+    /// 该角色绑定的模型显示名（「厂商 · 模型」）；没绑、或绑的厂商已经不可用时返回空串。
+    /// 主界面右上角的「AI」用它来判断这次临时指定对 TA 到底生不生效。
+    /// </summary>
+    public string BoundModelLabel(string? characterId)
+    {
+        var e = BoundEndpoint(characterId);
+        if (e is null) return "";
+        return string.IsNullOrWhiteSpace(e.Provider) ? e.Model : $"{e.Provider} · {e.Model}";
+    }
+
+    /// <summary>
     /// 角色单独绑定的模型（设置里「这个角色用哪个 AI」）。
     /// 只绑模型不绑厂商时，在已启用的厂商里找第一款提供它的；找不到就当没绑，回到全局轮换。
     /// </summary>
-    private AiEndpoint? BoundEndpoint(string? characterId)
+    public AiEndpoint? BoundEndpoint(string? characterId)
     {
         if (string.IsNullOrEmpty(characterId)) return null;
         if (!_engine.Roster.TryGetValue(characterId, out var ch)) return null;

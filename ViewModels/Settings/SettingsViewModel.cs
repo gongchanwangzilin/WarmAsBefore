@@ -30,6 +30,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Modules.RealWorld.WeatherProvider _weather;
     private readonly Services.CloudSync.CloudSyncService _cloud;
     private readonly Modules.Market.ShopService _shop;
+    private readonly SaveRuntimeService _runtime;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
@@ -40,7 +41,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Services.SkillLibrary skills, Services.CostEstimatorService cost,
         Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather,
         Services.CloudSync.CloudSyncService cloud, Services.GenderLibrary genders,
-        Modules.Market.ShopService shop)
+        Modules.Market.ShopService shop, SaveRuntimeService runtime)
     {
         _settings = settings;
         _theme = theme;
@@ -62,6 +63,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _cloud = cloud;
         _genders = genders;
         _shop = shop;
+        _runtime = runtime;
         _ = shop.InitializeAsync();
         _cloudStatus = cloud.Status;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
@@ -250,6 +252,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _petThinkModeDisplay = ThinkModeDisplayOf(s.PetThinkMode);
         _petThinkIntervalMinutes = Math.Max(1, s.PetThinkIntervalMinutes);
         _petChromeCrossScreen = s.PetChromeCrossScreen;
+        // 直接写字段：走属性会把「读盘」当成「用户改动」再落一次盘。
+        // 但百分比那个读数挂在 PetScale 的通知上，字段赋值不会触发，所以补一次通知。
+        _petScale = Math.Clamp(s.PetScale, 0.4, 2.6);
+        OnPropertyChanged(nameof(PetScaleText));
 
         // 屏幕方向（auto / landscape / portrait）
         _screenOrientation = string.IsNullOrWhiteSpace(s.ScreenOrientation) ? "auto" : s.ScreenOrientation;
@@ -292,6 +298,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _wechatAppSecret = s.WechatAppSecret;
         _wechatToken = s.WechatToken;
         _wechatPort = s.WechatPort.ToString();
+        _wechatBoundCharacterId = s.WechatBoundCharacterId;
         _channelsUrl = s.ChannelsUrl ?? "";
         _cloudSaveEnabled = s.CloudSaveEnabled;
         _cloudRepo = s.CloudRepo ?? "";
@@ -861,7 +868,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         return $"{best}K";
     }
 
-    // ============ #16 QQ 机器人绑定角色（选存档） ============
+    // ============ #16 QQ/微信 机器人绑定角色（选存档） ============
 
     /// <summary>QQ 机器人绑定的陪聊角色 Id（空=用当前角色，即旧行为）。</summary>
     private string _qqBoundCharacterId = "";
@@ -869,7 +876,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>QQ 机器人绑定角色的显示名（Picker 的选中项）。</summary>
     [ObservableProperty] private string _qqBoundCharacter = "";
 
-    /// <summary>可选角色名列表（首项为「用当前角色」）。</summary>
+    /// <summary>微信机器人绑定的陪聊角色 Id（空=用当前角色）。两个通道各绑各的，同一个角色可以两边同时在线。</summary>
+    private string _wechatBoundCharacterId = "";
+
+    /// <summary>微信机器人绑定角色的显示名（Picker 的选中项）。</summary>
+    [ObservableProperty] private string _wechatBoundCharacter = "";
+
+    /// <summary>可选角色名列表（首项为「用当前角色」）。QQ 与微信用同一份名单。</summary>
     public ObservableCollection<string> QqBoundChoices { get; } = new();
 
     /// <summary>把角色库里的角色名填进绑定选择器，并把已绑定的 Id 翻译回显示名。</summary>
@@ -893,11 +906,19 @@ public sealed partial class SettingsViewModel : ObservableObject
                 : list.FirstOrDefault(c => c.Profile.Id == _qqBoundCharacterId);
             _qqBoundCharacter = bound?.Profile.Name ?? "（用当前角色）";
             OnPropertyChanged(nameof(QqBoundCharacter));
+
+            var wxBound = string.IsNullOrEmpty(_wechatBoundCharacterId)
+                ? null
+                : list.FirstOrDefault(c => c.Profile.Id == _wechatBoundCharacterId);
+            _wechatBoundCharacter = wxBound?.Profile.Name ?? "（用当前角色）";
+            OnPropertyChanged(nameof(WechatBoundCharacter));
         }
         catch (Exception ex) { App.WriteLog("Settings.LoadQqBoundChoices -> " + ex.Message); }
     }
 
     partial void OnQqBoundCharacterChanged(string value) => _ = ResolveQqBoundAsync(value);
+
+    partial void OnWechatBoundCharacterChanged(string value) => _ = ResolveWechatBoundAsync(value);
 
     /// <summary>显示名 → 角色 Id（用于持久化）。</summary>
     private async Task ResolveQqBoundAsync(string name)
@@ -916,6 +937,24 @@ public sealed partial class SettingsViewModel : ObservableObject
             PersistSettings();
         }
         catch (Exception ex) { App.WriteLog("Settings.ResolveQqBound -> " + ex.Message); }
+    }
+
+    private async Task ResolveWechatBoundAsync(string name)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(name) || name == "（用当前角色）")
+            {
+                _wechatBoundCharacterId = "";
+                PersistSettings();
+                return;
+            }
+            var list = await _library.ListAsync();
+            var ch = list.FirstOrDefault(c => c.Profile.Name == name);
+            _wechatBoundCharacterId = ch?.Profile.Id ?? "";
+            PersistSettings();
+        }
+        catch (Exception ex) { App.WriteLog("Settings.ResolveWechatBound -> " + ex.Message); }
     }
 
     // ============ #13 API 预设 & 识图模型 & 量化模型 ============
@@ -2348,6 +2387,17 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>多显示器：允许头顶对话小窗跟着角色跨到另一块屏。</summary>
     [ObservableProperty] private bool _petChromeCrossScreen;
 
+    /// <summary>
+    /// 桌宠体型倍率（0.4–2.6）。滚轮与捏合写的就是这一个值，
+    /// 所以这一行既是调大小的入口，也是「调完想回到原样」的出口。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PetScaleText))]
+    private double _petScale = 1.0;
+
+    /// <summary>滑杆旁边的读数，只用于显示，不参与存储。</summary>
+    public string PetScaleText => ((int)Math.Round(Math.Clamp(PetScale, 0.4, 2.6) * 100)) + "%";
+
     private static string ThinkModeDisplayOf(string key) => key switch
     {
         "random" => "随机",
@@ -2364,6 +2414,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnPetThinkModeDisplayChanged(string value) => PersistSettings();
     partial void OnPetThinkIntervalMinutesChanged(int value) => PersistSettings();
+
+    partial void OnPetScaleChanged(double value)
+    {
+        PersistSettings();
+        // 角色正站在桌面上时，滑杆要当场看见她变大变小；没进桌宠就是空实现。
+        Services.PetService.ApplyScale();
+    }
 
     partial void OnBgmLevelChanged(double value) => PersistSettings();
     partial void OnSfxLevelChanged(double value) => PersistSettings();
@@ -2522,6 +2579,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>心理状况：按角色设定轻/中/重度，AI 只读取当前角色生效的那几条。</summary>
     [RelayCommand]
     private async Task OpenMentalHealth() => await Shell.Current.GoToAsync("mentalHealth");
+
+    /// <summary>用量统计：缓存输入/输出单列，配模型单价算出每一笔。</summary>
+    [RelayCommand]
+    private async Task OpenUsageStats() => await Shell.Current.GoToAsync("usagestats");
+
+    /// <summary>桌宠设置：带实时预览的那一页。托盘菜单里也有同一入口，这里让没进桌宠模式的人也能改。</summary>
+    [RelayCommand]
+    private async Task OpenPetSettings() => await Shell.Current.GoToAsync("petsettings");
+
+    /// <summary>AI 制作桌宠：把角色 Q 版化、逐状态出帧。</summary>
+    [RelayCommand]
+    private async Task OpenPetStudio() => await Shell.Current.GoToAsync("petstudio");
 
     // ============ 自定义性别：新建 / 导入 / 删除 ============
 
@@ -2934,12 +3003,14 @@ GlassLightWidth = GlassLightWidth,
                 PetThinkMode = ThinkModeKeyOf(_petThinkModeDisplay),
                 PetThinkIntervalMinutes = Math.Max(1, PetThinkIntervalMinutes),
                 PetChromeCrossScreen = PetChromeCrossScreen,
+                PetScale = Math.Clamp(PetScale, 0.4, 2.6),
                 ScreenOrientation = ScreenOrientation,
 
                 QqBotEnabled = QqBotEnabled,
                 QqAppId = QqAppId.Trim(),
                 QqAppSecret = QqAppSecret.Trim(),
                 QqBoundCharacterId = _qqBoundCharacterId,
+                WechatBoundCharacterId = _wechatBoundCharacterId,
                 QqReplyGroup = QqReplyGroup,
                 QqUserOpenId = (QqUserOpenId ?? "").Trim(),
                 QqUserName = (QqUserName ?? "").Trim(),

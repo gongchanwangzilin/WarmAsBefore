@@ -14,9 +14,16 @@ public sealed class MemoryVault
     private readonly StorageProvider _store;
     private readonly MemoryScope _scope;
     private readonly object _gate = new();
+    /// <summary>落盘闸：整表写入必须一次一份。多角色后台同时写时，并发快照会互相覆盖。</summary>
+    private readonly SemaphoreSlim _writeGate = new(1, 1);
     private List<MemoryEntry> _cache = new();
     private Task? _loading;
     private string _scopeKey = "memories";
+
+    /// <summary>生活/小游戏这类后台记忆每个角色最多留多少条：它们会持续产生，绝不能无限堆积。</summary>
+    public const int AmbientCapPerCharacter = 200;
+
+    private static readonly string[] AmbientCategories = { "life", "game" };
 
     public MemoryVault(StorageProvider store, MemoryScope scope)
     {
@@ -67,14 +74,46 @@ public sealed class MemoryVault
     public async Task Store(MemoryEntry entry)
     {
         await EnsureLoadedAsync();
-        List<MemoryEntry> snapshot;
-        lock (_gate)
+        await _writeGate.WaitAsync();
+        try
         {
-            _cache.Add(entry);
-            // 快照整份列表再序列化，避免序列化到一半列表被另一线程修改
-            snapshot = new List<MemoryEntry>(_cache);
+            List<MemoryEntry> snapshot;
+            lock (_gate)
+            {
+                _cache.Add(entry);
+                PruneAmbientLocked(_cache, entry.CharacterId);
+                // 快照整份列表再序列化，避免序列化到一半列表被另一线程修改
+                snapshot = new List<MemoryEntry>(_cache);
+            }
+            await _store.Save(_scopeKey, snapshot);
         }
-        await _store.Save(_scopeKey, snapshot);
+        finally
+        {
+            _writeGate.Release();
+        }
+    }
+
+    /// <summary>
+    /// 后台生活/小游戏记忆：单独一个类别、有配额，混不进对话记忆的检索权重里。
+    /// 文本由调用方压到一句话——后台不该把整段独白背下来。
+    /// </summary>
+    public Task StoreAmbient(string charId, string content, string category = "life", string? keywords = null, int weight = 1)
+        => Store(new MemoryEntry
+        {
+            CharacterId = charId,
+            Content = content,
+            Category = category,
+            Keywords = keywords,
+            Weight = weight
+        });
+
+    /// <summary>只裁后台产生的类别，对话与好感记忆一条不动。</summary>
+    private static void PruneAmbientLocked(List<MemoryEntry> list, string charId)
+    {
+        var ambient = list.Where(m => m.CharacterId == charId && AmbientCategories.Contains(m.Category)).ToList();
+        if (ambient.Count <= AmbientCapPerCharacter) return;
+        foreach (var old in ambient.OrderBy(m => m.At).Take(ambient.Count - AmbientCapPerCharacter))
+            list.Remove(old);
     }
 
     /// <summary>记录好感提升瞬间（回忆录的「全部好感时刻」来源，随记忆持久化）。</summary>

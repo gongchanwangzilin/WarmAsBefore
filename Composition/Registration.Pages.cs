@@ -27,6 +27,10 @@ public static class PageRegistration
         services.AddTransient<CloudSavesPage>();
         services.AddTransient<GamePage>();
         services.AddTransient<PetPage>();
+        services.AddTransient<PetSettingsPage>();
+        services.AddTransient<PetStudioPage>();
+        services.AddTransient<MapCreatePage>();
+        services.AddTransient<UsageStatsPage>();
         services.AddTransient<NovelSelectPage>();
         services.AddTransient<NovelWorldPage>();
         services.AddTransient<WorldbookPage>();

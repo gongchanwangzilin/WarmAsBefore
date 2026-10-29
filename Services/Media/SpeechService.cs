@@ -51,7 +51,11 @@ public sealed class SpeechService
     /// Speak text aloud using the configured TTS engine.
     /// Android: TextToSpeech; Windows: system SpeechSynthesis or external API.
     /// </summary>
-    public async Task Speak(string text, string lang = "zh-CN", string? charId = null)
+    /// <param name="rate">本次语速倍率（1=原速），与全局 TtsRate 相乘；桌宠的「语速」走这里。</param>
+    /// <param name="pitch">本次音高（0.5–2，1=原声）；桌宠的「音高」走这里。</param>
+    /// <param name="voiceName">本次音色覆写；空=沿用角色绑定或全局。</param>
+    public async Task Speak(string text, string lang = "zh-CN", string? charId = null,
+        double? rate = null, double? pitch = null, string? voiceName = null)
     {
         if (!TtsEnabled) return;
 
@@ -60,13 +64,17 @@ public sealed class SpeechService
         if (voice is { Enabled: false }) return;
 
         await _speakGate.WaitAsync();
-        var (savedName, savedEngine, savedExtra) = (VoiceName, TtsEngine, VoiceExtra);
+        var (savedName, savedEngine, savedExtra, savedRate) = (VoiceName, TtsEngine, VoiceExtra, TtsRate);
+        var effPitch = Math.Clamp(pitch ?? 1.0, 0.5, 2.0);
         try
         {
             if (!string.IsNullOrWhiteSpace(voice?.VoiceName)) VoiceName = voice.VoiceName;
+            if (!string.IsNullOrWhiteSpace(voiceName)) VoiceName = voiceName!;
             if (!string.IsNullOrWhiteSpace(voice?.Engine)) TtsEngine = voice.Engine;
             if (!string.IsNullOrWhiteSpace(voice?.Extra)) VoiceExtra = voice.Extra;
+            TtsRate = Math.Clamp(TtsRate * Math.Clamp(rate ?? 1.0, 0.5, 2.0), 0.5, 2.0);
 #if ANDROID
+            _pendingPitch = effPitch;
             if (TtsEngine == "api")
                 await SpeakApiAndroid(text);
             else
@@ -75,7 +83,7 @@ public sealed class SpeechService
             if (TtsEngine == "api")
                 await SpeakApi(text);
             else
-                await SpeakWindows(text);
+                await SpeakWindows(text, effPitch);
 #endif
             OnSynthesized?.Invoke(text);
         }
@@ -88,6 +96,7 @@ public sealed class SpeechService
             VoiceName = savedName;
             TtsEngine = savedEngine;
             VoiceExtra = savedExtra;
+            TtsRate = savedRate;
             _speakGate.Release();
         }
     }
@@ -151,6 +160,7 @@ public sealed class SpeechService
 #if ANDROID
     private Android.Speech.Tts.TextToSpeech? _tts;
     private Java.Util.Locale? _ttsLocale;
+    private double _pendingPitch = 1.0;
 
     private const int SpeechRequestCode = 1001;
     private static TaskCompletionSource<(Android.App.Result, Android.Content.Intent?)>? _speechResult;
@@ -186,6 +196,7 @@ public sealed class SpeechService
                     _ttsLocale = Java.Util.Locale.SimplifiedChinese;
                     _tts.SetLanguage(_ttsLocale);
                     _tts.SetSpeechRate((float)TtsRate);
+                    _tts.SetPitch((float)_pendingPitch);
                     _tts.Speak(text, Android.Speech.Tts.QueueMode.Flush, null, "tts1");
                     tcs.TrySetResult();
                 }
@@ -195,6 +206,7 @@ public sealed class SpeechService
         else
         {
             _tts.SetSpeechRate((float)TtsRate);
+            _tts.SetPitch((float)_pendingPitch);
             _tts.Speak(text, Android.Speech.Tts.QueueMode.Flush, null, "tts1");
             tcs.TrySetResult();
         }
@@ -487,16 +499,31 @@ public sealed class SpeechService
 
     // ============ Windows ============
 #if WINDOWS
-    private async Task SpeakWindows(string text)
+    private async Task SpeakWindows(string text, double pitch = 1.0)
     {
         using var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
-        synth.Voice = Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices
-            .FirstOrDefault(v => v.Language.StartsWith("zh")) ?? synth.Voice;
+        var voices = Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices;
+        synth.Voice = voices.FirstOrDefault(v => !string.IsNullOrWhiteSpace(VoiceName) && v.DisplayName == VoiceName)
+                      ?? voices.FirstOrDefault(v => v.Language.StartsWith("zh"))
+                      ?? synth.Voice;
 
-        var stream = await synth.SynthesizeTextToStreamAsync(text);
+        // 音高/语速只有 SSML 能做：WinRT 的 Talk 档只管默认嗓子，变了才走 SSML，没变仍走纯文本
+        var stream = Math.Abs(pitch - 1.0) < 0.01 && Math.Abs(TtsRate - 1.0) < 0.01
+            ? await synth.SynthesizeTextToStreamAsync(text)
+            : await synth.SynthesizeSsmlToStreamAsync(BuildSsml(text, pitch));
         var player = new Windows.Media.Playback.MediaPlayer();
         player.SetStreamSource(stream);
         player.Play();
+    }
+
+    private string BuildSsml(string text, double pitch)
+    {
+        var inv = System.Globalization.CultureInfo.InvariantCulture;
+        var rate = TtsRate.ToString("0.##", inv);
+        var pitchPercent = Math.Round((pitch - 1.0) * 100).ToString("+0;-0;0", inv) + "%";
+        var escaped = System.Security.SecurityElement.Escape(text) ?? "";
+        return "<speak version='1.0' xml:lang='zh-CN' xmlns='http://www.w3.org/2001/10/synthesis'>"
+               + $"<prosody rate='{rate}' pitch='{pitchPercent}'>{escaped}</prosody></speak>";
     }
 
     /// <summary>外部 TTS API：按 VoiceApiMode 分发（openai=OpenAI 兼容 /v1/audio/speech；sovits=GPT-SoVITS /api/tts，可指本地/局域网服务）。合成音频 → 临时文件 → MediaPlayer 播放。</summary>

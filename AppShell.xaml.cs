@@ -119,5 +119,13 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("pluginPerms", typeof(Views.PluginPermissionsPage));
         // 存档高级设置：这份存档能用哪些插件 / 工具 / 角色
         Routing.RegisterRoute("saveRules", typeof(Views.SaveRulesPage));
+        // 桌宠设置：左实时预览 + 右分组设置（设置 → 桌面与桌宠，也挂在托盘菜单里）
+        Routing.RegisterRoute("petsettings", typeof(Views.PetSettingsPage));
+        // AI 制作桌宠：把角色 Q 版化，逐状态出帧并算好走动步频
+        Routing.RegisterRoute("petstudio", typeof(Views.PetStudioPage));
+        // 用量统计：总览 / 成本构成 / Token 活跃度 / 时间序列 / 分组明细 / 单价
+        Routing.RegisterRoute("usagestats", typeof(Views.UsageStatsPage));
+        // 创建地图：检索真实城市（高德 / OSM）/ 导入 / 让 AI 补背景
+        Routing.RegisterRoute("mapcreate", typeof(Views.MapCreatePage));
     }
 }

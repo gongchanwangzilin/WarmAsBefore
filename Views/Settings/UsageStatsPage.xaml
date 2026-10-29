@@ -1,0 +1,350 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.UsageStatsPage"
+             x:DataType="vm:UsageStatsViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="用量统计"
+             Background="{DynamicResource PageBgBrush}">
+
+    <ScrollView>
+        <!-- 宽屏两列（左主图、右次要卡），窄屏单列：列数与摆放由代码按实际宽度切换 -->
+        <Grid x:Name="BodyGrid" Padding="{DynamicResource WPadCard}"
+              ColumnDefinitions="1.7*,1*" RowDefinitions="Auto,*"
+              ColumnSpacing="16" RowSpacing="{DynamicResource WGapSection}">
+
+            <!-- ============ 页头：落在地上，不是一张卡 ============ -->
+            <Grid x:Name="HeaderGrid" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                  ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,6">
+                <VerticalStackLayout Grid.Column="0" Spacing="3">
+                    <Label Text="用量统计" Style="{StaticResource TxtTitle}" />
+                    <Label Text="每次请求的真实 token 记在本地账上：缓存命中的输入按缓存价重算，思考/缓存输出另计一笔。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding BusyNote}" Style="{StaticResource TxtCaption}"
+                           IsVisible="{Binding IsBusy}" />
+                </VerticalStackLayout>
+                <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                    <Button Text="刷新" Style="{StaticResource BtnGhostSm}" Command="{Binding ReloadCommand}" />
+                    <Button Text="导出 CSV" Style="{StaticResource BtnGhostSm}" Command="{Binding ExportCsvCommand}" />
+                    <Button Text="返回" Style="{StaticResource BtnTextSm}" Clicked="OnBackClicked" />
+                </HorizontalStackLayout>
+            </Grid>
+
+            <!-- ============ 左列：总览 / 成本构成 / 时间序列 / 分组明细 ============ -->
+            <VerticalStackLayout x:Name="LeftColumn" Grid.Row="1" Grid.Column="0"
+                                 Spacing="{DynamicResource WGapSection}">
+
+                <!-- 总览：三档大数字 + 缓存口径说明。不套卡——页头带下来的一段读数，比 boxed 更像仪表盘首屏 -->
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="{Binding OverviewUnit}" Style="{StaticResource TxtSection}" />
+                    <Grid ColumnDefinitions="*,1,*,1,*" ColumnSpacing="14">
+                        <VerticalStackLayout Grid.Column="0" Spacing="2">
+                            <Label Text="今日" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding TodayHead}" Style="{StaticResource TxtDisplay}" />
+                            <Label Text="{Binding TodayMeta}" Style="{StaticResource TxtBodySm}" />
+                        </VerticalStackLayout>
+                        <BoxView Grid.Column="1" WidthRequest="1" Color="{DynamicResource BorderLine}"
+                                 VerticalOptions="Fill" HorizontalOptions="Fill" />
+                        <VerticalStackLayout Grid.Column="2" Spacing="2">
+                            <Label Text="近 7 天" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding WeekHead}" Style="{StaticResource TxtDisplay}" />
+                            <Label Text="{Binding WeekMeta}" Style="{StaticResource TxtBodySm}" />
+                        </VerticalStackLayout>
+                        <BoxView Grid.Column="3" WidthRequest="1" Color="{DynamicResource BorderLine}"
+                                 VerticalOptions="Fill" HorizontalOptions="Fill" />
+                        <VerticalStackLayout Grid.Column="4" Spacing="2">
+                            <Label Text="累计" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding AllHead}" Style="{StaticResource TxtDisplay}" />
+                            <Label Text="{Binding AllMeta}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding AllSub}" Style="{StaticResource TxtCaption}" />
+                        </VerticalStackLayout>
+                    </Grid>
+                    <Label Text="{Binding TokenBreakdown}" Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+                    <Label Text="{Binding EmptyHint}" Style="{StaticResource TxtCaption}"
+                           IsVisible="{Binding HasUsage, Converter={StaticResource InverseBool}}" />
+                </VerticalStackLayout>
+
+                <!-- 成本构成：每模型一根比例条（20 档星列网格量化百分比，纯 BoxView 画） -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="成本构成" Style="{StaticResource TxtSection}" />
+                    <Label Text="{Binding CostNote}" Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+                    <Border Style="{StaticResource CardSolid}"
+                            IsVisible="{Binding HasUsage}">
+                        <VerticalStackLayout Spacing="14" BindableLayout.ItemsSource="{Binding CostBars}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:UsageStatsViewModel+CostBarRow">
+                                    <VerticalStackLayout Spacing="4">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <Label Grid.Column="0" Text="{Binding Model}"
+                                                   Style="{StaticResource TxtBodySm}"
+                                                   LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="8">
+                                                <Label Text="{Binding ValueLabel}" Style="{StaticResource TxtCaption}" />
+                                                <Label Text="{Binding ShareLabel}" Style="{StaticResource TxtCaption}" />
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                        <Grid HeightRequest="8"
+                                              ColumnDefinitions="*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*">
+                                            <BoxView Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="20"
+                                                     HeightRequest="8" Color="{DynamicResource InputBg}" />
+                                            <BoxView Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="{Binding FillCols}"
+                                                     HeightRequest="8" Color="{Binding Fill}" />
+                                        </Grid>
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 时间序列：按天竖条，深色段=当日缓存命中 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="时间序列（按天）" Style="{StaticResource TxtSection}" />
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="10">
+                            <HorizontalStackLayout Spacing="8">
+                                <Button Text="7 天" Style="{StaticResource BtnGhostSm}"
+                                        BackgroundColor="{Binding Trend7Bg}"
+                                        Command="{Binding SetTrendDaysCommand}" CommandParameter="7" />
+                                <Button Text="14 天" Style="{StaticResource BtnGhostSm}"
+                                        BackgroundColor="{Binding Trend14Bg}"
+                                        Command="{Binding SetTrendDaysCommand}" CommandParameter="14" />
+                                <Button Text="30 天" Style="{StaticResource BtnGhostSm}"
+                                        BackgroundColor="{Binding Trend30Bg}"
+                                        Command="{Binding SetTrendDaysCommand}" CommandParameter="30" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout HeightRequest="116" Spacing="0"
+                                                   HorizontalOptions="Center"
+                                                   BindableLayout.ItemsSource="{Binding TrendBars}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:UsageStatsViewModel+TrendBar">
+                                        <VerticalStackLayout WidthRequest="{Binding WidthPx}" Spacing="0"
+                                                             VerticalOptions="End">
+                                            <BoxView WidthRequest="{Binding BarPx}" HeightRequest="{Binding RestHeightPx}"
+                                                     Color="{Binding Fill}" HorizontalOptions="Center" />
+                                            <BoxView WidthRequest="{Binding BarPx}" HeightRequest="{Binding CacheHeightPx}"
+                                                     Color="{Binding CacheFill}" HorizontalOptions="Center" />
+                                            <VerticalStackLayout.GestureRecognizers>
+                                                <TapGestureRecognizer
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=ShowTrendBarCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            </VerticalStackLayout.GestureRecognizers>
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
+                            <Grid ColumnDefinitions="Auto,*,Auto">
+                                <Label Grid.Column="0" Text="{Binding TrendStart}" Style="{StaticResource TxtCaption}" />
+                                <Label Grid.Column="2" Text="{Binding TrendEnd}" Style="{StaticResource TxtCaption}" />
+                            </Grid>
+                            <Label Text="{Binding TrendNote}" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="深色段 = 当日走缓存价的输入 token；点柱子看当天明细。"
+                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 分组明细：按模型 / 按天切换的表格，缓存两列单列展示 -->
+                <VerticalStackLayout Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Grid.Column="0" Text="分组明细" Style="{StaticResource TxtSection}" Margin="4,0,0,0" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Start">
+                            <Button Text="按模型" Style="{StaticResource BtnGhostSm}" FontSize="11"
+                                    BackgroundColor="{Binding DetailModelBg}"
+                                    Command="{Binding SetDetailGroupCommand}" CommandParameter="model" />
+                            <Button Text="按天" Style="{StaticResource BtnGhostSm}" FontSize="11"
+                                    BackgroundColor="{Binding DetailDayBg}"
+                                    Command="{Binding SetDetailGroupCommand}" CommandParameter="day" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Grid Padding="12,8" ColumnDefinitions="1.6*,0.6*,0.8*,0.8*,0.9*,0.9*,0.8*" ColumnSpacing="6">
+                                <Label Text="名称" Style="{StaticResource TxtCaption}" />
+                                <Label Grid.Column="1" Text="调用" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="2" Text="输入" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="3" Text="输出" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="4" Text="缓存输入" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="5" Text="缓存输出" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="6" Text="成本" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSep}" />
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding DetailRows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:UsageStatsViewModel+DetailRow">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Grid Padding="12,7" ColumnDefinitions="1.6*,0.6*,0.8*,0.8*,0.9*,0.9*,0.8*" ColumnSpacing="6">
+                                                <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
+                                                       LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                                <Label Grid.Column="1" Text="{Binding Calls}" Style="{StaticResource TxtBodySm}"
+                                                       HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                                <Label Grid.Column="2" Text="{Binding Input}" Style="{StaticResource TxtBodySm}"
+                                                       HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                                <Label Grid.Column="3" Text="{Binding Output}" Style="{StaticResource TxtBodySm}"
+                                                       HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                                <Label Grid.Column="4" Text="{Binding CachedInput}" Style="{StaticResource TxtBodySm}"
+                                                       TextColor="{DynamicResource MutedFg}"
+                                                       HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                                <Label Grid.Column="5" Text="{Binding CachedOutput}" Style="{StaticResource TxtBodySm}"
+                                                       TextColor="{DynamicResource MutedFg}"
+                                                       HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                                <Label Grid.Column="6" Text="{Binding Cost}" Style="{StaticResource TxtBodySm}"
+                                                       FontAttributes="Bold" TextColor="{DynamicResource WarmDark}"
+                                                       HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                            </Grid>
+                                            <BoxView Style="{StaticResource HSep}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="还没有可分组的记录。" Style="{StaticResource TxtCaption}" Padding="12,10"
+                                   IsVisible="{Binding HasUsage, Converter={StaticResource InverseBool}}" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+
+            <!-- ============ 右列：Token 活跃度 / 模型价格设定 ============ -->
+            <VerticalStackLayout x:Name="RightColumn" Grid.Row="1" Grid.Column="1"
+                                 Spacing="{DynamicResource WGapSection}">
+
+                <!-- 热力网格：星期 × 小时，空格也占位，颜色深浅=当小时 token -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="Token 活跃度（星期 × 小时）" Style="{StaticResource TxtSection}" />
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="3">
+                            <Grid ColumnDefinitions="32,*" ColumnSpacing="6">
+                                <Label Grid.Column="0" Text="时" Style="{StaticResource TxtCaption}" />
+                                <HorizontalStackLayout Grid.Column="1" Spacing="2"
+                                                       BindableLayout.ItemsSource="{Binding HourMarks}">
+                                    <BindableLayout.ItemTemplate>
+                                        <DataTemplate x:DataType="x:String">
+                                            <Label Text="{Binding .}" WidthRequest="11" FontSize="8"
+                                                   HorizontalTextAlignment="Center"
+                                                   TextColor="{DynamicResource MutedFg}" />
+                                        </DataTemplate>
+                                    </BindableLayout.ItemTemplate>
+                                </HorizontalStackLayout>
+                            </Grid>
+                            <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding HeatRows}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:UsageStatsViewModel+HeatRow">
+                                        <Grid ColumnDefinitions="32,*" ColumnSpacing="6">
+                                            <Label Grid.Column="0" Text="{Binding DayLabel}"
+                                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="2"
+                                                                   BindableLayout.ItemsSource="{Binding Cells}">
+                                                <BindableLayout.ItemTemplate>
+                                                    <DataTemplate x:DataType="vm:UsageStatsViewModel+HeatCell">
+                                                        <BoxView WidthRequest="11" HeightRequest="15"
+                                                                 Color="{Binding Fill}">
+                                                            <BoxView.GestureRecognizers>
+                                                                <TapGestureRecognizer
+                                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=ShowHeatCellCommand}"
+                                                                    CommandParameter="{Binding .}" />
+                                                            </BoxView.GestureRecognizers>
+                                                        </BoxView>
+                                                    </DataTemplate>
+                                                </BindableLayout.ItemTemplate>
+                                            </HorizontalStackLayout>
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <Label Text="点格子看该小时明细；颜色越深越活跃。"
+                                   Style="{StaticResource TxtCaption}" Margin="0,6,0,0" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- 模型价格设定：每档价一入口，含缓存两档 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="模型价格设定" Style="{StaticResource TxtSection}" />
+                    <Label Text="算钱口径：(输入 − 缓存输入)×输入价 ＋ 缓存输入×缓存输入价 ＋ 输出×输出价 ＋ 缓存输出×缓存输出价。缓存输入本就算在输入里，所以是减法改价、不是加一笔。"
+                           Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding PriceRows}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:UsageStatsViewModel+PriceRow">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Border Style="{StaticResource SettingRow}">
+                                            <VerticalStackLayout Spacing="8">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                    <Label Grid.Column="0" Text="{Binding Model}"
+                                                           Style="{StaticResource TxtRowTitle}"
+                                                           LineBreakMode="TailTruncation" VerticalOptions="Center" />
+                                                    <HorizontalStackLayout Grid.Column="1" Spacing="4">
+                                                        <Button Text="保存" Style="{StaticResource BtnTextSm}" FontSize="12"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=SavePriceRowCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                        <Button Text="删除" Style="{StaticResource BtnTextSm}" FontSize="12"
+                                                                TextColor="{DynamicResource DangerInk}"
+                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=RemovePriceRowCommand}"
+                                                                CommandParameter="{Binding .}" />
+                                                    </HorizontalStackLayout>
+                                                </Grid>
+                                                <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*"
+                                                      RowSpacing="6" ColumnSpacing="6">
+                                                    <Entry Grid.Row="0" Grid.Column="0" Text="{Binding InputText}"
+                                                           Keyboard="Numeric" Placeholder="输入价/百万"
+                                                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                                    <Entry Grid.Row="0" Grid.Column="1" Text="{Binding OutputText}"
+                                                           Keyboard="Numeric" Placeholder="输出价/百万"
+                                                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                                    <Entry Grid.Row="1" Grid.Column="0" Text="{Binding CachedInputText}"
+                                                           Keyboard="Numeric" Placeholder="缓存输入价/百万"
+                                                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                                    <Entry Grid.Row="1" Grid.Column="1" Text="{Binding CachedOutputText}"
+                                                           Keyboard="Numeric" Placeholder="缓存输出价/百万"
+                                                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                                </Grid>
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <BoxView Style="{StaticResource HSep}" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 新增一档：用量里没见过的模型也能先把价录上 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="＋ 给没出现过的模型录价" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                            <Entry Text="{Binding NewPriceModel}" Placeholder="模型名（与请求里一致）"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                            <Grid RowDefinitions="Auto,Auto" ColumnDefinitions="*,*" RowSpacing="6" ColumnSpacing="6">
+                                <Entry Grid.Row="0" Grid.Column="0" Text="{Binding NewPriceInput}" Keyboard="Numeric"
+                                       Placeholder="输入价/百万"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                <Entry Grid.Row="0" Grid.Column="1" Text="{Binding NewPriceOutput}" Keyboard="Numeric"
+                                       Placeholder="输出价/百万"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                <Entry Grid.Row="1" Grid.Column="0" Text="{Binding NewPriceCachedInput}" Keyboard="Numeric"
+                                       Placeholder="缓存输入价/百万（可留空）"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                                <Entry Grid.Row="1" Grid.Column="1" Text="{Binding NewPriceCachedOutput}" Keyboard="Numeric"
+                                       Placeholder="缓存输出价/百万（可留空）"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
+                            </Grid>
+                            <Button Text="保存单价" Style="{StaticResource BtnGhostSm}" HorizontalOptions="Start"
+                                    Command="{Binding AddNewPriceCommand}" />
+                            <Label Text="{Binding PriceNote}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Grid>
+    </ScrollView>
+</ContentPage>

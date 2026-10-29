@@ -1,7 +1,9 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Microsoft.Maui.Dispatching;
 using WarmAsBefore.Controls;
+using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Drawables;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
@@ -104,6 +106,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        StopFloorAnim();
         _maps.SceneChanged -= OnSceneChanged;
     }
 
@@ -162,12 +165,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         Drawable.Transits = map.Transits.Select(t => new MapTransitNode(t)).ToList();
         Drawable.Edges = map.Edges.ToList();
         Drawable.Locations = map.Locations.ToList();
+        Drawable.MetersPerUnit = map.MetersPerUnit;   // 1 单位=几米，唯一来源是地图定义
         SelectedNode = selId is null ? null : Nodes.FirstOrDefault(n => n.Id == selId);
         Drawable.SelectedEdgeId = selEdge;
         LocationLabel = _maps.CurrentScene is { } cs
             ? $"{_maps.Map.LocationNameOf(cs.Id)} · {cs.Name}"
             : "未知位置";
         OnPropertyChanged(nameof(LocationLabel));
+        UpdateFloorBar();
         Touch();
     }
 
@@ -316,6 +321,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");
 
+    /// <summary>创建地图入口：OSM/高德/AI 生成新地图在「创建地图」页做，本页只管已有的这张。</summary>
+    [RelayCommand]
+    private async Task CreateMap() => await Shell.Current.GoToAsync("mapcreate");
+
     [RelayCommand]
     private async Task AddLocation()
     {
@@ -447,6 +456,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     partial void OnSelectedNodeChanged(MapCanvasNode? value)
     {
         Drawable.SelectedNode = value;
+        // 楼层条跟着「最后盯着的那栋楼」走；点空白取消选择不收起（人可能还在切层）
+        if (value is not null) _floorBarLocId = value.Location.Id;
+        UpdateFloorBar();
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectedNodeLabel));
         Touch();
@@ -821,6 +833,194 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         Touch();
     }
 
+    // ==================== 楼层条与切层 ====================
+
+    [ObservableProperty] private bool _hasFloorBar;
+    [ObservableProperty] private string _floorBarTitle = "";
+    /// <summary>楼层条的档位：顶层在上（FloorsOf 的次序），「全部」退出分层视图。</summary>
+    public ObservableCollection<FloorChip> FloorChips { get; } = new();
+    private string? _floorBarLocId;
+
+    // 切层动画：一次 tween，缩放与位移同 tick 驱动
+    private IDispatcherTimer? _floorClock;
+    private TaskCompletionSource? _floorDone;
+    private DateTime _floorAnimStart;
+    private double _floorAnimMs = 1;
+    private double _floorScale0, _floorFromWX, _floorFromWY, _floorToWX, _floorToWY;
+    private double _viewW = 1200, _viewH = 720;
+
+    /// <summary>页面转发的画布尺寸：切层动画要把目标层摆进视口中心，得知道中心在哪。</summary>
+    public void SetViewport(double w, double h)
+    {
+        if (w > 40 && h > 40) { _viewW = w; _viewH = h; }
+    }
+
+    /// <summary>楼层条跟着「最后盯着的那栋楼」走：选中的卡片所属地点，或右键点中的建筑框。</summary>
+    private void UpdateFloorBar()
+    {
+        var map = _maps.Map;
+        var loc = _floorBarLocId is null ? null : map.LocationById(_floorBarLocId);
+        if (loc is null || !map.HasFloors(loc.Id))
+        {
+            HasFloorBar = false;
+            FloorChips.Clear();
+            // 楼没了 / 不分层：分层视图跟着退，不然画布一直淡着别的层
+            if (Drawable.FloorLocationId is not null && Drawable.FloorLocationId == _floorBarLocId)
+            {
+                Drawable.FloorLocationId = null;
+                Drawable.FloorFilter = null;
+            }
+            return;
+        }
+        FloorBarTitle = loc.Name;
+        HasFloorBar = true;
+        var active = Drawable.FloorLocationId == loc.Id;
+        var current = active ? Drawable.FloorFilter : (int?)null;
+        FloorChips.Clear();
+        FloorChips.Add(new FloorChip(this, "全部", null, isAll: true));
+        foreach (var f in map.FloorsOf(loc.Id))
+            FloorChips.Add(new FloorChip(this, MapDefinition.FloorLabel(f), f, isAll: false));
+        foreach (var c in FloorChips)
+            c.IsCurrent = c.IsAll ? !active : active && c.Floor == current;
+    }
+
+    internal void TapFloor(FloorChip chip)
+    {
+        // 点「全部」或再点当前层 = 退出分层视图
+        var exit = chip.IsAll ||
+                   (_floorBarLocId is not null && Drawable.FloorLocationId == _floorBarLocId
+                    && Drawable.FloorFilter == chip.Floor);
+        _ = SwitchFloorAsync(exit ? null : chip.Floor);
+    }
+
+    /// <summary>
+    /// 切层：把「换楼层」演成「楼在往上/往下抬」——同一条 tween 里缩放与位移同时走：
+    /// 中途抬远一档看清整层，同时把目标层摆向视口中心，末段落回原缩放。
+    /// 只平移会被驳回（看不清过程），先缩放再平移两段式也驳回过（动作散）。
+    /// </summary>
+    private async Task SwitchFloorAsync(int? floor)
+    {
+        try
+        {
+            var locId = _floorBarLocId;
+            if (locId is null) return;
+            if (floor is null)
+            {
+                // 退出分层：影子层本来就在原位，不需要「落」这一下
+                Drawable.FloorLocationId = null;
+                Drawable.FloorFilter = null;
+                UpdateFloorBar();
+                Touch();
+                return;
+            }
+            var box = FloorBounds(locId, floor);
+            Drawable.FloorLocationId = locId;
+            Drawable.FloorFilter = floor;
+            UpdateFloorBar();
+            Touch();
+            if (box is { } b) await AnimateFloorAsync(b);   // 目标层没房间：只切状态，不演动画
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapViewModel.SwitchFloor -> " + ex);
+            StopFloorAnim();
+        }
+    }
+
+    /// <summary>目标层上全部卡片的包围盒（世界坐标）；一层都没摆就返回 null。</summary>
+    private Microsoft.Maui.Graphics.RectF? FloorBounds(string locId, int? floor)
+    {
+        double minX = double.MaxValue, minY = double.MaxValue, maxX = double.MinValue, maxY = double.MinValue;
+        var found = false;
+        foreach (var s in _maps.Map.ScenesOnFloor(locId, floor))
+        {
+            if (s.X < 0 || s.Y < 0) continue;
+            minX = Math.Min(minX, s.X);
+            minY = Math.Min(minY, s.Y);
+            maxX = Math.Max(maxX, s.X + MapCanvasDrawable.CardW);
+            maxY = Math.Max(maxY, s.Y + MapCanvasDrawable.CardH);
+            found = true;
+        }
+        return found ? new Microsoft.Maui.Graphics.RectF((float)minX, (float)minY,
+            (float)(maxX - minX), (float)(maxY - minY)) : null;
+    }
+
+    private async Task AnimateFloorAsync(Microsoft.Maui.Graphics.RectF box)
+    {
+        StopFloorAnim();
+        var ms = MotionTokens.Ms(MotionTokens.PageSweepMs);   // 时长只有一个来源：过场档 440ms
+        if (ms <= 0)
+        {
+            LandFloor(box.Center.X, box.Center.Y, Drawable.Scale);
+            Touch();
+            return;
+        }
+        _floorScale0 = Drawable.Scale;
+        _floorFromWX = (_viewW / 2 - Drawable.OffsetX) / _floorScale0;
+        _floorFromWY = (_viewH / 2 - Drawable.OffsetY) / _floorScale0;
+        _floorToWX = box.Center.X;
+        _floorToWY = box.Center.Y;
+        _floorAnimMs = ms;
+        _floorAnimStart = DateTime.UtcNow;
+        _floorDone = new TaskCompletionSource();
+        _floorClock = Application.Current?.Dispatcher.CreateTimer();
+        if (_floorClock is null)
+        {
+            _floorDone = null;
+            LandFloor(_floorToWX, _floorToWY, _floorScale0);
+            Touch();
+            return;
+        }
+        _floorClock.Interval = TimeSpan.FromMilliseconds(MotionTokens.FrameMs);
+        _floorClock.Tick += OnFloorAnimTick;
+        _floorClock.Start();
+        await _floorDone.Task;
+    }
+
+    private void OnFloorAnimTick(object? sender, EventArgs e)
+    {
+        var t = (DateTime.UtcNow - _floorAnimStart).TotalMilliseconds / _floorAnimMs;
+        if (t >= 1)
+        {
+            StopFloorAnim();
+            LandFloor(_floorToWX, _floorToWY, _floorScale0);
+            Touch();
+            return;
+        }
+        // 位移走 Mech（机器在定位，不是软材料回弹），缩放走同一进度上的 sin 抬升：
+        // 起终点都落回原缩放、中段最远。拉太远就看不出是从哪层抬上来的，太近又读不出「抬」。
+        var c = Math.Clamp(t, 0, 1);
+        var p = MotionTokens.Mech(c);
+        var lift = Math.Sin(Math.PI * c);
+        var scale = _floorScale0 * (1 - 0.18 * lift);
+        var wx = _floorFromWX + (_floorToWX - _floorFromWX) * p;
+        var wy = _floorFromWY + (_floorToWY - _floorFromWY) * p;
+        Drawable.Scale = scale;
+        Drawable.OffsetX = _viewW / 2 - wx * scale;
+        Drawable.OffsetY = _viewH / 2 - wy * scale;
+        Touch();
+    }
+
+    private void LandFloor(double worldX, double worldY, double scale)
+    {
+        Drawable.Scale = scale;
+        Drawable.OffsetX = _viewW / 2 - worldX * scale;
+        Drawable.OffsetY = _viewH / 2 - worldY * scale;
+    }
+
+    private void StopFloorAnim()
+    {
+        if (_floorClock is not null)
+        {
+            _floorClock.Stop();
+            _floorClock.Tick -= OnFloorAnimTick;
+            _floorClock = null;
+        }
+        var done = _floorDone;
+        _floorDone = null;
+        done?.TrySetResult();
+    }
+
     /// <summary>右键（屏幕坐标）→ 上下文菜单。</summary>
     public void RightClick(PointF screen)
     {
@@ -840,6 +1040,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var card = Drawable.HitCard(world);
         if (card is not null)
         {
+            _floorBarLocId = card.Location.Id;
+            UpdateFloorBar();
             Drawable.Menu = new ContextMenuState
             {
                 Pos = world,
@@ -854,6 +1056,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                     ("🖼 背景图（电脑导入）", "bg"),
                     ("📐 标定这张背景", "cal"),
                     ("🗑 清除背景", "bg-clear"),
+                    ($"🏢 所在楼层：{(card.Scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(card.Scene.Floor))}", "floor"),
+                    ($"🚪 户型：{(string.IsNullOrWhiteSpace(card.Scene.Unit) ? "未分户" : card.Scene.Unit)}", "unit"),
+                    ($"🌤 {(card.Scene.Indoor ? "改为室外" : "改为室内")}", "indoor"),
                     ("📝 备注", "note"),
                     ("ℹ 详细信息", "info"),
                     ("🗑 删除", "del")
@@ -875,6 +1080,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Items = new()
                 {
                     ("✎ 编辑名称", "edit"),
+                    ($"🚧 这是什么路口：{JunctionKinds.Display(transit.Transit.Junction)}", "junction"),
                     ("📝 备注", "note"),
                     ("ℹ 详细信息", "info"),
                     ("🗑 删除", "del")
@@ -888,14 +1094,23 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         if (edge is not null)
         {
             Drawable.SelectedEdgeId = edge.Id;
+            var roadTitle = string.IsNullOrWhiteSpace(edge.RoadName)
+                ? RoadKinds.Display(edge.Road)
+                : $"{edge.RoadName}（{RoadKinds.Display(edge.Road)}）";
             Drawable.Menu = new ContextMenuState
             {
                 Pos = world,
-                Title = "连线",
+                Title = roadTitle,
                 TargetKind = "edge",
                 TargetId = edge.Id,
                 Items = new()
                 {
+                    ($"🛣 这条路是：{RoadKinds.Display(edge.Road)}", "road"),
+                    ("🏷 命名这条路", "roadname"),
+                    ($"◀ 单行道：{(edge.OneWay ? "通" : "双向")}", "oneway"),
+                    ($"🚦 红绿灯：{(edge.TrafficLight ? "有" : "无")}", "light"),
+                    ($"💰 收费站：{(edge.Toll ? $"过路 {edge.TollFee:F0} 元" : "无")}", "toll"),
+                    ($"🧭 限速：{(edge.SpeedKmh > 0 ? $"{edge.SpeedKmh:F0} km/h" : $"按类别 ≈{RoadKinds.DefaultSpeedKmh(edge.Road):F0}")}", "speed"),
                     ("📏 编辑长度", "length"),
                     ($"线型: {edge.Kind}", "kind"),
                     ("📝 备注", "note"),
@@ -916,7 +1131,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var inLoc = hitLoc ?? marqueeLoc;
         var menuItems = new List<(string Label, string Cmd)>
         {
-            ("🏠 新建地点", "newloc")
+            ("🏠 新建地点", "newloc"),
+            ("🗺 创建地图…", "create-map")
         };
         if (inLoc is not null)
         {
@@ -926,6 +1142,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             menuItems.Add(("⛺ 新建子地点", "newchild"));
             menuItems.Add(("◉ 新建临时节点", "newtransit"));
             menuItems.Add(("✏️ 重命名此地", "renloc"));
+            menuItems.Add(("🏢 地上层数…", "floors"));
+            menuItems.Add(("🅿️ 地下层数…", "basement"));
+            menuItems.Add(("📮 地址…", "address"));
             menuItems.Add(("🗑️ 删除此地点", "delloc"));
         }
         else
@@ -938,6 +1157,12 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         {
             menuItems.Add(($"📦 批量归入新建地点（{Drawable.MarqueeSelected.Count}）", "nestnew"));
             menuItems.Add(($"📦 批量归入已有地点（{Drawable.MarqueeSelected.Count}）", "nestinto"));
+        }
+        // 右键点中的这栋楼接管楼层条（不分层时楼层条自己会收起）
+        if (inLoc is not null)
+        {
+            _floorBarLocId = inLoc.Id;
+            UpdateFloorBar();
         }
         Drawable.Menu = new ContextMenuState
         {
@@ -1284,10 +1509,54 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 StatusText = string.IsNullOrWhiteSpace(scene.Note) ? "已清除备注" : "已保存备注";
                 Refresh();
                 break;
+            case "floor":
+            {
+                if (scene is null) return;
+                var locId = _maps.Map.LocationIdOfScene(scene.Id);
+                var cand = _maps.Map.FloorsOf(locId).Where(f => f is not null).ToList();
+                if (scene.Floor is { } cur && !cand.Contains(cur)) cand.Add(cur);
+                if (cand.Count == 0)
+                {
+                    Toast.Info("这栋楼还没设层数：先右键建筑框，填「地上/地下层数」。");
+                    return;
+                }
+                var labels = cand.Select(f => MapDefinition.FloorLabel(f)).Append("不分层（清空）").ToArray();
+                var pick = await Shell.Current.DisplayActionSheet($"「{scene.Name}」在哪一层？", "取消", null, labels);
+                if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
+                var at = Array.IndexOf(labels, pick);
+                scene.Floor = at >= 0 && at < cand.Count ? cand[at] : null;
+                await _maps.SaveAsync();
+                StatusText = $"「{scene.Name}」{(scene.Floor is null ? "不再分层" : $"在 {MapDefinition.FloorLabel(scene.Floor)}")}";
+                Refresh();
+                break;
+            }
+            case "unit":
+            {
+                if (scene is null) return;
+                var unit = await Shell.Current.DisplayPromptAsync("户型名",
+                    "这一户/这一间的名字（留空 = 不分户）", "确定", "取消", initialValue: scene.Unit);
+                if (unit is null) return;
+                scene.Unit = unit.Trim();
+                await _maps.SaveAsync();
+                StatusText = string.IsNullOrEmpty(scene.Unit) ? "已清除户型名" : $"户型：{scene.Unit}";
+                Refresh();
+                break;
+            }
+            case "indoor":
+            {
+                if (scene is null) return;
+                scene.Indoor = !scene.Indoor;
+                await _maps.SaveAsync();
+                StatusText = $"「{scene.Name}」改为{(scene.Indoor ? "室内" : "室外")}";
+                Refresh();
+                break;
+            }
             case "info":
                 if (scene is null) return;
                 await Shell.Current.DisplayAlert("场景信息",
-                    $"场景：{scene.Name}\n地点：{_maps.Map.LocationNameOf(scene.Id)}\n背景：{(string.IsNullOrWhiteSpace(scene.Background) ? "无" : "✓")}\n备注：{(string.IsNullOrWhiteSpace(scene.Note) ? "无" : scene.Note)}",
+                    $"场景：{scene.Name}\n地点：{_maps.Map.LocationNameOf(scene.Id)}\n背景：{(string.IsNullOrWhiteSpace(scene.Background) ? "无" : "✓")}\n" +
+                    $"楼层：{(scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(scene.Floor))} · {(scene.Indoor ? "室内" : "室外")}" +
+                    $"{(string.IsNullOrWhiteSpace(scene.Unit) ? "" : $" · 户型 {scene.Unit}")}\n备注：{(string.IsNullOrWhiteSpace(scene.Note) ? "无" : scene.Note)}",
                     "知道了");
                 break;
             case "del":
@@ -1321,6 +1590,26 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
+            case "junction":
+            {
+                if (transit is null) return;
+                var kinds = new[]
+                {
+                    JunctionKinds.Crossing, JunctionKinds.Junction, JunctionKinds.Roundabout,
+                    JunctionKinds.Toll, JunctionKinds.Stop, JunctionKinds.Poi
+                };
+                var labels = kinds
+                    .Select(k => (k == transit.Junction ? "● " : "") + JunctionKinds.Display(k))
+                    .Append("普通端点（清空）").ToArray();
+                var pick = await Shell.Current.DisplayActionSheet($"「{transit.Name}」是什么路口？", "取消", null, labels);
+                if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
+                var at = Array.IndexOf(labels, pick);
+                transit.Junction = at >= 0 && at < kinds.Length ? kinds[at] : "";
+                await _maps.SaveAsync();
+                StatusText = $"路口改为：{JunctionKinds.Display(transit.Junction)}";
+                Refresh();
+                break;
+            }
             case "note":
                 if (transit is null) return;
                 var note = await Shell.Current.DisplayPromptAsync("编辑备注", "备注内容（可留空清除）", "确定", "取消",
@@ -1333,7 +1622,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             case "info":
                 if (transit is null) return;
                 await Shell.Current.DisplayAlert("临时节点信息",
-                    $"名称：{transit.Name}\n坐标：({transit.X:F0}, {transit.Y:F0})\n备注：{(string.IsNullOrWhiteSpace(transit.Note) ? "无" : transit.Note)}",
+                    $"名称：{transit.Name}\n路口：{JunctionKinds.Display(transit.Junction)}\n" +
+                    $"坐标：({transit.X:F0}, {transit.Y:F0})\n备注：{(string.IsNullOrWhiteSpace(transit.Note) ? "无" : transit.Note)}",
                     "知道了");
                 break;
             case "del":
@@ -1381,6 +1671,90 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
+            case "road":
+            {
+                if (edge is null) return;
+                var kinds = new[]
+                {
+                    RoadKinds.Highway, RoadKinds.Trunk, RoadKinds.Street, RoadKinds.Lane, RoadKinds.Walkway,
+                    RoadKinds.Steps, RoadKinds.Bridge, RoadKinds.Tunnel, RoadKinds.Waterway, RoadKinds.Interior
+                };
+                var labels = kinds.Select(k => (k == edge.Road ? "● " : "") + RoadKinds.Display(k)).ToArray();
+                var pick = await Shell.Current.DisplayActionSheet("这条路是什么路？", "取消", null, labels);
+                if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
+                var at = Array.IndexOf(labels, pick);
+                if (at < 0) return;
+                edge.Road = kinds[at];
+                await _maps.SaveAsync();
+                StatusText = $"这条路改为：{RoadKinds.Display(edge.Road)}";
+                Refresh();
+                break;
+            }
+            case "roadname":
+            {
+                if (edge is null) return;
+                // 路名直接改（长江路），不跟着端点名字走
+                var rn = await Shell.Current.DisplayPromptAsync("命名这条路",
+                    "路名（例：长江路）。留空 = 无名巷道。", "确定", "取消", initialValue: edge.RoadName);
+                if (rn is null) return;
+                edge.RoadName = rn.Trim();
+                await _maps.SaveAsync();
+                StatusText = string.IsNullOrEmpty(edge.RoadName) ? "已清除路名" : $"已命名：{edge.RoadName}";
+                Refresh();
+                break;
+            }
+            case "oneway":
+                if (edge is null) return;
+                edge.OneWay = !edge.OneWay;
+                await _maps.SaveAsync();
+                StatusText = edge.OneWay ? "已设为单行（反向不通）" : "已改回双向";
+                Refresh();
+                break;
+            case "light":
+                if (edge is null) return;
+                edge.TrafficLight = !edge.TrafficLight;
+                await _maps.SaveAsync();
+                StatusText = edge.TrafficLight ? "这条路挂上了红绿灯" : "已取消红绿灯";
+                Refresh();
+                break;
+            case "toll":
+            {
+                if (edge is null) return;
+                if (!edge.Toll)
+                {
+                    var fee = await Shell.Current.DisplayPromptAsync("设收费站",
+                        "过路费多少钱（元）？留空 = 0（免费站）", "确定", "取消",
+                        initialValue: edge.TollFee > 0 ? edge.TollFee.ToString("F0") : "", keyboard: Keyboard.Numeric);
+                    if (fee is null) return;   // 取消 = 整个操作不生效
+                    edge.Toll = true;
+                    edge.TollFee = double.TryParse(fee.Trim(), out var f) && f > 0 ? f : 0;
+                }
+                else
+                {
+                    edge.Toll = false;
+                    edge.TollFee = 0;
+                }
+                await _maps.SaveAsync();
+                StatusText = edge.Toll ? $"收费站：{edge.TollFee:F0} 元" : "已撤掉收费站";
+                Refresh();
+                break;
+            }
+            case "speed":
+            {
+                if (edge is null) return;
+                var cur = edge.SpeedKmh > 0 ? edge.SpeedKmh.ToString("F0") : "";
+                var input = await Shell.Current.DisplayPromptAsync("限速（km/h）",
+                    $"填限速；留空/0 = 按类别默认（{RoadKinds.Display(edge.Road)} ≈ {RoadKinds.DefaultSpeedKmh(edge.Road):F0}）",
+                    "确定", "取消", initialValue: cur, keyboard: Keyboard.Numeric);
+                if (input is null) return;
+                if (string.IsNullOrWhiteSpace(input)) edge.SpeedKmh = 0;
+                else if (double.TryParse(input.Trim(), out var kmh)) edge.SpeedKmh = Math.Max(0, kmh);
+                else { StatusText = "无效的数值"; return; }
+                await _maps.SaveAsync();
+                StatusText = edge.SpeedKmh > 0 ? $"限速 {edge.SpeedKmh:F0} km/h" : "限速回到类别默认";
+                Refresh();
+                break;
+            }
             case "note":
                 if (edge is null) return;
                 var note = await Shell.Current.DisplayPromptAsync("编辑备注", "连线备注（可留空清除）", "确定", "取消",
@@ -1394,8 +1768,16 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 if (edge is null) return;
                 var aName = _maps.Map.PointNameById(edge.A) ?? edge.A;
                 var bName = _maps.Map.PointNameById(edge.B) ?? edge.B;
+                var mark = string.Join(" · ",
+                    new[] { edge.OneWay ? "单行" : null, edge.TrafficLight ? "红绿灯" : null,
+                            edge.Toll ? $"收费 {edge.TollFee:F0} 元" : null }.Where(x => x is not null));
                 await Shell.Current.DisplayAlert("连线信息",
-                    $"从：{aName}\n到：{bName}\n线型：{(edge.Kind == "line" ? "直线" : "曲线")}\n折点：{edge.Waypoints.Count}\n长度：{LengthText(edge)}\n备注：{(string.IsNullOrWhiteSpace(edge.Note) ? "无" : edge.Note)}",
+                    $"从：{aName}\n到：{bName}\n道路：{RoadKinds.Display(edge.Road)}" +
+                    $"{(string.IsNullOrWhiteSpace(edge.RoadName) ? "" : " · " + edge.RoadName)}\n" +
+                    $"线型：{(edge.Kind == "line" ? "直线" : "曲线")}\n折点：{edge.Waypoints.Count}\n长度：{LengthText(edge)}\n" +
+                    $"限速：{(edge.SpeedKmh > 0 ? $"{edge.SpeedKmh:F0} km/h" : $"按类别 ≈{RoadKinds.DefaultSpeedKmh(edge.Road):F0}")}\n" +
+                    $"通行：约 {RoadTimeText(edge)}\n标记：{(string.IsNullOrEmpty(mark) ? "无" : mark)}\n" +
+                    $"备注：{(string.IsNullOrWhiteSpace(edge.Note) ? "无" : edge.Note)}",
                     "知道了");
                 break;
             case "del":
@@ -1474,6 +1856,37 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
+            case "floors":
+            case "basement":
+            {
+                var loc = _maps.Map.Locations.FirstOrDefault(l => l.Id == locId);
+                if (loc is null) return;
+                var up = cmd == "floors";
+                var input = await Shell.Current.DisplayPromptAsync(up ? "地上层数" : "地下层数",
+                    $"「{loc.Name}」{(up ? "地上有几层？（0/1 = 不分层）" : "地下有几层？（0 = 没有）")}",
+                    "确定", "取消",
+                    initialValue: (up ? loc.Floors : loc.BasementFloors).ToString(), keyboard: Keyboard.Numeric);
+                if (input is null) return;
+                if (!int.TryParse(input.Trim(), out var n) || n < 0) { StatusText = "无效的层数"; return; }
+                if (up) loc.Floors = n; else loc.BasementFloors = n;
+                await _maps.SaveAsync();
+                StatusText = $"「{loc.Name}」{(up ? $"地上 {n} 层" : $"地下 {n} 层")}";
+                Refresh();
+                break;
+            }
+            case "address":
+            {
+                var loc = _maps.Map.Locations.FirstOrDefault(l => l.Id == locId);
+                if (loc is null) return;
+                var addr = await Shell.Current.DisplayPromptAsync("地址",
+                    $"「{loc.Name}」的门牌地址（留空清除）", "确定", "取消", initialValue: loc.Address);
+                if (addr is null) return;
+                loc.Address = addr.Trim();
+                await _maps.SaveAsync();
+                StatusText = string.IsNullOrEmpty(loc.Address) ? "已清除地址" : $"地址：{loc.Address}";
+                Refresh();
+                break;
+            }
             case "delloc":
             {
                 var loc = _maps.Map.Locations.FirstOrDefault(l => l.Id == locId);
@@ -1510,6 +1923,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
+            case "create-map":
+                await Shell.Current.GoToAsync("mapcreate");
+                break;
             case "newscene":
             {
                 var map = _maps.Map;
@@ -1845,6 +2261,14 @@ await _maps.SaveAsync();
         return m <= 0 ? "虚线（未丈量）" : $"~{(int)m} 米";
     }
 
+    /// <summary>走一遍这条路要多久（按 长度 ÷ 限速；户型内/未丈量这类不计时）。</summary>
+    private string RoadTimeText(MapEdge e)
+    {
+        var sec = _maps.TraversalSeconds(e);
+        if (sec <= 0) return "不计时";
+        return sec < 90 ? $"{sec:F0} 秒" : $"{sec / 60:F1} 分钟";
+    }
+
     private async Task PickSceneBackgroundAsync(MapScene scene)
     {
         try
@@ -1970,5 +2394,24 @@ public sealed partial class MapTransitNode : ObservableObject
         Transit = transit;
         _x = transit.X;
         _y = transit.Y;
+    }
+}
+
+/// <summary>楼层条上的一枚档：点它切到这层；「全部」或再点当前层 = 退出分层视图。</summary>
+public sealed partial class FloorChip : ObservableObject
+{
+    public string Label { get; }
+    public int? Floor { get; }
+    public bool IsAll { get; }
+    public Command TapCommand { get; }
+
+    [ObservableProperty] private bool _isCurrent;
+
+    internal FloorChip(MapViewModel owner, string label, int? floor, bool isAll)
+    {
+        Label = label;
+        Floor = floor;
+        IsAll = isAll;
+        TapCommand = new Command(() => owner.TapFloor(this));
     }
 }

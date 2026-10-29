@@ -147,9 +147,10 @@ public sealed partial class MaterialsViewModel : ObservableObject
         string rain = a.RainId == item.Data.Id ? "取消设为雨声音" : "设为雨声音";
         string shake = a.ShakeId == item.Data.Id ? "取消设为颤抖音" : "设为颤抖音";
         string bounce = a.BounceId == item.Data.Id ? "取消设为跳动音" : "设为跳动音";
+        string purr = a.PurrId == item.Data.Id ? "取消设为呼噜音" : "设为呼噜音";
         string bgm = a.BgmList.Contains(item.Data.Id) ? "从背景音列表移除" : "加入背景音列表";
         var act = await Shell.Current.DisplayActionSheet(
-            $"「{item.Name}」", "取消", null, "试听", left, right, key, lightning, rain, shake, bounce, bgm, "重命名", "删除");
+            $"「{item.Name}」", "取消", null, "试听", left, right, key, lightning, rain, shake, bounce, purr, bgm, "重命名", "删除");
         switch (act)
         {
             case "试听":
@@ -170,6 +171,8 @@ public sealed partial class MaterialsViewModel : ObservableObject
             case "取消设为颤抖音": a.ShakeId = ""; await AfterAssign(); break;
             case "设为跳动音": a.BounceId = item.Data.Id; await AfterAssign(); break;
             case "取消设为跳动音": a.BounceId = ""; await AfterAssign(); break;
+            case "设为呼噜音": a.PurrId = item.Data.Id; await AfterAssign(); break;
+            case "取消设为呼噜音": a.PurrId = ""; await AfterAssign(); break;
             case "加入背景音列表":
                 if (!a.BgmList.Contains(item.Data.Id)) { a.BgmList.Add(item.Data.Id); await AfterAssign(true); }
                 break;

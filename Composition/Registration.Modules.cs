@@ -58,6 +58,8 @@ public static class ModuleRegistration
 
         // 官方接入（真微信 / QQ）
         services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
+        // 存档运行时：存档一打开，所有内部角色在后台继续生活
+        services.AddSingleton<SaveRuntimeService>();
         return services;
     }
 }

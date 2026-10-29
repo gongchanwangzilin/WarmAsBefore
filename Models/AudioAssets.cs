@@ -43,6 +43,8 @@ public sealed class SoundAssign
     public string ShakeId { get; set; } = "";
     /// <summary>跳动音（角色跳动等小动作）。</summary>
     public string BounceId { get; set; } = "";
+    /// <summary>呼噜音（桌宠被摸头时那一阵撒娇声）。</summary>
+    public string PurrId { get; set; } = "";
     /// <summary>背景音乐轮播列表（音乐 Id 列表，按顺序循环）。</summary>
     public List<string> BgmList { get; set; } = new();
 }

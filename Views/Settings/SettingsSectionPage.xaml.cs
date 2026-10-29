@@ -137,6 +137,10 @@ public partial class SettingsSectionPage : ContentPage
             case "interface":
                 work.Add(MeasuredAsync("子页 · 表情包", () => _vm.RefreshStickersCommand.ExecuteAsync(null)));
                 break;
+            case "life":
+                // 在线角色是后台线程写的，进页时读一次快照即可（不订阅、不轮询）
+                _vm.RefreshRuntimePresenceCommand.Execute(null);
+                break;
             case "platform":
                 work.Add(MeasuredAsync("子页 · 运行时检测", () => Task.CompletedTask));
                 break;

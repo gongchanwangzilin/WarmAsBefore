@@ -222,7 +222,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly ScreenBlackoutService _blackout;
     private readonly Modules.RealChat.OfficialChatBridge _bridge;
     private readonly Modules.ApiManager.ApiGateway _api;
+    private readonly Services.CharacterSettingsResolver _charSettings;
     private readonly PageWindowService _pageWindows;
+    private readonly Services.SaveRuntimeService _runtime;
     private MapScene? _currentScene;
 
     // ---- 标定闸门 ----
@@ -327,7 +329,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Services.BrainAnticipationService brain,
         PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout,
         Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api,
-        PageWindowService pageWindows)
+        Services.CharacterSettingsResolver charSettings,
+        PageWindowService pageWindows, Services.SaveRuntimeService runtime)
     {
         _engine = engine;
         _chat = chat;
@@ -358,7 +361,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         _blackout = blackout;
         _bridge = bridge;
         _api = api;
+        _charSettings = charSettings;
         _pageWindows = pageWindows;
+        _runtime = runtime;
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
         _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
@@ -402,6 +407,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         _pet.WatchMinimize();
         _pet.WatchIdle();
         StartClock();
+        // 存档一打开，所有内部角色开始运行（本地推演 + 低频 AI 生活 + 小游戏 + 可选主动消息）
+        _runtime.Start();
     }
 
     /// <summary>界面时钟：每 30 秒刷新时间/日期/精力，让顶部大时间真实走字。</summary>
@@ -1075,6 +1082,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         var wasCharacter = !string.IsNullOrEmpty(LastSpeakerName) && LastSpeakerName != "你";
         CharacterName = CharacterMask.DisplayName(_char, _settings.Current.MaskUnintroducedNames);
         if (wasCharacter) LastSpeakerName = CharacterName;
+        // 换人就等于换了一套「这次由谁回答」的生效规则，顶栏那句话得跟着重算
+        RefreshAnswerAiLabel();
     }
 
     private void SetEmotion(string emotion)
@@ -2425,8 +2434,24 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private bool _hasTemporaryAi;
 
     /// <summary>
+    /// 顶栏「AI」按钮上那句话。角色绑了模型时直接报绑定的那个：
+    /// 绑定在 ApiGateway 里压过临时指定，不写清楚用户就会以为「点了没生效」。
+    /// </summary>
+    private void RefreshAnswerAiLabel()
+    {
+        var bound = _charSettings.BoundModelLabel(_engine.State.CharacterId);
+        var temp = _api.TemporaryEndpointLabel;
+        HasTemporaryAi = !string.IsNullOrEmpty(temp);
+        AnswerAiLabel = bound.Length > 0
+            ? $"AI：{CharacterName} 用绑定的 {bound}"
+              + (HasTemporaryAi ? "（这里指定的只对没绑模型的角色生效）" : "")
+            : HasTemporaryAi ? $"AI：{temp}" : "AI：自动";
+    }
+
+    /// <summary>
     /// 弹一个列表让用户临时指定回答的 AI：自动（按设置顺序）/ 某条端点。
     /// 这是「我现在就想用这个模型」的快捷入口，不动全局设置。
+    /// 当前角色绑过模型时它压不过绑定，所以标题与提示都要把这件事说明白。
     /// </summary>
     [RelayCommand]
     private async Task PickAnswerAi()
@@ -2434,6 +2459,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         try
         {
             var s = _settings.Current;
+            var bound = _charSettings.BoundModelLabel(_engine.State.CharacterId);
             var options = new List<string> { "自动（按设置里的顺序）" };
             var profiles = (s.AiProfiles ?? new List<AiEndpointProfile>())
                 .Where(p => p.Enabled && !string.IsNullOrWhiteSpace(p.Url) && !string.IsNullOrWhiteSpace(p.Model))
@@ -2443,7 +2469,10 @@ public sealed partial class MainGameViewModel : ObservableObject
             if (!string.IsNullOrWhiteSpace(s.AiModel))
                 options.Add($"主配置（{s.AiModel}）");
 
-            var pick = await Shell.Current.DisplayActionSheet("这次由哪个 AI 回答", "取消", null, options.ToArray());
+            var title = bound.Length > 0
+                ? $"{CharacterName} 绑的是「{bound}」——这里指定只对没绑模型的角色生效"
+                : "这次由哪个 AI 回答";
+            var pick = await Shell.Current.DisplayActionSheet(title, "取消", null, options.ToArray());
             if (pick is null || pick == "取消") return;
 
             if (pick.StartsWith("自动", StringComparison.Ordinal))
@@ -2490,9 +2519,9 @@ public sealed partial class MainGameViewModel : ObservableObject
                 });
             }
 
-            var label = _api.TemporaryEndpointLabel;
-            HasTemporaryAi = !string.IsNullOrEmpty(label);
-            AnswerAiLabel = HasTemporaryAi ? $"AI：{label}" : "AI：自动";
+            RefreshAnswerAiLabel();
+            if (bound.Length > 0 && HasTemporaryAi)
+                Toast.Info($"{CharacterName} 仍用绑定的「{bound}」，这次指定只对没绑模型的角色生效。");
         }
         catch (Exception ex)
         {
@@ -2543,6 +2572,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task BackToTitle()
     {
+        // 先停运行时再落盘：角色们最后的活动状态才写得进这一档
+        _runtime.Stop();
         await _save.Commit("存档");
         _auto.Stop();
         await Shell.Current.GoToAsync("..");

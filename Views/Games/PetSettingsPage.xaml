@@ -1,0 +1,534 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             x:Class="WarmAsBefore.Views.PetSettingsPage"
+             x:DataType="vm:PetSettingsViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}"
+             Title="桌宠设置">
+    <!-- 桌宠设置：左边实时预览，右边分组设置。
+         预览不是贴图摆件——字号/发光/气泡节奏/悬停按钮都跟着右边的改动即时走，
+         所以「这一项到底管什么」不用读说明就能看懂。 -->
+
+    <Grid RowDefinitions="Auto,*" Padding="0">
+
+        <!-- 顶栏：与其它设置页同一条玻璃 bar -->
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Button Text="← 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                        Command="{Binding GoBackCommand}" />
+                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                    <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"
+                           VerticalOptions="Center" />
+                    <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                        <Label Text="桌宠设置" Style="{StaticResource TxtTitle}" />
+                        <Label Text="改了立刻生效——左边就是她" Style="{StaticResource TxtCaption}" />
+                    </VerticalStackLayout>
+                </Grid>
+            </Grid>
+        </Border>
+
+        <!-- 主体：宽屏左预览右设置；窄屏（代码里切）预览在上、设置在下 -->
+        <Grid x:Name="BodyGrid" Grid.Row="1" Padding="24,16,24,24"
+              RowDefinitions="*" ColumnDefinitions="440,*" ColumnSpacing="20">
+
+            <!-- ============ 实时预览舞台 ============ -->
+            <Border x:Name="StageCard" Style="{StaticResource CardSolid}" Padding="0"
+                    HorizontalOptions="Fill" VerticalOptions="Fill">
+                <Grid RowDefinitions="Auto,*,Auto" MinimumHeightRequest="380">
+
+                    <!-- 桌面一角：暖纸渐变，底部一条假任务栏——桌宠站在桌面上，不该有窗框 -->
+                    <Grid BackgroundColor="Transparent" Grid.RowSpan="3">
+                        <BoxView Color="#FDF7EE" />
+                        <BoxView Color="#F1E4CF" VerticalOptions="End" HeightRequest="18" />
+                        <!-- 假任务栏上的三个小点，让这块底读起来像桌面而不是一张纸 -->
+                        <HorizontalStackLayout Spacing="6" VerticalOptions="End" HorizontalOptions="Center" Margin="0,0,0,4">
+                            <Border BackgroundColor="#5FA8836B" StrokeThickness="0" WidthRequest="8" HeightRequest="8">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="4" /></Border.StrokeShape>
+                            </Border>
+                            <Border BackgroundColor="#78C9A88B" StrokeThickness="0" WidthRequest="8" HeightRequest="8">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="4" /></Border.StrokeShape>
+                            </Border>
+                            <Border BackgroundColor="#5F836B4A" StrokeThickness="0" WidthRequest="8" HeightRequest="8">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="4" /></Border.StrokeShape>
+                            </Border>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- 头顶区：气泡 + 输入条（随 PetStatusBubble / PetInputBubble 收起） -->
+                    <VerticalStackLayout Grid.Row="0" Spacing="6" Padding="14,14,14,0" ZIndex="3">
+                        <Border BackgroundColor="#F25A4532" StrokeThickness="0" Padding="10,6"
+                                HorizontalOptions="Center" MaximumWidthRequest="300"
+                                IsVisible="{Binding PetStatusBubble}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                            <Label x:Name="PreviewBubbleLabel" Text="{Binding PreviewTyped}"
+                                   TextColor="#FFF6EB" FontSize="{Binding PetFontSize}"
+                                   LineBreakMode="WordWrap" />
+                        </Border>
+                        <Border BackgroundColor="#E8FFFDF6" Stroke="#33A8836B" StrokeThickness="1" Padding="8,5"
+                                HorizontalOptions="Center" WidthRequest="260"
+                                IsVisible="{Binding PetInputBubble}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                                <Label Text="和 TA 说点什么…" TextColor="#8A6B5A"
+                                       FontSize="{Binding PetFontSize}" VerticalOptions="Center" />
+                                <Border Grid.Column="1" BackgroundColor="#40A8836B" StrokeThickness="0" Padding="8,2">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
+                                    <Label Text="发送" TextColor="#5A4532" FontSize="11" />
+                                </Border>
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <!-- 角色区：光晕 + 立绘（呼吸动画由代码按帧率推）+ 悬停按钮排 -->
+                    <Grid Grid.Row="1">
+                        <!-- 外发光：一团暖色径向光，强度/大小跟着 PetGlow 与体型走 -->
+                        <Border x:Name="GlowBlob" StrokeThickness="0" BackgroundColor="Transparent"
+                                HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,18"
+                                WidthRequest="{Binding PreviewGlowSize}" HeightRequest="{Binding PreviewGlowSize}"
+                                Opacity="{Binding StageGlowOpacity}">
+                            <Border.Background>
+                                <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
+                                    <GradientStop Color="#B0E8B27A" Offset="0" />
+                                    <GradientStop Color="#58E8B27A" Offset="0.55" />
+                                    <GradientStop Color="#00E8B27A" Offset="1" />
+                                </RadialGradientBrush>
+                            </Border.Background>
+                        </Border>
+
+                        <Image x:Name="PreviewSprite" Source="{Binding PreviewSpriteSource}" Aspect="AspectFit"
+                               HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,18"
+                               HeightRequest="{Binding PreviewBodyHeight}" />
+                        <!-- 没有立绘的角色也要有东西可看：一张手绘感的笑脸。有立绘就收起它，别把人脸盖住 -->
+                        <Border x:Name="PreviewFallback" StrokeThickness="0" BackgroundColor="#D9F3E4C9"
+                                HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,18"
+                                IsVisible="{Binding ShowPreviewFallback}"
+                                WidthRequest="{Binding PreviewBodyHeight}" HeightRequest="{Binding PreviewBodyHeight}">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="90" /></Border.StrokeShape>
+                            <Label Text="{Binding PreviewFace}" FontSize="15" TextColor="#5A4532"
+                                   HorizontalOptions="Center" VerticalOptions="Center" />
+                        </Border>
+
+                        <!-- 悬停按钮：真实桌宠里画在头顶留白带，这里同位置同顺序 -->
+                        <HorizontalStackLayout Grid.Row="0" Spacing="6" Padding="6,2"
+                                               HorizontalOptions="Center" VerticalOptions="Start"
+                                               BindableLayout.ItemsSource="{Binding ActiveHoverOptions}"
+                                               IsVisible="{Binding HasHoverButtons}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PetHoverOption">
+                                    <Border BackgroundColor="#E6F7EEDD" StrokeThickness="0" Padding="7,3">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                                        <HorizontalStackLayout Spacing="4">
+                                            <Label Text="{Binding Glyph}" FontSize="11" VerticalOptions="Center" />
+                                            <Label Text="{Binding Name}" FontSize="10" TextColor="#5A4532"
+                                                   VerticalOptions="Center" />
+                                        </HorizontalStackLayout>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </HorizontalStackLayout>
+                    </Grid>
+
+                    <!-- 读数 + 重新演示：不装假控件，一行字说清现在是什么档 -->
+                    <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Padding="14,4,14,10">
+                        <VerticalStackLayout VerticalOptions="Center" Spacing="0">
+                            <Label Text="实时预览" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding StageReadout}" Style="{StaticResource TxtBodySm}"
+                                   LineBreakMode="CharacterWrap" MaxLines="2" />
+                        </VerticalStackLayout>
+                        <Button Grid.Column="1" Text="重新演示" Style="{StaticResource BtnGhost}"
+                                FontSize="12" Padding="12,4" VerticalOptions="Center"
+                                Clicked="OnReplayPreview" />
+                    </Grid>
+                </Grid>
+            </Border>
+
+            <!-- ============ 右侧分组设置 ============ -->
+            <ScrollView x:Name="SettingsScroll" Grid.Column="1">
+                <VerticalStackLayout x:Name="GroupsHost" Spacing="16" Padding="0,0,4,24">
+
+                    <Label x:Name="HintLabel" Text="{Binding HoverHint}" IsVisible="False"
+                           Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}" />
+
+                    <!-- 外观与大小 -->
+                    <Border x:Name="CardLook" Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="外观与大小" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="体型" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="站在桌面上的大小；也可以在角色上滚轮直接调" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0.4" Maximum="2.6" Value="{Binding PetScale}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding PetScaleText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13"
+                                  IsVisible="{Binding IsDesktop}">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="气泡字号" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="头顶气泡与输入条的字有多大；改完气泡高度会跟着重新量" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="10" Maximum="22" Value="{Binding PetFontSize}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding StageFontText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13"
+                                  IsVisible="{Binding IsDesktop}">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="外发光" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="沿角色轮廓的一圈柔光；0 就是没有" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PetGlow}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="0–1" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13"
+                                  IsVisible="{Binding IsDesktop}">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="动作帧率" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="走动/呼噜这些自发动作的动画帧率；预览里的呼吸节奏就是这个数" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="10" Maximum="60" Value="{Binding PetFps}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding FpsText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding IsDesktop}">
+                                <VerticalStackLayout>
+                                    <Label Text="帧率锁定" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="开=严格按帧率抽帧（省电）；关=有余量就跑满到 60" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetFpsLock}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- Q 版桌宠：桌面会不会动，全看这里；没做过就一直用立绘 -->
+                    <Border x:Name="CardPack" Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="Q 版桌宠动画" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout VerticalOptions="Center" Spacing="0">
+                                    <Label Text="{Binding AnimationPackStatus}" Style="{StaticResource TxtRowTitle}"
+                                           LineBreakMode="CharacterWrap" MaxLines="2" />
+                                    <Label Text="AI 把 TA 画成一整套状态帧：散步会迈步、被摸头会跳、呼噜时比心，没人陪就坐下、再久一点就睡着" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="去制作…" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        Padding="12,4" VerticalOptions="Center" Command="{Binding OpenStudioCommand}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 气泡与文字：桌面那套「立绘 + 头顶小窗」才有的东西，手机上气泡就是整页 -->
+                    <Border x:Name="CardBubble" Style="{StaticResource CardSolid}" IsVisible="{Binding IsDesktop}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="气泡与文字" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="状态气泡" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="头顶那一行小字：她现在在做什么。关掉就一个字都不写" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetStatusBubble}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="输入气泡" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="头顶那条输入条。关了就只剩角色本人" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetInputBubble}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="气泡浮现速度" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="回复逐字浮现的节奏；×1 ≈ 正文同速，越大越快" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0.2" Maximum="6" Value="{Binding PetBubbleSpeed}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding SpeedText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="打字音" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="气泡逐字浮现时的那串小键盘声" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="试听" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        Padding="10,4" VerticalOptions="Center"
+                                        Command="{Binding PreviewSfxCommand}" CommandParameter="typing" />
+                                <Switch Grid.Column="2" IsToggled="{Binding PetTypingSound}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 交互（悬停按钮 / 双击 / 回应 / 走动）：Windows 的鼠标世界才有意义 -->
+                    <Border x:Name="CardInteract" Style="{StaticResource CardSolid}"
+                            IsVisible="{Binding IsDesktop}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="交互" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Label Text="悬停按钮（最多 6 个，出现顺序就是这里的顺序）" Style="{StaticResource TxtBodySm}" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding HoverOptions}" Margin="0,6,0,4">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:PetHoverOption">
+                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Padding="0,6">
+                                            <Label Text="{Binding Glyph}" FontSize="15" VerticalOptions="Center" />
+                                            <Label Grid.Column="1" Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
+                                                   VerticalOptions="Center" />
+                                            <Button Grid.Column="2" Text="↑" FontSize="12" Padding="8,2" HeightRequest="28"
+                                                    Style="{StaticResource BtnGhost}"
+                                                    IsVisible="{Binding IsOn}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverUpCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Grid.Column="3" Text="↓" FontSize="12" Padding="8,2" HeightRequest="28"
+                                                    Style="{StaticResource BtnGhost}"
+                                                    IsVisible="{Binding IsOn}"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverDownCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Switch Grid.Column="4" IsToggled="{Binding IsOn}" VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="双击角色" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="双击她一下要发生什么" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
+                                        ItemsSource="{Binding DoubleClickOptions}"
+                                        SelectedItem="{Binding DoubleClickDisplay}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="走动" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="开散步后她会沿屏幕底沿慢慢走动，碰到边缘自己回头" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
+                                        ItemsSource="{Binding WalkingOptions}"
+                                        SelectedItem="{Binding WalkingDisplay}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 声音：这两档音量走桌宠自己的播放通道（类别音量 × 全局音效音量），素材就是「声音分配」里那两格 -->
+                    <Border x:Name="CardSound" Style="{StaticResource CardSolid}" IsVisible="{Binding IsDesktop}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="声音" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,150,72,44" ColumnSpacing="10" Padding="0,11">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="单击音效" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="点她一下、按悬停按钮时的那一声" Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TapLevel}" VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding TapLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                                <Button Grid.Column="3" Text="试听" FontSize="11" Padding="6,2" HeightRequest="26"
+                                        Style="{StaticResource BtnGhost}" VerticalOptions="Center"
+                                        Command="{Binding PreviewSfxCommand}" CommandParameter="tap" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,150,72,44" ColumnSpacing="10" Padding="0,11">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="打字音" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="气泡逐字浮现时那串小键盘声；开关在「气泡与文字」里" Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TypingLevel}" VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding TypingLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                                <Button Grid.Column="3" Text="试听" FontSize="11" Padding="6,2" HeightRequest="26"
+                                        Style="{StaticResource BtnGhost}" VerticalOptions="Center"
+                                        Command="{Binding PreviewSfxCommand}" CommandParameter="typing" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,11">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="撒娇时长" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="按「呼噜/摸摸头」时她抖多久，状态行也写多久" Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="2" Maximum="20" Value="{Binding PetPurrSeconds}" VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding PurrText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 说话与回应：两端都有 TTS，所以这张卡不随 IsDesktop 收 -->
+                    <Border x:Name="CardVoice" Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="说话与回应" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="回复读出声" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="她答完一句，用 TTS 念出来；引擎与开关在设置 › 声音里" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetSpeakReplies}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="音色" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="跟随全局=用设置里的音色；API 模式认 alloy / nova 这些，本地引擎认系统声音名" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="180" FontSize="13"
+                                        ItemsSource="{Binding VoiceOptions}"
+                                        SelectedItem="{Binding VoiceDisplay}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="音高" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="×1 是原声；调小更低沉，调大更软" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0.5" Maximum="2" Value="{Binding PetVoicePitch}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding VoicePitchText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="0,13">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="语速" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="与全局语速相乘，不是替换" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Slider Grid.Column="1" Minimum="0.5" Maximum="2" Value="{Binding PetVoiceRate}"
+                                        VerticalOptions="Center" />
+                                <Label Grid.Column="2" Text="{Binding VoiceRateText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" HorizontalOptions="End" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="回应模式" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="有话就说=按「主动思考」自己开口；被点到才答=只在你点她时回应；少插话=主动开口减到偶发" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
+                                        ItemsSource="{Binding RespondOptions}"
+                                        SelectedItem="{Binding RespondDisplay}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 位置 -->
+                    <Border x:Name="CardPos" Style="{StaticResource CardSolid}"
+                            IsVisible="{Binding IsDesktop}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="位置" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="记住位置" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="拖到哪儿下次还在哪儿；关了则每次回到工作区右下角" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetRememberPosition}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,13">
+                                <VerticalStackLayout VerticalOptions="Center">
+                                    <Label Text="当前锚点" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="{Binding AnchorReadout}" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="记住当前位置" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        Padding="12,4" VerticalOptions="Center" Command="{Binding RememberPositionCommand}" />
+                                <Button Grid.Column="2" Text="清除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        Padding="10,4" VerticalOptions="Center" Command="{Binding ClearAnchorCommand}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="全屏时收起" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="前台进入全屏（放映/游戏）时把她一起收走，退出全屏再回来" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetHideOnFullscreen}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="小窗跨屏跟随" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="多显示器：开=头顶小窗可以跟角色跨到副屏；关=只在本屏工作区收边" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 其他：语言与闲置这两项是桌面侧的行为，思考那一组两端都管 -->
+                    <Border x:Name="CardOther" Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="其他" Style="{StaticResource TxtSubhead}" Margin="0,0,0,6" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding IsDesktop}">
+                                <VerticalStackLayout>
+                                    <Label Text="桌宠语言" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="她头顶那行状态字用哪一种；空=跟随全局语言" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
+                                        ItemsSource="{Binding LanguageOptions}"
+                                        SelectedItem="{Binding LanguageDisplay}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding IsDesktop}">
+                                <VerticalStackLayout>
+                                    <Label Text="闲置自动桌宠" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="闲置多少分钟后自动收纳成桌宠；关闭=不自动进" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="120" FontSize="13"
+                                        ItemsSource="{Binding IdleChoices}"
+                                        SelectedItem="{Binding PetIdleMinutes}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="主动思考" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="没人打扰时她自己嘀咕一句" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
+                                        ItemsSource="{Binding ThinkOptions}"
+                                        SelectedItem="{Binding ThinkDisplay}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <Label Text="思考间隔" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Picker Grid.Column="1" WidthRequest="120" FontSize="13"
+                                        ItemsSource="{Binding ThinkIntervalChoices}"
+                                        SelectedItem="{Binding PetThinkIntervalMinutes}" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="让她自己调桌宠设置" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="开=她可以在回复里带一句 pet 指令，直接改体型/发光/字号；默认关，免得她的改动悄悄盖掉你的偏好" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding PetSelfConfig}" VerticalOptions="Center" />
+                            </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                <VerticalStackLayout>
+                                    <Label Text="使用统计" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="这一段时间里她说了多少、花了多少 token" Style="{StaticResource TxtRowDesc}" />
+                                </VerticalStackLayout>
+                                <Button Grid.Column="1" Text="查看…" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        Padding="12,4" VerticalOptions="Center"
+                                        Command="{Binding OpenUsageStatsCommand}" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+        </Grid>
+    </Grid>
+</ContentPage>
