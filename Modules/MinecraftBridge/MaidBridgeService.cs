@@ -312,7 +312,12 @@ public sealed partial class MaidBridgeService : IDisposable
         if (JsonNode.Parse(text) is not JsonObject beacon) return;
         if (!string.Equals(BridgeJson.Str(beacon, "magic"), "WAB-MAID", StringComparison.Ordinal)) return;
         if (!string.Equals(BridgeJson.Str(beacon, "type"), "beacon", StringComparison.Ordinal)) return;
-        if (BridgeJson.Int(beacon, "v", 0) != ProtocolVersion) return;
+        if (BridgeJson.Int(beacon, "v", 0) != ProtocolVersion)
+        {
+            // 以前这里直接 return：局域网里躺着一个别的协议的桥，面板只会显示「未连接」，谁也看不出来。
+            NoteForeignBridge(beacon);
+            return;
+        }
 
         var nonce = BridgeJson.Str(beacon, "nonce");
         if (nonce.Length is < 8 or > 128) return;
@@ -370,6 +375,41 @@ public sealed partial class MaidBridgeService : IDisposable
         var now = DateTime.UtcNow;
         foreach (var key in _pending.Where(kv => kv.Value.ExpiresUtc < now).Select(kv => kv.Key).ToList())
             _pending.Remove(key);
+    }
+
+    private readonly object _foreignGate = new();
+    private string _foreignBridgeInstance = "";
+    private string _foreignBridgeNote = "";
+    private DateTime _foreignBridgeAtUtc = DateTime.MinValue;
+
+    /// <summary>
+    /// 协议对不上的桥 jar：记下「谁在喊」。同一实例一小时只报一次，免得被 3 秒一次的 beacon 刷满日志；
+    /// 只说明、不拉黑——版本兼容靠让人看见，不靠替用户猜哪个 jar 该装。
+    /// </summary>
+    private void NoteForeignBridge(JsonObject beacon)
+    {
+        var instance = BridgeJson.Str(beacon, "instance");
+        var note = $"协议 v{BridgeJson.Int(beacon, "v", 0)} 的桥（WAB 用 v{ProtocolVersion}）："
+            + $"{BridgeJson.Str(beacon, "mc")}/{BridgeJson.Str(beacon, "loader")} "
+            + $"{BridgeJson.Str(beacon, "modVersion")}（实例 {instance}）";
+        var now = DateTime.UtcNow;
+        lock (_foreignGate)
+        {
+            if (string.Equals(_foreignBridgeInstance, instance, StringComparison.Ordinal)
+                && now - _foreignBridgeAtUtc < TimeSpan.FromHours(1)) return;
+            _foreignBridgeInstance = instance;
+            _foreignBridgeNote = note;
+            _foreignBridgeAtUtc = now;
+        }
+        App.WriteLog("MaidBridge: 局域网里看到 " + note);
+    }
+
+    private string ForeignBridgeNote()
+    {
+        lock (_foreignGate)
+        {
+            return DateTime.UtcNow - _foreignBridgeAtUtc < TimeSpan.FromMinutes(5) ? _foreignBridgeNote : "";
+        }
     }
 
     private static string Proof(string token, string nonce, int port)
@@ -519,11 +559,17 @@ public sealed partial class MaidBridgeService : IDisposable
                     WorldName = BridgeJson.Str(hello, "world"),
                     Player = BridgeJson.Str(hello, "player"),
                     Remote = remoteText,
+                    GameVersion = BridgeJson.Str(hello, "mc"),
+                    ModId = BridgeJson.Str(hello, "mod"),
+                    ModVersion = BridgeJson.Str(hello, "modVersion"),
+                    Loader = BridgeJson.Str(hello, "loader"),
+                    LoaderVersion = BridgeJson.Str(hello, "loaderVersion"),
+                    BridgeBuild = BridgeJson.Str(hello, "bridge"),
                     Cts = CancellationTokenSource.CreateLinkedTokenSource(ct)
                 };
                 session.WorldKey = MakeWorldKey(session.WorldName, session.Instance, session.Player);
                 lock (_sessionGate) _session = session;
-                App.WriteLog($"MaidBridge: 会话 {session.Id} 已建立（{remoteText}）");
+                App.WriteLog($"MaidBridge: 会话 {session.Id} 已建立（{remoteText}）MC {session.GameVersion}/{session.Loader} {session.ModVersion}");
 
                 await HandshakeAsync(session, hello);
             }
@@ -812,6 +858,7 @@ public sealed partial class MaidBridgeService : IDisposable
             ["saveNotice"] = session?.SaveNotice ?? "",
             ["worldbookNotice"] = session?.WorldbookNotice ?? "",
             ["currentSave"] = _engine.CurrentSaveId,
+            ["game"] = session is null ? null : GameJson(session),
             ["plugin"] = new JsonObject
             {
                 ["enabled"] = _config.Enabled,
@@ -832,7 +879,44 @@ public sealed partial class MaidBridgeService : IDisposable
             if (mod.Count > 0)
                 root["modAgeSeconds"] = (int)Math.Round((DateTime.UtcNow - session.ModConfigAtUtc).TotalSeconds);
         }
+        var foreign = ForeignBridgeNote();
+        if (foreign.Length > 0) root["foreignBridge"] = foreign;
         return root.ToJsonString(WireJson);
+    }
+
+    /// <summary>
+    /// 桥 jar 的移植矩阵：MC 版本 + 加载器 → 我们有没有从对应的上游分支构建过。
+    /// 上游每个 MC 版本一条分支、一条分支只配一个加载器（1.20.1 是 Forge，1.21.1 是 NeoForge，
+    /// 1.16.5/1.18.2/1.19.2 也都是 Forge），本仓目前有 1.20 与 1.21 这两条，
+    /// 所以报上别的组合是「还没移植」，不是「不兼容」——能发这个包的必然已经是桥 jar，拦连接没有意义。
+    /// </summary>
+    private static readonly HashSet<string> PortedEnvironments = new(StringComparer.OrdinalIgnoreCase)
+    {
+        "1.20.1+forge", "1.21.1+neoforge"
+    };
+
+    private static JsonObject GameJson(MaidSession session)
+    {
+        var compat = session.GameVersion.Length == 0 ? "legacy"
+            : PortedEnvironments.Contains(session.GameVersion + "+" + session.Loader) ? "ported" : "unported";
+        var game = new JsonObject
+        {
+            ["mc"] = session.GameVersion,
+            ["mod"] = session.ModId,
+            ["modVersion"] = session.ModVersion,
+            ["loader"] = session.Loader,
+            ["loaderVersion"] = session.LoaderVersion,
+            ["bridge"] = session.BridgeBuild,
+            ["protocol"] = "v" + ProtocolVersion,
+            ["compat"] = compat
+        };
+        game["compatNote"] = compat switch
+        {
+            "ported" => "",
+            "legacy" => "模组没报运行环境：那是加环境上报之前的桥 jar，换成当前构建就能看到版本。",
+            _ => $"MC {session.GameVersion}/{session.Loader} 还没移植：桥目前只从上游 1.20（Forge 1.20.1）和 1.21（NeoForge 1.21.1）这两条分支构建。"
+        };
+        return game;
     }
 
     private static string WabVersion()
@@ -2395,6 +2479,14 @@ public sealed partial class MaidBridgeService : IDisposable
         public string WorldName { get; set; } = "";
         public string Player { get; init; } = "";
         public string Remote { get; init; } = "";
+        /// <summary>模组报上来的真实运行环境：兼容判断只能靠它，不能靠我们以为她跑在什么上面。</summary>
+        public string GameVersion { get; init; } = "";
+        public string ModId { get; init; } = "";
+        public string ModVersion { get; init; } = "";
+        public string Loader { get; init; } = "";
+        public string LoaderVersion { get; init; } = "";
+        /// <summary>桥自己的构建号：jar 顶替上游，modVersion 跟上游同号，看不出用户装的桥是哪一版，只能靠这个。</summary>
+        public string BridgeBuild { get; init; } = "";
         public string WorldKey { get; set; } = "";
         public string Dimension { get; set; } = "";
         public string Weather { get; set; } = "";

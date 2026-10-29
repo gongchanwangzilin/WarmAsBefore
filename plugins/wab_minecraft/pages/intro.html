@@ -154,7 +154,7 @@
       <div class="link"><span class="arrow t">⇄</span><em>TCP 27322</em>NDJSON 帧</div>
     </div>
     <div class="side">
-      <div class="tag">Minecraft Forge 1.20.1（身体）</div>
+      <div class="tag">Minecraft 1.20.1 / 1.21.1（身体）</div>
       <div class="node mc"><b>WabBridge</b>生命周期 / 会话 / 心跳</div>
       <div class="node mc"><b>WabActions</b>挖、舀、丢、喂、抱、放</div>
       <div class="node mc"><b>WabAutonomy</b>日程与随机自发行为</div>
@@ -256,8 +256,15 @@
 
 <section>
   <h2>六、安装与联调</h2>
+  <div class="note">
+    版本与加载器：桥 jar 从上游两条分支各构建一份——<strong>1.20 分支</strong>（Minecraft 1.20.1，Forge 47.2.0）与
+    <strong>1.21 分支</strong>（Minecraft 1.21.1，NeoForge 21.1，需要 Java 21）。
+    上游车万女仆自己还支持 1.16.5、1.18.2、1.19.2（都是 Forge）——那是各自独立的分支与产物，桥还没跟着移植。
+    拿别的版本的 jar 装上不会报错，但握手根本不会发生：上游的 jar 不发 beacon。
+    装好后在设置页「连接 → 游戏环境」核对模组自己报上来的 MC 版本、加载器和桥构建号，对不上会写明「还没移植」而不是假装一致。
+  </div>
   <ol>
-    <li>游戏端：把编译好的 <code>touhoulittlemaid-*.jar</code>（含 WAB 桥）放进 Forge 1.20.1 的 mods 目录；<strong>同一台机器</strong>上开世界，模组会在服务端每 3 秒广播 beacon。</li>
+    <li>游戏端：把编译好的 <code>touhoulittlemaid-*.jar</code>（含 WAB 桥）放进对应版本的 mods 目录——1.20.1/Forge 装薄包，<strong>1.21.1/NeoForge 认的是 <code>-all.jar</code> 那一个</strong>（该分支把默认 jar 任务关了，只有影子包能装）；<strong>同一台机器</strong>上开世界，模组会在服务端每 3 秒广播 beacon。</li>
     <li>WAB 端：插件中心「从 zip 安装」或「从文件夹安装」（开发时改完 <code>hooks/persona.js</code> 直接重装文件夹最快），确认上面「设置」里 <code>enabled</code> 为开。</li>
     <li>刚装好、一次「保存」都没点过时，<code>settings.json</code> 是空的——宿主与本页都按 <code>plugin.json</code> 里的 <code>default</code> 跑，不是按「关着」跑。</li>
     <li>两边都在跑之后无需手动操作：握手自动完成。游戏内女仆头顶会出现行动栏提示（好感/信任），聊天里问“她在哪”时 AI 会自己调 <code>maid_status</code> 回答。</li>

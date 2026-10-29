@@ -2,7 +2,7 @@
   "id": "wab_minecraft",
   "name": "Minecraft 女仆桥",
   "version": "1.3.0",
-  "description": "让角色在《东方小女仆》(Touhou Little Maid, Forge 1.20.1) 里拥有一具真实行动的身体：挖矿、取水、投喂、跟随、日程与自发行为。设置只写开关与端口，联网由 WAB 宿主完成，插件本身不出网。",
+  "description": "让角色在《东方小女仆》(Touhou Little Maid, Forge 1.20.1 / NeoForge 1.21.1) 里拥有一具真实行动的身体：挖矿、取水、投喂、跟随、日程与自发行为。设置只写开关与端口，联网由 WAB 宿主完成，插件本身不出网。",
   "author": "gongchanwangzilin",
   "permissions": ["settings", "prompt.write", "page"],
   "settings": {
