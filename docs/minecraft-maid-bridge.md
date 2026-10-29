@@ -30,7 +30,7 @@ flowchart LR
     H --> B
   end
 
-  subgraph MC[Minecraft Forge 1.20.1]
+  subgraph MC[Minecraft 1.20.1 Forge / 1.21.1 NeoForge]
     D[WabDiscovery<br/>UDP 27321]
     R[WabSession<br/>TCP NDJSON]
     A[WabDispatcher<br/>指令 → 动作]
@@ -98,7 +98,8 @@ sequenceDiagram
 
 ```json
 {"magic":"WAB-MAID","v":1,"type":"beacon","nonce":"9f2c…","instance":"a1b2c3",
- "mod":"touhou_little_maid","modVersion":"1.5.3","mc":"1.20.1"}
+ "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1",
+ "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.4.0"}
 ```
 
 beacon 只带「谁在这儿」这一件事：`world` / `player` / `maids` 都挪到 TCP 的 `hello` 里发，
@@ -124,7 +125,8 @@ TCP，NDJSON：一行一条 JSON，UTF-8，单行上限 4 MiB（备份 NBT 会�
 
 ```json
 {"v":1,"type":"hello","nonce":"9f2c…","token":"b7e1…","instance":"a1b2c3",
- "mod":"touhou_little_maid","modVersion":"1.5.3","mc":"1.20.1",
+ "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1",
+ "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.4.0",
  "world":"MyWorld","player":"Steve","maids":[…]}
 ```
 

@@ -130,7 +130,9 @@
       <div class="fact"><b id="cPort">—</b>本机监听端口</div>
       <div class="fact"><b id="cMaids">—</b>已绑定女仆</div>
       <div class="fact"><b id="cAge">—</b>游戏上次上报</div>
+      <div class="fact"><b id="cEnv">—</b>游戏环境</div>
     </div>
+    <p class="sub" id="envNote"></p>
     <p class="sub" id="saveNote"></p>
     <p class="sub" id="worldNote"></p>
   </section>
@@ -381,6 +383,11 @@
       $("cState").textContent = "不知道"; $("cState").className = "pill";
       $("cWorld").textContent = "—"; $("cPort").textContent = "—";
       $("cMaids").textContent = "—"; $("cAge").textContent = "—";
+      $("cEnv").textContent = "—";
+      $("envNote").textContent = ""; $("envNote").className = "sub hide";
+      $("foreignNote").textContent = ""; $("foreignNote").className = "sub hide";
+      $("saveNote").textContent = ""; $("saveNote").className = "sub hide";
+      $("worldNote").textContent = ""; $("worldNote").className = "sub hide";
       $("cSrc").textContent = (live && live.error) ||
         "取不到实时状态：这条凭据可能已经作废，关掉窗口从插件中心重新打开一次。";
       return;
@@ -411,6 +418,30 @@
       age.textContent = s < 60 ? s + " 秒前" : Math.round(s / 60) + " 分钟前";
       age.className = s > 90 ? "pill amber" : "pill on";
     }
+    renderEnv();
+  }
+
+  // 环境这一栏由模组自己报：MC 版本、加载器、桥 jar 版本。写死的「1.20.1」只能说明我们希望她跑在什么上面，
+  // 她自己报上来的才算数——移植矩阵对不上就得让她看见「还没移植」，而不是让人以为两边一样。
+  function renderEnv() {
+    var env = $("cEnv"), note = $("envNote"), foreign = $("foreignNote"), g = live.game;
+    if (!live.connected || !g) {
+      env.textContent = "—";
+      note.textContent = ""; note.className = "sub hide";
+    } else {
+      env.textContent = (g.mc || "未知") + " / " + (g.loader || "未知");
+      var bits = [];
+      if (g.bridge) bits.push("桥 " + g.bridge);
+      if (g.modVersion) bits.push("车万女仆 " + g.modVersion);
+      if (g.loaderVersion) bits.push("加载器 " + g.loaderVersion);
+      if (g.protocol) bits.push("协议 " + g.protocol);
+      var text = bits.join(" · ");
+      if (g.compatNote) text = "△ " + (text ? text + " — " : "") + g.compatNote;
+      note.textContent = text;
+      note.className = text ? "sub" : "sub hide";
+    }
+    foreign.textContent = live.foreignBridge ? "△ 局域网里还有一个对不上协议的桥：" + live.foreignBridge : "";
+    foreign.className = live.foreignBridge ? "sub" : "sub hide";
   }
 
   function pull() {
