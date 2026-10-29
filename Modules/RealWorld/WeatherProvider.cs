@@ -3,6 +3,7 @@ using WarmAsBefore.Models;
 
 namespace WarmAsBefore.Modules.RealWorld;
 
+
 public sealed class WeatherProvider
 {
     private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(8) };
@@ -101,83 +102,4 @@ public sealed class WeatherProvider
         }
         _geoDone = true;
     }
-}
-
-public sealed class TimeProvider
-{
-    public TimeOfDayInfo Now() => new() { Now = DateTime.Now, Holiday = GetHoliday() };
-
-    private static string? GetHoliday() => DateTime.Now switch
-    {
-        { Month: 1, Day: 1 } => "元旦",
-        { Month: 2, Day: 14 } => "情人节",
-        { Month: 3, Day: 8 } => "妇女节",
-        { Month: 5, Day: 1 } => "劳动节",
-        { Month: 10, Day: 1 } => "国庆节",
-        { Month: 12, Day: 25 } => "圣诞节",
-        _ => null
-    };
-}
-
-public sealed class PermissionBroker
-{
-    public async Task<bool> RequestLocation()
-    {
-        var s = await Permissions.CheckStatusAsync<Permissions.LocationWhenInUse>();
-        if (s == PermissionStatus.Granted) return true;
-        s = await Permissions.RequestAsync<Permissions.LocationWhenInUse>();
-        return s == PermissionStatus.Granted;
-    }
-
-    public async Task<bool> RequestCamera()
-    {
-        var s = await Permissions.CheckStatusAsync<Permissions.Camera>();
-        if (s == PermissionStatus.Granted) return true;
-        s = await Permissions.RequestAsync<Permissions.Camera>();
-        return s == PermissionStatus.Granted;
-    }
-
-    public async Task<bool> RequestMic()
-    {
-        var s = await Permissions.CheckStatusAsync<Permissions.Microphone>();
-        if (s == PermissionStatus.Granted) return true;
-        s = await Permissions.RequestAsync<Permissions.Microphone>();
-        return s == PermissionStatus.Granted;
-    }
-}
-
-public sealed class PhysiologicalTracker
-{
-    private int _day;
-    private bool _tracked = true;
-    private int _cycleLen = 28;
-    private int _periodLen = 5;
-
-    /// <summary>按当前角色的性别下发规则：没有周期的性别直接把 Tracked 关掉，
-    /// 下面三个读数（Phase / InPeriod / Label）全部退回「无」，谁拿它去拼界面或提示词都不会冒出经期。</summary>
-    public void SetCycle(CycleRule rule)
-    {
-        _tracked = rule.Enabled;
-        _cycleLen = Math.Clamp(rule.CycleLength, 7, 60);
-        _periodLen = Math.Clamp(rule.PeriodLength, 1, _cycleLen);
-    }
-
-    public bool Tracked => _tracked;
-    public int Day { get => _day; set => _day = value % _cycleLen; }
-    public string Phase => !_tracked ? "normal" : _day switch
-    {
-        _ when _day < _periodLen => "period",
-        _ when _day < 14 => "follicular",
-        _ when _day < 16 => "ovulation",
-        _ => "luteal"
-    };
-    public bool InPeriod => _tracked && _day < _periodLen;
-    public string Label => !_tracked ? "" : Phase switch
-    {
-        "period" => "经期",
-        "follicular" => "卵泡期",
-        "ovulation" => "排卵期",
-        "luteal" => "黄体期",
-        _ => "正常"
-    };
 }
