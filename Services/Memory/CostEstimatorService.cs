@@ -71,13 +71,21 @@ public sealed class CostEstimatorService
 
     /// <summary>记一次真实用量（订阅 ApiGateway.UsageReported 即可自动记账）。</summary>
     public void Record(string model, int promptTokens, int completionTokens, bool isSummary = false)
+        => Record(model, promptTokens, completionTokens, 0, 0, isSummary);
+
+    /// <summary>记一次真实用量（带缓存输入/缓存输出）。缓存输入是 prompt 的子集，缓存输出单独一笔。</summary>
+    public void Record(string model, int promptTokens, int completionTokens,
+        int cachedInputTokens, int cachedOutputTokens, bool isSummary = false)
     {
         if (string.IsNullOrWhiteSpace(model)) return;
+        var prompt = Math.Max(0, promptTokens);
         _ = RecordAsync(new TokenUsageRecord
         {
             Model = model.Trim(),
-            PromptTokens = Math.Max(0, promptTokens),
+            PromptTokens = prompt,
             CompletionTokens = Math.Max(0, completionTokens),
+            CachedInputTokens = Math.Clamp(cachedInputTokens, 0, prompt),
+            CachedOutputTokens = Math.Max(0, cachedOutputTokens),
             IsSummary = isSummary
         });
     }
@@ -99,8 +107,12 @@ public sealed class CostEstimatorService
         lock (_gate) return _prices.ToList();
     }
 
-    /// <summary>录入/覆盖某模型的单价（每百万 token）。只填一侧也接受，未填的按 0 处理。</summary>
-    public async Task<(bool ok, string message)> SetPriceAsync(string model, double? inputPerMillion, double? outputPerMillion)
+    /// <summary>
+    /// 录入/覆盖某模型的单价（每百万 token）。只填输入/输出其中之一也接受。
+    /// 缓存价不传（null）时保留盘上已有的——设置页的旧同步只带两档价，不能把缓存价抹掉。
+    /// </summary>
+    public async Task<(bool ok, string message)> SetPriceAsync(string model, double? inputPerMillion, double? outputPerMillion,
+        double? cachedInputPerMillion = null, double? cachedOutputPerMillion = null)
     {
         if (string.IsNullOrWhiteSpace(model)) return (false, "模型名不能为空。");
         var inp = Math.Max(0, inputPerMillion ?? 0);
@@ -108,10 +120,21 @@ public sealed class CostEstimatorService
         if (inp <= 0 && outp <= 0) return (false, "输入价与输出价至少要填一个（另一个可以留空）。");
 
         await EnsureLoadedAsync();
+        double cachedIn, cachedOut;
         lock (_gate)
         {
+            var cur = _prices.FirstOrDefault(p => string.Equals(p.Model, model.Trim(), StringComparison.OrdinalIgnoreCase));
+            cachedIn = cachedInputPerMillion is { } ci ? Math.Max(0, ci) : Math.Max(0, cur?.CachedInputPerMillion ?? 0);
+            cachedOut = cachedOutputPerMillion is { } co ? Math.Max(0, co) : Math.Max(0, cur?.CachedOutputPerMillion ?? 0);
             _prices.RemoveAll(p => string.Equals(p.Model, model.Trim(), StringComparison.OrdinalIgnoreCase));
-            _prices.Add(new ModelPrice { Model = model.Trim(), InputPerMillion = inp, OutputPerMillion = outp });
+            _prices.Add(new ModelPrice
+            {
+                Model = model.Trim(),
+                InputPerMillion = inp,
+                OutputPerMillion = outp,
+                CachedInputPerMillion = cachedIn,
+                CachedOutputPerMillion = cachedOut
+            });
         }
         await _store.Save(PriceKey, _prices.ToList());
         return (true, $"已记录「{model.Trim()}」的单价（只填一侧也可以，另一侧按 0 计）。");
@@ -130,13 +153,26 @@ public sealed class CostEstimatorService
             return _prices.FirstOrDefault(p => string.Equals(p.Model, model, StringComparison.OrdinalIgnoreCase));
     }
 
-    /// <summary>按当前单价算一次调用的花费。</summary>
+    /// <summary>按当前单价算一次调用的花费（无缓存量时退化为输入/输出两档）。</summary>
     public double CostOf(string model, int promptTokens, int completionTokens)
+        => CostOf(model, promptTokens, completionTokens, 0, 0);
+
+    /// <summary>
+    /// 按当前单价算一次调用的花费（含缓存档）。口径：
+    /// (输入 − 缓存输入) × 输入价 ＋ 缓存输入 × 缓存输入价 ＋ 输出 × 输出价 ＋ 缓存输出 × 缓存输出价。
+    /// 输入侧用减法：cached_tokens 是 prompt_tokens 里已按输入价记过账的子集，
+    /// 再乘一次缓存价就是同一批 token 收两遍钱——必须先把这部分从输入价里挪出来（改价，不是加量）。
+    /// 输出侧用加法：缓存/思考输出是端点单独计费的一笔，不在 completion_tokens 里，不加就漏账。
+    /// </summary>
+    public double CostOf(string model, int promptTokens, int completionTokens, int cachedInputTokens, int cachedOutputTokens)
     {
         var price = PriceOf(model);
         if (price is null) return 0;
-        return promptTokens / 1_000_000.0 * price.InputPerMillion
-             + completionTokens / 1_000_000.0 * price.OutputPerMillion;
+        var hit = Math.Clamp(cachedInputTokens, 0, promptTokens);
+        return (promptTokens - hit) / 1_000_000.0 * price.InputPerMillion
+             + hit / 1_000_000.0 * price.CachedInputPerMillion
+             + completionTokens / 1_000_000.0 * price.OutputPerMillion
+             + Math.Max(0, cachedOutputTokens) / 1_000_000.0 * price.CachedOutputPerMillion;
     }
 
     /// <summary>用量与花费总览（一句话摘要）。</summary>
@@ -245,6 +281,10 @@ public sealed class CostEstimatorService
 
     // ============ 图表与导出用的聚合 ============
 
+    /// <summary>按当前单价算一条记录的花费（含缓存两档）。</summary>
+    private double CostOfRecord(TokenUsageRecord u) =>
+        CostOf(u.Model, u.PromptTokens, u.CompletionTokens, u.CachedInputTokens, u.CachedOutputTokens);
+
     /// <summary>按模型汇总（条形图用）。</summary>
     public sealed record ModelTotal(string Model, int Calls, long Prompt, long Completion, double Cost);
 
@@ -256,7 +296,7 @@ public sealed class CostEstimatorService
         return usage.GroupBy(u => u.Model, StringComparer.OrdinalIgnoreCase)
             .Select(g => new ModelTotal(g.Key, g.Count(),
                 g.Sum(x => (long)x.PromptTokens), g.Sum(x => (long)x.CompletionTokens),
-                g.Sum(x => CostOf(x.Model, x.PromptTokens, x.CompletionTokens))))
+                g.Sum(x => CostOfRecord(x))))
             .OrderByDescending(m => m.Cost)
             .ThenByDescending(m => m.Prompt + m.Completion)
             .ToList();
@@ -280,9 +320,113 @@ public sealed class CostEstimatorService
             points.Add(new DailyPoint(d, bucket.Count,
                 bucket.Sum(x => (long)x.PromptTokens),
                 bucket.Sum(x => (long)x.CompletionTokens),
-                bucket.Sum(x => CostOf(x.Model, x.PromptTokens, x.CompletionTokens))));
+                bucket.Sum(CostOfRecord)));
         }
         return points;
+    }
+
+    // ============ 用量统计页用的聚合（含缓存两档） ============
+
+    /// <summary>一段窗口内的用量合计。计价 token = 输入 + 输出 + 缓存输出（缓存输入已含在输入里）。</summary>
+    public sealed record UsageSpan(int Calls, long Prompt, long Completion, long CachedInput, long CachedOutput, double Cost)
+    {
+        public long BilledTokens => Prompt + Completion + CachedOutput;
+        public double PricePerMillion => BilledTokens > 0 ? Cost * 1_000_000.0 / BilledTokens : 0;
+    }
+
+    public sealed record UsageOverview(UsageSpan Today, UsageSpan Last7, UsageSpan All);
+
+    /// <summary>今日 / 近 7 天（含今天） / 累计 三档总览。</summary>
+    public async Task<UsageOverview> OverviewAsync()
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+
+        UsageSpan Of(IReadOnlyList<TokenUsageRecord> rs) => new(
+            rs.Count,
+            rs.Sum(r => (long)r.PromptTokens),
+            rs.Sum(r => (long)r.CompletionTokens),
+            rs.Sum(r => (long)r.CachedInputTokens),
+            rs.Sum(r => (long)r.CachedOutputTokens),
+            rs.Sum(CostOfRecord));
+
+        var today = DateTime.Now.Date;
+        var local = usage.Select(u => (Rec: u, Local: u.At.ToLocalTime())).ToList();
+        return new UsageOverview(
+            Of(local.Where(x => x.Local.Date == today).Select(x => x.Rec).ToList()),
+            Of(local.Where(x => x.Local.Date > today.AddDays(-7)).Select(x => x.Rec).ToList()),
+            Of(local.Select(x => x.Rec).ToList()));
+    }
+
+    /// <summary>按模型分组的明细行（成本构成与分组明细表用）。</summary>
+    public sealed record ModelUsageRow(string Model, int Calls, long Prompt, long Completion,
+        long CachedInput, long CachedOutput, double Cost);
+
+    public async Task<List<ModelUsageRow>> ModelUsageRowsAsync()
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+        return usage.GroupBy(u => u.Model, StringComparer.OrdinalIgnoreCase)
+            .Select(g => new ModelUsageRow(g.Key, g.Count(),
+                g.Sum(x => (long)x.PromptTokens), g.Sum(x => (long)x.CompletionTokens),
+                g.Sum(x => (long)x.CachedInputTokens), g.Sum(x => (long)x.CachedOutputTokens),
+                g.Sum(CostOfRecord)))
+            .OrderByDescending(r => r.Cost).ThenByDescending(r => r.Prompt + r.Completion)
+            .ToList();
+    }
+
+    /// <summary>按天分组的明细行；时间序列要 0 占位（没有用的日子也是轴上的一天），过滤交给调用方。</summary>
+    public sealed record DayUsageRow(DateTime Day, int Calls, long Prompt, long Completion,
+        long CachedInput, long CachedOutput, double Cost);
+
+    public async Task<List<DayUsageRow>> DayUsageRowsAsync(int days)
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+
+        var today = DateTime.Now.Date;
+        var from = today.AddDays(-(Math.Max(2, days) - 1));
+        var rows = new List<DayUsageRow>();
+        for (var d = from; d <= today; d = d.AddDays(1))
+        {
+            var bucket = usage.Where(u => u.At.ToLocalTime().Date == d).ToList();
+            rows.Add(new DayUsageRow(d, bucket.Count,
+                bucket.Sum(x => (long)x.PromptTokens),
+                bucket.Sum(x => (long)x.CompletionTokens),
+                bucket.Sum(x => (long)x.CachedInputTokens),
+                bucket.Sum(x => (long)x.CachedOutputTokens),
+                bucket.Sum(CostOfRecord)));
+        }
+        return rows;
+    }
+
+    /// <summary>「星期 × 小时」活跃度桶（热力网格用）。Weekday：0=周一。按 token 计强度，168 格全给，空格也占位。</summary>
+    public sealed record HeatBucket(int Weekday, int Hour, long Tokens, int Calls);
+
+    public async Task<List<HeatBucket>> HeatmapAsync()
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+
+        var grid = new long[7, 24];
+        var calls = new int[7, 24];
+        foreach (var u in usage)
+        {
+            var local = u.At.ToLocalTime();
+            // DayOfWeek 是 0=周日；热力表习惯从周一起排
+            var wd = ((int)local.DayOfWeek + 6) % 7;
+            grid[wd, local.Hour] += Math.Max(0, u.PromptTokens) + Math.Max(0, u.CompletionTokens);
+            calls[wd, local.Hour]++;
+        }
+        var cells = new List<HeatBucket>(7 * 24);
+        for (var wd = 0; wd < 7; wd++)
+            for (var h = 0; h < 24; h++)
+                cells.Add(new HeatBucket(wd, h, grid[wd, h], calls[wd, h]));
+        return cells;
     }
 
     /// <summary>导出 CSV（UTF-8 带 BOM，Excel 直接打开不乱码）。返回文件绝对路径。</summary>
@@ -298,23 +442,27 @@ public sealed class CostEstimatorService
         var path = Path.Combine(dir, $"cost-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("时间,模型,输入tok,输出tok,本次花费,是否总结");
+        sb.AppendLine("时间,模型,输入tok,输出tok,缓存输入tok,缓存输出tok,本次花费,是否总结");
         foreach (var u in usage.OrderBy(u => u.At))
         {
             sb.Append(u.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")).Append(',')
               .Append(Escape(u.Model)).Append(',')
               .Append(u.PromptTokens).Append(',')
               .Append(u.CompletionTokens).Append(',')
-              .Append(CostOf(u.Model, u.PromptTokens, u.CompletionTokens).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+              .Append(u.CachedInputTokens).Append(',')
+              .Append(u.CachedOutputTokens).Append(',')
+              .Append(CostOfRecord(u).ToString("0.######", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
               .Append(u.IsSummary ? "是" : "否").AppendLine();
         }
 
         sb.AppendLine();
-        sb.AppendLine("模型,单价(输入/百万),单价(输出/百万)");
+        sb.AppendLine("模型,单价(输入/百万),单价(输出/百万),单价(缓存输入/百万),单价(缓存输出/百万)");
         foreach (var p in prices)
             sb.Append(Escape(p.Model)).Append(',')
               .Append(p.InputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
-              .Append(p.OutputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).AppendLine();
+              .Append(p.OutputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+              .Append(p.CachedInputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).Append(',')
+              .Append(p.CachedOutputPerMillion.ToString("0.####", System.Globalization.CultureInfo.InvariantCulture)).AppendLine();
 
         await File.WriteAllTextAsync(path, sb.ToString(), new System.Text.UTF8Encoding(true));
         return path;

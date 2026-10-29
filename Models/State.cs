@@ -65,6 +65,32 @@ public sealed record GameState
 
     /// <summary>本存档启用性欲系统的角色 id（主角 + 指定配角）。空 = 全不启用。</summary>
     public List<string> LibidoCharacters { get; init; } = new();
+
+    // ===== 存档运行时：每个角色此刻在做什么 =====
+
+    /// <summary>
+    /// 角色在场状态：存档打开时由运行时推演并随存档落盘，重开这一档时 TA 们接着刚才的生活。
+    /// 键是角色 id；不在表里的角色会在第一次 tick 时补上。
+    /// </summary>
+    public Dictionary<string, CharacterPresence> Presence { get; init; } = new();
+}
+
+/// <summary>
+/// 一个角色此刻的在场状态：正在做什么、在哪儿，以及上次 AI 生活回合 / 小游戏 / 主动消息的时间。
+/// 只放在存档里，不碰全局角色库——同一角色在 A 档忙碌、在 B 档歇着是正常的。
+/// </summary>
+public sealed record CharacterPresence
+{
+    public string Activity { get; set; } = "";
+    public string Place { get; set; } = "家";
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime LastAiAt { get; set; }
+    public DateTime LastGameAt { get; set; }
+    public DateTime LastMessageAt { get; set; }
+    /// <summary>累计后台生活回合数（观察预算用，不做展示数值）。</summary>
+    public int AiRounds { get; set; }
+    /// <summary>累计自己下过的局数。</summary>
+    public int Games { get; set; }
 }
 
 /// <summary>
@@ -473,6 +499,74 @@ public sealed record UserSettings
     /// 只有一块屏时两个选项没区别。
     /// </summary>
     public bool PetChromeCrossScreen { get; init; }
+    /// <summary>
+    /// 桌宠体型倍率（0.4–2.6，默认 1）。Windows 上的基准是「工作区高的 42%」，
+    /// 一块 2K/4K 屏能把这个基准顶到七八百像素，所以真正要调的是在这块屏的基准上再乘一刀。
+    /// 滚轮与捏合改的就是它——不落盘的话每次重新贴上桌面都弹回基准，用户看到的就是「刚调小又变大」。
+    /// </summary>
+    public double PetScale { get; init; } = 1.0;
+
+    // ===== 桌宠设置（设置页每一项都要真能改到行为，做不到的一律不进这个区） =====
+
+    /// <summary>气泡与输入条字号（DIP，10–22）。字号变了小窗要重新量高，不是只换个字体。</summary>
+    public int PetFontSize { get; init; } = 12;
+    /// <summary>气泡逐字浮现的速度倍率（0.2–6；1≈和正文同速，数字越大越快）。</summary>
+    public double PetBubbleSpeed { get; init; } = 1.0;
+    /// <summary>立绘外发光强度（0–1，0=没有）。分层窗口沿 alpha 轮廓描一圈柔光。</summary>
+    public double PetGlow { get; init; }
+    /// <summary>自发动作（走动/呼吸/呼噜）的帧率（10–60）。</summary>
+    public int PetFps { get; init; } = 30;
+    /// <summary>帧率锁定：开=严格按 <see cref="PetFps"/> 抽帧（省电）；关=有余量就跑满。</summary>
+    public bool PetFpsLock { get; init; } = true;
+    /// <summary>前台进入全屏（放映/游戏）时把角色一起收起，退出全屏再回来。</summary>
+    public bool PetHideOnFullscreen { get; init; }
+    /// <summary>记住位置：拖到哪儿下次还在哪儿。关了就每次回到工作区右下角。</summary>
+    public bool PetRememberPosition { get; init; } = true;
+    /// <summary>上次拖到的高度坐标（虚拟桌面物理像素，可负）。空=从没记过。</summary>
+    public int? PetAnchorX { get; init; }
+    public int? PetAnchorY { get; init; }
+    /// <summary>
+    /// 鼠标悬停时出现的按钮（有序，最多 6 个）。
+    /// 可选 id：talk=说话 / think=想一次 / pet=摸摸头 / purr=呼噜 / walk=走走 / sleep=睡觉 / settings=设置 / home=回窗口。
+    /// </summary>
+    public List<string> PetHoverButtons { get; init; } = new() { "talk", "think", "pet", "home" };
+    /// <summary>双击角色的动作：home=回主窗口 / talk=说句话 / none=什么都不做。</summary>
+    public string PetDoubleClick { get; init; } = "home";
+    /// <summary>打字音：气泡逐字浮现时的那串小键盘声。</summary>
+    public bool PetTypingSound { get; init; }
+    /// <summary>状态气泡：头顶显示心情/精力/正在做什么。</summary>
+    public bool PetStatusBubble { get; init; } = true;
+    /// <summary>输入气泡：头顶那条输入条。关了就只剩角色本人。</summary>
+    public bool PetInputBubble { get; init; } = true;
+    /// <summary>音效分类音量（键=类别 tap/purr/speak/typing，值=0–1；缺键按 1 算）。</summary>
+    public Dictionary<string, double> PetSfxLevels { get; init; } = new();
+    /// <summary>呼噜时长（秒，2–20）：摸头之后她呼噜多久。</summary>
+    public int PetPurrSeconds { get; init; } = 6;
+    /// <summary>回复读出声：桌宠里的回答用 TTS 念出来。</summary>
+    public bool PetSpeakReplies { get; init; }
+    /// <summary>桌宠的说话声音覆写；空=跟随角色绑定或全局。</summary>
+    public string PetVoiceName { get; init; } = "";
+    /// <summary>音高（0.5–2，1=原声）。</summary>
+    public double PetVoicePitch { get; init; } = 1.0;
+    /// <summary>语速（0.5–2，1=原速）。与全局 TtsRate 相乘，不是替换。</summary>
+    public double PetVoiceRate { get; init; } = 1.0;
+    /// <summary>走动：off=站着不动 / roam=在屏幕底沿来回走。</summary>
+    public string PetWalking { get; init; } = "off";
+    /// <summary>回应模式：always=有话就说 / click=被点到才答 / quiet=少插话。</summary>
+    public string PetRespondMode { get; init; } = "always";
+    /// <summary>让她自己调桌宠设置（大小、气泡这些）。默认关：她的自动改动不该悄悄盖掉用户的偏好。</summary>
+    public bool PetSelfConfig { get; init; }
+    /// <summary>桌宠语言；空=跟随全局语言。非空时说话与回复都用这一种。</summary>
+    public string PetLanguage { get; init; } = "";
+
+    // ===== AI 制作桌宠（工作室出的 Q 版素材包） =====
+
+    /// <summary>Q 版桌宠的画布基准高度（像素）。越小桌宠越小；走动步频也按它折算。</summary>
+    public int PetStudioCanvasHeight { get; init; } = 320;
+    /// <summary>工作室逐帧出图的尺寸，直接决定桌宠能做多小。</summary>
+    public string PetStudioImageSize { get; init; } = "1024x1024";
+    /// <summary>她在桌面上水平走动的速度（DIP/秒），走动循环的帧率由它算出来。</summary>
+    public double PetWalkSpeedDip { get; init; } = 120;
 
     // 官方接入（真微信 / QQ 官方机器人）
     public bool QqBotEnabled { get; init; }
@@ -512,6 +606,31 @@ public sealed record UserSettings
     public string WechatAppSecret { get; init; } = "";
     public string WechatToken { get; init; } = "";
     public int WechatPort { get; init; } = 8012;
+    /// <summary>微信机器人绑定的陪聊角色（空=跟随当前角色）。QQ 与微信各绑各的，同一角色也能两边同时在线。</summary>
+    public string WechatBoundCharacterId { get; init; } = "";
+
+    // ===== 存档运行时：存档一打开，所有内部角色都继续活着 =====
+
+    /// <summary>存档打开时让所有内部角色在后台运行（活动推演、生活记忆、小游戏与消息）。</summary>
+    public bool SaveRuntimeEnabled { get; init; } = true;
+
+    /// <summary>后台生活回合是否调用模型（关掉只做本地推演，不花 token）。</summary>
+    public bool SaveRuntimeAiEnabled { get; init; } = true;
+
+    /// <summary>每个角色平均多久做一次 AI 生活回合（分钟，10–120）。</summary>
+    public int SaveRuntimeAiMinutes { get; init; } = 20;
+
+    /// <summary>后台角色会自己下棋/玩小游戏（本地结算，不需要模型）。</summary>
+    public bool SaveRuntimePlayGames { get; init; } = true;
+
+    /// <summary>后台角色可以主动通过 QQ/微信找你（仍受「主动发消息」开关、确认与每小时上限约束）。</summary>
+    public bool SaveRuntimeProactive { get; init; }
+
+    /// <summary>后台 AI 每小时总预算（所有角色合计），防止多角色时把 token 烧光。</summary>
+    public int SaveRuntimeHourlyBudget { get; init; } = 6;
+
+    /// <summary>深夜安静：23:00–07:00 不调用模型、不外发，只做本地推演。</summary>
+    public bool SaveRuntimeQuietHours { get; init; } = true;
 
     /// <summary>
     /// 视频号外链：社交壳（微信/QQ）里点「视频号」时直接跳转到的用户链接（留空则提示去设置里填）。

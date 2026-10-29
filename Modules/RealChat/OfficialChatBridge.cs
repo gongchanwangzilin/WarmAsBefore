@@ -115,13 +115,18 @@ public sealed class OfficialChatBridge
             RememberUserIfKnown(msg);
 
             Incoming?.Invoke(msg);
-            var charId = ResolveCharacter();
+            var charId = ResolveCharacter(msg);
 
             // 认出本人时告诉他「这是谁在跟我说话」——否则角色只会看到一个陌生 openid 的名字
             var s0 = _settings.Current;
             var incoming = msg.Content;
-            if (!msg.IsGroup && IsKnownUser && !string.IsNullOrWhiteSpace(s0.QqUserName))
-                incoming = $"[这是你认得的「{s0.QqUserName}」从手机 QQ 上发来的] {incoming}";
+            if (!msg.IsGroup)
+            {
+                if (msg.Channel == _qq.Name && IsKnownUser && !string.IsNullOrWhiteSpace(s0.QqUserName))
+                    incoming = $"[这是你认得的「{s0.QqUserName}」从手机 QQ 上发来的] {incoming}";
+                else if (msg.Channel != _qq.Name && !string.IsNullOrWhiteSpace(WeChatUserName))
+                    incoming = $"[这是「{WeChatUserName}」从微信上发来的] {incoming}";
+            }
 
             // 文本指令：送礼/使用 直接消耗商店库存（不进 AI）
             var command = TryHandleCommand(msg.Content);
@@ -177,7 +182,9 @@ public sealed class OfficialChatBridge
         }
 
         // 微信：公众号 openid 无法预先填写（每次关注都不同），只记最近私聊过的人
+        IsKnownUser = false;
         WeChatUserOpenId = msg.SenderId;
+        WeChatUserName = msg.SenderName;
         if (string.IsNullOrWhiteSpace(UserName)) UserName = msg.SenderName;
     }
 
@@ -185,6 +192,8 @@ public sealed class OfficialChatBridge
     public string UserOpenId { get; private set; } = "";
     /// <summary>最近一次与公众号私聊的用户 openid（微信）。</summary>
     public string WeChatUserOpenId { get; private set; } = "";
+    /// <summary>微信上最近一个私聊用户的名字（用来告诉角色「是谁在说话」）。</summary>
+    public string WeChatUserName { get; private set; } = "";
     public string UserName { get; private set; } = "";
     /// <summary>上一次私聊是否确认为设置里指定的「用户本人」。</summary>
     public bool IsKnownUser { get; private set; }
@@ -192,7 +201,7 @@ public sealed class OfficialChatBridge
     // ============ 主动外发（角色拿起手机发消息） ============
 
     /// <summary>等待用户确认的主动消息。</summary>
-    public sealed record PendingOutboundMessage(string Id, string Text, DateTime At);
+    public sealed record PendingOutboundMessage(string Id, string Text, DateTime At, string CharacterId = "");
 
     private readonly List<PendingOutboundMessage> _pending = new();
     private readonly List<DateTime> _sentLog = new();
@@ -209,14 +218,14 @@ public sealed class OfficialChatBridge
     /// 并受每小时上限约束——这两道闸门是「AI 不能未经同意往外发消息」的保证。
     /// 返回给 AI 看的说明文本。
     /// </summary>
-    public string QueueOutbound(string text)
+    public string QueueOutbound(string text, string? characterId = null)
     {
         var s = _settings.Current;
         var body = (text ?? "").Trim();
         if (body.Length == 0) return "要发的内容是空的。";
         if (!s.QqProactiveEnabled)
             return "现在没开「允许角色主动发消息」，所以这条没发出去。可以在设置里打开。";
-        if (ResolveTarget() is null)
+        if (ResolveTarget(characterId) is null)
             return "还不知道该发给谁——让对方先在 QQ 或微信上跟机器人说句话，就能认出他来了。";
 
         lock (_sentLog)
@@ -228,11 +237,11 @@ public sealed class OfficialChatBridge
 
         if (!s.QqProactiveRequireConfirm)
         {
-            _ = SendNowAsync(body);
+            _ = SendNowAsync(body, characterId);
             return "消息已经发出去了。";
         }
 
-        var item = new PendingOutboundMessage(Guid.NewGuid().ToString("N")[..8], body, DateTime.Now);
+        var item = new PendingOutboundMessage(Guid.NewGuid().ToString("N")[..8], body, DateTime.Now, characterId ?? "");
         lock (_sentLog) _pending.Add(item);
         OutboundPendingChanged?.Invoke();
         _notify.Show("有一条消息等着确认", body);
@@ -240,12 +249,16 @@ public sealed class OfficialChatBridge
     }
 
     /// <summary>
-    /// 挑一个能用的外发通道与目标：默认优先 QQ，QQ 没在跑或有设置偏好时用微信。
+    /// 挑一个能用的外发通道与目标：角色只绑了 QQ 或只绑了微信时就走那一边，
+    /// 否则默认优先 QQ，QQ 没在跑或有设置偏好时用微信。
     /// 两个通道的身份不通用（QQ openid 与公众号 openid 是两套）。
     /// </summary>
-    private (bool IsQq, string OpenId)? ResolveTarget()
+    private (bool IsQq, string OpenId)? ResolveTarget(string? characterId = null)
     {
-        var prefer = (_settings.Current.RealOutboundChannel ?? "auto").Trim().ToLowerInvariant();
+        var s = _settings.Current;
+        var prefer = (s.RealOutboundChannel ?? "auto").Trim().ToLowerInvariant();
+        var binding = ChannelBinding(s, characterId);
+        if (binding.Length > 0) prefer = binding;
         var qqReady = _qq.IsRunning && !string.IsNullOrWhiteSpace(UserOpenId);
         var wxReady = _wechat.IsRunning && !string.IsNullOrWhiteSpace(WeChatUserOpenId);
 
@@ -268,7 +281,7 @@ public sealed class OfficialChatBridge
         }
         OutboundPendingChanged?.Invoke();
         if (item is null) return false;
-        return await SendNowAsync(item.Text);
+        return await SendNowAsync(item.Text, item.CharacterId);
     }
 
     public void CancelOutbound(string id)
@@ -285,9 +298,12 @@ public sealed class OfficialChatBridge
         ? (t.IsQq ? "QQ" : "微信公众号")
         : "无可用通道";
 
-    private async Task<bool> SendNowAsync(string text)
+    /// <summary>这个角色此刻能不能把消息送到用户手机上（通道在跑且认得出对方）。</summary>
+    public bool CanReachUser(string? characterId = null) => ResolveTarget(characterId) is not null;
+
+    private async Task<bool> SendNowAsync(string text, string? characterId = null)
     {
-        var target = ResolveTarget();
+        var target = ResolveTarget(characterId);
         if (target is null)
         {
             _notify.Show("消息没发出去", "没有可用的通道或还不知道发给谁。");
@@ -332,14 +348,27 @@ public sealed class OfficialChatBridge
         return action(item).GetAwaiter().GetResult();
     }
 
-    private string ResolveCharacter()
+    private string ResolveCharacter(RealChatMessage msg)
     {
-        // #16：QQ/微信机器人绑定过「陪聊角色（存档）」时优先用它；未绑定时回退到当前游戏角色 / 名册第一个 / 兜底。
-        var bound = _settings.Current.QqBoundCharacterId;
-        if (!string.IsNullOrEmpty(bound)) return bound;
+        // #16：QQ/微信各绑各的陪聊角色——同一个角色两边都填，就是同时在线；
+        // 某一边没填时回退到当前游戏角色 / 名册第一个 / 兜底。
+        var s = _settings.Current;
+        var bound = msg.Channel == _qq.Name ? s.QqBoundCharacterId : s.WechatBoundCharacterId;
+        if (!string.IsNullOrWhiteSpace(bound)) return bound;
         var id = _engine.State.CharacterId;
         if (!string.IsNullOrEmpty(id)) return id;
         if (_engine.Roster.Count > 0) return _engine.Roster.Values.First().Profile.Id;
         return "小雨";
+    }
+
+    /// <summary>这个角色归哪个通道：只绑了一边就用那一边，两边都绑或都没绑返回空（按偏好走）。</summary>
+    private static string ChannelBinding(UserSettings s, string? characterId)
+    {
+        if (string.IsNullOrWhiteSpace(characterId)) return "";
+        var qq = string.Equals(characterId, (s.QqBoundCharacterId ?? "").Trim(), StringComparison.Ordinal);
+        var wx = string.Equals(characterId, (s.WechatBoundCharacterId ?? "").Trim(), StringComparison.Ordinal);
+        if (qq && !wx) return "qq";
+        if (wx && !qq) return "wechat";
+        return "";
     }
 }

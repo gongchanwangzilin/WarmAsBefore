@@ -178,7 +178,8 @@ public sealed class RuntimeConfigurator
             if (!_usageHooked)
             {
                 _usageHooked = true;
-                _api.UsageReported += (model, prompt, completion) => _cost.Record(model, prompt, completion);
+                _api.UsageReported += (model, prompt, completion, cachedIn, cachedOut) =>
+                    _cost.Record(model, prompt, completion, cachedIn, cachedOut);
             }
             if (prices is null) return;
             var existing = await _cost.PricesAsync();
@@ -187,7 +188,10 @@ public sealed class RuntimeConfigurator
                 var cur = existing.FirstOrDefault(e => string.Equals(e.Model, p.Model, StringComparison.OrdinalIgnoreCase));
                 if (cur is not null && Math.Abs(cur.InputPerMillion - p.InputPerMillion) < 1e-9
                     && Math.Abs(cur.OutputPerMillion - p.OutputPerMillion) < 1e-9) continue;
-                await _cost.SetPriceAsync(p.Model, p.InputPerMillion, p.OutputPerMillion);
+                // 设置里只有旧的两档价：缓存价没填（=0）时传 null，让成本服务保留用量页录好的缓存价，别被同步抹掉
+                await _cost.SetPriceAsync(p.Model, p.InputPerMillion, p.OutputPerMillion,
+                    p.CachedInputPerMillion > 0 ? p.CachedInputPerMillion : null,
+                    p.CachedOutputPerMillion > 0 ? p.CachedOutputPerMillion : null);
             }
         }
         catch (Exception ex) { App.WriteLog("RuntimeConfigurator.SyncModelPrices -> " + ex.Message); }

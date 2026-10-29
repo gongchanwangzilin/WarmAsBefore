@@ -1,6 +1,7 @@
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.DesignSystem.Worlds;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 
 namespace WarmAsBefore.Drawables;
@@ -180,6 +181,7 @@ public sealed class MemoryGraphDrawable : IDrawable
     public void AttachThumbResolver(Func<GraphNodeView, string?> resolver) => _thumbResolver = resolver;
 
     private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage?> _thumbCache = new(StringComparer.Ordinal);
+    private readonly List<string> _thumbOrder = new();
 
     // ==================== 一帧 ====================
 
@@ -932,8 +934,13 @@ public sealed class MemoryGraphDrawable : IDrawable
     private Microsoft.Maui.Graphics.IImage? TryThumb(GraphNodeView n)
     {
         if (_thumbResolver is null) return null;
-        if (_thumbCache.TryGetValue(n.Id, out var cached)) return cached;
-        _thumbCache[n.Id] = null;
+        if (_thumbCache.TryGetValue(n.Id, out var cached))
+        {
+            // 顶到上限才记账：这张这次画到了，下次要扔先扔别的
+            if (_thumbOrder.Count >= ImageCache.Cap) ImageCache.Touch(_thumbOrder, n.Id);
+            return cached;
+        }
+        ImageCache.Put(_thumbCache, _thumbOrder, n.Id, null);
         LoadThumb(n);
         return null;
     }
@@ -952,9 +959,9 @@ public sealed class MemoryGraphDrawable : IDrawable
                 try
                 {
                     using var ms = new MemoryStream(bytes);
-                    _thumbCache[n.Id] = Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms);
+                    ImageCache.Put(_thumbCache, _thumbOrder, n.Id, Microsoft.Maui.Graphics.Platform.PlatformImage.FromStream(ms));
                 }
-                catch { _thumbCache[n.Id] = null; }
+                catch { ImageCache.Put(_thumbCache, _thumbOrder, n.Id, null); }
                 NeedRedraw();
             });
         });

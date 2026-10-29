@@ -46,6 +46,7 @@ public sealed class AudioController
                 "rain" => a.RainId,
                 "shake" => a.ShakeId,
                 "bounce" => a.BounceId,
+                "purr" => a.PurrId,
                 _ => a.KeyPressId
             };
             if (string.IsNullOrEmpty(id)) return;
@@ -77,6 +78,7 @@ public sealed class AudioController
                 "rain" => a.RainId,
                 "shake" => a.ShakeId,
                 "bounce" => a.BounceId,
+                "purr" => a.PurrId,
                 _ => ""
             };
             return !string.IsNullOrEmpty(id);

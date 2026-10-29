@@ -160,51 +160,238 @@ public sealed class MapService
         }
     }
 
-    public async Task SaveAsync() => await _store.Save(MapKey, _map);
+    public async Task SaveAsync()
+    {
+        InvalidateReach();
+        await _store.Save(MapKey, _map);
+    }
 
     // ==================== 寻路 ====================
 
     /// <summary>路径顶点（场景或临时节点）。</summary>
     public readonly record struct MapNodeRef(string Id, string Name, bool IsScene);
 
-    /// <summary>图上最短路径（BFS，顶点含临时节点），多条等长路径随机返回一条；null=不可达。</summary>
+    /// <summary>
+    /// 这条路能不能从 from 走向 to。
+    /// 单行道只允许 A→B；未丈量（Length=0，画虚线）的边照走，只是没里程数。
+    /// </summary>
+    public static bool Passable(MapEdge e, string from, string to) =>
+        !(e.OneWay && from == e.B && to == e.A);
+
+    /// <summary>两点之间的边（有向查：单行道的反向不通）。找不到返回 null。</summary>
+    public MapEdge? EdgeBetween(string from, string to)
+    {
+        foreach (var (nb, e) in AdjacencyOf(from))
+            if (nb == to) return e;
+        return null;
+    }
+
+    private Dictionary<string, List<(string Nb, MapEdge Edge)>>? _adj;
+
+    /// <summary>
+    /// 邻接表：寻路原本每条边都要全表扫一遍连线，城市级地图（几千条路）会直接扫跪。
+    /// 建一次索引，图一变（保存/导入/通知变化）就作废。
+    /// </summary>
+    private Dictionary<string, List<(string Nb, MapEdge Edge)>> Adjacency()
+    {
+        if (_adj is not null) return _adj;
+        var a = new Dictionary<string, List<(string, MapEdge)>>();
+        void Add(string from, string to, MapEdge e)
+        {
+            if (_map.PointNameById(from) is null || _map.PointNameById(to) is null) return;   // 悬空连线
+            if (!a.TryGetValue(from, out var list)) a[from] = list = new List<(string, MapEdge)>();
+            list.Add((to, e));
+        }
+        foreach (var e in _map.Edges)
+        {
+            Add(e.A, e.B, e);
+            if (!e.OneWay) Add(e.B, e.A, e);
+        }
+        _adj = a;
+        return a;
+    }
+
+    private IEnumerable<(string Nb, MapEdge Edge)> AdjacencyOf(string from) =>
+        Adjacency().TryGetValue(from, out var list) ? list : Enumerable.Empty<(string, MapEdge)>();
+
+    private Dictionary<string, Point>? _points;
+
+    /// <summary>顶点坐标索引（场景 + 临时节点）：算边长时不再逐个场景线性找。</summary>
+    private Dictionary<string, Point> Points()
+    {
+        if (_points is not null) return _points;
+        var d = new Dictionary<string, Point>();
+        foreach (var s in _map.AllScenes) d[s.Id] = new Point(s.X < 0 ? 0 : s.X, s.Y < 0 ? 0 : s.Y);
+        foreach (var t in _map.Transits) d[t.Id] = new Point(t.X < 0 ? 0 : t.X, t.Y < 0 ? 0 : t.Y);
+        _points = d;
+        return d;
+    }
+
+    private Dictionary<string, double>? _seconds;
+
+    /// <summary>图变了就把三份缓存一起作废。</summary>
+    private void InvalidateReach()
+    {
+        _reach = null;
+        _reachFrom = "";
+        _adj = null;
+        _points = null;
+        _seconds = null;
+    }
+
+    /// <summary>算距离用的米数：手量的优先；未丈量按几何长度 × 比例尺兜底。</summary>
+    public double CostMeters(MapEdge e) =>
+        e.Length > 0 ? e.Length : Math.Max(1, Math.Round(EdgeLengthPixels(e) * _map.MetersPerUnit));
+
+    /// <summary>
+    /// 沿这条路要走多久（秒）：里程 ÷ 限速，红绿灯多等一趟，收费站停一次车。
+    /// 户型内（限速 0）不计时——那是「推门就进」，不是「走五分钟」。
+    /// </summary>
+    public double TraversalSeconds(MapEdge e)
+    {
+        if (_seconds is not null && _seconds.TryGetValue(e.Id, out var cached)) return cached;
+        var kmh = e.EffectiveSpeedKmh;
+        double sec;
+        if (kmh <= 0) sec = 0;
+        else
+        {
+            sec = CostMeters(e) / (kmh * 1000.0 / 3600.0);
+            if (e.TrafficLight) sec += 25;
+            if (e.Toll) sec += 40;
+            sec = Math.Max(1, sec);
+        }
+        (_seconds ??= new Dictionary<string, double>())[e.Id] = sec;
+        return sec;
+    }
+
+    /// <summary>
+    /// 图上一趟要走的时间（秒）。不可达返回 null。
+    /// </summary>
+    public double? TravelSeconds(string fromId, string toId)
+    {
+        var route = FindShortest(fromId, toId);
+        return route is null || route.Count < 2 ? null : RouteSeconds(route);
+    }
+
+    /// <summary>一条路线的总耗时（秒）。</summary>
+    public double RouteSeconds(IReadOnlyList<MapNodeRef> route)
+    {
+        double sec = 0;
+        for (var i = 0; i + 1 < route.Count; i++)
+            sec += EdgeBetween(route[i].Id, route[i + 1].Id) is { } e ? TraversalSeconds(e) : 0;
+        return sec;
+    }
+
+    /// <summary>最快路径（按耗时加权：单行道绕行、红绿灯与收费站计罚；多条同代价路径随机选一条）。null=不可达。</summary>
     public List<MapNodeRef>? FindShortest(string fromId, string toId)
     {
         if (fromId == toId) return new List<MapNodeRef> { Resolve(fromId) };
-        var dist = new Dictionary<string, int> { [fromId] = 0 };
-        var queue = new Queue<string>();
-        queue.Enqueue(fromId);
-        while (queue.Count > 0)
-        {
-            var cur = queue.Dequeue();
-            foreach (var (nbId, _, _) in _map.NeighborsOfPoint(cur))
-            {
-                if (dist.ContainsKey(nbId)) continue;
-                dist[nbId] = dist[cur] + 1;
-                queue.Enqueue(nbId);
-            }
-        }
-        if (!dist.ContainsKey(toId)) return null;
+        var cost = ReachFrom(fromId).Sec;
+        if (!cost.ContainsKey(toId)) return null;
 
-        // 收集所有等长最短路径，随机选一
+        // 摊开所有同代价路径，随机选一条：地图上不该总走同一根线。
+        var target = cost[toId];
         var paths = new List<List<MapNodeRef>>();
-        void Dfs(string node, List<MapNodeRef> trail)
+        var trail = new List<MapNodeRef>();
+        var onTrail = new HashSet<string>();
+        void Dfs(string node)
         {
+            if (paths.Count >= MaxEqualPaths) return;
             trail.Add(Resolve(node));
-            if (node == toId)
-            {
-                paths.Add(new List<MapNodeRef>(trail));
-            }
+            onTrail.Add(node);
+            if (node == toId) paths.Add(new List<MapNodeRef>(trail));
             else
             {
                 foreach (var (nbId, _, _) in _map.NeighborsOfPoint(node))
-                    if (dist.TryGetValue(nbId, out var d) && d == dist[node] + 1)
-                        Dfs(nbId, trail);
+                {
+                    // 同代价推进：这一段恰好把累计时间推到下一点的 cost，且不能绕回已在路上的点（户型内 0 秒会成环）。
+                    if (onTrail.Contains(nbId) || !cost.TryGetValue(nbId, out var nc)) continue;
+                    if (EdgeBetween(node, nbId) is not { } e) continue;
+                    if (Math.Abs(cost[node] + TraversalSeconds(e) - nc) > 1e-6) continue;
+                    if (Math.Abs(nc - target) < 1e-6 && nbId != toId) continue;
+                    Dfs(nbId);
+                    if (paths.Count >= MaxEqualPaths) break;
+                }
             }
+            onTrail.Remove(node);
             trail.RemoveAt(trail.Count - 1);
         }
-        Dfs(fromId, new List<MapNodeRef>());
+        Dfs(fromId);
         return paths.Count == 0 ? null : paths[_rnd.Next(paths.Count)];
+    }
+
+    /// <summary>同代价路径最多枚举这么多条——大地图上等长路线会组合爆炸，够用就收手。</summary>
+    private const int MaxEqualPaths = 24;
+
+    /// <summary>一次遍历得到的可达结果：从起点到每个顶点的耗时（秒）与里程（米），外加来路。</summary>
+    public sealed class Reach
+    {
+        internal readonly Dictionary<string, double> Sec = new();
+        internal readonly Dictionary<string, double> Meters = new();
+        internal readonly Dictionary<string, string> Prev = new();
+
+        public bool CanReach(string id) => Sec.ContainsKey(id);
+        public double? SecondsTo(string id) => Sec.TryGetValue(id, out var s) && s > 0 ? s : null;
+        public double? MetersTo(string id) => Meters.TryGetValue(id, out var m) && m > 0 ? m : null;
+
+        /// <summary>来路顶点链（起点→终点）；不可达返回空链。</summary>
+        public List<string> PathTo(string id)
+        {
+            var chain = new List<string>();
+            if (!Sec.ContainsKey(id)) return chain;
+            var cur = id;
+            while (Prev.TryGetValue(cur, out var p))
+            {
+                chain.Add(cur);
+                cur = p;
+            }
+            chain.Add(cur);
+            chain.Reverse();
+            return chain;
+        }
+    }
+
+    private Reach? _reach;
+    private string _reachFrom = "";
+
+    /// <summary>
+    /// 从一个顶点跑一遍 Dijkstra（按耗时），结果缓存一份。
+    /// 城市级地图动辄几百个场景，AI 上下文要「到每一处的距离」——只跑这一次，别一个目标跑一遍。
+    /// </summary>
+    public Reach ReachFrom(string fromId)
+    {
+        if (_reach is not null && _reachFrom == fromId) return _reach;
+
+        var r = new Reach();
+        r.Sec[fromId] = 0;
+        r.Meters[fromId] = 0;
+        var done = new HashSet<string>();
+        var cmp = Comparer<(double Sec, string Id)>.Create((a, b) =>
+        {
+            var c = a.Sec.CompareTo(b.Sec);
+            return c != 0 ? c : string.CompareOrdinal(a.Id, b.Id);
+        });
+        var frontier = new SortedSet<(double Sec, string Id)>(cmp) { (0, fromId) };
+        while (frontier.Count > 0)
+        {
+            var cur = frontier.Min;
+            frontier.Remove(cur);
+            if (!done.Add(cur.Id)) continue;
+            foreach (var (nbId, _, _) in _map.NeighborsOfPoint(cur.Id))
+            {
+                if (done.Contains(nbId) || EdgeBetween(cur.Id, nbId) is not { } e) continue;
+                var via = r.Sec[cur.Id] + TraversalSeconds(e);
+                if (r.Sec.TryGetValue(nbId, out var old) && old <= via) continue;
+                r.Sec[nbId] = via;
+                r.Meters[nbId] = r.Meters[cur.Id] + DisplayLengthMeters(e);
+                r.Prev[nbId] = cur.Id;
+                frontier.RemoveWhere(x => x.Id == nbId);
+                frontier.Add((via, nbId));
+            }
+        }
+        _reach = r;
+        _reachFrom = fromId;
+        return r;
     }
 
     private MapNodeRef Resolve(string id) =>
@@ -218,13 +405,18 @@ public sealed class MapService
         if (route is null || route.Count == 0) return;
         try
         {
+            double pendingMs = 0;
+            var prevId = _currentSceneId;
             foreach (var node in route)
             {
-                if (!node.IsScene) continue;   // 临时节点：只路过
+                if (node.Id != prevId) pendingMs += WalkAnimMsFor(EdgeBetween(prevId, node.Id));
+                prevId = node.Id;
+                if (!node.IsScene) continue;   // 临时节点：只路过，这段时间攒到下一站
                 if (node.Id == _currentSceneId) continue;
                 ct.ThrowIfCancellationRequested();
                 WalkSegmentStarted?.Invoke();
-                await Task.Delay(WalkMsPerSegment, ct);
+                await Task.Delay((int)Math.Clamp(pendingMs, 260, 2400), ct);
+                pendingMs = 0;
                 _currentSceneId = node.Id;
                 SceneChanged?.Invoke(_map.SceneById(node.Id)!);
             }
@@ -233,6 +425,16 @@ public sealed class MapService
         {
             WalkRouteCompleted?.Invoke();
         }
+    }
+
+    /// <summary>路线耗时的人话（"约 6 分钟"）；全是户型内那种不计时的小路就返回空串。</summary>
+    public string RouteTimeText(IReadOnlyList<MapNodeRef> route)
+    {
+        var sec = RouteSeconds(route);
+        if (sec <= 0) return "";
+        if (sec < 60) return $"约 {sec:0} 秒";
+        var min = sec / 60;
+        return min < 60 ? $"约 {min:0.#} 分钟" : $"约 {min / 60:0.#} 小时";
     }
 
     /// <summary>按场景名或 ID 移动（AI/UI 入口）：解析目标 → 寻路 → 逐段行走。</summary>
@@ -248,73 +450,96 @@ public sealed class MapService
         var route = FindShortest(cur.Id, target.Id);
         if (route is null) return $"（{cur.Name} 与 {target.Name} 之间还没有开通路线）";
 
+        var when = RouteTimeText(route);
         await WalkRouteAsync(route, ct);
         var pathText = string.Join(" → ", route.Select(r => r.Name));
-        return $"（已沿路线走到 {target.Name}：{pathText}）";
+        return $"（已沿路线走到 {target.Name}：{pathText}{(when.Length > 0 ? $"，{when}" : "")}）";
     }
 
     /// <summary>顶点（场景/临时节点）的画布坐标。</summary>
-    public Point WorldPointOf(string nodeId)
-    {
-        if (_map.SceneById(nodeId) is { } s) return new Point(s.X < 0 ? 0 : s.X, s.Y < 0 ? 0 : s.Y);
-        if (_map.TransitById(nodeId) is { } t) return new Point(t.X < 0 ? 0 : t.X, t.Y < 0 ? 0 : t.Y);
-        return default;
-    }
+    public Point WorldPointOf(string nodeId) => Points().TryGetValue(nodeId, out var p) ? p : default;
 
     /// <summary>边的几何长度（px，按路径折点求和），再换算成米。</summary>
     public double EdgeLengthPixels(MapEdge e)
     {
-        var pts = new List<Point> { WorldPointOf(e.A) };
-        foreach (var w in e.Waypoints) pts.Add(new Point(w.X, w.Y));
-        pts.Add(WorldPointOf(e.B));
+        var pts = Points();
+        if (!pts.TryGetValue(e.A, out var start) || !pts.TryGetValue(e.B, out var finish)) return 0;
         double px = 0;
-        for (var i = 0; i + 1 < pts.Count; i++)
-            px += Math.Sqrt(Math.Pow(pts[i + 1].X - pts[i].X, 2) + Math.Pow(pts[i + 1].Y - pts[i].Y, 2));
+        var prev = start;
+        foreach (var w in e.Waypoints)
+        {
+            px += Math.Sqrt(Math.Pow(w.X - prev.X, 2) + Math.Pow(w.Y - prev.Y, 2));
+            prev = new Point(w.X, w.Y);
+        }
+        px += Math.Sqrt(Math.Pow(finish.X - prev.X, 2) + Math.Pow(finish.Y - prev.Y, 2));
         return px;
     }
 
-    /// <summary>显示用长度（米）：手动值 > 0 用之；=0 表示未丈量（虚线）；-1 自动按几何换算。</summary>
+    /// <summary>显示用长度（米）：手动值 &gt; 0 用之；=0 表示未丈量（虚线）；-1 自动按几何换算。</summary>
     public double DisplayLengthMeters(MapEdge e)
     {
         if (e.Length > 0) return e.Length;
         if (e.Length == 0) return 0;
-        return Math.Max(1, Math.Round(EdgeLengthPixels(e) * 0.5));
+        return Math.Max(1, Math.Round(EdgeLengthPixels(e) * _map.MetersPerUnit));
+    }
+
+    /// <summary>
+    /// 动画上一段该演多久（毫秒）：按真实通行时间压缩，不是按段数硬等。
+    /// 户型内不计时，只给一个「推门就进」的短帧；最长 2.4 秒，免得一条高速把界面卡住。
+    /// </summary>
+    public int WalkAnimMsFor(MapEdge? e)
+    {
+        if (e is null) return WalkMsPerSegment;
+        if (e.EffectiveSpeedKmh <= 0) return 260;
+        return (int)Math.Clamp(TraversalSeconds(e) * 130, 320, 2400);
     }
 
     /// <summary>该边是否以虚线绘制（长度=0 → 未丈量）。</summary>
     public bool IsDashed(MapEdge e) => e.Length == 0;
 
-    /// <summary>计算从当前场景到指定场景的最短路径（按米）。不可达返回 null。</summary>
+    /// <summary>从当前场景到指定场景的里程（米）。不可达或没丈量返回 null。</summary>
     public double? DistanceTo(string targetSceneId)
     {
         if (!_isLoaded) return null;
-        var path = FindShortest(_currentSceneId, targetSceneId);
-        if (path is null || path.Count < 2) return null;
-        double total = 0;
-        for (int i = 0; i + 1 < path.Count; i++)
-        {
-            var from = path[i].Id;
-            var to = path[i + 1].Id;
-            var edge = _map.Edges.FirstOrDefault(e =>
-                (e.A == from && e.B == to) || (e.A == to && e.B == from));
-            if (edge is not null) total += DisplayLengthMeters(edge);
-        }
-        return total > 0 ? total : null;
+        return ReachFrom(_currentSceneId).MetersTo(targetSceneId);
+    }
+
+    /// <summary>从当前场景到指定场景要走多久（人话）。不可达或不计时返回空串。</summary>
+    public string TravelTimeTextTo(string targetSceneId)
+    {
+        if (!_isLoaded) return "";
+        var sec = ReachFrom(_currentSceneId).SecondsTo(targetSceneId);
+        if (sec is not double s) return "";
+        return s < 60 ? $"约 {s:0} 秒" : s < 3600 ? $"约 {s / 60:0.#} 分钟" : $"约 {s / 3600:0.#} 小时";
     }
 
     /// <summary>获取当前场景到其他所有场景的距离摘要（供 AI 上下文使用）。</summary>
     public string BuildDistanceContext()
     {
         if (!_isLoaded || _map.AllScenes.Count() <= 1) return "";
+        // 一次遍历拿到全图可达性：城市级地图几百个场景，逐个跑 Dijkstra 会把回合卡在提示词前面。
+        var reach = ReachFrom(_currentSceneId);
+        // 场景→地点名先摊平成一张表：原先每个场景都要重扫一遍地点树，几百个场景时这段本身就卡。
+        var ownerName = new Dictionary<string, string>();
+        foreach (var loc in _map.Locations)
+            foreach (var sc in loc.Scenes)
+                ownerName[sc.Id] = loc.Name;
         var parts = new List<string>();
         foreach (var sc in _map.AllScenes)
         {
             if (sc.Id == _currentSceneId) continue;
-            var dist = DistanceTo(sc.Id);
-            var locName = _map.LocationNameOf(sc.Id);
-            if (dist is double d && d > 0)
-                parts.Add($"{locName}·{sc.Name}({(d >= 1000 ? $"{d / 1000:F1}公里" : $"{(int)d}米")})");
-            else if (dist is null)
+            var d = reach.MetersTo(sc.Id);
+            var t = reach.SecondsTo(sc.Id);
+            var locName = ownerName.TryGetValue(sc.Id, out var ln) ? ln : "";
+            if (d is double m && m > 0)
+            {
+                var dist = m >= 1000 ? $"{m / 1000:F1}公里" : $"{(int)m}米";
+                var time = t is double s2 ? (s2 < 60 ? $"{s2:0}秒" : $"{s2 / 60:0.#}分钟") : "";
+                parts.Add($"{locName}·{sc.Name}({dist}{(time.Length > 0 ? $"，{time}" : "")})");
+            }
+            else if (reach.CanReach(sc.Id))
+                parts.Add($"{locName}·{sc.Name}(推门就到)");
+            else
                 parts.Add($"{locName}·{sc.Name}(无法到达)");
         }
         return parts.Count > 0 ? $"当前位置距离：{string.Join("，", parts)}。" : "";
@@ -395,7 +620,11 @@ public sealed class MapService
     }
 
     /// <summary>通知地图 UI 刷新（场景券解锁等外部变更时调用）。</summary>
-    public void NotifyChanged() => MapChanged?.Invoke();
+    public void NotifyChanged()
+    {
+        InvalidateReach();
+        MapChanged?.Invoke();
+    }
 
     /// <summary>画布空白点创建临时节点（连线端点）。</summary>
     public MapTransit AddTransit(double x, double y)
@@ -586,28 +815,37 @@ public sealed class MapService
             var json = await File.ReadAllTextAsync(pick.FullPath, ct);
             var map = JsonSerializer.Deserialize<MapDefinition>(json);
             if (map is null || !map.AllScenes.Any()) return "无效的地图文件";
-            _map = map;
-            Sanitize();
-            _currentSceneId = map.StartSceneId;
-            if (_map.SceneById(_currentSceneId) is null)
-                _currentSceneId = _map.AllScenes.FirstOrDefault()?.Id ?? "";
-            await SaveAsync();
-            MapChanged?.Invoke();
-            await MoveToAsync(_currentSceneId, ct);
-
-            // 导入进来的场景若带背景但没标定，进到那个场景时会被强制标定；
-            // 这里先把话说明白，免得用户莫名其妙撞上标定页。
-            var needCal = _map.AllScenes.Count(s =>
-                !string.IsNullOrWhiteSpace(s.Background)
-                && ResolveBackground(s) is not null
-                && !PlacementMath.Validate(s.Placement).Ok);
-            var tail = needCal > 0 ? $"，其中 {needCal} 个场景需要标定背景" : "";
-            return $"已导入地图：{map.Name}（{map.AllScenes.Count()} 个场景{tail}）";
+            return await AdoptAsync(map, ct);
         }
         catch (Exception ex)
         {
             App.WriteLog("MapService.ImportAsync -> " + ex);
             return "导入失败：" + ex.Message;
         }
+    }
+
+    /// <summary>
+    /// 接过一张外部来的地图（JSON 导入 / 真实城市检索 / AI 生成都走这里）：整张换上，落盘，并走到出生点。
+    /// 背景没标定的场景会先进标定流程，这里提前把话说清楚，免得用户莫名其妙撞上标定页。
+    /// </summary>
+    public async Task<string> AdoptAsync(MapDefinition map, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(map);
+        if (!map.AllScenes.Any()) return "这张图里一个场景都没有，先让它长出地点再导入。";
+        _map = map;
+        Sanitize();
+        _currentSceneId = map.StartSceneId;
+        if (_map.SceneById(_currentSceneId) is null)
+            _currentSceneId = _map.AllScenes.FirstOrDefault()?.Id ?? "";
+        await SaveAsync();
+        NotifyChanged();
+        await MoveToAsync(_currentSceneId, ct);
+
+        var needCal = _map.AllScenes.Count(s =>
+            !string.IsNullOrWhiteSpace(s.Background)
+            && ResolveBackground(s) is not null
+            && !PlacementMath.Validate(s.Placement).Ok);
+        var tail = needCal > 0 ? $"，其中 {needCal} 个场景需要标定背景" : "";
+        return $"已导入地图：{map.Name}（{map.AllScenes.Count()} 个场景{tail}）";
     }
 }

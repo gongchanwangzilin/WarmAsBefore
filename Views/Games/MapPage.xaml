@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.MapPage"
              x:Name="MapPageRoot"
@@ -16,7 +17,7 @@
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                 <!-- 第一行：标题 + 模式切换 + 工具 -->
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <VerticalStackLayout Spacing="4" VerticalOptions="Center">
                         <Label Text="🗺️ 地图编辑器" Style="{StaticResource TxtTitle}" />
                         <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
@@ -41,9 +42,11 @@
                             Command="{Binding ResetLayoutCommand}" />
                     <Button Grid.Column="7" Text="导出" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding ExportMapCommand}" />
-                    <Button Grid.Column="8" Text="返回" Style="{StaticResource BtnNeumorphSm}"
+                    <Button Grid.Column="8" Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding CreateMapCommand}" />
+                    <Button Grid.Column="9" Text="返回" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding BackCommand}" />
-                    <Button Grid.Column="9" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
+                    <Button Grid.Column="10" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding HelpCommand}" />
                 </Grid>
 
@@ -69,6 +72,51 @@
                       DragInteraction="OnCanvasDrag"
                       EndInteraction="OnCanvasEnd"
                       BackgroundColor="Transparent" />
+
+        <!-- 楼层条：贴在画布右缘竖着摞，顶层在上、地下在下（FloorsOf 的次序）。
+             当前层由强调底 + 加粗大号字说；「全部」或再点当前层退出分层视图。
+             点层 = 切层动画（缩放与位移一起走的「抬层」），不是硬闪。 -->
+        <Border Grid.Row="1" IsVisible="{Binding HasFloorBar}"
+                HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,14,0"
+                Background="{DynamicResource WBarBrush}" Stroke="{DynamicResource WControlEdgeBrush}"
+                StrokeThickness="{DynamicResource WControlEdgeWidth}" Padding="6"
+                StrokeShape="{DynamicResource WRadiusRaised}">
+            <VerticalStackLayout Spacing="5" WidthRequest="88">
+                <Label Text="{Binding FloorBarTitle}" Style="{StaticResource TxtMuted}" FontSize="11"
+                       HorizontalTextAlignment="Center" LineBreakMode="TailTruncation" MaxLines="1" />
+                <VerticalStackLayout Spacing="5" BindableLayout.ItemsSource="{Binding FloorChips}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:FloorChip">
+                            <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True"
+                                    BackgroundColor="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                    Padding="8,6">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                <Border.GestureRecognizers>
+                                    <TapGestureRecognizer Command="{Binding TapCommand}" />
+                                </Border.GestureRecognizers>
+                                <Label Text="{Binding Label}" FontSize="13" HorizontalTextAlignment="Center"
+                                       TextColor="{DynamicResource SurfaceFg}">
+                                    <Label.Triggers>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
+                                            <Setter Property="FontSize" Value="15" />
+                                            <Setter Property="FontAttributes" Value="Bold" />
+                                        </DataTrigger>
+                                        <DataTrigger TargetType="Label" Binding="{Binding IsAll}" Value="True">
+                                            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+                                        </DataTrigger>
+                                    </Label.Triggers>
+                                </Label>
+                                <Border.Triggers>
+                                    <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                        <Setter Property="BackgroundColor" Value="{DynamicResource WAccentBrush}" />
+                                    </DataTrigger>
+                                </Border.Triggers>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </Border>
 
         <!-- 底部：模式操作提示。CardSolid 已经把缝发到画刷（WEdgeBrush）上 ——
              原来这里写 Stroke="{DynamicResource BorderLine}"，那是个 Color 键，Border.Stroke 只吃画刷。 -->

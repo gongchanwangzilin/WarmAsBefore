@@ -21,14 +21,18 @@ public partial class PetPage : ContentPage
     private readonly SettingsManager _settings;
     private readonly Modules.AiChat.MemoryVault _memory;
     private readonly SpeechService _speech;
+    private Models.CharacterData? _ch;   // 回完话再看一眼她的心情：桌宠那帧表情跟着换
     private double _scale = 1.0;
-    private const double MinScale = 0.5;
-    private const double MaxScale = 3.0;
+    // 与 UserSettings.PetScale 同一档：两端用两套上下限，就会出现「手机上能捏到 3 倍、设置页滑杆却只到 2.6」。
+    private const double MinScale = 0.4;
+    private const double MaxScale = 2.6;
     private bool _thinking;
     private bool _alive = true;
     private bool _listening;
     private int _pendingSingleTap;
     private IDispatcherTimer? _hoverTimer;
+    private static readonly System.Text.RegularExpressions.Regex MachineMarkers =
+        new(@"【[^】]*】", System.Text.RegularExpressions.RegexOptions.Compiled);
     public PetPage(GameEngine engine, CharacterLibrary chars, StorageProvider store, ChatEngine chat,
         SettingsManager settings, Modules.AiChat.MemoryVault memory, SpeechService speech)
     {
@@ -65,6 +69,7 @@ public partial class PetPage : ContentPage
             var roster = await _chars.ListAsync();
             var ch = roster.FirstOrDefault(c => c.Profile.Id == charId);
             if (ch is null || ch.SpriteMap.Count == 0) return;
+            _ch = ch;
 
             // 用角色当前状态，而不是 SpriteMap.Keys.First()。
             // 取第一个键会让桌宠显示的立绘和主页面不一致 —— 看起来就像「进桌宠自动换了立绘」。
@@ -85,9 +90,14 @@ public partial class PetPage : ContentPage
 #if WINDOWS
                     // 立绘不进 XAML：交给分层窗口按像素贴图，角色才真的站在桌面上
                     PetService.AttachSprite(full);
+                    // AI 给这个角色做过 Q 版桌宠就换成帧动画；没做过时这里什么都不做，仍是上面那张立绘
+                    PetService.AttachAnimation(charId, ch.State.CurrentEmotion);
                     AttachPetSurface();
 #else
                     SpriteImage.Source = ImageSource.FromFile(full);
+                    // 体型是盘上的持久值：不读它每次进页都回到 1.0，手机上就是「捏小了，下次进来又巨大」
+                    _scale = Math.Clamp(_settings.Current.PetScale, MinScale, MaxScale);
+                    SpriteImage.Scale = _scale;
 #endif
                     NameLabel.Text = ch.Profile.Name;
                 }
@@ -125,11 +135,15 @@ public partial class PetPage : ContentPage
 
     // ============ #E3 桌宠思考 ============
 
-    /// <summary>思考循环的启动（进入桌宠时调用一次）：mode=off 不启动；random/timer 按间隔触发。</summary>
+    /// <summary>
+    /// 思考循环的启动（进入桌宠时调用一次）：mode=off 不启动；random/timer 按间隔触发。
+    /// 回应模式是更外面的闸：click=不主动开口，quiet=把主动开口减到偶发。
+    /// </summary>
     private void StartThinkLoop()
     {
         var mode = _settings.Current.PetThinkMode;
         if (mode != "random" && mode != "timer") return;
+        if (_settings.Current.PetRespondMode == "click") return;
         var minutes = Math.Max(1, _settings.Current.PetThinkIntervalMinutes);
         _ = ThinkLoopAsync(minutes);
     }
@@ -142,7 +156,11 @@ public partial class PetPage : ContentPage
             if (!_alive) return;
             var mode = _settings.Current.PetThinkMode;
             if (mode != "random" && mode != "timer") return;
-            if (mode == "random" && Random.Shared.Next(100) >= 50) continue;
+            if (_settings.Current.PetRespondMode == "click") return;
+            var quiet = _settings.Current.PetRespondMode == "quiet";
+            // 随机档本来就掷一半；少插话再压一档，定时档也从「必想一次」变成偶发
+            var chance = quiet ? (mode == "random" ? 15 : 25) : (mode == "random" ? 50 : 100);
+            if (Random.Shared.Next(100) >= chance) continue;
             await MainThread.InvokeOnMainThreadAsync(DoThinkAsync);
         }
     }
@@ -171,6 +189,9 @@ public partial class PetPage : ContentPage
 #endif
     }
 
+    /// <summary>答完一句之后她的心情可能变了：桌宠那帧表情跟着换。没挂 AI 桌宠时这一叫什么也不做。</summary>
+    private void ReportEmotion() => PetService.SetEmotion(_ch?.State.CurrentEmotion ?? "");
+
     /// <summary>想一次：结合日记与当前时间，让 AI 嘀咕一句；结果显示在头顶泡泡。</summary>
     private async Task DoThinkAsync()
     {
@@ -194,6 +215,7 @@ public partial class PetPage : ContentPage
             line = (line ?? "").Trim();
             if (line.Length > 60) line = line[..60] + "…";
             SetReply("（" + line + "）");
+            ReportEmotion();
         }
         finally { _thinking = false; }
     }
@@ -238,6 +260,7 @@ public partial class PetPage : ContentPage
             ShowBubble();
             SetReply("思考中…");
             string reply;
+            var ok = true;
             try
             {
                 reply = await _chat.Send(charId, text);
@@ -247,13 +270,34 @@ public partial class PetPage : ContentPage
                 App.WriteLog("PetPage.OnSend -> " + ex);
                 // 以前这里只在气泡里留一个「……」——看着像 TA 在卖关子，其实请求根本没发出去。
                 reply = "没接上 TA 的话：" + ReasonOf(ex);
+                ok = false;
             }
+            // 自主配置：开了权限她才可以在话里带 pet 指令；没开时指令会被剥掉，不显示也不执行
+            reply = PetService.ApplySelfConfig(reply);
             SetReply(reply);
+            ReportEmotion();
+            if (ok) SpeakReply(charId, reply);
         }
         catch (Exception ex)
         {
             App.WriteLog("PetPage.OnSend -> " + ex);
         }
+    }
+
+    /// <summary>读出声：只有「回复读出声」开着才念；【…】这类机器标记不进朗读。</summary>
+    private void SpeakReply(string charId, string text)
+    {
+        try
+        {
+            var s = _settings.Current;
+            if (!s.PetSpeakReplies || string.IsNullOrWhiteSpace(text)) return;
+            var clean = MachineMarkers.Replace(text, "").Trim();
+            if (clean.Length == 0) return;
+            var lang = string.IsNullOrWhiteSpace(s.PetLanguage) ? "zh-CN" : s.PetLanguage;
+            _ = _speech.Speak(clean, lang, charId, s.PetVoiceRate, s.PetVoicePitch,
+                string.IsNullOrWhiteSpace(s.PetVoiceName) ? null : s.PetVoiceName);
+        }
+        catch (Exception ex) { App.WriteLog("PetPage.SpeakReply -> " + ex); }
     }
 
     /// <summary>把接口异常翻译成人话。不把 ex.Message 原样贴出来：那里面可能带请求地址与参数。</summary>
@@ -366,6 +410,7 @@ public partial class PetPage : ContentPage
     {
         Platforms.Windows.PetLayeredWindow.Zoom(delta > 0 ? 1.12 : 1 / 1.12);
         PetService.RepositionChrome();
+        PetService.CommitScale();
     }
 #endif
 
@@ -428,6 +473,21 @@ public partial class PetPage : ContentPage
     {
         _scale = Math.Clamp(_scale + delta, MinScale, MaxScale);
         SpriteImage.Scale = _scale;
+        CommitScale();
+    }
+
+    /// <summary>
+    /// 把页内缩放写回设置。捏合过程中每帧都调会把 settings.json 刷爆，
+    /// 所以只在手势收尾时落一次盘。
+    /// </summary>
+    private void CommitScale()
+    {
+        try
+        {
+            _settings.Apply(_settings.Current with { PetScale = Math.Round(_scale, 3) });
+            _ = _settings.Persist();
+        }
+        catch (Exception ex) { App.WriteLog("PetPage.CommitScale -> " + ex); }
     }
 
     // ============ #E4 手机端：捏合缩放 + 拖动移动 ============
@@ -446,6 +506,7 @@ public partial class PetPage : ContentPage
                 _scale = Math.Clamp(_pinchStartScale * e.Scale, MinScale, MaxScale);
                 SpriteImage.Scale = _scale;
             }
+            else CommitScale();
         }
         catch (Exception ex) { App.WriteLog("PetPage.OnPinch -> " + ex); }
     }
