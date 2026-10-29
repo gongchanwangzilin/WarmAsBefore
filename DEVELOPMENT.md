@@ -1,293 +1,373 @@
-# WarmAsBefore — 程序员开发文档
+# 开发与维护
 
-> 面向维护/扩展该项目的开发者。记录架构、关键系统、构建运行、常用扩展点。
-> 文档位置：`DEVELOPMENT.md`（代码根目录 `src/WarmAsBefore/`）。
-> `docs/` 下旧文档已过时，后续可清理。
-
----
-
-## 1. 项目概览
-
-| 项目 | 说明 |
-|------|------|
-| **技术栈** | .NET 9 / MAUI (WinUI 3) / CommunityToolkit.Mvvm 8.4.2 |
-| **目标平台** | Windows 10 19041+ (net9.0-windows10.0.19041.0) |
-| **架构模式** | MVVM + 依赖注入（Singleton Services + Transient Pages/VMs） |
-| **设计系统** | 自研 DesignSystem（Tokens/ColorPalette/Neumorphic/Card/Glass/Text/Buttons） |
-| **存储** | JSON 文件落盘（`%LOCALAPPDATA%\WarmAsBefore\*.json`） |
-| **AI 对话** | OpenAI 兼容端点（配置 `AiEndpoint`），流式回复 + 记忆检索 + buff 注入 |
+> 面向维护、扩展和排查问题的人。功能与使用说明见 [`README.md`](README.md)；
+> 分层、启动链路与数据流见 [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md)；
+> 各组件职责见 [`docs/COMPONENTS.md`](docs/COMPONENTS.md)；
+> 插件与外部工具契约见 [`docs/PLUGINS.md`](docs/PLUGINS.md)。
 
 ---
 
-## 2. 目录结构（`src/WarmAsBefore/`）
+## 1. 环境与版本
 
-```
-src/WarmAsBefore/
-├── App.xaml(.cs)                  # 启动入口、全局资源、日志
-├── MauiProgram.cs                 # DI 注册总表（见下）
-├── Models/                        # 纯数据 record/class
-│   ├── ShopItem.cs                # ShopItem / CharacterBuff / GameRecord
-│   └── RangeObservableCollection.cs  # 批量集合（解决 CollectionView 嵌套异常）
-├── Views/                         # 纯 XAML 页面（BindingContext = VM）
-│   ├── MainGamePage.xaml          # 主界面（直接聊天+地图+商店+设置）
-│   ├── WeChatPage.xaml            # 微信聊天模拟页
-│   ├── ShopPage.xaml              # 商店页
-│   └── ... (Title/CharacterSelect/Settings/Map/Gallery/Outfit/Save/Developer/Game/Pet/Novel/Worldbook/CharacterLibrary)
-├── ViewModels/                    # CommunityToolkit.Mvvm [ObservableProperty]/[RelayCommand]
-│   ├── MainGameViewModel.cs       # 主界面逻辑（含送礼面板）
-│   ├── ModuleViewModels.cs        # WeChatViewModel + 其他子模块 VM
-│   └── ShopViewModel.cs           # 商店分页/送礼/buff/身体状态
-├── Services/                      # 核心单例服务（MauiProgram 注册 Singleton）
-│   ├── CoreServices.cs            # StorageProvider / SettingsManager / GameEngine / NotificationService / AudioController / SpeechService / GlassOverlayService / CharacterLibrary / PetService / MapService
-│   └── NovelLibrary.cs
-├── Modules/                       # 功能模块（构造函数注入 Services）
-│   ├── AiChat/                    # ChatEngine + MemoryVault（对话引擎/记忆/日记/Buff钩子）
-│   ├── Market/                    # ShopService + GiftPanelService（商店/送礼/使用/Buff/身体状态）
-│   ├── RealChat/                  # OfficialChatBridge（真 QQ/微信官方接入桥、文本指令）
-│   ├── RealWorld/                 # Weather/Time/Permission/PhysiologicalTracker（真实世界感知）
-│   ├── GameModule/                # MiniGameEngine/ChessBrain/GameSkill（井字棋等小游戏）
-│   ├── Automation/                # TaskOrchestrator/DailyDiaryWriter（自动化任务）
-│   ├── Mcp/                       # McpOrchestrator（MCP 服务器编排）
-│   ├── Worldbook/                 # WorldbookGenerator（世界书生成）
-│   ├── DataPack/                  # PackImporter（数据包导入）
-│   ├── SaveSystem/                # SaveManager（存档/读档/导出/自动保存）
-│   ├── Storage/                   # 底层存储抽象
-│   ├── NovelImport/               # NovelAnalyzer（小说导入分析）
-│   └── ApiManager/                # ApiGateway（外部 API 网关）
-├── Controls/                      # 自定义控件
-├── Converters/                    # 值转换器
-├── DesignSystem/                  # 设计系统
-│   ├── Theme/ColorPalette*.xaml   # 樱花/竹/雾 三主题色板
-│   ├── Styles/                    # Base/Neumorphic/Card/Glass/Text/Button
-│   └── Tokens/DesignTokens.cs     # 间距/圆角/阴影/动画 Token
-├── Resources/                     # 字体/图片等静态资源
-├── Platforms/Windows/             # WinUI 3 宿主配置
-├── Helpers/                       # 杂项工具
-└── Drawables/                     # 自绘图形
-```
+| 项目 | 值 |
+|---|---|
+| 当前版本 | `1.51.0`（`ApplicationVersion` 51） |
+| SDK | .NET 10 SDK |
+| MAUI 工作负载 | `maui`；只构建 Android 时可用 `maui-android` |
+| Windows | Windows 10 19041+，目标框架 `net10.0-windows10.0.19041.0` |
+| Android | Android 7.0+（`minSdk 24`，`targetSdk 36`），目标框架 `net10.0-android` |
+| UI 栈 | .NET MAUI + WinUI 3（Windows）/ MAUI Android |
+| 架构 | MVVM + 构造函数依赖注入；Service 单例，页面与 ViewModel 瞬时 |
+| 主要依赖 | CommunityToolkit.Mvvm、CommunityToolkit.Maui、Jint、SkiaSharp、System.Speech |
+
+NuGet 版本以 `WarmAsBefore.csproj` 为准，不在本文档复制版本号。
+
+### 版本号同步
+
+发布新版本时同时修改：
+
+1. `WarmAsBefore.csproj` 的 `ApplicationDisplayVersion`（如 `1.51.0`）与 `ApplicationVersion`（整数，如 `51`）。
+2. `README.md` 顶部徽章、版本表与「这一版在做什么」。
+3. `RELEASE_NOTES.md` 增加对应条目。
+4. `docs/` 中涉及版本或目录结构的说明。
 
 ---
 
-## 3. 依赖注入（`MauiProgram.cs` 关键注册）
+## 2. 构建与运行
 
-```csharp
-// Core Singleton Services
-GameEngine, SettingsManager, StorageProvider, NotificationService,
-AudioController, SpeechService, GlassOverlayService,
-CharacterLibrary, PetService, MapService
-
-// Module Singleton Services
-WeatherProvider, TimeProvider, PermissionBroker, PhysiologicalTracker,
-ApiGateway, ChatEngine, MemoryVault, TaskOrchestrator, DailyDiaryWriter,
-McpOrchestrator, WorldbookGenerator, PackImporter, SaveManager,
-NovelAnalyzer, MiniGameEngine, ChessBrainService, GameSkillTracker,
-ShopService, GiftPanelService, OfficialChatBridge, RuntimeConfigurator, NovelLibrary
-
-// ViewModels (Transient)
-TitleViewModel, MainGameViewModel, CharacterSelectViewModel, SettingsViewModel,
-PhoneViewModel, WeChatViewModel, MapViewModel, GalleryViewModel, OutfitViewModel,
-SaveViewModel, DeveloperViewModel, GameViewModel, WorldbookViewModel,
-NovelSelectViewModel, NovelWorldViewModel, CharacterLibraryViewModel, ShopViewModel
-
-// Pages (Transient) — 对应每个 VM
-TitlePage, MainGamePage, CharacterSelectPage, SettingsPage, PhonePage, WeChatPage,
-MapPage, GalleryPage, OutfitPage, SavePage, DeveloperPage, GamePage, PetPage,
-NovelSelectPage, NovelWorldPage, WorldbookPage, CharacterLibraryPage, ShopPage
-```
-
-> **规则**：Service = Singleton；Page/VM = Transient。跨模块通信通过构造函数注入 Service，禁止静态引用。
-
----
-
-## 4. 核心系统详解
-
-### 4.1 AI 对话引擎 — `Modules.AiChat.ChatEngine`
-
-| 成员 | 说明 |
-|------|------|
-| `ConfigureCharacter(CharacterProfile)` | 设置当前角色人设 |
-| `SetRoster(string)` / `SetMapContext(string)` | 注入名册/地图上下文 |
-| `Configure(AiEndpoint)` | 切换/配置 AI 端点（BaseUrl/ApiKey/Model/温度/TopP/MaxTokens） |
-| `BuffContextProvider` (`Func<string>?`) | **钩子**：每次 `Send` 前调用，返回的文本会作为 `[当前状态标记]\n{buff}` 前缀拼入 user message |
-| `AfterSend` (`Action?`) | **钩子**：`Send` 成功存入记忆后调用（ShopService 用它驱动 `TickBuffs`） |
-| `Send(charId, text)` | 发送对话：组装 system+memory+buff+user → 调用流式 API → 增量回调 → 存入 MemoryVault → 返回完整回复 |
-
-**Buff 注入流程**：`ShopService.ctor` 注册 `BuffContextProvider = () => BuffContextText()` 与 `AfterSend = TickBuffs`。每轮对话 `TurnsLeft--`，归零移除。
-
-### 4.2 记忆仓库 — `Modules.AiChat.MemoryVault`
-
-- `Store(MemoryEntry)`：写入记忆（category=chat/diary/affection/buff）
-- `All(charId, category?)`：检索上下文（ChatEngine.Send 内部自动按相关性取 Top-K）
-- `LogAffection(charId, delta, reason, imagePath?)`：好感度变更记录
-- `WriteDiary(charId, content, mood)`：每日日记生成（Automation.DailyDiaryWriter 定时触发）
-
-### 4.3 商店与送礼 — `Modules.Market.ShopService`
-
-**状态持久化**：`ShopState`（Coins/Owned/AiItems/Buffs/GameRecords）JSON 落盘。
-
-| 成员 | 说明 |
-|------|------|
-| `Catalog` / `OwnedItems` | 全量商品 / 已购商品（Owned>0） |
-| `ActiveBuffs` | 当前生效的 CharacterBuff 列表（来源=送礼/使用） |
-| `BuffContextText()` | 供 ChatEngine 注入：`【当前状态标记】\n- {emoji} {name}（{source}，剩余 {n} 轮）：{desc}` |
-| `BodyStatusText()` | 身体状态面板文本：好感/信任/精力/心情/位置/生理周期/当前标记 |
-| `BuyAsync(item)` | 扣币 + Owned++ + 存档 |
-| `GiftAsync(item)` | 送礼：Owned--，好感 +5(≥50币)/+3，AddBuff(source="送礼")，返回小雨回应文本 |
-| `UseAsync(item)` | 使用：Owned--，AddBuff(source="使用")，返回小雨回应文本 |
-| `TickBuffs()` | 每轮对话后调用：TurnsLeft--，清理≤0，存档 + UI 通知 |
-
-**内置商品种子**：`BuildSeedCatalog()` 约 20 条（食物/饮品/零食/游戏/玩具），`Id = "s{seq}"`，含 Name/Category/Desc/Price/Emoji/IsTicket/TicketScene/TicketLocation。
-
-**AI 生成商品**：运行时可通过 AI 扩充，标记 `AiGenerated=true`，优先插在 Catalog 顶部。
-
-### 4.4 送礼面板共享服务 — `Modules.Market.GiftPanelService`
-
-| 成员 | 说明 |
-|------|------|
-| `OwnedItems` | 已购商品只读列表（来自 ShopService） |
-| `FindOwnedByName(string)` | 模糊匹配已购商品（用于官方接入文本指令） |
-| `GiftAsync(item)` / `UseAsync(item)` | 代理 ShopService，返回回应文本 |
-
-**用途**：MainGameViewModel / WeChatViewModel / OfficialChatBridge 共用同一套逻辑。
-
-### 4.5 官方接入桥 — `Modules.RealChat.OfficialChatBridge`
-
-- 注入 `GiftPanelService`，监听 QQ/微信官方通道消息。
-- **文本指令识别**（正则）：
-  - `送礼 xxx` / `送礼物 xxx` → `GiftAsync(FindOwnedByName(xxx))`
-  - `使用 xxx` → `UseAsync(FindOwnedByName(xxx))`
-- 非指令走正常 `ChatEngine.Send`。
-- 单聊消息经 `SemaphoreSlim` 串行，回复经对应 Channel 回发。
-
-> **注意**：外部 QQ/微信无 UI 按钮，仅支持文本指令消耗库存。
-
-### 4.6 游戏引擎 — `Services.GameEngine`
-
-- `State`：当前角色/地图/金币/好感/信任/精力/心情/生理周期/背包/Buff 等运行时状态。
-- `ExecuteMoveAsync(input)`：处理玩家行动，推进时间/触发事件/返回叙事文本。
-- `SaveGameAsync/LoadGameAsync`：配合 `SaveManager` 全量存档。
-
-### 4.7 批量集合 — `Models.RangeObservableCollection<T>`
-
-```csharp
-public void ReplaceRange(IEnumerable<T> items) // 单次 Reset 事件，解决 CollectionView 嵌套改集合异常
-public void AddRange(IEnumerable<T> items)      // 单次 Add 事件，分页追加用
-```
-
-**用处**：`ShopViewModel.Items` 由 `ObservableCollection` 改为 `RangeObservableCollection`，`RefreshItems` 用 `ReplaceRange`，`LoadNextPage` 用 `AddRange`。
-
----
-
-## 5. UI 设计系统
-
-- **色板**：`DesignSystem/Theme/ColorPaletteSakura.xaml`（默认）+ Bamboo + Mist。关键键：
-  - `SurfaceBg #FEF8F9` `SurfaceFg #7A4A56` `PrimaryAction #ECA9BB` `PrimaryFg #7A4A56`
-  - `SecondaryBg #F9DFE5` `MutedFg #B98A96` `BorderLine #F3CBD5` `OverlayDim #C87A4A56`
-  - `AccentWarm #F6DCC6` `AccentWarmFg #8A6A4F` `BeigeAccent200 #ECA9BB` `WarmMuted #B98A96`
-  - `ShadowDim #F0CFD8`（弹窗阴影）
-- **样式**：`NeumorphicStyles`（按钮/卡片/输入框），`CardShapes`，`ButtonShapes`，`TextTypography`。
-- **转换器**：`InverseBool`、`StringNotEmpty`、`GreaterThanZero`、`IsEmptyConverter` 等（`Converters/` + `App.xaml` 注册）。
-
----
-
-## 6. 数据存储
-
-| 文件 | 路径 | 内容 |
-|------|------|------|
-| `settings.json` | `%LOCALAPPDATA%\WarmAsBefore\settings.json` | `UserSettings`（AI端点/通知/主题/窗口置顶/自动保存/数据包/官方接入配置） |
-| `shop.json` | `%LOCALAPPDATA%\WarmAsBefore\shop.json` | `ShopState`（Coins/Owned/AiItems/Buffs/GameRecords） |
-| `memory_*.json` | `%LOCALAPPDATA%\WarmAsBefore\memory_*.json` | `MemoryEntry` 列表（按角色分文件） |
-| `diary_*.json` | 同上 | 日记条目 |
-| `save_*.json` | 同上 | 游戏存档（GameState 完整快照） |
-| `gameengine.json` | 同上 | GameEngine 运行时状态 |
-| `warm_startup.log` | `C:\Users\<User>\Documents\warm_startup.log` | 启动日志（`App.WriteLog`） |
-
----
-
-## 7. 构建 / 运行 / 发布
+### Windows 调试构建
 
 ```powershell
-# 始终用绝对路径（不要依赖当前目录）
-dotnet build E:\WarmAsBefore\src\WarmAsBefore\WarmAsBefore.csproj `
-  -c Release -f net9.0-windows10.0.19041.0 `
-  -p:RuntimeIdentifierOverride=win10-x64 --self-contained false -v q -nologo
-
-# 发布（自包含，多文件）
-dotnet publish E:\WarmAsBefore\src\WarmAsBefore\WarmAsBefore.csproj `
-  -c Release -f net9.0-windows10.0.19041.0 `
-  -p:RuntimeIdentifierOverride=win10-x64 --self-contained true -p:PublishSingleFile=false -v q -nologo
-
-# EXE 位置
-E:\WarmAsBefore\src\WarmAsBefore\bin\Release\net9.0-windows10.0.19041.0\win10-x64\publish\WarmAsBefore.exe
-
-# 重启验证
-Get-Process -Name WarmAsBefore -ErrorAction SilentlyContinue | Stop-Process -Force
-Start-Sleep 2
-Start-Process "上述EXE路径"
-Start-Sleep 10
-Get-Process -Name WarmAsBefore | Select-Object Id,@{N='MB';E={[Math]::Round($_.WorkingSet64/1MB)}}
+dotnet build WarmAsBefore.csproj -c Debug `
+  -f net10.0-windows10.0.19041.0 `
+  -p:RuntimeIdentifierOverride=win-x64 `
+  -v:q -nologo
 ```
 
-> **PowerShell 5.1 注意**：UTF-8 文件改写必须用 `edit` 工具（或 C# 读写），禁止 `-Raw -replace` 直接写回。
+产物：
+
+```text
+bin/Debug/net10.0-windows10.0.19041.0/win-x64/WarmAsBefore.exe
+```
+
+直接启动该 EXE 即可；调试时用支持 .NET 10 的 Visual Studio / Rider 附加，
+或使用 `dotnet build` + 手动启动。应用启动日志写入 `Documents/warm_startup.log`
+（Windows），性能打点写入数据根目录的 `perf.log`。
+
+### Windows 发布
+
+```powershell
+dotnet publish WarmAsBefore.csproj -c Release `
+  -f net10.0-windows10.0.19041.0 `
+  -p:RuntimeIdentifierOverride=win10-x64 `
+  -p:WindowsPackageType=None `
+  -p:WindowsAppSDKSelfContained=true `
+  -p:UseMonoRuntime=false `
+  -v:q -nologo
+```
+
+产物：
+
+```text
+bin/Release/net10.0-windows10.0.19041.0/win10-x64/publish/WarmAsBefore.exe
+```
+
+构建约束：
+
+- 必须使用 `-p:RuntimeIdentifierOverride=...`，不要改成 `-r win-x64` 或
+  `-p:RuntimeIdentifier=win-x64`。后者会触发 WindowsAppSDK #3337：产物找不到
+  XAML 主题资源，启动后没有窗口。
+- `WindowsPackageType=None` 表示不生成 MSIX，直接产出 EXE。
+- `WindowsAppSDKSelfContained=true` 与 `UseMonoRuntime=false` 是当前 Windows
+  产物的运行前提，不要删除。
+- Windows 目标由自定义 `Program.cs` 接管入口；`DISABLE_XAML_GENERATED_MAIN`
+  必须保留，否则会出现重复 `Main`。
+
+### Android
+
+```powershell
+dotnet build WarmAsBefore.csproj -c Debug -f net10.0-android
+```
+
+产物：
+
+```text
+bin/Debug/net10.0-android/com.companyname.warmasbefore-Signed.apk
+```
+
+Android 构建需要可用的 Android SDK、JDK 与 `maui-android` 工作负载。
+本机缺少 Android SDK 时会报 `XA5300`，此时只能验证 Windows 分支。
+
+### 构建故障
+
+| 现象 | 处理 |
+|---|---|
+| XAML 编译器锁住 `obj/.../intermediatexaml/WarmAsBefore.dll` | 关闭 `Microsoft.UI.Xaml.Markup.Compiler` 编译器服务器后重新构建 |
+| `XC0009` | 不要给 `Border.Background` 绑 `{DynamicResource ...}`；用 `BackgroundColor` 或内层 `BoxView.Color` |
+| `XA5300` / 找不到 Android SDK | 安装 Android SDK 与 JDK，或只构建 Windows 目标 |
+| Windows 产物启动无窗口 | 检查是否误用了 `-r win-x64`，改回 `RuntimeIdentifierOverride` |
+| 中文日志/源码乱码 | 编辑与读取统一用 UTF-8；PowerShell 管道可能破坏编码，diff 用 `git diff --output=文件` |
 
 ---
 
-## 8. 常用扩展点
+## 3. 目录与组合根
 
-### 8.1 新增商品
-在 `ShopService.BuildSeedCatalog()` 的 `Add(...)` 列表追加，或运行时让 AI 生成（返回 `ShopItem`，`AiGenerated=true`）。
+```text
+src/WarmAsBefore/
+├── App.xaml(.cs)              # 全局资源、窗口生命周期、启动日志、退出前保存
+├── AppShell.xaml(.cs)         # Shell 路由、导航打点、页面转场
+├── MauiProgram.cs             # 组合根：按顺序调用 Composition/*
+├── Composition/               # DI 注册（设计系统 / 核心 / 模块 / 角色 / 插件 / VM / 页面）
+├── Models/                    # 纯数据与数学辅助，不发起 IO
+├── Services/
+│   ├── Core/                  # 存储、设置、引擎、运行时配置、窗口、日志、本地化
+│   ├── Character/             # 角色库、立绘、素材、心理、生理、性别、设置解析
+│   ├── Memory/                # 人类记忆、标签、关系网、世界树、Embedding、成本
+│   ├── Media/                 # 生图、识图、语音、表情包
+│   ├── Plugins/               # 插件宿主、权限、体检、技能库
+│   ├── World/                 # 地图、地图角色、桌宠、微信、小说库、数据包
+│   └── CloudSync/             # 云存档与跨设备记忆合并
+├── Modules/                   # 业务模块：对话、商店、游戏、战斗、MCP、桥接、自动化等
+├── ViewModels/                # Main / Character / Settings / Memory / Story / Chat / Games / Save / Shop
+├── Views/                     # 与 ViewModels 同构分组；页面只做布局、平台事件与导航
+├── DesignSystem/              # 色板、Token、新拟物 / 卡片 / 玻璃 / 文本 / 按钮样式
+├── Controls/                  # 自定义控件
+├── Converters/                # 值转换器
+├── Drawables/                 # 棋盘、地图、关系网等绘制器
+├── Helpers/                   # 动效、悬停/按下、通用 UI 工具
+├── Platforms/                 # Windows / Android 宿主与平台专属实现
+├── Resources/                 # 字体、图片、本地化资源
+├── plugins/                   # 仓库内示例插件；运行时装到数据目录
+└── docs/                      # 架构、组件、插件、桥接与需求文档
+```
 
-### 8.2 新增 Buff 类型
-`CharacterBuff` 已含 `Source` 区分“送礼/使用”、`TurnsLeft` 轮数、`Desc` 注入 AI。如需新机制（如永久/叠加层数），在 `CharacterBuff` 加字段，并在 `ShopService.AddBuff/TickBuffs/BuffContextText` 对应处理。
+命名空间保持扁平，移动文件不改变调用点：
 
-### 8.3 新增聊天入口
-1. 新建 Page + VM（Transient 注册）。
-2. VM 构造注入 `GiftPanelService`，复制 `IsGiftPanelVisible` / `IsGiftMode` / `ToggleGiftPanelCommand` / `ToggleGiftModeCommand` / `GiftItems` / `HasGiftItems` / `GiftItemCommand` / `UseItemCommand`。
-3. XAML 复制 MainGamePage/WeChatPage 的送礼面板块（已抽象为同构结构），绑定同上命令。
+| 目录 | 命名空间 |
+|---|---|
+| `Services/**` | `WarmAsBefore.Services` |
+| `ViewModels/**` | `WarmAsBefore.ViewModels` |
+| `Views/**` | `WarmAsBefore.Views` |
+| `Models/**` | `WarmAsBefore.Models` |
+| `Modules/<Name>/**` | `WarmAsBefore.Modules.<Name>` |
+| `Composition/**` | `WarmAsBefore.Composition` |
 
-### 8.4 新增官方通道文本指令
-在 `OfficialChatBridge.TryHandleCommand` 追加正则分支，调用 `GiftPanelService.FindOwnedByName` + `GiftAsync/UseAsync`。
+### 注册规则
 
-### 8.5 新增小游戏
-在 `Modules.GameModule` 加新 Engine/Service，`MauiProgram` 注册 Singleton，`GameViewModel` 暴露入口。
+`MauiProgram.CreateMauiApp()` 只负责创建 builder 并按层调用：
+
+```csharp
+builder.Services
+    .AddDesignSystemServices()
+    .AddCoreServices()
+    .AddModuleServices()
+    .AddCharacterServices()
+    .AddPluginServices()
+    .AddViewModels()
+    .AddPages();
+```
+
+| 文件 | 放什么 |
+|---|---|
+| `Composition/Registration.DesignSystem.cs` | 主题、设计系统服务 |
+| `Composition/Registration.Core.cs` | 存储、设置、引擎、通知、音频、角色库、记忆、媒体、窗口 |
+| `Composition/Registration.Modules.cs` | 对话、天气、定位、生理、MCP、工具、商店、战斗、存档、云同步 |
+| `Composition/Registration.Character.cs` | 角色包、形象包、换装、头像裁剪 |
+| `Composition/Registration.Plugins.cs` | 插件宿主、权限、技能库、沙箱、工具管理器 |
+| `Composition/Registration.ViewModels.cs` | 全部 ViewModel（Transient） |
+| `Composition/Registration.Pages.cs` | 全部页面（Transient） |
+
+规则：
+
+- 无状态或全局唯一的服务用 Singleton；页面与 ViewModel 用 Transient。
+- 跨模块只走构造函数注入，不使用静态字段互相取用。
+- 需要把设置或运行时能力下发给多个模块时，走 `RuntimeConfigurator`，
+  不要在页面里直接改别的服务状态。
+- 新页面还要在 `AppShell.RegisterRoutes()` 注册路由；参数放查询串并做 URL 转义。
 
 ---
 
-## 9. 已知问题与技术债
+## 4. 常见改动
 
-| 问题 | 状态 | 备注 |
-|------|------|------|
-| `ObservableRangeCollection` 不存在于 CommunityToolkit.Mvvm 8.4.2 | **已绕过** | 自制 `RangeObservableCollection` 替代 |
-| CollectionView 嵌套改集合异常 | **已修** | `ReplaceRange`/`AddRange` 单事件 |
-| 送礼面板原版“卡片套卡片+双按钮挤” | **已重构** | 模式切换+行式列表+单按钮（MainGamePage/WeChatPage） |
-| 官方 QQ/微信通道仅文本指令，无按钮 | **设计决定** | 外部聊天软件无法植入 UI，Buff 已注入 AI 上下文 |
-| `ShopService` 与 `GameEngine` 双向引用 `_state` 并发竞争 | **接受风险** | UI 单线程 + 存档频率低，未加锁 |
-| `docs/` 下文档过时（架构图缺模块、DATA_PACK 仅示例） | **待清理** | 以本文档为准 |
+### 新增服务
+
+1. 只服务一个模块 → 放进 `Modules/<Name>/`；服务多个模块 → 放进 `Services/<功能>/`。
+2. 在对应 `Composition/Registration.*.cs` 注册。
+3. 需要设置、通知、工具或插件钩子时，在 `RuntimeConfigurator` 接线。
+4. 需要落盘时使用 `StorageProvider` 的相对键，并考虑云同步与数据包导出。
+
+### 新增页面
+
+1. `Views/<分组>/` 建 XAML + code-behind，`ViewModels/<分组>/` 建 VM。
+2. 分别注册到 `Registration.Pages.cs` 与 `Registration.ViewModels.cs`。
+3. 在 `AppShell.RegisterRoutes()` 注册路由；导航参数通过 `IQueryAttributable`
+   或页面的 `ApplyQueryAttributes` 接收。
+4. 页面根背景使用 `{DynamicResource PageBgBrush}`；颜色、圆角、阴影与动效
+   使用 `DesignSystem` 的键与 Token。
+5. 页面只做布局、平台事件与导航；业务状态放 VM。
+6. 悬停只变色，按下位移 2.4px；不做假加载；设置类弹窗保持原有样式。
+
+### 新增模块
+
+1. 在 `Modules/<Name>/` 建服务与模型；模块内部可互相引用，跨模块走注入。
+2. 在 `Registration.Modules.cs` 注册。
+3. 需要工具、插件钩子、对话上下文或通知时，在 `RuntimeConfigurator` 接线。
+4. 独立存储使用自己的键前缀（如 `showcase/`、`battles/`），不要与全局键混用。
+5. 有外部进程或协议时，先定义契约与失败兜底，再写 UI。
+
+### 修改存储格式
+
+1. 新字段给默认值，保证旧档可以反序列化。
+2. 需要迁移时在对应服务的 `Restore` / `Load` 路径做一次性修复，并记录
+   `LastLoadNote` 或启动日志。
+3. 同步更新 `docs/ARCHITECTURE.md` 的存储布局与本文档的验证清单。
+4. 数据包导出会递归清理密钥字段；新增密钥字段使用可识别的命名
+   （`*Key`、`*Secret` 等）。
+
+### 修改插件系统
+
+插件清单、钩子、JS API、权限与回调协议都有外部契约。修改前先读
+[`docs/PLUGINS.md`](docs/PLUGINS.md)，并同步更新：
+
+- `Services/Plugins/PluginHost.cs`：清单解析、钩子执行、宿主函数、回调服务器。
+- `Services/Plugins/PluginPermissions.cs`：能力目录、风险档、默认策略。
+- `Services/Plugins/PluginDoctor.cs`：体检规则与钩子白名单。
+- `ViewModels/Settings/PluginCenterViewModel.cs`、`PluginPermissionsViewModel.cs`：
+  插件中心与权限台。
+- `Views/Settings/PluginSettingsPage.xaml.cs`：`native` 字段渲染。
 
 ---
 
-## 10. 快速导航索引
+## 5. 存储与数据
+
+`StorageProvider` 是所有 JSON 的唯一落盘入口：
+
+- 根目录：`FileSystem.AppDataDirectory/WarmAsBefore`，与 `App.RootDirectory` 同值。
+  Windows 通常在 `%LOCALAPPDATA%\WarmAsBefore\`；Android 在应用私有目录。
+- 键是相对键，例如 `settings`、`saves/<id>`、`plugins/<id>/settings`；
+  自动补 `.json`，拒绝绝对路径、盘符、`.` 与 `..`。
+- 写入使用「同目录临时文件 + 原子替换」，重试 5 次，避免读到半截 JSON。
+- JSON 损坏时先备份为 `<name>.corrupt-<UTC 时间>.json`，再抛出；调用方决定是否用默认值。
+- 保存/删除触发 `Changed` 事件，云存档据此收集待上传的键。
+
+| 路径 / 键 | 内容 |
+|---|---|
+| `settings.json` | AI 端点、主题、窗口、语音、天气、插件钩子开关等全局设置 |
+| `characters.json` | 角色库与角色状态 |
+| `gameengine.json` | 引擎运行时状态 |
+| `saves/<saveId>` | 存档快照：状态、角色状态、副设定、最近聊天 |
+| `memories/<scope>` | 全量对话记忆库 |
+| `human_memories/` | 按存档隔离的人类记忆；开启共用后回到单文件 |
+| `assets/` | 立绘、背景、音频、表情包等素材 |
+| `cg/` | CG 目录与解锁状态 |
+| `showcase/` | 展示案脚本与素材 |
+| `plugins/<id>/plugin.json` | 插件清单（文件，不经 `StorageProvider`） |
+| `plugins/<id>/settings.json` | 插件自己的设置 |
+| `plugins/<id>/files/` | 插件文件区（单文件 1MB、合计 8MB） |
+| `plugins/state.json` | 插件启停状态 |
+| `plugins/permissions.json` | 插件授权、询问答案与留痕 |
+| `plugin_logs/<id>.log` | 插件崩溃、权限拦截与 JS 异常 |
+| `warm_startup.log` | 启动日志（Windows 在 `Documents/`） |
+| `perf.log` | 性能打点 |
+
+素材、插件与日志直接走文件系统；其余状态优先走 `StorageProvider`，
+以便统一迁移、导出与云同步。
+
+---
+
+## 6. 验证清单
+
+仓库没有纳入版本管理的自动化测试工程；`.local/` 下的临时测试项目只用于本地排查，
+不作为验证依据。改动后按下面顺序验证：
+
+1. **构建**：用第 2 节的 Windows 调试命令构建，确认没有新增 error；
+   既有警告（如 `MVVMTK0045`）不应因本次改动增加。
+2. **启动**：运行 EXE，确认窗口出现、标题页可进入、启动日志无未处理异常。
+3. **主流程**：角色选择 → 新开一局 → 主界面 → 发送一条消息。
+   未配置 AI 端点时应走离线回复；配置端点时确认流式回复与错误提示。
+4. **设置**：修改主题、窗口、语音或插件开关，保存后确认立即生效；
+   重启后确认设置仍在。
+5. **存档**：手动保存 → 读档 → 退出应用，确认退出前自动保存与 `LastLoadNote` 正常。
+6. **记忆**：新建第二份存档，确认人类记忆与对话记忆按作用域隔离；
+   切换「跨存档共用」后确认作用域重载。
+7. **插件**：安装一个示例插件 → 体检无 Error → 在权限台逐项授权 →
+   试跑 → 观察钩子返回值与 `plugin_logs/<id>.log`。
+8. **UI 约束**：新页面根背景为 `PageBgBrush`；悬停只变色；按下位移 2.4px；
+   `Border.Background` 没有绑定 `DynamicResource`。
+9. **平台**：Windows 必测；具备 Android SDK 时再构建并安装 Android 包，
+   重点看屏幕方向、定位权限、文件选择与 proot 沙箱。
+10. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
+    不提交密钥、日志、`bin/`、`obj/`、`.local/`、用户数据或未完成的插件包。
+
+---
+
+## 7. 已知限制
+
+- **Android 构建依赖本机 SDK**：缺少 Android SDK / JDK 时只能验证 Windows 分支，
+  Android 行为需在具备 SDK 的环境复测。
+- **AI 能力依赖端点**：端点不可用或令牌失效时，对话走离线回复；
+  生图、识图、语音与真实模型回话不能标记为已验证。
+- **没有内嵌 WebView**：插件页面与 HTML 设置页一律用系统浏览器打开；
+  页面回调只监听 `127.0.0.1`，token 只在当前进程有效。
+- **插件 JS 是同步沙箱**：不支持 `await` / `require` / `import`；
+  长任务不要放在 `persona` 这种每轮都跑的钩子里。
+- **插件不是进程隔离**：插件与应用同进程运行，只应安装可信来源的插件；
+  能力边界由宿主函数与「声明 ∩ 授予」控制。
+- **WindowsAppSDK #3337**：发布必须走 `RuntimeIdentifierOverride`；
+  直接指定 `RuntimeIdentifier` 会得到无窗口的产物。
+- **XAML 编译器偶发锁文件**：关闭 `Microsoft.UI.Xaml.Markup.Compiler`
+  编译器服务器后重建。
+- **云存档依赖用户仓库**：同步使用用户自己的 GitHub 仓库与令牌；
+  令牌失效只影响同步，不影响本地存档。
+- **外部战斗/工具驱动是可选路径**：驱动缺失或响应不合契约时回退内置实现；
+  外部队列与协议变更需要同时更新文档与体检规则。
+
+---
+
+## 8. 文档与提交
+
+文档分工：
+
+| 文件 | 维护内容 |
+|---|---|
+| `README.md` | 项目入口、功能地图、快速开始、数据位置、文档索引 |
+| `docs/ARCHITECTURE.md` | 分层、组合根、启动链路、数据流、线程与平台差异 |
+| `docs/COMPONENTS.md` | 按目录的组件职责与协作速查 |
+| `docs/PLUGINS.md` | 插件清单、钩子、JS API、权限、沙箱、回调与排错 |
+| `DEVELOPMENT.md` | 环境、构建、目录、常见改动、验证清单、已知限制 |
+| `PRODUCT.md` | 产品定位、用户与设计约束 |
+| `RELEASE_NOTES.md` | 版本条目 |
+
+提交约定：
+
+- 说明分条简写：修改了……、更改……为……、优化……。
+- 只暂存明确路径，不使用 `git add -A` / `git add .`。
+- 已推送的提交不改写；后续修改另起提交，不 force-push。
+- 架构、存储格式、插件清单或权限模型变化时，同步更新对应文档。
+
+---
+
+## 9. 快速索引
 
 | 要找 | 文件 |
-|------|------|
-| AI 端点配置/人设/上下文注入 | `Modules/AiChat/Services.cs` (`ChatEngine`) |
-| 记忆存取/好感/日记 | `Modules/AiChat/Services.cs` (`MemoryVault`) |
-| 商品目录/购买/送礼/使用/Buff/身体状态 | `Modules/Market/ShopService.cs` |
-| 送礼面板共享逻辑 | `Modules/Market/GiftPanelService.cs` |
-| 真 QQ/微信桥接/文本指令 | `Modules/RealChat/OfficialChatBridge.cs` |
-| 游戏状态/行动/存档 | `Services/CoreServices.cs` (`GameEngine`) |
-| 设置持久化 | `Services/CoreServices.cs` (`SettingsManager`) |
-| JSON 本地存储 | `Services/CoreServices.cs` (`StorageProvider`) |
-| 主界面 VM/送礼面板命令 | `ViewModels/MainGameViewModel.cs` |
-| 微信聊天 VM/送礼面板命令 | `ViewModels/ModuleViewModels.cs` (`WeChatViewModel`) |
-| 商店页 VM/分页/Buff/身体状态 | `ViewModels/ShopViewModel.cs` |
-| 主界面送礼面板 XAML | `Views/MainGamePage.xaml` (末尾 Grid `IsGiftPanelVisible`) |
-| 微信页送礼面板 XAML | `Views/WeChatPage.xaml` (末尾 Grid `RowSpan=5`) |
-| 商店页 XAML | `Views/ShopPage.xaml` |
-| 设计系统色板 | `DesignSystem/Theme/ColorPaletteSakura.xaml` |
-| 内置商品种子 | `Modules/Market/ShopService.cs` `BuildSeedCatalog()` |
+|---|---|
+| DI 注册 | `MauiProgram.cs`、`Composition/Registration.*.cs` |
+| 路由与转场 | `AppShell.xaml.cs` |
+| 设置恢复与下发 | `Services/Core/SettingsManager.cs`、`Services/Core/RuntimeConfigurator.cs` |
+| JSON 落盘 | `Services/Core/StorageProvider.cs` |
+| 游戏状态 | `Services/Core/GameEngine.cs` |
+| 对话管线 | `Modules/AiChat/ChatEngine.cs` |
+| 对话记忆/日记 | `Modules/AiChat/MemoryVault.cs` |
+| 存档/读档 | `Modules/SaveSystem/SaveManager.cs` |
+| 商店与 Buff | `Modules/Market/ShopService.cs` |
+| 送礼面板 | `Modules/Market/GiftPanelService.cs` |
+| QQ/微信通道 | `Modules/RealChat/OfficialChatBridge.cs` |
+| 插件宿主 | `Services/Plugins/PluginHost.cs` |
+| 插件权限 | `Services/Plugins/PluginPermissions.cs` |
+| 插件体检 | `Services/Plugins/PluginDoctor.cs` |
+| 插件中心 | `ViewModels/Settings/PluginCenterViewModel.cs` |
+| 设计系统 Token | `DesignSystem/Tokens/DesignTokens.cs` |
+| 色板 | `DesignSystem/Theme/ColorPalette*.xaml` |
 | 批量集合 | `Models/RangeObservableCollection.cs` |
 
----
-
-> 维护者：按需更新本文档。重大架构变更（新模块/存储格式变更/跨模块契约变更）必须同步修改此文件。
+> 重大架构变更（新模块、存储格式、跨模块契约、插件清单或权限模型）必须同步修改本文档与 `docs/` 对应页面。
