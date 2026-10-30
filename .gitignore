@@ -386,3 +386,6 @@ path/
 # Android SDK platforms（大文件，本地补全，不进 git）
 android-sdk/platforms/
 proot-build/
+
+# 插件分发包随 Release 发布，不进仓库
+/plugins/*.zip
