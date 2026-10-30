@@ -151,6 +151,10 @@ WAB → 模组：
 | `bind` | 更新女仆 → 角色绑定 |
 | `stats` | 好感/信任等显示值 |
 | `chat_reply` | 对游戏内聊天的回复 |
+| `settings` | 插件开关变化时推送（不断线） |
+| `tts_reply` | 合成回执：`ok/format/engine/voice/parts/bytes`；失败时 `ok:false` 带 `code/error` |
+| `tts_audio` | 一段合成音频：`{id, part, data}`，`data` 是 base64 WAV，按 `part` 序号拼起来是完整文件 |
+| `stt_reply` | 听写回执：`ok:true` 带 `text`；失败或没听清带 `code/error` |
 | `ping` | 心跳 |
 
 模组 → WAB：
@@ -162,9 +166,13 @@ WAB → 模组：
 | `result` | `{id, ok, data, error}`；一次性动作的 `data.message` 是她实际做了什么（「正在靠近 Steve」） |
 | `event` | 自主行动、互动、受伤、死亡、日程完成 |
 | `chat` | 玩家在游戏里对女仆说话 |
+| `tts` | `{maid, text, id?}`：请 WAB 用这个女仆继承的嗓子合成 |
+| `stt` | `{maid, lang?, data, id?}`：`data` 是 base64 WAV 录音，请 WAB 听写 |
+| `photo` | 回传 `maid_see` 要的那一帧画面 |
 | `pong` | 心跳 |
 
 所有消息都带 `v:1`。未知字段忽略；未知 `type` 回 `error` 但不中断。
+新增的帧一律先看 `welcome.voice` 能力字段再发：老宿主不宣告 `voice`，新模组就用自己的 TTS/STT，谁也不必先升级。
 
 ---
 
@@ -206,6 +214,16 @@ WAB → 模组：
 - AI 不需要每分钟思考：日程由模组本地跑；WAB 只在收到 `event` 或用户说话时参与。
 - 日程存在实体 NBT 里（`WabPlan` / `WabAutonomy`，即 `getPersistentData()`），随存档落盘；`plan clear` 真的把这两段删掉，不是只回一句「已清空」。
 - 但日程**只在会话存续期间**跑：WAB 没开或断开时模组不执行任何自主步骤，为的是「换上我们这个 jar、不开 WAB，女仆行为与上游一致」。
+
+### 3.2 语音：WAB 出嗓子、出耳朵
+
+绑了 WAB 角色的女仆，合成语音和听写都由 WAB 做，模组只管把录音、文本送过来，把音频播出去。
+
+- **只是服务，不改上游行为**。模组在 `welcome` 里看到 `voice.tts`/`voice.stt` 同时为真才走这条路；WAB 没连、插件关了 `allow_voice`、或这具身体没绑角色，都回落到模组自己的 TTS/STT（上游配置照旧生效）。
+- **角色说了算**。音色、引擎、参考音、语种全部取这具身体绑定的角色（`CharacterVoice`），`tts` 帧里就算带了 `voice`/`model`/`engine` 也不看。角色自己关了声音（`CharacterVoice.Enabled=false`）就回 `voice_disabled`，模组不替它出声。对话走哪条 LLM 同理，早就由 `ChatEngine` → `CharacterSettingsResolver.EndpointFor` 兜住。
+- **格式统一 WAV**。API（OpenAI 兼容 / GPT-SoVITS）和系统合成器都先要成 WAV，客户端那条播放链路不必为来源分叉。合成结果按 512 KiB 一块，`tts_reply` 报 `parts` 与总字节数，随后 `parts` 条 `tts_audio` 各带一段 base64；单帧远低于 4 MiB 行上限。
+- **听写只回文字**。模组用现成的 20 秒麦克风缓冲（16 kHz/16 位/单声道 WAV）把整段录音放进一帧 `stt`（base64 上限 3.5 M 字符），WAB 按自己的识别设置听写后回 `stt_reply`。这句话要不要发给她、走哪条聊天链路，仍由模组原来的 STT 回调决定——WAB 不越位替它发。
+- **失败一定落到回落路径**：`tts_disabled`/`stt_disabled`/`no_character`/`voice_disallowed`/`tts_failed`/`no_speech` 这些 `code` 只解释原因，模组看见 `ok:false` 就用自己那份配置，用户不会因此变成哑巴。
 
 ---
 
@@ -351,6 +369,8 @@ WAB → 模组：
 | `auto_create_characters` | `true` | 匹配不到角色时自动建角色 |
 | `allow_world_actions` | `true` | 允许挖/放/取水/丢物/攻击/物品操作（模组侧 `gather`、`attack`、`hold` 全部过这道闸） |
 | `allow_gestures` | `true` | 允许动作与语录 |
+| `allow_photo` | `true` | 允许 `maid_see` 取一帧画面给识图模型 |
+| `allow_voice` | `true` | 绑了角色的女仆用 WAB 合成语音、听写录音，音色引擎继承角色；关掉后模组用自己的 TTS/STT |
 | `chat_affection` | `true` | 游戏内聊天加好感 |
 | `autonomy_pulse_minutes` | `0` | WAB 主动思考间隔（0 = 只靠模组日程） |
 | `backup_minutes` | `10` | 快照间隔 |
@@ -394,6 +414,7 @@ src/WarmAsBefore/Modules/MinecraftBridge/
   MaidBridgeModels.cs     消息模型 / 状态快照 / 绑定表
   MaidBridgeService.cs    UDP 发现 + TCP 会话 + 存档绑定 + 备份 + 上下文
   MaidBridgeTools.cs      maid_* 九个工具
+  ../../Services/Media/SpeechService.cs  合成 / 听写（桥与服务共用同一套设置和角色嗓子）
 docs/minecraft-maid-bridge.md
 ```
 
@@ -415,6 +436,7 @@ src/main/java/com/github/tartaricacid/touhoulittlemaid/compat/wab/
   WabAnimationMessage.java 把动画名广播给同维度玩家的网络包
   WabJson.java            远端 JSON 读取 + 长度钳制
   WabError.java           统一失败回执
+  WabVoice.java           语音：tts 分块收流 / stt 上传 / 绑定判断 / 回落
   WabHud.java             好感/信任显示（action bar / BossBar）
 ```
 
@@ -423,5 +445,6 @@ src/main/java/com/github/tartaricacid/touhoulittlemaid/compat/wab/
 ## 13. 版本
 
 - 协议 `v1`，2026-10-24 冻结。
-- 兼容策略：只增字段不删字段；新增 `type`/`method` 前先升 `v`。
+- 兼容策略：只增字段不删字段。新增 `type` 时留同一版本、由 `welcome` 里的能力字段（如 `voice`）宣告；
+  对端不认识就回 `error`（不中断会话）并按没有这项能力处理，这样宿主与 jar 可以各自升级。
 - WAB 与模组版本不要求一致，握手只检查 `v`。

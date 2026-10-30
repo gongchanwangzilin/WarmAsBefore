@@ -15,6 +15,9 @@ public sealed record MaidBridgeSettings
 
     /// <summary>能不能从主人的客户端取一帧游戏画面给识图模型看。关掉后 maid_see 只剩文字。</summary>
     public bool AllowPhoto { get; init; } = true;
+
+    /// <summary>游戏里绑了角色的女仆能不能借 WAB 的嗓子说话、借 WAB 的耳朵听。关掉后模组自己处理语音。</summary>
+    public bool AllowVoice { get; init; } = true;
     public bool ChatAffection { get; init; } = true;
     public int AutonomyPulseMinutes { get; init; }
     public int BackupMinutes { get; init; } = 10;
@@ -36,7 +39,7 @@ public sealed record MaidBridgeSettings
 
     /// <summary>行为开关：变了只需把新配置换进内存，现有会话不该跟着抖一下。</summary>
     public string BehaviorSignature =>
-        $"{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{AllowPhoto}|{ChatAffection}|" +
+        $"{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{AllowPhoto}|{AllowVoice}|{ChatAffection}|" +
         $"{AutonomyPulseMinutes}|{BackupMinutes}|{AutoSwitchSave}|{LoveWords}|{ThinkCooldownSeconds}|" +
         string.Join(",", ThinkScenes);
 
@@ -82,6 +85,7 @@ public sealed record MaidBridgeSettings
             AllowWorldActions = Bool("allow_world_actions", true),
             AllowGestures = Bool("allow_gestures", true),
             AllowPhoto = Bool("allow_photo", true),
+            AllowVoice = Bool("allow_voice", true),
             ChatAffection = Bool("chat_affection", true),
             AutonomyPulseMinutes = Math.Clamp(Int("autonomy_pulse_minutes", 0), 0, 24 * 60),
             BackupMinutes = Math.Clamp(Int("backup_minutes", 10), 0, 24 * 60),

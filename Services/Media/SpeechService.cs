@@ -435,7 +435,15 @@ public sealed class SpeechService
     // ============ 外部 API 合成（跨平台：Windows / Android 共用） ============
 
     /// <summary>OpenAI 兼容 /v1/audio/speech：返回音频字节（MP3）。</summary>
-    public async Task<byte[]> SynthesizeOpenAiAsync(string text)
+    public Task<byte[]> SynthesizeOpenAiAsync(string text)
+        => SynthesizeOpenAiCoreAsync(text, VoiceName, "mp3");
+
+    /// <summary>GPT-SoVITS /api/tts（POST JSON，返回 WAV）：base_url 直接是服务根地址（如 http://192.168.1.10:9870），
+    /// 兼容本地部署与局域网/内网穿透后的远程服务；text=要合成的文本，name=角色参考音名，spk_id=VoiceExtra（0 默认角色）。</summary>
+    public Task<byte[]> SynthesizeSovitsAsync(string text)
+        => SynthesizeSovitsCoreAsync(text, VoiceName, VoiceExtra);
+
+    private async Task<byte[]> SynthesizeOpenAiCoreAsync(string text, string voice, string format)
     {
         var url = $"{VoiceApiUrl.TrimEnd('/')}/audio/speech";
         using var http = new System.Net.Http.HttpClient();
@@ -445,33 +453,139 @@ public sealed class SpeechService
         var payload = System.Text.Json.JsonSerializer.Serialize(new
         {
             model = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel,
-            voice = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName,
-            input = text
+            voice = string.IsNullOrWhiteSpace(voice) ? "alloy" : voice,
+            input = text,
+            response_format = format
         });
         using var resp = await http.PostAsync(url, new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadAsByteArrayAsync();
     }
 
-    /// <summary>GPT-SoVITS /api/tts（POST JSON，返回 WAV）：base_url 直接是服务根地址（如 http://192.168.1.10:9870），
-    /// 兼容本地部署与局域网/内网穿透后的远程服务；text=要合成的文本，name=角色参考音名，spk_id=VoiceExtra（0 默认角色）。</summary>
-    public async Task<byte[]> SynthesizeSovitsAsync(string text)
+    private async Task<byte[]> SynthesizeSovitsCoreAsync(string text, string name, string extra)
     {
         var url = $"{VoiceApiUrl.TrimEnd('/')}/api/tts";
         using var http = new System.Net.Http.HttpClient();
         http.Timeout = TimeSpan.FromSeconds(120);
         if (!string.IsNullOrWhiteSpace(VoiceApiKey))
             http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", VoiceApiKey);
-        var spkId = int.TryParse(VoiceExtra, out var spk) ? spk : 0;
+        var spkId = int.TryParse(extra, out var spk) ? spk : 0;
         var payload = System.Text.Json.JsonSerializer.Serialize(new
         {
             text,
-            name = string.IsNullOrWhiteSpace(VoiceName) ? null : VoiceName,
+            name = string.IsNullOrWhiteSpace(name) ? null : name,
             spk_id = spkId
         });
         using var resp = await http.PostAsync(url, new System.Net.Http.StringContent(payload, System.Text.Encoding.UTF8, "application/json"));
         resp.EnsureSuccessStatusCode();
         return await resp.Content.ReadAsByteArrayAsync();
+    }
+
+    // ============ 桥接用：合成成字节 / 从字节识别（都不播放） ============
+
+    /// <summary>一段合成好的语音。Error 非空时 Audio 为空，Code 给桥回执用。</summary>
+    public sealed record SpeechClip(byte[] Audio, string Format, string Engine, string Voice, string Code, string Error)
+    {
+        public bool Ok => Error.Length == 0;
+        public static SpeechClip Fail(string code, string error)
+            => new(Array.Empty<byte>(), "", "", "", code, error);
+    }
+
+    /// <summary>一次识别结果。Note 是没识别出文字时给人看的原因（成功时为空）。</summary>
+    public sealed record SpeechText(string Text, string Note)
+    {
+        public bool Ok => Note.Length == 0;
+    }
+
+    /// <summary>
+    /// 按该角色的嗓子合成一段音频并交回字节，不播放。
+    /// 角色绑过引擎/音色就以角色为准，<see cref="CharacterVoice.Enabled"/>=false 的那位直接不出声——
+    /// 游戏里绑到这个角色的女仆继承的就是这一层，调用方不能另传音色把它盖掉。
+    /// </summary>
+    public async Task<SpeechClip> SynthesizeClipAsync(string text, string? charId)
+    {
+        if (!TtsEnabled) return SpeechClip.Fail("tts_disabled", "WAB 的朗读在设置里关着。");
+        if (string.IsNullOrWhiteSpace(text)) return SpeechClip.Fail("empty_text", "没有要合成的文本。");
+
+        var voice = VoiceOf(charId);
+        if (voice is { Enabled: false }) return SpeechClip.Fail("voice_disabled", "这个角色关掉了自己的声音。");
+        var engine = string.IsNullOrWhiteSpace(voice?.Engine) ? TtsEngine : voice!.Engine;
+        var name = string.IsNullOrWhiteSpace(voice?.VoiceName) ? VoiceName : voice!.VoiceName;
+        var extra = string.IsNullOrWhiteSpace(voice?.Extra) ? VoiceExtra : voice!.Extra;
+
+        try
+        {
+            if (string.Equals(engine, "api", StringComparison.OrdinalIgnoreCase))
+            {
+                // 统一要 WAV：客户端那条播放链路会把三种来源都当作 PCM 解，格式杂了反而要分叉
+                return string.Equals(VoiceApiMode, "sovits", StringComparison.OrdinalIgnoreCase)
+                    ? new SpeechClip(await SynthesizeSovitsCoreAsync(text, name, extra), "wav", "sovits", name, "", "")
+                    : new SpeechClip(await SynthesizeOpenAiCoreAsync(text, name, "wav"), "wav", "openai", name, "", "");
+            }
+#if WINDOWS
+            return new SpeechClip(await SynthesizeWindowsCoreAsync(text, name), "wav", "system", name, "", "");
+#else
+            return SpeechClip.Fail("system_tts_unavailable", "这台设备没有可用的系统合成器，桥的语音合成请在设置里改用 API。");
+#endif
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"SpeechService.SynthesizeClip -> {ex.GetType().Name}: {ex.Message}");
+            return SpeechClip.Fail("tts_failed", "合成失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>把一段录音（WAV）识别成文字。api=外部转写；system/local=系统识别器直接吃这个文件。</summary>
+    public async Task<SpeechText> TranscribeAsync(byte[] audio, string lang)
+    {
+        if (!SttEnabled) return new SpeechText("", "WAB 的语音识别在设置里关着。");
+        if (audio is null || audio.Length < 64) return new SpeechText("", "这段录音是空的。");
+        try
+        {
+            if (string.Equals(SttEngine, "api", StringComparison.OrdinalIgnoreCase))
+                return await TranscribeApiAsync(audio, lang);
+#if WINDOWS
+            return await TranscribeWindowsAsync(audio, lang);
+#else
+            return new SpeechText("", "这台设备没有可用的识别器，桥的语音识别请在设置里改用 API。");
+#endif
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"SpeechService.Transcribe -> {ex.GetType().Name}: {ex.Message}");
+            return new SpeechText("", "识别失败：" + ex.Message);
+        }
+    }
+
+    /// <summary>OpenAI 兼容 /v1/audio/transcriptions：把交上来的 WAV 原样上传，不碰麦克风。</summary>
+    private async Task<SpeechText> TranscribeApiAsync(byte[] audio, string lang)
+    {
+        var url = $"{VoiceApiUrl.TrimEnd('/')}/audio/transcriptions";
+        using var http = new System.Net.Http.HttpClient();
+        http.Timeout = TimeSpan.FromSeconds(90);
+        if (!string.IsNullOrWhiteSpace(VoiceApiKey))
+            http.DefaultRequestHeaders.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", VoiceApiKey);
+        using var form = new System.Net.Http.MultipartFormDataContent();
+        var fileContent = new System.Net.Http.ByteArrayContent(audio);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("audio/wav");
+        form.Add(fileContent, "file", "speech.wav");
+        form.Add(new System.Net.Http.StringContent(string.IsNullOrWhiteSpace(VoiceSttModel) ? "whisper-1" : VoiceSttModel), "model");
+        form.Add(new System.Net.Http.StringContent(LanguageTag(lang) == "zh" ? "zh" : "en"), "language");
+        using var resp = await http.PostAsync(url, form);
+        resp.EnsureSuccessStatusCode();
+        var json = System.Text.Json.JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
+        var text = json.RootElement.TryGetProperty("text", out var t) ? t.GetString() ?? "" : "";
+        text = text.Trim();
+        return text.Length == 0
+            ? new SpeechText("", "外部识别没返回内容：可能没听清，或录音里没有说话声")
+            : new SpeechText(text, "");
+    }
+
+    /// <summary>把 zh-CN / zh_cn / en_US 这类写法收成两个字母，识别接口只认这个。</summary>
+    private static string LanguageTag(string lang)
+    {
+        var tag = (lang ?? "").Replace('_', '-').ToLowerInvariant();
+        return tag.StartsWith("en") ? "en" : "zh";
     }
 
     /// <summary>
@@ -514,6 +628,28 @@ public sealed class SpeechService
         var player = new Windows.Media.Playback.MediaPlayer();
         player.SetStreamSource(stream);
         player.Play();
+    }
+
+    /// <summary>
+    /// 系统嗓音合成成 WAV 字节（桥用，不播放）。
+    /// WinRT 的合成流本来就是 16k/16bit 单声道 WAV，原样读出来交给客户端解码即可；
+    /// 不走 AsStreamForRead（现代 .NET 投影里没有那个扩展），用 DataReader 按字节取。
+    /// </summary>
+    private async Task<byte[]> SynthesizeWindowsCoreAsync(string text, string voiceName)
+    {
+        using var synth = new Windows.Media.SpeechSynthesis.SpeechSynthesizer();
+        var voices = Windows.Media.SpeechSynthesis.SpeechSynthesizer.AllVoices;
+        synth.Voice = voices.FirstOrDefault(v => !string.IsNullOrWhiteSpace(voiceName) && v.DisplayName == voiceName)
+                      ?? voices.FirstOrDefault(v => v.Language.StartsWith("zh"))
+                      ?? synth.Voice;
+        using var stream = await synth.SynthesizeTextToStreamAsync(text);
+        var size = (int)Math.Min(stream.Size, 16 * 1024 * 1024);
+        if (size <= 0) throw new InvalidOperationException("系统合成器没有交回音频。");
+        var reader = new Windows.Storage.Streams.DataReader(stream.GetInputStreamAt(0));
+        var loaded = await reader.LoadAsync((uint)size);
+        var bytes = new byte[loaded];
+        reader.ReadBytes(bytes);
+        return bytes;
     }
 
     private string BuildSsml(string text, double pitch)
@@ -614,6 +750,47 @@ public sealed class SpeechService
             try { System.IO.File.Delete(tmp); } catch { }
         }
     }
+
+    /// <summary>
+    /// 系统识别器直接吃一份 WAV 文件：桌面 SAPI 的 SetInputToWaveFile 是同步的，
+    /// 所以整段挪到线程池，别把 UI 线程按在识别上。
+    /// </summary>
+    private Task<SpeechText> TranscribeWindowsAsync(byte[] audio, string lang) => Task.Run(() =>
+    {
+        var tag = LanguageTag(lang) == "en" ? "en-US" : "zh-CN";
+        var tmp = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"wab_stt_{Guid.NewGuid():N}.wav");
+        System.IO.File.WriteAllBytes(tmp, audio);
+        System.Speech.Recognition.SpeechRecognitionEngine? engine = null;
+        try
+        {
+            try
+            {
+                engine = new System.Speech.Recognition.SpeechRecognitionEngine(new System.Globalization.CultureInfo(tag));
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog($"SpeechService: 桥识别没有 {tag} 识别器（{ex.Message}），改用系统默认语言");
+                engine = new System.Speech.Recognition.SpeechRecognitionEngine();
+            }
+            engine.LoadGrammar(new System.Speech.Recognition.DictationGrammar());
+            engine.SetInputToWaveFile(tmp);
+            var result = engine.Recognize();
+            var text = result?.Text?.Trim() ?? "";
+            return text.Length == 0
+                ? new SpeechText("", "系统识别器没听懂这段录音。")
+                : new SpeechText(text, "");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog($"SpeechService.TranscribeWindows -> {ex.GetType().Name}: {ex.Message}");
+            return new SpeechText("", "系统识别失败：" + ex.Message);
+        }
+        finally
+        {
+            try { engine?.Dispose(); } catch { }
+            try { System.IO.File.Delete(tmp); } catch { }
+        }
+    });
 
     /// <summary>一次识别最长听多久（秒）：说一句话用不了这么久，但必须有上限，否则麦克风按钮能卡在「…」里到天亮。</summary>
     private const int WindowsListenSeconds = 20;
