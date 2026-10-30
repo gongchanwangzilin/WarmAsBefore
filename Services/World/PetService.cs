@@ -580,6 +580,24 @@ public sealed class PetService
         }
     }
 
+    /// <summary>桌宠是否正站在桌面上（决定通知走页面横幅还是走她头顶的气泡）。</summary>
+    public static bool IsPetMode => _instance?._petMode == true;
+
+    /// <summary>
+    /// 桌宠模式下的通知通道：桌面那只没有页面可贴横幅，就写进头顶状态行几秒。
+    /// 这一条对应「横幅宿主进桌宠头顶留白带」——用的是现成的状态行通道，不为通知再开一层窗口。
+    /// </summary>
+    public static void NotifyBubble(string text, double seconds = 8)
+    {
+#if WINDOWS
+        var inst = _instance;
+        if (inst is null || !inst._petMode) return;
+        var line = (text ?? "").Trim();
+        if (line.Length > 60) line = line[..60] + "…";
+        MainThread.BeginInvokeOnMainThread(() => inst.SetStatusFor(line, seconds));
+#endif
+    }
+
     /// <summary>
     /// 换档之后热换桌宠：人已经站在桌面上了，不能等她下次进桌宠页才换脸。
     /// 只在桌宠真的在显示时重贴（PetLayeredWindow 是常驻分层窗口，非桌宠模式不该被拉出来）。

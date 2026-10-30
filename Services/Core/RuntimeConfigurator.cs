@@ -315,9 +315,12 @@ public sealed class RuntimeConfigurator
         {
             try
             {
-                // 桌宠模式下主窗口是隐藏的：成就横幅贴在页面上，先把窗口还回来。
-                // 不再弹模态对话框——通知是「发生了件事」，不是「必须点一下才能继续」。
-                PetService.ShowMainWindowStatic();
+                // 桌宠模式下没有页面可贴横幅：写进她头顶的状态行，不把主窗口拉回来打断正在做的事。
+                if (PetService.IsPetMode)
+                {
+                    PetService.NotifyBubble($"{title}：{msg}", 8);
+                    return;
+                }
                 WindowTopmost.BringToFront();
                 Controls.Toast.Show(title, msg, "NOTICE", Controls.ToastKind.Info, "✦");
             }

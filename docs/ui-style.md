@@ -20,7 +20,7 @@
 ## 2. 设置行
 
 1. 一行只做一件事：标题（`TxtRowTitle`，加粗正文号）+ 说明（`TxtRowDesc`）左，控件右。
-2. 控件右列定宽 280；滑杆 260 + 右侧读数 64；说明 ≤2 行（`LineBreakMode="WordWrap"` + `MaxLines="2"`），超长说明移入折叠或悬停。
+2. 控件右列定宽 280；滑杆 150–260 + 右侧读数 64；说明 ≤2 行（`LineBreakMode="WordWrap"` + `MaxLines="2"`），超长说明移入折叠或悬停。
 3. 分隔线 `HSepBleed`（行内）/ `WSep`（卡底），行内距 `WPadRow`。
 4. 选项 2–4 个的场合用 SegBar 分段，不用 Picker。
 

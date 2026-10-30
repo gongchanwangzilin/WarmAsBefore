@@ -14,8 +14,8 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
     <ContentPage.Background>
         <!-- 半透明米白渐变：让全局磨砂叠层透出来，形成「磨砂玻璃底」 -->
         <LinearGradientBrush StartPoint="0,0" EndPoint="0,1">
-            <GradientStop Color="#E6FBF7F0" Offset="0.0" />
-            <GradientStop Color="#D9F3EDE0" Offset="1.0" />
+            <GradientStop Color="{DynamicResource PanelGlass}" Offset="0.0" />
+            <GradientStop Color="{DynamicResource PanelGlass}" Offset="1.0" />
         </LinearGradientBrush>
     </ContentPage.Background>
 
@@ -132,16 +132,16 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Label Text="{Binding Energy, StringFormat='精力 {0}%'}" TextColor="{DynamicResource AccentWarmFg}" FontSize="11" FontAttributes="Bold" />
                     </Border>
                     <!-- 同手机版：只留「正在玩」的动作，配置世界的页面走手机桌面 -->
-                    <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
-                    <Button Grid.Column="5" Text="菜单" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
-                    <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
-                    <Button Grid.Column="7" Text="{Binding MapButtonText}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
+                    <Button Grid.Column="4" Text="存档" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
+                    <Button Grid.Column="5" Text="菜单" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
+                    <Button Grid.Column="6" Text="手机" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
+                    <Button Grid.Column="7" Text="{Binding MapButtonText}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
                     <!-- 临时指定这次由哪个 AI 回答（不动全局设置；指定后按钮高亮） -->
                     <Button Grid.Column="8" Text="AI" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                             BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
                             Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
                     <!-- #E4：收起信息栏与顶部（等同 ESC）。收起后舞台左上角留一枚「展开界面」 -->
-                    <Button Grid.Column="9" Text="收起" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                    <Button Grid.Column="9" Text="收起" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                             Command="{Binding ToggleHidePanelsCommand}" ToolTipProperties.Text="隐藏信息栏与顶部（Esc）" />
                 </Grid>
             </Border>
@@ -159,14 +159,14 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                                                BindableLayout.ItemTemplate="{StaticResource TopWidgetItemTemplate}" />
                     </ScrollView>
                     <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
-                        <Button Text="存档" IsVisible="{Binding ShowSaveButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
-                        <Button Text="菜单" IsVisible="{Binding ShowMenuButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
-                        <Button Text="手机" IsVisible="{Binding ShowPhoneButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
-                        <Button Text="{Binding MapButtonText}" IsVisible="{Binding ShowMapButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
+                        <Button Text="存档" IsVisible="{Binding ShowSaveButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding QuickSaveCommand}" />
+                        <Button Text="菜单" IsVisible="{Binding ShowMenuButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding ToggleMenuCommand}" />
+                        <Button Text="手机" IsVisible="{Binding ShowPhoneButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenPhoneCommand}" />
+                        <Button Text="{Binding MapButtonText}" IsVisible="{Binding ShowMapButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0" Command="{Binding OpenMapCommand}" />
                         <Button Text="AI" IsVisible="{Binding ShowAiButton}" TextColor="{DynamicResource SurfaceFg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                                 BackgroundColor="{Binding HasTemporaryAi, Converter={StaticResource SelectedBg}}"
                                 Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
-                        <Button Text="收起" IsVisible="{Binding ShowHideButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="#B8FDF8F0" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                        <Button Text="收起" IsVisible="{Binding ShowHideButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                                 Command="{Binding ToggleHidePanelsCommand}" ToolTipProperties.Text="隐藏信息栏与顶部（Esc）" />
                         <Button Text="组件" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource AccentWarm}" FontSize="12" Padding="10,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                                 Command="{Binding ToggleWidgetPanelCommand}" ToolTipProperties.Text="选择顶栏与左栏显示什么" />
@@ -285,7 +285,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" />
                     </VerticalStackLayout>
                 </Border>
-                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="#D9FDF8F0" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
+                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="{DynamicResource PanelGlass}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                 </Border>
@@ -296,7 +296,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         Command="{Binding PrevSceneCommand}"
                         IsEnabled="{Binding CanGoPrevScene}"
                         ToolTipProperties.Text="{Binding PrevSceneLabel}"
-                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource SurfaceFg}"
+                        BackgroundColor="{DynamicResource PanelGlassSoft}" TextColor="{DynamicResource SurfaceFg}"
                         FontSize="18" WidthRequest="44" HeightRequest="120" Padding="0"
                         CornerRadius="16" HorizontalOptions="Start" VerticalOptions="Center"
                         Margin="10,0,0,0" />
@@ -304,7 +304,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         Command="{Binding NextSceneCommand}"
                         IsEnabled="{Binding CanGoNextScene}"
                         ToolTipProperties.Text="{Binding NextSceneLabel}"
-                        BackgroundColor="#CCFDF8F0" TextColor="{DynamicResource SurfaceFg}"
+                        BackgroundColor="{DynamicResource PanelGlassSoft}" TextColor="{DynamicResource SurfaceFg}"
                         FontSize="18" WidthRequest="44" HeightRequest="120" Padding="0"
                         CornerRadius="16" HorizontalOptions="End" VerticalOptions="Center"
                         Margin="0,0,10,0" />
@@ -320,13 +320,13 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <!-- AI 主动黑屏：只黑舞台，右侧对话面板照常可用 -->
                 <Grid IsVisible="{Binding IsBlackout}" BackgroundColor="Black">
                     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8">
-                        <Label Text="（黑屏）" TextColor="#66FFFFFF" FontSize="15" HorizontalOptions="Center" />
-                        <Label Text="{Binding BlackoutReason}" TextColor="#99FFFFFF" FontSize="12"
+                        <Label Text="（黑屏）" TextColor="{DynamicResource OnScrimInkSoft}" FontSize="15" HorizontalOptions="Center" />
+                        <Label Text="{Binding BlackoutReason}" TextColor="{DynamicResource OnScrimInk}" FontSize="12"
                                HorizontalOptions="Center" LineBreakMode="WordWrap" MaximumWidthRequest="360"
                                IsVisible="{Binding BlackoutReason, Converter={StaticResource IsNotNull}}" />
                         <Button Text="退出黑屏" FontSize="12" Padding="12,4"
                                 Command="{Binding ExitBlackoutCommand}"
-                                BackgroundColor="#33FFFFFF" TextColor="White" HorizontalOptions="Center" />
+                                BackgroundColor="{DynamicResource OnScrimChip}" TextColor="White" HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </Grid>
 
@@ -335,13 +335,13 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         Command="{Binding ToggleHidePanelsCommand}"
                         IsVisible="{Binding HideDesktopPanels}"
                         ToolTipProperties.Text="恢复信息栏与顶部（Esc）"
-                        BackgroundColor="#B3FDF8F0" TextColor="{DynamicResource SurfaceFg}"
+                        BackgroundColor="{DynamicResource PanelGlassStrong}" TextColor="{DynamicResource SurfaceFg}"
                         FontSize="11" Padding="10,0" CornerRadius="14" HeightRequest="28" MinimumWidthRequest="0"
                         HorizontalOptions="Start" VerticalOptions="Start" Margin="12,12,0,0" />
             </Grid>
 
             <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间） -->
-            <Border Grid.Row="1" Grid.Column="2" x:Name="RightChatPanel" BackgroundColor="#D9FCF8F0" WidthRequest="300" StrokeThickness="0"
+            <Border Grid.Row="1" Grid.Column="2" x:Name="RightChatPanel" BackgroundColor="{DynamicResource PanelGlassStage}" WidthRequest="300" StrokeThickness="0"
                     IsVisible="{Binding IsRightPanelVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">
@@ -389,7 +389,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
             <!-- ============ Galgame Panel (半透明覆盖在角色上) ============ -->
             <Border Grid.Row="1" Grid.Column="1"
                     IsVisible="{Binding IsGalgamePanelVisible}"
-                    BackgroundColor="#CCFDF8F0"
+                    BackgroundColor="{DynamicResource PanelGlassSoft}"
                     Padding="16,12" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
                     VerticalOptions="End" Margin="0,0,0,12"
                     HorizontalOptions="Fill"
@@ -675,7 +675,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
 
         <!-- ===== 未标定闸门遮罩（最上层，不可关闭）=====
              没有标定数据就不生成角色位置，但必须给出口，否则换错一张图就卡死。 -->
-        <Grid IsVisible="{Binding IsCalibrationBlocked}" BackgroundColor="#CC000000">
+        <Grid IsVisible="{Binding IsCalibrationBlocked}" BackgroundColor="{DynamicResource ScrimStrong}">
             <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
                     Padding="24,22" Margin="28" VerticalOptions="Center" HorizontalOptions="Center"
                     MaximumWidthRequest="520">
@@ -702,7 +702,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
         </Grid>
 
         <!-- 选择了「暂用居中」后的常驻提醒（不挡操作，点了就能去补标定） -->
-        <Border IsVisible="{Binding IsUncalibrated}" BackgroundColor="#E6B3261E"
+        <Border IsVisible="{Binding IsUncalibrated}" BackgroundColor="{DynamicResource DangerBanner}"
                 StrokeThickness="0" Padding="14,8" Margin="12" VerticalOptions="Start" HorizontalOptions="Center">
             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
             <Label Text="{Binding UncalibratedHint}" TextColor="White" FontSize="12">
