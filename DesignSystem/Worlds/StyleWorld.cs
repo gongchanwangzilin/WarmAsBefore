@@ -367,6 +367,21 @@ public static class StyleWorldTokens
         res["SecondaryBg"] = dark ? Lift(surface, 0.05) : Sink(page, 0.05);
         res["OverlayDim"] = new Color(0f, 0f, 0f, (float)(dark ? 0.62 : 0.42));
 
+        // 主界面那层「暖纸半透明」：顶栏药丸、右侧面板、立绘框底。
+        // 原先在 MainGamePage 里写死 #B8FDF8F0 / #D9FDF8F0 这一族奶油色，
+        // 深色档下它们会亮在半屏的黑里。现在一律由当前档的 page/surface 派生，透明度只表达「叠了几层」。
+        Color Alpha(Color c, byte a) => new(c.Red, c.Green, c.Blue, a / 255f);
+        res["TopBarChipBg"] = Alpha(page, 0xB8);
+        res["PanelGlass"] = Alpha(page, 0xD9);
+        res["PanelGlassSoft"] = Alpha(page, 0xCC);
+        res["PanelGlassStrong"] = Alpha(page, 0xB3);
+        res["PanelGlassStage"] = Alpha(surface, 0xD9);
+        res["ScrimStrong"] = new Color(0f, 0f, 0f, 0.80f);
+        res["OnScrimInk"] = new Color(1f, 1f, 1f, 0.60f);
+        res["OnScrimInkSoft"] = new Color(1f, 1f, 1f, 0.40f);
+        res["OnScrimChip"] = new Color(1f, 1f, 1f, 0.20f);
+        res["DangerBanner"] = new Color(0.70f, 0.15f, 0.12f, 0.90f);
+
         // 墨阶（含旧命名：WarmDark/WarmBody/WarmMuted 在页面里被当文字色用了上百处）
         res["WarmDark"] = inkDisplay;
         res["SurfaceFg"] = inkBody;
