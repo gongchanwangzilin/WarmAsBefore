@@ -9,9 +9,10 @@
              Background="{DynamicResource PageBgBrush}">
 
     <!--
-      分类页。结构对标桌面系统设置窗：一整块中性地面，眉栏不再是「另一种材质贴上去的条」，
-      只有一根发丝线把它和正文分开；分类项不是一张张牌子，而是**一张卡里的一组行**。
-      两级的壳（分类页 → 子页）保持不动，那是先前定下来的导航方式。
+      iPhone 标准的设置首页：大标题 + 搜索条 + 分组 inset 列表。
+      分组标题是小字灰标（「常驻」「全部设置」），组内每行 54 高、左侧一枚编号方块、
+      右侧是当前值摘要（就像 iOS 设置里 Wi-Fi 行右侧显示网络名），行间只有一根发丝线。
+      温馨元素只保留在读得出来的地方：暖米底色、宽体编号、组标题的字距——不堆花纹。
     -->
     <Grid RowDefinitions="Auto,1,*">
         <Grid Grid.Row="0" Padding="24,16,24,12" ColumnDefinitions="Auto,*" ColumnSpacing="12">
@@ -28,10 +29,16 @@
 
         <Border Grid.Row="1" Background="{DynamicResource WRule}" HeightRequest="1" StrokeThickness="0" />
 
-        <ScrollView Grid.Row="2" Padding="24,18,24,24">
-            <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Fill" Spacing="16">
+        <ScrollView Grid.Row="2" Padding="24,20,24,32">
+            <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Center" Spacing="12"
+                                 MaximumWidthRequest="{DynamicResource WCardWidth}">
 
-                <!-- 搜索：设置项多，先搜再点比一页页翻快。它是工具条不是内容，所以自己一张卡。 -->
+                <!-- 大标题：iOS 的 large title，和顶栏的小标题并存（那是导航栏标题，这里才是这一页的名字） -->
+                <Label Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                       Style="{StaticResource TxtDisplay}" Margin="2,0,0,0" />
+                <Label Text="选择一处，开始调校" Style="{StaticResource TxtCaption}" Margin="2,-8,0,4" />
+
+                <!-- 搜索：设置项多，先搜再点比一页页翻快。 -->
                 <Border Style="{StaticResource CardSolid}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <Entry Grid.Column="0" Text="{Binding SettingsSearchText}" Placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
@@ -51,16 +58,17 @@
                            TextColor="{DynamicResource AccentWarmFg}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Spacing="2" Margin="2,8,0,0">
-                    <Label Text="// CATALOG" Style="{StaticResource Eyebrow}" />
-                    <Label Text="选择一个分类进入" Style="{StaticResource TxtCaption}" />
-                </VerticalStackLayout>
+                <!-- 常驻组：桌宠设置、用量统计、外观与主题（最常动的三处） -->
+                <Label Text="常驻" Style="{StaticResource TxtCaption}" Margin="4,10,0,0" />
+                <Border Style="{StaticResource CardSolid}" Padding="0">
+                    <VerticalStackLayout x:Name="GroupPrimaryHost" Spacing="0" />
+                </Border>
 
-                <!-- 分类图块：两列**按行成对**铺（窄屏单列，见代码）。之前左右各一个堆叠列，
-                     两列内容高度不同 → 行与行永远对不齐，文字像从边框里漏出来。现在一行一 Grid，
-                     左右同高（卡高固定 92），整张网格是齐的。Tile 由代码建、IsVisible 绑行 Visible，
-                     搜索过滤照旧生效。 -->
-                <VerticalStackLayout x:Name="TilesHost" Spacing="12" />
+                <!-- 全部设置：其余分类按目录原序 -->
+                <Label Text="全部设置" Style="{StaticResource TxtCaption}" Margin="4,10,0,0" />
+                <Border Style="{StaticResource CardSolid}" Padding="0">
+                    <VerticalStackLayout x:Name="GroupAllHost" Spacing="0" />
+                </Border>
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

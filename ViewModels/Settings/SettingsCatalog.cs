@@ -17,10 +17,11 @@ public static class SettingsCatalog
             new[] { "Card02", "Card03" },
             new[] { "外观", "主题", "玻璃", "毛玻璃", "磨砂", "液态", "光源", "高光", "背景", "配色", "glass", "theme" }),
 
-        new Section("sound", "音量与音效", "🔊",
-            "背景音乐与音效音量、按键/打字音",
-            new[] { "Card01", "Card08" },
-            new[] { "音量", "声音", "音乐", "音效", "bgm", "sfx", "按键音", "打字音" }),
+        new Section("sound", "声音与语音", "🔊",
+            "背景音乐、音效、按键/打字音；朗读与语音识别、音色、外部语音服务",
+            new[] { "Card01", "Card08", "Card11" },
+            new[] { "音量", "声音", "音乐", "音效", "bgm", "sfx", "按键音", "打字音",
+                    "语音", "朗读", "tts", "stt", "识别", "音色", "sovits", "whisper" }),
 
         new Section("ai", "AI 与模型", "🤖",
             "厂商与模型、密钥、识图、量化、花费与省钱、AI 绘画",
@@ -32,20 +33,10 @@ public static class SettingsCatalog
             new[] { "Card10", "Card30" },
             new[] { "记忆", "回忆", "上下文", "总结", "折叠", "关系网", "标签", "副设定", "记忆窗口", "核心记忆", "永久", "创伤", "链式", "遗忘" }),
 
-        new Section("window", "窗口与运行", "🪟",
-            "手机独立窗口、关窗联动、超省内存模式",
-            new[] { "Card27" },
-            new[] { "窗口", "多开", "手机", "独立窗口", "关闭", "关窗", "内存", "低内存", "省内存", "memory" }),
-
         new Section("persona", "身份与心理", "🫀",
             "旁白 AI、你的性别、自定义性别、心理状况与身体感受、大脑预判",
             new[] { "Card28", "Card29", "Card34" },
             new[] { "旁白", "性别", "自定义性别", "称呼", "心理", "疾病", "抑郁", "焦虑", "创伤", "身体", "冷暖", "饥渴", "想念", "大脑", "预判", "期待", "多巴胺", "意料", "意外", "惊喜", "数值", "好感", "信任", "精力", "结算" }),
-
-        new Section("voice", "语音", "🎙",
-            "朗读与语音识别、音色、外部语音服务",
-            new[] { "Card11" },
-            new[] { "语音", "朗读", "tts", "stt", "识别", "音色", "sovits", "whisper" }),
 
         new Section("interface", "界面与玩法", "🎮",
             "屏幕方向、聊天风格、小游戏难度与棋力、金钱系统、小组件、着装与性欲",
@@ -53,9 +44,11 @@ public static class SettingsCatalog
             new[] { "界面", "布局", "方向", "横屏", "竖屏", "聊天风格", "气泡", "galgame", "小游戏", "难度", "棋", "棋力", "金钱", "亲密币", "余额", "加钱", "小组件", "信息栏", "组件", "着装", "衣服", "形象", "性欲", "周期", "关系网", "动画" }),
 
         new Section("platform", "平台与运行", "🖥",
-            "桌宠、显卡偏好、外部工具运行时、实验功能",
-            new[] { "Card25", "Card14", "Card17", "Card20" },
-            new[] { "桌宠", "桌面", "置顶", "闲置", "托盘", "显卡", "独显", "gpu", "运行时", "python", "java", "proot", "实验" }),
+            "桌宠、窗口与多开、显卡偏好、外部工具运行时、实验功能",
+            new[] { "Card25", "Card27", "Card14", "Card17", "Card20" },
+            new[] { "桌宠", "桌面", "置顶", "闲置", "托盘", "窗口", "多开", "手机", "独立窗口",
+                    "关闭", "关窗", "内存", "低内存", "省内存", "显卡", "独显", "gpu",
+                    "运行时", "python", "java", "proot", "实验" }),
 
         new Section("integrations", "外部接入", "🔌",
             "QQ 与微信机器人、MCP 服务、工具安全、插件与工坊、视频号外链",
@@ -78,8 +71,13 @@ public static class SettingsCatalog
             new[] { "作者", "赞助", "支持", "开发者", "展示", "调试" }),
     };
 
-    public static Section? ByKey(string? key) =>
-        string.IsNullOrWhiteSpace(key) ? null : All.FirstOrDefault(s => s.Key == key);
+    public static Section? ByKey(string? key)
+    {
+        if (string.IsNullOrWhiteSpace(key)) return null;
+        // 分类合并后的旧深链：window 归「平台与运行」，voice 归「声音与语音」。
+        var k = key.Trim() switch { "window" => "platform", "voice" => "sound", var s => s };
+        return All.FirstOrDefault(x => x.Key == k);
+    }
 
     /// <summary>某张卡片属于哪个分类（分类子页里用于校验）。</summary>
     public static Section? ByCard(string cardKey) =>
