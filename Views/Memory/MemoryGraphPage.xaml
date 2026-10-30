@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.MemoryGraphPage"
@@ -166,19 +168,19 @@
                                    Style="{StaticResource TxtCaption}" />
 
                             <Label Text="联想饱和 K：要多强的联系才算数" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="0.5" Maximum="40" Value="{Binding PSaturation, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="0.5" Maximum="40" Value="{Binding PSaturation, Mode=TwoWay}" />
                             <Label Text="扇形抑制：连得越杂，单条越容易被挤掉（0=不抑制）" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="0" Maximum="2" Value="{Binding PFan, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="0" Maximum="2" Value="{Binding PFan, Mode=TwoWay}" />
                             <Label Text="二跳衰减：想到第二步时还剩多少" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="0.05" Maximum="1" Value="{Binding PHop, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="0.05" Maximum="1" Value="{Binding PHop, Mode=TwoWay}" />
                             <Label Text="联系半衰期（天，0=不忘）" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="0" Maximum="365" Value="{Binding PHalfLife, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="0" Maximum="365" Value="{Binding PHalfLife, Mode=TwoWay}" />
                             <Label Text="永久成分：久到极限还剩几分" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="0" Maximum="0.9" Value="{Binding PPermanent, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="0" Maximum="0.9" Value="{Binding PPermanent, Mode=TwoWay}" />
                             <Label Text="想不起来的线（低于它就当没想到）" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="0.005" Maximum="0.2" Value="{Binding PFloor, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="0.005" Maximum="0.2" Value="{Binding PFloor, Mode=TwoWay}" />
                             <Label Text="往外看几圈" Style="{StaticResource TxtCaption}" />
-                            <Slider Minimum="1" Maximum="4" Value="{Binding MaxDepth, Mode=TwoWay}" />
+                            <controls:ViewSlider Minimum="1" Maximum="4" Value="{Binding MaxDepth, Mode=TwoWay}" />
 
                             <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}" FontSize="11" />
                             <Border HeightRequest="1" BackgroundColor="{DynamicResource BorderLine}" Stroke="Transparent"

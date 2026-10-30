@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.SetupPage"
@@ -128,7 +130,7 @@
                                 <Label Text="{Binding [Setup_Reside_TopHint], Source={x:Static i18n:LocalizationService.Current}}"
                                        Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmMuted}" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" VerticalOptions="Center"
+                            <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
                                     OnColor="{DynamicResource Signal}"
                                     IsToggled="{Binding Topmost, Mode=TwoWay}" />
                         </Grid>

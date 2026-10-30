@@ -1,6 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:mcp="clr-namespace:WarmAsBefore.Modules.Mcp"
              xmlns:sbx="clr-namespace:WarmAsBefore.Modules.Sandbox"
@@ -21,12 +23,12 @@
                                         <Label Text="{Binding [Settings_Volume], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Grid ColumnDefinitions="80,*" Padding="0,13">
                                             <Label Text="{Binding [Settings_Bgm], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                                            <Slider Grid.Column="1" Value="{Binding BgmLevel}" Minimum="0" Maximum="1" />
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding BgmLevel}" Minimum="0" Maximum="1" />
                                         </Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="80,*" Padding="0,13">
                                             <Label Text="{Binding [Settings_Sfx], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                                            <Slider Grid.Column="1" Value="{Binding SfxLevel}" Minimum="0" Maximum="1" />
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding SfxLevel}" Minimum="0" Maximum="1" />
                                         </Grid>
                                     </VerticalStackLayout>
                                 </Border>
@@ -43,14 +45,14 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="轻量模式（关阴影，低配更流畅）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="关闭后卡片不再有投影，观感朴素一些。阴影在 WinUI 上是每个元素一个合成层，卡片多或显卡弱时更划算；本机（独立显卡）实测差异在噪声范围内。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding LightMode}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding LightMode}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 透明度 = 总闸：放最上面，0 即视为关闭玻璃 -->
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
                                             <VerticalStackLayout>
                                                 <Label Text="玻璃透明度" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="0 = 表面不透明，等同于关闭玻璃；1 = 最通透" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassTranslucency}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassTranslucency}"
                                                     WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <Label Text="玻璃已关闭（透明度为 0）：表面为不透明材质，下方选项不生效。"
@@ -72,7 +74,7 @@
                                             <VerticalStackLayout>
                                                 <Label Text="磨砂程度" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="0 = 清玻璃 · 1 = 厚磨砂（奶白雾气浓度）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassFrost}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassFrost}"
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
@@ -80,7 +82,7 @@
                                             <VerticalStackLayout>
                                                 <Label Text="液态高度" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="0 = 贴在页面上 · 1 = 明显浮起（投影深度 + 上沿高光）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassHeight}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassHeight}"
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
@@ -88,7 +90,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="光源方向（高级）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="决定高光落在哪条边、影子投往哪边" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding ShowLightAdvanced}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ShowLightAdvanced}" /></Grid>
                                         <VerticalStackLayout Spacing="14" IsVisible="{Binding ShowLightAdvanced}">
                                         <Label Text="光源" Style="{StaticResource TxtSubhead}" />
                                         <Label Text="决定高光落在哪条边、影子投往哪边；光越高越柔。"
@@ -97,35 +99,35 @@
                                             <VerticalStackLayout>
                                                 <Label Text="光源 · 水平" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="-1 = 光从左边来 · 1 = 从右边来" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightX}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightX}"
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                             <VerticalStackLayout>
                                                 <Label Text="光源 · 垂直" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="-1 = 光从上方来 · 1 = 从下方来" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightY}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightY}"
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                             <VerticalStackLayout>
                                                 <Label Text="光源 · 高度" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="0 = 贴着表面（锐利）· 1 = 高高在上（柔和、影子散）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightZ}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightZ}"
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                             <VerticalStackLayout>
                                                 <Label Text="光宽" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="0 = 一道锐利反光 · 1 = 整片漫射" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightWidth}"
+                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightWidth}"
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         </VerticalStackLayout>
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="减弱透明降级（无障碍）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后玻璃切不透明磨砂层，保证正文 4.5:1 对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding GlassReducedTransparency}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding GlassReducedTransparency}" /></Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -246,7 +248,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_MenuRight], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_MenuRightHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding MenuRight}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MenuRight}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_Language], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
@@ -258,7 +260,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_AutoSave], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_AutoSaveHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AutoSave}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AutoSave}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="多角色聊天显示" Style="{StaticResource TxtBodySm}" />
@@ -270,7 +272,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="允许 AI 沉默" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后角色可以选择不回复（什么都不输出），系统会自动停止该回合，而不是每次提问都强行给出答复" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AllowSilence}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AllowSilence}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding IsMobile}"><VerticalStackLayout>
                                             <Label Text="屏幕方向" Style="{StaticResource TxtBodySm}" />
@@ -306,7 +308,7 @@
                                                 <Label Text="AI 自动调节" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="由 AI 按你的对局表现智能升降难度" Style="{StaticResource TxtCaption}" />
                                             </VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AiAutoDifficulty}" />
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AiAutoDifficulty}" />
                                         </Grid>
                                     </VerticalStackLayout>
                                 </Border>
@@ -322,7 +324,7 @@
                                         <Label Text="默认使用内置本地棋力，不依赖网络。填写 OpenAI 兼容下棋 API 后可让 AI 更强。" Style="{StaticResource TxtCaption}" Margin="0,6,0,0" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13">
                                             <Label Text="启用云端棋力" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                            <Switch Grid.Column="1" IsToggled="{Binding ChessApiEnabled}" />
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ChessApiEnabled}" />
                                         </Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="80,*" Padding="0,13">
@@ -352,7 +354,7 @@
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="{Binding [Settings_TextSfx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Grid ColumnDefinitions="80,*" Padding="0,13"><Label Text="{Binding [Settings_TextSpeed], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                                            <Slider Grid.Column="1" Value="{Binding TextSpeed}" Minimum="0.5" Maximum="2" /></Grid>
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding TextSpeed}" Minimum="0.5" Maximum="2" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_KeySfx], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
@@ -399,13 +401,13 @@
                                                TextColor="{DynamicResource MutedFg}" FontSize="11"
                                                IsVisible="{Binding ModelListStatus, Converter={StaticResource StringNotEmpty}}" />
                                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Temperature], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                                            <Slider Grid.Column="1" Value="{Binding AiTemperature}" Minimum="0" Maximum="1" /></Grid>
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding AiTemperature}" Minimum="0" Maximum="1" /></Grid>
                                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_MaxToken], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                                            <Slider Grid.Column="1" Value="{Binding AiMaxTokens}" Minimum="100" Maximum="2000" /></Grid>
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding AiMaxTokens}" Minimum="100" Maximum="2000" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_DeepThink], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_DeepThinkHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding DeepThink}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding DeepThink}" /></Grid>
                                         <Grid ColumnDefinitions="110,*"><Label Text="{Binding [Settings_DeepModel], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                                             <Entry Grid.Column="1" Text="{Binding DeepModel}" Placeholder="{Binding [Settings_DeepModelPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -434,7 +436,7 @@
                                             <Label Text="量化模型（embedding）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="专门的知识库管理员：把词语和句子换成数值，近似的说法数值就近，「谁和它最像」就能直接算出来。关系网的近邻、按数值补线和按数值搜记忆都优先问它；没配置或额度用完就退回本地共现统计（不花钱，界面会说是哪条路算的）。"
                                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding EmbeddingEnabled}" VerticalOptions="Center" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding EmbeddingEnabled}" VerticalOptions="Center" /></Grid>
                                         <Grid ColumnDefinitions="110,*"><Label Text="量化端点" VerticalOptions="Center" FontSize="13" />
                                             <Entry Grid.Column="1" Text="{Binding EmbeddingUrl}" Placeholder="留空则复用上面的对话端点（自动换成 /embeddings）"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -460,7 +462,7 @@
                                             <Label Text="多端点轮换（供应商 / AI / 密钥）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="保存多条端点（一条 = 供应商 + 某款 AI + 多枚密钥）。开启后密钥与端点自动轮流使用；某条失灵就换下一条，保证对话不间断。"
                                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AiRotationEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AiRotationEnabled}" /></Grid>
                                         <!-- 请求超时：慢模型/长思考端点可在每条端点里单独覆写 -->
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="请求超时（秒）" Style="{StaticResource TxtBodySm}" />
@@ -492,7 +494,7 @@
                                                                            LineBreakMode="TailTruncation" />
                                                                     <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" FontSize="10" />
                                                                 </VerticalStackLayout>
-                                                                <Switch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                                                                <controls:ViewSwitch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
                                                                 <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveProviderCommand}"
                                                                         CommandParameter="{Binding .}" />
@@ -578,7 +580,7 @@
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="智能省钱" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后折叠历史前先预测「现在总结 / 不总结」哪个更省，并识别编程办公场景改用轻总结；关闭则恢复「到上限就总结」。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding SmartSavingEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SmartSavingEnabled}" /></Grid>
                                         <Label Text="{Binding CostSummary}" Style="{StaticResource TxtBodySm}" />
                                         <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="6">
                                             <Entry Grid.Column="0" Text="{Binding NewPriceModel}" Placeholder="模型名"
@@ -666,7 +668,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="回忆的随机度" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="越大越像人：会跳着想、偶尔想不起来。0 = 严格按时间与重要性排序。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Slider Grid.Column="1" WidthRequest="140" Minimum="0" Maximum="1"
+                                            <controls:ViewSlider Grid.Column="1" WidthRequest="140" Minimum="0" Maximum="1"
                                                     Value="{Binding MemoryRecallRandomness}" /></Grid>
                                         <Label Text="需要个别角色记性好/记性差时，在角色库 →「参数覆写」里单独设置这两个值。"
                                                Style="{StaticResource TxtCaption}" />
@@ -675,21 +677,21 @@
                                             <Label Text="让模型参与副设定改写" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后每 12 轮对话，让模型重新表述一次「TA 现在的样子」（性格与处境）；主设定不动、随时可回正。默认关闭以免额外花钱。"
                                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding SubProfileAiRewrite}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SubProfileAiRewrite}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 关系网：模型辅助增边（默认关闭） -->
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="让模型辅助建立关系网" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="关联网默认只靠共现统计自动长（不花钱）；打开后每 20 轮让模型补 3 条关联，标为 AI 来源，人工纠错仍优先。"
                                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding SemanticAiAssist}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SemanticAiAssist}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 记忆作用域：默认按存档隔离，共用要用户明确打开 -->
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="跨存档共用记忆" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="默认关闭：每个存档各记各的，换一个档，TA 不记得别处发生过什么。打开后所有存档读写同一份记忆与关系网；想让两个人分开，就去角色库「复制角色 · 连记忆一起复制」分一份出来。"
                                                    Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding CrossSaveMemory}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CrossSaveMemory}" /></Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -704,7 +706,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_Tts], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_TtsHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding TtsEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding TtsEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="朗读引擎" Style="{StaticResource TxtBodySm}" />
@@ -716,7 +718,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_Stt], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_SttHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding SttEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SttEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="识别引擎" Style="{StaticResource TxtBodySm}" />
@@ -749,7 +751,7 @@
                                                    Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" FontSize="11" />
                                         </VerticalStackLayout>
                                         <Grid ColumnDefinitions="80,*" Padding="0,13"><Label Text="{Binding [Settings_TtsRate], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
-                                            <Slider Grid.Column="1" Value="{Binding TtsRate}" Minimum="0.5" Maximum="2" /></Grid>
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding TtsRate}" Minimum="0.5" Maximum="2" /></Grid>
 
                                         <!-- 试听当前音色：输入文本，按当前设置（系统 TTS 或外部 API）合成并播放，双端可用 -->
                                         <VerticalStackLayout Spacing="10" Margin="0,13,0,0">
@@ -827,12 +829,12 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_Notify], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_NotifyHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding NotificationsEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_Greeting], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_GreetingHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding GreetingEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding GreetingEnabled}" /></Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -932,7 +934,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_CycleTracked], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_CycleTrackedHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding CycleTracked}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CycleTracked}" /></Grid>
                                         <VerticalStackLayout Spacing="14" IsVisible="{Binding CycleTracked}">
                                             <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                                 <Label Text="{Binding [Settings_Cycle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
@@ -950,7 +952,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_CycleAdvanced], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_CycleAdvancedHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding ShowCycleAdvanced}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ShowCycleAdvanced}" /></Grid>
                                         <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowCycleAdvanced}">
                                             <Button Text="{Binding [Settings_CycleAddGender], Source={x:Static i18n:LocalizationService.Current}}"
                                                     Style="{StaticResource BtnGhost}" FontSize="12" HorizontalOptions="Start"
@@ -971,7 +973,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_AlwaysOnTop], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_AlwaysOnTopHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AlwaysOnTop}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AlwaysOnTop}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="桌宠闲置时长" Style="{StaticResource TxtBodySm}" />
@@ -1000,7 +1002,7 @@
                                             <Label Text="桌宠体型" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="在「屏幕高的 42%」这个基准上再乘一刀：屏越大，基准顶得越高，这里才是真正调大小的地方。用滚轮或双指捏过之后，这里会跟着变" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
-                                                <Slider WidthRequest="150" Minimum="0.4" Maximum="2.6" Value="{Binding PetScale}"
+                                                <controls:ViewSlider WidthRequest="150" Minimum="0.4" Maximum="2.6" Value="{Binding PetScale}"
                                                         VerticalOptions="Center" />
                                                 <Label Text="{Binding PetScaleText}" Style="{StaticResource TxtCaption}"
                                                        WidthRequest="42" VerticalTextAlignment="Center" /></HorizontalStackLayout></Grid>
@@ -1009,7 +1011,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{OnPlatform WinUI=True, Default=False}"><VerticalStackLayout>
                                             <Label Text="对话小窗跨屏跟随" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="多显示器用：开启后角色拖到副屏，头顶输入条跟着跨过去；关闭时小窗只在角色那块屏里，贴到屏边会折回本屏。单屏无区别" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 桌宠那一页带实时预览，改一项就能在桌面上看见；AI 制作桌宠是它的上游 -->
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Padding="0,13">
@@ -1035,7 +1037,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_QqEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_QqHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding QqBotEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding QqBotEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="110,*" Padding="0,13"><Label Text="{Binding [Settings_AppId], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                                             <Entry Grid.Column="1" Text="{Binding QqAppId}" Placeholder="{Binding [Settings_BotAppId], Source={x:Static i18n:LocalizationService.Current}}"
@@ -1057,7 +1059,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="回复群聊消息" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="默认不理群里的消息（免得在群里刷屏）；打开后只回应 @ 到机器人的消息" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding QqReplyGroup}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding QqReplyGroup}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="110,*" Padding="0,13"><Label Text="我的 QQ openid" VerticalOptions="Center" FontSize="13" />
                                             <Entry Grid.Column="1" Text="{Binding QqUserOpenId}" Placeholder="留空则认最近跟你私聊过的人"
@@ -1074,12 +1076,12 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="允许角色主动发消息到我手机" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="存档里 TA「拿起手机发个消息」，就真的发到你的 QQ。默认关闭" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding QqProactiveEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding QqProactiveEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="发送前需要我确认" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后每条外发消息都先排队，主界面点「发出去」才真的发送（AI 不能未经同意往外发）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding QqProactiveRequireConfirm}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding QqProactiveRequireConfirm}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="每小时上限" Style="{StaticResource TxtBodySm}" />
@@ -1097,7 +1099,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_WechatEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_WechatHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding WechatEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding WechatEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="110,*" Padding="0,13"><Label Text="{Binding [Settings_AppId], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" FontSize="13" />
                                             <Entry Grid.Column="1" Text="{Binding WechatAppId}" Placeholder="{Binding [Settings_MpAppId], Source={x:Static i18n:LocalizationService.Current}}"
@@ -1157,11 +1159,11 @@
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_McpEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_McpHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding McpEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding McpEnabled}" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="自动确认" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后脚本/AI 调用 MCP 工具无需逐次人工确认" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding McpAutoApprove}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding McpAutoApprove}" /></Grid>
 
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
 
@@ -1447,7 +1449,7 @@
                                 <Label Text="{Binding [Settings_CloudEnable], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                 <Label Text="{Binding [Settings_CloudEnableHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding CloudSaveEnabled}" />
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CloudSaveEnabled}" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
 
@@ -1483,7 +1485,7 @@
                                 <Label Text="{Binding [Settings_CloudAutoUpload], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                 <Label Text="{Binding [Settings_CloudAutoUploadHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding CloudAutoUpload}" />
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CloudAutoUpload}" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
 
@@ -1492,7 +1494,7 @@
                                 <Label Text="{Binding [Settings_CloudReconcile], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                 <Label Text="{Binding [Settings_CloudReconcileHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding CloudReconcileMemory}" />
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CloudReconcileMemory}" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
 
@@ -1527,7 +1529,7 @@
                                         <Grid ColumnDefinitions="*,Auto"><VerticalStackLayout>
                                             <Label Text="测试计划（Beta 渠道）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后 *-beta 测试版 tag 也会提示更新" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding BetaChannel}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BetaChannel}" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <Button Text="检查更新" Style="{StaticResource BtnPrimary}" FontSize="13"
                                                     Padding="14,6" Command="{Binding CheckUpdateCommand}"
@@ -1554,37 +1556,37 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_ComplexPlot], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_ComplexPlotHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding ComplexPlot}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ComplexPlot}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_NovelTesting], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_NovelTestingHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding NovelTesting}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding NovelTesting}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13">
                                             <Label Text="{Binding [Settings_ShowAffection], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                            <Switch Grid.Column="1" IsToggled="{Binding ShowAffection}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ShowAffection}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="好感等级提升动画" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="每累计 500 好感积分升 1 级（共10级），跨越等级时全屏播放爱心动画" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AffectionLevelUp}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AffectionLevelUp}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="启用战斗系统" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="关闭后战斗功能整体停用：AI 无法发起战斗，战斗相关工具不再提供给 AI" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding BattleEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BattleEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="允许 AI 主动发起战斗" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="关闭后只有你手动进入战斗页才能开战，AI 不能把局面强行拖入战斗" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding BattleAiCanStart}" IsEnabled="{Binding BattleEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BattleAiCanStart}" IsEnabled="{Binding BattleEnabled}" /></Grid>
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                                         <Label Text="天气事件（打雷 / 下雨）" Style="{StaticResource TxtBodySm}" Margin="0,9,0,0" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="启用打雷事件" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="雨天/极阴天随机打雷：屏幕白一下再慢慢恢复，可配雷声与帧动画" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding LightningEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding LightningEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="打雷概率（基准，0-1）" Style="{StaticResource TxtBodySm}" />
@@ -1594,7 +1596,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="启用下雨事件" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="天气为雨天时随机触发雨声/雨视觉" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding RainEventEnabled}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding RainEventEnabled}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="下雨概率（0-1）" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
@@ -1624,12 +1626,12 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="AI 可单独出行（不带我）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后 AI 发【移动:】只移动 AI 自己，我的视角留在原地；关闭则维持旧行为（AI 走到哪我跟到哪）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AiTravelAlone}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AiTravelAlone}" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="允许我「跟上」" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="AI 单独走远后，主界面出现「跟上」按钮；点一下即可跟过去" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding AllowFollowAi}" IsEnabled="{Binding AiTravelAlone}" /></Grid>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AllowFollowAi}" IsEnabled="{Binding AiTravelAlone}" /></Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>
@@ -1733,7 +1735,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="优先使用独显" Style="{StaticResource TxtBodySm}" />
                             <Label Text="在本程序的 Windows 图形设置里登记「高性能」，重启程序后生效。它只影响玻璃模糊、大图缩放这类合成工作——之前量到的界面构建慢是 CPU 侧的事，换显卡帮不上。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding PreferDiscreteGpu}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PreferDiscreteGpu}" /></Grid>
                         <Label Text="{Binding GpuStatusText}" Style="{StaticResource TxtCaption}"
                                TextColor="{DynamicResource AccentWarmFg}" />
                     </VerticalStackLayout>
@@ -1750,7 +1752,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="手机开成独立窗口" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开着：主窗口继续聊天，手机桌面在旁边单开一扇（Windows）。关掉：仍然跳转到应用内的手机页。手机上始终是页内页面。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding PhoneStandaloneWindow}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PhoneStandaloneWindow}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
                             <Label Text="关主窗口时，其他窗口怎么办" Style="{StaticResource TxtBodySm}" />
@@ -1762,7 +1764,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="超省内存模式" Style="{StaticResource TxtBodySm}" />
                             <Label Text="记忆、关系网读完就丢缓存，闲置角色的会话清空，启动时不再后台预热；代价是下次回忆要多读一次盘。低配机/大存档时打开。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding LowMemoryMode}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding LowMemoryMode}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
@@ -1777,7 +1779,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="旁白 AI" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开启后，回复里允许出现简短的第三人称环境/动作描写（「她把杯子放回桌上」）。不替你做决定，也不描写你的心理。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding NarratorAiEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding NarratorAiEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
                             <Label Text="你的性别" Style="{StaticResource TxtBodySm}" />
@@ -1834,7 +1836,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="心理状况系统" Style="{StaticResource TxtBodySm}" />
                             <Label Text="可为角色设置轻/中/重度心理状况（内置 115 条：情绪、焦虑、创伤、强迫、进食、睡眠、精神病性、人格、神经发育、神经、躯体、冲动与特质）。只把当前角色生效的条目写进提示词，不贴标签。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding MentalHealthEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MentalHealthEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" Padding="0,4" ColumnSpacing="8">
                             <Label Text="打开后可逐角色设定；涉及自伤/自杀/伤人的条目有硬边界：不提供方法、不美化，只做陪伴与转向求助。" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                             <Button Grid.Column="1" Text="管理心理状况" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
@@ -1844,12 +1846,12 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="心理驱动的行为" Style="{StaticResource TxtBodySm}" />
                             <Label Text="允许角色因心理状态做出回避、依赖、易怒等反应。安全条目永远优先：不会生成自伤/伤人的具体做法，也不会鼓励。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding PsychologyBehaviorEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PsychologyBehaviorEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="身体感受（冷暖 / 饥渴 / 想念）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="按天气与时间缓慢漂移，聊天与亲密互动会改变它；角色会说「有点冷」「想你了」，而不是报数值。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding PhysiologyEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PhysiologyEnabled}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
@@ -1864,10 +1866,10 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="核心记忆" Style="{StaticResource TxtBodySm}" />
                             <Label Text="情绪强度与重要性都过线的事会成为核心记忆：永不遗忘、完整豁免重复机制、始终可回想，并像锚一样影响周围的记忆。阈值越高越难成为核心。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding CoreMemoryEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CoreMemoryEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,6">
                             <Label Text="成为核心的阈值" FontSize="13" VerticalOptions="Center" />
-                            <Slider Grid.Column="1" WidthRequest="140" Minimum="0.5" Maximum="0.99"
+                            <controls:ViewSlider Grid.Column="1" WidthRequest="140" Minimum="0.5" Maximum="0.99"
                                     Value="{Binding CoreMemoryThreshold}" IsEnabled="{Binding CoreMemoryEnabled}" />
                         </Grid>
                         <Label Text="{Binding CoreMemoryThreshold, StringFormat='当前阈值：{0:F2}'}" Style="{StaticResource TxtCaption}" />
@@ -1875,12 +1877,12 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="创伤可以被治愈" Style="{StaticResource TxtBodySm}" />
                             <Label Text="创伤不会被删除，只能被治愈：靠具体的安慰与陪伴慢慢降低情绪强度，时间几乎不起作用。会从一碰就痛，走到能平静地叹口气，最后融进性格与行为里。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding TraumaHealingEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding TraumaHealingEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
                             <Label Text="链式搜索条数" Style="{StaticResource TxtBodySm}" />
                             <Label Text="从一条线索顺着共用词、邻近时间、同一个字与相同特质往下找。默认 5 条；同时间内越相似越靠前，新事优先。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Slider Grid.Column="1" WidthRequest="140" Minimum="1" Maximum="20"
+                            <controls:ViewSlider Grid.Column="1" WidthRequest="140" Minimum="1" Maximum="20"
                                     Value="{Binding ChainSearchLimit}" /></Grid>
                         <Label Text="{Binding ChainSearchLimit, StringFormat='每次最多找 {0:F0} 条'}" Style="{StaticResource TxtCaption}" />
                     </VerticalStackLayout>
@@ -1897,7 +1899,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="启用图片生成" Style="{StaticResource TxtBodySm}" />
                             <Label Text="用 OpenAI 兼容的 /images/generations 接口生成装扮、场景背景与角色立绘；生成结果落在本地 generated 目录，可再导入素材库。关闭时不花钱。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding ImageGenEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ImageGenEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="96,*" Padding="0,13">
                             <Label Text="接口地址" VerticalOptions="Center" FontSize="13" />
@@ -1940,7 +1942,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="启用金钱" Style="{StaticResource TxtBodySm}" />
                             <Label Text="关闭后商店与礼物不再扣钱，余额原样保留；再打开时继续用原来的数。开着时也可以在这里随意加钱或改余额。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding MoneyEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MoneyEnabled}" /></Grid>
                         <Label Text="{Binding WalletText}" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource AccentWarmFg}" />
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,10">
                             <Entry Text="{Binding MoneyInput}" Keyboard="Numeric" FontSize="13"
@@ -1965,17 +1967,17 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="启用插件钩子" Style="{StaticResource TxtBodySm}" />
                             <Label Text="插件可以改人设、改写发送前/回复后的文本、加设置页、加页面、调用已注册的工具。钩子跑在受限的 JS 沙箱里（超时、语句数、内存都有上限）；关掉后所有插件效果立即停用，但文件与设置保留。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding PluginHooksEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PluginHooksEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="存档连同插件一起打包" Style="{StaticResource TxtBodySm}" />
                             <Label Text="导出存档时把插件代码与设置一并带走，换设备不会出现「有数据没程序」。插件文件较大时会让存档变大；敏感密钥（云存档令牌）不会进包。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveBundleWithPlugins}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveBundleWithPlugins}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="记录插件崩溃日志" Style="{StaticResource TxtBodySm}" />
                             <Label Text="插件钩子抛错时写日志（单文件 256KB 轮转）并弹出可查看的原因；关闭后只静默跳过。无论开关与否，一个插件的错误不会拖垮主程序。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding PluginCrashLogs}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PluginCrashLogs}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
 
                         <!-- 已安装的插件：与 MCP 的「已接入的服务」同级铺开，
@@ -2051,27 +2053,27 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="数值由 AI 控制" Style="{StaticResource TxtBodySm}" />
                             <Label Text="好感、信任、精力的增减交给 AI 判（回复里内联指令为主，没给就兜底问一次，判不动就不动）。关掉则回到旧的固定增量：说一句 +1、动作 +2/+3/+5、精力纯按清醒时长。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding StatAiControl}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding StatAiControl}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Label Text="大脑预判" Style="{StaticResource TxtSubhead}" Margin="0,14,0,0" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="开启大脑预判" Style="{StaticResource TxtBodySm}" />
                             <Label Text="TA 会下意识预估你这次会有多热：超预期就受用、好感涨得快些，低于预期就把热情收着。关掉后一切照旧（好感恒定 +1）。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding BrainEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BrainEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="期待差（多巴胺）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="按预测误差浮动好感涨速（约 0.2~1.8 倍）。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding BrainExpectationEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BrainExpectationEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="意料之外（惊喜）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="偶尔不完全顺着最顺的走向：停半拍、换个角度、提一件好奇的小事。只微微制造一点预测不到的心动，情绪低落时自动停用。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding BrainSurpriseEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BrainSurpriseEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
                         <Label Text="免费小模型辅助预判（可选）" Style="{StaticResource TxtSubhead}" Margin="0,14,0,2" />
                         <Label Text="默认完全本地跑、不花钱。想更准可指定一枚便宜/免费的模型，每 N 轮补一次「预判下一条多热」，结果缓存进存档；不开就用本地启发式。" Style="{StaticResource TxtCaption}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="用小模型补预判" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding BrainAiAssistEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BrainAiAssistEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
                         <Grid ColumnDefinitions="96,*" Padding="0,13">
                             <Label Text="接口地址" VerticalOptions="Center" FontSize="13" />
                             <Entry Text="{Binding BrainAiUrl}" Placeholder="留空则沿用上面的 AI 地址"
@@ -2095,7 +2097,7 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding BrainAiAssistEnabled}">
                             <Label Text="{Binding BrainAiEveryTurns, StringFormat='每 {0} 轮补一次'}" FontSize="13" VerticalOptions="Center" />
                             <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="8" VerticalOptions="Center">
-                                <Slider WidthRequest="140" Minimum="2" Maximum="30" Value="{Binding BrainAiEveryTurns}" />
+                                <controls:ViewSlider WidthRequest="140" Minimum="2" Maximum="30" Value="{Binding BrainAiEveryTurns}" />
                             </Grid>
                         </Grid>
                     </VerticalStackLayout>
@@ -2112,7 +2114,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="用浮动通知代替弹窗" Style="{StaticResource TxtBodySm}" />
                             <Label Text="保存、同步、导入这类结果不再弹窗挡住按键：从屏幕边缘滑进来，几秒后自己滑回去。需要你确认的事（删除存档、覆盖文件）仍然用对话框。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding ToastEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ToastEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding ToastEnabled}">
                             <VerticalStackLayout>
@@ -2127,7 +2129,7 @@
                             <VerticalStackLayout>
                                 <Label Text="{Binding NotificationSeconds, StringFormat='停留 {0:0.#} 秒'}" Style="{StaticResource TxtBodySm}" />
                                 <Label Text="从滑入到滑走的停留时长；滑入滑走本身另有 0.2 秒左右。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Slider Grid.Column="1" WidthRequest="150" Minimum="1.5" Maximum="12"
+                            <controls:ViewSlider Grid.Column="1" WidthRequest="150" Minimum="1.5" Maximum="12"
                                     Value="{Binding NotificationSeconds}" VerticalOptions="Center" />
                         </Grid>
                     </VerticalStackLayout>
@@ -2144,22 +2146,22 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="信息栏改用小组件" Style="{StaticResource TxtBodySm}" />
                             <Label Text="主界面左栏与顶栏由可挑选的小组件组成：时间、天气、好感、身体状态、当前地点各占一格，可自己决定显示哪些、放在哪一栏。关掉则回到固定排版。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding WidgetModeEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding WidgetModeEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="关系网自动跳过展开动画" Style="{StaticResource TxtBodySm}" />
                             <Label Text="节点多的时候，长枝条动画要播很久才有反应。超过阈值就直接出图。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding GraphAutoSkipAnim}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding GraphAutoSkipAnim}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding GraphAutoSkipAnim}">
                             <Label Text="{Binding GraphSkipAnimNodes, StringFormat='节点超过 {0:0} 个就跳过'}" FontSize="13" VerticalOptions="Center" />
-                            <Slider Grid.Column="1" WidthRequest="150" Minimum="40" Maximum="1200"
+                            <controls:ViewSlider Grid.Column="1" WidthRequest="150" Minimum="40" Maximum="1200"
                                     Value="{Binding GraphSkipAnimNodes}" VerticalOptions="Center" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="建档分步引导" Style="{StaticResource TxtBodySm}" />
                             <Label Text="开新档时一步一步问（世界 → 人设 → 细则 → 确认）。关掉则一屏填完。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveCreationOobe}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveCreationOobe}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
                 <Border Style="{StaticResource CardSolid}">
@@ -2168,7 +2170,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="新版着装（形象包 + 服装轴）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="按部件拼立绘、换配色与服装，可让 AI 生成素材并录制动画。关掉则回到旧版：一张张静态立绘按表情切换。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding OutfitSystemNew}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding OutfitSystemNew}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
                 <Border Style="{StaticResource CardSolid}">
@@ -2177,17 +2179,17 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="允许 AI 随意加的角色先隐去名字" Style="{StaticResource TxtBodySm}" />
                             <Label Text="对放开角色白名单的存档：新角色登场时名字显示为「？？？」，等 TA 自我介绍或被介绍之后才显示真名。关掉则直接显示。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding MaskUnintroducedNames}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MaskUnintroducedNames}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="性欲系统" Style="{StaticResource TxtBodySm}" />
                             <Label Text="只对你在存档里点名的角色生效（主角与指定配角），其余角色不参与。数值由 AI 与时间共同推进；你在设定里写死的值优先于周期。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding LibidoSystemEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding LibidoSystemEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding LibidoSystemEnabled}">
                             <VerticalStackLayout>
                                 <Label Text="{Binding LibidoCycleInfluence, StringFormat='生理周期影响 {0:P0}'}" Style="{StaticResource TxtBodySm}" />
                                 <Label Text="周期对性欲的抬升/压低幅度。0 = 完全不看周期，只按设定与情境。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Slider Grid.Column="1" WidthRequest="150" Minimum="0" Maximum="1"
+                            <controls:ViewSlider Grid.Column="1" WidthRequest="150" Minimum="0" Maximum="1"
                                     Value="{Binding LibidoCycleInfluence}" VerticalOptions="Center" />
                         </Grid>
                     </VerticalStackLayout>
@@ -2206,13 +2208,13 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="存档打开时让角色继续运行" Style="{StaticResource TxtBodySm}" />
                             <Label Text="关掉则一切照旧：只有你主动找 TA 时角色才会动。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveRuntimeEnabled}" /></Grid>
 
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
                             <Label Text="让 TA 用模型写生活片段" Style="{StaticResource TxtBodySm}" />
                             <Label Text="角色用自己的模型写一小段此刻在做什么，记进 TA 的记忆。关掉只做本地作息推演，不花 token。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeAiEnabled}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveRuntimeAiEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"
                               IsEnabled="{Binding SaveRuntimeEnabled}" IsVisible="{Binding SaveRuntimeAiEnabled}">
                             <VerticalStackLayout>
@@ -2225,13 +2227,13 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
                             <Label Text="让 TA 自己下棋、玩小游戏" Style="{StaticResource TxtBodySm}" />
                             <Label Text="本地结算，不花 token；只写一条生活记忆，不影响你与 TA 对弈时的棋力记录。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimePlayGames}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveRuntimePlayGames}" /></Grid>
 
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
                             <Label Text="允许 TA 主动给你发消息" Style="{StaticResource TxtBodySm}" />
                             <Label Text="还要在「外部接入 → QQ/微信」里打开「允许角色主动发消息」，并且让 TA 认识你。只有绑定该通道的角色才会发。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeProactive}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveRuntimeProactive}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"
                               IsEnabled="{Binding SaveRuntimeEnabled}" IsVisible="{Binding SaveRuntimeProactive}">
                             <VerticalStackLayout>
@@ -2244,7 +2246,7 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsEnabled="{Binding SaveRuntimeEnabled}"><VerticalStackLayout>
                             <Label Text="深夜安静（23:00–7:00）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="这段时间只换作息，不写生活片段、不下棋、不发消息，也不花 token。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding SaveRuntimeQuietHours}" /></Grid>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SaveRuntimeQuietHours}" /></Grid>
 
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">

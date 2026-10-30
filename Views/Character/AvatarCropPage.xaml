@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.AvatarCropPage"
              x:Name="Page"
@@ -79,7 +81,7 @@
             </Grid>
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                 <Label Text="1×" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
-                <Slider Grid.Column="1" Minimum="1" Maximum="5" Value="{Binding Zoom, Mode=TwoWay}"
+                <controls:ViewSlider Grid.Column="1" Minimum="1" Maximum="5" Value="{Binding Zoom, Mode=TwoWay}"
                         MinimumTrackColor="{DynamicResource BeigeAccent300}"
                         MaximumTrackColor="{DynamicResource WRule}"
                         ThumbColor="{DynamicResource WarmDark}" />
