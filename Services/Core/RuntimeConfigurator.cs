@@ -305,14 +305,15 @@ public sealed class RuntimeConfigurator
     {
         if (!_settings.Current.NotificationsEnabled) return;
 
-        MainThread.BeginInvokeOnMainThread(async () =>
+        MainThread.BeginInvokeOnMainThread(() =>
         {
             try
             {
+                // 桌宠模式下主窗口是隐藏的：成就横幅贴在页面上，先把窗口还回来。
+                // 不再弹模态对话框——通知是「发生了件事」，不是「必须点一下才能继续」。
                 PetService.ShowMainWindowStatic();
                 WindowTopmost.BringToFront();
-                var shell = Shell.Current;
-                if (shell is not null) await shell.DisplayAlert(title, msg, "好");
+                Controls.Toast.Show(title, msg, "NOTICE", Controls.ToastKind.Info, "✦");
             }
             catch (Exception ex)
             {

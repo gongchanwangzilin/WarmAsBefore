@@ -1,3 +1,4 @@
+using Microsoft.Maui.Controls.Shapes;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
@@ -10,27 +11,47 @@ public enum ToastKind { Info, Success, Warning, Error }
 /// 轻量通知：贴在当前页最上层，从屏幕边缘滑入、停留几秒再滑回。
 /// 不用 MAUI 的 DisplayAlert —— 它必须点一下才走，还挡在正中间，正在点的地方会被它吃掉。
 /// 阻断性确认（删除存档、设置里的确认）仍然用原生对话框，那些本来就要用户做决定。
+///
+/// 2026-10-30 升级成「成就横幅」：方形徽章 + 类别眉标 + 标题 + 一句话。
+/// 位置与停留时长沿用设置里的「浮动通知」两项（上/下浮现、四角滑出都在里面），
+/// <see cref="TopInset"/> 由页面上报自己的顶栏高度：有顶栏就从顶栏下方出，没有就贴顶。
 /// </summary>
 public static class Toast
 {
+    /// <summary>页面顶栏高度（DIP）。默认按「有一整条顶栏」算；无顶栏页面在 OnAppearing 里改成 16。</summary>
+    public static double TopInset { get; set; } = 64;
+
     public static void Info(string text) => Show(text, ToastKind.Info);
     public static void Success(string text) => Show(text, ToastKind.Success);
     public static void Warn(string text) => Show(text, ToastKind.Warning);
     public static void Error(string text) => Show(text, ToastKind.Error);
 
+    /// <summary>单行快捷（沿用老签名）。</summary>
     public static void Show(string text, ToastKind kind = ToastKind.Info)
+        => Show(text, "", CodeOf(kind), kind);
+
+    /// <summary>成就横幅：类别码 + 标题 + 一句话。</summary>
+    public static void Show(string title, string body, string code, ToastKind kind = ToastKind.Info, string glyph = "✦")
     {
-        if (string.IsNullOrWhiteSpace(text)) return;
-        Ui.Post(() => ShowOnUi(text, kind));
+        if (string.IsNullOrWhiteSpace(title) && string.IsNullOrWhiteSpace(body)) return;
+        Ui.Post(() => ShowOnUi(title, body, code, kind, glyph));
     }
 
-    private static void ShowOnUi(string text, ToastKind kind)
+    private static string CodeOf(ToastKind kind) => kind switch
+    {
+        ToastKind.Success => "DONE",
+        ToastKind.Warning => "WARN",
+        ToastKind.Error => "ERROR",
+        _ => "NOTICE",
+    };
+
+    private static void ShowOnUi(string title, string body, string code, ToastKind kind, string glyph)
     {
         try
         {
             var page = CurrentPage();
             if (page is null) return;
-            Ensure(page).Show(text, kind, Settings());
+            Ensure(page).Show(title, body, code, glyph, kind, Settings());
         }
         catch (Exception ex) { App.WriteLog("Toast -> " + ex.Message); }
     }
@@ -78,32 +99,74 @@ public static class Toast
 public sealed class ToastHost : ContentView
 {
     private readonly Border _card;
-    private readonly Label _text;
-    private readonly BoxView _dot;
+    private readonly Label _code;
+    private readonly Label _title;
+    private readonly Label _body;
+    private readonly Label _glyph;
+    private readonly Border _badge;
     private CancellationTokenSource? _cts;
 
     public ToastHost()
     {
         InputTransparent = true;
         IsVisible = false;
-        _dot = new BoxView { WidthRequest = 8, HeightRequest = 8, CornerRadius = new CornerRadius(4), VerticalOptions = LayoutOptions.Center };
-        _text = new Label { FontSize = 12.5, LineBreakMode = LineBreakMode.WordWrap, VerticalOptions = LayoutOptions.Center };
-        _text.SetDynamicResource(Label.TextColorProperty, "SurfaceFg");
+
+        _glyph = new Label { FontSize = 15, HorizontalOptions = LayoutOptions.Center, VerticalOptions = LayoutOptions.Center };
+        _glyph.SetDynamicResource(Label.TextColorProperty, "AccentWarmFg");
+        _badge = new Border
+        {
+            WidthRequest = 34,
+            HeightRequest = 34,
+            StrokeThickness = 1.5,
+            VerticalOptions = LayoutOptions.Center,
+            StrokeShape = new RoundRectangle { CornerRadius = 8 },
+            Content = _glyph,
+        };
+        _badge.SetDynamicResource(Border.StrokeProperty, "AccentWarmFg");
+
+        _code = new Label();
+        _code.SetDynamicResource(Label.TextColorProperty, "WarmFaint");
+        _code.FontFamily = "Bahnschrift";
+        _code.CharacterSpacing = 3;
+        _code.FontSize = 10;
+
+        _title = new Label { LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
+        _title.SetDynamicResource(Label.TextColorProperty, "WarmDark");
+        _title.FontAttributes = FontAttributes.Bold;
+        _title.FontSize = 14;
+
+        _body = new Label { LineBreakMode = LineBreakMode.WordWrap, MaxLines = 2, IsVisible = false };
+        _body.SetDynamicResource(Label.TextColorProperty, "MutedFg");
+        _body.FontSize = 12;
+
+        var text = new VerticalStackLayout { Spacing = 1, VerticalOptions = LayoutOptions.Center };
+        text.Add(_code);
+        text.Add(_title);
+        text.Add(_body);
+
+        var grid = new Grid
+        {
+            ColumnSpacing = 10,
+            ColumnDefinitions = { new ColumnDefinition(new GridLength(34)), new ColumnDefinition(GridLength.Star) },
+        };
+        grid.Add(_badge, 0, 0);
+        grid.Add(text, 1, 0);
+
         _card = new Border
         {
-            Padding = new Thickness(14, 10),
+            Padding = new Thickness(12, 10),
             StrokeThickness = 1,
-            MaximumWidthRequest = 360,
+            MaximumWidthRequest = 380,
             InputTransparent = true,
-            Content = new HorizontalStackLayout { Spacing = 10, Children = { _dot, _text } }
+            Content = grid,
         };
         _card.SetDynamicResource(Border.BackgroundColorProperty, "SurfaceBg");
         _card.SetDynamicResource(Border.StrokeProperty, "WSepBrush");
-        _card.StrokeShape = new Microsoft.Maui.Controls.Shapes.RoundRectangle { CornerRadius = 14 };
+        _card.StrokeShape = new RoundRectangle { CornerRadius = 14 };
         Content = _card;
     }
 
-    internal async void Show(string text, ToastKind kind, UserSettings settings)
+    internal async void Show(string title, string body, string code, string glyph, ToastKind kind, UserSettings settings)
     {
         try
         {
@@ -112,14 +175,19 @@ public sealed class ToastHost : ContentView
             var cts = new CancellationTokenSource();
             _cts = cts;
 
-            _text.Text = text;
-            _dot.Color = kind switch
+            _code.Text = "// " + code;
+            _title.Text = title ?? "";
+            _body.Text = body ?? "";
+            _body.IsVisible = !string.IsNullOrWhiteSpace(body);
+            _glyph.Text = string.IsNullOrWhiteSpace(glyph) ? "✦" : glyph;
+            _glyph.TextColor = kind switch
             {
                 ToastKind.Success => Color.FromArgb("#2E7D32"),
                 ToastKind.Warning => Color.FromArgb("#B26A00"),
                 ToastKind.Error => Color.FromArgb("#B3261E"),
-                _ => Color.FromArgb("#6B7280"),
+                _ => (Color)(Application.Current?.Resources["AccentWarmFg"] ?? Colors.Gray),
             };
+            _badge.Stroke = _glyph.TextColor;
 
             ApplyPosition(settings.NotificationPosition);
             IsVisible = true;
@@ -157,14 +225,15 @@ public sealed class ToastHost : ContentView
         };
         _card.HorizontalOptions = h;
         _card.VerticalOptions = v;
+        var top = Toast.TopInset;
         _card.Margin = p switch
         {
-            "top" => new Thickness(16, 64, 16, 0),
+            "top" => new Thickness(16, top, 16, 0),
             "bottom" => new Thickness(16, 0, 16, 24),
             "center" => new Thickness(16),
             "bottom-left" or "bottom-right" => new Thickness(16, 0, 16, 24),
-            "top-left" => new Thickness(16, 64, 0, 0),
-            _ => new Thickness(0, 64, 16, 0),
+            "top-left" => new Thickness(16, top, 0, 0),
+            _ => new Thickness(0, top, 16, 0),
         };
         _entryShift = p.StartsWith("bottom") ? 16 : (p == "center" ? 0 : -16);
     }
