@@ -27,12 +27,6 @@
             <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
             <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
         </Style>
-        <Style x:Key="Eyebrow" TargetType="Label">
-            <Setter Property="FontFamily" Value="Bahnschrift" />
-            <Setter Property="CharacterSpacing" Value="3" />
-            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
-            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
-        </Style>
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,*">

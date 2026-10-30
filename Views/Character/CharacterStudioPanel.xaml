@@ -61,12 +61,6 @@
         </Style>
 
         <!-- 眉标：宽体大写拉丁压在小字上，说的是「这一段叫什么」，不是装饰。 -->
-        <Style x:Key="Eyebrow" TargetType="Label">
-            <Setter Property="FontFamily" Value="Bahnschrift" />
-            <Setter Property="CharacterSpacing" Value="3" />
-            <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
-            <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
-        </Style>
 
         <!-- 段号：六段资料共用一条编号脊，翻到哪一栏都认得出「现在在第几段」。 -->
         <Style x:Key="SectionNo" TargetType="Label">
