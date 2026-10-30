@@ -18,6 +18,12 @@ public sealed partial class TitleViewModel : ObservableObject
     [ObservableProperty] private bool _hasSave;
     [ObservableProperty] private string _startLabel = "";
 
+    // 「上次的存档」预览（主页空着的下半屏）：有存档才显示。
+    [ObservableProperty] private bool _hasRecent;
+    [ObservableProperty] private string _recentName = "";
+    [ObservableProperty] private string _recentScene = "";
+    [ObservableProperty] private string _recentMeta = "";
+
         [ObservableProperty] private bool _menuLeft = true;
         [ObservableProperty] private string _themeEffectName = "";
         [ObservableProperty] private string _themeColorName = "经典";
@@ -133,6 +139,21 @@ public sealed partial class TitleViewModel : ObservableObject
             StartLabel = HasSave
                 ? LocalizationService.Current["Title_Continue"]
                 : LocalizationService.Current["Title_Start"];
+
+            // 空着的大片留白放「上次的存档」：点它就是继续，和那颗胶囊同一个去处，
+            // 但先让人看见「上一次是谁、在哪儿」——标题页不该只有一个按钮。
+            var last = slots.OrderByDescending(s => s.SavedAt).FirstOrDefault();
+            if (last is not null)
+            {
+                HasRecent = true;
+                RecentName = string.IsNullOrWhiteSpace(last.Label) ? last.Character : last.Label;
+                RecentScene = last.Scene;
+                RecentMeta = $"{last.SavedAt.ToLocalTime():MM 月 dd 日 HH:mm} · {last.PlayMinutes} 分钟";
+            }
+            else
+            {
+                HasRecent = false;
+            }
         }
         catch (Exception ex) { App.WriteLog("Title: RefreshState EX -> " + ex); }
     }
