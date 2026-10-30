@@ -160,6 +160,9 @@
                             <Button Text="按天" Style="{StaticResource BtnGhostSm}" FontSize="11"
                                     BackgroundColor="{Binding DetailDayBg}"
                                     Command="{Binding SetDetailGroupCommand}" CommandParameter="day" />
+                            <Button Text="按角色" Style="{StaticResource BtnGhostSm}" FontSize="11"
+                                    BackgroundColor="{Binding DetailCharacterBg}"
+                                    Command="{Binding SetDetailGroupCommand}" CommandParameter="character" />
                         </HorizontalStackLayout>
                     </Grid>
                     <Border Style="{StaticResource CardGroup}">

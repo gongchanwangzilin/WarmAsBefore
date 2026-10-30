@@ -41,4 +41,11 @@ public sealed record TokenUsageRecord
 
     /// <summary>单独计费的缓存/思考输出 token（OpenAI 口径的 reasoning_tokens）。</summary>
     public int CachedOutputTokens { get; init; }
+
+    /// <summary>
+    /// 这一笔算在谁头上：当前存档主角的 id / 名字。老账本没有这两个字段（空串），
+    /// 聚合时归到「（未标记）」——不猜测旧记录属于谁。
+    /// </summary>
+    public string CharacterId { get; init; } = "";
+    public string CharacterName { get; init; } = "";
 }

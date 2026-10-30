@@ -75,7 +75,8 @@ public sealed class CostEstimatorService
 
     /// <summary>记一次真实用量（带缓存输入/缓存输出）。缓存输入是 prompt 的子集，缓存输出单独一笔。</summary>
     public void Record(string model, int promptTokens, int completionTokens,
-        int cachedInputTokens, int cachedOutputTokens, bool isSummary = false)
+        int cachedInputTokens, int cachedOutputTokens, bool isSummary = false,
+        string characterId = "", string characterName = "")
     {
         if (string.IsNullOrWhiteSpace(model)) return;
         var prompt = Math.Max(0, promptTokens);
@@ -86,7 +87,9 @@ public sealed class CostEstimatorService
             CompletionTokens = Math.Max(0, completionTokens),
             CachedInputTokens = Math.Clamp(cachedInputTokens, 0, prompt),
             CachedOutputTokens = Math.Max(0, cachedOutputTokens),
-            IsSummary = isSummary
+            IsSummary = isSummary,
+            CharacterId = characterId ?? "",
+            CharacterName = characterName ?? "",
         });
     }
 
@@ -361,9 +364,7 @@ public sealed class CostEstimatorService
 
     /// <summary>按模型分组的明细行（成本构成与分组明细表用）。</summary>
     public sealed record ModelUsageRow(string Model, int Calls, long Prompt, long Completion,
-        long CachedInput, long CachedOutput, double Cost);
-
-    public async Task<List<ModelUsageRow>> ModelUsageRowsAsync()
+        long CachedInput, long CachedOutput, double Cost);    public async Task<List<ModelUsageRow>> ModelUsageRowsAsync()
     {
         await EnsureLoadedAsync();
         List<TokenUsageRecord> usage;
@@ -380,6 +381,31 @@ public sealed class CostEstimatorService
     /// <summary>按天分组的明细行；时间序列要 0 占位（没有用的日子也是轴上的一天），过滤交给调用方。</summary>
     public sealed record DayUsageRow(DateTime Day, int Calls, long Prompt, long Completion,
         long CachedInput, long CachedOutput, double Cost);
+
+    /// <summary>按角色分组的明细行：这笔 token 与花费算在谁头上（老账本没有角色字段的归「（未标记）」）。</summary>
+    public sealed record CharacterUsageRow(string Name, string Id, int Calls, long Prompt, long Completion,
+        long CachedInput, long CachedOutput, double Cost);
+
+    public async Task<List<CharacterUsageRow>> CharacterUsageRowsAsync()
+    {
+        await EnsureLoadedAsync();
+        List<TokenUsageRecord> usage;
+        lock (_gate) usage = _usage.ToList();
+        return usage
+            .GroupBy(u =>
+            {
+                if (!string.IsNullOrWhiteSpace(u.CharacterName)) return u.CharacterName;
+                return string.IsNullOrWhiteSpace(u.CharacterId) ? "（未标记）" : u.CharacterId;
+            }, StringComparer.Ordinal)
+            .Select(g => new CharacterUsageRow(g.Key,
+                g.Select(x => x.CharacterId).FirstOrDefault(i => !string.IsNullOrWhiteSpace(i)) ?? "",
+                g.Count(),
+                g.Sum(x => (long)x.PromptTokens), g.Sum(x => (long)x.CompletionTokens),
+                g.Sum(x => (long)x.CachedInputTokens), g.Sum(x => (long)x.CachedOutputTokens),
+                g.Sum(CostOfRecord)))
+            .OrderByDescending(r => r.Cost).ThenByDescending(r => r.Prompt + r.Completion)
+            .ToList();
+    }
 
     public async Task<List<DayUsageRow>> DayUsageRowsAsync(int days)
     {
@@ -442,10 +468,11 @@ public sealed class CostEstimatorService
         var path = Path.Combine(dir, $"cost-{DateTime.Now:yyyyMMdd-HHmmss}.csv");
 
         var sb = new System.Text.StringBuilder();
-        sb.AppendLine("时间,模型,输入tok,输出tok,缓存输入tok,缓存输出tok,本次花费,是否总结");
+        sb.AppendLine("时间,角色,模型,输入tok,输出tok,缓存输入tok,缓存输出tok,本次花费,是否总结");
         foreach (var u in usage.OrderBy(u => u.At))
         {
             sb.Append(u.At.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")).Append(',')
+              .Append(Escape(u.CharacterName ?? "")).Append(',')
               .Append(Escape(u.Model)).Append(',')
               .Append(u.PromptTokens).Append(',')
               .Append(u.CompletionTokens).Append(',')

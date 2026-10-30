@@ -130,21 +130,31 @@ public sealed partial class UsageStatsViewModel : ObservableObject
 
     // ============ 分组明细 ============
 
+    /// <summary>明细分组口径：model / day / character（三选一）。</summary>
     [ObservableProperty]
-    private bool _detailByModel = true;
+    private string _detailGroupMode = "model";
 
-    public Color DetailModelBg => DetailByModel ? ChipOn : Colors.Transparent;
-    public Color DetailDayBg => DetailByModel ? Colors.Transparent : ChipOn;
+    public bool DetailByModel => DetailGroupMode == "model";
+    public bool DetailByCharacter => DetailGroupMode == "character";
 
-    partial void OnDetailByModelChanged(bool value)
+    public Color DetailModelBg => DetailGroupMode == "model" ? ChipOn : Colors.Transparent;
+    public Color DetailDayBg => DetailGroupMode == "day" ? ChipOn : Colors.Transparent;
+    public Color DetailCharacterBg => DetailGroupMode == "character" ? ChipOn : Colors.Transparent;
+
+    partial void OnDetailGroupModeChanged(string value)
     {
+        OnPropertyChanged(nameof(DetailByModel));
+        OnPropertyChanged(nameof(DetailByCharacter));
         OnPropertyChanged(nameof(DetailModelBg));
         OnPropertyChanged(nameof(DetailDayBg));
+        OnPropertyChanged(nameof(DetailCharacterBg));
+        if (value == "character" && _characterRows.Count == 0) _ = LoadCharacterRowsAsync();
         RebuildDetail();
     }
 
     [RelayCommand]
-    private void SetDetailGroup(string? mode) => DetailByModel = mode != "day";
+    private void SetDetailGroup(string? mode)
+        => DetailGroupMode = mode is "day" or "character" ? mode! : "model";
 
     // ============ 命令 ============
 
@@ -254,6 +264,17 @@ public sealed partial class UsageStatsViewModel : ObservableObject
 
     private List<CostEstimatorService.DayUsageRow> _daily = new();
     private List<CostEstimatorService.ModelUsageRow> _modelRows = new();
+    private List<CostEstimatorService.CharacterUsageRow> _characterRows = new();
+
+    private async Task LoadCharacterRowsAsync()
+    {
+        try
+        {
+            _characterRows = await _cost.CharacterUsageRowsAsync();
+            if (DetailGroupMode == "character") RebuildDetail();
+        }
+        catch (Exception ex) { App.WriteLog("UsageStatsVM.CharacterRows -> " + ex.Message); }
+    }
 
     private async Task ReloadAsync()
     {
@@ -263,6 +284,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
             _modelRows = await _cost.ModelUsageRowsAsync();
             var heat = await _cost.HeatmapAsync();
             _daily = await _cost.DayUsageRowsAsync(TrendDays);
+            if (DetailGroupMode == "character") _characterRows = await _cost.CharacterUsageRowsAsync();
             var prices = await _cost.PricesAsync();
 
             HasPrices = _cost.HasPrices;
@@ -403,6 +425,21 @@ public sealed partial class UsageStatsViewModel : ObservableObject
     private void RebuildDetail()
     {
         DetailRows.Clear();
+        if (DetailByCharacter)
+        {
+            foreach (var r in _characterRows)
+                DetailRows.Add(new DetailRow
+                {
+                    Name = r.Name,
+                    Calls = r.Calls.ToString(),
+                    Input = Fmt(r.Prompt),
+                    Output = Fmt(r.Completion),
+                    CachedInput = Fmt(r.CachedInput),
+                    CachedOutput = Fmt(r.CachedOutput),
+                    Cost = HasPrices ? r.Cost.ToString("0.####") : "—"
+                });
+            return;
+        }
         if (DetailByModel)
         {
             foreach (var r in _modelRows)
