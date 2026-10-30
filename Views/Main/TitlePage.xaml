@@ -164,6 +164,25 @@
                                 HorizontalOptions="Start" MinimumWidthRequest="200"
                                 Command="{Binding StartGameCommand}" />
                     </VerticalStackLayout>
+
+                    <!-- 上次的存档：贴在主行动带下方，让这半屏不只是一句标语和一颗钮。 -->
+                    <Border Grid.Row="1" IsVisible="{Binding HasRecent}"
+                            VerticalOptions="End" HorizontalOptions="Start"
+                            Margin="{DynamicResource WPadCard}"
+                            MaximumWidthRequest="520" Style="{StaticResource CardSolid}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="// LAST SAVE" Style="{StaticResource Eyebrow}" />
+                                <Label Text="{Binding RecentName}" Style="{StaticResource TxtTitle}" MaxLines="1"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding RecentScene}" Style="{StaticResource TxtRowDesc}"
+                                       MaxLines="1" LineBreakMode="TailTruncation" />
+                                <Label Text="{Binding RecentMeta}" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="继续" Style="{StaticResource BtnGhost}"
+                                    VerticalOptions="Center" Command="{Binding StartGameCommand}" />
+                        </Grid>
+                    </Border>
                 </Grid>
             </Grid>
         </Border>
