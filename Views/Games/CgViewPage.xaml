@@ -14,7 +14,7 @@
                VerticalOptions="Fill" />
 
         <Label Text="{Binding Title}"
-               TextColor="#CCFFFFFF"
+               TextColor="{DynamicResource CgInkDim}"
                FontSize="16"
                HorizontalOptions="Center"
                VerticalOptions="End"
@@ -25,7 +25,7 @@
                 Command="{Binding SkipCommand}"
                 FontSize="22"
                 TextColor="White"
-                BackgroundColor="#80FFFFFF"
+                BackgroundColor="{DynamicResource CgChip}"
                 BorderWidth="0"
                 Padding="18,10"
                 CornerRadius="24"

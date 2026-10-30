@@ -5,7 +5,7 @@
              xmlns:converters="clr-namespace:WarmAsBefore.Converters"
              x:Class="WarmAsBefore.Views.BattlePage"
              Title="回合制战斗"
-             BackgroundColor="#1a1a2e">
+             BackgroundColor="{DynamicResource BattleNight}">
     
     <ContentPage.Resources>
         <ResourceDictionary>
@@ -27,23 +27,23 @@
         
         <!-- 顶部状态栏 -->
         <Border Grid.Row="0" Grid.ColumnSpan="2"
-                BackgroundColor="#16213e"
+                BackgroundColor="{DynamicResource BattlePanel}"
                 StrokeThickness="0"
                 Padding="10"
                 Margin="0,0,0,10">
             <VerticalStackLayout Spacing="2">
                 <StackLayout Orientation="Horizontal" HorizontalOptions="Center" Spacing="10">
                     <Label Text="{Binding Round, StringFormat='第 {0} 回合'}"
-                           TextColor="#e94560"
+                           TextColor="{DynamicResource BattleAccent}"
                            FontSize="18"
                            FontAttributes="Bold"/>
-                    <Label Text="  |  " TextColor="#ffffff"/>
+                    <Label Text="  |  " TextColor="{DynamicResource BattleInk}"/>
                     <Label Text="{Binding StatusText}" 
-                           TextColor="#ffffff"
+                           TextColor="{DynamicResource BattleInk}"
                            FontSize="16"/>
                 </StackLayout>
                 <Label Text="{Binding DriverName, StringFormat='战斗引擎: {0}'}"
-                       TextColor="#7a7a9a"
+                       TextColor="{DynamicResource BattleInkDim}"
                        FontSize="11"
                        HorizontalOptions="Center"/>
             </VerticalStackLayout>
@@ -53,7 +53,7 @@
         <StackLayout Grid.Row="1" Grid.Column="0"
                      Padding="5">
             <Label Text="我方角色" 
-                   TextColor="#4ecca3"
+                   TextColor="{DynamicResource BattleHeal}"
                    FontSize="18"
                    FontAttributes="Bold"
                    Margin="0,0,0,10"/>
@@ -64,7 +64,7 @@
                         <DataTemplate>
                          <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" StrokeThickness="2"
                                  Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
-                                 BackgroundColor="#16213e"
+                                 BackgroundColor="{DynamicResource BattlePanel}"
                                  Padding="10"
                                  Margin="0,5"
                                  HeightRequest="100">
@@ -86,13 +86,13 @@
                                         VerticalOptions="Center"
                                         IsVisible="{Binding AvatarImage, Converter={StaticResource StringEmptyConverter}}"/>
                                  <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
-                                     <Label Text="{Binding DisplayName}" TextColor="#ffffff" FontSize="14" FontAttributes="Bold"/>
+                                     <Label Text="{Binding DisplayName}" TextColor="{DynamicResource BattleInk}" FontSize="14" FontAttributes="Bold"/>
                                      <ProgressBar Progress="{Binding HpPercentage, Mode=OneWay}"
-                                                  ProgressColor="#4ecca3"
+                                                  ProgressColor="{DynamicResource BattleHeal}"
                                                   HeightRequest="8"
                                                   Margin="0,2"/>
                                      <Label Text="{Binding CurrentHp, StringFormat='HP: {0}'}" 
-                                            TextColor="#aaaaaa"
+                                            TextColor="{DynamicResource BattleInkDim}"
                                             FontSize="12"/>
                                  </StackLayout>
                              </StackLayout>
@@ -107,7 +107,7 @@
         <StackLayout Grid.Row="1" Grid.Column="1"
                      Padding="5">
             <Label Text="敌方角色" 
-                   TextColor="#e94560"
+                   TextColor="{DynamicResource BattleAccent}"
                    FontSize="18"
                    FontAttributes="Bold"
                    Margin="0,0,0,10"/>
@@ -118,7 +118,7 @@
                         <DataTemplate>
                          <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" StrokeThickness="2"
                                  Stroke="{Binding CurrentHp, Converter={StaticResource HpColorConverter}}"
-                                 BackgroundColor="#16213e"
+                                 BackgroundColor="{DynamicResource BattlePanel}"
                                  Padding="10"
                                  Margin="0,5"
                                  HeightRequest="100">
@@ -140,13 +140,13 @@
                                         VerticalOptions="Center"
                                         IsVisible="{Binding AvatarImage, Converter={StaticResource StringEmptyConverter}}"/>
                                  <StackLayout VerticalOptions="Center" HorizontalOptions="FillAndExpand">
-                                     <Label Text="{Binding DisplayName}" TextColor="#ffffff" FontSize="14" FontAttributes="Bold"/>
+                                     <Label Text="{Binding DisplayName}" TextColor="{DynamicResource BattleInk}" FontSize="14" FontAttributes="Bold"/>
                                      <ProgressBar Progress="{Binding HpPercentage, Mode=OneWay}"
-                                                  ProgressColor="#e94560"
+                                                  ProgressColor="{DynamicResource BattleAccent}"
                                                   HeightRequest="8"
                                                   Margin="0,2"/>
                                      <Label Text="{Binding CurrentHp, StringFormat='HP: {0}'}" 
-                                            TextColor="#aaaaaa"
+                                            TextColor="{DynamicResource BattleInkDim}"
                                             FontSize="12"/>
                                  </StackLayout>
                              </StackLayout>
@@ -164,9 +164,9 @@
             <!-- 技能选择区（选中角色后显示） -->
             <StackLayout IsVisible="{Binding SelectedPlayerForAction}"
                          Padding="10"
-                         BackgroundColor="#16213e">
+                         BackgroundColor="{DynamicResource BattlePanel}">
                 <Label Text="选择技能：" 
-                       TextColor="#e94560"
+                       TextColor="{DynamicResource BattleAccent}"
                        FontSize="14"
                        FontAttributes="Bold"/>
                 <ScrollView Orientation="Horizontal">
@@ -176,7 +176,7 @@
                             <DataTemplate>
                             <Button Text="{Binding Name}"
                                     BackgroundColor="{Binding IsHeal, Converter={StaticResource SkillTypeColorConverter}}"
-                                    TextColor="#ffffff"
+                                    TextColor="{DynamicResource BattleInk}"
                                     Padding="15,5"
                                     Margin="5"
                                     HeightRequest="40"
@@ -187,8 +187,8 @@
                     </StackLayout>
                 </ScrollView>
                 <Button Text="⚔️ 普通攻击"
-                        BackgroundColor="#533483"
-                        TextColor="#ffffff"
+                        BackgroundColor="{DynamicResource BattlePurple}"
+                        TextColor="{DynamicResource BattleInk}"
                         Padding="20,10"
                         Margin="5"
                         IsEnabled="{Binding CanAct}"
@@ -197,18 +197,18 @@
 
             <!-- 敌方回合等待层 -->
             <Border IsVisible="{Binding IsBusy}"
-                    BackgroundColor="#19000000"
+                    BackgroundColor="{DynamicResource BattleScrim}"
                     StrokeThickness="0"
                     Padding="20"
                     Margin="0,5">
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="12">
-                    <ActivityIndicator IsRunning="{Binding IsBusy}" Color="#ffffff" WidthRequest="24" HeightRequest="24" />
-                    <Label Text="敌方回合..." TextColor="#ffffff" FontSize="15" VerticalOptions="Center" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource BattleInk}" WidthRequest="24" HeightRequest="24" />
+                    <Label Text="敌方回合..." TextColor="{DynamicResource BattleInk}" FontSize="15" VerticalOptions="Center" />
                 </HorizontalStackLayout>
             </Border>
 
             <!-- 战斗日志 -->
-            <Border BackgroundColor="#16213e"
+            <Border BackgroundColor="{DynamicResource BattlePanel}"
                     StrokeThickness="0"
                     Padding="10"
                     Margin="0,5">
@@ -228,8 +228,8 @@
 
             <!-- 返回按钮 -->
             <Button Text="← 返回"
-                    BackgroundColor="#533483"
-                    TextColor="#ffffff"
+                    BackgroundColor="{DynamicResource BattlePurple}"
+                    TextColor="{DynamicResource BattleInk}"
                     Padding="20,10"
                     Command="{Binding GoBackCommand}"
                     Margin="0,10"/>
@@ -237,9 +237,9 @@
 
         <!-- 战斗总结弹窗 -->
         <Border IsVisible="{Binding ShowSummary}"
-                BackgroundColor="#16213e"
+                BackgroundColor="{DynamicResource BattlePanel}"
                 StrokeThickness="2"
-                Stroke="#e94560"
+                Stroke="{DynamicResource BattleAccent}"
                 HorizontalOptions="Center"
                 VerticalOptions="Center"
                 WidthRequest="300"
@@ -247,19 +247,19 @@
                 Padding="20">
             <StackLayout>
                 <Label Text="战斗总结"
-                       TextColor="#e94560"
+                       TextColor="{DynamicResource BattleAccent}"
                        FontSize="20"
                        FontAttributes="Bold"
                        HorizontalOptions="Center"/>
                 <ScrollView>
                     <Label Text="{Binding BattleSummary}"
-                           TextColor="#ffffff"
+                           TextColor="{DynamicResource BattleInk}"
                            FontSize="14"
                            Margin="0,10"/>
                 </ScrollView>
                 <Button Text="继续"
-                        BackgroundColor="#533483"
-                        TextColor="#ffffff"
+                        BackgroundColor="{DynamicResource BattlePurple}"
+                        TextColor="{DynamicResource BattleInk}"
                         Command="{Binding GoBackCommand}"/>
             </StackLayout>
         </Border>

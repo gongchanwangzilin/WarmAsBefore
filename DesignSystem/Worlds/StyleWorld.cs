@@ -556,6 +556,26 @@ public static class StyleWorldTokens
         // 留白反而比内容还宽 —— 它是唯一应该跟着窗口瘦身的常量。
         res["WPageMargin"] = new Thickness(r.PadCard * 1.5);
 
+        // 演出暗色（战斗 / CG / 升好感）：这几页永远在暗底上演，不随明暗档翻转——
+        // 但色值必须有名字。无名的手写色在换主题时是全应用唯一不动的那一块，
+        // 而且深色档下它们会和页面其余部分形成两套黑。
+        res["BattleNight"] = Color.FromArgb("#1A1A2E");
+        res["BattlePanel"] = Color.FromArgb("#16213E");
+        res["BattlePurple"] = Color.FromArgb("#533483");
+        res["BattleAccent"] = Color.FromArgb("#E94560");
+        res["BattleHeal"] = Color.FromArgb("#4ECCA3");
+        res["BattleInk"] = Color.FromArgb("#FFFFFF");
+        res["BattleInkDim"] = Color.FromArgb("#9A9AB4");
+        res["BattleScrim"] = Color.FromArgb("#19000000");
+        res["CgInk"] = Color.FromArgb("#FFFFFF");
+        res["CgInkDim"] = Color.FromArgb("#CCFFFFFF");
+        res["CgChip"] = Color.FromArgb("#80FFFFFF");
+        res["AffectionRose"] = Color.FromArgb("#E8508D");
+        res["AffectionRoseSoft"] = Color.FromArgb("#EE6FA5");
+        res["AffectionInk"] = Color.FromArgb("#FFF0F6");
+        res["AffectionInkSoft"] = Color.FromArgb("#FFE3F0");
+        res["AffectionScrim"] = Color.FromArgb("#55331F66");
+
         // 玻璃档的三个色标：GlassTokens 原来把 #FDF8F0 / #FFFFFF / #8B7D6B 这些奶油系的值
         // 直接写死在画刷里，换到晨雾蓝灰或深色档时，玻璃卡片会变成一块不属于这个世界的奶油。
         // 现在它只保留「哪一档多透、边多亮」这套材质算法，颜色一律由世界给。

@@ -18,18 +18,18 @@
                IsVisible="{Binding HasBackground}" />
 
         <!-- 半透明粉色纱幕 -->
-        <BoxView Color="#55331f66" Opacity="0.55" />
+        <BoxView Color="{DynamicResource AffectionScrim}" Opacity="0.55" />
 
         <!-- 顶部丝带 -->
         <Grid VerticalOptions="Start" Margin="0,70,0,0">
-            <Border BackgroundColor="#E8508D"
+            <Border BackgroundColor="{DynamicResource AffectionRose}"
                     StrokeThickness="0"
                     HeightRequest="74"
                     Margin="0,0,0,0"
                     Opacity="0.96">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             </Border>
-            <Border BackgroundColor="#EE6FA5"
+            <Border BackgroundColor="{DynamicResource AffectionRoseSoft}"
                     StrokeThickness="0"
                     HeightRequest="30"
                     Margin="0,2,0,0"
@@ -45,7 +45,7 @@
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
                 <Label Text="{Binding TitleLine}"
-                       TextColor="#FFE3F0"
+                       TextColor="{DynamicResource AffectionInkSoft}"
                        FontSize="17"
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
@@ -53,7 +53,7 @@
 
         <!-- 中央爱心徽章 -->
         <Grid HorizontalOptions="Center" VerticalOptions="Center" Margin="0,-60,0,0">
-            <Border BackgroundColor="#E8508D"
+            <Border BackgroundColor="{DynamicResource AffectionRose}"
                     StrokeThickness="4"
                     Stroke="White"
                     Padding="30,24"
@@ -67,7 +67,7 @@
                            FontAttributes="Bold"
                            HorizontalOptions="Center" />
                     <Label Text="{Binding CharacterName}"
-                           TextColor="#FFF0F6"
+                           TextColor="{DynamicResource AffectionInk}"
                            FontSize="16"
                            HorizontalOptions="Center" />
                 </VerticalStackLayout>
@@ -88,7 +88,7 @@
 
         <!-- 底部提示 -->
         <Label Text="轻触任意处返回"
-               TextColor="#CCFFFFFF"
+               TextColor="{DynamicResource CgInkDim}"
                FontSize="13"
                HorizontalOptions="Center"
                VerticalOptions="End"
