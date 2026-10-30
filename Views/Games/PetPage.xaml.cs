@@ -64,44 +64,24 @@ public partial class PetPage : ContentPage
 #endif
         try
         {
-            var charId = _engine.State.CharacterId;
-            if (string.IsNullOrEmpty(charId)) return;
-            var roster = await _chars.ListAsync();
-            var ch = roster.FirstOrDefault(c => c.Profile.Id == charId);
-            if (ch is null || ch.SpriteMap.Count == 0) return;
+            // 角色解析统一走 PetService：显式绑定优先，否则跟随当前存档主角。
+            var resolved = await PetService.ResolvePetCharacterAsync();
+            if (resolved is not { } r) return;
+            var ch = r.Character;
             _ch = ch;
-
-            // 用角色当前状态，而不是 SpriteMap.Keys.First()。
-            // 取第一个键会让桌宠显示的立绘和主页面不一致 —— 看起来就像「进桌宠自动换了立绘」。
-            var key = $"{ch.State.CurrentOutfit}/{ch.State.CurrentEmotion}";
-            if (!ch.SpriteMap.ContainsKey(key))
-            {
-                var outfitEmotions = ch.SpriteMap.Keys
-                    .Where(k => k.StartsWith(ch.State.CurrentOutfit + "/", StringComparison.Ordinal))
-                    .ToList();
-                key = outfitEmotions.Count > 0 ? outfitEmotions[0] : ch.SpriteMap.Keys.First();
-            }
-
-            if (ch.SpriteMap.TryGetValue(key, out var rel))
-            {
-                var full = Path.Combine(_store.Root, rel);
-                if (File.Exists(full))
-                {
 #if WINDOWS
-                    // 立绘不进 XAML：交给分层窗口按像素贴图，角色才真的站在桌面上
-                    PetService.AttachSprite(full);
-                    // AI 给这个角色做过 Q 版桌宠就换成帧动画；没做过时这里什么都不做，仍是上面那张立绘
-                    PetService.AttachAnimation(charId, ch.State.CurrentEmotion);
-                    AttachPetSurface();
+            // 立绘不进 XAML：交给分层窗口按像素贴图，角色才真的站在桌面上
+            PetService.AttachSprite(r.SpritePath);
+            // AI 给这个角色做过 Q 版桌宠就换成帧动画；没做过时这里什么都不做，仍是上面那张立绘
+            PetService.AttachAnimation(ch.Profile.Id, ch.State.CurrentEmotion);
+            AttachPetSurface();
 #else
-                    SpriteImage.Source = ImageSource.FromFile(full);
-                    // 体型是盘上的持久值：不读它每次进页都回到 1.0，手机上就是「捏小了，下次进来又巨大」
-                    _scale = Math.Clamp(_settings.Current.PetScale, MinScale, MaxScale);
-                    SpriteImage.Scale = _scale;
+            SpriteImage.Source = ImageSource.FromFile(r.SpritePath);
+            // 体型是盘上的持久值：不读它每次进页都回到 1.0，手机上就是「捏小了，下次进来又巨大」
+            _scale = Math.Clamp(_settings.Current.PetScale, MinScale, MaxScale);
+            SpriteImage.Scale = _scale;
 #endif
-                    NameLabel.Text = ch.Profile.Name;
-                }
-            }
+            NameLabel.Text = ch.Profile.Name;
         }
         catch (Exception ex)
         {

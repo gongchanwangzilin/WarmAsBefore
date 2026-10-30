@@ -53,6 +53,51 @@ public sealed partial class PetSettingsViewModel : ObservableObject
         _loading = false;
         _ = RefreshPreviewSpriteAsync();
         _ = RefreshPackStatusAsync();
+        _ = RefreshBindingOptionsAsync();
+    }
+
+    // ============ 绑定角色（跟随存档 / 指定一个） ============
+
+    private const string FollowSaveLabel = "跟随存档主角";
+    private readonly List<(string Id, string Name)> _bindingChoices = new();
+    private bool _suppressBindingWrite;
+
+    public System.Collections.ObjectModel.ObservableCollection<string> PetBindingOptions { get; } = new() { FollowSaveLabel };
+
+    [ObservableProperty] private string _petBindingDisplay = FollowSaveLabel;
+
+    partial void OnPetBindingDisplayChanged(string value)
+    {
+        if (_suppressBindingWrite) return;
+        var id = _bindingChoices.FirstOrDefault(x => x.Name == value).Id ?? "";
+        _settings.Apply(_settings.Current with { PetCharacterId = id });
+        _ = _settings.Persist();
+        _ = RefreshPreviewSpriteAsync();
+        // 桌面上已经在演的那只立刻换脸；不在桌宠模式时是 no-op。
+        _ = Services.PetService.RefreshForActiveSaveAsync();
+    }
+
+    /// <summary>选项 = 「跟随存档主角」+ 角色库全部角色；当前值按 PetCharacterId 回填。</summary>
+    public async Task RefreshBindingOptionsAsync()
+    {
+        try
+        {
+            _suppressBindingWrite = true;
+            var roster = await _chars.ListAsync();
+            _bindingChoices.Clear();
+            PetBindingOptions.Clear();
+            _bindingChoices.Add(("", FollowSaveLabel));
+            PetBindingOptions.Add(FollowSaveLabel);
+            foreach (var c in roster)
+            {
+                _bindingChoices.Add((c.Profile.Id, c.Profile.Name));
+                PetBindingOptions.Add(c.Profile.Name);
+            }
+            var bound = _settings.Current.PetCharacterId ?? "";
+            PetBindingDisplay = _bindingChoices.FirstOrDefault(x => x.Id == bound).Name ?? FollowSaveLabel;
+        }
+        catch (Exception ex) { App.WriteLog("PetSettingsVM.Binding -> " + ex.Message); }
+        finally { _suppressBindingWrite = false; }
     }
 
     /// <summary>桌宠行为的 Windows 专有项（发光/帧率/悬停/位置）在移动端没有对应实现，整卡收起。</summary>
@@ -496,17 +541,10 @@ public sealed partial class PetSettingsViewModel : ObservableObject
     {
         try
         {
-            var charId = _engine.State.CharacterId;
-            if (string.IsNullOrEmpty(charId)) return;
-            var roster = await _chars.ListAsync();
-            var ch = roster.FirstOrDefault(c => c.Profile.Id == charId);
-            if (ch is null || ch.SpriteMap.Count == 0) return;
-            var key = $"{ch.State.CurrentOutfit}/{ch.State.CurrentEmotion}";
-            if (!ch.SpriteMap.TryGetValue(key, out var rel))
-                rel = ch.SpriteMap.Values.First();
-            var full = Path.Combine(_store.Root, rel);
-            if (File.Exists(full))
-                MainThread.BeginInvokeOnMainThread(() => PreviewSpriteSource = ImageSource.FromFile(full));
+            // 与桌面上那只同一套解析：显式绑定优先，否则跟随当前存档主角。
+            var resolved = await Services.PetService.ResolvePetCharacterAsync();
+            if (resolved is not { } r) return;
+            MainThread.BeginInvokeOnMainThread(() => PreviewSpriteSource = ImageSource.FromFile(r.SpritePath));
         }
         catch (Exception ex) { App.WriteLog("PetSettingsVM.PreviewSprite -> " + ex.Message); }
     }

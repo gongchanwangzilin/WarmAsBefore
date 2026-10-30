@@ -164,6 +164,9 @@ public sealed class SaveManager
         _engine.CurrentSaveId = id;
         _scope.Raise();      // 换档之后，各记忆服务必须重读这个档自己的那一份
 
+        // 桌宠跟着存档走：换档后把桌面上的形象换成这一档的主角（不在桌宠模式时是 no-op）。
+        _ = Services.PetService.RefreshForActiveSaveAsync();
+
         // 过期存档自动修复：旧档缺版本字段（=0）或结构漂移时，就地补齐并回写。
         var version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
         LastLoadNote = version >= SchemaVersion ? "" : await RepairAsync(id, version);

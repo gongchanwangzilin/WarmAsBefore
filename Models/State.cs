@@ -506,6 +506,12 @@ public sealed record UserSettings
     /// </summary>
     public double PetScale { get; init; } = 1.0;
 
+    /// <summary>
+    /// 桌宠绑定的角色 ID。空 = 跟随当前存档主角（默认）；非空 = 始终显示这个角色。
+    /// 桌宠是「这段关系在桌面上的延伸」，所以换档时形象跟着档走，而不是全应用共用一张脸。
+    /// </summary>
+    public string PetCharacterId { get; init; } = "";
+
     // ===== 桌宠设置（设置页每一项都要真能改到行为，做不到的一律不进这个区） =====
 
     /// <summary>气泡与输入条字号（DIP，10–22）。字号变了小窗要重新量高，不是只换个字体。</summary>

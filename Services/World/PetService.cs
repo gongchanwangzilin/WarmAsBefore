@@ -539,6 +539,68 @@ public sealed class PetService
 
     // ============ 立绘与头顶小窗的联动（供 PetPage 调用） ============
 
+    /// <summary>
+    /// 桌宠现在该是谁：显式绑定（PetCharacterId）优先，否则跟随当前存档主角。
+    /// PetPage、桌宠设置页、切档热切换三处共用这一条解析，避免三份「取立绘」的代码各自漂移。
+    /// 返回 null 表示没有可显示的角色（没进档 / 没角色 / 没立绘）。
+    /// </summary>
+    public static async Task<(Models.CharacterData Character, string SpritePath)?> ResolvePetCharacterAsync()
+    {
+        try
+        {
+            var chars = Resolve<CharacterLibrary>();
+            var store = Resolve<StorageProvider>();
+            var engine = Resolve<GameEngine>();
+            if (chars is null || store is null || engine is null) return null;
+
+            var bound = _instance?._settings.Current.PetCharacterId ?? "";
+            var roster = await chars.ListAsync();
+            var target = string.IsNullOrWhiteSpace(bound)
+                ? null
+                : roster.FirstOrDefault(c => c.Profile.Id == bound);
+            target ??= roster.FirstOrDefault(c => c.Profile.Id == engine.State.CharacterId);
+            if (target is null || target.SpriteMap.Count == 0) return null;
+
+            // 用角色当前状态，而不是 SpriteMap 的第一个键：取第一个会让她和主页面换装不一致。
+            var key = $"{target.State.CurrentOutfit}/{target.State.CurrentEmotion}";
+            if (!target.SpriteMap.TryGetValue(key, out var rel))
+            {
+                var outfitKeys = target.SpriteMap.Keys
+                    .Where(k => k.StartsWith(target.State.CurrentOutfit + "/", StringComparison.Ordinal))
+                    .ToList();
+                rel = outfitKeys.Count > 0 ? outfitKeys[0] : target.SpriteMap.Values.First();
+            }
+            var full = Path.Combine(store.Root, rel);
+            return File.Exists(full) ? (target, full) : null;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.ResolvePet -> " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 换档之后热换桌宠：人已经站在桌面上了，不能等她下次进桌宠页才换脸。
+    /// 只在桌宠真的在显示时重贴（PetLayeredWindow 是常驻分层窗口，非桌宠模式不该被拉出来）。
+    /// </summary>
+    public static async Task RefreshForActiveSaveAsync()
+    {
+        try
+        {
+            var inst = _instance;
+            if (inst is null || !inst._petMode) return;
+            var resolved = await ResolvePetCharacterAsync();
+            if (resolved is not { } r) return;
+            AttachSprite(r.SpritePath);
+            AttachAnimation(r.Character.Profile.Id, r.Character.State.CurrentEmotion);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.RefreshForActiveSave -> " + ex.Message);
+        }
+    }
+
     /// <summary>把角色立绘贴到桌面上（默认右下角、脚踩工作区底沿；记过位置就回那个位置），并定位头顶小窗。</summary>
     public static void AttachSprite(string absPath)
     {
