@@ -56,6 +56,13 @@ public partial class TitlePage : ContentPage
     /// <summary>点卡片任意处收掉：等不及的人要的是「进去」，不是「看完整版」。</summary>
     private void OnIntroTapped(object? sender, TappedEventArgs e) => IntroCard.Skip();
 
+    /// <summary>同住体验腿上的第三条路：直通桌宠设置台（petsettings 路由，仅桌面端可用）。</summary>
+    private async void OnPetSettingsTapped(object? sender, EventArgs e)
+    {
+        try { await Shell.Current.GoToAsync("petsettings"); }
+        catch (Exception ex) { App.WriteLog("TitlePage.PetSettings -> " + ex.Message); }
+    }
+
     /// <summary>
     /// 名牌按当前语言的 Brand_Mark 逐字建出来。一个 Label 一个字是必需的：逐字揭示要的是
     /// 每个字有自己的透明度，而 Label 内部 Span 没有这个可调量。

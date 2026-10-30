@@ -27,6 +27,7 @@ public partial class PetSettingsPage : ContentPage
         InitializeComponent();
         _vm = vm;
         BindingContext = vm;
+        SetSeg(0);
         SizeChanged += (_, _) => ApplyResponsiveLayout();
         vm.PropertyChanged += (_, e) =>
         {
@@ -54,7 +55,7 @@ public partial class PetSettingsPage : ContentPage
         base.OnAppearing();
         ApplyResponsiveLayout();
         // 卡片进场：先摆到起点再统一错峰上浮，沿用站里的契约（不接管 Opacity）
-        var cards = new VisualElement[] { StageCard, CardLook, CardPack, CardBubble, CardInteract, CardSound, CardPos, CardOther };
+        var cards = new VisualElement[] { StageCard, CardPack, CardLook, CardMotion, CardInteract, CardBubble, CardSound, CardVoice, CardPos, CardOther };
         foreach (var c in cards) c.TranslationY = MotionTokens.EnterRisePx;
         Motion.Arrive(cards, (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
         // 从工作室回来要把新出的包报出来：这条读的是盘上那份 animation.json，只在进页时一次
@@ -144,6 +145,37 @@ public partial class PetSettingsPage : ContentPage
         var amp = 2.2 * Math.Clamp(_vm.PetScale, 0.4, 2.6) * 0.5;
         PreviewSprite.TranslationY = -amp * (1 - Math.Cos(_phase));
     }
+
+        // ============ 分段标签：外观/动作/气泡/声音/语音/位置/自主 ============
+
+        private void OnSegClicked(object? sender, EventArgs e)
+        {
+            if (sender is Button b && int.TryParse(b.ClassId, out var idx)) SetSeg(idx);
+        }
+
+        /// <summary>七段互斥点亮：选中的段换主行动钮皮，其余回幽灵钮；内容列同步显隐。</summary>
+        private void SetSeg(int idx)
+        {
+            var idxSafe = Math.Clamp(idx, 0, 6);
+            var tabs = new VisualElement[] { TabLook, TabMotion, TabBubble, TabSound, TabVoice, TabPos, TabSelf };
+            for (var i = 0; i < tabs.Length; i++)
+            {
+                tabs[i].IsVisible = i == idxSafe;
+            }
+            var seq = 0;
+            foreach (var child in SegBar.Children)
+            {
+                if (child is Button b)
+                {
+                    var key = seq == idxSafe ? "BtnPrimarySm" : "BtnGhostSm";
+                    if (Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Style s)
+                    {
+                        b.Style = s;
+                    }
+                    seq++;
+                }
+            }
+        }
 
     // ============ 响应式：宽屏左舞台右设置，窄屏上下堆叠 ============
 

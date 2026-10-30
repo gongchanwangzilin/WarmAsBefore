@@ -118,11 +118,17 @@
                                    Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
                         </VerticalStackLayout>
                         <!-- 退出原来是「一行浮空的文字」，看着像哪个控件坏了没画完；
-                             给它一颗真的次要钮，它才读得出是「可以按，但不重要」。 -->
-                        <Button x:Name="ExitButton" Grid.Row="1"
-                                Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}"
-                                Style="{StaticResource BtnGhostSm}" HorizontalOptions="Start"
-                                Command="{Binding ExitGameCommand}" />
+                             给它一颗真的次要钮，它才读得出是「可以按，但不重要」。
+                             现在再垫一颗「桌宠设置」：同住体验这一带的第三条路，手机上没有桌宠可以不显。 -->
+                        <HorizontalStackLayout Grid.Row="1" Spacing="8">
+                            <Button Text="🐾 桌宠设置" Style="{StaticResource BtnGhostSm}"
+                                    IsVisible="{OnIdiom Desktop=True, Phone=False}"
+                                    Clicked="OnPetSettingsTapped" />
+                            <Button x:Name="ExitButton" Grid.Row="1"
+                                    Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}"
+                                    Style="{StaticResource BtnGhostSm}" HorizontalOptions="Start"
+                                    Command="{Binding ExitGameCommand}" />
+                        </HorizontalStackLayout>
                     </Grid>
                 </Grid>
 
