@@ -179,7 +179,13 @@ public sealed class RuntimeConfigurator
             {
                 _usageHooked = true;
                 _api.UsageReported += (model, prompt, completion, cachedIn, cachedOut) =>
-                    _cost.Record(model, prompt, completion, cachedIn, cachedOut);
+                {
+                    // 记在「谁头上」：当前存档主角。换档后新记录自然归新档，旧账不动。
+                    var chId = _engine.State.CharacterId ?? "";
+                    var chName = _engine.ActiveCharacter?.Profile.Name ?? "";
+                    _cost.Record(model, prompt, completion, cachedIn, cachedOut,
+                        characterId: chId, characterName: chName);
+                };
             }
             if (prices is null) return;
             var existing = await _cost.PricesAsync();
