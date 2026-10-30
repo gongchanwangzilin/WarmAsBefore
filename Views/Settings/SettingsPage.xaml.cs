@@ -17,6 +17,7 @@ public partial class SettingsPage : ContentPage
     private double _lastSide = -1;
     private bool _tilesTwoCol = true;
     private SettingsViewModel.SettingsSectionRow? _usageRow;
+    private SettingsViewModel.SettingsSectionRow? _petRow;
 
     public SettingsPage(SettingsViewModel vm)
     {
@@ -87,8 +88,19 @@ public partial class SettingsPage : ContentPage
                     Summary = "Token 用量与花费的本地账本：今日 · 近 7 天 · 成本构成 · 热力图"
                 };
             }
+            if (_petRow == null)
+            {
+                _petRow = new SettingsViewModel.SettingsSectionRow
+                {
+                    Key = "__petsettings__",
+                    Icon = "🐾",
+                    Title = "桌宠设置",
+                    Desc = "桌面上陪你的那一位",
+                    Summary = "体型 · 动作与走动 · 气泡 · 声音 · 语音 · 位置 · 自主；AI 一键制作 Q 版桌宠"
+                };
+            }
 
-            // 置顶重排：桌宠（platform）→ 用量（假行）→ 外观（appearance）→ 其余原序。
+            // 置顶重排：桌宠设置（假行）→ 用量（假行）→ 外观（appearance）→ 其余原序。
             var ordered = new List<(SettingsViewModel.SettingsSectionRow Row, bool Usage)>();
             foreach (var row in _vm.SectionRows)
             {
@@ -97,6 +109,7 @@ public partial class SettingsPage : ContentPage
             MoveToFront(ordered, p => !p.Usage && p.Row.Key == "appearance");
             MoveToFront(ordered, p => !p.Usage && p.Row.Key == "platform");
             ordered.Insert(1, (_usageRow, true));
+            ordered.Insert(1, (_petRow, false));
 
             TilesGrid.ColumnDefinitions = twoCol
                 ? new ColumnDefinitionCollection { new(GridLength.Star), new(new GridLength(12)), new(GridLength.Star) }
@@ -181,6 +194,14 @@ public partial class SettingsPage : ContentPage
             {
                 try { await Shell.Current.GoToAsync("usagestats"); }
                 catch (Exception ex) { App.WriteLog("SettingsPage.Usage -> " + ex.Message); }
+            });
+        }
+        else if (row.Key == "__petsettings__")
+        {
+            tap.Command = new Command(async () =>
+            {
+                try { await Shell.Current.GoToAsync("petsettings"); }
+                catch (Exception ex) { App.WriteLog("SettingsPage.Pet -> " + ex.Message); }
             });
         }
         else
