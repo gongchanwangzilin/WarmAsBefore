@@ -224,6 +224,16 @@
                                 <Label Grid.Column="2" Text="0–1" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                                <VerticalStackLayout>
+                                    <Label Text="绑定角色" Style="{StaticResource TxtBodySm}" />
+                                    <Label Text="默认跟随当前存档主角；换档时桌面上的她会跟着换，也可以钉住某一个角色" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
+                                </VerticalStackLayout>
+                                <Picker Grid.Column="1" WidthRequest="180" FontSize="13"
+                                        ItemsSource="{Binding PetBindingOptions}"
+                                        SelectedItem="{Binding PetBindingDisplay}" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Border>
                     </VerticalStackLayout>
