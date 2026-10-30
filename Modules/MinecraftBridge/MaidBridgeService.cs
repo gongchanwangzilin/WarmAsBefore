@@ -33,6 +33,10 @@ public sealed partial class MaidBridgeService : IDisposable
     private const int MaxMaidsPerSession = 256;
     private const int MaxTrackedEvents = 128;
     private const int MaxBoundWorlds = 64;
+    /// <summary>tts_audio 一帧的原始字节上限：4 MiB 行上限里还要装 base64 和其他字段，留足余量。</summary>
+    private const int MaxTtsChunkBytes = 512 * 1024;
+    /// <summary>stt 上传的 base64 字符上限（约 2.6 MiB 音频）。20 秒 16 kHz 单声道录音远小于这个数。</summary>
+    private const int MaxSttBase64Chars = 3_500_000;
 
     private readonly PluginHost _plugins;
     private readonly StorageProvider _store;
@@ -44,6 +48,7 @@ public sealed partial class MaidBridgeService : IDisposable
     private readonly HumanMemoryService _human;
     private readonly VisionService _vision;
     private readonly PersonaMemoryService _persona;
+    private readonly SpeechService _speech;
 
     private readonly object _gate = new();
     private readonly object _sessionGate = new();
@@ -55,6 +60,7 @@ public sealed partial class MaidBridgeService : IDisposable
     private readonly SemaphoreSlim _bindingsLoadLock = new(1, 1);
     private readonly SemaphoreSlim _commitLock = new(1, 1);
     private readonly SemaphoreSlim _turnLock = new(1, 1);
+    private readonly SemaphoreSlim _voiceLock = new(1, 1);
     private readonly SemaphoreSlim _backupLock = new(1, 1);
     private readonly Dictionary<string, PendingJoin> _pending = new(StringComparer.Ordinal);
     private readonly MaidBridgeBindingStore _bindings = new();
@@ -87,7 +93,7 @@ public sealed partial class MaidBridgeService : IDisposable
     public MaidBridgeService(PluginHost plugins, StorageProvider store,
         Modules.SaveSystem.SaveManager save, GameEngine engine, CharacterLibrary characters,
         ChatEngine chat, MemoryVault memory, HumanMemoryService human, Modules.Tools.ToolManager tools,
-        VisionService vision, PersonaMemoryService persona)
+        VisionService vision, PersonaMemoryService persona, SpeechService speech)
     {
         _plugins = plugins;
         _store = store;
@@ -99,6 +105,7 @@ public sealed partial class MaidBridgeService : IDisposable
         _human = human;
         _vision = vision;
         _persona = persona;
+        _speech = speech;
         MaidBridgeTools.Register(this, tools);
     }
 
@@ -752,7 +759,15 @@ public sealed partial class MaidBridgeService : IDisposable
             ["characterId"] = _engine.State.CharacterId,
             ["characters"] = characters,
             ["bound"] = bound,
-            ["settings"] = settings
+            ["settings"] = settings,
+            // 桥现在能不能出嗓子、出耳朵：模组据此决定绑了角色的女仆走不走 WAB，
+            // 关着的开关不用等一次失败的 tts_reply 才知道。
+            ["voice"] = new JsonObject
+            {
+                ["tts"] = _config.AllowVoice && _speech.TtsEnabled,
+                ["stt"] = _config.AllowVoice && _speech.SttEnabled,
+                ["format"] = "wav"
+            }
         };
     }
 
@@ -760,6 +775,7 @@ public sealed partial class MaidBridgeService : IDisposable
     {
         ["allowWorldActions"] = _config.AllowWorldActions,
         ["allowGestures"] = _config.AllowGestures,
+        ["allowVoice"] = _config.AllowVoice,
         ["chatAffection"] = _config.ChatAffection
     };
 
@@ -1017,6 +1033,12 @@ public sealed partial class MaidBridgeService : IDisposable
                     break;
                 case "chat":
                     _ = RunSafe("Chat", () => OnChatAsync(session, msg));
+                    break;
+                case "tts":
+                    _ = RunSafe("Tts", () => OnTtsAsync(session, msg));
+                    break;
+                case "stt":
+                    _ = RunSafe("Stt", () => OnSttAsync(session, msg));
                     break;
                 case "result":
                     CompleteRequest(session, msg);
@@ -1489,6 +1511,155 @@ public sealed partial class MaidBridgeService : IDisposable
             _turnLock.Release();
         }
     }
+
+    // ==================== 语音：WAB 出嗓子、出耳朵 ====================
+
+    /// <summary>
+    /// 模组请求合成一段话：文本进，WAV 分块回（tts_reply + N × tts_audio）。
+    /// 音色、引擎只能来自这具身体绑定的角色——请求里带什么 voice/model 都不看，
+    /// 绑了角色的女仆只有角色自己的嗓子，这和对话用哪条 LLM 是同一条规矩。
+    /// </summary>
+    private async Task OnTtsAsync(MaidSession session, JsonObject msg)
+    {
+        var maidId = BridgeJson.Str(msg, "maid");
+        var requestId = BridgeJson.Str(msg, "id");
+        var text = BridgeJson.Str(msg, "text").Trim();
+
+        if (VoiceRefusal(session, maidId) is { } refusal)
+        {
+            await SendVoiceRefusalAsync(session, "tts_reply", maidId, requestId, refusal);
+            return;
+        }
+
+        var charId = ResolveCharacter(session, maidId);
+        await _voiceLock.WaitAsync();
+        try
+        {
+            var clip = await _speech.SynthesizeClipAsync(text, charId);
+            if (!clip.Ok)
+            {
+                await SendVoiceRefusalAsync(session, "tts_reply", maidId, requestId, (clip.Code, clip.Error));
+                return;
+            }
+            if (clip.Audio.Length == 0)
+            {
+                await SendVoiceRefusalAsync(session, "tts_reply", maidId, requestId, ("empty_audio", "合成器没有返回音频。"));
+                return;
+            }
+
+            var parts = (clip.Audio.Length + MaxTtsChunkBytes - 1) / MaxTtsChunkBytes;
+            await session.SendAsync(new JsonObject
+            {
+                ["v"] = ProtocolVersion,
+                ["type"] = "tts_reply",
+                ["maid"] = maidId,
+                ["id"] = requestId,
+                ["ok"] = true,
+                ["format"] = clip.Format,
+                ["engine"] = clip.Engine,
+                ["voice"] = clip.Voice,
+                ["parts"] = parts,
+                ["bytes"] = clip.Audio.Length
+            });
+
+            for (var i = 0; i < parts; i++)
+            {
+                var offset = i * MaxTtsChunkBytes;
+                var count = Math.Min(MaxTtsChunkBytes, clip.Audio.Length - offset);
+                await session.SendAsync(new JsonObject
+                {
+                    ["v"] = ProtocolVersion,
+                    ["type"] = "tts_audio",
+                    ["maid"] = maidId,
+                    ["id"] = requestId,
+                    ["part"] = i,
+                    ["data"] = Convert.ToBase64String(clip.Audio, offset, count)
+                });
+            }
+        }
+        finally
+        {
+            _voiceLock.Release();
+        }
+    }
+
+    /// <summary>
+    /// 模组把一段 WAV 传上来：WAB 用自己的识别设置听写成文字，一帧 stt_reply 回。
+    /// 只回文字，不替模组决定这句话要不要发给她——那是模组原来的 STT 回调该做的事。
+    /// </summary>
+    private async Task OnSttAsync(MaidSession session, JsonObject msg)
+    {
+        var maidId = BridgeJson.Str(msg, "maid");
+        var requestId = BridgeJson.Str(msg, "id");
+
+        if (VoiceRefusal(session, maidId) is { } refusal)
+        {
+            await SendVoiceRefusalAsync(session, "stt_reply", maidId, requestId, refusal);
+            return;
+        }
+
+        var base64 = msg["data"] is JsonValue value && value.TryGetValue<string>(out var raw) ? raw : "";
+        if (base64.Length == 0)
+        {
+            await SendVoiceRefusalAsync(session, "stt_reply", maidId, requestId, ("empty_audio", "这一帧里没有录音。"));
+            return;
+        }
+        if (base64.Length > MaxSttBase64Chars)
+        {
+            await SendVoiceRefusalAsync(session, "stt_reply", maidId, requestId, ("audio_too_large", "录音太长了，桥这边装不下。"));
+            return;
+        }
+
+        byte[] audio;
+        try { audio = Convert.FromBase64String(base64); }
+        catch (FormatException)
+        {
+            await SendVoiceRefusalAsync(session, "stt_reply", maidId, requestId, ("bad_audio", "录音不是有效的 base64。"));
+            return;
+        }
+
+        var lang = BridgeJson.Str(msg, "lang", "zh-CN");
+        var result = await _speech.TranscribeAsync(audio, lang);
+        if (!result.Ok)
+        {
+            await SendVoiceRefusalAsync(session, "stt_reply", maidId, requestId, ("no_speech", result.Note));
+            return;
+        }
+
+        await session.SendAsync(new JsonObject
+        {
+            ["v"] = ProtocolVersion,
+            ["type"] = "stt_reply",
+            ["maid"] = maidId,
+            ["id"] = requestId,
+            ["ok"] = true,
+            ["text"] = result.Text
+        });
+    }
+
+    private (string Code, string Message)? VoiceRefusal(MaidSession session, string maidId)
+    {
+        if (!session.SaveActive)
+            return ("bridge_inactive", session.SaveNotice.Length > 0 ? session.SaveNotice : "桥当前没在工作。");
+        if (!_config.AllowVoice)
+            return ("voice_disallowed", "插件设置里「借 WAB 的声音说话和听话」是关的。");
+        if (ResolveCharacter(session, maidId).Length == 0)
+            return ("no_character", "这具身体还没有绑定角色，没有可继承的嗓子。可以在 WAB 里调用 maid_bind。");
+        return null;
+    }
+
+    private static Task SendVoiceRefusalAsync(MaidSession session, string type, string maidId,
+        string requestId, (string Code, string Message) refusal)
+        => session.SendAsync(new JsonObject
+        {
+            ["v"] = ProtocolVersion,
+            ["type"] = type,
+            ["maid"] = maidId,
+            ["id"] = requestId,
+            ["ok"] = false,
+            ["code"] = refusal.Code,
+            ["error"] = refusal.Message
+        });
 
     private async Task StoreGameChatAsync(string charId, string text, string reply)
     {
