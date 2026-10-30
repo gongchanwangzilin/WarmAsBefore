@@ -1,6 +1,8 @@
-﻿<?xml version="1.0" encoding="utf-8" ?>
+<?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
 xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
 xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
@@ -49,7 +51,7 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                 <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Text="{Binding Title}" TextColor="{DynamicResource SurfaceFg}"
                            FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
-                    <Switch Grid.Column="1" IsToggled="{Binding Visible, Mode=TwoWay}"
+                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Visible, Mode=TwoWay}"
                             OnColor="{DynamicResource AccentWarm}" VerticalOptions="Center" />
                     <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Desc}"
                            TextColor="{DynamicResource MutedFg}" FontSize="10"

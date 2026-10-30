@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.PetSettingsPage"
@@ -193,7 +195,7 @@
                                     <Label Text="体型" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="站在桌面上的大小；也可以在角色上滚轮直接调" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0.4" Maximum="2.6" Value="{Binding PetScale}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="0.4" Maximum="2.6" Value="{Binding PetScale}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding PetScaleText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -205,7 +207,7 @@
                                     <Label Text="气泡字号" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="头顶气泡与输入条的字有多大；改完气泡高度会跟着重新量" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="10" Maximum="22" Value="{Binding PetFontSize}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="10" Maximum="22" Value="{Binding PetFontSize}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding StageFontText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -217,7 +219,7 @@
                                     <Label Text="外发光" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="沿角色轮廓的一圈柔光；0 就是没有" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PetGlow}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding PetGlow}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="0–1" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -236,7 +238,7 @@
                                     <Label Text="动作帧率" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="走动/呼噜这些自发动作的动画帧率；预览里的呼吸节奏就是这个数" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="10" Maximum="60" Value="{Binding PetFps}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="10" Maximum="60" Value="{Binding PetFps}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding FpsText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -247,7 +249,7 @@
                                     <Label Text="帧率锁定" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="开=严格按帧率抽帧（省电）；关=有余量就跑满到 60" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetFpsLock}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetFpsLock}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -293,7 +295,7 @@
                                                     IsVisible="{Binding IsOn}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverDownCommand}"
                                                     CommandParameter="{Binding .}" />
-                                            <Switch Grid.Column="4" IsToggled="{Binding IsOn}" VerticalOptions="Center" />
+                                            <controls:ViewSwitch Grid.Column="4" IsToggled="{Binding IsOn}" VerticalOptions="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
@@ -311,7 +313,7 @@
                                     <Label Text="状态气泡" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="头顶那一行小字：她现在在做什么。关掉就一个字都不写" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetStatusBubble}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetStatusBubble}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -319,7 +321,7 @@
                                     <Label Text="输入气泡" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="头顶那条输入条。关了就只剩角色本人" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetInputBubble}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetInputBubble}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
                             <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
@@ -327,7 +329,7 @@
                                     <Label Text="气泡浮现速度" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="回复逐字浮现的节奏；×1 ≈ 正文同速，越大越快" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0.2" Maximum="6" Value="{Binding PetBubbleSpeed}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="0.2" Maximum="6" Value="{Binding PetBubbleSpeed}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding SpeedText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -341,7 +343,7 @@
                                 <Button Grid.Column="1" Text="试听" Style="{StaticResource BtnGhost}" FontSize="12"
                                         Padding="10,4" VerticalOptions="Center"
                                         Command="{Binding PreviewSfxCommand}" CommandParameter="typing" />
-                                <Switch Grid.Column="2" IsToggled="{Binding PetTypingSound}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="2" IsToggled="{Binding PetTypingSound}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -356,7 +358,7 @@
                                     <Label Text="单击音效" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="点她一下、按悬停按钮时的那一声" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TapLevel}" VerticalOptions="Center" />
+                                <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TapLevel}" VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding TapLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                                 <Button Grid.Column="3" Text="试听" FontSize="11" Padding="6,2" HeightRequest="26"
@@ -369,7 +371,7 @@
                                     <Label Text="打字音" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="气泡逐字浮现时那串小键盘声；开关在「气泡」段里" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TypingLevel}" VerticalOptions="Center" />
+                                <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TypingLevel}" VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding TypingLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                                 <Button Grid.Column="3" Text="试听" FontSize="11" Padding="6,2" HeightRequest="26"
@@ -382,7 +384,7 @@
                                     <Label Text="撒娇时长" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="按「呼噜/摸摸头」时她抖多久，状态行也写多久" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="2" Maximum="20" Value="{Binding PetPurrSeconds}" VerticalOptions="Center" />
+                                <controls:ViewSlider Grid.Column="1" Minimum="2" Maximum="20" Value="{Binding PetPurrSeconds}" VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding PurrText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
@@ -399,7 +401,7 @@
                                     <Label Text="回复读出声" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="她答完一句，用 TTS 念出来；引擎与开关在设置 › 声音里" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetSpeakReplies}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetSpeakReplies}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -417,7 +419,7 @@
                                     <Label Text="音高" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="×1 是原声；调小更低沉，调大更软" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0.5" Maximum="2" Value="{Binding PetVoicePitch}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="0.5" Maximum="2" Value="{Binding PetVoicePitch}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding VoicePitchText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -428,7 +430,7 @@
                                     <Label Text="语速" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="与全局语速相乘，不是替换" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Slider Grid.Column="1" Minimum="0.5" Maximum="2" Value="{Binding PetVoiceRate}"
+                                <controls:ViewSlider Grid.Column="1" Minimum="0.5" Maximum="2" Value="{Binding PetVoiceRate}"
                                         VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding VoiceRateText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
@@ -456,7 +458,7 @@
                                     <Label Text="记住位置" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="拖到哪儿下次还在哪儿；关了则每次回到工作区右下角" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetRememberPosition}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetRememberPosition}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
@@ -475,7 +477,7 @@
                                     <Label Text="全屏时收起" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="前台进入全屏（放映/游戏）时把她一起收走，退出全屏再回来" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetHideOnFullscreen}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetHideOnFullscreen}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -483,7 +485,7 @@
                                     <Label Text="小窗跨屏跟随" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="多显示器：开=头顶小窗可以跟角色跨到副屏；关=只在本屏工作区收边" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetChromeCrossScreen}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -535,7 +537,7 @@
                                     <Label Text="让她自己调桌宠设置" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="开=她可以在回复里带一句 pet 指令，直接改体型/发光/字号；默认关，免得她的改动悄悄盖掉你的偏好" Style="{StaticResource TxtRowDesc}" MaxLines="3" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding PetSelfConfig}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetSelfConfig}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>

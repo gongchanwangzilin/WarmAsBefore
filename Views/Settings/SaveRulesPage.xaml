@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.SaveRulesPage"
              x:Name="Page"
              Shell.NavBarIsVisible="False"
@@ -34,7 +36,7 @@
                                     <Label Text="允许全部插件" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="关掉后，只有下面勾选的插件能在这份存档里跑" Style="{StaticResource TxtRowDesc}" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding AllowAllPlugins}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AllowAllPlugins}" VerticalOptions="Center" />
                             </Grid>
                         </Border>
                         <BoxView Style="{StaticResource HSepInset}" />
@@ -44,7 +46,7 @@
                                     <Label Text="允许全部工具" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="工具包括内置工具与外部 Java/Python 工具" Style="{StaticResource TxtRowDesc}" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding AllowAllTools}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AllowAllTools}" VerticalOptions="Center" />
                             </Grid>
                         </Border>
                         <BoxView Style="{StaticResource HSepInset}" />
@@ -54,7 +56,7 @@
                                     <Label Text="AI 可以自行安装插件" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="默认关闭：装代码应该由你做决定" Style="{StaticResource TxtRowDesc}" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding AllowAiInstallPlugins}" VerticalOptions="Center" />
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AllowAiInstallPlugins}" VerticalOptions="Center" />
                             </Grid>
                         </Border>
                     </VerticalStackLayout>
@@ -76,7 +78,7 @@
                                                         <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
                                                                IsVisible="{Binding HasHint}" />
                                                     </VerticalStackLayout>
-                                                    <Switch Grid.Column="1" IsToggled="{Binding Allowed}"
+                                                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Allowed}"
                                                             IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
                                                 </Grid>
                                             </Border>
@@ -109,7 +111,7 @@
                                                                LineBreakMode="TailTruncation" MaxLines="1"
                                                                IsVisible="{Binding HasHint}" />
                                                     </VerticalStackLayout>
-                                                    <Switch Grid.Column="1" IsToggled="{Binding Allowed}"
+                                                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Allowed}"
                                                             IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
                                                 </Grid>
                                             </Border>
@@ -133,7 +135,7 @@
                                         <Label Text="允许全部角色" Style="{StaticResource TxtRowTitle}" />
                                         <Label Text="关掉后只让勾选的角色进入这份存档的剧情" Style="{StaticResource TxtRowDesc}" />
                                     </VerticalStackLayout>
-                                    <Switch Grid.Column="1" IsToggled="{Binding AllowAllCharacters}" VerticalOptions="Center" />
+                                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AllowAllCharacters}" VerticalOptions="Center" />
                                 </Grid>
                             </Border>
                             <BoxView Style="{StaticResource HSepInset}" />
@@ -149,7 +151,7 @@
                                                                LineBreakMode="TailTruncation" MaxLines="1"
                                                                IsVisible="{Binding HasHint}" />
                                                     </VerticalStackLayout>
-                                                    <Switch Grid.Column="1" IsToggled="{Binding Allowed}"
+                                                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Allowed}"
                                                             IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
                                                 </Grid>
                                             </Border>
@@ -177,7 +179,7 @@
                                         <Label Text="{Binding WorldviewCrossSaveHint}" Style="{StaticResource TxtRowDesc}"
                                                LineBreakMode="WordWrap" />
                                     </VerticalStackLayout>
-                                    <Switch Grid.Column="1" IsToggled="{Binding WorldviewCrossSave}"
+                                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding WorldviewCrossSave}"
                                             IsVisible="{Binding HasWorldviews}" VerticalOptions="Center" />
                                 </Grid>
                             </Border>
@@ -250,7 +252,7 @@
                                                         <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
                                                                IsVisible="{Binding HasHint}" LineBreakMode="WordWrap" />
                                                     </VerticalStackLayout>
-                                                    <Switch Grid.Column="1" IsToggled="{Binding Participates}"
+                                                    <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Participates}"
                                                             IsEnabled="{Binding Enabled}" VerticalOptions="Center" />
                                                 </Grid>
                                             </Border>

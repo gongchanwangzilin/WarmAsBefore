@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.NewCharacterPage"
@@ -252,7 +254,7 @@
                                     <Label Text="关掉后 TA 不会主动推进关系，周期与亲密内容也不进提示词。"
                                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" VerticalOptions="Center"
+                                <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
                                         IsToggled="{Binding IsRomance, Mode=TwoWay}" />
                             </Grid>
                         </VerticalStackLayout>

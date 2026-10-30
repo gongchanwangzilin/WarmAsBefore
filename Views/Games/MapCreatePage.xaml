@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.MapCreatePage"
@@ -141,7 +143,7 @@
 
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                             <Label Text="半径" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
-                            <Slider Grid.Column="1" Minimum="100" Maximum="3000" Value="{Binding RadiusMeters, Mode=TwoWay}"
+                            <controls:ViewSlider Grid.Column="1" Minimum="100" Maximum="3000" Value="{Binding RadiusMeters, Mode=TwoWay}"
                                     MinimumTrackColor="{DynamicResource BeigeAccent300}"
                                     MaximumTrackColor="{DynamicResource WRule}"
                                     ThumbColor="{DynamicResource WarmDark}" />
@@ -157,7 +159,7 @@
                                 <Label Text="城市与区县会带回自己的边界；整片取会把边界框收进可承受的最大范围。"
                                        Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                             </VerticalStackLayout>
-                            <Switch Grid.Column="1" IsToggled="{Binding UseHitBoundingBox, Mode=TwoWay}"
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding UseHitBoundingBox, Mode=TwoWay}"
                                     VerticalOptions="Center" OnColor="{DynamicResource BeigeAccent300}"
                                     ThumbColor="{DynamicResource WarmWhite}" />
                         </Grid>

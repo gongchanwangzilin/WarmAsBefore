@@ -1,6 +1,8 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
@@ -324,7 +326,7 @@
                                     <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="关掉就一份存档记一份，互不串" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
-                                <Switch x:Name="CrossSwitchStage" Grid.Column="1" VerticalOptions="Center"
+                                <controls:ViewSwitch x:Name="CrossSwitchStage" Grid.Column="1" VerticalOptions="Center"
                                         IsToggled="{Binding CrossSave, Mode=OneWay}" />
                             </Grid>
 
@@ -496,7 +498,7 @@
                                         <Label Text="关掉后 TA 不会主动推进关系，周期与亲密内容也不进提示词。"
                                                Style="{StaticResource TxtCaption}" />
                                     </VerticalStackLayout>
-                                    <Switch Grid.Column="1" VerticalOptions="Center"
+                                    <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
                                             IsToggled="{Binding IsRomance}" />
                                 </Grid>
 
@@ -715,7 +717,7 @@
                                             <Label Text="{Binding WorldviewCrossSaveHint}" Style="{StaticResource TxtCaption}"
                                                    LineHeight="1.3" />
                                         </VerticalStackLayout>
-                                        <Switch x:Name="WorldviewSwitch" Grid.Column="1" VerticalOptions="Center"
+                                        <controls:ViewSwitch x:Name="WorldviewSwitch" Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding WorldviewCrossSave, Mode=OneWay}" />
                                     </Grid>
                                 </VerticalStackLayout>
@@ -747,7 +749,7 @@
                                                 <Label Text="{Binding StateSharedHint}" Style="{StaticResource TxtCaption}"
                                                        LineHeight="1.3" />
                                             </VerticalStackLayout>
-                                            <Switch x:Name="SharedSwitch" Grid.Column="1" VerticalOptions="Center"
+                                            <controls:ViewSwitch x:Name="SharedSwitch" Grid.Column="1" VerticalOptions="Center"
                                                     IsToggled="{Binding StateShared, Mode=OneWay}" />
                                         </Grid>
                                         <Label Text="共享：好感/信任/精力/性欲只有一份「现实值」。非共享：每一档从下面的建档初始值起步，各记各的。切换不会把已有存档的数值倒回去。"
@@ -761,7 +763,7 @@
                                         <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0:F0} / 100'}"
                                                Style="{StaticResource TxtCaption}" />
                                     </Grid>
-                                    <Slider Minimum="0" Maximum="100" Value="{Binding Affection}" />
+                                    <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding Affection}" />
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
@@ -770,7 +772,7 @@
                                         <Label Grid.Column="1" Text="{Binding Trust, StringFormat='{0:F0} / 100'}"
                                                Style="{StaticResource TxtCaption}" />
                                     </Grid>
-                                    <Slider Minimum="0" Maximum="100" Value="{Binding Trust}" />
+                                    <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding Trust}" />
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
@@ -779,7 +781,7 @@
                                         <Label Grid.Column="1" Text="{Binding Energy, StringFormat='{0:F0} / 100'}"
                                                Style="{StaticResource TxtCaption}" />
                                     </Grid>
-                                    <Slider Minimum="0" Maximum="100" Value="{Binding Energy}" />
+                                    <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding Energy}" />
                                     <Label Text="精力低的时候 TA 会想睡、说话也短。" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
 
@@ -794,14 +796,14 @@
                                         <Label Grid.Column="1" Text="{Binding Libido, StringFormat='{0:F0} / 100'}"
                                                Style="{StaticResource TxtCaption}" />
                                     </Grid>
-                                    <Slider Minimum="0" Maximum="100" Value="{Binding Libido}" />
+                                    <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding Libido}" />
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                         <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                             <Label Text="设定锁" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="锁上之后性欲停在你写的值上：周期与 AI 判定都改不动它。"
                                                    Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                         </VerticalStackLayout>
-                                        <Switch Grid.Column="1" VerticalOptions="Center"
+                                        <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding LibidoLocked}" />
                                     </Grid>
                                     <Grid ColumnDefinitions="*,Auto" IsVisible="{Binding LibidoLocked}">
@@ -809,7 +811,7 @@
                                         <Label Grid.Column="1" Text="{Binding LibidoLockValue, StringFormat='{0:F0}'}"
                                                Style="{StaticResource TxtCaption}" />
                                     </Grid>
-                                    <Slider Minimum="0" Maximum="100" Value="{Binding LibidoLockValue}"
+                                    <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding LibidoLockValue}"
                                             IsVisible="{Binding LibidoLocked}" />
                                 </VerticalStackLayout>
 
@@ -832,7 +834,7 @@
                                             <Label Grid.Column="1" Text="{Binding InitAffection, StringFormat='{0:F0} / 100'}"
                                                    Style="{StaticResource TxtCaption}" />
                                         </Grid>
-                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitAffection}" />
+                                        <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding InitAffection}" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Spacing="2">
@@ -841,7 +843,7 @@
                                             <Label Grid.Column="1" Text="{Binding InitTrust, StringFormat='{0:F0} / 100'}"
                                                    Style="{StaticResource TxtCaption}" />
                                         </Grid>
-                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitTrust}" />
+                                        <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding InitTrust}" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Spacing="2">
@@ -850,7 +852,7 @@
                                             <Label Grid.Column="1" Text="{Binding InitEnergy, StringFormat='{0:F0} / 100'}"
                                                    Style="{StaticResource TxtCaption}" />
                                         </Grid>
-                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitEnergy}" />
+                                        <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding InitEnergy}" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Spacing="2">
@@ -859,7 +861,7 @@
                                             <Label Grid.Column="1" Text="{Binding InitLibido, StringFormat='{0:F0} / 100'}"
                                                    Style="{StaticResource TxtCaption}" />
                                         </Grid>
-                                        <Slider Minimum="0" Maximum="100" Value="{Binding InitLibido}" />
+                                        <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding InitLibido}" />
                                     </VerticalStackLayout>
 
                                     <VerticalStackLayout Spacing="0">
@@ -921,7 +923,7 @@
                                             <Label Text="关掉后提示词里不会出现周期，与 TA 的性别无关。"
                                                    Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
-                                        <Switch Grid.Column="1" VerticalOptions="Center"
+                                        <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding CycleTracked}" />
                                     </Grid>
                                     <Grid ColumnDefinitions="*,*" ColumnSpacing="10"
@@ -1089,7 +1091,7 @@
                                             <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding ScopePath}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
-                                        <Switch x:Name="CrossSwitch" Grid.Column="1" VerticalOptions="Center"
+                                        <controls:ViewSwitch x:Name="CrossSwitch" Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding CrossSave, Mode=OneWay}" />
                                     </Grid>
                                     <Label Text="{Binding ScopeLabel}" Style="{StaticResource TxtBodySm}" />
@@ -1149,7 +1151,7 @@
                                             <Label Text="关掉后 TA 不再开口朗读：对话照常，只是没有声音，别的角色不受影响。"
                                                    Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                         </VerticalStackLayout>
-                                        <Switch x:Name="VoiceSwitch" Grid.Column="1" VerticalOptions="Center"
+                                        <controls:ViewSwitch x:Name="VoiceSwitch" Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding VoiceEnabled, Mode=OneWay}" />
                                     </Grid>
                                     <Label Text="{Binding VoiceSummary}" Style="{StaticResource TxtCaption}"
@@ -1284,7 +1286,7 @@
                                         <Label Text="{Binding AllowedHint}" Style="{StaticResource TxtCaption}"
                                                LineHeight="1.3" />
                                     </VerticalStackLayout>
-                                    <Switch x:Name="AllowedSwitch" Grid.Column="1" VerticalOptions="Center"
+                                    <controls:ViewSwitch x:Name="AllowedSwitch" Grid.Column="1" VerticalOptions="Center"
                                             IsToggled="{Binding AllowedInSave, Mode=OneWay}" />
                                 </Grid>
 
