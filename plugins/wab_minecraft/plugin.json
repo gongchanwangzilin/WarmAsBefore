@@ -1,7 +1,7 @@
 {
   "id": "wab_minecraft",
   "name": "Minecraft 女仆桥",
-  "version": "1.3.0",
+  "version": "1.4.0",
   "description": "让角色在《东方小女仆》(Touhou Little Maid, Forge 1.20.1 / NeoForge 1.21.1) 里拥有一具真实行动的身体：挖矿、取水、投喂、跟随、日程与自发行为。设置只写开关与端口，联网由 WAB 宿主完成，插件本身不出网。",
   "author": "gongchanwangzilin",
   "permissions": ["settings", "prompt.write", "page"],
@@ -15,6 +15,7 @@
       { "key": "allow_world_actions", "label": "允许世界动作", "type": "switch", "default": "true", "help": "挖/放/取水/丢物等会改变游戏世界的动作。关掉后这些指令一律拒绝。" },
       { "key": "allow_gestures", "label": "允许动作与语录", "type": "switch", "default": "true", "help": "招手、抱抱、说话、坐下这类不改世界的动作。" },
       { "key": "allow_photo", "label": "允许她看一眼画面", "type": "switch", "default": "true", "help": "maid_see 拍照时从主人的客户端取一张游戏内画面（只截游戏渲染的那一帧，看不到桌面），交给识图模型讲给她听。关掉后只剩文字感知，不碰画面。" },
+      { "key": "allow_voice", "label": "借 WAB 的声音说话和听话", "type": "switch", "default": "true", "help": "绑了角色的女仆合成语音、听写主人说话都由 WAB 完成，音色和引擎继承角色自己的设置，游戏里改不了。关掉后模组回落到它自己的 TTS/STT。" },
       { "key": "chat_affection", "label": "游戏内聊天让她判好感", "type": "switch", "default": "true", "help": "玩家在游戏里对女仆说话会回传 WAB，并把这段对话交给她本人判该涨还是该跌（可以是负的）。关掉就只记记忆、不动数值。" },
       { "key": "autonomy_pulse_minutes", "label": "主动思考间隔（分钟）", "type": "number", "default": "0", "help": "WAB 每隔多久主动让 AI 想想女仆接下来该干嘛；0 = 完全交给模组里的日程。" },
       { "key": "think_scenes", "label": "她会为什么事想一次", "type": "text", "default": "interaction", "help": "逗号分隔的场景键：interaction 玩家对她做动作、hurt 被打、death 死亡、respawn 复活、owner_sleep 主人睡觉、maid_chat 同伴搭话、weather 天气变、time 时段变。留空 = 只在有事时被动回应。到「实时面板」页里点选更省事。" },
