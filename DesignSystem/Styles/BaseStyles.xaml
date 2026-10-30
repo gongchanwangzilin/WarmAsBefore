@@ -24,4 +24,22 @@
         <Setter Property="ProgressColor" Value="{DynamicResource PrimaryAction}" />
     </Style>
 
+    <!-- 原生三件套的暖皮：颜色必须走语义资源（世界会整档刷新），尺寸/形状交回平台默认，
+         自绘件的 ControlTemplate 级手艺记在愿望单（.local/ui-wishlist.md）。 -->
+    <Style TargetType="Switch">
+        <Setter Property="OnColor" Value="{DynamicResource PrimaryAction}" />
+        <Setter Property="ThumbColor" Value="{DynamicResource PageBg}" />
+    </Style>
+
+    <Style TargetType="Slider">
+        <Setter Property="MinimumTrackColor" Value="{DynamicResource PrimaryAction}" />
+        <Setter Property="MaximumTrackColor" Value="{DynamicResource WSep}" />
+        <Setter Property="ThumbColor" Value="{DynamicResource PrimaryAction}" />
+    </Style>
+
+    <Style TargetType="Picker">
+        <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+        <Setter Property="TitleColor" Value="{DynamicResource MutedFg}" />
+    </Style>
+
 </ResourceDictionary>

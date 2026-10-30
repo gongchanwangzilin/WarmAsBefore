@@ -73,6 +73,15 @@
         <Setter Property="LineHeight" Value="1.25" />
     </Style>
 
+    <!-- 眉标：宽体大写拉丁，压在小字上。原在角色库/工作室/新建向导/新开局/世界书五处页内各存一份，
+         现入系统：顶栏一排、列表头一排、预览里一排，三排说的是三件事（沿用角色库的注释结论）。 -->
+    <Style x:Key="Eyebrow" TargetType="Label">
+        <Setter Property="FontFamily" Value="Bahnschrift" />
+        <Setter Property="CharacterSpacing" Value="3" />
+        <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+        <Setter Property="TextColor" Value="{DynamicResource WarmFaint}" />
+    </Style>
+
     <!-- 信号色标签：当前项、链接、展开/收起这类「可点但不是按钮」的文字。
          全应用只有这一处用饱和色当文字，所以它一说、别处就不用再说。 -->
     <Style x:Key="TxtSignal" TargetType="Label">

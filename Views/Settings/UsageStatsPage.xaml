@@ -10,8 +10,10 @@
              Background="{DynamicResource PageBgBrush}">
 
     <ScrollView>
-        <!-- 宽屏两列（左主图、右次要卡），窄屏单列：列数与摆放由代码按实际宽度切换 -->
+        <!-- 宽屏两列（左主图、右次要卡），窄屏单列：列数与摆放由代码按实际宽度切换；
+             内容列上限走双栏档令牌（WCardWidthWide），消灭"卡片顶满全宽"。 -->
         <Grid x:Name="BodyGrid" Padding="{DynamicResource WPadCard}"
+              HorizontalOptions="Center" MaximumWidthRequest="{DynamicResource WCardWidthWide}"
               ColumnDefinitions="1.7*,1*" RowDefinitions="Auto,*"
               ColumnSpacing="16" RowSpacing="{DynamicResource WGapSection}">
 
