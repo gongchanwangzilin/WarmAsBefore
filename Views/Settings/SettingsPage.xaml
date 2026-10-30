@@ -56,13 +56,11 @@
                     <Label Text="选择一个分类进入" Style="{StaticResource TxtCaption}" />
                 </VerticalStackLayout>
 
-                <!-- 分类图块：两列网格（窄屏切单列，见代码）。Tile 由代码建、IsVisible 绑行 Visible，
-                     所以搜索过滤照旧生效。材质沿用同一套（CardSolid + WPadRow + 发丝部件），
-                     只把"一张卡里的一组行"摊开成块——原来那版读起来像工具库的清单。 -->
-                <Grid x:Name="TilesGrid" ColumnDefinitions="*,12,*">
-                    <VerticalStackLayout x:Name="TilesColA" Spacing="12" />
-                    <VerticalStackLayout Grid.Column="2" x:Name="TilesColB" Spacing="12" />
-                </Grid>
+                <!-- 分类图块：两列**按行成对**铺（窄屏单列，见代码）。之前左右各一个堆叠列，
+                     两列内容高度不同 → 行与行永远对不齐，文字像从边框里漏出来。现在一行一 Grid，
+                     左右同高（卡高固定 92），整张网格是齐的。Tile 由代码建、IsVisible 绑行 Visible，
+                     搜索过滤照旧生效。 -->
+                <VerticalStackLayout x:Name="TilesHost" Spacing="12" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>
