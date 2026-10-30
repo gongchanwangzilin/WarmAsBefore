@@ -51,42 +51,18 @@
                            TextColor="{DynamicResource AccentWarmFg}" />
                 </VerticalStackLayout>
 
-                <Label Text="选择一个分类进入" Style="{StaticResource TxtCaption}" Margin="2,-8,0,0" />
+                <VerticalStackLayout Spacing="2" Margin="2,8,0,0">
+                    <Label Text="// CATALOG" Style="{StaticResource Eyebrow}" />
+                    <Label Text="选择一个分类进入" Style="{StaticResource TxtCaption}" />
+                </VerticalStackLayout>
 
-                <!-- 分类条目：一张卡装一组行。每行自带一条底部分线，最后一行那条正好压在卡底，
-                     被 12 的圆角裁掉，读起来是「卡收口」而不是「多了一根线」。 -->
-                <Border Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding SectionRows}">
-                        <BindableLayout.ItemTemplate>
-                            <DataTemplate x:DataType="vm:SettingsViewModel+SettingsSectionRow">
-                                <Border motion:HoverFeel.Enabled="True" Style="{StaticResource SettingRow}" Padding="0" IsVisible="{Binding Visible}">
-                                    <!-- 行高用纵向堆叠，不用 RowDefinitions="*,1"：ScrollView 给内容的是
-                                         「无限高」，星号行在无限高里算不出确定值，整页合成因此卡死
-                                         （实测：进设置页后渲染线程 100% CPU，窗口停在一张没画完的白帧，
-                                         点返回也没反应）。分线本来就是行尾一条边，堆叠与撑开的观感一样。 -->
-                                    <VerticalStackLayout Spacing="0">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14"
-                                              Padding="{DynamicResource WPadRow}">
-                                            <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
-                                                <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
-                                                <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
-                                                       LineBreakMode="WordWrap" />
-                                            </VerticalStackLayout>
-                                            <Label Grid.Column="1" Text="›" FontSize="22" VerticalOptions="Center"
-                                                   TextColor="{DynamicResource WarmFaint}" />
-                                        </Grid>
-                                        <Border Background="{DynamicResource WSep}" HeightRequest="1" StrokeThickness="0" />
-                                    </VerticalStackLayout>
-                                    <Border.GestureRecognizers>
-                                        <TapGestureRecognizer
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=OpenSectionCommand}"
-                                            CommandParameter="{Binding Key}" />
-                                    </Border.GestureRecognizers>
-                                </Border>
-                            </DataTemplate>
-                        </BindableLayout.ItemTemplate>
-                    </VerticalStackLayout>
-                </Border>
+                <!-- 分类图块：两列网格（窄屏切单列，见代码）。Tile 由代码建、IsVisible 绑行 Visible，
+                     所以搜索过滤照旧生效。材质沿用同一套（CardSolid + WPadRow + 发丝部件），
+                     只把"一张卡里的一组行"摊开成块——原来那版读起来像工具库的清单。 -->
+                <Grid x:Name="TilesGrid" ColumnDefinitions="*,12,*">
+                    <VerticalStackLayout x:Name="TilesColA" Spacing="12" />
+                    <VerticalStackLayout Grid.Column="2" x:Name="TilesColB" Spacing="12" />
+                </Grid>
             </VerticalStackLayout>
         </ScrollView>
     </Grid>
