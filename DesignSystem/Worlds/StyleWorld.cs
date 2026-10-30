@@ -543,6 +543,8 @@ public static class StyleWorldTokens
         res["WPillHeight"] = Math.Round(r.SizeBody * 2.9);
         res["WPillRadius"] = (int)Math.Round(r.SizeBody * 2.9 / 2);
         res["WCardWidth"] = CardWidth(ViewportWidth);
+        // 双栏编辑/桌面伴侣一类的页面要用比正文列宽一档的内容列（桌宠设置 440 预览 + 设置列）。
+        res["WCardWidthWide"] = Math.Clamp(Math.Round(ViewportWidth * 0.85), 320, 1240);
         // 导航条宽度：窄到一列都放不下时（手机）交回 -1 = 不请求宽度，让那一列自己塌成一行。
         // 这个判断只能在这里做：XAML 里 OnPlatform 拿不到窗口尺寸，而尺度档知道。
         res["WRailWidth"] = CardWidth(ViewportWidth) < 480 ? -1d : Math.Round(262 * Scale);

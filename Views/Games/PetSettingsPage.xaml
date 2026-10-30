@@ -32,8 +32,10 @@
             </Grid>
         </Border>
 
-        <!-- 主体：宽屏左预览右设置；窄屏（代码里切）预览在上、设置在下 -->
+        <!-- 主体：宽屏左预览右设置；窄屏（代码里切）预览在上、设置在下。
+             内容列用双栏档上限（WCardWidthWide）：左预览 + 右设置单列 900 装不下两栏。 -->
         <Grid x:Name="BodyGrid" Grid.Row="1" Padding="24,16,24,24"
+              HorizontalOptions="Center" MaximumWidthRequest="{DynamicResource WCardWidthWide}"
               RowDefinitions="*" ColumnDefinitions="440,*" ColumnSpacing="20">
 
             <!-- ============ 实时预览舞台 ============ -->

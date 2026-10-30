@@ -2280,7 +2280,9 @@
         
 
         <ScrollView Grid.Row="1" Padding="24,16,24,24">
-            <VerticalStackLayout x:Name="SectionBody" HorizontalOptions="Fill" Spacing="16"
+            <!-- 内容列上限走令牌：设置正文是单列阅读流，900 封顶（WCardWidth，跟窗口按比例走） -->
+            <VerticalStackLayout x:Name="SectionBody" HorizontalOptions="Center" Spacing="16"
+                                 MaximumWidthRequest="{DynamicResource WCardWidth}"
                                  >
                 <!-- 分类标题与说明：进来先知道这一页是干什么的 -->
                 <VerticalStackLayout Spacing="4">
