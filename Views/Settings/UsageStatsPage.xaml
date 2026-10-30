@@ -21,9 +21,10 @@
             <Grid x:Name="HeaderGrid" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
                   ColumnDefinitions="*,Auto" ColumnSpacing="12" Margin="0,0,0,6">
                 <VerticalStackLayout Grid.Column="0" Spacing="3">
-                    <Label Text="用量统计" Style="{StaticResource TxtTitle}" />
+                    <Label Text="// USAGE" Style="{StaticResource Eyebrow}" />
+                    <Label Text="用量统计" Style="{StaticResource TxtDisplay}" />
                     <Label Text="每次请求的真实 token 记在本地账上：缓存命中的输入按缓存价重算，思考/缓存输出另计一笔。"
-                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" MaxLines="2" />
                     <Label Text="{Binding BusyNote}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding IsBusy}" />
                 </VerticalStackLayout>
@@ -90,9 +91,9 @@
                                         <Grid HeightRequest="8"
                                               ColumnDefinitions="*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*,*">
                                             <BoxView Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="20"
-                                                     HeightRequest="8" Color="{DynamicResource InputBg}" />
+                                                     HeightRequest="8" CornerRadius="4" Color="{DynamicResource InputBg}" />
                                             <BoxView Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="{Binding FillCols}"
-                                                     HeightRequest="8" Color="{Binding Fill}" />
+                                                     HeightRequest="8" CornerRadius="4" Color="{Binding Fill}" />
                                         </Grid>
                                     </VerticalStackLayout>
                                 </DataTemplate>
@@ -125,9 +126,9 @@
                                         <VerticalStackLayout WidthRequest="{Binding WidthPx}" Spacing="0"
                                                              VerticalOptions="End">
                                             <BoxView WidthRequest="{Binding BarPx}" HeightRequest="{Binding RestHeightPx}"
-                                                     Color="{Binding Fill}" HorizontalOptions="Center" />
+                                                     CornerRadius="3" Color="{Binding Fill}" HorizontalOptions="Center" />
                                             <BoxView WidthRequest="{Binding BarPx}" HeightRequest="{Binding CacheHeightPx}"
-                                                     Color="{Binding CacheFill}" HorizontalOptions="Center" />
+                                                     CornerRadius="3" Color="{Binding CacheFill}" HorizontalOptions="Center" />
                                             <VerticalStackLayout.GestureRecognizers>
                                                 <TapGestureRecognizer
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=ShowTrendBarCommand}"
@@ -240,7 +241,7 @@
                                                                    BindableLayout.ItemsSource="{Binding Cells}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:UsageStatsViewModel+HeatCell">
-                                                        <BoxView WidthRequest="11" HeightRequest="15"
+                                                        <BoxView WidthRequest="11" HeightRequest="15" CornerRadius="2"
                                                                  Color="{Binding Fill}">
                                                             <BoxView.GestureRecognizers>
                                                                 <TapGestureRecognizer
@@ -262,10 +263,19 @@
                 </VerticalStackLayout>
 
                 <!-- 模型价格设定：每档价一入口，含缓存两档 -->
-                <VerticalStackLayout Spacing="8">
-                    <Label Text="模型价格设定" Style="{StaticResource TxtSection}" />
-                    <Label Text="算钱口径：(输入 − 缓存输入)×输入价 ＋ 缓存输入×缓存输入价 ＋ 输出×输出价 ＋ 缓存输出×缓存输出价。缓存输入本就算在输入里，所以是减法改价、不是加一笔。"
-                           Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
+                <!-- 模型价格设定：默认折叠（价格是低频配置，不该在首屏占走半屏） -->
+                <Border Style="{StaticResource CardSolid}" Padding="0">
+                    <VerticalStackLayout Spacing="0">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Label Grid.Column="0" Text="模型价格设定" Style="{StaticResource TxtSection}"
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1" x:Name="PriceToggle" Text="展开"
+                                    Style="{StaticResource BtnTextSm}" Clicked="OnTogglePrices" />
+                        </Grid>
+                        <VerticalStackLayout x:Name="PriceBody" Spacing="10" IsVisible="False"
+                                             Padding="{DynamicResource WPadRow}">
+                            <Label Text="算钱口径：(输入 − 缓存输入)×输入价 ＋ 缓存输入×缓存输入价 ＋ 输出×输出价 ＋ 缓存输出×缓存输出价。缓存输入本就算在输入里，所以是减法改价、不是加一笔。"
+                                   Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" MaxLines="3" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding PriceRows}">
                             <BindableLayout.ItemTemplate>
@@ -345,7 +355,9 @@
                             <Label Text="{Binding PriceNote}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                         </VerticalStackLayout>
                     </Border>
-                </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
             </VerticalStackLayout>
         </Grid>
     </ScrollView>

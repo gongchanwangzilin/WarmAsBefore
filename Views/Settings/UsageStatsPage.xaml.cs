@@ -59,4 +59,12 @@ public partial class UsageStatsPage : ContentPage
         try { await Shell.Current.GoToAsync(".."); }
         catch (Exception ex) { App.WriteLog("UsageStatsPage.Back -> " + ex.Message); }
     }
+
+    /// <summary>价格表默认折叠：价格是低频配置，展开/收起只切可见性与按钮字。</summary>
+    private void OnTogglePrices(object? sender, EventArgs e)
+    {
+        var open = !PriceBody.IsVisible;
+        PriceBody.IsVisible = open;
+        PriceToggle.Text = open ? "收起" : "展开";
+    }
 }
