@@ -74,15 +74,13 @@ public partial class SettingsPage : ContentPage
             if (!force && twoCol == _tilesTwoCol) return;
             _tilesTwoCol = twoCol;
 
-            TilesColA.Clear();
-            TilesColB.Clear();
+            TilesHost.Clear();
 
             if (_usageRow == null)
             {
                 _usageRow = new SettingsViewModel.SettingsSectionRow
                 {
                     Key = "__usage__",
-                    Icon = "📈",
                     Title = "用量统计",
                     Desc = "Token 用量与花费的本地账本",
                     Summary = "Token 用量与花费的本地账本：今日 · 近 7 天 · 成本构成 · 热力图"
@@ -93,43 +91,44 @@ public partial class SettingsPage : ContentPage
                 _petRow = new SettingsViewModel.SettingsSectionRow
                 {
                     Key = "__petsettings__",
-                    Icon = "🐾",
                     Title = "桌宠设置",
                     Desc = "桌面上陪你的那一位",
-                    Summary = "体型 · 动作与走动 · 气泡 · 声音 · 语音 · 位置 · 自主；AI 一键制作 Q 版桌宠"
+                    Summary = "体型 · 动作 · 气泡 · 声音 · 语音 · 位置 · 自主；AI 一键制作 Q 版桌宠"
                 };
             }
 
-            // 置顶重排：桌宠设置（假行）→ 用量（假行）→ 外观（appearance）→ 其余原序。
+            // 置顶：桌宠设置 → 用量统计 → 外观与主题 → 其余按目录原序（platform 不再置顶）。
             var ordered = new List<(SettingsViewModel.SettingsSectionRow Row, bool Usage)>();
             foreach (var row in _vm.SectionRows)
             {
                 ordered.Add((row, false));
             }
             MoveToFront(ordered, p => !p.Usage && p.Row.Key == "appearance");
-            MoveToFront(ordered, p => !p.Usage && p.Row.Key == "platform");
-            ordered.Insert(1, (_usageRow, true));
-            ordered.Insert(1, (_petRow, false));
+            ordered.Insert(0, (_usageRow, true));
+            ordered.Insert(0, (_petRow, false));
 
-            TilesGrid.ColumnDefinitions = twoCol
-                ? new ColumnDefinitionCollection { new(GridLength.Star), new(new GridLength(12)), new(GridLength.Star) }
-                : new ColumnDefinitionCollection { new(GridLength.Star) };
-
-            var i = 0;
-            foreach (var pair in ordered)
+            // 一行一 Grid、左右成对：两列各自堆叠会让行高错位（文字像从边框里漏出来）。
+            for (var i = 0; i < ordered.Count; i += 2)
             {
-                var row = pair.Row;
-                if (row == null) continue;
-                var tile = BuildTile(row, pair.Usage);
-                var target = twoCol && i % 2 == 1 ? TilesColB : TilesColA;
-                target.Children.Add(tile);
-                i++;
+                var line = new Grid
+                {
+                    ColumnSpacing = 12,
+                    ColumnDefinitions = twoCol
+                        ? new ColumnDefinitionCollection { new(GridLength.Star), new(GridLength.Star) }
+                        : new ColumnDefinitionCollection { new(GridLength.Star) },
+                };
+                line.Add(BuildTile(ordered[i].Row, ordered[i].Usage, i), 0);
+                if (twoCol && i + 1 < ordered.Count)
+                {
+                    line.Add(BuildTile(ordered[i + 1].Row, ordered[i + 1].Usage, i + 1), 1);
+                }
+                TilesHost.Add(line);
             }
         }
         catch (Exception ex) { App.WriteLog("SettingsPage.Tiles -> " + ex.Message); }
     }
 
-    /// <summary>把命中的第一枚挪到最前（桌宠 → 用量 → 外观的置顶次序靠两次调用反着收）。</summary>
+    /// <summary>把命中的第一枚挪到最前（置顶次序靠调用顺序收口）。</summary>
     private static void MoveToFront(
         List<(SettingsViewModel.SettingsSectionRow Row, bool Usage)> list,
         Func<(SettingsViewModel.SettingsSectionRow Row, bool Usage), bool> match)
@@ -140,48 +139,67 @@ public partial class SettingsPage : ContentPage
         list.Insert(0, pair);
     }
 
-    /// <summary>一枚图块：井面小牌（emoji）+ 标题/二字摘要 + 「›」。可点进对应分类。</summary>
-    private Border BuildTile(SettingsViewModel.SettingsSectionRow row, bool usage)
+    /// <summary>
+    /// 一枚图块：编号码（01、02…）+ 标题 + 一行状态。**不用 emoji**：彩色系统 emoji 和纸白材质是两种语言，
+    /// 有的还会掉成豆腐块；编号是角色库那套眉标码的自然延伸，也让整张网格的节奏一致。
+    /// 卡高固定 92：两列按行对齐后，文字才能和上下边框保持同样的呼吸。
+    /// </summary>
+    private Border BuildTile(SettingsViewModel.SettingsSectionRow row, bool usage, int index)
     {
-        var tile = new Border { Padding = 0, HorizontalOptions = LayoutOptions.Fill };
+        var tile = new Border
+        {
+            Padding = 0,
+            HeightRequest = 92,
+            HorizontalOptions = LayoutOptions.Fill,
+        };
         TryApplyStyle(tile, "CardSolid");
         HoverFeel.SetEnabled(tile, true);
 
-        var grid = new Grid { ColumnSpacing = 12, RowSpacing = 0 };
+        var grid = new Grid
+        {
+            ColumnSpacing = 8,
+            RowSpacing = 3,
+            RowDefinitions =
+            {
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto),
+                new RowDefinition(GridLength.Auto),
+            },
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto),
+            },
+        };
         grid.SetDynamicResource(Microsoft.Maui.Controls.Layout.PaddingProperty, "WPadRow");
 
-        // 井面小牌当 emoji 的座：色值必须 DynamicResource（换世界时它跟着走）。
-        var chip = new Border { WidthRequest = 34, HeightRequest = 34, StrokeThickness = 0,
-                                HorizontalOptions = LayoutOptions.Start, VerticalOptions = LayoutOptions.Center };
-        chip.SetDynamicResource(VisualElement.BackgroundProperty, "WWellBrush");
-        TryApplyShape(chip, "WRadiusWell");
-        chip.Content = new Label
-        {
-            Text = usage ? _usageRow!.Icon : row.Icon,
-            FontSize = 15,
-            HorizontalOptions = LayoutOptions.Center,
-            VerticalOptions = LayoutOptions.Center,
-        };
+        var code = new Label { Text = (index + 1).ToString("00") };
+        TryApplyStyle(code, "Eyebrow");
 
-        var text = new VerticalStackLayout { Spacing = 2, VerticalOptions = LayoutOptions.Center };
+        var chev = new Label { Text = "›", FontSize = 20, VerticalOptions = LayoutOptions.Center };
+        chev.SetDynamicResource(Label.TextColorProperty, "WarmFaint");
+        Grid.SetRowSpan(chev, 3);
+
         var title = new Label { Text = row.Title };
-        TryApplyStyle(title, "TxtRowTitle");
+        TryApplyStyle(title, "TxtSubhead");
+        Grid.SetRow(title, 1);
+        Grid.SetColumnSpan(title, 2);
+
         var body = new Label
         {
             Text = row.Summary,
-            LineBreakMode = LineBreakMode.WordWrap,
-            MaxLines = 2,
+            LineBreakMode = LineBreakMode.TailTruncation,
+            MaxLines = 1,
+            VerticalOptions = LayoutOptions.Start,
         };
         TryApplyStyle(body, "TxtRowDesc");
-        text.Children.Add(title);
-        text.Children.Add(body);
+        Grid.SetRow(body, 2);
+        Grid.SetColumnSpan(body, 2);
 
-        var chev = new Label { Text = "›", FontSize = 22, VerticalOptions = LayoutOptions.Center };
-        chev.SetDynamicResource(Label.TextColorProperty, "WarmFaint");
-
-        grid.Children.Add(chip);
-        grid.Add(text, 1);
-        grid.Add(chev, 2);
+        grid.Add(code, 0, 0);
+        grid.Add(chev, 1, 0);
+        grid.Children.Add(title);
+        grid.Children.Add(body);
 
         tile.BindingContext = row;
         tile.SetBinding(VisualElement.IsVisibleProperty, "Visible");
