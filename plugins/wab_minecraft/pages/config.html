@@ -191,6 +191,8 @@
       help: "招手、抱抱、说话、坐下这类不改世界的动作。" },
     { key: "allow_photo", label: "允许她看一眼画面", type: "switch", def: "true",
       help: "看的时候顺带从主人的客户端取一张游戏内画面，交给识图模型讲给她听。关掉后只剩文字感知，不碰画面。" },
+    { key: "allow_voice", label: "借 WAB 的声音说话和听话", type: "switch", def: "true",
+      help: "绑了角色的女仆由 WAB 合成语音、听写主人的话，音色和引擎继承角色设置，游戏里改不了。关掉后回落到模组自己的 TTS/STT。" },
     { key: "chat_affection", label: "游戏内聊天让她判好感", type: "switch", def: "true",
       help: "把这段对话交给她本人判该涨还是该跌；关掉就只记记忆、不动数值。" },
     { key: "autonomy_pulse_minutes", label: "主动思考间隔（分钟）", type: "number", def: "0",
