@@ -23,6 +23,8 @@ public partial class AppShell : Shell
                 _navWatch = null;
             }
             PlayPageTransition(e);
+            // 成就横幅的落点跟着页面顶栏走：标题页没有顶栏（贴顶 16），其余页面默认 64（顶栏下方）。
+            Controls.Toast.TopInset = CurrentPage is Views.TitlePage ? 16 : 64;
         };
         // 这里原先在每次导航时重新置顶/BringToFront。
         // 但那会让「设置 → 窗口置顶」关闭后仍被强制置顶（关不掉），

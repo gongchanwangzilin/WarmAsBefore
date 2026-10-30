@@ -16,6 +16,8 @@ public partial class TitlePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        // 标题页没有页面顶栏：成就横幅直接贴顶滑出（设置页那些页面保留默认 64 = 顶栏下方）。
+        Controls.Toast.TopInset = 16;
         if (BindingContext is TitleViewModel vm)
             vm.RefreshStateCommand.Execute(null);
 
