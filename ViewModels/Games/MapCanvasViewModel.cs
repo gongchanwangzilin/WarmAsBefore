@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Dispatching;
@@ -1148,6 +1149,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             menuItems.Add(("✏️ 重命名此地", "renloc"));
             menuItems.Add(("🏢 地上层数…", "floors"));
             menuItems.Add(("🅿️ 地下层数…", "basement"));
+            menuItems.Add(("📐 层高（米）…", "height"));
             menuItems.Add(("📮 地址…", "address"));
             menuItems.Add(("🗑️ 删除此地点", "delloc"));
         }
@@ -1875,6 +1877,27 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 if (up) loc.Floors = n; else loc.BasementFloors = n;
                 await _maps.SaveAsync();
                 StatusText = $"「{loc.Name}」{(up ? $"地上 {n} 层" : $"地下 {n} 层")}";
+                Refresh();
+                break;
+            }
+            case "height":
+            {
+                var loc = _maps.Map.Locations.FirstOrDefault(l => l.Id == locId);
+                if (loc is null) return;
+                var input = await Shell.Current.DisplayPromptAsync("层高（米）",
+                    $"「{loc.Name}」一层楼按几米算？（3D 视图按它挤楼；默认 3）",
+                    "确定", "取消",
+                    initialValue: loc.HeightPerFloor.ToString("0.##"), keyboard: Keyboard.Numeric);
+                if (input is null) return;
+                var norm = input.Trim().Replace(',', '.');
+                if (!double.TryParse(norm, NumberStyles.Any, CultureInfo.InvariantCulture, out var h) || h < 0.5 || h > 50)
+                {
+                    StatusText = "层高得在 0.5 到 50 米之间";
+                    return;
+                }
+                loc.HeightPerFloor = Math.Round(h, 2);
+                await _maps.SaveAsync();
+                StatusText = $"「{loc.Name}」层高 {loc.HeightPerFloor:0.##} 米";
                 Refresh();
                 break;
             }
