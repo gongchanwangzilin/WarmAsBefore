@@ -705,6 +705,105 @@ public sealed class MapService
         return paths.Where(p => !string.IsNullOrEmpty(p) && File.Exists(p)).FirstOrDefault();
     }
 
+    // ============ 取景照片库（手机随拍 / 电脑导入共用） ============
+
+    /// <summary>把一张照片复制进 maps/photos/，返回相对路径；失败返回 null。</summary>
+    public string? ImportPhotoFile(string srcPath)
+    {
+        try
+        {
+            var dir = Path.Combine(_store.Root, "maps", "photos");
+            Directory.CreateDirectory(dir);
+            var ext = Path.GetExtension(srcPath);
+            if (string.IsNullOrEmpty(ext)) ext = ".jpg";
+            var id = Guid.NewGuid().ToString("N")[..8];
+            var dest = Path.Combine(dir, id + ext);
+            File.Copy(srcPath, dest, true);
+            return $"maps/photos/{id}{ext}";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapService.ImportPhotoFile -> " + ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 新增一张取景照片：复制文件 → 按配置填绑定 → 空间校验 → 记账落盘。
+    /// 拍摄顺序自动排在队尾（一个地点拍一张，拍摄次序本身就是「走路随拍」的轨迹）。
+    /// 返回 (是否成功, 失败时的错误文案——跨层错绑这类在这里被拦)。
+    /// </summary>
+    public async Task<(bool Ok, string Message)> AddPhotoAsync(string srcPath, Action<ScenePhoto>? configure = null)
+    {
+        var rel = ImportPhotoFile(srcPath);
+        if (rel is null) return (false, "照片复制失败（存储不可写？）");
+        var photo = new ScenePhoto { RelPath = rel };
+        configure?.Invoke(photo);
+        if (photo.CreatedAt == default) photo.CreatedAt = DateTime.Now;
+        photo.Order = _map.Photos.Count == 0 ? 1 : _map.Photos.Max(x => x.Order) + 1;
+
+        var err = _map.ValidatePhotoBinding(photo);
+        if (err is not null)
+        {
+            TryDeletePhotoFile(rel);
+            return (false, err);
+        }
+
+        _map.Photos.Add(photo);
+        await SaveAsync();
+        return (true, "");
+    }
+
+    /// <summary>删一张照片（连文件一起）。用于拍错了重来。</summary>
+    public void RemovePhoto(string id)
+    {
+        var photo = _map.PhotoById(id);
+        if (photo is null) return;
+        _map.Photos.Remove(photo);
+        TryDeletePhotoFile(photo.RelPath);
+        _ = SaveAsync();
+    }
+
+    /// <summary>改绑定（导入重绑时用）；改完照旧过一遍空间校验。</summary>
+    public async Task<string?> RebindPhotoAsync(string id, Action<ScenePhoto> mutate)
+    {
+        var photo = _map.PhotoById(id);
+        if (photo is null) return "照片不存在。";
+        mutate(photo);
+        var err = _map.ValidatePhotoBinding(photo);
+        if (err is not null) return err;   // 校验不过就保持原值不动这一笔
+        await SaveAsync();
+        return null;
+    }
+
+    /// <summary>相对路径 → 绝对路径（照片不存在返回 null）。</summary>
+    public string? ResolvePhotoPath(string relPath)
+    {
+        if (string.IsNullOrWhiteSpace(relPath)) return null;
+        try
+        {
+            if (Path.IsPathRooted(relPath)) return File.Exists(relPath) ? relPath : null;
+            var full = Path.Combine(_store.Root, relPath);
+            return File.Exists(full) ? full : null;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapService.ResolvePhotoPath -> " + ex.Message);
+            return null;
+        }
+    }
+
+    private void TryDeletePhotoFile(string relPath)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(relPath)) return;
+            var full = Path.IsPathRooted(relPath) ? relPath : Path.Combine(_store.Root, relPath);
+            if (File.Exists(full)) File.Delete(full);
+        }
+        catch (Exception ex) { App.WriteLog("MapService.TryDeletePhoto -> " + ex.Message); }
+    }
+
     public static bool IsVideoExt(string ext) =>
         ext.Equals(".mp4", StringComparison.OrdinalIgnoreCase)
         || ext.Equals(".mov", StringComparison.OrdinalIgnoreCase)
