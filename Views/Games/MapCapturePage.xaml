@@ -7,14 +7,14 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.MapCapturePage"
              x:DataType="vm:MapCaptureViewModel"
-             Title="为地图取景"
+             Title="取景与导入"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
     <!--
-      取景会话页（手机端专属）：规定开始地点 → 走路随拍。
-      绑定靠选单：街道=一根位置滑杆落在边上，室内=楼层→户型→门。
-      一个地点拍一张；同一街道不同位置可各拍一张；不许跨层错绑（服务层校验）。
+      手机端的脸：取景会话（规定开始地点 → 走路随拍，绑定靠选单）。
+      电脑端的脸：照片导入（先落成「未绑」，选中一张再把绑定记上去）。
+      一个地点拍一张；街道不同位置可各拍一张；不许跨层错绑（服务层校验）。
     -->
     <Grid RowDefinitions="Auto,*,Auto">
 
@@ -26,7 +26,7 @@
                     <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
                             Style="{StaticResource BtnText}" FontSize="14" Padding="0" VerticalOptions="Center"
                             Command="{Binding BackCommand}"/>
-                    <Label Grid.Column="1" Text="为地图取景" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                    <Label Grid.Column="1" Text="取景与导入" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
                 </Grid>
                 <Label Grid.Row="1" Text="{Binding SessionTitle}" TextColor="{DynamicResource MutedFg}"
                        FontSize="{DynamicResource WSizeCaption}" />
@@ -40,8 +40,8 @@
                 <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" />
 
-                <!-- 开始地点 -->
-                <Border Style="{StaticResource CardSolid}">
+                <!-- 会话（手机端）：规定开始地点 -->
+                <Border Style="{StaticResource CardSolid}" IsVisible="{Binding CaptureAvailable}">
                     <VerticalStackLayout Spacing="10">
                         <Label Text="规定开始地点" Style="{StaticResource TxtSection}" />
                         <Picker ItemsSource="{Binding StartOptions}" SelectedItem="{Binding StartPick}"
@@ -57,11 +57,30 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- 本张绑定（会话开始后才出现） -->
-                <Border Style="{StaticResource CardSolid}" IsVisible="{Binding SessionActive}">
+                <!-- 导入（电脑端为主，手机也能用）：单张/批量落账 + 整包进出 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="照片进出" Style="{StaticResource TxtSection}" />
+                        <Label Text="电脑端不能取景：照片传过来在这里导入。图上会先落成「未绑」，选中一张再记绑定。" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
+                        <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="8">
+                            <Button Grid.Column="0" Text="📥 导入照片…" Style="{StaticResource BtnGhostSm}"
+                                    IsEnabled="{Binding CanCapture}"
+                                    Command="{Binding ImportPhotosCommand}" />
+                            <Button Grid.Column="1" Text="📦 打开取景包…" Style="{StaticResource BtnGhostSm}"
+                                    IsEnabled="{Binding CanCapture}"
+                                    Command="{Binding ImportBundleCommand}" />
+                            <Button Grid.Column="2" Text="📤 导出取景包…" Style="{StaticResource BtnGhostSm}"
+                                    IsEnabled="{Binding CanCapture}"
+                                    Command="{Binding ExportBundleCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 这一组绑定：新拍的照片直接用它；「未绑」的照片选中后用它记绑 -->
+                <Border Style="{StaticResource CardSolid}">
                     <VerticalStackLayout Spacing="10">
                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8">
-                            <Label Grid.Column="0" Text="本张绑定" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
+                            <Label Grid.Column="0" Text="这一组绑定" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
                             <Button Grid.Column="1" Text="街道" Style="{StaticResource BtnGhostSm}" FontSize="12"
                                     BackgroundColor="{Binding StreetModeBg}"
                                     Command="{Binding SetStreetModeCommand}" CommandParameter="street" />
@@ -69,6 +88,10 @@
                                     BackgroundColor="{Binding IndoorModeBg}"
                                     Command="{Binding SetStreetModeCommand}" CommandParameter="indoor" />
                         </Grid>
+                        <Label Text="{Binding BindingTargetText}" Style="{StaticResource TxtCaption}" />
+                        <Button Text="✅ 记上这组绑定" Style="{StaticResource BtnSignal}"
+                                IsEnabled="{Binding CanCapture}"
+                                Command="{Binding ApplyBindingCommand}" />
 
                         <!-- 街道：一条边 + 位置比例（街面同一处/不同处都行） -->
                         <VerticalStackLayout IsVisible="{Binding StreetMode}" Spacing="8">
@@ -96,20 +119,25 @@
                                     FontSize="14" Title="门 / 特殊地点（可不选）" />
                         </VerticalStackLayout>
 
+                        <!-- 拍照只在手机端；电脑端这行换个说法 -->
                         <Button Text="📷 走到这儿，拍一张" Style="{StaticResource BtnSignal}"
-                                IsEnabled="{Binding CanCapture}"
+                                IsVisible="{Binding CaptureAvailable}"
                                 Command="{Binding CaptureCommand}" />
+                        <Label Text="电脑端不取景：照片先「导入」，再回来这里拣街/拣户型补绑。" Style="{StaticResource TxtRowDesc}" MaxLines="2"
+                               IsVisible="{Binding ShowCaptureUnavailable}" />
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- 已拍清单：顺序即拍摄顺序，删掉 = 连文件一起删（会确认） -->
-                <VerticalStackLayout Spacing="6" IsVisible="{Binding SessionActive}">
+                <!-- 已挂清单：顺序即拍摄顺序；「选」=选中去记绑定，✕=连文件删（会确认） -->
+                <VerticalStackLayout Spacing="6">
                     <Label Text="已挂上的照片" Style="{StaticResource TxtSection}" />
+                    <Label Text="还没有照片。手机端拍，或上面「导入照片」。" Style="{StaticResource TxtCaption}"
+                           IsVisible="{Binding PhotosEmpty}" />
                     <CollectionView ItemsSource="{Binding Photos}" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:MapCaptureViewModel+PhotoRow">
                                 <Border Style="{StaticResource CardSolid}" Padding="10" Margin="0,0,0,6">
-                                    <Grid ColumnDefinitions="84,*,Auto" ColumnSpacing="12">
+                                    <Grid ColumnDefinitions="84,*,Auto,Auto" ColumnSpacing="12">
                                         <Image Grid.Column="0" Source="{Binding Thumb}" WidthRequest="84" HeightRequest="84"
                                                Aspect="AspectFill" HorizontalOptions="Start" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
@@ -117,7 +145,10 @@
                                             <Label Text="{Binding Tag}" Style="{StaticResource TxtRowTitle}" FontSize="12" />
                                             <Label Text="{Binding Line}" Style="{StaticResource TxtCaption}" MaxLines="2" />
                                         </VerticalStackLayout>
-                                        <Button Grid.Column="2" Text="✕" Style="{StaticResource BtnGhostSm}"
+                                        <Button Grid.Column="2" Text="选" Style="{StaticResource BtnGhostSm}"
+                                                Command="{Binding SelectPhotoCommand, Source={RelativeSource AncestorType={x:Type vm:MapCaptureViewModel}}}"
+                                                CommandParameter="{Binding}" />
+                                        <Button Grid.Column="3" Text="✕" Style="{StaticResource BtnGhostSm}"
                                                 Command="{Binding DeleteCommand, Source={RelativeSource AncestorType={x:Type vm:MapCaptureViewModel}}}"
                                                 CommandParameter="{Binding}" />
                                     </Grid>

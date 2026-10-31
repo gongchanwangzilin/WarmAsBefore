@@ -44,15 +44,9 @@
                             Command="{Binding ExportMapCommand}" />
                     <Button Grid.Column="8" Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding CreateMapCommand}" />
-                    <!-- 取景：手机端专属（电脑只能导入照片，入口不露） -->
-                    <Button Grid.Column="9" Text="⌾ 取景" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding OpenCaptureCommand}">
-                        <Button.IsVisible>
-                            <OnPlatform x:TypeArguments="x:Boolean" Default="False">
-                                <On Platform="Android" Value="True" />
-                            </OnPlatform>
-                        </Button.IsVisible>
-                    </Button>
+                    <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
+                    <Button Grid.Column="9" Text="📷 取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding OpenCaptureCommand}" />
                     <Button Grid.Column="10" Text="返回" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding BackCommand}" />
                     <Button Grid.Column="11" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
