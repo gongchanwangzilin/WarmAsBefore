@@ -28,6 +28,9 @@ public sealed class MapDefinition
     public double CenterLongitude { get; set; }
 
     [JsonIgnore] public IEnumerable<MapScene> AllScenes => Locations.SelectMany(l => l.Scenes);
+    [JsonIgnore] public IEnumerable<MapDoor> AllDoors => Locations.SelectMany(l => l.Doors);
+    /// <summary>取景照片库：街道照绑「边 + 位置」，室内照绑「楼层 + 户型（+ 门）」；绑定校验见 <see cref="ValidatePhotoBinding"/>。</summary>
+    public List<ScenePhoto> Photos { get; set; } = new();
 
     public MapScene? SceneById(string id) =>
         AllScenes.FirstOrDefault(s => s.Id == id);
@@ -86,6 +89,36 @@ public sealed class MapDefinition
     public MapLocation? LocationById(string id) =>
         Locations.FirstOrDefault(l => l.Id == id);
 
+    public MapEdge? EdgeById(string id) => Edges.FirstOrDefault(e => e.Id == id);
+
+    public MapDoor? DoorById(string id) => AllDoors.FirstOrDefault(d => d.Id == id);
+
+    public ScenePhoto? PhotoById(string id) => Photos.FirstOrDefault(p => p.Id == id);
+
+    /// <summary>连到某一户型的门（进门即到这个场景；不算只作标记的门）。</summary>
+    public IEnumerable<MapDoor> DoorsOpeningTo(string sceneId) =>
+        AllDoors.Where(d => d.OpensSceneId == sceneId);
+
+    /// <summary>
+    /// 取景绑定空间校验：street 必须挂在真实边上；indoor 必须有楼层，且楼层/户型必须与目标场景
+    /// 一致——街道照落地面光线，室内照不许跨层错绑。返回给用户看的错误文案，null = 通过。
+    /// </summary>
+    public string? ValidatePhotoBinding(ScenePhoto p)
+    {
+        if (p is null) return "照片不存在。";
+        if (string.IsNullOrWhiteSpace(p.RelPath)) return "照片没有文件。";
+        if (!p.IsIndoor)
+            return EdgeById(p.StreetId) is null ? "街道照要绑在这张图的一条街道（连线）上。" : null;
+
+        if (p.Floor is null) return "室内照必须先选楼层。";
+        var scene = SceneById(p.TargetSceneId);
+        if (scene is null) return "室内照要绑在这张图里已有的户型（场景）上。";
+        if (scene.Floor != p.Floor) return "不允许跨层错绑：所选楼层与目标场景所在层不一致。";
+        if (!string.Equals(scene.Unit, p.Unit, StringComparison.Ordinal))
+            return "不允许跨层/跨户错绑：户型与目标场景对不上。";
+        return null;
+    }
+
     /// <summary>地点 Id：从场景 Id 反查它挂在哪个地点下（找不到返回 ""）。</summary>
     public string LocationIdOfScene(string sceneId) =>
         Locations.FirstOrDefault(l => l.Scenes.Any(s => s.Id == sceneId))?.Id ?? "";
@@ -139,6 +172,11 @@ public sealed class MapLocation
     public double X { get; set; } = -1;
     public double Y { get; set; } = -1;
     public List<MapScene> Scenes { get; set; } = new();
+
+    /// <summary>这栋建筑的门：各门可连不同户型；门在街面上的位置见 <see cref="MapDoor.StreetId"/>。</summary>
+    public List<MapDoor> Doors { get; set; } = new();
+    /// <summary>楼层高度（米/层）：楼层与高度 H 的换算，3D 视图按它抬层。0 = 用全图默认。</summary>
+    public double HeightPerFloor { get; set; } = 3.0;
 
     /// <summary>地上楼层数（0 = 不分层，按从前那样当一个整体看）。&gt;1 就能按层切换着看。</summary>
     public int Floors { get; set; }
@@ -335,4 +373,59 @@ public sealed class MapEdge
 
     /// <summary>这条路的实际限速（没手填就按类别给）。</summary>
     public double EffectiveSpeedKmh => SpeedKmh > 0 ? SpeedKmh : RoadKinds.DefaultSpeedKmh(Road);
+}
+
+/// <summary>取景照片的两类绑定：街道照（河边贴边）与室内照（楼层+户型）。</summary>
+public static class PhotoBindings
+{
+    public const string Street = "street";
+    public const string Indoor = "indoor";
+}
+
+/// <summary>
+/// 一张取景照片。「一个地点拍一张；街道不同位置可各拍一张」——街道照片落在
+/// 某条边（<see cref="MapEdge"/>) 的弧长位置上，室内照片落在某楼层的某户型（场景）上，
+/// 门/特殊地点另记一档。拍摄顺序随会话递增，电脑端导入时原样保留。
+/// </summary>
+public sealed class ScenePhoto
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    /// <summary>相对存储根的路径（maps/photos/{id}.jpg）；解析用 MapService.ResolvePhotoPath。</summary>
+    public string RelPath { get; set; } = "";
+    /// <summary>street / indoor，取值见 <see cref="PhotoBindings"/>。</summary>
+    public string Binding { get; set; } = PhotoBindings.Street;
+    /// <summary>街道照：所属边 Id 与边上弧长比例 0..1。同一街道的不同位置各算一张。</summary>
+    public string StreetId { get; set; } = "";
+    public double StreetT { get; set; }
+    /// <summary>室内照：楼层与户型（必须与目标场景一致——不允许跨层错绑，校验在 MapDefinition）。</summary>
+    public int? Floor { get; set; }
+    public string Unit { get; set; } = "";
+    /// <summary>室内照拍摄的那个户型场景（楼层+户型的具体落点）。</summary>
+    public string TargetSceneId { get; set; } = "";
+    /// <summary>门/特殊地点（MapDoor.Id）；室内照可空 = 拍的是户型本身。</summary>
+    public string DoorRef { get; set; } = "";
+    /// <summary>拍摄顺序（会话内递增；导入保留原序）。</summary>
+    public int Order { get; set; }
+    /// <summary>mobile = 手机端随拍；manual = 电脑端导入。</summary>
+    public string Source { get; set; } = "mobile";
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string Note { get; set; } = "";
+
+    [JsonIgnore] public bool IsIndoor => string.Equals(Binding, PhotoBindings.Indoor, StringComparison.Ordinal);
+}
+
+/// <summary>
+/// 建筑的门：一栋楼可以有多个门，各门可连不同户型。门在「街面」上的位置也是
+/// 一条边 + 弧长比例（跟街道照同级，将来 3D/小地图都从这两个值起）。
+/// </summary>
+public sealed class MapDoor
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string Name { get; set; } = "";
+    /// <summary>门在街面上的位置：所属边 Id + 弧长比例 0..1。</summary>
+    public string StreetId { get; set; } = "";
+    public double StreetT { get; set; }
+    /// <summary>进门后默认到达的户型场景；"" = 只是个标记门。</summary>
+    public string OpensSceneId { get; set; } = "";
+    public string Note { get; set; } = "";
 }
