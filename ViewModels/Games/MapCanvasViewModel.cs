@@ -325,6 +325,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task CreateMap() => await Shell.Current.GoToAsync("mapcreate");
 
+    /// <summary>取景入口：走出去拍照、把照片钉在地图坐标上（手机端专属，电脑端只能导入照片）。</summary>
+    [RelayCommand]
+    private async Task OpenCapture() => await Shell.Current.GoToAsync("mapcapture");
+
     [RelayCommand]
     private async Task AddLocation()
     {

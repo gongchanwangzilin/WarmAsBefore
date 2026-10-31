@@ -25,6 +25,7 @@ public static class ViewModelRegistration
         services.AddTransient<PetSettingsViewModel>();
         services.AddTransient<PetStudioViewModel>();
         services.AddTransient<MapCreateViewModel>();
+        services.AddTransient<MapCaptureViewModel>();
         services.AddTransient<UsageStatsViewModel>();
         services.AddTransient<WorldbookViewModel>();
         services.AddTransient<NewRunViewModel>();

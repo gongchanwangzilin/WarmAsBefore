@@ -67,6 +67,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("qqchat", typeof(Views.QqPage));
         Routing.RegisterRoute("qqforum", typeof(Views.QqForumPage));
         Routing.RegisterRoute("map", typeof(Views.MapPage));
+        // 取景会话：手机端「为地图取景」（照片绑定到地图坐标；电脑端只能导入照片）
+        Routing.RegisterRoute("mapcapture", typeof(Views.MapCapturePage));
         Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
         Routing.RegisterRoute("figurePack", typeof(Views.FigurePackPage));
