@@ -35,16 +35,26 @@
 
         <Border Grid.Row="2" Style="{StaticResource CardSolid}" Margin="12,0,12,12"
                 x:Name="Toolbar">
-            <VerticalStackLayout Spacing="6">
-                <Label Text="拖动画面转向 · 按钮走两步——街面进入与全景旋钮在下个批次接上"
+            <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                <Label Grid.Row="0" Text="拖动画面转向 · 电脑可用方向键走动 · 手机可选陀螺仪环视"
                        Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" />
-                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Label Grid.Column="0" Text="全景" Style="{StaticResource TxtCaption}"
+                           VerticalOptions="Center" />
+                    <Slider Grid.Column="1" x:Name="PanKnob" Minimum="0" Maximum="360"
+                            ValueChanged="OnPanKnobChanged" VerticalOptions="Center" />
+                    <Label Grid.Column="2" Text="{Binding Heading}" Style="{StaticResource TxtCaption}"
+                           VerticalOptions="Center" WidthRequest="34" HorizontalTextAlignment="Center" />
+                </Grid>
+                <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*,Auto" ColumnSpacing="8">
                     <Button Grid.Column="0" Text="← 左转" Style="{StaticResource BtnNeumorphSm}" Clicked="OnTurnLeft" />
                     <Button Grid.Column="1" Text="↑ 前进" Style="{StaticResource BtnNeumorphSm}" Clicked="OnForward" />
                     <Button Grid.Column="2" Text="↓ 后退" Style="{StaticResource BtnNeumorphSm}" Clicked="OnBackward" />
                     <Button Grid.Column="3" Text="右转 →" Style="{StaticResource BtnNeumorphSm}" Clicked="OnTurnRight" />
+                    <Button Grid.Column="4" x:Name="GyroButton" Text="📱 陀螺仪"
+                            Style="{StaticResource BtnNeumorphSm}" IsVisible="False" Clicked="OnGyro" />
                 </Grid>
-            </VerticalStackLayout>
+            </Grid>
         </Border>
     </Grid>
 </ContentPage>
