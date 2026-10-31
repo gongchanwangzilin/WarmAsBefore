@@ -71,6 +71,7 @@ public sealed partial class ToolManager : IDisposable
         _sandbox = injectedSandbox ?? new Modules.Sandbox.SandboxPolicy(new StorageProvider());
         RegisterSystemTools();
         RegisterWorldTools();
+        RegisterAmapTools();
         Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
 #if ANDROID
