@@ -69,6 +69,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("map", typeof(Views.MapPage));
         // 取景会话：手机端「为地图取景」（照片绑定到地图坐标；电脑端只能导入照片）
         Routing.RegisterRoute("mapcapture", typeof(Views.MapCapturePage));
+        // 3D 灰度视图：同一张图的「站在街上看」读法（编辑器仍默认 2D）
+        Routing.RegisterRoute("minimal3d", typeof(Views.Minimal3DPage));
         Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
         Routing.RegisterRoute("figurePack", typeof(Views.FigurePackPage));

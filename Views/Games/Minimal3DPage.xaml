@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
+             x:Class="WarmAsBefore.Views.Minimal3DPage"
+             Title="3D 灰度视图"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      灰度 3D：街道平铺地面、建筑按层高挤出。它不改 2D 编辑器——只是把同一张图
+      换一种「站在街上看」的读法。灰度是把注意力留给空间感（场景照的贴楼在后面批次）。
+    -->
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Button Grid.Column="0" Text="返回" Style="{StaticResource BtnText}" FontSize="14"
+                        Padding="0" VerticalOptions="Center" Clicked="OnBackNav" />
+                <Label Grid.Column="1" Text="{Binding SceneTitle}" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                <Button Grid.Column="2" Text="🎯 回鸟瞰" Style="{StaticResource BtnNeumorphSm}"
+                        Clicked="OnOverview" />
+            </Grid>
+        </Border>
+
+        <controls:Minimal3DView Grid.Row="1" x:Name="View3D" />
+
+        <Label Grid.Row="1" x:Name="EmptyHint" IsVisible="False"
+               Text="这张图还没有 3D 内容：去「创建地图」导一座城，或在编辑器里画几条街道、摆几栋楼。"
+               Style="{StaticResource TxtRowDesc}" HorizontalOptions="Center" VerticalOptions="Center"
+               HorizontalTextAlignment="Center" MaxLines="3" />
+
+        <Border Grid.Row="2" Style="{StaticResource CardSolid}" Margin="12,0,12,12"
+                x:Name="Toolbar">
+            <VerticalStackLayout Spacing="6">
+                <Label Text="拖动画面转向 · 按钮走两步——街面进入与全景旋钮在下个批次接上"
+                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" />
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+                    <Button Grid.Column="0" Text="← 左转" Style="{StaticResource BtnNeumorphSm}" Clicked="OnTurnLeft" />
+                    <Button Grid.Column="1" Text="↑ 前进" Style="{StaticResource BtnNeumorphSm}" Clicked="OnForward" />
+                    <Button Grid.Column="2" Text="↓ 后退" Style="{StaticResource BtnNeumorphSm}" Clicked="OnBackward" />
+                    <Button Grid.Column="3" Text="右转 →" Style="{StaticResource BtnNeumorphSm}" Clicked="OnTurnRight" />
+                </Grid>
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>

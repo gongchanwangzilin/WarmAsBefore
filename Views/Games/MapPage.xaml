@@ -17,7 +17,7 @@
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                 <!-- 第一行：标题 + 模式切换 + 工具 -->
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <VerticalStackLayout Spacing="4" VerticalOptions="Center">
                         <Label Text="🗺️ 地图编辑器" Style="{StaticResource TxtTitle}" />
                         <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
@@ -47,9 +47,12 @@
                     <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
                     <Button Grid.Column="9" Text="📷 取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding OpenCaptureCommand}" />
-                    <Button Grid.Column="10" Text="返回" Style="{StaticResource BtnNeumorphSm}"
+                    <!-- 3D 灰度：同一张图的街面读法（编辑器保持 2D 不变） -->
+                    <Button Grid.Column="10" Text="🏙 3D 灰度" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding Open3dCommand}" />
+                    <Button Grid.Column="11" Text="返回" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding BackCommand}" />
-                    <Button Grid.Column="11" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
+                    <Button Grid.Column="12" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding HelpCommand}" />
                 </Grid>
 
