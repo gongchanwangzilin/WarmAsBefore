@@ -330,6 +330,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task OpenCapture() => await Shell.Current.GoToAsync("mapcapture");
 
+    /// <summary>3D 灰度视图：把这张图换个「站在街上」的读法（编辑器不动，还是 2D）。</summary>
+    [RelayCommand]
+    private async Task Open3d() => await Shell.Current.GoToAsync("minimal3d");
+
     [RelayCommand]
     private async Task AddLocation()
     {
