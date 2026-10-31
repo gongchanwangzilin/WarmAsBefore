@@ -1,0 +1,134 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
+             xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             x:Class="WarmAsBefore.Views.MapCapturePage"
+             x:DataType="vm:MapCaptureViewModel"
+             Title="为地图取景"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      取景会话页（手机端专属）：规定开始地点 → 走路随拍。
+      绑定靠选单：街道=一根位置滑杆落在边上，室内=楼层→户型→门。
+      一个地点拍一张；同一街道不同位置可各拍一张；不许跨层错绑（服务层校验）。
+    -->
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid RowDefinitions="Auto,Auto" RowSpacing="4">
+                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
+                            Style="{StaticResource BtnText}" FontSize="14" Padding="0" VerticalOptions="Center"
+                            Command="{Binding BackCommand}"/>
+                    <Label Grid.Column="1" Text="为地图取景" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
+                </Grid>
+                <Label Grid.Row="1" Text="{Binding SessionTitle}" TextColor="{DynamicResource MutedFg}"
+                       FontSize="{DynamicResource WSizeCaption}" />
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
+            <VerticalStackLayout Spacing="{DynamicResource WGapItem}" MaximumWidthRequest="720"
+                                 HorizontalOptions="Center">
+
+                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}"
+                       TextColor="{DynamicResource AccentWarmFg}" />
+
+                <!-- 开始地点 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="规定开始地点" Style="{StaticResource TxtSection}" />
+                        <Picker ItemsSource="{Binding StartOptions}" SelectedItem="{Binding StartPick}"
+                                FontSize="14" Title="选一个场景作为出发地" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Button Grid.Column="0" Text="从这儿出发" Style="{StaticResource BtnSignal}"
+                                    Command="{Binding StartSessionCommand}" />
+                            <Button Grid.Column="1" Text="结束" Style="{StaticResource BtnGhostSm}"
+                                    VerticalOptions="Center"
+                                    IsVisible="{Binding SessionActive}"
+                                    Command="{Binding StopSessionCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 本张绑定（会话开始后才出现） -->
+                <Border Style="{StaticResource CardSolid}" IsVisible="{Binding SessionActive}">
+                    <VerticalStackLayout Spacing="10">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8">
+                            <Label Grid.Column="0" Text="本张绑定" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="街道" Style="{StaticResource BtnGhostSm}" FontSize="12"
+                                    BackgroundColor="{Binding StreetModeBg}"
+                                    Command="{Binding SetStreetModeCommand}" CommandParameter="street" />
+                            <Button Grid.Column="2" Text="室内" Style="{StaticResource BtnGhostSm}" FontSize="12"
+                                    BackgroundColor="{Binding IndoorModeBg}"
+                                    Command="{Binding SetStreetModeCommand}" CommandParameter="indoor" />
+                        </Grid>
+
+                        <!-- 街道：一条边 + 位置比例（街面同一处/不同处都行） -->
+                        <VerticalStackLayout IsVisible="{Binding StreetMode}" Spacing="8">
+                            <Label Text="街道照落在这条街上：选街 → 拉位置。同一街道不同位置可各拍一张。" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
+                            <Picker ItemsSource="{Binding Streets}" SelectedItem="{Binding SelectedStreet}"
+                                    FontSize="14" Title="选一条街" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <controls:ViewSlider Grid.Column="0" Minimum="0" Maximum="1" Value="{Binding StreetT}"
+                                                     VerticalOptions="Center" />
+                                <Label Grid.Column="1" Text="{Binding StreetT, StringFormat='位置 {0:P0}'}"
+                                       Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+
+                        <!-- 室内：楼栋 → 楼层 → 户型（+门）。不许跨层错绑。 -->
+                        <VerticalStackLayout IsVisible="{Binding IndoorModeVisible}" Spacing="8">
+                            <Label Text="室内照必须落在一层一户上：楼栋 → 楼层 → 户型（+ 门/特殊地点）。" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
+                            <Picker ItemsSource="{Binding BuildingOptions}" SelectedItem="{Binding BuildingPick}"
+                                    FontSize="14" Title="选楼栋" />
+                            <Picker ItemsSource="{Binding FloorOptions}" SelectedItem="{Binding FloorPick}"
+                                    FontSize="14" Title="选楼层" />
+                            <Picker ItemsSource="{Binding Rooms}" SelectedItem="{Binding SelectedRoom}"
+                                    FontSize="14" Title="选户型（场景）" />
+                            <Picker ItemsSource="{Binding DoorOptions}" SelectedItem="{Binding DoorPick}"
+                                    FontSize="14" Title="门 / 特殊地点（可不选）" />
+                        </VerticalStackLayout>
+
+                        <Button Text="📷 走到这儿，拍一张" Style="{StaticResource BtnSignal}"
+                                IsEnabled="{Binding CanCapture}"
+                                Command="{Binding CaptureCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 已拍清单：顺序即拍摄顺序，删掉 = 连文件一起删（会确认） -->
+                <VerticalStackLayout Spacing="6" IsVisible="{Binding SessionActive}">
+                    <Label Text="已挂上的照片" Style="{StaticResource TxtSection}" />
+                    <CollectionView ItemsSource="{Binding Photos}" SelectionMode="None">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MapCaptureViewModel+PhotoRow">
+                                <Border Style="{StaticResource CardSolid}" Padding="10" Margin="0,0,0,6">
+                                    <Grid ColumnDefinitions="84,*,Auto" ColumnSpacing="12">
+                                        <Image Grid.Column="0" Source="{Binding Thumb}" WidthRequest="84" HeightRequest="84"
+                                               Aspect="AspectFill" HorizontalOptions="Start" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
+                                            <Label Text="{Binding Order, StringFormat='第 {0} 张'}" Style="{StaticResource TxtCaption}" />
+                                            <Label Text="{Binding Tag}" Style="{StaticResource TxtRowTitle}" FontSize="12" />
+                                            <Label Text="{Binding Line}" Style="{StaticResource TxtCaption}" MaxLines="2" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="2" Text="✕" Style="{StaticResource BtnGhostSm}"
+                                                Command="{Binding DeleteCommand, Source={RelativeSource AncestorType={x:Type vm:MapCaptureViewModel}}}"
+                                                CommandParameter="{Binding}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Border Grid.Row="2" Background="{DynamicResource WRule}" HeightRequest="1" StrokeThickness="0" />
+    </Grid>
+</ContentPage>

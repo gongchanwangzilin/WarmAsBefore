@@ -17,7 +17,7 @@
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                 <!-- 第一行：标题 + 模式切换 + 工具 -->
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <VerticalStackLayout Spacing="4" VerticalOptions="Center">
                         <Label Text="🗺️ 地图编辑器" Style="{StaticResource TxtTitle}" />
                         <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
@@ -44,9 +44,18 @@
                             Command="{Binding ExportMapCommand}" />
                     <Button Grid.Column="8" Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding CreateMapCommand}" />
-                    <Button Grid.Column="9" Text="返回" Style="{StaticResource BtnNeumorphSm}"
+                    <!-- 取景：手机端专属（电脑只能导入照片，入口不露） -->
+                    <Button Grid.Column="9" Text="⌾ 取景" Style="{StaticResource BtnNeumorphSm}"
+                            Command="{Binding OpenCaptureCommand}">
+                        <Button.IsVisible>
+                            <OnPlatform x:TypeArguments="x:Boolean" Default="False">
+                                <On Platform="Android" Value="True" />
+                            </OnPlatform>
+                        </Button.IsVisible>
+                    </Button>
+                    <Button Grid.Column="10" Text="返回" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding BackCommand}" />
-                    <Button Grid.Column="10" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
+                    <Button Grid.Column="11" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
                             Command="{Binding HelpCommand}" />
                 </Grid>
 
