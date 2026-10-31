@@ -239,6 +239,12 @@ public sealed class MapScene
     public string Unit { get; set; } = "";
     /// <summary>这个场景是「室外的路/街区面」还是「室内」——决定多层切换时它归哪一面。</summary>
     public bool Indoor { get; set; }
+
+    /// <summary>
+    /// 不规定角色：跳过站位标定直接铺背景。人物按默认落脚出场（屏底中央、原尺寸），
+    /// 标定闸与入场遮罩对它全部放行；完成一次标定后自动切回「规定”（见标定页落盘）。
+    /// </summary>
+    public bool FreePlacement { get; set; }
 }
 
 /// <summary>临时节点：不归属任何地点，作为连线端点/路径站。</summary>

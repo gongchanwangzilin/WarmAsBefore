@@ -1077,6 +1077,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                     ("🖼 背景图（素材库）", "bg-lib"),
                     ("🖼 背景图（电脑导入）", "bg"),
                     ("📐 标定这张背景", "cal"),
+                    ($"🚶 站位：{(card.Scene.FreePlacement ? "不规定（自由铺）" : "规定（走标定）")}", "stand"),
                     ("🗑 清除背景", "bg-clear"),
                     ($"🏢 所在楼层：{(card.Scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(card.Scene.Floor))}", "floor"),
                     ($"🚪 户型：{(string.IsNullOrWhiteSpace(card.Scene.Unit) ? "未分户" : card.Scene.Unit)}", "unit"),
@@ -1515,6 +1516,25 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
+            case "stand":
+            {
+                if (scene is null) return;
+                scene.FreePlacement = !scene.FreePlacement;
+                await _maps.SaveAsync();
+                if (scene.FreePlacement)
+                {
+                    StatusText = $"「{scene.Name}」改为不规定站位：背景直接铺，人物按默认落脚。";
+                }
+                else
+                {
+                    var calibrated = PlacementMath.Validate(scene.Placement).Ok;
+                    StatusText = calibrated
+                        ? $"「{scene.Name}」改回规定站位（用已有标定）。"
+                        : $"「{scene.Name}」改回规定站位：还没标定，进入时会先请你去标。";
+                }
+                Refresh();
+                break;
+            }
             case "bg-clear":
                 if (scene is not null)
                 {
@@ -1580,6 +1600,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 if (scene is null) return;
                 await Shell.Current.DisplayAlert("场景信息",
                     $"场景：{scene.Name}\n地点：{_maps.Map.LocationNameOf(scene.Id)}\n背景：{(string.IsNullOrWhiteSpace(scene.Background) ? "无" : "✓")}\n" +
+                    $"站位：{(scene.FreePlacement ? "不规定（自由铺 · 默认屏底中央）" : PlacementMath.Validate(scene.Placement).Ok ? "规定（已标定）" : "规定（待标定）")}\n" +
                     $"楼层：{(scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(scene.Floor))} · {(scene.Indoor ? "室内" : "室外")}" +
                     $"{(string.IsNullOrWhiteSpace(scene.Unit) ? "" : $" · 户型 {scene.Unit}")}\n备注：{(string.IsNullOrWhiteSpace(scene.Note) ? "无" : scene.Note)}",
                     "知道了");
@@ -2392,20 +2413,20 @@ await _maps.SaveAsync();
             // 不留下"换了图但没标定"的半吊子状态。
             var oldBg = scene.Background;
             var oldPlacement = scene.Placement;
+            var oldFree = scene.FreePlacement;
             var rel = _maps.ImportBackgroundForScene(pick.FullPath, scene);
             if (rel is null) { StatusText = "背景复制失败"; return; }
             scene.Background = rel;
             await _maps.SaveAsync();
 
-            if (!await _cal.EnsureCalibratedAsync(scene, SceneCalibrationService.DefaultTargetAspect))
+            if (!await FinalizeBackgroundAsync(scene, "背景图"))
             {
                 scene.Background = oldBg;
                 scene.Placement = oldPlacement;
-                await _maps.SaveAsync();
-                StatusText = "已取消，背景未更换";
+                scene.FreePlacement = oldFree;
+                await SaveAfterRollbackAsync(scene);
                 return;
             }
-            StatusText = $"已更新「{scene.Name}」背景并完成标定";
         }
         catch (Exception ex)
         {
@@ -2435,25 +2456,62 @@ await _maps.SaveAsync();
             if (!File.Exists(abs)) { StatusText = "背景文件缺失"; return; }
             var oldBg = scene.Background;
             var oldPlacement = scene.Placement;
+            var oldFree = scene.FreePlacement;
             var rel = _maps.ImportBackgroundForScene(abs, scene);
             if (rel is null) { StatusText = "背景复制失败"; return; }
             scene.Background = rel;
             await _maps.SaveAsync();
 
-            if (!await _cal.EnsureCalibratedAsync(scene, SceneCalibrationService.DefaultTargetAspect))
+            if (!await FinalizeBackgroundAsync(scene, $"素材库背景「{item.Name}」"))
             {
                 scene.Background = oldBg;
                 scene.Placement = oldPlacement;
-                await _maps.SaveAsync();
-                StatusText = "已取消，背景未更换";
+                scene.FreePlacement = oldFree;
+                await SaveAfterRollbackAsync(scene);
                 return;
             }
-            StatusText = $"已应用素材库背景「{item.Name}」并完成标定";
         }
         catch (Exception ex)
         {
             App.WriteLog("MapViewModel.PickBgFromLibrary -> " + ex);
         }
+    }
+
+    // ============ 背景落位的收尾：规定站位 / 不规定直接铺 ============
+
+    /// <summary>
+    /// 导入背景后问一句「规定不规定」：规定 = 走标定闸（老流程，不定时回滚）；不规定 = 先落
+    /// <see cref="MapScene.FreePlacement"/> 直接铺，人物默认落脚。返回 false = 用户取消，调方回滚。
+    /// </summary>
+    private async Task<bool> FinalizeBackgroundAsync(MapScene scene, string sourceLabel)
+    {
+        scene.FreePlacement = false;   // 档位以本轮为准：先按老流程，选了不规定再翻
+        var pick = await Shell.Current.DisplayActionSheet("这间屋要不要规定站位？", null, null,
+            "📐 规定角色（走标定）", "🚶 不规定（直接铺 · 自由站位）");
+        var free = pick is "🚶 不规定（直接铺 · 自由站位）";
+        scene.FreePlacement = free;
+
+        if (free)
+        {
+            await _maps.SaveAsync();
+            StatusText = $"已铺「{scene.Name}」{sourceLabel}：不规定站位，人物按默认落脚。右键「站位」可切换。";
+            return true;
+        }
+
+        if (await _cal.EnsureCalibratedAsync(scene, SceneCalibrationService.DefaultTargetAspect))
+        {
+            await _maps.SaveAsync();
+            StatusText = $"已应用「{scene.Name}」{sourceLabel}并完成标定（规定站位）。";
+            return true;
+        }
+        StatusText = "已取消，背景未更换";
+        return false;
+    }
+
+    /// <summary>取消导入时的回滚收盘。</summary>
+    private async Task SaveAfterRollbackAsync(MapScene scene)
+    {
+        await _maps.SaveAsync();
     }
 }
 
