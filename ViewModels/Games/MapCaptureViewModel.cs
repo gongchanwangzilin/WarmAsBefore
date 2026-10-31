@@ -15,9 +15,18 @@ namespace WarmAsBefore.ViewModels;
 /// </summary>
 public sealed partial class MapCaptureViewModel : ObservableObject
 {
+    public MapCaptureViewModel(MapService maps)
+    {
+        _maps = maps;
+        // 取景只对手机开放（相机在这儿）；电脑端进这页是「照片导入」的脸。
+        CaptureAvailable = DeviceInfo.Platform == DevicePlatform.Android;
+    }
+
     private readonly MapService _maps;
 
-    public MapCaptureViewModel(MapService maps) => _maps = maps;
+    /// <summary>取景（相机）是不是这台设备的事；电脑端这页只摆导入。</summary>
+    public bool CaptureAvailable { get; }
+    public bool ShowCaptureUnavailable => !CaptureAvailable;
 
     // ============ 会话：开始地点 ============
 
@@ -52,6 +61,9 @@ public sealed partial class MapCaptureViewModel : ObservableObject
 
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private bool _busy;
+
+    /// <summary>没照片时那行提示。Reload 收口时翻牌。</summary>
+    public bool PhotosEmpty => Photos.Count == 0;
 
     // 模式二选钮的点亮底：与用量页同一套 token 口径（资源里有就用，没有退手写的暖色）。
     private static Color Token(string key, string fallback)
@@ -336,6 +348,103 @@ public sealed partial class MapCaptureViewModel : ObservableObject
         var ok = await Shell.Current.DisplayAlert("删这张照片", "删了就取不回来（文件一并删除）。确认？", "删", "留着");
         if (!ok) return;
         _maps.RemovePhoto(row.Id);
+        if (SelectedPhoto?.Id == row.Id) SelectedPhoto = null;
+        await ReloadPhotosAsync();
+    }
+
+    // ============ 电脑端导入：照片先落账（未绑），选中后把绑定记上去 ============
+
+    /// <summary>当前选中的照片（逐张补绑就靠它）。null = 绑定选择器送「下一张拍摄的」。</summary>
+    [ObservableProperty] private PhotoRow? _selectedPhoto;
+
+    public string BindingTargetText => SelectedPhoto is null
+        ? "这组绑定给谁：新拍的那张"
+        : $"这组绑定记到：第 {SelectedPhoto.Order} 张（{SelectedPhoto.Tag}）";
+
+    partial void OnSelectedPhotoChanged(PhotoRow? value) => OnPropertyChanged(nameof(BindingTargetText));
+
+    [RelayCommand]
+    private void SelectPhoto(PhotoRow? row)
+        => SelectedPhoto = row is null || row.Id == SelectedPhoto?.Id ? null : row;
+
+    /// <summary>把面板上这组绑定记到选中那张。车道照选街道、室内照选楼层户型，记上才算数。</summary>
+    [RelayCommand]
+    private async Task ApplyBindingAsync()
+    {
+        if (SelectedPhoto is null) { StatusText = "先点一张照片的「选」，再记绑定。"; return; }
+        if (!StreetMode && SelectedRoom is null) { StatusText = "室内要先选楼栋、楼层和户型。"; return; }
+
+        var err = await _maps.RebindPhotoAsync(SelectedPhoto.Id, p =>
+        {
+            if (StreetMode)
+            {
+                p.Binding = PhotoBindings.Street;
+                p.StreetId = SelectedStreet?.Id ?? "";
+                p.StreetT = Math.Clamp(StreetT, 0, 1);
+            }
+            else
+            {
+                var room = SelectedRoom;
+                p.Binding = PhotoBindings.Indoor;
+                p.Floor = room?.Floor;
+                p.Unit = room?.Unit ?? "";
+                p.TargetSceneId = room?.SceneId ?? "";
+                p.DoorRef = DoorId;
+            }
+        });
+        if (err is not null) { StatusText = err; return; }
+        StatusText = "绑定记上了。同一处多张也行——街上不同点各来一张。";
+        await ReloadPhotosAsync();
+    }
+
+    /// <summary>电脑/手机通用：从文件选若干张进「未绑」区，逐张再补绑定。</summary>
+    [RelayCommand]
+    private async Task ImportPhotosAsync()
+    {
+        try
+        {
+            var picks = await FilePicker.Default.PickMultipleAsync(new PickOptions
+            {
+                PickerTitle = "选要导入的照片（可多选）",
+                FileTypes = FilePickerFileType.Images
+            });
+            if (picks is null) return;
+
+            Busy = true;
+            var n = 0; string? fail = null;
+            foreach (var f in picks)
+            {
+                var (ok, msg) = await _maps.AddPhotoAsync(f.FullPath, p =>
+                {
+                    p.Source = "manual";
+                    p.Binding = "";   // 先落账，之后逐张补绑
+                });
+                if (ok) n++;
+                else fail ??= msg;
+            }
+            StatusText = fail is null
+                ? $"导入 {n} 张，全是「未绑」态：选中一张 → 挑绑定 → 记上。"
+                : $"导入 {n} 张；有 1 条失败：{fail}";
+            await ReloadPhotosAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapCapture.Import -> " + ex);
+            StatusText = "导入时出了岔子：" + ex.Message;
+        }
+        finally { Busy = false; }
+    }
+
+    /// <summary>把手机拍的整包（照片+绑定+顺序）搬去另一台机器。</summary>
+    [RelayCommand]
+    private async Task ExportBundleAsync()
+        => StatusText = await _maps.ExportCaptureBundleAsync();
+
+    /// <summary>开一个取景包：照片与门按 Id 合并进当前这张图，不整张换图。</summary>
+    [RelayCommand]
+    private async Task ImportBundleAsync()
+    {
+        StatusText = await _maps.ImportCaptureBundleAsync();
         await ReloadPhotosAsync();
     }
 
@@ -347,21 +456,27 @@ public sealed partial class MapCaptureViewModel : ObservableObject
             foreach (var p in _maps.Map.Photos.OrderBy(x => x.Order).ToList())
             {
                 var full = _maps.ResolvePhotoPath(p.RelPath);
+                var bindingLabel = p.IsIndoor ? "室内"
+                    : string.Equals(p.Binding, PhotoBindings.Street, StringComparison.Ordinal) ? "街道"
+                    : "未绑";
                 Photos.Add(new PhotoRow
                 {
                     Id = p.Id,
                     Order = p.Order,
                     Thumb = full ?? "",
-                    Tag = p.IsIndoor ? "室内" : "街道",
+                    Tag = bindingLabel,
                     Line = DescribeBinding(p),
                 });
             }
+            OnPropertyChanged(nameof(PhotosEmpty));
         }
         catch (Exception ex) { App.WriteLog("MapCapture.Photos -> " + ex.Message); }
     }
 
     private string DescribeBinding(ScenePhoto p)
     {
+        if (string.IsNullOrWhiteSpace(p.Binding))
+            return "待绑定：点「选」选中这张，再挑绑定记上。";
         var map = _maps.Map;
         if (p.IsIndoor)
         {

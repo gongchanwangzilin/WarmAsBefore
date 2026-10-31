@@ -107,6 +107,8 @@ public sealed class MapDefinition
     {
         if (p is null) return "照片不存在。";
         if (string.IsNullOrWhiteSpace(p.RelPath)) return "照片没有文件。";
+        // Binding 为空 = 导入先落账、待补绑的暂存态：不去卡空间关系，页面上会标「未绑」。
+        if (string.IsNullOrWhiteSpace(p.Binding)) return null;
         if (!p.IsIndoor)
             return EdgeById(p.StreetId) is null ? "街道照要绑在这张图的一条街道（连线）上。" : null;
 
@@ -392,8 +394,8 @@ public sealed class ScenePhoto
     public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
     /// <summary>相对存储根的路径（maps/photos/{id}.jpg）；解析用 MapService.ResolvePhotoPath。</summary>
     public string RelPath { get; set; } = "";
-    /// <summary>street / indoor，取值见 <see cref="PhotoBindings"/>。</summary>
-    public string Binding { get; set; } = PhotoBindings.Street;
+    /// <summary>street / indoor / ""（导入先落账、待补绑的暂存态——不参与空间校验）。</summary>
+    public string Binding { get; set; } = "";
     /// <summary>街道照：所属边 Id 与边上弧长比例 0..1。同一街道的不同位置各算一张。</summary>
     public string StreetId { get; set; } = "";
     public double StreetT { get; set; }
@@ -429,3 +431,9 @@ public sealed class MapDoor
     public string OpensSceneId { get; set; } = "";
     public string Note { get; set; } = "";
 }
+
+/// <summary>取景包清单（zip 里的 captures.json）：照片与门随包一起搬机。</summary>
+public sealed record CaptureBundle(string MapName, List<ScenePhoto> Photos, List<CaptureDoor> Doors);
+
+/// <summary>取景包里的一扇门：门本体 + 它挂在哪个地点下（导入时按地点归位）。</summary>
+public sealed record CaptureDoor(MapDoor Door, string LocationId);

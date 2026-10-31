@@ -1,3 +1,4 @@
+using System.IO.Compression;
 using System.Text.Json;
 using CommunityToolkit.Maui.Storage;
 using WarmAsBefore.Models;
@@ -802,6 +803,153 @@ public sealed class MapService
             if (File.Exists(full)) File.Delete(full);
         }
         catch (Exception ex) { App.WriteLog("MapService.TryDeletePhoto -> " + ex.Message); }
+    }
+
+    // ============ 取景包：手机 ↔ 电脑的整套搬运 ============
+    // 包内：captures.json（照片绑定 + 门）+ photos/{id}{ext}（原图）。地图本体也放一份 map.json 作对照，
+    // 但导入不整张换图——照片与门按 Id 合并进电脑端当前的这张图，绑定与顺序原样保留。
+
+    /// <summary>把当前地图的取景照片与门整包另存（FileSaver）。返回给界面看的一句结果。</summary>
+    public async Task<string> ExportCaptureBundleAsync()
+    {
+        try
+        {
+            await SaveAsync();
+            var photos = _map.Photos.ToList();
+            if (photos.Count == 0) return "这张图还没有照片，先去取景或导入。";
+
+            var zipPath = Path.Combine(Path.GetTempPath(), $"warm-captures-{DateTime.Now:yyyyMMdd-HHmmss}.zip");
+            var bundle = new CaptureBundle(_map.Name, photos,
+                _map.Locations.SelectMany(l => l.Doors.Select(d => new CaptureDoor(d, l.Id))).ToList());
+
+            using (var zip = ZipFile.Open(zipPath, ZipArchiveMode.Create))
+            {
+                var manifest = zip.CreateEntry("captures.json");
+                await using (var s = manifest.Open())
+                {
+                    await JsonSerializer.SerializeAsync(s, bundle, new JsonSerializerOptions { WriteIndented = true });
+                }
+                var mapEntry = zip.CreateEntry("map.json");
+                await using (var ms = mapEntry.Open())
+                {
+                    await JsonSerializer.SerializeAsync(ms, _map);
+                }
+                foreach (var p in photos)
+                {
+                    var full = ResolvePhotoPath(p.RelPath);
+                    if (full is null) continue;
+                    var ext = Path.GetExtension(p.RelPath);
+                    zip.CreateEntryFromFile(full, $"photos/{p.Id}{ext}");
+                }
+            }
+
+            using var bytes = new MemoryStream(await File.ReadAllBytesAsync(zipPath));
+            var save = await FileSaver.Default.SaveAsync($"{SanitizeFileName(_map.Name)}-取景包.zip", bytes);
+            try { File.Delete(zipPath); } catch { /* 临时包删不掉就留给系统 */ }
+            return save.IsSuccessful
+                ? $"已打包 {bundle.Photos.Count} 张照片（含绑定与顺序）。"
+                : "已取消导出";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapService.ExportBundle -> " + ex);
+            return "取景包导出失败：" + ex.Message;
+        }
+    }
+
+    /// <summary>开一个取景包：照片文件落进 maps/photos/，照片与门按 Id 合并进当前图（不整张换图）。</summary>
+    public async Task<string> ImportCaptureBundleAsync()
+    {
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择取景包（zip）",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip", "application/x-zip-compressed" } }
+                })
+            });
+            if (pick is null) return "已取消导入";
+
+            using var zip = ZipFile.OpenRead(pick.FullPath);
+            var manifestEntry = zip.GetEntry("captures.json");
+            if (manifestEntry is null) return "这不是取景包（里面没有 captures.json）。";
+
+            CaptureBundle bundle;
+            await using (var s = manifestEntry.Open())
+            {
+                bundle = await JsonSerializer.DeserializeAsync<CaptureBundle>(s).ConfigureAwait(false) ?? new CaptureBundle("", new(), new());
+            }
+
+            var dir = Path.Combine(_store.Root, "maps", "photos");
+            Directory.CreateDirectory(dir);
+
+            var added = 0; var updated = 0; var missing = 0;
+            foreach (var p in bundle.Photos)
+            {
+                if (string.IsNullOrWhiteSpace(p?.Id) || string.IsNullOrWhiteSpace(p.RelPath)) { missing++; continue; }
+                var ext = Path.GetExtension(p.RelPath);
+                var entry = zip.GetEntry($"photos/{p.Id}{ext}") ?? zip.GetEntry($"photos/{p.Id}");
+                if (entry is null) { missing++; continue; }
+
+                // 文件按包内原 Id 落盘：同一台电脑重导同包（重拍过）就原地覆盖。
+                var local = Path.Combine(dir, p.Id + (string.IsNullOrEmpty(ext) ? ".jpg" : ext));
+                await using (var src = entry.Open())
+                await using (var fs = File.Create(local))
+                {
+                    await src.CopyToAsync(fs);
+                }
+                p.RelPath = $"maps/photos/{Path.GetFileName(local)}";
+                p.Source = "import";
+
+                var existing = _map.PhotoById(p.Id);
+                if (existing is null) { _map.Photos.Add(p); added++; }
+                else
+                {
+                    existing.RelPath = p.RelPath;
+                    existing.Binding = p.Binding;
+                    existing.StreetId = p.StreetId;
+                    existing.StreetT = p.StreetT;
+                    existing.Floor = p.Floor;
+                    existing.Unit = p.Unit;
+                    existing.TargetSceneId = p.TargetSceneId;
+                    existing.DoorRef = p.DoorRef;
+                    existing.Order = p.Order;
+                    existing.CreatedAt = p.CreatedAt;
+                    existing.Note = p.Note;
+                    updated++;
+                }
+            }
+
+            var doors = 0;
+            foreach (var cd in bundle.Doors)
+            {
+                var loc = _map.LocationById(cd.LocationId);
+                if (loc is null || cd.Door is null) continue;
+                var hit = loc.Doors.FirstOrDefault(d => d.Id == cd.Door.Id);
+                if (hit is null) { loc.Doors.Add(cd.Door); doors++; }
+                else { hit.Name = cd.Door.Name; hit.StreetId = cd.Door.StreetId; hit.StreetT = cd.Door.StreetT; hit.OpensSceneId = cd.Door.OpensSceneId; hit.Note = cd.Door.Note; }
+            }
+
+            await SaveAsync();
+            var tail = doors > 0 ? $"，门 {doors} 扇" : "";
+            var miss = missing > 0 ? $"（{missing} 条无文件跳过）" : "";
+            return $"导入完成：新增 {added} 张、替换 {updated} 张{tail}{miss}。";
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapService.ImportBundle -> " + ex);
+            return "取景包导入失败：" + ex.Message;
+        }
+    }
+
+    private static string SanitizeFileName(string name)
+    {
+        var invalid = Path.GetInvalidFileNameChars();
+        var clean = new string((name ?? "地图").Where(c => !invalid.Contains(c)).ToArray()).Trim();
+        return clean.Length == 0 ? "地图" : clean;
     }
 
     public static bool IsVideoExt(string ext) =>
