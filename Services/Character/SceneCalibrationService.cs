@@ -62,6 +62,7 @@ public sealed class SceneCalibrationService
     public bool NeedsCalibration(MapScene? scene)
     {
         if (scene is null) return false;
+        if (scene.FreePlacement) return false;                          // 不规定角色：放行，不走闸
         if (string.IsNullOrWhiteSpace(scene.Background)) return false;   // 纯色场景不需要标定
         if (_maps.ResolveBackground(scene) is null) return false;        // 图不存在，无可标之物
         return !PlacementMath.Validate(scene.Placement).Ok;

@@ -583,6 +583,8 @@ public sealed partial class SceneCalibrationViewModel : ObservableObject
         _draft.CalibratedAt = DateTime.UtcNow;
         _draft.Note = PlacementMath.Describe(_draft);
         _scene.Placement = _draft;
+        // 主动走了一遍标定 = 这间屋改回「规定站位」，不规定标志自动清除
+        _scene.FreePlacement = false;
 
         await _maps.SaveAsync();
         _maps.NotifyChanged();
