@@ -29,16 +29,16 @@ public sealed class VisionService
     /// <summary>
     /// 看图，返回一段描述。未配置 / 失败返回 null（调用方自行提示）。
     /// </summary>
-    public async Task<string?> DescribeImageAsync(string imagePath, string prompt)
+    public async Task<string?> DescribeImageAsync(string imagePath, string prompt, int maxTokens = 200)
     {
         if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath)) return null;
-        return await DescribeBytesAsync(await File.ReadAllBytesAsync(imagePath), GuessMime(imagePath), prompt);
+        return await DescribeBytesAsync(await File.ReadAllBytesAsync(imagePath), GuessMime(imagePath), prompt, maxTokens);
     }
 
     /// <summary>
     /// 图不在盘上、手上只有字节时的入口（Minecraft 桥的画面就是从 socket 上来的 PNG）。
     /// </summary>
-    public async Task<string?> DescribeBytesAsync(byte[]? bytes, string mime, string prompt)
+    public async Task<string?> DescribeBytesAsync(byte[]? bytes, string mime, string prompt, int maxTokens = 200)
     {
         var s = _settings.Current;
         if (!IsConfigured) return null;
@@ -61,7 +61,7 @@ public sealed class VisionService
                         }
                     }
                 },
-                max_tokens = 200,
+                max_tokens = Math.Clamp(maxTokens, 32, 4096),
                 temperature = 0.5
             };
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
