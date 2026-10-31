@@ -42,6 +42,13 @@ public sealed class Minimal3DView : ContentView
         Refresh();
     }
 
+    /// <summary>直接设定朝向（全景旋钮用；radians 为正 = 偏东为南的顺时方向）。</summary>
+    public void YawTo(double radians)
+    {
+        Camera.YawRad = radians;
+        Refresh();
+    }
+
     /// <summary>俯仰：deltaRad 为正 = 更低头。范围见 Minimal3DCamera.</summary>
     public void PitchBy(double deltaRad)
     {

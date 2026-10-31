@@ -47,7 +47,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     private Action? _invalidate;
     private bool _panning;
-    private PointF _panLastScreen;
+    private Point _panLastScreen;
+    private PointF _panStartScreen;   // 这次平移从哪块屏幕坐标起的：点按 vs 拖拽的分界
     private MapCanvasNode? _dragCard;
     private MapTransitNode? _dragTransit;
     private MapEdge? _dragEdge;
@@ -628,6 +629,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             return;
         }
         _panning = true;
+        _panStartScreen = screen;
         _panLastScreen = screen;
         Touch();
     }
@@ -737,6 +739,17 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         {
             var endW = Drawable.ScreenToWorld(new Point(screen.X, screen.Y));
             FinishDoodle(endW);
+            return;
+        }
+        // 浏览模式点了一下「街」（按的位置基本没动就松手）：点按 = 街上弹菜单，拖拽 = 平移，互不打扰
+        if (Mode == ModeKind.View && _panning
+            && Math.Abs(screen.X - _panStartScreen.X) < 6 && Math.Abs(screen.Y - _panStartScreen.Y) < 6)
+        {
+            _panning = false;
+            var world = Drawable.ScreenToWorld(new Point(screen.X, screen.Y));
+            var tapEdge = Drawable.HitEdge(world);
+            if (tapEdge is not null) _ = ShowStreetActionsAsync(tapEdge, world);
+            Touch();
             return;
         }
         if (_marqueeMode)
@@ -1102,6 +1115,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var edge = Drawable.HitEdge(world);
         if (edge is not null)
         {
+            _menuWorld = world;   // 「由此进入 3D」要用点按位置（最近采样点在附近）
             Drawable.SelectedEdgeId = edge.Id;
             var roadTitle = string.IsNullOrWhiteSpace(edge.RoadName)
                 ? RoadKinds.Display(edge.Road)
@@ -1114,6 +1128,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 TargetId = edge.Id,
                 Items = new()
                 {
+                    ("🏙 由此进入 3D", "enter3d"),
                     ($"🛣 这条路是：{RoadKinds.Display(edge.Road)}", "road"),
                     ("🏷 命名这条路", "roadname"),
                     ($"◀ 单行道：{(edge.OneWay ? "通" : "双向")}", "oneway"),
@@ -1655,6 +1670,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var edge = _maps.Map.Edges.FirstOrDefault(e => e.Id == id);
         switch (cmd)
         {
+            case "enter3d":
+                if (edge is null) return;
+                await Enter3dFromStreetAsync(edge, _menuWorld);
+                break;
             case "length":
             {
                 if (edge is null) return;
@@ -1802,6 +1821,59 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 break;
             }
         }
+    }
+
+    // ============ 街面 3D 进入（点按动作表 / 右键菜单共用） ============
+
+    /// <summary>浏览模式点一下街道：弹一份小菜单，问要不要从这里进 3D。</summary>
+    private async Task ShowStreetActionsAsync(MapEdge edge, Point world)
+    {
+        var title = string.IsNullOrWhiteSpace(edge.RoadName)
+            ? RoadKinds.Display(edge.Road)
+            : $"{edge.RoadName}（{RoadKinds.Display(edge.Road)}）";
+        var pick = await Shell.Current.DisplayActionSheet(title, "取消", null, "🏙 由此进入 3D");
+        if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
+        await Enter3dFromStreetAsync(edge, world);
+    }
+
+    /// <summary>
+    /// 街面 3D：取边上离点击最近的采样点，沿路的切向摆机位（单位→米、弧度）后跳 3D 页。
+    /// 户型内/楼梯这类「楼层间的线」没有 3D 地面可站，直接劝退。
+    /// </summary>
+    private async Task Enter3dFromStreetAsync(MapEdge edge, Point world)
+    {
+        var kind = string.IsNullOrEmpty(edge.Road) ? RoadKinds.Street : edge.Road;
+        if (kind is RoadKinds.Interior or RoadKinds.Steps)
+        {
+            StatusText = "房型内/楼梯的连线不进 3D，站到真正的街道上再进。";
+            return;
+        }
+        var pts = Drawable.SampleEdge(edge);   // 画布单位
+        if (pts.Count < 2) { StatusText = "这条路太短，进不去"; return; }
+
+        var best = 0;
+        var bestD = double.MaxValue;
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var dx = pts[i].X - world.X;
+            var dy = pts[i].Y - world.Y;
+            var d = dx * dx + dy * dy;
+            if (d < bestD) { bestD = d; best = i; }
+        }
+        var i0 = Math.Max(0, best - 1);
+        var i1 = Math.Min(pts.Count - 1, best + 1);
+        var tx = pts[i1].X - pts[i0].X;
+        var ty = pts[i1].Y - pts[i0].Y;
+        if (Math.Abs(tx) < 1e-9 && Math.Abs(ty) < 1e-9) { StatusText = "这条路太短，进不去"; return; }
+
+        // 相机 forward = (sin yaw, -cos yaw)（世界 y 向下、北 = -y）；沿街走向-initial 朝前
+        var yaw = Math.Atan2(tx, -ty);
+        var mpu = _maps.Map.MetersPerUnit > 0 ? _maps.Map.MetersPerUnit : 0.5;
+        var mx = (pts[best].X * mpu).ToString("0.####", CultureInfo.InvariantCulture);
+        var my = (pts[best].Y * mpu).ToString("0.####", CultureInfo.InvariantCulture);
+        var ydeg = (yaw * 180 / Math.PI).ToString("0.##", CultureInfo.InvariantCulture);
+        StatusText = "已按街面视角进入 3D（返回就回到 2D 编辑器）";
+        await Shell.Current.GoToAsync($"minimal3d?x={mx}&y={my}&yaw={ydeg}");
     }
 
     private async Task DispatchLocAsync(string locId, string cmd)
