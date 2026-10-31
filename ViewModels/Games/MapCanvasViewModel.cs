@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.Text.Json;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Maui.Dispatching;
@@ -26,6 +27,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly AudioController _audio;
     private readonly SceneCalibrationService _cal;
     private readonly ImageGenerationService _images;
+    private readonly VisionService _vision;
     public MapCanvasDrawable Drawable { get; } = new();
 
     [ObservableProperty] private ModeKind _mode = ModeKind.View;
@@ -85,7 +87,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     // 长按左键框选（编辑模式）：空白处按下并拖动即进入框选，松开结算。点击（未拖动）= 仅取消选择
 
     public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio,
-        SceneCalibrationService cal, ImageGenerationService images)
+        SceneCalibrationService cal, ImageGenerationService images, VisionService vision)
     {
         _engine = engine;
         _maps = maps;
@@ -93,6 +95,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         _audio = audio;
         _cal = cal;
         _images = images;
+        _vision = vision;
         _maps.SceneChanged += OnSceneChanged;
         Drawable.AttachBgResolver(node => _maps.ResolveBackground(node.Scene));
         Drawable.AttachLocationThumbResolver(loc =>
@@ -1077,6 +1080,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                     ("🖼 背景图（素材库）", "bg-lib"),
                     ("🖼 背景图（电脑导入）", "bg"),
                     ("📐 标定这张背景", "cal"),
+                    ("✨ AI 出简介", "ai-note"),
+                    ($"✨ AI 选站位：{(card.Scene.Placement?.Landing == LandingKinds.Point && PlacementMath.Validate(card.Scene.Placement).Ok ? "挪锚点" : "先标定")}", "ai-anchor"),
+                    ("✨ AI 画比例", "ai-ratio"),
                     ($"🚶 站位：{(card.Scene.FreePlacement ? "不规定（自由铺）" : "规定（走标定）")}", "stand"),
                     ("🗑 清除背景", "bg-clear"),
                     ($"🏢 所在楼层：{(card.Scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(card.Scene.Floor))}", "floor"),
@@ -1554,6 +1560,108 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 StatusText = string.IsNullOrWhiteSpace(scene.Note) ? "已清除备注" : "已保存备注";
                 Refresh();
                 break;
+            case "ai-note":     // ✨ AI 出简介：看图 → 预填 → 确认写「备注」
+            {
+                if (scene is null) return;
+                var desc = await AiLookAsync(scene,
+                    "这是一张游戏场景的背景图。用中文写 1~3 句让玩家有画面感的场景简介（会直接当这条场景的备注用）："
+                    + "说清这是什么地方、光线/时间、一两个突出的细节。不要寒暄、不要 Markdown、不要列条目，直接给正文。",
+                    260, "AI 正在看图…");
+                if (desc is null) return;   // AiLookAsync 里已 Toast 兜底
+                var note3 = await Shell.Current.DisplayPromptAsync("AI 出简介",
+                    "AI 看图写好了，可改可弃（「写入」后存进备注）：", "写入", "放弃",
+                    initialValue: desc, maxLength: 400);
+                if (note3 is null) { StatusText = ""; return; }
+                scene.Note = note3.Trim();
+                await _maps.SaveAsync();
+                StatusText = string.IsNullOrWhiteSpace(scene.Note) ? "已清空备注" : "AI 简介已写入备注";
+                Refresh();
+                break;
+            }
+            case "ai-anchor":   // ✨ AI 选站位：合法「点选」标定上挪锚点
+            {
+                if (scene is null) return;
+                if (scene.Placement is not { } pl
+                    || pl.Landing != LandingKinds.Point
+                    || !PlacementMath.Validate(pl).Ok)
+                {
+                    Toast.Info("AI 选站位要在已完成的「点选」标定上挪锚点：先用 📐 标定这张背景（缩放标定是前提）。");
+                    return;
+                }
+                var raw = await AiLookAsync(scene,
+                    "这是一张游戏场景的背景图，图里将要站一个真人（比例真实）。"
+                    + "请在图内选一个真实可站立的落脚位置：地面/地板上，不遮门窗、不在桌面或楼顶。"
+                    + "用归一化坐标表达：x 从左到右 0~1，y 从上到下 0~1（站得越靠画面下方，y 越大）。"
+                    + "只输出一个 JSON：{\"x\":0.5,\"y\":0.75}，不要任何别的文字。", 120, "AI 正在选站位…");
+                if (raw is null) return;
+                var spot = ParseJsonXy(raw);
+                if (spot is null)
+                {
+                    StatusText = "";
+                    Toast.Info("AI 给的不是可解析的坐标 JSON：" + OneLine(raw));
+                    return;
+                }
+                var ok = await Shell.Current.DisplayAlert("AI 选站位",
+                    $"AI 建议把落脚点挪到 ({spot.Value.X:0.00}, {spot.Value.Y:0.00})（图内归一化坐标，左上角为原点）。\n\n"
+                    + "挪动只改站位锚点，缩放标定保持不变。要挪过去吗？",
+                    "挪过去", "算了");
+                if (!ok) { StatusText = ""; return; }
+                var old = pl.Points[0];
+                pl.Points[0] = new NormPoint(spot.Value.X, spot.Value.Y);
+                var (anchorOk, anchorMissing) = PlacementMath.Validate(pl);
+                if (!anchorOk)
+                {
+                    pl.Points[0] = old;   // 不过闸就还原，不留半吊子状态
+                    StatusText = "";
+                    Toast.Info("AI 给的位置没过标定校验：" + string.Join("；", anchorMissing.Take(2)));
+                    return;
+                }
+                await _maps.SaveAsync();
+                StatusText = $"AI 已把「{scene.Name}」的锚点挪到 ({spot.Value.X:0.00}, {spot.Value.Y:0.00})";
+                Refresh();
+                break;
+            }
+            case "ai-ratio":    // ✨ AI 画比例：改 RefHeightRatio + 重过校验
+            {
+                if (scene is null) return;
+                if (scene.Placement is not { } pl2 || !PlacementMath.Validate(pl2).Ok)
+                {
+                    Toast.Info("AI 画比例要在已完成标定的场景上改：先用 📐 标定这张背景。");
+                    return;
+                }
+                var raw2 = await AiLookAsync(scene,
+                    "这是一张游戏场景的背景图。若让一个真人（比如主角）站到图里合理可站立的地面上（考虑透视深度），"
+                    + "他/她的身高大约占整张图片高度的比例是多少？ratio = 身高 ÷ 图片高度，取值 0.1~0.9："
+                    + "远景路面上约 0.1~0.25，中景房间约 0.3~0.55，凑近镜头最高 0.9。"
+                    + "只输出一个 JSON：{\"ratio\":0.4}，不要任何别的文字。", 120, "AI 正在估比例…");
+                if (raw2 is null) return;
+                var ratio = ParseJsonRatio(raw2);
+                if (ratio is null)
+                {
+                    StatusText = "";
+                    Toast.Info("AI 给的不是可解析的比例 JSON：" + OneLine(raw2));
+                    return;
+                }
+                var okRatio = await Shell.Current.DisplayAlert("AI 画比例",
+                    $"AI 估出人物身高约占图高 {ratio:0.00}（参考身高占比 0.1~0.9）。\n\n"
+                    + "写回后人物的整体缩放会随之变化。要用这个比例吗？",
+                    "用这个", "算了");
+                if (!okRatio) { StatusText = ""; return; }
+                var oldRatio = pl2.RefHeightRatio;
+                pl2.RefHeightRatio = ratio.Value;
+                var (ratioOk, ratioMissing) = PlacementMath.Validate(pl2);
+                if (!ratioOk)
+                {
+                    pl2.RefHeightRatio = oldRatio;
+                    StatusText = "";
+                    Toast.Info("AI 给的比例没过标定校验：" + string.Join("；", ratioMissing.Take(2)));
+                    return;
+                }
+                await _maps.SaveAsync();
+                StatusText = $"AI 已把「{scene.Name}」的参考身高占比改为 {ratio:0.00}";
+                Refresh();
+                break;
+            }
             case "floor":
             {
                 if (scene is null) return;
@@ -1895,6 +2003,84 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var ydeg = (yaw * 180 / Math.PI).ToString("0.##", CultureInfo.InvariantCulture);
         StatusText = "已按街面视角进入 3D（返回就回到 2D 编辑器）";
         await Shell.Current.GoToAsync($"minimal3d?x={mx}&y={my}&yaw={ydeg}");
+    }
+
+    // ============ AI 三钮共用工具 ============
+
+    /// <summary>
+    /// 让 AI 看场景背景：解析绝对路径、把「无图 / 未配置 / 空回话」统一 Toast 后返回 null，
+    /// 调用方直接收工即可。
+    /// </summary>
+    private async Task<string?> AiLookAsync(MapScene scene, string prompt, int maxTokens, string busyLabel)
+    {
+        var abs = _maps.ResolveBackground(scene);
+        if (string.IsNullOrWhiteSpace(abs))
+        {
+            Toast.Info("这个场景还没有背景图，AI 没东西可看。");
+            return null;
+        }
+        if (!_vision.IsConfigured)
+        {
+            Toast.Info("识图模型还没配置：请到设置里填好「识图端点 / 密钥 / 模型名」三项。");
+            return null;
+        }
+        StatusText = busyLabel;
+        var text = await _vision.DescribeImageAsync(abs, prompt, maxTokens);
+        if (string.IsNullOrWhiteSpace(text))
+        {
+            StatusText = "";
+            Toast.Info("AI 没回话：识图配置可能不通，或这次请求失败了。");
+            return null;
+        }
+        return text.Trim();
+    }
+
+    /// <summary>从 AI 回话里抠出 {"x":…,"y":…}：畸形/越界/null 一律拒绝，合法值钳到 2%..98%。</summary>
+    private static (double X, double Y)? ParseJsonXy(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var s = text.IndexOf('{');
+        var e = text.LastIndexOf('}');
+        if (s < 0 || e <= s) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(text.Substring(s, e - s + 1));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("x", out var xv) || xv.ValueKind != JsonValueKind.Number
+                || !root.TryGetProperty("y", out var yv) || yv.ValueKind != JsonValueKind.Number) return null;
+            var x = xv.GetDouble();
+            var y = yv.GetDouble();
+            if (!double.IsFinite(x) || !double.IsFinite(y)) return null;
+            return (Math.Clamp(x, 0.02, 0.98), Math.Clamp(y, 0.02, 0.98));
+        }
+        catch { return null; }
+    }
+
+    /// <summary>从 AI 回话里抠出 {"ratio":…}：钳到 PlacementMath 的 0.1~0.9。</summary>
+    private static double? ParseJsonRatio(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return null;
+        var s = text.IndexOf('{');
+        var e = text.LastIndexOf('}');
+        if (s < 0 || e <= s) return null;
+        try
+        {
+            using var doc = JsonDocument.Parse(text.Substring(s, e - s + 1));
+            var root = doc.RootElement;
+            if (root.ValueKind != JsonValueKind.Object
+                || !root.TryGetProperty("ratio", out var rv) || rv.ValueKind != JsonValueKind.Number) return null;
+            var r = rv.GetDouble();
+            return double.IsFinite(r) ? Math.Clamp(r, 0.1, 0.9) : null;
+        }
+        catch { return null; }
+    }
+
+    /// <summary>Toast 里塞 AI 原话用：压成一行、截到 160 字，避免弹窗变成小说。</summary>
+    private static string OneLine(string? s)
+    {
+        var t = (s ?? "").Replace("\r", " ").Replace("\n", " ").Trim();
+        return t.Length <= 160 ? t : t[..157] + "…";
     }
 
     private async Task DispatchLocAsync(string locId, string cmd)
