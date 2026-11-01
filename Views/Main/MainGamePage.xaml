@@ -258,6 +258,7 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                                       IsVisible="{Binding SceneVideoOn}"
                                       Aspect="AspectFill" Opacity="0.55"
                                       ShouldAutoPlay="True" ShouldLoopPlayback="True"
+                                      ShouldMute="False" Volume="{Binding SceneVideoVolume}"
                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 场景亮度遮罩（同手机版说明） -->
                 <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
