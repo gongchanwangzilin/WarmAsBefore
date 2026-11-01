@@ -69,6 +69,8 @@ public sealed class MapImportOptions
     public int MaxRoads { get; set; } = 1200;
     public int MaxBuildings { get; set; } = 600;
     public int MaxPois { get; set; } = 300;
+    /// <summary>地块（公园/湖/住宅区）个数上限：一张城市级的图能捞上万片，画布不需要那么多地表。</summary>
+    public int MaxRegions { get; set; } = 200;
 
     /// <summary>预设档说的是整幅图的边长（半径取一半），这样才念得对得上「一公里」「五公里」。</summary>
     public static readonly (string Label, double Radius)[] Presets =
@@ -91,6 +93,8 @@ public sealed class MapBuildResult
     public int Buildings { get; set; }
     public int NamedPlaces { get; set; }
     public int Junctions { get; set; }
+    /// <summary>这次落了几块地（绿地/水面/航道/广场/分区）。</summary>
+    public int Regions { get; set; }
     public double MetersPerUnit { get; set; } = 1;
     /// <summary>这次实际取到的范围（人话）。</summary>
     public string Extent { get; set; } = "";
@@ -349,6 +353,11 @@ public sealed class MapImportService
         q.Append($"way[\"highway\"]({box});\n");
         q.Append($"way[\"waterway\"]({box});\n");
         q.Append($"way[\"building\"]({box});\n");
+        // 地表：公园、湖、住宅区这一类「一片」的东西。只认这几样值——全量 landuse/natural 能把一次请求撑爆，
+        // 而我们真正想铺的只有这一层底色。
+        q.Append($"way[\"landuse\"~\"^(grass|forest|meadow|orchard|vineyard|recreation_ground|cemetery|allotments|farmland|village_green|residential|retail|commercial|industrial|institutional|university)$\"]({box});\n");
+        q.Append($"way[\"natural\"~\"^(water|wood|wetland|scrub|beach)$\"]({box});\n");
+        q.Append($"way[\"leisure\"~\"^(park|garden|playground|pitch|nature_reserve|square)$\"]({box});\n");
         q.Append($"node[\"shop\"][\"name\"]({box});\n");
         q.Append($"node[\"amenity\"][\"name\"]({box});\n");
         q.Append($"way[\"shop\"][\"name\"]({box});\n");
@@ -380,7 +389,15 @@ public sealed class MapImportService
         public string Highway = "";
         public string Waterway = "";
         public string Building = "";
+        /// <summary>用地性质（grass/forest/residential…）：地块的第一来源。</summary>
+        public string Landuse = "";
+        /// <summary>自然要素（water/wood/wetland…）：湖与林的来源。</summary>
+        public string Natural = "";
+        /// <summary>游憩设施（park/garden/square…）：公园与广场的来源。</summary>
+        public string Leisure = "";
         public string Name = "";
+        /// <summary>道路编号（G/S/X/Y/C + 数字）：县道、乡道只在这里认得出来。</summary>
+        public string Ref = "";
         public string Address = "";
         public string Oneway = "";
         public string Junction = "";
@@ -392,7 +409,8 @@ public sealed class MapImportService
         public int Levels;
         public int Basement;
         public int Layer;
-        public bool IsRoad => Highway.Length > 0 || Waterway.Length > 0;
+        /// <summary>河道边（riverbank）是一「片」水，不是能走的「一条」：它归地块，别混进路网。</summary>
+        public bool IsRoad => Highway.Length > 0 || (Waterway.Length > 0 && Waterway != "riverbank");
     }
 
     private static MapBuildResult BuildFromOverpass(string json, MapSearchHit hit, MapImportOptions o,
@@ -442,6 +460,17 @@ public sealed class MapImportService
             else g.AddPolylineRoad(w, road, speed, reverse, o.MaxRoads);
         }
 
+        // —— 2.5 地表：公园、湖、住宅区圈成一块块淡色，铺在路网底下。角色不从它上面走，它只回答「这一片是什么」。
+        foreach (var w in ways.Where(x => !x.IsRoad).OrderByDescending(x => x.Name.Length > 0))
+        {
+            var kind = RegionKindOf(w);
+            if (kind.Length == 0) continue;
+            if (map.Regions.Count >= o.MaxRegions) { g.Truncated = true; break; }
+            var outline = CollectOutline(w, nodes, g);
+            if (outline.Count < (kind == RegionKinds.Route ? 2 : 3)) continue;
+            map.Regions.Add(new MapRegion { Name = w.Name, Kind = kind, Points = outline });
+        }
+
         // —— 3. 建筑与带名字的店：有名字的优先留住，光秃秃的轮廓排在后面。
         var buildings = 0;
         var pois = 0;
@@ -479,11 +508,12 @@ public sealed class MapImportService
             Buildings = buildings,
             NamedPlaces = named,
             Junctions = map.Transits.Count,
+            Regions = map.Regions.Count,
             MetersPerUnit = mpu,
             Extent = $"{eastMeters / 1000:0.##} × {northMeters / 1000:0.##} 公里",
             Truncated = g.Truncated,
             Warning = g.Truncated
-                ? $"已经按上限截过一轮（道路 {o.MaxRoads} 条 / 建筑 {o.MaxBuildings} 栋 / 店名 {o.MaxPois} 家）。"
+                ? $"已经按上限截过一轮（道路 {o.MaxRoads} 条 / 建筑 {o.MaxBuildings} 栋 / 店名 {o.MaxPois} 家 / 地块 {o.MaxRegions} 片）。"
                   + "把范围缩小一点能拿全：一张图塞太满，安卓端画布与寻路都会先撑不住。"
                 : "",
         };
@@ -531,7 +561,7 @@ public sealed class MapImportService
                 if (w.Nodes.Length < 2) continue;
                 if (el.TryGetProperty("tags", out var tags) && tags.ValueKind == JsonValueKind.Object)
                     ReadWayTags(tags, w);
-                if (!w.IsRoad && w.Building.Length == 0 && w.Name.Length == 0) continue;
+                if (!w.IsRoad && w.Building.Length == 0 && w.Name.Length == 0 && !IsRegionWay(w)) continue;
                 ways.Add(w);
             }
         }
@@ -552,7 +582,11 @@ public sealed class MapImportService
                 case "highway": w.Highway = v; break;
                 case "waterway": w.Waterway = v; break;
                 case "building": w.Building = v; break;
+                case "landuse": w.Landuse = v; break;
+                case "natural": w.Natural = v; break;
+                case "leisure": w.Leisure = v; break;
                 case "name": w.Name = v; break;
+                case "ref": w.Ref = v; break;
                 case "oneway": w.Oneway = v; break;
                 case "junction": w.Junction = v; break;
                 case "bridge": w.Bridge = v is "yes" or "true" or "1"; break;
@@ -613,15 +647,39 @@ public sealed class MapImportService
 
     private static (string Road, bool Reverse) MapRoadKind(RawWay w)
     {
-        if (w.Waterway.Length > 0) return (RoadKinds.Waterway, false);
-        var cls = RawClass(w.Highway);
+        var cls = RoadClassOf(w);
         if (cls.Length == 0) return ("", false);
+        if (w.Waterway.Length > 0) return (RoadKinds.Waterway, false);
         if (w.Tunnel) return (RoadKinds.Tunnel, false);
         if (w.Bridge) return (RoadKinds.Bridge, false);
         return (cls, w.Oneway == "-1");   // -1 = 通行方向与画出来的节点顺序相反，把端点对调过来
     }
 
-    private static string RoadClassOf(RawWay w) => w.Waterway.Length > 0 ? RoadKinds.Waterway : RawClass(w.Highway);
+    /// <summary>一条 way 的道路类别：先认编号，认不出再按 highway 标签归档。</summary>
+    private static string RoadClassOf(RawWay w)
+    {
+        if (w.Waterway.Length > 0) return RoadKinds.Waterway;
+        // OSM 不写中国的行政等级，只写编号：X=县道、Y=乡道、C=村道（与高德/天地图同一套前缀）。
+        // 没有编号的（城里绝大多数）照旧走 highway 标签那套档，G/S 开头也不抢——那是国道省道，仍归快速路。
+        var byRef = CountyRuralOf(w.Ref);
+        return byRef.Length > 0 ? byRef : RawClass(w.Highway);
+    }
+
+    /// <summary>从道路编号认县道/乡道；不是「字母+纯数字」这一族（如「S50」别名、「X-1」）就不认。</summary>
+    private static string CountyRuralOf(string @ref)
+    {
+        if (string.IsNullOrWhiteSpace(@ref)) return "";
+        var head = @ref.Trim().ToUpperInvariant();
+        if (head.Length < 2 || !char.IsLetter(head[0])) return "";
+        for (var i = 1; i < head.Length; i++)
+            if (!char.IsDigit(head[i])) return "";
+        return head[0] switch
+        {
+            'X' => RoadKinds.County,
+            'Y' or 'C' => RoadKinds.Rural,
+            _ => "",
+        };
+    }
 
     /// <summary>OSM 的 highway=* 到本项目道路类别的对照；空串表示这条不要进图。</summary>
     private static string RawClass(string highway) => highway switch
@@ -636,21 +694,44 @@ public sealed class MapImportService
         _ => "",
     };
 
+    /// <summary>
+    /// 一条 way 铺成哪种地：先认水面（湖、河道边、湿地），再认绿地（公园、林地、草地、墓园），
+    /// 再认广场，最后才是「这一片叫某某区」的分区。空串 = 不是地块（楼、路、店都走别的路）。
+    /// </summary>
+    private static string RegionKindOf(RawWay w)
+    {
+        if (!IsClosedRing(w)) return "";
+        if (w.Waterway == "riverbank" || w.Natural is "water" or "wetland") return RegionKinds.Water;
+        if (w.Leisure is "park" or "garden" or "nature_reserve" or "playground" or "pitch") return RegionKinds.Green;
+        if (w.Natural is "wood" or "scrub") return RegionKinds.Green;
+        if (w.Landuse is "grass" or "forest" or "meadow" or "orchard" or "vineyard"
+            or "recreation_ground" or "cemetery" or "allotments" or "farmland" or "village_green") return RegionKinds.Green;
+        if (w.Leisure == "square") return RegionKinds.Plaza;
+        if (w.Landuse is "residential" or "retail" or "commercial" or "industrial"
+            or "institutional" or "university") return RegionKinds.District;
+        return "";
+    }
+
+    /// <summary>Overpass 回来的 way 一大堆：只有真能当地块铺的才留进内存。</summary>
+    private static bool IsRegionWay(RawWay w) => RegionKindOf(w).Length > 0;
+
     /// <summary>被截断时的保留次序：高速与主干道先留，无名小路最后丢。</summary>
     private static int RoadPriority(RawWay w)
     {
         if (w.IsRoad)
         {
-            var c = w.Waterway.Length > 0 ? RoadKinds.Waterway : RawClass(w.Highway);
-            if (w.Name.Length > 0 && c is RoadKinds.Street or RoadKinds.Trunk or RoadKinds.Highway) return 1;
+            var c = RoadClassOf(w);
+            if (w.Name.Length > 0 && c is RoadKinds.Street or RoadKinds.Trunk or RoadKinds.Highway or RoadKinds.County) return 2;
             return c switch
             {
                 RoadKinds.Highway or RoadKinds.Trunk => 0,
-                RoadKinds.Street or RoadKinds.Bridge or RoadKinds.Tunnel => 2,
-                RoadKinds.Lane => 3,
-                RoadKinds.Walkway or RoadKinds.Steps => 4,
-                RoadKinds.Waterway => 5,
-                _ => 6,
+                RoadKinds.County => 1,
+                RoadKinds.Street or RoadKinds.Bridge or RoadKinds.Tunnel => 3,
+                RoadKinds.Rural => 4,
+                RoadKinds.Lane => 5,
+                RoadKinds.Walkway or RoadKinds.Steps => 6,
+                RoadKinds.Waterway => 7,
+                _ => 8,
             };
         }
         if (w.Name.Length > 0) return 1;

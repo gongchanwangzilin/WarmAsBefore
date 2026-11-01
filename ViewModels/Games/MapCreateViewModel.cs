@@ -50,6 +50,7 @@ public sealed partial class MapCreateViewModel : ObservableObject
     [ObservableProperty] private bool _isFillingBackground;
     [ObservableProperty] private double _bgProgress;
     [ObservableProperty] private string _bgProgressText = "";
+    [ObservableProperty] private bool _signalUseAmap;
 
     public MapCreateViewModel(MapService maps, MapImportService importer, MapBackgroundService backgrounds)
     {
@@ -90,6 +91,13 @@ public sealed partial class MapCreateViewModel : ObservableObject
         ? "已填 Key：检索走高德，道路与建筑详情仍取自开放街道图。"
         : "没填 Key 也能用：检索退回开放街道图，只是国内的中文店名与小马路会少一些。";
 
+    /// <summary>判灯这档默认关（§9），所以说明要先讲清楚「关着是什么样」。</summary>
+    public string SignalSourceState => SignalUseAmap
+        ? HasAmapKey
+            ? "开着：灯色跟着高德实时路况走（畅通绿、缓行黄、拥堵红），同一条路 60 秒才问一次。路名对不上或断了，这一盏仍回本地倒计时。"
+            : "开着但没填 Key：每次都会问不到，实际还是本地倒计时——要真路况先存 Key。"
+        : "关着（默认）：灯色只按每盏灯自己的周期走，不联网。流程图里判「绿灯能不能走」用的就是它。";
+
     // ==================== 进页面 ====================
 
     public async Task LoadAsync()
@@ -98,6 +106,7 @@ public sealed partial class MapCreateViewModel : ObservableObject
         HasAmapKey = _importer.HasAmapKey;
         SourceNote = _importer.SourceNote;
         ImagesEnabled = _backgrounds.Enabled;
+        SignalUseAmap = TrafficSignalService.UseAmap;
         try { await _maps.InitializeAsync(); }
         catch (Exception ex) { App.WriteLog("MapCreateViewModel.LoadAsync -> " + ex); }
         RefreshMapState();
@@ -150,6 +159,17 @@ public sealed partial class MapCreateViewModel : ObservableObject
     partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanRunAi));
 
     partial void OnImagesEnabledChanged(bool value) => OnPropertyChanged(nameof(CanRunAi));
+
+    partial void OnSignalUseAmapChanged(bool value)
+    {
+        // 进页面回填时值本来就没变：这一眼判断让 LoadAsync 不写设置、也不顶掉那句开场提示。
+        if (TrafficSignalService.UseAmap == value) return;
+        TrafficSignalService.SetUseAmap(value);
+        OnPropertyChanged(nameof(SignalSourceState));
+        Toast.Info(value
+            ? "红绿灯改看高德路况：问不到仍自动退回本地倒计时。"
+            : "红绿灯回到本地倒计时：不联网，按每盏灯自己的周期走。");
+    }
 
     private void SyncPresets()
     {
@@ -205,7 +225,8 @@ public sealed partial class MapCreateViewModel : ObservableObject
     {
         PreviewText = $"这一片实际取到：{built.Roads} 段道路 · {built.Buildings} 栋建筑 · "
             + $"{built.NamedPlaces} 个带名字的店铺或地点 · {built.Junctions} 个路口节点\n"
-            + $"{built.ScaleText} · 覆盖 {built.Extent}";
+            + $"{built.ScaleText} · 覆盖 {built.Extent}"
+            + (built.Regions > 0 ? $"\n地表：{built.Regions} 片绿地 / 水面 / 分区，铺在路底下，不参与走路" : "");
         var bits = new List<string>();
         if (built.Truncated) bits.Add(built.Warning);
         if (built.Buildings == 0 && built.Roads == 0)
@@ -405,6 +426,7 @@ public sealed partial class MapCreateViewModel : ObservableObject
         HasAmapKey = _importer.HasAmapKey;
         SourceNote = _importer.SourceNote;
         OnPropertyChanged(nameof(AmapKeyState));
+        OnPropertyChanged(nameof(SignalSourceState));
         if (quiet) return;
         Toast.Info(HasAmapKey
             ? "已存下高德 Key：下一次检索改走高德。"
