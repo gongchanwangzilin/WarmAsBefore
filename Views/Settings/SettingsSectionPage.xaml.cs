@@ -36,21 +36,26 @@ public partial class SettingsSectionPage : ContentPage
         _ = BuildSectionAsync();
     }
 
-    /// <summary>卡片宽度匹配屏幕：窄屏铺满，宽屏最多 1080（一行文字再长就难读了）。</summary>
+    /// <summary>卡片宽度匹配屏幕：跟窗走（填满 + 两侧 Margin 居中），宽屏止步于宽档令牌 WCardWidthWide。</summary>
     private void ApplyResponsiveWidth()
     {
         try
         {
             var w = Width;
             if (w <= 0) return;
-            // 内容最多 1200：宽屏时两侧留白把它居中；Center 会让容器按内容收缩（卡片就会变窄），
-            // 所以这里用「填满 + 两侧 Margin」的写法。
+            // 与首页同一套：「填满 + 两侧 Margin」写了也不信内容测量——Center 会让容器按内容收缩。
+            var tokenWide = 0d;
+            if (Application.Current?.Resources.TryGetValue("WCardWidthWide", out var v) == true
+                && v is double d && d > 0)
+                tokenWide = d;
+            else
+                tokenWide = Math.Clamp(Math.Round(w * 0.9), 320, 1600);
             var available = Math.Max(0, w - 48);
-            var side = Math.Max(24, (available - 1200) / 2);
+            var side = Math.Max(0, (available - tokenWide) / 2);
             if (Math.Abs(side - _lastSide) > 1)
             {
                 _lastSide = side;
-                Services.PerfLog.Note("设置页宽度", $"Width={w:0} → 内容 {available - 2 * side:0}（两侧各留白 {side:0}）");
+                App.WriteLog($"SectionPage.Width W={w:0} 内容列={available - 2 * side:0}（两侧各留白 {side:0}）");
             }
             SectionBody.Margin = new Thickness(side, 0, side, 0);
         }

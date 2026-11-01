@@ -2282,10 +2282,8 @@
         
 
         <ScrollView Grid.Row="1" Padding="24,16,24,24">
-            <!-- 内容列上限走令牌：设置正文单列，宽屏用宽档（WCardWidthWide，跟窗口按比例走） -->
-            <VerticalStackLayout x:Name="SectionBody" HorizontalOptions="Center" Spacing="16"
-                                 MaximumWidthRequest="{DynamicResource WCardWidthWide}"
-                                 >
+            <!-- 内容列宽由 code-behind 显式定（侧 Margin 居中、WCardWidthWide 封顶）——Center 会按内容测量收缩，双栏时测出 880 的惨案就是它 -->
+            <VerticalStackLayout x:Name="SectionBody" Spacing="16">
                 <!-- 分类标题与说明：进来先知道这一页是干什么的 -->
                 <VerticalStackLayout Spacing="4">
                     <Label x:Name="SectionTitleLabel" Style="{StaticResource TxtTitle}" />
