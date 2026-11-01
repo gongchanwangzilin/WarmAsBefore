@@ -33,10 +33,11 @@
             <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Center" Spacing="12"
                                  MaximumWidthRequest="{DynamicResource WCardWidthWide}">
 
-                <!-- 大标题：iOS 的 large title，和顶栏的小标题并存（那是导航栏标题，这里才是这一页的名字） -->
-                <Label Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                <!-- 大标题：iPhone 的 large title，只有窄屏摆（手机上那是唯一看得见的页名）。
+                     电脑上顶栏已有页面名，再顶一个大大的「设置」就是拿手机排宽屏的错觉来源之一。 -->
+                <Label x:Name="BigTitle" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
                        Style="{StaticResource TxtDisplay}" Margin="2,0,0,0" />
-                <Label Text="选择一处，开始调校" Style="{StaticResource TxtCaption}" Margin="2,-8,0,4" />
+                <Label x:Name="BigSubtitle" Text="选择一处，开始调校" Style="{StaticResource TxtCaption}" Margin="2,-8,0,4" />
 
                 <!-- 搜索：设置项多，先搜再点比一页页翻快。 -->
                 <Border Style="{StaticResource CardSolid}">

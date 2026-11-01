@@ -7,12 +7,11 @@ using WarmAsBefore.Services;
 
 namespace WarmAsBefore.ViewModels;
 
-/// <summary>悬停按钮目录项：id 是设置里存的键，glyph/name 只服务这一页的展示。</summary>
+/// <summary>悬停按钮目录项：id 是设置里存的键，name 只服务这一页的展示。</summary>
 public sealed partial class PetHoverOption : ObservableObject
 {
     public string Id { get; init; } = "";
     public string Name { get; init; } = "";
-    public string Glyph { get; init; } = "";
     [ObservableProperty] private bool _isOn;
 }
 
@@ -273,13 +272,13 @@ public sealed partial class PetSettingsViewModel : ObservableObject
     private void BuildHoverCatalog()
     {
         // sleep（睡觉）没有现成的休眠表现，暂不列出；接线后加回
-        foreach (var (id, name, glyph) in new[]
+        foreach (var (id, name) in new[]
                  {
-                     ("talk", "说话", "💬"), ("think", "想一次", "💭"), ("pet", "摸摸头", "🤚"),
-                     ("purr", "呼噜", "💗"), ("walk", "走走", "🚶"), ("settings", "设置", "⚙"), ("home", "回窗口", "🏠"),
+                     ("talk", "说话"), ("think", "想一次"), ("pet", "摸摸头"),
+                     ("purr", "呼噜"), ("walk", "走走"), ("settings", "设置"), ("home", "回窗口"),
                  })
         {
-            var opt = new PetHoverOption { Id = id, Name = name, Glyph = glyph };
+            var opt = new PetHoverOption { Id = id, Name = name };
             opt.PropertyChanged += (_, e) =>
             {
                 if (e.PropertyName != nameof(PetHoverOption.IsOn)) return;
