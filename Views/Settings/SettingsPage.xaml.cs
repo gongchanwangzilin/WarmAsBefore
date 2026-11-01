@@ -54,11 +54,11 @@ public partial class SettingsPage : ContentPage
         {
             var w = Width;
             if (w <= 0) return;
-            var side = Math.Max(24, (w - 48 - 1240) / 2);
+            var side = Math.Max(0, (w - Math.Clamp(w * 0.9, 320, 1600)) / 2);
             if (Math.Abs(side - _lastSide) > 1)
             {
                 _lastSide = side;
-                Services.PerfLog.Note("设置页宽度", $"Width={w:0} → 内容列按 WCardWidthWide 收口（两侧各留白 {side:0}）");
+                Services.PerfLog.Note("设置页宽度", $"Width={w:0} → 内容列 0.9×窗宽（1600 封顶），两侧留白 {side:0}");
             }
         }
         catch (Exception ex) { App.WriteLog("SettingsPage.Width -> " + ex.Message); }
