@@ -437,6 +437,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [RelayCommand]
     private async Task Open3d() => await Shell.Current.GoToAsync("minimal3d");
 
+    /// <summary>流程图：什么时候看、条件成不成立、依次做什么。</summary>
+    [RelayCommand]
+    private async Task OpenFlows() => await Shell.Current.GoToAsync("flows");
+
     [RelayCommand]
     private async Task AddLocation()
     {
