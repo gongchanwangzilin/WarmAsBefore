@@ -231,7 +231,7 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <!-- ============ 五、自己的文件 / 高德 Key ============ -->
+                <!-- ============ 五、自己的文件 / 高德 Key / 判灯 ============ -->
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="0">
                         <Border Style="{StaticResource SettingRow}">
@@ -260,6 +260,19 @@
                                             Command="{Binding SaveKeyCommand}" />
                                 </Grid>
                             </VerticalStackLayout>
+                        </Border>
+                        <BoxView Style="{StaticResource HSepInset}" />
+                        <Border Style="{StaticResource SettingRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                    <Label Text="红绿灯看高德路况" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Text="{Binding SignalSourceState}" Style="{StaticResource TxtRowDesc}"
+                                           LineBreakMode="WordWrap" />
+                                </VerticalStackLayout>
+                                <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SignalUseAmap, Mode=TwoWay}"
+                                        VerticalOptions="Center" OnColor="{DynamicResource BeigeAccent300}"
+                                        ThumbColor="{DynamicResource WarmWhite}" />
+                            </Grid>
                         </Border>
                     </VerticalStackLayout>
                 </Border>

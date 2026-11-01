@@ -61,6 +61,8 @@ public static class CoreRegistration
         services.AddSingleton<MapBackgroundService>();
         // 小地图取材：整图几何快照（复用 3D 那份）按当前场景裁一圈，单例才留得住缓存
         services.AddSingleton<MinimapService>();
+        // 红绿灯：默认本地倒计时，开着才去问高德路况（问不着就静默退回本地）
+        services.AddSingleton<TrafficSignalService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
         services.AddSingleton<SceneCalibrationService>();
         services.AddSingleton<LingshuImporter>();

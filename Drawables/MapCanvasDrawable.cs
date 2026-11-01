@@ -2,6 +2,7 @@ using Microsoft.Maui.Graphics;
 using WarmAsBefore.DesignSystem.Worlds;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
+using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Drawables;
@@ -27,6 +28,14 @@ public sealed class MapCanvasDrawable : IDrawable
     public IReadOnlyList<MapTransitNode>? Transits { get; set; }
     public IReadOnlyList<MapEdge>? Edges { get; set; }
     public IReadOnlyList<MapLocation>? Locations { get; set; }
+    /// <summary>地块（绿地/水面/航道/广场/分区）：画在所有路底下的地表。</summary>
+    public IReadOnlyList<MapRegion>? Regions { get; set; }
+
+    /// <summary>
+    /// 实时路况判出来的灯色（连线 Id → 灯色）。只有开了「红绿灯看高德路况」才有这一份；
+    /// 没开着、或这条路还没问到（路没名、断了）就留空，那颗灯照每盏灯自己的本地周期画。
+    /// </summary>
+    public IReadOnlyDictionary<string, string>? LiveLights { get; set; }
 
     // ---- 视口 ----
     public double OffsetX { get; set; }
@@ -85,6 +94,10 @@ public sealed class MapCanvasDrawable : IDrawable
     // ---- 交互状态 ----
     public MapCanvasNode? SelectedNode { get; set; }
     public string? SelectedEdgeId { get; set; }
+    /// <summary>编辑器里选中的地块（画布高亮、右键菜单认它）。</summary>
+    public string? SelectedRegionId { get; set; }
+    /// <summary>「圈一块地」进行中的角点（世界坐标）：橡皮筋跟着光标，先让人看清这块地长什么样。</summary>
+    public List<Point> RegionDraft { get; } = new();
     /// <summary>长按左键框选矩形（世界坐标；null=未框选）。</summary>
     public RectF? MarqueeRect { get; set; }
     /// <summary>框选命中的地点 Id 集合（右键新建场景时优先归属这里的唯一地点）。</summary>
@@ -131,6 +144,9 @@ public sealed class MapCanvasDrawable : IDrawable
         _dirty = dirtyRect;
         DrawGrid(canvas, dirtyRect);
 
+        // 地表在最底下：先铺地块（一片公园、一条河、一块校区），再往上长路、楼与字。
+        if (Regions is not null) foreach (var r in Regions) DrawRegion(canvas, r, dirtyRect);
+
         // 远景只画大框：卡片与字在 0.3 倍下糊成一团，画了反而看不清城市结构。
         var lod = Detail;
 
@@ -138,6 +154,7 @@ public sealed class MapCanvasDrawable : IDrawable
 
         if (Edges is not null) foreach (var e in Edges) DrawEdge(canvas, e, dirtyRect);
         if (LinkStartNode is not null || LinkStartTransit is not null) DrawLinkPreview(canvas);
+        if (RegionDraft.Count > 0) DrawRegionDraft(canvas);
 
         if (lod != Lod.Far)
         {
@@ -185,6 +202,79 @@ public sealed class MapCanvasDrawable : IDrawable
             canvas.DrawString(loc.Name, sp.X + 3, sp.Y, sp.Width - 6, (float)Math.Max(11, 15 * Scale),
                 HorizontalAlignment.Left, VerticalAlignment.Center);
         }
+    }
+
+    /// <summary>
+    /// 一块地该怎么铺：面状类别填一层淡色再描圈边；航道是细长一条，按「路基→路面」两条带子画，
+    /// 跟路同一套画法，读图时才知道那是能走的一条线、不块绿地。MinScale 之下这一类不露面。
+    /// </summary>
+    private static (string Fill, string Line, double Width, double MinScale, bool Dash) RegionStyle(string? kind) => kind switch
+    {
+        RegionKinds.Water => ("#9FC8DE", "#2F6A85", 1.2, 0.24, false),
+        RegionKinds.Plaza => ("#E7DCC8", "#A08A62", 1.0, 0.30, false),
+        RegionKinds.District => ("#C9A8E1", "#6B4A8A", 1.6, 0.18, true),
+        RegionKinds.Route => ("#A8CFE0", "#2F6A85", 3.6, 0.26, true),
+        _ => ("#9CC49A", "#4E6B4A", 1.2, 0.24, false),
+    };
+
+    private void DrawRegion(ICanvas canvas, MapRegion r, RectF dirty)
+    {
+        if (!r.HasShape) return;
+        var style = RegionStyle(r.Kind);
+        var selected = SelectedRegionId == r.Id;
+        if (Scale < style.MinScale && !selected) return;
+
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (var p in r.Points)
+        {
+            minX = Math.Min(minX, (float)p.X);
+            minY = Math.Min(minY, (float)p.Y);
+            maxX = Math.Max(maxX, (float)p.X);
+            maxY = Math.Max(maxY, (float)p.Y);
+        }
+        if (!InView(minX, minY, maxX - minX, maxY - minY, dirty, 120)) return;
+
+        var linear = RegionKinds.IsLinear(r.Kind);
+        var path = new PathF();
+        path.MoveTo(ScreenPt(new Point(r.Points[0].X, r.Points[0].Y)));
+        for (var i = 1; i < r.Points.Count; i++) path.LineTo(ScreenPt(new Point(r.Points[i].X, r.Points[i].Y)));
+        if (!linear) path.Close();
+
+        var ink = selected ? Color.FromArgb("#5D4037") : ParseHex(style.Line, "#4E6B4A");
+        var w = Math.Max(0.8, style.Width * Scale);
+        if (style.Dash) canvas.StrokeDashPattern = new[] { 6f, 4f };
+
+        if (linear)
+        {
+            canvas.StrokeColor = ink.WithAlpha(0.75f);
+            canvas.StrokeSize = (float)(w + Math.Max(1.0, w * 0.4));
+            canvas.DrawPath(path);
+            canvas.StrokeColor = ParseHex(style.Fill, "#A8CFE0").WithAlpha(selected ? 1f : 0.9f);
+            canvas.StrokeSize = (float)w;
+            canvas.DrawPath(path);
+        }
+        else
+        {
+            // 分区只是「这片叫这个名字」，不占地表颜色；绿化与水面才真的铺一层地皮。
+            var skin = r.Kind == RegionKinds.District ? 0.10f : 0.42f;
+            canvas.FillColor = ParseHex(style.Fill, "#9CC49A").WithAlpha(skin);
+            canvas.FillPath(path);
+            canvas.StrokeColor = ink.WithAlpha(0.8f);
+            canvas.StrokeSize = selected ? 2.4f : (float)w;
+            canvas.DrawPath(path);
+        }
+        canvas.StrokeDashPattern = null;
+
+        if (r.Name.Length > 0 && Detail != Lod.Far)
+            DrawRoadName(canvas, ScreenPt(Centroid(r.Points)), r.Name);
+    }
+
+    /// <summary>多边形顶点的平均位置：地块的名字压在这儿。</summary>
+    private static Point Centroid(IReadOnlyList<MapWaypoint> pts)
+    {
+        double x = 0, y = 0;
+        foreach (var p in pts) { x += p.X; y += p.Y; }
+        return new Point(x / pts.Count, y / pts.Count);
     }
 
     private void DrawGrid(ICanvas canvas, RectF dirty)
@@ -482,6 +572,8 @@ public sealed class MapCanvasDrawable : IDrawable
     {
         RoadKinds.Highway => (7.2, "#E3B34C", "#6B4A18", 0.28, false),
         RoadKinds.Trunk => (5.6, "#E8C97A", "#7A5620", 0.30, false),
+        RoadKinds.County => (4.8, "#DFC489", "#705122", 0.32, false),
+        RoadKinds.Rural => (3.2, "#D9CBB2", "#6F5E46", 0.45, false),
         RoadKinds.Street => (4.0, "#D8C3AA", "#6E5240", 0.34, false),
         RoadKinds.Lane => (2.4, "#E4D6C4", "#7A5F4A", 0.62, false),
         RoadKinds.Walkway => (1.8, "#BFD6BC", "#4E6B4A", 0.60, true),
@@ -492,6 +584,23 @@ public sealed class MapCanvasDrawable : IDrawable
         RoadKinds.Interior => (1.4, "#E7D9A8", "#8A6D1A", 0.70, true),
         _ => (4.0, "#D8C3AA", "#6E5240", 0.34, false),
     };
+
+    /// <summary>灯色：红停绿走黄等一等，三颗色是钉死的——灯不随世界换色，换到暗世界上也一眼读得出。</summary>
+    private static Color SignalFill(string? state) => state switch
+    {
+        SignalKinds.Green => Color.FromArgb("#4E9A5B"),
+        SignalKinds.Yellow => Color.FromArgb("#E0A93B"),
+        _ => Color.FromArgb("#D2544A"),
+    };
+
+    /// <summary>
+    /// 这一颗灯现在该画什么色。绘制在 UI 线程每一帧都跑，所以这里绝不开口问网络：
+    /// 实时那份是 VM 慢慢灌进 <see cref="LiveLights"/> 的，字典里没有就退回本地周期。
+    /// </summary>
+    private string LightKindOf(MapEdge e)
+        => LiveLights is { } live && live.TryGetValue(e.Id, out var kind) && kind.Length > 0
+            ? kind
+            : SignalClock.Now(e, true).Kind;
 
     /// <summary>这条路的可见包围盒（端点 + 折点），用来把屏外的路整条跳过。</summary>
     private RectF EdgeBounds(MapEdge e)
@@ -566,7 +675,9 @@ public sealed class MapCanvasDrawable : IDrawable
             var sp = ScreenPt(mid);
             if (e.TrafficLight)
             {
-                canvas.FillColor = Color.FromArgb("#D2544A");
+                // 只画灯色，不写倒计时：字一多这张图就没法看了，秒数留给详细信息与流程图。
+                // 认的是「顺着箭头那一侧（A→B）」现在能不能走：红=停，绿=过。
+                canvas.FillColor = SignalFill(LightKindOf(e));
                 canvas.FillEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
                 canvas.StrokeColor = Color.FromArgb("#FFFDF9");
                 canvas.StrokeSize = 1.4f;
@@ -654,6 +765,34 @@ public sealed class MapCanvasDrawable : IDrawable
         {
             var sp = ScreenPt(p);
             canvas.FillEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
+        }
+    }
+
+    /// <summary>圈地进行中：虚线多边形 + 每个角一个小圆点 + 一条跟着光标的橡皮筋。</summary>
+    private void DrawRegionDraft(ICanvas canvas)
+    {
+        var pts = new List<Point>(RegionDraft);
+        var ink = Color.FromArgb("#C9A227");
+        if (RegionDraft.Count >= 3 && Mouse is { } m) pts.Add(ScreenToWorld(m));
+        if (pts.Count >= 3) pts.Add(pts[0]);                       // 首尾接上才看得出这是个圈
+
+        canvas.StrokeSize = 2;
+        canvas.StrokeDashPattern = new[] { 6f, 4f };
+        canvas.StrokeColor = ink;
+        var path = new PathF();
+        path.MoveTo(ScreenPt(pts[0]));
+        foreach (var p in pts.Skip(1)) path.LineTo(ScreenPt(p));
+        canvas.DrawPath(path);
+        canvas.StrokeDashPattern = null;
+
+        foreach (var p in RegionDraft)
+        {
+            var sp = ScreenPt(p);
+            canvas.FillColor = ink;
+            canvas.FillEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
+            canvas.StrokeColor = Color.FromArgb("#FFFDF9");
+            canvas.StrokeSize = 1.4f;
+            canvas.DrawEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
         }
     }
 
@@ -1092,6 +1231,76 @@ public sealed class MapCanvasDrawable : IDrawable
             }
         }
         return best;
+    }
+
+    /// <summary>
+    /// 这个点落在哪块地上：面按射线法数内外，航道按「离这条线多近」。
+    /// 几块地块套在一起（校区里的小公园）取最小的那块——跟地点框同一套规矩，光标点哪儿就是哪儿。
+    /// </summary>
+    public MapRegion? HitRegion(Point world, double tol = 8)
+    {
+        if (Regions is null) return null;
+        MapRegion? best = null;
+        var bestArea = double.MaxValue;
+        foreach (var r in Regions)
+        {
+            if (!r.HasShape) continue;
+            var hit = RegionKinds.IsLinear(r.Kind)
+                ? NearRegionLine(r, world, tol)
+                : InsideRing(r, world);
+            if (!hit) continue;
+            var area = RegionArea(r);
+            if (area < bestArea) { bestArea = area; best = r; }
+        }
+        return best;
+    }
+
+    /// <summary>射线法：从这个点往右引一条线，数它穿过几道边——奇数在里、偶数在外。</summary>
+    private static bool InsideRing(MapRegion r, Point p)
+    {
+        var pts = r.Points;
+        var inside = false;
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var a = pts[i];
+            var b = pts[(i + 1) % pts.Count];
+            if ((a.Y > p.Y) == (b.Y > p.Y)) continue;
+            if (p.X < (b.X - a.X) * (p.Y - a.Y) / (b.Y - a.Y) + a.X) inside = !inside;
+        }
+        return inside;
+    }
+
+    private static bool NearRegionLine(MapRegion r, Point p, double tol)
+    {
+        var pts = r.Points;
+        for (var i = 0; i + 1 < pts.Count; i++)
+            if (DistSqToSegment(pts[i], pts[i + 1], p) <= tol * tol) return true;
+        return DistSqToSegment(pts[^1], pts[0], p) <= tol * tol;   // 航道首尾没接上时，把最后一段也认上
+    }
+
+    private static double DistSqToSegment(MapWaypoint a, MapWaypoint b, Point p)
+    {
+        var abx = b.X - a.X;
+        var aby = b.Y - a.Y;
+        var l2 = abx * abx + aby * aby;
+        var t = l2 < 1e-9 ? 0 : Math.Clamp(((p.X - a.X) * abx + (p.Y - a.Y) * aby) / l2, 0, 1);
+        var dx = a.X + abx * t - p.X;
+        var dy = a.Y + aby * t - p.Y;
+        return dx * dx + dy * dy;
+    }
+
+    /// <summary>鞋带公式的面积（绝对值）：地块重叠时用来挑出最小的那一块。</summary>
+    private static double RegionArea(MapRegion r)
+    {
+        var pts = r.Points;
+        double sum = 0;
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var a = pts[i];
+            var b = pts[(i + 1) % pts.Count];
+            sum += a.X * b.Y - b.X * a.Y;
+        }
+        return Math.Abs(sum) / 2;
     }
 
     // ==================== 背景图加载 ====================

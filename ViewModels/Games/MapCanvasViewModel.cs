@@ -7,6 +7,7 @@ using Microsoft.Maui.Dispatching;
 using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Drawables;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 
@@ -28,6 +29,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private readonly SceneCalibrationService _cal;
     private readonly ImageGenerationService _images;
     private readonly VisionService _vision;
+    private readonly TrafficSignalService _signals;
     public MapCanvasDrawable Drawable { get; } = new();
 
     [ObservableProperty] private ModeKind _mode = ModeKind.View;
@@ -58,6 +60,13 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private int _dragWaypoint = -1;
     private Point _dragLastWorld;
     private Point _menuWorld;   // 右键新建时菜单的世界坐标
+    // 「圈一块地」进行中的角点（世界坐标）；null = 没在圈。类别与名字在起手时就问定，收边时直接落档。
+    private List<Point>? _plotRing;
+    private string _plotKind = RegionKinds.Green;
+    private string _plotName = "";
+    // 红绿灯每秒一跳：画布自己不会刷新，靠这个小定时器催它重画
+    private IDispatcherTimer? _signalClock;
+    private bool _liveLightsRunning;
     private bool _autoFitDone;
     private DateTime _menuOpenedAt = DateTime.MinValue;   // 右键打开菜单的时间：抑制同动作的 Touch 回声
 
@@ -87,7 +96,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     // 长按左键框选（编辑模式）：空白处按下并拖动即进入框选，松开结算。点击（未拖动）= 仅取消选择
 
     public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio,
-        SceneCalibrationService cal, ImageGenerationService images, VisionService vision)
+        SceneCalibrationService cal, ImageGenerationService images, VisionService vision, TrafficSignalService signals)
     {
         _engine = engine;
         _maps = maps;
@@ -96,6 +105,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         _cal = cal;
         _images = images;
         _vision = vision;
+        _signals = signals;
         _maps.SceneChanged += OnSceneChanged;
         Drawable.AttachBgResolver(node => _maps.ResolveBackground(node.Scene));
         Drawable.AttachLocationThumbResolver(loc =>
@@ -112,7 +122,88 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         StopFloorAnim();
+        StopSignalTicker();
         _maps.SceneChanged -= OnSceneChanged;
+    }
+
+    /// <summary>
+    /// 图上有灯就每秒重画一次：灯的色是「此刻几点」算出来的，画布不自己刷新就会冻在打开那一眼。
+    /// 一张没有灯的图不挂这个定时器——白耗一次全表重绘。
+    /// </summary>
+    private void EnsureSignalTicker()
+    {
+        var needed = _maps.Map.Edges.Any(e => e.TrafficLight);
+        if (!needed)
+        {
+            StopSignalTicker();
+            return;
+        }
+        if (_signalClock is not null) return;
+        var clock = Application.Current?.Dispatcher.CreateTimer();
+        if (clock is null) return;
+        clock.Interval = TimeSpan.FromSeconds(1);
+        clock.Tick += (_, _) => { Touch(); PumpLiveLights(); };
+        clock.Start();
+        _signalClock = clock;
+    }
+
+    private void StopSignalTicker()
+    {
+        if (_signalClock is null) return;
+        _signalClock.Stop();
+        _signalClock = null;
+    }
+
+    /// <summary>
+    /// 开着「红绿灯看高德路况」才去问实时：一轮问答没回来之前不发第二轮——心跳是每秒一跳，
+    /// 一屏十几盏灯挨个问，自己就能把自己敲死（服务里同一条路还缓存 60 秒）。
+    /// 关着就把手上那份实时色撤掉，灯退回各自的本地周期。
+    /// </summary>
+    private void PumpLiveLights()
+    {
+        if (!TrafficSignalService.UseAmap)
+        {
+            if (Drawable.LiveLights is not null)
+            {
+                Drawable.LiveLights = null;
+                Touch();
+            }
+            return;
+        }
+        if (_liveLightsRunning) return;
+        var lit = _maps.Map.Edges.Where(e => e.TrafficLight).ToList();
+        if (lit.Count == 0) return;
+        _liveLightsRunning = true;
+        _ = FillLiveLightsAsync(lit);
+    }
+
+    private async Task FillLiveLightsAsync(List<MapEdge> lit)    {
+        try
+        {
+            var table = new Dictionary<string, string>(lit.Count);
+            foreach (var e in lit)
+            {
+                // 一次问一盏，串行：并发敲高德那台免费接口不体面，也让心跳有一轮能插进来的空档
+                if (!TrafficSignalService.UseAmap) return;
+                var state = await _signals.CurrentAsync(e, true);
+                table[e.Id] = state.Kind;
+            }
+            Ui.Post(() =>
+            {
+                Drawable.LiveLights = table;
+                Touch();
+            });
+        }
+        catch (Exception ex) { App.WriteLog("MapViewModel.liveLights -> " + ex); }
+        finally { _liveLightsRunning = false; }
+    }
+
+    /// <summary>菜单里那句「现在什么色」：实时那份已经到手就用它（秒数是本地周期说的，不跟路况混），否则照本地倒计时。</summary>
+    private string LightNowText(MapEdge edge)
+    {
+        if (Drawable.LiveLights is { } table && table.TryGetValue(edge.Id, out var kind) && kind.Length > 0)
+            return SignalKinds.Display(kind) + "·实时路况";
+        return SignalClock.Now(edge, true).Display;
     }
 
     private async Task InitAsync()
@@ -170,6 +261,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         Drawable.Transits = map.Transits.Select(t => new MapTransitNode(t)).ToList();
         Drawable.Edges = map.Edges.ToList();
         Drawable.Locations = map.Locations.ToList();
+        Drawable.Regions = map.Regions.ToList();
+        Drawable.SelectedRegionId = map.Regions.Any(r => r.Id == Drawable.SelectedRegionId)
+            ? Drawable.SelectedRegionId : null;
         Drawable.MetersPerUnit = map.MetersPerUnit;   // 1 单位=几米，唯一来源是地图定义
         SelectedNode = selId is null ? null : Nodes.FirstOrDefault(n => n.Id == selId);
         Drawable.SelectedEdgeId = selEdge;
@@ -178,6 +272,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             : "未知位置";
         OnPropertyChanged(nameof(LocationLabel));
         UpdateFloorBar();
+        EnsureSignalTicker();
+        TryLandPending();
         Touch();
     }
 
@@ -284,6 +380,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         Drawable.MarqueeSelected.Clear();
         Drawable.MarqueeRect = null;
         CancelLink();
+        var wasPlotting = _plotRing is not null;
+        if (wasPlotting) CancelRegionPlot("");           // 切模式就丢下手上的圈（没收边的角不存盘）
         // 模式/状态提示文本更新
         OnPropertyChanged(nameof(ViewModeLabel));
         OnPropertyChanged(nameof(EditModeLabel));
@@ -296,6 +394,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             ModeKind.Doodle => "涂鸦：按住拖动自由画线，松手自动补端点临时节点；点卡片/节点吸附",
             _ => "连线：先点卡片/临时节点设起点，点目标连线，点空白加折点"
         };
+        if (wasPlotting) StatusText += "；刚才圈到一半的地已取消";
         Touch();
     }
 
@@ -539,6 +638,16 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             return;
         }
 
+        // 圈地进行中：按住拖动仍然平移看图，纯点击才是落一个角（结算在 CanvasEnd）。
+        if (_plotRing is not null)
+        {
+            _panning = true;
+            _panStartScreen = screen;
+            _panLastScreen = screen;
+            Touch();
+            return;
+        }
+
         if (Mode == ModeKind.Doodle)
         {
             if ((Drawable.LinkStartNode is not null || Drawable.LinkStartTransit is not null)
@@ -738,6 +847,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             Touch();
             return;
         }
+        if (_plotRing is not null)
+        {
+            var dragged = Math.Abs(screen.X - _panStartScreen.X) > 6 || Math.Abs(screen.Y - _panStartScreen.Y) > 6;
+            _panning = false;
+            if (dragged) { Touch(); return; }          // 那是挪图，不是画角
+            PlotVertex(Drawable.ScreenToWorld(new Point(screen.X, screen.Y)), screen);
+            return;
+        }
         if (Mode == ModeKind.Doodle)
         {
             var endW = Drawable.ScreenToWorld(new Point(screen.X, screen.Y));
@@ -752,6 +869,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             var world = Drawable.ScreenToWorld(new Point(screen.X, screen.Y));
             var tapEdge = Drawable.HitEdge(world);
             if (tapEdge is not null) _ = ShowStreetActionsAsync(tapEdge, world);
+            else if (Drawable.HitRegion(world) is { } tapRegion) OpenRegionMenu(tapRegion, world);
             Touch();
             return;
         }
@@ -782,9 +900,12 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
         if (_marqueePending)
         {
-            // 纯点击：仅取消选择
+            // 纯点击：仅取消选择（编辑模式下点在地块上算「选中这块地」，好让人看清自己指的是哪一片）
             _marqueePending = false;
             Drawable.MarqueeSelected.Clear();
+            if (Mode == ModeKind.Edit)
+                Drawable.SelectedRegionId = Drawable.HitRegion(
+                    Drawable.ScreenToWorld(new Point(screen.X, screen.Y)))?.Id;
             _audio.PlayAssigned("left");
             Touch();
             return;
@@ -877,7 +998,46 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     /// <summary>页面转发的画布尺寸：切层动画要把目标层摆进视口中心，得知道中心在哪。</summary>
     public void SetViewport(double w, double h)
     {
-        if (w > 40 && h > 40) { _viewW = w; _viewH = h; }
+        if (w > 40 && h > 40) { _viewW = w; _viewH = h; _measured = true; }
+        TryLandPending();
+    }
+
+    // ==================== 从别处（小地图）带着「要看哪一格」进来 ====================
+
+    private bool _measured;
+    private string? _pendingFocus;
+
+    /// <summary>
+    /// 定位到某个场景：分层视图先切到它那一层（不然摆过去也是被淡掉的一张），
+    /// 再选中卡片、按当前缩放把它钉进视口中心。
+    ///
+    /// 页面是「构造 → 读盘 → 量尺寸」，跳转参数在量尺寸之前就到，所以这里不硬摆：
+    /// 缺哪一样就先记着 Id，等 Refresh（节点表齐）或 SetViewport（视口齐）再补落。
+    /// </summary>
+    public void FocusScene(string sceneId)
+    {
+        _pendingFocus = sceneId;
+        TryLandPending();
+    }
+
+    private void TryLandPending()
+    {
+        if (_pendingFocus is not { } id) return;
+        if (!_measured || Nodes.Count == 0) return;
+        _pendingFocus = null;
+        var scene = _maps.Map.SceneById(id);
+        var node = Nodes.FirstOrDefault(n => n.Id == id);
+        if (scene is null || node is null) return;
+        var locId = _maps.Map.LocationIdOfScene(id);
+        if (_maps.Map.HasFloors(locId))
+        {
+            Drawable.FloorLocationId = locId;
+            Drawable.FloorFilter = scene.Floor;
+        }
+        // 选中卡片顺带把楼层条挪到它所属的楼（见 OnSelectedNodeChanged），所以摆位次之。
+        SelectedNode = node;
+        LandFloor(node.X + MapCanvasDrawable.CardW / 2, node.Y + MapCanvasDrawable.CardH / 2, Drawable.Scale);
+        Touch();
     }
 
     /// <summary>楼层条跟着「最后盯着的那栋楼」走：选中的卡片所属地点，或右键点中的建筑框。</summary>
@@ -1061,6 +1221,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             Touch();
             return;
         }
+        // 圈地进行中：右键 = 收边（角还不够多就只是取消，围不出第二块地）。
+        if (_plotRing is not null)
+        {
+            if (_plotRing.Count >= PlotMinCorners) _ = FinishRegionPlotAsync();
+            else CancelRegionPlot("角还不够，已取消圈地");
+            Touch();
+            return;
+        }
 
         var card = Drawable.HitCard(world);
         if (card is not null)
@@ -1127,27 +1295,35 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             var roadTitle = string.IsNullOrWhiteSpace(edge.RoadName)
                 ? RoadKinds.Display(edge.Road)
                 : $"{edge.RoadName}（{RoadKinds.Display(edge.Road)}）";
+            var edgeItems = new List<(string Label, string Cmd)>
+            {
+                ("🏙 由此进入 3D", "enter3d"),
+                ($"🛣 这条路是：{RoadKinds.Display(edge.Road)}", "road"),
+                ("🏷 命名这条路", "roadname"),
+                ($"◀ 单行道：{(edge.OneWay ? "通" : "双向")}", "oneway"),
+                ($"🚦 红绿灯：{(edge.TrafficLight ? "有" : "无")}", "light"),
+                ($"💰 收费站：{(edge.Toll ? $"过路 {edge.TollFee:F0} 元" : "无")}", "toll"),
+                ($"🧭 限速：{(edge.SpeedKmh > 0 ? $"{edge.SpeedKmh:F0} km/h" : $"按类别 ≈{RoadKinds.DefaultSpeedKmh(edge.Road):F0}")}", "speed"),
+                ("📏 编辑长度", "length"),
+                ($"线型: {edge.Kind}", "kind"),
+                ("📝 备注", "note"),
+                ("ℹ 详细信息", "info"),
+                ("🗑 删除", "del")
+            };
+            if (edge.TrafficLight)
+            {
+                // 挂了灯才问得到这三样：现在什么色（含倒计时）、一轮多长、绿灯放行哪一侧。
+                edgeItems.Insert(5, ($"🚦 现在：{LightNowText(edge)}（顺箭头那侧）", "signal-now"));
+                edgeItems.Insert(6, ($"⏱ 灯周期：{TrafficSignalService.CycleText(edge)}", "signal-cycle"));
+                edgeItems.Insert(7, ($"🧭 绿灯朝向：{SignalPhases.Display(edge.SignalPhase)}", "signal-phase"));
+            }
             Drawable.Menu = new ContextMenuState
             {
                 Pos = world,
                 Title = roadTitle,
                 TargetKind = "edge",
                 TargetId = edge.Id,
-                Items = new()
-                {
-                    ("🏙 由此进入 3D", "enter3d"),
-                    ($"🛣 这条路是：{RoadKinds.Display(edge.Road)}", "road"),
-                    ("🏷 命名这条路", "roadname"),
-                    ($"◀ 单行道：{(edge.OneWay ? "通" : "双向")}", "oneway"),
-                    ($"🚦 红绿灯：{(edge.TrafficLight ? "有" : "无")}", "light"),
-                    ($"💰 收费站：{(edge.Toll ? $"过路 {edge.TollFee:F0} 元" : "无")}", "toll"),
-                    ($"🧭 限速：{(edge.SpeedKmh > 0 ? $"{edge.SpeedKmh:F0} km/h" : $"按类别 ≈{RoadKinds.DefaultSpeedKmh(edge.Road):F0}")}", "speed"),
-                    ("📏 编辑长度", "length"),
-                    ($"线型: {edge.Kind}", "kind"),
-                    ("📝 备注", "note"),
-                    ("ℹ 详细信息", "info"),
-                    ("🗑 删除", "del")
-                }
+                Items = edgeItems
             };
             Touch();
             return;
@@ -1160,13 +1336,23 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             ? _maps.Map.Locations.FirstOrDefault(l => Drawable.MarqueeSelected.Contains(l.Id))
             : null;
         var inLoc = hitLoc ?? marqueeLoc;
+        var under = Drawable.HitRegion(world);
+        if (inLoc is null && under is not null)
+        {
+            // 脚下是一块地（公园/湖面/航道）却没有楼框：先给这块地的操作，新建三项照旧塞在同一张菜单里。
+            OpenRegionMenu(under, world);
+            Touch();
+            return;
+        }
         var menuItems = new List<(string Label, string Cmd)>
         {
             ("🏠 新建地点", "newloc"),
+            ($"🌿 圈一块地（{RegionKinds.Display(RegionKinds.Green)}/水面/航道…）", "newregion"),
             ("🗺 创建地图…", "create-map")
         };
         if (inLoc is not null)
         {
+            if (under is not null) menuItems.Add(($"🌿 脚下的地块：{NameOf(under)}", "underfoot"));
             // 明确告知归属：框选时以框选地点为归属，右键落点不再覆盖
             var titlePart = marqueeLoc is not null ? "（框选）" : "";
             menuItems.Add(("📍 新建场景" + titlePart, "newscene"));
@@ -1205,6 +1391,214 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             Items = menuItems
         };
         Touch();
+    }
+
+    // ==================== 地块（绿地 / 水面 / 航道 / 广场 / 分区） ====================
+
+    /// <summary>围得成形了吗：面要三个角，航道这类细长一条两个角就够。</summary>
+    private int PlotMinCorners => RegionKinds.IsLinear(_plotKind) ? 2 : 3;
+
+    private static string NameOf(MapRegion r) =>
+        string.IsNullOrWhiteSpace(r.Name) ? RegionKinds.Display(r.Kind) : $"{r.Name}·{RegionKinds.Display(r.Kind)}";
+
+    /// <summary>这块地多大：面报面积、线报长度，都按地图自己的比例尺（1 单位=几米）换算。</summary>
+    private string RegionSizeText(MapRegion r)
+    {
+        var mpu = _maps.Map.MetersPerUnit;
+        var pts = r.Points;
+        if (RegionKinds.IsLinear(r.Kind))
+        {
+            double len = 0;
+            for (var i = 0; i + 1 < pts.Count; i++)
+                len += Math.Sqrt(Math.Pow(pts[i + 1].X - pts[i].X, 2) + Math.Pow(pts[i + 1].Y - pts[i].Y, 2));
+            return $"长约 {len * mpu:F0} 米";
+        }
+        double sum = 0;
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var a = pts[i];
+            var b = pts[(i + 1) % pts.Count];
+            sum += a.X * b.Y - b.X * a.Y;
+        }
+        return $"约 {Math.Abs(sum) / 2 * mpu * mpu:F0} 平方米";
+    }
+
+    /// <summary>地块的操作菜单：桌面右键、手机点按、地点菜单里的「脚下的地块」都走这一份。</summary>
+    private void OpenRegionMenu(MapRegion r, Point world)
+    {
+        Drawable.SelectedRegionId = r.Id;
+        var size = RegionSizeText(r);
+        var items = new List<(string Label, string Cmd)>
+        {
+            ($"🌿 这是什么地：{RegionKinds.Display(r.Kind)}", "rkind"),
+            ($"🏷 名字：{(string.IsNullOrWhiteSpace(r.Name) ? "还没取名" : r.Name)}", "rname"),
+            ($"📏 大小：{size}", "info"),
+            ("📝 备注", "note"),
+            ("🏠 在这里新建地点", "newloc"),
+            ("📍 新建场景", "newscene"),
+            ("🗑 删除这块地", "del")
+        };
+        if (!string.IsNullOrWhiteSpace(r.Note)) items.Insert(3, ($"📝 现有备注：{r.Note}", "note"));
+        Drawable.Menu = new ContextMenuState
+        {
+            Pos = world,
+            Title = NameOf(r),
+            TargetKind = "region",
+            TargetId = r.Id,
+            Items = items
+        };
+    }
+
+    /// <summary>起手圈地：先问是什么、叫什么，第一角就落在右键那一点，之后逐个角点下去。</summary>
+    private async Task StartRegionPlotAsync()
+    {
+        var kinds = new[]
+        {
+            RegionKinds.Green, RegionKinds.Water, RegionKinds.Route, RegionKinds.Plaza, RegionKinds.District
+        };
+        var labels = kinds.Select(RegionKinds.Display).ToArray();
+        var pick = await Shell.Current.DisplayActionSheet("这块地是什么？", "取消", null, labels);
+        var at = Array.IndexOf(labels, pick);
+        if (at < 0) return;
+        _plotKind = kinds[at];
+        var name = await Shell.Current.DisplayPromptAsync($"圈一块{RegionKinds.Display(_plotKind)}",
+            "这块地的名字？（可留空）", "开始圈", "取消");
+        if (name is null) return;                       // 按了取消：一块地也没圈
+        _plotName = name.Trim();
+        _plotRing = new List<Point> { _menuWorld };
+        SyncRegionDraft();
+        StatusText = $"圈一块{RegionKinds.Display(_plotKind)}：第一角已落在右键处——继续点着加角，点回第一个角（或右键）收边";
+    }
+
+    /// <summary>落一个角；点回第一个角（12 屏幕像素内）就收边。</summary>
+    private void PlotVertex(Point world, PointF screen)
+    {
+        if (_plotRing is not { } ring) return;
+        var head = Drawable.WorldToScreen(ring[0]);
+        if (ring.Count >= PlotMinCorners
+            && Math.Abs(head.X - screen.X) < 12 && Math.Abs(head.Y - screen.Y) < 12)
+        {
+            _ = FinishRegionPlotAsync();
+            return;
+        }
+        if (ring.Count >= 1)
+        {
+            var prev = Drawable.WorldToScreen(ring[^1]);
+            if (Math.Abs(prev.X - screen.X) < 4 && Math.Abs(prev.Y - screen.Y) < 4) return;   // 手抖连点：同一个角不记两遍
+        }
+        ring.Add(world);
+        SyncRegionDraft();
+        StatusText = ring.Count < PlotMinCorners
+            ? $"已落 {ring.Count} 个角——还差一点，围不成一块地"
+            : $"已落 {ring.Count} 个角——点回第一个角或右键收边";
+        Touch();
+    }
+
+    private void SyncRegionDraft()
+    {
+        Drawable.RegionDraft.Clear();
+        if (_plotRing is { } ring) Drawable.RegionDraft.AddRange(ring);
+    }
+
+    private void CancelRegionPlot(string why)
+    {
+        _plotRing = null;
+        SyncRegionDraft();
+        StatusText = why;
+    }
+
+    /// <summary>收边：角点存进地图、落盘，并把这块地选上，接着就能改名改类别。</summary>
+    private async Task FinishRegionPlotAsync()
+    {
+        var ring = _plotRing;
+        if (ring is null) return;
+        if (ring.Count < PlotMinCorners)
+        {
+            CancelRegionPlot("角还不够，已取消圈地");
+            return;
+        }
+        _plotRing = null;
+        var region = new MapRegion { Kind = _plotKind, Name = _plotName };
+        foreach (var p in ring) region.Points.Add(new MapWaypoint { X = p.X, Y = p.Y });
+        _maps.Map.Regions.Add(region);
+        await _maps.SaveAsync();
+        SyncRegionDraft();
+        Drawable.SelectedRegionId = region.Id;
+        StatusText = $"已圈出{RegionKinds.Display(region.Kind)}：{NameOf(region)}，{RegionSizeText(region)}";
+        Refresh();
+    }
+
+    private async Task DispatchRegionAsync(string id, string cmd)
+    {
+        var region = _maps.Map.RegionById(id);
+        if (region is null)
+        {
+            StatusText = "这块地已不在图上";
+            return;
+        }
+        switch (cmd)
+        {
+            case "newloc":
+            case "newscene":
+            case "newtransit":
+                await DispatchBlankAsync(cmd);          // 地块菜单里也备着新建：别让一块公园挡住正常的建地点流程
+                break;
+            case "rkind":
+            {
+                var kinds = new[]
+                {
+                    RegionKinds.Green, RegionKinds.Water, RegionKinds.Route, RegionKinds.Plaza, RegionKinds.District
+                };
+                var labels = kinds.Select(k => (k == region.Kind ? "● " : "") + RegionKinds.Display(k)).ToArray();
+                var pick = await Shell.Current.DisplayActionSheet("这块地是什么？", "取消", null, labels);
+                var at = Array.IndexOf(labels, pick);
+                if (at < 0) return;
+                region.Kind = kinds[at];
+                await _maps.SaveAsync();
+                StatusText = $"这块地改为：{RegionKinds.Display(region.Kind)}";
+                Refresh();
+                break;
+            }
+            case "rname":
+            {
+                var name = await Shell.Current.DisplayPromptAsync("这块地的名字", "叫什么？（留空 = 不取名）",
+                    "确定", "取消", initialValue: region.Name);
+                if (name is null) return;
+                region.Name = name.Trim();
+                await _maps.SaveAsync();
+                StatusText = $"地块名字：{NameOf(region)}";
+                Refresh();
+                break;
+            }
+            case "note":
+            {
+                var note = await Shell.Current.DisplayPromptAsync("地块备注", "这块地有什么特别的？",
+                    "确定", "取消", initialValue: region.Note);
+                if (note is null) return;
+                region.Note = note.Trim();
+                await _maps.SaveAsync();
+                StatusText = "已存下这块地的备注";
+                Refresh();
+                break;
+            }
+            case "info":
+                await Shell.Current.DisplayAlert("地块信息",
+                    $"{NameOf(region)}\n{RegionSizeText(region)}｜{region.Points.Count} 个角\n备注：{(string.IsNullOrWhiteSpace(region.Note) ? "无" : region.Note)}",
+                    "知道了");
+                break;
+            case "del":
+            {
+                var ok = await Shell.Current.DisplayAlert("删除地块",
+                    $"删掉「{NameOf(region)}」？路和楼都不受影响，只是这块地的底色没了。", "删除", "留着");
+                if (!ok) return;
+                _maps.Map.Regions.Remove(region);
+                Drawable.SelectedRegionId = null;
+                await _maps.SaveAsync();
+                StatusText = $"已删掉{RegionKinds.Display(region.Kind)}：{region.Name}";
+                Refresh();
+                break;
+            }
+        }
     }
 
     // ==================== 连线逻辑 ====================
@@ -1462,6 +1856,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                     break;
                 case "loc":
                     await DispatchLocAsync(targetId, cmd);
+                    break;
+                case "region":
+                    await DispatchRegionAsync(targetId, cmd);
                     break;
                 default:
                     await DispatchBlankAsync(cmd);
@@ -1834,7 +2231,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 if (edge is null) return;
                 var kinds = new[]
                 {
-                    RoadKinds.Highway, RoadKinds.Trunk, RoadKinds.Street, RoadKinds.Lane, RoadKinds.Walkway,
+                    RoadKinds.Highway, RoadKinds.Trunk, RoadKinds.County, RoadKinds.Rural, RoadKinds.Street,
+                    RoadKinds.Lane, RoadKinds.Walkway,
                     RoadKinds.Steps, RoadKinds.Bridge, RoadKinds.Tunnel, RoadKinds.Waterway, RoadKinds.Interior
                 };
                 var labels = kinds.Select(k => (k == edge.Road ? "● " : "") + RoadKinds.Display(k)).ToArray();
@@ -1872,9 +2270,63 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 if (edge is null) return;
                 edge.TrafficLight = !edge.TrafficLight;
                 await _maps.SaveAsync();
-                StatusText = edge.TrafficLight ? "这条路挂上了红绿灯" : "已取消红绿灯";
+                StatusText = edge.TrafficLight
+                    ? $"这条路挂上了红绿灯：{TrafficSignalService.CycleText(edge)}（右键再点「红绿灯」可改周期与朝向）"
+                    : "已取消红绿灯";
                 Refresh();
                 break;
+            case "signal-now":
+            {
+                if (edge is null) return;
+                // 顺箭头这侧走服务（开了实时就问高德，问不到自己退回本地）；倒着那侧没有实时报，只按周期算
+                var fwd = await _signals.CurrentAsync(edge, true);
+                var rev = SignalClock.Now(edge, false);
+                await Shell.Current.DisplayAlert("这盏灯现在",
+                    $"顺着箭头（A→B）：{fwd.Display}\n倒着走（B→A）：{rev.Display}\n"
+                    + $"一轮：{TrafficSignalService.CycleText(edge)}｜绿灯放行：{SignalPhases.Display(edge.SignalPhase)}\n"
+                    + $"这一眼是谁算的：{fwd.Source}", "知道了");
+                break;
+            }
+            case "signal-cycle":
+            {
+                if (edge is null) return;
+                var v = await Shell.Current.DisplayPromptAsync("红绿灯周期",
+                    "一轮多少秒？想连绿、黄一起定就三个数隔开写，如「60 26 4」。留空 = 不改。",
+                    "确定", "取消",
+                    initialValue: (edge.SignalCycle > 0 ? edge.SignalCycle : SignalClock.DefaultCycle).ToString());
+                if (string.IsNullOrWhiteSpace(v)) return;
+                var bits = v.Split(new[] { ' ', ',', '，', '/', ';' }, StringSplitOptions.RemoveEmptyEntries);
+                if (bits.Length == 0
+                    || !int.TryParse(bits[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out var cycle)
+                    || cycle < 6)
+                {
+                    StatusText = "周期至少 6 秒，否则灯还没看清就换色了";
+                    return;
+                }
+                edge.SignalCycle = cycle;
+                if (bits.Length > 1 && int.TryParse(bits[1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var g))
+                    edge.SignalGreen = Math.Clamp(g, 1, cycle - 2);
+                if (bits.Length > 2 && int.TryParse(bits[2], NumberStyles.Integer, CultureInfo.InvariantCulture, out var y))
+                    edge.SignalYellow = Math.Clamp(y, 1, Math.Max(1, cycle - edge.SignalGreen - 1));
+                await _maps.SaveAsync();
+                StatusText = $"这条路现在：{TrafficSignalService.CycleText(edge)}";
+                Refresh();
+                break;
+            }
+            case "signal-phase":
+            {
+                if (edge is null) return;
+                var phases = new[] { SignalPhases.Forward, SignalPhases.Reverse, SignalPhases.Both };
+                var labels = phases.Select(p => (p == edge.SignalPhase ? "● " : "") + SignalPhases.Display(p)).ToArray();
+                var pick = await Shell.Current.DisplayActionSheet("绿灯放行哪一侧？", "取消", null, labels);
+                var at = Array.IndexOf(labels, pick);
+                if (at < 0) return;
+                edge.SignalPhase = phases[at];
+                await _maps.SaveAsync();
+                StatusText = $"绿灯朝向改为：{SignalPhases.Display(edge.SignalPhase)}";
+                Refresh();
+                break;
+            }
             case "toll":
             {
                 if (edge is null) return;
@@ -2087,6 +2539,19 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     {
         switch (cmd)
         {
+            case "underfoot":
+            {
+                // 大片区（校区/公园）常整片盖在楼框底下：右键点中楼时，也得够得着脚下一块地。
+                var under = Drawable.HitRegion(_menuWorld);
+                if (under is null)
+                {
+                    StatusText = "这个点脚下没有地块";
+                    return;
+                }
+                OpenRegionMenu(under, _menuWorld);
+                Touch();
+                break;
+            }
             case "renloc":
             {
                 var loc = _maps.Map.Locations.FirstOrDefault(l => l.Id == locId);
@@ -2235,6 +2700,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             }
             case "create-map":
                 await Shell.Current.GoToAsync("mapcreate");
+                break;
+            case "newregion":
+                await StartRegionPlotAsync();
                 break;
             case "newscene":
             {
