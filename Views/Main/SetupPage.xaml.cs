@@ -20,11 +20,33 @@ public partial class SetupPage : ContentPage
         _vm = vm;
         BindingContext = vm;
         vm.PropertyChanged += OnVmChanged;
+        SizeChanged += (_, _) => ApplyResponsiveWidth();
+    }
+
+    /// <summary>
+    /// 手机上卡片直接吃满内容列（WCardWidth 有 320 的地板，360 宽的屏再减两侧页边距就装不下）；
+    /// 宽屏仍回到内容列上限，别让一张卡横贯整个窗口。
+    /// </summary>
+    private void ApplyResponsiveWidth()
+    {
+        if (Width <= 0) return;
+        if (Width < 720)
+        {
+            SetupCard.WidthRequest = -1;
+            SetupCard.HorizontalOptions = LayoutOptions.Fill;
+            return;
+        }
+        var width = Application.Current?.Resources.TryGetValue("WCardWidth", out var v) == true && v is double d
+            ? d
+            : 900d;
+        SetupCard.WidthRequest = width;
+        SetupCard.HorizontalOptions = LayoutOptions.Center;
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        ApplyResponsiveWidth();
         _ = Motion.Enter(SetupCard);
     }
 
