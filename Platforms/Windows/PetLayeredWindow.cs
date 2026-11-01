@@ -54,7 +54,7 @@ internal static class PetLayeredWindow
     public static int Height => _h;
     /// <summary>角色本体高度（物理像素，不含头顶留白）。滚轮缩放写回设置时要拿它反算倍率。</summary>
     public static int BodyHeight => _bodyH;
-    public static int CenterX => _x + _w / 2;
+    public static int CenterX => _x + _bodyW / 2;
     /// <summary>角色脚底所在的屏幕纵坐标（物理像素）。</summary>
     public static int BottomY => _y + _h;
 
@@ -63,8 +63,16 @@ internal static class PetLayeredWindow
     static bool _classRegistered;
     static SKBitmap? _src;
     static SKRectI _body;
-    static int _x, _y, _w, _h;
+    static int _x, _y, _w, _h;      // _w = 本体宽 + 按钮带宽：本体永远贴左沿，按钮带只往右长
+    static int _bodyW;              // 角色本体宽（物理像素）。镜像/居中/气泡锚点都以它为轴，不用 _w
     static int _bodyH;
+    static int _bandW;              // 当前按钮带宽：0 = 收起；悬停亮钮时按 DPI 展开成右侧竖排药丸列
+
+    // —— 右侧按钮带（药丸尺寸，逻辑像素；绘制前按 _dpiScale 换算） ——
+    const int PillWidthDip = 76;
+    const int PillHeightDip = 32;
+    const int PillGapDip = 6;
+    const int BandInsetDip = 4;     // 药丸离窗口右沿的垫
     static string _path = "";
     static bool _dragging;
     static int _grabX, _grabY, _originX, _originY;
@@ -170,6 +178,7 @@ internal static class PetLayeredWindow
         // 手势判定状态跟着窗口一起清掉：双击的收尾松手可能落在窗口销毁之后才到，
         // 于是 _swallowNextUp 会一路留到下一次进桌宠，白吃掉那之后的第一下单击。
         _lastUpTick = 0; _swallowNextUp = false; _dragging = false;
+        _buttonsVisible = false; _bandW = 0;
         if (_hwnd != IntPtr.Zero)
         {
             KillTimer(_hwnd, MOTION_TIMER); KillTimer(_hwnd, FS_TIMER);
@@ -227,9 +236,10 @@ internal static class PetLayeredWindow
     public static void SetHoverButtons(IEnumerable<string> ids)
     {
         var next = ids.Take(6).ToList();
+        _buttonsVisible = false;
+        UpdateBand();                           // 目录变更前后都收带：残留的带宽不留到下一次
         if (next.SequenceEqual(_buttonIds)) return;
         _buttonIds.Clear(); _buttonIds.AddRange(next);
-        _buttonsVisible = false;
         Invalidate();
     }
 
@@ -535,8 +545,9 @@ internal static class PetLayeredWindow
     {
         if (_src is null) return;
         var aspect = (float)_body.Width / _body.Height;
-        _w = Math.Max(16, (int)Math.Round(_bodyH * aspect));
-        _h = _bodyH + Headroom;
+        _bodyW = Math.Max(16, (int)Math.Round(_bodyH * aspect));
+        _w = _bodyW + _bandW;
+        _h = _bodyH + _headroom;
         _cacheDirty = true;
         _walkPos = _x;
     }
@@ -546,6 +557,23 @@ internal static class PetLayeredWindow
     {
         _ = SetWindowPos(_hwnd, IntPtr.Zero, _x, _y, _w, _h, SWP_NOZORDER | SWP_NOACTIVATE);
         Render();
+    }
+
+    /// <summary>
+    /// 按钮带只为「悬停亮钮」存在：亮了才往右长出一列药丸的宽，收了就缩回本体宽。
+    /// 一律保左沿不动（_x 不动、右沿伸缩），角色本体不会因为带的出现而挪窝。
+    /// </summary>
+    static void UpdateBand()
+    {
+        if (_hwnd == IntPtr.Zero) return;
+        var want = _buttonsVisible && _buttonIds.Count > 0
+            ? (int)Math.Round((PillWidthDip + BandInsetDip * 2) * _dpiScale)
+            : 0;
+        if (want == _bandW) return;
+        _bandW = want;
+        _w = _bodyW + _bandW;
+        _ = SetWindowPos(_hwnd, IntPtr.Zero, _x, _y, _w, _h, SWP_NOZORDER | SWP_NOACTIVATE);
+        _cacheDirty = true;
     }
 
     // ============ 绘制：缓存帧 + 每帧上传 ============
@@ -635,8 +663,8 @@ internal static class PetLayeredWindow
         }
         using var canvas = new SKCanvas(_cache);
         canvas.Clear(SKColors.Transparent);
-        // 本体贴在下沿，头顶留出 Headroom：那段只给悬停按钮与状态行
-        var dest = new SKRect(0, Headroom, _w, _h);
+        // 本体贴在左沿、下沿贴地；头顶留出 Headroom，右侧留出按钮带（悬停时才有）
+        var dest = new SKRect(0, Headroom, _bodyW, _h);
         var srcRect = new SKRect(_body.Left, _body.Top, _body.Right, _body.Bottom);
 
         if (_glow > 0.01)
@@ -664,47 +692,81 @@ internal static class PetLayeredWindow
     {
         if (!_flip) { canvas.DrawBitmap(_src!, srcRect, dest, paint); return; }
         canvas.Save();
-        canvas.Translate(_w, 0);
+        canvas.Translate(_bodyW, 0);      // 镜像轴 = 本体宽：这样散步回头也不会把带里的药丸颠倒
         canvas.Scale(-1, 1);
-        var d = new SKRect(_w - dest.Right, dest.Top, _w - dest.Left, dest.Bottom);
+        var d = new SKRect(_bodyW - dest.Right, dest.Top, _bodyW - dest.Left, dest.Bottom);
         canvas.DrawBitmap(_src!, srcRect, d, paint);
         canvas.Restore();
     }
 
-    // ============ 悬停按钮与状态行（都画在头顶留白带） ============
+    // ============ 悬停按钮与状态行 ============
 
-    static (int cx, int cy, int r, string id)[] ButtonSlots()
+    /// <summary>
+    /// 悬停按钮做成右侧竖排的药丸列：emoji + 中文短标签，靠边站而且看得懂——
+    /// 一个「≈」当图标的圆钮连作者自己都得想一下才知道是干嘛的。本体永远贴左沿不动，
+    /// 悬停亮钮时窗口只往右长出一列，所以角色不会因为按钮亮起来而挪窝。
+    /// </summary>
+    static (int x, int y, int w, int h, string id)[] ButtonSlots()
     {
-        var r = Math.Max(10, (int)((_headroom - 12) * 0.42f));
-        var gap = Math.Max(4, r / 3);
-        var n = Math.Min(_buttonIds.Count, 6);
-        var total = n * r * 2 + (n - 1) * gap;
-        var cx0 = (_w - total) / 2 + r;
-        var cy = Math.Max(r + 2, _headroom / 2);
-        var slots = new (int, int, int, string)[n];
-        for (var i = 0; i < n; i++) slots[i] = (cx0 + i * (r * 2 + gap), cy, r, _buttonIds[i]);
-        return slots;
+        if (_bandW <= 0 || _buttonIds.Count == 0)
+            return Array.Empty<(int, int, int, int, string)>();
+        var s = _dpiScale;
+        var w = (int)Math.Round(PillWidthDip * s);
+        var h = (int)Math.Round(PillHeightDip * s);
+        var gap = (int)Math.Round(PillGapDip * s);
+        var inset = (int)Math.Round(BandInsetDip * s);
+        var x = _bodyW + Math.Max(inset, _bandW - w - inset);   // 贴带的右沿，左缝自然留出
+        var slots = new List<(int, int, int, int, string)>();
+        var y = Headroom + inset;                               // 与角色本体同一水平起步
+        foreach (var id in _buttonIds)
+        {
+            if (y + h > _h - inset) break;                       // 竖着摆不下的不多挤：脚下的位置留给本体
+            slots.Add((x, y, w, h, id));
+            y += h + gap;
+        }
+        return slots.ToArray();
     }
 
     static void DrawHoverButtons(SKCanvas canvas)
     {
-        using var bg = new SKPaint { Color = new SKColor(0xF7, 0xEE, 0xDD, 0xE6), IsAntialias = true };
-        using var edge = new SKPaint { Color = new SKColor(0xA8, 0x83, 0x6B, 0x88), IsAntialias = true, Style = SKPaintStyle.Stroke, StrokeWidth = Math.Max(1, _dpiScale) };
-        using var ink = new SKPaint
+        // emoji 与短标签分开画：一只画笔只能认一个字族（emoji 认 Segoe UI Emoji，中文认雅黑）
+        var s = _dpiScale;
+        using var bg = new SKPaint { Color = new SKColor(0xF7, 0xEE, 0xDD, 0xF2), IsAntialias = true };
+        using var edge = new SKPaint
+        {
+            Color = new SKColor(0xA8, 0x83, 0x6B, 0x99),
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = Math.Max(1, s),
+        };
+        using var emoji = new SKPaint
         {
             Color = new SKColor(0x5A, 0x45, 0x32),
             IsAntialias = true,
-            TextSize = 0,
-            Typeface = GlyphFace(),
+            Typeface = EmojiFace(),
+            TextSize = MathF.Round(15 * s),
+            TextAlign = SKTextAlign.Left,
         };
-        foreach (var (cx, cy, r, id) in ButtonSlots())
+        using var text = new SKPaint
         {
-            canvas.DrawCircle(cx, cy, r, bg);
-            canvas.DrawCircle(cx, cy, r, edge);
-            var glyph = GlyphOf(id);
-            ink.TextSize = r * 1.15f;
-            ink.TextAlign = SKTextAlign.Center;
-            canvas.DrawText(glyph, cx, cy + ink.TextSize * 0.36f, ink);
+            Color = new SKColor(0x5A, 0x45, 0x32),
+            IsAntialias = true,
+            Typeface = TextFace(),
+            TextSize = MathF.Round(13 * s),
+            TextAlign = SKTextAlign.Left,
+        };
+        foreach (var (x, y, w, h, id) in ButtonSlots())
+        {
+            var rect = new SKRect(x, y, x + w, y + h);
+            canvas.DrawRoundRect(new SKRoundRect(rect, h / 2f), bg);
+            canvas.DrawRoundRect(new SKRoundRect(rect, h / 2f), edge);
+
+            var cy = y + h / 2f;
+            var emojiW = emoji.MeasureText(EmojiOf(id));
+            var textW = text.MeasureText(LabelOf(id));
+            var startX = x + (w - (emojiW + 6 * s + textW)) / 2f;   // emoji + 缝 + 短标签，整组居中
+            canvas.DrawText(EmojiOf(id), startX, cy + emoji.TextSize * 0.36f, emoji);
+            canvas.DrawText(LabelOf(id), startX + emojiW + 6 * s, cy + text.TextSize * 0.36f, text);
         }
     }
 
@@ -719,27 +781,46 @@ internal static class PetLayeredWindow
         };
         var w = paint.MeasureText(_statusText);
         var pad = 6 * _dpiScale;
-        var rect = new SKRect((_w - w) / 2 - pad, 2, (_w + w) / 2 + pad, paint.TextSize + pad * 2);
+        // 状态行只跟角色本体走（按钮带展开时它也不跟着挪窝）
+        var rect = new SKRect((_bodyW - w) / 2 - pad, 2, (_bodyW + w) / 2 + pad, paint.TextSize + pad * 2);
         using var bg = new SKPaint { Color = new SKColor(0xF7, 0xEE, 0xDD, 0xD9), IsAntialias = true };
         canvas.DrawRoundRect(rect, 8 * _dpiScale, 8 * _dpiScale, bg);
         paint.TextAlign = SKTextAlign.Center;
-        canvas.DrawText(_statusText, _w / 2f, rect.Bottom - pad, paint);
+        canvas.DrawText(_statusText, _bodyW / 2f, rect.Bottom - pad, paint);
     }
 
-    static SKTypeface? _glyphFace;
-    static SKTypeface GlyphFace() =>
-        _glyphFace ??= SKTypeface.FromFamilyName("Segoe UI Symbol") ?? SKTypeface.Default;
+    static SKTypeface? _emojiFace;
+    static SKTypeface EmojiFace() =>
+        _emojiFace ??= SKTypeface.FromFamilyName("Segoe UI Emoji") ?? SKTypeface.Default;
 
-    static string GlyphOf(string id) => id switch
+    static SKTypeface? _textFace;
+    static SKTypeface TextFace() =>
+        _textFace ??= SKTypeface.FromFamilyName("Microsoft YaHei UI") ?? SKTypeface.Default;
+
+    /// <summary>药丸上的 emoji：看得懂的图形，不再用单个措弗字硬当图标。</summary>
+    static string EmojiOf(string id) => id switch
     {
-        "talk" => "❝",          // 说话
-        "think" => "?",          // 想一次
-        "pet" => "♥",           // 摸摸头
-        "purr" => "≈",          // 呼噜
-        "walk" => "→",          // 走走
-        "settings" => "⚙",      // 设置
-        "home" => "⌂",          // 回窗口
+        "talk" => "💬",          // 说话
+        "think" => "💭",         // 想一次
+        "pet" => "🤚",           // 摸摸头
+        "purr" => "💗",          // 呼噜
+        "walk" => "🚶",          // 走走
+        "settings" => "⚙",       // 设置
+        "home" => "🏠",          // 回窗口
         _ => "•",
+    };
+
+    /// <summary>药丸上的中文短标签：与设置页目录同一个叫法，界面上不出现第二次命名。</summary>
+    static string LabelOf(string id) => id switch
+    {
+        "talk" => "说话",
+        "think" => "想一次",
+        "pet" => "摸摸头",
+        "purr" => "呼噜",
+        "walk" => "走走",
+        "settings" => "设置",
+        "home" => "回窗口",
+        _ => id,
     };
 
     // ============ 动作节拍（帧率/锁定/走动/呼噜的出口） ============
@@ -778,6 +859,7 @@ internal static class PetLayeredWindow
         if (_buttonsVisible && now - _lastHoverAt > 1200)
         {
             _buttonsVisible = false;
+            UpdateBand();                       // 顺带宽一起缩窗（左沿不动）
             _cacheDirty = true;
             EnsureMotionTimer();
             drawn = true;
@@ -973,6 +1055,7 @@ internal static class PetLayeredWindow
                     if (_buttonIds.Count > 0 && !_buttonsVisible)
                     {
                         _buttonsVisible = true;
+                        UpdateBand();               // 展开按钮带：窗口向右长出一列药丸（左沿不动）
                         _cacheDirty = true;
                         Render();
                         EnsureMotionTimer();
@@ -1028,10 +1111,9 @@ internal static class PetLayeredWindow
 
     static bool HitButton(int px, int py, out string id)
     {
-        foreach (var (cx, cy, r, s) in ButtonSlots())
+        foreach (var (x, y, w, h, s) in ButtonSlots())
         {
-            var dx = px - cx; var dy = py - cy;
-            if (dx * dx + dy * dy <= (r + 3) * (r + 3)) { id = s; return true; }
+            if (px >= x - 2 && px <= x + w + 2 && py >= y - 2 && py <= y + h + 2) { id = s; return true; }
         }
         id = "";
         return false;
