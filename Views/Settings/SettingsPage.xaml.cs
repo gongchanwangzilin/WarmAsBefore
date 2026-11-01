@@ -58,7 +58,7 @@ public partial class SettingsPage : ContentPage
             if (Math.Abs(side - _lastSide) > 1)
             {
                 _lastSide = side;
-                Services.PerfLog.Note("设置页宽度", $"Width={w:0} → 内容列 0.9×窗宽（1600 封顶），两侧留白 {side:0}");
+                App.WriteLog($"SettingsPage.Width W={w:0} IsWide={w > 900} 内容列=0.9×W 侧留白={side:0}");
             }
         }
         catch (Exception ex) { App.WriteLog("SettingsPage.Width -> " + ex.Message); }
