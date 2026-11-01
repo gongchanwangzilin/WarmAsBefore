@@ -71,6 +71,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("mapcapture", typeof(Views.MapCapturePage));
         // 3D 灰度视图：同一张图的「站在街上看」读法（编辑器仍默认 2D）
         Routing.RegisterRoute("minimal3d", typeof(Views.Minimal3DPage));
+        // 流程图：规则（时机 + 条件 + 动作）的列表编辑器；复杂条件树交给 AI 写
+        Routing.RegisterRoute("flows", typeof(Views.FlowEditorPage));
         Routing.RegisterRoute("gallery", typeof(Views.GalleryPage));
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
         Routing.RegisterRoute("figurePack", typeof(Views.FigurePackPage));

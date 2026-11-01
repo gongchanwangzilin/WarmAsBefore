@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.FlowEditorPage"
+             x:DataType="vm:FlowEditorViewModel"
+             Shell.NavBarIsVisible="False"
+             Title="流程图"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*" Padding="16,14" RowSpacing="12">
+
+        <!-- 头：标题 + 状态 + 两颗钮 -->
+        <Border Style="{StaticResource CardGroup}">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="3" VerticalOptions="Center">
+                    <Label Text="🧩 流程图" Style="{StaticResource TxtTitle}" />
+                    <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+                <Button Grid.Column="1" Text="＋ 新规则" Style="{StaticResource BtnNeumorphSm}"
+                        VerticalOptions="Center" Command="{Binding AddCommand}" />
+                <Button Grid.Column="2" Text="返回" Style="{StaticResource BtnGhostSm}"
+                        VerticalOptions="Center" Command="{Binding BackCommand}" />
+            </Grid>
+        </Border>
+
+        <!-- 规则列表 -->
+        <CollectionView Grid.Row="1" ItemsSource="{Binding Rows}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="vm:FlowRowVm">
+                    <Border Style="{StaticResource CardGroup}" Margin="0,0,0,10">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10" RowSpacing="4">
+                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                            <Label Grid.Column="1" Text="{Binding EnabledLabel}" Style="{StaticResource TxtCaption}"
+                                   VerticalOptions="Center" />
+
+                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding TriggerText}"
+                                   Style="{StaticResource TxtCaption}" />
+                            <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding WhenText}"
+                                   Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap" />
+                            <Label Grid.Row="3" Text="{Binding ThenText}" Style="{StaticResource TxtBodySm}"
+                                   LineBreakMode="WordWrap" />
+
+                            <HorizontalStackLayout Grid.Row="3" Grid.Column="1" Spacing="6" VerticalOptions="End">
+                                <Button Text="试跑" Style="{StaticResource BtnGhostSm}" HeightRequest="28"
+                                        Padding="10,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FlowEditorViewModel}}, Path=TestCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="改" Style="{StaticResource BtnGhostSm}" HeightRequest="28"
+                                        Padding="10,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FlowEditorViewModel}}, Path=EditCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="启停" Style="{StaticResource BtnGhostSm}" HeightRequest="28"
+                                        Padding="10,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FlowEditorViewModel}}, Path=ToggleCommand}"
+                                        CommandParameter="{Binding .}" />
+                                <Button Text="删" Style="{StaticResource BtnGhostSm}" HeightRequest="28"
+                                        Padding="10,0"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FlowEditorViewModel}}, Path=DeleteCommand}"
+                                        CommandParameter="{Binding .}" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+    </Grid>
+</ContentPage>
