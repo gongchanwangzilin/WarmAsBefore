@@ -7,6 +7,7 @@ xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
 xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
 xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
 xmlns:model="clr-namespace:WarmAsBefore.Models"
+xmlns:views="clr-namespace:WarmAsBefore.Views"
              x:Class="WarmAsBefore.Views.MainGamePage"
              x:Name="GameRoot"
 
@@ -309,13 +310,19 @@ xmlns:model="clr-namespace:WarmAsBefore.Models"
                         CornerRadius="16" HorizontalOptions="End" VerticalOptions="Center"
                         Margin="0,0,10,0" />
 
-                <!-- #9 用户可选跟上：AI 单独出行后出现。 -->
-                <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
-                        Command="{Binding FollowAiCommand}"
-                        IsVisible="{Binding CanFollowAi}"
-                        BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
-                        FontSize="12" Padding="14,4" CornerRadius="16" HeightRequest="34"
-                        HorizontalOptions="End" VerticalOptions="Start" Margin="0,16,16,0" />
+                <!-- 右上这一列：小地图常驻，它下面才是「跟上」那颗（AI 单独出行后才出现）。
+                     用栈排而不是给按钮写死顶距：面板摊开两百多高、收成方片只有 60，那颗按钮该跟着落在下面。 -->
+                <VerticalStackLayout HorizontalOptions="End" VerticalOptions="Start"
+                                     Spacing="10" Margin="0,12,12,0">
+                    <views:MinimapHostView BindingContext="{Binding Minimap}" />
+
+                    <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
+                            Command="{Binding FollowAiCommand}"
+                            IsVisible="{Binding CanFollowAi}"
+                            BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
+                            FontSize="12" Padding="14,4" CornerRadius="16" HeightRequest="34"
+                            HorizontalOptions="End" />
+                </VerticalStackLayout>
 
                 <!-- AI 主动黑屏：只黑舞台，右侧对话面板照常可用 -->
                 <Grid IsVisible="{Binding IsBlackout}" BackgroundColor="Black">

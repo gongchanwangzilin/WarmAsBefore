@@ -23,6 +23,10 @@ public sealed class MiniRoad
     public List<Point> Pts { get; set; } = new();
     public double WidthM { get; set; }
     public string Name { get; set; } = "";
+    /// <summary>这一条是什么路，取值见 <see cref="RoadKinds"/>。灰度 3D 只按宽度分层，小地图要靠它分档上色。</summary>
+    public string Kind { get; set; } = RoadKinds.Street;
+    /// <summary>包围盒（米）：小地图按「离我多远」裁掉看不见的路，不必逐点算。</summary>
+    public RectF Box { get; set; }
 }
 
 public sealed class MiniBuilding
@@ -34,6 +38,10 @@ public sealed class MiniBuilding
     public double BaseX { get; set; }
     public double BaseY { get; set; }
     public string Name { get; set; } = "";
+    /// <summary>它挂在哪栋地点下（小地图室内档要认「我在这栋楼里」）。</summary>
+    public string LocationId { get; set; } = "";
+    /// <summary>包围盒（米）：小地图按距离裁掉看不见的楼。</summary>
+    public RectF Box { get; set; }
 }
 
 /// <summary>
@@ -353,7 +361,12 @@ public static class Minimal3DBuilder
             if (!posOf.TryGetValue(e.A, out var a) || !posOf.TryGetValue(e.B, out var b)) continue;
 
             var units = SampleEdge(a, b, e);
-            var road = new MiniRoad { WidthM = RoadWidthM(kind), Name = e.RoadName ?? "" };
+            var road = new MiniRoad
+            {
+                WidthM = RoadWidthM(kind),
+                Name = e.RoadName ?? "",
+                Kind = kind,
+            };
             foreach (var p in units)
             {
                 var m = new Point(U(p.X), U(p.Y));
@@ -361,7 +374,11 @@ public static class Minimal3DBuilder
             }
             var tail = new Point(U(units[^1].X), U(units[^1].Y));
             if (road.Pts.Count == 0 || Distance(tail, road.Pts[^1]) >= 0.5) road.Pts.Add(tail);
-            if (road.Pts.Count >= 2) scene.Roads.Add(road);
+            if (road.Pts.Count >= 2)
+            {
+                road.Box = BoundsOf(road.Pts);
+                scene.Roads.Add(road);
+            }
         }
 
         // —— 楼：子地点表用来跳过会包住孩子的父框 ——
@@ -391,14 +408,17 @@ public static class Minimal3DBuilder
             var hpf = loc.HeightPerFloor > 0 ? loc.HeightPerFloor : 3.0;
             var h = Math.Clamp(floors * hpf, 3, 140);
 
-            scene.Buildings.Add(new MiniBuilding
+            var building = new MiniBuilding
             {
                 Footprint = fp,
                 HeightM = h,
                 Name = loc.Name,
+                LocationId = loc.Id,
                 BaseX = fp.Average(p => p.X),
                 BaseY = fp.Average(p => p.Y),
-            });
+            };
+            building.Box = BoundsOf(fp);
+            scene.Buildings.Add(building);
         }
 
         // —— 包围盒：鸟瞰机位与镜头高度 ——
@@ -471,6 +491,8 @@ public static class Minimal3DBuilder
     {
         RoadKinds.Highway => 14,
         RoadKinds.Trunk => 11,
+        RoadKinds.County => 9,
+        RoadKinds.Rural => 5,
         RoadKinds.Street => 7.5,
         RoadKinds.Bridge => 8,
         RoadKinds.Tunnel => 7.5,
@@ -538,5 +560,19 @@ public static class Minimal3DBuilder
         var dx = a.X - b.X;
         var dy = a.Y - b.Y;
         return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    /// <summary>一圈点的包围盒（米）：小地图靠它把「离我太远的」整条路/整栋楼跳过。</summary>
+    private static RectF BoundsOf(List<Point> pts)
+    {
+        float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
+        foreach (var p in pts)
+        {
+            minX = Math.Min(minX, (float)p.X);
+            minY = Math.Min(minY, (float)p.Y);
+            maxX = Math.Max(maxX, (float)p.X);
+            maxY = Math.Max(maxY, (float)p.Y);
+        }
+        return new RectF(minX, minY, maxX - minX, maxY - minY);
     }
 }

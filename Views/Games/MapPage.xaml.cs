@@ -6,8 +6,13 @@ using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
 
+/// <summary>地图页：不带参数就照常打开；小地图递来 sceneId 时进来直接落在那张卡片上。</summary>
+[QueryProperty(nameof(FocusSceneId), "sceneId")]
 public partial class MapPage : ContentPage
 {
+    /// <summary>跳转带来的「要看哪一个点」；VM 会等图读盘与画布量尺寸都齐了再摆，这里只管交出去。</summary>
+    public string? FocusSceneId { get; set; }
+
     public MapPage(MapViewModel vm)
     {
         InitializeComponent();
@@ -23,6 +28,11 @@ public partial class MapPage : ContentPage
     {
         base.OnAppearing();
         Motion.ArrivePage(this);
+        if (string.IsNullOrEmpty(FocusSceneId)) return;
+        // 只吃一次：从大地图退回主界面、下次再进地图页，不该被拽回上一回去的那个点。
+        var id = FocusSceneId;
+        FocusSceneId = null;
+        (BindingContext as MapViewModel)?.FocusScene(id);
     }
 
 #if WINDOWS

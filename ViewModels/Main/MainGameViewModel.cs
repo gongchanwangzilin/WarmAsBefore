@@ -161,6 +161,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>电脑版横版布局是否显示：平板（MAUI 原生 Idiom 判定）+ 桌面 都为真；手机恒假。</summary>
     public bool IsDesktopLayout { get; } = DetectDesktopLayout();
 
+    /// <summary>右上角小地图：换场景自动重取材；订阅由页面进出场挂摘（见 MainGamePage）。</summary>
+    public MinimapViewModel Minimap { get; }
+
     static bool DetectDesktopLayout()
     {
         if (DeviceInfo.Platform == DevicePlatform.WinUI
@@ -330,7 +333,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         PortraitCalibrationService portraits, Services.ScreenBlackoutService blackout,
         Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api,
         Services.CharacterSettingsResolver charSettings,
-        PageWindowService pageWindows, Services.SaveRuntimeService runtime)
+        PageWindowService pageWindows, Services.SaveRuntimeService runtime,
+        Services.MinimapService minimap)
     {
         _engine = engine;
         _chat = chat;
@@ -364,6 +368,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         _charSettings = charSettings;
         _pageWindows = pageWindows;
         _runtime = runtime;
+        // 右上角的小地图：电脑默认摊开、手机默认收成方片（拧过一次就记住拧成的样子）。
+        // 订阅由页面进出场挂摘（见 MainGamePage.OnAppearing / OnDisappearing），别在这儿常驻。
+        Minimap = new MinimapViewModel(map, minimap, !IsPhoneLayout);
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
         _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
@@ -433,12 +440,14 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             _chat.SetMapContext("");
             RefreshSceneOptions();
+            Minimap.Visible = false;
             App.WriteLog("MainGame.InitMap -> 未绑定世界树，地图与移动协议已锁定");
             return;
         }
         try
         {
             await _map.InitializeAsync();
+            Minimap.Visible = true;
             _map.SceneChanged += OnMapSceneChanged;
             _map.WalkSegmentStarted += OnWalkSegmentStarted;
             _map.WalkRouteCompleted += OnWalkRouteCompleted;

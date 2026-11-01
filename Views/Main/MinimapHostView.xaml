@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
+             x:Class="WarmAsBefore.Views.MinimapHostView"
+             HorizontalOptions="End" VerticalOptions="Start">
+    <!-- 右上角小地图的壳：同一块地方只有两种活法——一枚 60 的方片，或一张摊开的面板。
+         BindingContext 就是 MinimapViewModel（宿主页写 BindingContext="{Binding Minimap}"），
+         所以这里面所有绑定都是相对的，桌面与手机两处能共用同一份排版。 -->
+    <Grid>
+        <!-- 方片：只画形不画字，点了就摊开。画布本身 InputTransparent——GraphicsView 在 Windows
+             上是原生视图，会吞掉父级的点按手势，所以点击归这颗 Border。 -->
+        <Border x:Name="Chip" IsVisible="{Binding ChipVisible}"
+                WidthRequest="60" HeightRequest="60" Padding="0"
+                HorizontalOptions="End" VerticalOptions="Start"
+                BackgroundColor="{DynamicResource PanelGlass}"
+                Stroke="{DynamicResource WSepBrush}" StrokeThickness="1">
+            <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding ExpandCommand}" />
+            </Border.GestureRecognizers>
+            <ctl:MinimapView x:Name="ChipCanvas" Compact="True" InputTransparent="True"
+                             Plan="{Binding Plan}" />
+        </Border>
+
+        <!-- 展开面板：标题（在哪 + 周边什么档）/ 画布 / 地点列表 / 进大地图 -->
+        <Border x:Name="Panel" IsVisible="{Binding PanelVisible}"
+                WidthRequest="236" Padding="10,8"
+                HorizontalOptions="End" VerticalOptions="Start"
+                BackgroundColor="{DynamicResource PanelGlass}"
+                Stroke="{DynamicResource WSepBrush}" StrokeThickness="1">
+            <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="7">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <VerticalStackLayout Spacing="1">
+                        <Label Text="{Binding Headline}" TextColor="{DynamicResource WarmDark}"
+                               FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
+                        <Label Text="{Binding Subline}" TextColor="{DynamicResource MutedFg}"
+                               FontSize="10" LineBreakMode="TailTruncation" />
+                    </VerticalStackLayout>
+                    <Button Grid.Column="1" Text="收起" TextColor="{DynamicResource MutedFg}"
+                            BackgroundColor="Transparent" FontSize="11" Padding="8,0"
+                            HeightRequest="26" MinimumWidthRequest="0" CornerRadius="12"
+                            VerticalOptions="Start" Command="{Binding ToggleExpandCommand}" />
+                </Grid>
+
+                <!-- 没有几何可画（图是空的 / 这个点还没被摆到图上）就整块让给列表，
+                     免得画布只剩一张白纸，看着像坏了。 -->
+                <ctl:MinimapView x:Name="PanelCanvas" HeightRequest="132"
+                                 IsVisible="{Binding ListOnly, Converter={StaticResource InverseBool}}"
+                                 Plan="{Binding Plan}" />
+
+                <BoxView HeightRequest="1" Color="{DynamicResource WSepBrush}"
+                         IsVisible="{Binding HasPois}" />
+
+                <VerticalStackLayout Spacing="1" BindableLayout.ItemsSource="{Binding Pois}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="4,5"
+                                  BackgroundColor="Transparent">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding BindingContext.OpenPoiCommand, Source={RelativeSource AncestorType={x:Type ContentView}}}"
+                                        CommandParameter="{Binding SceneId}" />
+                                </Grid.GestureRecognizers>
+                                <Label Text="{Binding Name}" TextColor="{DynamicResource SurfaceFg}"
+                                       FontSize="12" VerticalOptions="Center"
+                                       LineBreakMode="TailTruncation" />
+                                <Label Grid.Column="1" Text="{Binding DistanceText}"
+                                       TextColor="{DynamicResource MutedFg}" FontSize="11"
+                                       VerticalOptions="Center" />
+                            </Grid>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Text="附近没别的地方" TextColor="{DynamicResource MutedFg}" FontSize="11"
+                       IsVisible="{Binding HasPois, Converter={StaticResource InverseBool}}" />
+
+                <Button Text="打开大地图" Command="{Binding OpenMapCommand}"
+                        TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SecondaryBg}"
+                        FontSize="11" Padding="10,0" HeightRequest="30" CornerRadius="14"
+                        HorizontalOptions="Fill" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentView>

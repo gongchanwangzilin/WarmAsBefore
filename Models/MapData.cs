@@ -17,6 +17,8 @@ public sealed class MapDefinition
     public List<MapEdge> Edges { get; set; } = new();
     /// <summary>临时节点：不归属任何地点，仅作为连线端点/路径中间站。</summary>
     public List<MapTransit> Transits { get; set; } = new();
+    /// <summary>地块（绿地/水面/航道/广场/分区）：画在路网底下的地表，不参与走路。</summary>
+    public List<MapRegion> Regions { get; set; } = new();
 
     /// <summary>画布 1 单位 = 多少米。边长没手动量时按这个换算，导入真实地图后由比例尺定。</summary>
     public double MetersPerUnit { get; set; } = 0.5;
@@ -37,6 +39,9 @@ public sealed class MapDefinition
 
     public MapTransit? TransitById(string id) =>
         Transits.FirstOrDefault(t => t.Id == id);
+
+    public MapRegion? RegionById(string id) =>
+        Regions.FirstOrDefault(r => r.Id == id);
 
     /// <summary>任意顶点（场景或临时节点的名字，用于连线端点的名称解析）。</summary>
     public string? PointNameById(string id) =>
@@ -277,6 +282,8 @@ public static class RoadKinds
 {
     public const string Highway = "highway";     // 高速公路：有收费站，一般不让角色步行上
     public const string Trunk = "trunk";         // 快速路 / 城市主干道
+    public const string County = "county";       // 县道：县城与各乡之间的干线，一般两车道
+    public const string Rural = "rural";         // 乡道 / 村道：最细的一段硬化路，会车要减速
     public const string Street = "street";       // 普通街道
     public const string Lane = "lane";           // 小巷 / 胡同
     public const string Walkway = "walkway";     // 人行道 · 步道
@@ -298,6 +305,8 @@ public static class RoadKinds
     {
         Highway => 100,
         Trunk => 60,
+        County => 60,
+        Rural => 40,
         Street => 40,
         Lane => 30,
         Bridge or Tunnel => 40,
@@ -312,6 +321,8 @@ public static class RoadKinds
     {
         Highway => "高速",
         Trunk => "快速路",
+        County => "县道",
+        Rural => "乡道",
         Street => "街道",
         Lane => "小巷",
         Walkway => "人行道",
@@ -321,6 +332,40 @@ public static class RoadKinds
         Waterway => "水路",
         Interior => "户型内",
         _ => "街道",
+    };
+}
+
+/// <summary>
+/// 一盏灯此刻的颜色。不写进存档——它由「现在几点 + 这条边的周期」算出来，
+/// 存进去的那份一加载就过期了。<see cref="SignalPhases"/> 才是存档里的东西。
+/// </summary>
+public static class SignalKinds
+{
+    public const string Green = "green";
+    public const string Yellow = "yellow";
+    public const string Red = "red";
+
+    public static string Display(string? state) => state switch
+    {
+        Green => "绿灯",
+        Yellow => "黄灯",
+        Red => "红灯",
+        _ => "没灯",
+    };
+}
+
+/// <summary>绿灯放行哪个方向，写进 <see cref="MapEdge.SignalPhase"/>。</summary>
+public static class SignalPhases
+{
+    public const string Forward = "forward";   // 沿 A→B 这一侧绿
+    public const string Reverse = "reverse";   // 沿 B→A 这一侧绿
+    public const string Both = "both";         // 这条边两头一起绿（乡下单口灯，没对向冲突）
+
+    public static string Display(string? phase) => phase switch
+    {
+        Reverse => "反向（B→A）",
+        Both => "双向同绿",
+        _ => "正向（A→B）",
     };
 }
 
@@ -373,6 +418,14 @@ public sealed class MapEdge
     public bool OneWay { get; set; }
     /// <summary>路口有红绿灯：过马路多等一趟（寻路按时间加权时罚一段）。</summary>
     public bool TrafficLight { get; set; }
+    /// <summary>一个循环多少秒（0 = 用默认 60）：绿灯 + 黄灯 + 红灯加起来这么长。</summary>
+    public int SignalCycle { get; set; }
+    /// <summary>绿灯给多少秒（0 = 默认 26）。剩下的就是红灯。</summary>
+    public int SignalGreen { get; set; }
+    /// <summary>黄灯给多少秒（0 = 默认 4）。</summary>
+    public int SignalYellow { get; set; }
+    /// <summary>绿灯放行哪个方向："forward" = 沿 A→B 开绿灯，"reverse" = 沿 B→A，"both" = 这条边两头同时绿。</summary>
+    public string SignalPhase { get; set; } = SignalPhases.Forward;
     /// <summary>这段要过收费站。</summary>
     public bool Toll { get; set; }
     public double TollFee { get; set; }
@@ -443,3 +496,46 @@ public sealed record CaptureBundle(string MapName, List<ScenePhoto> Photos, List
 
 /// <summary>取景包里的一扇门：门本体 + 它挂在哪个地点下（导入时按地点归位）。</summary>
 public sealed record CaptureDoor(MapDoor Door, string LocationId);
+
+/// <summary>
+/// 地块性质：一片「不是路也不是楼」的范围。角色不从它上面走、也不进得去，
+/// 它只回答「这一片是什么地方」，画在路网底下当地表，将来给流程图当位置条件用。
+/// </summary>
+public static class RegionKinds
+{
+    public const string Green = "green";       // 绿地 / 公园 / 林地
+    public const string Water = "water";       // 水面：湖、河、池塘
+    public const string Route = "route";       // 航道 / 水渠：细长一条，画成带子不画面
+    public const string Plaza = "plaza";       // 广场 / 空地：铺了地但没楼
+    public const string District = "district"; // 分区：一片有名字的范围（校区、厂区、景区）
+
+    /// <summary>画成细长一条（按线宽铺带子）还是圈成一块（按多边形填面）。</summary>
+    public static bool IsLinear(string? kind) => kind == Route;
+
+    public static string Display(string? kind) => kind switch
+    {
+        Green => "绿地",
+        Water => "水面",
+        Route => "航道",
+        Plaza => "广场",
+        District => "分区",
+        _ => "地块",
+    };
+}
+
+/// <summary>
+/// 地图上的一个地块：世界单位的多边形（顶点首尾不重复，画的时候自己闭合）。
+/// 全部字段可空/带默认值——老存档 JSON 里压根没有 regions 这一节，反序列化要能不炸。
+/// </summary>
+public sealed class MapRegion
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    public string Name { get; set; } = "";
+    public string Kind { get; set; } = RegionKinds.Green;
+    /// <summary>轮廓顶点（世界单位）：少于 3 个点就没有这块，画布与导入都按这个筛。</summary>
+    public List<MapWaypoint> Points { get; set; } = new();
+    public string Note { get; set; } = "";
+
+    /// <summary>航道两个角就成一条，面至少要三个角才围得出这块地。</summary>
+    [JsonIgnore] public bool HasShape => Points.Count >= (RegionKinds.IsLinear(Kind) ? 2 : 3);
+}
