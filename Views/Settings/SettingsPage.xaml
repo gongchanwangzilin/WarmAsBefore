@@ -31,7 +31,7 @@
 
         <ScrollView Grid.Row="2" Padding="24,20,24,32">
             <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Center" Spacing="12"
-                                 MaximumWidthRequest="{DynamicResource WCardWidth}">
+                                 MaximumWidthRequest="{DynamicResource WCardWidthWide}">
 
                 <!-- 大标题：iOS 的 large title，和顶栏的小标题并存（那是导航栏标题，这里才是这一页的名字） -->
                 <Label Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"

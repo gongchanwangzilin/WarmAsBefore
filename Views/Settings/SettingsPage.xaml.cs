@@ -50,11 +50,11 @@ public partial class SettingsPage : ContentPage
         {
             var w = Width;
             if (w <= 0) return;
-            var side = Math.Max(24, (w - 48 - 900) / 2);
+            var side = Math.Max(24, (w - 48 - 1240) / 2);
             if (Math.Abs(side - _lastSide) > 1)
             {
                 _lastSide = side;
-                Services.PerfLog.Note("设置页宽度", $"Width={w:0} → 内容列按 WCardWidth 收口（两侧各留白 {side:0}）");
+                Services.PerfLog.Note("设置页宽度", $"Width={w:0} → 内容列按 WCardWidthWide 收口（两侧各留白 {side:0}）");
             }
         }
         catch (Exception ex) { App.WriteLog("SettingsPage.Width -> " + ex.Message); }
@@ -79,6 +79,7 @@ public partial class SettingsPage : ContentPage
                 _usageRow = new SettingsViewModel.SettingsSectionRow
                 {
                     Key = "__usage__",
+                    Icon = "📊",
                     Title = "用量统计",
                     Desc = "Token 用量与花费的本地账本",
                     Summary = "今日 · 近 7 天 · 成本构成 · 热力图"
@@ -89,6 +90,7 @@ public partial class SettingsPage : ContentPage
                 _petRow = new SettingsViewModel.SettingsSectionRow
                 {
                     Key = "__petsettings__",
+                    Icon = "🐾",
                     Title = "桌宠设置",
                     Desc = "桌面上陪你的那一位",
                     Summary = "体型 · 动作 · 气泡 · 语音 · 位置"
@@ -107,8 +109,8 @@ public partial class SettingsPage : ContentPage
 
             var primary = ordered.Take(3).ToList();
             var rest = ordered.Skip(3).ToList();
-            FillGroup(GroupPrimaryHost, primary, 0, narrow);
-            FillGroup(GroupAllHost, rest, primary.Count, narrow);
+            FillGroup(GroupPrimaryHost, primary, narrow);
+            FillGroup(GroupAllHost, rest, narrow);
         }
         catch (Exception ex) { App.WriteLog("SettingsPage.List -> " + ex.Message); }
     }
@@ -127,22 +129,21 @@ public partial class SettingsPage : ContentPage
     private void FillGroup(
         VerticalStackLayout host,
         List<(SettingsViewModel.SettingsSectionRow Row, bool Usage)> rows,
-        int startIndex,
         bool narrow)
     {
         host.Clear();
         for (var i = 0; i < rows.Count; i++)
         {
-            host.Add(BuildRow(rows[i].Row, rows[i].Usage, startIndex + i, i > 0, narrow));
+            host.Add(BuildRow(rows[i].Row, rows[i].Usage, i > 0, narrow));
         }
     }
 
     /// <summary>
-    /// 一行（54 高）：编号方块 + 标题 + 右侧当前值摘要 + ›。
+    /// 一行（56 高）：emoji 图标方块 + 标题 + 右侧当前值摘要 + ›。
     /// 摘要右对齐是 iOS 的做法（当前值永远靠右），窄屏让位给标题。
     /// 每行顶部带自己的发丝线（首行不带）：行被搜索隐藏时线跟着走，不会留下孤儿线。
     /// </summary>
-    private View BuildRow(SettingsViewModel.SettingsSectionRow row, bool usage, int index, bool withTopRule, bool narrow)
+    private View BuildRow(SettingsViewModel.SettingsSectionRow row, bool usage, bool withTopRule, bool narrow)
     {
         var wrap = new VerticalStackLayout { Spacing = 0 };
         if (withTopRule)
@@ -154,7 +155,7 @@ public partial class SettingsPage : ContentPage
 
         var line = new Grid
         {
-            HeightRequest = 54,
+            HeightRequest = 56,
             Padding = new Thickness(16, 0),
             ColumnSpacing = 12,
             ColumnDefinitions =
@@ -168,25 +169,25 @@ public partial class SettingsPage : ContentPage
         line.BindingContext = row;
         line.SetBinding(VisualElement.IsVisibleProperty, "Visible");
 
-        // 编号方块：代替 emoji 的位置（彩色 emoji 是另一套语言，还会掉豆腐块）。
+        // 图标方块：就认目录里的 emoji（🎨🔊🤖…）。以前在这里画过「01/02」编号硬当图标，
+        // 用户拍板：没有图标不要硬整，emoji 是正经设计方案——这里与其造一套编号语言，
+        // 不如把目录已有的 emoji 摆进同一枚墨档圆片里，大小对手感一致。
         var badge = new Border
         {
-            WidthRequest = 26,
-            HeightRequest = 26,
+            WidthRequest = 32,
+            HeightRequest = 32,
             StrokeThickness = 0,
             VerticalOptions = LayoutOptions.Center,
-            StrokeShape = new RoundRectangle { CornerRadius = 8 },
+            StrokeShape = new RoundRectangle { CornerRadius = 9 },
         };
         badge.SetDynamicResource(VisualElement.BackgroundProperty, "InputBg");
         var code = new Label
         {
-            Text = (index + 1).ToString("00"),
-            FontFamily = "Bahnschrift",
-            FontSize = 11,
+            Text = string.IsNullOrEmpty(row.Icon) ? "⚙" : row.Icon,
+            FontSize = 15,
             HorizontalOptions = LayoutOptions.Center,
             VerticalOptions = LayoutOptions.Center,
         };
-        code.SetDynamicResource(Label.TextColorProperty, "WarmFaint");
         badge.Content = code;
 
         var title = new Label { Text = row.Title, VerticalOptions = LayoutOptions.Center };
