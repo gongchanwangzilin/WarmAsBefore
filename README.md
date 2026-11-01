@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/MAUI-.NET%2010-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Android-8A4A56" alt="Platforms" />
   <img src="https://img.shields.io/badge/license-MIT%20%28Non%E2%80%93Commercial%29-B98A96" alt="License" />
-  <img src="https://img.shields.io/badge/version-1.53.0-F6DCC6" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.53.1-F6DCC6" alt="Version" />
 </p>
 
 > **A local-first AI companion and interactive story app built with .NET MAUI.**
@@ -17,7 +17,7 @@
 | | |
 |---|---|
 | **开发者** | `xkxt1026` |
-| **当前版本** | `1.53.0`（`ApplicationVersion` 53） |
+| **当前版本** | `1.53.1`（`ApplicationVersion` 54） |
 | **运行平台** | Windows 10 19041+ / Android 7.0+（minSdk 24，targetSdk 36） |
 | **技术栈** | .NET 10 · .NET MAUI · WinUI 3 · CommunityToolkit.Mvvm · Jint · SkiaSharp |
 | **数据形态** | 本地 JSON + 素材文件；可导出数据包，可镜像到自己的 GitHub 仓库做云存档 |
