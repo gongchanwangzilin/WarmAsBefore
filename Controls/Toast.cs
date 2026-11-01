@@ -135,7 +135,7 @@ public sealed class ToastHost : ContentView
         _title.FontAttributes = FontAttributes.Bold;
         _title.FontSize = 14;
 
-        _body = new Label { LineBreakMode = LineBreakMode.WordWrap, MaxLines = 2, IsVisible = false };
+        _body = new Label { LineBreakMode = LineBreakMode.WordWrap, MaxLines = 8, IsVisible = false };
         _body.SetDynamicResource(Label.TextColorProperty, "MutedFg");
         _body.FontSize = 12;
 
@@ -156,7 +156,7 @@ public sealed class ToastHost : ContentView
         {
             Padding = new Thickness(12, 10),
             StrokeThickness = 1,
-            MaximumWidthRequest = 380,
+            MaximumWidthRequest = 420,
             InputTransparent = true,
             Content = grid,
         };
