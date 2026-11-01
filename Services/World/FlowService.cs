@@ -337,11 +337,14 @@ public sealed class FlowService : IDisposable
             {
                 case FlowTriggers.Tick:
                 {
+                    // 点对点点火：谁到期就跑谁。这里不能走 RunAsync(trigger,"")——
+                    // 那会把所有同触发、且 TriggerKey 为空的规则一起拉下场，
+                    // A 的 30 秒到点时 B 的 120 秒规则也会跟着跑一遍（B 自己的到期门只拦 Poll，拦不到执行）。
                     var seconds = int.TryParse(rule.TriggerKey.Trim(), out var s) && s > 0 ? s : 60;
                     var due = _nextTick.TryGetValue(rule.Id, out var at) ? at : now;
                     if (now < due) break;
                     _nextTick[rule.Id] = now.AddSeconds(seconds);
-                    _ = RunAsync(FlowTriggers.Tick, "");
+                    _ = RunRuleAsync(rule.Id);
                     break;
                 }
                 case FlowTriggers.Time:
@@ -361,10 +364,12 @@ public sealed class FlowService : IDisposable
                     break;
                 case FlowTriggers.Affection:
                 {
+                    // 同样点对点：好感跨过阈值那一刻跑这一条。
+                    // 不能走 RunAsync(trigger, 当前值)——RunAsync 里还会用 TriggerKey 再筛一遍，
+                    // 而这里 TriggerKey 是阈值（80）、传过去的是当下值（90），阈值规则会被哑音吞掉。
                     var threshold = int.TryParse(rule.TriggerKey.Trim(), out var t) ? t : int.MaxValue;
-                    if (affectionBefore >= 0 && affectionBefore < threshold && affection >= threshold
-                        && MatchesKey(rule, threshold.ToString(CultureInfo.InvariantCulture)))
-                        _ = RunAsync(FlowTriggers.Affection, affection.ToString(CultureInfo.InvariantCulture));
+                    if (affectionBefore >= 0 && affectionBefore < threshold && affection >= threshold)
+                        _ = RunRuleAsync(rule.Id);
                     break;
                 }
                 case FlowTriggers.TrafficLight:

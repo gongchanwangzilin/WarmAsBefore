@@ -96,6 +96,7 @@ public sealed partial class ToolManager
                 }
 
                 // 动作要改的状态不存在就先建：不然规则存下去也永远改不动东西
+                var stateSvc = GetStateService();
                 foreach (var a in actions)
                 {
                     if (a.Kind is not (FlowActionKinds.SetState or FlowActionKinds.ToggleState)) continue;
@@ -103,7 +104,8 @@ public sealed partial class ToolManager
                     var values = a.Kind == FlowActionKinds.SetState && a.Value.Trim().Length > 0
                         ? new[] { a.Value.Trim(), "关" }
                         : new[] { "开", "关" };
-                    await GetStateService()!.EnsureAsync(a.Key, values);
+                    if (stateSvc is null) continue;
+                    await stateSvc.EnsureAsync(a.Key, values);
                 }
 
                 var existing = flow.Map.Flows.FirstOrDefault(f => f.Name == name);
