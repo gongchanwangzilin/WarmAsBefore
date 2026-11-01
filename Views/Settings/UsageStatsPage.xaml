@@ -165,7 +165,10 @@
                                     Command="{Binding SetDetailGroupCommand}" CommandParameter="character" />
                         </HorizontalStackLayout>
                     </Grid>
-                    <Border Style="{StaticResource CardGroup}">
+                    <!-- 七列表格在手机上每列只剩几十像素，挤成一团；交给横向滑动，
+                         宽屏仍铺满（MinimumWidth 只在窄屏起作用）。 -->
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
+                    <Border Style="{StaticResource CardGroup}" MinimumWidthRequest="560" HorizontalOptions="Fill">
                         <VerticalStackLayout Spacing="0">
                             <Grid Padding="12,8" ColumnDefinitions="1.6*,0.6*,0.8*,0.8*,0.9*,0.9*,0.8*" ColumnSpacing="6">
                                 <Label Text="名称" Style="{StaticResource TxtCaption}" />
@@ -209,6 +212,7 @@
                                    IsVisible="{Binding HasUsage, Converter={StaticResource InverseBool}}" />
                         </VerticalStackLayout>
                     </Border>
+                    </ScrollView>
                 </VerticalStackLayout>
             </VerticalStackLayout>
 

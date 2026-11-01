@@ -85,7 +85,7 @@
       它和角色库、存档页同级：进来是一页，出去靠返回。
     -->
     <Border x:Name="Shell" BackgroundColor="Transparent" StrokeThickness="0"
-            Padding="{OnIdiom Desktop='0,0,0,16', Phone='0,0,0,10'}"
+            Padding="{OnIdiom Desktop='0,0,0,16', Tablet='0,0,0,16', Phone='0,0,0,10'}"
             HorizontalOptions="Fill" VerticalOptions="Fill">
         <!-- 抬头 / 分线 / 主体 / 回话条各占一行。分线单独占一行：
              否则 HeightRequest=1 的 BoxView 掉进 * 行会被拉成整块底色板，
@@ -94,7 +94,7 @@
 
             <!-- ── 抬头：从档案柜里翻出来的那一格 ─────────────────────────── -->
             <Grid x:Name="HeadBand" Background="{DynamicResource WBarBrush}"
-                  Padding="{OnIdiom Desktop='20,14,20,10', Phone='12,10,12,8'}"
+                  Padding="{OnIdiom Desktop='20,14,20,10', Tablet='20,14,20,10', Phone='12,10,12,8'}"
                   ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" VerticalOptions="Center"
                         Command="{Binding CloseCommand}" />

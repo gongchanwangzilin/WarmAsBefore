@@ -11,11 +11,92 @@ public partial class TitlePage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
+        SizeChanged += (_, _) =>
+        {
+            PlaceRing();
+            ApplyResponsiveLayout();
+        };
+    }
+
+    /// <summary>窄屏（手机、竖拿的平板）与宽屏的分界：侧栏 262 之外右栏还要放得下标语与存档卡。</summary>
+    private const double CompactBreakpoint = 820;
+    private bool? _compactMode;
+
+    /// <summary>
+    /// 按「这一屏有多宽」排，不按设备类型排：Android 手机与平板原先共用一套单列列定义，
+    /// 侧栏和主行动区却仍占第 0/1 列，落进同一格互相压住。
+    /// 窄屏时把同一批控件搬进滚动容器上下叠，宽屏再搬回两栏 —— 内容只有一份。
+    /// </summary>
+    private void ApplyResponsiveLayout()
+    {
+        if (Width <= 0) return;
+        var compact = Width < CompactBreakpoint;
+        // 弹层每帧都跟屏收口：高度变了（横竖屏、分屏）也要重新封顶，否则底部按钮会滑出屏幕。
+        DisclaimerCard.Margin = new Thickness(compact ? 20 : 48, 0);
+        if (Height > 0)
+            DisclaimerCard.MaximumHeightRequest = Math.Min(640, Math.Max(280, Height - 32));
+        if (_compactMode == compact) return;
+        _compactMode = compact;
+        if (compact) EnterCompact(); else EnterWide();
+    }
+
+    private static void Move(Layout from, Layout to, View child)
+    {
+        if (ReferenceEquals(child.Parent, to)) return;
+        (child.Parent as Layout)?.Remove(child);
+        to.Add(child);
+    }
+
+    private void EnterCompact()
+    {
+        ShellGrid.IsVisible = false;
+        CompactScroll.IsVisible = true;
+
+        // 顺序：抬头与入口 → 主行动 → 页脚。页脚不能留在入口后面被读成第五个入口。
+        CompactStack.Children.Clear();
+        Move(RailGrid, CompactStack, RailTop);
+        Move(ShellGrid, CompactStack, HeroGrid);
+        Move(RailGrid, CompactStack, RailBottom);
+
+        HeroGrid.RowDefinitions.Clear();
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        Grid.SetRow(HeroBand, 1);
+        Grid.SetRow(RecentCard, 2);
+        HeroBand.VerticalOptions = LayoutOptions.Start;
+        RecentCard.VerticalOptions = LayoutOptions.Start;
+        RecentCard.HorizontalOptions = LayoutOptions.Fill;
+    }
+
+    private void EnterWide()
+    {
+        CompactScroll.IsVisible = false;
+        ShellGrid.IsVisible = true;
+
+        Move(CompactStack, RailGrid, RailTop);
+        Grid.SetRow(RailTop, 0);
+        Move(CompactStack, RailGrid, RailBottom);
+        Grid.SetRow(RailBottom, 2);
+        Move(CompactStack, ShellGrid, HeroGrid);
+        Grid.SetColumn(HeroGrid, 1);
+        Grid.SetRow(HeroGrid, 0);
+
+        HeroGrid.RowDefinitions.Clear();
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+        Grid.SetRow(HeroBand, 1);
+        Grid.SetRow(RecentCard, 1);
+        HeroBand.VerticalOptions = LayoutOptions.Center;
+        RecentCard.VerticalOptions = LayoutOptions.End;
+        RecentCard.HorizontalOptions = LayoutOptions.Start;
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        // 先按屏宽把版式摆定，再让进场动画去量：反过来的话动画会从两栏的坐标起步。
+        ApplyResponsiveLayout();
         // 标题页没有页面顶栏：成就横幅直接贴顶滑出（设置页那些页面保留默认 64 = 顶栏下方）。
         Controls.Toast.TopInset = 16;
         if (BindingContext is TitleViewModel vm)
@@ -42,7 +123,6 @@ public partial class TitlePage : ContentPage
         // 页面这里只负责交出「有哪些带」。
         Motion.Arrive(BrandBand, MenuStack, HeroBand, RailFoot);
 
-        Root.SizeChanged += (_, _) => PlaceRing();
         HookKeys();
     }
 

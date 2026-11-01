@@ -74,12 +74,11 @@
             </Border>
         </Grid>
 
-        <!-- 立绘 -->
+        <!-- 立绘：不写死 420 宽——手机屏宽只有 360 左右，写死的宽度会把人像裁掉一半 -->
         <Image Source="{Binding SpritePath, TargetNullValue=''}"
                Aspect="AspectFit"
-               WidthRequest="420"
                MaximumWidthRequest="460"
-               HorizontalOptions="Center"
+               HorizontalOptions="Fill"
                VerticalOptions="End"
                IsVisible="{Binding HasSprite}" />
 

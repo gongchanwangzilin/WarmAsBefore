@@ -82,8 +82,11 @@
                            VerticalOptions="Center" />
                 </Grid>
 
-                <!-- ── 正文：一屏一件事，五块里只有一块是可见的 ── -->
-                <Grid Grid.Row="1">
+                <!-- ── 正文：一屏一件事，五块里只有一块是可见的。
+                     外面套一只 ScrollView：手机上第二步的材质/色板列表比一屏高，
+                     没有这一只的话「下一步」会被挤出屏幕。 -->
+                <ScrollView Grid.Row="1" VerticalScrollBarVisibility="Never">
+                <Grid>
 
                     <!-- 1 · 语言 -->
                     <VerticalStackLayout x:Name="StepLang" Spacing="6" IsVisible="{Binding AtLang}">
@@ -225,6 +228,7 @@
                         </Grid>
                     </VerticalStackLayout>
                 </Grid>
+                </ScrollView>
 
                 <!-- ── 行动：文字次行动在左，实心主行动在最右 ── -->
                 <HorizontalStackLayout Grid.Row="2" Spacing="10" HorizontalOptions="End" Margin="0,22,0,0">

@@ -49,7 +49,7 @@
                     <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0" Padding="{DynamicResource WPadWell}" VerticalOptions="Center"
                             StrokeShape="{DynamicResource WRadiusWell}"
-                            IsVisible="{OnIdiom Desktop=True, Phone=False}">
+                            IsVisible="{OnIdiom Desktop=True, Tablet=True, Phone=False}">
                         <Label Text="AI 也会用到其他角色" Style="{StaticResource TxtCaption}" />
                     </Border>
                     <Button Text="＋ 新建角色" Style="{StaticResource BtnPrimarySm}"
@@ -65,13 +65,13 @@
           现在名册只负责「选」，预览负责「看」，改设定留到工作室：一页只做一件事，空间才立得住。
           手机上下叠：名册固定 300，预览吃掉剩下的高度。
         -->
-        <FlexLayout Grid.Row="2" Direction="{OnIdiom Desktop=Row, Phone=Column}"
+        <FlexLayout Grid.Row="2" Direction="{OnIdiom Desktop=Row, Tablet=Row, Phone=Column}"
                     AlignItems="Stretch" Padding="{DynamicResource WPadCard}">
 
             <!-- ── 名册 ─────────────────────────────────────────────── -->
             <Border Style="{StaticResource CardSolid}" Padding="0"
-                    WidthRequest="{OnIdiom Desktop=372, Phone=-1}"
-                    HeightRequest="{OnIdiom Desktop=-1, Phone=300}"
+                    WidthRequest="{OnIdiom Desktop=372, Tablet=372, Phone=-1}"
+                    HeightRequest="{OnIdiom Desktop=-1, Tablet=-1, Phone=300}"
                     FlexLayout.Shrink="0">
                 <Grid RowDefinitions="Auto,Auto,*,Auto">
                     <Grid Padding="{DynamicResource WPadRow}" ColumnDefinitions="*,Auto">
@@ -180,7 +180,7 @@
             <!-- ── 预览：一进页就有人站着 ────────────────────────────── -->
             <Border Style="{StaticResource CardSolid}" Padding="0"
                     FlexLayout.Grow="1" FlexLayout.Shrink="1"
-                    Margin="{OnIdiom Desktop='12,0,0,0', Phone='0,10,0,0'}">
+                    Margin="{OnIdiom Desktop='12,0,0,0', Tablet='12,0,0,0', Phone='0,10,0,0'}">
                 <Grid>
                     <!-- 选中的人 -->
                     <Grid IsVisible="{Binding HasSelection}" RowDefinitions="*,Auto">
