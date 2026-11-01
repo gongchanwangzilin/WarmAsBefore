@@ -72,6 +72,8 @@ public sealed partial class ToolManager : IDisposable
         RegisterSystemTools();
         RegisterWorldTools();
         RegisterAmapTools();
+        RegisterStateTools();
+        RegisterFlowTools();
         Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
 #if ANDROID

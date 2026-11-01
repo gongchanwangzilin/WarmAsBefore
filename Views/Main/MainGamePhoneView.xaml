@@ -374,6 +374,25 @@
             <!-- Action bar -->
             <Border Grid.Row="4" BackgroundColor="#CCFCF8F0"
                     Padding="0,4,0,12" StrokeThickness="0">
+                <VerticalStackLayout Spacing="4">
+                <!-- 自定义状态：按场景/楼层自动长出来，点一下走到下一个 -->
+                <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never" IsVisible="{Binding HasStateButtons}">
+                    <HorizontalStackLayout Spacing="8" Padding="14,0" BindableLayout.ItemsSource="{Binding StateButtons}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:StateChipVm">
+                                <Border Padding="12,5" StrokeThickness="0" BackgroundColor="#F2E9CF">
+                                    <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
+                                    <Label Text="{Binding Label}" TextColor="{DynamicResource WarmDark}" FontSize="11" />
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MainGameViewModel}}, Path=ToggleStateCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </HorizontalStackLayout>
+                </ScrollView>
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="16">
                     <!-- 互动按钮：液态玻璃圆形材质（BtnLiquidGlassIcon 径向渐变 + 1px 内发光描边 + 柔和按下），无 Scale 避免卡死 -->
                     <VerticalStackLayout HorizontalOptions="Center" Spacing="2">
@@ -433,6 +452,7 @@
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
                 </HorizontalStackLayout>
+                </VerticalStackLayout>
             </Border>
 
             <!-- AI 主动黑屏：只黑舞台，聊天与输入照常可用 -->

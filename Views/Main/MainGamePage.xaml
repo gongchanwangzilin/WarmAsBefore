@@ -352,12 +352,29 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                     IsVisible="{Binding IsRightPanelVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">
-                    <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                        <Button Text="摸摸头" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
-                        <Button Text="抱抱" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
-                        <Button Text="亲吻" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
-                        <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
-                    </HorizontalStackLayout>
+                    <VerticalStackLayout Spacing="6">
+                        <!-- 自定义状态：按场景/楼层自动长出来，标签跟着值变，点一下走到下一个 -->
+                        <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                    IsVisible="{Binding HasStateButtons}">
+                            <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding StateButtons}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:StateChipVm">
+                                        <Button Text="{Binding Label}" TextColor="{DynamicResource SurfaceFg}"
+                                                BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11"
+                                                Padding="12,0" CornerRadius="16" HeightRequest="30"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type ContentPage}}, Path=BindingContext.ToggleStateCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </HorizontalStackLayout>
+                        </ScrollView>
+                        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                            <Button Text="摸摸头" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
+                            <Button Text="抱抱" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
+                            <Button Text="亲吻" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
+                            <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
                     <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView" Margin="0,8" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:DialogueMessage">
