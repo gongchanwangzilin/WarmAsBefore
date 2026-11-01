@@ -153,9 +153,9 @@ public partial class SettingsPage : ContentPage
 
     /// <summary>
     /// 电脑上的组：内容不再一柱到底——左右两栏摊开，中间一道竖发丝线。
-    /// 行首不留任何图标（编号、单字、emoji 都不算图标，用户拍板「没有图标不要硬整」），
-    /// 靠字级本身分层：标题一行、说明小字一行、右侧当前值摘要 + ›。
-    /// 行被搜索隐藏时空槽留着（两栏的对位不塌），整卡高度自然收。
+    /// 行首不留任何图标（编号、单字、emoji 都不算图标，用户拍板「没有图标不要硬整」）。
+    /// 两栏各用一条 VerticalStackLayout 装行——行结构与窄屏单列同源，只有分栏是新的；
+    /// 实测把行跨列摆进带 1px 中柱的 Grid，Windows 的测量会把 Star 列测歪（标题折行、说明横穿行界），绕开。
     /// </summary>
     private View BuildGroupGrid(List<(SettingsViewModel.SettingsSectionRow Row, bool Usage)> rows)
     {
@@ -170,24 +170,29 @@ public partial class SettingsPage : ContentPage
             Padding = new Thickness(4, 0),
         };
 
-        // 列平衡：对半切，前半进左栏、后半进右栏；左右各自从上往下铺，带上各自的发丝线。
+        // 列平衡：对半切，前半进左栏、后半进右栏；两栏各自从上往下铺，带上各自的发丝线。
         var split = (rows.Count + 1) / 2;
+        var left = new VerticalStackLayout { Spacing = 0 };
+        var right = new VerticalStackLayout { Spacing = 0 };
         for (var i = 0; i < rows.Count; i++)
         {
-            var col = i < split ? 0 : 2;
-            var rowInCol = col == 0 ? i : i - split;
-            grid.Add(BuildRow(rows[i].Row, rows[i].Usage, rowInCol > 0, IsWide), col, rowInCol);
+            var inLeft = i < split;
+            (inLeft ? left : right).Add(BuildRow(
+                rows[i].Row, rows[i].Usage,
+                withTopRule: inLeft ? i > 0 : i - split > 0, narrow: false));
         }
 
         var rail = new BoxView { WidthRequest = 1 };
         TryApplyStyle(rail, "VSep");
-        grid.Add(rail, 1, 0);              // 竖线跨到底：行高不齐也不影响
-        Grid.SetRowSpan(rail, Math.Max(1, split));
+        grid.Add(left, 0, 0);
+        grid.Add(rail, 1, 0);
+        grid.Add(right, 2, 0);
         return grid;
     }
 
     /// <summary>
-    /// 一行：标题 + 说明（电脑上说明字也摆出来，宽行才有这待遇）+ 右侧当前值摘要 + ›。
+    /// 一行（固定 54 高，与窄屏同一结构）：标题 + 右侧当前值摘要 + ›。
+    /// 标题/摘要都直接做 Grid 的孩子——再套一层布局，Windows 的测量会把字放出格横穿行界。
     /// 摘要右对齐是 iOS 的做法（当前值永远靠右），窄屏让位给标题。
     /// 每行顶部带自己的发丝线（首行不带）：行被搜索隐藏时线跟着走，不会留下孤儿线。
     /// </summary>
@@ -203,77 +208,45 @@ public partial class SettingsPage : ContentPage
 
         var line = new Grid
         {
-            // MinimumHeightRequest 代替固定高：电脑两栏的长说明、窄屏单行的短标题都能装下
-            MinimumHeightRequest = 54,
-            Padding = new Thickness(16, 8),
+            HeightRequest = 54,
+            Padding = new Thickness(16, 0),
             ColumnSpacing = 12,
-            ColumnDefinitions = IsWide
-                ? new ColumnDefinitionCollection
-                {
-                    new ColumnDefinition(GridLength.Star),
-                    new ColumnDefinition(GridLength.Auto),
-                }
-                : new ColumnDefinitionCollection
-                {
-                    new ColumnDefinition(GridLength.Star),
-                    new ColumnDefinition(GridLength.Auto),
-                    new ColumnDefinition(GridLength.Auto),
-                },
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(GridLength.Star),
+                new ColumnDefinition(GridLength.Auto),
+                new ColumnDefinition(GridLength.Auto),
+            },
         };
         line.BindingContext = row;
         line.SetBinding(VisualElement.IsVisibleProperty, "Visible");
 
-        var text = new VerticalStackLayout { Spacing = 2, VerticalOptions = LayoutOptions.Center };
-        var title = new Label { Text = row.Title };
-        TryApplyStyle(title, "TxtRowTitle");
-        text.Add(title);
-        if (IsWide && row.Desc.Length > 0)
+        var title = new Label
         {
-            text.Add(new Label
-            {
-                Text = row.Desc,
-                Style = TryStyle("TxtCaption"),
-                LineBreakMode = LineBreakMode.TailTruncation,
-                MaxLines = 1,
-            });
-        }
-        line.Add(text, 0, 0);
+            Text = row.Title,
+            VerticalOptions = LayoutOptions.Center,
+            LineBreakMode = LineBreakMode.TailTruncation,
+            MaxLines = 1,
+        };
+        TryApplyStyle(title, "TxtRowTitle");
+
+        var summary = new Label
+        {
+            Text = row.Summary,
+            HorizontalOptions = LayoutOptions.End,
+            VerticalOptions = LayoutOptions.Center,
+            LineBreakMode = LineBreakMode.TailTruncation,
+            MaxLines = 1,
+            IsVisible = !narrow,
+        };
+        TryApplyStyle(summary, "TxtCaption");
 
         var chev = new Label { Text = "›", FontSize = 18, VerticalOptions = LayoutOptions.Center };
         chev.SetDynamicResource(Label.TextColorProperty, "WarmFaint");
 
-        if (IsWide)
-        {
-            // 电脑：当前值摘要常驻右缘，说明字归到标题下面——一行读得出「这一类现在是什么状况」
-            var summary = new Label
-            {
-                Text = row.Summary,
-                HorizontalOptions = LayoutOptions.End,
-                HorizontalTextAlignment = TextAlignment.End,
-                VerticalOptions = LayoutOptions.Center,
-                LineBreakMode = LineBreakMode.TailTruncation,
-                MaxLines = 2,
-            };
-            TryApplyStyle(summary, "TxtCaption");
-            line.ColumnSpacing = 18;
-            line.Add(summary, 1, 0);
-            line.Add(chev, 2, 0);
-        }
-        else
-        {
-            var summary = new Label
-            {
-                Text = row.Summary,
-                HorizontalOptions = LayoutOptions.End,
-                VerticalOptions = LayoutOptions.Center,
-                LineBreakMode = LineBreakMode.TailTruncation,
-                MaxLines = 1,
-                IsVisible = !narrow,
-            };
-            TryApplyStyle(summary, "TxtCaption");
-            line.Add(summary, 1, 0);
-            line.Add(chev, 2, 0);
-        }
+        line.Add(title, 0, 0);
+        line.Add(summary, 1, 0);
+        line.Add(chev, 2, 0);
 
         AttachRoute(line, row, usage);
         wrap.Add(line);

@@ -130,7 +130,9 @@ public sealed class ToastHost : ContentView
         _code.CharacterSpacing = 3;
         _code.FontSize = 10;
 
-        _title = new Label { LineBreakMode = LineBreakMode.TailTruncation, MaxLines = 1 };
+        // 标题不再一行截断：单参入口 Toast.Info 把整段话都塞进标题，长通知在标题上被「…」吃掉半句。
+        // 顶多六行，超出仍收口（通知不是正文阅读器）。
+        _title = new Label { LineBreakMode = LineBreakMode.WordWrap, MaxLines = 6 };
         _title.SetDynamicResource(Label.TextColorProperty, "WarmDark");
         _title.FontAttributes = FontAttributes.Bold;
         _title.FontSize = 14;
