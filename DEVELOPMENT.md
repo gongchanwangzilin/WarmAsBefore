@@ -11,7 +11,7 @@
 
 | 项目 | 值 |
 |---|---|
-| 当前版本 | `1.51.0`（`ApplicationVersion` 51） |
+| 当前版本 | `1.53.0`（`ApplicationVersion` 53） |
 | SDK | .NET 10 SDK |
 | MAUI 工作负载 | `maui`；只构建 Android 时可用 `maui-android` |
 | Windows | Windows 10 19041+，目标框架 `net10.0-windows10.0.19041.0` |

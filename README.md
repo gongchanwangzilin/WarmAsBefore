@@ -4,7 +4,7 @@
   <img src="https://img.shields.io/badge/MAUI-.NET%2010-512BD4?logo=dotnet&logoColor=white" alt=".NET 10" />
   <img src="https://img.shields.io/badge/platform-Windows%20%7C%20Android-8A4A56" alt="Platforms" />
   <img src="https://img.shields.io/badge/license-MIT%20%28Non%E2%80%93Commercial%29-B98A96" alt="License" />
-  <img src="https://img.shields.io/badge/version-1.51.0-F6DCC6" alt="Version" />
+  <img src="https://img.shields.io/badge/version-1.53.0-F6DCC6" alt="Version" />
 </p>
 
 > **A local-first AI companion and interactive story app built with .NET MAUI.**
@@ -17,7 +17,7 @@
 | | |
 |---|---|
 | **开发者** | `xkxt1026` |
-| **当前版本** | `1.51.0`（`ApplicationVersion` 51） |
+| **当前版本** | `1.53.0`（`ApplicationVersion` 53） |
 | **运行平台** | Windows 10 19041+ / Android 7.0+（minSdk 24，targetSdk 36） |
 | **技术栈** | .NET 10 · .NET MAUI · WinUI 3 · CommunityToolkit.Mvvm · Jint · SkiaSharp |
 | **数据形态** | 本地 JSON + 素材文件；可导出数据包，可镜像到自己的 GitHub 仓库做云存档 |
@@ -27,18 +27,14 @@
 
 ## 这一版在做什么
 
-- **数值由 AI 判**：好感、信任、精力不再只靠固定加减。回复里给出增减就按回复来；判不动就不动。
-  精力按「清醒时长 + 本次修正」结算，修正随存档落盘。设置里保留固定增量开关。
-- **大脑预判**：每轮之前估计本次互动的热度。超出预期、低于预期与意料之外分别走不同的反馈；
-  预判只作为一行指令搭进本来就要跑的请求里，可单独关闭。
-- **存档绑定世界树**：新开一局先选世界树，再写用户在这段故事里的身份。未绑定也能聊天，
-  但地图入口会锁上并说明从哪里解绑；世界树条目可手写、可让 AI 生成或润色。
-- **人设进入记忆**：创建存档时写的人设先整理成第一人称记忆，之后由记忆层按需想起，
-  不再每轮把整份人设原样塞进提示词。AI 不可用时用本地分句兜底。
-- **插件系统**：ZIP / 文件夹安装、启停、试跑、体检、设置页、权限台与崩溃日志。
-  钩子可改人设与回复文本；JS 沙箱只暴露白名单宿主函数，能力按「声明 ∩ 授予」放行。
-- **MCP 与插件分开**：MCP 是外部 stdio / HTTP 服务；插件是本地 JS 包。两者各有列表、各自导入，
-  插件目录不会被 MCP 列表收编。
+- **地图长出了厚度**：地块图层、路网分档、小地图、3D 灰度视图与层高，平面图能直接走进去；
+  红绿灯三态可挂高德实时路况，没 Key 就安静退回本地倒计时。
+- **取景照片**：手机端沿街随拍，街道照绑边、室内照绑楼层户型门，取景包可导出导入，电脑端也能补绑。
+- **流程图与自定义状态**：触发 / 条件 / 动作用人话配，试跑满意再启用；状态按楼层 > 场景 > 全局就近取，
+  AI 也能读写。一句话就能把「天黑了就开灯」写成规则。
+- **设置页重排**：分类 inset 列表 + 双栏 + 自绘 iOS 风开关与滑杆，内容列宽跟着窗口走。
+- **桌宠绑定角色**：绑定谁就是谁，换档当场换脸；悬停操作收成一列中文药丸。
+- **用量按角色记账**：分组明细多一档「按角色」，CSV 带角色列；通知升级为不打断操作的成就横幅。
 
 完整的版本条目见 [`RELEASE_NOTES.md`](RELEASE_NOTES.md)。
 
