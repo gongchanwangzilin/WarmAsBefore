@@ -30,8 +30,7 @@
         <Border Grid.Row="1" Background="{DynamicResource WRule}" HeightRequest="1" StrokeThickness="0" />
 
         <ScrollView Grid.Row="2" Padding="24,20,24,32">
-            <VerticalStackLayout x:Name="SettingsBody" HorizontalOptions="Center" Spacing="12"
-                                 MaximumWidthRequest="{DynamicResource WCardWidthWide}">
+            <VerticalStackLayout x:Name="SettingsBody" Spacing="12">
 
                 <!-- 大标题：iPhone 的 large title，只有窄屏摆（手机上那是唯一看得见的页名）。
                      电脑上顶栏已有页面名，再顶一个大大的「设置」就是拿手机排宽屏的错觉来源之一。 -->

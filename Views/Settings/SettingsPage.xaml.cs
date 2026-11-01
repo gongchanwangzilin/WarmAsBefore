@@ -47,21 +47,35 @@ public partial class SettingsPage : ContentPage
         Motion.ArrivePage(this);
     }
 
-    /// <summary>宽度匹配屏幕：内容列由 XAML 的 WCardWidth 收口，这里只记日志（留作性能观测）。</summary>
+    /// <summary>宽度匹配屏幕：内容列由代码显式定宽（跟窗走、宽档封顶），居中靠两侧 Margin。
+    /// 不用 MaximumWidthRequest + Center：Center 会让容器按**内容测量想要宽**收缩，
+    /// 双栏 Grid 测出来偏小，实测 1536 的窗里内容列只有 880——两侧就这么空出来的。</summary>
     private void ApplyResponsiveWidth()
     {
         try
         {
             var w = Width;
             if (w <= 0) return;
-            var side = Math.Max(0, (w - Math.Clamp(w * 0.9, 320, 1600)) / 2);
+            var tokenWide = ReadWideToken(w);
+            var available = Math.Max(0, w - 48);          // ScrollView 的左右内距 24 已吃掉
+            var side = Math.Max(0, (available - tokenWide) / 2);
             if (Math.Abs(side - _lastSide) > 1)
             {
                 _lastSide = side;
-                App.WriteLog($"SettingsPage.Width W={w:0} IsWide={w > 900} 内容列=0.9×W 侧留白={side:0}");
+                App.WriteLog($"SettingsPage.Width W={w:0} 内容列=tokenWide={tokenWide:0} 侧留白={side:0}");
             }
+            SettingsBody.Margin = new Thickness(side, 0, side, 0);
         }
         catch (Exception ex) { App.WriteLog("SettingsPage.Width -> " + ex.Message); }
+    }
+
+    /// <summary>宽档令牌现值（资源在窗口尺度重发时更新）；取不到就按 0.9×窗宽现场算兜底。</summary>
+    private static double ReadWideToken(double w)
+    {
+        if (Application.Current?.Resources.TryGetValue("WCardWidthWide", out var v) == true
+            && v is double d && d > 0)
+            return d;
+        return Math.Clamp(Math.Round(w * 0.9), 320, 1600);
     }
 
     /// <summary>
