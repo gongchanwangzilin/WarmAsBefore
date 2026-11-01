@@ -38,6 +38,13 @@ public sealed class MapService
     /// <summary>地图数据变化（编辑/导入后刷新 UI）。</summary>
     public event Action? MapChanged;
 
+    /// <summary>
+    /// 几何变了（任何一次落盘都算）：整图快照缓存该作废。
+    /// 3D 灰度与小地图都把 MapDefinition 压成一份「米」几何，重算一次不便宜，
+    /// 但编辑器的改动只会走 SaveAsync、不发 MapChanged，所以在这里留一个唯一的失效口。
+    /// </summary>
+    public event Action? GeometryInvalidated;
+
     public MapService(StorageProvider store) => _store = store;
 
     public MapDefinition Map => _map;
@@ -238,6 +245,7 @@ public sealed class MapService
         _adj = null;
         _points = null;
         _seconds = null;
+        GeometryInvalidated?.Invoke();
     }
 
     /// <summary>算距离用的米数：手量的优先；未丈量按几何长度 × 比例尺兜底。</summary>

@@ -59,6 +59,8 @@ public static class CoreRegistration
         services.AddSingleton<MapImportService>();
         // 地图背景：大地图底图 + 缺背景的场景逐张补
         services.AddSingleton<MapBackgroundService>();
+        // 小地图取材：整图几何快照（复用 3D 那份）按当前场景裁一圈，单例才留得住缓存
+        services.AddSingleton<MinimapService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
         services.AddSingleton<SceneCalibrationService>();
         services.AddSingleton<LingshuImporter>();

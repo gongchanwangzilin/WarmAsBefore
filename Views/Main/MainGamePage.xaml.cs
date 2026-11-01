@@ -118,12 +118,15 @@ public partial class MainGamePage : ContentPage
     {
         base.OnDisappearing();
         PauseSceneVideo();
+        // 小地图跟着离场：取材要跑一遍全图最短路，人在别的页面时没东西看，订阅纯属白算。
+        _vm.Minimap.Detach();
     }
 
     protected override void OnAppearing()
     {
         base.OnAppearing();
         ResumeSceneVideo();
+        _vm.Minimap.Attach();
         _vm.SyncWidgetModeFromSettings();
         if (!_backdropSynced)
         {
