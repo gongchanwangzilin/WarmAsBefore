@@ -116,6 +116,14 @@
         <Setter Property="Margin" Value="{DynamicResource WPadCardBleed}" />
     </Style>
 
+    <!-- 竖发丝线：宽屏组卡里两栏中间的分界（设置首页的电脑版双栏）。
+         竖线由 Grid 开一道 1px 的中柱装，跨行铺满；行高再不齐也不会断开。 -->
+    <Style x:Key="VSep" TargetType="BoxView">
+        <Setter Property="Color" Value="{DynamicResource WSep}" />
+        <Setter Property="WidthRequest" Value="1" />
+        <Setter Property="VerticalOptions" Value="Fill" />
+    </Style>
+
     <!-- 左侧导航条的一项：静止态透明，选中态只把底沉一档。
          选中不靠整块饱和色 —— 参考窗的做法是「浅灰圆角块 + 左缘一根细胶囊 + 字加粗」，
          饱和色占满一行会把读者的视线钉死在这一行上，反而看不清其余项。

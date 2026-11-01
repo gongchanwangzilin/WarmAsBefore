@@ -111,20 +111,17 @@
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                         </Border>
 
-                        <!-- 悬停按钮：真实桌宠里画在头顶留白带，这里同位置同顺序 -->
+                        <!-- 悬停按钮：真实桌宠里竖排在右侧（中文短标签药丸），这里给一颗代表看字准与底色 -->
                         <HorizontalStackLayout Grid.Row="0" Spacing="6" Padding="6,2"
                                                HorizontalOptions="Center" VerticalOptions="Start"
                                                BindableLayout.ItemsSource="{Binding ActiveHoverOptions}"
                                                IsVisible="{Binding HasHoverButtons}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PetHoverOption">
-                                    <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="7,3">
-                                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                                        <HorizontalStackLayout Spacing="4">
-                                            <Label Text="{Binding Glyph}" FontSize="11" VerticalOptions="Center" />
-                                            <Label Text="{Binding Name}" FontSize="10" TextColor="{DynamicResource SurfaceFg}"
-                                                   VerticalOptions="Center" />
-                                        </HorizontalStackLayout>
+                                    <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10,4">
+                                        <Border.StrokeShape><RoundRectangle CornerRadius="11" /></Border.StrokeShape>
+                                        <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource SurfaceFg}"
+                                               VerticalOptions="Center" />
                                     </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
@@ -291,21 +288,20 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding HoverOptions}" Margin="0,6,0,4">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:PetHoverOption">
-                                        <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
-                                            <Label Text="{Binding Glyph}" FontSize="15" VerticalOptions="Center" />
-                                            <Label Grid.Column="1" Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
+                                            <Label Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
                                                    VerticalOptions="Center" />
-                                            <Button Grid.Column="2" Text="↑" FontSize="12" Padding="8,2" HeightRequest="28"
+                                            <Button Grid.Column="1" Text="↑" FontSize="12" Padding="8,2" HeightRequest="28"
                                                     Style="{StaticResource BtnGhost}"
                                                     IsVisible="{Binding IsOn}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverUpCommand}"
                                                     CommandParameter="{Binding .}" />
-                                            <Button Grid.Column="3" Text="↓" FontSize="12" Padding="8,2" HeightRequest="28"
+                                            <Button Grid.Column="2" Text="↓" FontSize="12" Padding="8,2" HeightRequest="28"
                                                     Style="{StaticResource BtnGhost}"
                                                     IsVisible="{Binding IsOn}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverDownCommand}"
                                                     CommandParameter="{Binding .}" />
-                                            <controls:ViewSwitch Grid.Column="4" IsToggled="{Binding IsOn}" VerticalOptions="Center" />
+                                            <controls:ViewSwitch Grid.Column="3" IsToggled="{Binding IsOn}" VerticalOptions="Center" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>

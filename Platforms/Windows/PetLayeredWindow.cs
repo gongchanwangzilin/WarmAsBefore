@@ -729,44 +729,29 @@ internal static class PetLayeredWindow
 
     static void DrawHoverButtons(SKCanvas canvas)
     {
-        // emoji 与短标签分开画：一只画笔只能认一个字族（emoji 认 Segoe UI Emoji，中文认雅黑）
-        var s = _dpiScale;
         using var bg = new SKPaint { Color = new SKColor(0xF7, 0xEE, 0xDD, 0xF2), IsAntialias = true };
         using var edge = new SKPaint
         {
             Color = new SKColor(0xA8, 0x83, 0x6B, 0x99),
             IsAntialias = true,
             Style = SKPaintStyle.Stroke,
-            StrokeWidth = Math.Max(1, s),
+            StrokeWidth = Math.Max(1, _dpiScale),
         };
-        using var emoji = new SKPaint
-        {
-            Color = new SKColor(0x5A, 0x45, 0x32),
-            IsAntialias = true,
-            Typeface = EmojiFace(),
-            TextSize = MathF.Round(15 * s),
-            TextAlign = SKTextAlign.Left,
-        };
+        // 就画中文短标签，字号给足——按钮是干什么的一句话说完，不摆单字符号也不摆 emoji。
         using var text = new SKPaint
         {
             Color = new SKColor(0x5A, 0x45, 0x32),
             IsAntialias = true,
             Typeface = TextFace(),
-            TextSize = MathF.Round(13 * s),
-            TextAlign = SKTextAlign.Left,
+            TextSize = MathF.Round(15 * _dpiScale),
+            TextAlign = SKTextAlign.Center,
         };
         foreach (var (x, y, w, h, id) in ButtonSlots())
         {
             var rect = new SKRect(x, y, x + w, y + h);
             canvas.DrawRoundRect(new SKRoundRect(rect, h / 2f), bg);
             canvas.DrawRoundRect(new SKRoundRect(rect, h / 2f), edge);
-
-            var cy = y + h / 2f;
-            var emojiW = emoji.MeasureText(EmojiOf(id));
-            var textW = text.MeasureText(LabelOf(id));
-            var startX = x + (w - (emojiW + 6 * s + textW)) / 2f;   // emoji + 缝 + 短标签，整组居中
-            canvas.DrawText(EmojiOf(id), startX, cy + emoji.TextSize * 0.36f, emoji);
-            canvas.DrawText(LabelOf(id), startX + emojiW + 6 * s, cy + text.TextSize * 0.36f, text);
+            canvas.DrawText(LabelOf(id), rect.MidX, y + h / 2f + text.TextSize * 0.36f, text);
         }
     }
 
@@ -789,28 +774,11 @@ internal static class PetLayeredWindow
         canvas.DrawText(_statusText, _bodyW / 2f, rect.Bottom - pad, paint);
     }
 
-    static SKTypeface? _emojiFace;
-    static SKTypeface EmojiFace() =>
-        _emojiFace ??= SKTypeface.FromFamilyName("Segoe UI Emoji") ?? SKTypeface.Default;
-
     static SKTypeface? _textFace;
     static SKTypeface TextFace() =>
         _textFace ??= SKTypeface.FromFamilyName("Microsoft YaHei UI") ?? SKTypeface.Default;
 
-    /// <summary>药丸上的 emoji：看得懂的图形，不再用单个措弗字硬当图标。</summary>
-    static string EmojiOf(string id) => id switch
-    {
-        "talk" => "💬",          // 说话
-        "think" => "💭",         // 想一次
-        "pet" => "🤚",           // 摸摸头
-        "purr" => "💗",          // 呼噜
-        "walk" => "🚶",          // 走走
-        "settings" => "⚙",       // 设置
-        "home" => "🏠",          // 回窗口
-        _ => "•",
-    };
-
-    /// <summary>药丸上的中文短标签：与设置页目录同一个叫法，界面上不出现第二次命名。</summary>
+    /// <summary>药丸上的中文短标签：与设置页目录同一个叫法，按钮是干嘛的一句话说完。</summary>
     static string LabelOf(string id) => id switch
     {
         "talk" => "说话",
