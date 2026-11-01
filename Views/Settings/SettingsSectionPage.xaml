@@ -1901,30 +1901,30 @@
                             <Label Text="用 OpenAI 兼容的 /images/generations 接口生成装扮、场景背景与角色立绘；生成结果落在本地 generated 目录，可再导入素材库。关闭时不花钱。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ImageGenEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="接口地址" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding ImageGenUrl}" Placeholder="https://api.openai.com/v1"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="接口地址" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ImageGenUrl}" Placeholder="https://api.openai.com/v1"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="密钥" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding ImageGenKey}" IsPassword="True" Placeholder="只存本地设置，不进云存档"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="密钥" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ImageGenKey}" IsPassword="True" Placeholder="只存本地设置，不进云存档"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="模型" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding ImageGenModel}" Placeholder="gpt-image-1 / flux / sd…"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="模型" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ImageGenModel}" Placeholder="gpt-image-1 / flux / sd…"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="尺寸" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding ImageGenSize}" Placeholder="1024x1024"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="尺寸" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ImageGenSize}" Placeholder="1024x1024"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                         </Grid>
@@ -2074,23 +2074,23 @@
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="用小模型补预判" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BrainAiAssistEnabled}" IsEnabled="{Binding BrainEnabled}" /></Grid>
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="接口地址" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding BrainAiUrl}" Placeholder="留空则沿用上面的 AI 地址"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="接口地址" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding BrainAiUrl}" Placeholder="留空则沿用上面的 AI 地址"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
                                    IsEnabled="{Binding BrainAiAssistEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="密钥" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding BrainAiKey}" IsPassword="True" Placeholder="留空则沿用上面的 AI 密钥（只存本地，不进云存档）"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="密钥" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding BrainAiKey}" IsPassword="True" Placeholder="留空则沿用上面的 AI 密钥（只存本地，不进云存档）"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
                                    IsEnabled="{Binding BrainAiAssistEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
-                        <Grid ColumnDefinitions="96,*" Padding="0,13">
-                            <Label Text="模型" VerticalOptions="Center" FontSize="13" />
-                            <Entry Text="{Binding BrainAiModel}" Placeholder="一个便宜/免费的模型名"
+                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                            <Label Grid.Column="0" Text="模型" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding BrainAiModel}" Placeholder="一个便宜/免费的模型名"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
                                    IsEnabled="{Binding BrainAiAssistEnabled}" /></Grid>
