@@ -77,6 +77,31 @@ public static class StyleWorldTokens
     public static double CardWidth(double windowWidth) =>
         Math.Clamp(Math.Round(windowWidth * 0.62), 320, 900);
 
+    // ── 宽度令牌的小型重发 ─────────────────────────────────────────────
+    // 内容列宽只跟窗口宽度走，与色板/字号无关。以前它们混在整套 Publish 里，
+    // 而 ApplyViewport 只在「尺度跨 0.02 一级」才整套重发 —— 结果就是拖动窗口时
+    // 内容列宽纹丝不动（用户实测：设置首页「老是固定大小」）。这三个标量单独重发，
+    // 让 DynamicResource 的消费方（设置列、桌宠设置等内容列）逐像素跟手。
+
+    /// <summary>窗口宽度变了（但尺度没跨档）时只重发这三个宽度令牌，不惊动整套调色板。</summary>
+    public static void RepublishWidth()
+    {
+        var app = Application.Current;
+        if (app is null) return;
+        PublishWidth(app.Resources);
+    }
+
+    private static void PublishWidth(ResourceDictionary res)
+    {
+        res["WCardWidth"] = CardWidth(ViewportWidth);
+        // 双栏编辑/桌面伴侣一类的页面要用比正文列宽一档的内容列（桌宠设置 440 预览 + 设置列）。
+        // 上限放到 1600（0.9×窗宽）：1920 全屏 1240 封顶会把「内容列跟窗走」读成又一块固定邮票。
+        res["WCardWidthWide"] = Math.Clamp(Math.Round(ViewportWidth * 0.9), 320, 1600);
+        // 导航条宽度：窄到一列都放不下时（手机）交回 -1 = 不请求宽度，让那一列自己塌成一行。
+        // 这个判断只能在这里做：XAML 里 OnPlatform 拿不到窗口尺寸，而尺度档知道。
+        res["WRailWidth"] = CardWidth(ViewportWidth) < 480 ? -1d : Math.Round(262 * Scale);
+    }
+
     public static string Display(StyleWorld w) => w switch
     {
         StyleWorld.Soft => "轻质感",
@@ -557,12 +582,7 @@ public static class StyleWorldTokens
         res["WMarkSize"] = Math.Round(r.SizeTitle * 1.85);
         res["WPillHeight"] = Math.Round(r.SizeBody * 2.9);
         res["WPillRadius"] = (int)Math.Round(r.SizeBody * 2.9 / 2);
-        res["WCardWidth"] = CardWidth(ViewportWidth);
-        // 双栏编辑/桌面伴侣一类的页面要用比正文列宽一档的内容列（桌宠设置 440 预览 + 设置列）。
-        res["WCardWidthWide"] = Math.Clamp(Math.Round(ViewportWidth * 0.85), 320, 1240);
-        // 导航条宽度：窄到一列都放不下时（手机）交回 -1 = 不请求宽度，让那一列自己塌成一行。
-        // 这个判断只能在这里做：XAML 里 OnPlatform 拿不到窗口尺寸，而尺度档知道。
-        res["WRailWidth"] = CardWidth(ViewportWidth) < 480 ? -1d : Math.Round(262 * Scale);
+        PublishWidth(res);
         res["WGapItem"] = Math.Round(r.PadCard * 0.62);
         // 主行动带的气口：横向比行宽一档，纵向给到 1.55 档。抬头/页脚用 WPadCard，
         // 只有这一带需要「比列表松」，因为它是整屏唯一要被先看到的东西。

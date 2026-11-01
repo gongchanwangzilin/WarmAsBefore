@@ -59,8 +59,13 @@ public partial class App : Application
     /// </summary>
     private static void ApplyViewport(double width, double height)
     {
-        if (!DesignSystem.Worlds.StyleWorldTokens.SetViewport(width, height)) return;
-        DesignSystem.Theme.ThemeManager.Current?.RepublishForScale();
+        // 宽度令牌（内容列宽）跟着窗口宽度逐次重发：跨了尺度档就顺手整套重发（字号/内距要重算），
+        // 没跨档也要把 WCardWidth/WCardWidthWide 刷新——以前不跨档就什么都不发，
+        // 内容列宽卡在启动那一次的值上，用户实测就是「设置首页老是固定大小」。
+        if (DesignSystem.Worlds.StyleWorldTokens.SetViewport(width, height))
+            DesignSystem.Theme.ThemeManager.Current?.RepublishForScale();
+        else
+            DesignSystem.Worlds.StyleWorldTokens.RepublishWidth();
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
