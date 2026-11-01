@@ -76,6 +76,96 @@ public sealed class PetService
         return clean;
     }
 
+    // ============ 平台无关：立绘解析 / 通知通道（PetPage、设置页、切档热切换共用） ============
+
+    /// <summary>从 DI 里要一个服务：拿不到就返回 null，调用方自己兜着（桌宠不该因为服务没注册而炸）。</summary>
+    private static T? Resolve<T>() where T : class
+    {
+        var services = Application.Current?.Handler?.MauiContext?.Services;
+        return services?.GetService(typeof(T)) as T;
+    }
+
+    /// <summary>
+    /// 桌宠现在该是谁：显式绑定（PetCharacterId）优先，否则跟随当前存档主角。
+    /// PetPage、桌宠设置页、切档热切换三处共用这一条解析，避免三份「取立绘」的代码各自漂移。
+    /// 返回 null 表示没有可显示的角色（没进档 / 没角色 / 没立绘）。
+    /// </summary>
+    public static async Task<(Models.CharacterData Character, string SpritePath)?> ResolvePetCharacterAsync()
+    {
+        try
+        {
+            var chars = Resolve<CharacterLibrary>();
+            var store = Resolve<StorageProvider>();
+            var engine = Resolve<GameEngine>();
+            if (chars is null || store is null || engine is null) return null;
+
+            var bound = _instance?._settings.Current.PetCharacterId ?? "";
+            var roster = await chars.ListAsync();
+            var target = string.IsNullOrWhiteSpace(bound)
+                ? null
+                : roster.FirstOrDefault(c => c.Profile.Id == bound);
+            target ??= roster.FirstOrDefault(c => c.Profile.Id == engine.State.CharacterId);
+            if (target is null || target.SpriteMap.Count == 0) return null;
+
+            // 用角色当前状态，而不是 SpriteMap 的第一个键：取第一个会让她和主页面换装不一致。
+            var key = $"{target.State.CurrentOutfit}/{target.State.CurrentEmotion}";
+            if (!target.SpriteMap.TryGetValue(key, out var rel))
+            {
+                var outfitKeys = target.SpriteMap.Keys
+                    .Where(k => k.StartsWith(target.State.CurrentOutfit + "/", StringComparison.Ordinal))
+                    .ToList();
+                rel = outfitKeys.Count > 0 ? outfitKeys[0] : target.SpriteMap.Values.First();
+            }
+            var full = Path.Combine(store.Root, rel);
+            return File.Exists(full) ? (target, full) : null;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.ResolvePet -> " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>桌宠是否正站在桌面上（决定通知走页面横幅还是走她头顶的气泡）。</summary>
+    public static bool IsPetMode => _instance?._petMode == true;
+
+    /// <summary>
+    /// 桌宠模式下的通知通道：桌面那只没有页面可贴横幅，就写进头顶状态行几秒。
+    /// 这一条对应「横幅宿主进桌宠头顶留白带」——用的是现成的状态行通道，不为通知再开一层窗口。
+    /// 移动端没有头顶小窗，方法体里直接什么都不做。
+    /// </summary>
+    public static void NotifyBubble(string text, double seconds = 8)
+    {
+#if WINDOWS
+        var inst = _instance;
+        if (inst is null || !inst._petMode) return;
+        var line = (text ?? "").Trim();
+        if (line.Length > 60) line = line[..60] + "…";
+        MainThread.BeginInvokeOnMainThread(() => inst.SetStatusFor(line, seconds));
+#endif
+    }
+
+    /// <summary>
+    /// 换档之后热换桌宠：人已经站在桌面上了，不能等她下次进桌宠页才换脸。
+    /// 只在桌宠真的在显示时重贴（PetLayeredWindow 是常驻分层窗口，非桌宠模式不该被拉出来）。
+    /// </summary>
+    public static async Task RefreshForActiveSaveAsync()
+    {
+        try
+        {
+            var inst = _instance;
+            if (inst is null || !inst._petMode) return;
+            var resolved = await ResolvePetCharacterAsync();
+            if (resolved is not { } r) return;
+            AttachSprite(r.SpritePath);
+            AttachAnimation(r.Character.Profile.Id, r.Character.State.CurrentEmotion);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PetService.RefreshForActiveSave -> " + ex.Message);
+        }
+    }
+
 #if WINDOWS
     private const int WM_USER = 0x0400;
     private const int WM_TRAYICON = WM_USER + 21;
@@ -535,88 +625,6 @@ public sealed class PetService
         }
         // 建好就照设置摆一次：字号、输入条在不在，都得先跟上用户上一次的选择
         ApplyChromeSettings();
-    }
-
-    // ============ 立绘与头顶小窗的联动（供 PetPage 调用） ============
-
-    /// <summary>
-    /// 桌宠现在该是谁：显式绑定（PetCharacterId）优先，否则跟随当前存档主角。
-    /// PetPage、桌宠设置页、切档热切换三处共用这一条解析，避免三份「取立绘」的代码各自漂移。
-    /// 返回 null 表示没有可显示的角色（没进档 / 没角色 / 没立绘）。
-    /// </summary>
-    public static async Task<(Models.CharacterData Character, string SpritePath)?> ResolvePetCharacterAsync()
-    {
-        try
-        {
-            var chars = Resolve<CharacterLibrary>();
-            var store = Resolve<StorageProvider>();
-            var engine = Resolve<GameEngine>();
-            if (chars is null || store is null || engine is null) return null;
-
-            var bound = _instance?._settings.Current.PetCharacterId ?? "";
-            var roster = await chars.ListAsync();
-            var target = string.IsNullOrWhiteSpace(bound)
-                ? null
-                : roster.FirstOrDefault(c => c.Profile.Id == bound);
-            target ??= roster.FirstOrDefault(c => c.Profile.Id == engine.State.CharacterId);
-            if (target is null || target.SpriteMap.Count == 0) return null;
-
-            // 用角色当前状态，而不是 SpriteMap 的第一个键：取第一个会让她和主页面换装不一致。
-            var key = $"{target.State.CurrentOutfit}/{target.State.CurrentEmotion}";
-            if (!target.SpriteMap.TryGetValue(key, out var rel))
-            {
-                var outfitKeys = target.SpriteMap.Keys
-                    .Where(k => k.StartsWith(target.State.CurrentOutfit + "/", StringComparison.Ordinal))
-                    .ToList();
-                rel = outfitKeys.Count > 0 ? outfitKeys[0] : target.SpriteMap.Values.First();
-            }
-            var full = Path.Combine(store.Root, rel);
-            return File.Exists(full) ? (target, full) : null;
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("PetService.ResolvePet -> " + ex.Message);
-            return null;
-        }
-    }
-
-    /// <summary>桌宠是否正站在桌面上（决定通知走页面横幅还是走她头顶的气泡）。</summary>
-    public static bool IsPetMode => _instance?._petMode == true;
-
-    /// <summary>
-    /// 桌宠模式下的通知通道：桌面那只没有页面可贴横幅，就写进头顶状态行几秒。
-    /// 这一条对应「横幅宿主进桌宠头顶留白带」——用的是现成的状态行通道，不为通知再开一层窗口。
-    /// </summary>
-    public static void NotifyBubble(string text, double seconds = 8)
-    {
-#if WINDOWS
-        var inst = _instance;
-        if (inst is null || !inst._petMode) return;
-        var line = (text ?? "").Trim();
-        if (line.Length > 60) line = line[..60] + "…";
-        MainThread.BeginInvokeOnMainThread(() => inst.SetStatusFor(line, seconds));
-#endif
-    }
-
-    /// <summary>
-    /// 换档之后热换桌宠：人已经站在桌面上了，不能等她下次进桌宠页才换脸。
-    /// 只在桌宠真的在显示时重贴（PetLayeredWindow 是常驻分层窗口，非桌宠模式不该被拉出来）。
-    /// </summary>
-    public static async Task RefreshForActiveSaveAsync()
-    {
-        try
-        {
-            var inst = _instance;
-            if (inst is null || !inst._petMode) return;
-            var resolved = await ResolvePetCharacterAsync();
-            if (resolved is not { } r) return;
-            AttachSprite(r.SpritePath);
-            AttachAnimation(r.Character.Profile.Id, r.Character.State.CurrentEmotion);
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("PetService.RefreshForActiveSave -> " + ex.Message);
-        }
     }
 
     /// <summary>把角色立绘贴到桌面上（默认右下角、脚踩工作区底沿；记过位置就回那个位置），并定位头顶小窗。</summary>
@@ -1188,13 +1196,6 @@ public sealed class PetService
         }
     }
 
-    /// <summary>从 DI 里要一个服务：拿不到就返回 null，调用方自己兜着（桌宠不该因为服务没注册而炸）。</summary>
-    private static T? Resolve<T>() where T : class
-    {
-        var services = Application.Current?.Handler?.MauiContext?.Services;
-        return services?.GetService(typeof(T)) as T;
-    }
-
     /// <summary>类别 → 素材绝对路径。查过一次就记住，别每敲一个字都去翻一遍音效库。</summary>
     private async Task<string?> ResolveSfxPathAsync(string category)
     {
@@ -1607,6 +1608,7 @@ public sealed class PetService
 
     // 帧动画这一套要有一个「按像素贴到桌面、还能逐帧换」的表面才成立；手机上是 XAML 里那张 Image，
     // 没有分层窗口，所以工作室生成的包在手机上先只是存着。留同名空实现，页面才能不分平台地叫。
+    public static void AttachSprite(string absPath) { }
     public static void AttachAnimation(string characterId, string emotion) { }
     public static void SetEmotion(string emotion) { }
     public static void ReloadAnimation() { }
