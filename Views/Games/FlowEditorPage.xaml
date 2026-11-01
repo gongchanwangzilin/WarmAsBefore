@@ -28,7 +28,8 @@
         <CollectionView Grid.Row="1" ItemsSource="{Binding Rows}" SelectionMode="None">
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:FlowRowVm">
-                    <Border Style="{StaticResource CardGroup}" Margin="0,0,0,10">
+                    <!-- 一条规则一段，靠发丝线分，不再一摞同款卡片 -->
+                    <VerticalStackLayout Spacing="4" Padding="4,10">
                         <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10" RowSpacing="4">
                             <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
                             <Label Grid.Column="1" Text="{Binding EnabledLabel}" Style="{StaticResource TxtCaption}"
@@ -60,7 +61,8 @@
                                         CommandParameter="{Binding .}" />
                             </HorizontalStackLayout>
                         </Grid>
-                    </Border>
+                        <BoxView Style="{StaticResource HSep}" Margin="0,8,0,0" />
+                    </VerticalStackLayout>
                 </DataTemplate>
             </CollectionView.ItemTemplate>
         </CollectionView>

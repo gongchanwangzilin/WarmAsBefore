@@ -60,9 +60,9 @@
             <VerticalStackLayout Spacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}"
                                  MaximumWidthRequest="920" HorizontalOptions="Fill">
 
-                <!-- ============ 一、检索 ============ -->
-                <Border Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Spacing="8">
+                <!-- ============ ① 找地方 ============ -->
+                <Label Text="① 找地方" Style="{StaticResource TxtSection}" />
+                <VerticalStackLayout Spacing="8">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                             <Entry Style="{StaticResource Field}" Text="{Binding Query}"
                                    Placeholder="城市 / 区县 / 街道，或直接写经纬度：120.15,30.27"
@@ -113,12 +113,10 @@
                             </VerticalStackLayout>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
-                </Border>
 
-                <!-- ============ 二、取多大一片 ============ -->
-                <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasSelection}">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="取多大一片" Style="{StaticResource TxtRowTitle}" />
+                <!-- ============ ② 取多大一片 ============ -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasSelection}">
+                    <Label Text="② 取多大一片" Style="{StaticResource TxtSection}" />
                         <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Presets}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MapPresetChip">
@@ -166,13 +164,12 @@
 
                         <Label Text="一次最多 6×6 公里，道路 1200 段 / 建筑 600 栋 / 带名字的店铺 300 家封顶：塞得太满，安卓端的画布与寻路会先撑不住，超了会砍并说明。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
-                </Border>
+                </VerticalStackLayout>
 
-                <!-- ============ 三、预览与导入 ============ -->
-                <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasSelection}">
-                    <VerticalStackLayout Spacing="10">
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <!-- ============ ③ 预览与导入 ============ -->
+                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasSelection}">
+                    <Label Text="③ 预览与导入" Style="{StaticResource TxtSection}" />
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                             <Button Text="预览：先数一数" Style="{StaticResource BtnGhost}"
                                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                     Command="{Binding PreviewCommand}" />
@@ -194,13 +191,11 @@
                         <!-- 截断 / 这一片太稀：都是要改下一步决定的话，用信号色 -->
                         <Label Text="{Binding PreviewWarning}" Style="{StaticResource TxtSignal}"
                                IsVisible="{Binding HasPreviewWarning}" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
-                </Border>
+                </VerticalStackLayout>
 
-                <!-- ============ 四、背景 ============ -->
-                <Border Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Spacing="10">
-                        <Label Text="背景：形状之外的那一层" Style="{StaticResource TxtRowTitle}" />
+                <!-- ============ ④ 背景 ============ -->
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="④ 背景：形状之外的那一层" Style="{StaticResource TxtSection}" />
                         <Label Text="{Binding BackgroundSummary}" Style="{StaticResource TxtBodySm}"
                                LineBreakMode="WordWrap" />
                         <Label Text="真实城市导进来只有建筑轮廓、道路命名与店名，画面是空的：自己拍的照片回到地图页右键场景 →「背景图（电脑导入）」挂上，这里只负责让 AI 补。"
@@ -228,12 +223,11 @@
 
                         <Label Text="出图走「设置 → AI → 画面生成」那一套；这里只放 AI 现生成的图与你自己导入的文件，不用任何游戏自带或受版权保护的素材。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                    </VerticalStackLayout>
-                </Border>
+                </VerticalStackLayout>
 
-                <!-- ============ 五、自己的文件 / 高德 Key / 判灯 ============ -->
-                <Border Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Spacing="0">
+                <!-- ============ ⑤ 自己的文件 / 高德 Key / 判灯 ============ -->
+                <VerticalStackLayout Spacing="0">
+                    <Label Text="⑤ 自己的文件 / 高德 Key / 判灯" Style="{StaticResource TxtSection}" />
                         <Border Style="{StaticResource SettingRow}">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
@@ -275,7 +269,6 @@
                             </Grid>
                         </Border>
                     </VerticalStackLayout>
-                </Border>
 
                 <Label Text="导入的地图会整张换掉手上这一张；想回去接着改，回地图页即可。"
                        Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" Margin="4,0,0,0" />
