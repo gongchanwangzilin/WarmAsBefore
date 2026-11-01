@@ -57,8 +57,18 @@ public partial class App : Application
     /// 尺度只在这一处被写：窗口、启动对齐、以后任何新入口都走这里，
     /// 免得出现「颜色跟着窗口变了、字号没变」这种半套下发。
     /// </summary>
+    /// <summary>上一次记录进日志的视口宽（节流：拖动时 SizeChanged 一秒几十次，全记会刷屏）。</summary>
+    private static double _loggedViewportW;
+
     private static void ApplyViewport(double width, double height)
     {
+        // 诊断记录：路径是否走通、喂进来的宽度是多少（逻辑还是有效像素），差距大于 4 才记一条。
+        if (Math.Abs(width - _loggedViewportW) > 4)
+        {
+            _loggedViewportW = width;
+            WriteLog($"viewport {width:0}x{height:0} → 期望内容列 wide={Math.Clamp(Math.Round(width * 0.9), 320, 1600):0} narrow={Math.Clamp(Math.Round(width * 0.62), 320, 900):0}");
+        }
+
         // 宽度令牌（内容列宽）跟着窗口宽度逐次重发：跨了尺度档就顺手整套重发（字号/内距要重算），
         // 没跨档也要把 WCardWidth/WCardWidthWide 刷新——以前不跨档就什么都不发，
         // 内容列宽卡在启动那一次的值上，用户实测就是「设置首页老是固定大小」。
