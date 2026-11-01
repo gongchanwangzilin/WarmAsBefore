@@ -47,7 +47,8 @@
 | `Models/Relation*.cs` | `RelationNode`、`RelationEdge`、`RelationGraph`、`RelationNet`、`RelationParams`、`RelationStats`、`RelationLayout` | 关系网节点/边、布局、参数与统计 |
 | `Models/MemoryLayer.cs` | `MemoryLayer`、`MemoryLayers` | 记忆分层枚举与元数据 |
 | `Models/MemoryTag.cs` | `MemoryTag` | 标签与指向对象 |
-| `Models/MapData.cs` | `MapDefinition`、`MapLocation`、`MapScene`、`MapTransit`、`MapWaypoint`、`MapEdge` | 地图定义、场景与连线 |
+| `Models/MapData.cs` | `MapDefinition`、`MapLocation`、`MapScene`、`MapTransit`、`MapWaypoint`、`MapEdge`、`MapRegion`、`CustomStateDef`、`SignalKinds`/`SignalPhases` | 地图定义、场景与连线、地块、自定义状态、红绿灯三字段 |
+| `Models/FlowData.cs` | `FlowRule`、`FlowCondition`、`FlowAction`、`FlowTriggers`、`FlowOps`、`FlowConditionKinds`、`FlowActionKinds`、`SunPhases` | 流程图规则：触发 + 条件树 + 动作；每种节点都有 `Describe()` 说人话 |
 | `Models/MapActor.cs` | `MapActor`、`PullRequest`、`PullArbitrationResult` | 地图实体与拉拽仲裁 |
 | `Models/SceneLibrary.cs` | `SceneLibraryEntry`、`SceneMode` | 场景库与场景模式 |
 | `Models/ScenePlacement.cs` | `ScenePlacement`、`NormPoint`、`NormLine`、`NormSphere`、`LandingKinds`、`ScaleMethods` | 场景落脚/缩放标定 |
@@ -146,6 +147,11 @@
 | 组件 | 职责 |
 |---|---|
 | `MapService` | 场景图持久化、BFS 最短路、逐段行走、背景图/视频、导入导出、`【移动:场景】` |
+| `MapImportService` | 真实城市导入：高德/OSM 检索 → Overpass 道路/建筑/地表 → 拼成游戏地图；路网分档（县道/乡道/巷道/步道/航道） |
+| `MinimapService` | 小地图取材：复用 3D 整图几何快照，按当前场景裁一圈；室内户型 / 室外路网与地表 / 兜底 POI |
+| `TrafficSignalService` | 红绿灯：默认本地倒计时（红黄绿 + 朝向 + 周期）；可选问高德路况，同路缓存 60 秒，问不到静默退回本地 |
+| `StateService` | 自定义状态：Key + 可选值 + 当前值，按「楼层 > 场景 > 全局」就近解析；AI 与流程图读写同一份 |
+| `FlowService` | 流程图执行器：触发（进场景/状态变化/定时/手动/红绿灯/到点/太阳/好感/AI 说话）+ 条件树 + 动作；单次预算、环检测、冷却与密度闸 |
 | `MapActorService` | 用户与 AI 角色位置、多实体拉拽仲裁、冲突抑制 |
 | `PetService` | Windows 桌宠：收纳主窗口、置顶立绘窗、托盘菜单 |
 | `WeChatService` | 已加微信角色列表（`wechat_contacts`）；常驻 NPC |
@@ -349,6 +355,9 @@
 |---|---|
 | `ToolManager` | 内置/外部工具统一入口；JSON-RPC、可见性、工具结果广播 |
 | `ToolManager.World` | 世界向工具：身体、钱包、心理、记忆链、生图、建角色 |
+| `ToolManager.Amap` | 高德工具：`amap_route` 路线规划、`amap_poi` 周边/找店；共用 Key，未配置说人话 |
+| `ToolManager.State` | 自定义状态工具：`state_read` / `state_set`（set / toggle / 缺了就建） |
+| `ToolManager.Flow` | 流程图工具：`flow_list` / `flow_save` / `flow_delete` / `flow_run`，条件与动作结构化校验 |
 | `ToolDefinition` | 工具语言、参数 schema、外部清单 |
 | `ToolSession` | 长驻 Python/Java 子进程；newline 分帧 JSON-RPC 2.0 |
 | `RuntimeManager` | Python/Java 运行时检测与状态 |
@@ -545,7 +554,10 @@
 | 页面 | 说明 |
 |---|---|
 | `GamePage` | 六种小游戏 |
-| `MapPage` | 地图；桌面右键/滚轮事件源 |
+| `MapPage` | 地图；桌面右键/滚轮事件源；入口通创建地图 / 取景 / 3D 灰度 / 流程图 |
+| `MapCreatePage` | AI 建图：检索 → 定范围 → 预览 → 导入 → 补背景；高德 Key 与红绿灯判灯开关 |
+| `FlowEditorPage` | 流程图列表编辑器：人话读规则，向导改触发/条件/动作，可试跑/启停/删 |
+| `Minimal3DPage` | 3D 灰度视图 |
 | `BattlePage` | 战斗 |
 | `AffectionLevelUpPage` | 升级动画 |
 | `CgViewPage` | CG 全屏 |

@@ -16,8 +16,9 @@
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadWell}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
-                <!-- 第一行：标题 + 模式切换 + 工具 -->
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                <!-- 第一行：标题 + 模式切换 + 工具。钮多（14 颗），窄窗时整条横向滚动，
+                     不再把标题挤成零宽、把最后几颗裁掉。 -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4" VerticalOptions="Center">
                         <Label Text="🗺️ 地图编辑器" Style="{StaticResource TxtTitle}" />
                         <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
@@ -26,37 +27,42 @@
                                TextColor="{DynamicResource SurfaceFg}" FontSize="{DynamicResource WSizeCaption}"
                                FontAttributes="Bold" />
                     </VerticalStackLayout>
-                    <!-- 一排同档的次级钮（白底 + 一道缝）：当前模式由文字前的「●」说，不靠其中一颗涂成深色 -->
-                    <Button Grid.Column="1" Text="{Binding ViewModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding SetModeCommand}" CommandParameter="view" />
-                    <Button Grid.Column="2" Text="{Binding EditModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding SetModeCommand}" CommandParameter="edit" />
-                    <Button Grid.Column="3" Text="{Binding LinkModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding SetModeCommand}" CommandParameter="link" />
-                    <Button Grid.Column="4" Text="{Binding LinkKindText}" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding ToggleLinkKindCommand}"
-                            IsVisible="{Binding IsLinkMode}" />
-                    <Button Grid.Column="5" Text="{Binding DoodleModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding SetModeCommand}" CommandParameter="doodle" />
-                    <Button Grid.Column="6" Text="↻ 重置布局" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding ResetLayoutCommand}" />
-                    <Button Grid.Column="7" Text="导出" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding ExportMapCommand}" />
-                    <Button Grid.Column="8" Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding CreateMapCommand}" />
-                    <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
-                    <Button Grid.Column="9" Text="📷 取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding OpenCaptureCommand}" />
-                    <!-- 3D 灰度：同一张图的街面读法（编辑器保持 2D 不变） -->
-                    <Button Grid.Column="10" Text="🏙 3D 灰度" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding Open3dCommand}" />
-                    <!-- 流程图：规则（时机 + 条件 + 动作） -->
-                    <Button Grid.Column="11" Text="🧩 流程图" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding OpenFlowsCommand}" />
-                    <Button Grid.Column="12" Text="返回" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding BackCommand}" />
-                    <Button Grid.Column="13" Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
-                            Command="{Binding HelpCommand}" />
+                    <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                VerticalOptions="Center">
+                        <HorizontalStackLayout Spacing="8">
+                            <!-- 一排同档的次级钮（白底 + 一道缝）：当前模式由文字前的「●」说，不靠其中一颗涂成深色 -->
+                            <Button Text="{Binding ViewModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding SetModeCommand}" CommandParameter="view" />
+                            <Button Text="{Binding EditModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding SetModeCommand}" CommandParameter="edit" />
+                            <Button Text="{Binding LinkModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding SetModeCommand}" CommandParameter="link" />
+                            <Button Text="{Binding LinkKindText}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding ToggleLinkKindCommand}"
+                                    IsVisible="{Binding IsLinkMode}" />
+                            <Button Text="{Binding DoodleModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding SetModeCommand}" CommandParameter="doodle" />
+                            <Button Text="↻ 重置布局" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding ResetLayoutCommand}" />
+                            <Button Text="导出" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding ExportMapCommand}" />
+                            <Button Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding CreateMapCommand}" />
+                            <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
+                            <Button Text="📷 取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding OpenCaptureCommand}" />
+                            <!-- 3D 灰度：同一张图的街面读法（编辑器保持 2D 不变） -->
+                            <Button Text="🏙 3D 灰度" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding Open3dCommand}" />
+                            <!-- 流程图：规则（时机 + 条件 + 动作） -->
+                            <Button Text="🧩 流程图" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding OpenFlowsCommand}" />
+                            <Button Text="返回" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding BackCommand}" />
+                            <Button Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding HelpCommand}" />
+                        </HorizontalStackLayout>
+                    </ScrollView>
                 </Grid>
 
                 <!-- 编辑模式提示行 -->

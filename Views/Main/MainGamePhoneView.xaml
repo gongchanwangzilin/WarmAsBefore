@@ -126,6 +126,7 @@
                                       IsVisible="{Binding SceneVideoOn}"
                                       Aspect="AspectFill" Opacity="0.5"
                                       ShouldAutoPlay="True" ShouldLoopPlayback="True"
+                                      ShouldMute="False" Volume="{Binding SceneVideoVolume}"
                                        HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 场景亮度遮罩：dim 模式压暗背景/视频（立绘在它之上，不受影响）。
                       没有这层，"关灯"在画面上根本看不出来，也就无从判断某个选项是否真的生效。 -->

@@ -125,6 +125,8 @@ public partial class MainGamePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        // 音量可能刚在设置里调过：进场先重读一次，视频不必等下一次换场景才跟上
+        _vm.RefreshSceneVideoVolume();
         ResumeSceneVideo();
         _vm.Minimap.Attach();
         _vm.SyncWidgetModeFromSettings();

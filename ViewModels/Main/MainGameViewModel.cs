@@ -116,6 +116,16 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private ImageSource? _sceneBackdrop;
     [ObservableProperty] private string _sceneVideoPath = "";
     [ObservableProperty] private bool _sceneVideoOn;
+
+    /// <summary>
+    /// 场景视频自带的声音：跟「背景音乐」那档走（用户调小 BGM 就是调小所有底噪），
+    /// 默认 0.7，静音到 0 时视频照放画面、只是没声。每次进场重读一次设置。
+    /// </summary>
+    [ObservableProperty] private double _sceneVideoVolume = 0.7;
+
+    public void RefreshSceneVideoVolume()
+        => SceneVideoVolume = Math.Clamp(_settings.Current.BgmLevel, 0, 1);
+
     /// <summary>
     /// 当前该显示的角色背景（场景背景缺席时才轮得到它）。
     /// 视图层监听它做 220ms 交叉淡入；null 表示回到场景色。
@@ -529,6 +539,7 @@ public sealed partial class MainGameViewModel : ObservableObject
                 SceneBackdrop = null;
                 SceneVideoPath = bg;
                 SceneVideoOn = true;
+                RefreshSceneVideoVolume();
             }
             else
                 SceneBackdrop = ImageSource.FromFile(bg);
