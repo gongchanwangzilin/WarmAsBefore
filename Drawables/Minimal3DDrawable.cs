@@ -8,13 +8,14 @@ public sealed class Minimal3DScene
 {
     public string Name { get; set; } = "";
     public string Source { get; set; } = "";
+    public List<MiniField> Fields { get; } = new();
     public List<MiniRoad> Roads { get; } = new();
     public List<MiniBuilding> Buildings { get; } = new();
     /// <summary>全图包围盒的中心与尺寸（米）：鸟瞰机位从这儿起。</summary>
     public double CenterX { get; set; }
     public double CenterY { get; set; }
     public double SpanM { get; set; }
-    public bool Empty => Roads.Count == 0 && Buildings.Count == 0;
+    public bool Empty => Roads.Count == 0 && Buildings.Count == 0 && Fields.Count == 0;
 }
 
 public sealed class MiniRoad
@@ -41,6 +42,22 @@ public sealed class MiniBuilding
     /// <summary>它挂在哪栋地点下（小地图室内档要认「我在这栋楼里」）。</summary>
     public string LocationId { get; set; } = "";
     /// <summary>包围盒（米）：小地图按距离裁掉看不见的楼。</summary>
+    public RectF Box { get; set; }
+}
+
+public sealed class MiniField
+{
+    /// <summary>轮廓顶点（世界米）：面区闭合，航道（linear）两个角成一条带子。</summary>
+    public List<Point> Pts { get; set; } = new();
+    /// <summary>地块类别，取值见 <see cref="RegionKinds"/>：灰度 3D 靠它分档上色。</summary>
+    public string Kind { get; set; } = RegionKinds.Green;
+    /// <summary>航道这类细长区：画带子不画面。</summary>
+    public bool Linear { get; set; }
+    public string Name { get; set; } = "";
+    /// <summary>质心（排序/雾裁/画名字用）。</summary>
+    public double BaseX { get; set; }
+    public double BaseY { get; set; }
+    /// <summary>包围盒（米）。</summary>
     public RectF Box { get; set; }
 }
 
@@ -126,6 +143,15 @@ public sealed class Minimal3DDrawable : IDrawable
         canvas.FillColor = GroundColor;
         canvas.FillRectangle(0f, gy, w, h - gy);
 
+        // 地块：绿地/水面/广场铺一层地表灰，航道画成带子；都贴在地面上，先画让路盖在顶上。
+        var fields = new List<MiniField>(scene.Fields);
+        fields.Sort((a, b) => DepthAt(b.BaseX, b.BaseY).CompareTo(DepthAt(a.BaseX, a.BaseY)));
+        foreach (var f in fields)
+        {
+            if (_quads > 4500) break;
+            DrawField(canvas, f);
+        }
+
         foreach (var r in scene.Roads) DrawRoad(canvas, r);
 
         // 建筑：远→近 Painter's order，楼顶随各自最后画。
@@ -195,6 +221,84 @@ public sealed class Minimal3DDrawable : IDrawable
     private static Color RoadColor(double widthM) => widthM >= 10
         ? Color.FromArgb("#B7B7B5")     // 主干道亮些，认识层级
         : Color.FromArgb("#A7A7A5");
+
+    // ==================== 地块 ====================
+
+    private void DrawField(ICanvas canvas, MiniField f)
+    {
+        var pts = f.Pts;
+        if (pts.Count < 2) return;
+        var fog = FogAt(DepthAt(f.BaseX, f.BaseY));
+        if (f.Linear) { DrawFieldBand(canvas, f, fog); return; }
+        if (pts.Count < 3) return;
+
+        var path = new PathF();
+        var first = true;
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var p = Proj(pts[i].X, pts[i].Y, 0);
+            if (!p.ok) continue;
+            if (first) { path.MoveTo(p.x, p.y); first = false; }
+            else path.LineTo(p.x, p.y);
+        }
+        if (first) return;
+        path.Close();
+        canvas.FillColor = FieldColor(f.Kind, fog);
+        canvas.FillPath(path);
+        _quads++;
+    }
+
+    /// <summary>航道：中心线两侧各扩半宽成带子（贴地），细到只够认出一条水道。</summary>
+    private void DrawFieldBand(ICanvas canvas, MiniField f, double fog)
+    {
+        var pts = f.Pts;
+        if (pts.Count < 2) return;
+        const double halfM = 4;
+        var n = pts.Count;
+        Span<bool> ok = stackalloc bool[n];
+        Span<float> lx = stackalloc float[n], ly = stackalloc float[n];
+        Span<float> rx = stackalloc float[n], ry = stackalloc float[n];
+        for (var i = 0; i < n; i++)
+        {
+            var prev = pts[Math.Max(0, i - 1)];
+            var next = pts[Math.Min(n - 1, i + 1)];
+            var dx = next.X - prev.X;
+            var dy = next.Y - prev.Y;
+            var len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-6) { ok[i] = false; continue; }
+            var nx = dy / len * halfM;
+            var ny = -dx / len * halfM;
+            var a = Proj(pts[i].X + nx, pts[i].Y + ny, 0);
+            var b = Proj(pts[i].X - nx, pts[i].Y - ny, 0);
+            if (!(a.ok && b.ok)) { ok[i] = false; continue; }
+            ok[i] = true;
+            lx[i] = a.x; ly[i] = a.y;
+            rx[i] = b.x; ry[i] = b.y;
+        }
+        var start = -1;
+        for (var i = 0; i <= n; i++)
+        {
+            if (i < n && ok[i]) { if (start < 0) start = i; continue; }
+            if (start < 0) continue;
+            var path = new PathF(lx[start], ly[start]);
+            for (var k = start + 1; k < i; k++) path.LineTo(lx[k], ly[k]);
+            for (var k = i - 1; k >= start; k--) path.LineTo(rx[k], ry[k]);
+            canvas.FillColor = FieldColor(f.Kind, fog);
+            canvas.FillPath(path);
+            _quads++;
+            start = -1;
+        }
+    }
+
+    /// <summary>地表分档灰：水面最深、广场最亮、航道次深、绿化/分区居中。都走雾。</summary>
+    private static Color FieldColor(string kind, double fog) => kind switch
+    {
+        RegionKinds.Water => MixGray(156, fog),
+        RegionKinds.Route => MixGray(166, fog),
+        RegionKinds.Plaza => MixGray(216, fog),
+        RegionKinds.District => MixGray(192, fog),
+        _ => MixGray(188, fog),   // green 及其它
+    };
 
     // ==================== 建筑 ====================
 
@@ -381,6 +485,27 @@ public static class Minimal3DBuilder
             }
         }
 
+        // —— 地块：面区闭合、航道画带子（贴地表，灰度按类别分档）——
+        foreach (var r in map.Regions)
+        {
+            if (!r.HasShape) continue;
+            var pts = r.Points.Select(p => new Point(U(p.X), U(p.Y))).ToList();
+            if (RegionKinds.IsLinear(r.Kind) && pts.Count > 2)
+                pts = new List<Point> { pts[0], pts[^1] };   // 航道压回两个角
+            if (pts.Count < 2) continue;
+            var field = new MiniField
+            {
+                Pts = pts,
+                Kind = r.Kind,
+                Linear = RegionKinds.IsLinear(r.Kind),
+                Name = r.Name,
+                BaseX = pts.Average(p => p.X),
+                BaseY = pts.Average(p => p.Y),
+            };
+            field.Box = BoundsOf(pts);
+            scene.Fields.Add(field);
+        }
+
         // —— 楼：子地点表用来跳过会包住孩子的父框 ——
         var children = new Dictionary<string, List<MapLocation>>();
         foreach (var loc in map.Locations)
@@ -433,6 +558,7 @@ public static class Minimal3DBuilder
             if (y > maxY) maxY = y;
         }
         foreach (var r in scene.Roads) foreach (var p in r.Pts) Add(p.X, p.Y);
+        foreach (var fd in scene.Fields) foreach (var p in fd.Pts) Add(p.X, p.Y);
         foreach (var b in scene.Buildings)
         {
             foreach (var p in b.Footprint) Add(p.X, p.Y);
