@@ -19,6 +19,16 @@ public sealed class MapDefinition
     public List<MapTransit> Transits { get; set; } = new();
     /// <summary>地块（绿地/水面/航道/广场/分区）：画在路网底下的地表，不参与走路。</summary>
     public List<MapRegion> Regions { get; set; } = new();
+    /// <summary>
+    /// 自定义状态（灯开/灯关、门锁没锁……）：流程图与 AI 拿它当条件做判断。
+    /// 值按「楼层 &gt; 场景 &gt; 全局」就近取，同名不同层的各写各的。
+    /// </summary>
+    public List<CustomStateDef> States { get; set; } = new();
+    /// <summary>
+    /// 流程图规则：什么时机看、条件成不成立、依次做什么。执行器见 FlowService；
+    /// 一条规则可以「跑另一条」，靠执行预算与环检测兜住死循环。
+    /// </summary>
+    public List<FlowRule> Flows { get; set; } = new();
 
     /// <summary>画布 1 单位 = 多少米。边长没手动量时按这个换算，导入真实地图后由比例尺定。</summary>
     public double MetersPerUnit { get; set; } = 0.5;
@@ -42,6 +52,25 @@ public sealed class MapDefinition
 
     public MapRegion? RegionById(string id) =>
         Regions.FirstOrDefault(r => r.Id == id);
+
+    public CustomStateDef? StateById(string id) =>
+        States.FirstOrDefault(s => s.Id == id);
+
+    public FlowRule? FlowById(string id) =>
+        Flows.FirstOrDefault(f => f.Id == id);
+
+    /// <summary>按名字找规则：AI 与「跑另一条」都按名字认。</summary>
+    public FlowRule? FlowByName(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return null;
+        name = name.Trim();
+        return Flows.FirstOrDefault(f => f.Name == name)
+            ?? Flows.FirstOrDefault(f => f.Name.Contains(name, StringComparison.Ordinal));
+    }
+
+    /// <summary>这个场景归哪个地点（找不到 = null：场景还没挂进任何地点）。</summary>
+    public MapLocation? LocationOfScene(string sceneId) =>
+        Locations.FirstOrDefault(l => l.Scenes.Any(s => s.Id == sceneId));
 
     /// <summary>任意顶点（场景或临时节点的名字，用于连线端点的名称解析）。</summary>
     public string? PointNameById(string id) =>
@@ -538,4 +567,58 @@ public sealed class MapRegion
 
     /// <summary>航道两个角就成一条，面至少要三个角才围得出这块地。</summary>
     [JsonIgnore] public bool HasShape => Points.Count >= (RegionKinds.IsLinear(Kind) ? 2 : 3);
+}
+
+/// <summary>自定义状态管到哪一层。取值照「楼层 &gt; 场景 &gt; 全局」就近，同名不同层互不顶替。</summary>
+public static class StateScopes
+{
+    public const string Global = "global";
+    public const string Scene = "scene";
+    public const string Floor = "floor";
+
+    public static string Display(string? scope) => scope switch
+    {
+        Global => "全局",
+        Floor => "楼层",
+        _ => "场景",
+    };
+}
+
+/// <summary>
+/// 一条自定义状态：「灯」在「开/关」之间来回，流程图与 AI 都拿它当条件读。
+/// 值按 <see cref="Scope"/> 就近取（楼层 &gt; 场景 &gt; 全局）；同名冲突时用哪个见 StateService。
+/// 全部字段带默认值：老存档没有 states 这一节也要能反序列化。
+/// </summary>
+public sealed class CustomStateDef
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N")[..8];
+    /// <summary>读给人听的名字，也是 AI 认它的名字（「客厅的灯」）。</summary>
+    public string Key { get; set; } = "";
+    /// <summary>可选值，按顺序写；按钮点一下就是走到下一个。空 = 还没定义好，不参与判断。</summary>
+    public List<string> Values { get; set; } = new();
+    /// <summary>当前值：必须是 <see cref="Values"/> 里的一个；空 = 取第一个。</summary>
+    public string Current { get; set; } = "";
+    public string Scope { get; set; } = StateScopes.Scene;
+    /// <summary>场景作用域挂哪个场景；楼层作用域只当备注用（认的是 <see cref="LocationId"/> + <see cref="Floor"/>）。</summary>
+    public string SceneId { get; set; } = "";
+    /// <summary>楼层作用域挂哪栋地点。</summary>
+    public string LocationId { get; set; } = "";
+    /// <summary>楼层作用域的第几层（与 <see cref="MapScene.Floor"/> 同一套编号）。</summary>
+    public int? Floor { get; set; }
+    public string Note { get; set; } = "";
+    /// <summary>自动长一颗主动按钮（主界面那排小钮）；关掉就只给流程图与 AI 看。</summary>
+    public bool ShowButton { get; set; } = true;
+
+    [JsonIgnore] public bool IsValid => Key.Trim().Length > 0 && Values.Count > 0;
+
+    /// <summary>现在这个值；没设过就落到第一个。</summary>
+    [JsonIgnore] public string Value => Values.Contains(Current) ? Current : Values.Count > 0 ? Values[0] : "";
+
+    /// <summary>点一下走到下一个值（不落盘；落盘由 StateService 做）。</summary>
+    public string Next()
+    {
+        if (Values.Count == 0) return Value;
+        var i = Values.IndexOf(Value);
+        return Values[(i + 1) % Values.Count];
+    }
 }

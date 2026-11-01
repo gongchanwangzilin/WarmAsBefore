@@ -63,6 +63,10 @@ public static class CoreRegistration
         services.AddSingleton<MinimapService>();
         // 红绿灯：默认本地倒计时，开着才去问高德路况（问不着就静默退回本地）
         services.AddSingleton<TrafficSignalService>();
+        // 自定义状态：值挂在 MapDefinition.States 上，按「楼层 > 场景 > 全局」就近取
+        services.AddSingleton<StateService>();
+        // 流程图：触发 + 条件 + 动作的执行器（进场景/状态变化/定时/AI 说话…都在这里接线）
+        services.AddSingleton<FlowService>();
         // 强制标定的统一入口：导入路径 await 它、运行路径订阅它的事件
         services.AddSingleton<SceneCalibrationService>();
         services.AddSingleton<LingshuImporter>();

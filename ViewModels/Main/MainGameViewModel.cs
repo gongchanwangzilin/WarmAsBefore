@@ -334,7 +334,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api,
         Services.CharacterSettingsResolver charSettings,
         PageWindowService pageWindows, Services.SaveRuntimeService runtime,
-        Services.MinimapService minimap)
+        Services.MinimapService minimap, Services.StateService states, Services.FlowService flows)
     {
         _engine = engine;
         _chat = chat;
@@ -371,6 +371,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 右上角的小地图：电脑默认摊开、手机默认收成方片（拧过一次就记住拧成的样子）。
         // 订阅由页面进出场挂摘（见 MainGamePage.OnAppearing / OnDisappearing），别在这儿常驻。
         Minimap = new MinimapViewModel(map, minimap, !IsPhoneLayout);
+        HookFlows(flows);
+        HookStates(states);
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
         _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
@@ -501,6 +503,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             IsWalking = true;
             LocationLabel = $"{_map.Map.LocationNameOf(scene.Id)} · {scene.Name}";
             RefreshSceneOptions();
+            RefreshStateButtons();
             _ = Task.Delay(600).ContinueWith(_ =>
                 Helpers.Ui.Post(() => IsWalking = false));
         });
@@ -1584,6 +1587,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             // 这一轮里 TA 可能在回复中报上了名字（RuntimeConfigurator 已落盘），
             // 主界面与这一条气泡的署名要立刻从「？？？」换回真名。
             RefreshCharacterName();
+            FireAiCall();
 
             // 沉默判定：AI 允许沉默且本轮无正文（仅有动作标记/为空）→ 本回合停止，不再追加回复
             var isSilent = _settings.Current.AllowSilence && stickerNames.Count == 0 &&
