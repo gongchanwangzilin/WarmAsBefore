@@ -96,6 +96,7 @@ public partial class App : Application
             catch (Exception ex) { WriteLog("CreateWindow.RestoreSettings: " + ex); }
 
             var swStartup = System.Diagnostics.Stopwatch.StartNew();
+            Services.PerfLog.SetPhase("启动 · 构建 AppShell+Window");
             WriteLog("CreateWindow: building AppShell");
             var win = new Window(new AppShell())
             {
@@ -131,6 +132,7 @@ public partial class App : Application
             // 关闭窗口前自动保存当前进度，并收起桌宠/托盘，保证干净退出
             win.Destroying += (_, _) =>
             {
+                Services.UiStallMonitor.Stop();
                 ShutdownPetAsync();
                 _ = AutoSaveOnExitAsync();
             };
@@ -251,6 +253,9 @@ public partial class App : Application
         {
             var services = Application.Current?.Handler?.MauiContext?.Services;
             if (services is null) return;
+            // 主线程卡顿看门狗：从此以后 UI 线程停摆超过 200ms 就有一条带阶段标记的 perf.log。
+            Services.UiStallMonitor.Start();
+            Services.PerfLog.SetPhase("启动 · 窗口就绪");
             var sm = services.GetService(typeof(SettingsManager)) as SettingsManager;
             // 屏幕方向：按设置锁屏（auto=竖屏 / landscape / portrait）
             Modules.Screen.ScreenOrientationService.ApplyOnStart(sm?.Current.ScreenOrientation);
@@ -264,6 +269,9 @@ public partial class App : Application
                 WindowTopmost.BringToFront();
             var cfg = services.GetService(typeof(RuntimeConfigurator)) as RuntimeConfigurator;
             cfg?.Start();
+
+            // 注：启动读盘预热由 RuntimeConfigurator.WarmUpAsync（延后 4 秒的空闲预热）负责，
+            // 这里不再重复一份，避免两套预热并发抢 IO。
 
             // 云存档：启动后先悄悄拉一次（不挡首帧），之后每次改动停手两秒自动上传
             var cloud = services.GetService(typeof(Services.CloudSync.CloudSyncService))

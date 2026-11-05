@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.DesignSystem.Worlds;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
+using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Drawables;
 
@@ -175,7 +177,31 @@ public sealed class MemoryGraphDrawable : IDrawable
 
     private Action? _onInvalidate;
     public void AttachInvalidate(Action a) => _onInvalidate = a;
-    public void NeedRedraw() => _onInvalidate?.Invoke();
+
+    // 重绘合并：缩略图异步回来、生长动画每拍都叫一次，每次 Invalidate 都是一帧全画布重绘。
+    // 最多 16ms 排一次（≈60fps），排队期间只置脏；落地时若又来过请求就再补一帧，保证终态不丢。
+    private bool _redrawQueued;
+    private bool _redrawDirty;
+
+    public void NeedRedraw()
+    {
+        if (_onInvalidate is null) return;
+        _redrawDirty = true;
+        if (_redrawQueued) return;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) { FlushRedraw(); return; }
+        _redrawQueued = true;
+        try { dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(16), FlushRedraw); }
+        catch { FlushRedraw(); }
+    }
+
+    private void FlushRedraw()
+    {
+        _redrawQueued = false;
+        _redrawDirty = false;
+        _onInvalidate?.Invoke();
+        if (_redrawDirty) NeedRedraw();
+    }
 
     private Func<GraphNodeView, string?>? _thumbResolver;
     public void AttachThumbResolver(Func<GraphNodeView, string?> resolver) => _thumbResolver = resolver;
@@ -191,8 +217,25 @@ public sealed class MemoryGraphDrawable : IDrawable
     private double _vl = double.NegativeInfinity, _vt = double.NegativeInfinity,
         _vr = double.PositiveInfinity, _vb = double.PositiveInfinity;
 
+    // ==================== 慢帧诊断 ====================
+    // 卡了要知道卡在画布还是页面：Draw 总耗时超过 33ms 就记一条；同标签最多 2 秒一条，
+    // 免得慢帧本身掉帧的时候，日志每帧写一条把诊断变成新的卡顿源。
+    private static long _lastSlowFrameLog;
+
+    private void NoteSlowFrame(long startedAt)
+    {
+        var elapsed = (Stopwatch.GetTimestamp() - startedAt) * 1000.0 / Stopwatch.Frequency;
+        if (elapsed <= 33) return;
+        var now = Stopwatch.GetTimestamp();
+        if (now - _lastSlowFrameLog < Stopwatch.Frequency * 2) return;
+        _lastSlowFrameLog = now;
+        PerfLog.Note("记忆图 · 慢帧",
+            $"{elapsed:0.0} ms · 节点 {Nodes?.Count} · 边 {Edges?.Count} · zoom {Scale:0.##}");
+    }
+
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
+        var frameStart = Stopwatch.GetTimestamp();
         SyncWorld();
         canvas.FillColor = _bg;
         canvas.FillRectangle(dirtyRect);
@@ -206,6 +249,7 @@ public sealed class MemoryGraphDrawable : IDrawable
             canvas.DrawString("这张网还是空的 —— 聊几句，TA 脑子里的枝就会自己长出来。",
                 dirtyRect.Width * 0.1f, dirtyRect.Height * 0.42f, dirtyRect.Width * 0.8f, 40,
                 HorizontalAlignment.Center, VerticalAlignment.Center);
+            NoteSlowFrame(frameStart);
             return;
         }
 
@@ -245,6 +289,8 @@ public sealed class MemoryGraphDrawable : IDrawable
 
         if (LinkFromId is not null && Mouse is { } m && Find(LinkFromId) is { } src)
             DrawLinkRubber(canvas, src, m);
+
+        NoteSlowFrame(frameStart);
     }
 
     /// <summary>这一点这一帧到底画不画：屏外的不算，被「只看这一片」筛掉的也不算。</summary>

@@ -13,10 +13,17 @@ public static class MotionPrefs
     public static void Apply()
     {
 #if WINDOWS
-        try { MotionTokens.Disabled |= SystemAnimationsOff(); }
+        try { MotionTokens.SystemDisabled |= SystemAnimationsOff(); }
         catch { /* 取不到就当没关 */ }
 #endif
     }
+
+    /// <summary>
+    /// 下发用户设置的性能模式。写的是 <see cref="MotionTokens.PerformanceMode"/> 而不是
+    /// <see cref="MotionTokens.Disabled"/>：后者是「系统偏好 || 性能模式」的只读结果，
+    /// 直接写它会把系统偏好也改掉，用户关掉性能模式后就再也回不到系统那一档。
+    /// </summary>
+    public static void ApplyPerformanceMode(bool on) => MotionTokens.PerformanceMode = on;
 
 #if WINDOWS
     private const uint SPI_GETANIMATION = 0x0048;

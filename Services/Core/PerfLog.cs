@@ -26,6 +26,17 @@ public static class PerfLog
     /// <summary>慢于此毫秒数的段落会带 SLOW 标记，便于过滤。</summary>
     public static int SlowMs { get; set; } = 50;
 
+    /// <summary>
+    /// 当前正在做什么的人话（导航目标、页面名、保存动作……）。UI 卡顿看门狗把这条一起写进日志，
+    /// 否则只看到「卡了 800ms」却不知道卡在哪一步。只存最新一条，跨线程读走 volatile。
+    /// </summary>
+    private static string _phase = "";
+    public static string Phase => Volatile.Read(ref _phase);
+
+    /// <summary>标记「现在在做什么」。调用要便宜：只在导航、页面装载、保存这类边界上设一次。</summary>
+    public static void SetPhase(string? phase)
+        => Volatile.Write(ref _phase, (phase ?? "").Trim());
+
     private static string Path_
     {
         get

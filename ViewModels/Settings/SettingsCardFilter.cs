@@ -63,7 +63,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
         ("Runtime", new[] { "运行时", "python", "java", "proot", "沙箱运行时" }),
         ("Data", new[] { "数据", "导出", "导入", "备份", "存档", "云存档", "同步", "github", "仓库" }),
         ("Update", new[] { "更新", "版本", "beta", "渠道" }),
-        ("Experimental", new[] { "实验", "测试功能" }),
+        ("Experimental", new[] { "实验", "测试功能", "性能", "性能模式", "卡顿", "流畅", "掉帧", "动效", "动画", "阴影" }),
         ("Materials", new[] { "素材", "背景库", "音乐库", "素材库" }),
         ("Skills", new[] { "能力包", "skill", "技能包" }),
         ("Sponsor", new[] { "作者", "赞助", "支持" }),

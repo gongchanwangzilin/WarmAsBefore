@@ -12,6 +12,8 @@ public partial class AppShell : Shell
         {
             _navWatch = System.Diagnostics.Stopwatch.StartNew();
             _navTarget = e.Target?.Location?.OriginalString ?? "";
+            // 阶段标记给 UI 卡顿看门狗用：卡在「导航途中」还是「目标页装载」日志里能分开。
+            Services.PerfLog.SetPhase("导航 → " + _navTarget);
         };
         Navigated += (_, e) =>
         {
@@ -21,6 +23,7 @@ public partial class AppShell : Shell
                 Services.PerfLog.Note($"导航 {_navTarget} → {to}",
                     $"{_navWatch.ElapsedMilliseconds} ms{(_navWatch.ElapsedMilliseconds >= 300 ? "  <<< SLOW" : "")}");
                 _navWatch = null;
+                Services.PerfLog.SetPhase("页面 " + to);
             }
             PlayPageTransition(e);
             // 成就横幅的落点跟着页面顶栏走：标题页没有顶栏（贴顶 16），其余页面默认 64（顶栏下方）。

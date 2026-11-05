@@ -131,6 +131,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _userBirthday = CharacterAgeService.NormalizeBirthday(s.UserBirthday);
         _userBirthdayDisplay = _userBirthday.Length == 0 ? "未设置" : CharacterAgeService.BirthdayDisplay(_userBirthday);
         _lowMemoryMode = s.LowMemoryMode;
+        // 性能模式与超省内存分开：前者管观感（动效/阴影），后者管内存与磁盘读取，
+        // 弱机上两者常常一起开，但语义不同，不能合成一个开关。
+        _performanceMode = s.PerformanceMode;
         _coreMemoryEnabled = s.CoreMemoryEnabled;
         _coreMemoryThreshold = s.CoreMemoryThreshold;
         _traumaHealingEnabled = s.TraumaHealingEnabled;
@@ -1178,6 +1181,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private List<string> _genderChoices = new();
     /// <summary>超省内存：记忆/关系网读后就丢缓存，闲置会话清空，后台预热不做。</summary>
     [ObservableProperty] private bool _lowMemoryMode;
+    /// <summary>性能模式（设置→实验卡片）：减少动效 + 卡片阴影改平，只影响观感。</summary>
+    [ObservableProperty] private bool _performanceMode;
     [ObservableProperty] private bool _coreMemoryEnabled = true;
     [ObservableProperty] private double _coreMemoryThreshold = 0.82;
     [ObservableProperty] private bool _traumaHealingEnabled = true;
@@ -2573,6 +2578,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         PersistSettings();
     }
     partial void OnLowMemoryModeChanged(bool value) => PersistSettings();
+    partial void OnPerformanceModeChanged(bool value) => PersistSettings();
     partial void OnCoreMemoryEnabledChanged(bool value) => PersistSettings();
     partial void OnCoreMemoryThresholdChanged(double value) => PersistSettings();
     partial void OnTraumaHealingEnabledChanged(bool value) => PersistSettings();
@@ -2968,6 +2974,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 UserGender = (UserGender ?? "").Trim(),
                 UserBirthday = CharacterAgeService.NormalizeBirthday(UserBirthday),
                 LowMemoryMode = LowMemoryMode,
+                PerformanceMode = PerformanceMode,
                 CoreMemoryEnabled = CoreMemoryEnabled,
                 CoreMemoryThreshold = Math.Clamp(CoreMemoryThreshold, 0.5, 0.99),
                 TraumaHealingEnabled = TraumaHealingEnabled,

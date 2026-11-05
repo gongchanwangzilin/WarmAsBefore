@@ -1579,6 +1579,13 @@
                                         IsVisible="{Binding Filter.Materials}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="{Binding [Settings_Experimental], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
+                                        <!-- 性能模式：放在实验卡最上面。它是「先救手感」的开关，
+                                             用户来这张卡找它时，不该先翻过一整屏天气/行进设置。 -->
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="性能模式" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="弱机、远程桌面或页面滚动发涩时打开：关掉进场/页面动效，卡片阴影改平；功能与布局不变，随时可以关掉。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PerformanceMode}" /></Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_ComplexPlot], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="{Binding [Settings_ComplexPlotHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>

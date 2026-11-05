@@ -76,6 +76,10 @@ public sealed class SaveManager
                 ["chat"] = ChatLog.TakeLast(60).ToList()
             };
             await _store.Save($"saves/{slot.Id}", data);
+            // 刚写完这一档：把 meta 直接记进列表缓存。自动存档会反复重写同一个文件，
+            // 下一次 List()（角色库/存档页/工作室进场都要）若只按 mtime 判断就会把整份存档再读一遍——
+            // 实测这一下就是「读角色 350ms」的大头。
+            RememberSlotInListCache(slot);
             return true;
         }
         catch { return false; }
@@ -286,6 +290,7 @@ public sealed class SaveManager
                 writer.WriteEndObject();
             }
             await File.WriteAllBytesAsync(Path.Combine(_store.Root, "saves", id + ".json"), ms.ToArray());
+            RememberSlotInListCache(slot with { Label = newLabel.Trim() });
             return true;
         }
         catch (Exception ex)
@@ -341,6 +346,22 @@ public sealed class SaveManager
     /// <summary>存档列表的 meta 缓存：角色库、存档页每次出现都要列表，整档 JSON 里只有 meta 有用。</summary>
     private readonly Dictionary<string, (long Ticks, long Length, SaveSlot Slot)> _slotCache =
         new(StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>把「刚写完/刚改名」的这一档 meta 同步进列表缓存，下一次 List() 不必重读整份存档。</summary>
+    private void RememberSlotInListCache(SaveSlot slot)
+    {
+        try
+        {
+            var path = Path.Combine(_store.Root, "saves", slot.Id + ".json");
+            var info = new FileInfo(path);
+            if (info.Exists)
+                _slotCache[path] = (info.LastWriteTimeUtc.Ticks, info.Length, slot);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.RememberSlot -> " + ex.Message);
+        }
+    }
 
     public async Task<List<SaveSlot>> List()
     {

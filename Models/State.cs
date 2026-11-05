@@ -763,6 +763,9 @@ public sealed record UserSettings
     /// <summary>超省内存模式：记忆/关系网按需从盘上读、闲置即释放，插件网页默认不加载。</summary>
     public bool LowMemoryMode { get; init; }
 
+    /// <summary>性能模式：减少动效与卡片阴影，弱机/远程桌面/滚动发涩时开。只影响观感，不改功能。</summary>
+    public bool PerformanceMode { get; init; }
+
     // ===== 记忆与心理（v1.47） =====
 
     /// <summary>核心记忆：情绪强度/重要性足够高的记忆升为核心，永不衰减、永远可被想起。</summary>

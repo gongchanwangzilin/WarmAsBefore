@@ -33,14 +33,30 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task Refresh()
     {
-        var list = await _save.List();
-        var roster = await _library.ListAsync();
-        Slots = list.Select(s => new SaveSlotItem
+        // 两件事互不依赖：存档目录读盘（List）与角色库读盘（ListAsync）并行做。
+        // 串行时用户要多等一个来回——这就是「进存档页卡 1 秒」里能白拿回来的那一段。
+        List<SaveSlot> list;
+        List<CharacterData> roster;
+        using (PerfLog.Measure("页 · 存档 · 读取列表"))
         {
-            Slot = s,
-            CharacterName = roster.FirstOrDefault(c => c.Profile.Id == s.Character)?.Profile.Name ?? "未知角色"
-        }).ToList();
-        NovelTesting = _settings.Current.NovelTestingEnabled;
+            var listTask = _save.List();
+            var rosterTask = _library.ListAsync();
+            await Task.WhenAll(listTask, rosterTask);
+            list = await listTask;
+            roster = await rosterTask;
+        }
+
+        // 槽位集合本来就是整体替换（List 赋值只发一次属性通知），不存在逐条 Add 的通知风暴。
+        // 这里保持不变：集合类型是 List，换成 ObservableCollection 反而多一次 CollectionChanged 重建。
+        using (PerfLog.Measure("页 · 存档 · 构造槽位"))
+        {
+            Slots = list.Select(s => new SaveSlotItem
+            {
+                Slot = s,
+                CharacterName = roster.FirstOrDefault(c => c.Profile.Id == s.Character)?.Profile.Name ?? "未知角色"
+            }).ToList();
+            NovelTesting = _settings.Current.NovelTestingEnabled;
+        }
     }
 
     [RelayCommand]

@@ -11,7 +11,7 @@
 
 | 项目 | 值 |
 |---|---|
-| 当前版本 | `1.54.0`（`ApplicationVersion` 55） |
+| 当前版本 | `1.55.0`（`ApplicationVersion` 56） |
 | SDK | .NET 10 SDK |
 | MAUI 工作负载 | `maui`；只构建 Android 时可用 `maui-android` |
 | Windows | Windows 10 19041+，目标框架 `net10.0-windows10.0.19041.0` |
@@ -252,6 +252,20 @@ builder.Services
 
 
 
+### v1.55.0 性能与诊断落点
+
+| 主题 | 主要文件 | 要点 |
+|---|---|---|
+| UI 卡顿看门狗 | `Services/Core/UiStallMonitor.cs`、`Services/Core/PerfLog.cs` | Dispatcher 100ms 心跳；间隔 >200ms 记 `UI 卡顿`（>5s 视为挂起）；`PerfLog.Phase` 由导航/页面边界写入，日志自带「当时在哪一步」 |
+| 慢帧诊断 | `Drawables/MapCanvasDrawable.cs`、`Drawables/MemoryGraphDrawable.cs` | 单帧 >33ms 记 `画布 · 慢帧` / `记忆图 · 慢帧`，同标签 2 秒节流 |
+| 性能模式 | `Models/State.cs`（`PerformanceMode`）、`DesignSystem/Theme/MotionTokens.cs`、`MotionPrefs.cs`、`DesignSystem/Worlds/StyleWorld.cs`、`ThemeManager.Republish()` | `MotionTokens.Disabled = SystemDisabled || PerformanceMode`；`FlatShadows` 改平阴影；`ThemeManager.Republish()` 重发 DynamicResource；只在开关变化时下发 |
+| 启动预热 | `Services/Core/RuntimeConfigurator.cs`（`WarmUpAsync`） | 启动 4 秒后并行读：存档/记忆/关系网/标签/用量/能力包 + 角色库 + 地图；低内存模式跳过 |
+| 存档列表缓存 | `Modules/SaveSystem/SaveManager.cs` | `Commit`/`Rename` 把 meta 回填 `_slotCache`，避免自动存档后 `List()` 重读整份存档 |
+| 并行读盘与批量列表 | `CharacterStudioViewModel.OpenAsync`、`SaveViewModel`、`CharacterLibraryViewModel`、`WeChatViewModel`、`MainGameViewModel` | 互不依赖的两次读用 `Task.WhenAll`；历史/联系人用 `RangeObservableCollection.ReplaceRange` 一次通知 |
+| 天气缓存 | `Modules/RealWorld/WeatherProvider.cs` | 成功 5 分钟 / 失败回退 30 秒 TTL；缓存键含位置+源+BaseUrl+Key 摘要；同 key 并发共享一个 Task；位置/源变化失效；`PeekAsync` 不缓存 |
+
+
+
 ## 5. 存储与数据
 
 `StorageProvider` 是所有 JSON 的唯一落盘入口：
@@ -321,7 +335,14 @@ builder.Services
 13. **地图照片与天气（v1.54）**：在创建页填 Google Key（启用 Places API）→ 取照片，确认场景背景与
     `maps/photos/` 里有文件；无 Key 时应直接返回人话、不发请求。改地图天气为三种模式，
     确认主界面天气与场景天气门控跟着变；重新导入一张高德/OSM 地图，确认默认按当地天气。
-14. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
+14. **性能诊断（v1.55）**：正常操作后看 `perf.log`：应出现 `UI 看门狗 已启动`；卡顿时有 `UI 卡顿 … · <阶段>`
+    与 `画布 · 慢帧` / `记忆图 · 慢帧`（若有）。导航/页面装载行应带毫秒数，SLOW 行能直接定位到阶段。
+15. **性能模式（v1.55）**：设置 → 平台与运行 → 实验卡打开「性能模式」→ 页面/卡片进场应立刻变为直落
+    （无补间）、卡片阴影变平；关掉后恢复；重启后开关保持；系统「减少动画」开启时关掉性能模式仍不应恢复动效。
+16. **热路径复查（v1.55）**：自动保存几次后进角色工作室/存档页/角色库，`perf.log` 中「读角色与存档列表」
+    与「读取列表」应明显低于旧值；天气行 `WeatherProvider.缓存未命中` 在 5 分钟内不应重复出现
+    （设置页「测试天气」每次都应出现）。地图拖拽/平移仍应跟手，松手后终态不残留。
+17. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
     不提交密钥、日志、`bin/`、`obj/`、`.local/`、用户数据或未完成的插件包。
 
 ---
@@ -351,6 +372,11 @@ builder.Services
 - **IP 定位只到城市级**：这是网络出口决定的，不能当精确位置；设置页只把它当候选，必须用户确认。
 - **谷歌地点照片需要自备 Key**：Places API（街景回退另需 Street View Static API），
   且各地区的覆盖与配额由 Google 决定；受限网络下无法端到端验证。
+- **天气有 5 分钟缓存**：主界面/场景/生理共用同一份缓存，5 分钟内天气变化不会立即体现；
+  设置页「测试天气」强制实时。断网回退值只缓存 30 秒。若需要立刻刷新，调用 `Fetch(force: true)`。
+- **性能模式只改观感**：减少动效与卡片阴影，不改布局、功能或数据；系统「减少动画」偏好优先于它。
+- **UI 卡顿看门狗是诊断而不是修复**：它只在 `perf.log` 留下 `UI 卡顿` 行；卡顿本身要靠慢帧/阶段标记
+  继续定位。窗口最小化/挂起超过 5 秒的间隔会被当成挂起，不记卡顿。
 - **外部战斗/工具驱动是可选路径**：驱动缺失或响应不合契约时回退内置实现；
   外部队列与协议变更需要同时更新文档与体检规则。
 
@@ -391,6 +417,8 @@ builder.Services
 | 对话管线 | `Modules/AiChat/ChatEngine.cs` |
 | 对话记忆/日记 | `Modules/AiChat/MemoryVault.cs` |
 | 存档/读档 | `Modules/SaveSystem/SaveManager.cs` |
+| 性能诊断 / 卡顿日志 | `Services/Core/PerfLog.cs`、`Services/Core/UiStallMonitor.cs` |
+| 性能模式（减动效/平阴影） | `Models/State.cs`、`DesignSystem/Theme/MotionTokens.cs`、`DesignSystem/Worlds/StyleWorld.cs`、`DesignSystem/Theme/ThemeManager.cs` |
 | 年龄 / 生日 / 自然增长 | `Services/Character/CharacterAgeService.cs`、`Models/Character.cs` |
 | 设备定位 / IP 估算 | `Modules/RealWorld/LocationService.cs`、`Platforms/Windows/WindowsDeviceLocation.cs` |
 | 云存档私人仓库门禁 | `Services/CloudSync/CloudSyncService.cs` |

@@ -119,7 +119,33 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     }
 
     public void AttachInvalidate(Action invalidate) => _invalidate = invalidate;
-    private void Touch() => _invalidate?.Invoke();
+
+    // 重绘合并：拖拽/平移时每个指针事件都要求一次全画布重绘，一秒能到几百次——重绘次数远超 60fps，
+    // 画得比屏幕刷得还勤，多出来的全是白烧的帧。这里把「请求重绘」合并成最多 16ms 一次（≈60fps）：
+    // 排队期间只置脏、不重复排；落地后若又来过请求就再补一帧，保证松手/滚轮停下时的终值一定画出来。
+    private bool _invalidateQueued;
+    private bool _invalidateDirty;
+
+    private void Touch()
+    {
+        if (_invalidate is null) return;
+        _invalidateDirty = true;
+        if (_invalidateQueued) return;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) { FlushInvalidate(); return; }   // 还没有 UI 调度器（极早期/无窗口）：直接画，别把这一帧吞了
+        _invalidateQueued = true;
+        try { dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(16), FlushInvalidate); }
+        catch { FlushInvalidate(); }
+    }
+
+    private void FlushInvalidate()
+    {
+        _invalidateQueued = false;
+        _invalidateDirty = false;
+        _invalidate?.Invoke();
+        // 这次落地之前又改过画面（比如拖拽的最后一帧）：那一次请求不能丢，紧接着再排一帧。
+        if (_invalidateDirty) Touch();
+    }
 
     public void Dispose()
     {
@@ -1003,6 +1029,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         _marqueePending = false;
         _marqueeMode = false;
         if (Mode == ModeKind.Link) Drawable.Mouse = null;
+        // 松手这一下也要落一帧：重绘现在是合并到 16ms 后再画的，
+        // 终态（连线预览的鼠标点收掉、拖拽后的位置）必须有人叫醒画布，不能停在半路。
+        Touch();
     }
 
     /// <summary>空白按下后静置 0.6s：若仍未移动、未变平移，则进入框选模式。</summary>

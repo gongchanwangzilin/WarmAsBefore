@@ -419,6 +419,14 @@ public class ThemeManager
     /// </summary>
     public void RepublishForScale() => ScheduleApply();
 
+    /// <summary>
+    /// 外部改动了不在这套属性里的全局令牌（目前是 StyleWorldTokens.FlatShadows）后，
+    /// 请求重新下发一遍主题资源。已建好的页面上 Shadow 的 Brush 是 DynamicResource，
+    /// 只有重发令牌才会重新解析；不经过属性 setter 的改动没有别的地方会触发它。
+    /// 走 OnChange 而不是直接 Flush：与换色共用防抖，连着改也不会叠加成多次整屏重排。
+    /// </summary>
+    public void Republish() => OnChange();
+
     private void Flush()
     {
         string? theme;

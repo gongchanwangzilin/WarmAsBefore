@@ -2,6 +2,7 @@ using System.Windows.Input;
 using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
+using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -255,7 +256,11 @@ public partial class CharacterStudioPanel : ContentView
 
         PrepareEntrance();
 
+        // 进場卡顿的真实来源：等首帧（Loaded + 两次合成帧）在重页面上可能吃掉几百毫秒。
+        // 打点分开记，才能分清是「等帧」还是「动画本身」慢。
+        var swWait = System.Diagnostics.Stopwatch.StartNew();
         await WaitFirstFrameAsync();
+        PerfLog.Note("面板 · 等首帧", $"{swWait.ElapsedMilliseconds} ms{(swWait.ElapsedMilliseconds >= 200 ? "  <<< SLOW" : "")}");
 
         var rise = (uint)MotionTokens.Ms(MotionTokens.CardEnterMs);
         var settle = (uint)MotionTokens.Ms(MotionTokens.SettleMs);

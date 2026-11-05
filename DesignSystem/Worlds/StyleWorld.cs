@@ -631,8 +631,16 @@ public static class StyleWorldTokens
     private static Color ShadowInk(bool dark, double strength) =>
         new(0f, 0f, 0f, (float)(dark ? strength * 0.55 : strength));
 
+    /// <summary>
+    /// 诊断开关：环境变量 WARM_NO_SHADOW=1 时无论设置怎样都不发影子。
+    /// 单独立成只读字段，是因为它和「性能模式」的写入方向相反：性能模式可以开也可以关，
+    /// 而排障开关一旦置位就应该一直压着。RuntimeConfigurator 下发性能模式时按
+    /// <c>性能模式 || ForceFlatShadows</c> 取或，关掉性能模式不会把排障开关一起关掉。
+    /// </summary>
+    public static bool ForceFlatShadows { get; } = Environment.GetEnvironmentVariable("WARM_NO_SHADOW") == "1";
+
     /// <summary>轻量模式（设置里可开）与诊断开关：一律不发影子，省掉每个元素一层合成层。</summary>
-    public static bool FlatShadows { get; set; } = Environment.GetEnvironmentVariable("WARM_NO_SHADOW") == "1";
+    public static bool FlatShadows { get; set; } = ForceFlatShadows;
 
     // ── 色算 ────────────────────────────────────────────────────────────
     private static Color FromHex(string hex) => Color.FromArgb(hex);
