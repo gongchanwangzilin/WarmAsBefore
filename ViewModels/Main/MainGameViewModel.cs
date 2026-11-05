@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -460,6 +461,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             await _map.InitializeAsync();
             Minimap.Visible = true;
+            // 地图一读进来就先按它的「天气来源」设置接上天气（导入的城市图默认按当地算）。
+            ApplyMapWeather();
             _map.SceneChanged += OnMapSceneChanged;
             _map.WalkSegmentStarted += OnWalkSegmentStarted;
             _map.WalkRouteCompleted += OnWalkRouteCompleted;
@@ -813,7 +816,69 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             _chat.SetMapContext(BuildMapContext());
             RefreshSceneOptions();
+            // 地图换了、或「天气来源」被改过：主界面的天气要跟着换到新位置（例如导入杭州后显示杭州天气）。
+            ApplyMapWeather();
         });
+
+    /// <summary>
+    /// 上一次应用过的天气来源指纹：mode|城市|坐标。
+    /// NotifyChanged 不只天气设置会发（改标定、装素材包都会发），而每次应用都要联网拉一次天气，
+    /// 所以先比指纹，没变就不重复请求、也不重复刷 SceneDirector 的天气门控。
+    /// </summary>
+    private string _mapWeatherKey = "";
+    private bool _mapWeatherApplied;
+
+    /// <summary>
+    /// 把「这张图按哪儿算天气」告诉 <see cref="WeatherProvider"/>：
+    /// user = 跟随用户（清掉覆盖）；map = 用抓取位置的城市 / 中心坐标；custom = 用户填的地点。
+    /// 之后立刻重拉一次天气并刷新场景天气门控 —— 否则主界面会继续显示上一张图那座城市的天气。
+    /// </summary>
+    private void ApplyMapWeather()
+    {
+        try
+        {
+            if (!_map.IsLoaded) return;
+            var map = _map.Map;
+            var mode = MapWeatherModes.Normalize(map.WeatherMode);
+            var city = mode == MapWeatherModes.Map
+                ? (!string.IsNullOrWhiteSpace(map.WeatherCity) ? map.WeatherCity : map.City)
+                : mode == MapWeatherModes.Custom ? map.WeatherCity : "";
+            var key = string.Create(CultureInfo.InvariantCulture,
+                $"{mode}|{city}|{map.CenterLatitude:0.######}|{map.CenterLongitude:0.######}");
+            if (_mapWeatherApplied && key == _mapWeatherKey) return;
+            _mapWeatherKey = key;
+            _mapWeatherApplied = true;
+
+            switch (mode)
+            {
+                case MapWeatherModes.Map:
+                {
+                    // 0,0 是「这张图没有抓取位置」的默认值，不能当坐标拿去查天气。
+                    var hasCoord = Math.Abs(map.CenterLatitude) > 1e-6 && Math.Abs(map.CenterLongitude) > 1e-6;
+                    _weather.SetMapWeather(MapWeatherModes.Map, city,
+                        hasCoord ? map.CenterLatitude : null,
+                        hasCoord ? map.CenterLongitude : null);
+                    break;
+                }
+                case MapWeatherModes.Custom:
+                    // 自定义地点只有名字：坐标交给 WeatherProvider 首次拉天气时自己地理编码。
+                    _weather.SetMapWeather(MapWeatherModes.Custom, city, null, null);
+                    break;
+                default:
+                    _weather.ClearMapWeather();
+                    break;
+            }
+
+            App.WriteLog($"MainGame.ApplyMapWeather -> mode={mode}, override={_weather.HasMapWeatherOverride}, city={city}");
+            _ = FetchWeather();
+            _ = _sceneDirector.RefreshWeatherNowAsync();
+        }
+        catch (Exception ex)
+        {
+            // 天气是锦上添花：这里出错只记日志，绝不能把主界面拖垮。
+            App.WriteLog("MainGame.ApplyMapWeather -> " + ex);
+        }
+    }
 
     /// <summary>地图 overlay 的场景列表（当前场景高亮）。</summary>
     private void RefreshSceneOptions()

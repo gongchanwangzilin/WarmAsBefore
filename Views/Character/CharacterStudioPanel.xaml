@@ -486,6 +486,32 @@
                                     </VerticalStackLayout>
                                 </Grid>
 
+                                <!-- 年龄 / 生日：只喂给 TA「怎么谈自己」，不参与任何身体/周期判定。
+                                     自然增长是读取时按「过了几个生日」现算的，不每年写盘；
+                                     关掉只是冻结显示，年龄与生日仍然进人设——用户要的是不涨岁，不是藏起设定。 -->
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Label Text="年龄" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding AgeInput}"
+                                               Keyboard="Numeric" Placeholder="例：24" />
+                                    </VerticalStackLayout>
+                                    <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                        <Label Text="生日" Style="{StaticResource FieldLabel}" />
+                                        <Entry Style="{StaticResource Field}" Text="{Binding BirthdayInput}"
+                                               Placeholder="MM-dd，如 03-14" />
+                                    </VerticalStackLayout>
+                                </Grid>
+
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                        <Label Text="自然增长" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="关掉后年龄就停在你填的这个数；年龄与生日仍会告诉 AI。"
+                                               Style="{StaticResource TxtCaption}" />
+                                    </VerticalStackLayout>
+                                    <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
+                                            IsToggled="{Binding NaturalAging}" />
+                                </Grid>
+
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="恋爱对象" Style="{StaticResource TxtBodySm}" />

@@ -11,7 +11,7 @@
 
 | 项目 | 值 |
 |---|---|
-| 当前版本 | `1.53.1`（`ApplicationVersion` 54） |
+| 当前版本 | `1.54.0`（`ApplicationVersion` 55） |
 | SDK | .NET 10 SDK |
 | MAUI 工作负载 | `maui`；只构建 Android 时可用 `maui-android` |
 | Windows | Windows 10 19041+，目标框架 `net10.0-windows10.0.19041.0` |
@@ -238,6 +238,20 @@ builder.Services
 
 ---
 
+### v1.54.0 新增落点（年龄 / 定位 / 云存档 / 地图照片与天气）
+
+| 功能 | 主要文件 | 要点 |
+|---|---|---|
+| 角色年龄、生日、自然增长 | `Models/Character.cs`、`Services/Character/CharacterAgeService.cs`、`ViewModels/Character/CharacterStudioViewModel.cs`、`Views/Character/CharacterStudioPanel.xaml` | 档里只存 `Age` 与 `AgeAsOf`；自然增长读取时按生日次数现算，不每年写盘；旧档默认 `null/""/true` 可反序列化 |
+| 用户生日与 AI 人设 | `Models/State.cs`（`UserBirthday`）、`Services/Core/RuntimeConfigurator.cs`、`ViewModels/Settings/SettingsViewModel.cs`、`Views/Settings/SettingsSectionPage.xaml`（Card28） | 生日归一在 `CharacterAgeService.NormalizeBirthday`；人设段落失败只记日志 |
+| AI 工具 `character_age` | `Modules/Tools/ToolManager.Age.cs`、`ToolManager.cs` | 改年龄才刷新 `AgeAsOf`；走 `CharacterLibrary.UpdateAsync` 落盘 |
+| 云存档私人仓库门禁 | `Services/CloudSync/CloudSyncService.cs`、`ViewModels/Save/CloudSavesViewModel.cs`、`Views/Settings/CloudSavesPage.xaml` | `GET /repos/{owner}/{repo}` 读 `private/visibility`；按仓库+令牌缓存 10 分钟；九个远端入口统一走 `RequirePrivateRepoAsync` |
+| 设备定位 / IP 估算 | `Modules/RealWorld/LocationService.cs`、`Modules/RealWorld/PermissionBroker.cs`、`Platforms/Windows/WindowsDeviceLocation.cs`（整文件 `#if WINDOWS`） | 设备定位失败返回 `null` 并写 `LastDeviceError`；IP 永远 `IsEstimate=true`，由 UI 让用户确认，禁止静默降级 |
+| 谷歌地点照片 | `Services/World/PlacePhotoService.cs`、`Services/World/CoordConvert.cs`、`Views/Games/MapCreatePage.xaml`、`MapCreateViewModel.cs` | Places Text Search → Place Photo（12MB 封顶、image/* 校验），无照片回退 Street View Static；高德来源先 GCJ-02→WGS84；Key 在 Preferences `map.google.key` 或 `WAB_GOOGLE_KEY` |
+| 地图天气来源 | `Models/MapData.cs`（`WeatherMode/WeatherCity`、`MapWeatherModes`）、`Modules/RealWorld/WeatherProvider.cs`、`ViewModels/Main/MainGameViewModel.cs`、`MapImportService.cs`、`MapCreateViewModel/Page`、`MapCanvasViewModel/MapPage` | 导入图默认 `map`；`WeatherProvider` 地图覆盖与用户位置两套状态独立；`FetchForUserAsync` 永远按用户设置；主界面在 `MapChanged` 按指纹重应用 |
+
+
+
 ## 5. 存储与数据
 
 `StorageProvider` 是所有 JSON 的唯一落盘入口：
@@ -252,13 +266,14 @@ builder.Services
 
 | 路径 / 键 | 内容 |
 |---|---|
-| `settings.json` | AI 端点、主题、窗口、语音、天气、插件钩子开关等全局设置 |
-| `characters.json` | 角色库与角色状态 |
+| `settings.json` | AI 端点、主题、窗口、语音、天气、插件钩子开关等全局设置；`UserBirthday`（用户生日，`MM-dd`） |
+| `characters.json` | 角色库与角色状态；`CharacterProfile.Age/Birthday/AgeAsOf/NaturalAging`（年龄/生日/自然增长） |
 | `gameengine.json` | 引擎运行时状态 |
 | `saves/<saveId>` | 存档快照：状态、角色状态、副设定、最近聊天 |
 | `memories/<scope>` | 全量对话记忆库 |
 | `human_memories/` | 按存档隔离的人类记忆；开启共用后回到单文件 |
 | `assets/` | 立绘、背景、音频、表情包等素材 |
+| `maps/` | 地图背景；`maps/photos/` 为取景照片（手机随拍、电脑导入与谷歌地点照片） |
 | `cg/` | CG 目录与解锁状态 |
 | `showcase/` | 展示案脚本与素材 |
 | `plugins/<id>/plugin.json` | 插件清单（文件，不经 `StorageProvider`） |
@@ -296,7 +311,17 @@ builder.Services
    `Border.Background` 没有绑定 `DynamicResource`。
 9. **平台**：Windows 必测；具备 Android SDK 时再构建并安装 Android 包，
    重点看屏幕方向、定位权限、文件选择与 proot 沙箱。
-10. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
+10. **年龄与生日（v1.54）**：角色工作室填年龄/生日并保存 → 重开角色确认回填；
+    填一个「明天」的生日并把 `AgeAsOf` 临时改到去年，确认主界面提示词里的岁数 +1；
+    关掉自然增长后确认岁数冻结；设置 → 身份与心理填用户生日，确认对话人设里出现。
+11. **定位（v1.54）**：Windows 打开定位服务后点「定位」，确认状态显示「设备定位」与精度；
+    关掉系统定位再点，确认显示具体设置指引而不是自动跳到 IP；IP 候选出现时必须点「采用」才写入。
+12. **云存档私人仓库（v1.54）**：填一个公开仓库 → 测试/同步/刷新均应被拒绝并提示改 Private；
+    改成私人仓库（令牌有 `repo` 权限）后点「验证私人仓库 / 测试连接」确认通过。
+13. **地图照片与天气（v1.54）**：在创建页填 Google Key（启用 Places API）→ 取照片，确认场景背景与
+    `maps/photos/` 里有文件；无 Key 时应直接返回人话、不发请求。改地图天气为三种模式，
+    确认主界面天气与场景天气门控跟着变；重新导入一张高德/OSM 地图，确认默认按当地天气。
+14. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
     不提交密钥、日志、`bin/`、`obj/`、`.local/`、用户数据或未完成的插件包。
 
 ---
@@ -317,8 +342,15 @@ builder.Services
   直接指定 `RuntimeIdentifier` 会得到无窗口的产物。
 - **XAML 编译器偶发锁文件**：关闭 `Microsoft.UI.Xaml.Markup.Compiler`
   编译器服务器后重建。
-- **云存档依赖用户仓库**：同步使用用户自己的 GitHub 仓库与令牌；
-  令牌失效只影响同步，不影响本地存档。
+- **云存档依赖用户仓库**：同步使用用户自己的 GitHub 私人仓库与令牌；
+  令牌失效只影响同步，不影响本地存档。公开仓库会在所有远端入口被门禁拒绝，
+  私有性缓存 10 分钟，改完可见性需点「测试连接 / 验证 / 刷新」立即重查。
+- **Windows 定位依赖系统授权**：无 MSIX 的 EXE 走 `Windows.Devices.Geolocation`，
+  `RequestAccessAsync` 的行为随 Windows 版本有差异；系统定位关闭或未允许桌面应用访问位置时，
+  设置页会显示具体开启路径，首次打开定位服务后可能需重试一次（12 秒超时）。
+- **IP 定位只到城市级**：这是网络出口决定的，不能当精确位置；设置页只把它当候选，必须用户确认。
+- **谷歌地点照片需要自备 Key**：Places API（街景回退另需 Street View Static API），
+  且各地区的覆盖与配额由 Google 决定；受限网络下无法端到端验证。
 - **外部战斗/工具驱动是可选路径**：驱动缺失或响应不合契约时回退内置实现；
   外部队列与协议变更需要同时更新文档与体检规则。
 
@@ -359,6 +391,11 @@ builder.Services
 | 对话管线 | `Modules/AiChat/ChatEngine.cs` |
 | 对话记忆/日记 | `Modules/AiChat/MemoryVault.cs` |
 | 存档/读档 | `Modules/SaveSystem/SaveManager.cs` |
+| 年龄 / 生日 / 自然增长 | `Services/Character/CharacterAgeService.cs`、`Models/Character.cs` |
+| 设备定位 / IP 估算 | `Modules/RealWorld/LocationService.cs`、`Platforms/Windows/WindowsDeviceLocation.cs` |
+| 云存档私人仓库门禁 | `Services/CloudSync/CloudSyncService.cs` |
+| 地图天气来源 | `Models/MapData.cs`、`Modules/RealWorld/WeatherProvider.cs`、`ViewModels/Main/MainGameViewModel.cs` |
+| 谷歌地点照片 | `Services/World/PlacePhotoService.cs`、`Services/World/CoordConvert.cs` |
 | 商店与 Buff | `Modules/Market/ShopService.cs` |
 | 送礼面板 | `Modules/Market/GiftPanelService.cs` |
 | QQ/微信通道 | `Modules/RealChat/OfficialChatBridge.cs` |

@@ -865,6 +865,25 @@
                                         </Grid>
                                         <Label Text="{Binding WeatherStatusText}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding HasWeatherStatus}" />
+                                        <!-- IP 只给候选：设备定位失败时也不直接改设置，等用户点「采用」 -->
+                                        <Border BackgroundColor="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                                Padding="10,8" Margin="0,0,0,4"
+                                                StrokeShape="{DynamicResource WRadiusWell}"
+                                                IsVisible="{Binding HasPendingLocationEstimate}">
+                                            <VerticalStackLayout Spacing="8">
+                                                <Label Text="{Binding PendingLocationText}" Style="{StaticResource TxtCaption}"
+                                                       LineBreakMode="WordWrap" />
+                                                <HorizontalStackLayout Spacing="10">
+                                                    <Button Text="采用这个估算" Style="{StaticResource BtnGhost}"
+                                                            FontSize="12" Padding="12,6"
+                                                            Command="{Binding AdoptLocationEstimateCommand}" />
+                                                    <Button Text="不要" Style="{StaticResource BtnText}" FontSize="12"
+                                                            Command="{Binding DismissLocationEstimateCommand}" />
+                                                </HorizontalStackLayout>
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <Label Text="定位优先用设备 GPS（电脑走 Windows 定位服务）；IP 只做候选，必须你确认才会生效。"
+                                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                                         <!-- 选城市：内置热门城市不联网也能点，输入几个字再补在线联想 -->
                                         <VerticalStackLayout Spacing="10" IsVisible="{Binding CityChooserOpen}" Margin="0,13,0,0">
                                             <Entry Text="{Binding CitySearchText}"
@@ -1443,6 +1462,13 @@
                         <Label Text="{Binding [Settings_CloudTitle], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                         <Label Text="{Binding [Settings_CloudHint], Source={x:Static i18n:LocalizationService.Current}}"
                                Style="{StaticResource TxtCaption}" Margin="0,2,0,8" LineBreakMode="WordWrap" />
+                        <!-- 私人仓库是硬门禁：公开仓库会把存档连同令牌泄露到公网，服务层会直接拒绝同步 -->
+                        <Border BackgroundColor="{DynamicResource WWellBrush}" StrokeThickness="0"
+                                Padding="10,8" Margin="0,0,0,10"
+                                StrokeShape="{DynamicResource WRadiusWell}">
+                            <Label Text="只接受私人仓库（Private）：公开仓库会被拒绝同步；访问令牌需要有 repo（私有仓库读写）权限，且只保存在本机。"
+                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        </Border>
 
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13">
                             <VerticalStackLayout>
@@ -1787,6 +1813,14 @@
                             <Picker Grid.Column="1" Title="未设置" WidthRequest="140" FontSize="13"
                                     ItemsSource="{Binding GenderChoices}"
                                     SelectedItem="{Binding UserGender}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="你的生日" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding UserBirthdayDisplay, StringFormat='已记：{0}'}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="留空 = 不设置。填了之后 AI 会记得这一天；只存月日，不需要年份。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <Entry Grid.Column="1" WidthRequest="140" FontSize="13" Text="{Binding UserBirthday}"
+                                   Placeholder="MM-dd，如 08-02" BackgroundColor="{DynamicResource InputBg}"
+                                   TextColor="{DynamicResource SurfaceFg}" PlaceholderColor="{DynamicResource MutedFg}" /></Grid>
                         <Label Text="自定义性别" Style="{StaticResource TxtSubhead}" Margin="0,14,0,2" />
                         <Label Text="名字 + 称呼 + 一段说明即可；还可以挂一段脚本（JS/Python/Java），让性别决定周期、称呼或随经历变化的描述。脚本输入 JSON、输出文字，超时与语句数都有硬上限。" Style="{StaticResource TxtCaption}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,10">

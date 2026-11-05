@@ -223,11 +223,81 @@
 
                         <Label Text="出图走「设置 → AI → 画面生成」那一套；这里只放 AI 现生成的图与你自己导入的文件，不用任何游戏自带或受版权保护的素材。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+
+                        <!-- 谷歌地点照片：高德只有地名与道路、没有照片接口，这一条走谷歌 Places -->
+                        <Border Style="{StaticResource SettingRow}" Margin="0,4,0,0">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="谷歌地图地点照片" Style="{StaticResource TxtRowTitle}" />
+                                <Label Text="{Binding GoogleKeyState}" Style="{StaticResource TxtRowDesc}"
+                                       LineBreakMode="WordWrap" />
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Entry Style="{StaticResource Field}" Text="{Binding GoogleKeyInput}"
+                                           Placeholder="Google Maps API Key（需启用 Places API）" />
+                                    <Button Grid.Column="1" Text="存 Key" Style="{StaticResource BtnGhostSm}"
+                                            Command="{Binding SaveGoogleKeyCommand}" />
+                                </Grid>
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                                    <Picker ItemsSource="{Binding BatchChoices}" SelectedItem="{Binding BatchChoice}"
+                                            FontSize="{DynamicResource WSizeSmall}" WidthRequest="96"
+                                            VerticalOptions="Center" IsEnabled="{Binding CanFillGoogle}" />
+                                    <Button Grid.Column="1" Text="从谷歌地图取照片" Style="{StaticResource BtnGhost}"
+                                            IsEnabled="{Binding CanFillGoogle}"
+                                            Command="{Binding FillFromGoogleCommand}" />
+                                </Grid>
+                                <ProgressBar Progress="{Binding GoogleProgress}" IsVisible="{Binding IsFillingGoogle}"
+                                             HeightRequest="4" />
+                                <Label Text="{Binding GoogleProgressText}" Style="{StaticResource TxtCaption}"
+                                       IsVisible="{Binding IsFillingGoogle}" LineBreakMode="WordWrap" />
+                                <Label Text="{Binding GoogleNote}" Style="{StaticResource TxtCaption}"
+                                       IsVisible="{Binding HasGoogleNote}" LineBreakMode="WordWrap" />
+                                <Label Text="高德没有地点照片接口，谷歌 Places 有：按店名 / 门牌搜到地点后取它的照片，没有照片的地点回退街景（街景还要另启用 Street View Static API）。下载的照片只落在本机地图目录。"
+                                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                        </Border>
                 </VerticalStackLayout>
 
-                <!-- ============ ⑤ 自己的文件 / 高德 Key / 判灯 ============ -->
+                <!-- ============ ⑤ 地图天气 ============ -->
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="⑤ 地图天气：这张图按哪儿算" Style="{StaticResource TxtSection}" />
+                    <Label Text="导入的真实城市地图默认按抓取位置的当地天气算；也可以改成跟随用户设置里的城市，或者自己填一个地点。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    <Border Style="{StaticResource SettingRow}">
+                        <VerticalStackLayout Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Label Text="天气按哪儿算" Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
+                                <Picker Grid.Column="1" WidthRequest="180" FontSize="{DynamicResource WSizeSmall}"
+                                        ItemsSource="{Binding MapWeatherChoices}"
+                                        ItemDisplayBinding="{Binding Display}"
+                                        SelectedItem="{Binding SelectedMapWeatherChoice}" />
+                            </Grid>
+                            <Label Text="{Binding MapWeatherSourceText}" Style="{StaticResource TxtRowDesc}"
+                                   LineBreakMode="WordWrap" />
+                            <Label Text="{Binding MapWeatherNote}" Style="{StaticResource TxtRowDesc}"
+                                   LineBreakMode="WordWrap" />
+                            <Label Text="{Binding MapWeatherPeekText}" Style="{StaticResource TxtCaption}"
+                                   IsVisible="{Binding HasMapWeatherPeek}" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsMapWeatherCustom}">
+                        <Label Text="自定义地点" Style="{StaticResource FieldLabel}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Entry Style="{StaticResource Field}" Text="{Binding MapWeatherCityInput}"
+                                   Placeholder="城市名，例如：杭州市" />
+                            <Button Grid.Column="1" Text="保存地点" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding SaveMapWeatherCityCommand}" />
+                        </Grid>
+                        <Label Text="填城市名就够：第一次查天气时会自动地理编码出坐标。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+
+                    <Label Text="主界面顶部的天气、场景的天气门控读的都是这一份；地图一换（重新导入），这里会跟着新图重读。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+
+                <!-- ============ ⑥ 自己的文件 / 高德 Key / 判灯 ============ -->
                 <VerticalStackLayout Spacing="0">
-                    <Label Text="⑤ 自己的文件 / 高德 Key / 判灯" Style="{StaticResource TxtSection}" />
+                    <Label Text="⑥ 自己的文件 / 高德 Key / 判灯" Style="{StaticResource TxtSection}" />
                         <Border Style="{StaticResource SettingRow}">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">

@@ -77,6 +77,31 @@
         <ScrollView Grid.Row="2" Padding="16,14,16,32">
             <VerticalStackLayout Spacing="14" MaximumWidthRequest="880" HorizontalOptions="Fill">
 
+                <!-- 私人仓库门禁：云存档只写进自己的私人仓库，公开仓库会让存档跟着公开。
+                     检查结果来自 CloudSyncService.RepoPrivacyNote；未验证 / 通过 / 警告三种外观分开摆。 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Label Text="云存档只写私人仓库" Style="{StaticResource TxtSubhead}"
+                                   VerticalOptions="Center" />
+                            <Button Grid.Column="1" Text="{Binding PrivacyButtonText}"
+                                    Style="{StaticResource BtnNeumorphSm}" WidthRequest="112"
+                                    VerticalOptions="Center"
+                                    Command="{Binding VerifyPrivacyCommand}"
+                                    IsEnabled="{Binding PrivacyCanVerify}" />
+                        </Grid>
+                        <Label Text="{Binding PrivacyText}" Style="{StaticResource TxtMuted}"
+                               LineBreakMode="WordWrap" IsVisible="{Binding PrivacyIsPending}" />
+                        <Label Text="{Binding PrivacyText}" Style="{StaticResource TxtMuted}"
+                               LineBreakMode="WordWrap" IsVisible="{Binding PrivacyIsOk}" />
+                        <Label Text="{Binding PrivacyText}" Style="{StaticResource TxtMuted}"
+                               LineBreakMode="WordWrap" TextColor="{DynamicResource DangerInk}"
+                               IsVisible="{Binding PrivacyIsWarning}" />
+                        <Label Text="填了公开仓库，存档就会跟着公开。访问令牌就是登录凭据：只保存在这台设备，不会上传到任何服务器；请使用只有 repo（私有仓库读写）权限的令牌。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <VerticalStackLayout Spacing="3">
                     <Label Text="{Binding DeviceLine}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding DeviceLine, Converter={StaticResource StringNotEmpty}}" />

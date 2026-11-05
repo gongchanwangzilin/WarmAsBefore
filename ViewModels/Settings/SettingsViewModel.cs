@@ -128,6 +128,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _narratorAiEnabled = s.NarratorAiEnabled;
         _userGender = s.UserGender ?? "";
         _userGenderDisplay = string.IsNullOrWhiteSpace(_userGender) ? "未设置" : _userGender;
+        _userBirthday = CharacterAgeService.NormalizeBirthday(s.UserBirthday);
+        _userBirthdayDisplay = _userBirthday.Length == 0 ? "未设置" : CharacterAgeService.BirthdayDisplay(_userBirthday);
         _lowMemoryMode = s.LowMemoryMode;
         _coreMemoryEnabled = s.CoreMemoryEnabled;
         _coreMemoryThreshold = s.CoreMemoryThreshold;
@@ -1170,6 +1172,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>用户（你）的性别；空 = 未设置。称呼与相处方式会参考它，但不刻板化。</summary>
     [ObservableProperty] private string _userGender = "";
     [ObservableProperty] private string _userGenderDisplay = "未设置";
+    /// <summary>用户自己的生日（"MM-dd"）。接受 M-d / yyyy-MM-dd / M月d日 输入，落盘前归一。</summary>
+    [ObservableProperty] private string _userBirthday = "";
+    [ObservableProperty] private string _userBirthdayDisplay = "";
     [ObservableProperty] private List<string> _genderChoices = new();
     /// <summary>超省内存：记忆/关系网读后就丢缓存，闲置会话清空，后台预热不做。</summary>
     [ObservableProperty] private bool _lowMemoryMode;
@@ -1608,6 +1613,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isSearchingCity;
     [ObservableProperty] private bool _isLocatingCity;
     [ObservableProperty] private bool _hasCityResults;
+    /// <summary>IP 估算出来的候选位置：不自动采用，等用户点「采用这个估算」。</summary>
+    [ObservableProperty] private bool _hasPendingLocationEstimate;
+    [ObservableProperty] private string _pendingLocationText = "";
+    private Modules.RealWorld.LocationFix? _pendingEstimateFix;
     /// <summary>定位 / 选城市 / 测试天气的回显文字（不入库）。</summary>
     [ObservableProperty] private string _weatherStatusText = "";
     [ObservableProperty] private bool _hasWeatherStatus;
@@ -1668,27 +1677,46 @@ public sealed partial class SettingsViewModel : ObservableObject
         PersistSettings();   // 城市名没变、只更新坐标时，属性钩子不会触发，这里补一次
     }
 
-    /// <summary>定位：先要系统定位，拿不到再按公网 IP 估一个城市（Windows 桌面多数走后者）。</summary>
+    /// <summary>
+    /// 定位：先要设备定位（Android GPS / Windows 定位服务），失败再按公网 IP 估一个城市。
+    /// IP 结果只作为「候选」展示，等用户确认才写入设置——IP 常常把漯河估成郑州，
+    /// 静默采用等于每次打开都把人搬到隔壁市。设备定位成功则直接采用。
+    /// </summary>
     [RelayCommand]
     private async Task LocateWeatherCity()
     {
         if (IsLocatingCity) return;
         IsLocatingCity = true;
-        WeatherStatusText = "正在定位…";
+        HasPendingLocationEstimate = false;
+        _pendingEstimateFix = null;
+        WeatherStatusText = "正在请求设备定位（手机 GPS / 电脑定位服务）…";
         try
         {
-            var fix = await _cities.LocateAsync();
-            if (fix is null)
+            var fix = await _cities.LocateDeviceAsync();
+            if (fix is not null)
             {
-                WeatherStatusText = "定位失败：系统定位不可用或被拒绝，IP 也没估出位置。请手动选择城市。";
+                ApplyLocationFix(fix);
+                WeatherStatusText = $"已按{fix.Origin}定位到 {fix.City.Name}（{fix.City.CoordText}）"
+                    + AccuracyNote(fix);
                 return;
             }
-            WeatherCity = fix.City.Name;
-            WeatherLatitude = fix.City.Latitude;
-            WeatherLongitude = fix.City.Longitude;
-            CityChooserOpen = false;
-            WeatherStatusText = $"已按{fix.Origin}定位到 {fix.City.Name}（{fix.City.CoordText}）";
-            PersistSettings();
+
+            var reason = string.IsNullOrWhiteSpace(_cities.LastDeviceError)
+                ? "设备定位不可用" : _cities.LastDeviceError;
+            WeatherStatusText = reason + "；正在用 IP 估算一个候选…";
+            var estimate = await _cities.LocateByIpAsync();
+            if (estimate is null)
+            {
+                WeatherStatusText = reason + "；IP 也没估出位置。请手动选择城市。";
+                return;
+            }
+            // 不写设置：先把候选摆出来，让用户自己决定要不要采信。
+            _pendingEstimateFix = estimate;
+            PendingLocationText = $"IP 估算：{estimate.City.Name}（{estimate.City.CoordText}）。{reason}。"
+                + "IP 只到城市级、经常偏几十公里——确认是这里再点「采用」。";
+            HasPendingLocationEstimate = true;
+            WeatherStatusText = "设备定位不可用，已按 IP 估算给出候选，需要你确认。";
+            App.WriteLog($"SettingsViewModel.LocateWeatherCity -> 设备失败（{reason}），IP 候选 {estimate.City.Name}");
         }
         catch (Exception ex)
         {
@@ -1701,6 +1729,45 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>采用 IP 候选：用户明确点了按钮才落到设置里。</summary>
+    [RelayCommand]
+    private void AdoptLocationEstimate()
+    {
+        if (_pendingEstimateFix is null) return;
+        ApplyLocationFix(_pendingEstimateFix);
+        WeatherStatusText = $"已采用 IP 估算位置 {_pendingEstimateFix.City.Name}"
+            + "（如果不对，请重新定位或手动选城市）。";
+        _pendingEstimateFix = null;
+        HasPendingLocationEstimate = false;
+        PendingLocationText = "";
+        PersistSettings();
+    }
+
+    /// <summary>不要这个 IP 候选：清掉提示，位置保持原样。</summary>
+    [RelayCommand]
+    private void DismissLocationEstimate()
+    {
+        _pendingEstimateFix = null;
+        HasPendingLocationEstimate = false;
+        PendingLocationText = "";
+        WeatherStatusText = "没有采用 IP 估算。可以手动选择城市，或到系统设置里允许定位后重试。";
+    }
+
+    private void ApplyLocationFix(Modules.RealWorld.LocationFix fix)
+    {
+        WeatherCity = fix.City.Name;
+        WeatherLatitude = fix.City.Latitude;
+        WeatherLongitude = fix.City.Longitude;
+        CityChooserOpen = false;
+        CitySearchText = "";
+        CityResults.Clear();
+        HasCityResults = false;
+        PersistSettings();
+    }
+
+    private static string AccuracyNote(Modules.RealWorld.LocationFix fix) =>
+        fix.AccuracyMeters is double a && a > 0 ? $" · 精度约 {a:0} 米" : "";
+
     /// <summary>按当前界面上的源与城市取一次真实天气：自定义源填完能立刻验证通不通。</summary>
     [RelayCommand]
     private async Task TestWeather()
@@ -1710,7 +1777,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             _weather.Configure(WeatherSource, WeatherApiUrl, WeatherApiKey);
             _weather.SetLocation(WeatherCity, WeatherLatitude, WeatherLongitude);
-            var r = await _weather.Fetch();
+            // 这里测的是「用户设置的城市」，不受当前地图的天气覆盖影响。
+            var r = await _weather.FetchForUserAsync();
             WeatherStatusText = r is null ? "这个源没返回天气数据" : $"{r.City}：{r.Description} {r.Celsius:0.#}°C";
         }
         catch (Exception ex)
@@ -2497,6 +2565,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         UserGenderDisplay = string.IsNullOrWhiteSpace(value) ? "未设置" : value;
         PersistSettings();
     }
+    /// <summary>生日边输入边回显：归一留给落盘，输入过程中不替换用户正在打的字。</summary>
+    partial void OnUserBirthdayChanged(string value)
+    {
+        var normalized = CharacterAgeService.NormalizeBirthday(value);
+        UserBirthdayDisplay = normalized.Length == 0 ? "未设置" : CharacterAgeService.BirthdayDisplay(normalized);
+        PersistSettings();
+    }
     partial void OnLowMemoryModeChanged(bool value) => PersistSettings();
     partial void OnCoreMemoryEnabledChanged(bool value) => PersistSettings();
     partial void OnCoreMemoryThresholdChanged(double value) => PersistSettings();
@@ -2891,6 +2966,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 MainWindowCloseBehavior = MainWindowCloseBehavior,
                 NarratorAiEnabled = NarratorAiEnabled,
                 UserGender = (UserGender ?? "").Trim(),
+                UserBirthday = CharacterAgeService.NormalizeBirthday(UserBirthday),
                 LowMemoryMode = LowMemoryMode,
                 CoreMemoryEnabled = CoreMemoryEnabled,
                 CoreMemoryThreshold = Math.Clamp(CoreMemoryThreshold, 0.5, 0.99),

@@ -294,6 +294,8 @@ wab/devices/{deviceId}/files/{key}.json  数据本体
 合并规则：同一个键取 `manifest` 中时间较新的一份；存档再按 `meta.SavedAt` 复核。
 每台设备只写自己的目录，不覆盖其他设备的文件。`settings.json`、图片和密钥字段不入库。
 `StorageProvider.Changed` 事件是上传触发器，启动后先做一次全量对齐，之后按变更增量上传。
+从 v1.54 起，所有读写远端的入口先过「仓库私有性」门禁：`GET /repos/{owner}/{repo}` 确认
+`private` / `visibility` 为私有；公开仓库直接拒绝并提示改 Private，结果按仓库+令牌缓存 10 分钟。
 
 ---
 
@@ -301,12 +303,18 @@ wab/devices/{deviceId}/files/{key}.json  数据本体
 
 - `CharacterLibrary`：角色的新建、导入、持久化；所有角色写入 `characters.json`，
   并注册进 `GameEngine.Roster`。
+- `CharacterAgeService`：角色年龄/生日/自然增长的纯计算；档案只存 `Age` 与 `AgeAsOf`，
+  自然增长在读取时按生日次数现算（不每年写盘），AI 人设与 `character_age` 工具共用它。
 - `CharacterSettingsResolver`：全局设置 → 角色覆写的解析链。需要按角色微调的参数都从这里取值。
 - `CharacterSubProfileService`：主设定只读，副设定随时间与状态漂移，留影有界。
 - `WorldTreeService`：世界树条目可手写、可由 AI 生成/润色；存档绑定后地图才可用。
 - `MapService`：场景图、BFS 最短路、逐段行走、背景图/视频管理；
   `MapActorService` 维护用户与各 AI 角色的位置，并处理多实体拉拽仲裁。
 - `SceneDirector`：按 AI 标记、手动选择、时间规则、天气规则切换场景，记录生效来源。
+- `WeatherProvider`：天气数据源与两套位置（用户设置 / 地图覆盖）；`MapDefinition.WeatherMode`
+  决定主界面用哪套，`FetchForUserAsync` 永远按用户设置（设置页测试用）。
+- `PlacePhotoService`：谷歌 Places 取地点照片/街景，补 `MapScene.Background` 与 `ScenePhoto`；
+  `CoordConvert` 负责高德 GCJ-02 与谷歌 WGS84 的互转。
 
 地图与角色位置属于存档状态，换档即换世界。素材文件按角色/场景存放，不写进 JSON。
 
@@ -360,7 +368,7 @@ ZIP/文件夹导入会先验身，认成插件就拒绝并指路插件中心。
 | 多窗口 | `ToolWindow`、关系网/搜索独立窗 | 无多窗口，退回页内导航 |
 | 透明/毛玻璃 | `WindowBackdrop`（DWM + Acrylic） | 不支持，退回纯色/图片背景 |
 | 外部运行时 | Python/Java 由系统安装 | proot + 自带 rootfs |
-| 系统定位 | 经常不可用，降级 IP 估算 | GPS/网络定位 |
+| 系统定位 | `Windows.Devices.Geolocation`（需系统定位服务 + 允许桌面应用访问位置）；失败不自动降级 | GPS / 网络定位，权限失败给原因 |
 | 文件选择 | WinRT FolderPicker（可装文件夹） | 只能选 zip 安装 |
 | 浏览器 | 系统默认浏览器 | 系统浏览器 / Custom Tabs |
 

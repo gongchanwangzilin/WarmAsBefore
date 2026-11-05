@@ -15,6 +15,8 @@ public static class ModuleRegistration
         // 城市定位（GPS → IP 降级）与搜索联想
         services.AddSingleton<Modules.RealWorld.LocationService>();
         services.AddSingleton<Modules.RealWorld.PhysiologicalTracker>();
+        // 地点照片：高德没有照片接口，从谷歌 Places 取（兜底街景），给导入的真实城市补场景背景
+        services.AddSingleton<PlacePhotoService>();
 
         // 外部 API 与云存档
         services.AddSingleton<Modules.ApiManager.ApiGateway>();

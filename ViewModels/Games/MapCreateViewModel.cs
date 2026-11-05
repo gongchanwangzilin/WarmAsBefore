@@ -3,6 +3,8 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WarmAsBefore.Controls;
+using WarmAsBefore.Models;
+using WarmAsBefore.Modules.RealWorld;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.ViewModels;
@@ -19,16 +21,29 @@ public sealed partial class MapCreateViewModel : ObservableObject
     private readonly MapService _maps;
     private readonly MapImportService _importer;
     private readonly MapBackgroundService _backgrounds;
+    private readonly PlacePhotoService _photos;
+    private readonly SettingsManager _settings;
+    private readonly WeatherProvider _weather;
 
     private CancellationTokenSource? _cts;
     /// <summary>上一次「预览」算出来的整张图：导入时命中同一参数就直接用它。</summary>
     private MapBuildResult? _preview;
     private string _previewKey = "";
     private int _bgStep;
+    private int _googleStep;
+    /// <summary>回填天气选择时置位：防止「程序设置 Picker 选中项」被当成用户操作去落盘。</summary>
+    private bool _syncingMapWeather;
 
     public ObservableCollection<MapHitRow> Hits { get; } = new();
     public ObservableCollection<MapPresetChip> Presets { get; } = new();
     public IReadOnlyList<string> BatchChoices { get; } = new[] { "3 张", "6 张", "12 张" };
+    /// <summary>地图天气的三个选项：跟随用户 / 地图当地 / 自定义地点。</summary>
+    public IReadOnlyList<MapWeatherModeChoice> MapWeatherChoices { get; } = new[]
+    {
+        new MapWeatherModeChoice(MapWeatherModes.User, MapWeatherModes.Display(MapWeatherModes.User)),
+        new MapWeatherModeChoice(MapWeatherModes.Map, MapWeatherModes.Display(MapWeatherModes.Map)),
+        new MapWeatherModeChoice(MapWeatherModes.Custom, MapWeatherModes.Display(MapWeatherModes.Custom)),
+    };
 
     [ObservableProperty] private string _query = "";
     [ObservableProperty] private bool _isBusy;
@@ -52,11 +67,32 @@ public sealed partial class MapCreateViewModel : ObservableObject
     [ObservableProperty] private string _bgProgressText = "";
     [ObservableProperty] private bool _signalUseAmap;
 
-    public MapCreateViewModel(MapService maps, MapImportService importer, MapBackgroundService backgrounds)
+    // ---- 谷歌地点照片 ----
+    [ObservableProperty] private string _googleKeyInput = "";
+    [ObservableProperty] private bool _hasGoogleKey;
+    [ObservableProperty] private string _googleKeyState = "";
+    [ObservableProperty] private bool _isFillingGoogle;
+    [ObservableProperty] private double _googleProgress;
+    [ObservableProperty] private string _googleProgressText = "";
+    [ObservableProperty] private string _googleNote = "";
+
+    // ---- 地图天气 ----
+    [ObservableProperty] private MapWeatherModeChoice? _selectedMapWeatherChoice;
+    [ObservableProperty] private string _mapWeatherCityInput = "";
+    [ObservableProperty] private bool _isMapWeatherCustom;
+    [ObservableProperty] private string _mapWeatherNote = "";
+    [ObservableProperty] private string _mapWeatherSourceText = "";
+    [ObservableProperty] private string _mapWeatherPeekText = "";
+
+    public MapCreateViewModel(MapService maps, MapImportService importer, MapBackgroundService backgrounds,
+        PlacePhotoService photos, SettingsManager settings, WeatherProvider weather)
     {
         _maps = maps;
         _importer = importer;
         _backgrounds = backgrounds;
+        _photos = photos;
+        _settings = settings;
+        _weather = weather;
         foreach (var (label, radius) in MapImportOptions.Presets)
             Presets.Add(new MapPresetChip(label, radius));
         SyncPresets();
@@ -70,6 +106,12 @@ public sealed partial class MapCreateViewModel : ObservableObject
     public bool HasPreviewWarning => PreviewWarning.Length > 0;
     public bool HasBackdropNote => BackdropNote.Length > 0;
     public bool HasSourceNote => SourceNote.Length > 0;
+    public bool HasGoogleNote => GoogleNote.Length > 0;
+    public bool HasMapWeatherNote => MapWeatherNote.Length > 0;
+    public bool HasMapWeatherPeek => MapWeatherPeekText.Length > 0;
+
+    /// <summary>取谷歌照片要真有 Key 且手上没有别的长任务在跑：没 Key 时按钮灰着比按下去弹一句更省事。</summary>
+    public bool CanFillGoogle => HasGoogleKey && !IsBusy;
 
     /// <summary>出图那两颗钮：没开画面生成时按下去也只是白等，所以直接灰着。</summary>
     public bool CanRunAi => ImagesEnabled && !IsBusy;
@@ -105,6 +147,9 @@ public sealed partial class MapCreateViewModel : ObservableObject
         AmapKeyInput = _importer.AmapKey;
         HasAmapKey = _importer.HasAmapKey;
         SourceNote = _importer.SourceNote;
+        GoogleKeyInput = _photos.ApiKey;
+        HasGoogleKey = _photos.HasKey;
+        GoogleKeyState = _photos.KeyStateText;
         ImagesEnabled = _backgrounds.Enabled;
         SignalUseAmap = TrafficSignalService.UseAmap;
         try { await _maps.InitializeAsync(); }
@@ -126,6 +171,8 @@ public sealed partial class MapCreateViewModel : ObservableObject
             : $"{map.Name} · {scenes} 个场景，其中 {missing} 个还没有背景。"
               + (missing > 0 && !_backgrounds.Enabled
                   ? "（画面生成没开启：到 设置 → AI → 画面生成 填好接口地址与 Key。）" : "");
+        // 地图换了（导入/新建）天气设置也要跟着这张图重读，否则卡片还停在上一张图的选择上。
+        SyncMapWeatherState();
     }
 
     // ==================== 参数 ====================
@@ -156,7 +203,19 @@ public sealed partial class MapCreateViewModel : ObservableObject
 
     partial void OnSourceNoteChanged(string value) => OnPropertyChanged(nameof(HasSourceNote));
 
-    partial void OnIsBusyChanged(bool value) => OnPropertyChanged(nameof(CanRunAi));
+    partial void OnGoogleNoteChanged(string value) => OnPropertyChanged(nameof(HasGoogleNote));
+
+    partial void OnMapWeatherNoteChanged(string value) => OnPropertyChanged(nameof(HasMapWeatherNote));
+
+    partial void OnMapWeatherPeekTextChanged(string value) => OnPropertyChanged(nameof(HasMapWeatherPeek));
+
+    partial void OnHasGoogleKeyChanged(bool value) => OnPropertyChanged(nameof(CanFillGoogle));
+
+    partial void OnIsBusyChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanRunAi));
+        OnPropertyChanged(nameof(CanFillGoogle));
+    }
 
     partial void OnImagesEnabledChanged(bool value) => OnPropertyChanged(nameof(CanRunAi));
 
@@ -415,6 +474,268 @@ public sealed partial class MapCreateViewModel : ObservableObject
         _ => 6,
     };
 
+    // ==================== 谷歌地点照片 ====================
+
+    [RelayCommand]
+    private void SaveGoogleKey()
+    {
+        _photos.ApiKey = GoogleKeyInput;
+        HasGoogleKey = _photos.HasKey;
+        GoogleKeyState = _photos.KeyStateText;
+        Toast.Info(HasGoogleKey
+            ? "已存下 Google Maps API Key：可以去取地点照片了（记得在谷歌云控制台启用 Places API）。"
+            : "已清掉 Google Maps API Key。");
+    }
+
+    /// <summary>
+    /// 从谷歌地图补地点照片：高德只给地名与道路、没有照片接口，谷歌 Places 有。
+    /// 命中地点后取第一张照片；没有照片的地点回退街景。一次最多 12 张，两张之间可取消。
+    /// </summary>
+    [RelayCommand]
+    private async Task FillFromGoogleAsync()
+    {
+        var map = _maps.Map;
+        var missing = map.AllScenes.Count(s => string.IsNullOrWhiteSpace(s.Background));
+        if (missing == 0)
+        {
+            Toast.Info("这张图的场景都已经有了背景。");
+            return;
+        }
+        if (!_photos.HasKey)
+        {
+            Toast.Warn("还没填 Google Maps API Key：高德没有地点照片接口，谷歌 Places 有，填上 Key 才能取。");
+            return;
+        }
+        var limit = Math.Min(BatchSize, Math.Min(missing, PlacePhotoService.MaxBatch));
+        GoogleNote = "";
+        await RunAsync($"正在从谷歌地图取前 {limit} 张照片（共缺 {missing} 个）…", async ct =>
+        {
+            var progress = new Progress<string>(s =>
+            {
+                _googleStep++;
+                GoogleProgressText = s;
+                GoogleProgress = Math.Clamp((double)_googleStep / limit, 0, 1);
+            });
+            var r = await _photos.FillMissingFromGoogleAsync(map, limit, progress, ct);
+            GoogleNote = r.Message ?? "取照片结束了。";
+            Status = GoogleNote;
+            if (r.AllOk) Toast.Success(GoogleNote);
+            else if (r.Done > 0) Toast.Warn(GoogleNote);
+            else Toast.Error(GoogleNote);
+            RefreshMapState();
+        }, googlePhase: true);
+    }
+
+    // ==================== 地图天气 ====================
+
+    /// <summary>把当前地图的天气设置回填到卡片上（进页面 / 导入新图之后都要）。</summary>
+    private void SyncMapWeatherState()
+    {
+        var map = _maps.Map;
+        _syncingMapWeather = true;
+        SelectedMapWeatherChoice = ChoiceOf(MapWeatherModes.Normalize(map.WeatherMode));
+        _syncingMapWeather = false;
+        MapWeatherCityInput = map.WeatherCity;
+        IsMapWeatherCustom = MapWeatherModes.Normalize(map.WeatherMode) == MapWeatherModes.Custom;
+        MapWeatherSourceText = DescribeMapSource(map);
+        MapWeatherNote = DescribeMapWeatherCurrent(map);
+        _ = RefreshWeatherPeekAsync();
+    }
+
+    private MapWeatherModeChoice ChoiceOf(string mode) =>
+        MapWeatherChoices.FirstOrDefault(c => c.Code == MapWeatherModes.Normalize(mode)) ?? MapWeatherChoices[0];
+
+    /// <summary>地图来源 + 坐标：判断「当地天气」有没有着落就看这一行。</summary>
+    private static string DescribeMapSource(MapDefinition map)
+    {
+        var source = map.Source switch
+        {
+            "amap" => "高德抓取",
+            "osm" => "开放街道图抓取",
+            "ai" => "AI 生成",
+            _ => "手工绘制 / 自己导入",
+        };
+        var hasCoord = Math.Abs(map.CenterLatitude) > 1e-6 && Math.Abs(map.CenterLongitude) > 1e-6;
+        var coord = hasCoord
+            ? "中心 " + map.CenterLatitude.ToString("0.0000", CultureInfo.InvariantCulture)
+              + ", " + map.CenterLongitude.ToString("0.0000", CultureInfo.InvariantCulture)
+            : "没有坐标";
+        var city = string.IsNullOrWhiteSpace(map.City) ? "没有城市名" : map.City;
+        return $"这张图：{source} · {city} · {coord}";
+    }
+
+    private static string DescribeMapWeatherCurrent(MapDefinition map)
+    {
+        var mode = MapWeatherModes.Normalize(map.WeatherMode);
+        return mode switch
+        {
+            MapWeatherModes.Map => string.IsNullOrWhiteSpace(map.WeatherCity) && string.IsNullOrWhiteSpace(map.City)
+                ? "当前：按地图当地算，但这张图没有抓过来的城市名 —— 改「自定义地点」填一个，或导入真实城市地图。"
+                : $"当前：按地图当地算（{(string.IsNullOrWhiteSpace(map.WeatherCity) ? map.City : map.WeatherCity)}）。",
+            MapWeatherModes.Custom => string.IsNullOrWhiteSpace(map.WeatherCity)
+                ? "当前：自定义地点还没填城市名，天气会退回用户位置。"
+                : $"当前：按自定义地点「{map.WeatherCity}」算。",
+            _ => "当前：跟随用户天气（设置 → 天气与生活 里选的城市）。",
+        };
+    }
+
+    /// <summary>选中项变化：先校验，再落盘；不合格就弹一句并把 Picker 拨回原值。</summary>
+    partial void OnSelectedMapWeatherChoiceChanged(MapWeatherModeChoice? value)
+    {
+        if (value is null || _syncingMapWeather) return;
+        _ = ApplyMapWeatherChoiceAsync(value);
+    }
+
+    private async Task ApplyMapWeatherChoiceAsync(MapWeatherModeChoice value)
+    {
+        try
+        {
+            var map = _maps.Map;
+            var oldMode = MapWeatherModes.Normalize(map.WeatherMode);
+
+            // —— 三种模式各自的「现在还不能用」情况，都说清楚下一步做什么。
+            switch (value.Code)
+            {
+                case MapWeatherModes.User:
+                {
+                    var s = _settings.Current;
+                    if (string.IsNullOrWhiteSpace(s.WeatherCity) && s.WeatherLatitude is null)
+                    {
+                        Toast.Warn("先在 设置 → 天气与生活 选好你的城市，再让地图跟随用户天气。");
+                        RevertMapWeatherChoice(oldMode);
+                        return;
+                    }
+                    break;
+                }
+                case MapWeatherModes.Map:
+                {
+                    var hasCoord = Math.Abs(map.CenterLatitude) > 1e-6 && Math.Abs(map.CenterLongitude) > 1e-6;
+                    if (!hasCoord && string.IsNullOrWhiteSpace(map.City))
+                    {
+                        Toast.Warn("这张图没有抓取到的位置（城市与坐标都空），没法按当地查天气：先导入一张真实城市地图，或改用「自定义地点」。");
+                        RevertMapWeatherChoice(oldMode);
+                        return;
+                    }
+                    break;
+                }
+                default:
+                {
+                    // custom：选它是允许的（下面会出现城市输入框），但空着就提醒一句，别让用户以为已经生效。
+                    if (string.IsNullOrWhiteSpace(map.WeatherCity) && string.IsNullOrWhiteSpace(MapWeatherCityInput))
+                        Toast.Warn("自定义地点还没填：选好之后再在下面填一个城市名（例如「杭州市」）。");
+                    break;
+                }
+            }
+
+            map.WeatherMode = value.Code;
+            await _maps.SaveAsync();
+            // 主界面如果正在用这张图，发一次变化让它重新应用天气（对应 MainGame.ApplyMapWeather）。
+            _maps.NotifyChanged();
+            IsMapWeatherCustom = value.Code == MapWeatherModes.Custom;
+            MapWeatherNote = DescribeMapWeatherCurrent(map);
+            Toast.Info(value.Code switch
+            {
+                MapWeatherModes.Map => "地图天气改为「地图当地」：主界面开始按这张图的抓取位置查天气。",
+                MapWeatherModes.Custom => "地图天气改为「自定义地点」：填好城市名后点保存。",
+                _ => "地图天气改为「跟随用户」：主界面回到你设置里的城市天气。",
+            });
+            await RefreshWeatherPeekAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapCreateViewModel.ApplyMapWeatherChoice -> " + ex);
+            Toast.Error("地图天气没保存上：" + ex.Message);
+            RevertMapWeatherChoice(MapWeatherModes.Normalize(_maps.Map.WeatherMode));
+        }
+    }
+
+    private void RevertMapWeatherChoice(string mode)
+    {
+        _syncingMapWeather = true;
+        SelectedMapWeatherChoice = ChoiceOf(mode);
+        _syncingMapWeather = false;
+        IsMapWeatherCustom = MapWeatherModes.Normalize(mode) == MapWeatherModes.Custom;
+        MapWeatherNote = DescribeMapWeatherCurrent(_maps.Map);
+    }
+
+    /// <summary>保存自定义地点：空的不存，有值就落盘 + 通知主界面重算天气。</summary>
+    [RelayCommand]
+    private async Task SaveMapWeatherCityAsync()
+    {
+        try
+        {
+            var city = (MapWeatherCityInput ?? "").Trim();
+            if (city.Length == 0)
+            {
+                Toast.Warn("自定义地点还空着：填一个城市名（例如「杭州市」）。");
+                return;
+            }
+            var map = _maps.Map;
+            map.WeatherCity = city;
+            map.WeatherMode = MapWeatherModes.Custom;
+            await _maps.SaveAsync();
+            _maps.NotifyChanged();
+            _syncingMapWeather = true;
+            SelectedMapWeatherChoice = ChoiceOf(MapWeatherModes.Custom);
+            _syncingMapWeather = false;
+            IsMapWeatherCustom = true;
+            MapWeatherNote = DescribeMapWeatherCurrent(map);
+            Toast.Success($"地图天气按「{city}」算。");
+            await RefreshWeatherPeekAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapCreateViewModel.SaveMapWeatherCity -> " + ex);
+            Toast.Error("自定义地点没保存上：" + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 顺手显示「当地此刻 xx°C」：能查就显示，查不到就收声 —— 天气是锦上添花，不拖慢保存、不弹错。
+    /// </summary>
+    private async Task RefreshWeatherPeekAsync()
+    {
+        try
+        {
+            var map = _maps.Map;
+            var mode = MapWeatherModes.Normalize(map.WeatherMode);
+            string? city;
+            double? lat = null, lon = null;
+            if (mode == MapWeatherModes.Map)
+            {
+                city = !string.IsNullOrWhiteSpace(map.WeatherCity) ? map.WeatherCity : map.City;
+                if (Math.Abs(map.CenterLatitude) > 1e-6 && Math.Abs(map.CenterLongitude) > 1e-6)
+                {
+                    lat = map.CenterLatitude;
+                    lon = map.CenterLongitude;
+                }
+            }
+            else if (mode == MapWeatherModes.Custom)
+            {
+                city = map.WeatherCity;
+            }
+            else
+            {
+                MapWeatherPeekText = "";
+                return;
+            }
+            if (string.IsNullOrWhiteSpace(city) && (lat is null || lon is null)) { MapWeatherPeekText = ""; return; }
+
+            MapWeatherPeekText = "正在看当地此刻的天气…";
+            var r = await _weather.PeekAsync(city, lat, lon);
+            var where = r is not null && !string.IsNullOrWhiteSpace(r.City) ? r.City : city;
+            MapWeatherPeekText = r is null
+                ? ""
+                : $"当地此刻：{r.Description} {r.Celsius.ToString("0.#", CultureInfo.InvariantCulture)}°C"
+                  + (string.IsNullOrWhiteSpace(where) ? "" : $"（{where}）");
+        }
+        catch (Exception ex)
+        {
+            MapWeatherPeekText = "";
+            App.WriteLog("MapCreateViewModel.RefreshWeatherPeek -> " + ex.Message);
+        }
+    }
+
     // ==================== 高德 Key ====================
 
     [RelayCommand]
@@ -440,8 +761,10 @@ public sealed partial class MapCreateViewModel : ObservableObject
 
     /// <summary>
     /// 长任务都走这里：占住按钮、给一句真在做什么的话、失败按原因说人话，取消只认这一颗。
+    /// backgroundPhase / googlePhase 只是让对应的进度条进入「正在走」的状态，两条批量互不干扰。
     /// </summary>
-    private async Task RunAsync(string busyLabel, Func<CancellationToken, Task> work, bool backgroundPhase = false)
+    private async Task RunAsync(string busyLabel, Func<CancellationToken, Task> work,
+        bool backgroundPhase = false, bool googlePhase = false)
     {
         if (IsBusy)
         {
@@ -454,11 +777,18 @@ public sealed partial class MapCreateViewModel : ObservableObject
         BusyLabel = busyLabel;
         Status = busyLabel;
         IsFillingBackground = backgroundPhase;
+        IsFillingGoogle = googlePhase;
         if (backgroundPhase)
         {
             _bgStep = 0;
             BgProgress = 0;
             BgProgressText = busyLabel;
+        }
+        if (googlePhase)
+        {
+            _googleStep = 0;
+            GoogleProgress = 0;
+            GoogleProgressText = busyLabel;
         }
         try
         {
@@ -482,8 +812,11 @@ public sealed partial class MapCreateViewModel : ObservableObject
             IsBusy = false;
             BusyLabel = "";
             IsFillingBackground = false;
+            IsFillingGoogle = false;
             BgProgressText = "";
             BgProgress = 0;
+            GoogleProgressText = "";
+            GoogleProgress = 0;
             _cts = null;
             cts.Dispose();
         }
@@ -527,4 +860,11 @@ public sealed partial class MapPresetChip : ObservableObject
     public double Radius { get; }
 
     [ObservableProperty] private bool _isCurrent;
+}
+
+/// <summary>地图天气下拉项：Code 落盘（见 <see cref="MapWeatherModes"/>），Display 只给界面看。</summary>
+public sealed record MapWeatherModeChoice(string Code, string Display)
+{
+    /// <summary>Picker 没有 ItemDisplayBinding 时按 ToString 显示，这里给个兜底。</summary>
+    public override string ToString() => Display;
 }

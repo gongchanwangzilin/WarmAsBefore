@@ -48,6 +48,9 @@
                                     Command="{Binding ExportMapCommand}" />
                             <Button Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding CreateMapCommand}" />
+                            <!-- 天气来源：这张图按哪儿算（跟随用户 / 地图当地 / 自定义地点） -->
+                            <Button Text="{Binding WeatherModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding PickWeatherModeCommand}" />
                             <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
                             <Button Text="📷 取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding OpenCaptureCommand}" />

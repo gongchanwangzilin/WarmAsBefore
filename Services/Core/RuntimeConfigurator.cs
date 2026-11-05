@@ -420,14 +420,29 @@ public sealed class RuntimeConfigurator
     {
         var s = _settings.Current;
         var parts = new List<string>();
+        // 提到 try 外：下面的年龄/生日段落也要用同一个人（角色可能还没介绍，名字是遮的，但年龄照说）。
+        CharacterData? ch = null;
         try
         {
-            var ch = _engine.ActiveCharacter
-                     ?? (_engine.Roster.TryGetValue(charId, out var data) ? data : null);
+            ch = _engine.ActiveCharacter
+                 ?? (_engine.Roster.TryGetValue(charId, out var data) ? data : null);
             if (ch is not null) parts.Add(_genders.PromptFor(ch.Profile.Gender));
             if (!string.IsNullOrWhiteSpace(s.UserGender)) parts.Add(_genders.UserPromptFor(s.UserGender));
         }
         catch (Exception ex) { App.WriteLog("RuntimeConfigurator.GenderPersona -> " + ex.Message); }
+        // 年龄/生日：只写进人设文本，不进任何判定。自然增长在读取时按过了几个生日现算（不写盘），
+        // 关了开关也照样说给模型听——用户要的是「不涨岁」，不是把设定藏起来。
+        try
+        {
+            if (ch is not null)
+            {
+                var ageText = CharacterAgeService.PromptText(ch.Profile, DateTime.Now);
+                if (ageText.Length > 0) parts.Add(ageText);
+            }
+            var userText = CharacterAgeService.UserPromptText(s.UserBirthday, DateTime.Now);
+            if (userText.Length > 0) parts.Add(userText);
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.AgePersona -> " + ex.Message); }
         if (s.MentalHealthEnabled)
         {
             try
