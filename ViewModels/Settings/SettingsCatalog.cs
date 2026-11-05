@@ -48,6 +48,7 @@ public static class SettingsCatalog
             new[] { "Card25", "Card27", "Card14", "Card17", "Card20" },
             new[] { "桌宠", "桌面", "置顶", "闲置", "托盘", "窗口", "多开", "手机", "独立窗口",
                     "关闭", "关窗", "内存", "低内存", "省内存", "显卡", "独显", "gpu",
+                    "性能", "性能模式", "卡顿", "流畅", "掉帧", "动效", "动画", "阴影",
                     "运行时", "python", "java", "proot", "实验" }),
 
         new Section("integrations", "外部接入", "🔌",

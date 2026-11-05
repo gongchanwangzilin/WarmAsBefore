@@ -85,7 +85,8 @@
 | `AppBackgroundService` | 页面背景：纯色 / 图片 / 窗口透视；维护 `PageBgBrush` | 设置页、主题 |
 | `ScreenBlackoutService` | 黑屏时刻；状态挂在存档上，输入与聊天不受影响 | 主界面、聊天 |
 | `WidgetRegistry` | 主界面顶栏/左栏小组件的出厂定义与顺序 | `MainGameViewModel` |
-| `PerfLog` | 轻量性能打点，后台批量写 `perf.log` | 导航、页面构建 |
+| `PerfLog` | 轻量性能打点，后台批量写 `perf.log`；`Phase` 记录当时阶段 | 导航、页面构建、慢帧 |
+| `UiStallMonitor` | Dispatcher 心跳检测主线程停摆，>200ms 写 `UI 卡顿`（带阶段与 GC2） | 启动、所有页面 |
 | `LocalizationService` | 运行时切换语言并刷新绑定文本 | `Resources/Strings/*.resx` |
 | `ExternalRuntimes` | 外部运行时（Python/Java/Node 等）的台账、探测与安装建议 | 插件体检、工具管理 |
 | `DownloadBackupService` | 启动/导出后把数据包复制到下载目录（Android），桌面 no-op | 数据包导出 |
@@ -306,7 +307,7 @@
 
 | 组件 | 职责 |
 |---|---|
-| `WeatherProvider` | 天气数据源（Open-Meteo / wttr / 自定义）；用户位置与地图覆盖两套位置，密钥只随自定义源 |
+| `WeatherProvider` | 天气数据源（Open-Meteo / wttr / 自定义）；用户位置与地图覆盖两套位置，密钥只随自定义源；5 分钟 TTL 缓存 + 并发去重 |
 | `PlacePhotoService` | 谷歌 Places 地点照片/街景 → 场景背景与取景照片；Key 存 Preferences |
 | `CoordConvert` | 高德 GCJ-02 与谷歌 WGS84 坐标互转 |
 | `LocationService` | 设备定位优先（Windows / Android），失败给原因；IP 只作城市级估算候选，城市搜索 |

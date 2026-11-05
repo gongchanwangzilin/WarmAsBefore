@@ -39,7 +39,11 @@ public sealed partial class WeChatViewModel : ObservableObject
     [ObservableProperty] private bool _isContactListVisible = true;
     [ObservableProperty] private bool _hasContacts;
     /// <summary>微信联系人列表（来自 WeChatService：已经加过微信的常驻角色）。</summary>
-    public ObservableCollection<WeChatContactItem> ContactList { get; } = new();
+    /// <remarks>
+    /// 用 RangeObservableCollection：联系人整体换/追加都用一次批量通知。
+    /// XAML 绑定不变（CollectionView.ItemsSource 只认集合本身）；增量语义的消息列表另有 Messages，不动。
+    /// </remarks>
+    public RangeObservableCollection<WeChatContactItem> ContactList { get; } = new();
     /// <summary>当前聊天对象（默认跟随主游戏角色；点联系人可切换，仅影响微信页）。</summary>
     private string _chatTargetId = "";
     // ============ 送礼 / 使用面板（微信聊天时显示） ============
@@ -587,32 +591,46 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         try
         {
-            var contacts = await _wechat.ListAsync();
-            var chars = await _library.ListAsync();
-            var items = new List<WeChatContactItem>();
-            foreach (var c in contacts)
+            // 两份盘上数据互不依赖：微信好友表 + 角色库并行读，少等一个来回。
+            List<WeChatContact> contacts;
+            List<CharacterData> chars;
+            using (PerfLog.Measure("页 · 微信 · 读取联系人"))
             {
-                var ch = chars.FirstOrDefault(x => x.Profile.Id == c.CharacterId);
-                if (ch is null) continue;
-                var avatarPath = "";
-                if (!string.IsNullOrEmpty(ch.Avatar))
+                var contactsTask = _wechat.ListAsync();
+                var charsTask = _library.ListAsync();
+                await Task.WhenAll(contactsTask, charsTask);
+                contacts = await contactsTask;
+                chars = await charsTask;
+            }
+
+            var items = new List<WeChatContactItem>();
+            using (PerfLog.Measure("页 · 微信 · 构造联系人"))
+            {
+                foreach (var c in contacts)
                 {
-                    var full = Path.Combine(_store.Root, ch.Avatar);
-                    if (File.Exists(full)) avatarPath = full;
+                    var ch = chars.FirstOrDefault(x => x.Profile.Id == c.CharacterId);
+                    if (ch is null) continue;
+                    var avatarPath = "";
+                    if (!string.IsNullOrEmpty(ch.Avatar))
+                    {
+                        var full = Path.Combine(_store.Root, ch.Avatar);
+                        if (File.Exists(full)) avatarPath = full;
+                    }
+                    items.Add(new WeChatContactItem
+                    {
+                        CharacterId = c.CharacterId,
+                        Name = ch.Profile.Name,
+                        Avatar = avatarPath,
+                        LastMessage = c.LastMessage,
+                        Unread = c.Unread
+                    });
                 }
-                items.Add(new WeChatContactItem
-                {
-                    CharacterId = c.CharacterId,
-                    Name = ch.Profile.Name,
-                    Avatar = avatarPath,
-                    LastMessage = c.LastMessage,
-                    Unread = c.Unread
-                });
             }
             MainThread.BeginInvokeOnMainThread(() =>
             {
-                ContactList.Clear();
-                foreach (var it in items) ContactList.Add(it);
+                // 一次 Reset 装完整张名册：原来 Clear + 逐条 Add 每条都要重排列表。
+                using (PerfLog.Measure("页 · 微信 · 填充联系人"))
+                    ContactList.ReplaceRange(items);
                 HasContacts = ContactList.Count > 0;
             });
         }

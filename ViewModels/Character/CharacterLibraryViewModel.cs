@@ -67,28 +67,49 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task Refresh()
     {
-        var list = await _library.ListAsync();
-        var allSaves = await _save.List();
+        // 角色库和存档目录是两份互不依赖的盘上数据：并行读，别让用户等两遍 IO。
+        List<CharacterData> list;
+        List<SaveSlot> allSaves;
+        using (PerfLog.Measure("页 · 角色库 · 读取列表"))
+        {
+            var listTask = _library.ListAsync();
+            var savesTask = _save.List();
+            await Task.WhenAll(listTask, savesTask);
+            list = await listTask;
+            allSaves = await savesTask;
+        }
+
         var mainId = _engine.ActiveCharacter?.Profile.Id ?? _engine.State.CharacterId;
         var keep = Selected?.Id;
 
-        var items = list.Select(ch =>
+        List<CharacterLibraryItem> items;
+        using (PerfLog.Measure("页 · 角色库 · 构造列表"))
         {
-            var saves = allSaves.Where(s => s.Character == ch.Profile.Id).ToList();
-            ImageSource? avatar = null;
-            if (!string.IsNullOrEmpty(ch.Avatar))
+            items = list.Select(ch =>
             {
-                var full = Path.Combine(_store.Root, ch.Avatar);
-                if (File.Exists(full)) avatar = ImageSource.FromFile(full);
-            }
-            return new CharacterLibraryItem(ch, avatar, isMain: ch.Profile.Id == mainId, savesCount: saves.Count,
-                displayName: CharacterMask.DisplayName(ch, _settings.Current.MaskUnintroducedNames));
-        }).ToList();
+                var saves = allSaves.Where(s => s.Character == ch.Profile.Id).ToList();
+                ImageSource? avatar = null;
+                if (!string.IsNullOrEmpty(ch.Avatar))
+                {
+                    var full = Path.Combine(_store.Root, ch.Avatar);
+                    if (File.Exists(full)) avatar = ImageSource.FromFile(full);
+                }
+                return new CharacterLibraryItem(ch, avatar, isMain: ch.Profile.Id == mainId, savesCount: saves.Count,
+                    displayName: CharacterMask.DisplayName(ch, _settings.Current.MaskUnintroducedNames));
+            }).ToList();
+        }
 
+        // 整表替换本来就只发一次属性通知（ObservableCollection 构造不发逐条事件），
+        // 保持原写法：换成 RangeObservableCollection.ReplaceRange 反而少一次「属性变了」的信号，
+        // LoadingVeil 正是靠 Items 的属性变化收骨架的，不能为了形式牺牲首屏骨架时机。
         Items = new ObservableCollection<CharacterLibraryItem>(items);
         CountLabel = items.Count == 0 ? "还没有人" : $"{items.Count} 个角色";
         // 一进页就有人站着：优先保持上次选中的那一个，其次才是第一个。
-        Selected = items.FirstOrDefault(i => i.Id == keep) ?? items.FirstOrDefault();
+        // 选中会连带解析立绘/背景（真正的重活），单独量一段看它是不是首屏大头。
+        using (PerfLog.Measure("页 · 角色库 · 选中首人"))
+        {
+            Selected = items.FirstOrDefault(i => i.Id == keep) ?? items.FirstOrDefault();
+        }
     }
 
     partial void OnSelectedChanged(CharacterLibraryItem? value)

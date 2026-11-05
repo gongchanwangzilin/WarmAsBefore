@@ -323,14 +323,20 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     /// <summary>把某个角色铺进这一屏。<paramref name="savesLabel"/> 由角色库算好递进来（它才有一整份存档表）。</summary>
     public async Task<bool> OpenAsync(string charId)
     {
-        var found = (await _library.ListAsync()).FirstOrDefault(c => c.Profile.Id == charId);
+        // 角色库与存档列表互不依赖，串行读等于把两次磁盘/反序列化叠起来；
+        // 存档列表现已带 meta 缓存（Commit 时回填），并行后这一段的等待能少一半。
+        using var scope = PerfLog.Measure("工作室 · 读角色与存档列表");
+        var listTask = _library.ListAsync();
+        var savesTask = _saves.List();
+        await Task.WhenAll(listTask, savesTask);
+        var found = listTask.Result.FirstOrDefault(c => c.Profile.Id == charId);
         if (found is null)
         {
             Status = "这个角色的资料读不出来了。";
             return false;
         }
         // 存档数在这里自己数：由列表页传入字符串会让独立窗口只能显示空白句。
-        var runs = (await _saves.List()).Count(s => s.Character == charId);
+        var runs = savesTask.Result.Count(s => s.Character == charId);
         Apply(found, runs == 0 ? "暂无存档" : $"存档 {runs} 个", false);
         return true;
     }

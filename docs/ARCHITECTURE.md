@@ -348,6 +348,9 @@ ZIP/文件夹导入会先验身，认成插件就拒绝并指路插件中心。
   关闭主窗口由 `WindowCloseGuard` 在 WinUI `AppWindow.Closing` 阶段拦截并询问其他窗口。
 - **动效**：悬停只变色；按下位移 2.4px；不做假加载；设置类弹窗保持原有样式。
   页面转场统一走 `Helpers.Motion`，不在页面里各写一套。
+- **性能模式**：`MotionTokens.PerformanceMode`（用户开关）与 `SystemDisabled`（系统减少动画）取或，
+  动效直接落终值；`StyleWorldTokens.FlatShadows` 同时把卡片阴影改平，经 `ThemeManager.Republish()`
+  重发 DynamicResource。`UiStallMonitor` 在主线程停摆 >200ms 时写 `perf.log`，配合 `PerfLog.Phase` 定位。
 
 ### XAML 约束
 
@@ -368,7 +371,8 @@ ZIP/文件夹导入会先验身，认成插件就拒绝并指路插件中心。
 | 多窗口 | `ToolWindow`、关系网/搜索独立窗 | 无多窗口，退回页内导航 |
 | 透明/毛玻璃 | `WindowBackdrop`（DWM + Acrylic） | 不支持，退回纯色/图片背景 |
 | 外部运行时 | Python/Java 由系统安装 | proot + 自带 rootfs |
-| 系统定位 | `Windows.Devices.Geolocation`（需系统定位服务 + 允许桌面应用访问位置）；失败不自动降级 | GPS / 网络定位，权限失败给原因 |
+| 系统定位 | `Windows.Devices.Geolocation`（需定位服务 + 允许桌面应用访问位置）；失败不自动降级 | GPS / 网络定位，权限失败给原因 |
+| 性能诊断 | UI 卡顿看门狗 + 慢帧日志写 `perf.log` | 同一套 |
 | 文件选择 | WinRT FolderPicker（可装文件夹） | 只能选 zip 安装 |
 | 浏览器 | 系统默认浏览器 | 系统浏览器 / Custom Tabs |
 

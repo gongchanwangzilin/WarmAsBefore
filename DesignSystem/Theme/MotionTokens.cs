@@ -58,11 +58,30 @@ public static class MotionTokens
     public const double EnterRisePx = 6;
 
     /// <summary>
-    /// 关闭过渡：系统「减少动画」偏好或环境变量 WARM_NO_MOTION=1。
+    /// 系统「减少动画」偏好 / WARM_NO_MOTION 环境变量。为什么从 Disabled 里拆出来：
+    /// 系统偏好是「这台机器/这个人不能看动效」，用户设置里的性能模式是「我先省点性能」——
+    /// 两者来源不同、生命周期也不同。合在一个布尔里，用户关掉性能模式就会把系统偏好一起清掉，
+    /// 前庭敏感的用户得每次重启后重新忍受动效。拆开后 Disabled 只做「或」，关性能模式不影响系统侧。
+    /// </summary>
+    public static bool SystemDisabled { get; set; } = Environment.GetEnvironmentVariable("WARM_NO_MOTION") == "1";
+
+    /// <summary>
+    /// 用户设置的性能模式（设置→实验卡片）。与系统偏好分开存：关掉性能模式后，
+    /// 系统「减少动画」仍然生效。打开时 <see cref="Ms"/> 一律返回 0，阴影由 StyleWorldTokens 改平。
+    /// </summary>
+    public static bool PerformanceMode { get; set; }
+
+    /// <summary>
+    /// 关闭过渡：系统「减少动画」偏好或用户性能模式。保留原属性名与可写语义，
+    /// 全仓既有读取点（Ms、进场动画、按压反馈）无需改动。
     /// 关掉之后状态照样变（按下仍会沉到目标值），只是不再补中间帧——
     /// 前庭功能敏感的用户要的是「别动」，不是「没有反馈」。
     /// </summary>
-    public static bool Disabled { get; set; } = Environment.GetEnvironmentVariable("WARM_NO_MOTION") == "1";
+    public static bool Disabled
+    {
+        get => SystemDisabled || PerformanceMode;
+        set => SystemDisabled = value;
+    }
 
     /// <summary>
     /// 世界给的节奏倍率与按压行程。换风格如果只换颜色和圆角，切过去像只改了描边——

@@ -80,11 +80,42 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
     /// <summary> drawable 里那些异步回来的缩略图也要能叫得醒画面（地图那边漏了这一步）。</summary>
     public void AttachDrawableInvalidate() => Drawable.AttachInvalidate(() => Touch());
 
-    private void Touch() => _invalidate?.Invoke();
+    // 页面在不在前台：离开后缩略图晚回来、动画 tick 都不该再敲画布。
+    // 页面现有的 OnDisappearing 就叫 StopClock()（见 MemoryGraphPage），所以由它来置位，
+    // 不再另加一套 Detach/Attach —— 页面侧代码不用动。
+    private bool _pageVisible = true;
+
+    // 重绘合并：生长动画每秒约 30 拍、点按/悬停各叫一次，全挤在同一帧预算里。
+    // 最多 33ms 排一次（与生长时钟同频），排队期间只置脏；落地后若又来过请求就再补一帧，
+    // 保证「长完那一刻」「选中那一刻」的终态一定画出来。
+    private bool _invalidateQueued;
+    private bool _invalidateDirty;
+
+    private void Touch()
+    {
+        if (!_pageVisible || _invalidate is null) return;
+        _invalidateDirty = true;
+        if (_invalidateQueued) return;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) { FlushInvalidate(); return; }
+        _invalidateQueued = true;
+        try { dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(33), FlushInvalidate); }
+        catch { FlushInvalidate(); }
+    }
+
+    private void FlushInvalidate()
+    {
+        _invalidateQueued = false;
+        _invalidateDirty = false;
+        if (_pageVisible) _invalidate?.Invoke();
+        // 落地之前又改过画面：再补一帧，别停在半路。
+        if (_invalidateDirty) Touch();
+    }
 
     /** 页面回到前台：时钟继续，配色跟着世界。 */
     public void OnShown()
     {
+        _pageVisible = true;
         ApplyThemeColors();
         ResumeClock();
         Touch();
@@ -212,6 +243,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
     public async Task LoadAsync()
     {
         if (_busy || string.IsNullOrWhiteSpace(_charId)) return;
+        _pageVisible = true;   // 页面进来读网了：读盘期间就该能画（OnAppearing 走的是这条路时不会再调 OnShown）
         _busy = true;
         try
         {
@@ -404,7 +436,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
                 ? $"已直接展开 · {nodes.Count} 个概念"
                 : $"正在长出 {chips.Count} 片 · 每片 {depth} 圈";
             // 跳过展开时连时钟都不开：静态出一张完整的网，也不必为呼吸效果空转。
-            if (skip) StopClock(); else ResumeClock();
+            if (skip) StopClockCore(); else ResumeClock();
         }
         FitToContent();
         Touch();
@@ -472,7 +504,9 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
 
     public void ResumeClock()
     {
-        StopClock();
+        StopClockCore();
+        // 页面不在前台就不开时钟：读网是异步的，人可能已经走了，动画 tick 不该在背后空转。
+        if (!_pageVisible) return;
         _clock = Application.Current?.Dispatcher.CreateTimer();
         if (_clock is null) return;
         _clock.Interval = TimeSpan.FromMilliseconds(33);
@@ -480,7 +514,19 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         _clock.Start();
     }
 
+    /// <summary>
+    /// 停掉生长时钟，并把页面标记成「不在前台」：页面现有的 OnDisappearing 调的就是它
+    /// （见 MemoryGraphPage），所以在这里顺手把重绘闸关上 —— 离开后缩略图晚回来也不该再画。
+    /// 「动画长完」「大网跳过展开」这些内部要停时钟的地方走 <see cref="StopClockCore"/>，
+    /// 页面明明还开着，不能把重绘闸也关掉。
+    /// </summary>
     public void StopClock()
+    {
+        _pageVisible = false;
+        StopClockCore();
+    }
+
+    private void StopClockCore()
     {
         if (_clock is null) return;
         _clock.Stop();

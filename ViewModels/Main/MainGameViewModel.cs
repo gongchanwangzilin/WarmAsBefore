@@ -138,7 +138,9 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<MapSceneOption> _sceneOptions = new();
     [ObservableProperty] private string _characterName = "小雨";
     [ObservableProperty] private bool _isThinking;
-    [ObservableProperty] private ObservableCollection<DialogueMessage> _messages = new();
+    // 聊天记录是整段替换（读档恢复），用 RangeObservableCollection 一次 Reset 通知装完：
+    // 逐条 Add 会让 CollectionView 每条都排版/滚动一次，读档后那一下卡顿主要就来自这里。
+    [ObservableProperty] private RangeObservableCollection<DialogueMessage> _messages = new();
     // ============ 多角色位置：left / center / right ============
     [ObservableProperty] private string _spritePosition = "center";
     // ============ 说话者高亮 ============
@@ -1155,9 +1157,16 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>读档后恢复聊天界面（消息来自存档里保存的会话记录）。</summary>
     private void RestoreSession()
     {
-        Messages.Clear();
-        foreach (var r in _save.ChatLog)
-            Messages.Add(new DialogueMessage { Role = r.Role, Text = r.Text, Time = r.At.ToString("HH:mm") });
+        // 一次 ReplaceRange = 一次 Reset 通知，而不是 N 条 Add 各触发一次列表更新。
+        using (PerfLog.Measure("页 · 主界面 · 恢复聊天记录"))
+        {
+            Messages.ReplaceRange(_save.ChatLog.Select(r => new DialogueMessage
+            {
+                Role = r.Role,
+                Text = r.Text,
+                Time = r.At.ToString("HH:mm")
+            }));
+        }
     }
 
     /// <summary>

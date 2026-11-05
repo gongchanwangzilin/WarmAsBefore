@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.DesignSystem.Worlds;
 using WarmAsBefore.Helpers;
@@ -129,6 +130,16 @@ public sealed class MapCanvasDrawable : IDrawable
         Color.FromArgb("#B5D8C7"), Color.FromArgb("#D9C8A9")
     };
 
+    // ---- 每帧都要用的常量色 ----
+    // Color.FromArgb 每次都走一遍字符串解析；这几种色在 Draw 里每秒要出现几百次，直接钉成字段。
+    private static readonly Color GridPaper = Color.FromArgb("#FDF6EE");
+    private static readonly Color GridLine = Color.FromArgb("#F0E4D6");
+    private static readonly Color InkStrong = Color.FromArgb("#5D4037");
+    private static readonly Color InkSoft = Color.FromArgb("#4A3226");
+    private static readonly Color CardOutline = Color.FromArgb("#E3D5C4");
+    private static readonly Color Gold = Color.FromArgb("#C9A227");
+    private static readonly Color NamePlate = Color.FromArgb("#AA000000");
+
     public Color GroupColor(string groupKey)
     {
         var h = 0;
@@ -136,10 +147,27 @@ public sealed class MapCanvasDrawable : IDrawable
         return Palette[h % Palette.Length];
     }
 
+    // ==================== 慢帧诊断 ====================
+    // 卡了要知道卡在画布还是页面：Draw 总耗时超过 33ms（一帧的预算）就记一条。
+    // 同标签最多 2 秒一条——慢帧本身已经在掉帧，再让日志每帧写一条，诊断就成了新的卡顿源。
+    private static long _lastSlowFrameLog;
+
+    private void NoteSlowFrame(long startedAt)
+    {
+        var elapsed = (Stopwatch.GetTimestamp() - startedAt) * 1000.0 / Stopwatch.Frequency;
+        if (elapsed <= 33) return;
+        var now = Stopwatch.GetTimestamp();
+        if (now - _lastSlowFrameLog < Stopwatch.Frequency * 2) return;
+        _lastSlowFrameLog = now;
+        PerfLog.Note("画布 · 慢帧",
+            $"{elapsed:0.0} ms · 节点 {Nodes?.Count} · 边 {Edges?.Count} · zoom {Scale:0.##}");
+    }
+
     // ==================== Draw ====================
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
+        var frameStart = Stopwatch.GetTimestamp();
         _drawTick++;
         _dirty = dirtyRect;
         DrawGrid(canvas, dirtyRect);
@@ -177,6 +205,8 @@ public sealed class MapCanvasDrawable : IDrawable
 
         DrawMarquee(canvas);
         if (Menu is not null) DrawMenu(canvas);
+
+        NoteSlowFrame(frameStart);
     }
 
     /// <summary>远景：地点不再画卡片，只画一团建筑块 + 名字，像地图上的街区底色。</summary>
@@ -196,7 +226,7 @@ public sealed class MapCanvasDrawable : IDrawable
             canvas.FillColor = c.WithAlpha(0.55f);
             canvas.FillRoundedRectangle(sp, (float)Math.Max(2, 6 * Scale));
             if (sp.Width < 46) continue;
-            canvas.FontColor = Color.FromArgb("#4A3226");
+            canvas.FontColor = InkSoft;
             canvas.FontSize = (float)Math.Clamp(11 * Scale, 8, 12);
             canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
             canvas.DrawString(loc.Name, sp.X + 3, sp.Y, sp.Width - 6, (float)Math.Max(11, 15 * Scale),
@@ -240,7 +270,7 @@ public sealed class MapCanvasDrawable : IDrawable
         for (var i = 1; i < r.Points.Count; i++) path.LineTo(ScreenPt(new Point(r.Points[i].X, r.Points[i].Y)));
         if (!linear) path.Close();
 
-        var ink = selected ? Color.FromArgb("#5D4037") : ParseHex(style.Line, "#4E6B4A");
+        var ink = selected ? InkStrong : ParseHex(style.Line, "#4E6B4A");
         var w = Math.Max(0.8, style.Width * Scale);
         if (style.Dash) canvas.StrokeDashPattern = new[] { 6f, 4f };
 
@@ -279,13 +309,13 @@ public sealed class MapCanvasDrawable : IDrawable
 
     private void DrawGrid(ICanvas canvas, RectF dirty)
     {
-        canvas.FillColor = Color.FromArgb("#FDF6EE");
+        canvas.FillColor = GridPaper;
         canvas.FillRectangle(dirty);
         var step = 24 * Scale;
         if (step < 10) step = 10;
         if (Scale < 0.05) return;
         canvas.StrokeSize = 1;
-        canvas.StrokeColor = Color.FromArgb("#F0E4D6");
+        canvas.StrokeColor = GridLine;
         var x0 = Math.Floor((dirty.Left - OffsetX) / step) * step + OffsetX;
         for (var x = x0; x <= dirty.Right; x += step)
             canvas.DrawLine((float)x, dirty.Top, (float)x, dirty.Bottom);
@@ -638,7 +668,7 @@ public sealed class MapCanvasDrawable : IDrawable
         if (dashed) canvas.StrokeDashPattern = new[] { 7f, 5f };
 
         // 路基（深）→ 路面（亮）：两条叠出来才有「一条路」的分量
-        canvas.StrokeColor = selected ? Color.FromArgb("#5D4037") : ParseHex(style.Casing, "#5D4037").WithAlpha(0.85f);
+        canvas.StrokeColor = selected ? InkStrong : ParseHex(style.Casing, "#5D4037").WithAlpha(0.85f);
         canvas.StrokeSize = (float)(selected ? w + 3.4 : w + Math.Max(1.0, w * 0.34));
         canvas.DrawPath(path);
         canvas.StrokeColor = ParseHex(style.Surface, "#B08968");
@@ -722,7 +752,7 @@ public sealed class MapCanvasDrawable : IDrawable
         var th = 15f;
         canvas.FillColor = Color.FromArgb("#C8FFFDF9");
         canvas.FillRoundedRectangle((float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th, 4);
-        canvas.FontColor = Color.FromArgb("#4A3226");
+        canvas.FontColor = InkSoft;
         canvas.FontSize = 11;
         canvas.Font = Microsoft.Maui.Graphics.Font.Default;
         canvas.DrawString(text, (float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th,
@@ -753,14 +783,14 @@ public sealed class MapCanvasDrawable : IDrawable
 
         canvas.StrokeSize = 2;
         canvas.StrokeDashPattern = new[] { 6f, 4f };
-        canvas.StrokeColor = Color.FromArgb("#C9A227");
+        canvas.StrokeColor = Gold;
         var path = new PathF();
         path.MoveTo(ScreenPt(pts[0]));
         foreach (var p in pts.Skip(1)) path.LineTo(ScreenPt(p));
         canvas.DrawPath(path);
         canvas.StrokeDashPattern = null;
 
-        canvas.FillColor = Color.FromArgb("#C9A227");
+        canvas.FillColor = Gold;
         foreach (var p in LinkPreview)
         {
             var sp = ScreenPt(p);
@@ -772,7 +802,7 @@ public sealed class MapCanvasDrawable : IDrawable
     private void DrawRegionDraft(ICanvas canvas)
     {
         var pts = new List<Point>(RegionDraft);
-        var ink = Color.FromArgb("#C9A227");
+        var ink = Gold;
         if (RegionDraft.Count >= 3 && Mouse is { } m) pts.Add(ScreenToWorld(m));
         if (pts.Count >= 3) pts.Add(pts[0]);                       // 首尾接上才看得出这是个圈
 
@@ -816,7 +846,7 @@ public sealed class MapCanvasDrawable : IDrawable
             _ => Color.FromArgb("#FFFDF9"),
         };
         canvas.StrokeSize = selected ? (float)(3 * Scale) : (float)(2 * Scale);
-        canvas.StrokeColor = selected ? Color.FromArgb("#5D4037") : Color.FromArgb("#8D6E63");
+        canvas.StrokeColor = selected ? InkStrong : Color.FromArgb("#8D6E63");
         if (kind == JunctionKinds.Toll || kind == JunctionKinds.Stop)
         {
             canvas.FillRoundedRectangle((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2), (float)(r * 0.4));
@@ -889,7 +919,7 @@ public sealed class MapCanvasDrawable : IDrawable
 
         // 底部名称条
         var nameH = (float)(22 * Scale);
-        canvas.FillColor = Color.FromArgb("#AA000000");
+        canvas.FillColor = NamePlate;
         canvas.FillRoundedRectangle(new RectF(rect.X, rect.Bottom - nameH, rect.Width, nameH), 4);
         canvas.FillRectangle(new RectF(rect.X, rect.Bottom - nameH * 2, rect.Width, nameH));
 
@@ -902,7 +932,7 @@ public sealed class MapCanvasDrawable : IDrawable
             HorizontalAlignment.Center, VerticalAlignment.Center);
 
         // 顶部色条：地点名 + 当前标记
-        canvas.FontColor = Color.FromArgb("#4A3226");
+        canvas.FontColor = InkSoft;
         canvas.FontSize = (float)Math.Max(7, 10 * Scale);
         canvas.Font = Microsoft.Maui.Graphics.Font.Default;
         var locName = n.LocationName;
@@ -918,18 +948,34 @@ public sealed class MapCanvasDrawable : IDrawable
 
         // 边框
         canvas.StrokeSize = (float)(n.IsCurrent ? 3.5 * Scale : n.IsSelected || n == SelectedNode ? 2.8 * Scale : 1.2 * Scale);
-        canvas.StrokeColor = n.IsCurrent ? Color.FromArgb("#C9A227")
-            : n.IsSelected || n == SelectedNode ? Color.FromArgb("#5D4037")
-            : Color.FromArgb("#E3D5C4");
+        canvas.StrokeColor = n.IsCurrent ? Gold
+            : n.IsSelected || n == SelectedNode ? InkStrong
+            : CardOutline;
         canvas.DrawRoundedRectangle(rect, 10);
     }
 
     private Point ScreenPt(Point w) => WorldToScreen(w);
 
+    // 颜色解析缓存：地图一帧要给几百张卡片/路段解析同一批色字符串，Color.FromArgb 每次都走
+    // 一遍字符串解析（#RRGGBB → 四个分量），纯属重复劳动。按 hex 记住结果；有界 256 条，
+    // 撑满就整表丢掉重来——一张图上的色值种类远少于这个数，实际走不到清空那一步。
+    private static readonly Dictionary<string, Color> _hexColors = new(StringComparer.Ordinal);
+    private static readonly Color FallbackInk = Color.FromArgb("#2C1810");
+
     private static Color ParseHex(string hex, string fallback)
     {
-        try { return Color.FromArgb(hex); }
-        catch { return Color.FromArgb(fallback); }
+        hex ??= "";
+        if (_hexColors.TryGetValue(hex, out var cached)) return cached;
+        Color color;
+        try { color = Color.FromArgb(hex); }
+        catch
+        {
+            try { color = Color.FromArgb(fallback); }
+            catch { color = FallbackInk; }
+        }
+        if (_hexColors.Count >= 256) _hexColors.Clear();
+        _hexColors[hex] = color;
+        return color;
     }
 
     // ==================== 备注卡 ====================
@@ -1063,10 +1109,10 @@ public sealed class MapCanvasDrawable : IDrawable
         var tw = (float)(text.Length * 9 * Scale + 10);
         var th = (float)(16 * Scale);
         var rect = new RectF((float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th);
-        canvas.FillColor = Color.FromArgb("#FFFFFF");
+        canvas.FillColor = Colors.White;
         canvas.FillRoundedRectangle(rect, 5);
         canvas.StrokeSize = 1;
-        canvas.StrokeColor = Color.FromArgb("#C9A227");
+        canvas.StrokeColor = Gold;
         canvas.DrawRoundedRectangle(rect, 5);
         canvas.FontColor = Colors.Black;
         canvas.DrawString(text, rect.X, rect.Y, tw, th, HorizontalAlignment.Center, VerticalAlignment.Center);
@@ -1391,21 +1437,33 @@ private Func<MapCanvasNode, string?>? _bgResolver;
 
     // ==================== 文本换行 ====================
 
+    // 换行结果缓存：备注卡每帧都要把同一段文字按同一宽度切一遍，长备注一次就是几十个 Substring。
+    // 按「宽度 + 文本」记住切好的行；有界 512 条，撑满就整表丢掉重来（同一时刻屏上的备注远少于这个数）。
+    // 返回的是缓存里那一份：调用方只读，别往里加/删。
+    private static readonly Dictionary<string, List<string>> _wrapCache = new(StringComparer.Ordinal);
+
     public static List<string> Wrap(string text, int maxChars)
     {
+        var key = maxChars + "\u0001" + (text ?? "");
+        if (_wrapCache.TryGetValue(key, out var cached)) return cached;
+
         var lines = new List<string>();
         if (string.IsNullOrEmpty(text) || maxChars < 1)
         {
             lines.Add(text ?? "");
-            return lines;
         }
-        // 直接按段切片：从前一个字符一个字符往上攒，长备注能白分配几百个中间字符串
-        var count = (text.Length + maxChars - 1) / maxChars;
-        for (var i = 0; i < count; i++)
+        else
         {
-            var start = i * maxChars;
-            lines.Add(text.Substring(start, Math.Min(maxChars, text.Length - start)));
+            // 直接按段切片：从前一个字符一个字符往上攒，长备注能白分配几百个中间字符串
+            var count = (text.Length + maxChars - 1) / maxChars;
+            for (var i = 0; i < count; i++)
+            {
+                var start = i * maxChars;
+                lines.Add(text.Substring(start, Math.Min(maxChars, text.Length - start)));
+            }
         }
+        if (_wrapCache.Count >= 512) _wrapCache.Clear();
+        _wrapCache[key] = lines;
         return lines;
     }
 }

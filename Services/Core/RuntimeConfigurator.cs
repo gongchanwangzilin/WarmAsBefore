@@ -270,6 +270,9 @@ public sealed class RuntimeConfigurator
             var work = new List<(string Label, Func<Task> Body)>
             {
                 ("预热 · 存档列表", () => _save.List()),
+                ("预热 · 角色库", () => _characters.LoadAsync()),
+                // 地图 JSON 是进游戏/进地图页的第一份大文件：趁标题页先读进内存，导航那段少一次读盘。
+                ("预热 · 地图", () => _map.InitializeAsync()),
                 ("预热 · 记忆库", async () => { await _human.CountAsync(_engine.State.CharacterId); }),
                 ("预热 · 关系网", () => _network.LinkCountAsync(_engine.State.CharacterId)),
                 ("预热 · 标签", async () => { await _tags.ListAsync(_engine.State.CharacterId); }),
@@ -482,6 +485,22 @@ public sealed class RuntimeConfigurator
         var prev = _lastApplied;
         _lastApplied = s;
         _mcp.Enabled = s.McpEnabled;
+
+        // 性能模式：减少动效 + 卡片阴影改平。只影响观感，不改功能与布局。
+        // 只在开关真的变化时下发（prev 在开头已存旧值）：Apply 每次点设置都会跑一遍，
+        // 而重发主题资源会让整棵可视树的 DynamicResource 重新解析 —— 正是性能模式最该省掉的开销。
+        var perf = s.PerformanceMode;
+        if (prev is null || prev.PerformanceMode != perf)
+        {
+            DesignSystem.Theme.MotionPrefs.ApplyPerformanceMode(perf);
+            // 阴影改平不在 ThemeManager 的属性上，是全局令牌；改完必须请求重发，
+            // 已建页面的 Shadow.Brush 才会重新解析。排障开关 WARM_NO_SHADOW 优先级更高：
+            // 性能模式关掉也不放开阴影，否则排障配置会被一次普通设置覆盖掉。
+            DesignSystem.Worlds.StyleWorldTokens.FlatShadows =
+                perf || DesignSystem.Worlds.StyleWorldTokens.ForceFlatShadows;
+            DesignSystem.Theme.ThemeManager.Current?.Republish();
+            App.WriteLog("RuntimeConfigurator.PerformanceMode -> " + (perf ? "开" : "关"));
+        }
 
         // 多端点轮换池（厂商 × 模型）：一家厂商可挂多款模型，按「启用的厂商 × 启用的模型」展开；
         // 每条端点的密钥池会轮流使用；轮换开启时任一失灵自动切下一条，保证对话不间断。
