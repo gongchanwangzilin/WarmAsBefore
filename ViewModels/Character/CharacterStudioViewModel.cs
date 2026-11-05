@@ -115,6 +115,14 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     [ObservableProperty] private string _greeting = "";
     [ObservableProperty] private bool _isRomance = true;
 
+    // ── 年龄 / 生日 ─────────────────────────────────────────────────────
+    // 年龄按字符串收：空 = 没填（null），不能用 0 冒充「不知道」。
+    [ObservableProperty] private string _ageInput = "";
+    /// <summary>生日输入框：允许 "3-14" / "3月14日" 等写法，保存时归一成 "MM-dd"。</summary>
+    [ObservableProperty] private string _birthdayInput = "";
+    /// <summary>自然增长：只影响显示岁数，不改盘上的记录值（关掉 = 冻结，不是不记录）。</summary>
+    [ObservableProperty] private bool _naturalAging = true;
+
     // ── 状态与身体 ──────────────────────────────────────────────────────
     [ObservableProperty] private double _affection;
     [ObservableProperty] private double _trust;
@@ -260,6 +268,9 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     partial void OnDescriptionChanged(string value) => Note("背景");
     partial void OnGreetingChanged(string value) => Note("问候语");
     partial void OnIsRomanceChanged(bool value) => Note("恋爱对象");
+    partial void OnAgeInputChanged(string value) => Note("年龄");
+    partial void OnBirthdayInputChanged(string value) => Note("生日");
+    partial void OnNaturalAgingChanged(bool value) => Note("自然增长");
     partial void OnAffectionChanged(double value) => Note("好感");
     partial void OnTrustChanged(double value) => Note("信任");
     partial void OnEnergyChanged(double value) => Note("精力");
@@ -399,6 +410,10 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         Description = _ch.Profile.Description;
         Greeting = _ch.Profile.Greeting;
         IsRomance = _ch.Profile.IsRomanceTarget;
+        // 年龄留空就留空（不是 0）；生日按盘上的归一写法回填，用户改写法在保存时才归一。
+        AgeInput = _ch.Profile.Age?.ToString(CultureInfo.InvariantCulture) ?? "";
+        BirthdayInput = _ch.Profile.Birthday;
+        NaturalAging = _ch.Profile.NaturalAging;
 
         var st = _ch.State;
         Affection = st.Affection;
@@ -1475,6 +1490,8 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                     Phase = Fallback(CyclePhase, _ch.State.Cycle.Phase)
                 }
             };
+            var nextAge = ParseNullableInt(AgeInput);
+            var nextBirthday = CharacterAgeService.NormalizeBirthday(BirthdayInput);
             var updated = WithExtended(_ch with
             {
                 Profile = p with
@@ -1486,7 +1503,15 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                     Personality = Fallback(Personality, p.Personality),
                     Description = Description?.Trim() ?? "",
                     Greeting = Greeting?.Trim() ?? "",
-                    IsRomanceTarget = IsRomance
+                    IsRomanceTarget = IsRomance,
+                    Age = nextAge,
+                    Birthday = nextBirthday,
+                    // 只有年龄真的变了（或第一次填年龄）才刷新起算日：只改生日/开关不该重置，
+                    // 否则每保存一次自然增长就从今天重新数，等于永远不长一岁。
+                    AgeAsOf = nextAge != p.Age || (p.AgeAsOf is null && nextAge is not null)
+                        ? DateTime.Today
+                        : p.AgeAsOf,
+                    NaturalAging = NaturalAging
                 },
                 State = st,
                 Overrides = BuildOverrides()
@@ -1504,6 +1529,13 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             _isNew = false;
             _draft = null;
             _ch = updated;
+            // 生日/年龄输入框换成盘上的写法（"3月14日" → "03-14"）：屏幕上看到的和盘上存的
+            // 应当是同一个值。压住 _loading，这不算一处新改动。
+            _loading = true;
+            AgeInput = updated.Profile.Age?.ToString(CultureInfo.InvariantCulture) ?? "";
+            BirthdayInput = updated.Profile.Birthday;
+            NaturalAging = updated.Profile.NaturalAging;
+            _loading = false;
             CharacterId = updated.Profile.Id;
             DisplayName = DisplayNameOf(updated);
             Headline = HeadlineOf(updated);

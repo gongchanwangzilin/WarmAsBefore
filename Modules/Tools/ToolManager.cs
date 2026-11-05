@@ -71,6 +71,8 @@ public sealed partial class ToolManager : IDisposable
         _sandbox = injectedSandbox ?? new Modules.Sandbox.SandboxPolicy(new StorageProvider());
         RegisterSystemTools();
         RegisterWorldTools();
+        // 年龄/生日：只在剧情真的需要时由 AI 改；平时读取走同一份记录（自然增长现算）。
+        RegisterAgeTools();
         RegisterAmapTools();
         RegisterStateTools();
         RegisterFlowTools();

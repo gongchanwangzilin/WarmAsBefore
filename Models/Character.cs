@@ -7,6 +7,17 @@ public sealed record CharacterProfile
     /// <summary>性别：必填，没有默认值。采集在角色工作室的「设定」栏（本机性别库里的候选 + 设置里的自定义），
     /// 它同时是周期规则的键 —— 猜一个出来会把周期算到错的人身上。</summary>
     public string Gender { get; init; } = string.Empty;
+    /// <summary>年龄：用户/AI 给的角色岁数（null=没填）。自然增长开启时，显示岁数由 <see cref="AgeAsOf"/>
+    /// 起算的生日次数推导，这里始终存「记录值」，不每年改写磁盘。</summary>
+    public int? Age { get; init; }
+    /// <summary>生日：存 "MM-dd"（不带年份）。旧存档没有该字段，默认空=未填写。</summary>
+    public string Birthday { get; init; } = "";
+    /// <summary><see cref="Age"/> 对应的日期（只到日）：自然增长用它数「过了几个生日」，
+    /// 因此只需在用户改年龄时刷新，平时不必写盘。null=不知道记录于哪天（按今天算）。</summary>
+    public DateTime? AgeAsOf { get; init; }
+    /// <summary>自然增长开关：false=年龄冻结在记录值（不是不记录，只是不往上加）；
+    /// 关掉后仍会把年龄/生日告诉 AI，方便角色谈论自己。</summary>
+    public bool NaturalAging { get; init; } = true;
     public string Nickname { get; init; } = string.Empty;
     public string Personality { get; init; } = string.Empty;
     public string Greeting { get; init; } = string.Empty;

@@ -421,12 +421,17 @@ public sealed class MapImportService
         ReadElements(json, nodes, ways);
 
         var mpu = PickMetersPerUnit(Math.Max(eastMeters, northMeters));
+        var city = FirstNonEmpty(hit.AdminPath, hit.Name);
         var map = new MapDefinition
         {
             Name = MapNameOf(hit),
             // 命中来自高德就记 amap：这一张的「地名出处」是高德，要素本体仍是 OSM 的，重新导入照走 Overpass。
             Source = hit.Source == "amap" ? "amap" : "osm",
-            City = FirstNonEmpty(hit.AdminPath, hit.Name),
+            City = city,
+            // 抓来的地图默认按「当地天气」算：用户搜的是哪一片，主界面就该显示那一片此刻的天气，
+            // 而不是自己设置里那座城市的。想跟随用户/自定义，在地图创建页里改。
+            WeatherMode = MapWeatherModes.Map,
+            WeatherCity = city,
             CenterLatitude = centerLat,
             CenterLongitude = centerLon,
             MetersPerUnit = mpu,

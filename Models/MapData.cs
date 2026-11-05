@@ -39,6 +39,14 @@ public sealed class MapDefinition
     public double CenterLatitude { get; set; }
     public double CenterLongitude { get; set; }
 
+    /// <summary>
+    /// 这张图的天气按哪儿算：user 跟随用户设置的城市 / map 抓取位置的当地 / custom 手填地点。
+    /// 老存档没有这一节，默认 user —— 升级前的观感一点不变。
+    /// </summary>
+    public string WeatherMode { get; set; } = MapWeatherModes.User;
+    /// <summary>自定义地点名（custom 模式用）；map 模式可以留空，空着就用 <see cref="City"/>。</summary>
+    public string WeatherCity { get; set; } = "";
+
     [JsonIgnore] public IEnumerable<MapScene> AllScenes => Locations.SelectMany(l => l.Scenes);
     [JsonIgnore] public IEnumerable<MapDoor> AllDoors => Locations.SelectMany(l => l.Doors);
     /// <summary>取景照片库：街道照绑「边 + 位置」，室内照绑「楼层 + 户型（+ 门）」；绑定校验见 <see cref="ValidatePhotoBinding"/>。</summary>
@@ -193,6 +201,36 @@ public sealed class MapDefinition
         0 => "地面层",
         > 0 => $"{floor} 层",
         _ => $"地下{-floor} 层",
+    };
+}
+
+/// <summary>
+/// 地图天气的取法（写进 <see cref="MapDefinition.WeatherMode"/>）。
+/// 真实导入的地图默认用「抓取位置的当地天气」：从高德/开放街道图搜来一片城市，
+/// 用户要的就是那一片此刻的天气，而不是自己家那边的。
+/// </summary>
+public static class MapWeatherModes
+{
+    /// <summary>跟随用户：设置 → 天气与生活 里选的城市（老档默认，行为与从前一致）。</summary>
+    public const string User = "user";
+    /// <summary>地图当地：用这张图抓取位置的坐标 / 城市名查天气。</summary>
+    public const string Map = "map";
+    /// <summary>自定义地点：用户自己填一个城市名，按那个地方算。</summary>
+    public const string Custom = "custom";
+
+    /// <summary>无法识别的值一律当 user：设置文件手改坏、旧版本没这个字段都不能让天气消失。</summary>
+    public static string Normalize(string? mode) => mode switch
+    {
+        Map => Map,
+        Custom => Custom,
+        _ => User,
+    };
+
+    public static string Display(string? mode) => Normalize(mode) switch
+    {
+        Map => "地图当地天气",
+        Custom => "自定义地点天气",
+        _ => "跟随用户天气",
     };
 }
 

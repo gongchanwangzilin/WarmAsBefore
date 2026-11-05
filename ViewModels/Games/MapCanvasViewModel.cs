@@ -36,6 +36,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private ObservableCollection<MapCanvasNode> _nodes = new();
     [ObservableProperty] private MapCanvasNode? _selectedNode;
+    /// <summary>顶栏「🌦 天气」按钮的文字：当前这张图按哪儿算天气。</summary>
+    [ObservableProperty] private string _weatherModeLabel = "🌦 天气";
 
     public bool HasSelection => SelectedNode is not null;
     public bool IsEditMode => Mode == ModeKind.Edit;
@@ -206,11 +208,69 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         return SignalClock.Now(edge, true).Display;
     }
 
+    // ==================== 天气来源快捷开关 ====================
+
+    /// <summary>把当前地图的天气来源写到顶栏按钮上（进页面与每次改完都刷一次）。</summary>
+    private void RefreshWeatherModeLabel()
+    {
+        var mode = MapWeatherModes.Normalize(_maps.Map.WeatherMode);
+        WeatherModeLabel = "🌦 " + MapWeatherModes.Display(mode);
+    }
+
+    /// <summary>
+    /// 顶栏快捷切换：不用回创建页也能改「这张图按哪儿算天气」。
+    /// 自定义地点在这里顺手问一句地名；校验失败就什么都不存（创建页有更完整的说明）。
+    /// </summary>
+    [RelayCommand]
+    private async Task PickWeatherModeAsync()
+    {
+        try
+        {
+            var map = _maps.Map;
+            var labels = new[]
+            {
+                MapWeatherModes.Display(MapWeatherModes.User),
+                MapWeatherModes.Display(MapWeatherModes.Map),
+                MapWeatherModes.Display(MapWeatherModes.Custom),
+            };
+            var codes = new[] { MapWeatherModes.User, MapWeatherModes.Map, MapWeatherModes.Custom };
+            var pick = await Shell.Current.DisplayActionSheet("这张图的天气按哪儿算", "取消", null, labels);
+            if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
+            var idx = Array.IndexOf(labels, pick);
+            if (idx < 0) return;
+            var code = codes[idx];
+
+            if (code == MapWeatherModes.Custom)
+            {
+                var city = await Shell.Current.DisplayPromptAsync("自定义地点天气",
+                    "填一个城市名，主界面按那个地方算天气：", "保存", "取消", "例如：杭州市", maxLength: 40);
+                if (string.IsNullOrWhiteSpace(city)) return;
+                map.WeatherCity = city.Trim();
+            }
+            map.WeatherMode = code;
+            await _maps.SaveAsync();
+            _maps.NotifyChanged();
+            RefreshWeatherModeLabel();
+            Toast.Info(code switch
+            {
+                MapWeatherModes.Map => "地图天气改为「地图当地」：主界面按这张图的抓取位置查天气。",
+                MapWeatherModes.Custom => $"地图天气按「{map.WeatherCity}」算。",
+                _ => "地图天气改回「跟随用户」：主界面按你设置里的城市查天气。",
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapViewModel.PickWeatherMode -> " + ex);
+            Toast.Error("天气来源没改成：" + ex.Message);
+        }
+    }
+
     private async Task InitAsync()
     {
         try
         {
             await _maps.InitializeAsync();
+            RefreshWeatherModeLabel();
             Refresh();
             // 加载旧地图时顺带自动推开历史重叠的框（避免老数据重合不清）
             ResolveLocationOverlaps();

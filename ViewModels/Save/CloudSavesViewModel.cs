@@ -48,6 +48,55 @@ public sealed partial class CloudSavesViewModel : ObservableObject
     [ObservableProperty] private string _emptyTitle = "";
     [ObservableProperty] private string _emptyText = "";
 
+    // ===== 私人仓库门禁（需求：云存档只写私人仓库）=====
+    // 状态来自 CloudSyncService 的缓存：空 = 还没验证，整句话 = 已校验的人话结果。
+    [ObservableProperty] private string _privacyText = "尚未验证仓库私有性";
+    [ObservableProperty] private bool _privacyIsOk;
+    [ObservableProperty] private bool _privacyIsWarning;
+    [ObservableProperty] private bool _privacyIsPending = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PrivacyButtonText))]
+    [NotifyPropertyChangedFor(nameof(PrivacyCanVerify))]
+    private bool _privacyBusy;
+
+    public string PrivacyButtonText => PrivacyBusy ? "验证中…" : "验证私人仓库";
+    public bool PrivacyCanVerify => !PrivacyBusy;
+
+    /// <summary>把服务里的校验结果同步到卡片的三种外观：通过 / 警告 / 未验证。</summary>
+    private void ApplyPrivacy()
+    {
+        var note = _cloud.RepoPrivacyNote;
+        PrivacyText = string.IsNullOrWhiteSpace(note) ? "尚未验证仓库私有性" : note;
+        PrivacyIsOk = _cloud.IsPrivateRepo;
+        PrivacyIsWarning = !_cloud.IsRepoPrivacyVerified && !string.IsNullOrWhiteSpace(note);
+        PrivacyIsPending = !_cloud.IsRepoPrivacyVerified && string.IsNullOrWhiteSpace(note);
+    }
+
+    /// <summary>手动强制重查一次私有性：改完 GitHub 仓库可见性后不必等缓存过期。</summary>
+    [RelayCommand]
+    private async Task VerifyPrivacy()
+    {
+        if (PrivacyBusy) return;
+        PrivacyBusy = true;
+        try
+        {
+            var (ok, message) = await _cloud.VerifyRepoPrivacyAsync();
+            ApplyPrivacy();
+            if (ok) Toast.Success(message);
+            else Toast.Warn(message);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSavesVM.VerifyPrivacy -> " + ex);
+            Toast.Error("验证失败：" + ex.Message);
+        }
+        finally
+        {
+            PrivacyBusy = false;
+        }
+    }
+
     public string RefreshText => IsLoading ? "刷新中…" : "刷新";
     public string CurrentCountText => CurrentRows.Count > 0 ? $"{CurrentRows.Count} 份" : "";
     public string OtherCountText => OtherRows.Count > 0 ? $"{OtherRows.Count} 份" : "";
@@ -59,6 +108,8 @@ public sealed partial class CloudSavesViewModel : ObservableObject
         IsLoading = true;
         try
         {
+            // 刷新时顺手强制校验一次私有性：用户改完 GitHub 仓库可见性，点一下「刷新」就能看到最新结果
+            await _cloud.VerifyRepoPrivacyAsync();
             var snapshot = await _cloud.ListRemoteSavesAsync();
             var conflicts = await _cloud.ListConflictsAsync();
 
@@ -81,6 +132,7 @@ public sealed partial class CloudSavesViewModel : ObservableObject
                 : "上次同步：还没有同步记录";
 
             ApplyState(snapshot, conflicts);
+            ApplyPrivacy();
             OnPropertyChanged(nameof(CurrentCountText));
             OnPropertyChanged(nameof(OtherCountText));
         }
@@ -142,6 +194,13 @@ public sealed partial class CloudSavesViewModel : ObservableObject
             case CloudReadState.Offline:
                 HasHint = true;
                 HintTitle = "连不上云端";
+                HintText = snapshot.Message;
+                break;
+
+            case CloudReadState.NotPrivate:
+                // 公开仓库/私有性没验证通过：这是门禁拦下的，不是网络问题，标题要说清楚
+                HasHint = true;
+                HintTitle = "云存档只写私人仓库";
                 HintText = snapshot.Message;
                 break;
 

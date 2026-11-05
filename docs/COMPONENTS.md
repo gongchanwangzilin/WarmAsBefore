@@ -38,7 +38,7 @@
 | 文件 | 主要类型 | 内容 |
 |---|---|---|
 | `Models/State.cs` | `GameState`、`UserSettings`、`SavePermissions`、`SaveSlot`、`ChatRecord`、`AiEndpointProfile`、`AiProvider`、`AiProviderModel`、`WidgetPref`、`CycleRule`、`PhysiologyState`、`AffectionTick` | 全局运行时状态、设置、存档权限、AI 端点与小组件偏好 |
-| `Models/Character.cs` | `CharacterProfile`、`CharacterState`、`CharacterData`、`CharacterSubProfile`、`BrainState`、`PhysiologicalData`、`BackgroundCrop`、`CharacterWorldview`、`CharacterInitialStats`、`CharacterVoice`、`CharacterModelBinding`、`SubProfileSnapshot` | 角色资料、状态、立绘/背景、副设定、语音与模型绑定 |
+| `Models/Character.cs` | `CharacterProfile`、`CharacterState`、`CharacterData`、`CharacterSubProfile`、`BrainState`、`PhysiologicalData`、`BackgroundCrop`、`CharacterWorldview`、`CharacterInitialStats`、`CharacterVoice`、`CharacterModelBinding`、`SubProfileSnapshot` | 角色资料（含年龄/生日/自然增长）、状态、立绘/背景、副设定、语音与模型绑定 |
 | `Models/CharacterOverrides.cs` | `CharacterOverrides` | 角色级设置覆写 |
 | `Models/Chat.cs` | `ChatMessage`、`ChatAttachment`、`ToolCall`、`ChatSession`、`AiEndpoint` | 对话消息、附件、工具调用、会话与端点 |
 | `Models/ChatMessage.cs` | `ChatItem` | 聊天界面展示项 |
@@ -47,7 +47,7 @@
 | `Models/Relation*.cs` | `RelationNode`、`RelationEdge`、`RelationGraph`、`RelationNet`、`RelationParams`、`RelationStats`、`RelationLayout` | 关系网节点/边、布局、参数与统计 |
 | `Models/MemoryLayer.cs` | `MemoryLayer`、`MemoryLayers` | 记忆分层枚举与元数据 |
 | `Models/MemoryTag.cs` | `MemoryTag` | 标签与指向对象 |
-| `Models/MapData.cs` | `MapDefinition`、`MapLocation`、`MapScene`、`MapTransit`、`MapWaypoint`、`MapEdge`、`MapRegion`、`CustomStateDef`、`SignalKinds`/`SignalPhases` | 地图定义、场景与连线、地块、自定义状态、红绿灯三字段 |
+| `Models/MapData.cs` | `MapDefinition`、`MapLocation`、`MapScene`、`MapTransit`、`MapWaypoint`、`MapEdge`、`MapRegion`、`CustomStateDef`、`SignalKinds`/`SignalPhases`、`MapWeatherModes` | 地图定义（含天气来源）、场景与连线、地块、自定义状态、红绿灯三字段 |
 | `Models/FlowData.cs` | `FlowRule`、`FlowCondition`、`FlowAction`、`FlowTriggers`、`FlowOps`、`FlowConditionKinds`、`FlowActionKinds`、`SunPhases` | 流程图规则：触发 + 条件树 + 动作；每种节点都有 `Describe()` 说人话 |
 | `Models/MapActor.cs` | `MapActor`、`PullRequest`、`PullArbitrationResult` | 地图实体与拉拽仲裁 |
 | `Models/SceneLibrary.cs` | `SceneLibraryEntry`、`SceneMode` | 场景库与场景模式 |
@@ -102,6 +102,7 @@
 | `CharacterLibrary` | 角色新建/导入/持久化；`characters.json`；注册进 `GameEngine.Roster`；支持整包与单角色包 |
 | `CharacterLibrary.MemoryClone` | 复制角色时连同记忆一起复制；引用重映射、仅当前作用域 |
 | `CharacterSettingsResolver` | 全局设置 → 角色覆写的解析链；未覆写时与全局一致 |
+| `CharacterAgeService` | 年龄/生日/自然增长纯计算：生日归一与显示、按生日次数推导岁数、当天生日、提示词文本 |
 | `CharacterSubProfileService` | 主设定只读、副设定漂移、留影有界、提示词文本生成与回正 |
 | `CharacterBackgroundService` | 角色背景（图片/GIF/视频）的统一取法与适配方式 |
 | `CharacterMask` | 未自我介绍的角色显示 `???` |
@@ -305,7 +306,10 @@
 
 | 组件 | 职责 |
 |---|---|
-| `WeatherProvider` | 天气数据源（Open-Meteo / wttr / 自定义）；密钥只随自定义源 |
+| `WeatherProvider` | 天气数据源（Open-Meteo / wttr / 自定义）；用户位置与地图覆盖两套位置，密钥只随自定义源 |
+| `PlacePhotoService` | 谷歌 Places 地点照片/街景 → 场景背景与取景照片；Key 存 Preferences |
+| `CoordConvert` | 高德 GCJ-02 与谷歌 WGS84 坐标互转 |
+| `LocationService` | 设备定位优先（Windows / Android），失败给原因；IP 只作城市级估算候选，城市搜索 |
 | `TimeProvider` | 游戏内时间、时段与真实时间映射 |
 | `LocationService` | GPS 定位，失败降级 IP 估算；城市搜索 |
 | `CityCatalog` | 可选城市（名字给人看，天气按坐标） |

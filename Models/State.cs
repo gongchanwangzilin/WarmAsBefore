@@ -754,6 +754,12 @@ public sealed record UserSettings
     /// <summary>用户性别（自由文本，可来自自定义性别库）。空 = 未设置，提示词里不提。</summary>
     public string UserGender { get; init; } = "";
 
+    /// <summary>
+    /// 用户自己的生日（"MM-dd"）。只用来让 AI 记得、在当天有点表示；不参与年龄推算，
+    /// 也不要求用户填年份。空 = 没设置，提示词里不提。
+    /// </summary>
+    public string UserBirthday { get; init; } = "";
+
     /// <summary>超省内存模式：记忆/关系网按需从盘上读、闲置即释放，插件网页默认不加载。</summary>
     public bool LowMemoryMode { get; init; }
 

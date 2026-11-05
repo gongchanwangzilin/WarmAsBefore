@@ -162,6 +162,14 @@ public sealed class CloudSyncService : IDisposable
         try
         {
             SetBusy(true);
+            // 门禁：仓库不是私人的就一个字节都不推（公开仓库里的存档等于公开）
+            var privacy = await RequirePrivateRepoAsync();
+            if (!privacy.ok)
+            {
+                App.WriteLog("CloudSync.Push -> 已拦截：" + privacy.message);
+                SetStatus(privacy.message);
+                return;
+            }
             var branch = await ResolveBranchAsync();
             if (branch is null) { SetStatus("云端连接失败：仓库或令牌不可用"); return; }
             var (ok, failed, error) = await PushAsync(branch, forceAll: false);
@@ -186,7 +194,26 @@ public sealed class CloudSyncService : IDisposable
     public void FlushOnExit()
     {
         if (!IsEnabled || !IsConfigured) return;
-        _ = PushPendingAsync();
+        // 退出路径不能阻塞窗口关闭：门禁放到后台做，未通过时连一个远端请求都不会发出
+        _ = FlushOnExitAsync();
+    }
+
+    private async Task FlushOnExitAsync()
+    {
+        try
+        {
+            var privacy = await RequirePrivateRepoAsync();
+            if (!privacy.ok)
+            {
+                App.WriteLog("CloudSync.FlushOnExit -> 已拦截：" + privacy.message);
+                return;
+            }
+            await PushPendingAsync();
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSync.FlushOnExit -> " + ex.Message);
+        }
     }
 
     // ==================== 手动同步 ====================
@@ -196,13 +223,187 @@ public sealed class CloudSyncService : IDisposable
     {
         if (Repo.Length == 0) return (false, "请先填写仓库（owner/repo）");
         if (Token.Length == 0) return (false, "请先填写访问令牌");
+
+        // 先确认仓库是私人的：公开仓库上的任何一次上传都等于把存档公开。
+        // 「测试连接」本来就要打 API，借这一次强制重查，用户改完可见性后点它就能立刻看到结果。
+        var privacy = await VerifyRepoPrivacyAsync();
+        if (!privacy.ok) return privacy;
+
         var branch = await ResolveBranchAsync(force: true);
         if (branch is null) return (false, LastError ?? "连不上仓库：检查仓库名、令牌权限（Contents 读写）与分支");
         var tree = await GetTreeAsync(branch);
         if (!tree.ok) return (false, "连不上仓库：" + (tree.error ?? "未知错误"));
         var count = tree.nodes.Count(n => n.Path.StartsWith(DevRoot + "/", StringComparison.Ordinal));
-        SetStatus($"已连通 {Repo}（分支 {branch}）");
-        return (true, $"已连通 {Repo}（分支 {branch}）· 云端已有 {count} 个文件");
+        SetStatus($"已连通 {Repo}（分支 {branch} · 私人仓库已确认）");
+        return (true, $"已连通 {Repo}（分支 {branch}）· 私人仓库已确认 · 云端已有 {count} 个文件");
+    }
+
+    // ==================== 仓库私有性门禁 ====================
+    // 需求：云存档只能写进用户自己的私人仓库，否则填一个公开仓库就等于把存档公开。
+    // GitHub API 的 /repos/{owner}/{repo} 会返回 private / visibility，用现有令牌请求即可，
+    // 不需要 OAuth 登录：访问令牌本身就是登录凭据，只需要 repo（私有仓库读写）权限。
+    //
+    // 缓存按「仓库 + 令牌」签名：换仓库或换令牌必然重查；签名不变时通过的结果缓存 10 分钟，
+    // 避免每次自动上传都打一次 API，同时仓库被改成公开后也能在 10 分钟内发现并拦住。
+
+    private readonly SemaphoreSlim _privacyGate = new(1, 1);
+    private readonly object _privacyLock = new();
+    private string _privacySignature = "";
+    private bool _privacyVerified;
+    private bool _privacyPublic;
+    private string _privacyNote = "";
+    private DateTime _privacyCheckedAtUtc = DateTime.MinValue;
+    private static readonly TimeSpan PrivacyPassCacheTtl = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan PrivacyFailRetryDelay = TimeSpan.FromSeconds(30);
+
+    /// <summary>最近一次校验是否通过（仓库确实存在且是私人的）。</summary>
+    public bool IsRepoPrivacyVerified
+    {
+        get
+        {
+            lock (_privacyLock) return _privacyVerified && _privacySignature == CurrentPrivacySignature;
+        }
+    }
+
+    /// <summary>空 = 还没校验过；否则是可以直接展示给用户的人话（通过或未通过都算）。</summary>
+    public string RepoPrivacyNote
+    {
+        get
+        {
+            lock (_privacyLock) return _privacySignature == CurrentPrivacySignature ? _privacyNote : "";
+        }
+    }
+
+    /// <summary>已校验且确为私人仓库（internal 也算不对外的仓库）。</summary>
+    public bool IsPrivateRepo => IsRepoPrivacyVerified;
+
+    /// <summary>
+    /// 已确认填的是公开仓库。只用于区分「明确公开」与「连不上」：
+    /// 公开时要连本机副本的恢复一起拦住（恢复出来的内容迟早会被推到那个公开仓库），
+    /// 连不上时本机副本不涉及任何远端请求，照常可看可恢复，真正上传时仍会被门禁挡住。
+    /// </summary>
+    private bool IsRepoKnownPublic
+    {
+        get
+        {
+            lock (_privacyLock) return !_privacyVerified && _privacyPublic && _privacySignature == CurrentPrivacySignature;
+        }
+    }
+
+    /// <summary>强制校验一次仓库私有性；页面上的「验证私人仓库」按钮与 TestAsync 都走这里。</summary>
+    public async Task<(bool ok, string message)> VerifyRepoPrivacyAsync()
+    {
+        var result = await RequirePrivateRepoAsync(force: true);
+        SetStatus(result.message);
+        App.WriteLog("CloudSync.VerifyRepoPrivacy -> " + (result.ok ? "通过：" : "未通过：") + result.message);
+        return result;
+    }
+
+    /// <summary>所有会读写远端的入口先过这道门；通过（含缓存）才允许继续。</summary>
+    private async Task<(bool ok, string message)> RequirePrivateRepoAsync(bool force = false)
+    {
+        var repo = Repo;
+        if (repo.Length == 0) return StorePrivacy("", false, false, "请先填写仓库（owner/repo）");
+        if (Token.Length == 0) return StorePrivacy("", false, false, "请先填写访问令牌");
+
+        var signature = repo + "\u0001" + Token;
+        if (!force && TryGetFreshPrivacy(signature, out var cached)) return cached;
+
+        await _privacyGate.WaitAsync();
+        try
+        {
+            // 排队期间别的入口可能已经查完了：再判一次，避免并发重复打 API
+            if (!force && TryGetFreshPrivacy(signature, out cached)) return cached;
+
+            var (ok, isPublic, message) = await FetchRepoPrivacyAsync(repo);
+            App.WriteLog("CloudSync.Privacy -> " + repo + "：" + (ok ? "已确认私人仓库" : message));
+            return StorePrivacy(signature, ok, isPublic, message);
+        }
+        finally
+        {
+            _privacyGate.Release();
+        }
+    }
+
+    /// <summary>缓存命中判断：通过的结果缓存久一点，失败只挡几十秒，让用户改完就能重试。</summary>
+    private bool TryGetFreshPrivacy(string signature, out (bool ok, string message) result)
+    {
+        lock (_privacyLock)
+        {
+            if (_privacySignature == signature && _privacyNote.Length > 0)
+            {
+                var age = DateTime.UtcNow - _privacyCheckedAtUtc;
+                var ttl = _privacyVerified ? PrivacyPassCacheTtl : PrivacyFailRetryDelay;
+                if (age >= TimeSpan.Zero && age < ttl)
+                {
+                    result = (_privacyVerified, _privacyNote);
+                    return true;
+                }
+            }
+            result = default;
+            return false;
+        }
+    }
+
+    private (bool ok, string message) StorePrivacy(string signature, bool ok, bool isPublic, string message)
+    {
+        lock (_privacyLock)
+        {
+            _privacySignature = signature;
+            _privacyVerified = ok;
+            _privacyPublic = isPublic;
+            _privacyNote = message;
+            _privacyCheckedAtUtc = DateTime.UtcNow;
+        }
+        return (ok, message);
+    }
+
+    /// <summary>当前设置对应的缓存指纹；令牌不进日志、不落盘，只在这个字段里做比较。</summary>
+    private string CurrentPrivacySignature
+    {
+        get
+        {
+            var repo = Repo;
+            var token = Token;
+            return repo.Length == 0 || token.Length == 0 ? "" : repo + "\u0001" + token;
+        }
+    }
+
+    /// <summary>读 GET /repos/{owner}/{repo} 判断可见性；失败一律折成能直接展示的中文。</summary>
+    private async Task<(bool ok, bool isPublic, string message)> FetchRepoPrivacyAsync(string repo)
+    {
+        var cantReach = $"连不上「{repo}」：确认仓库名拼写，并确认访问令牌有 repo（私有仓库读写）权限。";
+        try
+        {
+            using var req = Request(HttpMethod.Get, ApiUrl(""));
+            using var resp = await _http.SendAsync(req);
+            var body = await resp.Content.ReadAsStringAsync();
+            if (!resp.IsSuccessStatusCode) return (false, false, cantReach);
+
+            using var doc = JsonDocument.Parse(body);
+            var root = doc.RootElement;
+            var visibility = root.TryGetProperty("visibility", out var v) ? (v.GetString() ?? "").Trim() : "";
+            var isPrivate = root.TryGetProperty("private", out var p) && p.ValueKind == JsonValueKind.True;
+
+            if (isPrivate
+                || visibility.Equals("private", StringComparison.OrdinalIgnoreCase)
+                || visibility.Equals("internal", StringComparison.OrdinalIgnoreCase))
+                return (true, false, $"已确认「{repo}」是私人仓库：存档只写进你自己的仓库。");
+
+            // 明确读到公开：给出能照着改的步骤，不要只说「校验失败」
+            if (visibility.Equals("public", StringComparison.OrdinalIgnoreCase)
+                || (root.TryGetProperty("private", out var p2) && p2.ValueKind == JsonValueKind.False))
+                return (false, true,
+                    $"云存档只写私人仓库：「{repo}」是公开的。请到 GitHub → Settings → 把仓库改为 Private，或换一个私人仓库。");
+
+            // 200 但读不到可见性字段（GitHub 改版/代理改写）：不能证明是私人的，就按不通过处理
+            return (false, false, cantReach);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CloudSync.Privacy -> " + ex.Message);
+            return (false, false, cantReach);
+        }
     }
 
     /// <summary>立即同步：先合并远端较新的文件，再把本地改动全部推上去。</summary>
@@ -216,6 +417,13 @@ public sealed class CloudSyncService : IDisposable
         {
             SetBusy(true);
             SetStatus("正在同步…");
+            // 门禁：同步同时读写远端，仓库不是私人的就直接拒绝，并把人话留在状态行
+            var privacy = await RequirePrivateRepoAsync();
+            if (!privacy.ok)
+            {
+                App.WriteLog("CloudSync.SyncNow -> 仓库私有性未通过：" + privacy.message);
+                return SetStatus(privacy.message);
+            }
             var branch = await ResolveBranchAsync();
             if (branch is null) return SetStatus("云端连接失败：" + (LastError ?? "仓库或令牌不可用"));
 
@@ -266,6 +474,9 @@ public sealed class CloudSyncService : IDisposable
         try
         {
             SetBusy(true);
+            // 定时拉取同样先过门禁：公开仓库里的存档路径也不想被这台设备读下来
+            var privacy = await RequirePrivateRepoAsync();
+            if (!privacy.ok) { SetStatus(privacy.message); return; }
             var branch = await ResolveBranchAsync();
             if (branch is null) return;
             var pull = await PullAsync(branch);
@@ -333,6 +544,16 @@ public sealed class CloudSyncService : IDisposable
             if (!IsConfigured)
                 return MakeSnapshot(CloudReadState.NotConfigured, deviceId,
                     "还没填仓库与令牌。到 设置 → 数据 → 云存档 填好仓库（owner/repo）与访问令牌，再回来点「刷新」。");
+
+            // 门禁：连列表都不读，公开仓库里的存档路径同样不该被当成云存档使用。
+            // 区分「确认为公开」与「连不上」：前者是配置问题（换私人仓库），后者是网络/令牌问题。
+            var privacy = await RequirePrivateRepoAsync();
+            if (!privacy.ok)
+            {
+                SetStatus(privacy.message);
+                return MakeSnapshot(IsRepoKnownPublic ? CloudReadState.NotPrivate : CloudReadState.Offline,
+                    deviceId, privacy.message);
+            }
 
             var branch = await ResolveBranchAsync();
             if (branch is null)
@@ -427,6 +648,10 @@ public sealed class CloudSyncService : IDisposable
             if (!IsEnabled) return new CloudActionResult(false, "云存档开关没打开：到 设置 → 数据 → 云存档 打开它。");
             if (!IsConfigured) return new CloudActionResult(false, "还没填仓库与令牌：到 设置 → 数据 → 云存档 填好再试。");
 
+            // 门禁：下载会把远端内容写回本机，仓库不是私人的就没必要碰它
+            var privacy = await RequirePrivateRepoAsync();
+            if (!privacy.ok) return new CloudActionResult(false, privacy.message);
+
             ct.ThrowIfCancellationRequested();
             var json = entry.Sha.Length > 0 ? await ReadBlobAsync(entry.Sha) : null;
             if (string.IsNullOrEmpty(json))
@@ -469,6 +694,16 @@ public sealed class CloudSyncService : IDisposable
         var items = new List<CloudConflictEntry>();
         try
         {
+            // 历史副本本身在本机，但恢复后会被推回云端：已确认是公开仓库时统一返回原因，
+            // 避免「云端读不了、历史副本却照常可恢复」看起来像两套逻辑。
+            // 只是连不上/令牌失效时，本机副本不涉及任何远端请求，仍允许查看与恢复（上传侧另有关禁）。
+            if (IsConfigured)
+            {
+                var privacy = await RequirePrivateRepoAsync();
+                if (!privacy.ok && IsRepoKnownPublic)
+                    return new CloudConflictList { Ok = false, Message = privacy.message };
+            }
+
             var dir = Path.Combine(_store.Root, "cloud", "conflicts");
             if (!Directory.Exists(dir)) return new CloudConflictList { Ok = true, Items = items };
 
@@ -522,6 +757,16 @@ public sealed class CloudSyncService : IDisposable
                 return new CloudActionResult(false, "这份副本找不到对应的存档位置，无法恢复。");
 
             await EnsureReadyAsync();
+
+            // 恢复只写本机，但恢复出来的内容下一次同步会推回云端：已确认是公开仓库时提前拦住；
+            // 只是连不上/令牌失效时照常恢复，等网络或令牌好了再同步（上传门禁不会把内容推到公开仓库）。
+            if (IsConfigured)
+            {
+                var privacy = await RequirePrivateRepoAsync();
+                if (!privacy.ok && IsRepoKnownPublic)
+                    return new CloudActionResult(false, privacy.message);
+            }
+
             ct.ThrowIfCancellationRequested();
             var json = await _store.LoadRawAsync(entry.ConflictKey);
             if (string.IsNullOrEmpty(json))
@@ -1339,6 +1584,7 @@ public sealed class CloudSyncService : IDisposable
         _periodicPull?.Dispose();
         _http.Dispose();
         _gate.Dispose();
+        _privacyGate.Dispose();
     }
 
     private sealed class CloudState
@@ -1372,13 +1618,15 @@ public sealed class CloudManifestEntry
     public bool Deleted { get; set; }
 }
 
-/// <summary>只读浏览的结果类型：够页面区分四种状态，不把异常带进 UI。</summary>
+/// <summary>只读浏览的结果类型：够页面区分多种状态，不把异常带进 UI。</summary>
 public enum CloudReadState
 {
     Ok,
     NotConfigured,
     NotSignedIn,
     Offline,
+    /// <summary>仓库是公开的，或私有性没能验证通过：云存档拒绝工作。</summary>
+    NotPrivate,
     Failed
 }
 
