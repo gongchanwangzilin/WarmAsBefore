@@ -149,8 +149,12 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
 
             <!-- 小组件顶栏：左边只放勾选过的 top 组件，右边只放允许的按钮。
                  组件再多也横向滚动，不去挤右边的操作键。 -->
-            <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
-                    IsVisible="{Binding WidgetTopBarVisible}" Padding="16,8,16,10">
+            <VerticalStackLayout Grid.ColumnSpan="3" IsVisible="{Binding WidgetTopBarVisible}">
+                <!-- 终末地 HUD 顶栏带：只在 HUD 世界出现（IsVisible 由代码按世界设），
+                     上面一排方框读数，下沿一条 45° 斜纹 —— 这块才是「终端界面」的第一眼。
+                     它一出现，下面那条原来的小组件顶栏就藏起来：两套顶栏叠着会读成「界面坏了两层」。 -->
+                <Grid x:Name="HudTopStrip" IsVisible="False" RowDefinitions="Auto,Auto" Padding="0,0,0,2" BackgroundColor="{DynamicResource WellBg}" />
+                <Border x:Name="StandardTopBar" Style="{StaticResource CardLiquidGlass}" Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                     <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
@@ -173,7 +177,8 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                                 Command="{Binding ToggleWidgetPanelCommand}" ToolTipProperties.Text="选择顶栏与左栏显示什么" />
                     </HorizontalStackLayout>
                 </Grid>
-            </Border>
+                </Border>
+            </VerticalStackLayout>
 
             <!-- Left: Info panel（窄屏下允许压缩，避免与状态栏按钮挤压）；#E4：ESC 可隐藏 -->
             <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140" Margin="0"

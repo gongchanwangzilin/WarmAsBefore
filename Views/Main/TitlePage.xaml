@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.TitlePage"
 
              Shell.NavBarIsVisible="False"
@@ -23,10 +24,28 @@
           现在卡片铺满窗口（只留一圈 WPageMargin），左边一条导航带、右边主行动区，中间一根发丝线。
           两栏各自有活干：左栏回答「去哪里」，右栏回答「现在做什么」，没有一处是为了填空而存在。
         -->
-        <Border Style="{StaticResource CardSolid}" Padding="0"
+        <Border x:Name="ShellFrame" Style="{StaticResource CardSolid}" Padding="0"
                 Margin="{DynamicResource WPageMargin}"
+                StrokeShape="{x:Static controls:HudSkin.PanelCardShape}"
                 HorizontalOptions="Fill" VerticalOptions="Fill">
             <Grid>
+                <!-- HUD 四角括号：只在终末地世界画出来（其余世界 IsVisible=False，元素不占位、不绘制）。 -->
+                <GraphicsView x:Name="HudBrackets" InputTransparent="True" IsVisible="{x:Static controls:HudSkin.IsActive}" Margin="14">
+                    <GraphicsView.Drawable>
+                        <controls:CornerBracketDrawable Size="18" />
+                    </GraphicsView.Drawable>
+                </GraphicsView>
+                <!-- 扫描线：终末地世界进场时从顶部扫到底再消失（HudMotion.Scan 负责走位） -->
+                <BoxView x:Name="HudScan" InputTransparent="True" IsVisible="{x:Static controls:HudSkin.IsActive}"
+                         HeightRequest="2" VerticalOptions="Start" HorizontalOptions="Fill"
+                         Margin="16,18,16,0" Opacity="0" Color="{DynamicResource Signal}" />
+                <!-- 斜纹：标题页底边一条「警示带」，只读不挡点击 -->
+                <GraphicsView x:Name="HudHatchView" InputTransparent="True" IsVisible="{x:Static controls:HudSkin.IsActive}"
+                              VerticalOptions="End" HeightRequest="7" Margin="18,0,18,8">
+                    <GraphicsView.Drawable>
+                        <controls:HudHatchDrawable Gap="7" />
+                    </GraphicsView.Drawable>
+                </GraphicsView>
                 <!-- 窄屏（手机、竖拿的平板）不能套两栏：侧栏与主行动区会落进同一格互相压住。
                      这里备一只滚动容器，宽屏仍交给 ShellGrid；切档时由 code-behind 把同一批控件
                      搬过去，不复制第二份内容。 -->
@@ -152,8 +171,21 @@
                 <!-- ── 右 · 主行动区 ─────────────────────────────────────
                      读数带在上（「我现在看到的是什么」是状态，不是入口，所以既不给正文位也不给信号色），
                      标语与那颗胶囊在剩下的空间里垂直居中 —— 整屏唯一饱和的东西就是这颗。 -->
-                <Grid x:Name="HeroGrid" Grid.Column="1" RowDefinitions="Auto,*">
-                    <Label Grid.Row="0" HorizontalOptions="End" VerticalOptions="Center"
+                <Grid x:Name="HeroGrid" Grid.Column="1" RowDefinitions="Auto,Auto,*,Auto">
+                    <!-- 终末地 HUD：右上角的「系统读数角」—— 小字标签 + 大号时间 + 一条黄线。
+                         只有 HUD 世界可见；其它世界连这一块都不画（IsVisible 由 code-behind 设），
+                         原来那行「配色 · 材质」小字在下一行照旧。 -->
+                    <VerticalStackLayout x:Name="HudCornerReadout" Grid.Row="0" IsVisible="False"
+                                         HorizontalOptions="End" VerticalOptions="Start"
+                                         Margin="0,10,16,0" Spacing="2">
+                        <Label Text="SYSTEM/TERMINAL" FontSize="9" CharacterSpacing="2.4"
+                               HorizontalOptions="End" TextColor="{DynamicResource MutedFg}" />
+                        <Label x:Name="HudCornerTime" FontSize="25" FontAttributes="Bold"
+                               HorizontalOptions="End" TextColor="{DynamicResource WarmDark}" />
+                        <BoxView HeightRequest="2" WidthRequest="132" HorizontalOptions="End"
+                                 Color="{DynamicResource Signal}" />
+                    </VerticalStackLayout>
+                    <Label x:Name="ThemeLegend" Grid.Row="1" HorizontalOptions="End" VerticalOptions="Center"
                            Margin="{DynamicResource WPadCard}"
                            FontSize="{DynamicResource WSizeCaption}" TextColor="{DynamicResource WarmFaint}">
                         <Label.FormattedText>
@@ -168,7 +200,7 @@
                                          Spacing="{DynamicResource WGapItem}"
                                          VerticalOptions="Center" HorizontalOptions="Start"
                                          MaximumWidthRequest="640">
-                        <Label Text="{Binding [Title_Tagline], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Label x:Name="HeroTagline" Text="{Binding [Title_Tagline], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}"
                                HorizontalOptions="Start" LineBreakMode="WordWrap" />
                         <Button x:Name="EnterButton" Text="{Binding StartLabel}"

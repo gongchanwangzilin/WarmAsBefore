@@ -59,9 +59,12 @@ public partial class TitlePage : ContentPage
         Move(RailGrid, CompactStack, RailBottom);
 
         HeroGrid.RowDefinitions.Clear();
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 0：右上读数角 / 配色小字（二选一）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 1：配色小字（HUD）/ 主行动带
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 2：主行动带（HUD）/ 上次存档
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档（HUD）
+        Grid.SetRow(HudCornerReadout, 0);
+        Grid.SetRow(ThemeLegend, 0);
         Grid.SetRow(HeroBand, 1);
         Grid.SetRow(RecentCard, 2);
         HeroBand.VerticalOptions = LayoutOptions.Start;
@@ -83,8 +86,12 @@ public partial class TitlePage : ContentPage
         Grid.SetRow(HeroGrid, 0);
 
         HeroGrid.RowDefinitions.Clear();
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 0：右上读数角 / 配色小字（二选一）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 1：配色小字（HUD，通常为空）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));   // 2：主行动带（HUD）/ 上次存档
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档（HUD）
+        Grid.SetRow(HudCornerReadout, 0);
+        Grid.SetRow(ThemeLegend, 0);
         Grid.SetRow(HeroBand, 1);
         Grid.SetRow(RecentCard, 1);
         HeroBand.VerticalOptions = LayoutOptions.Center;
@@ -123,6 +130,10 @@ public partial class TitlePage : ContentPage
         // 页面这里只负责交出「有哪些带」。
         Motion.Arrive(BrandBand, MenuStack, HeroBand, RailFoot);
 
+        // 终末地 HUD 的专属进场：面板扫描线扫一遍、标题「上电」闪一下、括号亮起。
+        // 只在 HUD 世界且没关动效时播（内部自己判断），其它世界这几句是空操作。
+        PlayHudIntro();
+
         HookKeys();
     }
 
@@ -133,7 +144,53 @@ public partial class TitlePage : ContentPage
         // 方向键还在替一页看不见的标题页挪光标（e.Handled 也会把键吃掉）。
         UnhookKeys();
         SetCaret(-1, -1);
+        _hudClock?.Stop();
     }
+
+    /// <summary>
+    /// 终末地 HUD 的进场机关：扫描线从上扫到下、标题上电（压扁一档再回弹 + 两下小抖）、
+    /// 面板边框轻微「通电」。三件事并行起跑，互不等待；非 HUD 世界或关掉动效时什么也不做。
+    /// 只动合成层属性，所以不会把这一屏的排版再触发一遍。
+    /// </summary>
+    private void PlayHudIntro()
+    {
+        // 行位由这边统一摆：HUD 世界第 0 行让给「系统读数角」、配色小字与主行动带往下顺延；
+        // 非 HUD 世界退回原来的三行（0 配色小字 / 1 主行动带 / 2 上次存档），两边都不留空行。
+        if (!Helpers.HudMotion.IsHud)
+        {
+            Grid.SetRow(ThemeLegend, 0);
+            Grid.SetRow(HeroBand, 1);
+            Grid.SetRow(RecentCard, 2);
+            return;
+        }
+        try
+        {
+            Grid.SetRow(ThemeLegend, 1);
+            Grid.SetRow(HeroBand, 2);
+            Grid.SetRow(RecentCard, 3);
+            _ = Helpers.HudMotion.ScanAsync(HudScan, ShellFrame);
+            _ = Helpers.HudMotion.PowerOnAsync(HeroTagline);
+            // 边框「通电」：整块面板先从 0.992 收齐，读起来像 HUD 面板被点亮了一下
+            if (ShellFrame is not null)
+            {
+                ShellFrame.Opacity = 0.72;
+                _ = ShellFrame.FadeTo(1, 320, Easing.CubicOut);
+            }
+            // 右上角系统读数：HUD 世界才出现；时间走一个每秒刷新的小钟，格式 HH:mm:ss。
+            if (HudCornerReadout is not null)
+            {
+                HudCornerReadout.IsVisible = true;
+                HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
+                _hudClock ??= Dispatcher.CreateTimer();
+                _hudClock.Interval = TimeSpan.FromSeconds(1);
+                _hudClock.Tick += (_, _) => HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
+                _hudClock.Start();
+            }
+        }
+        catch (Exception ex) { App.WriteLog("TitlePage.HudIntro -> " + ex.Message); }
+    }
+
+    private IDispatcherTimer? _hudClock;
 
     /// <summary>点卡片任意处收掉：等不及的人要的是「进去」，不是「看完整版」。</summary>
     private void OnIntroTapped(object? sender, TappedEventArgs e) => IntroCard.Skip();

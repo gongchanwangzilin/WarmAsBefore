@@ -275,6 +275,9 @@ builder.Services
 | 设置与首次配置 | `ViewModels/Settings/SettingsViewModel.cs`（ThemeChoices/ThemeKeyOf/GlassModeChoices）、`ViewModels/Settings/SettingsCatalog.cs`、`Views/Settings/SettingsSectionPage.xaml`、`ViewModels/Main/SetupViewModel.cs`、`Resources/Strings/*.resx` | 主题下拉 + 风格下拉；第一次配置的色板/材质选项与本地化 key（`Setup_World_Endfield` / `Setup_Pal_Endfield`） |
 | 强制暗色 + 标题栏 | `App.xaml.cs`、`Services/Core/RuntimeConfigurator.cs`、`Platforms/Windows/WindowChrome.cs` | 终末地是暗色 HUD：`UserAppTheme=Dark`、`ThemeManager.Dark` 显式对齐；离开恢复 `Unspecified`；WinUI 原生标题栏按 `PageBg/SurfaceFg` 重刷 |
 | 手机/窄屏 | 全站响应式令牌 | 主题只换色相与材质（`WRadius*`/`WPad*`/`WSize*`），手机仍单列、窄窗上下排；`WCardWidth` 跟窗宽 |
+| HUD 形状与读数 | `Controls/HudSkin.cs`（切角面板 / 四角括号 / 斜纹带）、`Controls/HudReadout.cs`（方板读数） | 都按 `StyleWorldTokens.World` 现算：非 HUD 世界退回圆角 / 隐藏；页面写一次 XAML，换世界自动变形 |
+| HUD 动效 | `Helpers/HudMotion.cs` | `ScanAsync / PowerOnAsync / WipeInAsync / BracketsInAsync / TickAsync`；只动合成层属性，`MotionTokens.Disabled` 时整段跳过 |
+| HUD 接线点 | `Views/Main/TitlePage.xaml(.cs)`（切角外壳 + 括号 + 斜纹 + 扫描线 + 右上读数角）、`Views/Main/MainGamePage.xaml(.cs)`（`EnsureHudTopStrip` 读数带） | 读数带用 `HudReadout` 绑 VM 属性，窄屏包在横向 `ScrollView` 里；HUD 世界同时隐藏原小组件顶栏 |
 
 
 

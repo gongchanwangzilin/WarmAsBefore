@@ -1,6 +1,29 @@
 # 温暖如初 v1.56.0
 
-主题版：新增「终末地」配色与「终末地 HUD」材质，配套手机窄屏适配。
+主题版：终末地不只是配色 —— 这次把 HUD 的**形状、读数和机关动效**一起做了出来，并配手机窄屏适配。
+
+## 终末地 HUD 的形状（v1.56 追加）
+
+- `Controls/HudSkin`：切角面板 `PanelCardShape / PanelWellShape / PanelDialogShape`（`PathGeometry` 多边形，
+  右上/左下各切一刀的比例不同），以及四角括号 `CornerBracketDrawable`、45° 斜纹带 `HudHatchDrawable` 两个自绘画布。
+  它们全部按当前世界切换：非终末地世界返回原来的圆角矩形 / 隐藏，所以页面不需要写两套。
+- 标题页外壳（`ShellFrame`）用切角面板，面板里叠四角括号与底边斜纹警示带 —— 这一屏现在读起来是
+  「一块终端面板」，而不是「一张圆角卡换了个深色」。
+- 右上角新增 HUD「系统读数角」：`SYSTEM/TERMINAL` 眉标 + 每秒走字的 `HH:mm:ss` + 一条黄线。
+
+## 终末地 HUD 的读数（主界面顶栏带）
+
+- `Controls/HudReadout`：小写标签 + 大号数字 + 黄色进度槽的方板读数；数值变化在 HUD 世界播一次「咔哒」（合成层缩放）。
+- 主界面顶栏在 HUD 世界换成读数带：`SYSTEM/CLOCK / WEATHER / AFFECTION / ENERGY` 四块方板，
+  右侧 `TALOS//II` 方块指示灯，下沿压一条斜纹；原来那条小组件顶栏同时隐藏（两套顶栏叠着会读成界面坏了两层）。
+- 窄屏/手机：读数带自动变成可横滑的一条，读数不会挤出屏幕；非 HUD 世界零开销（整块不建）。
+
+## 终末地 HUD 的动效（`Helpers/HudMotion`）
+
+- 进场：**扫描线**从面板顶部扫到底（520ms）、**标题上电**（压扁 1.5% + 闪两下 + 回弹）、面板淡入通电。
+- 交互：读数变化方板「咔哒」一缩；`WipeInAsync`（划一刀）与 `BracketsInAsync`（括号逐角亮起）留给后续页面调用。
+- 全部只动 `TranslationX/Y / ScaleX/Y / Opacity`（合成层），不触发布局；`MotionTokens.Disabled`（系统减少动画
+  或设置里的性能模式）为真时整段跳过，状态照常切换。
 
 ## 终末地色板
 
@@ -29,9 +52,10 @@
 
 ## 验证
 
-- Windows Debug（`net10.0-windows10.0.19041.0`，win-x64）构建 0 error。
+- Windows Debug（`net10.0-windows10.0.19041.0`，win-x64）构建 0 error；Android `Compile` 目标通过。
 - 运行时截图验证：把 `settings.json` 的 ThemeName/StyleWorldName 设为 `endfield` 后启动，
-  标题页右上角显示「终末地 · 终末地 HUD」，界面按暗色 HUD 渲染；测试后已还原用户设置。
+  标题页按暗色 HUD 渲染、主界面顶栏显示读数带；把窗口拖到 430px 宽确认读数带可横滑；
+  测试后已还原用户设置（classic / soft）。
 
 ---
 
