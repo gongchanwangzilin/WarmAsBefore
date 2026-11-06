@@ -39,7 +39,14 @@
                         Padding="0"
                         Command="{Binding BackCommand}" />
                 <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                    <Label Text="// ROSTER" Style="{StaticResource Eyebrow}" />
+                    <HorizontalStackLayout Spacing="7" VerticalOptions="End">
+                        <!-- 世界印记（2.7）：每世界一种形状与颜色的小块 —— 设置页/角色库同款，
+                             世界一换整页 性格就跟印记走；它不参与悬停/按压状态（签名不演戏）。 -->
+                        <BoxView Color="{DynamicResource WMarkColor}"
+                                 WidthRequest="{DynamicResource WMarkSize}" HeightRequest="{DynamicResource WMarkSize}"
+                                 CornerRadius="{DynamicResource WMarkRadius}" VerticalOptions="End" />
+                        <Label Text="// ROSTER" Style="{StaticResource Eyebrow}" />
+                    </HorizontalStackLayout>
                     <Label Text="角色库" Style="{StaticResource TxtTitle}" />
                 </VerticalStackLayout>
                 <!-- 说明性徽章：井面 + 淡墨字。淡彩（*Tint / BeigeAccent*）只能当面，
@@ -317,5 +324,8 @@
                 </Grid>
             </Border>
         </FlexLayout>
+
+        <!-- 档案室大气层（2.7）：细颗粒 + 暖光 + 暗角，铺在内容之上（InputTransparent） -->
+        <ctl:WorldAtmosphere Grid.RowSpan="3" />
     </Grid>
 </ContentPage>

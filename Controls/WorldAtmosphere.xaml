@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+    世界大气层（UI 标准书 2.7）：一整页的纹理叠层 —— 纸纹颗粒、顶部暖光、四角暗角，
+    逐世界强度由 StyleWorld 下发的 WAtmo*Opacity 令牌控制（无光的世界三层全 0 = 空操作）。
+    规矩：
+      · 必须整层 InputTransparent —— 大气永远不接点击；
+      · 放在页面根容器的**最后一个子级**（压在内容之上、点击之下）；
+      · 每页至多一层；纹理资产中性（atmo_*.png），强度只在令牌，不在资产。
+-->
+<Grid xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+      xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+      x:Class="WarmAsBefore.Controls.WorldAtmosphere"
+      InputTransparent="True">
+    <Image Source="atmo_grain.png" Aspect="AspectFill" HorizontalOptions="Fill" VerticalOptions="Fill"
+           Opacity="{DynamicResource WAtmoGrainOpacity}" />
+    <Image Source="atmo_spot.png" Aspect="AspectFill" HorizontalOptions="Fill" VerticalOptions="Start"
+           HeightRequest="520" Opacity="{DynamicResource WAtmoSpotOpacity}" />
+    <Image Source="atmo_vignette.png" Aspect="AspectFill" HorizontalOptions="Fill" VerticalOptions="Fill"
+           Opacity="{DynamicResource WAtmoVignetteOpacity}" />
+</Grid>

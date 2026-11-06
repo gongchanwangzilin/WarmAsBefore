@@ -28,11 +28,19 @@
                 Margin="{DynamicResource WPageMargin}"
                 StrokeShape="{x:Static controls:HudSkin.PanelCardShape}"
                 HorizontalOptions="Fill" VerticalOptions="Fill">
+            <!-- 拟态：一整页的玻璃面板浮在「房间」上，软阴影把四周压下去（2.7） -->
+            <Border.Shadow>
+                <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,14" Radius="34" Opacity="0.9" />
+            </Border.Shadow>
             <Grid>
+                <!-- 卡面砂纸纹理（2.7）：铺在面板表面、内容之下 —— 纸本温馨质感落在卡上，
+                     文字仍在纹理之上保持锐利。 -->
+                <Image Source="atmo_grain.png" Aspect="AspectFill" Opacity="0.10" InputTransparent="True"
+                       HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- HUD 四角括号：只在终末地世界画出来（其余世界 IsVisible=False，元素不占位、不绘制）。 -->
                 <GraphicsView x:Name="HudBrackets" InputTransparent="True" IsVisible="{x:Static controls:HudSkin.IsActive}" Margin="14">
                     <GraphicsView.Drawable>
-                        <controls:CornerBracketDrawable Size="18" />
+                        <controls:CornerBracketDrawable Size="22" />
                     </GraphicsView.Drawable>
                 </GraphicsView>
                 <!-- 扫描线：终末地世界进场时从顶部扫到底再消失（HudMotion.Scan 负责走位） -->
@@ -90,10 +98,11 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSaveCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0" Text="{Binding [Title_Save], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Label Text="01" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding [Title_Save], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="›" FontSize="{DynamicResource WSizeSubhead}"
+                            <Label Grid.Column="2" Text="›" FontSize="{DynamicResource WSizeSubhead}"
                                    TextColor="{DynamicResource WarmFaint}" VerticalOptions="Center" />
                         </Grid>
                     </Border>
@@ -102,10 +111,11 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenNovelsCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0" Text="{Binding [Title_Novels], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Label Text="02" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding [Title_Novels], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="›" FontSize="{DynamicResource WSizeSubhead}"
+                            <Label Grid.Column="2" Text="›" FontSize="{DynamicResource WSizeSubhead}"
                                    TextColor="{DynamicResource WarmFaint}" VerticalOptions="Center" />
                         </Grid>
                     </Border>
@@ -114,10 +124,11 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenRosterCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0" Text="{Binding [Title_Roster], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Label Text="03" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding [Title_Roster], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="›" FontSize="{DynamicResource WSizeSubhead}"
+                            <Label Grid.Column="2" Text="›" FontSize="{DynamicResource WSizeSubhead}"
                                    TextColor="{DynamicResource WarmFaint}" VerticalOptions="Center" />
                         </Grid>
                     </Border>
@@ -126,10 +137,11 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="*,Auto">
-                            <Label Grid.Column="0" Text="{Binding [Title_Settings], Source={x:Static i18n:LocalizationService.Current}}"
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                            <Label Text="04" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="{Binding [Title_Settings], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="›" FontSize="{DynamicResource WSizeSubhead}"
+                            <Label Grid.Column="2" Text="›" FontSize="{DynamicResource WSizeSubhead}"
                                    TextColor="{DynamicResource WarmFaint}" VerticalOptions="Center" />
                         </Grid>
                     </Border>
@@ -317,5 +329,8 @@
                    FontSize="{DynamicResource WSizeCaption}" TextColor="{DynamicResource WarmFaint}"
                    Opacity="0" HorizontalOptions="Center" VerticalOptions="End" />
         </Grid>
+        <!-- 档案室大气层（2.7）：细颗粒 + 顶部暖光 + 四角暗角，铺在内容之上（InputTransparent）。
+             透明度走令牌：颗粒只到「摸得到」的 7%，不脏字。 -->
+        <controls:WorldAtmosphere />
     </Grid>
 </ContentPage>

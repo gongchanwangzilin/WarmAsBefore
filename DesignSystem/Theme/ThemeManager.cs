@@ -8,7 +8,7 @@ public class ThemeManager
     private bool _frost;
     private bool _liquid;
     private string _themeName = "classic";
-    private StyleWorld _world = StyleWorld.Soft;
+    private StyleWorld _world = StyleWorld.Endfield;
     private bool _dark;
 
     /// <summary>

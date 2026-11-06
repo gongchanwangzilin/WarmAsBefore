@@ -155,19 +155,33 @@ public partial class TitlePage : ContentPage
     private void PlayHudIntro()
     {
         // 行位由这边统一摆：HUD 世界第 1 行让给「配色小字」、读数角占第 0 行；主行动带与存档卡
-        // 保持宽屏的 2/3 不动 —— 两套世界共用同一个无重叠的行方案（与 EnterWide 一致）。
-        if (!Helpers.HudMotion.IsHud)
+        // 保持宽屏的 2/3 不动 —— 两套布局共用同一个无重叠的行方案（与 EnterWide 一致）。
+        // 注意：结构（读数角、行位）只跟「是不是档案室世界」走；「动效开关」只管机关动作。
+        // 旧版把两者绑在一起，用户一关动效，右上角时钟就整块消失 —— 结构不该依赖动画。
+        if (!WarmAsBefore.Controls.HudSkin.IsActive)
         {
             Grid.SetRow(ThemeLegend, 0);
             Grid.SetRow(HeroBand, 2);
             Grid.SetRow(RecentCard, 3);
             return;
         }
+
+        Grid.SetRow(ThemeLegend, 1);
+        Grid.SetRow(HeroBand, 2);
+        Grid.SetRow(RecentCard, 3);
+        if (HudCornerReadout is not null)
+        {
+            HudCornerReadout.IsVisible = true;
+            HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
+            _hudClock ??= Dispatcher.CreateTimer();
+            _hudClock.Interval = TimeSpan.FromSeconds(1);
+            _hudClock.Tick += (_, _) => HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
+            _hudClock.Start();
+        }
+
+        if (!Helpers.HudMotion.IsHud) return;
         try
         {
-            Grid.SetRow(ThemeLegend, 1);
-            Grid.SetRow(HeroBand, 2);
-            Grid.SetRow(RecentCard, 3);
             _ = Helpers.HudMotion.ScanAsync(HudScan, ShellFrame);
             _ = Helpers.HudMotion.PowerOnAsync(HeroTagline);
             // 边框「通电」：整块面板先从 0.992 收齐，读起来像 HUD 面板被点亮了一下
@@ -175,16 +189,6 @@ public partial class TitlePage : ContentPage
             {
                 ShellFrame.Opacity = 0.72;
                 _ = ShellFrame.FadeTo(1, 320, Easing.CubicOut);
-            }
-            // 右上角系统读数：HUD 世界才出现；时间走一个每秒刷新的小钟，格式 HH:mm:ss。
-            if (HudCornerReadout is not null)
-            {
-                HudCornerReadout.IsVisible = true;
-                HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
-                _hudClock ??= Dispatcher.CreateTimer();
-                _hudClock.Interval = TimeSpan.FromSeconds(1);
-                _hudClock.Tick += (_, _) => HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
-                _hudClock.Start();
             }
         }
         catch (Exception ex) { App.WriteLog("TitlePage.HudIntro -> " + ex.Message); }
@@ -309,16 +313,27 @@ public partial class TitlePage : ContentPage
     /// <summary>
     /// 把圈摆到当前那一格外面，四周各让出 4px。位置沿父链一路加 Bounds 量出来：
     /// 平台那套「取元素屏幕坐标」的 API 在 MAUI 各版本间换过名字，而 Bounds 每版都跟着排版走。
-    /// 尺寸直接给（这一层是个空心的 Border，重排它不牵动别人），位移走动画 ——
-    /// 光标一跳会读成「界面自己动了」，滑过去才读成「是我在移动选择」。
+    ///
+    /// 尺寸只在**真的变了**才写 WidthRequest/HeightRequest：每次按键都重写会让这颗 Border
+    /// 重新测量、重画一圈，四行同高时那一步纯属白掉一帧 —— 键盘移动时的卡顿就出在这。
+    /// 位移仍然走动画：光标一跳会读成「界面自己动了」，滑过去才读成「是我在移动选择」。
     /// </summary>
+    private double _ringW = -1, _ringH = -1;
+
     private void PlaceRing()
     {
         var target = CurrentTarget();
         if (target is null || _col < 0) { FocusRing.IsVisible = false; return; }
         var (x, y) = OffsetIn(target.Element, Root);
-        FocusRing.WidthRequest = Math.Max(24, target.Element.Width + 8);
-        FocusRing.HeightRequest = Math.Max(20, target.Element.Height + 8);
+        var w = Math.Max(24, target.Element.Width + 8);
+        var h = Math.Max(20, target.Element.Height + 8);
+        if (Math.Abs(w - _ringW) > 0.5 || Math.Abs(h - _ringH) > 0.5)
+        {
+            _ringW = w;
+            _ringH = h;
+            FocusRing.WidthRequest = w;
+            FocusRing.HeightRequest = h;
+        }
         var toX = Math.Max(0, x - 4);
         var toY = Math.Max(0, y - 4);
         if (!FocusRing.IsVisible)

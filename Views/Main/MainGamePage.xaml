@@ -741,5 +741,8 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                 </Label.GestureRecognizers>
             </Label>
         </Border>
+
+        <!-- 档案室大气层（2.7）：细颗粒 + 暖光 + 暗角，铺在内容之上（InputTransparent） -->
+        <ctl:WorldAtmosphere />
     </Grid>
 </ContentPage>

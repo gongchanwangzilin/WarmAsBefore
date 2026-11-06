@@ -76,17 +76,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _frostOn = s.FrostEnabled;
         _glassOn = s.GlassEnabled;
         _liquidOn = s.LiquidEnabled;
-        // 旧存档只有三个玻璃布尔，没有世界键：按布尔落回对应的世界，
-        // 否则升级的那一次等于把所有人的风格重置成默认档。
-        _selectedWorld = !string.IsNullOrEmpty(s.StyleWorldName)
-            ? WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromName(s.StyleWorldName)
-            : s.LiquidEnabled
-                ? WarmAsBefore.DesignSystem.Worlds.StyleWorld.Liquid
-                : s.GlassEnabled
-                    ? WarmAsBefore.DesignSystem.Worlds.StyleWorld.Gradient
-                    : s.FrostEnabled
-                        ? WarmAsBefore.DesignSystem.Worlds.StyleWorld.Soft
-                        : WarmAsBefore.DesignSystem.Worlds.StyleWorld.Minimal;
+        // 世界已收敛为唯一档「档案室」（2.7）：旧存档里不管存过哪个风格键，落图都是同一档。
+        _selectedWorld = WarmAsBefore.DesignSystem.Worlds.StyleWorld.Endfield;
         _theme.World = _selectedWorld;
         _glassTranslucency = s.GlassTranslucency;
         _glassReducedTransparency = s.GlassReducedTransparency;
@@ -337,41 +328,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private double _bgmLevel = 0.7;
     [ObservableProperty] private double _sfxLevel = 0.8;
     // 风格世界：三个互相牵制的玻璃开关合并为一个选择。
-    // 世界管材质（圆角、缝、影、字号台阶），色板管颜色，深浅色跟随系统 —— 三条轴各管各的，
-    // 所以这里只留一个入口，不再新增设置项。
-    public List<string> GlassModeChoices { get; } = new() { "轻质感", "柔和极简", "柔和渐变", "液态玻璃", "终末地 HUD" };
-
-    /// <summary>
-    /// 风格世界（下拉显示值）。选中时同时把旧的三个布尔摆到对应的台阶上：
-    /// 它们仍是持久化字段，也是 CanGlass 这类可见性判断的依据，留着不管就会和界面自相矛盾。
-    /// </summary>
-    public string GlassModeDisplay
-    {
-        get => WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.Display(SelectedWorld);
-        set
-        {
-            var want = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromDisplay(value);
-            if (SelectedWorld == want) return;
-            SelectedWorld = want;
-            ApplyWorldFlags(want);
-            OnPropertyChanged(nameof(GlassModeDisplay));
-            PersistSettings();
-        }
-    }
-
+    // 世界已收敛为唯一档「档案室」（2.7）：风格下拉与五档选项表退役，只剩玻璃项微调。
     [ObservableProperty] private WarmAsBefore.DesignSystem.Worlds.StyleWorld _selectedWorld
-        = WarmAsBefore.DesignSystem.Worlds.StyleWorld.Soft;
+        = WarmAsBefore.DesignSystem.Worlds.StyleWorld.Endfield;
 
     partial void OnSelectedWorldChanged(WarmAsBefore.DesignSystem.Worlds.StyleWorld value)
     {
         _theme.World = value;
-    }
-
-    /// <summary>世界 → 旧玻璃三开关的等价档位（仅用于持久化与依赖它们的可见性判断）。</summary>
-    private void ApplyWorldFlags(WarmAsBefore.DesignSystem.Worlds.StyleWorld w)
-    {
-        var (liquid, glass, frost) = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.GlassFlags(w);
-        LiquidOn = liquid; GlassOn = glass; FrostOn = frost;
     }
 
     /// <summary>光源方向那四个滑杆属于微调，默认收起（用户反馈：一排近似设置太占地方）。</summary>
@@ -2500,20 +2463,18 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnSfxLevelChanged(double value) => PersistSettings();
     partial void OnGlassOnChanged(bool value)
     {
-        OnPropertyChanged(nameof(GlassModeDisplay));
         if (value && !FrostOn) FrostOn = true;
         _theme.Glass = value;
         PersistSettings();
     }
     partial void OnFrostOnChanged(bool value)
     {
-        OnPropertyChanged(nameof(GlassModeDisplay));
         if (!value) GlassOn = false;
         _theme.Frost = value;
         OnPropertyChanged(nameof(CanGlass));
         PersistSettings();
     }
-    partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings();  OnPropertyChanged(nameof(GlassModeDisplay)); }
+    partial void OnLiquidOnChanged(bool value) { _theme.Liquid = value; PersistSettings(); }
     partial void OnGlassTranslucencyChanged(double value)
     {
         _theme.GlassTranslucency = value;

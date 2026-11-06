@@ -9,19 +9,26 @@ namespace WarmAsBefore.DesignSystem.Worlds;
 /// </summary>
 public enum StyleWorld
 {
-    /// <summary>轻质感：三层真实深度 + 一道细缝分档，不靠影子。</summary>
-    Soft,
-    /// <summary>柔和极简：没有描边也没有影子，边界全靠底色台阶与留白。</summary>
-    Minimal,
-    /// <summary>柔和渐变：面是一档很浅的渐变，缝减半，加一团近而柔的影子。</summary>
-    Gradient,
-    /// <summary>液态玻璃：通透的渐变面 + 发光边，影子又远又散；必须有可透的背景才成立。</summary>
-    Liquid,
     /// <summary>
-    /// 终末地 HUD：直角/近直角的工业面板、细描边、无阴影、无渐变，字号收得更紧。
-    /// 参考《明日方舟：终末地》HUD（EndfieldHUD 项目）的「深灰面板 + 黄色强调 + 白色细线」，
-    /// 和「终末地」色板是两条独立轴：色板给出黄色强调与冷灰底，世界负责把形状变成 HUD。
+    /// 档案室（融合唯一世界，2026-11-06 收编五世界而成）：
+    /// 终末地 HUD 的排版骨架（近直角、细描边、收紧的字阶、干脆的动效）
+    /// + 玻璃透材质（GlassTier=glass，面透出背景）
+    /// + 拟态软阴影（影子发到真实档，凹浮分明）
+    /// + 砂纸/纸本的大气层（颗粒、暖光、暗角，见 2.7）—— 温馨的档案室氛围。
+    /// 其余四个旧枚举值保留仅为兼容旧存档与旧引用，材质全部走同一条融合配方（见 Recipe.Of）。
     /// </summary>
+    Soft,
+
+    /// <summary>已收编进档案室（原「柔和极简」）。</summary>
+    Minimal,
+
+    /// <summary>已收编进档案室（原「柔和渐变」）。</summary>
+    Gradient,
+
+    /// <summary>已收编进档案室（原「液态玻璃」——玻璃透材质并入融合配方）。</summary>
+    Liquid,
+
+    /// <summary>已收编进档案室（原「终末地 HUD」——排版骨架即融合世界的骨架）。</summary>
     Endfield
 }
 
@@ -41,9 +48,9 @@ public enum StyleWorld
 /// </summary>
 public static class StyleWorldTokens
 {
-    // 默认档是「轻质感」，不是极简：这是定的那件事，写错一档，第一次打开的人看到的就是
-    // 一个没有质感的世界，另外三档的存在感会跟着掉下去。
-    public static StyleWorld World { get; private set; } = StyleWorld.Soft;
+    // 世界已收敛为唯一档「档案室」（终末地骨架 + 玻璃 + 拟态 + 纸本质感）。
+    // 枚举与 setter 保留：旧存档的世界键还能进来（只是一律落到同一档），避免 114 处引用.chain 改。
+    public static StyleWorld World { get; private set; } = StyleWorld.Endfield;
     public static bool Dark { get; private set; }
 
     // ── 视口尺度 ────────────────────────────────────────────────────────
@@ -108,58 +115,25 @@ public static class StyleWorldTokens
         res["WRailWidth"] = CardWidth(ViewportWidth) < 480 ? -1d : Math.Round(262 * Scale);
     }
 
-    public static string Display(StyleWorld w) => w switch
-    {
-        StyleWorld.Soft => "轻质感",
-        StyleWorld.Gradient => "柔和渐变",
-        StyleWorld.Liquid => "液态玻璃",
-        StyleWorld.Endfield => "终末地 HUD",
-        _ => "柔和极简"
-    };
-
-    /// <summary>设置里那个下拉框的显示值 ↔ 世界（沿用原有的外观选择器，不新增设置项）。</summary>
-    public static StyleWorld FromDisplay(string? text) => text switch
-    {
-        "轻质感" => StyleWorld.Soft,
-        "柔和渐变" => StyleWorld.Gradient,
-        "液态玻璃" => StyleWorld.Liquid,
-        "终末地 HUD" => StyleWorld.Endfield,
-        "柔和极简" => StyleWorld.Minimal,
-        _ => StyleWorld.Soft
-    };
-
-    public static StyleWorld FromName(string? name) => name switch
-    {
-        "gradient" => StyleWorld.Gradient,
-        "liquid" => StyleWorld.Liquid,
-        "minimal" => StyleWorld.Minimal,
-        "endfield" => StyleWorld.Endfield,
-        _ => StyleWorld.Soft
-    };
-
-    /// <summary>存进设置的英文键名（显示值是中文，会随语言变，不能当持久化标识）。</summary>
-    public static string NameOf(StyleWorld w) => w switch
-    {
-        StyleWorld.Soft => "soft",
-        StyleWorld.Gradient => "gradient",
-        StyleWorld.Liquid => "liquid",
-        StyleWorld.Endfield => "endfield",
-        _ => "minimal"
-    };
+    public static string Display(StyleWorld w) => "档案室";
 
     /// <summary>
-    /// 世界 → 旧玻璃三开关的等价档位。这三个布尔仍是持久化字段，设置页也还拿它们判断行不行得通，
-    /// 所以任何一处换世界（设置页、首次配置）都必须顺手把它们摆到同一档 —— 映射只留这一份，
-    /// 两处各写一遍迟早会给出两个答案。
+    /// 旧显示名 ↔ 世界。世界已收敛，任何旧名都落到档案室（包括旧存档里存的「液态玻璃」）——
+    /// 函数保留只为兼容旧调用点，不许再拿它做「换风格」。
     /// </summary>
-    public static (bool Liquid, bool Glass, bool Frost) GlassFlags(StyleWorld w) => w switch
-    {
-        StyleWorld.Liquid => (true, true, true),
-        StyleWorld.Gradient => (false, true, true),
-        StyleWorld.Minimal => (false, false, false),
-        StyleWorld.Endfield => (false, false, false),
-        _ => (false, false, true)
-    };
+    public static StyleWorld FromDisplay(string? text) => StyleWorld.Endfield;
+
+    /// <summary>旧英文键 ↔ 世界：同上，全部落到档案室。</summary>
+    public static StyleWorld FromName(string? name) => StyleWorld.Endfield;
+
+    /// <summary>存进设置的英文键名。新世界统一写 "endfield"（档案室的键名沿用终末地的历史键）。</summary>
+    public static string NameOf(StyleWorld w) => "endfield";
+
+    /// <summary>
+    /// 旧玻璃三开关的等价档位。世界已收敛为档案室：玻璃全开（面透、发光边、磨砂可调）。
+    /// 函数保留，因为这三个布尔仍是持久化字段，设置页还拿它们判断控件摆不摆出来。
+    /// </summary>
+    public static (bool Liquid, bool Glass, bool Frost) GlassFlags(StyleWorld w) => (true, true, true);
 
     // ── 每个世界的材质配方 ──────────────────────────────────────────────
     // Depth = 页面底 / 卡面 / 井 三档之间的**明度台阶倍数**。这是「层次」的唯一来源：
@@ -170,30 +144,21 @@ public static class StyleWorldTokens
         double SizeDisplay, double SizeTitle, double SizeSubhead, double SizeBody, double SizeSmall, double SizeCaption,
         bool Seam, bool Shadow, bool FillGradient, string GlassTier)
     {
-        public static Recipe Of(StyleWorld w) => w switch
-        {
-            // 极简（默认）：台阶最大（靠颜色分家），但没有缝也没有影子；字号收得最紧，
-            // 分家交给字重与留白。这一档对标桌面系统设置窗（实测取色：地 #F3F3F3、卡 #FFFFFF、
-            // 发丝线 #F3F3F3、选中块 #E3E3E3、信号靛紫 #6F6BC7）：
-            // 白卡浮在浅灰地上，卡内一行一条发丝线，控件右对齐、垂直居中。
-            // 角 12 是「一张卡」，再大就成玩具；内距 20 让「标题 + 说明 + 控件」的一行落在 64 上下。
-            StyleWorld.Minimal => new Recipe(1.00, 12, 8, 16, 8, 0, 18, 14,
-                28, 19, 15.5, 14.5, 13, 12, false, false, false, "none"),
-            // 渐变：台阶居中，面自带很浅的渐变，缝压到六成，影子近而柔。
-            StyleWorld.Gradient => new Recipe(0.70, 16, 12, 20, 14, 1, 18, 10,
-                34, 22, 17, 15.5, 14, 12.5, true, true, true, "glass"),
-            // 液态玻璃：玻璃的边界由发光边成立，底色台阶收到最小，否则「雾里套一块白」；
-            // 字要更大才压得住通透的面。
-            StyleWorld.Liquid => new Recipe(0.34, 20, 14, 24, 16, 1.5, 20, 12,
-                36, 24, 18, 16, 14, 13, true, true, false, "liquid"),
-            // 终末地 HUD：近直角（2–4px 只比纯直角软一点）、细描边、无阴影、无渐变；
-            // 字号整体收紧一档，像仪表盘而不是杂志。材质档给 none —— HUD 面板本来就不该透出背景。
-            StyleWorld.Endfield => new Recipe(0.62, 3, 2, 6, 2, 1.4, 16, 10,
-                30, 20, 15.5, 14.5, 13, 11.5, true, false, false, "none"),
-            // 轻质感：台阶偏小但真实，分档主要交给那一道缝。
-            _ => new Recipe(0.55, 12, 10, 16, 10, 1, 18, 10,
-                32, 21, 16.5, 15, 13.5, 12, true, false, false, "frost")
-        };
+        public static Recipe Of(StyleWorld w) => new(
+            // 档案室（融合唯一配方）——各源的贡献：
+            //   Depth 0.62          终末地：台阶定性但不过「雾里看块」
+            //   圆角 8/6/8/6        终末地近直角放宽到 6–8（档案柜的圆铁角，比 2–4 多一点温度）
+            //   EdgeWidth 1.2       终末地细描边（玻璃面的发光边由 GlassTokens 接管时会盖过这条，不冲突）
+            //   Pad 16/10           终末地的紧身内距（仪表盘的行距，不学杂志）
+            //   字阶 30/20/15.5/14.5/13/11.5  终末地收紧的字阶（HUD 的信息密度）
+            //   Seam true           轻质感的那道缝保留（纸本分层的根）
+            //   Shadow true         拟态：软阴影发到真实档（浮卡有影、按下去有沉）
+            //   FillGradient true   玻璃面：面是一档浅渐变（Face() 的受光渐变主要分支）
+            //   GlassTier "glass"   GlassTokens 接管卡面：透出背景、发光边、可磨砂
+            Depth: 0.62, RadiusCard: 8, RadiusWell: 6, RadiusDialog: 8, RadiusButton: 6,
+            EdgeWidth: 1.2, PadCard: 16, PadWell: 10,
+            SizeDisplay: 30, SizeTitle: 20, SizeSubhead: 15.5, SizeBody: 14.5, SizeSmall: 13, SizeCaption: 11.5,
+            Seam: true, Shadow: true, FillGradient: true, GlassTier: "glass");
     }
 
     /// <summary>
@@ -225,14 +190,7 @@ public static class StyleWorldTokens
     /// 透明度/磨砂/高度仍是用户可调的乘子，但上限由世界给 ——
     /// 轻质感不该被调成全透，极简档压根不该有磨砂。
     /// </summary>
-    public static (double Translucency, double Frost, double Height) GlassBias(StyleWorld w) => w switch
-    {
-        StyleWorld.Minimal => (0.0, 0.0, 0.0),
-        StyleWorld.Gradient => (0.55, 0.10, 0.35),
-        StyleWorld.Liquid => (1.0, 0.18, 0.85),
-        StyleWorld.Endfield => (0.0, 0.0, 0.0),   // HUD：全不透明，连亮边都不要
-        _ => (0.0, 0.06, 0.18)   // 轻质感：基本不透明，只借玻璃档算那条亮边
-    };
+    public static (double Translucency, double Frost, double Height) GlassBias(StyleWorld w) => (0.85, 0.16, 0.80);
 
     // ── 对外取色口（自绘画布、页面底）──────────────────────────────────
 
@@ -257,19 +215,16 @@ public static class StyleWorldTokens
     }
 
     /// <summary>
-    /// 纯色档下页面底怎么画。极简与轻质感是一整块纯色：它们的层次在「页面/卡面/井」的台阶上，
-    /// 地面再铺渐变会把台阶读糊。渐变档与液态玻璃档必须给地面一层斜向浅渐变——
-    /// 半透明表面背后若是一整块纯色，玻璃就永远只是一块浅色板，这是「玻璃看不出是玻璃」的根因。
+    /// 页面底：档案室永远给地面一层斜向浅渐变 —— 半透明表面背后若是一整块纯色，
+    /// 玻璃就永远只是一块浅色板，这是「玻璃看不出是玻璃」的根因。
     /// 明度只在地面附近几档内浮动，不去抢卡面与墨色的对比。
     /// </summary>
     public static Brush GroundBrush(Color page)
     {
-        if (World is StyleWorld.Minimal or StyleWorld.Soft) return new SolidColorBrush(page);
-        var liquid = World == StyleWorld.Liquid;
         var brush = new LinearGradientBrush { StartPoint = new Point(0.08, 0), EndPoint = new Point(0.92, 1) };
         brush.GradientStops.Add(new GradientStop { Color = Lift(page, Dark ? 0.075f : 0.045f), Offset = 0f });
         brush.GradientStops.Add(new GradientStop { Color = page, Offset = 0.45f });
-        brush.GradientStops.Add(new GradientStop { Color = Mix(page, _well ?? Sink(page, 0.06f), liquid ? 0.30 : 0.18), Offset = 1f });
+        brush.GradientStops.Add(new GradientStop { Color = Mix(page, _well ?? Sink(page, 0.06f), 0.24), Offset = 1f });
         return brush;
     }
 
@@ -297,17 +252,10 @@ public static class StyleWorldTokens
     }
 
     /// <summary>
-    /// 世界的节奏与按压行程：材质不一样，余韵就不该一样。极简要干脆（短、沉得浅），
-    /// 液态玻璃要松弛（长、沉得深）。行程不超过 2px —— 再深就不是「材料被压下去」而是「按钮在跳」。
+    /// 世界的节奏与按压行程：档案室取终末地的仪表按键 —— 干脆、行程浅、余韵短。
+    /// 行程不超过 2px —— 再深就不是「材料被压下去」而是「按钮在跳」。
     /// </summary>
-    public static (double Scale, double Press) MotionOf(StyleWorld w) => w switch
-    {
-        StyleWorld.Minimal => (0.68, 1.8),
-        StyleWorld.Gradient => (1.30, 2.2),
-        StyleWorld.Liquid => (1.48, 2.6),
-        StyleWorld.Endfield => (0.9, 2.0),   // HUD：干脆、行程浅，像仪表按键
-        _ => (1.0, 2.4)
-    };
+    public static (double Scale, double Press) MotionOf(StyleWorld w) => (0.9, 2.0);
 
     // ── 下发 ────────────────────────────────────────────────────────────
 
@@ -380,18 +328,13 @@ public static class StyleWorldTokens
         // 方向写反时 Lock 也会把对比补齐，结果就是「白底上的字被推到灰、看着像禁用」，所以方向要自己对。
         var accentInk = Lock(SinkOrLift(accent, dark, 0.74, 0.72), accent, 5.0);
 
-        // 信号色：整屏唯一的一颗饱和弹，只用在「选中 / 焦点 / 开关 ON」上。
-        // 为什么不复用 AccentWarm：那是淡奶油**填充**档，压在白卡上只有 1.1:1，
-        // 当选中色等于没选中。参考的那套系统 UI 里除这一颗以外全是中性 ——
-        // 强调色一旦到处出现，它就不再是强调色。色相因此**不跟色板走**，钉在靛紫
-        // （实测参考窗左缘那根胶囊是 #6F6BC7）：四套色板一切换、选中色也跟着换四种，
-        // 那不叫信号，叫第五套装饰。
-        // 例外：终末地 HUD 的「当前/选中」就是终末地黄本身 —— 面板已经全是深灰，
-        // 再塞一颗靛紫只会在 HUD 里多出一块不属于这套设计的颜色。
+        // 档案室的信号色：黄铜 / 琥珀（钉死色相 40°）。这间屋子里唯一的饱和物是那盏
+        // 黄铜台灯与桌面的印章 —— 信号色跟着色板换五种，就不叫信号了（沿用旧版钉靛紫的逻辑）。
+        // 端末地色板本来就是黄强调，因此五套色板在这里第一次指向同一个「档案室」性格。
         var isEndfield = string.Equals(themeKey, "endfield", StringComparison.OrdinalIgnoreCase);
         var signal = isEndfield
             ? Lock(Hsl(_seed.AccentH, 0.95, dark ? 0.62 : 0.40), surface, dark ? 5.0 : 4.8)
-            : Hsl(242, 0.55, dark ? 0.64 : 0.46);
+            : Lock(Hsl(38, 0.85, dark ? 0.60 : 0.42), surface, dark ? 5.0 : 4.8);
 
         PublishColors(res, page, surface, well, inkDisplay, inkBody, inkLabel, inkMuted, inkFaint,
             seam, edge, line, accent, accentInk, signal, dark);
@@ -521,6 +464,10 @@ public static class StyleWorldTokens
         res["BeigeAccent100"] = dark ? accent : Lift(accent, 0.10);
         res["BeigeAccent200"] = dark ? Sink(accent, 0.16) : Sink(accent, 0.06);
         res["BeigeAccent300"] = dark ? Sink(accent, 0.30) : Sink(accent, 0.16);
+
+        // 世界签名层（2.7）· 页首印记：形态在 PublishMaterial 的 WMarkRadius/Size，
+        // 颜色在这里——直接用 Signal（档案室的印记就是这间屋子的那颗信号弹，跟色板的黄/靛紫走同一规则）。
+        res["WMarkColor"] = signal;
     }
 
     /// <summary>
@@ -530,14 +477,14 @@ public static class StyleWorldTokens
     private static void PublishMaterial(ResourceDictionary res, Recipe r,
         Color surface, Color well, Color page, Color seam, Color edge, Color accent, Color accentInk, bool dark)
     {
-        // 面：只有渐变档把面画成很浅的一档渐变，其余世界是实心 —— 渐变当装饰就会发糊。
+        // 面：档案室的面走玻璃主分支（FillGradient=true 且 GlassTier=glass 时 GlassTokens 接管；
+        // 语义键未接管前这里先用一套受光渐变兜底：顶提 0.045，像纸对着窗光）。
         Brush Face(Color baseColor, bool topLight)
         {
-            if (!r.FillGradient) return new SolidColorBrush(baseColor);
             var b = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
-            b.GradientStops.Add(new GradientStop { Color = topLight ? Lift(baseColor, 0.10) : Sink(baseColor, 0.05), Offset = 0f });
-            b.GradientStops.Add(new GradientStop { Color = baseColor, Offset = 0.55f });
-            b.GradientStops.Add(new GradientStop { Color = topLight ? Sink(baseColor, 0.05) : Lift(baseColor, 0.06), Offset = 1f });
+            b.GradientStops.Add(new GradientStop { Color = topLight ? Lift(baseColor, 0.045f) : Sink(baseColor, 0.03f), Offset = 0f });
+            b.GradientStops.Add(new GradientStop { Color = baseColor, Offset = 0.62f });
+            b.GradientStops.Add(new GradientStop { Color = topLight ? Sink(baseColor, 0.02f) : Lift(baseColor, 0.03f), Offset = 1f });
             return b;
         }
 
@@ -647,6 +594,24 @@ public static class StyleWorldTokens
         res["GEdgeHi"] = dark ? Lift(surface, 0.60) : Colors.White;
         res["GEdgeMid"] = SinkOrLift(surface, dark, 0.70, 0.30);
         res["GEdgeLo"] = SinkOrLift(surface, dark, 0.30, 0.55);
+
+        // ── 世界签名层（UI 标准书 2.7）：大气与印记 ──────────────────────
+        // 大气层是一整页的纹理叠层（WorldAtmosphere 控件消费这三个透明度），
+        // 每个世界按性格取不同的处方；Endfield 的颗粒与 spot 停用 —— HUD 世界自带舞台灯。
+        // 印记（页首 Eyebrow 前 10-12px 的小色块）：极简是朱印直角、轻质感是奶油圆点、
+        // 渐变/液态是accent园角、终末地就是信号黄本身。
+        // ── 世界签名层（UI 标准书 2.7）：大气层 ──────────────────────────
+        // 档案室唯一处方：砂纸颗粒（墙）、头顶一盏暖光（灯）、四周沉进阴影（暗角）。
+        // 2026-11-06 第二版：第一版 0.04–0.10 实测「看不出区别」，这一轮直接拉到
+        // 肉眼可辨的档 —— 玻璃卡面背后要有东西可透，才读得出玻璃。
+        res["WAtmoGrainOpacity"] = 0.07;
+        res["WAtmoSpotOpacity"] = 0.24;
+        res["WAtmoVignetteOpacity"] = 0.16;
+
+        // 印记形态（颜色在 PublishColors 的 WMarkColor，那边才看得到 signal）：
+        // 信号色近直角小块，HUD 角标 notch 感。
+        res["WMarkRadius"] = 2;
+        res["WMarkSize"] = 12.0;
     }
 
     private static RoundRectangle Shape(double radius) => new() { CornerRadius = new CornerRadius(radius) };
