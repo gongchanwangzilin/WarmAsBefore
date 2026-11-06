@@ -71,7 +71,6 @@ public sealed partial class SetupViewModel : ObservableObject
     [ObservableProperty] private string _aiModel = "";
 
     public ObservableCollection<SetupOption> LangOptions { get; } = new();
-    public ObservableCollection<SetupOption> WorldOptions { get; } = new();
     public ObservableCollection<SetupOption> PaletteOptions { get; } = new();
     public ObservableCollection<SetupOption> PetOptions { get; } = new();
 
@@ -103,13 +102,7 @@ public sealed partial class SetupViewModel : ObservableObject
         Add(LangOptions, "en-US", "English", PickLangCommand);
         Add(LangOptions, "ja-JP", "日本語", PickLangCommand);
 
-        Add(WorldOptions, "soft", "", PickWorldCommand, sampleRadius: 12);
-        Add(WorldOptions, "minimal", "", PickWorldCommand, sampleRadius: 8);
-        Add(WorldOptions, "gradient", "", PickWorldCommand, sampleRadius: 16);
-        Add(WorldOptions, "liquid", "", PickWorldCommand, sampleRadius: 20);
-        // 终末地 HUD：近直角（2px）、细描边、无影。示例块用 2 的圆角，一眼和上面几档区分开。
-        Add(WorldOptions, "endfield", "", PickWorldCommand, sampleRadius: 2);
-
+        // 世界选项已退役（2.7）：唯一档「档案室」，向导只剩选色板。
         // 色板色值取自各 ColorPalette*.xaml：底 / 面 / 暖强调 / 主行动，四色一条。
         Add(PaletteOptions, "classic", "", PickPaletteCommand,
             swatches: new[] { "#F5F0E8", "#FDF8F0", "#F5D8B8", "#DCC7A0" });
@@ -148,8 +141,6 @@ public sealed partial class SetupViewModel : ObservableObject
     private void ApplyCulture()
     {
         var i18n = LocalizationService.Current;
-        for (var i = 0; i < WorldOptions.Count; i++)
-            WorldOptions[i].Label = i18n["Setup_World_" + WordCap(WorldOptions[i].Value)];
         for (var i = 0; i < PaletteOptions.Count; i++)
             PaletteOptions[i].Label = i18n["Setup_Pal_" + WordCap(PaletteOptions[i].Value)];
         PetOptions[0].Label = i18n["Setup_Pet_Off"];
@@ -164,7 +155,6 @@ public sealed partial class SetupViewModel : ObservableObject
     {
         var s = _settings.Current;
         Select(LangOptions, s.Lang);
-        Select(WorldOptions, StyleWorldTokens.NameOf(StyleWorldTokens.FromName(s.StyleWorldName)));
         Select(PaletteOptions, s.ThemeName);
         Select(PetOptions, s.PetIdleMinutes.ToString());
         AiUrl = s.AiUrl;
@@ -208,19 +198,7 @@ public sealed partial class SetupViewModel : ObservableObject
         _ = Save(s => s with { Lang = code });
     }
 
-    [RelayCommand]
-    private void PickWorld(int index)
-    {
-        var world = StyleWorldTokens.FromName(WorldOptions[index].Value);
-        Select(WorldOptions, StyleWorldTokens.NameOf(world));
-        _theme.World = world;                       // 材质当场换：整页的圆角、缝、影、字阶一起走
-        var (liquid, glass, frost) = StyleWorldTokens.GlassFlags(world);
-        _ = Save(s => s with
-        {
-            StyleWorldName = StyleWorldTokens.NameOf(world),
-            LiquidEnabled = liquid, GlassEnabled = glass, FrostEnabled = frost
-        });
-    }
+    // 世界选项退役前是 PickWorld 命令；世界收敛后向导不再选材质，命令一并删除。
 
     [RelayCommand]
     private void PickPalette(int index)

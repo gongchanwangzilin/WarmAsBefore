@@ -26,7 +26,7 @@ public partial class App : Application
             // 首帧之前必须把世界令牌摆好：样式字典引用的是 W* / Glass* 这些计算出来的键，
             // 空着解析不到，卡片会既没有面也没有边（设置是异步恢复的，等不到那时候）。
             DesignSystem.Worlds.StyleWorldTokens.Publish(
-                DesignSystem.Worlds.StyleWorld.Soft, RequestedTheme == AppTheme.Dark, "classic");
+                DesignSystem.Worlds.StyleWorld.Endfield, RequestedTheme == AppTheme.Dark, "classic");
             DesignSystem.Theme.ThemeManager.FollowSystemTheme();
             // 页面根背景统一走 PageBgBrush（可能被背景设置换成图片/透明）。
             // 必须在首帧页面解析前给一个默认值，否则 DynamicResource 找不到键。

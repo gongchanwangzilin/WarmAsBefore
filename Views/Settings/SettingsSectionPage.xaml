@@ -59,16 +59,8 @@
                                                IsVisible="{Binding GlassInactive}"
                                                Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}" />
 
-                                        <!-- 玻璃模式：四种材质一次选一种。多个开关互相牵制时，
-                                             开着毛玻璃还得自己记得开磨砂。 -->
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
-                                            <VerticalStackLayout>
-                                                <Label Text="风格" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="五种材质：轻质感=分层加一道细缝 · 柔和极简=无线无影，只靠底色台阶与留白 · 柔和渐变=渐变的面加近而柔的影 · 液态玻璃=通透的面加发光边 · 终末地 HUD=近直角细描边、无影无渐变（配终末地色板最完整）；深/浅色跟随系统" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
-                                                    ItemsSource="{Binding GlassModeChoices}"
-                                                    SelectedItem="{Binding GlassModeDisplay}" />
-                                        </Grid>
+                                        <!-- 世界已收敛为唯一档「档案室」，风格下拉退役（2.7）；
+                                             玻璃三项微调仍在：这间屋子透多少光、磨多少砂、浮多高。 -->
                                         <BoxView Style="{StaticResource HSepBleed}" />
 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
                                             <VerticalStackLayout>
@@ -2329,7 +2321,13 @@
             <VerticalStackLayout x:Name="SectionBody" Spacing="16">
                 <!-- 分类标题与说明：进来先知道这一页是干什么的 -->
                 <VerticalStackLayout Spacing="4">
-                    <Label x:Name="SectionTitleLabel" Style="{StaticResource TxtTitle}" />
+                    <HorizontalStackLayout Spacing="7">
+                        <!-- 世界印记（2.7）：与角色库同款，多页对齐 -->
+                        <BoxView Color="{DynamicResource WMarkColor}"
+                                 WidthRequest="{DynamicResource WMarkSize}" HeightRequest="{DynamicResource WMarkSize}"
+                                 CornerRadius="{DynamicResource WMarkRadius}" VerticalOptions="Center" />
+                        <Label x:Name="SectionTitleLabel" Style="{StaticResource TxtTitle}" />
+                    </HorizontalStackLayout>
                     <Label x:Name="SectionDescLabel" Style="{StaticResource TxtCaption}" />
                 </VerticalStackLayout>
 
@@ -2337,5 +2335,8 @@
                 <VerticalStackLayout x:Name="CardsHost" Spacing="16" />
             </VerticalStackLayout>
         </ScrollView>
+
+        <!-- 档案室大气层（2.7）：铺在内容之上（InputTransparent） -->
+        <controls:WorldAtmosphere Grid.RowSpan="2" />
     </Grid>
 </ContentPage>
