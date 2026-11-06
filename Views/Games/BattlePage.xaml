@@ -186,7 +186,7 @@
                         </BindableLayout.ItemTemplate>
                     </StackLayout>
                 </ScrollView>
-                <Button Text="⚔️ 普通攻击"
+                <Button Text="普通攻击"
                         BackgroundColor="{DynamicResource BattlePurple}"
                         TextColor="{DynamicResource BattleInk}"
                         Padding="20,10"

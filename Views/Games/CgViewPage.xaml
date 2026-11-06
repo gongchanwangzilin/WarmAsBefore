@@ -28,7 +28,7 @@
                 BackgroundColor="{DynamicResource CgChip}"
                 BorderWidth="0"
                 Padding="18,10"
-                CornerRadius="24"
+                CornerRadius="{DynamicResource WRadiusButton}"
                 HorizontalOptions="Start"
                 VerticalOptions="Start"
                 Margin="18,54,0,0" />

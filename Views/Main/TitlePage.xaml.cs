@@ -86,14 +86,14 @@ public partial class TitlePage : ContentPage
         Grid.SetRow(HeroGrid, 0);
 
         HeroGrid.RowDefinitions.Clear();
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 0：右上读数角 / 配色小字（二选一）
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 1：配色小字（HUD，通常为空）
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));   // 2：主行动带（HUD）/ 上次存档
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档（HUD）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 0：配色小字（HUD 世界另有右上读数角同住）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 1：HUD 世界的配色小字行（非 HUD 为空行，Auto 零成本）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));   // 2：主行动带 —— 独占 Star 行，垂直居中
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档 —— 独占一行，物理上不可能压到标语
         Grid.SetRow(HudCornerReadout, 0);
         Grid.SetRow(ThemeLegend, 0);
-        Grid.SetRow(HeroBand, 1);
-        Grid.SetRow(RecentCard, 1);
+        Grid.SetRow(HeroBand, 2);
+        Grid.SetRow(RecentCard, 3);
         HeroBand.VerticalOptions = LayoutOptions.Center;
         RecentCard.VerticalOptions = LayoutOptions.End;
         RecentCard.HorizontalOptions = LayoutOptions.Start;
@@ -154,13 +154,13 @@ public partial class TitlePage : ContentPage
     /// </summary>
     private void PlayHudIntro()
     {
-        // 行位由这边统一摆：HUD 世界第 0 行让给「系统读数角」、配色小字与主行动带往下顺延；
-        // 非 HUD 世界退回原来的三行（0 配色小字 / 1 主行动带 / 2 上次存档），两边都不留空行。
+        // 行位由这边统一摆：HUD 世界第 1 行让给「配色小字」、读数角占第 0 行；主行动带与存档卡
+        // 保持宽屏的 2/3 不动 —— 两套世界共用同一个无重叠的行方案（与 EnterWide 一致）。
         if (!Helpers.HudMotion.IsHud)
         {
             Grid.SetRow(ThemeLegend, 0);
-            Grid.SetRow(HeroBand, 1);
-            Grid.SetRow(RecentCard, 2);
+            Grid.SetRow(HeroBand, 2);
+            Grid.SetRow(RecentCard, 3);
             return;
         }
         try

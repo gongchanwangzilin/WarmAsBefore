@@ -151,7 +151,7 @@
                              给它一颗真的次要钮，它才读得出是「可以按，但不重要」。
                              现在再垫一颗「桌宠设置」：同住体验这一带的第三条路，手机上没有桌宠可以不显。 -->
                         <HorizontalStackLayout Grid.Row="1" Spacing="8">
-                            <Button Text="🐾 桌宠设置" Style="{StaticResource BtnGhostSm}"
+                            <Button Text="桌宠设置" Style="{StaticResource BtnGhostSm}"
                                     IsVisible="{OnIdiom Desktop=True, Tablet=False, Phone=False}"
                                     Clicked="OnPetSettingsTapped" />
                             <Button x:Name="ExitButton" Grid.Row="1"
@@ -185,7 +185,7 @@
                         <BoxView HeightRequest="2" WidthRequest="132" HorizontalOptions="End"
                                  Color="{DynamicResource Signal}" />
                     </VerticalStackLayout>
-                    <Label x:Name="ThemeLegend" Grid.Row="1" HorizontalOptions="End" VerticalOptions="Center"
+                    <Label x:Name="ThemeLegend" Grid.Row="0" HorizontalOptions="End" VerticalOptions="Center"
                            Margin="{DynamicResource WPadCard}"
                            FontSize="{DynamicResource WSizeCaption}" TextColor="{DynamicResource WarmFaint}">
                         <Label.FormattedText>
@@ -196,7 +196,7 @@
                             </FormattedString>
                         </Label.FormattedText>
                     </Label>
-                    <VerticalStackLayout x:Name="HeroBand" Grid.Row="1" Padding="{DynamicResource WPadHero}"
+                    <VerticalStackLayout x:Name="HeroBand" Grid.Row="2" Padding="{DynamicResource WPadHero}"
                                          Spacing="{DynamicResource WGapItem}"
                                          VerticalOptions="Center" HorizontalOptions="Start"
                                          MaximumWidthRequest="640">
@@ -209,8 +209,8 @@
                                 Command="{Binding StartGameCommand}" />
                     </VerticalStackLayout>
 
-                    <!-- 上次的存档：贴在主行动带下方，让这半屏不只是一句标语和一颗钮。 -->
-                    <Border x:Name="RecentCard" Grid.Row="1" IsVisible="{Binding HasRecent}"
+                    <!-- 上次的存档：独占最后一行（行 3），贴在主行动带下方 —— 两块各行其位，物理上不会叠。 -->
+                    <Border x:Name="RecentCard" Grid.Row="3" IsVisible="{Binding HasRecent}"
                             VerticalOptions="End" HorizontalOptions="Start"
                             Margin="{DynamicResource WPadCard}"
                             MaximumWidthRequest="520" Style="{StaticResource CardSolid}">

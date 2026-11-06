@@ -247,17 +247,17 @@
                                                                 JustifyContent="End">
                                                         <Button Text="{Binding BindLabel}"
                                                                 Style="{StaticResource BtnNeumorphSm}"
-                                                                FontSize="12" Padding="12,4" Margin="0,0,6,4"
+                                                                Padding="12,4" Margin="0,0,6,4"
                                                                 IsEnabled="{Binding CanBind}"
                                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.BindCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                         <Button Text="解绑" Style="{StaticResource BtnGhostSm}"
-                                                                FontSize="12" Padding="12,4" Margin="0,0,6,4"
+                                                                Padding="12,4" Margin="0,0,6,4"
                                                                 IsVisible="{Binding IsBound}"
                                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.UnbindCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                         <Button Text="删除" Style="{StaticResource BtnGhostSm}"
-                                                                FontSize="12" Padding="12,4" Margin="0,0,0,4"
+                                                                Padding="12,4" Margin="0,0,0,4"
                                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                     </FlexLayout>

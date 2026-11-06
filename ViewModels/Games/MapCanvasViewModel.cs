@@ -36,8 +36,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _statusText = "";
     [ObservableProperty] private ObservableCollection<MapCanvasNode> _nodes = new();
     [ObservableProperty] private MapCanvasNode? _selectedNode;
-    /// <summary>顶栏「🌦 天气」按钮的文字：当前这张图按哪儿算天气。</summary>
-    [ObservableProperty] private string _weatherModeLabel = "🌦 天气";
+    /// <summary>顶栏「天气」按钮的文字：当前这张图按哪儿算天气。</summary>
+    [ObservableProperty] private string _weatherModeLabel = "天气";
 
     public bool HasSelection => SelectedNode is not null;
     public bool IsEditMode => Mode == ModeKind.Edit;
@@ -240,7 +240,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     private void RefreshWeatherModeLabel()
     {
         var mode = MapWeatherModes.Normalize(_maps.Map.WeatherMode);
-        WeatherModeLabel = "🌦 " + MapWeatherModes.Display(mode);
+        WeatherModeLabel = MapWeatherModes.Display(mode);
     }
 
     /// <summary>
@@ -1336,22 +1336,22 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 TargetId = card.Id,
                 Items = new()
                 {
-                    ("🚶 出发", "go"),
+                    ("出发", "go"),
                     ("✎ 编辑名称", "rename"),
-                    ("🖼 背景图（素材库）", "bg-lib"),
-                    ("🖼 背景图（电脑导入）", "bg"),
-                    ("📐 标定这张背景", "cal"),
-                    ("✨ AI 出简介", "ai-note"),
-                    ($"✨ AI 选站位：{(card.Scene.Placement?.Landing == LandingKinds.Point && PlacementMath.Validate(card.Scene.Placement).Ok ? "挪锚点" : "先标定")}", "ai-anchor"),
-                    ("✨ AI 画比例", "ai-ratio"),
-                    ($"🚶 站位：{(card.Scene.FreePlacement ? "不规定（自由铺）" : "规定（走标定）")}", "stand"),
-                    ("🗑 清除背景", "bg-clear"),
-                    ($"🏢 所在楼层：{(card.Scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(card.Scene.Floor))}", "floor"),
-                    ($"🚪 户型：{(string.IsNullOrWhiteSpace(card.Scene.Unit) ? "未分户" : card.Scene.Unit)}", "unit"),
-                    ($"🌤 {(card.Scene.Indoor ? "改为室外" : "改为室内")}", "indoor"),
-                    ("📝 备注", "note"),
+                    ("背景图（素材库）", "bg-lib"),
+                    ("背景图（电脑导入）", "bg"),
+                    ("标定这张背景", "cal"),
+                    ("AI 出简介", "ai-note"),
+                    ($"AI 选站位：{(card.Scene.Placement?.Landing == LandingKinds.Point && PlacementMath.Validate(card.Scene.Placement).Ok ? "挪锚点" : "先标定")}", "ai-anchor"),
+                    ("AI 画比例", "ai-ratio"),
+                    ($"站位：{(card.Scene.FreePlacement ? "不规定（自由铺）" : "规定（走标定）")}", "stand"),
+                    ("清除背景", "bg-clear"),
+                    ($"所在楼层：{(card.Scene.Floor is null ? "不分层" : MapDefinition.FloorLabel(card.Scene.Floor))}", "floor"),
+                    ($"户型：{(string.IsNullOrWhiteSpace(card.Scene.Unit) ? "未分户" : card.Scene.Unit)}", "unit"),
+                    ($"{(card.Scene.Indoor ? "改为室外" : "改为室内")}", "indoor"),
+                    ("备注", "note"),
                     ("ℹ 详细信息", "info"),
-                    ("🗑 删除", "del")
+                    ("删除", "del")
                 }
             };
             Touch();
@@ -1370,10 +1370,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Items = new()
                 {
                     ("✎ 编辑名称", "edit"),
-                    ($"🚧 这是什么路口：{JunctionKinds.Display(transit.Transit.Junction)}", "junction"),
-                    ("📝 备注", "note"),
+                    ($"这是什么路口：{JunctionKinds.Display(transit.Transit.Junction)}", "junction"),
+                    ("备注", "note"),
                     ("ℹ 详细信息", "info"),
-                    ("🗑 删除", "del")
+                    ("删除", "del")
                 }
             };
             Touch();
@@ -1390,25 +1390,25 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 : $"{edge.RoadName}（{RoadKinds.Display(edge.Road)}）";
             var edgeItems = new List<(string Label, string Cmd)>
             {
-                ("🏙 由此进入 3D", "enter3d"),
-                ($"🛣 这条路是：{RoadKinds.Display(edge.Road)}", "road"),
-                ("🏷 命名这条路", "roadname"),
+                ("由此进入 3D", "enter3d"),
+                ($"这条路是：{RoadKinds.Display(edge.Road)}", "road"),
+                ("命名这条路", "roadname"),
                 ($"◀ 单行道：{(edge.OneWay ? "通" : "双向")}", "oneway"),
-                ($"🚦 红绿灯：{(edge.TrafficLight ? "有" : "无")}", "light"),
-                ($"💰 收费站：{(edge.Toll ? $"过路 {edge.TollFee:F0} 元" : "无")}", "toll"),
-                ($"🧭 限速：{(edge.SpeedKmh > 0 ? $"{edge.SpeedKmh:F0} km/h" : $"按类别 ≈{RoadKinds.DefaultSpeedKmh(edge.Road):F0}")}", "speed"),
-                ("📏 编辑长度", "length"),
+                ($"红绿灯：{(edge.TrafficLight ? "有" : "无")}", "light"),
+                ($"收费站：{(edge.Toll ? $"过路 {edge.TollFee:F0} 元" : "无")}", "toll"),
+                ($"限速：{(edge.SpeedKmh > 0 ? $"{edge.SpeedKmh:F0} km/h" : $"按类别 ≈{RoadKinds.DefaultSpeedKmh(edge.Road):F0}")}", "speed"),
+                ("编辑长度", "length"),
                 ($"线型: {edge.Kind}", "kind"),
-                ("📝 备注", "note"),
+                ("备注", "note"),
                 ("ℹ 详细信息", "info"),
-                ("🗑 删除", "del")
+                ("删除", "del")
             };
             if (edge.TrafficLight)
             {
                 // 挂了灯才问得到这三样：现在什么色（含倒计时）、一轮多长、绿灯放行哪一侧。
-                edgeItems.Insert(5, ($"🚦 现在：{LightNowText(edge)}（顺箭头那侧）", "signal-now"));
+                edgeItems.Insert(5, ($"现在：{LightNowText(edge)}（顺箭头那侧）", "signal-now"));
                 edgeItems.Insert(6, ($"⏱ 灯周期：{TrafficSignalService.CycleText(edge)}", "signal-cycle"));
-                edgeItems.Insert(7, ($"🧭 绿灯朝向：{SignalPhases.Display(edge.SignalPhase)}", "signal-phase"));
+                edgeItems.Insert(7, ($"绿灯朝向：{SignalPhases.Display(edge.SignalPhase)}", "signal-phase"));
             }
             Drawable.Menu = new ContextMenuState
             {
@@ -1439,35 +1439,35 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
         var menuItems = new List<(string Label, string Cmd)>
         {
-            ("🏠 新建地点", "newloc"),
-            ($"🌿 圈一块地（{RegionKinds.Display(RegionKinds.Green)}/水面/航道…）", "newregion"),
-            ("🗺 创建地图…", "create-map")
+            ("新建地点", "newloc"),
+            ($"圈一块地（{RegionKinds.Display(RegionKinds.Green)}/水面/航道…）", "newregion"),
+            ("创建地图…", "create-map")
         };
         if (inLoc is not null)
         {
-            if (under is not null) menuItems.Add(($"🌿 脚下的地块：{NameOf(under)}", "underfoot"));
+            if (under is not null) menuItems.Add(($"脚下的地块：{NameOf(under)}", "underfoot"));
             // 明确告知归属：框选时以框选地点为归属，右键落点不再覆盖
             var titlePart = marqueeLoc is not null ? "（框选）" : "";
-            menuItems.Add(("📍 新建场景" + titlePart, "newscene"));
-            menuItems.Add(("⛺ 新建子地点", "newchild"));
+            menuItems.Add(("新建场景" + titlePart, "newscene"));
+            menuItems.Add(("新建子地点", "newchild"));
             menuItems.Add(("◉ 新建临时节点", "newtransit"));
-            menuItems.Add(("✏️ 重命名此地", "renloc"));
-            menuItems.Add(("🏢 地上层数…", "floors"));
-            menuItems.Add(("🅿️ 地下层数…", "basement"));
-            menuItems.Add(("📐 层高（米）…", "height"));
-            menuItems.Add(("📮 地址…", "address"));
-            menuItems.Add(("🗑️ 删除此地点", "delloc"));
+            menuItems.Add(("✎ 重命名此地", "renloc"));
+            menuItems.Add(("地上层数…", "floors"));
+            menuItems.Add(("地下层数…", "basement"));
+            menuItems.Add(("层高（米）…", "height"));
+            menuItems.Add(("地址…", "address"));
+            menuItems.Add(("删除此地点", "delloc"));
         }
         else
         {
-            menuItems.Add(("📍 新建场景", "newscene"));
+            menuItems.Add(("新建场景", "newscene"));
             menuItems.Add(("◉ 新建临时节点", "newtransit"));
         }
         // 批量嵌套：只要有框选，就提供“批量归入”入口（新建或已有父地点）
         if (Drawable.MarqueeSelected.Count > 0)
         {
-            menuItems.Add(($"📦 批量归入新建地点（{Drawable.MarqueeSelected.Count}）", "nestnew"));
-            menuItems.Add(($"📦 批量归入已有地点（{Drawable.MarqueeSelected.Count}）", "nestinto"));
+            menuItems.Add(($"批量归入新建地点（{Drawable.MarqueeSelected.Count}）", "nestnew"));
+            menuItems.Add(($"批量归入已有地点（{Drawable.MarqueeSelected.Count}）", "nestinto"));
         }
         // 右键点中的这栋楼接管楼层条（不分层时楼层条自己会收起）
         if (inLoc is not null)
@@ -1523,15 +1523,15 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var size = RegionSizeText(r);
         var items = new List<(string Label, string Cmd)>
         {
-            ($"🌿 这是什么地：{RegionKinds.Display(r.Kind)}", "rkind"),
-            ($"🏷 名字：{(string.IsNullOrWhiteSpace(r.Name) ? "还没取名" : r.Name)}", "rname"),
-            ($"📏 大小：{size}", "info"),
-            ("📝 备注", "note"),
-            ("🏠 在这里新建地点", "newloc"),
-            ("📍 新建场景", "newscene"),
-            ("🗑 删除这块地", "del")
+            ($"这是什么地：{RegionKinds.Display(r.Kind)}", "rkind"),
+            ($"名字：{(string.IsNullOrWhiteSpace(r.Name) ? "还没取名" : r.Name)}", "rname"),
+            ($"大小：{size}", "info"),
+            ("备注", "note"),
+            ("在这里新建地点", "newloc"),
+            ("新建场景", "newscene"),
+            ("删除这块地", "del")
         };
-        if (!string.IsNullOrWhiteSpace(r.Note)) items.Insert(3, ($"📝 现有备注：{r.Note}", "note"));
+        if (!string.IsNullOrWhiteSpace(r.Note)) items.Insert(3, ($"现有备注：{r.Note}", "note"));
         Drawable.Menu = new ContextMenuState
         {
             Pos = world,
@@ -2050,7 +2050,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 StatusText = string.IsNullOrWhiteSpace(scene.Note) ? "已清除备注" : "已保存备注";
                 Refresh();
                 break;
-            case "ai-note":     // ✨ AI 出简介：看图 → 预填 → 确认写「备注」
+            case "ai-note":     // AI 出简介：看图 → 预填 → 确认写「备注」
             {
                 if (scene is null) return;
                 var desc = await AiLookAsync(scene,
@@ -2068,14 +2068,14 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
-            case "ai-anchor":   // ✨ AI 选站位：合法「点选」标定上挪锚点
+            case "ai-anchor":   // AI 选站位：合法「点选」标定上挪锚点
             {
                 if (scene is null) return;
                 if (scene.Placement is not { } pl
                     || pl.Landing != LandingKinds.Point
                     || !PlacementMath.Validate(pl).Ok)
                 {
-                    Toast.Info("AI 选站位要在已完成的「点选」标定上挪锚点：先用 📐 标定这张背景（缩放标定是前提）。");
+                    Toast.Info("AI 选站位要在已完成的「点选」标定上挪锚点：先用 标定这张背景（缩放标定是前提）。");
                     return;
                 }
                 var raw = await AiLookAsync(scene,
@@ -2111,12 +2111,12 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 Refresh();
                 break;
             }
-            case "ai-ratio":    // ✨ AI 画比例：改 RefHeightRatio + 重过校验
+            case "ai-ratio":    // AI 画比例：改 RefHeightRatio + 重过校验
             {
                 if (scene is null) return;
                 if (scene.Placement is not { } pl2 || !PlacementMath.Validate(pl2).Ok)
                 {
-                    Toast.Info("AI 画比例要在已完成标定的场景上改：先用 📐 标定这张背景。");
+                    Toast.Info("AI 画比例要在已完成标定的场景上改：先用 标定这张背景。");
                     return;
                 }
                 var raw2 = await AiLookAsync(scene,
@@ -2505,7 +2505,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         var title = string.IsNullOrWhiteSpace(edge.RoadName)
             ? RoadKinds.Display(edge.Road)
             : $"{edge.RoadName}（{RoadKinds.Display(edge.Road)}）";
-        var pick = await Shell.Current.DisplayActionSheet(title, "取消", null, "🏙 由此进入 3D");
+        var pick = await Shell.Current.DisplayActionSheet(title, "取消", null, "由此进入 3D");
         if (string.IsNullOrWhiteSpace(pick) || pick == "取消") return;
         await Enter3dFromStreetAsync(edge, world);
     }
@@ -3234,8 +3234,8 @@ await _maps.SaveAsync();
     {
         scene.FreePlacement = false;   // 档位以本轮为准：先按老流程，选了不规定再翻
         var pick = await Shell.Current.DisplayActionSheet("这间屋要不要规定站位？", null, null,
-            "📐 规定角色（走标定）", "🚶 不规定（直接铺 · 自由站位）");
-        var free = pick is "🚶 不规定（直接铺 · 自由站位）";
+            "规定角色（走标定）", "不规定（直接铺 · 自由站位）");
+        var free = pick is "不规定（直接铺 · 自由站位）";
         scene.FreePlacement = free;
 
         if (free)

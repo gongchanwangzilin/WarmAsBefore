@@ -73,7 +73,7 @@
         <Border Style="{StaticResource CardDialog}" IsVisible="{Binding IsFinished}"
                 HorizontalOptions="Center" VerticalOptions="Center">
             <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
-                <Label Text="🎉 播放结束" Style="{StaticResource TxtTitle}" HorizontalOptions="Center" />
+                <Label Text="播放结束" Style="{StaticResource TxtTitle}" HorizontalOptions="Center" />
                 <Button Text="返回列表" Style="{StaticResource BtnNeumorphSm}" HorizontalOptions="Center"
                         Command="{Binding BackCommand}" />
             </VerticalStackLayout>

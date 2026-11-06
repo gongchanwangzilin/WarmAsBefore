@@ -138,8 +138,7 @@
                                                     <Image Source="{Binding Preview}" Aspect="AspectFit"
                                                            IsVisible="{Binding HasPreview}"
                                                            HorizontalOptions="Center" VerticalOptions="Center" />
-                                                    <Label Text="🐾" TextColor="{DynamicResource MutedFg}"
-                                                           FontSize="{DynamicResource WSizeSubhead}"
+                                                    <Image Source="ic_paw.png" WidthRequest="20" HeightRequest="20" Opacity="0.55"
                                                            HorizontalOptions="Center" VerticalOptions="Center"
                                                            IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}" />
                                                 </Border>

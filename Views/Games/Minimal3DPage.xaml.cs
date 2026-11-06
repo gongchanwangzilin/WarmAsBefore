@@ -223,7 +223,7 @@ public partial class Minimal3DPage : ContentPage
             Microsoft.Maui.Devices.Sensors.OrientationSensor.Default.Start(
                 Microsoft.Maui.Devices.Sensors.SensorSpeed.UI);
             _gyroOn = true;
-            GyroButton.Text = "📱 陀螺仪 ●";
+            GyroButton.Text = "陀螺仪 ●";
         }
         catch (Exception ex)
         {
@@ -242,7 +242,7 @@ public partial class Minimal3DPage : ContentPage
         }
         catch { /* 关不掉就让它自己睡 */ }
         _gyroOn = false;
-        GyroButton.Text = "📱 陀螺仪";
+        GyroButton.Text = "陀螺仪";
     }
 
     private void OnGyroRead(object? sender, Microsoft.Maui.Devices.Sensors.OrientationSensorChangedEventArgs e)

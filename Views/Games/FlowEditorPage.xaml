@@ -14,7 +14,7 @@
         <Border Style="{StaticResource CardGroup}">
             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
                 <VerticalStackLayout Spacing="3" VerticalOptions="Center">
-                    <Label Text="🧩 流程图" Style="{StaticResource TxtTitle}" />
+                    <Label Text="流程图" Style="{StaticResource TxtTitle}" />
                     <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
                 <Button Grid.Column="1" Text="＋ 新规则" Style="{StaticResource BtnNeumorphSm}"

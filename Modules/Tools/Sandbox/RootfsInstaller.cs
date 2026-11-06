@@ -267,8 +267,8 @@ public sealed class RootfsInstaller
     public string GetStatus()
     {
         if (!IsInstalled) return "未安装";
-        var py = File.Exists(Path.Combine(RootfsDir, "usr", "bin", "python3")) ? "✅" : "❌";
-        var jv = File.Exists(Path.Combine(RootfsDir, "usr", "bin", "java")) ? "✅" : "❌";
+        var py = File.Exists(Path.Combine(RootfsDir, "usr", "bin", "python3")) ? "✓" : "✕";
+        var jv = File.Exists(Path.Combine(RootfsDir, "usr", "bin", "java")) ? "✓" : "✕";
         return $"rootfs 已安装：python3 {py} · java {jv}";
     }
 }

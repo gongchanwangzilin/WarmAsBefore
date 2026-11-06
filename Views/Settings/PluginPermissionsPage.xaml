@@ -56,19 +56,19 @@
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <VerticalStackLayout Grid.Column="1" Spacing="0">
                     <Label Text="插件权限" Style="{StaticResource TxtTitle}" />
                     <Label Text="{Binding PluginName}" Style="{StaticResource TxtCaption}" LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
-                <Button Grid.Column="2" Text="恢复默认" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                <Button Grid.Column="2" Text="恢复默认" Style="{StaticResource BtnNeumorphSm}"
                         Command="{Binding ResetAllCommand}" />
             </Grid>
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,32">
-            <VerticalStackLayout Spacing="18" MaximumWidthRequest="920" HorizontalOptions="Fill">
+            <VerticalStackLayout Spacing="16" MaximumWidthRequest="920" HorizontalOptions="Fill">
 
                 <VerticalStackLayout Spacing="6">
                     <Label Text="{Binding Summary}" Style="{StaticResource TxtBody}" LineBreakMode="WordWrap" />
@@ -152,11 +152,11 @@
                                 <DataTemplate>
                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                                         <Label Text="{Binding When}" Style="{StaticResource TxtCaption}"
-                                               FontSize="11" VerticalOptions="Center" />
+                                               VerticalOptions="Center" />
                                         <Label Grid.Column="1" Text="{Binding Text}" Style="{StaticResource TxtCaption}"
                                                LineBreakMode="WordWrap" />
                                         <Label Grid.Column="2" Text="{Binding Hits}" Style="{StaticResource TxtCaption}"
-                                               FontSize="11" IsVisible="{Binding HasHits}" VerticalOptions="Center" />
+                                               IsVisible="{Binding HasHits}" VerticalOptions="Center" />
                                     </Grid>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>

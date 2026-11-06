@@ -156,7 +156,7 @@
                                                 <Label Text="背景图片" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="{Binding BackgroundImageLabel}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <Button Grid.Column="1" Text="选择图片" Style="{StaticResource BtnGhost}"
-                                                    FontSize="13" Padding="14,6"
+                                                    Padding="14,6"
                                                     Command="{Binding PickBackgroundImageCommand}" />
                                         </Grid>
                                     </VerticalStackLayout>
@@ -177,14 +177,14 @@
                                                     <Grid ColumnDefinitions="*,Auto">
                                                         <Label Text="{Binding ToolName}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
                                                         <Button Grid.Column="1" Text="移除" Style="{StaticResource BtnText}"
-                                                                FontSize="12" Padding="8,2"
+                                                                Padding="8,2"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveTrustedToolCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                     </Grid>
                                                 </DataTemplate>
                                             </CollectionView.ItemTemplate>
                                         </CollectionView>
-                                        <Button Text="＋ 信任一个工具目录" Style="{StaticResource BtnGhost}" FontSize="13"
+                                        <Button Text="＋ 信任一个工具目录" Style="{StaticResource BtnGhost}"
                                                 Command="{Binding TrustToolDirCommand}" />
                                         <Label Text="默认外部工具无法读取模型数据（API Key / 对话历史）；加入信任后放行。"
                                                Style="{StaticResource TxtCaption}" />
@@ -192,7 +192,7 @@
                                         <Label Text="完整性检查" Style="{StaticResource TxtBodySm}" />
                                         <Label Text="核对该有的工具是否齐全、描述与参数 schema 是否完整、聊天可用工具集能否正常构建。"
                                                Style="{StaticResource TxtCaption}" />
-                                        <Button Text="🔍 检查工具完整性" Style="{StaticResource BtnGhost}" FontSize="13"
+                                        <Button Text="检查工具完整性" Style="{StaticResource BtnGhost}"
                                                 Command="{Binding VerifyToolsCommand}" />
                                         <Label Text="{Binding ToolIntegrityText}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding ToolIntegrityText, Converter={StaticResource IsNotNull}}"
@@ -201,7 +201,7 @@
                                         <Label Text="表情包库" Style="{StaticResource TxtBodySm}" />
                                         <Label Text="导入的表情可以在对话里发送；写上描述，AI 也能按场合挑表情发。"
                                                Style="{StaticResource TxtCaption}" />
-                                        <Button Text="＋ 导入表情" Style="{StaticResource BtnGhost}" FontSize="13"
+                                        <Button Text="＋ 导入表情" Style="{StaticResource BtnGhost}"
                                                 Command="{Binding ImportStickerCommand}" />
                                         <Label Text="{Binding StickerStatus}" Style="{StaticResource TxtCaption}" />
                                         <CollectionView ItemsSource="{Binding Stickers}" SelectionMode="None" MaximumHeightRequest="240">
@@ -214,13 +214,13 @@
                                                             <Label Text="{Binding DescLabel}" Style="{StaticResource TxtCaption}"
                                                                    LineBreakMode="TailTruncation" />
                                                         </VerticalStackLayout>
-                                                        <Button Grid.Column="2" Text="识别" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                        <Button Grid.Column="2" Text="识别" Style="{StaticResource BtnText}" Padding="8,2"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=AutoDescribeStickerCommand}"
                                                                 CommandParameter="{Binding .}" />
-                                                        <Button Grid.Column="3" Text="描述" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                        <Button Grid.Column="3" Text="描述" Style="{StaticResource BtnText}" Padding="8,2"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditStickerDescCommand}"
                                                                 CommandParameter="{Binding .}" />
-                                                        <Button Grid.Column="4" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                        <Button Grid.Column="4" Text="删除" Style="{StaticResource BtnText}" Padding="8,2"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveStickerCommand}"
                                                                 CommandParameter="{Binding .}" />
                                                     </Grid>
@@ -395,12 +395,12 @@
                                                     IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
                                             <Button Grid.Column="2" Text="检测"
                                                     BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
-                                                    FontSize="11" Padding="10,0" HeightRequest="36" CornerRadius="10"
+                                                    FontSize="11" Padding="10,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                     Command="{Binding FetchModelsCommand}"
                                                     IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
                                         </Grid>
                                         <Label Text="{Binding ModelListStatus}" Style="{StaticResource TxtCaption}"
-                                               TextColor="{DynamicResource MutedFg}" FontSize="11"
+                                               TextColor="{DynamicResource MutedFg}"
                                                IsVisible="{Binding ModelListStatus, Converter={StaticResource StringNotEmpty}}" />
                                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Temperature], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                                             <controls:ViewSlider Grid.Column="1" Value="{Binding AiTemperature}" Minimum="0" Maximum="1" /></Grid>
@@ -482,22 +482,22 @@
                                                         <VerticalStackLayout Spacing="6">
                                                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                                                                 <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
-                                                                    <Button Text="↑" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
+                                                                    <Button Text="↑" Style="{StaticResource BtnText}" Padding="6,0"
                                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveProviderUpCommand}"
                                                                             CommandParameter="{Binding .}" />
-                                                                    <Button Text="↓" Style="{StaticResource BtnText}" FontSize="12" Padding="6,0"
+                                                                    <Button Text="↓" Style="{StaticResource BtnText}" Padding="6,0"
                                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=MoveProviderDownCommand}"
                                                                             CommandParameter="{Binding .}" />
                                                                 </VerticalStackLayout>
                                                                 <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                                                     <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
                                                                            LineBreakMode="TailTruncation" />
-                                                                    <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}" FontSize="10"
+                                                                    <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
                                                                            LineBreakMode="TailTruncation" />
-                                                                    <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" FontSize="10" />
+                                                                    <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
                                                                 <controls:ViewSwitch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
-                                                                <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                                                <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" Padding="8,2"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveProviderCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </Grid>
@@ -519,7 +519,7 @@
                                                                                             CommandParameter="{Binding .}" />
                                                                                     </Label.GestureRecognizers>
                                                                                 </Label>
-                                                                                <Button Text="✕" Style="{StaticResource BtnText}" FontSize="10" Padding="2,0"
+                                                                                <Button Text="✕" Style="{StaticResource BtnText}" Padding="2,0"
                                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveModelFromProviderCommand}"
                                                                                         CommandParameter="{Binding .}" />
                                                                             </HorizontalStackLayout>
@@ -529,16 +529,16 @@
                                                             </HorizontalStackLayout>
 
                                                             <HorizontalStackLayout Spacing="8">
-                                                                <Button Text="＋模型" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                                <Button Text="＋模型" Style="{StaticResource BtnText}" Padding="6,2"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=AddModelToProviderCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Text="名称/端点" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                                <Button Text="名称/端点" Style="{StaticResource BtnText}" Padding="6,2"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditProviderBasicsCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Text="密钥" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                                <Button Text="密钥" Style="{StaticResource BtnText}" Padding="6,2"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditProviderKeysCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Text="超时" Style="{StaticResource BtnText}" FontSize="11" Padding="6,2"
+                                                                <Button Text="超时" Style="{StaticResource BtnText}" Padding="6,2"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditProviderTimeoutCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </HorizontalStackLayout>
@@ -570,9 +570,9 @@
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                                         </Grid>
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                            <Button Grid.Column="0" Text="＋添加厂商" Style="{StaticResource BtnGhost}" FontSize="13"
+                                            <Button Grid.Column="0" Text="＋添加厂商" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding AddProviderCommand}" />
-                                            <Button Grid.Column="1" Text="用当前配置预填" Style="{StaticResource BtnGhost}" FontSize="13"
+                                            <Button Grid.Column="1" Text="用当前配置预填" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding FillProviderFromCurrentCommand}" />
                                         </Grid>
 
@@ -594,16 +594,16 @@
                                             <Entry Grid.Column="2" Text="{Binding NewPriceOutput}" Placeholder="输出价/百万"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="12" />
-                                            <Button Grid.Column="3" Text="保存单价" Style="{StaticResource BtnText}" FontSize="12" Padding="8,2"
+                                            <Button Grid.Column="3" Text="保存单价" Style="{StaticResource BtnText}" Padding="8,2"
                                                     Command="{Binding AddModelPriceCommand}" />
                                         </Grid>
                                         <Label Text="单价可以只填一侧（另一侧按 0 计），不必每个模型都填。" Style="{StaticResource TxtCaption}" />
                                         <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
-                                            <Button Text="刷新用量 / 花费" Style="{StaticResource BtnGhost}" FontSize="12"
+                                            <Button Text="刷新用量 / 花费" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding RefreshCostCommand}" />
-                                            <Button Text="按当前上限试算" Style="{StaticResource BtnGhost}" FontSize="12"
+                                            <Button Text="按当前上限试算" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding TryAdviceCommand}" />
-                                            <Button Text="用量统计…" Style="{StaticResource BtnGhost}" FontSize="12"
+                                            <Button Text="用量统计…" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding OpenUsageStatsCommand}" />
                                         </HorizontalStackLayout>
 
@@ -615,9 +615,9 @@
                                         </Border>
                                         <Label Text="{Binding CostChartCaption}" Style="{StaticResource TxtCaption}" />
                                         <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
-                                            <Button Text="{Binding CostChartModeLabel}" Style="{StaticResource BtnGhost}" FontSize="12"
+                                            <Button Text="{Binding CostChartModeLabel}" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding ToggleChartModeCommand}" />
-                                            <Button Text="导出 CSV" Style="{StaticResource BtnGhost}" FontSize="12"
+                                            <Button Text="导出 CSV" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding ExportCostCsvCommand}" />
                                         </HorizontalStackLayout>
 
@@ -734,23 +734,23 @@
                                             <Picker Title="本地模型" ItemsSource="{Binding SttModelChoices}"
                                                     SelectedItem="{Binding SttModelDisplay}" FontSize="13" />
                                             <Label Text="{Binding SttModelStatus}" Style="{StaticResource TxtCaption}"
-                                                   TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                                                   TextColor="{DynamicResource MutedFg}" />
                                             <ProgressBar Progress="{Binding SttModelProgress}"
                                                          IsVisible="{Binding IsDownloadingSttModel}"
                                                          HeightRequest="4" />
                                             <Grid ColumnDefinitions="*,*">
                                                 <Button Text="下载模型" Command="{Binding DownloadSttModelCommand}"
                                                         BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
-                                                        FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="10"
+                                                        FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                         IsEnabled="{Binding IsDownloadingSttModel, Converter={StaticResource InverseBool}}" />
                                                 <Button Grid.Column="1" Text="删除模型" Command="{Binding DeleteSttModelCommand}"
                                                         BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
-                                                        FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="10"
+                                                        FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                         Margin="8,0,0,0"
                                                         IsEnabled="{Binding IsDownloadingSttModel, Converter={StaticResource InverseBool}}" />
                                             </Grid>
                                             <Label Text="local=离线识别（需先下载模型）；api=外部服务（电脑端录音 8 秒后识别）"
-                                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" />
                                         </VerticalStackLayout>
                                         <Grid ColumnDefinitions="80,*" Padding="0,13"><Label Text="{Binding [Settings_TtsRate], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                                             <controls:ViewSlider Grid.Column="1" Value="{Binding TtsRate}" Minimum="0.5" Maximum="2" /></Grid>
@@ -763,14 +763,14 @@
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <Label Text="按当前设置合成试听：系统引擎走系统语音；API 引擎走外部服务"
-                                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" FontSize="11" />
+                                                       Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}" />
                                                 <Button Grid.Column="1" Text="试听" Command="{Binding PreviewVoiceCommand}"
                                                         BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
-                                                        FontSize="12" Padding="14,0" HeightRequest="36" CornerRadius="10"
+                                                        FontSize="12" Padding="14,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                         WidthRequest="70" />
                                             </Grid>
                                             <Label Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
-                                                   TextColor="{DynamicResource MutedFg}" FontSize="11"
+                                                   TextColor="{DynamicResource MutedFg}"
                                                    IsVisible="{Binding TestVoiceStatus, Converter={StaticResource StringNotEmpty}}" />
                                         </VerticalStackLayout>
 
@@ -811,10 +811,10 @@
                                                        PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" Keyboard="Numeric" /></Grid>
                                             <Button Text="测试连接" Command="{Binding TestVoiceConnectionCommand}"
                                                     BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
-                                                    FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="10"
+                                                    FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                     HorizontalOptions="Start" WidthRequest="100" />
                                             <Label Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
-                                                   TextColor="{DynamicResource MutedFg}" FontSize="11"
+                                                   TextColor="{DynamicResource MutedFg}"
                                                    IsVisible="{Binding TestVoiceStatus, Converter={StaticResource StringNotEmpty}}" />
                                         </VerticalStackLayout>
                                     </VerticalStackLayout>
@@ -857,11 +857,11 @@
                                             </VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
                                                 <Button Text="{Binding [Settings_Locate], Source={x:Static i18n:LocalizationService.Current}}"
-                                                        Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,6"
+                                                        Style="{StaticResource BtnGhost}" Padding="12,6"
                                                         IsEnabled="{Binding IsLocatingCity, Converter={StaticResource InverseBool}}"
                                                         Command="{Binding LocateWeatherCityCommand}" />
                                                 <Button Text="{Binding [Settings_ChooseCity], Source={x:Static i18n:LocalizationService.Current}}"
-                                                        Style="{StaticResource BtnGhost}" FontSize="12" Padding="12,6"
+                                                        Style="{StaticResource BtnGhost}" Padding="12,6"
                                                         Command="{Binding ToggleCityChooserCommand}" />
                                             </HorizontalStackLayout>
                                         </Grid>
@@ -877,9 +877,9 @@
                                                        LineBreakMode="WordWrap" />
                                                 <HorizontalStackLayout Spacing="10">
                                                     <Button Text="采用这个估算" Style="{StaticResource BtnGhost}"
-                                                            FontSize="12" Padding="12,6"
+                                                            Padding="12,6"
                                                             Command="{Binding AdoptLocationEstimateCommand}" />
-                                                    <Button Text="不要" Style="{StaticResource BtnText}" FontSize="12"
+                                                    <Button Text="不要" Style="{StaticResource BtnText}"
                                                             Command="{Binding DismissLocationEstimateCommand}" />
                                                 </HorizontalStackLayout>
                                             </VerticalStackLayout>
@@ -896,7 +896,7 @@
                                             <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding PopularCities}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate>
-                                                        <Button Text="{Binding Name}" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                        <Button Text="{Binding Name}" Style="{StaticResource BtnGhost}"
                                                                 Padding="10,5" Margin="0,0,6,6"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ChooseCityCommand}"
                                                                 CommandParameter="{Binding .}" />
@@ -915,7 +915,7 @@
                                                                     <Label Text="{Binding CoordText}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
                                                                 <Button Grid.Column="1" Text="{Binding [Settings_UseCity], Source={x:Static i18n:LocalizationService.Current}}"
-                                                                        Style="{StaticResource BtnText}" FontSize="12" VerticalOptions="Center"
+                                                                        Style="{StaticResource BtnText}" VerticalOptions="Center"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ChooseCityCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </Grid>
@@ -940,7 +940,7 @@
                                             <Label Text="{Binding [Settings_WeatherCustomNote], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                         <Button Text="{Binding [Settings_TestWeather], Source={x:Static i18n:LocalizationService.Current}}"
-                                                Style="{StaticResource BtnGhost}" FontSize="12" HorizontalOptions="Start"
+                                                Style="{StaticResource BtnGhost}" HorizontalOptions="Start"
                                                 Margin="0,13,0,0"
                                                 Command="{Binding TestWeatherCommand}" />
                                         <!-- 周期按性别分开配：先选性别，再决定这个性别有没有周期、多少天。
@@ -976,7 +976,7 @@
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ShowCycleAdvanced}" /></Grid>
                                         <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowCycleAdvanced}">
                                             <Button Text="{Binding [Settings_CycleAddGender], Source={x:Static i18n:LocalizationService.Current}}"
-                                                    Style="{StaticResource BtnGhost}" FontSize="12" HorizontalOptions="Start"
+                                                    Style="{StaticResource BtnGhost}" HorizontalOptions="Start"
                                                     Command="{Binding AddCycleGenderCommand}" />
                                             <Label Text="{Binding [Settings_CycleAddGenderHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
@@ -1036,9 +1036,9 @@
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <!-- 桌宠那一页带实时预览，改一项就能在桌面上看见；AI 制作桌宠是它的上游 -->
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8" Padding="0,13">
-                                            <Button Grid.Column="0" Text="桌宠设置…" Style="{StaticResource BtnGhost}" FontSize="13"
+                                            <Button Grid.Column="0" Text="桌宠设置…" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding OpenPetSettingsCommand}" />
-                                            <Button Grid.Column="1" Text="AI 制作桌宠…" Style="{StaticResource BtnGhost}" FontSize="13"
+                                            <Button Grid.Column="1" Text="AI 制作桌宠…" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding OpenPetStudioCommand}" />
                                         </Grid>
                                     </VerticalStackLayout>
@@ -1191,7 +1191,7 @@
                                         <!-- 已接入的服务：这一节的动词是「接入 / 连接 / 断开」，不是「导入」 -->
                                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                             <Label Text="已接入的服务" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" VerticalOptions="Center" />
-                                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnText}" FontSize="12"
+                                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnText}"
                                                     Command="{Binding RefreshMcpCommand}" />
                                             <Button Grid.Column="2" Text="＋ 接入服务" Style="{StaticResource BtnNeumorphSm}"
                                                     Command="{Binding AddMcpServiceCommand}" />
@@ -1211,14 +1211,14 @@
                                                                     <HorizontalStackLayout Spacing="6">
                                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                                                                         <Label Text="{Binding TransportLabel}" Style="{StaticResource TxtCaption}"
-                                                                               FontSize="11" VerticalOptions="Center" Opacity="0.75" />
+                                                                               VerticalOptions="Center" Opacity="0.75" />
                                                                         <Label Text="{Binding StatusLabel}" Style="{StaticResource TxtCaption}"
-                                                                               FontSize="11" VerticalOptions="Center" Opacity="0.75" />
+                                                                               VerticalOptions="Center" Opacity="0.75" />
                                                                     </HorizontalStackLayout>
-                                                                    <Label Text="{Binding EndpointLine}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                    <Label Text="{Binding EndpointLine}" Style="{StaticResource TxtCaption}"
                                                                            TextColor="{DynamicResource MutedFg}" LineBreakMode="CharacterWrap"
                                                                            IsVisible="{Binding EndpointLine, Converter={StaticResource StringNotEmpty}}" />
-                                                                    <Label Style="{StaticResource TxtCaption}" FontSize="11" Opacity="0.8">
+                                                                    <Label Style="{StaticResource TxtCaption}" Opacity="0.8">
                                                                         <Label.FormattedText>
                                                                             <FormattedString>
                                                                                 <Span Text="{Binding ConnectLabel}" />
@@ -1227,36 +1227,36 @@
                                                                             </FormattedString>
                                                                         </Label.FormattedText>
                                                                     </Label>
-                                                                    <Label Text="{Binding LastError}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                    <Label Text="{Binding LastError}" Style="{StaticResource TxtCaption}"
                                                                            TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="CharacterWrap"
                                                                            IsVisible="{Binding LastError, Converter={StaticResource StringNotEmpty}}" />
-                                                                    <Label Text="{Binding Advice}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                    <Label Text="{Binding Advice}" Style="{StaticResource TxtCaption}"
                                                                            TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
                                                                            IsVisible="{Binding HasAdvice}" />
                                                                 </VerticalStackLayout>
                                                                 <Button Grid.Column="1" Text="{Binding ConnectButtonLabel}"
-                                                                        Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                                        Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                                         VerticalOptions="Center"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ConnectMcpServerCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Grid.Column="2" Text="断开" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                <Button Grid.Column="2" Text="断开" Style="{StaticResource BtnGhost}"
                                                                         VerticalOptions="Center" IsVisible="{Binding IsConnected}"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DisconnectMcpServerCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </Grid>
                                                             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="6">
-                                                                <Button Text="{Binding ConsentLabel}" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                <Button Text="{Binding ConsentLabel}" Style="{StaticResource BtnGhost}"
                                                                         IsVisible="{Binding ShowConsent}"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleMcpAllowCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Grid.Column="1" Text="体检" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                                <Button Grid.Column="1" Text="体检" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                                         IsEnabled="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=McpDoctorBusy, Converter={StaticResource InverseBool}}"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DiagnoseMcpServerCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Grid.Column="3" Text="详情" Style="{StaticResource BtnText}" FontSize="12"
+                                                                <Button Grid.Column="3" Text="详情" Style="{StaticResource BtnText}"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ShowMcpServerDetailsCommand}"
                                                                         CommandParameter="{Binding .}" />
-                                                                <Button Grid.Column="4" Text="删除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                                                <Button Grid.Column="4" Text="删除" Style="{StaticResource BtnGhost}"
                                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=DeleteMcpServerCommand}"
                                                                         CommandParameter="{Binding .}" />
                                                             </Grid>
@@ -1266,8 +1266,8 @@
                                                                     IsVisible="{Binding HasDoctorText}">
                                                                 <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                                                 <VerticalStackLayout Spacing="6">
-                                                                    <Label Text="体检结论" Style="{StaticResource TxtCaption}" FontSize="11" Opacity="0.7" />
-                                                                    <Label Text="{Binding DoctorText}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                                    <Label Text="体检结论" Style="{StaticResource TxtCaption}" Opacity="0.7" />
+                                                                    <Label Text="{Binding DoctorText}" Style="{StaticResource TxtCaption}"
                                                                            LineBreakMode="WordWrap" />
                                                                 </VerticalStackLayout>
                                                             </Border>
@@ -1303,7 +1303,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Spacing="4">
                                                 <Label Text="Python" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                                <Label Text="{Binding PythonStatus}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                <Label Text="{Binding PythonStatus}" Style="{StaticResource TxtCaption}"
                                                        IsVisible="{Binding RuntimeOsSupported}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}"
@@ -1314,9 +1314,9 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Spacing="4">
                                                 <Label Text="Java" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                                <Label Text="{Binding JavaStatus}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                <Label Text="{Binding JavaStatus}" Style="{StaticResource TxtCaption}"
                                                        IsVisible="{Binding RuntimeOsSupported}" />
-                                                <Label Text="外部工具仅桌面端可用" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                <Label Text="外部工具仅桌面端可用" Style="{StaticResource TxtCaption}"
                                                        IsVisible="{Binding RuntimeOsSupported, Converter={StaticResource InverseBool}}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}"
@@ -1326,10 +1326,10 @@
 
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8"
                                               IsVisible="{Binding RuntimeOsSupported}">
-                                            <Button Text="⬇️ 下载 Python 便携版" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                            <Button Text="下载 Python 便携版" Style="{StaticResource BtnNeumorphSm}"
                                                     IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DownloadPythonCommand}" />
-                                            <Button Grid.Column="1" Text="⬇️ 下载 Java 便携版" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                            <Button Grid.Column="1" Text="下载 Java 便携版" Style="{StaticResource BtnNeumorphSm}"
                                                     IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DownloadJavaCommand}" />
                                         </Grid>
@@ -1340,10 +1340,10 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Spacing="2">
                                                 <Label Text="MCP 与插件要用的外部运行时" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                                <Label Text="{Binding ExternalRuntimeNote}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                <Label Text="{Binding ExternalRuntimeNote}" Style="{StaticResource TxtCaption}"
                                                        LineBreakMode="WordWrap" />
                                             </VerticalStackLayout>
-                                            <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                            <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                     VerticalOptions="Center"
                                                     IsEnabled="{Binding ExternalRuntimeBusy, Converter={StaticResource InverseBool}}"
                                                     Command="{Binding DetectExternalRuntimesCommand}" />
@@ -1353,23 +1353,23 @@
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate>
                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="0,4">
-                                                        <Label Text="✅" FontSize="11" VerticalOptions="Start"
+                                                        <Label Text="✓" FontSize="11" VerticalOptions="Start"
                                                                IsVisible="{Binding Present}" />
-                                                        <Label Text="❌" FontSize="11" VerticalOptions="Start"
+                                                        <Label Text="✕" FontSize="11" VerticalOptions="Start"
                                                                IsVisible="{Binding Present, Converter={StaticResource InverseBool}}" />
                                                         <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" FontSize="11" />
-                                                            <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" />
+                                                            <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
                                                                    Opacity="0.75" LineBreakMode="CharacterWrap"
                                                                    IsVisible="{Binding Detail, Converter={StaticResource StringNotEmpty}}" />
-                                                            <Label Text="{Binding Advice}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                            <Label Text="{Binding Advice}" Style="{StaticResource TxtCaption}"
                                                                    TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
                                                                    IsVisible="{Binding Present, Converter={StaticResource InverseBool}}" />
-                                                            <Label Text="{Binding Fallback}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                            <Label Text="{Binding Fallback}" Style="{StaticResource TxtCaption}"
                                                                    Opacity="0.7" LineBreakMode="WordWrap"
                                                                    IsVisible="{Binding Fallback, Converter={StaticResource StringNotEmpty}}" />
                                                         </VerticalStackLayout>
-                                                        <Button Grid.Column="2" Text="装它" Style="{StaticResource BtnText}" FontSize="11"
+                                                        <Button Grid.Column="2" Text="装它" Style="{StaticResource BtnText}"
                                                                 VerticalOptions="Start"
                                                                 IsVisible="{Binding Present, Converter={StaticResource InverseBool}}"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=OpenRuntimeDownloadCommand}"
@@ -1386,12 +1386,12 @@
                                             <Label Text="手机插件沙箱（Linux proot，无需 root）"
                                                    Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                                             <Label Text="在 App 内运行 Linux 用户态沙箱，把 Python / Java 解释器装进沙箱，宿主投射 tools 目录，复用 JSON-RPC 工具协议。约 80MB，仅首次安装。"
-                                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                                                   Style="{StaticResource TxtCaption}" />
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                <Button Text="📦 安装沙箱运行时（Python + Java，约 80MB）" Style="{StaticResource BtnNeumorphSm}" FontSize="11"
+                                                <Button Text="安装沙箱运行时（Python + Java，约 80MB）" Style="{StaticResource BtnNeumorphSm}"
                                                         IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
                                                         Command="{Binding InstallSandboxRuntimeCommand}" />
-                                                <Button Grid.Column="1" Text="卸载" Style="{StaticResource BtnText}" FontSize="11"
+                                                <Button Grid.Column="1" Text="卸载" Style="{StaticResource BtnText}"
                                                         IsEnabled="{Binding IsRuntimeBusy, Converter={StaticResource InverseBool}}"
                                                         Command="{Binding RemoveSandboxRuntimeCommand}" />
                                             </Grid>
@@ -1400,15 +1400,15 @@
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Opacity="0.4" />
 
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding RuntimeOsSupported}">
-                                            <Label Text="{Binding PythonManualPath, StringFormat='Python 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                            <Label Text="{Binding PythonManualPath, StringFormat='Python 路径：{0}'}" Style="{StaticResource TxtCaption}"
                                                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                                            <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}" FontSize="11"
+                                            <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}"
                                                     Command="{Binding SetPythonPathCommand}" />
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding RuntimeOsSupported}">
-                                            <Label Text="{Binding JavaManualPath, StringFormat='Java 路径：{0}'}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                            <Label Text="{Binding JavaManualPath, StringFormat='Java 路径：{0}'}" Style="{StaticResource TxtCaption}"
                                                    VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                                            <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}" FontSize="11"
+                                            <Button Grid.Column="1" Text="设置路径" Style="{StaticResource BtnText}"
                                                     Command="{Binding SetJavaPathCommand}" />
                                         </Grid>
 
@@ -1431,10 +1431,10 @@
                 默认不含 API 密钥与机器人密钥，可在下方勾选。"
                                                Style="{StaticResource TxtCaption}" />
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                            <Button Text="导出数据包" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                            <Button Text="导出数据包" Style="{StaticResource BtnPrimary}"
                                                     Padding="14,6" Command="{Binding ExportDataCommand}"
                                                     IsEnabled="{Binding IsDataBusy, Converter={StaticResource InverseBool}}" />
-                                            <Button Grid.Column="1" Text="导入数据包" Style="{StaticResource BtnGhost}" FontSize="13"
+                                            <Button Grid.Column="1" Text="导入数据包" Style="{StaticResource BtnGhost}"
                                                     Padding="14,6" Command="{Binding ImportDataCommand}"
                                                     IsEnabled="{Binding IsDataBusy, Converter={StaticResource InverseBool}}" />
                                         </Grid>
@@ -1528,11 +1528,11 @@
 
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,13">
                             <Button Text="{Binding [Settings_CloudSyncNow], Source={x:Static i18n:LocalizationService.Current}}"
-                                    Style="{StaticResource BtnPrimary}" FontSize="13" Padding="14,6"
+                                    Style="{StaticResource BtnPrimary}" Padding="14,6"
                                     Command="{Binding SyncCloudNowCommand}"
                                     IsEnabled="{Binding CloudBusy, Converter={StaticResource InverseBool}}" />
                             <Button Grid.Column="1" Text="{Binding [Settings_CloudTest], Source={x:Static i18n:LocalizationService.Current}}"
-                                    Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                                    Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding TestCloudCommand}"
                                     IsEnabled="{Binding CloudBusy, Converter={StaticResource InverseBool}}" />
                         </Grid>
@@ -1559,10 +1559,10 @@
                                             <Label Text="开启后 *-beta 测试版 tag 也会提示更新" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BetaChannel}" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                            <Button Text="检查更新" Style="{StaticResource BtnPrimary}" FontSize="13"
+                                            <Button Text="检查更新" Style="{StaticResource BtnPrimary}"
                                                     Padding="14,6" Command="{Binding CheckUpdateCommand}"
                                                     IsEnabled="{Binding IsCheckingUpdate, Converter={StaticResource InverseBool}}" />
-                                            <Button Grid.Column="1" Text="下载" Style="{StaticResource BtnGhost}" FontSize="13"
+                                            <Button Grid.Column="1" Text="下载" Style="{StaticResource BtnGhost}"
                                                     Padding="14,6" Command="{Binding DownloadUpdateCommand}"
                                                     IsEnabled="{Binding IsCheckingUpdate, Converter={StaticResource InverseBool}}" />
                                         </Grid>
@@ -1680,7 +1680,7 @@
                                         <Label Text="素材库（背景 · 音乐）" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
                                         <Label Text="导入 / 管理背景图与音乐，并把音乐设为左键音、右键音、按键音或背景音轮播"
                                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
-                                        <Button Text="🎨 进入素材库" Style="{StaticResource BtnNeumorphSm}"
+                                        <Button Text="进入素材库" Style="{StaticResource BtnNeumorphSm}"
                                                 HeightRequest="44" Command="{Binding OpenMaterialsCommand}" />
                                     </VerticalStackLayout>
                                 </Border>
@@ -1712,15 +1712,15 @@
                 <Border Style="{StaticResource CardSolid}"
                                         IsVisible="{Binding Filter.Developer}">
                                     <VerticalStackLayout Spacing="12">
-                                        <Label Text="支持作者 ❤️" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
+                                        <Label Text="支持作者" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
                                         <Label Text="如果您喜欢这个项目，欢迎赞助作者支持 continued development" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
-                                            <Button Text="☕ 爱发电赞助" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
-                                                    FontSize="13" HeightRequest="44" CornerRadius="12"
+                                            <Button Text="爱发电赞助" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
+                                                    FontSize="13" HeightRequest="44" CornerRadius="{DynamicResource WRadiusButton}"
                                                     Command="{Binding OpenSponsorCommand}" />
-                                            <Button Grid.Column="1" Text="📺 B站主页" BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource SurfaceFg}"
+                                            <Button Grid.Column="1" Text="B站主页" BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource SurfaceFg}"
                                                     BorderColor="{DynamicResource BorderLine}" BorderWidth="1"
-                                                    FontSize="13" HeightRequest="44" CornerRadius="12"
+                                                    FontSize="13" HeightRequest="44" CornerRadius="{DynamicResource WRadiusButton}"
                                                     Command="{Binding OpenBilibiliCommand}" />
                                         </Grid>
                                     </VerticalStackLayout>
@@ -1740,7 +1740,7 @@
                                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
                                                TextColor="{DynamicResource AccentWarmFg}"
                                                IsVisible="{Binding ShowcaseUnlocked}" />
-                                        <Button Text="🎬 开发者展示（编辑 / 播放）" Style="{StaticResource BtnNeumorphSm}"
+                                        <Button Text="开发者展示（编辑 / 播放）" Style="{StaticResource BtnNeumorphSm}"
                                                 BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                                                 FontAttributes="Bold"
                                                 IsVisible="{Binding ShowcaseUnlocked}"
@@ -1749,7 +1749,7 @@
                                         <Label Text="滚到设置最底部后，连续点按“连击解锁”按钮 114514 次可开启"
                                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center"
                                                IsVisible="{Binding ShowcaseUnlocked, Converter={StaticResource InverseBool}}" />
-                                        <Button Text="🔒 连击解锁"
+                                        <Button Text="连击解锁"
                                                 Style="{StaticResource BtnNeumorphSm}"
                                                 IsVisible="{Binding ShowcaseUnlocked, Converter={StaticResource InverseBool}}"
                                                 Command="{Binding SecretTapCommand}" />
@@ -1854,15 +1854,15 @@
                                 BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                 PlaceholderColor="{DynamicResource MutedFg}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,10">
-                            <Button Text="保存自定义性别" Style="{StaticResource BtnPrimary}" FontSize="13"
+                            <Button Text="保存自定义性别" Style="{StaticResource BtnPrimary}"
                                     Padding="14,6" Command="{Binding SaveCustomGenderCommand}" />
-                            <Button Grid.Column="1" Text="从 JSON 导入" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                            <Button Grid.Column="1" Text="从 JSON 导入" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding ImportGenderJsonCommand}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
                             <Picker Title="选择要删除的自定义性别" ItemsSource="{Binding CustomGenderNames}"
                                     SelectedItem="{Binding SelectedCustomGender}" FontSize="13" />
-                            <Button Grid.Column="1" Text="删除" Style="{StaticResource BtnGhost}" FontSize="13"
+                            <Button Grid.Column="1" Text="删除" Style="{StaticResource BtnGhost}"
                                     Command="{Binding DeleteSelectedCustomGenderCommand}" />
                         </Grid>
                     </VerticalStackLayout>
@@ -1882,7 +1882,7 @@
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MentalHealthEnabled}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" Padding="0,4" ColumnSpacing="8">
                             <Label Text="打开后可逐角色设定；涉及自伤/自杀/伤人的条目有硬边界：不提供方法、不美化，只做陪伴与转向求助。" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="管理心理状况" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                            <Button Grid.Column="1" Text="管理心理状况" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding OpenMentalHealthCommand}" />
                         </Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
@@ -1991,9 +1991,9 @@
                             <Entry Text="{Binding MoneyInput}" Keyboard="Numeric" FontSize="13"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    Placeholder="金额（可负数）" PlaceholderColor="{DynamicResource MutedFg}" />
-                            <Button Grid.Column="1" Text="增加" Style="{StaticResource BtnPrimary}" FontSize="13"
+                            <Button Grid.Column="1" Text="增加" Style="{StaticResource BtnPrimary}"
                                     Padding="14,6" Command="{Binding AddMoneyCommand}" />
-                            <Button Grid.Column="2" Text="设为余额" Style="{StaticResource BtnNeumorphSm}" FontSize="13"
+                            <Button Grid.Column="2" Text="设为余额" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding SetMoneyCommand}" />
                         </Grid>
                     </VerticalStackLayout>
@@ -2027,9 +2027,9 @@
                              不再只留一个跳转按钮 —— 两套系统各自安装、各自管理。 -->
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,13,0,4">
                             <Label Text="已安装的插件" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnText}" FontSize="12"
+                            <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnText}"
                                     Command="{Binding RefreshPluginsCommand}" />
-                            <Button Grid.Column="2" Text="打开插件中心" Style="{StaticResource BtnNeumorphSm}" FontSize="12"
+                            <Button Grid.Column="2" Text="打开插件中心" Style="{StaticResource BtnNeumorphSm}"
                                     Padding="12,4" Command="{Binding OpenPluginCenterCommand}" />
                         </Grid>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding PluginRows}"
@@ -2044,9 +2044,9 @@
                                                 <HorizontalStackLayout Spacing="6">
                                                     <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                                                     <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
-                                                           FontSize="11" VerticalOptions="Center" Opacity="0.75" />
+                                                           VerticalOptions="Center" Opacity="0.75" />
                                                 </HorizontalStackLayout>
-                                                <Label Style="{StaticResource TxtCaption}" FontSize="11" Opacity="0.8">
+                                                <Label Style="{StaticResource TxtCaption}" Opacity="0.8">
                                                     <Label.FormattedText>
                                                         <FormattedString>
                                                             <Span Text="v" />
@@ -2054,15 +2054,15 @@
                                                         </FormattedString>
                                                     </Label.FormattedText>
                                                 </Label>
-                                                <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
                                                        LineBreakMode="WordWrap" MaxLines="2"
                                                        IsVisible="{Binding Description, Converter={StaticResource StringNotEmpty}}" />
-                                                <Label Text="{Binding Issue}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                                <Label Text="{Binding Issue}" Style="{StaticResource TxtCaption}"
                                                        TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
                                                        IsVisible="{Binding HasIssue}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1" Text="{Binding ToggleLabel}"
-                                                    Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                                    Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                     VerticalOptions="Center"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=TogglePluginCommand}"
                                                     CommandParameter="{Binding .}" />
@@ -2311,7 +2311,7 @@
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                 <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
-                        FontSize="14" Padding="0"
+                        Padding="0"
                         Command="{Binding GoBackCommand}" />
                 <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
                     <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"

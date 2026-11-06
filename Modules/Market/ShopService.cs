@@ -346,9 +346,9 @@ public sealed class ShopService
         };
         var lines = new List<string>
         {
-            $"💗 好感 {s.Affection}  ·  🤝 信任 {s.Trust}  ·  ⚡ 精力 {s.Energy}",
-            $"😊 心情：{moodText}",
-            $"📍 位置：{s.Location}"
+            $"好感 {s.Affection}  ·  信任 {s.Trust}  ·  精力 {s.Energy}",
+            $"心情：{moodText}",
+            $"位置：{s.Location}"
         };
         var cycle = s.Cycle;
         if (cycle is not null && cycle.Tracked)
@@ -360,16 +360,16 @@ public sealed class ShopService
                 _ => cycle.Phase
             };
             // 内部按 0 起算（第 0 天=经期第一天），说日子的时候没人这么数，界面上补成 1 起算。
-            lines.Add($"🌸 生理周期：第 {cycle.CycleDay + 1} 天（{phase}）");
+            lines.Add($"生理周期：第 {cycle.CycleDay + 1} 天（{phase}）");
         }
         var buffs = ActiveBuffs;
         if (buffs.Count > 0)
         {
-            lines.Add("✨ 当前标记：" + string.Join("  ", buffs.Select(b => $"{b.Emoji}{b.Name}(剩{b.TurnsLeft}轮)")));
+            lines.Add("当前标记：" + string.Join("  ", buffs.Select(b => $"{b.Emoji}{b.Name}(剩{b.TurnsLeft}轮)")));
         }
         else
         {
-            lines.Add("✨ 当前标记：无");
+            lines.Add("当前标记：无");
         }
         return string.Join("\n", lines);
     }

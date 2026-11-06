@@ -24,7 +24,7 @@
             <Grid RowDefinitions="Auto,Auto" RowSpacing="4">
                 <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                     <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
-                            Style="{StaticResource BtnText}" FontSize="14" Padding="0" VerticalOptions="Center"
+                            Style="{StaticResource BtnText}" Padding="0" VerticalOptions="Center"
                             Command="{Binding BackCommand}"/>
                     <Label Grid.Column="1" Text="取景与导入" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
                 </Grid>
@@ -63,13 +63,13 @@
                         <Label Text="照片进出" Style="{StaticResource TxtSection}" />
                         <Label Text="电脑端不能取景：照片传过来在这里导入。图上会先落成「未绑」，选中一张再记绑定。" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                         <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="8">
-                            <Button Grid.Column="0" Text="📥 导入照片…" Style="{StaticResource BtnGhostSm}"
+                            <Button Grid.Column="0" Text="导入照片…" Style="{StaticResource BtnGhostSm}"
                                     IsEnabled="{Binding CanCapture}"
                                     Command="{Binding ImportPhotosCommand}" />
-                            <Button Grid.Column="1" Text="📦 打开取景包…" Style="{StaticResource BtnGhostSm}"
+                            <Button Grid.Column="1" Text="打开取景包…" Style="{StaticResource BtnGhostSm}"
                                     IsEnabled="{Binding CanCapture}"
                                     Command="{Binding ImportBundleCommand}" />
-                            <Button Grid.Column="2" Text="📤 导出取景包…" Style="{StaticResource BtnGhostSm}"
+                            <Button Grid.Column="2" Text="导出取景包…" Style="{StaticResource BtnGhostSm}"
                                     IsEnabled="{Binding CanCapture}"
                                     Command="{Binding ExportBundleCommand}" />
                         </Grid>
@@ -81,15 +81,15 @@
                     <VerticalStackLayout Spacing="10">
                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="8">
                             <Label Grid.Column="0" Text="这一组绑定" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
-                            <Button Grid.Column="1" Text="街道" Style="{StaticResource BtnGhostSm}" FontSize="12"
+                            <Button Grid.Column="1" Text="街道" Style="{StaticResource BtnGhostSm}"
                                     BackgroundColor="{Binding StreetModeBg}"
                                     Command="{Binding SetStreetModeCommand}" CommandParameter="street" />
-                            <Button Grid.Column="2" Text="室内" Style="{StaticResource BtnGhostSm}" FontSize="12"
+                            <Button Grid.Column="2" Text="室内" Style="{StaticResource BtnGhostSm}"
                                     BackgroundColor="{Binding IndoorModeBg}"
                                     Command="{Binding SetStreetModeCommand}" CommandParameter="indoor" />
                         </Grid>
                         <Label Text="{Binding BindingTargetText}" Style="{StaticResource TxtCaption}" />
-                        <Button Text="✅ 记上这组绑定" Style="{StaticResource BtnSignal}"
+                        <Button Text="记上这组绑定" Style="{StaticResource BtnSignal}"
                                 IsEnabled="{Binding CanCapture}"
                                 Command="{Binding ApplyBindingCommand}" />
 
@@ -120,7 +120,7 @@
                         </VerticalStackLayout>
 
                         <!-- 拍照只在手机端；电脑端这行换个说法 -->
-                        <Button Text="📷 走到这儿，拍一张" Style="{StaticResource BtnSignal}"
+                        <Button Text="走到这儿，拍一张" Style="{StaticResource BtnSignal}"
                                 IsVisible="{Binding CaptureAvailable}"
                                 Command="{Binding CaptureCommand}" />
                         <Label Text="电脑端不取景：照片先「导入」，再回来这里拣街/拣户型补绑。" Style="{StaticResource TxtRowDesc}" MaxLines="2"
@@ -142,7 +142,7 @@
                                                Aspect="AspectFill" HorizontalOptions="Start" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
                                             <Label Text="{Binding Order, StringFormat='第 {0} 张'}" Style="{StaticResource TxtCaption}" />
-                                            <Label Text="{Binding Tag}" Style="{StaticResource TxtRowTitle}" FontSize="12" />
+                                            <Label Text="{Binding Tag}" Style="{StaticResource TxtRowTitle}" />
                                             <Label Text="{Binding Line}" Style="{StaticResource TxtCaption}" MaxLines="2" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="2" Text="选" Style="{StaticResource BtnGhostSm}"

@@ -51,16 +51,19 @@ public partial class AffectionLevelUpPage : ContentPage
         _ = LaunchHeartsAsync();
     }
 
-    /// <summary>心形/花朵从画面中段不断飘散上升。</summary>
+    /// <summary>白心形从画面中段不断飘散上升（图形资产，禁 emoji 见 UI 标准书 2.6）。</summary>
     private async Task LaunchHeartsAsync()
     {
         var rnd = Random.Shared;
         while (_animating)
         {
-            var heart = new Label
+            var s = rnd.Next(18, 34);
+            var heart = new Image
             {
-                Text = rnd.Next(4) switch { 0 => "💗", 1 => "💖", 2 => "🌷", _ => "💕" },
-                FontSize = rnd.Next(20, 38),
+                Source = "ic_heart_contrast.png",
+                WidthRequest = s,
+                HeightRequest = s,
+                Rotation = rnd.Next(-24, 25),
                 HorizontalOptions = LayoutOptions.Start,
                 VerticalOptions = LayoutOptions.Start
             };

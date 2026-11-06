@@ -108,14 +108,14 @@
                     <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                             WidthRequest="96" HeightRequest="96"
                             StrokeShape="{DynamicResource WRadiusPill}">
-                        <Label Text="🖼" FontSize="{DynamicResource WSizeDisplay}"
+                        <Image Source="ic_frame.png" WidthRequest="40" HeightRequest="40"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                     <Label Text="背景库还是空的" Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
                     <Label Text="导入 JPG / PNG / MP4 背景，可在地图里选用" Style="{StaticResource TxtMuted}"
                            HorizontalOptions="Center" />
-                    <Label Text="（触屏设备：导入后可在地图页选中场景点「🖼 背景（素材库）」选用）" Style="{StaticResource TxtMuted}"
+                    <Label Text="（触屏设备：导入后可在地图页选中场景点「背景（素材库）」选用）" Style="{StaticResource TxtMuted}"
                            HorizontalOptions="Center"
                            IsVisible="{OnIdiom Phone=True, Desktop=False, Tablet=True}" />
                 </VerticalStackLayout>
@@ -131,8 +131,7 @@
                                        HorizontalOptions="Fill" VerticalOptions="Fill" />
                                 <!-- 无缩略图时的占位符要有对比才看得见：WarmFaint 是面档的淡色，
                                      压在井底上等于一片空 —— 用 MutedFg 这一档墨 -->
-                                <Label Text="🖼" TextColor="{DynamicResource MutedFg}"
-                                       FontSize="{DynamicResource WSizeSubhead}"
+                                <Image Source="ic_frame.png" WidthRequest="20" HeightRequest="20" Opacity="0.55"
                                        HorizontalOptions="Center" VerticalOptions="Center"
                                        IsVisible="{Binding HasThumb, Converter={StaticResource InverseBool}}" />
                             </Border>
@@ -161,7 +160,7 @@
                     <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                             WidthRequest="96" HeightRequest="96"
                             StrokeShape="{DynamicResource WRadiusPill}">
-                        <Label Text="🎵" FontSize="{DynamicResource WSizeDisplay}"
+                        <Image Source="ic_music.png" WidthRequest="40" HeightRequest="40"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                     <Label Text="音乐库还是空的" Style="{StaticResource TxtTitle}"
@@ -180,8 +179,7 @@
                         <VerticalStackLayout Spacing="6">
                             <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                     HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">
-                                <Label Text="🎵" TextColor="{DynamicResource MutedFg}"
-                                       FontSize="{DynamicResource WSizeSubhead}"
+                                <Image Source="ic_music.png" WidthRequest="20" HeightRequest="20" Opacity="0.55"
                                        HorizontalOptions="Center" VerticalOptions="Center" />
                             </Border>
                             <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"

@@ -20,7 +20,7 @@
         <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12"
               Background="{DynamicResource WBarBrush}" Padding="{DynamicResource WPadWell}">
             <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding GoBackCommand}" VerticalOptions="Center" />
                 <VerticalStackLayout Grid.Column="1" Spacing="0">
                     <Label Text="// DESKTOP PET" Style="{StaticResource Eyebrow}" />
@@ -136,7 +136,7 @@
                                    LineBreakMode="CharacterWrap" MaxLines="2" />
                         </VerticalStackLayout>
                         <Button Grid.Column="1" Text="重新演示" Style="{StaticResource BtnGhost}"
-                                FontSize="12" Padding="12,4" VerticalOptions="Center"
+                                Padding="12,4" VerticalOptions="Center"
                                 Clicked="OnReplayPreview" />
                     </Grid>
                 </Grid>
@@ -167,19 +167,19 @@
 
                     <!-- ── 分段标签：外观 / 动作 / 气泡 / 声音 / 语音 / 位置 / 自主（代码切换可用性） -->
                     <HorizontalStackLayout x:Name="SegBar" Spacing="6" HorizontalOptions="Start">
-                        <Button Text="外观" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="0"
+                        <Button Text="外观" Padding="12,6" Clicked="OnSegClicked" ClassId="0"
                                 Style="{StaticResource BtnGhostSm}" />
-                        <Button Text="动作" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="1"
+                        <Button Text="动作" Padding="12,6" Clicked="OnSegClicked" ClassId="1"
                                 Style="{StaticResource BtnGhostSm}" />
-                        <Button Text="气泡" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="2"
+                        <Button Text="气泡" Padding="12,6" Clicked="OnSegClicked" ClassId="2"
                                 Style="{StaticResource BtnGhostSm}" />
-                        <Button Text="声音" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="3"
+                        <Button Text="声音" Padding="12,6" Clicked="OnSegClicked" ClassId="3"
                                 Style="{StaticResource BtnGhostSm}" />
-                        <Button Text="语音" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="4"
+                        <Button Text="语音" Padding="12,6" Clicked="OnSegClicked" ClassId="4"
                                 Style="{StaticResource BtnGhostSm}" />
-                        <Button Text="位置" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="5"
+                        <Button Text="位置" Padding="12,6" Clicked="OnSegClicked" ClassId="5"
                                 Style="{StaticResource BtnGhostSm}" />
-                        <Button Text="自主" FontSize="13" Padding="12,6" Clicked="OnSegClicked" ClassId="6"
+                        <Button Text="自主" Padding="12,6" Clicked="OnSegClicked" ClassId="6"
                                 Style="{StaticResource BtnGhostSm}" />
                     </HorizontalStackLayout>
 
@@ -291,12 +291,12 @@
                                         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
                                             <Label Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
                                                    VerticalOptions="Center" />
-                                            <Button Grid.Column="1" Text="↑" FontSize="12" Padding="8,2" HeightRequest="28"
+                                            <Button Grid.Column="1" Text="↑" Padding="8,2" HeightRequest="28"
                                                     Style="{StaticResource BtnGhost}"
                                                     IsVisible="{Binding IsOn}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverUpCommand}"
                                                     CommandParameter="{Binding .}" />
-                                            <Button Grid.Column="2" Text="↓" FontSize="12" Padding="8,2" HeightRequest="28"
+                                            <Button Grid.Column="2" Text="↓" Padding="8,2" HeightRequest="28"
                                                     Style="{StaticResource BtnGhost}"
                                                     IsVisible="{Binding IsOn}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PetSettingsViewModel}}, Path=MoveHoverDownCommand}"
@@ -346,7 +346,7 @@
                                     <Label Text="打字音" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="气泡逐字浮现时的那串小键盘声" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Button Grid.Column="1" Text="试听" Style="{StaticResource BtnGhost}" FontSize="12"
+                                <Button Grid.Column="1" Text="试听" Style="{StaticResource BtnGhost}"
                                         Padding="10,4" VerticalOptions="Center"
                                         Command="{Binding PreviewSfxCommand}" CommandParameter="typing" />
                                 <controls:ViewSwitch Grid.Column="2" IsToggled="{Binding PetTypingSound}" VerticalOptions="Center" />
@@ -367,7 +367,7 @@
                                 <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TapLevel}" VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding TapLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
-                                <Button Grid.Column="3" Text="试听" FontSize="11" Padding="6,2" HeightRequest="26"
+                                <Button Grid.Column="3" Text="试听" Padding="6,2" HeightRequest="26"
                                         Style="{StaticResource BtnGhost}" VerticalOptions="Center"
                                         Command="{Binding PreviewSfxCommand}" CommandParameter="tap" />
                             </Grid>
@@ -380,7 +380,7 @@
                                 <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TypingLevel}" VerticalOptions="Center" />
                                 <Label Grid.Column="2" Text="{Binding TypingLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
-                                <Button Grid.Column="3" Text="试听" FontSize="11" Padding="6,2" HeightRequest="26"
+                                <Button Grid.Column="3" Text="试听" Padding="6,2" HeightRequest="26"
                                         Style="{StaticResource BtnGhost}" VerticalOptions="Center"
                                         Command="{Binding PreviewSfxCommand}" CommandParameter="typing" />
                             </Grid>
@@ -472,9 +472,9 @@
                                     <Label Text="当前锚点" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="{Binding AnchorReadout}" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
                                 </VerticalStackLayout>
-                                <Button Grid.Column="1" Text="记住当前位置" Style="{StaticResource BtnGhost}" FontSize="12"
+                                <Button Grid.Column="1" Text="记住当前位置" Style="{StaticResource BtnGhost}"
                                         Padding="12,4" VerticalOptions="Center" Command="{Binding RememberPositionCommand}" />
-                                <Button Grid.Column="2" Text="清除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                <Button Grid.Column="2" Text="清除" Style="{StaticResource BtnGhost}"
                                         Padding="10,4" VerticalOptions="Center" Command="{Binding ClearAnchorCommand}" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />

@@ -20,10 +20,10 @@
                      不再把标题挤成零宽、把最后几颗裁掉。 -->
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="4" VerticalOptions="Center">
-                        <Label Text="🗺️ 地图编辑器" Style="{StaticResource TxtTitle}" />
+                        <Label Text="地图编辑器" Style="{StaticResource TxtTitle}" />
                         <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
                                LineBreakMode="TailTruncation" MaxLines="1" />
-                        <Label Text="{Binding LocationLabel, StringFormat='📍 当前位置：{0}'}"
+                        <Label Text="{Binding LocationLabel, StringFormat='当前位置：{0}'}"
                                TextColor="{DynamicResource SurfaceFg}" FontSize="{DynamicResource WSizeCaption}"
                                FontAttributes="Bold" />
                     </VerticalStackLayout>
@@ -46,19 +46,19 @@
                                     Command="{Binding ResetLayoutCommand}" />
                             <Button Text="导出" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding ExportMapCommand}" />
-                            <Button Text="🗺 创建地图…" Style="{StaticResource BtnNeumorphSm}"
+                            <Button Text="创建地图…" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding CreateMapCommand}" />
                             <!-- 天气来源：这张图按哪儿算（跟随用户 / 地图当地 / 自定义地点） -->
                             <Button Text="{Binding WeatherModeLabel}" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding PickWeatherModeCommand}" />
                             <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
-                            <Button Text="📷 取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
+                            <Button Text="取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding OpenCaptureCommand}" />
                             <!-- 3D 灰度：同一张图的街面读法（编辑器保持 2D 不变） -->
-                            <Button Text="🏙 3D 灰度" Style="{StaticResource BtnNeumorphSm}"
+                            <Button Text="3D 灰度" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding Open3dCommand}" />
                             <!-- 流程图：规则（时机 + 条件 + 动作） -->
-                            <Button Text="🧩 流程图" Style="{StaticResource BtnNeumorphSm}"
+                            <Button Text="流程图" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding OpenFlowsCommand}" />
                             <Button Text="返回" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding BackCommand}" />
@@ -76,9 +76,9 @@
                             HeightRequest="32" Command="{Binding AddLocationCommand}" />
                     <Button Grid.Column="2" Text="＋ 新场景 / 临时节点" Style="{StaticResource BtnNeumorphSm}"
                             HeightRequest="32" Command="{Binding AddSceneCommand}" />
-                    <Button Grid.Column="3" Text="🖼 背景（素材库）" Style="{StaticResource BtnNeumorphSm}"
+                    <Button Grid.Column="3" Text="背景（素材库）" Style="{StaticResource BtnNeumorphSm}"
                             HeightRequest="32" Command="{Binding BackgroundFromLibraryCommand}" />
-                    <Button Grid.Column="4" Text="✨ AI 画背景" Style="{StaticResource BtnNeumorphSm}"
+                    <Button Grid.Column="4" Text="AI 画背景" Style="{StaticResource BtnNeumorphSm}"
                             HeightRequest="32" Command="{Binding GenerateBackgroundCommand}" />
                 </Grid>
             </Grid>
@@ -99,10 +99,10 @@
                 Background="{DynamicResource WBarBrush}" Stroke="{DynamicResource WControlEdgeBrush}"
                 StrokeThickness="{DynamicResource WControlEdgeWidth}" Padding="6"
                 StrokeShape="{DynamicResource WRadiusRaised}">
-            <VerticalStackLayout Spacing="5" WidthRequest="88">
-                <Label Text="{Binding FloorBarTitle}" Style="{StaticResource TxtMuted}" FontSize="11"
+            <VerticalStackLayout Spacing="4" WidthRequest="88">
+                <Label Text="{Binding FloorBarTitle}" Style="{StaticResource TxtMuted}"
                        HorizontalTextAlignment="Center" LineBreakMode="TailTruncation" MaxLines="1" />
-                <VerticalStackLayout Spacing="5" BindableLayout.ItemsSource="{Binding FloorChips}">
+                <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding FloorChips}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:FloorChip">
                             <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True"
@@ -149,7 +149,7 @@
                 </Border>
                 <Label Grid.Column="1" Text="拖拽卡片调整位置" Style="{StaticResource TxtMuted}"
                        VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="🗑 删除" Style="{StaticResource BtnDangerSm}"
+                <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnDangerSm}"
                         HeightRequest="36" Command="{Binding RemoveSceneCommand}"
                         IsVisible="{Binding HasSelection}" />
                 <Button Grid.Column="3" Text="返回" Style="{StaticResource BtnGhostSm}"

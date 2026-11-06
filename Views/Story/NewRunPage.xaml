@@ -96,7 +96,7 @@
 
         <!-- 正文：一次一块；单页模式下四块依次排开 -->
         <ScrollView Grid.Row="2" x:Name="StepScroll" Padding="24,18,24,28">
-            <VerticalStackLayout Spacing="22" MaximumWidthRequest="880" HorizontalOptions="Fill">
+            <VerticalStackLayout Spacing="20" MaximumWidthRequest="880" HorizontalOptions="Fill">
 
                 <!-- ① 世界 -->
                 <VerticalStackLayout x:Name="StepWorld" Spacing="14" IsVisible="{Binding ShowWorldBlock}">
@@ -301,10 +301,10 @@
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
                 <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
                     <Button Text="下一步" Style="{StaticResource BtnPrimary}"
-                            FontSize="13" Padding="18,7"
+                            Padding="18,7"
                             Command="{Binding NextStepCommand}" IsVisible="{Binding ShowNext}" />
                     <Button Text="{Binding PrimaryText}" Style="{StaticResource BtnPrimary}"
-                            FontSize="13" Padding="18,7"
+                            Padding="18,7"
                             Command="{Binding BeginCommand}" IsVisible="{Binding ShowBegin}" />
                 </HorizontalStackLayout>
             </Grid>

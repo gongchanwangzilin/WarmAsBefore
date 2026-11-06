@@ -270,7 +270,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         if (item is null) return;
         IsGiftPanelVisible = false;
-        Messages.Add(new ChatItem { Text = $"🎁 送给你：{item.Emoji} {item.Name}", DisplayText = $"🎁 送给你：{item.Emoji} {item.Name}", IsUser = true });
+        Messages.Add(new ChatItem { Text = $"送给你：{item.Emoji} {item.Name}", DisplayText = $"送给你：{item.Emoji} {item.Name}", IsUser = true });
         var reply = await _gifts.GiftAsync(item);
         var aiMsg = new ChatItem { Text = reply, DisplayText = "", IsUser = false };
         Messages.Add(aiMsg);
@@ -282,7 +282,7 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         if (item is null) return;
         IsGiftPanelVisible = false;
-        Messages.Add(new ChatItem { Text = $"✨ 我用了：{item.Emoji} {item.Name}", DisplayText = $"✨ 我用了：{item.Emoji} {item.Name}", IsUser = true });
+        Messages.Add(new ChatItem { Text = $"我用了：{item.Emoji} {item.Name}", DisplayText = $"我用了：{item.Emoji} {item.Name}", IsUser = true });
         var reply = await _gifts.UseAsync(item);
         var aiMsg = new ChatItem { Text = reply, DisplayText = "", IsUser = false };
         Messages.Add(aiMsg);
@@ -440,7 +440,7 @@ public sealed partial class WeChatViewModel : ObservableObject
         var ext = Path.GetExtension(path).ToLowerInvariant();
         var isImage = ext is ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp";
         var isVideo = ext is ".mp4" or ".mov" or ".mkv" or ".webm" or ".avi" or ".wmv" or ".flv";
-        var fileName = isImage || isVideo ? "" : $"📄 {Path.GetFileName(path)}";
+        var fileName = isImage || isVideo ? "" : $"{Path.GetFileName(path)}";
         MainThread.BeginInvokeOnMainThread(() =>
             Messages.Add(new ChatItem
             {

@@ -43,7 +43,7 @@
                                Style="{StaticResource TxtRowDesc}" LineBreakMode="TailTruncation" />
                     </VerticalStackLayout>
                     <Label Grid.Column="2" Text="›" Style="{StaticResource TxtMuted}"
-                           FontSize="20" VerticalOptions="Center" />
+                           VerticalOptions="Center" />
                 </Grid>
             </Border>
         </Border>
