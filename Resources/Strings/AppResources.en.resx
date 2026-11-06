@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -189,10 +189,12 @@
   <data name="Setup_World_Minimal" xml:space="preserve"><value>Quiet minimal</value></data>
   <data name="Setup_World_Gradient" xml:space="preserve"><value>Soft gradient</value></data>
   <data name="Setup_World_Liquid" xml:space="preserve"><value>Liquid glass</value></data>
+  <data name="Setup_World_Endfield" xml:space="preserve"><value>Endfield HUD</value></data>
   <data name="Setup_Pal_Classic" xml:space="preserve"><value>Classic</value></data>
   <data name="Setup_Pal_Sakura" xml:space="preserve"><value>Sakura</value></data>
   <data name="Setup_Pal_Bamboo" xml:space="preserve"><value>Bamboo</value></data>
   <data name="Setup_Pal_Mist" xml:space="preserve"><value>Mist</value></data>
+  <data name="Setup_Pal_Endfield" xml:space="preserve"><value>Endfield</value></data>
   <data name="Setup_Pet_Off" xml:space="preserve"><value>Never on its own</value></data>
   <data name="Setup_Pet_Min" xml:space="preserve"><value>After {0} minutes idle</value></data>
   <data name="Settings_ChannelsUrl" xml:space="preserve"><value>Channels URL</value></data>

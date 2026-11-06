@@ -12,9 +12,9 @@ public class ThemeManager
     private bool _dark;
 
     /// <summary>
-    /// 风格世界（材质）：轻质感 / 柔和极简 / 柔和渐变 / 液态玻璃。
+    /// 风格世界（材质）：轻质感 / 柔和极简 / 柔和渐变 / 液态玻璃 / 终末地 HUD。
     /// 它接管了原来「磨砂 / 毛玻璃 / 液态玻璃」三个开关的位置 —— 开关是互相牵制的三个布尔，
-    /// 用户要的是一句话选一种，而世界的数量正好是四。
+    /// 用户要的是一句话选一种，而世界的数量正好是五。
     /// </summary>
     public StyleWorld World
     {
@@ -225,7 +225,7 @@ public class ThemeManager
             _ => "none"
         };
 
-    /// <summary>界面配色主题：classic（经典）/ sakura（樱花粉）/ bamboo（翠竹绿）/ mist（晨雾蓝灰）。</summary>
+    /// <summary>界面配色主题：classic（经典）/ sakura（樱花粉）/ bamboo（翠竹绿）/ mist（晨雾蓝灰）/ endfield（终末地）。</summary>
     public string ThemeName
     {
         get => _themeName;
@@ -238,13 +238,14 @@ public class ThemeManager
         }
     }
 
-    public static string[] ThemeNames { get; } = { "classic", "sakura", "bamboo", "mist" };
+    public static string[] ThemeNames { get; } = { "classic", "sakura", "bamboo", "mist", "endfield" };
 
     public static string ThemeDisplay(string name) => name switch
     {
         "sakura" => "樱花粉",
         "bamboo" => "翠竹绿",
         "mist" => "晨雾蓝灰",
+        "endfield" => "终末地",
         _ => "经典"
     };
 
@@ -260,6 +261,7 @@ public class ThemeManager
                 "sakura" => "DesignSystem/Theme/ColorPaletteSakura.xaml",
                 "bamboo" => "DesignSystem/Theme/ColorPaletteBamboo.xaml",
                 "mist" => "DesignSystem/Theme/ColorPaletteMist.xaml",
+                "endfield" => "DesignSystem/Theme/ColorPaletteEndfield.xaml",
                 _ => "DesignSystem/Theme/ColorPalette.xaml"
             };
             // 找到当前的主题字典
@@ -297,6 +299,7 @@ public class ThemeManager
                     "sakura" => "DesignSystem.Theme.ColorPaletteSakura.xaml",
                     "bamboo" => "DesignSystem.Theme.ColorPaletteBamboo.xaml",
                     "mist" => "DesignSystem.Theme.ColorPaletteMist.xaml",
+                    "endfield" => "DesignSystem.Theme.ColorPaletteEndfield.xaml",
                     _ => "DesignSystem.Theme.ColorPalette.xaml"
                 };
                 var resName = asm.GetManifestResourceNames()

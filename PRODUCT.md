@@ -34,8 +34,8 @@ Long desk sessions (chat, gallery, map/worldbook editors), a persistent desktop-
 - Keys and tokens go only to their own endpoint, never into shared `HttpClient` default headers.
 - I18n in four languages; third person is gender-neutral (中文 TA / English they).
 - Reduced-motion preference and a `WARM_NO_MOTION` kill switch are honoured; text must reach 4.5:1.
-- The incumbent warm-neumorph look is **deprecated by explicit user instruction** (2026-10-18): four switchable material worlds replace it — 轻质感 (default), 柔和极简, 柔和渐变, 液态玻璃 — each with a dark variant. Colour palettes (经典奶油 / 晨雾蓝灰 / 翠竹绿 / 樱花粉) stay as an independent hue axis.
-- No new Settings surfaces: the four worlds bind to the existing appearance picker.
+- The incumbent warm-neumorph look is **deprecated by explicit user instruction** (2026-10-18): five switchable material worlds replace it — 轻质感 (default), 柔和极简, 柔和渐变, 液态玻璃, 终末地 HUD (v1.56) — each with a dark variant. Colour palettes (经典奶油 / 晨雾蓝灰 / 翠竹绿 / 樱花粉 / 终末地) stay as an independent hue axis.
+- No new Settings surfaces: the five worlds bind to the existing appearance picker.
 
 ## Brand Commitments
 

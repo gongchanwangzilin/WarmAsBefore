@@ -64,7 +64,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
                                             <VerticalStackLayout>
                                                 <Label Text="风格" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="四种材质：轻质感=分层加一道细缝 · 柔和极简=无线无影，只靠底色台阶与留白 · 柔和渐变=渐变的面加近而柔的影 · 液态玻璃=通透的面加发光边（深/浅色跟随系统）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                                <Label Text="五种材质：轻质感=分层加一道细缝 · 柔和极简=无线无影，只靠底色台阶与留白 · 柔和渐变=渐变的面加近而柔的影 · 液态玻璃=通透的面加发光边 · 终末地 HUD=近直角细描边、无影无渐变（配终末地色板最完整）；深/浅色跟随系统" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <Picker Grid.Column="1" WidthRequest="150" FontSize="13"
                                                     ItemsSource="{Binding GlassModeChoices}"
                                                     SelectedItem="{Binding GlassModeDisplay}" />
@@ -244,6 +244,8 @@
                                             <Picker Grid.Column="1" Title="{Binding [Settings_Theme], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="130"
                                                     ItemsSource="{Binding ThemeChoices}" SelectedItem="{Binding ThemeDisplay}"
                                                     FontSize="13" /></Grid>
+                                        <Label Text="「终末地」是新增的深灰工业色板：黄色强调 + 冷灰面板。再配合上面「风格」里的「终末地 HUD」，就是完整的终末地界面；手机与窄窗按屏宽自动排，材质与圆角不会挡住内容。"
+                                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_MenuRight], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />

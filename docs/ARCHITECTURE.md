@@ -351,6 +351,9 @@ ZIP/文件夹导入会先验身，认成插件就拒绝并指路插件中心。
 - **性能模式**：`MotionTokens.PerformanceMode`（用户开关）与 `SystemDisabled`（系统减少动画）取或，
   动效直接落终值；`StyleWorldTokens.FlatShadows` 同时把卡片阴影改平，经 `ThemeManager.Republish()`
   重发 DynamicResource。`UiStallMonitor` 在主线程停摆 >200ms 时写 `perf.log`，配合 `PerfLog.Phase` 定位。
+- **主题与材质**：色板（`ColorPalette*.xaml`）只给色相/彩度种子，`StyleWorld` 管圆角、描边、字号与明暗台阶；
+  终末地 = `ColorPaletteEndfield` 色板 + `StyleWorld.Endfield` 材质，选中时 `UserAppTheme` 强制暗色
+  （离开恢复跟随系统），WinUI 原生标题栏由 `Platforms/Windows/WindowChrome` 跟随 `PageBg/SurfaceFg`。
 
 ### XAML 约束
 
