@@ -1,0 +1,82 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- ============ 终末地主题 Endfield ============ -->
+    <!-- 终末地 / Endfield：深灰工业面板 + 终末地黄强调；深/浅档由 StyleWorld 自动推导 -->
+    <!-- 奶油色 / Cream Base -->
+    <Color x:Key="Cream50">#F6F7F4</Color>
+    <Color x:Key="Cream100">#ECEDE8</Color>
+    <Color x:Key="Cream150">#E4E5E0</Color>
+    <Color x:Key="Cream200">#D3D4CF</Color>
+    <Color x:Key="Cream250">#C6C7C2</Color>
+    <Color x:Key="Cream300">#B3B4AF</Color>
+
+    <!-- 米白色 / Off-White Base -->
+    <Color x:Key="OffWhite50">#FAFBF8</Color>
+    <Color x:Key="OffWhite100">#F4F5F1</Color>
+    <Color x:Key="OffWhite200">#ECEDE8</Color>
+    <Color x:Key="OffWhite300">#E0E1DC</Color>
+
+    <!-- 米黄色 / Beige Base -->
+    <Color x:Key="Beige50">#F6F7F4</Color>
+    <Color x:Key="Beige100">#E7E8E2</Color>
+    <Color x:Key="Beige150">#DEDFDA</Color>
+    <Color x:Key="Beige200">#D3D4CF</Color>
+    <Color x:Key="Beige250">#C6C7C2</Color>
+    <Color x:Key="Beige300">#B3B4AF</Color>
+
+    <!-- 暖中性色 / Warm Neutrals -->
+    <Color x:Key="WarmWhite">#F4F4F4</Color>
+    <Color x:Key="WarmDark">#121212</Color>
+    <Color x:Key="WarmBody">#4A4A46</Color>
+    <Color x:Key="WarmMuted">#777777</Color>
+    <Color x:Key="WarmFaint">#A9A9A9</Color>
+
+    <!-- 米色强调色 / Beige Accents -->
+    <Color x:Key="BeigeAccent50">#FFF7C2</Color>
+    <Color x:Key="BeigeAccent100">#FAE45C</Color>
+    <Color x:Key="BeigeAccent200">#FAD41F</Color>
+    <Color x:Key="BeigeAccent300">#D9B414</Color>
+
+    <!-- 功能色 / Functional -->
+    <Color x:Key="GreenSoft">#8CE03C</Color>
+    <Color x:Key="RedSoft">#E5383B</Color>
+    <Color x:Key="DangerInk">#C62828</Color>
+    <Color x:Key="BlueSoft">#22A6F2</Color>
+
+    <!-- 阴影色 / Shadows -->
+    <Color x:Key="ShadowLight">#FFFFFF</Color>
+    <Color x:Key="ShadowDim">#1E1E1E</Color>
+    <Color x:Key="ShadowDeep">#0E0E0E</Color>
+
+    <!-- 气泡色 / Bubble Colors -->
+    <Color x:Key="BubbleMine">#3A3A3A</Color>
+    <Color x:Key="BubbleTheirs">#262626</Color>
+
+    <!-- ============ Semantic Palette ============ -->
+    <Color x:Key="PageBg">#131313</Color>
+    <Color x:Key="SurfaceBg">#1C1E20</Color>
+    <Color x:Key="SurfaceFg">#F4F4F4</Color>
+    <Color x:Key="PrimaryAction">#FAD41F</Color>
+    <Color x:Key="PrimaryHover">#E9CF12</Color>
+    <Color x:Key="PrimaryFg">#121212</Color>
+    <Color x:Key="SecondaryBg">#262626</Color>
+    <Color x:Key="MutedFg">#A9A9A9</Color>
+    <Color x:Key="BorderLine">#333333</Color>
+    <Color x:Key="InputBg">#1D1D1D</Color>
+    <!-- 深度台阶：凹档底色 / 平档描边（与经典档同一层级关系，只是跟着终末地深灰走） -->
+    <Color x:Key="WellBg">#101010</Color>
+    <Color x:Key="EdgeStrong">#3A3A3A</Color>
+    <Color x:Key="SuccessTint">#8CE03C</Color>
+    <Color x:Key="DangerTint">#E5383B</Color>
+    <Color x:Key="InfoTint">#22A6F2</Color>
+    <Color x:Key="OverlayDim">#C8000000</Color>
+    <Color x:Key="TabActive">#FAD41F</Color>
+    <Color x:Key="TabInactive">#262626</Color>
+
+    <!-- 终末地黄强调色 / Endfield Yellow Accent（发送胶囊、心情等） -->
+    <Color x:Key="AccentWarm">#FAD41F</Color>
+    <Color x:Key="AccentWarmFg">#121212</Color>
+
+</ResourceDictionary>

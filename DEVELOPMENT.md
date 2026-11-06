@@ -11,7 +11,7 @@
 
 | 项目 | 值 |
 |---|---|
-| 当前版本 | `1.55.0`（`ApplicationVersion` 56） |
+| 当前版本 | `1.56.0`（`ApplicationVersion` 57） |
 | SDK | .NET 10 SDK |
 | MAUI 工作负载 | `maui`；只构建 Android 时可用 `maui-android` |
 | Windows | Windows 10 19041+，目标框架 `net10.0-windows10.0.19041.0` |
@@ -266,6 +266,18 @@ builder.Services
 
 
 
+### v1.56.0 终末地主题落点
+
+| 主题 | 主要文件 | 要点 |
+|---|---|---|
+| 终末地色板 | `DesignSystem/Theme/ColorPaletteEndfield.xaml`、`ThemeManager.cs`、`WarmAsBefore.csproj` | 54 key 与其它色板一致；`SurfaceBg #1C1E20` / `AccentWarm #FAD41F` / 状态色作为种子；ThemeNames/Display/文件与嵌入资源映射都要加 `endfield` |
+| 终末地 HUD 材质 | `DesignSystem/Worlds/StyleWorld.cs` | 第 5 个 `StyleWorld.Endfield`：近直角、细边、无影无渐变、字号收紧、GlassTier=none；`Display/FromDisplay/NameOf/FromName/GlassFlags/GlassBias/MotionOf/Recipe` 七处都要补齐 |
+| 设置与首次配置 | `ViewModels/Settings/SettingsViewModel.cs`（ThemeChoices/ThemeKeyOf/GlassModeChoices）、`ViewModels/Settings/SettingsCatalog.cs`、`Views/Settings/SettingsSectionPage.xaml`、`ViewModels/Main/SetupViewModel.cs`、`Resources/Strings/*.resx` | 主题下拉 + 风格下拉；第一次配置的色板/材质选项与本地化 key（`Setup_World_Endfield` / `Setup_Pal_Endfield`） |
+| 强制暗色 + 标题栏 | `App.xaml.cs`、`Services/Core/RuntimeConfigurator.cs`、`Platforms/Windows/WindowChrome.cs` | 终末地是暗色 HUD：`UserAppTheme=Dark`、`ThemeManager.Dark` 显式对齐；离开恢复 `Unspecified`；WinUI 原生标题栏按 `PageBg/SurfaceFg` 重刷 |
+| 手机/窄屏 | 全站响应式令牌 | 主题只换色相与材质（`WRadius*`/`WPad*`/`WSize*`），手机仍单列、窄窗上下排；`WCardWidth` 跟窗宽 |
+
+
+
 ## 5. 存储与数据
 
 `StorageProvider` 是所有 JSON 的唯一落盘入口：
@@ -342,7 +354,10 @@ builder.Services
 16. **热路径复查（v1.55）**：自动保存几次后进角色工作室/存档页/角色库，`perf.log` 中「读角色与存档列表」
     与「读取列表」应明显低于旧值；天气行 `WeatherProvider.缓存未命中` 在 5 分钟内不应重复出现
     （设置页「测试天气」每次都应出现）。地图拖拽/平移仍应跟手，松手后终态不残留。
-17. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
+17. **终末地主题（v1.56）**：设置 → 外观与主题 → 主题选「终末地」、风格选「终末地 HUD」；
+    确认整窗转暗色（含 WinUI 标题栏）、卡片近直角细边、无阴影；切回其它主题确认恢复跟随系统；
+    手机/窄窗（把窗口拉窄到 420 左右）确认单列布局、卡片不溢出、设置列表可滚动。
+18. **提交前**：`git status --porcelain` 只包含本次要提交的路径；
     不提交密钥、日志、`bin/`、`obj/`、`.local/`、用户数据或未完成的插件包。
 
 ---
@@ -377,6 +392,9 @@ builder.Services
 - **性能模式只改观感**：减少动效与卡片阴影，不改布局、功能或数据；系统「减少动画」偏好优先于它。
 - **UI 卡顿看门狗是诊断而不是修复**：它只在 `perf.log` 留下 `UI 卡顿` 行；卡顿本身要靠慢帧/阶段标记
   继续定位。窗口最小化/挂起超过 5 秒的间隔会被当成挂起，不记卡顿。
+- **终末地是暗色 HUD 主题**：选中后 `UserAppTheme=Dark` 覆盖系统深浅色（离开恢复 `Unspecified`）；
+  若用户系统是浅色而希望其余主题保持浅色，只需切走终末地即可。原生标题栏颜色由 `WindowChrome` 跟随
+  `PageBg/SurfaceFg`，Win10 某些版本/远程桌面上标题栏接口可能不可用，此时保持系统默认，不影响页面。
 - **外部战斗/工具驱动是可选路径**：驱动缺失或响应不合契约时回退内置实现；
   外部队列与协议变更需要同时更新文档与体检规则。
 
@@ -418,6 +436,7 @@ builder.Services
 | 对话记忆/日记 | `Modules/AiChat/MemoryVault.cs` |
 | 存档/读档 | `Modules/SaveSystem/SaveManager.cs` |
 | 性能诊断 / 卡顿日志 | `Services/Core/PerfLog.cs`、`Services/Core/UiStallMonitor.cs` |
+| 主题色板 / 风格世界 | `DesignSystem/Theme/ColorPalette*.xaml`、`DesignSystem/Worlds/StyleWorld.cs`、`Platforms/Windows/WindowChrome.cs` |
 | 性能模式（减动效/平阴影） | `Models/State.cs`、`DesignSystem/Theme/MotionTokens.cs`、`DesignSystem/Worlds/StyleWorld.cs`、`DesignSystem/Theme/ThemeManager.cs` |
 | 年龄 / 生日 / 自然增长 | `Services/Character/CharacterAgeService.cs`、`Models/Character.cs` |
 | 设备定位 / IP 估算 | `Modules/RealWorld/LocationService.cs`、`Platforms/Windows/WindowsDeviceLocation.cs` |

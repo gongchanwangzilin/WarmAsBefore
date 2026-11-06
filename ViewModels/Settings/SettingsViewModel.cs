@@ -339,7 +339,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     // 风格世界：三个互相牵制的玻璃开关合并为一个选择。
     // 世界管材质（圆角、缝、影、字号台阶），色板管颜色，深浅色跟随系统 —— 三条轴各管各的，
     // 所以这里只留一个入口，不再新增设置项。
-    public List<string> GlassModeChoices { get; } = new() { "轻质感", "柔和极简", "柔和渐变", "液态玻璃" };
+    public List<string> GlassModeChoices { get; } = new() { "轻质感", "柔和极简", "柔和渐变", "液态玻璃", "终末地 HUD" };
 
     /// <summary>
     /// 风格世界（下拉显示值）。选中时同时把旧的三个布尔摆到对应的台阶上：
@@ -454,7 +454,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<Modules.Sandbox.TrustEntry> _trustedTools = new();
     [ObservableProperty] private string _sandboxHint = "";
 
-    public List<string> ThemeChoices { get; } = new() { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰" };
+    public List<string> ThemeChoices { get; } = new() { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰", "终末地" };
     public List<string> ChatStyleChoices { get; } = new() { "剧本式", "气泡式" };
 
     private readonly Modules.Sandbox.SandboxPolicy _sandbox;
@@ -1320,6 +1320,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         "sakura" => "樱花粉",
         "bamboo" => "翠竹绿",
         "mist" => "晨雾蓝灰",
+        "endfield" => "终末地",
         _ => "经典"
     };
 
@@ -2889,6 +2890,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         "樱花粉" => "sakura",
         "翠竹绿" => "bamboo",
         "晨雾蓝灰" => "mist",
+        "终末地" => "endfield",
         _ => "classic"
     };
 

@@ -42,7 +42,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
     private static readonly (string Key, string[] Words)[] Table =
     {
         ("Volume", new[] { "音量", "声音", "音乐", "音效", "bgm", "sfx", "按键音" }),
-        ("Glass", new[] { "玻璃", "毛玻璃", "磨砂", "液态", "透明", "glass", "frost" }),
+        ("Glass", new[] { "玻璃", "毛玻璃", "磨砂", "液态", "透明", "glass", "frost", "风格", "材质", "终末地", "hud" }),
         ("GlassLight", new[] { "光源", "高光", "投影", "光照" }),
         ("Background", new[] { "背景", "背景图", "页面背景", "主题色" }),
         ("Sandbox", new[] { "工具安全", "沙箱", "信任", "权限", "安全", "sandbox" }),

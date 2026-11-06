@@ -104,7 +104,7 @@ public sealed class RuntimeConfigurator
         // 设置页要能看见「游戏里现在实际是什么值」：回调口的 GET /runtime 从这里现取，不缓存也不落盘。
         _plugins.RuntimeProvider = id =>
             string.Equals(id, Modules.MinecraftBridge.MaidBridgeService.PluginId, StringComparison.Ordinal)
-                ? Task.FromResult<string?>(_maidBridge.RuntimeJson())
+                ? _maidBridge.RuntimeJsonAsync()
                 : Task.FromResult<string?>(null);
         // 数值结算的通用口：插件申请到 stats 授权后，用 adjustStat(charId, stat, delta) 改某个角色的
         // 好感 / 信任 / 精力。走与主流程同一套钳制边界，改动立刻经角色库落盘。
@@ -793,6 +793,22 @@ public sealed class RuntimeConfigurator
             _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
             // 材质由世界决定，三个玻璃布尔只留下「这一档该多透」的调制量。
             _theme.World = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromName(s.StyleWorldName);
+            // 终末地配色是「暗色 HUD」：强制暗色令牌（原生标题栏/控件也跟着走），
+            // 其它配色恢复跟随系统。强制的是界面明暗，不改系统设置；离开终末地自动还原。
+            try
+            {
+                var endfield = string.Equals(s.ThemeName, "endfield", StringComparison.OrdinalIgnoreCase);
+                if (Application.Current is { } app)
+                {
+                    var wantTheme = endfield ? AppTheme.Dark : AppTheme.Unspecified;
+                    if (app.UserAppTheme != wantTheme) app.UserAppTheme = wantTheme;
+                    // 部分平台上 UserAppTheme 的变更不一定同步到 ThemeManager.Dark：这里显式对齐一次，
+                    // 保证 StyleWorld 用暗色地面/墨阶重算，而不是等下一次系统主题事件。
+                    var effectiveDark = endfield || app.RequestedTheme == AppTheme.Dark;
+                    if (_theme.Dark != effectiveDark) _theme.Dark = effectiveDark;
+                }
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.EndfieldDark -> " + ex.Message); }
         }
 
         // 置顶：开启 AlwaysOnTop 时持续强制常驻顶层（3 秒重断言防被抢占）；关闭则回落。

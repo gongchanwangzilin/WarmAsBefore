@@ -15,7 +15,7 @@ public static class SettingsCatalog
         new Section("appearance", "外观与主题", "🎨",
             "玻璃效果、光源方向、页面背景",
             new[] { "Card02", "Card03" },
-            new[] { "外观", "主题", "玻璃", "毛玻璃", "磨砂", "液态", "光源", "高光", "背景", "配色", "glass", "theme" }),
+            new[] { "外观", "主题", "玻璃", "毛玻璃", "磨砂", "液态", "光源", "高光", "背景", "配色", "终末地", "endfield", "工业", "HUD", "glass", "theme" }),
 
         new Section("sound", "声音与语音", "🔊",
             "背景音乐、音效、按键/打字音；朗读与语音识别、音色、外部语音服务",

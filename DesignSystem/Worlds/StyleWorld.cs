@@ -3,9 +3,9 @@ using Microsoft.Maui.Controls.Shapes;
 namespace WarmAsBefore.DesignSystem.Worlds;
 
 /// <summary>
-/// 四个风格世界。材质（几何、描边、填充、阴影、字号台阶）由世界决定，
-/// 颜色（色相）由色板决定 —— 两条轴正交，所以 4 世界 × 明/暗 × 4 色板
-/// 不需要手写 32 套字典：色板只提供色相与彩度种子，明度台阶由这里算出来。
+/// 五个风格世界。材质（几何、描边、填充、阴影、字号台阶）由世界决定，
+/// 颜色（色相）由色板决定 —— 两条轴正交，所以 5 世界 × 明/暗 × 5 色板
+/// 不需要手写 50 套字典：色板只提供色相与彩度种子，明度台阶由这里算出来。
 /// </summary>
 public enum StyleWorld
 {
@@ -16,7 +16,13 @@ public enum StyleWorld
     /// <summary>柔和渐变：面是一档很浅的渐变，缝减半，加一团近而柔的影子。</summary>
     Gradient,
     /// <summary>液态玻璃：通透的渐变面 + 发光边，影子又远又散；必须有可透的背景才成立。</summary>
-    Liquid
+    Liquid,
+    /// <summary>
+    /// 终末地 HUD：直角/近直角的工业面板、细描边、无阴影、无渐变，字号收得更紧。
+    /// 参考《明日方舟：终末地》HUD（EndfieldHUD 项目）的「深灰面板 + 黄色强调 + 白色细线」，
+    /// 和「终末地」色板是两条独立轴：色板给出黄色强调与冷灰底，世界负责把形状变成 HUD。
+    /// </summary>
+    Endfield
 }
 
 /// <summary>
@@ -107,6 +113,7 @@ public static class StyleWorldTokens
         StyleWorld.Soft => "轻质感",
         StyleWorld.Gradient => "柔和渐变",
         StyleWorld.Liquid => "液态玻璃",
+        StyleWorld.Endfield => "终末地 HUD",
         _ => "柔和极简"
     };
 
@@ -116,6 +123,7 @@ public static class StyleWorldTokens
         "轻质感" => StyleWorld.Soft,
         "柔和渐变" => StyleWorld.Gradient,
         "液态玻璃" => StyleWorld.Liquid,
+        "终末地 HUD" => StyleWorld.Endfield,
         "柔和极简" => StyleWorld.Minimal,
         _ => StyleWorld.Soft
     };
@@ -125,6 +133,7 @@ public static class StyleWorldTokens
         "gradient" => StyleWorld.Gradient,
         "liquid" => StyleWorld.Liquid,
         "minimal" => StyleWorld.Minimal,
+        "endfield" => StyleWorld.Endfield,
         _ => StyleWorld.Soft
     };
 
@@ -134,6 +143,7 @@ public static class StyleWorldTokens
         StyleWorld.Soft => "soft",
         StyleWorld.Gradient => "gradient",
         StyleWorld.Liquid => "liquid",
+        StyleWorld.Endfield => "endfield",
         _ => "minimal"
     };
 
@@ -147,6 +157,7 @@ public static class StyleWorldTokens
         StyleWorld.Liquid => (true, true, true),
         StyleWorld.Gradient => (false, true, true),
         StyleWorld.Minimal => (false, false, false),
+        StyleWorld.Endfield => (false, false, false),
         _ => (false, false, true)
     };
 
@@ -175,6 +186,10 @@ public static class StyleWorldTokens
             // 字要更大才压得住通透的面。
             StyleWorld.Liquid => new Recipe(0.34, 20, 14, 24, 16, 1.5, 20, 12,
                 36, 24, 18, 16, 14, 13, true, true, false, "liquid"),
+            // 终末地 HUD：近直角（2–4px 只比纯直角软一点）、细描边、无阴影、无渐变；
+            // 字号整体收紧一档，像仪表盘而不是杂志。材质档给 none —— HUD 面板本来就不该透出背景。
+            StyleWorld.Endfield => new Recipe(0.62, 3, 2, 6, 2, 1.4, 16, 10,
+                30, 20, 15.5, 14.5, 13, 11.5, true, false, false, "none"),
             // 轻质感：台阶偏小但真实，分档主要交给那一道缝。
             _ => new Recipe(0.55, 12, 10, 16, 10, 1, 18, 10,
                 32, 21, 16.5, 15, 13.5, 12, true, false, false, "frost")
@@ -215,6 +230,7 @@ public static class StyleWorldTokens
         StyleWorld.Minimal => (0.0, 0.0, 0.0),
         StyleWorld.Gradient => (0.55, 0.10, 0.35),
         StyleWorld.Liquid => (1.0, 0.18, 0.85),
+        StyleWorld.Endfield => (0.0, 0.0, 0.0),   // HUD：全不透明，连亮边都不要
         _ => (0.0, 0.06, 0.18)   // 轻质感：基本不透明，只借玻璃档算那条亮边
     };
 
@@ -289,6 +305,7 @@ public static class StyleWorldTokens
         StyleWorld.Minimal => (0.68, 1.8),
         StyleWorld.Gradient => (1.30, 2.2),
         StyleWorld.Liquid => (1.48, 2.6),
+        StyleWorld.Endfield => (0.9, 2.0),   // HUD：干脆、行程浅，像仪表按键
         _ => (1.0, 2.4)
     };
 
@@ -369,7 +386,12 @@ public static class StyleWorldTokens
         // 强调色一旦到处出现，它就不再是强调色。色相因此**不跟色板走**，钉在靛紫
         // （实测参考窗左缘那根胶囊是 #6F6BC7）：四套色板一切换、选中色也跟着换四种，
         // 那不叫信号，叫第五套装饰。
-        var signal = Hsl(242, 0.55, dark ? 0.64 : 0.46);
+        // 例外：终末地 HUD 的「当前/选中」就是终末地黄本身 —— 面板已经全是深灰，
+        // 再塞一颗靛紫只会在 HUD 里多出一块不属于这套设计的颜色。
+        var isEndfield = string.Equals(themeKey, "endfield", StringComparison.OrdinalIgnoreCase);
+        var signal = isEndfield
+            ? Lock(Hsl(_seed.AccentH, 0.95, dark ? 0.62 : 0.40), surface, dark ? 5.0 : 4.8)
+            : Hsl(242, 0.55, dark ? 0.64 : 0.46);
 
         PublishColors(res, page, surface, well, inkDisplay, inkBody, inkLabel, inkMuted, inkFaint,
             seam, edge, line, accent, accentInk, signal, dark);
@@ -430,13 +452,18 @@ public static class StyleWorldTokens
         res["PrimaryHover"] = SinkOrLift(accent, dark, 0.12, 0.12);
 
         // 信号族：块（导航选中行左缘的胶囊）、字（当前项/链接）、字压在其上的墨、极浅的一颗色偏（悬停底）。
+        // 字与浅底跟着 signal 的实际色相走：四套普通色板仍是靛紫（与原值几乎一致），
+        // 终末地则是黄 —— 否则黄块旁边立着一行靛紫字，像两套主题叠在一起。
+        var signalHue = RgbToHsl(signal).H;
+        var signalChroma = Chroma(signal);
         res["Signal"] = signal;
-        res["SignalFg"] = Lock(Hsl(242, 0.62, dark ? 0.76 : 0.36), surface, dark ? 5.0 : 4.8);
+        res["SignalFg"] = Lock(Hsl(signalHue, Math.Min(1, signalChroma + 0.10), dark ? 0.76 : 0.36),
+            surface, dark ? 5.0 : 4.8);
         // 墨的方向必须手写：浅档的信号钉在 L 0.46（白字 5.2:1，黑字只有 2.4:1），
         // 深档提到 L 0.64 才压得住暗地（此时反过来，黑字 6.5:1）。
         // Lock 只会兜底补对比，不会替你判断方向 —— 方向写错就是一团脏灰。
         res["SignalInk"] = Lock(dark ? Colors.Black : Colors.White, signal, 4.6);
-        res["SignalTint"] = Tint(242, 0.11, dark ? 0.215 : 0.958);
+        res["SignalTint"] = Tint(signalHue, Math.Min(0.16, signalChroma * 0.35 + 0.06), dark ? 0.215 : 0.958);
         // 信号钮的三级台阶：静止 → 悬停 → 按下。方向跟着地面走（浅档往黑沉、深档往白提），
         // 因为 SignalInk 在两地是反的：浅档白字配更深的蓝、深档黑字配更亮的蓝，对比只会越按越高。
         res["SignalHover"] = SinkOrLift(signal, dark, 0.16, 0.16);

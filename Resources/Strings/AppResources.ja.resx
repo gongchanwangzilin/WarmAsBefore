@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -189,10 +189,12 @@
   <data name="Setup_World_Minimal" xml:space="preserve"><value>やわらかいミニマル</value></data>
   <data name="Setup_World_Gradient" xml:space="preserve"><value>やわらかいグラデーション</value></data>
   <data name="Setup_World_Liquid" xml:space="preserve"><value>リキッドガラス</value></data>
+  <data name="Setup_World_Endfield" xml:space="preserve"><value>エンドフィールド HUD</value></data>
   <data name="Setup_Pal_Classic" xml:space="preserve"><value>クラシック</value></data>
   <data name="Setup_Pal_Sakura" xml:space="preserve"><value>桜</value></data>
   <data name="Setup_Pal_Bamboo" xml:space="preserve"><value>竹</value></data>
   <data name="Setup_Pal_Mist" xml:space="preserve"><value>もや</value></data>
+  <data name="Setup_Pal_Endfield" xml:space="preserve"><value>エンドフィールド</value></data>
   <data name="Setup_Pet_Off" xml:space="preserve"><value>自分から出ない</value></data>
   <data name="Setup_Pet_Min" xml:space="preserve"><value>アイドル {0} 分後</value></data>
   <data name="Settings_ChannelsUrl" xml:space="preserve"><value>チャンネル URL</value></data>

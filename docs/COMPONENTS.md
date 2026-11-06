@@ -586,6 +586,7 @@
 | `Theme/ColorPaletteSakura.xaml` | 樱花粉 |
 | `Theme/ColorPaletteBamboo.xaml` | 翠竹绿 |
 | `Theme/ColorPaletteMist.xaml` | 晨雾蓝灰 |
+| `Theme/ColorPaletteEndfield.xaml` | 终末地（深灰工业 + #FAD41F 黄强调；暗色 HUD） |
 | `Theme/WeChatBrand.xaml` | 微信/QQ 品牌色与聊天页配色 |
 | `Theme/ThemeManager` | 切换色板、跟随系统深浅色、刷新资源 |
 | `Theme/ThemeManager.Chinese` | 主题中文名映射 |
@@ -593,7 +594,7 @@
 | `Theme/MotionPrefs` | 动效偏好（减少动态等） |
 | `Theme/MotionTokens` | 动效时长与缓动 |
 | `Tokens/DesignTokens` | 间距、尺寸、圆角、时间、排版、触控目标 |
-| `Worlds/StyleWorld` | 风格世界：Soft 等整体风格与 Token 发布 |
+| `Worlds/StyleWorld` | 风格世界：Soft/Minimal/Gradient/Liquid/Endfield 的材质配方与 Token 发布；Endfield 为近直角 HUD |
 | `Styles/BaseStyles.xaml` | 基础文本/页面/容器样式 |
 | `Styles/NeumorphicStyles.xaml` | 新拟物：凸起/按下/凹陷 |
 | `Styles/CardShapes.xaml` | 卡片形状与阴影 |

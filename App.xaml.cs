@@ -92,6 +92,15 @@ public partial class App : Application
                 // 语言也必须在建界面之前落定，否则首帧先按 zh-CN 排一遍、再被 PropertyChanged 重排；
                 // 启动卡的名牌是逐字建出来的，中途重排会出现错字（繁体 溫 与简体 温 不是同一个字）。
                 LocalizationService.Current.SetCulture(sm?.Current.Lang ?? "zh-CN");
+                // 终末地是暗色 HUD 主题：不管系统是深是浅，整窗按暗色渲染；离开它再恢复跟随系统。
+                // 必须在建 AppShell 之前设，否则首帧会先按浅色排一遍、再整体重绘成暗色（一次明显闪白）。
+                try
+                {
+                    var endfield = string.Equals(sm?.Current.ThemeName, "endfield", StringComparison.OrdinalIgnoreCase);
+                    if (Application.Current is { } appTheme)
+                        appTheme.UserAppTheme = endfield ? AppTheme.Dark : AppTheme.Unspecified;
+                }
+                catch (Exception ex) { WriteLog("CreateWindow.AppTheme: " + ex.Message); }
             }
             catch (Exception ex) { WriteLog("CreateWindow.RestoreSettings: " + ex); }
 
@@ -116,6 +125,14 @@ public partial class App : Application
                 viewportHooked = true;
                 // 关窗询问：WinUI 的 Closing 可取消，MAUI 的 Destroying 不能（见 WindowCloseGuard）
                 Services.WindowCloseGuard.Attach(win, xw);
+                // 原生标题栏跟随主题（终末地是暗色 HUD，白标题栏会像贴了一张纸条）。
+                Platforms.Windows.WindowChrome.ApplyTitleBar(xw);
+                try
+                {
+                    Application.Current!.RequestedThemeChanged += (_, _) =>
+                        MainThread.BeginInvokeOnMainThread(() => Platforms.Windows.WindowChrome.ApplyTitleBar(xw));
+                }
+                catch (Exception ex) { WriteLog("CreateWindow.TitleBarHook: " + ex.Message); }
                 // 不读事件参数（那个 args 类型和 MAUI 引进来的同名类型撞了），直接问窗口现在的 Bounds。
                 xw.SizeChanged += (_, _) => { var b = xw.Bounds; ApplyViewport(b.Width, b.Height); };
             };
@@ -269,6 +286,16 @@ public partial class App : Application
                 WindowTopmost.BringToFront();
             var cfg = services.GetService(typeof(RuntimeConfigurator)) as RuntimeConfigurator;
             cfg?.Start();
+#if WINDOWS
+            // 主题/明暗在 Start → Apply 里才落定：此时再刷一次标题栏，首帧与暗色 HUD 对齐。
+            try
+            {
+                var platformWindow = Application.Current?.Windows.FirstOrDefault()?.Handler?.PlatformView
+                    as Microsoft.UI.Xaml.Window;
+                Platforms.Windows.WindowChrome.ApplyTitleBar(platformWindow);
+            }
+            catch (Exception ex) { WriteLog("AfterWindowStarted.TitleBar: " + ex.Message); }
+#endif
 
             // 注：启动读盘预热由 RuntimeConfigurator.WarmUpAsync（延后 4 秒的空闲预热）负责，
             // 这里不再重复一份，避免两套预热并发抢 IO。

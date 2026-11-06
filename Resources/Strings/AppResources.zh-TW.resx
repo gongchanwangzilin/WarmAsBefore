@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <root>
   <resheader name="resmimetype">
     <value>text/microsoft-resx</value>
@@ -189,10 +189,12 @@
   <data name="Setup_World_Minimal" xml:space="preserve"><value>柔和極簡</value></data>
   <data name="Setup_World_Gradient" xml:space="preserve"><value>柔和漸層</value></data>
   <data name="Setup_World_Liquid" xml:space="preserve"><value>液態玻璃</value></data>
+  <data name="Setup_World_Endfield" xml:space="preserve"><value>終末地 HUD</value></data>
   <data name="Setup_Pal_Classic" xml:space="preserve"><value>經典</value></data>
   <data name="Setup_Pal_Sakura" xml:space="preserve"><value>櫻花粉</value></data>
   <data name="Setup_Pal_Bamboo" xml:space="preserve"><value>翠竹綠</value></data>
   <data name="Setup_Pal_Mist" xml:space="preserve"><value>晨霧藍灰</value></data>
+  <data name="Setup_Pal_Endfield" xml:space="preserve"><value>終末地</value></data>
   <data name="Setup_Pet_Off" xml:space="preserve"><value>不主動出現</value></data>
   <data name="Setup_Pet_Min" xml:space="preserve"><value>空閒 {0} 分鐘後</value></data>
   <data name="Settings_ChannelsUrl" xml:space="preserve"><value>視頻號連結</value></data>

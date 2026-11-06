@@ -107,6 +107,8 @@ public sealed partial class SetupViewModel : ObservableObject
         Add(WorldOptions, "minimal", "", PickWorldCommand, sampleRadius: 8);
         Add(WorldOptions, "gradient", "", PickWorldCommand, sampleRadius: 16);
         Add(WorldOptions, "liquid", "", PickWorldCommand, sampleRadius: 20);
+        // 终末地 HUD：近直角（2px）、细描边、无影。示例块用 2 的圆角，一眼和上面几档区分开。
+        Add(WorldOptions, "endfield", "", PickWorldCommand, sampleRadius: 2);
 
         // 色板色值取自各 ColorPalette*.xaml：底 / 面 / 暖强调 / 主行动，四色一条。
         Add(PaletteOptions, "classic", "", PickPaletteCommand,
@@ -117,6 +119,9 @@ public sealed partial class SetupViewModel : ObservableObject
             swatches: new[] { "#F0F5EC", "#F8FBF6", "#EDE0C8", "#BAD99F" });
         Add(PaletteOptions, "mist", "", PickPaletteCommand,
             swatches: new[] { "#EFF2F5", "#F7F9FB", "#E8E0D2", "#A9BDCE" });
+        // 终末地：底 / 面 / 强调黄 / HUD 信息蓝（取自 ColorPaletteEndfield 与 EndfieldHUD 参考配色）。
+        Add(PaletteOptions, "endfield", "", PickPaletteCommand,
+            swatches: new[] { "#131313", "#1C1E20", "#FAD41F", "#22A6F2" });
 
         Add(PetOptions, "0", "", PickPetCommand);
         Add(PetOptions, "5", "", PickPetCommand);

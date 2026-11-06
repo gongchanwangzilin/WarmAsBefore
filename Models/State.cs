@@ -293,7 +293,7 @@ public sealed record UserSettings
     public double GlassLightWidth { get; init; } = 0.4;
     public string BackgroundMode { get; init; } = "none";
     public string BackgroundImagePath { get; init; } = "";
-    public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist
+    public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist/endfield
     public string KeySfx { get; init; } = "default";
     public string MenuSide { get; init; } = "left";
     public bool AutoSaveEnabled { get; init; } = true;
