@@ -142,6 +142,7 @@ public partial class MainGamePage : ContentPage
         HookDesktopArrowKeys();
         // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
         Motion.ArrivePage(this);
+        EnsureHudTopStrip();
         StartGameOnce();
     }
 
@@ -163,9 +164,103 @@ public partial class MainGamePage : ContentPage
     // MAUI 的 Button 没有 KeyboardAccelerators 属性（那只在 MenuFlyoutItem/ToolbarItem 上），
     // 所以按项目已有做法（见 WeChatPage）在平台层挂按键：WinUI 窗口级 KeyDown 里接左右方向键。
     // 无地点（CanGoPrev/NextScene=false）时命令内部静默忽略，与按钮置灰一致。
+    /// <summary>
+    /// 终末地 HUD 顶栏带：只在 HUD 世界建（其它世界整块不建，零开销）。
+    ///
+    /// 这块不是「换了个颜色的旧顶栏」，而是 HUD 的读数带：时间 / 天气 / 好感 / 精力四块方板一字排开，
+    /// 下沿压一条 45° 斜纹。数据走 VM 属性，读数变化由 HudReadout 自己播「咔哒」。
+    /// </summary>
+    private void EnsureHudTopStrip()
+    {
+        if (_hudStripBuilt) return;
+        _hudStripBuilt = true;
+        try
+        {
+            if (!Controls.HudSkin.IsActive)
+            {
+                HudTopStrip.IsVisible = false;
+                return;
+            }
+            var vm = BindingContext as MainGameViewModel;
+            // 窄屏（手机/窗口拖窄）：读数带要能横滑，而不是把「精力」挤出屏幕右边。
+            // 用横向 ScrollView 包住整排：HUD 的读数多于屏宽时手指一划就看完，版式不塌。
+            var row = new HorizontalStackLayout { Spacing = 10, Padding = new Thickness(16, 10, 16, 6) };
+            var scroller = new ScrollView
+            {
+                Orientation = ScrollOrientation.Horizontal,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
+                Content = row,
+            };
+
+            // 读数块：终末地世界的「标签 / 大方块数字 / 黄线」，标签是 8 号全大写小字（HUD 的眉标）。
+            Controls.HudReadout Make(string label, string path, bool withProgress = false, string? format = null)
+            {
+                var r = new Controls.HudReadout
+                {
+                    Label = label,
+                    Framed = true,
+                    MinimumWidthRequest = withProgress ? 128 : 96,
+                    BindingContext = vm,
+                };
+                if (format is null) r.SetBinding(Controls.HudReadout.ValueProperty, path);
+                else r.SetBinding(Controls.HudReadout.ValueProperty, path, stringFormat: format);
+                if (withProgress) r.SetBinding(Controls.HudReadout.ProgressProperty, nameof(MainGameViewModel.AffectionPct));
+                r.Compose();
+                return r;
+            }
+
+            row.Add(Make("SYSTEM/CLOCK", nameof(MainGameViewModel.CurrentTimeStr)));
+            row.Add(Make("WEATHER", nameof(MainGameViewModel.WeatherDesc)));
+
+            // 好感这一块要「数值 + 进度线」：单独建一次，把百分比也绑上。
+            var affection = new Controls.HudReadout { Label = "AFFECTION", Framed = true, MinimumWidthRequest = 128, BindingContext = vm };
+            affection.SetBinding(Controls.HudReadout.ValueProperty, nameof(MainGameViewModel.Affection), stringFormat: "{0} / 100");
+            affection.SetBinding(Controls.HudReadout.ProgressProperty, nameof(MainGameViewModel.AffectionPct));
+            affection.Compose();
+            row.Add(affection);
+
+            var energy = new Controls.HudReadout { Label = "ENERGY", Framed = true, MinimumWidthRequest = 110, BindingContext = vm };
+            energy.SetBinding(Controls.HudReadout.ValueProperty, nameof(MainGameViewModel.Energy), stringFormat: "{0}%");
+            energy.SetBinding(Controls.HudReadout.ProgressProperty, nameof(MainGameViewModel.EnergyPct));
+            energy.Compose();
+            row.Add(energy);
+
+            // 右上角系统节奏：小字标签 + 黄色方块指示灯（静态，不闪 —— 闪的灯会成为新的卡顿源）
+            var badge = new VerticalStackLayout { Spacing = 3, VerticalOptions = LayoutOptions.Center, Margin = new Thickness(12, 0, 4, 0) };
+            var badgeLabel = new Label { Text = "TALOS//II", FontSize = 9, CharacterSpacing = 2.2, HorizontalOptions = LayoutOptions.End };
+            badgeLabel.SetDynamicResource(Microsoft.Maui.Controls.Label.TextColorProperty, "MutedFg");
+            var dots = new HorizontalStackLayout { Spacing = 3, HorizontalOptions = LayoutOptions.End };
+            for (var i = 0; i < 4; i++)
+            {
+                var sq = new BoxView { WidthRequest = i == 3 ? 14 : 5, HeightRequest = 5 };
+                sq.SetDynamicResource(BoxView.ColorProperty, "Signal");
+                if (i < 3) sq.Opacity = 0.35 + i * 0.15;
+                dots.Add(sq);
+            }
+            badge.Add(badgeLabel);
+            badge.Add(dots);
+            row.Add(badge);
+
+            var hatch = Controls.HudSkin.Hatch(4, 8, 1.1f);
+            HudTopStrip.Children.Clear();
+            HudTopStrip.RowDefinitions.Clear();
+            HudTopStrip.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+            HudTopStrip.RowDefinitions.Add(new RowDefinition(new GridLength(4)));
+            HudTopStrip.Add(scroller, 0, 0);
+            HudTopStrip.Add(hatch, 0, 1);
+            HudTopStrip.IsVisible = true;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MainGamePage.HudStrip -> " + ex);
+            HudTopStrip.IsVisible = false;
+        }
+    }
+
+    private bool _hudStripBuilt;
+
 #if WINDOWS
     private bool _arrowsHooked;
-
     private void HookDesktopArrowKeys()
     {
         if (_arrowsHooked) return;
@@ -234,6 +329,7 @@ public partial class MainGamePage : ContentPage
 #else
     private void HookDesktopArrowKeys() { }
 #endif
+
 
     private void PauseSceneVideo()
     {
