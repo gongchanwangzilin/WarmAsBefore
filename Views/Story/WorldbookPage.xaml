@@ -79,7 +79,7 @@
                                         FontSize="{DynamicResource WSizeSmall}" VerticalOptions="Center"
                                         WidthRequest="130" HorizontalOptions="Start" />
                                 <Button Grid.Column="1" Text="生成并编辑" Style="{StaticResource BtnPrimary}"
-                                        FontSize="13" Padding="16,7" Command="{Binding GenerateCommand}" />
+                                        Padding="16,7" Command="{Binding GenerateCommand}" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -210,7 +210,7 @@
                            TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
 
                     <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
-                        <Button Text="保存" Style="{StaticResource BtnPrimary}" FontSize="13" Padding="18,7"
+                        <Button Text="保存" Style="{StaticResource BtnPrimary}" Padding="18,7"
                                 Command="{Binding SaveEditCommand}" />
                         <Button Grid.Column="1" Text="AI 润色" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding PolishEditCommand}" />

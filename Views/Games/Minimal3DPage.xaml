@@ -17,11 +17,11 @@
                 Padding="{DynamicResource WPadWell}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                <Button Grid.Column="0" Text="返回" Style="{StaticResource BtnText}" FontSize="14"
+                <Button Grid.Column="0" Text="返回" Style="{StaticResource BtnText}"
                         Padding="0" VerticalOptions="Center" Clicked="OnBackNav" />
                 <Label Grid.Column="1" Text="{Binding SceneTitle}" Style="{StaticResource TxtTitle}"
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                <Button Grid.Column="2" Text="🎯 回鸟瞰" Style="{StaticResource BtnNeumorphSm}"
+                <Button Grid.Column="2" Text="回鸟瞰" Style="{StaticResource BtnNeumorphSm}"
                         Clicked="OnOverview" />
             </Grid>
         </Border>
@@ -51,7 +51,7 @@
                     <Button Grid.Column="1" Text="↑ 前进" Style="{StaticResource BtnNeumorphSm}" Clicked="OnForward" />
                     <Button Grid.Column="2" Text="↓ 后退" Style="{StaticResource BtnNeumorphSm}" Clicked="OnBackward" />
                     <Button Grid.Column="3" Text="右转 →" Style="{StaticResource BtnNeumorphSm}" Clicked="OnTurnRight" />
-                    <Button Grid.Column="4" x:Name="GyroButton" Text="📱 陀螺仪"
+                    <Button Grid.Column="4" x:Name="GyroButton" Text="陀螺仪"
                             Style="{StaticResource BtnNeumorphSm}" IsVisible="False" Clicked="OnGyro" />
                 </Grid>
             </Grid>

@@ -84,7 +84,7 @@ public sealed partial class ShopViewModel : ObservableObject
         var buffs = _shop.ActiveBuffs;
         BuffsLabel = buffs.Count == 0
             ? ""
-            : "✨ 小雨的标记：" + string.Join("  ", buffs.Select(b => $"{b.Emoji}{b.Name}×{b.TurnsLeft}"));
+            : "小雨的标记：" + string.Join("  ", buffs.Select(b => $"{b.Emoji}{b.Name}×{b.TurnsLeft}"));
     }
 
     private void RefreshCategories()

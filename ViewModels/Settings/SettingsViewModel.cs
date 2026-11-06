@@ -2352,7 +2352,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             await PersistNowAsync();
             var (ok, message) = await _cloud.TestAsync();
-            CloudStatus = (ok ? "✓ " : "✗ ") + message;
+            CloudStatus = (ok ? "✓ " : "✕ ") + message;
         }
         catch (Exception ex) { CloudStatus = "测试失败：" + ex.Message; }
         finally { CloudBusy = false; }
@@ -3546,8 +3546,8 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
             var st = await _runtimes.DetectAsync();
             PythonManualPath = _runtimes.ManualPythonPath;
             JavaManualPath = _runtimes.ManualJavaPath;
-            PythonStatus = st.PythonOk ? "✅ " + st.PythonDetail : "❌ " + st.PythonDetail;
-            JavaStatus = st.JavaOk ? "✅ " + st.JavaDetail : "❌ " + st.JavaDetail;
+            PythonStatus = st.PythonOk ? "✓ " + st.PythonDetail : "✕ " + st.PythonDetail;
+            JavaStatus = st.JavaOk ? "✓ " + st.JavaDetail : "✕ " + st.JavaDetail;
             if (string.IsNullOrEmpty(st.WindowsOnlyNote))
                 RuntimeBusyText = "检测完成";
         }
@@ -3719,7 +3719,7 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
                 if (diag is not null)
                 {
                     var (code, out_) = await sandbox.RunGuestCommandAsync(diag.Value.Exe, diag.Value.Args, 45);
-                    RuntimeBusyText = "沙箱验证：" + (code == 0 ? "✅" : "❌") + "\n" + out_;
+                    RuntimeBusyText = "沙箱验证：" + (code == 0 ? "✓" : "✕") + "\n" + out_;
                 }
             }
         }

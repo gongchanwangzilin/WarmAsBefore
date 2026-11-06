@@ -190,7 +190,7 @@
 
                 <!-- 右：分步表单 -->
                 <Border x:Name="FormCard" Grid.Column="1" Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Padding="{DynamicResource WPadCard}" Spacing="18">
+                    <VerticalStackLayout Padding="{DynamicResource WPadCard}" Spacing="16">
 
                         <!-- ① 基本 -->
                         <VerticalStackLayout x:Name="StepBasics" Spacing="14" IsVisible="{Binding AtStep1}">
@@ -454,12 +454,12 @@
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                                        WidthRequest="18" HeightRequest="18" />
                     <Button Text="下一步 →" Style="{StaticResource BtnPrimary}"
-                            FontSize="13" Padding="18,7"
+                            Padding="18,7"
                             IsVisible="{Binding ShowNext}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                             Command="{Binding NextCommand}" />
                     <Button Text="创建角色" Style="{StaticResource BtnPrimary}"
-                            FontSize="13" Padding="18,7"
+                            Padding="18,7"
                             IsVisible="{Binding IsLastStep}"
                             IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                             Command="{Binding CreateCommand}" />

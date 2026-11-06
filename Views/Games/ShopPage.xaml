@@ -18,7 +18,7 @@
                     <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                             FontSize="{DynamicResource WSizeCaption}" Padding="8,0"
                             Command="{Binding GoBackCommand}" />
-                    <Button Grid.Column="1" Text="🫀 身体状态" Style="{StaticResource BtnText}"
+                    <Button Grid.Column="1" Text="身体状态" Style="{StaticResource BtnText}"
                             FontSize="{DynamicResource WSizeCaption}" Padding="8,0"
                             Command="{Binding OpenBodyStatusCommand}" />
                     <Label Grid.Column="2" Text="美了么"
@@ -145,7 +145,7 @@
                 <!-- 搜索 -->
                 <Border Style="{StaticResource CardGroup}">
                     <Border Style="{StaticResource SettingRow}">
-                        <Entry Text="{Binding SearchText}" Placeholder="🔍 搜索商品…"
+                        <Entry Text="{Binding SearchText}" Placeholder="搜索商品…"
                                FontSize="{DynamicResource WSizeSmall}"
                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
@@ -218,7 +218,7 @@
                                             <HorizontalStackLayout Spacing="6">
                                                 <Label Text="{Binding Category}"
                                                        Style="{StaticResource TxtMuted}" />
-                                                <Label Text="{Binding Merchant, StringFormat='🏪 {0}'}"
+                                                <Label Text="{Binding Merchant, StringFormat='{0}'}"
                                                        Style="{StaticResource TxtMuted}"
                                                        TextColor="{DynamicResource AccentWarmFg}" />
                                                 <Label Text="{Binding Owned, StringFormat='已购 {0} 件'}"
@@ -237,11 +237,11 @@
                                                     CommandParameter="{Binding .}" />
                                             <!-- 送礼 / 使用（始终可见，无库存时点击有提示） -->
                                             <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
-                                                <Button Grid.Column="0" Text="🎁送礼" Style="{StaticResource BtnNeumorphic}"
+                                                <Button Grid.Column="0" Text="送礼" Style="{StaticResource BtnNeumorphic}"
                                                         HeightRequest="26" Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
                                                         Command="{Binding Path=BindingContext.GiftCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
-                                                <Button Grid.Column="1" Text="✨使用" Style="{StaticResource BtnNeumorphic}"
+                                                <Button Grid.Column="1" Text="使用" Style="{StaticResource BtnNeumorphic}"
                                                         HeightRequest="26" Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
                                                         Command="{Binding Path=BindingContext.UseCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                         CommandParameter="{Binding .}" />
@@ -276,7 +276,7 @@
             <Border Style="{StaticResource CardDialog}"
                     WidthRequest="320" VerticalOptions="Center" HorizontalOptions="Center">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="🫀 小雨的身体状态"
+                    <Label Text="小雨的身体状态"
                            Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />
                     <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"

@@ -13,7 +13,7 @@
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="存档高级设置" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
             </Grid>
@@ -270,7 +270,7 @@
 
                 <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" />
-                <Button Text="保存这份存档的规则" Style="{StaticResource BtnPrimary}" FontSize="13"
+                <Button Text="保存这份存档的规则" Style="{StaticResource BtnPrimary}"
                         Padding="16,7" HorizontalOptions="Start" Command="{Binding SaveCommand}" />
             </VerticalStackLayout>
         </ScrollView>

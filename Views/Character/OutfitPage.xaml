@@ -68,7 +68,7 @@
                                                     <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
                                                         <Label Text="{Binding CurrentLabel}" Style="{StaticResource TxtCaption}"
                                                                TextColor="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
-                                                        <Button Text="穿上" Style="{StaticResource BtnNeumorphSm}" FontSize="12"
+                                                        <Button Text="穿上" Style="{StaticResource BtnNeumorphSm}"
                                                                 Padding="12,4"
                                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.WearCommand}"
                                                                 CommandParameter="{Binding .}" />
@@ -93,7 +93,7 @@
                         <Entry Placeholder="想给 TA 穿什么？" Text="{Binding Prompt}"
                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
-                        <Button Text="生成并穿上" Style="{StaticResource BtnPrimary}" FontSize="13"
+                        <Button Text="生成并穿上" Style="{StaticResource BtnPrimary}"
                                 Padding="16,7" HorizontalOptions="Start"
                                 IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}"
                                 Command="{Binding GenerateCommand}" />

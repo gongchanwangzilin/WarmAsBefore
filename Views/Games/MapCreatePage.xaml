@@ -68,7 +68,7 @@
                                    Placeholder="城市 / 区县 / 街道，或直接写经纬度：120.15,30.27"
                                    ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
                             <Button Grid.Column="1" Text="检索" Style="{StaticResource BtnPrimary}"
-                                    FontSize="13" Padding="18,7" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
+                                    Padding="18,7" IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                     Command="{Binding SearchCommand}" />
                         </Grid>
                         <Label Text="{Binding SourceNote}" Style="{StaticResource TxtCaption}"
@@ -176,7 +176,7 @@
                             <Label Grid.Column="1" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
                                    Text="预览不写进存档，只算一次给你看拿到多少东西" />
                             <Button Grid.Column="2" Text="导入到游戏" Style="{StaticResource BtnPrimary}"
-                                    FontSize="13" Padding="18,7"
+                                    Padding="18,7"
                                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                     Command="{Binding ImportCommand}" />
                         </Grid>

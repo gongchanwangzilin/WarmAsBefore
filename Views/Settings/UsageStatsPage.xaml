@@ -154,13 +154,13 @@
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <Label Grid.Column="0" Text="分组明细" Style="{StaticResource TxtSection}" Margin="4,0,0,0" />
                         <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Start">
-                            <Button Text="按模型" Style="{StaticResource BtnGhostSm}" FontSize="11"
+                            <Button Text="按模型" Style="{StaticResource BtnGhostSm}"
                                     BackgroundColor="{Binding DetailModelBg}"
                                     Command="{Binding SetDetailGroupCommand}" CommandParameter="model" />
-                            <Button Text="按天" Style="{StaticResource BtnGhostSm}" FontSize="11"
+                            <Button Text="按天" Style="{StaticResource BtnGhostSm}"
                                     BackgroundColor="{Binding DetailDayBg}"
                                     Command="{Binding SetDetailGroupCommand}" CommandParameter="day" />
-                            <Button Text="按角色" Style="{StaticResource BtnGhostSm}" FontSize="11"
+                            <Button Text="按角色" Style="{StaticResource BtnGhostSm}"
                                     BackgroundColor="{Binding DetailCharacterBg}"
                                     Command="{Binding SetDetailGroupCommand}" CommandParameter="character" />
                         </HorizontalStackLayout>
@@ -295,10 +295,10 @@
                                                            Style="{StaticResource TxtRowTitle}"
                                                            LineBreakMode="TailTruncation" VerticalOptions="Center" />
                                                     <HorizontalStackLayout Grid.Column="1" Spacing="4">
-                                                        <Button Text="保存" Style="{StaticResource BtnTextSm}" FontSize="12"
+                                                        <Button Text="保存" Style="{StaticResource BtnTextSm}"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=SavePriceRowCommand}"
                                                                 CommandParameter="{Binding .}" />
-                                                        <Button Text="删除" Style="{StaticResource BtnTextSm}" FontSize="12"
+                                                        <Button Text="删除" Style="{StaticResource BtnTextSm}"
                                                                 TextColor="{DynamicResource DangerInk}"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:UsageStatsViewModel}}, Path=RemovePriceRowCommand}"
                                                                 CommandParameter="{Binding .}" />

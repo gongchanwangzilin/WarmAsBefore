@@ -16,7 +16,7 @@
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        FontSize="13" Padding="8,0"
+                        Padding="8,0"
                         Command="{Binding GoBackCommand}" />
                 <Label Grid.Column="1" Text="{Binding GameTitle}"
                        Style="{StaticResource TxtSubhead}"
@@ -117,7 +117,7 @@
                                    ReturnCommand="{Binding SendChatCommand}" />
                         </Border>
                         <Button Grid.Column="1" Text="发送" Style="{StaticResource BtnPrimary}"
-                                HeightRequest="36" Padding="14,0" FontSize="12"
+                                HeightRequest="36" Padding="14,0"
                                 Command="{Binding SendChatCommand}" />
                     </Grid>
                 </Grid>
@@ -134,21 +134,21 @@
             <VerticalStackLayout Spacing="6">
                 <HorizontalStackLayout HorizontalOptions="Center" Spacing="8">
                     <Button Text="嘲讽" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" Padding="14,0" FontSize="12"
+                            HeightRequest="34" Padding="14,0"
                             Command="{Binding TauntCommand}" />
                     <!-- DangerTint 是淡色「面」，当文字色在浅底上几乎看不见；投降这种「说出来但别喊」的
                          动作要的是 DangerInk 那档墨。 -->
                     <Button Text="投降" Style="{StaticResource BtnText}"
                             TextColor="{DynamicResource DangerInk}"
-                            HeightRequest="34" Padding="14,0" FontSize="12"
+                            HeightRequest="34" Padding="14,0"
                             Command="{Binding ConcedeCommand}" />
                     <Button Text="朗读" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" Padding="14,0" FontSize="12"
+                            HeightRequest="34" Padding="14,0"
                             Command="{Binding SpeakLastCommand}" />
                     <Button Text="语音" Style="{StaticResource BtnText}"
                             BackgroundColor="{DynamicResource Cream200}"
                             CornerRadius="{DynamicResource WRadiusButton}"
-                            HeightRequest="34" WidthRequest="44" FontSize="11" Padding="0"
+                            HeightRequest="34" WidthRequest="44" Padding="0"
                             Command="{Binding VoiceInputCommand}"
                             IsEnabled="{Binding IsListening, Converter={StaticResource InverseBool}}" />
                 </HorizontalStackLayout>
@@ -156,8 +156,8 @@
                 <!-- 围棋：点目结算 -->
                 <HorizontalStackLayout IsVisible="{Binding IsGo}"
                                        HorizontalOptions="Center" Spacing="8">
-                    <Button Text="⚪ 点目结算" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" Padding="16,0" FontSize="12"
+                    <Button Text="点目结算" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" Padding="16,0"
                             Command="{Binding SettleGoCommand}" />
                     <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0"
@@ -172,8 +172,8 @@
                 <!-- 飞行棋：掷骰子 -->
                 <HorizontalStackLayout IsVisible="{Binding IsLudo}"
                                        HorizontalOptions="Center" Spacing="8">
-                    <Button Text="🎲 掷骰子" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" Padding="16,0" FontSize="12"
+                    <Button Text="掷骰子" Style="{StaticResource BtnNeumorphic}"
+                            HeightRequest="34" Padding="16,0"
                             Command="{Binding RollLudoCommand}" />
                     <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0"
@@ -190,16 +190,16 @@
                       ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
                       ColumnSpacing="6" HorizontalOptions="Center">
                     <Button Grid.Column="1" Text="↑" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            HeightRequest="34" WidthRequest="40" Padding="0"
                             Command="{Binding SnakeUpCommand}" />
                     <Button Grid.Column="3" Text="←" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            HeightRequest="34" WidthRequest="40" Padding="0"
                             Command="{Binding SnakeLeftCommand}" />
                     <Button Grid.Column="4" Text="→" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            HeightRequest="34" WidthRequest="40" Padding="0"
                             Command="{Binding SnakeRightCommand}" />
                     <Button Grid.Column="6" Text="↓" Style="{StaticResource BtnNeumorphic}"
-                            HeightRequest="34" WidthRequest="40" FontSize="14" Padding="0"
+                            HeightRequest="34" WidthRequest="40" Padding="0"
                             Command="{Binding SnakeDownCommand}" />
                 </Grid>
             </VerticalStackLayout>

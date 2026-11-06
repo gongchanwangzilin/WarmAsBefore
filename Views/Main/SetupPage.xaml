@@ -147,7 +147,7 @@
                     </VerticalStackLayout>
 
                     <!-- 4 · AI 端点：只有这一屏要打字，所以只有它用下划线输入 -->
-                    <VerticalStackLayout x:Name="StepAi" Spacing="18" IsVisible="{Binding AtAi}">
+                    <VerticalStackLayout x:Name="StepAi" Spacing="16" IsVisible="{Binding AtAi}">
                         <VerticalStackLayout Spacing="6">
                             <Label Text="{Binding [Setup_Ai_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                    FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />

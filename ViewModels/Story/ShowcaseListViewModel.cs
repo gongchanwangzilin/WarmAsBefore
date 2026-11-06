@@ -97,9 +97,9 @@ public sealed partial class ShowcaseStepDisplay : ObservableObject
     {
         Label = Step.Type switch
         {
-            "dialogue" => Step.Speaker == "user" ? $"💬 你：{Truncate(Step.Text,30)}" : $"💬 {characterName}：{Truncate(Step.Text,30)}",
-            "cg" => $"🖼️ CG · {Path.GetFileName(Step.CgPath)}",
-            "sprites" => $"✨ 立绘 ×{Step.Sprites.Count}",
+            "dialogue" => Step.Speaker == "user" ? $"你：{Truncate(Step.Text,30)}" : $"{characterName}：{Truncate(Step.Text,30)}",
+            "cg" => $"CG · {Path.GetFileName(Step.CgPath)}",
+            "sprites" => $"立绘 ×{Step.Sprites.Count}",
             _ => Step.Type
         };
         Sub = Step.Type switch

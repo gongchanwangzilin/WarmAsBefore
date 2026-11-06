@@ -60,7 +60,7 @@
                     HorizontalOptions="Center">
                 <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
                 <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
-                    <Label Text="💗" FontSize="52" HorizontalOptions="Center" />
+                    <Image Source="ic_heart_contrast.png" WidthRequest="52" HeightRequest="52" HorizontalOptions="Center" />
                     <Label Text="{Binding LevelText}"
                            TextColor="White"
                            FontSize="44"

@@ -12,7 +12,7 @@
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="14" Padding="0"
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="心理状况" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
             </Grid>
@@ -52,16 +52,16 @@
                                            Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}"
                                            IsVisible="{Binding Safety}" />
                                     <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="6">
-                                        <Button Text="轻" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                        <Button Text="轻" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                 Command="{Binding BindingContext.SetMildCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="1" Text="中" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                        <Button Grid.Column="1" Text="中" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                 Command="{Binding BindingContext.SetModerateCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="2" Text="重" Style="{StaticResource BtnNeumorphSm}" FontSize="12" Padding="12,4"
+                                        <Button Grid.Column="2" Text="重" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                 Command="{Binding BindingContext.SetSevereCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
-                                        <Button Grid.Column="4" Text="移除" Style="{StaticResource BtnGhost}" FontSize="12"
+                                        <Button Grid.Column="4" Text="移除" Style="{StaticResource BtnGhost}"
                                                 Command="{Binding BindingContext.RemoveCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
                                     </Grid>
@@ -84,7 +84,7 @@
                         <Entry Placeholder="备注：触发点 / 来源 / 想被怎么对待（可留空）" Text="{Binding NewNote}"
                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
-                        <Button Text="加到当前角色" Style="{StaticResource BtnPrimary}" FontSize="13"
+                        <Button Text="加到当前角色" Style="{StaticResource BtnPrimary}"
                                 Padding="16,7" HorizontalOptions="Start" Command="{Binding AddCommand}" />
                         <Label Text="目录按类别分：情绪、焦虑、创伤、强迫、进食、睡眠、精神病性、人格、神经发育、神经、躯体、冲动、特质与安全类。轻度不等于没事，重度也不等于随时失控——严重度决定的是波动幅度与恢复速度。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />

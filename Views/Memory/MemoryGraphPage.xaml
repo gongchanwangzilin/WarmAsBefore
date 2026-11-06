@@ -15,7 +15,7 @@
 
         <!-- ============ 顶栏：身份 · 读数 · 这一片 · 动作 ============ -->
         <Border Grid.Row="0" Style="{StaticResource CardSolid}" Padding="12,8">
-            <VerticalStackLayout Spacing="7">
+            <VerticalStackLayout Spacing="6">
 
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                     <HorizontalStackLayout Grid.Column="0" Spacing="8">
@@ -27,7 +27,7 @@
 
                     <ScrollView Grid.Column="1" Orientation="Horizontal" HeightRequest="22">
                         <HorizontalStackLayout Spacing="12">
-                            <Label Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}" FontSize="11"
+                            <Label Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}"
                                    VerticalTextAlignment="Center" />
                             <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
                             <Label Text="{Binding GrowthHint}" FontSize="12" TextColor="{DynamicResource WarmDark}"
@@ -48,7 +48,7 @@
                                 Command="{Binding TogglePanelsCommand}" CommandParameter="think" />
                         <Button Text="JSON" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding TogglePanelsCommand}" CommandParameter="json" />
-                        <Button Text="重新摊网" Style="{StaticResource BtnText}" FontSize="12"
+                        <Button Text="重新摊网" Style="{StaticResource BtnText}"
                                 Command="{Binding ResyncCommand}" />
                     </HorizontalStackLayout>
                 </Grid>
@@ -97,9 +97,9 @@
                     HorizontalOptions="Start" VerticalOptions="End" WidthRequest="246">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="{Binding OnlyNetName, StringFormat='只看这一片：{0}'}"
-                           Style="{StaticResource TxtCaption}" FontSize="11" IsVisible="{Binding HasNetFilter}" />
+                           Style="{StaticResource TxtCaption}" IsVisible="{Binding HasNetFilter}" />
                     <Label Text="{Binding HiddenCount, StringFormat='还有 {0} 个在更深处，摊开就能看到'}"
-                           IsVisible="{Binding HasHidden}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                           IsVisible="{Binding HasHidden}" Style="{StaticResource TxtCaption}" />
                     <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
                         <Button Text="－" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
                                 Command="{Binding ZoomOutCommand}" />
@@ -108,7 +108,7 @@
                         <Button Text="铺满" Style="{StaticResource BtnGhostSm}" Command="{Binding FitViewCommand}" />
                     </HorizontalStackLayout>
                     <Label Text="拖动=挪画面 · 滚轮=缩放 · 点一下=选中 · 再点一下=钉住它"
-                           Style="{StaticResource TxtCaption}" FontSize="11" />
+                           Style="{StaticResource TxtCaption}" />
                 </VerticalStackLayout>
             </Border>
 
@@ -124,7 +124,7 @@
                             <Label Text="{Binding SelectedKind}" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding SelectedMeta}" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding SelectedDetail}" Style="{StaticResource TxtBody}"
-                                   FontSize="12" TextColor="{DynamicResource WarmBody}" />
+                                   TextColor="{DynamicResource WarmBody}" />
                             <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
                                 <Button Text="钉住它" Style="{StaticResource BtnNeumorphSm}" Command="{Binding MarkSelectedCommand}" />
                                 <Button Text="和它连…" Style="{StaticResource BtnNeumorphSm}" Command="{Binding LinkFromSelectedCommand}" />
@@ -151,7 +151,7 @@
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
                             <Label Text="点枝（不是点疙瘩）能选中一条联系，然后调弱或断开。"
-                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                                   Style="{StaticResource TxtCaption}" />
                             <HorizontalStackLayout Spacing="6">
                                 <Button Text="调弱这条" Style="{StaticResource BtnGhostSm}" Command="{Binding WeakenSelectedEdgeCommand}" />
                                 <Button Text="断开这条" Style="{StaticResource BtnDangerSm}" Command="{Binding BreakSelectedEdgeCommand}" />
@@ -182,18 +182,18 @@
                             <Label Text="往外看几圈" Style="{StaticResource TxtCaption}" />
                             <controls:ViewSlider Minimum="1" Maximum="4" Value="{Binding MaxDepth, Mode=TwoWay}" />
 
-                            <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}" />
                             <Border HeightRequest="1" BackgroundColor="{DynamicResource BorderLine}" Stroke="Transparent"
                                     StrokeThickness="0" Margin="0,2" />
                             <Label Text="现在顺着钉住的那个说法能想起：" Style="{StaticResource TxtCaption}" />
-                            <Label Text="{Binding RecallText}" Style="{StaticResource TxtBody}" FontSize="12"
+                            <Label Text="{Binding RecallText}" Style="{StaticResource TxtBody}"
                                    TextColor="{DynamicResource WarmBody}" />
                             <HorizontalStackLayout Spacing="6">
                                 <Button Text="存成 TA 的联想方式" Style="{StaticResource BtnPrimarySm}" Command="{Binding SaveParamsCommand}" />
                                 <Button Text="回到默认" Style="{StaticResource BtnGhostSm}" Command="{Binding ResetParamsCommand}" />
                             </HorizontalStackLayout>
                             <Label Text="存了之后，聊天时检索记忆也按这套参数走 —— 不只是画面变了。"
-                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                                   Style="{StaticResource TxtCaption}" />
                         </VerticalStackLayout>
                     </Border>
 
@@ -203,10 +203,10 @@
                             <Label Text="量化模型：把说法换算成数值" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
                                    TextColor="{DynamicResource WarmDark}" />
                             <Label Text="知识库管理员干的是这件事：词进去、一组数值出来，活得像同一类东西的说法数值就挨得近。它看得见从没同框出现过的近义 —— 共现统计和全文检索都到不了这一层。"
-                                   Style="{StaticResource TxtCaption}" FontSize="11" />
-                            <Label Text="{Binding QuantSelected}" Style="{StaticResource TxtCaption}" FontSize="11"
+                                   Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding QuantSelected}" Style="{StaticResource TxtCaption}"
                                    IsVisible="{Binding HasQuantSelected}" />
-                            <Label Text="{Binding QuantBackend}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Label Text="{Binding QuantBackend}" Style="{StaticResource TxtCaption}" />
 
                             <VerticalStackLayout Spacing="3" BindableLayout.ItemsSource="{Binding QuantNear}">
                                 <BindableLayout.ItemTemplate>
@@ -217,10 +217,10 @@
                                                 <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}" />
                                             </VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="4">
-                                                <Button Text="跳过去" Style="{StaticResource BtnGhostSm}" Padding="8,2" FontSize="11"
+                                                <Button Text="跳过去" Style="{StaticResource BtnGhostSm}" Padding="8,2"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=JumpToQuantCommand}"
                                                         CommandParameter="{Binding .}" />
-                                                <Button Text="牵上" Style="{StaticResource BtnNeumorphSm}" Padding="8,2" FontSize="11"
+                                                <Button Text="牵上" Style="{StaticResource BtnNeumorphSm}" Padding="8,2"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=WeaveQuantCommand}"
                                                         CommandParameter="{Binding .}" />
                                             </HorizontalStackLayout>
@@ -229,11 +229,11 @@
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
 
-                            <Label Text="{Binding QuantHint}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                            <Label Text="{Binding QuantHint}" Style="{StaticResource TxtCaption}" />
                             <Button Text="整张网按数值再织一遍" Style="{StaticResource BtnPrimarySm}"
                                     Command="{Binding WeaveByNumbersCommand}" />
                             <Label Text="「牵上」= 把这一对按数值落一条线；「再织一遍」= 让模型把所有挨得近又没连上的对子都补一遍（贵，按一次就好）。"
-                                   Style="{StaticResource TxtCaption}" FontSize="11" />
+                                   Style="{StaticResource TxtCaption}" />
                         </VerticalStackLayout>
                     </Border>
 
@@ -265,7 +265,7 @@
                                                 <Label Text="{Binding Head}" FontSize="12" FontAttributes="Bold"
                                                        TextColor="{DynamicResource WarmDark}" />
                                                 <Label Text="{Binding Reason}" Style="{StaticResource TxtCaption}" />
-                                                <Label Text="{Binding ConfText}" Style="{StaticResource TxtCaption}" FontSize="11" />
+                                                <Label Text="{Binding ConfText}" Style="{StaticResource TxtCaption}" />
                                                 <HorizontalStackLayout Spacing="6">
                                                     <Button Text="采纳" Style="{StaticResource BtnNeumorphSm}"
                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=ApplyCommand}"
@@ -305,38 +305,38 @@
         <Border Grid.Row="2" Style="{StaticResource CardSolid}" Padding="12,7">
             <ScrollView Orientation="Horizontal">
                 <HorizontalStackLayout Spacing="12">
-                    <HorizontalStackLayout Spacing="5">
+                    <HorizontalStackLayout Spacing="4">
                         <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#E8B87A" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="人" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="5">
-                        <Border WidthRequest="13" HeightRequest="9" BackgroundColor="#FAEBD7" Stroke="#8A6A48"
+                    <HorizontalStackLayout Spacing="4">
+                        <Border WidthRequest="13" HeightRequest="9" BackgroundColor="{DynamicResource SecondaryBg}" Stroke="#8A6A48"
                                 StrokeThickness="1" StrokeShape="{RoundRectangle CornerRadius=2}" VerticalOptions="Center" />
                         <Label Text="记得的事" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="5">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#A5D6A7" Stroke="Transparent"
+                    <HorizontalStackLayout Spacing="4">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{DynamicResource SuccessTint}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="标签" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="5">
+                    <HorizontalStackLayout Spacing="4">
                         <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#AFCFEA" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="地点" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="5">
+                    <HorizontalStackLayout Spacing="4">
                         <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#EFB0AE" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="东西" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="5">
+                    <HorizontalStackLayout Spacing="4">
                         <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#F2C4D6" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="情绪" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="5">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#F5D8B8" Stroke="Transparent"
+                    <HorizontalStackLayout Spacing="4">
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{DynamicResource AccentWarm}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="词" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>

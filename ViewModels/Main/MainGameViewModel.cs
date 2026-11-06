@@ -149,7 +149,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private bool _isInMiniGame;
     // ============ 送礼 / 使用面板（主界面聊天时显示） ============
     [ObservableProperty] private bool _isGiftPanelVisible;
-    [ObservableProperty] private string _giftPanelTitle = "送给小雨 🎁";
+    [ObservableProperty] private string _giftPanelTitle = "送给小雨";
     [ObservableProperty] private string _galgameModeLabel = "Galgame 모드";
     [ObservableProperty] private bool _showRightChat;
     [ObservableProperty] private string _lastSpeakerName = "";
@@ -403,7 +403,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 设置变更时把天气事件参数同步进 SceneDirector（改概率/开关后无需重启即可生效）。
         _settings.Applied += SyncWeatherEventConfig;
         SilenceHintText = _settings.Current.AllowSilence
-            ? "💡 已开启「允许沉默」：角色在不想说话时会选择不回复，这是正常的，不必每次提问都强求答复。"
+            ? "已开启「允许沉默」：角色在不想说话时会选择不回复，这是正常的，不必每次提问都强求答复。"
             : "";
 
         _auto.GreetingReady += OnGreet;
@@ -809,7 +809,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         IsCalibrationBlocked = false;
         IsUncalibrated = true;
-        UncalibratedHint = $"⚠「{_currentScene?.Name}」背景未标定，角色位置已回退为居中显示，点此补标定";
+        UncalibratedHint = $"「{_currentScene?.Name}」背景未标定，角色位置已回退为居中显示，点此补标定";
     }
 
     /// <summary>地图被编辑/导入后刷新 AI 语境与场景列表。</summary>
@@ -1831,7 +1831,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         if (item is null) return;
         IsGiftPanelVisible = false;
-        AddMessage("user", $"🎁 送给你：{item.Emoji} {item.Name}");
+        AddMessage("user", $"送给你：{item.Emoji} {item.Name}");
         IsThinking = true;
         try
         {
@@ -1861,7 +1861,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         if (item is null) return;
         IsGiftPanelVisible = false;
-        AddMessage("user", $"✨ 我用了：{item.Emoji} {item.Name}");
+        AddMessage("user", $"我用了：{item.Emoji} {item.Name}");
         IsThinking = true;
         try
         {

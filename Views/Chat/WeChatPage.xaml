@@ -44,7 +44,7 @@
                     <CollectionView.EmptyView>
                         <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                              Spacing="10" Padding="32">
-                            <Label Text="💬" FontSize="40" HorizontalOptions="Center" />
+                            <Image Source="ic_chat.png" WidthRequest="40" HeightRequest="40" HorizontalOptions="Center" />
                             <Label Text="还没有微信好友" TextColor="{StaticResource WcSub}"
                                    FontSize="17" HorizontalOptions="Center" />
                             <Label Text="让 AI 用「add_wechat」把剧情里的角色加为好友"
@@ -232,7 +232,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Text="我的表情包" TextColor="{StaticResource WcSub}" FontSize="12"
                            VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="📥 导入表情" FontSize="12"
+                    <Button Grid.Column="1" Text="导入表情" FontSize="12"
                             BackgroundColor="{StaticResource WcAccentSoft}" TextColor="{StaticResource WcAccent}"
                             CornerRadius="10" Padding="10,4"
                             Command="{Binding ImportStickerCommand}" />
@@ -256,7 +256,7 @@
                         </BindableLayout.ItemTemplate>
                     </HorizontalStackLayout>
                 </ScrollView>
-                <Label Grid.Row="1" Text="还没有表情，点「📥 导入表情」添加（图片/动图/视频/任意文件均可）"
+                <Label Grid.Row="1" Text="还没有表情，点「导入表情」添加（图片/动图/视频/任意文件均可）"
                        TextColor="{StaticResource WcFaint}" FontSize="12"
                        IsVisible="{Binding HasStickers, Converter={StaticResource InverseBool}}"
                        VerticalOptions="Center" />
@@ -318,13 +318,13 @@
                     <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
                 </Border.Shadow>
                 <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="18,16" RowSpacing="12">
-                    <Label Text="礼物箱 🎁" TextColor="{StaticResource WcInk}" FontSize="16"
+                    <Label Text="礼物箱 " TextColor="{StaticResource WcInk}" FontSize="16"
                            FontAttributes="Bold" HorizontalOptions="Center" />
                     <Label Text="点一下送出心意，对方会收下并回应" TextColor="{StaticResource WcSub}" FontSize="12"
                            HorizontalOptions="Center" />
 
                     <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <Button Text="🎁 送礼" FontSize="13" HeightRequest="36" CornerRadius="10" Padding="0"
+                        <Button Text=" 送礼" FontSize="13" HeightRequest="36" CornerRadius="10" Padding="0"
                                 BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
                                 Command="{Binding ToggleGiftModeCommand}">
                             <Button.Triggers>
@@ -334,7 +334,7 @@
                                 </DataTrigger>
                             </Button.Triggers>
                         </Button>
-                        <Button Grid.Column="1" Text="✨ 使用" FontSize="13" HeightRequest="36" CornerRadius="10" Padding="0"
+                        <Button Grid.Column="1" Text="使用" FontSize="13" HeightRequest="36" CornerRadius="10" Padding="0"
                                 BackgroundColor="{StaticResource WcInputBg}" TextColor="{StaticResource WcSub}"
                                 Command="{Binding ToggleGiftModeCommand}">
                             <Button.Triggers>
@@ -393,7 +393,7 @@
 
                     <VerticalStackLayout Grid.Row="3" HorizontalOptions="Center" VerticalOptions="Center" Spacing="8"
                                          IsVisible="{Binding HasGiftItems, Converter={StaticResource InverseBool}}">
-                        <Label Text="🎁" FontSize="34" HorizontalOptions="Center" />
+                        <Image Source="ic_gift.png" WidthRequest="34" HeightRequest="34" HorizontalOptions="Center" />
                         <Label Text="还没有已购商品，先去商店逛逛吧～" TextColor="{StaticResource WcSub}" FontSize="12" />
                     </VerticalStackLayout>
 

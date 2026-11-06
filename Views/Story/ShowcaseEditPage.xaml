@@ -110,24 +110,24 @@
                     <VerticalStackLayout Spacing="0">
                         <Border Style="{StaticResource SettingRow}">
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                <Button Grid.Column="0" Text="💬 添加对话" Style="{StaticResource BtnNeumorphSm}"
+                                <Button Grid.Column="0" Text="添加对话" Style="{StaticResource BtnNeumorphSm}"
                                         Command="{Binding AddDialogueCommand}" />
-                                <Button Grid.Column="1" Text="🖼️ 插入CG" Style="{StaticResource BtnNeumorphSm}"
+                                <Button Grid.Column="1" Text="插入CG" Style="{StaticResource BtnNeumorphSm}"
                                         Command="{Binding InsertCgCommand}" />
                             </Grid>
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
                             <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                                <Button Grid.Column="0" Text="✨ 添加立绘" Style="{StaticResource BtnNeumorphSm}"
+                                <Button Grid.Column="0" Text="添加立绘" Style="{StaticResource BtnNeumorphSm}"
                                         Command="{Binding AddSpriteCommand}" />
-                                <Button Grid.Column="1" Text="🚫 清空立绘" Style="{StaticResource BtnNeumorphSm}"
+                                <Button Grid.Column="1" Text="清空立绘" Style="{StaticResource BtnNeumorphSm}"
                                         Command="{Binding ClearSpritesCommand}" />
                             </Grid>
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Button Text="📁 导入临时素材" Style="{StaticResource BtnNeumorphSm}"
+                            <Button Text="导入临时素材" Style="{StaticResource BtnNeumorphSm}"
                                     HorizontalOptions="Fill" Command="{Binding ImportTempMaterialCommand}" />
                         </Border>
                     </VerticalStackLayout>

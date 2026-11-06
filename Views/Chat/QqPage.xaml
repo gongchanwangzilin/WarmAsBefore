@@ -47,7 +47,7 @@
                     <CollectionView.EmptyView>
                         <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                              Spacing="10" Padding="32">
-                            <Label Text="💬" FontSize="40" HorizontalOptions="Center" />
+                            <Image Source="ic_chat.png" WidthRequest="40" HeightRequest="40" HorizontalOptions="Center" />
                             <Label Text="还没有好友" TextColor="{StaticResource QqSub}"
                                    FontSize="17" HorizontalOptions="Center" />
                             <Label Text="让 AI 用「add_wechat」把剧情里的角色加为好友"
@@ -240,7 +240,7 @@
                 <Grid ColumnDefinitions="*,Auto">
                     <Label Text="我的表情包" TextColor="{StaticResource QqSub}" FontSize="12"
                            VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="📥 导入表情" FontSize="12"
+                    <Button Grid.Column="1" Text="导入表情" FontSize="12"
                             BackgroundColor="{StaticResource QqAccentSoft}" TextColor="{StaticResource QqAccent}"
                             CornerRadius="10" Padding="10,4"
                             Command="{Binding ImportStickerCommand}" />
@@ -264,7 +264,7 @@
                         </BindableLayout.ItemTemplate>
                     </HorizontalStackLayout>
                 </ScrollView>
-                <Label Grid.Row="1" Text="还没有表情，点「📥 导入表情」添加（图片/动图/视频/任意文件均可）"
+                <Label Grid.Row="1" Text="还没有表情，点「导入表情」添加（图片/动图/视频/任意文件均可）"
                        TextColor="{StaticResource QqFaint}" FontSize="12"
                        IsVisible="{Binding HasStickers, Converter={StaticResource InverseBool}}"
                        VerticalOptions="Center" />
