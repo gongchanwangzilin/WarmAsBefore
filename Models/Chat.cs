@@ -81,6 +81,10 @@ public sealed record AiEndpoint
     public IReadOnlyList<string> KeyPool { get; init; } = Array.Empty<string>();
     /// <summary>上下文 Token 上限（估算值）：超过时强制把旧对话折叠成人类式记忆。</summary>
     public int ContextTokenLimit { get; init; } = 32000;
+    /// <summary>该端点是否支持工具调用：false 时整轮请求不带 tools（小模型/纯文本模型常见）。</summary>
+    public bool SupportsTools { get; init; } = true;
+    /// <summary>该端点是否能看图：识图没配独立端点时，用它兜底。</summary>
+    public bool SupportsVision { get; init; }
     /// <summary>该端点的超时（秒）：null 或 ≤0 = 用全局设置。</summary>
     public int? TimeoutSeconds { get; init; }
 }

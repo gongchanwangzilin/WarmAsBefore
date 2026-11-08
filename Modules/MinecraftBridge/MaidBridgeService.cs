@@ -49,6 +49,10 @@ public sealed partial class MaidBridgeService : IDisposable
     private readonly VisionService _vision;
     private readonly PersonaMemoryService _persona;
     private readonly SpeechService _speech;
+    private readonly PhoneMessageService _phoneMessages;
+    private readonly Modules.RealChat.OfficialChatBridge _official;
+    private readonly WeChatService _wechat;
+    private readonly PageWindowService _pageWindows;
 
     private readonly object _gate = new();
     private readonly object _sessionGate = new();
@@ -64,6 +68,22 @@ public sealed partial class MaidBridgeService : IDisposable
     private readonly SemaphoreSlim _backupLock = new(1, 1);
     private readonly Dictionary<string, PendingJoin> _pending = new(StringComparer.Ordinal);
     private readonly MaidBridgeBindingStore _bindings = new();
+
+    private static readonly string DiagPath =
+        Path.Combine(App.RootDirectory, "minecraft_bridge", "bridge_diag.log");
+
+    /// <summary>握手阶段诊断：绕开主日志队列，直接追加到数据目录，进程卡住时也能看到卡在哪一步。
+    /// 主日志（warm_startup.log）在某些环境下整段时间一行都不落盘，设置与通讯录的排查全靠这条通道。</summary>
+    public static void Diag(string msg)
+    {
+        try
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(DiagPath)!);
+            File.AppendAllText(DiagPath,
+                $"[{DateTime.Now.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}");
+        }
+        catch { }
+    }
 
     private CancellationTokenSource? _cts;
     private CancellationTokenSource? _listenCts;
@@ -85,15 +105,20 @@ public sealed partial class MaidBridgeService : IDisposable
     private DateTime _lastCommitUtc = DateTime.MinValue;
     private DateTime _lastBindingSaveUtc = DateTime.MinValue;
     private DateTime _lastPulseUtc = DateTime.MinValue;
+    private DateTime _lastStatsPushUtc = DateTime.MinValue;
+    private DateTime _lastAutoNavUtc = DateTime.MinValue;
     private int _pulseInFlight;
     private bool _bindingsLoaded;
+    private string _bindWizardSession = "";
     private bool _started;
     private bool _disposed;
 
     public MaidBridgeService(PluginHost plugins, StorageProvider store,
         Modules.SaveSystem.SaveManager save, GameEngine engine, CharacterLibrary characters,
         ChatEngine chat, MemoryVault memory, HumanMemoryService human, Modules.Tools.ToolManager tools,
-        VisionService vision, PersonaMemoryService persona, SpeechService speech)
+        VisionService vision, PersonaMemoryService persona, SpeechService speech,
+        PhoneMessageService phoneMessages, Modules.RealChat.OfficialChatBridge official, WeChatService wechat,
+        PageWindowService pageWindows)
     {
         _plugins = plugins;
         _store = store;
@@ -106,6 +131,10 @@ public sealed partial class MaidBridgeService : IDisposable
         _vision = vision;
         _persona = persona;
         _speech = speech;
+        _phoneMessages = phoneMessages;
+        _official = official;
+        _wechat = wechat;
+        _pageWindows = pageWindows;
         MaidBridgeTools.Register(this, tools);
     }
 
@@ -141,7 +170,56 @@ public sealed partial class MaidBridgeService : IDisposable
         _watchdogTask = Task.Run(() => WatchdogLoopAsync(token), token);
         _watchTask = Task.Run(() => ConfigWatchLoopAsync(token), token);
         _backupTask = Task.Run(() => BackupLoopAsync(token), token);
+        StartSettingsWatch();
         _ = Task.Run(() => ReloadAsync(), token);
+    }
+
+    private FileSystemWatcher? _settingsWatch;
+
+    /// <summary>
+    /// 盯住插件 settings.json 的每一次落盘：游戏里存的值事后被谁写回旧值（应用内设置页整表保存、
+    /// 云同步回灌……），以前只能靠猜，现在每一笔都当场留痕——内容特征一对照就知是谁干的。
+    /// </summary>
+    private void StartSettingsWatch()
+    {
+        try
+        {
+            var dir = Path.Combine(App.RootDirectory, "plugins", PluginId);
+            Directory.CreateDirectory(dir);
+            var target = Path.Combine(dir, "settings.json");
+            var watch = new FileSystemWatcher(dir, "settings.json")
+            {
+                NotifyFilter = NotifyFilters.LastWrite | NotifyFilters.Size | NotifyFilters.CreationTime
+            };
+            FileSystemEventHandler onChange = (_, e) =>
+            {
+                try
+                {
+                    var text = File.ReadAllText(target);
+                    Diag($"settings.json 落盘: {e.ChangeType}, {text.Length} chars, 含force_load={text.Contains("force_load_chunks")}, think_scenes={Snippet(text, "think_scenes")}");
+                }
+                catch { }
+            };
+            watch.Changed += onChange;
+            watch.Created += onChange;
+            watch.EnableRaisingEvents = true;
+            _settingsWatch = watch;
+            Diag("settings.json 变更监控已开启");
+        }
+        catch (Exception ex)
+        {
+            Diag("settings.json 监控启动失败 -> " + ex.Message);
+        }
+    }
+
+    /// <summary>从 settings.json 文本里抠某个键的值片段，只做日志展示用。</summary>
+    private static string Snippet(string json, string key)
+    {
+        var marker = $"\"{key}\":";
+        var at = json.IndexOf(marker, StringComparison.Ordinal);
+        if (at < 0) return "(无)";
+        var value = json.Substring(at + marker.Length).TrimStart();
+        return value.Length <= 60 ? value : value[..60] + "…";
     }
 
     /// <summary>设置页保存后会走这里；端口、网卡模式没变就只更新动作白名单，不断开现有会话。</summary>
@@ -483,23 +561,37 @@ public sealed partial class MaidBridgeService : IDisposable
     /// 有界地读一行。StreamReader.ReadLineAsync 会先把整行物化在内存里再交出来，
     /// 对端只要一直不发换行就能把本机内存吃穿——所以这里自己攒、自己在上限处掐断。
     /// 返回 TooLong 时连接就该断了，攒到一半的内容没有意义。
+    ///
+    /// carry 是本连接**跨调用**的残留缓冲：一次 ReadAsync 常常一口气带回来好几帧
+    /// （模组保存设置时 20 多条 config_set 会在同一毫秒刷出来，挤进同一个 TCP 包），
+    /// 只取第一行、把同一块里剩下的字符丢掉，就会「设置改了但只生效两项」。
+    /// 所以整行交出去之后，剩下的必须留在 carry 里等下一次调用接着切。
     /// </summary>
     private static async Task<(string? Line, bool TooLong)> ReadLineBoundedAsync(
-        StreamReader reader, CancellationToken ct)
+        StreamReader reader, StringBuilder carry, CancellationToken ct)
     {
-        var sb = new StringBuilder(4096);
         var chunk = new char[8192];
         while (true)
         {
-            var n = await reader.ReadBlockAsync(chunk.AsMemory(0, chunk.Length), ct);
-            if (n <= 0) return sb.Length == 0 ? (null, false) : (sb.ToString(), false);
+            for (var i = 0; i < carry.Length; i++)
+            {
+                if (carry[i] != '\n') continue;
+                var line = carry.ToString(0, i).Replace("\r", "");
+                carry.Remove(0, i + 1);
+                return (line, false);
+            }
+            if (carry.Length > MaxLineBytes) return (null, true);
+
+            // ReadAsync 拿到多少算多少；ReadBlockAsync 会一直等到读满 8192 字符或流结束，
+            // 结果是「对方发了一行 hello、这边却在等它再发八千个字」，模组每轮都撞 10 秒超时。
+            var n = await reader.ReadAsync(chunk.AsMemory(0, chunk.Length), ct);
+            if (n <= 0) return (null, false);
             for (var i = 0; i < n; i++)
             {
                 var c = chunk[i];
-                if (c == '\n') return (sb.ToString(), false);
                 if (c == '\r') continue;
-                sb.Append(c);
-                if (sb.Length > MaxLineBytes) return (null, true);
+                carry.Append(c);
+                if (carry.Length > MaxLineBytes) return (null, true);
             }
         }
     }
@@ -508,6 +600,7 @@ public sealed partial class MaidBridgeService : IDisposable
     {
         var remote = client.Client.RemoteEndPoint as IPEndPoint;
         var remoteText = remote?.ToString() ?? "?";
+        Diag("accept " + remoteText);
         StreamReader? reader = null;
         StreamWriter? writer = null;
         MaidSession? session = null;
@@ -520,18 +613,25 @@ public sealed partial class MaidBridgeService : IDisposable
 
             string? line;
             bool oversized;
+            // hello 之前的残留缓冲：握手那一行之后可能已经跟着别的帧了，不能丢。
+            var carry = new StringBuilder(4096);
             using (var helloTimeout = CancellationTokenSource.CreateLinkedTokenSource(ct))
             {
                 helloTimeout.CancelAfter(TimeSpan.FromSeconds(10));
-                (line, oversized) = await ReadLineBoundedAsync(reader, helloTimeout.Token);
+                (line, oversized) = await ReadLineBoundedAsync(reader, carry, helloTimeout.Token);
             }
             if (oversized)
             {
+                Diag("hello oversized");
                 await WriteErrorAsync(writer, "frame_too_large", "握手报文超过上限。");
                 return;
             }
             if (line is null)
+            {
+                Diag("hello empty");
                 return;
+            }
+            Diag($"hello read len={line.Length}");
             if (JsonNode.Parse(line) is not JsonObject hello
                 || !string.Equals(BridgeJson.Str(hello, "type"), "hello", StringComparison.Ordinal))
             {
@@ -549,14 +649,24 @@ public sealed partial class MaidBridgeService : IDisposable
             var instance = BridgeJson.Str(hello, "instance");
             if (!ConsumePending(nonce, token, instance, out var pending))
             {
+                Diag("auth_failed nonce=" + nonce);
                 await WriteErrorAsync(writer, "auth_failed", "nonce 或 token 无效/过期。");
                 return;
             }
+            Diag("auth ok");
 
-            await _connectLock.WaitAsync(ct);
+            if (!await _connectLock.WaitAsync(TimeSpan.FromSeconds(5), ct))
+            {
+                // 上一轮握手若卡住，这里绝不无限等：回一帧错误，模组能看见原因，也不会把后续连接一起拖死。
+                Diag("connectLock busy");
+                await WriteErrorAsync(writer, "busy", "上一轮握手还没结束（可能卡住），这次先不接。");
+                return;
+            }
+            Diag("connectLock ok");
             try
             {
                 CloseSession(null, "replaced by new connection");
+                Diag("old session closed");
                 session = new MaidSession
                 {
                     Client = client,
@@ -572,13 +682,31 @@ public sealed partial class MaidBridgeService : IDisposable
                     Loader = BridgeJson.Str(hello, "loader"),
                     LoaderVersion = BridgeJson.Str(hello, "loaderVersion"),
                     BridgeBuild = BridgeJson.Str(hello, "bridge"),
+                    ReadCarry = carry,
                     Cts = CancellationTokenSource.CreateLinkedTokenSource(ct)
                 };
                 session.WorldKey = MakeWorldKey(session.WorldName, session.Instance, session.Player);
                 lock (_sessionGate) _session = session;
                 App.WriteLog($"MaidBridge: 会话 {session.Id} 已建立（{remoteText}）MC {session.GameVersion}/{session.Loader} {session.ModVersion}");
 
-                await HandshakeAsync(session, hello);
+                try { await HandshakeAsync(session, hello); }
+                catch (Exception hex)
+                {
+                    // 握手异常原来是静默关连接，模组只看到「closed during handshake」。回一帧 error 让它报出真正原因。
+                    App.WriteLog("MaidBridge.Handshake -> " + hex);
+                    Diag("handshake ex " + hex.GetType().Name + ": " + hex.Message);
+                    try { await WriteErrorAsync(writer, "handshake_failed", hex.GetType().Name + ": " + hex.Message); } catch { }
+                    throw;
+                }
+
+                // 新世界 / 还没绑角色：把绑定向导弹出来。放在握手之后，welcome 已经发出去了，
+                // 模组那边不会因为等用户点按钮而超时。
+                // MC 主世界模式下 WAB 只做 AI 系统、不抢主界面：这里绝不弹模态向导，
+                // 需要绑定时走插件设置页里那颗手动按钮。
+                if (!_config.IsMcPrimaryWorld
+                    && (!session.SaveActive || session.MaidCharacters.IsEmpty)
+                    && session.Maids.Count > 0)
+                    _ = RunSafe("BindWizard", () => ShowBindWizardAsync(session));
             }
             finally
             {
@@ -651,8 +779,10 @@ public sealed partial class MaidBridgeService : IDisposable
 
     private async Task HandshakeAsync(MaidSession session, JsonObject hello)
     {
+        Diag("hs start");
         await EnsureBindingsLoadedAsync();
-        await _bindingOpsLock.WaitAsync();
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(5)))
+            throw new TimeoutException("binding lock timeout（上一轮绑定操作卡住）");
         try
         {
             var saveId = "";
@@ -663,14 +793,25 @@ public sealed partial class MaidBridgeService : IDisposable
             var active = _engine.CurrentSaveId;
             var bound = saveId.Length > 0 ? saveId : world.SaveId;
 
-            // 桥是客人，不是主人。过去这里写的是「WAB 没开存档就替它 Load/新建一份」，
-            // 再往下还有「没有当前角色就抓第一个女仆顶上去」——一次 Minecraft 联机就能把
-            // WAB 打开成另一个存档、换成另一个角色，等于模组在改用户本体的功能。现在只有
-            // 用户在插件设置里明确勾了「允许桥切存档」，才把这两件事还给桥。
-            if (_config.AutoSwitchSave && active.Length == 0)
+            // 玩家打开一个 MC 世界时，那个世界绑定的存档就是「这一局」，否则对话与记忆会串档。
+            // auto_open_bound_save（默认开）：只要绑定档存在且当前不是它，握手时无条件 Load，
+            // 不再按主世界模式分叉——用户要的就是「进世界就到那份存档」。
+            // world_mode 只决定界面：galgame 会把主界面带进存档，mc_world 只后台加载、不抢界面。
+            // 旧的 auto_switch_save 仍兼容：显式勾上时，没开档又没有可用绑定档才沿用「新建一份」的老行为。
+            var autoOpen = _config.AutoOpenBoundSave || _config.AutoSwitchSave;
+            var boundExists = bound.Length > 0 && _store.Exists($"saves/{bound}");
+            if (autoOpen && boundExists
+                && (active.Length == 0 || !string.Equals(bound, active, StringComparison.Ordinal)))
             {
-                var loaded = bound.Length > 0 && _store.Exists($"saves/{bound}") && await _save.Load(bound);
-                if (!loaded) _save.NewRun();
+                if (await _save.Load(bound))
+                {
+                    active = _engine.CurrentSaveId;
+                    App.WriteLog($"MaidBridge 自动打开绑定存档：世界 {session.WorldKey} → {bound}");
+                }
+            }
+            else if (_config.AutoSwitchSave && active.Length == 0)
+            {
+                _save.NewRun();
                 active = _engine.CurrentSaveId;
                 bound = active;
             }
@@ -682,8 +823,9 @@ public sealed partial class MaidBridgeService : IDisposable
                     ? "WAB 里还没打开存档，所以桥先不绑女仆、不让她开口。在主界面开一份存档；"
                       + "或者到插件设置里打开「允许桥切存档」，让她自己去读这份世界绑定的那份。"
                     : $"这个 Minecraft 世界绑的是存档「{bound}」，WAB 此刻打开的是「{active}」。"
-                      + "桥不替你切存档：在 WAB 里打开前者她就醒过来，"
-                      + "想让这份世界改绑当前存档，用 maid_bind 重设一次。";
+                      + "这一次没能自动切过去：确认插件设置里「进 MC 世界时自动打开绑定存档」是开的，"
+                      + "且这份世界绑定了一份还存在的存档（可在插件的存档管理页里改指向）。"
+                      + "想直接改绑当前存档，用 maid_bind 重设一次。";
 
             // 绑定关系只在她本来就没绑过时才落；一旦绑过，就不许被「此刻碰巧打开的存档」盖掉。
             if (session.SaveActive && bound.Length == 0) world.SaveId = active;
@@ -700,10 +842,11 @@ public sealed partial class MaidBridgeService : IDisposable
                                && await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
             await SaveBindingsLockedAsync();
 
-            var welcome = BuildWelcome(session);
+            var welcome = await BuildWelcomeAsync(session);
             if (boundChanged) welcome["bindingChanged"] = true;
             if (session.SaveNotice.Length > 0) welcome["notice"] = session.SaveNotice;
             await session.SendAsync(welcome);
+            Diag("hs welcome sent");
             if (!session.SaveActive)
             {
                 App.WriteLog("MaidBridge 不接手存档：" + session.SaveNotice);
@@ -713,7 +856,12 @@ public sealed partial class MaidBridgeService : IDisposable
             }
 
             await SendBindAsync(session, world, Array.Empty<string>());
+            await SendFeedRulesAsync(session, world);
             await CommitNowAsync();
+
+            // 数据层 Load 完不等于界面「过去了」：SaveManager.Load 只换状态、不导航。
+            // 按「手机内容显示位置」把内容呈现出来：phone = 手机窗口，main = 主窗口。
+            if (_config.AutoOpenBoundSave) _ = RunSafe("AutoNav", RevealDisplayAsync);
 
             _lastBackupUtc = DateTime.UtcNow;
             _lastPulseUtc = DateTime.UtcNow;
@@ -730,7 +878,130 @@ public sealed partial class MaidBridgeService : IDisposable
         });
     }
 
-    private JsonObject BuildWelcome(MaidSession session)
+    /// <summary>是否启用 Galgame 界面（主界面 ViewModel 用来决定要不要显示后端状态页）。</summary>
+    public bool GalgameEnabled => _config.GalgameEnabled;
+
+    /// <summary>
+    /// 按「手机内容显示位置」把 MC 那头的内容呈现出来：选 phone 就开/聚焦手机窗口，
+    /// 选 main 就跳主窗口（原来的方案）。握手、女仆用手机发消息都会走这里，
+    /// 60 秒去重，断线重连或消息密集时不会反复把用户从别的页面拽回来。
+    /// </summary>
+    private async Task RevealDisplayAsync()
+    {
+        if ((DateTime.UtcNow - _lastAutoNavUtc).TotalSeconds <= 60) return;
+        _lastAutoNavUtc = DateTime.UtcNow;
+        try
+        {
+            // 让 welcome / bind 先走完，别和握手抢主线程。
+            await Task.Delay(400);
+            await OnUiAsync(async () =>
+            {
+                var shell = Microsoft.Maui.Controls.Shell.Current;
+                if (shell is null) return;
+                if (_config.PhoneWindowTarget)
+                {
+                    await _pageWindows.OpenOrNavigateAsync(
+                        PageWindowKeys.Phone, "手机", typeof(WarmAsBefore.Views.PhonePage),
+                        "phone", null, 460, 900);
+                }
+                else
+                {
+                    await shell.GoToAsync("main");
+                }
+                App.WriteLog("MaidBridge 呈现位置：" + _config.DisplayTarget
+                    + " / Galgame=" + (_config.GalgameEnabled ? "开" : "关"));
+            });
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MaidBridge.RevealDisplay -> " + ex.Message);
+        }
+    }
+
+    /// <summary>首次接入的模态向导：让用户当场选存档/建存档并绑定角色，而不是让她在游戏里空转。</summary>
+    private async Task ShowBindWizardAsync(MaidSession session, bool force = false)
+    {
+        if (!force && _bindWizardSession == session.Id) return;
+        _bindWizardSession = session.Id;
+        await Task.Delay(force ? 0 : 1200);
+        if (!ReferenceEquals(CurrentSession, session)) return;
+        if (!force && session.SaveActive && !session.MaidCharacters.IsEmpty) return;
+
+        var maids = session.Maids
+            .Select(kv => (Id: kv.Key, Name: CleanName(kv.Value.Name)))
+            .ToList();
+        if (maids.Count == 0) return;
+
+        Diag($"wizard open maids={maids.Count}");
+        await OnUiAsync(async () =>
+        {
+            var nav = Microsoft.Maui.Controls.Shell.Current?.Navigation;
+            if (nav is null || nav.ModalStack.Count > 0) { Diag("wizard skipped nav"); return; }
+            IServiceProvider? services = Microsoft.Maui.IPlatformApplication.Current?.Services
+                ?? Microsoft.Maui.Controls.Application.Current?.Handler?.MauiContext?.Services;
+            if (services?.GetService(typeof(Views.BindWizardPage)) is not Views.BindWizardPage page) { Diag("wizard skipped page"); return; }
+            page.Configure(session.WorldName, session.Player, maids, _engine.CurrentSaveId);
+            await nav.PushModalAsync(page);
+            Diag("wizard pushed");
+        });
+    }
+
+    /// <summary>从界面手动叫出绑定向导（插件设置页那颗按钮）：不要求「首次」，也不要求当前没绑。 </summary>
+    public async Task<(bool Ok, string Message)> RequestBindWizardAsync()
+    {
+        var session = CurrentSession;
+        if (session is null) return (false, "Minecraft 还没连上：先在游戏里进入世界。");
+        if (session.Maids.Count == 0) return (false, "游戏里还没看到女仆：先训服一只再来。");
+        await ShowBindWizardAsync(session, force: true);
+        return (true, "");
+    }
+
+    /// <summary>
+    /// 绑定向导确认后的落地：存档与角色都已经在 WAB 里选好了，这里只写「世界 ↔ 女仆 ↔ 角色」的绑定。
+    /// 不走 maid_bind 的权限门——这不是 AI 擅自替用户切档，是用户自己在向导里点的。
+    /// </summary>
+    public async Task<(bool Ok, string Message)> BindFromWizardAsync(string maidId, string charId)
+    {
+        var session = CurrentSession;
+        if (session is null) return (false, "Minecraft 已经断开，重新进游戏再连一次。");
+        if (string.IsNullOrEmpty(maidId) || string.IsNullOrEmpty(charId)) return (false, "还差女仆或角色。");
+        if (string.IsNullOrEmpty(_engine.CurrentSaveId)) return (false, "WAB 里还没有打开存档。");
+
+        await EnsureBindingsLoadedAsync();
+        await _bindingOpsLock.WaitAsync();
+        try
+        {
+            var world = GetOrCreateWorldLocked(session.WorldKey);
+            world.SaveId = _engine.CurrentSaveId;
+            world.Maids[maidId] = new MaidBridgeMaidBinding
+            {
+                CharacterId = charId,
+                Name = session.Maids.TryGetValue(maidId, out var m) ? CleanName(m.Name) : "",
+                LastSeen = DateTime.UtcNow
+            };
+            session.MaidCharacters[maidId] = charId;
+            session.SaveActive = true;
+            session.SaveNotice = "";
+            await SaveBindingsLockedAsync();
+            await SendBindAsync(session, world, Array.Empty<string>());
+            await SendFeedRulesAsync(session, world);
+            await CommitNowAsync();
+            await PushStatsAsync(session, maidId, charId);
+            var name = _engine.Roster.TryGetValue(charId, out var ch) ? ch.Profile.Name : charId;
+            return (true, $"已把女仆绑定到角色「{name}」。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MaidBridge.BindWizard -> " + ex);
+            return (false, "绑定失败：" + ex.Message);
+        }
+        finally
+        {
+            _bindingOpsLock.Release();
+        }
+    }
+
+    private async Task<JsonObject> BuildWelcomeAsync(MaidSession session)
     {
         var bound = new JsonObject();
         var characters = new JsonArray();
@@ -749,6 +1020,10 @@ public sealed partial class MaidBridgeService : IDisposable
         }
 
         var settings = BuildSettingsJson();
+        // 插件字段表可能因为插件宿主读盘/权限询问而卡住；welcome 不能被它拖死，否则模组握手直接超时。
+        JsonArray fields;
+        try { fields = await BuildPluginConfigJson().WaitAsync(TimeSpan.FromSeconds(2)); }
+        catch { fields = new JsonArray(); }
         return new JsonObject
         {
             ["v"] = ProtocolVersion,
@@ -762,22 +1037,107 @@ public sealed partial class MaidBridgeService : IDisposable
             ["settings"] = settings,
             // 桥现在能不能出嗓子、出耳朵：模组据此决定绑了角色的女仆走不走 WAB，
             // 关着的开关不用等一次失败的 tts_reply 才知道。
-            ["voice"] = new JsonObject
-            {
-                ["tts"] = _config.AllowVoice && _speech.TtsEnabled,
-                ["stt"] = _config.AllowVoice && _speech.SttEnabled,
-                ["format"] = "wav"
-            }
+            ["voice"] = BuildVoiceJson(),
+            ["fields"] = fields
         };
     }
 
+    /// <summary>/runtime 面板用的「此刻生效值」：camelCase，且把会重开监听的三项也带上。</summary>
+    private JsonObject BuildRuntimePluginJson()
+    {
+        var node = BuildSettingsJson();
+        node["enabled"] = _config.Enabled;
+        node["port"] = _config.Port;
+        node["lan"] = _config.Lan;
+        return node;
+    }
+
+    private JsonObject BuildVoiceJson() => new()
+    {
+        ["tts"] = _config.AllowVoice && _speech.TtsEnabled,
+        ["stt"] = _config.AllowVoice && _speech.SttEnabled,
+        ["format"] = "wav"
+    };
+
     private JsonObject BuildSettingsJson() => new()
     {
+        // 游戏里真会照 these 办事的闸门。
         ["allowWorldActions"] = _config.AllowWorldActions,
         ["allowGestures"] = _config.AllowGestures,
         ["allowVoice"] = _config.AllowVoice,
-        ["chatAffection"] = _config.ChatAffection
+        ["chatAffection"] = _config.ChatAffection,
+        // 其余只跟着插件走的行为项：游戏侧不改行为，但要在女仆的设置页里看得见、改得动。
+        ["allowPhoto"] = _config.AllowPhoto,
+        ["autoCreateCharacters"] = _config.AutoCreateCharacters,
+        ["autonomyPulseMinutes"] = _config.AutonomyPulseMinutes,
+        ["backupMinutes"] = _config.BackupMinutes,
+        ["autoSwitchSave"] = _config.AutoSwitchSave,
+        ["autoOpenBoundSave"] = _config.AutoOpenBoundSave,
+        ["worldMode"] = _config.WorldMode,
+        ["displayTarget"] = _config.DisplayTarget,
+        ["forceLoadChunks"] = _config.ForceLoadChunks,
+        ["forceLoadRadius"] = _config.ForceLoadRadius,
+        ["loveWords"] = _config.LoveWords,
+        ["thinkScenes"] = string.Join(",", _config.ThinkScenes),
+        ["thinkCooldownSeconds"] = _config.ThinkCooldownSeconds
     };
+
+    /// <summary>
+    /// 只给看、不给改的项：enabled 关掉就等于把桥本身掐了，游戏里再想打开也没有通道。
+    /// 端口和局域网不锁——改完 ReloadAsync 会重开监听，游戏里的桥自己重连。
+    /// </summary>
+    private static readonly HashSet<string> LockedPluginKeys =
+        new(StringComparer.OrdinalIgnoreCase) { "enabled" };
+
+    /// <summary>
+    /// 把插件设置页的字段表原样描一份发给游戏：女仆的设置页据此生成同样的开关，
+    /// 以后 plugin.json 加了项，游戏里跟着长出来，不用再改模组。
+    /// </summary>
+    private async Task<JsonArray> BuildPluginConfigJson()
+    {
+        var outArray = new JsonArray();
+        try
+        {
+            PluginEntry? plugin = await _plugins.FindAsync(PluginId);
+            if (plugin is null) return outArray;
+            var values = await _plugins.GetSettingsAsync(PluginId);
+            foreach (var field in plugin.Manifest.Settings.Fields)
+            {
+                if (string.IsNullOrWhiteSpace(field.Key)) continue;
+                var value = values.TryGetValue(field.Key, out var raw) && raw is not null ? raw : field.Default;
+                var locked = LockedPluginKeys.Contains(field.Key)
+                             || string.Equals(field.Type, "secret", StringComparison.OrdinalIgnoreCase);
+                var entry = new JsonObject
+                {
+                    ["key"] = field.Key,
+                    ["label"] = string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label,
+                    ["type"] = field.Type,
+                    ["help"] = field.Help,
+                    ["default"] = field.Default,
+                    ["locked"] = locked
+                };
+                // secret 的值不出网：游戏里要改密钥不该走这条通道。
+                entry["value"] = string.Equals(field.Type, "secret", StringComparison.OrdinalIgnoreCase) ? "" : value;
+                if (field.Options.Count > 0)
+                {
+                    var options = new JsonArray();
+                    foreach (var option in field.Options) options.Add(JsonValue.Create(option));
+                    entry["options"] = options;
+                }
+                // 选项的中文显示名跟着字段表一起发：游戏里的反应表直接画中文，
+                // 后端键（interaction / galgame / main…）原样保留，落盘与判断仍用键。
+                if (field.OptionLabels.Count > 0)
+                {
+                    var labels = new JsonObject();
+                    foreach (var (labelKey, labelValue) in field.OptionLabels) labels[labelKey] = JsonValue.Create(labelValue);
+                    entry["optionLabels"] = labels;
+                }
+                outArray.Add(entry);
+            }
+        }
+        catch (Exception ex) { App.WriteLog("MaidBridge.PluginConfig -> " + ex.Message); }
+        return outArray;
+    }
 
     /// <summary>端口没动、只改了动作开关：会话不断，直接把新值推给游戏，省掉退出重连那一步。</summary>
     private async Task PushSettingsAsync(MaidSession session)
@@ -788,7 +1148,11 @@ public sealed partial class MaidBridgeService : IDisposable
             {
                 ["v"] = ProtocolVersion,
                 ["type"] = "settings",
-                ["settings"] = BuildSettingsJson()
+                ["settings"] = BuildSettingsJson(),
+                // 语音能力和插件字段表也得跟着这一帧走：只在握手发一次的话，
+                // 游戏里的设置页就会一直停在开局那一份值上。
+                ["voice"] = BuildVoiceJson(),
+                ["fields"] = await BuildPluginConfigJson()
             });
         }
         catch (Exception ex) { App.WriteLog("MaidBridge.PushSettings -> " + ex.Message); }
@@ -797,7 +1161,9 @@ public sealed partial class MaidBridgeService : IDisposable
     private static readonly string[] ModConfigKeys =
     {
         "enabled", "discoveryPort", "lanDiscovery", "beaconIntervalSeconds",
-        "chatRange", "showHud", "autonomyEnabled", "debug"
+        "chatRange", "showHud", "autonomyEnabled", "playerCanSleepInMaidBed",
+        "maidChatCooldownSeconds", "debug",
+        "feedingEnabled", "ownerOnlyFeeding", "multiplayerFeeding", "showAboveMaid"
     };
 
     /// <summary>模组帧里的 config 镜像下来 —— 游戏里 Cloth 面板改的东西只有这一条路回到 WAB。</summary>
@@ -825,18 +1191,138 @@ public sealed partial class MaidBridgeService : IDisposable
         return value.TryGetValue<string>(out var s) ? s : "";
     }
 
+    /// <summary>
+    /// 游戏里的设置页改了一个插件字段：认插件自己声明过的项、按声明的类型收住值、写盘，然后当场重读配置。
+    /// 端口那三项会打断手上的会话，所以下发时标了 locked，这里也只认得下来那一串。
+    /// </summary>
+    private async Task OnConfigSetAsync(MaidSession session, JsonObject msg)
+    {
+        var key = BridgeJson.Str(msg, "key");
+        var raw = BridgeJson.Str(msg, "value");
+        Diag($"config_set 收到: {key}={raw}");
+        if (key.Length == 0) return;
+
+        PluginEntry? plugin = null;
+        try { plugin = await _plugins.FindAsync(PluginId); }
+        catch (Exception ex) { App.WriteLog("MaidBridge.ConfigSet.Find -> " + ex.Message); }
+
+        var field = plugin?.Manifest.Settings.Fields
+            .FirstOrDefault(f => string.Equals(f.Key, key, StringComparison.OrdinalIgnoreCase));
+        if (field is null)
+        {
+            await RejectConfigAsync(session, key, "WAB 的插件里没有这个设置项。");
+            return;
+        }
+        if (LockedPluginKeys.Contains(field.Key)
+            || string.Equals(field.Type, "secret", StringComparison.OrdinalIgnoreCase))
+        {
+            await RejectConfigAsync(session, field.Key, "这一项改了要重连才生效（或它是密钥），请在 WAB 的插件页面里改。");
+            return;
+        }
+
+        var value = NormalizeSettingValue(field, raw);
+        if (value is null)
+        {
+            await RejectConfigAsync(session, field.Key, "这个值不合规矩，没有改动。");
+            return;
+        }
+
+        try
+        {
+            await _plugins.SetSettingAsync(PluginId, field.Key, value);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MaidBridge.ConfigSet.Save -> " + ex.Message);
+            await RejectConfigAsync(session, field.Key, "WAB 没能把这项写进设置文件。");
+            return;
+        }
+
+        App.WriteLog($"MaidBridge: 游戏里改了插件设置 {field.Key} = {value}");
+        Diag($"config_set 已落盘: {field.Key}={value}");
+        await ReloadAsync();
+        // 再回推一份权威值：钳过上下限、或按默认回落的，游戏里的滑块要跟着改成真正的生效值。
+        var live = CurrentSession;
+        if (live is not null) await PushSettingsAsync(live);
+    }
+
+    /// <summary>按 plugin.json 声明的类型收值；收不住返回 null，绝不把没校验过的字符串写进设置文件。</summary>
+    private static string? NormalizeSettingValue(PluginSettingField field, string raw)
+    {
+        var text = (raw ?? "").Trim();
+        switch (field.Type.ToLowerInvariant())
+        {
+            case "switch":
+                return text.ToLowerInvariant() switch
+                {
+                    "true" or "1" or "on" or "yes" or "开" => "true",
+                    "false" or "0" or "off" or "no" or "关" or "" => "false",
+                    _ => null
+                };
+            case "number":
+                // 范围钳制留给 MaidBridgeSettings.From（那里才有每一项的真实边界）。
+                return int.TryParse(text, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n)
+                    ? n.ToString(CultureInfo.InvariantCulture)
+                    : null;
+            case "select":
+                if (field.Options.Count == 0) return text.Length == 0 ? null : text;
+                return field.Options.FirstOrDefault(o => string.Equals(o, text, StringComparison.OrdinalIgnoreCase));
+            case "multiselect":
+                if (field.Options.Count == 0) return text;
+                var picked = new List<string>();
+                foreach (var token in text.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    var hit = field.Options.FirstOrDefault(o => string.Equals(o, token, StringComparison.OrdinalIgnoreCase));
+                    if (hit is not null && !picked.Contains(hit, StringComparer.OrdinalIgnoreCase)) picked.Add(hit);
+                }
+                return string.Join(",", picked);
+            default:
+                // 自由文本：帧按行分隔，设置文件也要保持一行一项，换行一律压掉。
+                var flat = text.Replace("\r", " ").Replace("\n", " ");
+                return flat.Length > 200 ? flat[..200] : flat;
+        }
+    }
+
+    private static async Task RejectConfigAsync(MaidSession session, string key, string message)
+    {
+        App.WriteLog($"MaidBridge.ConfigSet 拒绝 {key}：{message}");
+        Diag($"config_set 拒绝 {key}：{message}");
+        try
+        {
+            await session.SendAsync(new JsonObject
+            {
+                ["v"] = ProtocolVersion,
+                ["type"] = "error",
+                ["code"] = "config_rejected",
+                ["key"] = key,
+                ["message"] = message
+            });
+        }
+        catch (Exception ex) { App.WriteLog("MaidBridge.ConfigSet.Reply -> " + ex.Message); }
+    }
+
     /// <summary>插件与游戏各有一个开关时，两边不一致要当场说破，别让「她怎么不去挖矿」变成 bug 单。</summary>
     private void WarnIfSidesDisagree(MaidSession session)
     {
         var modAutonomyOff = session.ModConfig.TryGetValue("autonomyEnabled", out var autonomy) && autonomy == "false";
-        if (!_config.AllowWorldActions || !modAutonomyOff)
+        WarnMismatch(ref _autonomyWarned, _config.AllowWorldActions && modAutonomyOff,
+            "游戏里 WAB 配置的「自主行动」是关的，插件这边虽然允许改世界的动作，她也不会自己去挖矿——要她在游戏里跑日程，得把模组配置里的 autonomyEnabled 也打开。");
+
+        var modLanOn = session.ModConfig.TryGetValue("lanDiscovery", out var lan) && lan == "true";
+        WarnMismatch(ref _lanWarned, modLanOn && !_config.Lan,
+            "游戏里 WAB 配置的「局域网发现」开着，但插件这边的「允许局域网连接」是关的：她广播得到，WAB 不收，桥就永远连不上。两边都打开（或把游戏里那一项关掉）。");
+    }
+
+    /// <summary>同一条提醒只说一次；那一项改好了，下次再打架才会重新说。</summary>
+    private void WarnMismatch(ref bool latch, bool disagree, string text)
+    {
+        if (!disagree)
         {
-            _autonomyWarned = false;
+            latch = false;
             return;
         }
-        if (_autonomyWarned) return;
-        _autonomyWarned = true;
-        const string text = "游戏里 WAB 配置的「自主行动」是关的，插件这边虽然允许改世界的动作，她也不会自己去挖矿——要她在游戏里跑日程，得把模组配置里的 autonomyEnabled 也打开。";
+        if (latch) return;
+        latch = true;
         App.WriteLog("MaidBridge.ConfigMismatch -> " + text);
         var notifier = _plugins.Notifier;
         if (notifier is null) return;
@@ -848,12 +1334,13 @@ public sealed partial class MaidBridgeService : IDisposable
     }
 
     private bool _autonomyWarned;
+    private bool _lanWarned;
 
     /// <summary>
     /// 给插件设置页的实时快照：宿主这边的权威值、模组上报的游戏内实际值、以及那份上报有多旧。
     /// 走 GET /runtime，不落盘 —— 运行时的值一旦写进 settings.json，断线重启后就再也分不清是新是旧。
     /// </summary>
-    public string RuntimeJson()
+    public async Task<string?> RuntimeJsonAsync()
     {
         var session = CurrentSession;
         var mod = new JsonObject();
@@ -875,18 +1362,13 @@ public sealed partial class MaidBridgeService : IDisposable
             ["worldbookNotice"] = session?.WorldbookNotice ?? "",
             ["currentSave"] = _engine.CurrentSaveId,
             ["game"] = session is null ? null : GameJson(session),
-            ["plugin"] = new JsonObject
-            {
-                ["enabled"] = _config.Enabled,
-                ["port"] = _config.Port,
-                ["lan"] = _config.Lan,
-                ["autoCreateCharacters"] = _config.AutoCreateCharacters,
-                ["allowWorldActions"] = _config.AllowWorldActions,
-                ["allowGestures"] = _config.AllowGestures,
-                ["chatAffection"] = _config.ChatAffection,
-                ["autonomyPulseMinutes"] = _config.AutonomyPulseMinutes,
-                ["backupMinutes"] = _config.BackupMinutes
-            }
+            // plugin 这一栏是 camelCase 的「此刻生效值」，面板的对账表按这个拼写在取；
+            // fields 才是 plugin.json 声明的原键名，游戏里的设置页照它生成开关。
+            ["plugin"] = BuildRuntimePluginJson(),
+            ["fields"] = await BuildPluginConfigJson(),
+            ["settings"] = BuildSettingsJson(),
+            ["voice"] = BuildVoiceJson(),
+            ["feedRules"] = FeedRulesRuntimeJson()
         };
         if (session is null) root["mod"] = null;
         else
@@ -895,9 +1377,89 @@ public sealed partial class MaidBridgeService : IDisposable
             if (mod.Count > 0)
                 root["modAgeSeconds"] = (int)Math.Round((DateTime.UtcNow - session.ModConfigAtUtc).TotalSeconds);
         }
+        // 存档管理页的数据：存档列表、角色名册、世界↔女仆绑定表都从权威源现取，不落盘不缓存。
+        var slots = await _save.List();
+        var saveArr = new JsonArray();
+        foreach (var s in slots)
+            saveArr.Add(new JsonObject
+            {
+                ["id"] = s.Id,
+                ["label"] = s.Label ?? "",
+                ["character"] = s.Character ?? "",
+                ["savedAt"] = s.SavedAt.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
+                ["current"] = string.Equals(s.Id, _engine.CurrentSaveId, StringComparison.Ordinal)
+            });
+        root["saves"] = saveArr;
+
+        var charArr = new JsonArray();
+        foreach (var ch in _engine.Roster.Values)
+            charArr.Add(new JsonObject { ["id"] = ch.Profile.Id, ["name"] = ch.Profile.Name });
+        root["characters"] = charArr;
+
+        await EnsureBindingsLoadedAsync();
+        var worldArr = new JsonArray();
+        lock (_bindingsGate)
+        {
+            foreach (var (key, world) in _bindings.Worlds)
+            {
+                var maids = new JsonArray();
+                foreach (var (maidId, binding) in world.Maids)
+                {
+                    var cname = _engine.Roster.TryGetValue(binding.CharacterId, out var bound)
+                        ? bound.Profile.Name : "";
+                    maids.Add(new JsonObject
+                    {
+                        ["id"] = maidId,
+                        ["name"] = binding.Name ?? "",
+                        ["characterId"] = binding.CharacterId ?? "",
+                        ["characterName"] = cname,
+                        ["lastSeen"] = binding.LastSeen.ToLocalTime().ToString("yyyy-MM-dd HH:mm")
+                    });
+                }
+                var parts = key.Split('|');
+                worldArr.Add(new JsonObject
+                {
+                    ["key"] = key,
+                    ["world"] = parts.Length > 0 ? parts[0] : "",
+                    ["instance"] = parts.Length > 1 ? parts[1] : "",
+                    ["player"] = parts.Length > 2 ? parts[2] : "",
+                    ["saveId"] = world.SaveId ?? "",
+                    ["saveLabel"] = slots.FirstOrDefault(s => s.Id == world.SaveId)?.Label ?? "",
+                    ["current"] = string.Equals(world.SaveId, _engine.CurrentSaveId, StringComparison.Ordinal),
+                    ["maids"] = maids
+                });
+            }
+        }
+        root["worlds"] = worldArr;
+
         var foreign = ForeignBridgeNote();
         if (foreign.Length > 0) root["foreignBridge"] = foreign;
         return root.ToJsonString(WireJson);
+    }
+
+    /// <summary>实时面板要看的口味表：表内容与吃腻计数过了多少种，一眼对得上游戏里的判定。</summary>
+    private JsonObject FeedRulesRuntimeJson()
+    {
+        lock (_bindingsGate)
+        {
+            var session = CurrentSession;
+            var taste = session is not null && _bindings.Worlds.TryGetValue(session.WorldKey, out var world)
+                ? world.Taste : null;
+            var picky = new JsonArray();
+            var favorite = new JsonArray();
+            if (taste is not null)
+            {
+                foreach (var item in taste.Picky) picky.Add(item);
+                foreach (var item in taste.Favorite) favorite.Add(item);
+            }
+            return new JsonObject
+            {
+                ["picky"] = picky,
+                ["favorite"] = favorite,
+                ["boredomLimit"] = taste?.BoredomLimit ?? MaidBridgeTasteRules.DefaultBoredomLimit,
+                ["trackedFoods"] = taste?.Counts.Count ?? 0
+            };
+        }
     }
 
     /// <summary>
@@ -992,7 +1554,7 @@ public sealed partial class MaidBridgeService : IDisposable
             bool oversized;
             try
             {
-                (line, oversized) = await ReadLineBoundedAsync(session.Reader, ct);
+                (line, oversized) = await ReadLineBoundedAsync(session.Reader, session.ReadCarry, ct);
             }
             catch (OperationCanceledException) { break; }
             catch (IOException) { break; }
@@ -1047,6 +1609,19 @@ public sealed partial class MaidBridgeService : IDisposable
                     CompletePhoto(session, msg);
                     break;
                 case "hello":
+                    break;
+                case "config_set":
+                    _ = RunSafe("ConfigSet", () => OnConfigSetAsync(session, msg));
+                    break;
+                case "phone_message":
+                    // 女仆戴上「WAB 手机」饰品后由模组定时发来：把这一句投进假微信，
+                    // 真聊天通道接着了才顺带往外发（确认与频率闸门由 OfficialChatBridge 把着）。
+                    _ = RunSafe("PhoneMessage", () => OnPhoneMessageAsync(session, msg));
+                    break;
+                case "phone_request":
+                    // 游戏内手机前端只负责转发与渲染，联系人/消息/AI 回复/加好友全在这里算。
+                    // 里面可能调 AI（数秒），必须 fire-and-forget，不能堵住读帧循环和心跳。
+                    _ = RunSafe("PhoneRequest", () => OnPhoneRequestAsync(session, msg));
                     break;
                 case "error":
                     App.WriteLog("MaidBridge: 模组报错 " + BridgeJson.Str(msg, "code") + " " + BridgeJson.Str(msg, "message"));
@@ -1125,10 +1700,10 @@ public sealed partial class MaidBridgeService : IDisposable
             await ThinkWorldAsync(session, "time", $"时段从{prevPhase}变成{phase}");
 
         await EnsureBindingsLoadedAsync();
+        var world = GetOrCreateWorldLocked(session.WorldKey);
         await _bindingOpsLock.WaitAsync();
         try
         {
-            var world = GetOrCreateWorldLocked(session.WorldKey);
             var changed = await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
             if (changed)
             {
@@ -1148,6 +1723,14 @@ public sealed partial class MaidBridgeService : IDisposable
         // 世界快照不要求每帧回存；但界面上的好感显示要跟着 WAB 的权威值走
         foreach (var (maidId, charId) in session.MaidCharacters)
             await PushStatsAsync(session, maidId, charId);
+
+        // 模组在 state 帧里报了每只女仆有没有戴手机：戴上就把她对应的角色自动加进通讯录。
+        // 放在绑定之后，绑定表此刻已是最新；这里再做一次「没绑定也当场配角色」的兜底。
+        if (msg["maids"] is JsonArray maids)
+        {
+            LogStateMaidSummary(maids);
+            await SyncPhoneContactsAsync(session, world, maids);
+        }
 
         // 她得先知道这是个什么样的世界，才谈得上看见了什么。自己排，别挡住这一帧的收尾。
         _ = RunSafe("Worldbook", () => SyncWorldbookAsync(session));
@@ -1387,13 +1970,21 @@ public sealed partial class MaidBridgeService : IDisposable
         if (string.Equals(kind, "owner_sleep", StringComparison.OrdinalIgnoreCase))
         {
             foreach (var pair in session.MaidCharacters)
+            {
+                // 主人睡了：在场每个人的心绪都往安宁那边挪一点。
+                if (!string.IsNullOrEmpty(pair.Value))
+                    _chat.InnerLife?.OnGameEvent(pair.Value, kind);
                 await ThinkSceneAsync(session, kind,
                     eventText.Length > 0 ? eventText : "主人上床睡觉了", pair.Key);
+            }
             return;
         }
 
         var charId = ResolveCharacter(session, maidId);
         if (charId.Length == 0) return;
+
+        // 游戏里出的事直接进她的激素池：被打、倒下、被喂食……心绪有来处。
+        _chat.InnerLife?.OnGameEvent(charId, kind);
 
         var text = eventText;
         var importance = Math.Clamp(BridgeJson.Num(msg, "importance", 0.5), 0.05, 1);
@@ -1428,6 +2019,9 @@ public sealed partial class MaidBridgeService : IDisposable
             await ApplyAffectionAsync(charId, delta, Truncate(reason, 80));
 
         if (text.Length > 0) RememberEvent(session, maidId, Truncate(text, 200));
+
+        if (string.Equals(kind, "feed", StringComparison.OrdinalIgnoreCase))
+            await OnFeedEventAsync(session, msg, maidId, charId);
 
         // 她碰上事了：按场景想一次。这个场景没在设置里勾上，这里就什么都不发生。
         await ThinkSceneAsync(session, kind, text.Length > 0 ? text : SceneLabel(kind), maidId);
@@ -1743,6 +2337,195 @@ public sealed partial class MaidBridgeService : IDisposable
         }
     }
 
+    /// <summary>
+    /// 模组上报的一次投喂。只有真吃下去的（favorite/normal）才记吃腻计数与餐桌记录，
+    /// 并把权威计数用 feed_rules 重推回去；被拒的那几口绑定表里已经留了事件，数值不动。
+    /// </summary>
+    private async Task OnFeedEventAsync(MaidSession session, JsonObject msg, string maidId, string charId)
+    {
+        var verdict = BridgeJson.Str(msg, "verdict").Trim().ToLowerInvariant();
+        var food = BridgeJson.Str(msg, "food").Trim();
+        if (verdict is not ("favorite" or "normal") || food.Length == 0) return;
+        var foodName = BridgeJson.Str(msg, "foodName").Trim();
+
+        await EnsureBindingsLoadedAsync();
+        await _bindingOpsLock.WaitAsync();
+        try
+        {
+            var world = GetOrCreateWorldLocked(session.WorldKey);
+            var taste = world.Taste;
+            if (taste.Counts.TryGetValue(food, out var before)) taste.Counts[food] = before + 1;
+            else
+            {
+                // 只留最近吃过的 64 种：把整个注册表喂进存档没有意义。
+                if (taste.Counts.Count >= 64) taste.Counts.Remove(taste.Counts.Keys.First());
+                taste.Counts[food] = 1;
+            }
+            if (world.Maids.TryGetValue(maidId, out var binding))
+            {
+                // 整表替换而不是原地增删：BuildContext 读这份表不加写锁，替换引用才不会踩到遍历中的枚举器。
+                var fresh = new List<MaidBridgeFeedRecord> { new() { Food = foodName.Length > 0 ? foodName : food, Verdict = verdict } };
+                fresh.AddRange(binding.RecentFeeds.Take(7));
+                binding.RecentFeeds = fresh;
+                binding.LastSeen = DateTime.UtcNow;
+            }
+            await SaveBindingsLockedAsync();
+            await SendFeedRulesAsync(session, world);
+        }
+        finally
+        {
+            _bindingOpsLock.Release();
+        }
+
+        await JudgeFeedFeelingAsync(session, charId, maidId, foodName.Length > 0 ? foodName : food, verdict);
+    }
+
+    /// <summary>吃到了什么由模组判定，欢喜不欢喜由她自己判：跟聊天一个待遇，判不动就不动数值。</summary>
+    private async Task JudgeFeedFeelingAsync(MaidSession session, string charId, string maidId, string food, string verdict)
+    {
+        var tasteLine = "";
+        lock (_bindingsGate)
+            if (_bindings.Worlds.TryGetValue(session.WorldKey, out var world) && world.Taste.HasAny)
+                tasteLine = world.Taste.Describe();
+
+        var scene = $"主人刚在游戏里喂她吃了{food}。"
+            + (verdict == "favorite" ? "这是她最爱的食物。" : "")
+            + (tasteLine.Length > 0 ? $"\n她的口味表：{tasteLine}。" : "");
+        var judged = await OnUiAsync(() => _chat.AskFeelingDeltaAsync(scene));
+        if (judged is null) return;
+        var (affection, trust, note) = judged.Value;
+
+        if (trust != 0 && _engine.Roster.TryGetValue(charId, out var ch))
+        {
+            ch.State.Trust = Math.Clamp(ch.State.Trust + trust, 0, 100);
+            await OnUiAsync(() => _characters.UpdateAsync(ch));
+        }
+        if (affection != 0)
+            await ApplyAffectionAsync(charId, affection,
+                string.IsNullOrWhiteSpace(note) ? "游戏里的一次投喂" : note);
+        await PushStatsAsync(session, maidId, charId);
+    }
+
+    /// <summary>feed_rules 帧：口味表全量下发。模组本地只留一份镜像，宿主这份是权威。</summary>
+    private static JsonObject BuildFeedRulesFrame(MaidBridgeWorldBinding world)
+    {
+        var taste = world.Taste;
+        var counts = new JsonObject();
+        foreach (var (food, count) in taste.Counts) counts[food] = count;
+        var picky = new JsonArray();
+        foreach (var item in taste.Picky) picky.Add(item);
+        var favorite = new JsonArray();
+        foreach (var item in taste.Favorite) favorite.Add(item);
+        return new JsonObject
+        {
+            ["v"] = ProtocolVersion,
+            ["type"] = "feed_rules",
+            ["picky"] = picky,
+            ["favorite"] = favorite,
+            ["boredomLimit"] = taste.BoredomLimit,
+            ["counts"] = counts
+        };
+    }
+
+    private async Task SendFeedRulesAsync(MaidSession session, MaidBridgeWorldBinding world)
+    {
+        try
+        {
+            await session.SendAsync(BuildFeedRulesFrame(world));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MaidBridge.FeedRules -> " + ex.Message);
+        }
+    }
+
+    /// <summary>口味表的聊天工具入口。表是存档级的：这份存档里所有女仆共用一张。</summary>
+    private async Task<string> TasteToolAsync(JsonObject args)
+    {
+        var session = CurrentSession;
+        if (session is null)
+            return ErrorJson("Minecraft 还没有连接，口味表发不过去。", "not_connected");
+        if (!session.SaveActive)
+            return ErrorJson(session.SaveNotice.Length > 0 ? session.SaveNotice : "WAB 里还没打开存档，口味表落不了盘。", "save_mismatch");
+
+        await EnsureBindingsLoadedAsync();
+        await _bindingOpsLock.WaitAsync();
+        try
+        {
+            var world = GetOrCreateWorldLocked(session.WorldKey);
+            var taste = world.Taste;
+            var changed = new List<string>();
+
+            if (args["picky"] is JsonArray picky)
+            {
+                taste.Picky = CleanFoodEntries(picky);
+                changed.Add($"挑食表 {taste.Picky.Count} 项");
+            }
+            if (args["favorite"] is JsonArray favorite)
+            {
+                taste.Favorite = CleanFoodEntries(favorite);
+                changed.Add($"喜爱表 {taste.Favorite.Count} 项");
+            }
+            if (args["boredomLimit"] is not null)
+            {
+                taste.BoredomLimit = (int)Math.Clamp(BridgeJson.Num(args, "boredomLimit", taste.BoredomLimit), 1, 1000);
+                changed.Add($"吃腻上限 {taste.BoredomLimit} 口");
+            }
+            if (BridgeJson.Bool(args, "clearCounts"))
+            {
+                taste.Counts.Clear();
+                changed.Add("吃腻计数清零");
+            }
+
+            if (changed.Count > 0)
+            {
+                await SaveBindingsLockedAsync();
+                await SendFeedRulesAsync(session, world);
+            }
+
+            var message = changed.Count > 0
+                ? $"口味表已改（{string.Join("，", changed)}），游戏里立即生效。"
+                : "没有要改的项，下面是当前的口味表。";
+            var pickyOut = new JsonArray();
+            foreach (var item in taste.Picky) pickyOut.Add(item);
+            var favoriteOut = new JsonArray();
+            foreach (var item in taste.Favorite) favoriteOut.Add(item);
+            return new JsonObject
+            {
+                ["ok"] = true,
+                ["picky"] = pickyOut,
+                ["favorite"] = favoriteOut,
+                ["boredomLimit"] = taste.BoredomLimit,
+                ["trackedFoods"] = taste.Counts.Count,
+                ["message"] = message
+            }.ToJsonString(WireJson);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MaidBridge.TasteTool -> " + ex);
+            return ErrorJson(ex.Message, "taste_failed");
+        }
+        finally
+        {
+            _bindingOpsLock.Release();
+        }
+    }
+
+    /// <summary>表项只认得干净的短字符串：物品注册名或 #标签，掐长度去重复。</summary>
+    private static List<string> CleanFoodEntries(JsonArray arr)
+    {
+        var list = new List<string>();
+        foreach (var node in arr)
+        {
+            if (node is not JsonValue value) continue;
+            var text = value.ToJsonString().Trim('"', ' ', '\t').Trim();
+            if (text.Length == 0) continue;
+            list.Add(BridgeJson.Clip(text, 80));
+            if (list.Count >= 32) break;
+        }
+        return list.Distinct(StringComparer.Ordinal).ToList();
+    }
+
     private async Task PushStatsAsync(MaidSession session, string maidId, string charId)
     {
         try
@@ -1754,6 +2537,8 @@ public sealed partial class MaidBridgeService : IDisposable
                 ["type"] = "stats",
                 ["maid"] = maidId,
                 ["character"] = charId,
+                // 头顶第一行要显示的是「她叫什么」，不是那串 10 位角色 id。
+                ["characterName"] = ch.Profile.Name,
                 ["affection"] = ch.State.Affection,
                 ["affectionPoints"] = ch.State.AffectionPoints,
                 ["trust"] = ch.State.Trust,
@@ -1953,6 +2738,14 @@ public sealed partial class MaidBridgeService : IDisposable
                     }
                     catch { }
                 }
+                // 每 10 秒把 WAB 的好感/信任/心情/精力再推一次：模组拿它画头顶、也拿它把游戏侧好感对齐，
+                // 只靠事件推送的话，AI 判完好感后头顶会停在旧数字上。
+                if (session.SaveActive && (DateTime.UtcNow - _lastStatsPushUtc).TotalSeconds >= 10)
+                {
+                    _lastStatsPushUtc = DateTime.UtcNow;
+                    foreach (var (maidId, charId) in session.MaidCharacters)
+                        await PushStatsAsync(session, maidId, charId);
+                }
                 // 脉冲会真的跑一整轮 AI 对话（几秒到几十秒）。在循环里 await 它，这段
                 // 时间 ping 和存活判定全停，模组那头看 WAB 就像掉了线。
                 if (_config.AutonomyPulseMinutes > 0
@@ -2063,6 +2856,8 @@ public sealed partial class MaidBridgeService : IDisposable
                     return await BindToolAsync(args);
                 case "backup":
                     return await BackupToolAsync(args);
+                case "feed_rules":
+                    return await TasteToolAsync(args);
             }
 
             var session = CurrentSession;
@@ -2095,8 +2890,8 @@ public sealed partial class MaidBridgeService : IDisposable
             var wantPhoto = method == "see" && BridgeJson.Bool(parameters, "photo");
             string? withhold = wantPhoto && !_config.AllowPhoto
                 ? "插件设置里「允许她看一眼画面」是关的，这一张不拍。"
-                : wantPhoto && !_vision.IsConfigured
-                    ? "WAB 里没配置识图模型，这张画面没人能读。设置里填好识图端点后她就能真的看见。"
+                : wantPhoto && !_vision.Available
+                    ? "WAB 里没有可用的识图模型（也没配大模型兜底），这张画面没人能读。"
                     : null;
             if (withhold is not null) parameters["photo"] = false;
 
@@ -2530,6 +3325,27 @@ public sealed partial class MaidBridgeService : IDisposable
             {
                 lines.Add($"最近在游戏里发生：{last}");
             }
+
+            // 餐桌这一段：口味表让她知道自己爱吃什么、什么会腻；最近几口让「今天吃过什么」有处可查。
+            MaidBridgeWorldBinding? table = null;
+            lock (_bindingsGate)
+                _bindings.Worlds.TryGetValue(session.WorldKey, out table);
+            if (table is not null)
+            {
+                if (table.Taste.HasAny)
+                    lines.Add($"你的口味表（由主人在 WAB 里设定，工具 maid_feed_rules 可查可改）：{table.Taste.Describe()}。");
+                if (table.Maids.TryGetValue(maidId, out var mb) && mb.RecentFeeds.Count > 0)
+                {
+                    var items = mb.RecentFeeds
+                        .Where(f => (DateTime.UtcNow - f.AtUtc).TotalHours < 24)
+                        .Take(5)
+                        .Select(f => f.Verdict == "favorite" ? $"{f.Food}（最爱）" : f.Food)
+                        .ToList();
+                    if (items.Count > 0)
+                        lines.Add($"最近在游戏里吃过的：{string.Join("、", items)}。");
+                }
+            }
+
             lines.Add("这些是身体与世界的事实。想改变就调用 maid_* 工具；没有工具结果，就不要说已经做过。");
             return string.Join("\n", lines);
         }
@@ -2645,6 +3461,8 @@ public sealed partial class MaidBridgeService : IDisposable
         public TcpClient Client { get; init; } = null!;
         public StreamReader Reader { get; init; } = null!;
         public StreamWriter Writer { get; init; } = null!;
+        /// <summary>读帧的跨调用残留缓冲：一个 TCP 包里挤了多帧时，剩下的行留在这里接着切。</summary>
+        public StringBuilder ReadCarry { get; init; } = new(4096);
         public CancellationTokenSource Cts { get; init; } = null!;
         public string Instance { get; init; } = "";
         public string WorldName { get; set; } = "";

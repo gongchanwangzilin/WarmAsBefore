@@ -1,10 +1,12 @@
 using System.Text;
 using System.Text.Json;
+using WarmAsBefore.Models;
 
 namespace WarmAsBefore.Services;
 
 /// <summary>
-/// #13 识图服务：用「独立配置的识图模型」看图说话。
+/// #13 识图服务：用「独立配置的识图模型」看图说话；没配识图端点时按顺序回退到
+/// 标注了「能看图」的厂商模型，再回退到全局大模型——不让「看一眼」因为少填一项就整个不可用。
 /// 走 OpenAI 兼容的 vision 消息格式（content 数组 + image_url base64）。
 /// 主要用于 #12 表情包自动描述；其它看图需求也可复用。
 /// </summary>
@@ -27,6 +29,52 @@ public sealed class VisionService
     }
 
     /// <summary>
+    /// 现在到底能不能识图：独立识图端点配好了，或者有一条标了「能看图」的厂商模型，
+    /// 或者至少有一个全局大模型可以兜底（用户要求：没配识图模型时直接用大模型看）。
+    /// </summary>
+    public bool Available => ResolveTarget() is not null;
+
+    /// <summary>这次会用谁来看图，给设置页/日志一句人话。</summary>
+    public string TargetDescription
+    {
+        get
+        {
+            var s = _settings.Current;
+            if (IsConfigured) return "独立识图端点 · " + s.VisionModel.Trim();
+            var t = ResolveTarget();
+            return t is null ? "没有可用的识图模型" : "回退到 " + t.Value.Model;
+        }
+    }
+
+    /// <summary>
+    /// 识图目标的解析顺序：
+    /// 1) 设置里独立配的识图端点；
+    /// 2) 厂商池里标注了 SupportsVision 的启用模型（按厂商顺序，第一家先用）；
+    /// 3) 全局对话端点的大模型——没有识图模型也不该让「看一眼」整个不可用。
+    /// </summary>
+    private (string Url, string Key, string Model)? ResolveTarget()
+    {
+        var s = _settings.Current;
+        if (IsConfigured)
+            return (s.VisionUrl.Trim(), s.VisionKey.Trim(), s.VisionModel.Trim());
+
+        foreach (var v in s.AiProviders ?? new List<AiProvider>())
+        {
+            if (!v.Enabled || string.IsNullOrWhiteSpace(v.Url)) continue;
+            var key = (v.Keys ?? new List<string>()).FirstOrDefault(k => !string.IsNullOrWhiteSpace(k));
+            if (string.IsNullOrWhiteSpace(key)) continue;
+            var m = (v.Models ?? new List<AiProviderModel>())
+                .FirstOrDefault(x => x.Enabled && x.SupportsVision && !string.IsNullOrWhiteSpace(x.Model));
+            if (m is not null) return (v.Url.Trim(), key.Trim(), m.Model.Trim());
+        }
+
+        if (!string.IsNullOrWhiteSpace(s.AiUrl) && !string.IsNullOrWhiteSpace(s.AiKey)
+            && !string.IsNullOrWhiteSpace(s.AiModel))
+            return (s.AiUrl.Trim(), s.AiKey.Trim(), s.AiModel.Trim());
+        return null;
+    }
+
+    /// <summary>
     /// 看图，返回一段描述。未配置 / 失败返回 null（调用方自行提示）。
     /// </summary>
     public async Task<string?> DescribeImageAsync(string imagePath, string prompt, int maxTokens = 200)
@@ -40,15 +88,15 @@ public sealed class VisionService
     /// </summary>
     public async Task<string?> DescribeBytesAsync(byte[]? bytes, string mime, string prompt, int maxTokens = 200)
     {
-        var s = _settings.Current;
-        if (!IsConfigured) return null;
+        var target = ResolveTarget();
+        if (target is null) return null;
         if (bytes is null || bytes.Length == 0) return null;
         try
         {
             var b64 = Convert.ToBase64String(bytes);
             var payload = new
             {
-                model = s.VisionModel.Trim(),
+                model = target.Value.Model,
                 messages = new object[]
                 {
                     new
@@ -65,10 +113,10 @@ public sealed class VisionService
                 temperature = 0.5
             };
             using var http = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
-            http.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " + s.VisionKey.Trim());
+            http.DefaultRequestHeaders.TryAddWithoutValidation("Authorization", "Bearer " + target.Value.Key);
             var json = JsonSerializer.Serialize(payload);
             using var content = new StringContent(json, Encoding.UTF8, "application/json");
-            var resp = await http.PostAsync(s.VisionUrl.Trim(), content);
+            var resp = await http.PostAsync(target.Value.Url, content);
             var body = await resp.Content.ReadAsStringAsync();
             if (!resp.IsSuccessStatusCode)
             {

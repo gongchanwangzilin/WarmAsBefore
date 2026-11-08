@@ -13,11 +13,15 @@ public sealed partial class ChatItem : ObservableObject
     /// <summary>非图片/视频文件消息（文档等）：显示文件名卡片，点击用系统默认程序打开。</summary>
     [ObservableProperty] private string _fileName = "";
     public bool IsUser { get; init; }
+    /// <summary>落盘消息的去重键；空 = 只在内存里的老消息。</summary>
+    public string Key { get; init; } = "";
+    /// <summary>对方显示名；空则回落到默认名字。</summary>
+    public string SenderName { get; init; } = "";
     public bool HasImage => ImageSource is not null;
     public bool IsVideo => !string.IsNullOrEmpty(VideoPath);
     public bool IsFile => !HasImage && !IsVideo && !string.IsNullOrEmpty(FileName);
     public bool IsText => !HasImage && !IsVideo && !IsFile;
-    public string Sender => IsUser ? "我" : "小雨";
+    public string Sender => IsUser ? "我" : (string.IsNullOrEmpty(SenderName) ? "小雨" : SenderName);
 
     partial void OnImageSourceChanged(ImageSource? value) => OnPropertyChanged(nameof(HasImage));
     partial void OnFileNameChanged(string value) => OnPropertyChanged(nameof(IsFile));

@@ -13,6 +13,11 @@ function flag(key, dflt) {
     return dflt;
 }
 
+function truthy(v) {
+    var s = String(v || "").trim().toLowerCase();
+    return s === "true" || s === "1" || s === "on" || s === "yes";
+}
+
 if (flag("enabled", true)) {
     var world = flag("allow_world_actions", true);
     var lines = [
@@ -33,6 +38,15 @@ if (flag("enabled", true)) {
             "WAB 连着的时候她会在游戏里自己执行。");
     }
     lines.push("maid_bind 把她和角色对上、maid_backup 在做大动作前留一份底。");
+    if (flag("auto_taste", true) && (getSetting("taste_seeded") || "").toLowerCase() !== "true"
+            && !(getCharSetting("favorite_foods") || "").trim() && !(getCharSetting("picky_foods") || "").trim()) {
+        lines.push("她有一张饮食口味表（挑食 / 喜爱）。如果这张表还是空的，请根据她的人格，用 maid_feed_rules 工具" +
+            "挑 2~4 种真实存在的原版 Minecraft 食物，分别写进 favorite 与 picky；拿不准的物品 id 不要写。设过一次就不用再设。");
+    }
+    if (truthy(getCharSetting("trait_fear_dark"))) {
+        lines.push("她的性格特质「怕黑」是开启的：天黑了会害怕，想往有光、有人多的地方去；主人在旁边时会缩到他身边求摸摸、要抱抱，说话带着颤抖。判断亮不亮用 maid_scan 的 light。");
+    }
+    lines.push("可以用 maid_act 的 interact_addon 开关她的特质：arg 写 trait:fear_dark（切换）、trait:fear_dark:on 或 trait:fear_dark:off（明确设置）。");
     result = lines.join("\n");
 } else {
     result = "";

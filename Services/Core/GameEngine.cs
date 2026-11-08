@@ -41,6 +41,14 @@ public sealed class GameEngine
         ScreenChange?.Invoke("character");
     }
 
+    /// <summary>把当前角色清掉（角色被删除时用）：不留一个指向已不存在的人的活动角色。</summary>
+    public void ClearCharacter()
+    {
+        ActiveCharacter = null;
+        State.CharacterId = "";
+        ScreenChange?.Invoke("character");
+    }
+
     public void MoveTo(string location)
     {
         State.Location = location;

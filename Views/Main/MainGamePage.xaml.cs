@@ -130,6 +130,8 @@ public partial class MainGamePage : ContentPage
         ResumeSceneVideo();
         _vm.Minimap.Attach();
         _vm.SyncWidgetModeFromSettings();
+        // 「是否启用 Galgame」可能在设置页里改过：每次进场重读一次
+        _vm.RefreshBackendMode();
         if (!_backdropSynced)
         {
             _backdropSynced = true;

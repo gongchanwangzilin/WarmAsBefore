@@ -33,6 +33,8 @@ public partial class SettingsSectionPage : ContentPage
     {
         base.OnAppearing();
         ApplyResponsiveWidth();
+        // 从「厂商/模型管理页」回来时，把卡片上的模型摘要重读一遍（管理页是另一份数据，不会自动回传）
+        _vm.ReloadAiProviders();
         _ = BuildSectionAsync();
     }
 

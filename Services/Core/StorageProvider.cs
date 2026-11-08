@@ -141,6 +141,13 @@ public sealed class StorageProvider
                 }
             }
         }
+        catch (UnauthorizedAccessException)
+        {
+            // 杀软/安全软件偶尔会对新建 .tmp 拒之门外（真遇到过：联系人写进去被 Access denied）。
+            // 兜底直接写目标文件——少了原子性，但比整条数据丢了好；文件被锁时照样抛，由调用方收场。
+            App.WriteLog("StorageProvider: tmp 写入被拒，退回直接写 " + Path.GetFileName(path));
+            await File.WriteAllTextAsync(path, json);
+        }
         finally
         {
             try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }

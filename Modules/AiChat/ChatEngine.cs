@@ -30,6 +30,14 @@ public sealed class ChatEngine
     /// <summary>端点已明确拒绝过 tools 字段：本会话不再发送工具，避免每轮都白撞一次 400。</summary>
     private bool _toolsUnsupported;
 
+    /// <summary>小模型优先：仅桥未连接且开启时，先跑小模型（不带工具），处理不来再升级大模型。由 RuntimeConfigurator 注入。</summary>
+    public bool SmallModelFirstEnabled { get; set; }
+    public AiEndpoint? SmallEndpoint { get; set; }
+    /// <summary>Minecraft 桥是否连接；桥连着时不做小模型路由（WAB 的工具交互小模型做不了）。</summary>
+    public Func<bool>? BridgeConnected { get; set; }
+    /// <summary>小模型处理不来时直接回这句，作为升级到大模型的信号。</summary>
+    public const string EscalationPhrase = "我需要使用大模型";
+
     /// <summary>
     /// 工具管理器由构造注入（DI 里 ChatEngine 先于 ToolManager 注册，但单例是首次解析时才构造，
     /// 两者之间也不存在循环依赖，MauiProgram 的注册顺序无需调整）。
@@ -214,6 +222,9 @@ public sealed class ChatEngine
     /// </summary>
     public Func<string, string?, Task>? AfterTurn { get; set; }
 
+    /// <summary>内心生活：激素池随每轮对话涨落，答不上来的事长成执念（ PrepareTurn/AfterReply 在发送链路里调）。</summary>
+    public Services.InnerLifeService? InnerLife { get; set; }
+
     /// <summary>
     /// 大脑预判：由 RuntimeConfigurator 注入。发送前本地结算期待差（PrepareTurn），
     /// 回合末可选地请免费模型补一次预判（AfterTurnAsync，节流缓存、不阻塞）。
@@ -279,6 +290,9 @@ public sealed class ChatEngine
         // 大脑预判：可选的免费模型每 N 轮补一次（节流、缓存、非阻塞；不启用/未到点时内部直接返回）
         try { _ = Brain?.AfterTurnAsync(charId, userText, reply ?? ""); }
         catch (Exception ex) { App.WriteLog("ChatEngine.BrainAfterTurn -> " + ex.Message); }
+        // 内心生活：回复回来了——「不知道」长执念，想明白了就放下；同时记一笔情绪。
+        try { InnerLife?.AfterReply(charId, reply ?? ""); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifeAfter -> " + ex.Message); }
 
         if (AfterTurn is null) return;
         try
@@ -498,18 +512,29 @@ public sealed class ChatEngine
         // 大脑预判：本地结算本轮期待差与惊喜卡（无网络），供下面的动态上下文注入与好感结算用
         try { Brain?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.PrepareTurn -> " + ex.Message); }
+        // 内心生活：这条消息让她的激素动一动（夸了会开心、冷话会难受），也记下她被问了什么
+        try { InnerLife?.PrepareTurn(charId, text); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifePrepare -> " + ex.Message); }
         var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
 
         // 人类记忆层：按「重要性 × 时间衰减 × 复述次数 × 随机扰动」回想（默认以三天内为主），
         // 而不是按时间取最近若干条——人本来就会想起很久以前的重要事，也会突然想不起昨天说了什么。
+        // 内心生活在场时再叠一层情绪偏置：此刻越不安越容易想起害怕的事，越开心越容易想起好事。
         try
         {
             if (Human is not null)
             {
+                double moodBias = 0;
+                if (InnerLife is not null)
+                {
+                    try { moodBias = await InnerLife.RecallBiasAsync(charId); }
+                    catch (Exception ex) { App.WriteLog("ChatEngine.MoodBias -> " + ex.Message); }
+                }
                 var recalled = await Human.RecallTextAsync(charId,
                     Resolver?.MemoryWindowDays(charId) ?? HumanMemoryMath.DefaultWindowDays,
-                    Resolver?.MemoryRecallRandomness(charId) ?? HumanMemoryMath.DefaultRandomness);
+                    Resolver?.MemoryRecallRandomness(charId) ?? HumanMemoryMath.DefaultRandomness,
+                    6, moodBias);
                 if (!string.IsNullOrWhiteSpace(recalled))
                     ctx = ctx.Length == 0 ? recalled : recalled + "\n" + ctx;
             }
@@ -568,7 +593,7 @@ public sealed class ChatEngine
         // API 已配置：调用 API（可能带工具往返）
         try
         {
-            var (reply, error) = await RunTurnAsync(session, cfg);
+            var (reply, error) = await RunTurnWithSmallAsync(session, cfg);
             if (error is not null)
             {
                 // API 返回了错误信息，直接显示给用户（不存会话历史）
@@ -778,20 +803,57 @@ public sealed class ChatEngine
     private const string ToolFallbackReply = "（我照做啦，只是一时不知道该怎么接话。）";
 
     /// <summary>
+    /// 小模型优先：开启时先让配置的小模型（不带工具）试一轮。
+    /// 小模型回「我需要使用大模型」、给空回复或报错，就交给大模型重跑；否则用小模型的回复。
+    /// 桥连着也照样先过小模型——只是提示词里明确告诉它：需要动游戏/调工具时直接升级，
+    /// 免得它嘴上答应却不真的做事。
+    /// </summary>
+    private async Task<(string? Text, string? Error)> RunTurnWithSmallAsync(List<ChatMessage> session, AiEndpoint cfg)
+    {
+        if (SmallEndpoint is not null && SmallModelFirstEnabled)
+        {
+            var bridge = BridgeConnected?.Invoke() ?? false;
+            var directive =
+                "你是一个更轻量的小模型，当前没有工具可用，只能用文字回答。"
+                + (bridge
+                    ? "现在主人正在《我的世界》里，你没法直接操作游戏、也没法调用任何工具。"
+                      + "只要这件事需要动游戏、看她身边的情况、或需要你完不成的动作，就不要编，"
+                      + "只输出这一句："
+                    : "如果这件事需要调用工具、操作游戏、或需要你完不成的动作，不要勉强作答，只输出这一句：")
+                + EscalationPhrase + "。其余情况正常、简短地回应。";
+            var (smallText, smallError) = await RunTurnAsync(session, SmallEndpoint,
+                forceNoTools: true, extraSystem: directive);
+            if (smallError is null && !string.IsNullOrWhiteSpace(smallText)
+                && !smallText.Contains(EscalationPhrase, StringComparison.Ordinal))
+                return (smallText, null);
+            App.WriteLog("ChatEngine: 小模型未处理，升级到大模型");
+        }
+        return await RunTurnAsync(session, cfg);
+    }
+
+    /// <summary>
     /// 跑完一个回合：请求 →（模型要工具就）执行 → 结果回灌 → 再请求，直到模型给出正文或用完工具轮数。
     ///
     /// 只把最终的 assistant 正文写回会话：中间的 `tool_calls` / `tool` 结果消息只活在本回合的临时消息流里。
     /// 原因是 Trim() 从头部裁历史，一旦把这两者裁散（tool 结果留下、对应的 tool_calls 被裁掉），
     /// 严格端点会因"tool 消息没有对应的 tool_calls"拒收整段历史 —— 那会直接毁掉聊天。
     /// </summary>
-    private async Task<(string? Text, string? Error)> RunTurnAsync(List<ChatMessage> session, AiEndpoint cfg)
+    private async Task<(string? Text, string? Error)> RunTurnAsync(List<ChatMessage> session, AiEndpoint cfg,
+        bool forceNoTools = false, string? extraSystem = null)
     {
-        // 端点已拒绝过、或根本没有可用工具时保持 null：请求体与从前逐字段一致
-        var tools = _toolsUnsupported ? null : _tools.BuildChatTools();
+        // 端点已拒绝过、或根本没有可用工具、或这条端点标注了「不支持工具」时保持 null：
+        // 请求体与从前逐字段一致，不会因为带上 tools 被 400 拒掉。
+        var tools = forceNoTools || !cfg.SupportsTools ? null : (_toolsUnsupported ? null : _tools.BuildChatTools());
         if (tools is { Count: 0 }) tools = null;
         var allowed = tools is null ? null : _tools.ChatToolNames();
 
         var working = new List<ChatMessage>(session);
+        if (extraSystem is not null)
+        {
+            // 小模型专用的临时系统提示只活在本回合的临时消息流里，不写回会话
+            var at = working.Count > 0 && working[0].Role == "system" ? 1 : 0;
+            working.Insert(at, new ChatMessage { Role = "system", Content = extraSystem });
+        }
         string? text = null;
         var askedTools = false;
 
@@ -965,7 +1027,8 @@ public sealed class ChatEngine
             {
                 new() { Role = "system", Content = "你是好感度评定器。依据下面这段对话，判断 TA 心里对用户的好感与信任各变化多少。" +
                     "只输出一行，三个字段用竖线分隔：好感增减|信任增减|不超过二十字的理由。" +
-                    "增减都是整数，好感取 -3 到 3、信任取 -2 到 2，可以是负数；敷衍、冒犯、被惹恼就该给负数。不要输出其它文字。" },
+                    "增减都是整数，好感取 -3 到 3、信任取 -2 到 2，可以是负数；敷衍、冒犯、被惹恼就该给负数。" +
+                    "喂食场景里，吃到了自己爱吃的、被用心对待就给正分；被硬塞讨厌的东西、连着喂已经吃腻的就给负分。不要输出其它文字。" },
                 new() { Role = "user", Content = scene }
             };
             var reply = await _api.Chat(msgs, _cfg);

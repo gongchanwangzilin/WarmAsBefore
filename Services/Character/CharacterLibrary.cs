@@ -180,6 +180,37 @@ public sealed partial class CharacterLibrary
         }
     }
 
+    /// <summary>
+    /// 删除角色：从花名册移除、删掉它的立绘目录，立即落盘。
+    /// 存档里引用过它的人不会一起删——那些存档会读不到这个角色，调用方要先把这件事告诉用户。
+    /// </summary>
+    public async Task<(bool Ok, string Message)> DeleteAsync(string charId)
+    {
+        try
+        {
+            await LoadAsync();
+            if (string.IsNullOrEmpty(charId)) return (false, "没有指定角色。");
+            if (!_engine.Roster.TryGetValue(charId, out var ch)) return (false, "角色库里没有这个人。");
+            var name = ch.Profile.Name;
+            _engine.Roster.Remove(charId);
+            if (!await SaveRosterAsync()) return (false, "删除没有落盘：角色表这次没能写进去。");
+            if (string.Equals(_engine.State.CharacterId, charId, StringComparison.Ordinal))
+                _engine.ClearCharacter();
+            try
+            {
+                var dir = Path.Combine(_store.Root, "assets", "characters", charId);
+                if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true);
+            }
+            catch (Exception ex) { App.WriteLog("CharacterLibrary.Delete.assets -> " + ex.Message); }
+            return (true, $"已删除「{name}」。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("CharacterLibrary.Delete -> " + ex);
+            return (false, "删除失败：" + ex.Message);
+        }
+    }
+
     /// <summary>更新角色资料（改名/改性格/改设定），立即落盘。</summary>
     public async Task<bool> UpdateAsync(CharacterData updated)
     {

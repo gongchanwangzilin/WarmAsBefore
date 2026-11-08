@@ -1,4 +1,4 @@
-using System.Text;
+﻿using System.Text;
 
 namespace WarmAsBefore.Services;
 
@@ -69,7 +69,7 @@ public static class RuntimeCatalog
         new("webview2", "WebView2 浏览器内核", new[] { "msedgewebview2.exe" },
             "https://developer.microsoft.com/microsoft-edge/webview2/",
             "装 Microsoft Edge WebView2 运行时（Win11 与最新的 Edge 已自带）。",
-            "本应用的插件页面一律交给系统浏览器打开，不装 WebView2 也能用——只是页面不会嵌在窗口里。"),
+            "插件页面可以在应用内打开（用的是这个内核），也可以交给系统浏览器；不装它时只剩浏览器那条路。"),
         new("browser", "系统浏览器", new[] { "" },
             "https://www.microsoft.com/edge",
             "系统里没登记能打开网页的程序。装一个浏览器（如 Edge）并设为默认。",

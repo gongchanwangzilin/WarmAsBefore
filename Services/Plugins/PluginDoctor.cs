@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
@@ -83,7 +83,10 @@ public static class PluginDoctor
     private static readonly HashSet<string> ValueHooks =
         new(StringComparer.OrdinalIgnoreCase) { "persona", "context", "beforeSend", "afterReply" };
 
-    private static readonly string[] SettingTypes = { "text", "number", "switch", "select", "secret" };
+    // multiselect 是宿主已实现的字段类型（PluginHost 的 manifest 解析 + 桥的 NormalizeSettingValue 都认），
+    // 体检白名单漏了它会把正常插件误判成「跑不起来」。
+    private static readonly string[] SettingTypes =
+        { "text", "number", "switch", "select", "secret", "multiselect" };
 
     /// <summary>本版本真的会接管的环节（PluginHost 只认 persona）。写别的是给自己空头承诺。</summary>
     private static readonly string[] HonoredOverrides = { "persona" };
@@ -108,9 +111,9 @@ public static class PluginDoctor
     /// <summary>
     /// 这个插件要探测哪些运行时：plugin.json 里写的，加上「有网页就得靠系统浏览器」这一项。
     ///
-    /// 为什么把 browser 算进来：本应用没有内嵌 WebView（全库没有一处），插件自带的设置页与页面
-    /// 一律用系统浏览器打开。所以「这个插件要浏览器内核」在这里是真的依赖——没有浏览器，
-    /// 那些页面点了没反应，而插件本身看着完全正常。宁可每次刷新多扫一次注册表。
+    /// 为什么把 browser 算进来：插件自带的设置页与页面至少要有条打开的路。默认走系统浏览器，
+    /// 选了「应用内打开」才用 WebView2。没有浏览器时这两个选项一起失效，而插件本身看着完全正常，
+    /// 所以把它算成真依赖。宁可每次刷新多扫一次注册表。
     /// </summary>
     public static IReadOnlyList<string> RequiredRuntimeIds(PluginManifest m)
     {
@@ -382,8 +385,10 @@ public static class PluginDoctor
             {
                 var key = read.Groups[1].Value;
                 if (!declared.Contains(key))
-                    Add(f, DoctorLevel.Warn, at, $"getSetting(\"{key}\") 在 settings.fields 里没有这一项",
-                        $"要么补一个 key 为 {key} 的字段，要么改回已有的那些：{string.Join(" / ", declared)}");
+                    // 插件常用 setSetting 存自己的内部状态（如口味是否已播种），这些键不该出现在
+                    // 用户可见的 settings.fields 里，也不算配置错误 —— 只作信息提示，别报成「提醒」。
+                    Add(f, DoctorLevel.Info, at, $"getSetting(\"{key}\") 不在 settings.fields 里",
+                        "若这是插件自己 setSetting 存的内部状态，忽略即可；若是笔误，改成已声明的键。");
             }
         }
 

@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Minecraft 女仆桥 · 存档管理</title>
+<style>
+  :root {
+    --bg: #14100e; --bg-2: #1d1815; --card: #221c18; --card-2: #2a231d;
+    --line: #3a312a; --fg: #f3ece3; --fg-2: #c9bfae; --fg-3: #8d8172;
+    --amber: #f0a848; --amber-2: #ffc885; --teal: #6fd3c7; --rose: #e58ea0;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; color: var(--fg); line-height: 1.7;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    background:
+      radial-gradient(1100px 500px at 85% -5%, rgba(240,168,72,.14), transparent 60%),
+      radial-gradient(900px 420px at 0% 100%, rgba(111,211,199,.08), transparent 55%),
+      var(--bg);
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 40px 24px 96px; }
+  .kicker {
+    display: inline-block; font-size: 12px; letter-spacing: .22em; color: var(--amber);
+    text-transform: uppercase; border: 1px solid rgba(240,168,72,.35);
+    padding: 3px 12px; border-radius: 999px; margin-bottom: 12px;
+  }
+  h1 { font-size: clamp(26px, 4.4vw, 36px); line-height: 1.2; margin: 0 0 6px; }
+  h1 small { display: block; font-size: 14px; color: var(--fg-3); font-weight: 400; margin-top: 6px; line-height: 1.6; }
+  section {
+    background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 22px 24px; margin: 20px 0; box-shadow: 0 14px 34px rgba(0,0,0,.28);
+  }
+  /* 卡片不播进场动画：/runtime 每 5 秒重绘一次 section，动画会跟着一弹一弹。 */
+  h2 { font-size: 17px; margin: 0 0 4px; color: var(--amber-2); letter-spacing: .02em; }
+  .sub { font-size: 13px; color: var(--fg-3); margin: 0 0 16px; }
+
+  .pill { display: inline-block; font-size: 11.5px; padding: 2px 10px; border-radius: 999px; border: 1px solid var(--line); color: var(--fg-3); }
+  .pill.on { color: var(--teal); border-color: rgba(111,211,199,.4); }
+  .pill.off { color: var(--rose); border-color: rgba(229,142,160,.4); }
+  .pill.amber { color: var(--amber); border-color: rgba(240,168,72,.4); }
+  .facts { display: flex; flex-wrap: wrap; gap: 10px 26px; margin: 4px 0 0; }
+  .fact { font-size: 13.5px; color: var(--fg-3); }
+  .fact b { display: block; font-size: 15px; color: var(--fg); font-weight: 600; letter-spacing: .01em; }
+
+  .bar { display: flex; align-items: center; gap: 14px; margin-top: 16px; flex-wrap: wrap; }
+  button {
+    background: var(--amber); color: #201509; border: 0; border-radius: 10px;
+    padding: 9px 22px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit;
+    transition: transform .12s ease, filter .12s ease;
+  }
+  button:hover { filter: brightness(1.07); }
+  button:active { transform: translateY(2px); }
+  button.ghost { background: none; border: 1px solid var(--line); color: var(--fg-2); font-weight: 400; padding: 8px 16px; }
+  button.small { padding: 6px 14px; font-size: 12.5px; font-weight: 600; }
+
+  .note {
+    background: var(--bg-2); border: 1px solid var(--line); border-left: 3px solid var(--rose);
+    border-radius: 10px; padding: 12px 16px; font-size: 13.5px; color: var(--fg-2); margin-top: 14px;
+  }
+  code {
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 12px;
+    background: var(--card-2); border: 1px solid var(--line);
+    padding: 1px 6px; border-radius: 6px; color: var(--amber-2);
+  }
+  .hide { display: none; }
+
+  /* 存档分组 */
+  .group-title {
+    font-size: 12.5px; letter-spacing: .14em; text-transform: uppercase; color: var(--fg-3);
+    margin: 30px 0 12px; padding-bottom: 8px; border-bottom: 1px solid var(--line);
+  }
+  .save-card { border-left: 3px solid var(--amber); }
+  .orphan { border-left: 3px solid var(--rose); }
+  .save-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
+  .save-head h2 { margin: 0; color: var(--fg); font-size: 18px; }
+  .meta { font-size: 12.5px; color: var(--fg-3); margin-bottom: 14px; }
+  .hint { font-size: 12.5px; color: var(--fg-3); }
+
+  .worlds { display: flex; flex-direction: column; gap: 10px; }
+  .world {
+    background: var(--bg-2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px;
+  }
+  .world-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .world-title { font-size: 14.5px; font-weight: 600; color: var(--fg); margin-right: 4px; }
+  .world-retarget { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 10px 0 4px; }
+  .lbl { font-size: 12.5px; color: var(--fg-3); }
+
+  .maids {
+    margin: 8px 0 0 16px; padding-left: 14px; border-left: 2px solid var(--line);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .maid { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .maid-info { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; }
+  .maid-name { color: var(--fg-2); font-weight: 600; }
+  .maid-role { color: var(--teal); }
+  .maid-seen { color: var(--fg-3); }
+  .maid-ops { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+  select.sel {
+    background: var(--bg-2); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 9px; padding: 6px 10px; font-size: 13px; font-family: inherit; max-width: 230px;
+  }
+  select.sel:focus { outline: none; border-color: var(--amber); }
+
+  .statusbar {
+    position: sticky; bottom: 0; margin-top: 28px;
+    background: var(--card-2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 11px 16px; font-size: 13.5px; color: var(--fg-2);
+  }
+  .statusbar.ok { color: var(--teal); border-color: rgba(111,211,199,.4); }
+  .statusbar.bad { color: var(--rose); border-color: rgba(229,142,160,.45); }
+  footer { margin-top: 34px; color: var(--fg-3); font-size: 12.5px; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="kicker">存档管理</div>
+  <h1>Minecraft 女仆桥 · 存档管理<small>这里只管世界 ↔ 存档 ↔ 女仆的对应关系，不会替你打开、新建或删除任何存档</small></h1>
+
+  <div id="nocab" class="note hide">
+    没凭据，请从应用里打开本页。这个页面要由插件中心打开，URL 上得带上一次性的 callback 凭据；直接双击文件读不到任何值。
+  </div>
+
+  <section>
+    <h2>状态</h2>
+    <p class="sub" id="srcNote">每 5 秒现取一次，不缓存。</p>
+    <div class="facts">
+      <div class="fact"><b id="sConn">—</b>连接状态</div>
+      <div class="fact"><b id="sSave">—</b>当前打开的存档</div>
+    </div>
+    <div class="bar">
+      <button id="refresh" class="ghost">刷新</button>
+      <span class="hint">每 5 秒自动重取一次，正在操作下拉框时不会重绘。</span>
+    </div>
+  </section>
+
+  <div id="content"></div>
+
+  <div id="statusbar" class="statusbar">就绪，还没做任何操作。</div>
+
+  <footer>凭据只在这一次打开期间有效；关掉窗口就作废。</footer>
+</div>
+
+<script>
+(function () {
+  var cb = new URLSearchParams(location.search).get("callback");
+  if (!cb || cb.indexOf("/save") === -1) {
+    document.getElementById("nocab").classList.remove("hide");
+    document.getElementById("srcNote").textContent = "这一栏不会更新：没凭据，请从应用里打开本页。";
+    return;
+  }
+  var runtimeUrl = cb.replace("/save", "/runtime");
+  var actionUrl = cb.replace("/save", "/action");
+
+  var live = null;
+  var $ = function (id) { return document.getElementById(id); };
+
+  // 任何来自 JSON 的文本要么走 textContent，要么经这里转义后再拼进 innerHTML。
+  function esc(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;").replace(/'/g, "&#39;");
+  }
+  function mk(tag, cls, text) {
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+
+  function charName(id, characters) {
+    if (!id) return "未指定角色";
+    for (var i = 0; i < characters.length; i++) {
+      if (characters[i].id === id) return characters[i].name || id;
+    }
+    return id;
+  }
+  function currentSaveLabel(data) {
+    if (!data.currentSave) return "没有打开的存档";
+    var saves = data.saves || [];
+    for (var i = 0; i < saves.length; i++) {
+      if (saves[i].id === data.currentSave) return saves[i].label || data.currentSave;
+    }
+    return data.currentSave;
+  }
+
+  function setMsg(kind, text) {
+    var bar = $("statusbar");
+    bar.className = "statusbar" + (kind ? " " + kind : "");
+    bar.textContent = text;
+  }
+
+  // 本机回环上的回调没有身份验证：写没写成，以回调的答复为准，不信浏览器这一侧。
+  function post(action, body, fallback) {
+    setMsg("", "正在提交…");
+    fetch(actionUrl + "&action=" + encodeURIComponent(action), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (j && j.ok) {
+          setMsg("ok", (j && j.message) || fallback || "操作已完成。");
+          pull();
+        } else {
+          setMsg("bad", "操作失败：" + ((j && j.error) || "回调没认这个请求"));
+        }
+      })
+      .catch(function (e) { setMsg("bad", "请求失败：" + e); });
+  }
+
+  function buildMaid(m, worldKey, characters) {
+    var row = mk("div", "maid");
+    var info = mk("div", "maid-info");
+    info.appendChild(mk("span", "maid-name", m.name || "未命名女仆"));
+    info.appendChild(mk("span", "maid-role", "角色：" + (m.characterName || m.characterId || "未绑定")));
+    info.appendChild(mk("span", "maid-seen", "最后出现：" + (m.lastSeen || "未知")));
+    row.appendChild(info);
+
+    var ops = mk("div", "maid-ops");
+    var unbind = mk("button", "ghost small", "解绑");
+    unbind.type = "button";
+    unbind.addEventListener("click", function () {
+      var who = m.name || "这只女仆";
+      if (!window.confirm("确定要解绑「" + who + "」吗？这会让她在游戏里回到未绑定状态，不再对应任何角色。")) return;
+      post("unbind", { worldKey: worldKey, maid: m.id }, "已解绑「" + who + "」。");
+    });
+    ops.appendChild(unbind);
+
+    if (!characters.length) {
+      ops.appendChild(mk("span", "hint", "没有角色可选，无法改绑"));
+    } else {
+      var sel = mk("select", "sel");
+      characters.forEach(function (c) {
+        var opt = document.createElement("option");
+        opt.value = c.id;
+        opt.textContent = c.name || c.id;
+        if (m.characterId && c.id === m.characterId) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      var rebind = mk("button", "small", "改绑");
+      rebind.type = "button";
+      rebind.addEventListener("click", function () {
+        post("rebind", { worldKey: worldKey, maid: m.id, character: sel.value }, "已提交改绑。");
+      });
+      ops.appendChild(sel);
+      ops.appendChild(rebind);
+    }
+    row.appendChild(ops);
+    return row;
+  }
+
+  function buildWorld(w, saves, characters) {
+    var box = mk("div", "world");
+    var head = mk("div", "world-head");
+    head.appendChild(mk("span", "world-title", w.world || "未知世界"));
+    head.appendChild(mk("span", "pill", "实例 " + (w.instance || "—")));
+    head.appendChild(mk("span", "pill", "主人 " + (w.player || "—")));
+    if (w.current) head.appendChild(mk("span", "pill on", "当前连接"));
+    box.appendChild(head);
+
+    var keyLine = mk("div", "meta");
+    keyLine.innerHTML = "世界键：<code>" + esc(w.key || "") + "</code>";
+    box.appendChild(keyLine);
+
+    var ret = mk("div", "world-retarget");
+    ret.appendChild(mk("span", "lbl", "改指向存档"));
+    var sel = mk("select", "sel");
+    var none = document.createElement("option");
+    none.value = "";
+    none.textContent = "不指向任何存档";
+    sel.appendChild(none);
+    saves.forEach(function (s) {
+      var opt = document.createElement("option");
+      opt.value = s.id;
+      opt.textContent = s.label || s.id;
+      if (w.saveId && s.id === w.saveId) opt.selected = true;
+      sel.appendChild(opt);
+    });
+    var go = mk("button", "small", "改指向");
+    go.type = "button";
+    go.addEventListener("click", function () {
+      post("retarget", { worldKey: w.key, saveId: sel.value }, "已改指向存档。");
+    });
+    ret.appendChild(sel);
+    ret.appendChild(go);
+    ret.appendChild(mk("span", "hint", "只改对应关系，不会加载、切换或新建存档。"));
+    box.appendChild(ret);
+
+    var maids = mk("div", "maids");
+    if (w.maids && w.maids.length) {
+      w.maids.forEach(function (m) { maids.appendChild(buildMaid(m, w.key, characters)); });
+    } else {
+      maids.appendChild(mk("div", "hint", "这个世界还没有绑定女仆。"));
+    }
+    box.appendChild(maids);
+    return box;
+  }
+
+  function buildSave(s, saves, characters, worlds) {
+    var card = mk("section", "save-card");
+    var head = mk("div", "save-head");
+    head.appendChild(mk("h2", "save-name", s.label || "未命名存档"));
+    if (s.current) head.appendChild(mk("span", "pill amber", "当前存档"));
+    card.appendChild(head);
+
+    var meta = mk("div", "meta");
+    meta.innerHTML = "存档 id：<code>" + esc(s.id) + "</code> · 保存时间：" +
+      esc(s.savedAt || "未知") + " · 角色：" + esc(charName(s.character, characters));
+    card.appendChild(meta);
+
+    var list = mk("div", "worlds");
+    var matched = worlds.filter(function (w) { return w.saveId === s.id; });
+    if (matched.length) {
+      matched.forEach(function (w) { list.appendChild(buildWorld(w, saves, characters)); });
+    } else {
+      list.appendChild(mk("div", "hint", "还没有世界指向这份存档。"));
+    }
+    card.appendChild(list);
+    return card;
+  }
+
+  function renderStatus() {
+    var conn = $("sConn"), save = $("sSave"), src = $("srcNote");
+    if (!live || live.ok === false) {
+      conn.textContent = "不知道"; conn.className = "pill";
+      save.textContent = "—";
+      src.textContent = (live && live.error) ||
+        "取不到实时状态：这条凭据可能已经作废，请关掉窗口从应用里重新打开本页。";
+      return;
+    }
+    conn.textContent = live.connected ? "已连接" : "未连接";
+    conn.className = live.connected ? "pill on" : "pill off";
+    save.textContent = currentSaveLabel(live);
+    src.textContent = "实时值每 5 秒重取一次，关掉窗口就没有了。";
+  }
+
+  function renderContent() {
+    var host = $("content");
+    host.textContent = "";
+    if (!live || live.ok === false) {
+      host.appendChild(mk("div", "note", (live && live.error) ||
+        "取不到运行时信息：这条凭据可能已经作废，请关掉窗口从应用里重新打开本页。"));
+      return;
+    }
+    var saves = live.saves || [];
+    var characters = live.characters || [];
+    var worlds = live.worlds || [];
+
+    if (!saves.length) host.appendChild(mk("div", "note", "WAB 里还没有存档"));
+    if (!worlds.length) host.appendChild(mk("div", "note", "还没有连过 Minecraft 世界"));
+
+    if (saves.length) {
+      host.appendChild(mk("div", "group-title", "按存档分组"));
+      saves.forEach(function (s) {
+        host.appendChild(buildSave(s, saves, characters, worlds));
+      });
+    }
+
+    var ids = {};
+    saves.forEach(function (s) { ids[s.id] = true; });
+    var orphans = worlds.filter(function (w) { return !w.saveId || !ids[w.saveId]; });
+    host.appendChild(mk("div", "group-title", "没有对应存档的世界"));
+    var grp = mk("section", "orphan");
+    if (orphans.length) {
+      var list = mk("div", "worlds");
+      orphans.forEach(function (w) { list.appendChild(buildWorld(w, saves, characters)); });
+      grp.appendChild(list);
+    } else {
+      grp.appendChild(mk("div", "hint", "没有孤立的世界，每个世界都能对应上一份存档。"));
+    }
+    host.appendChild(grp);
+  }
+
+  // 正在操作下拉框时别重绘，否则会把用户还没提交的选择冲掉。
+  function selectFocused() {
+    var a = document.activeElement;
+    return !!(a && a.tagName === "SELECT");
+  }
+
+  function pull() {
+    return fetch(runtimeUrl).then(function (r) { return r.json(); }).catch(function () { return null; })
+      .then(function (j) {
+        live = j;
+        renderStatus();
+        if (!selectFocused()) renderContent();
+      });
+  }
+
+  $("refresh").addEventListener("click", pull);
+  pull();
+  setInterval(pull, 5000);
+})();
+</script>
+</body>
+</html>

@@ -29,11 +29,33 @@ public sealed class PluginSettingField
 {
     public string Key { get; set; } = "";
     public string Label { get; set; } = "";
-    /// <summary>text / number / switch / select / secret。</summary>
+    /// <summary>text / number / switch / select / multiselect / secret。</summary>
     public string Type { get; set; } = "text";
     public string Default { get; set; } = "";
     public string Help { get; set; } = "";
     public List<string> Options { get; set; } = new();
+    /// <summary>可选：select / multiselect 选项的显示名。键仍是原选项值（后端标记不动），只换界面上给人看的文案；
+    /// 没写的选项回退显示原值。游戏里的设置页也吃这份映射，两边中文文案一致。</summary>
+    [JsonPropertyName("option_labels")]
+    public Dictionary<string, string> OptionLabels { get; set; } = new();
+}
+
+public sealed class PluginActionSpec
+{
+    public string Key { get; set; } = "";
+    public string Label { get; set; } = "";
+    /// <summary>可选：点了用系统浏览器打开的本地页面（相对插件目录）或 http(s)。</summary>
+    public string Page { get; set; } = "";
+}
+
+/// <summary>
+/// 插件在「角色档案」里追加的每角色内容：字段（开关/文本）与动作按钮。
+/// 与 native 设置同构，但值按 charId 分开存，不挤在全局 settings.json 里。
+/// </summary>
+public sealed class PluginCharacterProfileSpec
+{
+    public List<PluginSettingField> Fields { get; set; } = new();
+    public List<PluginActionSpec> Actions { get; set; } = new();
 }
 
 public sealed class PluginDependency
@@ -65,6 +87,9 @@ public sealed class PluginManifest
     public PluginSettingsSpec Settings { get; set; } = new();
     /// <summary>插件自带页面（用系统浏览器打开；页面里可调 callback 写设置）。</summary>
     public List<PluginPageSpec> Pages { get; set; } = new();
+    /// <summary>可选：往「角色档案」里追加每角色字段与动作按钮（特质、口味等）。</summary>
+    [JsonPropertyName("character_profile")]
+    public PluginCharacterProfileSpec CharacterProfile { get; set; } = new();
     /// <summary>声明要接管的内部环节（persona / reply / beforeSend / afterReply / scene）。</summary>
     public List<string> Overrides { get; set; } = new();
     /// <summary>
@@ -130,7 +155,7 @@ public sealed class PluginHost
     private readonly Dictionary<string, PluginEntry> _plugins = new(StringComparer.OrdinalIgnoreCase);
     private readonly HashSet<string> _disabled = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, Dictionary<string, string>> _settingsCache = new(StringComparer.OrdinalIgnoreCase);
-    private readonly Dictionary<string, HttpListener> _callbackServers = new(StringComparer.OrdinalIgnoreCase);
+    private readonly Dictionary<string, TcpListener> _callbackServers = new(StringComparer.OrdinalIgnoreCase);
     private bool _loaded;
     private int _pluginCallDepth;
     private int _emitDepth;
@@ -158,6 +183,13 @@ public sealed class PluginHost
     public Func<string, Task<string?>>? RuntimeProvider { get; set; }
 
     /// <summary>
+    /// 插件页面动作口（由 RuntimeConfigurator 注入）：页面用带 token 的 POST /action 提交，
+    /// 参数是 (pluginId, action, argsJson)，返回直接写给页面的 JSON 字符串。
+    /// 宿主在这里只提供通道，不认识任何具体动作；动作语义归插件自己。
+    /// </summary>
+    public Func<string, string, string, Task<string>>? PageActionInvoker { get; set; }
+
+    /// <summary>
     /// 调角色数值（由 RuntimeConfigurator 注入）：插件 JS 里用 adjustStat(charId, stat, delta)。
     /// 走与主流程同一套钳制与落盘，按角色逐个授权（stats 能力，对象是角色 id）。
     /// 返回错误文案，null 表示改好了。
@@ -181,6 +213,9 @@ public sealed class PluginHost
         {
             _plugins.Clear();
             _disabled.Clear();
+            // 设置缓存也必须一起丢：目录被换过之后仍拿着旧字典，读盘就被永久短路，
+            // 用户看到的是「每次启动设置都回到默认值」。
+            _settingsCache.Clear();
             _loaded = false;
         }
     }
@@ -302,13 +337,31 @@ public sealed class PluginHost
             id = string.Concat(id.Trim().Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_'));
             if (id.Length == 0) id = "plugin_" + Guid.NewGuid().ToString("N")[..6];
             var dest = Path.Combine(PluginsDir, id);
+            // 设置与角色级字段是用户数据，不属于插件清单。重装时先捞出来、删完目录再放回去，
+            // 否则「从 zip 更新一次插件」就把所有开关打回默认值。
+            string? keptSettings = null;
+            var keptCharFiles = new Dictionary<string, string>();
             if (Directory.Exists(dest))
             {
                 if (!overwrite) return (false, $"插件「{id}」已经装过了。");
+                var settingsPath = Path.Combine(dest, "settings.json");
+                if (File.Exists(settingsPath)) keptSettings = File.ReadAllText(settingsPath);
+                var charDir = Path.Combine(dest, "char");
+                if (Directory.Exists(charDir))
+                    foreach (var file in Directory.GetFiles(charDir, "*", SearchOption.AllDirectories))
+                        keptCharFiles[Path.GetRelativePath(charDir, file)] = File.ReadAllText(file);
                 Directory.Delete(dest, true);
             }
             Directory.CreateDirectory(PluginsDir);
             CopyDir(sourceDir, dest);
+            if (keptSettings is not null)
+                File.WriteAllText(Path.Combine(dest, "settings.json"), keptSettings);
+            foreach (var (rel, text) in keptCharFiles)
+            {
+                var target = Path.Combine(dest, "char", rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(target)!);
+                File.WriteAllText(target, text);
+            }
             manifest.Id = id;
             File.WriteAllText(Path.Combine(dest, "plugin.json"), JsonSerializer.Serialize(manifest, Json));
             ReleaseCache();
@@ -417,10 +470,14 @@ public sealed class PluginHost
             var code = await File.ReadAllTextAsync(path);
             var input = JsonSerializer.Serialize(context);
             var settings = await GetSettingsAsync(pluginId);
+            var charId = TryCharId(input);
+            var charSettings = charId.Length > 0
+                ? await GetCharacterSettingsAsync(pluginId, charId)
+                : new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             // JS 里的 callTool/callPlugin 会同步等待；钩子留在 UI 线程上等会把它锁死，统一放到线程池里跑。
             // 写设置也在这里同步等完：setSetting 是同步语义，异步飘走会让两条连续写互相盖掉，异常也进不了插件日志。
             var gate = new PermissionGate(this, entry);
-            var result = await Task.Run(() => RunJs(code, input, settings,
+            var result = await Task.Run(() => RunJs(code, input, settings, charSettings, charId,
                 (key, value) => SetSettingAsync(pluginId, key, value).GetAwaiter().GetResult(), gate));
             return result;
         }
@@ -449,6 +506,7 @@ public sealed class PluginHost
     /// fetch / emit / notify / writeFile / readFile / listFiles / deleteFile / adjustStat。
     /// </summary>
     private string? RunJs(string code, string input, IReadOnlyDictionary<string, string> settings,
+        IReadOnlyDictionary<string, string> charSettings, string charId,
         Action<string, string> setSetting, PermissionGate gate)
     {
         var entry = gate.Entry;
@@ -486,6 +544,25 @@ public sealed class PluginHost
             // 先落盘再记账：写失败要沿着钩子的异常路径进插件日志，不能留下「JS 以为写好了」的假账。
             setSetting?.Invoke(name, v ?? "");
             written[name] = v ?? "";
+        }));
+        // 按角色的插件数据（角色档案里的特质/口味）。钩子里用 getCharSetting/setCharSetting 读写当前角色那一份。
+        var writtenChar = new Dictionary<string, string>(StringComparer.Ordinal);
+        engine.SetValue("getCharSetting", new Func<string, string>(k =>
+        {
+            if (!gate.Allowed(PluginCapabilities.Settings)) return "";
+            var name = k ?? "";
+            return writtenChar.TryGetValue(name, out var fresh) ? fresh
+                 : charSettings.TryGetValue(name, out var v) ? v : "";
+        }));
+        engine.SetValue("setCharSetting", new Action<string, string>((k, v) =>
+        {
+            if (!gate.Allowed(PluginCapabilities.Settings)) return;
+            if (charId.Length == 0) return;
+            var name = k ?? "";
+            SaveCharacterSettingsAsync(gate.Entry.Manifest.Id, charId,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [name] = v ?? "" })
+                .GetAwaiter().GetResult();
+            writtenChar[name] = v ?? "";
         }));
         engine.SetValue("log", new Action<object?>(m =>
         {
@@ -560,6 +637,20 @@ public sealed class PluginHost
         }
         var value = engine.GetValue("result");
         return value.IsUndefined() || value.IsNull() ? null : value.ToString();
+    }
+
+    private static string TryCharId(string inputJson)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(inputJson);
+            if (doc.RootElement.ValueKind == JsonValueKind.Object
+                && doc.RootElement.TryGetProperty("charId", out var c)
+                && c.ValueKind == JsonValueKind.String)
+                return c.GetString() ?? "";
+        }
+        catch { }
+        return "";
     }
 
     private static string ErrorJson(string? reason)
@@ -1008,6 +1099,59 @@ public sealed class PluginHost
     // 这里传绝对路径的结果是落盘成 settings.json.json——存档打包那句「排除 settings.json」就永远匹配不上，插件密钥跟着存档外流。
     private static string SettingsKey(string id) => "plugins/" + id + "/settings";
 
+    /// <summary>角色 id 只用作存储键的一段，别让 / 、.. 把它带出插件目录。</summary>
+    private static string SafeCharId(string? charId)
+    {
+        var t = (charId ?? "").Trim();
+        if (t.Length == 0) return "unknown";
+        if (t.Length > 100) t = t[..100];
+        var sb = new StringBuilder(t.Length);
+        foreach (var ch in t)
+            sb.Append(char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.' ? ch : '_');
+        return sb.ToString();
+    }
+
+    private static string CharSettingsKey(string id, string charId)
+        => "plugins/" + id + "/char/" + SafeCharId(charId);
+
+    /// <summary>某插件在某角色上的档案字段值（原样，未补 default）。</summary>
+    public async Task<Dictionary<string, string>> GetCharacterSettingsAsync(string id, string charId)
+    {
+        if (!IsSafeId(id) || string.IsNullOrWhiteSpace(charId))
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            return await _store.Load<Dictionary<string, string>>(CharSettingsKey(id, charId))
+                   ?? new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginHost.CharSettings -> " + ex.Message);
+            return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    public async Task SaveCharacterSettingsAsync(string id, string charId, Dictionary<string, string> values)
+    {
+        if (!IsSafeId(id) || string.IsNullOrWhiteSpace(charId)) return;
+        var merged = await GetCharacterSettingsAsync(id, charId);
+        foreach (var (k, v) in values) merged[k ?? ""] = v ?? "";
+        await _store.Save(CharSettingsKey(id, charId), merged);
+    }
+
+    /// <summary>角色档案里该插件字段的当前值（缺省用字段 default 补）。</summary>
+    public async Task<Dictionary<string, string>> CharacterValuesAsync(PluginEntry entry, string charId)
+    {
+        var saved = await GetCharacterSettingsAsync(entry.Manifest.Id, charId);
+        var result = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var f in entry.Manifest.CharacterProfile.Fields)
+        {
+            if (string.IsNullOrWhiteSpace(f.Key)) continue;
+            result[f.Key] = saved.TryGetValue(f.Key, out var v) ? v : (f.Default ?? "");
+        }
+        return result;
+    }
+
     /// <summary>
     /// 旧版本把绝对路径当存储键用，结果落盘成了双扩展名（plugins\state.json.json、某插件的 settings.json.json）。
     /// 键改对之后先搬一次家，否则停用记录和插件设置都会被当成「从没存过」。
@@ -1038,7 +1182,10 @@ public sealed class PluginHost
                                  Path.Combine(PluginsDir, id, "settings.json"));
             var loaded = await _store.Load<Dictionary<string, string>>(SettingsKey(id))
                          ?? new Dictionary<string, string>();
-            lock (_gate) _settingsCache[id] = new Dictionary<string, string>(loaded);
+            // 空结果别钉进缓存：启动那一瞬文件若还没就绪，缓存一个空字典会让整个进程
+            // 都读不到盘上的设置，UI 全回落成默认值，下一次保存还会把默认值整表写回去。
+            if (loaded.Count > 0)
+                lock (_gate) _settingsCache[id] = new Dictionary<string, string>(loaded);
             return loaded;
         }
         catch (Exception ex)
@@ -1074,111 +1221,128 @@ public sealed class PluginHost
         await _store.Save(SettingsKey(id), merged);
     }
 
-    /// <summary>打开 HTML 设置：页面上会带上 ?callback=http://127.0.0.1:port/save&amp;plugin=id。</summary>
-    public async Task<(bool Ok, string Message)> OpenHtmlSettingsAsync(string id)
+    /// <summary>HTML 设置页的可打开地址；页面上会带上 ?callback=http://127.0.0.1:port/save&amp;plugin=id。</summary>
+    public async Task<(bool Ok, string Message, string Url)> GetHtmlSettingsUrlAsync(string id)
     {
         var entry = await FindAsync(id);
-        if (entry is null) return (false, "插件不存在。");
+        if (entry is null) return (false, "插件不存在。", "");
         var spec = entry.Manifest.Settings;
-        if (spec.Kind != "html") return (false, "这个插件不是网页设置。");
-        if (string.IsNullOrWhiteSpace(spec.Page)) return (false, "插件没有填设置页地址。");
+        if (spec.Kind != "html") return (false, "这个插件不是网页设置。", "");
+        if (string.IsNullOrWhiteSpace(spec.Page)) return (false, "插件没有填设置页地址。", "");
         try
         {
-            var (port, token) = StartCallbackServer(id);
-            var page = spec.Page.Trim();
-            string url;
-            if (page.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                || page.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                url = page;
-            else
-            {
-                var file = Path.Combine(entry.Dir, page);
-                if (!File.Exists(file)) return (false, "找不到设置页文件：" + page);
-                url = new Uri(file).AbsoluteUri;
-            }
-            if (spec.Callback)
-            {
-                // token 放进 callback 这条 URL 里面，而不是只当页面 URL 的并列参数：
-                // 已有页面都是「拿到 callback 就原样 POST」，让它自己记得附 token 等于把它们全弄坏。
-                var sep = url.Contains('?') ? '&' : '?';
-                url += $"{sep}callback={Uri.EscapeDataString($"http://127.0.0.1:{port}/save?token={token}")}"
-                     + $"&plugin={Uri.EscapeDataString(id)}";
-            }
-            await Launcher.Default.OpenAsync(url);
-            return (true, "已在浏览器打开设置页；保存后会写回应用。");
+            return await PrepareUrlAsync(id, entry, spec.Page.Trim(), spec.Callback);
         }
         catch (Exception ex)
         {
-            App.WriteLog("PluginHost.OpenHtmlSettings -> " + ex);
-            return (false, "打开设置页失败：" + ex.Message);
+            App.WriteLog("PluginHost.GetHtmlSettingsUrl -> " + ex);
+            return (false, "打开设置页失败：" + ex.Message, "");
         }
     }
 
     /// <summary>
-    /// 打开插件自带页面（manifest.pages）。页面可以只是一个说明页，也可以带表单，
-    /// 通过 callback 参数把值写回插件设置 —— 这是「插件改写页面」的受控入口：
-    /// 页面归插件，窗口归系统浏览器，主程序不被替换。
+    /// 插件自带页面（manifest.pages）的可打开地址。页面可以只是一个说明页，也可以带表单，
+    /// 通过 callback 参数把值写回插件设置 —— 这是「插件改写页面」的受控入口。
     /// </summary>
-    public async Task<(bool Ok, string Message)> OpenPageAsync(string id, int index)
+    public async Task<(bool Ok, string Message, string Url)> GetPageUrlAsync(string id, int index)
     {
         var entry = await FindAsync(id);
-        if (entry is null) return (false, "插件不存在。");
-        if (index < 0 || index >= entry.Manifest.Pages.Count) return (false, "没有这个页面。");
+        if (entry is null) return (false, "插件不存在。", "");
+        if (index < 0 || index >= entry.Manifest.Pages.Count) return (false, "没有这个页面。", "");
         if (!await AllowAsync(entry, PluginCapabilities.Page))
-            return (false, "「打开自带页面」这项权限没放行，插件的页面开不了。");
+            return (false, "「打开自带页面」这项权限没放行，插件的页面开不了。", "");
         var page = entry.Manifest.Pages[index];
         var target = string.IsNullOrWhiteSpace(page.File) ? page.Route : page.File;
-        if (string.IsNullOrWhiteSpace(target)) return (false, "这个页面的 route/file 都是空的。");
+        if (string.IsNullOrWhiteSpace(target)) return (false, "这个页面的 route/file 都是空的。", "");
         try
         {
-            string url;
-            if (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
-                || target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
-                url = target;
-            else
-            {
-                var file = Path.Combine(entry.Dir, target);
-                if (!File.Exists(file)) return (false, "找不到页面文件：" + target);
-                url = new Uri(file).AbsoluteUri;
-            }
+            return await PrepareUrlAsync(id, entry, target, true);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginHost.GetPageUrl -> " + ex);
+            return (false, "打开页面失败：" + ex.Message, "");
+        }
+    }
+
+    private async Task<(bool Ok, string Message, string Url)> PrepareUrlAsync(string id, PluginEntry entry, string target, bool callback)
+    {
+        string url;
+        if (target.StartsWith("http://", StringComparison.OrdinalIgnoreCase)
+            || target.StartsWith("https://", StringComparison.OrdinalIgnoreCase))
+            url = target;
+        else
+        {
+            var file = Path.Combine(entry.Dir, target);
+            if (!File.Exists(file)) return (false, "找不到页面文件：" + target, "");
+            var (port, _) = StartCallbackServer(id);
+            // 本地页面走本机回环 HTTP，不走 file://：file 地址后面的查询串在各家浏览器里行为不一，
+            // 而且 file 源在 WebView 里读不到 callback，相对资源也容易断。
+            var rel = Path.GetRelativePath(entry.Dir, file)
+                .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(Uri.EscapeDataString);
+            url = $"http://127.0.0.1:{port}/page/" + string.Join('/', rel);
+        }
+        if (callback)
+        {
             var (port, token) = StartCallbackServer(id);
+            // token 放进 callback 这条 URL 里面，而不是只当页面 URL 的并列参数：
+            // 已有页面都是「拿到 callback 就原样 POST」，让它自己记得附 token 等于把它们全弄坏。
             var sep = url.Contains('?') ? '&' : '?';
             url += $"{sep}callback={Uri.EscapeDataString($"http://127.0.0.1:{port}/save?token={token}")}"
                  + $"&plugin={Uri.EscapeDataString(id)}";
-            await Launcher.Default.OpenAsync(url);
-            return (true, $"已在浏览器打开「{page.Title}」。");
         }
-        catch (Exception ex)
-        {
-            App.WriteLog("PluginHost.OpenPage -> " + ex);
-            return (false, "打开页面失败：" + ex.Message);
-        }
+        return (true, "", url);
+    }
+
+    /// <summary>用系统默认浏览器打开。返回是否真的递出去了——Process.Start 静默失败时页面不会自己报错。</summary>
+    public async Task<(bool Ok, string Message)> OpenInBrowserAsync(string url)
+    {
+        if (string.IsNullOrWhiteSpace(url)) return (false, "没有可打开的地址。");
+        return await OpenExternalAsync(url)
+            ? (true, "已在浏览器打开。")
+            : (false, "交给系统浏览器失败，可以改用应用内打开。");
+    }
+
+    public async Task<(bool Ok, string Message)> OpenHtmlSettingsAsync(string id)
+    {
+        var (ok, message, url) = await GetHtmlSettingsUrlAsync(id);
+        if (!ok) return (false, message);
+        if (!await OpenExternalAsync(url)) return (false, "交给系统浏览器失败，可以改用应用内打开。");
+        return (true, "已在浏览器打开设置页；保存后会写回应用。");
+    }
+
+    public async Task<(bool Ok, string Message)> OpenPageAsync(string id, int index)
+    {
+        var (ok, message, url) = await GetPageUrlAsync(id, index);
+        if (!ok) return (false, message);
+        if (!await OpenExternalAsync(url)) return (false, "交给系统浏览器失败，可以改用应用内打开。");
+        var entry = await FindAsync(id);
+        var title = entry is null || index >= entry.Manifest.Pages.Count ? "页面" : entry.Manifest.Pages[index].Title;
+        return (true, $"已在浏览器打开「{title}」。");
     }
 
     /// <summary>
-    /// 回调服务器：只监听 127.0.0.1，处理 POST /save、GET /settings 与 GET /runtime。
-    /// 返回一次性 token——回调端口上没有身份验证，谁都连得上；没有 token，
-    /// 「任何本机进程/任何被打开的网页」都能往插件设置里写字。
+    /// 回调服务器：只监听 127.0.0.1，处理 POST /save、GET /settings、GET /runtime，
+    /// 以及 GET /page/…（插件自己的静态页面与资源）。
+    /// 写设置要一次性 token——回调端口上没有身份验证，谁都连得上；没有 token，
+    /// 「任何本机进程/任何被打开的网页」都能往插件设置里写字。静态页面只读，不发 token。
     /// </summary>
     private (int Port, string Token) StartCallbackServer(string pluginId)
     {
         lock (_gate)
         {
-            if (_callbackServers.TryGetValue(pluginId, out var existing) && existing.IsListening
-                && _callbackPorts.TryGetValue(pluginId, out var runningPort)
-                && _callbackTokens.TryGetValue(pluginId, out var runningToken))
-                return (runningPort, runningToken);
+            if (_callbackServers.TryGetValue(pluginId, out _)
+                && _callbackPorts.TryGetValue(pluginId, out var rp)
+                && _callbackTokens.TryGetValue(pluginId, out var rt))
+                return (rp, rt);
         }
-        var listener = new HttpListener();
-        var port = FreePort();
+        // 不用 HttpListener：Windows 上它监听 127.0.0.1 需要 URL ACL，非管理员会被拒（报错像「被安全软件拦截」）。
+        // TcpListener 不需要任何特权；HTTP 走极简手写解析，够这三个端点用。
+        var listener = new TcpListener(IPAddress.Loopback, 0);
+        listener.Start();
+        var port = ((IPEndPoint)listener.LocalEndpoint).Port;
         var token = Guid.NewGuid().ToString("N")[..20];
-        listener.Prefixes.Add($"http://127.0.0.1:{port}/");
-        try { listener.Start(); }
-        catch
-        {
-            // HttpListener 在某些机器上需要 URL ACL：退回 TcpListener 太重，这里明确失败
-            throw new InvalidOperationException("本机回调端口无法监听（可能被安全软件拦截）。");
-        }
         lock (_gate)
         {
             _callbackServers[pluginId] = listener;
@@ -1187,12 +1351,12 @@ public sealed class PluginHost
         }
         _ = Task.Run(async () =>
         {
-            while (listener.IsListening)
+            while (true)
             {
-                HttpListenerContext ctx;
-                try { ctx = await listener.GetContextAsync(); }
+                TcpClient client;
+                try { client = await listener.AcceptTcpClientAsync(); }
                 catch { break; }
-                _ = Task.Run(() => HandleCallbackAsync(pluginId, ctx));
+                _ = Task.Run(() => HandleCallbackAsync(pluginId, client));
             }
         });
         return (port, token);
@@ -1201,70 +1365,216 @@ public sealed class PluginHost
     private readonly Dictionary<string, int> _callbackPorts = new(StringComparer.OrdinalIgnoreCase);
     private readonly Dictionary<string, string> _callbackTokens = new(StringComparer.Ordinal);
 
-    private async Task HandleCallbackAsync(string pluginId, HttpListenerContext ctx)
+    private async Task HandleCallbackAsync(string pluginId, TcpClient client)
     {
-        var res = ctx.Response;
-        // Origin 仍是 *（本地 file:// 页面没有可用的 Origin），身份全靠 URL 里那条一次性 token。
-        res.Headers["Access-Control-Allow-Origin"] = "*";
-        res.Headers["Access-Control-Allow-Headers"] = "Content-Type";
-        res.Headers["Access-Control-Allow-Methods"] = "GET,POST,OPTIONS";
+        using var _c = client;
         try
         {
-            if (ctx.Request.HttpMethod == "OPTIONS")
+            using var stream = client.GetStream();
+            var (header, bodyBytes) = await ReadHttpAsync(stream);
+            if (header is null) return;
+            var parts = (header.Split("\r\n").FirstOrDefault() ?? "").Split(' ');
+            if (parts.Length < 2) { await WriteHttpAsync(stream, 400, "{\"ok\":false}"); return; }
+            var method = parts[0].ToUpperInvariant();
+            var target = parts[1];
+            var q = target.IndexOf('?');
+            var path = q >= 0 ? target[..q] : target;
+            var query = q >= 0 ? target[(q + 1)..] : "";
+
+            if (method == "OPTIONS") { await WriteHttpAsync(stream, 204, ""); return; }
+
+            // 静态页面与资源不校验 token：浏览器随后会为 <link>/<script> 单独发请求，带不上查询串。
+            // 只读、只出插件目录里的文件，写设置的那几个端点仍然要 token。
+            if (method == "GET" && path.StartsWith("/page/", StringComparison.Ordinal))
             {
-                res.StatusCode = 204;
-                res.Close();
+                await ServePageAsync(pluginId, path["/page/".Length..], stream);
                 return;
             }
-            var handed = "";
-            lock (_gate) _callbackTokens.TryGetValue(pluginId, out handed);
-            var given = ctx.Request.QueryString["token"] ?? "";
+
+            var given = QueryValue(query, "token");
+            string handed;
+            lock (_gate) _callbackTokens.TryGetValue(pluginId, out handed!);
             if (string.IsNullOrEmpty(handed) || !string.Equals(handed, given, StringComparison.Ordinal))
             {
-                await WriteJsonAsync(res, 403, new { ok = false, error = "回调凭据不对（token 缺失或已失效），请重新从应用里打开页面。" });
+                await WriteHttpAsync(stream, 403, JsonSerializer.Serialize(new { ok = false, error = "回调凭据不对（token 缺失或已失效），请重新从应用里打开页面。" }));
                 return;
             }
-            if (ctx.Request.HttpMethod == "POST" && ctx.Request.Url?.AbsolutePath == "/save")
+
+            if (method == "POST" && path == "/save")
             {
-                using var reader = new StreamReader(ctx.Request.InputStream, Encoding.UTF8);
-                var body = await reader.ReadToEndAsync();
-                var values = ParseSettingsBody(body);
+                var values = ParseSettingsBody(Encoding.UTF8.GetString(bodyBytes));
                 var entry = await FindAsync(pluginId);
                 if (entry is not null && !await AllowAsync(entry, PluginCapabilities.Settings))
                 {
-                    await WriteJsonAsync(res, 403, new { ok = false, error = "「自己的设置」这项权限没放行，写不回设置。" });
+                    await WriteHttpAsync(stream, 403, JsonSerializer.Serialize(new { ok = false, error = "「自己的设置」这项权限没放行，写不回设置。" }));
                     return;
                 }
                 await SaveSettingsAsync(pluginId, values);
-                await WriteJsonAsync(res, 200, new { ok = true, saved = values.Count });
+                await WriteHttpAsync(stream, 200, JsonSerializer.Serialize(new { ok = true, saved = values.Count }));
                 return;
             }
-            if (ctx.Request.HttpMethod == "GET" && ctx.Request.Url?.AbsolutePath == "/settings")
+            if (method == "GET" && path == "/settings")
             {
-                var all = await GetSettingsAsync(pluginId);
-                await WriteJsonAsync(res, 200, all);
+                await WriteHttpAsync(stream, 200, JsonSerializer.Serialize(await GetSettingsAsync(pluginId)));
                 return;
             }
-            if (ctx.Request.HttpMethod == "GET" && ctx.Request.Url?.AbsolutePath == "/runtime")
+            if (method == "GET" && path == "/runtime")
             {
-                await HandleRuntimeAsync(pluginId, res);
+                await WriteHttpAsync(stream, 200, await BuildRuntimeJsonAsync(pluginId));
                 return;
             }
-            res.StatusCode = 404;
-            res.Close();
+            if (method == "POST" && path == "/action")
+            {
+                // 通用动作口：token 已在上面校验过。宿主不认识动作内容，整包交给插件自己解释。
+                var invoker = PageActionInvoker;
+                var answer = invoker is null
+                    ? "{\"ok\":false,\"error\":\"这个插件没有接页面动作。\"}"
+                    : await invoker(pluginId, QueryValue(query, "action") ?? "", Encoding.UTF8.GetString(bodyBytes));
+                await WriteHttpAsync(stream, 200, answer);
+                return;
+            }
+            await WriteHttpAsync(stream, 404, "{\"ok\":false}");
         }
         catch (Exception ex)
         {
             App.WriteLog("PluginHost.Callback -> " + ex.Message);
-            try { res.StatusCode = 500; res.Close(); } catch { }
         }
+    }
+
+    /// <summary>把 /page/ 下的路径映射到插件目录里的文件，越界一律拒绝。</summary>
+    private async Task ServePageAsync(string pluginId, string relPath, NetworkStream stream)
+    {
+        var entry = await FindAsync(pluginId);
+        if (entry is null) { await WriteHttpAsync(stream, 404, "{\"ok\":false}"); return; }
+        string full;
+        try
+        {
+            var rel = Uri.UnescapeDataString(relPath).Replace('/', Path.DirectorySeparatorChar);
+            var root = Path.GetFullPath(entry.Dir);
+            full = Path.GetFullPath(Path.Combine(root, rel));
+            var rootWithSep = root.EndsWith(Path.DirectorySeparatorChar) ? root : root + Path.DirectorySeparatorChar;
+            if (!full.StartsWith(rootWithSep, StringComparison.OrdinalIgnoreCase))
+            {
+                await WriteHttpAsync(stream, 403, "{\"ok\":false}");
+                return;
+            }
+        }
+        catch
+        {
+            await WriteHttpAsync(stream, 400, "{\"ok\":false}");
+            return;
+        }
+        if (!File.Exists(full)) { await WriteHttpAsync(stream, 404, "{\"ok\":false}"); return; }
+        byte[] bytes;
+        try { bytes = await File.ReadAllBytesAsync(full); }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginHost.ServePage -> " + ex.Message);
+            await WriteHttpAsync(stream, 500, "{\"ok\":false}");
+            return;
+        }
+        await WriteHttpAsync(stream, 200, bytes, ContentTypeFor(full));
+    }
+
+    private static string ContentTypeFor(string file) => Path.GetExtension(file).ToLowerInvariant() switch
+    {
+        ".html" or ".htm" => "text/html; charset=utf-8",
+        ".css" => "text/css; charset=utf-8",
+        ".js" or ".mjs" => "text/javascript; charset=utf-8",
+        ".json" => "application/json; charset=utf-8",
+        ".svg" => "image/svg+xml",
+        ".png" => "image/png",
+        ".jpg" or ".jpeg" => "image/jpeg",
+        ".gif" => "image/gif",
+        ".webp" => "image/webp",
+        ".ico" => "image/x-icon",
+        ".woff" => "font/woff",
+        ".woff2" => "font/woff2",
+        ".ttf" => "font/ttf",
+        ".txt" or ".md" => "text/plain; charset=utf-8",
+        ".wasm" => "application/wasm",
+        _ => "application/octet-stream"
+    };
+
+    private static string QueryValue(string query, string key)
+    {
+        foreach (var pair in (query ?? "").Split('&'))
+        {
+            var i = pair.IndexOf('=');
+            if (i <= 0) continue;
+            if (!pair[..i].Equals(key, StringComparison.OrdinalIgnoreCase)) continue;
+            return pair[(i + 1)..];
+        }
+        return "";
+    }
+
+    private static async Task WriteHttpAsync(NetworkStream stream, int status, string body)
+        => await WriteHttpAsync(stream, status, Encoding.UTF8.GetBytes(body ?? ""), "application/json; charset=utf-8");
+
+    private static async Task WriteHttpAsync(NetworkStream stream, int status, byte[] bytes, string contentType)
+    {
+        var reason = status switch
+        {
+            200 => "OK", 204 => "No Content", 400 => "Bad Request",
+            403 => "Forbidden", 404 => "Not Found", 500 => "Internal Server Error", _ => "OK"
+        };
+        var head = "HTTP/1.1 " + status + " " + reason + "\r\n"
+                   + "Access-Control-Allow-Origin: *\r\n"
+                   + "Access-Control-Allow-Headers: Content-Type\r\n"
+                   + "Access-Control-Allow-Methods: GET,POST,OPTIONS\r\n"
+                   + "Cache-Control: no-store\r\n"
+                   + "Content-Type: " + contentType + "\r\n"
+                   + "Content-Length: " + bytes.Length + "\r\n"
+                   + "Connection: close\r\n\r\n";
+        await stream.WriteAsync(Encoding.ASCII.GetBytes(head));
+        if (bytes.Length > 0) await stream.WriteAsync(bytes);
+        await stream.FlushAsync();
+    }
+
+    private static async Task<(string? Header, byte[] Body)> ReadHttpAsync(NetworkStream stream)
+    {
+        var ms = new MemoryStream();
+        var buf = new byte[4096];
+        var end = -1;
+        while (ms.Length < 65536)
+        {
+            var n = await stream.ReadAsync(buf, 0, buf.Length);
+            if (n <= 0) break;
+            ms.Write(buf, 0, n);
+            end = FindCrlfCrlf(ms.GetBuffer(), (int)ms.Length);
+            if (end >= 0) break;
+        }
+        if (end < 0) return (null, Array.Empty<byte>());
+        var header = Encoding.ASCII.GetString(ms.GetBuffer(), 0, end);
+        var contentLength = 0;
+        foreach (var line in header.Split("\r\n"))
+            if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)
+                && int.TryParse(line["Content-Length:".Length..].Trim(), out var cl))
+                contentLength = cl;
+        var all = ms.ToArray();
+        var body = new List<byte>(Math.Max(0, contentLength));
+        for (var i = end + 4; i < all.Length && body.Count < contentLength; i++) body.Add(all[i]);
+        while (body.Count < contentLength)
+        {
+            var n = await stream.ReadAsync(buf, 0, Math.Min(buf.Length, contentLength - body.Count));
+            if (n <= 0) break;
+            for (var i = 0; i < n && body.Count < contentLength; i++) body.Add(buf[i]);
+        }
+        return (header, body.ToArray());
+    }
+
+    private static int FindCrlfCrlf(byte[] data, int len)
+    {
+        for (var i = 0; i + 3 < len; i++)
+            if (data[i] == 13 && data[i + 1] == 10 && data[i + 2] == 13 && data[i + 3] == 10) return i;
+        return -1;
     }
 
     /// <summary>
     /// GET /runtime：把这插件此刻的实时值给页面。只读、不缓存、不落盘。
     /// 状态由外部程序经 RuntimeProvider 供进来，页面无法自己证明它是谁给的，所以每条都带上 host。
     /// </summary>
-    private async Task HandleRuntimeAsync(string pluginId, HttpListenerResponse res)
+    private async Task<string> BuildRuntimeJsonAsync(string pluginId)
     {
         var host = HostName();
         string? live;
@@ -1272,15 +1582,11 @@ public sealed class PluginHost
         catch (Exception ex)
         {
             App.WriteLog("PluginHost.Runtime -> " + ex.Message);
-            await WriteJsonAsync(res, 200, new { ok = false, host, error = "取实时状态时出了错：" + ex.Message });
-            return;
+            return JsonSerializer.Serialize(new { ok = false, host, error = "取实时状态时出了错：" + ex.Message });
         }
         if (string.IsNullOrEmpty(live))
-        {
             // 没接状态供给不等于页面坏了：要让它区分「这个插件没有实时值」和「取到了但都是空」，后者才是真问题。
-            await WriteJsonAsync(res, 200, new { ok = false, host, error = host + "没给这个插件接实时状态，这一栏是「未知」不是「关」。" });
-            return;
-        }
+            return JsonSerializer.Serialize(new { ok = false, host, error = host + "没给这个插件接实时状态，这一栏是「未知」不是「关」。" });
         JsonObject root;
         try
         {
@@ -1289,16 +1595,10 @@ public sealed class PluginHost
         catch (Exception ex)
         {
             App.WriteLog("PluginHost.Runtime.Parse -> " + ex.Message);
-            await WriteJsonAsync(res, 200, new { ok = false, host, error = "实时状态不是合法的 JSON 对象：" + ex.Message });
-            return;
+            return JsonSerializer.Serialize(new { ok = false, host, error = "实时状态不是合法的 JSON 对象：" + ex.Message });
         }
         root["host"] ??= host;
-        var raw = Encoding.UTF8.GetBytes(root.ToJsonString());
-        res.StatusCode = 200;
-        res.ContentType = "application/json; charset=utf-8";
-        res.ContentLength64 = raw.Length;
-        await res.OutputStream.WriteAsync(raw);
-        res.Close();
+        return root.ToJsonString();
     }
 
     private static string HostName()
@@ -1307,14 +1607,26 @@ public sealed class PluginHost
         try { return AppInfo.Current.Name; } catch { return "主程序"; }
     }
 
-    private static async Task WriteJsonAsync(HttpListenerResponse res, int status, object payload)
+    /// <summary>
+    /// 用系统默认浏览器打开链接。桌面端 Launcher.Default 有时静默失败（点了没反应），
+    /// Windows 上直接用 ShellExecute 交给默认浏览器更可靠。
+    /// </summary>
+    private static async Task<bool> OpenExternalAsync(string url)
     {
-        var bytes = Encoding.UTF8.GetBytes(JsonSerializer.Serialize(payload));
-        res.StatusCode = status;
-        res.ContentType = "application/json; charset=utf-8";
-        res.ContentLength64 = bytes.Length;
-        await res.OutputStream.WriteAsync(bytes);
-        res.Close();
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
+                return true;
+            }
+            return await Launcher.Default.OpenAsync(url);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("PluginHost.OpenExternal -> " + ex.Message);
+            return false;
+        }
     }
 
     private static Dictionary<string, string> ParseSettingsBody(string body)
@@ -1359,7 +1671,7 @@ public sealed class PluginHost
         {
             if (_callbackServers.TryGetValue(id, out var listener))
             {
-                try { listener.Stop(); listener.Close(); } catch { }
+                try { listener.Stop(); } catch { }
                 _callbackServers.Remove(id);
                 _callbackPorts.Remove(id);
                 // token 一起丢：端口会被下一个插件的回调复用，留着旧凭据等于旧页面还能写新插件的设置。

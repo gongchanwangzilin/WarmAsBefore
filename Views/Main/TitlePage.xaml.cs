@@ -59,14 +59,16 @@ public partial class TitlePage : ContentPage
         Move(RailGrid, CompactStack, RailBottom);
 
         HeroGrid.RowDefinitions.Clear();
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 0：右上读数角 / 配色小字（二选一）
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 1：配色小字（HUD）/ 主行动带
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 2：主行动带（HUD）/ 上次存档
-        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档（HUD）
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 0：右上读数角
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 1：配色小字
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 2：主行动带
+        HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档
+        // 与 EnterWide / PlayHudIntro 用同一套行位：读数角与主题小字永远分处 0/1 行。
+        // 首帧 SizeChanged 会晚于 OnAppearing 再跑一次这里的排版，写回 Row 0 就会把两者叠在一起。
         Grid.SetRow(HudCornerReadout, 0);
-        Grid.SetRow(ThemeLegend, 0);
-        Grid.SetRow(HeroBand, 1);
-        Grid.SetRow(RecentCard, 2);
+        Grid.SetRow(ThemeLegend, 1);
+        Grid.SetRow(HeroBand, 2);
+        Grid.SetRow(RecentCard, 3);
         HeroBand.VerticalOptions = LayoutOptions.Start;
         RecentCard.VerticalOptions = LayoutOptions.Start;
         RecentCard.HorizontalOptions = LayoutOptions.Fill;
@@ -91,7 +93,7 @@ public partial class TitlePage : ContentPage
         HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));   // 2：主行动带 —— 独占 Star 行，垂直居中
         HeroGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));   // 3：上次存档 —— 独占一行，物理上不可能压到标语
         Grid.SetRow(HudCornerReadout, 0);
-        Grid.SetRow(ThemeLegend, 0);
+        Grid.SetRow(ThemeLegend, 1);
         Grid.SetRow(HeroBand, 2);
         Grid.SetRow(RecentCard, 3);
         HeroBand.VerticalOptions = LayoutOptions.Center;

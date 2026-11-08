@@ -217,7 +217,36 @@ public sealed record AiProviderModel
     public string Label { get; init; } = "";
     public bool Enabled { get; init; } = true;
 
+    /// <summary>
+    /// 上下文窗口（token）：这款模型一次能收多少上下文。
+    /// 0 = 不知道，用设置里的全局上下文上限；填了就按它折叠历史（留出输出空间后取 70%）。
+    /// </summary>
+    public int ContextWindow { get; init; }
+
+    /// <summary>能不能看图（多模态）。没配独立识图端点时，优先用它来识图。</summary>
+    public bool SupportsVision { get; init; }
+
+    /// <summary>能不能调用工具（function calling）。关掉后这条端点一律不带 tools，避免 400。</summary>
+    public bool SupportsTools { get; init; } = true;
+
+    /// <summary>能不能稳定输出 JSON（结构化任务用）。</summary>
+    public bool SupportsJson { get; init; }
+
     public string DisplayName => string.IsNullOrWhiteSpace(Label) ? Model : Label;
+
+    /// <summary>一行能力摘要，卡片上直接显示。</summary>
+    public string CapabilityText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (ContextWindow > 0) parts.Add($"{ContextWindow / 1000.0:0.#}K 上下文");
+            if (SupportsVision) parts.Add("识图");
+            if (SupportsTools) parts.Add("工具");
+            if (SupportsJson) parts.Add("JSON");
+            return parts.Count == 0 ? "未标注能力" : string.Join(" · ", parts);
+        }
+    }
 }
 
 /// <summary>
@@ -332,6 +361,15 @@ public sealed record UserSettings
     public int AiMaxTokens { get; init; } = 500;
     public bool DeepThink { get; init; }
     public string DeepModel { get; init; } = "";
+    /// <summary>小模型优先：所有对话先交小模型，处理不来再升级到大模型。桥连着时也生效——
+    /// 要动游戏/调工具时由小模型按提示主动升级（见 ChatEngine 的小模型指令）。</summary>
+    public bool SmallModelFirst { get; init; }
+    /// <summary>小模型端点（OpenAI 兼容 chat/completions）；留空则复用对话端点。</summary>
+    public string SmallAiUrl { get; init; } = "";
+    /// <summary>小模型密钥；留空则复用对话密钥。</summary>
+    public string SmallAiKey { get; init; } = "";
+    /// <summary>小模型名（填便宜/快的模型，如 qwen-flash / glm-4-flash / deepseek-chat）。留空 = 不启用小模型优先。</summary>
+    public string SmallAiModel { get; init; } = "";
     public int MemoryTurns { get; init; } = 5;
 
     /// <summary>
@@ -806,6 +844,9 @@ public sealed record UserSettings
 
     /// <summary>冷热饥渴与想念：开启后身体状态随时间/天气变化，并注入提示词。</summary>
     public bool PhysiologyEnabled { get; init; } = true;
+
+    /// <summary>内心生活：内分泌化学池与执念池。关闭后数值冻结、不进提示词、执念不再醒来。</summary>
+    public bool InnerLifeEnabled { get; init; } = true;
 
     /// <summary>金钱系统：关闭后购买不扣币，钱包显示「已停用」。</summary>
     public bool MoneyEnabled { get; init; } = true;

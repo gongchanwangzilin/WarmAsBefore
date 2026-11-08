@@ -137,15 +137,8 @@
                                                        IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
                                             </Border>
                                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
-                                                <HorizontalStackLayout Spacing="8">
-                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
-                                                           LineBreakMode="TailTruncation" />
-                                                    <!-- 主角标记同样留在墨阶（MutedFg）：
-                                                         强调淡彩是面，当文字色在浅色档只有 1.x:1，读不出「这是标记」 -->
-                                                    <Label Text="{Binding IsMainLabel}"
-                                                           Style="{StaticResource TxtCaption}" VerticalOptions="Center"
-                                                           IsVisible="{Binding IsMain}" />
-                                                </HorizontalStackLayout>
+                                                <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
+                                                       LineBreakMode="TailTruncation" />
                                                 <Label Text="{Binding Personality}" Style="{StaticResource TxtRowDesc}"
                                                        LineBreakMode="TailTruncation" MaxLines="1" />
                                             </VerticalStackLayout>
@@ -304,9 +297,15 @@
                                 </VerticalStackLayout>
                             </Grid>
 
-                            <Button Text="进入 TA 的工作室  →" Style="{StaticResource BtnPrimary}"
-                                    HorizontalOptions="Fill" Margin="0,4,0,0"
-                                    Command="{Binding EnterCommand}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
+                                <Button Text="进入 TA 的工作室  →" Style="{StaticResource BtnPrimary}"
+                                        HorizontalOptions="Fill"
+                                        Command="{Binding EnterCommand}" />
+                                <Button Grid.Column="1" Text="删除" Style="{StaticResource BtnTextSm}"
+                                        Padding="10,2" VerticalOptions="Center"
+                                        Command="{Binding DeleteCommand}"
+                                        CommandParameter="{Binding Selected}" />
+                            </Grid>
                         </VerticalStackLayout>
                     </Grid>
 

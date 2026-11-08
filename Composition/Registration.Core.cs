@@ -37,6 +37,8 @@ public static class CoreRegistration
         services.AddSingleton<MentalHealthService>();
         // 身体感受：冷热饥渴想念，跟真实时间与天气缓慢变化
         services.AddSingleton<PhysiologyService>();
+        // 内心生活：内分泌化学池 + 执念池，事件与对话改变心绪，惦记的事到点自己想
+        services.AddSingleton<InnerLifeService>();
         // 画面生成：装扮 / 背景 / 立绘 / 地图背景
         services.AddSingleton<ImageGenerationService>();
         // 关系网：后台随对话自动长出来

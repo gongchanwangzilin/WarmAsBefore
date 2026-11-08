@@ -15,6 +15,7 @@ namespace WarmAsBefore.Views;
 /// </summary>
 [QueryProperty(nameof(Character), "character")]
 [QueryProperty(nameof(Edit), "edit")]
+[QueryProperty(nameof(Wizard), "wizard")]
 public partial class NewRunPage : ContentPage
 {
     private readonly NewRunViewModel _vm;
@@ -28,16 +29,25 @@ public partial class NewRunPage : ContentPage
         _vm = vm;
         BindingContext = vm;
         _vm.PropertyChanged += OnVmChanged;
+        _vm.EmbedResult = ok => WizardSucceeded = ok;
         _lastPosition = vm.Position;
     }
 
     public string Character { get; set; } = "";
     public string Edit { get; set; } = "";
 
+    /// <summary>「1」= 由绑定向导以模态叫起：走完关掉自己，不跳主界面。</summary>
+    public string Wizard { get; set; } = "";
+
+    /// <summary>绑定向导用：这一轮新建存档是否真的走完并落盘（中途退出为 false）。</summary>
+    public bool WizardSucceeded { get; private set; }
+
     protected override void OnAppearing()
     {
         base.OnAppearing();
         BuildSegments();
+        // 模态叫起时不走 Shell 的 QueryProperty，由调用方直接赋值；这里把模式同步给 VM。
+        _vm.Embedded = Wizard == "1";
         if (!_loaded)
         {
             _loaded = true;
@@ -57,6 +67,13 @@ public partial class NewRunPage : ContentPage
         if (_vm.IsOobe && _vm.Position > 0)
         {
             _vm.PrevStepCommand.Execute(null);
+            return true;
+        }
+        if (Wizard == "1")
+        {
+            // 物理返回键在模态页上不一定会自动出栈：自己关干净，并明确算「取消」。
+            _vm.EmbedResult?.Invoke(false);
+            _ = Shell.Current.Navigation.PopModalAsync();
             return true;
         }
         return base.OnBackButtonPressed();

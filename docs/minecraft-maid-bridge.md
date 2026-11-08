@@ -98,8 +98,8 @@ sequenceDiagram
 
 ```json
 {"magic":"WAB-MAID","v":1,"type":"beacon","nonce":"9f2c…","instance":"a1b2c3",
- "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1",
- "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.4.0"}
+ "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1-wab.1",
+ "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.6.0"}
 ```
 
 beacon 只带「谁在这儿」这一件事：`world` / `player` / `maids` 都挪到 TCP 的 `hello` 里发，
@@ -125,9 +125,13 @@ TCP，NDJSON：一行一条 JSON，UTF-8，单行上限 4 MiB（备份 NBT 会�
 
 ```json
 {"v":1,"type":"hello","nonce":"9f2c…","token":"b7e1…","instance":"a1b2c3",
- "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1",
- "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.4.0",
- "world":"MyWorld","player":"Steve","maids":[…]}
+ "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1-wab.1",
+ "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.6.0",
+ "world":"MyWorld","player":"Steve","maids":[…],
+ "config":{"enabled":true,"discoveryPort":27321,"lanDiscovery":false,"beaconIntervalSeconds":3,
+           "chatRange":8,"showHud":true,"autonomyEnabled":true,"playerCanSleepInMaidBed":false,
+           "maidChatCooldownSeconds":90,"debug":false,
+           "feedingEnabled":true,"ownerOnlyFeeding":true,"multiplayerFeeding":false,"showAboveMaid":false}}
 ```
 
 WAB 回：
@@ -135,8 +139,17 @@ WAB 回：
 ```json
 {"v":1,"type":"welcome","session":"s-7d1a…","wab":"1.47",
  "saveId":"3f9a…","characterId":"小雨","characters":[{"id":"小雨","name":"小雨"}],
- "bound":{"maid-uuid":"小雨"},"settings":{"allowWorldActions":true,"allowGestures":true}}
+ "bound":{"maid-uuid":"小雨"},"settings":{"allowWorldActions":true,"allowGestures":true},
+ "voice":{"tts":true,"stt":true},
+ "fields":[{"key":"chat_affection","label":"游戏内聊天让她判好感","type":"switch",
+            "value":"true","default":"true","help":"…","locked":false}]}
 ```
+
+- `hello.config` / `state.config` 是游戏那份 `config/touhou_little_maid-wab-server.toml` 的当前值，宿主照单镜像进
+  `/runtime`，插件的「实时面板」页据此和 WAB 自己那份对照，两边不一致就在页面上点名（见 §11.2）。
+- `welcome.fields` / `settings.fields` 是 `plugin.json` 那张设置表的原样描述（键、标签、类型、当前值、默认、说明、是否锁着），
+  游戏里的设置页据此长控件。表里没有的项，游戏里就不可能出现——插件加一项不用等模组发版。
+- 老宿主不发 `config` / `fields`：模组照常连，只是 WAB 看不到游戏里的值、游戏里也改不了 WAB 的值。
 
 失败：`{"type":"error","code":"auth_failed","message":"..."}` 后断开。
 
@@ -150,25 +163,31 @@ WAB → 模组：
 | `command` | `{id, method, params}`，需要模组回 `result` |
 | `bind` | 更新女仆 → 角色绑定 |
 | `stats` | 好感/信任等显示值 |
-| `chat_reply` | 对游戏内聊天的回复 |
-| `settings` | 插件开关变化时推送（不断线） |
+| `chat_reply` | 对游戏内聊天的回复。WAB 主对话 / 假微信里的一轮也会下发同一帧，带 `origin="wab_ui"` 与 `userText`（用户在 WAB 里说的原话）；模组只显示气泡与语音、不回传 `chat` 帧，因此不会形成 WAB → MC → WAB 回环。双端对话由此互通 |
+| `settings` | 插件开关变化时推送（不断线），一帧带全 `{settings, voice, fields}` |
+| `feed_rules` | 投喂口味表全量下发：`{picky:[], favorite:[], boredomLimit:n, counts:{}}`；握手后发一份，此后表一变、喂一口（计数重推）都发。表项是物品注册名或 `#标签`。模组本地先记计数保判得快，宿主这份是权威；断桥后模组清空，判定回到原版行为 |
 | `tts_reply` | 合成回执：`ok/format/engine/voice/parts/bytes`；失败时 `ok:false` 带 `code/error` |
 | `tts_audio` | 一段合成音频：`{id, part, data}`，`data` 是 base64 WAV，按 `part` 序号拼起来是完整文件 |
 | `stt_reply` | 听写回执：`ok:true` 带 `text`；失败或没听清带 `code/error` |
+| `error` | `{code, message}`；`code=config_rejected` 时带 `key`，表示游戏里那次设置改动没被接受 |
+| `phone_reply` | `{id, ok, action, code, error, data}`：游戏内手机界面的查询回执。`action` 原样回传，`data` 里按动作给 `contacts` / `messages` / `reply` / `added` / `message` / `characterId` / `characterName`。宿主回 `ok:false` 时 `error` 是可直接显示的中文原因 |
 | `ping` | 心跳 |
 
 模组 → WAB：
 
 | type | 说明 |
 | --- | --- |
-| `hello` | 握手 |
-| `state` | 女仆与世界快照（5 秒一次或变化时） |
+| `hello` | 握手，带 `config`（游戏那份 toml 的当前值） |
+| `state` | 女仆与世界快照（5 秒一次或变化时），同样带 `config`。`maids[]` 每只女仆新增布尔 `phone`：独立手机格里戴着 WAB 手机时为 true，宿主据此把该女仆绑定的角色自动加进微信通讯录（幂等） |
 | `result` | `{id, ok, data, error}`；一次性动作的 `data.message` 是她实际做了什么（「正在靠近 Steve」） |
-| `event` | 自主行动、互动、受伤、死亡、日程完成 |
+| `event` | 自主行动、互动、受伤、死亡、日程完成；`kind=feed` 是投喂回执，extra 平铺 `food/foodName/utensil/source/fraction/verdict/count/eater`，`verdict` 取 `favorite/normal/picky/bored/refused_owner`——只有前两种是真吃下去了，宿主据此记吃腻计数并重推 `feed_rules` |
 | `chat` | 玩家在游戏里对女仆说话 |
+| `config_set` | `{key, value}`：游戏里的设置页改了一项插件设置，值一律是文本，钳范围与合法性由宿主判 |
 | `tts` | `{maid, text, id?}`：请 WAB 用这个女仆继承的嗓子合成 |
 | `stt` | `{maid, lang?, data, id?}`：`data` 是 base64 WAV 录音，请 WAB 听写 |
 | `photo` | 回传 `maid_see` 要的那一帧画面 |
+| `phone_message` | `{maid, text, hint}`：女仆戴上 WAB 手机饰品后定时发来的情境帧。宿主让绑定角色自己写一句微信，落进假微信消息流；接了真实聊天通道才顺带外发，人工确认与每小时上限仍由 `OfficialChatBridge.QueueOutbound` 把着。老宿主不认这个 type，会回 `error/unknown_type` 但不中断会话 |
+| `phone_request` | `{id, action, params}`：玩家在游戏里右键手机打开界面后发起的查询。`action` 取 `contacts` / `messages` / `send` / `add_friend` / `mark_read` / `remove_friend` / `whoami`，`params` 里按动作带 `characterId` / `text` / `nameOrId` / `limit`。宿主回 `phone_reply`，**所有好友、消息、AI 回复的业务逻辑都在 WAB，模组只转发与渲染**。`send` 会调 AI（数秒），宿主用 fire-and-forget 处理，模组侧有 30 秒超时兜底 |
 | `pong` | 心跳 |
 
 所有消息都带 `v:1`。未知字段忽略；未知 `type` 回 `error` 但不中断。
@@ -331,7 +350,9 @@ WAB → 模组：
 - 模组只执行白名单动作；`allowWorldActions=false` 时 `gather`、`attack`、`hold`（give/drop/take/feed_player/place/equip）与 `act` 里的 `use`/`attack`/`interact_addon` 全部拒绝，`go` 只挪身体不受限。判断收在 `WabGate` 一处，会话指令和本地日程走同一条闸——关掉开关后日程里的挖矿步骤照样拆不了家。
 - 写 socket 不在服务器线程上做：帧进一条有界队列（256 帧），由独立写线程落盘。对端不收包时队列满、会话直接关掉，游戏主循环不会卡在 TCP 缓冲上。
 - 单条指令执行中抛出任何异常（远端给了 `"pos":[1,2,"abc"]` 这类畸形参数）由分发处兜住，回 `internal_error` 并继续跑，不掀翻 tick 循环。
-- 游戏内聊天只转主人本人的话；别人的发言原样发给全服，不会被桥吞掉。
+- 游戏内聊天只转主人本人的话，而且**不取消 `ServerChatEvent`**：这句话照常进聊天框，记录、翻译、反作弊那些监听聊天的模组都在链上，桥只在 action bar 补一句「这句交给她回答」，不再把原文重播一遍。
+- 主人按「谁名下的女仆最多」认，一样多就认现在这个，不是「第一个进服的玩家」——多人服上取错人会让女仆名册（本就按主人筛）、聊天路由、喂食、陪睡全落到一个陌生人身上。一个女仆都没数到时才退回取在线的第一名玩家（单人、还没配对收女仆时走的就是这条）。
+- modId 保持 `touhou_little_maid` 不动（附属模组按它依赖，我们这份是顶替官方 jar 的），区分放在版本与名字上：`mod_version` 带 `-wab.1` 后缀、displayName 写作「Touhou Little Maid (WAB bridge)」、description 明说非官方分支并保留上游署名与 LICENSE。
 - 不执行任意代码、不读文件、不联网（除了连 WAB）。
 - WAB 侧所有工具仍受存档 `SavePermissions` 白名单约束。
 - 日志：WAB `logs/app.log` 的 `MaidBridge` 前缀；模组 `logs/latest.log` 的 `[WAB]` 前缀。
@@ -373,6 +394,10 @@ WAB → 模组：
 | `allow_voice` | `true` | 绑了角色的女仆用 WAB 合成语音、听写录音，音色引擎继承角色；关掉后模组用自己的 TTS/STT |
 | `chat_affection` | `true` | 游戏内聊天加好感 |
 | `autonomy_pulse_minutes` | `0` | WAB 主动思考间隔（0 = 只靠模组日程） |
+| `think_scenes` | `interaction` | 逗号分隔的场景键：`interaction`/`hurt`/`death`/`respawn`/`owner_sleep`/`maid_chat`/`weather`/`time`；留空 = 只在有事时被动回应 |
+| `think_cooldown_seconds` | `90` | 同一个人物、同一类事隔够这么久才允许再想一次 |
+| `love_words` | `true` | 主人睡觉时陪睡并说一句只有这时候才会说的话 |
+| `auto_switch_save` | `false` | 允许桥替你切/建存档（默认关，见 §10 与「桥是客人」那条） |
 | `backup_minutes` | `10` | 快照间隔 |
 
 设置页只写这些键；真正的连接状态用 WAB 的工具/日志查看，插件页面不直接碰套接字。
@@ -390,6 +415,8 @@ WAB → 模组：
 | `chatRange` | `8` | 一句普通聊天会被转给最近的女仆的距离（1–64 格） |
 | `showHud` | `true` | 在 action bar 显示 WAB 侧的好感/信任 |
 | `autonomyEnabled` | `true` | 允许模组本地跑日程与自发行为（仍需会话在线） |
+| `playerCanSleepInMaidBed` | `false` | 玩家能否睡女仆的床（床互通的另一半） |
+| `maidChatCooldownSeconds` | `90` | 女仆之间自发搭话的最小间隔（10–3600 秒） |
 | `debug` | `false` | 逐帧日志 |
 
 只有 `enabled`/`lanDiscovery` 会改变对外可见的流量，其余是本地行为。游戏侧改完这些不影响上游模组对其他女仆的逻辑。
@@ -402,6 +429,34 @@ WAB → 模组：
 - **能力声明**。`plugin.json` 显式声明 `settings`、`prompt.write`、`page` 三项，其余一律不声明：
   JS 侧不出网、不调工具，连接与写记忆全在宿主。`settings.kind` 缺失会让整个插件的钩子停跑，
   存档级插件白名单与权限台各是一道独立闸，症状都是「装了但 AI 不提 Minecraft」。
+
+### 11.2 设置双向流动
+
+两边各有自己的设置，但用户只有一套心智：在哪儿改，就得在哪儿立刻看见。所以两条路都是通的。
+
+游戏 → WAB：
+
+- 模组在 `hello` 和每 5 秒的 `state` 里带 `config`（`WabConfig.snapshot()`），宿主 `ApplyModConfig` 镜像进
+  `session.ModConfig` 并记下时间，`/runtime` 以 `mod` 节点 + `modAgeSeconds` 供出去，插件的「实时面板」页据此画出
+  「游戏里现在是什么」。
+- 游戏里那份 toml 也进了模组的 Cloth 设置页（`MenuIntegration.wabConfig`），改完立刻落盘、立刻生效，不用重启。
+- 宿主看见两边语义相同的项不一致时（`autonomyEnabled` vs `allow_world_actions`、`lanDiscovery` vs `lan`）
+  只在 WAB 侧提醒一句，不擅自改任何一边。
+
+WAB → 游戏：
+
+- `welcome`/`settings` 帧带 `fields`（`BuildPluginConfigJson()` 照 plugin.json 逐项描），模组的
+  `WabRemoteConfig` 收下这张表，Cloth 页的「插件设置」子栏据此长控件：`switch`→开关、`number`→整数框、其余→文本框。
+  键名、类型、当前值、说明全来自那张表，模组里没有第二份硬编码清单。
+- 游戏里拨一下 → `WabRemoteConfig.save()` 回服务器线程发出 `config_set` → 宿主 `OnConfigSetAsync`
+  按声明的类型收值（`NormalizeSettingValue`）、落盘、`ReloadAsync` 重读，再回推一帧 `settings` 把权威值送回游戏：
+  钳过上下限或回落默认的，游戏里的控件当场跟着改成真正生效的那一份。
+- 改不动的一律不收：`enabled`/`port`/`lan` 会打断会话，`secret` 的值不出网——下发时就标 `locked=true`，
+  游戏侧渲染成一行只读文字（Cloth 的 `setEditable(false)` 只把字画灰、点击照样写值，那样看着像锁死其实还能改，比不灰更骗人），
+  宿主那侧也再挡一道并回 `error/code=config_rejected`，模组把原因打进聊天框。
+- 桥一断（`detach`/`shutdown`）就把这张表作废。留着上一次那份，页面会画出一排点了什么也发不出去的开关。
+- 上游 AI 那三项（LLM/TTS/STT）在连上桥、且这项确实被 WAB 接管时，游戏里的原控件换成一行说明加当前值：
+  这些开关在 WAB 路径上已经不参与判断，留着还能点，只会让人以为改了就有反应。没连桥、或 `allow_voice` 关掉时照原样可编辑。
 
 ---
 
@@ -438,6 +493,11 @@ src/main/java/com/github/tartaricacid/touhoulittlemaid/compat/wab/
   WabError.java           统一失败回执
   WabVoice.java           语音：tts 分块收流 / stt 上传 / 绑定判断 / 回落
   WabHud.java             好感/信任显示（action bar / BossBar）
+  WabBindingSync.java     服务器 → 主人客户端：绑了角色的女仆、WAB 是否接管 STT/TTS、桥还挂着没有
+  WabClientState.java     上面那一份在客户端的镜像，按键路由与设置页都读这里
+  WabRemoteConfig.java    WAB 插件设置表在游戏中的只读副本 + 改完往回发的 save()
+  ../../compat/cloth/MenuIntegration.java       游戏内设置页：WAB 十项 + 由 fields 长出来的插件设置
+  ../../compat/cloth/GlobalAIIntegration.java   上游 AI 三项在桥接管时退化成只读说明
 ```
 
 ---
@@ -448,3 +508,5 @@ src/main/java/com/github/tartaricacid/touhoulittlemaid/compat/wab/
 - 兼容策略：只增字段不删字段。新增 `type` 时留同一版本、由 `welcome` 里的能力字段（如 `voice`）宣告；
   对端不认识就回 `error`（不中断会话）并按没有这项能力处理，这样宿主与 jar 可以各自升级。
 - WAB 与模组版本不要求一致，握手只检查 `v`。
+- 桥构建号 `bridge`：`1.6.0`（2026-11-06）起 `hello`/`state` 带 `config`、`welcome`/`settings` 带 `fields`、
+  新增上行 `config_set` 与 `error/code=config_rejected`。协议仍是 `v1`，老宿主与老 jar 混着跑只是看不见对方那一份设置，不会连不上。

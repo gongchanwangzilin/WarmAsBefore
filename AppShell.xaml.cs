@@ -122,10 +122,15 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));
         // 心理状况：按当前角色设置轻重与稳定度（设置 → 身份与心理）
         Routing.RegisterRoute("mentalHealth", typeof(Views.MentalHealthPage));
+        // AI 厂商 / 模型管理：设置 → AI 里进，两页互相跳
+        Routing.RegisterRoute("aiProviders", typeof(Views.AiProvidersPage));
+        Routing.RegisterRoute("aiModels", typeof(Views.AiModelsPage));
         // 插件中心：列表 / 启停 / 依赖 / 设置 / 崩溃日志 / 工坊
         Routing.RegisterRoute("pluginCenter", typeof(Views.PluginCenterPage));
         // 原生设置：按 plugin.json 的 fields 现场生成表单
         Routing.RegisterRoute("pluginSettings", typeof(Views.PluginSettingsPage));
+        // 应用内插件页面：WebView2 显示，页面由本机回环服务器提供
+        Routing.RegisterRoute("pluginWeb", typeof(Views.PluginWebPage));
         // 插件权限台：声明 ∩ 授予，一插件一屏
         Routing.RegisterRoute("pluginPerms", typeof(Views.PluginPermissionsPage));
         // 存档高级设置：这份存档能用哪些插件 / 工具 / 角色

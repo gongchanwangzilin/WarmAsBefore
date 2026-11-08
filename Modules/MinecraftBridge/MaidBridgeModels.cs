@@ -25,6 +25,36 @@ public sealed record MaidBridgeSettings
     /// <summary>默认关：桥不许替用户切存档、新建存档、换界面上的当前角色。打开才恢复旧行为。</summary>
     public bool AutoSwitchSave { get; init; }
 
+    /// <summary>进 Minecraft 世界时自动打开这个世界绑定的那份存档（保证对话/记忆同步）。默认开。</summary>
+    public bool AutoOpenBoundSave { get; init; } = true;
+
+    /// <summary>
+    /// 「是否启用 Galgame 界面」：galgame = 开（主战场在 WAB 的原版对话页，MC 只做游戏）；
+    /// mc_world = 关（正在玩的 MC 才是主战场，WAB 只做 AI / 通讯后端，不显示 galgame 界面）。
+    /// </summary>
+    public string WorldMode { get; init; } = "galgame";
+
+    /// <summary>关掉 Galgame：WAB 只做 MC 后端，跳过绑定向导、主界面显示后端状态页。</summary>
+    public bool IsMcPrimaryWorld => string.Equals(WorldMode, "mc_world", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>是否启用 Galgame 界面（给主界面 ViewModel 读）。</summary>
+    public bool GalgameEnabled => !IsMcPrimaryWorld;
+
+    /// <summary>手机端内容显示在哪：main = 跳转主窗口（旧方案），phone = 手机页面/独立手机窗口。</summary>
+    public string DisplayTarget { get; init; } = "main";
+
+    /// <summary>
+    /// 女仆周围强制加载：开=主人名下所有被 WAB 认领的女仆，其所在区块周围持续强制加载，她离开后撤销。
+    /// 注意：与车万女仆附属「万法皆通·女仆饰品锚定核心」功能重叠，开启后该饰品失效。
+    /// </summary>
+    public bool ForceLoadChunks { get; init; }
+
+    /// <summary>强制加载半径（区块）：以女仆为中心、向四周各延伸多少区块。2 = 5×5。范围 0–8；0 等于不加载。</summary>
+    public int ForceLoadRadius { get; init; } = 2;
+
+    /// <summary>是否用手机窗口呈现。</summary>
+    public bool PhoneWindowTarget => string.Equals(DisplayTarget, "phone", StringComparison.OrdinalIgnoreCase);
+
     /// <summary>哪些情况让她主动想一次（death/hurt/interaction/weather/time/respawn/owner_sleep/maid_chat）。</summary>
     public IReadOnlyList<string> ThinkScenes { get; init; } = Array.Empty<string>();
 
@@ -41,6 +71,7 @@ public sealed record MaidBridgeSettings
     public string BehaviorSignature =>
         $"{AutoCreateCharacters}|{AllowWorldActions}|{AllowGestures}|{AllowPhoto}|{AllowVoice}|{ChatAffection}|" +
         $"{AutonomyPulseMinutes}|{BackupMinutes}|{AutoSwitchSave}|{LoveWords}|{ThinkCooldownSeconds}|" +
+        $"{AutoOpenBoundSave}|{WorldMode}|{DisplayTarget}|{ForceLoadChunks}|{ForceLoadRadius}|" +
         string.Join(",", ThinkScenes);
 
     public static MaidBridgeSettings From(IReadOnlyDictionary<string, string> values)
@@ -81,7 +112,7 @@ public sealed record MaidBridgeSettings
             Enabled = Bool("enabled", true),
             Port = port,
             Lan = Bool("lan", false),
-            AutoCreateCharacters = Bool("auto_create_characters", true),
+            AutoCreateCharacters = Bool("auto_create_characters", false),
             AllowWorldActions = Bool("allow_world_actions", true),
             AllowGestures = Bool("allow_gestures", true),
             AllowPhoto = Bool("allow_photo", true),
@@ -90,6 +121,15 @@ public sealed record MaidBridgeSettings
             AutonomyPulseMinutes = Math.Clamp(Int("autonomy_pulse_minutes", 0), 0, 24 * 60),
             BackupMinutes = Math.Clamp(Int("backup_minutes", 10), 0, 24 * 60),
             AutoSwitchSave = Bool("auto_switch_save", false),
+            AutoOpenBoundSave = Bool("auto_open_bound_save", true),
+            WorldMode = values.TryGetValue("world_mode", out var wm)
+                        && string.Equals(wm?.Trim(), "mc_world", StringComparison.OrdinalIgnoreCase)
+                ? "mc_world" : "galgame",
+            DisplayTarget = values.TryGetValue("display_target", out var dt)
+                            && string.Equals(dt?.Trim(), "phone", StringComparison.OrdinalIgnoreCase)
+                ? "phone" : "main",
+            ForceLoadChunks = Bool("force_load_chunks", false),
+            ForceLoadRadius = Math.Clamp(Int("force_load_radius", 2), 0, 8),
             LoveWords = Bool("love_words", true),
             ThinkScenes = List("think_scenes"),
             ThinkCooldownSeconds = Math.Clamp(Int("think_cooldown_seconds", 90), 5, 24 * 60 * 60)
@@ -206,6 +246,58 @@ public sealed class MaidBridgeWorldBinding
 
     [JsonPropertyName("maids")]
     public Dictionary<string, MaidBridgeMaidBinding> Maids { get; set; } = new(StringComparer.Ordinal);
+
+    [JsonPropertyName("taste")]
+    public MaidBridgeTasteRules Taste { get; set; } = new();
+}
+
+/// <summary>
+/// 投喂口味表：挑食 / 喜爱 / 吃腻计数。一份存档一张（模组侧 WabFeedRules 同样是全局表），
+/// 随绑定表落盘；桥连着时宿主用 feed_rules 帧推下去，断桥后模组自己清空。
+/// </summary>
+public sealed class MaidBridgeTasteRules
+{
+    public const int DefaultBoredomLimit = 5;
+
+    /// <summary>物品注册名（minecraft:rotten_flesh）或标签（#forge:candy）。</summary>
+    [JsonPropertyName("picky")]
+    public List<string> Picky { get; set; } = new();
+
+    [JsonPropertyName("favorite")]
+    public List<string> Favorite { get; set; } = new();
+
+    [JsonPropertyName("boredomLimit")]
+    public int BoredomLimit { get; set; } = DefaultBoredomLimit;
+
+    /// <summary>每种食物真吃下去的次数，到限就腻。模组本地先记一笔保判得快，宿主是权威、喂一口重推一份。</summary>
+    [JsonPropertyName("counts")]
+    public Dictionary<string, int> Counts { get; set; } = new(StringComparer.Ordinal);
+
+    [JsonIgnore]
+    public bool HasAny => Picky.Count > 0 || Favorite.Count > 0 || Counts.Count > 0;
+
+    /// <summary>讲给模型听的一句话版本。</summary>
+    public string Describe()
+    {
+        var parts = new List<string>();
+        if (Favorite.Count > 0) parts.Add("最爱 " + string.Join("、", Favorite.Take(8)));
+        if (Picky.Count > 0) parts.Add("挑食 " + string.Join("、", Picky.Take(8)));
+        parts.Add($"同一种食物吃满 {BoredomLimit} 口会腻");
+        return string.Join("；", parts);
+    }
+}
+
+/// <summary>真吃下去的一口（拒绝的不记）。只留最近几条，喂上下文注入和好感判据用。</summary>
+public sealed class MaidBridgeFeedRecord
+{
+    [JsonPropertyName("food")]
+    public string Food { get; set; } = "";
+
+    [JsonPropertyName("verdict")]
+    public string Verdict { get; set; } = "";
+
+    [JsonPropertyName("at")]
+    public DateTime AtUtc { get; set; } = DateTime.UtcNow;
 }
 
 public sealed class MaidBridgeMaidBinding
@@ -222,6 +314,10 @@ public sealed class MaidBridgeMaidBinding
     /// <summary>累计在游戏里说过几句；每 5 句加 1 点信任。存在绑定表里，重启后不会从零再数。</summary>
     [JsonPropertyName("chats")]
     public int Chats { get; set; }
+
+    /// <summary>最近在游戏里真吃下去的几口（拒绝的不记），上下文注入用。</summary>
+    [JsonPropertyName("recentFeeds")]
+    public List<MaidBridgeFeedRecord> RecentFeeds { get; set; } = new();
 
     [JsonPropertyName("lastBackup")]
     public DateTime LastBackup { get; set; }

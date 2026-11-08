@@ -75,6 +75,14 @@ internal static class MaidBridgeTools
             + "重要行动前后可以主动备份；平时由桥按设置定时备份。",
             args => bridge.RunToolAsync("backup", args),
             BackupSchema);
+
+        tools.RegisterBuiltin("maid_feed_rules",
+            "查看或设置她的投喂口味表：挑食表、喜爱表、吃几口会腻、吃腻计数。"
+            + "表对当前存档里所有女仆生效，改完立即下发到游戏；她在游戏里被喂到表里的东西时，"
+            + "最爱的会开心（好感更多），挑食的直接拒绝，同一种吃满上限会嫌腻。"
+            + "物品写注册名（minecraft:rotten_flesh）或标签（#forge:candy），标签一次管住一整类。",
+            args => bridge.RunToolAsync("feed_rules", args),
+            FeedRulesSchema);
     }
 
     private const string MaidProperty =
@@ -177,6 +185,16 @@ internal static class MaidBridgeTools
     private static readonly string BackupSchema =
         """{"type":"object","properties":{""" + MaidProperty + """
         ,"label":{"type":"string","description":"备份标签，默认 manual"}
+        },"additionalProperties":false}
+        """;
+
+    private static readonly string FeedRulesSchema =
+        """
+        {"type":"object","properties":{
+        "picky":{"type":"array","items":{"type":"string"},"maxItems":32,"description":"挑食表：物品注册名或 #标签；给数组即整表替换，空数组 = 清空"},
+        "favorite":{"type":"array","items":{"type":"string"},"maxItems":32,"description":"喜爱表：同上格式；给数组即整表替换，空数组 = 清空"},
+        "boredomLimit":{"type":"integer","minimum":1,"maximum":1000,"description":"同一种食物吃满多少口会腻，默认 5"},
+        "clearCounts":{"type":"boolean","description":"true 时清空吃腻计数（比如换季了、想让她重新接受常吃的东西）"}
         },"additionalProperties":false}
         """;
 }

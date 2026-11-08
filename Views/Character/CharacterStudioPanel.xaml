@@ -741,6 +741,32 @@
                                                 IsToggled="{Binding WorldviewCrossSave, Mode=OneWay}" />
                                     </Grid>
                                 </VerticalStackLayout>
+
+                                <!-- 插件特质 / 口味：由插件清单 character_profile 声明，按角色存 -->
+                                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasPluginProfile}">
+                                    <BoxView Style="{StaticResource HSep}" />
+                                    <Label Text="插件特质与口味" Style="{StaticResource PaneTitle}" />
+                                    <VerticalStackLayout Spacing="10"
+                                                         BindableLayout.ItemsSource="{Binding PluginProfileItems}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:PluginProfileItem">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                                                        <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" />
+                                                        <Label Text="{Binding Help}" Style="{StaticResource TxtCaption}"
+                                                               LineHeight="1.3" IsVisible="{Binding HasHelp}" />
+                                                    </VerticalStackLayout>
+                                                    <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
+                                                            IsToggled="{Binding BoolValue, Mode=TwoWay}" IsVisible="{Binding IsSwitch}" />
+                                                    <Entry Grid.Column="1" WidthRequest="180" IsVisible="{Binding IsText}"
+                                                           Text="{Binding TextValue, Mode=TwoWay}"
+                                                           BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                           PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
+                                                </Grid>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
                             </VerticalStackLayout>
                             <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabState}">
                                 <VerticalStackLayout Spacing="6">
@@ -1308,17 +1334,6 @@
                                     </VerticalStackLayout>
                                     <controls:ViewSwitch x:Name="AllowedSwitch" Grid.Column="1" VerticalOptions="Center"
                                             IsToggled="{Binding AllowedInSave, Mode=OneWay}" />
-                                </Grid>
-
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                                        <Label Text="主角" Style="{StaticResource TxtBodySm}" />
-                                        <Label Text="换成别的主角不会删掉 TA，只是这一局不从 TA 开始。"
-                                               Style="{StaticResource TxtCaption}" />
-                                    </VerticalStackLayout>
-                                    <Button Grid.Column="1" Text="{Binding MainLabel}"
-                                            Style="{StaticResource BtnGhostSm}"
-                                            Command="{Binding ToggleMainCommand}" />
                                 </Grid>
 
                                 <BoxView Style="{StaticResource HSep}" />

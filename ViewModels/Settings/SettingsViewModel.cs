@@ -132,6 +132,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _mentalHealthEnabled = s.MentalHealthEnabled;
         _psychologyBehaviorEnabled = s.PsychologyBehaviorEnabled;
         _physiologyEnabled = s.PhysiologyEnabled;
+        _innerLifeEnabled = s.InnerLifeEnabled;
         _brainEnabled = s.BrainEnabled;
         _brainExpectationEnabled = s.BrainExpectationEnabled;
         _brainSurpriseEnabled = s.BrainSurpriseEnabled;
@@ -160,6 +161,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _aiUrl = s.AiUrl;
         _aiKey = s.AiKey;
         _aiModel = s.AiModel;
+        _smallModelFirst = s.SmallModelFirst;
+        _smallAiUrl = s.SmallAiUrl;
+        _smallAiKey = s.SmallAiKey;
+        _smallAiModel = s.SmallAiModel;
         _aiPreset = PresetDisplayOf(s.AiPreset);
         _visionUrl = s.VisionUrl;
         _visionKey = s.VisionKey;
@@ -192,22 +197,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _contextTokenLimit = Math.Clamp(s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000, 4000, 256000);
         _contextTokenLimitDisplay = ContextLimitDisplayOf(_contextTokenLimit);
         AiProviders.Clear();
-        foreach (var v in s.AiProviders ?? new List<AiProvider>())
-        {
-            var row = new AiProviderRow
-            {
-                Id = string.IsNullOrWhiteSpace(v.Id) ? Guid.NewGuid().ToString("N")[..8] : v.Id,
-                Name = v.Name ?? "",
-                Url = v.Url ?? "",
-                KeysText = string.Join("\n", v.Keys ?? new List<string>()),
-                Enabled = v.Enabled,
-                TimeoutSeconds = v.TimeoutSeconds is { } t and > 0 ? t.ToString() : ""
-            };
-            foreach (var m in v.Models ?? new List<AiProviderModel>())
-                row.Models.Add(new AiModelRow { Model = m.Model ?? "", Label = m.Label ?? "", Enabled = m.Enabled });
-            AttachAiProvider(row);
-        }
-        UpdateAiProviderStatus();
+        ReloadAiProviders();
 
         _ttsEnabled = s.TtsEnabled;
         _ttsRate = s.TtsRate;
@@ -653,6 +643,48 @@ public sealed partial class SettingsViewModel : ObservableObject
         AiProviders.Add(row);
     }
 
+    /// <summary>
+    /// 从设置里重读厂商列表（管理页改完回来时调）：模型摘要、密钥数、超时都跟着刷新。
+    /// 只重建这一块，不动其它设置项，避免把页面上还没保存的编辑冲掉。
+    /// </summary>
+    public void ReloadAiProviders()
+    {
+        AiProviders.Clear();
+        foreach (var v in _settings.Current.AiProviders ?? new List<AiProvider>())
+        {
+            var row = new AiProviderRow
+            {
+                Id = string.IsNullOrWhiteSpace(v.Id) ? Guid.NewGuid().ToString("N")[..8] : v.Id,
+                Name = v.Name ?? "",
+                Url = v.Url ?? "",
+                KeysText = string.Join("\n", v.Keys ?? new List<string>()),
+                Enabled = v.Enabled,
+                TimeoutSeconds = v.TimeoutSeconds is { } t and > 0 ? t.ToString() : ""
+            };
+            foreach (var m in v.Models ?? new List<AiProviderModel>())
+                row.Models.Add(new AiModelRow
+                {
+                    Model = m.Model ?? "",
+                    Label = m.Label ?? "",
+                    Enabled = m.Enabled,
+                    ContextWindow = m.ContextWindow > 0 ? m.ContextWindow.ToString() : "",
+                    SupportsVision = m.SupportsVision,
+                    SupportsTools = m.SupportsTools,
+                    SupportsJson = m.SupportsJson
+                });
+            AttachAiProvider(row);
+        }
+        UpdateAiProviderStatus();
+    }
+
+    /// <summary>打开独立的厂商管理页（端点 / 密钥 / 超时 / 排序）。</summary>
+    [RelayCommand]
+    private async Task OpenAiProvidersAsync() => await Shell.Current.GoToAsync("aiProviders");
+
+    /// <summary>打开独立的模型管理页（上下文窗口 / 识图 / 工具 / JSON）。</summary>
+    [RelayCommand]
+    private async Task OpenAiModelsAsync() => await Shell.Current.GoToAsync("aiModels");
+
     /// <summary>新增一家厂商（可同时填第一款模型；之后还能继续加）。</summary>
     [RelayCommand]
     private void AddProvider()
@@ -731,6 +763,40 @@ public sealed partial class SettingsViewModel : ObservableObject
         model.Enabled = !model.Enabled;
         var owner = AiProviders.FirstOrDefault(v => v.Models.Contains(model));
         owner?.RefreshSummary();
+        PersistSettings();
+    }
+
+    /// <summary>识图现在实际会用谁：独立端点 / 标了能看图的厂商模型 / 大模型兜底。</summary>
+    public string VisionHint => _vision.TargetDescription;
+
+    /// <summary>
+    /// 改一款模型自己的参数：上下文窗口 + 三项能力。
+    /// 窗口决定这条端点的历史折叠阈值；能力决定要不要带 tools、识图时会不会选它。
+    /// </summary>
+    [RelayCommand]
+    private async Task EditModelSettings(AiModelRow? model)
+    {
+        if (model is null) return;
+        var win = await Shell.Current.DisplayPromptAsync(
+            $"「{model.DisplayName}」的上下文窗口",
+            "这款模型一次能收多少 token（如 128000 / 32000）。留空 = 用设置里的全局上下文上限。",
+            initialValue: model.ContextWindow, maxLength: 8, keyboard: Keyboard.Numeric);
+        if (win is null) return;
+        model.ContextWindow = win.Trim();
+
+        model.SupportsVision = await Shell.Current.DisplayAlert(
+            "能力 · 识图",
+            "这款模型能看图吗？\n没配独立识图端点时，会优先用标注了「能」的模型来识图。",
+            "能看图", "不能");
+        model.SupportsTools = await Shell.Current.DisplayAlert(
+            "能力 · 工具调用",
+            "支持 function calling 吗？\n选「不支持」后，走这条端点时请求里不会带 tools（小模型常见）。",
+            "支持", "不支持");
+        model.SupportsJson = await Shell.Current.DisplayAlert(
+            "能力 · JSON",
+            "能稳定输出 JSON 吗？用于结构化任务时的路由判断。",
+            "能", "不能");
+
         PersistSettings();
     }
 
@@ -1153,6 +1219,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _mentalHealthEnabled = true;
     [ObservableProperty] private bool _psychologyBehaviorEnabled = true;
     [ObservableProperty] private bool _physiologyEnabled = true;
+    [ObservableProperty] private bool _innerLifeEnabled = true;
     // 大脑预判：期待差 + 意料之外两层，默认本地跑；可选配一枚免费小模型每 N 轮补一次预判
     [ObservableProperty] private bool _brainEnabled = true;
     [ObservableProperty] private bool _brainExpectationEnabled = true;
@@ -1224,6 +1291,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _aiUrl = "https://api.openai.com/v1/chat/completions";
     [ObservableProperty] private string _aiKey = "";
     [ObservableProperty] private string _aiModel = "gpt-4o";
+
+    /// <summary>小模型优先：所有对话先交小模型，处理不来再升级大模型（仅 Minecraft 桥未连接时生效）。</summary>
+    [ObservableProperty] private bool _smallModelFirst;
+    partial void OnSmallModelFirstChanged(bool value) => PersistSettings();
+    [ObservableProperty] private string _smallAiUrl = "";
+    partial void OnSmallAiUrlChanged(string value) => PersistSettings();
+    [ObservableProperty] private string _smallAiKey = "";
+    partial void OnSmallAiKeyChanged(string value) => PersistSettings();
+    [ObservableProperty] private string _smallAiModel = "";
+    partial void OnSmallAiModelChanged(string value) => PersistSettings();
     [ObservableProperty] private double _aiTemperature = 0.8;
     [ObservableProperty] private double _aiMaxTokens = 500;
     [ObservableProperty] private bool _deepThink;
@@ -2548,6 +2625,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnMentalHealthEnabledChanged(bool value) => PersistSettings();
     partial void OnPsychologyBehaviorEnabledChanged(bool value) => PersistSettings();
     partial void OnPhysiologyEnabledChanged(bool value) => PersistSettings();
+    partial void OnInnerLifeEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainExpectationEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainSurpriseEnabledChanged(bool value) => PersistSettings();
@@ -2945,6 +3023,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 MentalHealthEnabled = MentalHealthEnabled,
                 PsychologyBehaviorEnabled = PsychologyBehaviorEnabled,
                 PhysiologyEnabled = PhysiologyEnabled,
+                InnerLifeEnabled = InnerLifeEnabled,
                 BrainEnabled = BrainEnabled,
                 BrainExpectationEnabled = BrainExpectationEnabled,
                 BrainSurpriseEnabled = BrainSurpriseEnabled,
@@ -3008,6 +3087,10 @@ GlassLightWidth = GlassLightWidth,
                 SubProfileAiRewrite = SubProfileAiRewrite,
                 SemanticAiAssist = SemanticAiAssist,
                 CrossSaveMemory = CrossSaveMemory,
+                SmallModelFirst = SmallModelFirst,
+                SmallAiUrl = SmallAiUrl.Trim(),
+                SmallAiKey = SmallAiKey.Trim(),
+                SmallAiModel = SmallAiModel.Trim(),
                 SmartSavingEnabled = SmartSavingEnabled,
                 LightMode = LightMode,
                 PreferDiscreteGpu = PreferDiscreteGpu,

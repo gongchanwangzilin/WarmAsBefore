@@ -574,6 +574,7 @@ file:///.../pages/settings.html
 | `POST` | `/save?token=...` | 写入设置；body 可以是 `{"key":"value"}` 或 `{"settings":{"key":"value"}}` |
 | `GET` | `/settings?token=...` | 读取全部设置（字符串字典） |
 | `GET` | `/runtime?token=...` | 读取实时状态；没有状态时返回 `{"ok":false,"host":"...","error":"..."}` |
+| `POST` | `/action?token=...&action=...` | 页面动作口；body 为 JSON，动作语义由 `PageActionInvoker` 对应的插件自己解释，返回 `{"ok":true,...}` 或 `{"ok":false,"error":"..."}` |
 | `OPTIONS` | 任意 | CORS 预检，返回 204 |
 
 响应：

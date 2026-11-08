@@ -44,6 +44,7 @@ public sealed class RuntimeConfigurator
     private readonly MapService _map;
     private readonly Modules.MinecraftBridge.MaidBridgeService _maidBridge;
     private readonly BrainAnticipationService _brain;
+    private readonly InnerLifeService _inner;
     private readonly WorldTreeService _worlds;
     private bool _notifyHooked;
     private bool _sceneHooked;
@@ -60,7 +61,7 @@ public sealed class RuntimeConfigurator
         GenderLibrary genders, MentalHealthService mental, PhysiologyService body,
         ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map,
         Modules.MinecraftBridge.MaidBridgeService maidBridge, BrainAnticipationService brain,
-        WorldTreeService worlds)
+        InnerLifeService inner, WorldTreeService worlds)
     {
         _settings = settings;
         _chat = chat;
@@ -93,6 +94,7 @@ public sealed class RuntimeConfigurator
         _map = map;
         _maidBridge = maidBridge;
         _brain = brain;
+        _inner = inner;
         _worlds = worlds;
         _plugins.ToolInvoker = (name, args) => _tools.ExecuteAsync(name, args);
         // 存档级权限：工具与插件都从同一个存档状态取，读档后立即跟着变
@@ -106,12 +108,56 @@ public sealed class RuntimeConfigurator
             string.Equals(id, Modules.MinecraftBridge.MaidBridgeService.PluginId, StringComparison.Ordinal)
                 ? _maidBridge.RuntimeJsonAsync()
                 : Task.FromResult<string?>(null);
+        // 插件页面动作口：带 token 的 POST /action 统一从这里转给对应插件，宿主不解释动作内容。
+        _plugins.PageActionInvoker = (id, action, args) =>
+            string.Equals(id, Modules.MinecraftBridge.MaidBridgeService.PluginId, StringComparison.Ordinal)
+                ? _maidBridge.BindingsActionAsync(action, args)
+                : Task.FromResult("{\"ok\":false,\"error\":\"这个插件没有页面动作。\"}");
         // 数值结算的通用口：插件申请到 stats 授权后，用 adjustStat(charId, stat, delta) 改某个角色的
         // 好感 / 信任 / 精力。走与主流程同一套钳制边界，改动立刻经角色库落盘。
         _plugins.StatAdjuster = AdjustCharacterStatAsync;
         // Minecraft 没连上时不把 maid_* 放进提示词：模型不该看见用不了的工具。
         _tools.ToolVisibility = name =>
             !name.StartsWith("maid_", StringComparison.Ordinal) || _maidBridge.IsConnected;
+    }
+
+    /// <summary>
+    /// 执念醒了：后台巡检发现她惦记的事张力到阈值，让她自己把这件事想一遍。
+    /// 回复会照常进对话历史；人在游戏里的话，再把这句话递进世界让她说出口。
+    /// </summary>
+    private async Task OnObsessionWakeAsync(string charId, string question)
+    {
+        try
+        {
+            var prompt = "（心里的事自己冒上来了：有一件事你一直没弄明白——「" + question + "」。\n"
+                         + "现在没有人在找你说话，是你自己想把这件事想一遍。想到什么就说什么；"
+                         + "要是这会儿想明白了，就把它讲出来；要是还是不明白，就说说你还惦记着它、打算怎么办。"
+                         + "不要提「系统」或这段说明，也不要当成别人问了你问题。）";
+            var reply = await _chat.Send(charId, prompt);
+            if (!string.IsNullOrWhiteSpace(reply))
+                await _maidBridge.DeliverUnsolicitedAsync(charId, reply);
+        }
+        catch (Exception ex) { App.WriteLog("InnerLife.Wake -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// 到点做梦：她安静下来超过几小时，后台让她把最近的事在半梦半醒里过一遍。
+    /// 梦呓照常进对话历史（你打开聊天能看见她做的梦），同时存成一条记忆——
+    /// 梦是她自己长出来的经历，不递进游戏里。
+    /// </summary>
+    private async Task OnDreamAsync(string charId)
+    {
+        try
+        {
+            var prompt = "（夜深了，或者只是午后没人打扰。你刚打了个盹，半梦半醒之间把最近发生的事过了一遍。\n"
+                         + "用第一人称说一段梦境或自省，三四句以内：梦里可以有最近的事的影子，"
+                         + "也可以有点不讲道理；醒了记住了多少就写多少。不要提「系统」或这段说明。）";
+            var reply = await _chat.Send(charId, prompt);
+            if (string.IsNullOrWhiteSpace(reply)) return;
+            await _human.StoreAsync(charId, "（梦）" + reply.Trim(),
+                HumanMemoryKind.Abstraction, 0.45, tags: new[] { "梦", "自省" });
+        }
+        catch (Exception ex) { App.WriteLog("InnerLife.Dream -> " + ex.Message); }
     }
 
     /// <summary>
@@ -517,6 +563,11 @@ public sealed class RuntimeConfigurator
                 if (keys.Count == 0) continue;
                 foreach (var m in (v.Models ?? new List<AiProviderModel>()).Where(m => m.Enabled && !string.IsNullOrWhiteSpace(m.Model)))
                 {
+                    // 上下文窗口按「模型声明的窗口」折算：留出输出空间，取 70% 做历史折叠阈值；
+                    // 没填（0）才退回全局上限。这样同一家厂商挂一个 8K 小模型和一个 200K 大模型也不会互相拖累。
+                    var limit = m.ContextWindow > 0
+                        ? Math.Clamp((int)(m.ContextWindow * 0.7), 2000, 1_000_000)
+                        : (s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000);
                     rotationPool.Add(new AiEndpoint
                     {
                         Provider = string.IsNullOrWhiteSpace(v.Name) ? m.Model : v.Name,
@@ -529,7 +580,9 @@ public sealed class RuntimeConfigurator
                         DeepThink = s.DeepThink || s.ComplexPlot,
                         DeepModel = s.DeepModel,
                         MemoryTurns = s.MemoryTurns,
-                        ContextTokenLimit = s.ContextTokenLimit,
+                        ContextTokenLimit = limit,
+                        SupportsTools = m.SupportsTools,
+                        SupportsVision = m.SupportsVision,
                         TimeoutSeconds = v.TimeoutSeconds
                     });
                 }
@@ -574,6 +627,21 @@ public sealed class RuntimeConfigurator
             MemoryTurns = s.MemoryTurns,
             ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
         }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
+        // 小模型优先：不再因为 Minecraft 桥连着就整个禁用——桥连着时小模型照样先答，
+        // 只是提示词里明确告诉它「要动游戏就升级」，由它自己判断（见 ChatEngine.RunTurnWithSmallAsync）。
+        // 配了模型名才算启用；URL / 密钥留空则复用上面的对话端点。
+        _chat.SmallModelFirstEnabled = s.SmallModelFirst;
+        _chat.SmallEndpoint = string.IsNullOrWhiteSpace(s.SmallAiModel) ? null : new AiEndpoint
+        {
+            Url = string.IsNullOrWhiteSpace(s.SmallAiUrl) ? s.AiUrl : s.SmallAiUrl,
+            Key = string.IsNullOrWhiteSpace(s.SmallAiKey) ? s.AiKey : s.SmallAiKey,
+            Model = s.SmallAiModel.Trim(),
+            Temperature = s.AiTemperature,
+            MaxTokens = s.AiMaxTokens,
+            MemoryTurns = s.MemoryTurns,
+            ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
+        };
+        _chat.BridgeConnected = () => _maidBridge.IsConnected;
         // 超时：全局值（端点可在上面的档案里单独覆写）
         _api.GlobalTimeoutSeconds = s.AiTimeoutSeconds > 0 ? s.AiTimeoutSeconds : 25;
         // 成本：单价表由设置页维护，用量由 ApiGateway 的真实 usage 记账。
@@ -621,6 +689,11 @@ public sealed class RuntimeConfigurator
             _engine.Roster.TryGetValue(charId, out var data) ? data.Profile : null;
         // 大脑预判：本地每轮结算（PrepareTurn 在 ChatEngine.Send 里调），动态上下文注入期待差/惊喜卡
         _chat.Brain = _brain;
+        // 内心生活：激素池每轮结算、答不上来的事长成执念、惦记到阈值自己想明白
+        _chat.InnerLife = _inner;
+        _inner.ObsessionWake += (charId, question) => _ = OnObsessionWakeAsync(charId, question);
+        _inner.DreamRequested += charId => _ = OnDreamAsync(charId);
+        _inner.Start();
         // 身体感受：每轮都取最新（放在动态上下文里，人设不必重建）
         _chat.ExtraContextProvider = charId =>
         {
@@ -673,6 +746,13 @@ public sealed class RuntimeConfigurator
                 if (!string.IsNullOrWhiteSpace(maid)) parts.Add(maid);
             }
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MaidContext -> " + ex.Message); }
+            // 内心生活：此刻的心绪（激素池）与没放下的事（执念池），跟着每一轮变化
+            try
+            {
+                var inner = await _inner.PromptTextAsync(charId);
+                if (!string.IsNullOrWhiteSpace(inner)) parts.Add(inner);
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.InnerLifeContext -> " + ex.Message); }
             // 角色世界观（需求 16）：角色自己可以有多套、每套复合多本世界书；存档里选的那一套优先。
             // 与「存档绑定的世界书」并存 —— 角色来自哪里，和这一局发生在哪里，是两件事。
             try

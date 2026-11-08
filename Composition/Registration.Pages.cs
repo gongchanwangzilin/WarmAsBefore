@@ -14,6 +14,9 @@ public static class PageRegistration
         services.AddTransient<CharacterSelectPage>();
         services.AddTransient<SettingsPage>();
         services.AddTransient<SettingsSectionPage>();
+        // AI 厂商与模型管理：两页都能独立打开，也互相跳转
+        services.AddTransient<AiProvidersPage>();
+        services.AddTransient<AiModelsPage>();
         services.AddTransient<PhonePage>();
         services.AddTransient<WeChatPage>();
         // QQ 壳：复用 WeChatViewModel（构造后 SetShell("qq")）
@@ -57,6 +60,8 @@ public static class PageRegistration
         services.AddTransient<ForceCastPage>();
         services.AddTransient<MentalHealthPage>();
         services.AddTransient<PluginCenterPage>();
+        services.AddTransient<PluginWebPage>();
+        services.AddTransient<BindWizardPage>();
         services.AddTransient<PluginSettingsPage>();
         services.AddTransient<PluginPermissionsPage>();
         services.AddTransient<SaveRulesPage>();

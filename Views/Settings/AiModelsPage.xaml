@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.AiModelsPage"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+    <Grid RowDefinitions="Auto,*" Padding="18,10,18,14" RowSpacing="10">
+
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Button Grid.Column="0" Text="←" Style="{StaticResource BtnText}" Padding="10,2" Clicked="OnBack" />
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="AI 模型管理" FontSize="18" FontAttributes="Bold"
+                       TextColor="{DynamicResource SurfaceFg}" />
+                <Label Text="每个模型单独配上下文窗口与能力：窗口决定历史折叠阈值，能力决定带不带工具、识图用不用它。"
+                       Style="{StaticResource TxtCaption}" />
+            </VerticalStackLayout>
+            <Button Grid.Column="2" Text="厂商管理 →" Style="{StaticResource BtnGhost}"
+                    Padding="10,4" Clicked="OnOpenProviders" />
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="12">
+
+                <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Providers}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:AiProviderRow">
+                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
+                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="12,10">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="12" />
+                                </Border.StrokeShape>
+                                <VerticalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                            <Label Text="{Binding Title}" FontSize="14" FontAttributes="Bold"
+                                                   TextColor="{DynamicResource SurfaceFg}" />
+                                            <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
+                                                   LineBreakMode="TailTruncation" />
+                                        </VerticalStackLayout>
+                                        <Button Grid.Column="1" Text="＋ 模型" Style="{StaticResource BtnText}"
+                                                Clicked="OnAddModel" />
+                                    </Grid>
+
+                                    <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Models}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:AiModelRow">
+                                                <Border Stroke="{DynamicResource BorderLine}" StrokeThickness="0.8"
+                                                        Padding="10,8">
+                                                    <Border.StrokeShape>
+                                                        <RoundRectangle CornerRadius="10" />
+                                                    </Border.StrokeShape>
+                                                    <VerticalStackLayout Spacing="6">
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                            <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                                                <Label Text="{Binding DisplayName}" FontSize="13"
+                                                                       TextColor="{DynamicResource SurfaceFg}" />
+                                                                <Label Text="{Binding CapabilityText}"
+                                                                       Style="{StaticResource TxtCaption}" />
+                                                            </VerticalStackLayout>
+                                                            <HorizontalStackLayout Grid.Column="1" Spacing="4">
+                                                                <Switch IsToggled="{Binding Enabled}"
+                                                                        Toggled="OnModelToggled" VerticalOptions="Center" />
+                                                                <Button Text="删除" Style="{StaticResource BtnText}"
+                                                                        Clicked="OnDeleteModel" />
+                                                            </HorizontalStackLayout>
+                                                        </Grid>
+
+                                                        <Grid ColumnDefinitions="Auto,120,*" ColumnSpacing="8">
+                                                            <Label Grid.Column="0" Text="上下文窗口"
+                                                                   Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" />
+                                                            <Entry Grid.Column="1" Text="{Binding ContextWindow}"
+                                                                   Placeholder="如 128000" Keyboard="Numeric"
+                                                                   FontSize="12" Unfocused="OnWindowUnfocused"
+                                                                   BackgroundColor="{DynamicResource InputBg}"
+                                                                   TextColor="{DynamicResource SurfaceFg}"
+                                                                   PlaceholderColor="{DynamicResource MutedFg}" />
+                                                            <Label Grid.Column="2" Text="留空 = 用全局上限；填了按 70% 折叠历史"
+                                                                   Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" />
+                                                        </Grid>
+
+                                                        <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                                                            <Label Text="识图" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding SupportsVision}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
+                                                            <Label Text="工具" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding SupportsTools}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
+                                                            <Label Text="JSON" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding SupportsJson}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" />
+                                                        </FlexLayout>
+                                                    </VerticalStackLayout>
+                                                </Border>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </VerticalStackLayout>
+                                </VerticalStackLayout>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+                <Label Text="没有厂商？先去「厂商管理」填端点与密钥。" Style="{StaticResource TxtCaption}" />
+                <Label x:Name="StatusLabel" Style="{StaticResource TxtCaption}" IsVisible="False" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

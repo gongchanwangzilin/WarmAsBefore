@@ -34,6 +34,9 @@ public sealed class SaveManager
     /// <summary>上一次读档时的自动修复说明（空 = 无需修复）。</summary>
     public string LastLoadNote { get; private set; } = "";
 
+    /// <summary>上一次保存失败的真实原因（空 = 成功或还没保存过）。别再把异常吞成一句「写不进去」。</summary>
+    public string LastCommitError { get; private set; } = "";
+
     /// <summary>新开一局：分配新的存档槽位（同一角色可开多局，各自成档）。</summary>
     public string NewRun()
     {
@@ -48,6 +51,7 @@ public sealed class SaveManager
     {
         try
         {
+            LastCommitError = "";
             if (string.IsNullOrEmpty(_engine.CurrentSaveId)) NewRun();
             var slot = new SaveSlot
             {
@@ -82,7 +86,12 @@ public sealed class SaveManager
             RememberSlotInListCache(slot);
             return true;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            LastCommitError = ex.Message;
+            App.WriteLog("SaveManager.Commit -> " + ex);
+            return false;
+        }
     }
 
     public bool HasImportedNovel()
@@ -665,6 +674,41 @@ public sealed class SaveManager
         {
             App.WriteLog("SaveManager.SaveRules -> " + ex);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// 换这一档的主角。「主角」只属于存档：改的是这份档的 meta 与 state.CharacterId，
+    /// 角色库里的角色本身不动；正在玩的这份存档会同步切过去。
+    /// </summary>
+    public async Task<(bool Ok, string Message)> SetMainCharacterAsync(string id, string charId)
+    {
+        try
+        {
+            if (string.IsNullOrEmpty(charId)) return (false, "没有指定角色。");
+            var json = await _store.LoadRawAsync($"saves/{id}");
+            if (string.IsNullOrEmpty(json)) return (false, "存档不存在。");
+            if (JsonNode.Parse(json) is not JsonObject root) return (false, "存档结构不完整。");
+            if (root["state"] is not JsonObject stateNode) return (false, "存档缺少运行状态。");
+            var state = stateNode.Deserialize<GameState>();
+            if (state is null) return (false, "存档缺少运行状态。");
+            state.CharacterId = charId;
+            root["state"] = JsonSerializer.SerializeToNode(state);
+            if (root["meta"] is JsonObject meta)
+            {
+                meta["Character"] = charId;
+                if (meta.Deserialize<SaveSlot>() is { } slot) RememberSlotInListCache(slot);
+            }
+            await _store.WriteRawAsync($"saves/{id}", root.ToJsonString(WriteJson));
+            if (string.Equals(_engine.CurrentSaveId, id, StringComparison.Ordinal) && _engine.Roster.ContainsKey(charId))
+                _engine.SetCharacter(charId);
+            var name = _engine.Roster.TryGetValue(charId, out var ch) ? ch.Profile.Name : charId;
+            return (true, $"这一档的主角改成了「{name}」。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.SetMain -> " + ex);
+            return (false, "换主角失败：" + ex.Message);
         }
     }
 
