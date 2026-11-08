@@ -388,4 +388,4 @@ android-sdk/platforms/
 proot-build/
 
 # 插件分发包随 Release 发布，不进仓库
-/plugins/*.zip
+/plugins/
