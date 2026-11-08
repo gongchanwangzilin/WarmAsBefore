@@ -56,7 +56,7 @@
                                          Padding="{DynamicResource WPadCard}">
                         <Label Text="暂无存档" Style="{StaticResource TxtSubhead}"
                                HorizontalOptions="Center" />
-                        <Label Text="回到标题点击「创建新欢」开始新的一局吧" Style="{StaticResource TxtMuted}"
+                        <Label Text="点下方「新建存档」开始新的一局吧" Style="{StaticResource TxtMuted}"
                                HorizontalOptions="Center" HorizontalTextAlignment="Center" />
                     </VerticalStackLayout>
                 </CollectionView.EmptyView>
@@ -128,8 +128,12 @@
             </CollectionView>
         </Border>
 
-        <!-- Bottom bar: import / backup / novel-test -->
+        <!-- Bottom bar: new / import / backup / novel-test。
+             新建存档放在这一页的第一颗主按钮上：用户在这里找的就是「再开一档」，
+             不该被赶回标题页再绕一遍「创建新欢」。 -->
         <VerticalStackLayout Grid.Row="4" Spacing="6" Margin="{DynamicResource WPadCard}">
+            <Button Text="新建存档" Style="{StaticResource BtnNeumorph}"
+                    Command="{Binding NewSaveCommand}" />
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
                 <Button Text="导入存档" Style="{StaticResource BtnNeumorph}"
                         Command="{Binding ImportSaveCommand}" />

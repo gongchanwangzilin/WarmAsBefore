@@ -124,6 +124,22 @@ public sealed partial class SaveViewModel : ObservableObject
         await Refresh();
     }
 
+    /// <summary>
+    /// 新建存档：进角色选择页（select），选人确认后由那一页带着角色 id 跳进
+    /// 「世界 → 人设 → 细则 → 开始」四步向导（newrun）。与标题页「创建新欢」同一条链，
+    /// 不直接裸跳 newrun——缺角色参数时会回落到引擎里残存的旧角色，不是干净的新一局。
+    /// </summary>
+    [RelayCommand]
+    private async Task NewSave()
+    {
+        try { await Shell.Current.GoToAsync("select"); }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveViewModel.NewSave -> " + ex);
+            Toast.Warn("没能打开新建存档向导，请稍后再试。");
+        }
+    }
+
     [RelayCommand]
     private async Task ImportSave()
     {
