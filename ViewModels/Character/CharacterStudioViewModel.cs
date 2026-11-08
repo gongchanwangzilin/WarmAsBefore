@@ -54,6 +54,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     private FigurePack? _figurePack;
     private List<string> _figureEmotions = new() { "normal" };
     private int _figurePreviewVersion;
+    private readonly PluginHost _plugins;
 
     public CharacterStudioViewModel(GameEngine engine, CharacterLibrary library, StorageProvider store,
         ApiGateway api, ImageGenerationService images, LingshuImporter lingshu,
@@ -61,7 +62,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         MemoryOverviewService memory, PageWindowService windows, GenderLibrary genders,
         Modules.SaveSystem.SaveManager saves, Modules.Cg.CgStore cg,
         Modules.Cg.CgViewPayload cgView, WorldTreeService worldTree, AvatarCropService crop,
-        FigurePackService figures)
+        FigurePackService figures, PluginHost plugins)
     {
         _engine = engine;
         _library = library;
@@ -81,6 +82,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         _worldTree = worldTree;
         _crop = crop;
         _figures = figures;
+        _plugins = plugins;
         GenderChoices = genders.Names
             .Select(n => new StudioAxisItem(n, n)).ToList();
     }
@@ -97,13 +99,52 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     /// </summary>
     public Action<string>? Created { get; set; }
 
+    // ── 插件特质 / 口味（每角色，由插件清单 character_profile 声明）─────────
+    public System.Collections.ObjectModel.ObservableCollection<PluginProfileItem> PluginProfileItems { get; } = new();
+    public bool HasPluginProfile => PluginProfileItems.Count > 0;
+
+    public async Task LoadPluginProfileAsync()
+    {
+        PluginProfileItems.Clear();
+        if (!string.IsNullOrEmpty(CharacterId))
+        {
+            try
+            {
+                foreach (var p in await _plugins.AllAsync())
+                {
+                    if (!p.Enabled) continue;
+                    var fields = p.Manifest.CharacterProfile.Fields;
+                    if (fields.Count == 0) continue;
+                    var values = await _plugins.CharacterValuesAsync(p, CharacterId);
+                    foreach (var f in fields)
+                    {
+                        if (string.IsNullOrWhiteSpace(f.Key)) continue;
+                        var val = values.TryGetValue(f.Key, out var v) ? v : (f.Default ?? "");
+                        PluginProfileItems.Add(new PluginProfileItem(this, p.Manifest.Id, f, val));
+                    }
+                }
+            }
+            catch (Exception ex) { App.WriteLog("Studio.PluginProfile -> " + ex.Message); }
+        }
+        OnPropertyChanged(nameof(HasPluginProfile));
+    }
+
+    public async Task SavePluginFieldAsync(string pluginId, string key, string value)
+    {
+        if (string.IsNullOrEmpty(CharacterId)) return;
+        try
+        {
+            await _plugins.SaveCharacterSettingsAsync(pluginId, CharacterId,
+                new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [key] = value });
+        }
+        catch (Exception ex) { App.WriteLog("Studio.SavePluginField -> " + ex.Message); }
+    }
+
     // ── 身份 ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _characterId = "";
     [ObservableProperty] private string _displayName = "";
     [ObservableProperty] private string _headline = "";
     [ObservableProperty] private string _metaLine = "";
-    [ObservableProperty] private bool _isMain;
-    [ObservableProperty] private string _mainLabel = "";
 
     // ── 设定 ────────────────────────────────────────────────────────────
     [ObservableProperty] private string _name = "";
@@ -338,6 +379,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         // 存档数在这里自己数：由列表页传入字符串会让独立窗口只能显示空白句。
         var runs = savesTask.Result.Count(s => s.Character == charId);
         Apply(found, runs == 0 ? "暂无存档" : $"存档 {runs} 个", false);
+        await LoadPluginProfileAsync();
         return true;
     }
 
@@ -353,6 +395,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     {
         _draft ??= BlankDraft();
         Apply(_draft, "还没进名册", true);
+        _ = LoadPluginProfileAsync();
     }
 
     private CharacterData? _draft;
@@ -403,8 +446,6 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         Headline = isNew ? "新建角色" : HeadlineOf(_ch);
         MetaLine = isNew ? "先起个名字、选个性别，其余都能之后补"
             : StudioCopy.Meta(_ch.Profile.Gender, _ch.Profile.UserAddress, _ch.Profile.IsRomanceTarget);
-        IsMain = IsMainCharacter(_ch.Profile.Id);
-        MainLabel = IsMain ? "当前主角" : "设为主角";
         SaveCountLabel = savesLabel;
         DuplicateName = _ch.Profile.Name + "（副本）";
 
@@ -495,12 +536,6 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
 
     private static string Show<T>(T? v) where T : struct =>
         v?.ToString() is { Length: > 0 } s ? s : "";
-
-    private bool IsMainCharacter(string id)
-    {
-        var mainId = _engine.ActiveCharacter?.Profile.Id ?? _engine.State.CharacterId;
-        return !string.IsNullOrEmpty(mainId) && mainId == id;
-    }
 
     private bool AllowedNow(string id)
     {
@@ -1392,27 +1427,6 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     // ── 关联 ────────────────────────────────────────────────────────────
 
     [RelayCommand]
-    private void ToggleMain()
-    {
-        if (IsMain)
-        {
-            _engine.State.CharacterId = "";
-            IsMain = false;
-            MainLabel = "设为主角";
-            Status = $"已经取消「{Name}」的主角标记。";
-        }
-        else
-        {
-            _engine.SetCharacter(CharacterId);
-            IsMain = true;
-            MainLabel = "当前主角";
-            Status = $"「{Name}」现在是主角，回到角色选择页可以和 TA 开始新的一局。";
-        }
-        MetaLine = StudioCopy.Meta(Gender, UserAddress, IsRomance);
-        Saved?.Invoke();
-    }
-
-    [RelayCommand]
     private void ToggleAllowed()
     {
         var allowed = _engine.State.AllowedCharacters;
@@ -1786,4 +1800,53 @@ public sealed class TalkLine
     public string Text { get; }
     public bool FromMe { get; }
     public bool IsPending { get; }
+}
+
+/// <summary>
+/// 角色档案里的一行插件字段（特质开关 / 口味文本等）。改动即按角色落盘，不需要等「保存」。
+/// 初值用 _loading 挡住回写，避免一进页面就把默认值当成用户改动写回去。
+/// </summary>
+public sealed partial class PluginProfileItem : ObservableObject
+{
+    private readonly CharacterStudioViewModel _owner;
+    private readonly string _pluginId;
+    private readonly string _key;
+    private readonly bool _loading;
+
+    public PluginProfileItem(CharacterStudioViewModel owner, string pluginId, PluginSettingField field, string value)
+    {
+        _owner = owner;
+        _pluginId = pluginId;
+        _key = field.Key;
+        Label = string.IsNullOrWhiteSpace(field.Label) ? field.Key : field.Label;
+        Help = field.Help ?? "";
+        Type = string.IsNullOrWhiteSpace(field.Type) ? "text" : field.Type.Trim().ToLowerInvariant();
+        TextValue = value ?? "";
+        _loading = true;
+        BoolValue = string.Equals((value ?? "").Trim(), "true", StringComparison.OrdinalIgnoreCase)
+                    || (value ?? "").Trim() == "1";
+        _loading = false;
+    }
+
+    public string Label { get; }
+    public string Help { get; }
+    public string Type { get; }
+    public bool HasHelp => !string.IsNullOrWhiteSpace(Help);
+    public bool IsSwitch => Type == "switch";
+    public bool IsText => !IsSwitch;
+
+    [ObservableProperty] private string _textValue = "";
+    [ObservableProperty] private bool _boolValue;
+
+    partial void OnTextValueChanged(string value)
+    {
+        if (_loading) return;
+        _ = _owner.SavePluginFieldAsync(_pluginId, _key, value ?? "");
+    }
+
+    partial void OnBoolValueChanged(bool value)
+    {
+        if (_loading) return;
+        _ = _owner.SavePluginFieldAsync(_pluginId, _key, value ? "true" : "false");
+    }
 }

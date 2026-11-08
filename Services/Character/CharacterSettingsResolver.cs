@@ -132,6 +132,13 @@ public sealed class CharacterSettingsResolver
             : (provider.Models ?? new List<AiProviderModel>()).FirstOrDefault(m => m.Enabled)?.Model ?? "";
         if (picked.Length == 0) return null;
 
+        // 按模型自己声明的窗口/能力下发：同一家厂商挂 8K 与 200K 两款时，各自的历史折叠阈值不能共用。
+        var pickedMeta = (provider.Models ?? new List<AiProviderModel>())
+            .FirstOrDefault(m => string.Equals(m.Model, picked, StringComparison.OrdinalIgnoreCase));
+        var contextLimit = pickedMeta is { ContextWindow: > 0 }
+            ? Math.Clamp((int)(pickedMeta.ContextWindow * 0.7), 2000, 1_000_000)
+            : (s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000);
+
         return new AiEndpoint
         {
             Provider = string.IsNullOrWhiteSpace(provider.Name) ? picked : provider.Name,
@@ -144,7 +151,9 @@ public sealed class CharacterSettingsResolver
             DeepThink = s.DeepThink || s.ComplexPlot,
             DeepModel = s.DeepModel,
             MemoryTurns = s.MemoryTurns,
-            ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000,
+            ContextTokenLimit = contextLimit,
+            SupportsTools = pickedMeta?.SupportsTools ?? true,
+            SupportsVision = pickedMeta?.SupportsVision ?? false,
             TimeoutSeconds = provider.TimeoutSeconds
         };
     }

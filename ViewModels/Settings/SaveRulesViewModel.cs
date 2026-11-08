@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Modules.Tools;
@@ -26,10 +27,12 @@ public sealed partial class SaveRulesViewModel : ObservableObject
     public ObservableCollection<PermissionRuleItem> Plugins { get; } = new();
     public ObservableCollection<PermissionRuleItem> Tools { get; } = new();
     public ObservableCollection<PermissionRuleItem> Characters { get; } = new();
+    public ObservableCollection<MainCharacterItem> MainChoices { get; } = new();
     public ObservableCollection<LibidoRuleItem> Libido { get; } = new();
     public ObservableCollection<WorldviewRuleItem> Worldviews { get; } = new();
 
     [ObservableProperty] private string _saveLabel = "";
+    [ObservableProperty] private string _mainCharacterId = "";
     [ObservableProperty] private bool _allowAllPlugins = true;
     [ObservableProperty] private bool _allowAllTools = true;
     [ObservableProperty] private bool _allowAiInstallPlugins;
@@ -68,6 +71,7 @@ public sealed partial class SaveRulesViewModel : ObservableObject
         {
             var slot = (await _save.List()).FirstOrDefault(s => s.Id == id);
             SaveLabel = slot is null ? id : $"{slot.Label} · {slot.Scene}";
+            MainCharacterId = slot?.Character ?? "";
             var rules = await _save.LoadRulesAsync(id);
             var perm = rules?.Permissions ?? new SavePermissions();
             var allowedChars = rules?.AllowedCharacters ?? new List<string>();
@@ -99,6 +103,19 @@ public sealed partial class SaveRulesViewModel : ObservableObject
                     Allowed = perm.AllowAllTools || perm.AllowedTools.Contains(t.Name, StringComparer.OrdinalIgnoreCase)
                 });
             }
+            MainChoices.Clear();
+            foreach (var c in await _chars.ListAsync())
+            {
+                var isMain = string.Equals(c.Profile.Id, MainCharacterId, StringComparison.Ordinal);
+                MainChoices.Add(new MainCharacterItem
+                {
+                    Id = c.Profile.Id,
+                    Name = c.Profile.Name,
+                    IsMain = isMain,
+                    Mark = isMain ? "这一档的主角" : ""
+                });
+            }
+
             Characters.Clear();
             foreach (var c in await _chars.ListAsync())
             {
@@ -216,6 +233,23 @@ public sealed partial class SaveRulesViewModel : ObservableObject
             Status = "切换跨存档失败：" + ex.Message;
             App.WriteLog("SaveRules.WorldviewCrossSave -> " + ex);
         }
+    }
+
+    /// <summary>换这一档的主角：只改这份存档，不动角色库里的任何人。</summary>
+    [RelayCommand]
+    private async Task SetMain(string? id)
+    {
+        if (string.IsNullOrEmpty(id) || string.Equals(id, MainCharacterId, StringComparison.Ordinal)) return;
+        var (ok, message) = await _save.SetMainCharacterAsync(_saveId, id);
+        Status = message;
+        if (!ok) { Toast.Error(message); return; }
+        MainCharacterId = id;
+        foreach (var item in MainChoices)
+        {
+            item.IsMain = string.Equals(item.Id, id, StringComparison.Ordinal);
+            item.Mark = item.IsMain ? "这一档的主角" : "";
+        }
+        Toast.Info(message);
     }
 
     [RelayCommand]
@@ -346,4 +380,13 @@ public sealed partial class WorldviewRuleItem : ObservableObject
     public string Hint { get; init; } = "";
     public bool HasHint => !string.IsNullOrWhiteSpace(Hint);
     [ObservableProperty] private bool _isOn;
+}
+
+/// <summary>这一档主角候选：名字 + 当前标记。</summary>
+public sealed partial class MainCharacterItem : ObservableObject
+{
+    public string Id { get; init; } = "";
+    public string Name { get; init; } = "";
+    [ObservableProperty] private bool _isMain;
+    [ObservableProperty] private string _mark = "";
 }

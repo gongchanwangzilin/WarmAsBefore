@@ -86,8 +86,17 @@ public sealed partial class AiProviderRow : ObservableObject
     public ObservableCollection<AiModelRow> Models { get; } = new();
 
     public string Title => string.IsNullOrWhiteSpace(Name) ? "（未命名厂商）" : Name;
-    /// <summary>模型增减后刷新副标题（模型列表在外部被改动时调用）。</summary>
-    public void RefreshSummary() => OnPropertyChanged(nameof(Summary));
+    /// <summary>模型增删/启停后刷新副标题与模型摘要（模型列表在外部被改动时调用）。</summary>
+    public void RefreshSummary()
+    {
+        OnPropertyChanged(nameof(Summary));
+        OnPropertyChanged(nameof(ModelsHint));
+    }
+
+    /// <summary>模型摘要：管理页上一眼看见这家挂了哪些模型、谁被停用。</summary>
+    public string ModelsHint => Models.Count == 0
+        ? "还没有模型：到「模型管理」里加一款。"
+        : "模型：" + string.Join("、", Models.Select(m => m.DisplayName + (m.Enabled ? "" : "（停用）")));
 
     public string Summary
     {
@@ -123,19 +132,57 @@ public sealed partial class AiProviderRow : ObservableObject
         Enabled = Enabled,
         TimeoutSeconds = ParseTimeout(),
         Models = Models.Where(m => !string.IsNullOrWhiteSpace(m.Model))
-            .Select(m => new AiProviderModel { Model = m.Model.Trim(), Label = (m.Label ?? "").Trim(), Enabled = m.Enabled })
+            .Select(m => m.ToModel())
             .ToList()
     };
 }
 
-/// <summary>厂商下面的一款模型（可在列表里单独启停）。</summary>
+/// <summary>厂商下面的一款模型（可在列表里单独启停，也能单独标注上下文窗口与能力）。</summary>
 public sealed partial class AiModelRow : ObservableObject
 {
     [ObservableProperty] private string _model = "";
     [ObservableProperty] private string _label = "";
     [ObservableProperty] private bool _enabled = true;
 
+    /// <summary>上下文窗口（token）文本；空 = 不覆盖，用全局上限。</summary>
+    [ObservableProperty] private string _contextWindow = "";
+    [ObservableProperty] private bool _supportsVision;
+    [ObservableProperty] private bool _supportsTools = true;
+    [ObservableProperty] private bool _supportsJson;
+
     public string DisplayName => string.IsNullOrWhiteSpace(Label) ? (string.IsNullOrWhiteSpace(Model) ? "（未填模型）" : Model) : Label;
-    partial void OnModelChanged(string value) => OnPropertyChanged(nameof(DisplayName));
-    partial void OnLabelChanged(string value) => OnPropertyChanged(nameof(DisplayName));
+    partial void OnModelChanged(string value) { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(CapabilityText)); }
+    partial void OnLabelChanged(string value) { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(CapabilityText)); }
+    partial void OnContextWindowChanged(string value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnSupportsVisionChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnSupportsToolsChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnSupportsJsonChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+
+    /// <summary>小字：3.2K 上下文 · 识图 · 工具。</summary>
+    public string CapabilityText
+    {
+        get
+        {
+            var parts = new List<string>();
+            if (ParseWindow() is { } w) parts.Add($"{w / 1000.0:0.#}K 上下文");
+            if (SupportsVision) parts.Add("识图");
+            if (SupportsTools) parts.Add("工具");
+            if (SupportsJson) parts.Add("JSON");
+            return parts.Count == 0 ? "未标注能力" : string.Join(" · ", parts);
+        }
+    }
+
+    public int ParseWindow()
+        => int.TryParse((ContextWindow ?? "").Trim(), out var v) && v > 0 ? Math.Clamp(v, 1000, 2_000_000) : 0;
+
+    public AiProviderModel ToModel() => new()
+    {
+        Model = (Model ?? "").Trim(),
+        Label = (Label ?? "").Trim(),
+        Enabled = Enabled,
+        ContextWindow = ParseWindow(),
+        SupportsVision = SupportsVision,
+        SupportsTools = SupportsTools,
+        SupportsJson = SupportsJson
+    };
 }

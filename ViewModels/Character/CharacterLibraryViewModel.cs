@@ -79,7 +79,6 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             allSaves = await savesTask;
         }
 
-        var mainId = _engine.ActiveCharacter?.Profile.Id ?? _engine.State.CharacterId;
         var keep = Selected?.Id;
 
         List<CharacterLibraryItem> items;
@@ -94,7 +93,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
                     var full = Path.Combine(_store.Root, ch.Avatar);
                     if (File.Exists(full)) avatar = ImageSource.FromFile(full);
                 }
-                return new CharacterLibraryItem(ch, avatar, isMain: ch.Profile.Id == mainId, savesCount: saves.Count,
+                return new CharacterLibraryItem(ch, avatar, savesCount: saves.Count,
                     displayName: CharacterMask.DisplayName(ch, _settings.Current.MaskUnintroducedNames));
             }).ToList();
         }
@@ -145,7 +144,8 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         PreviewSaves = value.SaveCount.ToString();
         PreviewAffection = ch.State.Affection.ToString("F0");
         PreviewCells = value.CellCount.ToString();
-        PreviewStatus = value.IsMain ? "当前主角" : "配角";
+        // 「主角/配角」是某一份存档里的事，不属于角色库：这里只说 ta 进过几份存档。
+        PreviewStatus = value.SaveCount > 0 ? $"在 {value.SaveCount} 份存档里" : "还没进过存档";
         ApplyBackground(ch);
         OnPropertyChanged(nameof(HasPreviewImage));
     }
@@ -328,7 +328,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         if (index >= 0)
         {
             var old = Items[index];
-            var item = new CharacterLibraryItem(updated, old.AvatarSource, old.IsMain, old.SaveCount,
+            var item = new CharacterLibraryItem(updated, old.AvatarSource, old.SaveCount,
                 CharacterMask.DisplayName(updated, _settings.Current.MaskUnintroducedNames))
             {
                 IsSelected = true
@@ -337,6 +337,25 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
             Selected = item;
         }
         return true;
+    }
+
+    /// <summary>删除一个角色：默认值、立绘、插件挂在它身上的设置一起走；引用它的存档会读不到它。</summary>
+    [RelayCommand]
+    private async Task Delete(CharacterLibraryItem? item)
+    {
+        if (item is null) return;
+        var inSaves = (await _save.List()).Count(s => string.Equals(s.Character, item.Id, StringComparison.Ordinal));
+        var warn = inSaves > 0
+            ? Environment.NewLine + Environment.NewLine
+              + $"有 {inSaves} 份存档把它当作主角：删除后那些存档里这个人的设定与立绘都会消失，进度回不来。"
+            : "";
+        var sure = await Shell.Current.DisplayAlert("删除角色",
+            $"删除「{item.Name}」的角色资料与立绘？这个操作不可恢复。{warn}", "删除", "取消");
+        if (!sure) return;
+        var (ok, message) = await _library.DeleteAsync(item.Id);
+        if (!ok) { Toast.Error(message); return; }
+        Toast.Info(message);
+        await Refresh();
     }
 
     [RelayCommand]
@@ -360,12 +379,11 @@ public sealed partial class BackgroundFitItem : ObservableObject
 /// <summary>角色库展示项。</summary>
 public sealed partial class CharacterLibraryItem : ObservableObject
 {
-    public CharacterLibraryItem(CharacterData ch, ImageSource? avatar, bool isMain, int savesCount,
+    public CharacterLibraryItem(CharacterData ch, ImageSource? avatar, int savesCount,
         string? displayName = null)
     {
         Data = ch;
         AvatarSource = avatar;
-        IsMain = isMain;
         SaveCount = savesCount;
         DisplayName = displayName ?? ch.Profile.Name;
     }
@@ -377,8 +395,6 @@ public sealed partial class CharacterLibraryItem : ObservableObject
     public string Personality => Data.Profile.Personality;
     public ImageSource? AvatarSource { get; init; }
     public bool HasAvatar => AvatarSource is not null;
-    public bool IsMain { get; init; }
-    public string IsMainLabel => IsMain ? "当前主角" : "";
     public int SaveCount { get; init; }
 
     /// <summary>有图的格子数：预览里那个 SPRITES 读数，不是「文件夹里有多少文件」。</summary>

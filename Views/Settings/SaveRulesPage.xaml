@@ -124,6 +124,43 @@
                     </Border>
                 </VerticalStackLayout>
 
+                <!-- 本档主角：主角只属于这一份存档，不写在角色库里 -->
+                <VerticalStackLayout Spacing="8">
+                    <Label Text="这一档的主角" Style="{StaticResource TxtSubhead}" />
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Label Text="主角只属于这份存档：换个档可以从另一个人开始，角色库本身不记谁是主角。"
+                                   Style="{StaticResource TxtRowDesc}" Margin="{DynamicResource WPadRow}"
+                                   LineBreakMode="WordWrap" />
+                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding MainChoices}" Spacing="0">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate>
+                                        <VerticalStackLayout Spacing="0">
+                                            <Border Style="{StaticResource SettingRow}">
+                                                <Border.GestureRecognizers>
+                                                    <TapGestureRecognizer
+                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.SetMainCommand}"
+                                                        CommandParameter="{Binding Id}" />
+                                                </Border.GestureRecognizers>
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
+                                                           VerticalOptions="Center" />
+                                                    <Label Grid.Column="1" Text="{Binding Mark}"
+                                                           Style="{StaticResource TxtCaption}"
+                                                           TextColor="{DynamicResource AccentWarmFg}"
+                                                           VerticalOptions="Center"
+                                                           IsVisible="{Binding IsMain}" />
+                                                </Grid>
+                                            </Border>
+                                            <BoxView Style="{StaticResource HSepInset}" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
                 <!-- 角色 -->
                 <VerticalStackLayout Spacing="8">
                     <Label Text="可以出场的角色" Style="{StaticResource TxtSubhead}" />

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.PluginWebPage"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                        Clicked="OnBackClicked" />
+                <Label x:Name="TitleLabel" Grid.Column="1" Text="插件页面" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                <Button Grid.Column="2" Text="刷新" Style="{StaticResource BtnTextSm}" Padding="8,0"
+                        Clicked="OnReloadClicked" />
+                <Button Grid.Column="3" Text="用浏览器打开" Style="{StaticResource BtnTextSm}" Padding="8,0"
+                        Clicked="OnOpenBrowserClicked" />
+            </Grid>
+        </Border>
+
+        <Grid Grid.Row="1">
+            <WebView x:Name="Browser" HorizontalOptions="Fill" VerticalOptions="Fill" />
+            <Label x:Name="HintLabel" Text="页面加载中…" Style="{StaticResource TxtCaption}"
+                   HorizontalOptions="Center" VerticalOptions="Center" />
+        </Grid>
+    </Grid>
+</ContentPage>

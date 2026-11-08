@@ -124,6 +124,38 @@ public sealed partial class MaidBridgeService
             }
     }
 
+    /// <summary>
+    /// 把一句她「自己想出来的」话递进游戏（执念想通了这类后台独白）。
+    /// 没在游戏里、没绑定女仆时静默跳过——这句话已经进了对话历史，界面里看得到。
+    /// </summary>
+    public async Task DeliverUnsolicitedAsync(string charId, string text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return;
+        var session = CurrentSession;
+        if (session is null || !session.SaveActive) return;
+        var pair = session.MaidCharacters.FirstOrDefault(kv => kv.Value == charId);
+        if (pair.Key is null) return;
+        try
+        {
+            await session.SendAsync(new JsonObject
+            {
+                ["v"] = ProtocolVersion,
+                ["type"] = "chat_reply",
+                ["maid"] = pair.Key,
+                ["character"] = charId,
+                ["ok"] = true,
+                ["text"] = text,
+                ["unsolicited"] = true,
+                ["scene"] = "obsession"
+            });
+            await StoreGameChatAsync(charId, "（自己想明白了）", text);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MaidBridge.DeliverUnsolicited -> " + ex.Message);
+        }
+    }
+
     /// <summary>模组的天气码翻成人话——她的提示词里不该出现 thunder 这种词。</summary>
     internal static string WeatherName(string weather)
     {

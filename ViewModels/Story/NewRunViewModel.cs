@@ -37,6 +37,15 @@ public sealed partial class NewRunViewModel : ObservableObject
     private bool _loaded;
     private bool _editMode;
 
+    /// <summary>
+    /// 被别的页面以模态方式叫起（目前是 Minecraft 绑定向导）：走完不跳主界面，
+    /// 关掉自己让叫起它的那一页接着干活。Shell 路由不能用在模态栈上，会钻到底下看不见。
+    /// </summary>
+    public bool Embedded { get; set; }
+
+    /// <summary>嵌入模式：把「新档确实写进去了」告诉叫起它的那一页，成功 true、中途退出 false。</summary>
+    public Action<bool>? EmbedResult { get; set; }
+
     public ObservableCollection<WorldChoiceItem> Worlds { get; } = new();
 
     [ObservableProperty] private string _pageTitle = "新的一局";
@@ -186,12 +195,29 @@ public sealed partial class NewRunViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private async Task ManageWorlds() => await Shell.Current.GoToAsync("worldbook");
+    private async Task ManageWorlds()
+    {
+        // 模态里再走 Shell 路由会钻到模态底下，用户看不见；说清楚为什么，别让按钮点了没反应。
+        if (Embedded)
+        {
+            await Shell.Current.DisplayAlert("先选世界就好",
+                "这一步只挑这份新档发生在哪个世界。绑定完成后，随时可以回 WAB 的世界书里管理。",
+                "知道了");
+            return;
+        }
+        await Shell.Current.GoToAsync("worldbook");
+    }
 
     [RelayCommand]
     private async Task Back()
     {
         if (IsBusy) return;
+        if (Embedded)
+        {
+            EmbedResult?.Invoke(false);
+            await Shell.Current.Navigation.PopModalAsync();
+            return;
+        }
         await Shell.Current.GoToAsync("..");
     }
 
@@ -323,7 +349,10 @@ public sealed partial class NewRunViewModel : ObservableObject
 
             await _persona.InitializeAsync(_engine.State, _characterId, progress);
             progress.Report("正在落盘这一局…");
-            await _save.Commit(CharacterName);
+            // Commit 把异常吞成 false。不检查就等于「档没写进去也照样宣布开始」，
+            // 绑定向导随后会拿着一个不存在的存档去写绑定 —— 这正是「无法写入存档」的来源。
+            if (!await _save.Commit(CharacterName))
+                throw new InvalidOperationException("新存档没能写进磁盘：" + _save.LastCommitError);
             progress.Report("记忆已就位，正在进入…");
         }, "人格记忆初始化中", "");
     }
@@ -352,6 +381,12 @@ public sealed partial class NewRunViewModel : ObservableObject
             {
                 Status = doneText;
                 await Shell.Current.GoToAsync("..");
+            }
+            else if (Embedded)
+            {
+                // 档已经落盘：告诉叫起它的那一页「成了」，然后关掉自己，不抢主界面。
+                EmbedResult?.Invoke(true);
+                await Shell.Current.Navigation.PopModalAsync();
             }
             else
             {

@@ -294,8 +294,28 @@ public sealed class HumanMemoryService
     /// 回想：默认只回想三天内的为主，越久越模糊但不彻底消失；
     /// <paramref name="windowDays"/> 为 0 表示不限（能想起最早的记忆）。
     /// </summary>
+    /// <summary>
+    /// 情绪偏置系数（心情一致性回忆）：此刻的心情让同色调的记忆更容易浮上来。
+    /// moodBias &gt; 0（开心）利好正面记忆，&lt; 0（不安）利好负面记忆；情绪越浓偏得越多。
+    /// </summary>
+    private static double MoodFactor(HumanMemoryEntry m, double moodBias)
+    {
+        if (Math.Abs(moodBias) < 0.05 || m.Emotion is null || m.Emotion.IsEmpty) return 1;
+        var v = m.Emotion.Dominant switch
+        {
+            "安心" or "开心" or "依赖" or "感激" or "期待" or "平静" or "害羞" => 1.0,
+            "心疼" or "想念" => 0.15,
+            "害怕" or "委屈" or "紧张" or "难过" or "愧疚" or "孤独" or "不安" => -1.0,
+            _ => 0.0
+        };
+        if (v == 0) return 1;
+        var intensity = Math.Clamp(m.EmotionalIntensity, 0, 1);
+        return Math.Clamp(1 + 0.45 * moodBias * v * (0.4 + 0.6 * intensity), 0.6, 1.6);
+    }
+
     public async Task<List<HumanMemoryEntry>> RecallAsync(string charId, double windowDays,
-        double randomness, int limit = 8, IEnumerable<string>? requiredTags = null)
+        double randomness, int limit = 8, IEnumerable<string>? requiredTags = null,
+        double moodBias = 0)
     {
         await EnsureLoadedAsync();
         List<HumanMemoryEntry> pool;
@@ -346,7 +366,8 @@ public sealed class HumanMemoryService
 
         var candidates = pool.Where(m => !m.IsCore).ToList();
         var scored = candidates
-            .Select(m => (Entry: m, Score: HumanMemoryMath.Score(m, windowDays, randomness, now) * Radiation(m)))
+            .Select(m => (Entry: m, Score: HumanMemoryMath.Score(m, windowDays, randomness, now)
+                          * Radiation(m) * MoodFactor(m, moodBias)))
             .Where(x => x.Score >= HumanMemoryMath.MinWeight)
             .OrderByDescending(x => x.Score)
             .Take(Math.Max(1, limit))
@@ -697,10 +718,11 @@ public sealed class HumanMemoryService
     }
 
     /// <summary>提示词文本：像人一样「想起」而不是「检索出记录」。</summary>
-    public async Task<string> RecallTextAsync(string charId, double windowDays, double randomness, int limit = 6)
+    public async Task<string> RecallTextAsync(string charId, double windowDays, double randomness,
+        int limit = 6, double moodBias = 0)
     {
         var cores = await CoreAsync(charId);
-        var hits = await RecallAsync(charId, windowDays, randomness, limit);
+        var hits = await RecallAsync(charId, windowDays, randomness, limit, moodBias: moodBias);
         var coreIds = cores.Select(c => c.Id).ToHashSet(StringComparer.Ordinal);
         hits = hits.Where(h => !coreIds.Contains(h.Id)).ToList();
         var user = await RecallUserSelfAsync();

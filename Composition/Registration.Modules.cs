@@ -60,6 +60,8 @@ public static class ModuleRegistration
 
         // 官方接入（真微信 / QQ）
         services.AddSingleton<Modules.RealChat.OfficialChatBridge>();
+        // 假微信消息中枢：MC 里戴上手机的女仆发来的消息要能跨页面、跨重启看到
+        services.AddSingleton<PhoneMessageService>();
         // 存档运行时：存档一打开，所有内部角色在后台继续生活
         services.AddSingleton<SaveRuntimeService>();
         return services;

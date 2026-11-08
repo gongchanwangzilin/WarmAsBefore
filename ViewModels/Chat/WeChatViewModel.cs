@@ -24,6 +24,10 @@ public sealed partial class WeChatViewModel : ObservableObject
     private readonly Services.WeChatService _wechat;
     private readonly Services.StickerLibrary _stickerLib;
     private readonly Services.VisionService _vision;
+    private readonly Services.PhoneMessageService _phoneMessages;
+    private readonly Modules.MinecraftBridge.MaidBridgeService _maidBridge;
+    // 服务用弱引用订阅：这个字段负责给委托保活，VM 一被回收订阅自动失效。
+    private readonly Action<PhoneMessage> _phoneHandler;
 
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
@@ -71,7 +75,9 @@ public sealed partial class WeChatViewModel : ObservableObject
     public WeChatViewModel(GameEngine engine, ChatEngine chat, SpeechService speech,
         Modules.RealChat.OfficialChatBridge bridge, CharacterLibrary library,
         StorageProvider store, SettingsManager settings, Modules.Market.GiftPanelService gifts,
-        Services.WeChatService wechat, Services.StickerLibrary stickerLib, Services.VisionService vision)
+        Services.WeChatService wechat, Services.StickerLibrary stickerLib, Services.VisionService vision,
+        Services.PhoneMessageService phoneMessages,
+        Modules.MinecraftBridge.MaidBridgeService maidBridge)
     {
         _engine = engine;
         _chat = chat;
@@ -84,6 +90,10 @@ public sealed partial class WeChatViewModel : ObservableObject
         _wechat = wechat;
         _stickerLib = stickerLib;
         _vision = vision;
+        _phoneMessages = phoneMessages;
+        _maidBridge = maidBridge;
+        _phoneHandler = OnPhoneMessage;
+        _phoneMessages.Subscribe(_phoneHandler);
         _bridge.Incoming += OnRealIncoming;
         _bridge.Replied += OnRealReplied;
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshMode);
@@ -120,6 +130,7 @@ public sealed partial class WeChatViewModel : ObservableObject
                 await _wechat.MarkReadAsync(charId);
             }
         }
+        await LoadPhoneHistoryAsync(charId);
         RefreshMode();
         LoadStickers();
     }
@@ -214,6 +225,47 @@ public sealed partial class WeChatViewModel : ObservableObject
         });
     }
 
+    /// <summary>手机那边来了一条消息（可能是 MC 里的女仆发的，也可能是本页自己刚发的）。</summary>
+    private void OnPhoneMessage(PhoneMessage msg)
+    {
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            var target = EffectiveChatId();
+            // 只往「正在看的这个会话」里插；别的角色的消息留在盘上，切过去时再补。
+            if (!string.IsNullOrEmpty(target) && !string.Equals(target, msg.CharacterId, StringComparison.Ordinal)) return;
+            if (Messages.Any(m => m.Key == msg.Id)) return;
+            var item = new ChatItem
+            {
+                Key = msg.Id,
+                Text = msg.Text,
+                DisplayText = "",
+                IsUser = msg.IsUser,
+                SenderName = msg.SenderName
+            };
+            Messages.Add(item);
+            _ = Typewrite(item, msg.Text);
+        });
+    }
+
+    /// <summary>进页面 / 切联系人时，把这个角色落盘的手机消息补回列表（按 Key 去重）。</summary>
+    private async Task LoadPhoneHistoryAsync(string charId)
+    {
+        if (string.IsNullOrEmpty(charId)) return;
+        var list = await _phoneMessages.ForAsync(charId);
+        foreach (var m in list)
+        {
+            if (Messages.Any(x => x.Key == m.Id)) continue;
+            Messages.Add(new ChatItem
+            {
+                Key = m.Id,
+                Text = m.Text,
+                DisplayText = m.Text,
+                IsUser = m.IsUser,
+                SenderName = m.SenderName
+            });
+        }
+    }
+
     [RelayCommand]
     private async Task Send()
     {
@@ -223,7 +275,8 @@ public sealed partial class WeChatViewModel : ObservableObject
         var charId = EffectiveChatId();
         if (string.IsNullOrEmpty(charId)) return;
 
-        Messages.Add(new ChatItem { Text = msg, DisplayText = msg, IsUser = true });
+        var userKey = Guid.NewGuid().ToString("N")[..12];
+        Messages.Add(new ChatItem { Key = userKey, Text = msg, DisplayText = msg, IsUser = true });
         IsTyping = true;
         _typingCts = new CancellationTokenSource();
         _ = AnimateTypingDots(_typingCts.Token);
@@ -235,10 +288,17 @@ public sealed partial class WeChatViewModel : ObservableObject
         IsTyping = false;
         // #12：剥离 [表情:名字] 标记再展示（表情以图片消息形式发出）
         var replyShown = StripStickerMarkers(reply, out var stickerNames);
-        var aiMsg = new ChatItem { Text = replyShown, DisplayText = "", IsUser = false };
+        var aiKey = Guid.NewGuid().ToString("N")[..12];
+        var aiMsg = new ChatItem { Key = aiKey, Text = replyShown, DisplayText = "", IsUser = false };
         Messages.Add(aiMsg);
         _ = Typewrite(aiMsg, replyShown);
         MaybeAiSticker(replyShown, stickerNames);
+        // 双端互通：假微信 / QQ 壳里这一轮也同步到游戏里的女仆。
+        // 用 chat_reply 帧，模组只显示气泡、不回传 chat 帧，不会形成回环。
+        _ = _maidBridge.NotifyWabDialogAsync(charId, msg, replyShown);
+        // 假微信的消息以前只在内存里，切个页面就没了。现在统一走手机消息服务落盘。
+        await _phoneMessages.PublishAsync(charId, msg, "我", isUser: true, id: userKey);
+        await _phoneMessages.PublishAsync(charId, replyShown, PartnerName, isUser: false, id: aiKey);
         await _wechat.TouchLastMessageAsync(charId, msg.Length > 20 ? msg[..20] : msg);
     }
 

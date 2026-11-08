@@ -744,5 +744,24 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
 
         <!-- 档案室大气层（2.7）：细颗粒 + 暖光 + 暗角，铺在内容之上（InputTransparent） -->
         <ctl:WorldAtmosphere />
+
+        <!-- 关闭 Galgame：WAB 只作为「我的世界」的 AI / 通讯后端。
+             盖住 galgame 对话层而不是拆布局，避免动到既有舞台测量；对话与命令仍双端互通。 -->
+        <Grid IsVisible="{Binding IsBackendMode}" Padding="32"
+              BackgroundColor="{AppThemeBinding Light=#F7F1E8, Dark=#1E1B18}">
+            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
+                                 Spacing="16" MaximumWidthRequest="560">
+                <Label Text="我的世界主战场" FontSize="28" FontAttributes="Bold"
+                       HorizontalOptions="Center" TextColor="{DynamicResource WarmDark}" />
+                <Label Text="Galgame 界面已关闭。WAB 现在只作为我的世界的 AI 与通讯后端运行；你在 WAB 或假微信里说的话、下的命令，游戏里的女仆依然会响应。"
+                       FontSize="14" HorizontalTextAlignment="Center" LineBreakMode="WordWrap"
+                       TextColor="{DynamicResource MutedFg}" />
+                <Label Text="{Binding BackendStatusText}" FontSize="13"
+                       HorizontalTextAlignment="Center" LineBreakMode="WordWrap"
+                       TextColor="{DynamicResource MutedFg}" />
+                <Button Text="打开手机" Command="{Binding OpenPhoneCommand}"
+                        HorizontalOptions="Center" Padding="24,10" />
+            </VerticalStackLayout>
+        </Grid>
     </Grid>
 </ContentPage>

@@ -406,10 +406,38 @@
                                             <Entry Grid.Column="1" Text="{Binding DeepModel}" Placeholder="{Binding [Settings_DeepModelPlaceholder], Source={x:Static i18n:LocalizationService.Current}}"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                                        <!-- 小模型优先：先小后大，仅 Minecraft 桥未连接时生效 -->
+                                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                                        <Label Text="小模型优先（可选）" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="开启后所有对话先交给小模型，处理不来再升级到大模型。小模型要动游戏却又没有工具时，会按提示直接说「我需要使用大模型」，由大模型接手——所以女仆桥连着时也照样能用，不会把工具交互弄坏。"
+                                               Style="{StaticResource TxtCaption}" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="开启小模型优先" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SmallModelFirst}" /></Grid>
+                                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                                            <Label Grid.Column="0" Text="小模型接口" VerticalOptions="Center" FontSize="13" />
+                                            <Entry Grid.Column="1" Text="{Binding SmallAiUrl}" Placeholder="留空则沿用上面的 AI 地址"
+                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
+                                                   IsEnabled="{Binding SmallModelFirst}" /></Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                                            <Label Grid.Column="0" Text="小模型密钥" VerticalOptions="Center" FontSize="13" />
+                                            <Entry Grid.Column="1" Text="{Binding SmallAiKey}" IsPassword="True" Placeholder="留空则沿用上面的 AI 密钥"
+                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
+                                                   IsEnabled="{Binding SmallModelFirst}" /></Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <Grid ColumnDefinitions="110,*" Padding="0,13">
+                                            <Label Grid.Column="0" Text="小模型名" VerticalOptions="Center" FontSize="13" />
+                                            <Entry Grid.Column="1" Text="{Binding SmallAiModel}" Placeholder="一个便宜/快的模型名，如 qwen-flash / glm-4-flash"
+                                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                                   PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
+                                                   IsEnabled="{Binding SmallModelFirst}" /></Grid>
                                         <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                                         <Label Text="识图模型（可选）" Style="{StaticResource TxtBodySm}" />
-                                        <Label Text="独立配置一个支持看图的模型；配好后「表情包库」里可以一键让 AI 写描述。"
+                                        <Label Text="独立配置一个支持看图的模型；配好后「表情包库」里可以一键让 AI 写描述。不填也能用：会优先找厂商里标注了「能看图」的模型，都没有就直接用大模型兜底。"
                                                Style="{StaticResource TxtCaption}" />
                                         <Grid ColumnDefinitions="110,*"><Label Text="识图端点" VerticalOptions="Center" FontSize="13" />
                                             <Entry Grid.Column="1" Text="{Binding VisionUrl}" Placeholder="https://…/v1/chat/completions"
@@ -423,6 +451,7 @@
                                             <Entry Grid.Column="1" Text="{Binding VisionModel}" Placeholder="gpt-4o-mini / qwen-vl-plus / glm-4v …"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
+                                        <Label Text="{Binding VisionHint}" Style="{StaticResource TxtCaption}" />
                                         <!-- 量化模型（embedding）：把说法换成数值向量的那个角色。
                                              没配上时关系网与按数值搜记忆自动退回本地共现统计（不花钱），界面会说明是哪条路算的。 -->
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
@@ -465,6 +494,12 @@
                                                     SelectedItem="{Binding AiTimeoutSeconds}" FontSize="13" /></Grid>
                                         <!-- 厂商列表：一家厂商 = 端点 + 密钥 + 多款模型。
                                              同一家厂商加模型不必重复填端点密钥（用户反馈：原来是按「一条 = 厂商+模型+密钥」重复填）。 -->
+                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                            <Button Grid.Column="0" Text="厂商管理页面 →" Style="{StaticResource BtnGhost}"
+                                                    Command="{Binding OpenAiProvidersCommand}" />
+                                            <Button Grid.Column="1" Text="AI 模型管理页面 →" Style="{StaticResource BtnGhost}"
+                                                    Command="{Binding OpenAiModelsCommand}" />
+                                        </Grid>
                                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AiProviders}">
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:AiProviderRow">
@@ -498,23 +533,30 @@
                                                             <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Models}">
                                                                 <BindableLayout.ItemTemplate>
                                                                     <DataTemplate x:DataType="vm:AiModelRow">
-                                                                        <Border StrokeThickness="1" Padding="6,2"
+                                                                        <Border StrokeThickness="1" Padding="6,3"
                                                                                 Stroke="{DynamicResource WSepBrush}"
                                                                                 BackgroundColor="{Binding Enabled, Converter={StaticResource SelectedBg}}">
                                                                             <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
-                                                                            <HorizontalStackLayout Spacing="4">
-                                                                                <Label Text="{Binding DisplayName}" FontSize="11"
-                                                                                       TextColor="{DynamicResource SurfaceFg}" VerticalOptions="Center">
-                                                                                    <Label.GestureRecognizers>
-                                                                                        <TapGestureRecognizer
-                                                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleModelCommand}"
+                                                                            <VerticalStackLayout Spacing="1">
+                                                                                <HorizontalStackLayout Spacing="4">
+                                                                                    <Label Text="{Binding DisplayName}" FontSize="11"
+                                                                                           TextColor="{DynamicResource SurfaceFg}" VerticalOptions="Center">
+                                                                                        <Label.GestureRecognizers>
+                                                                                            <TapGestureRecognizer
+                                                                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleModelCommand}"
+                                                                                                CommandParameter="{Binding .}" />
+                                                                                        </Label.GestureRecognizers>
+                                                                                    </Label>
+                                                                                    <Button Text="⚙" Style="{StaticResource BtnText}" Padding="2,0"
+                                                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditModelSettingsCommand}"
                                                                                             CommandParameter="{Binding .}" />
-                                                                                    </Label.GestureRecognizers>
-                                                                                </Label>
-                                                                                <Button Text="✕" Style="{StaticResource BtnText}" Padding="2,0"
-                                                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveModelFromProviderCommand}"
-                                                                                        CommandParameter="{Binding .}" />
-                                                                            </HorizontalStackLayout>
+                                                                                    <Button Text="✕" Style="{StaticResource BtnText}" Padding="2,0"
+                                                                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveModelFromProviderCommand}"
+                                                                                            CommandParameter="{Binding .}" />
+                                                                                </HorizontalStackLayout>
+                                                                                <Label Text="{Binding CapabilityText}" FontSize="9"
+                                                                                       TextColor="{DynamicResource MutedFg}" />
+                                                                            </VerticalStackLayout>
                                                                         </Border>
                                                                     </DataTemplate>
                                                                 </BindableLayout.ItemTemplate>
@@ -1887,6 +1929,11 @@
                             <Label Text="身体感受（冷暖 / 饥渴 / 想念）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="按天气与时间缓慢漂移，聊天与亲密互动会改变它；角色会说「有点冷」「想你了」，而不是报数值。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PhysiologyEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="内心生活（内分泌 / 执念）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="她的心绪有自己的来处：游戏里被打、被喂食，聊天里的冷暖话，都会让激素涨落并渗进语气；她说「不知道」的事会长成执念，惦记到一定程度会自己想明白、主动来讲。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding InnerLifeEnabled}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

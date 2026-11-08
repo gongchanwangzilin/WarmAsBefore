@@ -1,3 +1,5 @@
+using WarmAsBefore.Controls;
+using WarmAsBefore.Modules.MinecraftBridge;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Views;
@@ -10,14 +12,19 @@ namespace WarmAsBefore.Views;
 public partial class PluginSettingsPage : ContentPage
 {
     private readonly PluginHost _host;
+    private readonly MaidBridgeService _bridge;
     private readonly List<(string Key, Func<string> Read)> _getters = new();
     private PluginEntry? _entry;
     private bool _loaded;
+    /// <summary>页面打开那一刻各字段的值：保存时只写「用户真正改过」的键，
+    /// 不然这份可能开了一整晚的表单会把游戏里/别处刚保存的新值整表冲掉。</summary>
+    private Dictionary<string, string> _initial = new(StringComparer.Ordinal);
 
-    public PluginSettingsPage(PluginHost host)
+    public PluginSettingsPage(PluginHost host, MaidBridgeService bridge)
     {
         InitializeComponent();
         _host = host;
+        _bridge = bridge;
     }
 
     public string PluginId { get; set; } = "";
@@ -50,7 +57,12 @@ public partial class PluginSettingsPage : ContentPage
                 return;
             }
 
+            // 桥插件多两颗入口：向导是唯一「手动配置女仆」的地方，实时面板是详细数值页。
+            BridgeActions.IsVisible = string.Equals(_entry.Manifest.Id, MaidBridgeService.PluginId,
+                StringComparison.OrdinalIgnoreCase);
+
             var values = await _host.FieldValuesAsync(_entry);
+            _initial = new Dictionary<string, string>(values, StringComparer.Ordinal);
             foreach (var f in _entry.Manifest.Settings.Fields)
             {
                 if (f is null || string.IsNullOrWhiteSpace(f.Key)) continue;
@@ -64,6 +76,31 @@ public partial class PluginSettingsPage : ContentPage
             DescLabel.Text = "读取插件设置失败：" + ex.Message;
             App.WriteLog("PluginSettingsPage.Build -> " + ex);
         }
+    }
+
+    private async void OnBindWizardClicked(object sender, EventArgs e)
+    {
+        var (ok, message) = await _bridge.RequestBindWizardAsync();
+        if (!ok) Toast.Error(message);
+    }
+
+    private async void OnOpenPanelClicked(object sender, EventArgs e)
+    {
+        var entry = await _host.FindAsync(MaidBridgeService.PluginId);
+        if (entry is null) return;
+        var index = 0;
+        for (var i = 0; i < entry.Manifest.Pages.Count; i++)
+        {
+            if ((entry.Manifest.Pages[i].Title ?? "").Contains("实时", StringComparison.Ordinal))
+            {
+                index = i;
+                break;
+            }
+        }
+        var (ok, message, url) = await _host.GetPageUrlAsync(MaidBridgeService.PluginId, index);
+        if (!ok) { Toast.Error(message); return; }
+        await Shell.Current.GoToAsync(
+            $"pluginWeb?url={Uri.EscapeDataString(url)}&title={Uri.EscapeDataString("Minecraft 女仆桥 · 实时面板")}");
     }
 
     private View BuildField(PluginSettingField f, string value)
@@ -114,8 +151,24 @@ public partial class PluginSettingsPage : ContentPage
         if (_entry is null) return;
         try
         {
-            var values = _getters.ToDictionary(g => g.Key, g => g.Read());
-            await _host.SaveSettingsAsync(_entry.Manifest.Id, values);
+            // 只写「用户在页面上真正改过的键」：这份表单可能开了一整晚，期间游戏里改过的值
+            // 不该被它整表冲掉——以前是全量回写，谁后保存谁说了算，游戏侧的修改就这样被无声覆盖。
+            var dirty = new Dictionary<string, string>();
+            foreach (var g in _getters)
+            {
+                var now = g.Read();
+                _initial.TryGetValue(g.Key, out var was);
+                if (!string.Equals(now, was, StringComparison.Ordinal)) dirty[g.Key] = now;
+            }
+            if (dirty.Count == 0)
+            {
+                StatusLabel.Text = "没有改动，什么都不用写。";
+                StatusLabel.IsVisible = true;
+                return;
+            }
+            await _host.SaveSettingsAsync(_entry.Manifest.Id, dirty);
+            MaidBridgeService.Diag("应用内设置页保存（只写脏键 " + dirty.Count + " 个）: " + string.Join(",", dirty.Keys));
+            foreach (var (k, v) in dirty) _initial[k] = v;
             StatusLabel.Text = "已保存，下一次用到钩子时生效。";
             StatusLabel.IsVisible = true;
         }

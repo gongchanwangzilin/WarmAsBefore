@@ -64,7 +64,11 @@
     background: var(--bg-2); color: var(--fg); border: 1px solid var(--line);
     border-radius: 9px; padding: 7px 11px; font-size: 14px; width: 140px; font-family: inherit;
   }
-  input[type=text]:focus, input[type=number]:focus { outline: none; border-color: var(--amber); }
+  input[type=text]:focus, input[type=number]:focus, select.sel:focus { outline: none; border-color: var(--amber); }
+  select.sel {
+    background: var(--bg-2); color: var(--fg); border: 1px solid var(--line);
+    border-radius: 9px; padding: 7px 11px; font-size: 14px; min-width: 220px; font-family: inherit;
+  }
   .sw {
     position: relative; width: 46px; height: 26px; border-radius: 999px; cursor: pointer;
     background: var(--bg-2); border: 1px solid var(--line); transition: background .18s ease, border-color .18s ease;
@@ -141,6 +145,11 @@
     <h2>插件设置</h2>
     <p class="sub">改完点保存。只动开关不重连；改端口或局域网才会重开监听。</p>
     <div id="fields"></div>
+    <div class="note" id="forceNote">
+      <b>⚠ 强制加载与「万法皆通·女仆饰品锚定核心」冲突</b><br>
+      开启「女仆周围强制加载」后，车万女仆附属「万法皆通·女仆饰品锚定核心」会因功能重叠而失效——它原本就是干同一件事的。
+      两者不要同时用：要么让 WAB 统一管区块加载，要么只戴饰品、把本开关关掉。混用不会崩，但锚定核心那一侧等于白戴。
+    </div>
     <div class="bar">
       <button id="save" disabled>保存</button>
       <button id="reload" class="ghost">重新读取</button>
@@ -183,7 +192,7 @@
       help: "模组连进来的端口；0 = 启动时自动挑一个空闲端口。改完保存会自动重连。" },
     { key: "lan", label: "允许局域网连接", type: "switch", def: "false",
       help: "默认只接受本机回环。" },
-    { key: "auto_create_characters", label: "自动建角色", type: "switch", def: "true",
+    { key: "auto_create_characters", label: "自动建角色", type: "switch", def: "false",
       help: "匹配不到角色时，用她的名字新建一个再绑定。" },
     { key: "allow_world_actions", label: "允许世界动作", type: "switch", def: "true",
       help: "挖/放/取水/丢物这类会改世界的动作。" },
@@ -204,9 +213,29 @@
     { key: "love_words", label: "陪睡时的爱语", type: "switch", def: "true",
       help: "那句话由她自己判词，不写死。关掉后照样过去陪睡，只是这一晚不出声。" },
     { key: "auto_switch_save", label: "允许桥替你切存档", type: "switch", def: "false",
-      help: "默认关：桥只在你自己打开的那份存档里干活，不新建、不切换、不改你正在跟谁说话。" },
+      help: "旧开关：默认关。桥只在你自己打开的那份存档里干活，不新建、不切换。" },
+    { key: "auto_open_bound_save", label: "进 MC 世界时自动打开绑定存档", type: "switch", def: "true",
+      help: "模组连上来那一刻无条件切到这个世界绑定的存档，并把 WAB 主界面带进去，保证对话与记忆同步。关掉则只在你自己打开的存档里干活。" },
+    { key: "world_mode", label: "是否启用 Galgame 界面", type: "select", def: "galgame",
+      options: [{ v: "galgame", label: "开启 Galgame（在 WAB 里聊天为主）" }, { v: "mc_world", label: "关闭 Galgame（MC 主战场，WAB 做后端）" }],
+      help: "开：主战场在 WAB 原版对话页，MC 只做游戏。关：正在玩的 MC 才是主战场，WAB 只作为 AI / 通讯后端，主界面显示后端状态页、不出现 galgame 对话。两种模式都自动切到绑定存档，对话双端互通。" },
+    { key: "display_target", label: "手机内容显示位置", type: "select", def: "main",
+      options: [{ v: "main", label: "跳转主窗口（原方案）" }, { v: "phone", label: "手机页面 / 手机窗口" }],
+      help: "连上世界、或女仆用手机发来消息时按这里选的位置呈现：主窗口会跳转，手机窗口则只开/聚焦手机页，不打断主界面。" },
     { key: "backup_minutes", label: "快照间隔（分钟）", type: "number", def: "10",
-      help: "0 = 只在连接时和手动调用时备份。" }
+      help: "0 = 只在连接时和手动调用时备份。" },
+    { key: "auto_taste", label: "自动补口味（按人设）", type: "switch", def: "true",
+      help: "连上后若口味表还是空的，让她按自己的人格挑几种原版食物填进喜爱/挑食；你手填了就以你为准。" },
+    { key: "hunger_beg", label: "饿时讨食", type: "switch", def: "true",
+      help: "她饿到一定程度会向主人讨一口吃的（每个对话回合检查一次，游戏模组也会定时兜底）。" },
+    { key: "hunger_threshold", label: "讨食饥饿阈值", type: "number", def: "14",
+      help: "maid_status 里的饥饿值越过这个阈值就讨食，配合下一项方向使用。" },
+    { key: "hunger_higher_is_hungry", label: "数值越高越饿", type: "switch", def: "true",
+      help: "开=饥饿值越大越饿；关=越小越饿。进游戏看数值不对就切一下。" },
+    { key: "force_load_chunks", label: "女仆周围强制加载", type: "switch", def: "false",
+      help: "开启后，主人名下所有被 WAB 认领的女仆周围会持续强制加载区块，她离开后区块不再强载。⚠ 警告：车万女仆附属「万法皆通·女仆饰品锚定核心」因功能重叠，开启本开关后会失效，请勿同时佩戴该饰品。" },
+    { key: "force_load_radius", label: "强制加载半径（区块）", type: "number", def: "2",
+      help: "以女仆为中心、向四周各延伸多少区块。2 = 5×5 区块。范围 0–8；0 等于不加载（即便开关打开）。性能吃紧时调小。" }
   ];
 
   // 游戏侧的键与这里是否要对照，写死白名单：认不出的键不参与判断，也不显示。
@@ -219,6 +248,8 @@
     { mod: "chatRange", label: "聊天拾取范围", plugin: null },
     { mod: "discoveryPort", label: "发现端口（UDP）", plugin: null },
     { mod: "beaconIntervalSeconds", label: "广播间隔（秒）", plugin: null },
+    { mod: "playerCanSleepInMaidBed", label: "玩家能睡女仆床", plugin: null },
+    { mod: "maidChatCooldownSeconds", label: "女仆互聊间隔（秒）", plugin: null },
     { mod: "debug", label: "调试日志", plugin: null }
   ];
 
@@ -270,6 +301,16 @@
           box.appendChild(chip);
         });
         ctl.appendChild(box); nodes[f.key] = box;
+      } else if (f.type === "select") {
+        var sel = document.createElement("select");
+        sel.className = "sel";
+        f.options.forEach(function (o) {
+          var op = document.createElement("option");
+          op.value = o.v; op.textContent = o.label;
+          sel.appendChild(op);
+        });
+        sel.addEventListener("change", touch);
+        ctl.appendChild(sel); nodes[f.key] = sel;
       } else {
         var inp = document.createElement("input");
         inp.type = "text"; inp.inputMode = "numeric";
@@ -283,6 +324,7 @@
   function value(key) {
     var n = nodes[key];
     if (n.tagName === "INPUT") return n.value;
+    if (n.tagName === "SELECT") return n.value;
     if (n.className === "chips") {
       var picked = [];
       Array.prototype.forEach.call(n.children, function (c) {
@@ -298,6 +340,12 @@
       var v = map && map[f.key] != null ? String(map[f.key]) : f.def;
       var n = nodes[f.key];
       if (n.tagName === "INPUT") { n.value = v; return; }
+      if (n.tagName === "SELECT") {
+        var ok = false;
+        Array.prototype.forEach.call(n.options, function (o) { if (o.value === v) ok = true; });
+        n.value = ok ? v : f.def;
+        return;
+      }
       if (n.className === "chips") {
         var picked = String(v || "").split(/[,，、;；\s]+/);
         Array.prototype.forEach.call(n.children, function (c) {

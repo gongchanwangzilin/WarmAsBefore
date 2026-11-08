@@ -19,6 +19,12 @@
         <ScrollView Grid.Row="1" Padding="24,16,24,28">
             <VerticalStackLayout Spacing="14" MaximumWidthRequest="760" HorizontalOptions="Fill">
                 <Label x:Name="DescLabel" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                <HorizontalStackLayout x:Name="BridgeActions" Spacing="10" IsVisible="False">
+                    <Button Text="绑定女仆…" Style="{StaticResource BtnGhostSm}" Padding="12,5"
+                            Clicked="OnBindWizardClicked" />
+                    <Button Text="打开实时面板" Style="{StaticResource BtnGhostSm}" Padding="12,5"
+                            Clicked="OnOpenPanelClicked" />
+                </HorizontalStackLayout>
                 <VerticalStackLayout x:Name="FieldsHost" Spacing="14" />
                 <Label x:Name="StatusLabel" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" IsVisible="False" />

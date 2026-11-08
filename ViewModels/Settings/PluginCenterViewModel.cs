@@ -275,9 +275,22 @@ public sealed partial class PluginCenterViewModel : ObservableObject
         if (row is null) return;
         if (row.SettingsKind == "html")
         {
-            var (ok, message) = await _plugins.OpenHtmlSettingsAsync(row.Id);
-            Status = message;
-            if (!ok) Toast.Error(message);
+            var (ok, message, url) = await _plugins.GetHtmlSettingsUrlAsync(row.Id);
+            if (!ok)
+            {
+                Status = message;
+                Toast.Error(message);
+                return;
+            }
+            if (await PreferInAppAsync())
+            {
+                await OpenInsideAsync(url, row.Name + " · 设置");
+                Status = "已在应用内打开设置页。";
+                return;
+            }
+            var (opened, openedMessage) = await _plugins.OpenInBrowserAsync(url);
+            Status = opened ? "已在浏览器打开设置页；保存后会写回应用。" : openedMessage;
+            if (!opened) Toast.Error(openedMessage);
             return;
         }
         if (row.SettingsKind == "native")
@@ -440,10 +453,39 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             index = Array.IndexOf(titles, pick);
             if (index < 0) return;
         }
-        var (ok, message) = await _plugins.OpenPageAsync(row.Id, index);
-        Status = message;
-        if (!ok) Toast.Error(message);
+        var (ok, message, url) = await _plugins.GetPageUrlAsync(row.Id, index);
+        if (!ok)
+        {
+            Status = message;
+            Toast.Error(message);
+            return;
+        }
+        var title = entry.Manifest.Pages[index].Title;
+        if (await PreferInAppAsync())
+        {
+            await OpenInsideAsync(url, title);
+            Status = $"已在应用内打开「{title}」。";
+            return;
+        }
+        var (opened, openedMessage) = await _plugins.OpenInBrowserAsync(url);
+        Status = opened ? $"已在浏览器打开「{title}」。" : openedMessage;
+        if (!opened) Toast.Error(openedMessage);
     }
+
+    /// <summary>
+    /// 页面用哪打开：应用内（WebView2）还是系统浏览器。系统里没有 WebView2 内核时只剩浏览器，
+    /// 也不再问——问一个注定被驳回的问题是噪音。
+    /// </summary>
+    private static async Task<bool> PreferInAppAsync()
+    {
+        if (!OperatingSystem.IsWindows() || RuntimeProbe.WebView2Present() is null) return false;
+        var pick = await Shell.Current.DisplayActionSheet("页面用哪打开？", "取消", null, "应用内打开", "用默认浏览器打开");
+        return pick == "应用内打开";
+    }
+
+    private static async Task OpenInsideAsync(string url, string title)
+        => await Shell.Current.GoToAsync(
+            $"pluginWeb?url={Uri.EscapeDataString(url)}&title={Uri.EscapeDataString(title ?? "")}");
 
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");

@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.BindWizardPage"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <Grid RowDefinitions="Auto,*,Auto">
+        <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
+                StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="24,14">
+            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
+            <VerticalStackLayout Spacing="2">
+                <Label Text="接入 Minecraft 世界" Style="{StaticResource TxtTitle}" />
+                <Label x:Name="SubtitleLabel" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,12">
+            <VerticalStackLayout Spacing="14" MaximumWidthRequest="760" HorizontalOptions="Fill">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout x:Name="WorldHost" Spacing="4" />
+                </Border>
+
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="存档" Style="{StaticResource TxtSection}" Margin="0,0,0,0" />
+                        <Label Text="选一份已有存档接着用，或者为这个世界新建一份。选「新建」并点右下角按钮，会打开 WAB 自己的新建存档向导（世界 → 人设 → 细则 → 开始），走完自动回来完成绑定。"
+                               Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout x:Name="SaveHost" Spacing="6" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border x:Name="CharCard" Style="{StaticResource CardSolid}" IsVisible="False">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="角色" Style="{StaticResource TxtSection}" Margin="0,0,0,0" />
+                        <Label Text="新建的存档要绑定一个角色：她在 WAB 里由这个角色说话、记事。先在这里定好人，再交给新建存档向导。"
+                               Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout x:Name="CharHost" Spacing="6" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="10">
+                        <Label Text="女仆" Style="{StaticResource TxtSection}" Margin="0,0,0,0" />
+                        <Label Text="选择一个要接进这个世界的女仆；其余女仆之后可以在插件里逐个绑定。"
+                               Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout x:Name="MaidHost" Spacing="6" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label x:Name="StatusLabel" Style="{StaticResource TxtCaption}"
+                       TextColor="{DynamicResource AccentWarmFg}" IsVisible="False" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="24,10,24,18">
+            <Label x:Name="HintLabel" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                   LineBreakMode="WordWrap" />
+            <Button x:Name="BindButton" Grid.Column="1" Text="开始绑定" Style="{StaticResource BtnPrimarySm}"
+                    Padding="18,7" Clicked="OnBindClicked" />
+        </Grid>
+    </Grid>
+</ContentPage>

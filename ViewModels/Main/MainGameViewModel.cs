@@ -241,7 +241,19 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly Services.CharacterSettingsResolver _charSettings;
     private readonly PageWindowService _pageWindows;
     private readonly Services.SaveRuntimeService _runtime;
+    private readonly Modules.MinecraftBridge.MaidBridgeService _maidBridge;
     private MapScene? _currentScene;
+
+    // ---- 关闭 Galgame：WAB 只做我的世界的 AI / 通讯后端 ----
+    [ObservableProperty] private bool _isBackendMode;
+    [ObservableProperty] private string _backendStatusText = "";
+
+    /// <summary>进主界面时刷新：设置可能在运行中被改过。</summary>
+    public void RefreshBackendMode()
+    {
+        IsBackendMode = !_maidBridge.GalgameEnabled;
+        BackendStatusText = _maidBridge.ConnectionSummary;
+    }
 
     // ---- 标定闸门 ----
     /// <summary>当前场景没标定，界面被全屏遮罩拦住（不可关闭，必须选一个出口）。</summary>
@@ -347,7 +359,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         Modules.RealChat.OfficialChatBridge bridge, Modules.ApiManager.ApiGateway api,
         Services.CharacterSettingsResolver charSettings,
         PageWindowService pageWindows, Services.SaveRuntimeService runtime,
-        Services.MinimapService minimap, Services.StateService states, Services.FlowService flows)
+        Services.MinimapService minimap, Services.StateService states, Services.FlowService flows,
+        Modules.MinecraftBridge.MaidBridgeService maidBridge)
     {
         _engine = engine;
         _chat = chat;
@@ -381,6 +394,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         _charSettings = charSettings;
         _pageWindows = pageWindows;
         _runtime = runtime;
+        _maidBridge = maidBridge;
         // 右上角的小地图：电脑默认摊开、手机默认收成方片（拧过一次就记住拧成的样子）。
         // 订阅由页面进出场挂摘（见 MainGamePage.OnAppearing / OnDisappearing），别在这儿常驻。
         Minimap = new MinimapViewModel(map, minimap, !IsPhoneLayout);
@@ -1668,6 +1682,9 @@ public sealed partial class MainGameViewModel : ObservableObject
                 display = "……";
             }
             finally { IsThinking = false; }
+
+            // 双端互通：把 WAB 主对话这一轮同步到游戏里的女仆（没连桥 / 没绑角色时内部直接返回）。
+            _ = _maidBridge.NotifyWabDialogAsync(charId, msg, display);
 
             // 这一轮里 TA 可能在回复中报上了名字（RuntimeConfigurator 已落盘），
             // 主界面与这一条气泡的署名要立刻从「？？？」换回真名。
