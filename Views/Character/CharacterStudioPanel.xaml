@@ -1235,6 +1235,46 @@
                                                    Placeholder="留空跟随全局" />
                                         </VerticalStackLayout>
                                     </Grid>
+
+                                    <!-- 角色专属 TTS API：地址与密钥成对生效（只填一半整体回退全局），
+                                         协议与模型逐字段回退；与右上角 AI 指定一样，绑定优先于全局。 -->
+                                    <Label Text="专属语音 API（可选，地址+密钥都填才生效）" Style="{StaticResource FieldLabel}" />
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="0">
+                                            <Label Text="API 地址" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding VoiceApiUrlText}"
+                                                   Placeholder="留空跟随全局" Keyboard="Url" />
+                                        </VerticalStackLayout>
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                            <Label Text="API 密钥" Style="{StaticResource FieldLabel}" />
+                                            <Entry Style="{StaticResource Field}" Text="{Binding VoiceApiKeyText}"
+                                                   Placeholder="留空跟随全局" IsPassword="True" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                    <Label Text="API 协议" Style="{StaticResource FieldLabel}" />
+                                    <FlexLayout Direction="Row" Wrap="Wrap"
+                                                BindableLayout.ItemsSource="{Binding VoiceApiModes}">
+                                        <BindableLayout.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:StudioAxisItem">
+                                                <Button Text="{Binding Label}" Style="{StaticResource Chip}"
+                                                        Margin="0,0,6,6"
+                                                        Command="{Binding Source={x:Reference Root}, Path=BindingContext.PickVoiceApiModeCommand}"
+                                                        CommandParameter="{Binding Key}">
+                                                    <Button.Triggers>
+                                                        <DataTrigger TargetType="Button" Binding="{Binding IsOn}" Value="True">
+                                                            <Setter Property="BackgroundColor" Value="{DynamicResource WarmDark}" />
+                                                            <Setter Property="TextColor" Value="{DynamicResource SurfaceBg}" />
+                                                            <Setter Property="BorderColor" Value="Transparent" />
+                                                        </DataTrigger>
+                                                    </Button.Triggers>
+                                                </Button>
+                                            </DataTemplate>
+                                        </BindableLayout.ItemTemplate>
+                                    </FlexLayout>
+                                    <Label Text="TTS 模型" Style="{StaticResource FieldLabel}" />
+                                    <Entry Style="{StaticResource Field}" Text="{Binding VoiceTtsModelText}"
+                                           Placeholder="留空跟随全局（如 tts-1 / tts-1-hd）" />
+
                                     <Button Text="保存这一档语音" Style="{StaticResource BtnGhostSm}"
                                             HorizontalOptions="Start" Command="{Binding SaveVoiceCommand}" />
 

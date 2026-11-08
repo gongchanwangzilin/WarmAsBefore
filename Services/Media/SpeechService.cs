@@ -64,7 +64,10 @@ public sealed class SpeechService
         if (voice is { Enabled: false }) return;
 
         await _speakGate.WaitAsync();
-        var (savedName, savedEngine, savedExtra, savedRate) = (VoiceName, TtsEngine, VoiceExtra, TtsRate);
+        var (savedName, savedEngine, savedExtra, savedRate,
+             savedUrl, savedKey, savedMode, savedTtsModel) =
+            (VoiceName, TtsEngine, VoiceExtra, TtsRate,
+             VoiceApiUrl, VoiceApiKey, VoiceApiMode, VoiceTtsModel);
         var effPitch = Math.Clamp(pitch ?? 1.0, 0.5, 2.0);
         try
         {
@@ -72,6 +75,19 @@ public sealed class SpeechService
             if (!string.IsNullOrWhiteSpace(voiceName)) VoiceName = voiceName!;
             if (!string.IsNullOrWhiteSpace(voice?.Engine)) TtsEngine = voice.Engine;
             if (!string.IsNullOrWhiteSpace(voice?.Extra)) VoiceExtra = voice.Extra;
+
+            // 角色专属 TTS API：ApiUrl 与 ApiKey 成对判定（只填一半整体回退全局，
+            // 避免「新地址配旧密钥」的半套配置）；成对生效后 ApiMode/TtsModel 再单独判定。
+            if (voice is not null
+                && !string.IsNullOrWhiteSpace(voice.ApiUrl)
+                && !string.IsNullOrWhiteSpace(voice.ApiKey))
+            {
+                VoiceApiUrl = voice.ApiUrl.Trim();
+                VoiceApiKey = voice.ApiKey.Trim();
+                if (!string.IsNullOrWhiteSpace(voice.ApiMode)) VoiceApiMode = voice.ApiMode.Trim();
+                if (!string.IsNullOrWhiteSpace(voice.TtsModel)) VoiceTtsModel = voice.TtsModel.Trim();
+            }
+
             TtsRate = Math.Clamp(TtsRate * Math.Clamp(rate ?? 1.0, 0.5, 2.0), 0.5, 2.0);
 #if ANDROID
             _pendingPitch = effPitch;
@@ -97,6 +113,10 @@ public sealed class SpeechService
             TtsEngine = savedEngine;
             VoiceExtra = savedExtra;
             TtsRate = savedRate;
+            VoiceApiUrl = savedUrl;
+            VoiceApiKey = savedKey;
+            VoiceApiMode = savedMode;
+            VoiceTtsModel = savedTtsModel;
             _speakGate.Release();
         }
     }

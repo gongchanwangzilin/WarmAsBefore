@@ -600,12 +600,24 @@ public sealed partial class CharacterStudioViewModel
     [ObservableProperty] private string _voiceExtraText = "";
     [ObservableProperty] private string _voiceEngine = "";
     [ObservableProperty] private string _voiceSummary = "";
+    // 角色专属 TTS API：ApiUrl 与 ApiKey 成对生效（只填一半整体回退全局），Mode/TtsModel 逐字段回退
+    [ObservableProperty] private string _voiceApiUrlText = "";
+    [ObservableProperty] private string _voiceApiKeyText = "";
+    [ObservableProperty] private string _voiceApiMode = "";
+    [ObservableProperty] private string _voiceTtsModelText = "";
 
     public List<StudioAxisItem> VoiceEngines { get; } = new()
     {
         new("", "跟随全局"),
         new("system", "系统语音"),
         new("api", "外部 TTS 接口"),
+        new("sovits", "GPT-SoVITS")
+    };
+
+    public List<StudioAxisItem> VoiceApiModes { get; } = new()
+    {
+        new("", "跟随全局"),
+        new("openai", "OpenAI 兼容"),
         new("sovits", "GPT-SoVITS")
     };
 
@@ -627,6 +639,11 @@ public sealed partial class CharacterStudioViewModel
         VoiceExtraText = voice.Extra ?? "";
         VoiceEngine = (voice.Engine ?? "").Trim();
         SyncChoice(VoiceEngines, VoiceEngine);
+        VoiceApiUrlText = voice.ApiUrl ?? "";
+        VoiceApiKeyText = voice.ApiKey ?? "";
+        VoiceApiMode = (voice.ApiMode ?? "").Trim();
+        SyncChoice(VoiceApiModes, VoiceApiMode);
+        VoiceTtsModelText = voice.TtsModel ?? "";
         RefreshVoiceSummary();
 
         var bind = ch.Model ?? new CharacterModelBinding();
@@ -640,7 +657,11 @@ public sealed partial class CharacterStudioViewModel
         Enabled = enabled,
         VoiceName = (VoiceNameText ?? "").Trim(),
         Engine = (VoiceEngine ?? "").Trim(),
-        Extra = (VoiceExtraText ?? "").Trim()
+        Extra = (VoiceExtraText ?? "").Trim(),
+        ApiUrl = (VoiceApiUrlText ?? "").Trim(),
+        ApiKey = (VoiceApiKeyText ?? "").Trim(),
+        ApiMode = (VoiceApiMode ?? "").Trim(),
+        TtsModel = (VoiceTtsModelText ?? "").Trim()
     };
 
     private void RefreshVoiceSummary()
@@ -661,7 +682,29 @@ public sealed partial class CharacterStudioViewModel
         };
         var name = string.IsNullOrWhiteSpace(voice.VoiceName) ? "音色跟随全局" : "音色 " + voice.VoiceName.Trim();
         var extra = string.IsNullOrWhiteSpace(voice.Extra) ? "" : " · 参数 " + voice.Extra.Trim();
-        VoiceSummary = engine + " · " + name + extra;
+
+        // 专属 API 的回退口径与 SpeechService.Speak 一致：Url+Key 成对才算绑定，Mode/TtsModel 逐字段回退
+        var hasApi = !string.IsNullOrWhiteSpace(voice.ApiUrl) && !string.IsNullOrWhiteSpace(voice.ApiKey);
+        var oneOfApi = !string.IsNullOrWhiteSpace(voice.ApiUrl) ^ !string.IsNullOrWhiteSpace(voice.ApiKey);
+        string api;
+        if (hasApi)
+        {
+            var mode = (voice.ApiMode ?? "").Trim() switch
+            {
+                "" => "协议跟随全局",
+                "openai" => "OpenAI 兼容",
+                "sovits" => "GPT-SoVITS",
+                var other => other
+            };
+            var model = string.IsNullOrWhiteSpace(voice.TtsModel) ? "模型跟随全局" : "模型 " + voice.TtsModel.Trim();
+            api = " · 专属API " + mode + " · " + model;
+        }
+        else
+        {
+            api = oneOfApi ? " · ⚠ 专属 API 只填了地址或密钥的一半，已整体回退全局" : " · API 跟随全局";
+        }
+
+        VoiceSummary = engine + " · " + name + extra + api;
     }
 
     [RelayCommand]
@@ -684,6 +727,15 @@ public sealed partial class CharacterStudioViewModel
         VoiceEngine = (engine ?? "").Trim();
         SyncChoice(VoiceEngines, VoiceEngine);
         if (await PersistExtendedAsync(_ch with { Voice = BuildVoice(VoiceEnabled) }, "语音引擎已按这一档保存。"))
+            RefreshVoiceSummary();
+    }
+
+    [RelayCommand]
+    private async Task PickVoiceApiMode(string? mode)
+    {
+        VoiceApiMode = (mode ?? "").Trim();
+        SyncChoice(VoiceApiModes, VoiceApiMode);
+        if (await PersistExtendedAsync(_ch with { Voice = BuildVoice(VoiceEnabled) }, "语音 API 协议已按这一档保存。"))
             RefreshVoiceSummary();
     }
 

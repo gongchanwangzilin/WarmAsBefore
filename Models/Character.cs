@@ -192,7 +192,15 @@ public sealed record CharacterInitialStats
     public int Libido { get; init; } = 20;
 }
 
-/// <summary>角色级语音覆写：空字段沿用全局设置；Enabled=false 表示这个角色不说话。</summary>
+/// <summary>
+/// 角色级语音覆写：空字段沿用全局设置；Enabled=false 表示这个角色不说话。
+///
+/// 回退语义（与模型绑定的「角色绑定 → 临时指定 → 全局」同思路，逐字段回退）：
+///  · VoiceName / Engine / Extra：填了就用角色的，空则用全局；
+///  · 专属 TTS API 的 ApiUrl 与 ApiKey **成对判定**：两个都填了才算绑定专属 API
+///    （只填一半会让「新地址配旧密钥」，请求必然 401，不如整体回退全局）；
+///    成对生效后，ApiMode / TtsModel 再单独判定——填了用角色的，空则用全局的。
+/// </summary>
 public sealed record CharacterVoice
 {
     public bool Enabled { get; init; } = true;
@@ -202,6 +210,14 @@ public sealed record CharacterVoice
     public string Engine { get; init; } = "";
     /// <summary>引擎扩展参数（SoVITS 的 spk_id 等）；空=全局。</summary>
     public string Extra { get; init; } = "";
+    /// <summary>专属 TTS API 地址（openai 模式填到根，如 https://api.openai.com/v1；sovits 模式填服务根）；空=全局。</summary>
+    public string ApiUrl { get; init; } = "";
+    /// <summary>专属 TTS API 密钥；与 ApiUrl 成对生效；空=全局。</summary>
+    public string ApiKey { get; init; } = "";
+    /// <summary>专属 API 协议（openai / sovits）；空=全局。</summary>
+    public string ApiMode { get; init; } = "";
+    /// <summary>专属 TTS 模型名（openai 的 tts-1 / tts-1-hd 等）；空=全局。</summary>
+    public string TtsModel { get; init; } = "";
 }
 
 /// <summary>角色级 AI 模型覆写：空=沿用全局轮换池。</summary>
