@@ -43,6 +43,7 @@ public static class ModuleRegistration
 
         // 存档、数据包与外部桥接
         services.AddSingleton<Modules.DataPack.PackImporter>();
+        services.AddSingleton<Modules.DataPack.SmartImporter>();
         services.AddSingleton<Modules.SaveSystem.SaveManager>();
         services.AddSingleton<Modules.MinecraftBridge.MaidBridgeService>();
         services.AddSingleton<Modules.NovelImport.NovelAnalyzer>();

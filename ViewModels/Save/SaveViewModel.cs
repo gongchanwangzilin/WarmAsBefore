@@ -17,16 +17,18 @@ public sealed partial class SaveViewModel : ObservableObject
     private readonly SettingsManager _settings;
     private readonly Modules.NovelImport.NovelAnalyzer _novel;
     private readonly Services.CharacterLibrary _library;
+    private readonly Modules.DataPack.SmartImporter _smart;
     [ObservableProperty] private List<SaveSlotItem> _slots = new();
     [ObservableProperty] private bool _novelTesting;
 
     public SaveViewModel(SaveManager save, SettingsManager settings, Modules.NovelImport.NovelAnalyzer novel,
-        Services.CharacterLibrary library)
+        Services.CharacterLibrary library, Modules.DataPack.SmartImporter smart)
     {
         _save = save;
         _settings = settings;
         _novel = novel;
         _library = library;
+        _smart = smart;
         NovelTesting = settings.Current.NovelTestingEnabled;
     }
 
@@ -156,9 +158,10 @@ public sealed partial class SaveViewModel : ObservableObject
                 })
             });
             if (pick is null) return;
-            var (imported, message) = await _save.Import(pick.FullPath);
-            if (imported) Toast.Success(message);
-            else Toast.Error(message);
+            // 自动识别路由（存档页不再只认存档包）：插件包/角色包/素材包拿错入口也能正常导入
+            var result = await _smart.ImportAsync(pick.FullPath);
+            if (result.Ok) Toast.Success($"【{result.KindName}】{result.Message}");
+            else Toast.Error(result.Message);
             await Refresh();
         }
         catch (Exception ex)
