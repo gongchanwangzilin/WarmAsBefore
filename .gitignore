@@ -389,3 +389,9 @@ proot-build/
 
 # 插件分发包随 Release 发布，不进仓库
 /plugins/
+
+# ==== 构建输出日志与发布目录（2026-11-08 审计后整理，永不入库） ====
+/build_out.txt
+/build_output.txt
+/dist/
+*.tmp

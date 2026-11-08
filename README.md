@@ -100,22 +100,24 @@
 dotnet build WarmAsBefore.csproj -c Debug -f net10.0-windows10.0.19041.0
 ```
 
-### Windows 发布（无 MSIX、自包含 WindowsAppSDK）
+### Windows 发布（无 MSIX）
 
 ```powershell
+# .NET 10 已移除 win10-x64 RID（NETSDK1083），统一 win-x64 + RuntimeIdentifierOverride；
+# RuntimeIdentifierOverride 是 WindowsAppSDK #3337 的官方 workaround，必须带着
 dotnet publish WarmAsBefore.csproj -c Release `
   -f net10.0-windows10.0.19041.0 `
-  -p:RuntimeIdentifierOverride=win10-x64 `
-  -p:WindowsPackageType=None `
-  -p:WindowsAppSDKSelfContained=true `
+  -r win-x64 `
+  --self-contained false `
+  -p:RuntimeIdentifierOverride=win-x64 `
   -p:UseMonoRuntime=false
 ```
 
-产物：`bin/Release/net10.0-windows10.0.19041.0/win10-x64/publish/WarmAsBefore.exe`
+产物：`bin/Release/net10.0-windows10.0.19041.0/win-x64/publish/WarmAsBefore.exe`
 
-> 不要用 `-r win-x64` / `-p:RuntimeIdentifier=win-x64` 替代
-> `-p:RuntimeIdentifierOverride=win10-x64`。那条路线会触发 WindowsAppSDK #3337：
+> 只写 `-r win-x64` 不带 `-p:RuntimeIdentifierOverride` 会触发 WindowsAppSDK #3337：
 > 产物找不到 XAML 主题资源，启动后没有窗口。`-p:UseMonoRuntime=false` 也必须保留。
+> 一键脚本：`publish_windows.bat` / `publish_windows.sh`（本目录）。
 
 ### Android
 
@@ -138,10 +140,13 @@ dotnet build WarmAsBefore.csproj -c Debug -f net10.0-android
 ## 项目结构
 
 ```text
-.
+.                                 ← git 仓库根（即应用项目目录）
 ├── App.xaml(.cs)                 # 应用入口、全局资源、启动日志、窗口生命周期
 ├── AppShell.xaml(.cs)            # Shell 路由表、导航打点、页面转场
 ├── MauiProgram.cs                # 组合根：按层调用 Composition/*
+├── BUILD_GUIDE.md                # 分步构建指南（Windows / macOS / Linux + 排错）
+├── publish_windows.bat/.sh       # Windows EXE 一键发布
+├── publish_android.sh            # Android AAB 一键发布
 ├── Composition/                  # DI 注册表（设计系统 / 核心 / 模块 / 角色 / 插件 / VM / 页面）
 ├── Models/                       # 纯数据模型：状态、角色、聊天、记忆、地图、商店、插件权限等
 ├── Services/                     # 跨模块服务（按功能分组）
