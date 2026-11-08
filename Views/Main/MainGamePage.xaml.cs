@@ -117,6 +117,7 @@ public partial class MainGamePage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
+        _vm.DetachRuntimeEvents();
         PauseSceneVideo();
         // 小地图跟着离场：取材要跑一遍全图最短路，人在别的页面时没东西看，订阅纯属白算。
         _vm.Minimap.Detach();
@@ -125,6 +126,9 @@ public partial class MainGamePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        // Singleton 服务上的运行期事件跟页面进出场挂摘（审计 A4）：
+        // VM 是 Transient，不摘的话每进出一次主界面就叠一份订阅。
+        _vm.AttachRuntimeEvents();
         // 音量可能刚在设置里调过：进场先重读一次，视频不必等下一次换场景才跟上
         _vm.RefreshSceneVideoVolume();
         ResumeSceneVideo();
