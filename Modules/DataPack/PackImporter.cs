@@ -51,19 +51,19 @@ public sealed class PackImporter
                 Directory.CreateDirectory(tmp);
 
                 progress?.Report("解压中…");
-                ZipFile.ExtractToDirectory(zipPath, tmp, overwriteFiles: true);
+                SafeZip.ExtractToDirectory(zipPath, tmp);
                 info = await ReadManifest(tmp);
                 if (info is null) return false;
 
                 var assets = Path.Combine(_store.Root, "assets");
                 progress?.Report("复制角色…");
-                CopyDir(Path.Combine(tmp, "角色"), Path.Combine(assets, "characters"));
+                CopyDir(Path.Combine(tmp, "角色"), Path.Combine(assets, "characters"), messages);
                 progress?.Report("复制背景…");
-                CopyDir(Path.Combine(tmp, "背景"), Path.Combine(assets, "backgrounds"));
+                CopyDir(Path.Combine(tmp, "背景"), Path.Combine(assets, "backgrounds"), messages);
                 progress?.Report("复制音频…");
-                CopyDir(Path.Combine(tmp, "音频"), Path.Combine(assets, "audio"));
+                CopyDir(Path.Combine(tmp, "音频"), Path.Combine(assets, "audio"), messages);
                 progress?.Report("复制CG…");
-                CopyDir(Path.Combine(tmp, "CG"), Path.Combine(assets, "cg"));
+                CopyDir(Path.Combine(tmp, "CG"), Path.Combine(assets, "cg"), messages);
 
                 await _store.Save($"pack_{info.Name}", info);
                 return true;
@@ -239,16 +239,28 @@ public sealed class PackImporter
         return JsonSerializer.Deserialize<PackInfo>(await File.ReadAllTextAsync(p), Json);
     }
 
-    private static void CopyDir(string src, string dst)
+    /// <summary>
+    /// 逐文件复制并汇总失败项（审计 U3）：一个坏文件不该让整包导入中断，
+    /// 用户需要知道「哪个文件、为什么没进来」，而不是只有一句「导入失败」。
+    /// </summary>
+    private static void CopyDir(string src, string dst, List<string>? messages = null)
     {
         if (!Directory.Exists(src)) return;
         Directory.CreateDirectory(dst);
         foreach (var f in Directory.GetFiles(src, "*", SearchOption.AllDirectories))
         {
-            var rel = Path.GetRelativePath(src, f);
-            var dest = Path.Combine(dst, rel);
-            Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
-            File.Copy(f, dest, overwrite: true);
+            try
+            {
+                var rel = Path.GetRelativePath(src, f);
+                var dest = Path.Combine(dst, rel);
+                Directory.CreateDirectory(Path.GetDirectoryName(dest)!);
+                File.Copy(f, dest, overwrite: true);
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("PackImporter.CopyDir(" + f + ") -> " + ex.Message);
+                messages?.Add($"文件「{Path.GetFileName(f)}」复制失败：{ex.Message}");
+            }
         }
     }
 

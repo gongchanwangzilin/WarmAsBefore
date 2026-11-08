@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.Json;
 using WarmAsBefore.Models;
 
@@ -25,7 +26,7 @@ public sealed class StorageProvider
     {
         var path = KeyPath(key);
         if (!File.Exists(path)) return null;
-        var json = await ReadWithRetryAsync(path);
+        var json = DecodeForRead(key, await ReadWithRetryAsync(path));
         try
         {
             return JsonSerializer.Deserialize<T>(json);
@@ -42,7 +43,75 @@ public sealed class StorageProvider
     {
         var path = KeyPath(key);
         if (!File.Exists(path)) return null;
-        return await ReadWithRetryAsync(path);
+        return DecodeForRead(key, await ReadWithRetryAsync(path));
+    }
+
+    /// <summary>
+    /// 同步读取原始 JSON。只给「首帧之前必须拿到结果」的启动路径与密钥指纹刷新用，
+    /// 直接走同步 IO，**不做 Task.Run + GetAwaiter().GetResult() 那种 sync-over-async**。
+    /// </summary>
+    public string? LoadRawBlocking(string key)
+    {
+        var path = KeyPath(key);
+        if (!File.Exists(path)) return null;
+        try
+        {
+            return DecodeForRead(key, File.ReadAllText(path));
+        }
+        catch (IOException)
+        {
+            Thread.Sleep(80);   // 与 ReadWithRetryAsync 同理：杀软/云同步短暂占用
+            return DecodeForRead(key, File.ReadAllText(path));
+        }
+    }
+
+    // ==================== 敏感配置静态加密（审计 S5） ====================
+    // settings.json 里有各家 AI Key、云同步 PAT、QQ/微信 secret，此前一直是明文落盘。
+    // 现在写盘前用本机密钥加一层保护；读盘时识别不出信封的按旧的明文处理（向后兼容）。
+    private const string SecretMarker = "WABSEC1";
+
+    private static bool IsSecretKey(string key)
+        => string.Equals(key, "settings", StringComparison.OrdinalIgnoreCase);
+
+    private static string EncodeForWrite(string key, string json)
+    {
+        if (!IsSecretKey(key)) return json;
+        try
+        {
+            var protectedBytes = LocalSecretProtector.Protect(Encoding.UTF8.GetBytes(json));
+            return SecretMarker + "\n" + Convert.ToBase64String(protectedBytes);
+        }
+        catch (Exception ex)
+        {
+            // 保护失败时宁可退回明文也不能把设置写丢；同时留日志，便于发现「以为加密了其实没有」。
+            App.WriteLog("StorageProvider.ProtectSettings -> " + ex.Message + "（本次退回明文保存）");
+            return json;
+        }
+    }
+
+    private static string DecodeForRead(string key, string text)
+    {
+        if (!IsSecretKey(key)) return text;
+        if (!text.StartsWith(SecretMarker, StringComparison.Ordinal)) return text;   // 旧的明文 settings.json
+        try
+        {
+            var nl = text.IndexOf('\n');
+            if (nl < 0) return text;
+            var bytes = Convert.FromBase64String(text[(nl + 1)..].Trim());
+            var plain = LocalSecretProtector.Unprotect(bytes);
+            if (plain is null)
+            {
+                // 解不开就把原文抛给上层：JSON 解析会失败 → 走坏档备份，而不是拿默认值覆盖用户设置。
+                App.WriteLog("StorageProvider: settings.json 无法解密（可能换了设备/用户），按不可读处理");
+                return text;
+            }
+            return Encoding.UTF8.GetString(plain);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("StorageProvider.DecodeSettings -> " + ex.Message);
+            return text;
+        }
     }
 
     /// <summary>
@@ -119,6 +188,7 @@ public sealed class StorageProvider
     /// </summary>
     private async Task WriteAtomicAsync(string key, string json)
     {
+        json = EncodeForWrite(key, json);
         var path = KeyPath(key);
         var dir = Path.GetDirectoryName(path);
         // TryAdd 只在首次插入时返回 true：同一目录只建一次，省掉每次 Save 的 CreateDirectory 系统调用

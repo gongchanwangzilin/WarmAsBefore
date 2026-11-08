@@ -25,8 +25,18 @@ public sealed class SaveManager
         _plugins = plugins;
     }
 
+    /// <summary>换档后刷新桌宠形象。由 RuntimeConfigurator 注入（替代原先的 PetService 静态调用）。</summary>
+    public Func<Task>? RefreshPetForActiveSave { get; set; }
+
     /// <summary>当前会话的聊天记录：随每次保存写入存档，读档后恢复聊天界面。</summary>
     public List<ChatRecord> ChatLog { get; } = new();
+
+    /// <summary>
+    /// 上一次 List() 时发现读不出来的存档文件（审计 U4）。
+    /// 损坏的存档不能再静默从列表里消失——对用户来说「存档没了」比「存档坏了」更伤信任。
+    /// </summary>
+    public IReadOnlyList<string> UnreadableSaves => _unreadableSaves;
+    private readonly List<string> _unreadableSaves = new();
 
     /// <summary>存档结构版本：旧档（缺此字段 = 0）在加载时自动迁移修复。</summary>
     public const int SchemaVersion = 1;
@@ -106,6 +116,18 @@ public sealed class SaveManager
 
     public async Task<bool> Load(string id)
     {
+        // 坏档不能把读档流程直接炸穿：返回失败并留下可展示的原因（审计 A3/U4）。
+        try { return await LoadCore(id); }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.Load(" + id + ") -> " + ex);
+            LastLoadNote = "这份存档读取失败：" + ex.Message;
+            return false;
+        }
+    }
+
+    private async Task<bool> LoadCore(string id)
+    {
         var json = await _store.LoadRawAsync($"saves/{id}");
         if (string.IsNullOrEmpty(json)) return false;
         // 角色库载入与读档反序列化并行，缩短启动读档耗时
@@ -178,7 +200,15 @@ public sealed class SaveManager
         _scope.Raise();      // 换档之后，各记忆服务必须重读这个档自己的那一份
 
         // 桌宠跟着存档走：换档后把桌面上的形象换成这一档的主角（不在桌宠模式时是 no-op）。
-        _ = Services.PetService.RefreshForActiveSaveAsync();
+        // 由外部注入（审计 A2）：不再跨模块静态调用，且异常必须被观察，不能无声消失。
+        if (RefreshPetForActiveSave is not null)
+        {
+            _ = Task.Run(async () =>
+            {
+                try { await RefreshPetForActiveSave(); }
+                catch (Exception ex) { App.WriteLog("SaveManager.RefreshPet -> " + ex.Message); }
+            });
+        }
 
         // 过期存档自动修复：旧档缺版本字段（=0）或结构漂移时，就地补齐并回写。
         var version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
@@ -298,7 +328,8 @@ public sealed class SaveManager
                 }
                 writer.WriteEndObject();
             }
-            await File.WriteAllBytesAsync(Path.Combine(_store.Root, "saves", id + ".json"), ms.ToArray());
+            // 原子写回，避免改名过程中崩溃把存档截断（审计 P5）
+            await _store.WriteRawAsync($"saves/{id}", System.Text.Encoding.UTF8.GetString(ms.ToArray()));
             RememberSlotInListCache(slot with { Label = newLabel.Trim() });
             return true;
         }
@@ -365,6 +396,8 @@ public sealed class SaveManager
             var info = new FileInfo(path);
             if (info.Exists)
                 _slotCache[path] = (info.LastWriteTimeUtc.Ticks, info.Length, slot);
+            _index[slot.Id] = slot;
+            _indexDirty = true;
         }
         catch (Exception ex)
         {
@@ -372,13 +405,43 @@ public sealed class SaveManager
         }
     }
 
+    // ==================== 存档 meta 索引（审计 P4） ====================
+    // 存档文件里有最近 60 条聊天与全部角色状态，为了显示一个列表就整档读一遍是明显的浪费。
+    // 这里把 meta 单独存一份索引：命中索引就完全不用打开存档本体。
+    private const string IndexKey = "saves/_index";
+    private readonly Dictionary<string, SaveSlot> _index = new(StringComparer.Ordinal);
+    private bool _indexLoaded;
+    private bool _indexDirty;
+
+    private async Task EnsureIndexLoadedAsync()
+    {
+        if (_indexLoaded) return;
+        try
+        {
+            var saved = await _store.Load<Dictionary<string, SaveSlot>>(IndexKey);
+            if (saved is not null)
+                foreach (var (k, v) in saved) _index[k] = v;
+        }
+        catch (Exception ex)
+        {
+            // 索引坏了不等于存档坏了：退回整档扫描即可，索引会在下一次 List() 重建。
+            App.WriteLog("SaveManager.LoadIndex -> " + ex.Message);
+        }
+        _indexLoaded = true;
+    }
+
     public async Task<List<SaveSlot>> List()
     {
         var dir = Path.Combine(_store.Root, "saves");
         if (!Directory.Exists(dir)) return new();
+        await EnsureIndexLoadedAsync();
+
         var list = new List<SaveSlot>();
+        _unreadableSaves.Clear();
         foreach (var f in Directory.GetFiles(dir, "*.json"))
         {
+            if (string.Equals(Path.GetFileName(f), "_index.json", StringComparison.OrdinalIgnoreCase))
+                continue;
             try
             {
                 var info = new FileInfo(f);
@@ -388,6 +451,16 @@ public sealed class SaveManager
                     list.Add(hit.Slot);
                     continue;
                 }
+
+                // 命中索引就不必打开整份存档（这是 List() 提速的主要来源）
+                var id = Path.GetFileNameWithoutExtension(f);
+                if (_index.TryGetValue(id, out var indexed) && indexed is not null)
+                {
+                    list.Add(indexed);
+                    _slotCache[f] = (ticks, info.Length, indexed);
+                    continue;
+                }
+
                 var json = await File.ReadAllTextAsync(f);
                 using var doc = JsonDocument.Parse(json);
                 if (doc.RootElement.TryGetProperty("meta", out var m))
@@ -397,10 +470,23 @@ public sealed class SaveManager
                     {
                         list.Add(slot);
                         _slotCache[f] = (ticks, info.Length, slot);
+                        _index[id] = slot;
+                        _indexDirty = true;
                     }
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                // 坏档必须可见（审计 U4/A3）：记录下来并留日志，不再静默跳过。
+                _unreadableSaves.Add(f);
+                App.WriteLog("SaveManager.List: 存档无法读取 " + f + " -> " + ex.Message);
+            }
+        }
+
+        if (_indexDirty)
+        {
+            try { await _store.Save(IndexKey, _index); _indexDirty = false; }
+            catch (Exception ex) { App.WriteLog("SaveManager.SaveIndex -> " + ex.Message); }
         }
         return list.OrderByDescending(s => s.SavedAt).ToList();
     }
@@ -499,7 +585,7 @@ public sealed class SaveManager
                 && st.TryGetProperty(nameof(GameState.Permissions), out var perm))
                 permissions = perm.Deserialize<SavePermissions>();
         }
-        catch { }
+        catch (Exception ex) { App.WriteLog("SaveManager.PluginsUsedBy -> " + ex.Message); }
         return all
             .Where(p => p.Enabled)
             .Where(p => permissions is null || permissions.AllowAllPlugins
@@ -564,16 +650,30 @@ public sealed class SaveManager
         catch { return false; }
     }
 
+    /// <summary>
+    /// 存档 id 只能是单层文件名。导入的 .json / .wbsave 都是外部输入，
+    /// 不过这道闸，"../../evil" 就能把文件写到数据目录之外（审计 S4）。
+    /// </summary>
+    private static bool IsValidSaveId(string? id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return false;
+        if (!StorageProvider.IsSafeKey(id)) return false;
+        return !id.Contains('/') && !id.Contains('\\');
+    }
+
     private async Task<(bool Ok, string Label)> ImportSaveJsonAsync(string json)
     {
         using var doc = JsonDocument.Parse(json);
         if (!doc.RootElement.TryGetProperty("meta", out var m)) return (false, "");
         var slot = m.Deserialize<SaveSlot>();
-        if (slot is null || string.IsNullOrWhiteSpace(slot.Id)) return (false, "");
-        var dest = Path.Combine(_store.Root, "saves", slot.Id + ".json");
-        var dir = Path.GetDirectoryName(dest);
-        if (dir is not null) Directory.CreateDirectory(dir);
-        await File.WriteAllTextAsync(dest, json);   // 原样写入，不做二次序列化
+        if (slot is null || !IsValidSaveId(slot.Id))
+        {
+            App.WriteLog("SaveManager.Import: 存档 id 不合法，已拒绝导入");
+            return (false, "");
+        }
+        // 走 StorageProvider：原子写（tmp+替换），不再直接覆盖目标文件（审计 P5）。
+        await _store.WriteRawAsync($"saves/{slot.Id}", json);
+        RememberSlotInListCache(slot);
         return (true, slot.Label);
     }
 
@@ -587,7 +687,7 @@ public sealed class SaveManager
         try
         {
             Directory.CreateDirectory(tmp);
-            ZipFile.ExtractToDirectory(path, tmp, true);
+            SafeZip.ExtractToDirectory(path, tmp);
             var saveFile = Directory.GetFiles(tmp, "save.json", SearchOption.AllDirectories).FirstOrDefault();
             if (saveFile is null) return (false, "这个包里没有 save.json，不是有效的存档包。");
             var (ok, label) = await ImportSaveJsonAsync(await File.ReadAllTextAsync(saveFile));
@@ -614,7 +714,7 @@ public sealed class SaveManager
                             continue;
                         }
                     }
-                    catch { }
+                    catch (Exception ex) { App.WriteLog("SaveManager.ImportBundle.PluginManifest -> " + ex.Message); }
                     var result = await _plugins.InstallFromFolderAsync(dir);
                     if (result.Ok) installed++;
                     else failed++;
@@ -650,7 +750,7 @@ public sealed class SaveManager
             if (state is null) return null;
             return (state.Permissions, state.AllowedCharacters.ToList());
         }
-        catch { return null; }
+        catch (Exception ex) { App.WriteLog("SaveManager.ReadSaveSection -> " + ex.Message); return null; }
     }
 
     public async Task<bool> SaveRulesAsync(string id, SavePermissions permissions, IEnumerable<string> allowedCharacters)
@@ -723,7 +823,7 @@ public sealed class SaveManager
             if (!doc.RootElement.TryGetProperty("state", out var st)) return null;
             return st.Deserialize<GameState>()?.LibidoCharacters.ToList();
         }
-        catch { return null; }
+        catch (Exception ex) { App.WriteLog("SaveManager.ReadSaveSection -> " + ex.Message); return null; }
     }
 
     /// <summary>只改「谁参与性欲系统」，存档里其余内容原样保留。</summary>
@@ -769,7 +869,7 @@ public sealed class SaveManager
             return (state.CharacterId ?? "", (state.CharacterWorldviewId ?? "").Trim(),
                 state.WorldviewScopedToSave, state.ScopedWorldbookIds.ToList());
         }
-        catch { return null; }
+        catch (Exception ex) { App.WriteLog("SaveManager.ReadSaveSection -> " + ex.Message); return null; }
     }
 
     /// <summary>
@@ -810,6 +910,8 @@ public sealed class SaveManager
         if (!_store.Exists($"saves/{id}")) return Task.FromResult(false);
         _store.Delete($"saves/{id}");
         _slotCache.Remove(Path.Combine(_store.Root, "saves", id + ".json"));
+        _index.Remove(id);
+        _indexDirty = true;
         return Task.FromResult(true);
     }
 

@@ -158,6 +158,30 @@ public sealed class PluginHost
     private readonly Dictionary<string, TcpListener> _callbackServers = new(StringComparer.OrdinalIgnoreCase);
     private bool _loaded;
     private int _pluginCallDepth;
+
+    /// <summary>
+    /// 审计 P8：JS 宿主函数（callTool / callPlugin / fetch / setSetting…）都是
+    /// GetAwaiter().GetResult() 式阻塞等待，每个在跑的调用都占死一个线程池线程。
+    /// 这里给「阻塞等待」本身加并发闸：同时被阻塞的线程数不超过池的一半（至少 2），
+    /// 插件链再深也不会把线程池抽干、拖慢 UI 定时器与流式渲染。
+    /// </summary>
+    private static readonly SemaphoreSlim BlockingWaitGate =
+        new(Math.Max(2, Environment.ProcessorCount / 2));
+
+    private static T WithBlockingWait<T>(Func<T> action)
+    {
+        BlockingWaitGate.Wait();
+        try { return action(); }
+        finally { BlockingWaitGate.Release(); }
+    }
+
+    /// <summary>无返回值的阻塞等待（GetResult() 是 void 的那批宿主函数用）。</summary>
+    private static void WithBlockingWait(Action action)
+    {
+        BlockingWaitGate.Wait();
+        try { action(); }
+        finally { BlockingWaitGate.Release(); }
+    }
     private int _emitDepth;
 
     /// <summary>能力授权表（声明 ∩ 授予）。界面与钩子判定共用同一个实例。</summary>
@@ -383,7 +407,7 @@ public sealed class PluginHost
         try
         {
             Directory.CreateDirectory(tmp);
-            System.IO.Compression.ZipFile.ExtractToDirectory(zipPath, tmp, true);
+            SafeZip.ExtractToDirectory(zipPath, tmp);
             // 压缩包里可能多套一层目录
             var root = Directory.GetFiles(tmp, "plugin.json", SearchOption.AllDirectories).FirstOrDefault();
             if (root is null) return (false, "压缩包里没有 plugin.json。");
@@ -478,7 +502,7 @@ public sealed class PluginHost
             // 写设置也在这里同步等完：setSetting 是同步语义，异步飘走会让两条连续写互相盖掉，异常也进不了插件日志。
             var gate = new PermissionGate(this, entry);
             var result = await Task.Run(() => RunJs(code, input, settings, charSettings, charId,
-                (key, value) => SetSettingAsync(pluginId, key, value).GetAwaiter().GetResult(), gate));
+                (key, value) => WithBlockingWait(() => SetSettingAsync(pluginId, key, value).GetAwaiter().GetResult()), gate));
             return result;
         }
         catch (Exception ex)
@@ -559,9 +583,9 @@ public sealed class PluginHost
             if (!gate.Allowed(PluginCapabilities.Settings)) return;
             if (charId.Length == 0) return;
             var name = k ?? "";
-            SaveCharacterSettingsAsync(gate.Entry.Manifest.Id, charId,
+            WithBlockingWait(() => SaveCharacterSettingsAsync(gate.Entry.Manifest.Id, charId,
                 new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase) { [name] = v ?? "" })
-                .GetAwaiter().GetResult();
+                .GetAwaiter().GetResult());
             writtenChar[name] = v ?? "";
         }));
         engine.SetValue("log", new Action<object?>(m =>
@@ -576,7 +600,7 @@ public sealed class PluginHost
             {
                 var d = gate.Decide(PluginCapabilities.Tools, name);
                 if (!d.Allowed) return ErrorJson(d.Reason);
-                try { return ToolInvoker(name ?? "", args ?? "{}").GetAwaiter().GetResult(); }
+                try { return WithBlockingWait(() => ToolInvoker(name ?? "", args ?? "{}").GetAwaiter().GetResult()); }
                 catch (Exception ex) { return ErrorJson(ex.Message); }
             }));
         }
@@ -604,7 +628,7 @@ public sealed class PluginHost
                     catch { context = args; }
                 }
                 // 钩子里的 await 会回到当前同步上下文；这里若在 UI 线程上直接等，文件读完后回不去，整窗死住。
-                return Task.Run(() => RunHookAsync(id ?? "", hook ?? "", context)).GetAwaiter().GetResult() ?? "";
+                return WithBlockingWait(() => Task.Run(() => RunHookAsync(id ?? "", hook ?? "", context)).GetAwaiter().GetResult()) ?? "";
             }
             catch (Exception ex)
             {
@@ -688,6 +712,8 @@ public sealed class PluginHost
             _paused.Start();
             try
             {
+                // 这里不加阻塞闸：CheckAsync 可能弹「是否放行」等用户授权，时长不可控，
+                // 占住闸位会把其他插件的调用全堵死。看门狗已通过 PausedMs 排除等待时间。
                 d = _host._permissions
                     .CheckAsync(Entry.Manifest.Id, Entry.Manifest.Name, Entry.Manifest, capability, arg)
                     .GetAwaiter().GetResult();
@@ -787,13 +813,13 @@ public sealed class PluginHost
                 req.Headers.TryAddWithoutValidation(name, value);
             }
 
-            using var resp = Net.SendAsync(req).GetAwaiter().GetResult();
+            using var resp = WithBlockingWait(() => Net.SendAsync(req).GetAwaiter().GetResult());
             var status = (int)resp.StatusCode;
             string text = "";
             bool truncated = false;
             if (method != "HEAD")
             {
-                using var stream = resp.Content.ReadAsStreamAsync().GetAwaiter().GetResult();
+                using var stream = WithBlockingWait(() => resp.Content.ReadAsStreamAsync().GetAwaiter().GetResult());
                 using var ms = new MemoryStream();
                 var buffer = new byte[8192];
                 int read;
@@ -870,7 +896,7 @@ public sealed class PluginHost
             return ErrorJson("载荷超过 64KB。");
         try
         {
-            var delivered = DispatchBroadcastAsync(gate.PluginId, t, payload ?? "").GetAwaiter().GetResult();
+            var delivered = WithBlockingWait(() => DispatchBroadcastAsync(gate.PluginId, t, payload ?? "").GetAwaiter().GetResult());
             return JsonSerializer.Serialize(new { ok = true, delivered, error = "" });
         }
         catch (Exception ex) { return ErrorJson(ex.Message); }
@@ -919,7 +945,7 @@ public sealed class PluginHost
         if (sender is null) return ErrorJson("主程序没有接上通知通道。");
         try
         {
-            sender((title ?? "").Trim(), (text ?? "").Trim()).GetAwaiter().GetResult();
+            WithBlockingWait(() => sender((title ?? "").Trim(), (text ?? "").Trim()).GetAwaiter().GetResult());
             return JsonSerializer.Serialize(new { ok = true, error = "" });
         }
         catch (Exception ex) { return ErrorJson(ex.Message); }
@@ -939,7 +965,7 @@ public sealed class PluginHost
         if (adjuster is null) return ErrorJson("主程序没有接上数值结算口。");
         try
         {
-            var err = adjuster(target, (stat ?? "").Trim(), delta).GetAwaiter().GetResult();
+            var err = WithBlockingWait(() => adjuster(target, (stat ?? "").Trim(), delta).GetAwaiter().GetResult());
             return err is null ? JsonSerializer.Serialize(new { ok = true, error = "" }) : ErrorJson(err);
         }
         catch (Exception ex) { return ErrorJson(ex.Message); }

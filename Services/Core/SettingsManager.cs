@@ -76,15 +76,41 @@ public sealed class SettingsManager
     /// </summary>
     public void RestoreBlocking()
     {
-        try { Task.Run(async () => await Restore()).GetAwaiter().GetResult(); }
-        catch (Exception ex) { App.WriteLog("SettingsManager.RestoreBlocking -> " + ex.Message); }
+        // 直接同步 IO 读小文件，不再 Task.Run + GetAwaiter().GetResult()：
+        // 那条路在线程池饥饿时会把首帧白屏时间无限放大（审计 P7）。
+        try
+        {
+            var raw = _store.LoadRawBlocking("settings");
+            if (!string.IsNullOrWhiteSpace(raw))
+            {
+                var s = JsonSerializer.Deserialize<UserSettings>(raw);
+                if (s is not null) _current = s;
+            }
+            _loadFaulted = false;
+        }
+        catch (Exception ex)
+        {
+            _loadFaulted = true;
+            App.WriteLog("SettingsManager.RestoreBlocking -> " + ex.Message);
+        }
+
+        // 迁移是纯内存计算，同步做完保证首帧就用上迁移后的值；只有真的改动了才需要落盘，
+        // 落盘放后台，不挡启动。
+        if (MigrateLegacyCore())
+        {
+            _ = Task.Run(async () =>
+            {
+                try { await _store.Save("settings", _current); }
+                catch (Exception ex) { App.WriteLog("SettingsManager.MigrateSave -> " + ex.Message); }
+            });
+        }
     }
 
-    /// <summary>旧版单一 GlassStyle → 新的三个独立开关；毛玻璃隐含磨砂。</summary>
-    private async Task MigrateLegacyAsync()
+    /// <summary>迁移计算（纯内存，不落盘）：返回 true 表示设置被改动，由调用方决定写盘时机。</summary>
+    private bool MigrateLegacyCore()
     {
         // 上一次没读成功时 _current 是默认值：这时候迁移完回写，等于把用户全部设置换成出厂值。
-        if (_loadFaulted) return;
+        if (_loadFaulted) return false;
         var c = _current;
         var changed = false;
 
@@ -168,8 +194,14 @@ public sealed class SettingsManager
             App.WriteLog($"Settings.Migrate: 单一周期 → 按性别（女 {fem.CycleLength}/{fem.PeriodLength}，男/其他无周期）");
         }
 
-        if (!changed) return;
+        if (!changed) return false;
         _current = c;
-        await _store.Save("settings", _current);
+        return true;
+    }
+
+    private async Task MigrateLegacyAsync()
+    {
+        if (MigrateLegacyCore())
+            await _store.Save("settings", _current);
     }
 }

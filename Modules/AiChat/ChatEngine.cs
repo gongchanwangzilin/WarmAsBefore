@@ -30,6 +30,24 @@ public sealed class ChatEngine
     /// <summary>端点已明确拒绝过 tools 字段：本会话不再发送工具，避免每轮都白撞一次 400。</summary>
     private bool _toolsUnsupported;
 
+    // ==================== 错误通道与重试（审计 U1） ====================
+    // 系统性错误（网络断、端点配置错、超时）不该伪装成 AI 的台词塞进气泡里：
+    // UI 订阅这个事件走独立通道（状态条/Toast），气泡只留给角色真正说的话。
+    public event Action<string, string>? ErrorOccurred;   // (charId, 用户可读的错误说明)
+
+    private void NotifyError(string charId, string message)
+    {
+        try { ErrorOccurred?.Invoke(charId, message); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.ErrorOccurred handler -> " + ex.Message); }
+    }
+
+    /// <summary>按角色记住最近一次失败的用户输入，供「重试上一条」使用。</summary>
+    private readonly ConcurrentDictionary<string, string> _lastFailedInput = new(StringComparer.Ordinal);
+
+    /// <summary>有没有可重试的上一条输入；有则带出。</summary>
+    public bool TryGetLastFailedInput(string charId, out string text)
+        => _lastFailedInput.TryGetValue(charId, out text!);
+
     /// <summary>小模型优先：仅桥未连接且开启时，先跑小模型（不带工具），处理不来再升级大模型。由 RuntimeConfigurator 注入。</summary>
     public bool SmallModelFirstEnabled { get; set; }
     public AiEndpoint? SmallEndpoint { get; set; }
@@ -596,8 +614,11 @@ public sealed class ChatEngine
             var (reply, error) = await RunTurnWithSmallAsync(session, cfg);
             if (error is not null)
             {
-                // API 返回了错误信息，直接显示给用户（不存会话历史）
+                // API 返回了错误信息：日志留痕 + 走独立错误通道，本轮用户输入记为可重试。
+                // 不再让错误文本混进聊天气泡冒充 AI 台词（审计 U1）。
                 App.WriteLog("ChatEngine: API error: " + error);
+                _lastFailedInput[charId] = text;
+                NotifyError(charId, error);
                 return error;
             }
             // 正文为 null（而不是空串）＝模型没给正文，沿用原来的提示语；空串是"沉默"，必须原样保留
@@ -621,11 +642,14 @@ public sealed class ChatEngine
             try { AfterSend?.Invoke(); }
             catch (Exception ex) { App.WriteLog("ChatEngine.AfterSend -> " + ex.Message); }
             await RunAfterTurnAsync(charId, digest, text, reply);
+            _lastFailedInput.TryRemove(charId, out _);   // 本轮成功，清掉可重试标记
             return reply;
         }
         catch (Exception ex)
         {
             App.WriteLog("ChatEngine.Send -> " + ex.Message);
+            _lastFailedInput[charId] = text;
+            NotifyError(charId, "AI 调用出错：" + ex.Message);
             var errorMsg = $"（AI 调用出错：{ex.Message}）";
             // 异常路径的错误提示不进会话历史（避免污染后续上下文的 assistant 记忆），
             // 直接返回给调用方展示。
