@@ -139,6 +139,14 @@ public sealed class MapCanvasDrawable : IDrawable
     private static readonly Color CardOutline = Color.FromArgb("#E3D5C4");
     private static readonly Color Gold = Color.FromArgb("#C9A227");
     private static readonly Color NamePlate = Color.FromArgb("#AA000000");
+    // 审计 P6：这些色在 Draw 里每帧出现，钉成字段，不再每帧解析字符串
+    private static readonly Color FrameFillParent = Color.FromArgb("#14FFFFFF");
+    private static readonly Color FrameFillChild = Color.FromArgb("#22FFFFFF");
+    private static readonly Color FrameFillMarquee = Color.FromArgb("#30FFFFFF");
+    private static readonly Color FrameTitleInk = Color.FromArgb("#7A6252");
+    private static readonly Color FarMassFont = Color.FromArgb("#80FFFFFF");
+    private static readonly Color TransitFill = Color.FromArgb("#203A8CFF");
+    private static readonly Color TransitStroke = Color.FromArgb("#7FA8FF");
 
     public Color GroupColor(string groupKey)
     {
@@ -334,7 +342,7 @@ public sealed class MapCanvasDrawable : IDrawable
     }
 
     private Dictionary<string, RectF?>? _frames;
-    private int _frameBuiltFor = -1;
+    private long _frameHash = -1;
     private int _drawTick;
 
     /// <summary>
@@ -344,8 +352,11 @@ public sealed class MapCanvasDrawable : IDrawable
     private void EnsureFrames()
     {
         if (Locations is null) { _frames = null; return; }
-        if (_frames is not null && _frameBuiltFor == _drawTick) return;
-        _frameBuiltFor = _drawTick;
+        // 框只随「地点/卡片的布局」变化：按布局算一个哈希，没变就整套复用，
+        // 不再每帧重建一堆字典（审计 P6）。
+        var hash = ComputeLayoutHash();
+        if (_frames is not null && hash == _frameHash) return;
+        _frameHash = hash;
 
         // 子地点表（只在地点增删改父时重建）
         var children = new Dictionary<string, List<string>>();
@@ -417,6 +428,22 @@ public sealed class MapCanvasDrawable : IDrawable
         _frames = frames;
     }
 
+    /// <summary>布局指纹：地点/卡片的位置一变才需要重建框表，纯数值比较，零分配。</summary>
+    private long ComputeLayoutHash()
+    {
+        unchecked
+        {
+            long h = 17;
+            h = h * 31 + (Locations?.Count ?? 0);
+            if (Locations is not null)
+                foreach (var l in Locations) h = h * 31 + l.X.GetHashCode() + l.Y.GetHashCode() * 3;
+            h = h * 31 + (Nodes?.Count ?? 0);
+            if (Nodes is not null)
+                foreach (var n in Nodes) h = h * 31 + n.X.GetHashCode() + n.Y.GetHashCode() * 3;
+            return h;
+        }
+    }
+
     /// <summary>地点标记框：淡色底 + 色描边 + 地点名标题。框只做分组标记，不参与连线。</summary>
     private void DrawLocationFrames(ICanvas canvas, RectF dirty)
     {
@@ -441,8 +468,8 @@ public sealed class MapCanvasDrawable : IDrawable
             var isChild = !string.IsNullOrEmpty(loc.ParentId);
             var isMarquee = MarqueeSelected.Contains(loc.Id);
             // 父框底色更淡一层（嵌套视觉层次）；被框选的地点高亮
-            canvas.FillColor = isMarquee ? Color.FromArgb("#30FFFFFF")
-                : isChild ? Color.FromArgb("#22FFFFFF") : Color.FromArgb("#14FFFFFF");
+            canvas.FillColor = isMarquee ? FrameFillMarquee
+                : isChild ? FrameFillChild : FrameFillParent;
             canvas.FillRoundedRectangle(sp, (float)(10 * Scale));
 
             // 描边（虚线柔和）；框选命中 = 实线加粗
@@ -480,7 +507,7 @@ public sealed class MapCanvasDrawable : IDrawable
             // 真实地址（拉近了才写字，远景写字只会糊）
             if (Scale >= 0.8 && !string.IsNullOrWhiteSpace(loc.Address))
             {
-                canvas.FontColor = Color.FromArgb("#7A6252");
+                canvas.FontColor = FrameTitleInk;
                 canvas.FontSize = (float)Math.Max(8, 10 * Scale);
                 canvas.Font = Microsoft.Maui.Graphics.Font.Default;
                 canvas.DrawString(loc.Address, (float)(sp.X + 8 * Scale), (float)(sp.Y + 24 * Scale),
@@ -508,7 +535,7 @@ public sealed class MapCanvasDrawable : IDrawable
             var hasCard = Nodes.Any(n => n.Location.Id == loc.Id);
             if (!hasCard)
             {
-                canvas.FontColor = Color.FromArgb("#80FFFFFF");
+                canvas.FontColor = FarMassFont;
                 canvas.FontSize = (float)Math.Max(9, 11 * Scale);
                 canvas.Font = Microsoft.Maui.Graphics.Font.Default;
                 canvas.DrawString("空地点：右键→新建场景/子地点", (float)(sp.X + 8 * Scale),
@@ -524,10 +551,10 @@ public sealed class MapCanvasDrawable : IDrawable
         if (MarqueeRect is not { } r) return;
         var sp = new RectF((float)(r.X * Scale + OffsetX), (float)(r.Y * Scale + OffsetY),
             (float)(r.Width * Scale), (float)(r.Height * Scale));
-        canvas.FillColor = Color.FromArgb("#203A8CFF");
+        canvas.FillColor = TransitFill;
         canvas.FillRectangle(sp);
         canvas.StrokeSize = (float)(1.5 * Scale);
-        canvas.StrokeColor = Color.FromArgb("#7FA8FF");
+        canvas.StrokeColor = TransitStroke;
         canvas.DrawRectangle(sp);
     }
 
@@ -962,6 +989,8 @@ public sealed class MapCanvasDrawable : IDrawable
     private static readonly Dictionary<string, Color> _hexColors = new(StringComparer.Ordinal);
     private static readonly Color FallbackInk = Color.FromArgb("#2C1810");
 
+    // 审计 P6 补记：ParseHex 原本就有 256 条上限的缓存，此处保持不变；
+    // 真正的每帧分配来自 EnsureFrames 重建与 FrameFill/标题色，已在上方钉成字段解决。
     private static Color ParseHex(string hex, string fallback)
     {
         hex ??= "";
