@@ -329,6 +329,18 @@ public sealed partial class MaidBridgeService : IDisposable
         }
 
         Volatile.Write(ref _listenerHealthy, udpOk && tcpOk ? 1 : 0);
+#if ANDROID
+        // 安卓：桥在监听就挂一条前台保活服务。切到 FCL 里的《我的世界》后应用会被冷冻，
+        // 没有前台服务的话回环 socket 收不到包、模组判掉线。
+        try
+        {
+            if (udpOk || tcpOk)
+                WarmAsBefore.Droid.BridgeKeepAliveService.Start(global::Android.App.Application.Context);
+            else
+                WarmAsBefore.Droid.BridgeKeepAliveService.Stop(global::Android.App.Application.Context);
+        }
+        catch (Exception ex) { App.WriteLog("MaidBridge.AndroidKeepAlive -> " + ex.Message); }
+#endif
     }
 
     private async Task StopListenersAsync()
@@ -354,6 +366,10 @@ public sealed partial class MaidBridgeService : IDisposable
         cts?.Dispose();
         lock (_pendingGate) _pending.Clear();
         Volatile.Write(ref _listenerHealthy, 0);
+#if ANDROID
+        try { WarmAsBefore.Droid.BridgeKeepAliveService.Stop(global::Android.App.Application.Context); }
+        catch (Exception ex) { App.WriteLog("MaidBridge.AndroidKeepAliveStop -> " + ex.Message); }
+#endif
     }
 
     private async Task UdpLoopAsync(UdpClient udp, CancellationToken ct)
