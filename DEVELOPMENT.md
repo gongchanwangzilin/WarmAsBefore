@@ -215,6 +215,34 @@ builder.Services
 4. 独立存储使用自己的键前缀（如 `showcase/`、`battles/`），不要与全局键混用。
 5. 有外部进程或协议时，先定义契约与失败兜底，再写 UI。
 
+### 新增可导入的 ZIP 包类型
+
+1. 包类型识别统一走 `Modules/DataPack/SmartImporter.Detect`：按包内标记文件
+   （`datapack.json` / `save.json` / `plugin.json` / `character.json` /
+   `manifest.json`+素材目录）判断类型，只读中央目录、不解压。
+2. 新类型要在 `SmartImporter.ImportAsync` 里加路由分支，并在
+   `WabPackageKind` 枚举与 `KindNameOf` 补类型名。
+3. 不要自建导入入口让用户挑格式：存档页 / 插件中心 / 角色页 / 设置页 /
+   Windows 拖放（`App.HookZipDrop`）全部经过 `SmartImporter` 自动路由，
+   加了新类型这些入口自动生效。
+4. 破坏性导入（如整包数据包替换数据目录）必须在导入链路内保留确认弹窗，
+   不允许静默执行。
+
+### 角色级模型与语音绑定（回退链）
+
+两类「按角色」配置都挂在 `CharacterData` 上，未设置时逐字段回退全局：
+
+1. **AI 模型**（`CharacterData.Model` → `CharacterModelBinding`）：
+   优先级 **角色绑定 > 右上角 AI 临时指定（`ApiGateway.TemporaryEndpoint`，不落盘）> 全局轮换池**。
+   解析入口是 `CharacterSettingsResolver.BoundEndpoint/EndpointFor`，`ChatEngine.CfgFor` 消费。
+   绑定只认「启用且有密钥」的厂商；厂商失效或模型找不到时整体回退全局，不做半套拼接。
+2. **语音**（`CharacterData.Voice` → `CharacterVoice`）：
+   `Enabled/VoiceName/Engine/Extra` 逐字段回退全局；专属 TTS API 的
+   `ApiUrl + ApiKey` **成对判定**（只填一半整体回退，避免新地址配旧密钥），
+   成对生效后 `ApiMode/TtsModel` 再逐字段回退。消费入口是
+   `SpeechService.Speak`（swap/restore，`VoiceOfCharacter` 由 `RuntimeConfigurator` 接线）。
+   单次调用的 `voiceName` 参数（桌宠快捷音色）优先级最高。
+
 ### 修改存储格式
 
 1. 新字段给默认值，保证旧档可以反序列化。
