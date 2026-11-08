@@ -158,6 +158,17 @@ public sealed class UpdateService
     public async Task<string> DownloadAsync(string zipUrl, string targetDir,
         string? expectedSha256 = null, Action<int>? onPercent = null)
     {
+        // 审计 S6：哈希来自同一个 release，镜像被污染时「包 + 哈希」会一起被换掉。
+        // 因此非官方源的下载**必须**带校验值，没有就直接拒，不拿用户的安装包去赌镜像可信度。
+        var isOfficial = zipUrl.StartsWith("https://github.com/", StringComparison.OrdinalIgnoreCase);
+        if (string.IsNullOrWhiteSpace(expectedSha256))
+        {
+            if (!isOfficial)
+                throw new InvalidOperationException(
+                    "镜像来源没有提供 SHA256 校验值，已阻止下载。请改用官方源，或到 release 页手动下载。");
+            App.WriteLog("UpdateService.Download: 官方源缺少 sha256 资产，本次按未校验下载处理");
+        }
+
         Directory.CreateDirectory(targetDir);
         var fname = Path.GetFileName(new Uri(zipUrl).AbsolutePath);
         var dest = Path.Combine(targetDir, fname);
@@ -183,7 +194,9 @@ public sealed class UpdateService
 
         if (!string.IsNullOrWhiteSpace(expectedSha256))
         {
-            var hash = Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(dest)))
+            // 流式算哈希：更新包上百 MB 时，ReadAllBytes 会一次性吃进等量内存
+            await using var hashStream = File.OpenRead(dest);
+            var hash = Convert.ToHexString(SHA256.HashData(hashStream))
                 .ToLowerInvariant();
             if (!string.Equals(hash, expectedSha256.Trim(), StringComparison.OrdinalIgnoreCase))
             {

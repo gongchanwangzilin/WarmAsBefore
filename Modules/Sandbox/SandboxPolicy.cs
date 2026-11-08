@@ -28,10 +28,17 @@ public sealed class SandboxPolicy
     public CryptoStore Crypto => _crypto;
     public AuditLog Audit => _audit;
 
+    /// <summary>
+    /// 沙箱文件根目录。全项目只有这一处定义，TrustStore / CryptoStore / AuditLog 共用，
+    /// 不再各自拼路径、也不再靠「两个候选路径都试试」来猜 settings 在哪。
+    /// </summary>
+    private static string SandboxRoot(StorageProvider store)
+        => Path.GetFullPath(Path.Combine(store.Root, ".."));
+
     public SandboxPolicy(StorageProvider store, SettingsManager? settings = null)
     {
         _store = store;
-        var root = Path.Combine(store.Root, "..");
+        var root = SandboxRoot(store);
         _trust = new TrustStore(root);
         _crypto = new CryptoStore(root);
         _audit = new AuditLog(root);
@@ -52,32 +59,21 @@ public sealed class SandboxPolicy
     /// </summary>
     public async Task RefreshKeyFingerprintsAsync()
     {
-        try
-        {
-            var raw = await _store.LoadRawAsync("settings");
-            if (string.IsNullOrWhiteSpace(raw)) return;
-            var s = JsonDocument.Parse(raw).RootElement.Deserialize<UserSettings>();
-            if (s is null) return;
-            _filter.SetDynamicFingerprints(new[]
-            {
-                s.AiKey, s.VoiceApiKey, s.ChessApiKey,
-                s.QqAppSecret, s.WechatAppSecret, s.WechatToken
-            });
-        }
-        catch { /* 指纹刷新失败不影响主流程 */ }
+        ApplyKeyFingerprints(await _store.LoadRawAsync("settings"));
     }
 
     /// <summary>同步版本（仅在确实需要密钥指纹的调用方使用，如设置页手动触发；UI 线程不要调）。</summary>
     public void RefreshKeyFingerprints()
     {
+        // 走 StorageProvider 的同步通道：既避免 sync-over-async，也能正确解开加密后的 settings.json。
+        ApplyKeyFingerprints(_store.LoadRawBlocking("settings"));
+    }
+
+    /// <summary>异步/同步两个入口共用的唯一实现，避免两份逻辑日后各改各的。</summary>
+    private void ApplyKeyFingerprints(string? raw)
+    {
         try
         {
-            // 非阻塞路径：直接用同步 IO 读 settings 文件（不走 async，避免 sync-over-async）
-            var path = System.IO.Path.Combine(_store.Root, "..", "settings.json");
-            if (!System.IO.File.Exists(path))
-                path = System.IO.Path.Combine(_store.Root, "settings.json");
-            if (!System.IO.File.Exists(path)) return;
-            var raw = System.IO.File.ReadAllText(path);
             if (string.IsNullOrWhiteSpace(raw)) return;
             var s = JsonDocument.Parse(raw).RootElement.Deserialize<UserSettings>();
             if (s is null) return;
@@ -87,7 +83,11 @@ public sealed class SandboxPolicy
                 s.QqAppSecret, s.WechatAppSecret, s.WechatToken
             });
         }
-        catch { /* 指纹刷新失败不影响主流程 */ }
+        catch (Exception ex)
+        {
+            // 指纹刷新失败不影响主流程，但必须留痕，否则「敏感词没拦住」会无从查起。
+            App.WriteLog("SandboxPolicy.Fingerprints -> " + ex.Message);
+        }
     }
 
     /// <summary>
