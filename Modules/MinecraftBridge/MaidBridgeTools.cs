@@ -83,6 +83,52 @@ internal static class MaidBridgeTools
             + "物品写注册名（minecraft:rotten_flesh）或标签（#forge:candy），标签一次管住一整类。",
             args => bridge.RunToolAsync("feed_rules", args),
             FeedRulesSchema);
+
+        tools.RegisterBuiltin("maid_waypoint",
+            "让女仆记住或前往一个地点。action=set 把当前位置（或给的 pos）存成名字，"
+            + "action=list 列出她知道的所有地点（带距离），action=go 走到那个地点，action=remove 忘掉。"
+            + "常用点建议一次记住：家、仓库、矿洞、农田。地点跟着存档走。",
+            args => bridge.RunToolAsync("waypoint", args),
+            WaypointSchema);
+
+        tools.RegisterBuiltin("maid_container",
+            "操作箱子一类容器（箱子、木桶、漏斗、熔炉都算）。action=list 看里面有什么，"
+            + "store 把背包里的东西放进去，take 从里面取出来，dump 把背包里除工具/食物外的全部收进去。"
+            + "不给 pos 就找她附近最近的一个；filter 可写物品 id、#标签、food 或 block。"
+            + "够不着时她会先走过去，再让你重试。",
+            args => bridge.RunToolAsync("container", args),
+            ContainerSchema);
+
+        tools.RegisterBuiltin("maid_craft",
+            "让她合成或冶炼。action=craft 按产物 id 在工作台/背包合成（3×3 配方要手边有工作台），"
+            + "action=smelt 用熔炉配方烧炼（自动从背包找燃料），action=list 看现在能做什么。"
+            + "材料从她自己的背包扣；做不出来会告诉你缺什么。",
+            args => bridge.RunToolAsync("craft", args),
+            CraftSchema);
+
+        tools.RegisterBuiltin("maid_build",
+            "让她铺方块。action=line 铺一条、wall 铺一面（可给 height）、box 中空盒子、fill 实心填充、pillar 往上叠。"
+            + "from/to 是两端坐标，block 用物品 id（留空就用手上的方块）。默认不覆盖已有方块，一次最多 512 格，材料不够就停。",
+            args => bridge.RunToolAsync("build", args),
+            BuildSchema);
+
+        tools.RegisterBuiltin("maid_ride",
+            "骑乘。action=mount 骑上附近的船/矿车/马（可给 target 指定名字），boat 从背包放一条船坐上去，"
+            + "cart 放一辆矿车，dismount 下来。只能骑本来就是坐骑的东西，不抢玩家和其它实体的座位。",
+            args => bridge.RunToolAsync("ride", args),
+            RideSchema);
+
+        tools.RegisterBuiltin("maid_fight",
+            "战斗。action=guard 守着、附近有敌对生物就打（没有就报告安全），defend 打刚才伤害主人的人，"
+            + "attack 打指定目标，retreat 撤回主人身边。会自己从背包挑攻击力最高的武器换上。",
+            args => bridge.RunToolAsync("fight", args),
+            FightSchema);
+
+        tools.RegisterBuiltin("maid_crew",
+            "给附近你名下的所有女仆派分工。action=assign + role（miner 挖矿 / farmer 收作物 / hauler 捡东西并送进箱子 / "
+            + "guard 守卫），status 看每个人在忙什么，stop 让全部停手。每只女仆各干各的，不会互相抢。",
+            args => bridge.RunToolAsync("crew", args),
+            CrewSchema);
     }
 
     private const string MaidProperty =
@@ -120,11 +166,14 @@ internal static class MaidBridgeTools
 
     private static readonly string GatherSchema =
         """{"type":"object","properties":{""" + MaidProperty + """
-        ,"action":{"type":"string","enum":["mine","collect","chop","harvest","scoop","fill"],"description":"采集方式"},
+        ,"action":{"type":"string","enum":["mine","collect","chop","harvest","scoop","fill","tunnel"],"description":"采集方式"},
         "pos":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"指定作业点；留空则由女仆自己找"},
         "filter":{"type":"string","description":"mine 的目标：ores / 方块 id；scoop 可给 water 或 lava"},
         "radius":{"type":"number","description":"搜索半径（格），默认 16"},
-        "count":{"type":"integer","description":"最多处理多少个方块/物品"}
+        "count":{"type":"integer","description":"最多处理多少个方块/物品"},
+        "length":{"type":"integer","description":"tunnel 往前挖多少格，默认 16"},
+        "width":{"type":"integer","enum":[1,3],"description":"tunnel 巷道宽度，1 或 3，默认 1"},
+        "torchEvery":{"type":"integer","description":"tunnel 每几格插一支火把，0 表示不插"}
         },"required":["action"],"additionalProperties":false}
         """;
 
@@ -186,6 +235,70 @@ internal static class MaidBridgeTools
         """{"type":"object","properties":{""" + MaidProperty + """
         ,"label":{"type":"string","description":"备份标签，默认 manual"}
         },"additionalProperties":false}
+        """;
+
+    private static readonly string WaypointSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["set","list","go","remove"],"description":"记住 / 列出 / 前往 / 忘掉"},
+        "name":{"type":"string","maxLength":32,"description":"地点名字，如 仓库、矿洞、家"},
+        "pos":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"set 时的坐标；留空用她当前位置"}
+        },"required":["action"],"additionalProperties":false}
+        """;
+
+    private static readonly string ContainerSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["list","store","take","dump"],"description":"查看 / 存入 / 取出 / 收工收纳"},
+        "pos":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"容器坐标；留空找附近最近的"},
+        "item":{"type":"string","description":"物品 id 或名称"},
+        "filter":{"type":"string","description":"筛选：物品 id、#标签、food、block"},
+        "count":{"type":"integer","description":"最多搬多少件，默认 64"},
+        "radius":{"type":"number","description":"找容器的半径（格），默认 8"}
+        },"required":["action"],"additionalProperties":false}
+        """;
+
+    private static readonly string CraftSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["craft","smelt","list"],"description":"合成 / 冶炼 / 看能做什么"},
+        "item":{"type":"string","description":"产物物品 id，如 minecraft:crafting_table"},
+        "count":{"type":"integer","description":"做几个，默认 1，最大 64"},
+        "pos":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"工作台坐标；留空找附近的工作台"}
+        },"required":["action"],"additionalProperties":false}
+        """;
+
+    private static readonly string BuildSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["line","wall","box","fill","pillar"],"description":"建造形状"},
+        "from":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"起点坐标"},
+        "to":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"终点坐标"},
+        "block":{"type":"string","description":"方块物品 id；留空用手上的方块"},
+        "height":{"type":"integer","description":"墙/柱的高度或箱子的层数，默认 1"},
+        "replace":{"type":"boolean","description":"是否覆盖已有方块，默认 false"}
+        },"required":["action","from"],"additionalProperties":false}
+        """;
+
+    private static readonly string RideSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["mount","boat","cart","dismount"],"description":"骑上 / 放船 / 放矿车 / 下来"},
+        "target":{"type":"string","description":"要骑的东西的名字，留空找最近的"},
+        "radius":{"type":"number","description":"找载具的半径（格），默认 10"}
+        },"required":["action"],"additionalProperties":false}
+        """;
+
+    private static readonly string FightSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["guard","defend","attack","retreat"],"description":"守卫 / 护主 / 攻击 / 撤退"},
+        "target":{"type":"string","description":"攻击目标的名字；guard 留空则自动找敌对生物"},
+        "radius":{"type":"number","description":"索敌半径（格），默认 12"}
+        },"required":["action"],"additionalProperties":false}
+        """;
+
+    private static readonly string CrewSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["assign","status","stop"],"description":"派活 / 查看 / 全部停手"},
+        "role":{"type":"string","enum":["miner","farmer","hauler","guard"],"description":"分工角色"},
+        "radius":{"type":"number","description":"队伍半径（格），默认 24"},
+        "count":{"type":"integer","description":"每人处理多少个目标，默认 32"}
+        },"required":["action"],"additionalProperties":false}
         """;
 
     private static readonly string FeedRulesSchema =
