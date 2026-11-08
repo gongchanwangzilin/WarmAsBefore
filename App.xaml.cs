@@ -16,7 +16,11 @@ public partial class App : Application
         try
         {
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+            {
                 WriteLog("APPDOMAIN UNHANDLED: " + e.ExceptionObject);
+                TryNotifyCrash("温暖如初遇到问题",
+                    "程序即将退出。启动日志已写入：Documents\\warm_startup.log，可把这份文件发给开发者定位问题。");
+            };
             TaskScheduler.UnobservedTaskException += (_, e) =>
             {
                 WriteLog("UNOBSERVED TASK: " + e.Exception);
@@ -42,6 +46,10 @@ public partial class App : Application
                     WriteLogNow("WINUI UNHANDLED: " + e.Exception);
                     WriteLogNow("WINUI UNHANDLED STACK: " + e.Exception?.StackTrace);
                     FlushLog();
+                    // 审计 U5：窗口无声消失对用户是「程序坏了还什么都不说」。
+                    // 尽力弹一次提示指路日志；不设 e.Handled，崩溃语义保持原样。
+                    TryNotifyCrash("温暖如初遇到问题",
+                        "发生了一个未处理的错误，窗口可能即将关闭。\n日志位置：Documents\\warm_startup.log");
                 };
 #endif
         }
@@ -76,6 +84,105 @@ public partial class App : Application
             DesignSystem.Theme.ThemeManager.Current?.RepublishForScale();
         else
             DesignSystem.Worlds.StyleWorldTokens.RepublishWidth();
+    }
+
+    /// <summary>
+    /// Windows 桌面拖放导入：把 zip / .wbsave / 存档 json 直接拖进窗口任意位置，
+    /// 自动识别包类型并交给 SmartImporter 路由加载，结果以 Toast 反馈（识别不出会说明原因）。
+    /// </summary>
+#if WINDOWS
+    private static void HookZipDrop(Microsoft.UI.Xaml.Window xw)
+    {
+        try
+        {
+            if (xw.Content is not Microsoft.UI.Xaml.FrameworkElement root) return;
+            root.AllowDrop = true;
+            root.DragOver += (_, e) =>
+            {
+                try
+                {
+                    if (e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                        e.AcceptedOperation = global::Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+                }
+                catch (Exception ex) { WriteLog("ZipDrop.DragOver -> " + ex.Message); }
+            };
+            root.Drop += async (_, e) =>
+            {
+                var deferral = e.GetDeferral();
+                try
+                {
+                    if (!e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                        return;
+                    var items = await e.DataView.GetStorageItemsAsync();
+                    var paths = items.OfType<global::Windows.Storage.StorageFile>()
+                        .Select(f => f.Path)
+                        .Where(p => p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                                    || p.EndsWith(".wbsave", StringComparison.OrdinalIgnoreCase)
+                                    || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                        .ToList();
+                    if (paths.Count == 0)
+                    {
+                        MainThread.BeginInvokeOnMainThread(() =>
+                            Controls.Toast.Warn("拖进来的文件不是可导入的包（支持 zip / .wbsave / 存档 json）。"));
+                        return;
+                    }
+
+                    var services = Application.Current?.Handler?.MauiContext?.Services;
+                    var smart = services?.GetService(typeof(Modules.DataPack.SmartImporter))
+                        as Modules.DataPack.SmartImporter;
+                    if (smart is null) return;
+
+                    _ = Task.Run(async () =>
+                    {
+                        foreach (var p in paths)
+                        {
+                            var result = await smart.ImportAsync(p);
+                            App.WriteLog($"ZipDrop({result.KindName}) {Path.GetFileName(p)} -> {result.Message}");
+                            MainThread.BeginInvokeOnMainThread(() =>
+                            {
+                                if (result.Ok) Controls.Toast.Success($"【{result.KindName}】{result.Message}");
+                                else Controls.Toast.Error(result.Message);
+                            });
+                        }
+                    });
+                }
+                catch (Exception ex)
+                {
+                    WriteLog("ZipDrop -> " + ex);
+                }
+                finally
+                {
+                    deferral.Complete();
+                }
+            };
+        }
+        catch (Exception ex)
+        {
+            WriteLog("HookZipDrop: " + ex.Message);
+        }
+    }
+#endif
+
+    /// <summary>
+    /// 崩溃兜底提示（审计 U5）：尽力弹一次对话框指路日志。崩溃路径上什么都可能坏，
+    /// 所以这一步整体自吞异常（吞掉的只是「提示弹不出来」，日志那步已经先行落盘）。
+    /// </summary>
+    private static void TryNotifyCrash(string title, string detail)
+    {
+        try
+        {
+            var page = Application.Current?.Windows?.FirstOrDefault()?.Page;
+            if (page is null) return;
+            _ = MainThread.InvokeOnMainThreadAsync(async () =>
+            {
+                try { await page.DisplayAlert(title, detail, "知道了"); }
+                catch (Exception ex) { System.Diagnostics.Debug.WriteLine("crash alert: " + ex.Message); }
+            });
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine("TryNotifyCrash: " + ex.Message);
+        }
     }
 
     protected override Window CreateWindow(IActivationState? activationState)
@@ -135,6 +242,8 @@ public partial class App : Application
                 catch (Exception ex) { WriteLog("CreateWindow.TitleBarHook: " + ex.Message); }
                 // 不读事件参数（那个 args 类型和 MAUI 引进来的同名类型撞了），直接问窗口现在的 Bounds。
                 xw.SizeChanged += (_, _) => { var b = xw.Bounds; ApplyViewport(b.Width, b.Height); };
+                // 桌面拖 zip 进窗口 = 自动识别导入（见 HookZipDrop）。
+                HookZipDrop(xw);
             };
 #endif
             // 焦点在时压住任务栏，失焦让位；永久置顶由 WindowTaskbarFocus 自己判断并保留。

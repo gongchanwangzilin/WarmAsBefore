@@ -31,6 +31,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Services.CloudSync.CloudSyncService _cloud;
     private readonly Modules.Market.ShopService _shop;
     private readonly SaveRuntimeService _runtime;
+    private readonly Modules.DataPack.SmartImporter _smart;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
@@ -41,7 +42,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         Services.SkillLibrary skills, Services.CostEstimatorService cost,
         Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather,
         Services.CloudSync.CloudSyncService cloud, Services.GenderLibrary genders,
-        Modules.Market.ShopService shop, SaveRuntimeService runtime)
+        Modules.Market.ShopService shop, SaveRuntimeService runtime,
+        Modules.DataPack.SmartImporter smart)
     {
         _settings = settings;
         _theme = theme;
@@ -64,6 +66,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _genders = genders;
         _shop = shop;
         _runtime = runtime;
+        _smart = smart;
         _ = shop.InitializeAsync();
         _cloudStatus = cloud.Status;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
@@ -3982,8 +3985,13 @@ DeveloperShowcaseUnlocked = ShowcaseUnlocked,
 
             if (!DataPackageService.IsValidPackage(picked))
             {
-                DataImportStatus = "导入失败：不是有效的数据包";
-                Toast.Error("这个文件不像是「温暖如初」的数据包（缺少 characters.json / settings.json）。");
+                // 不是整包数据包：交给自动识别路由，角色包/插件包/素材包/存档包拿错入口也能进（自动识别入口）
+                var smart = await _smart.ImportAsync(picked);
+                DataImportStatus = smart.Ok
+                    ? $"【{smart.KindName}】{smart.Message}"
+                    : "导入失败：" + smart.Message;
+                if (smart.Ok) Toast.Success($"【{smart.KindName}】{smart.Message}");
+                else Toast.Error(smart.Message);
                 return;
             }
 

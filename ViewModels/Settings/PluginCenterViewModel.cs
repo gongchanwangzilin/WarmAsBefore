@@ -43,14 +43,18 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     /// <summary>插件目录。手工拷一份进去也是合法入口，所以把路径亮出来，而不是只给两颗按钮。</summary>
     public string PluginsDirLabel => PluginHost.PluginsDir;
 
-    public PluginCenterViewModel(PluginHost plugins, ApiGateway api, McpOrchestrator mcp)
+    public PluginCenterViewModel(PluginHost plugins, ApiGateway api, McpOrchestrator mcp,
+        Modules.DataPack.SmartImporter smart)
     {
         _plugins = plugins;
         _api = api;
         _mcp = mcp;
+        _smart = smart;
         // 这里不再自己扫一遍：页面 OnAppearing 会调 RefreshAsync。
         // 两边都调过，等于每次进插件中心都把目录、清单、运行时、体检各做两遍。
     }
+
+    private readonly Modules.DataPack.SmartImporter _smart;
 
     private Task? _refreshTask;
 
@@ -176,10 +180,13 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             });
             if (pick is null) return;
             Busy = true;
-            var (ok, message) = await _plugins.InstallFromZipAsync(pick.FullPath, overwrite: true);
-            Status = message;
-            if (!ok) Toast.Error(message);
-            if (ok) await OfferDoctorAfterInstallAsync();
+            // 自动识别路由：拿错入口（比如把存档包丢进插件中心）也能被送到正确的导入器；
+            // 插件包本身仍按「补缺安装、不覆盖已装版本」处理。
+            var result = await _smart.ImportAsync(pick.FullPath);
+            Status = $"{result.KindName}：{result.Message}";
+            if (!result.Ok) Toast.Error(result.Message);
+            if (result.Ok && result.Kind == Modules.DataPack.WabPackageKind.PluginPack)
+                await OfferDoctorAfterInstallAsync();
             await RefreshAsync();
         }
         catch (Exception ex)

@@ -16,7 +16,6 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
     private readonly CharacterLibrary _library;
     private readonly Modules.SaveSystem.SaveManager _save;
     private readonly StorageProvider _store;
-    private readonly SceneCalibrationService _cal;
     private readonly Modules.ApiManager.ApiGateway _api;
     private readonly ImageGenerationService _images;
     private readonly MapService _maps;
@@ -25,18 +24,20 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
     [ObservableProperty] private bool _aiBusy;
 
     public CharacterSelectViewModel(CharacterLibrary library,
-        Modules.SaveSystem.SaveManager save, StorageProvider store, SceneCalibrationService cal,
-        Modules.ApiManager.ApiGateway api, ImageGenerationService images, MapService maps)
+        Modules.SaveSystem.SaveManager save, StorageProvider store,
+        Modules.ApiManager.ApiGateway api, ImageGenerationService images, MapService maps,
+        Modules.DataPack.SmartImporter smart)
     {
-        _library = library;
         _library = library;
         _save = save;
         _store = store;
-        _cal = cal;
         _api = api;
         _images = images;
         _maps = maps;
+        _smart = smart;
     }
+
+    private readonly Modules.DataPack.SmartImporter _smart;
 
     [RelayCommand]
     private async Task Refresh()
@@ -268,21 +269,12 @@ public sealed partial class CharacterSelectViewModel : ObservableObject
                 })
             });
             if (pick is null) return;
-            var import = await _library.ImportFromZipAsync(pick.FullPath);
-            if (import.ok) Toast.Success(import.message);
-            else Toast.Error("导入失败：" + import.message);
-            if (import.ok) await Refresh();
-
-            // 素材包里的地图必须走同样的标定流程。这里把队列统一驱动一遍，
-            // 而不是等用户切到那个场景时被动撞上标定页。
-            if (_cal.PendingCount > 0)
-            {
-                var n = _cal.PendingCount;
-                var go = await Shell.Current.DisplayAlert("地图标定",
-                    $"这个素材包带进来 {n} 张地图背景，需要依次标定（落脚点 + 缩放）。现在开始吗？",
-                    "开始标定", "稍后再说");
-                if (go) await _cal.DrainAsync(SceneCalibrationService.DefaultTargetAspect);
-            }
+            // 自动识别路由：这里不管拿来的是什么包，都会被送到正确的导入器；
+            // 素材包的地图标定询问已统一收在 SmartImporter 里，任何入口行为一致。
+            var result = await _smart.ImportAsync(pick.FullPath);
+            if (result.Ok) Toast.Success($"【{result.KindName}】{result.Message}");
+            else Toast.Error(result.Message);
+            if (result.Ok) await Refresh();
         }
         catch (Exception ex)
         {
