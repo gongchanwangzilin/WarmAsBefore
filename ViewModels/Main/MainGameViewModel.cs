@@ -402,12 +402,11 @@ public sealed partial class MainGameViewModel : ObservableObject
         HookStates(states);
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
         _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
-        // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）
-        _blackout.Changed += (on, reason) => MainThread.BeginInvokeOnMainThread(() =>
-        {
-            IsBlackout = on;
-            BlackoutReason = reason;
-        });
+        // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）。
+        // 订阅统一挪到 AttachRuntimeEvents（审计 A4）：VM 是 Transient、服务是 Singleton，
+        // 在构造里常驻订阅，每进出一次主界面就叠一份，切场景会被重复执行。
+        IsBlackout = _blackout.IsBlack;
+        BlackoutReason = _blackout.Reason;
 
         // 应用聊天显示风格 + 沉默许可
         UseBubbleChat = _settings.Current.ChatStyle == "bubble";
@@ -415,12 +414,12 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 小组件配置先合并好：顶栏/左栏进门时就该是用户摆过的样子，而不是先闪一下旧排版。
         InitWidgets();
         // 设置变更时把天气事件参数同步进 SceneDirector（改概率/开关后无需重启即可生效）。
-        _settings.Applied += SyncWeatherEventConfig;
+        // 订阅挪到 AttachRuntimeEvents（审计 A4）。
         SilenceHintText = _settings.Current.AllowSilence
             ? "已开启「允许沉默」：角色在不想说话时会选择不回复，这是正常的，不必每次提问都强求答复。"
             : "";
 
-        _auto.GreetingReady += OnGreet;
+        // 订阅挪到 AttachRuntimeEvents（审计 A4）。
         // 时间/日期先有值，顶栏进门时就不是空白（纯计算，不碰盘）。
         UpdateTime();
     }
@@ -437,14 +436,85 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (_begun) return;
         _begun = true;
         _auto.Start();
-        _ = FetchWeather();
-        _ = LoadCharacterAsync();
-        _ = InitMapAsync();
+        // 启动重活收敛成一条编排线（审计 P7）：原来三个 fire-and-forget 并发跑、
+        // 异常只能进日志，用户看到「界面出来了但数据是空的」。现在统一等待、统一兜底。
+        _ = RunStartupAsync();
         _pet.WatchMinimize();
         _pet.WatchIdle();
         StartClock();
         // 存档一打开，所有内部角色开始运行（本地推演 + 低频 AI 生活 + 小游戏 + 可选主动消息）
         _runtime.Start();
+    }
+
+    private async Task RunStartupAsync()
+    {
+        var failures = new List<string>();
+        try { await LoadCharacterAsync(); }
+        catch (Exception ex) { failures.Add("角色加载失败：" + ex.Message); App.WriteLog("MainGame.LoadCharacter -> " + ex); }
+        try { await InitMapAsync(); }
+        catch (Exception ex) { failures.Add("地图初始化失败：" + ex.Message); App.WriteLog("MainGame.InitMap -> " + ex); }
+        try { await FetchWeather(); }
+        catch (Exception ex) { failures.Add("天气获取失败：" + ex.Message); App.WriteLog("MainGame.FetchWeather -> " + ex); }
+        if (failures.Count > 0)
+            Helpers.Ui.Post(() => Toast.Warn("部分功能没就绪：" + string.Join("；", failures)));
+    }
+
+    // ==================== 单例服务事件挂/摘（审计 A4） ====================
+    // VM 是 Transient，而 Map/SceneDirector/Settings/Automation/Blackout 都是 Singleton：
+    // 订阅后不解绑，每进出一次主界面就叠一份，表现为「切一次场景触发多次 ApplyScene」
+    // 与内存持续上涨。页面 OnAppearing 调 Attach、OnDisappearing 调 Detach。
+    private bool _runtimeEventsAttached;
+    private bool _mapEventsAttached;
+
+    private void OnBlackoutChanged(bool on, string reason) =>
+        MainThread.BeginInvokeOnMainThread(() => { IsBlackout = on; BlackoutReason = reason; });
+
+    private void HookMapEvents()
+    {
+        if (_mapEventsAttached) return;
+        _mapEventsAttached = true;
+        _map.SceneChanged += OnMapSceneChanged;
+        _map.WalkSegmentStarted += OnWalkSegmentStarted;
+        _map.WalkRouteCompleted += OnWalkRouteCompleted;
+        _map.MapChanged += OnMapChanged;
+    }
+
+    private void UnhookMapEvents()
+    {
+        if (!_mapEventsAttached) return;
+        _mapEventsAttached = false;
+        _map.SceneChanged -= OnMapSceneChanged;
+        _map.WalkSegmentStarted -= OnWalkSegmentStarted;
+        _map.WalkRouteCompleted -= OnWalkRouteCompleted;
+        _map.MapChanged -= OnMapChanged;
+    }
+
+    /// <summary>页面进场调用；重复调用无副作用。</summary>
+    public void AttachRuntimeEvents()
+    {
+        if (_runtimeEventsAttached) return;
+        _runtimeEventsAttached = true;
+        if (_map.IsLoaded) HookMapEvents();
+        _sceneDirector.ModeApplied += OnSceneModeApplied;
+        _sceneDirector.WeatherEventTriggered += OnWeatherEvent;
+        _settings.Applied += SyncWeatherEventConfig;
+        _auto.GreetingReady += OnGreet;
+        _blackout.Changed += OnBlackoutChanged;
+        _clock?.Start();
+    }
+
+    /// <summary>页面离场调用；把 Singleton 上的订阅全部摘掉，界面时钟一并停走。</summary>
+    public void DetachRuntimeEvents()
+    {
+        if (!_runtimeEventsAttached) return;
+        _runtimeEventsAttached = false;
+        UnhookMapEvents();
+        _sceneDirector.ModeApplied -= OnSceneModeApplied;
+        _sceneDirector.WeatherEventTriggered -= OnWeatherEvent;
+        _settings.Applied -= SyncWeatherEventConfig;
+        _auto.GreetingReady -= OnGreet;
+        _blackout.Changed -= OnBlackoutChanged;
+        _clock?.Stop();
     }
 
     /// <summary>界面时钟：每 30 秒刷新时间/日期/精力，让顶部大时间真实走字。</summary>
@@ -479,13 +549,8 @@ public sealed partial class MainGameViewModel : ObservableObject
             Minimap.Visible = true;
             // 地图一读进来就先按它的「天气来源」设置接上天气（导入的城市图默认按当地算）。
             ApplyMapWeather();
-            _map.SceneChanged += OnMapSceneChanged;
-            _map.WalkSegmentStarted += OnWalkSegmentStarted;
-            _map.WalkRouteCompleted += OnWalkRouteCompleted;
-            _map.MapChanged += OnMapChanged;
+            HookMapEvents();   // 统一走挂/摘通道，支持页面离场解绑（审计 A4）
             _chat.SetMapContext(BuildMapContext() + "\n" + _sceneDirector.BuildContext());
-            _sceneDirector.ModeApplied += OnSceneModeApplied;
-            _sceneDirector.WeatherEventTriggered += OnWeatherEvent;
             SyncWeatherEventConfig();
             _ = _sceneDirector.EvaluateTimeNowAsync();
             ApplyScene(_map.CurrentScene);

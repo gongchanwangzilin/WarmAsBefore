@@ -84,6 +84,8 @@ public sealed class RuntimeConfigurator
         _api = api;
         _cost = cost;
         _save = save;
+        // 换档刷新桌宠：由这里统一接线，SaveManager 不再静态调用 PetService（审计 A2）
+        _save.RefreshPetForActiveSave = PetService.RefreshForActiveSaveAsync;
         _engine = engine;
         _genders = genders;
         _mental = mental;
