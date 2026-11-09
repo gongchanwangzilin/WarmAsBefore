@@ -46,9 +46,16 @@ public sealed class RuntimeConfigurator
     private readonly Modules.MinecraftBridge.MaidBridgeService _maidBridge;
     private readonly BrainAnticipationService _brain;
     private readonly InnerLifeService _inner;
+    private readonly SomatizationService _soma;
     private readonly WorldTreeService _worlds;
+    private readonly ThinkTierRuntime _thinkTier;
     private bool _notifyHooked;
     private bool _sceneHooked;
+    // 第十五项修正「配置通道」：宿主侧读取的 WAB 目录键（think_mode / model_package / small_model_* …）
+    // 一律走 ConfigSyncService.Resolve（而非 ConfigCatalog.Default），让用户在插件设置页的改动能真正生效。
+    // 这里缓存一份「生效值」，由 RefreshEffectiveAsync 异步刷新。
+    private EffectiveConfig _effective = ConfigSyncService.Resolve(
+        new System.Collections.Generic.Dictionary<string, string>(System.StringComparer.OrdinalIgnoreCase));
 
     public RuntimeConfigurator(SettingsManager settings, ChatEngine chat, WeatherProvider weather,
         PhysiologicalTracker phys, SpeechService speech, TaskOrchestrator auto, DailyDiaryWriter diary,
@@ -62,10 +69,11 @@ public sealed class RuntimeConfigurator
         GenderLibrary genders, MentalHealthService mental, PhysiologyService body,
         ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map,
         Modules.MinecraftBridge.MaidBridgeService maidBridge, BrainAnticipationService brain,
-        InnerLifeService inner, WorldTreeService worlds)
+        InnerLifeService inner, WorldTreeService worlds, ThinkTierRuntime thinkTier, SomatizationService soma)
     {
         _settings = settings;
         _chat = chat;
+        _thinkTier = thinkTier;
         _weather = weather;
         _phys = phys;
         _speech = speech;
@@ -98,7 +106,10 @@ public sealed class RuntimeConfigurator
         _maidBridge = maidBridge;
         _brain = brain;
         _inner = inner;
+        _soma = soma;
         _worlds = worlds;
+        // 第十五项修正「配置通道」：启动时异步拉一次插件设置，让 WAB 目录键的生效值先就位。
+        _ = RefreshEffectiveAsync();
         _plugins.ToolInvoker = (name, args) => _tools.ExecuteAsync(name, args);
         // 存档级权限：工具与插件都从同一个存档状态取，读档后立即跟着变
         _tools.SavePermissionsProvider = () => _engine.State.Permissions;
@@ -469,16 +480,32 @@ public sealed class RuntimeConfigurator
     }
 
     /// <summary>思考模式：off/fast/deep/auto 四档 + 热度阈值自动关深度思考，全部纯代码判定。</summary>
-    private static bool ResolveDeepThink(UserSettings s)
+    private bool ResolveDeepThink(UserSettings s)
     {
-        string mode = WarmAsBefore.Services.Core.ConfigCatalog.Default("think_mode");
-        string thresholdRaw = WarmAsBefore.Services.Core.ConfigCatalog.Default("deep_think_disable_threshold");
+        string mode = _effective.Values.TryGetValue("think_mode", out var m) ? m : "off";
+        string thresholdRaw = _effective.Values.TryGetValue("deep_think_disable_threshold", out var t) ? t : "0";
         double threshold = double.TryParse(thresholdRaw,
             System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : 0.5;
         double heat = 0.5; // 机制值：由内心状态/剧情热度给出，这里先给保守默认，不让模型自己判断
         int resolved = WarmAsBefore.Services.Core.ThinkModeController.Resolve(mode, true, heat, threshold);
         bool autoOff = WarmAsBefore.Services.Core.ThinkModeController.AutoDisableDeepThink(heat, threshold);
         return (resolved == 2 && !autoOff) || s.ComplexPlot;
+    }
+
+    /// <summary>
+    /// 第十五项修正「配置通道」：把 WAB 插件（wab_minecraft）的当前设置过一遍 ConfigSyncService.Resolve，
+    /// 得到「目录键 → 生效值」的映射并缓存到 <see cref="_effective"/>。
+    /// 这样宿主侧对 think_mode / model_package / small_model_* 等键的读取就会跟随用户在插件设置页的改动，
+    /// 而不是永远取 ConfigCatalog 的默认值。
+    /// </summary>
+    private async Task RefreshEffectiveAsync()
+    {
+        try
+        {
+            var values = await _plugins.GetSettingsAsync("wab_minecraft");
+            _effective = WarmAsBefore.Services.Core.ConfigSyncService.Resolve(values);
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.RefreshEffective -> " + ex.Message); }
     }
 
     private string BuildExtraPersona(string charId)
@@ -498,7 +525,7 @@ public sealed class RuntimeConfigurator
         // 第十六项：口头禅跟着角色档案走，留空就不注入提示词，省 Token。
         try
         {
-            bool enabled = WarmAsBefore.Services.Core.ConfigCatalog.Default("catchphrase_enabled") == "true";
+            bool enabled = _effective.Values.TryGetValue("catchphrase_enabled", out var cp) ? cp == "true" : true;
             string phrase = ch?.Profile.Catchphrase ?? "";
             string line = WarmAsBefore.Services.Core.CatchphraseService.PromptLine(phrase, enabled);
             if (line.Length > 0) parts.Add(line);
@@ -656,12 +683,17 @@ public sealed class RuntimeConfigurator
             ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000,
             // 第十二项：自定义 AI 参数（四格式）从宿主设置接入，空串时请求体不变。
             CustomParamsJson = s.CustomParamsJson ?? "",
-            ParamFormat = s.CustomParamsFormat ?? "openai_flat"
+            ParamFormat = s.CustomParamsFormat ?? "openai_flat",
+            // 第十四项：思考档位（思考条 + 快速按钮）。当前档位取用户设置，档位数/参数键名/每档值一并下发。
+            ThinkTier = Math.Clamp(s.ActiveThinkTier, 0, Math.Clamp(s.ThinkTierCount, 1, 5)),
+            ThinkTierCount = Math.Clamp(s.ThinkTierCount, 1, 5),
+            ThinkParamKey = string.IsNullOrWhiteSpace(s.ThinkParamKey) ? "reasoning_effort" : s.ThinkParamKey,
+            ThinkParamValues = string.IsNullOrWhiteSpace(s.ThinkParamValues) ? "low,medium,high" : s.ThinkParamValues
         };
-        if (ConfigCatalog.Default("model_package_enabled") == "true"
-            && ConfigCatalog.Default("model_package_auto_apply") == "true")
+        if (_effective.Values.TryGetValue("model_package_enabled", out var mpe) && mpe == "true"
+            && _effective.Values.TryGetValue("model_package_auto_apply", out var mpae) && mpae == "true")
         {
-            var pkg = ModelPackagePresets.Get(ConfigCatalog.Default("model_package"));
+            var pkg = ModelPackagePresets.Get(_effective.Values.TryGetValue("model_package", out var mp) ? mp : "custom");
             if (pkg.Id != ModelPackagePresets.DefaultId)
             {
                 mainEndpoint = mainEndpoint with
@@ -677,14 +709,35 @@ public sealed class RuntimeConfigurator
             }
         }
         _chat.Configure(mainEndpoint, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
+        // 第十四项：把思考档位运行时状态接给 ChatEngine（驱动思考条 + 切档即时生效），
+        // 并每次设置生效时依据用户配置刷新（可见开关、档位数、标签、当前档位、参数键/值）。
+        _chat.ThinkTierState = _thinkTier;
+        _thinkTier.OnTierSelected = tier =>
+        {
+            _chat.SetActiveThinkTier(tier);
+            try
+            {
+                _settings.Apply(_settings.Current with { ActiveThinkTier = tier });
+                _ = _settings.Persist();
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.ThinkTierPersist -> " + ex.Message); }
+        };
+        _thinkTier.Configure(
+            barVisible: s.ThinkBarEnabled,
+            buttonsVisible: s.QuickButtonsEnabled,
+            tierCount: s.ThinkTierCount,
+            labels: s.ThinkTierLabels,
+            activeTier: s.ActiveThinkTier,
+            paramKey: s.ThinkParamKey,
+            paramValues: s.ThinkParamValues);
         // 小模型优先：不再因为 Minecraft 桥连着就整个禁用——桥连着时小模型照样先答，
         // 只是提示词里明确告诉它「要动游戏就升级」，由它自己判断（见 ChatEngine.RunTurnWithSmallAsync）。
         // 配了模型名才算启用；URL / 密钥留空则复用上面的对话端点。
         _chat.SmallModelFirstEnabled = s.SmallModelFirst;
         // 第十五项：小模型强兼容（插件里也可开关；默认关）。格式取配置目录，缺省 xml。
         _chat.SmallModelCompatEnabled =
-            WarmAsBefore.Services.Core.ConfigCatalog.Default("small_model_compat_enabled") == "true";
-        string toolFormat = WarmAsBefore.Services.Core.ConfigCatalog.Default("small_model_tool_format");
+            _effective.Values.TryGetValue("small_model_compat_enabled", out var smce) && smce == "true";
+        string toolFormat = _effective.Values.TryGetValue("small_model_tool_format", out var stf) ? stf : "xml";
         _chat.SmallModelToolFormat = string.IsNullOrWhiteSpace(toolFormat) ? "xml" : toolFormat;
         _chat.SmallEndpoint = string.IsNullOrWhiteSpace(s.SmallAiModel) ? null : new AiEndpoint
         {
@@ -746,6 +799,7 @@ public sealed class RuntimeConfigurator
         _chat.Brain = _brain;
         // 内心生活：激素池每轮结算、答不上来的事长成执念、惦记到阈值自己想明白
         _chat.InnerLife = _inner;
+        _chat.Soma = _soma;
         _inner.ObsessionWake += (charId, question) => _ = OnObsessionWakeAsync(charId, question);
         _inner.DreamRequested += charId => _ = OnDreamAsync(charId);
         _inner.Start();
@@ -782,6 +836,12 @@ public sealed class RuntimeConfigurator
             {
                 var b = _body.PromptText();
                 if (!string.IsNullOrWhiteSpace(b)) parts.Add(b);
+            }
+            // 具体化机制：情绪落到身体/行为（食欲、说话欲、走动欲、躯体化）
+            if (_settings.Current.ConcretizationEnabled)
+            {
+                var soma = _soma.PromptText(charId);
+                if (!string.IsNullOrWhiteSpace(soma)) parts.Add(soma);
             }
             try
             {

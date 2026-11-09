@@ -140,8 +140,8 @@ internal static class MaidBridgeTools
             + "可开垦田地（farming_allow_tilling）。默认关闭，未指定不自动执行。",
             args => bridge.RunToolAsync("farm", args), FeatureSchema);
         tools.RegisterBuiltin("maid_escape",
-            "高级逃生。action=mlg 落地水（须持水桶/铁桶，允许时自己去打水）、suffocation 窒息找空气或挖逃生、"
-            + "lava_boat 岩浆船（实验性，默认关、仅濒死）。落地水成功不触发求安慰。",
+            "高级逃生。action=mlg 落地水（须持水桶/铁桶，允许时自己去打水）、suffocation 窒息找空气或挖逃生。"
+            + "落地水成功不触发求安慰。",
             args => bridge.RunToolAsync("escape", args), FeatureSchema);
         tools.RegisterBuiltin("maid_comfort",
             "濒死时按概率找主人求安慰。落地水成功会抑制；概率可来自配置或 AI，取更保守的那个。默认关闭、概率 0.05。",

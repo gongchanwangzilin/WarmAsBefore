@@ -91,4 +91,12 @@ public sealed record AiEndpoint
     public string CustomParamsJson { get; init; } = string.Empty;
     /// <summary>自定义参数采用的四格式：openai_flat / nested_by_role / vendor_ext / widget_binding。默认 openai_flat。</summary>
     public string ParamFormat { get; init; } = "openai_flat";
+    /// <summary>第十四项：当前生效的思考档位（0=关闭，1..ThinkTierCount）。由 RuntimeConfigurator 从设置注入，驱动请求体里的推理强度参数。</summary>
+    public int ThinkTier { get; init; }
+    /// <summary>第十四项：思考档位总数（不含关闭档）。</summary>
+    public int ThinkTierCount { get; init; } = 3;
+    /// <summary>第十四项：注入请求体的推理强度参数键名（如 reasoning_effort）。</summary>
+    public string ThinkParamKey { get; init; } = "reasoning_effort";
+    /// <summary>第十四项：每档对应的参数值（逗号分隔，共 ThinkTierCount 个），按 ThinkTier-1 取用。</summary>
+    public string ThinkParamValues { get; init; } = "low,medium,high";
 }

@@ -5,6 +5,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:mdl="clr-namespace:WarmAsBefore.Models"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             xmlns:views="clr-namespace:WarmAsBefore.Views.Chat"
              x:Class="WarmAsBefore.Views.WeChatPage"
              x:Name="Page"
 
@@ -263,48 +264,51 @@
             </Grid>
         </Border>
 
-        <!-- 输入条：语音 + 礼物 + 多行输入 + 表情 + 文件 + 发送（蓝） -->
+        <!-- 输入条：思考档位（思考条 + 快速按钮） + 语音 + 礼物 + 多行输入 + 表情 + 文件 + 发送（蓝） -->
         <Border Grid.Row="4" BackgroundColor="{StaticResource WcPageBg}"
                 Padding="8,8,8,10" StrokeThickness="0">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <BoxView HeightRequest="1" Color="{StaticResource WcSep}" VerticalOptions="Start" HorizontalOptions="Fill" />
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
-                <Button Grid.Column="0" Text="语音"
-                        Style="{StaticResource BtnText}" TextColor="{StaticResource WcSub}"
-                        FontSize="12" HeightRequest="40" WidthRequest="40"
-                        Command="{Binding VoiceInputCommand}" />
-                <Button Grid.Column="1" Text="🎁"
-                        Style="{StaticResource BtnText}"
-                        FontSize="14" HeightRequest="40" WidthRequest="40"
-                        Command="{Binding ToggleGiftPanelCommand}" />
-                <Border Grid.Column="2" BackgroundColor="{StaticResource WcInputBg}" StrokeThickness="0" Padding="12,4">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                    <Editor x:Name="TextEditor" Placeholder="输入…" Text="{Binding InputText}"
+            <VerticalStackLayout Spacing="4">
+                <BoxView HeightRequest="1" Color="{StaticResource WcSep}" VerticalOptions="Start" HorizontalOptions="Fill" />
+                <views:ThinkBarView x:Name="ThinkBar" />
+                <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                    <Button Grid.Column="0" Text="语音"
+                            Style="{StaticResource BtnText}" TextColor="{StaticResource WcSub}"
+                            FontSize="12" HeightRequest="40" WidthRequest="40"
+                            Command="{Binding VoiceInputCommand}" />
+                    <Button Grid.Column="1" Text="🎁"
+                            Style="{StaticResource BtnText}"
+                            FontSize="14" HeightRequest="40" WidthRequest="40"
+                            Command="{Binding ToggleGiftPanelCommand}" />
+                    <Border Grid.Column="2" BackgroundColor="{StaticResource WcInputBg}" StrokeThickness="0" Padding="12,4">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                        <Editor x:Name="TextEditor" Placeholder="输入…" Text="{Binding InputText}"
+                                BackgroundColor="Transparent"
+                                TextColor="{StaticResource WcInk}"
+                                PlaceholderColor="{StaticResource WcFaint}"
+                                FontSize="14"
+                                AutoSize="TextChanges"
+                                MinimumHeightRequest="32" MaximumHeightRequest="96"
+                                Completed="OnEditorCompleted"
+                                VerticalOptions="Center" />
+                    </Border>
+                    <Button Grid.Column="3" Text="🙂"
                             BackgroundColor="Transparent"
-                            TextColor="{StaticResource WcInk}"
-                            PlaceholderColor="{StaticResource WcFaint}"
-                            FontSize="14"
-                            AutoSize="TextChanges"
-                            MinimumHeightRequest="32" MaximumHeightRequest="96"
-                            Completed="OnEditorCompleted"
-                            VerticalOptions="Center" />
-                </Border>
-                <Button Grid.Column="3" Text="🙂"
-                        BackgroundColor="Transparent"
-                        FontSize="18" Padding="6"
-                        HeightRequest="40" WidthRequest="40"
-                        Command="{Binding ToggleStickerPanelCommand}" />
-                <Button Grid.Column="4" Text="📎"
-                        BackgroundColor="Transparent"
-                        FontSize="16" Padding="6"
-                        HeightRequest="40" WidthRequest="40"
-                        Command="{Binding PickFileCommand}" />
-                <Button Grid.Column="5" Text="发送"
-                        BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
-                        FontSize="13" FontAttributes="Bold"
-                        CornerRadius="18" HeightRequest="40" WidthRequest="56" Padding="0"
-                        Command="{Binding SendCommand}" />
-            </Grid>
+                            FontSize="18" Padding="6"
+                            HeightRequest="40" WidthRequest="40"
+                            Command="{Binding ToggleStickerPanelCommand}" />
+                    <Button Grid.Column="4" Text="📎"
+                            BackgroundColor="Transparent"
+                            FontSize="16" Padding="6"
+                            HeightRequest="40" WidthRequest="40"
+                            Command="{Binding PickFileCommand}" />
+                    <Button Grid.Column="5" Text="发送"
+                            BackgroundColor="{StaticResource WcAccent}" TextColor="{StaticResource WcAccentInk}"
+                            FontSize="13" FontAttributes="Bold"
+                            CornerRadius="18" HeightRequest="40" WidthRequest="56" Padding="0"
+                            Command="{Binding SendCommand}" />
+                </Grid>
+            </VerticalStackLayout>
         </Border>
 
         <!-- 送礼 / 使用面板 -->

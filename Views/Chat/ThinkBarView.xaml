@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:local="clr-namespace:WarmAsBefore.Services.Core"
+             x:Class="WarmAsBefore.Views.Chat.ThinkBarView"
+             x:Name="ThinkBar"
+             Padding="0,2,0,2">
+    <VerticalStackLayout Spacing="4">
+        <!-- 思考条：显示当前档位 + 思考中进度（仅开关打开时可见） -->
+        <Grid IsVisible="{Binding IsBarVisible}"
+              ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalOptions="Center">
+            <ActivityIndicator Grid.Column="0" IsRunning="{Binding IsDeepThinking}"
+                               Color="{StaticResource WcAccent}" HeightRequest="14" WidthRequest="14"
+                               VerticalOptions="Center" />
+            <Label Grid.Column="1" Text="深度思考中…" IsVisible="{Binding IsDeepThinking}"
+                   TextColor="{StaticResource WcSub}" FontSize="12" VerticalOptions="Center" />
+            <Label Grid.Column="2" Text="{Binding CurrentTierLabel, StringFormat='档位：{0}'}"
+                   TextColor="{StaticResource WcFaint}" FontSize="11" VerticalOptions="Center" />
+        </Grid>
+
+        <!-- 快速按钮：切换思考档位（仅开关打开时可见） -->
+        <ScrollView IsVisible="{Binding IsButtonsVisible}" Orientation="Horizontal"
+                    HorizontalScrollBarVisibility="Never">
+            <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                <BindableLayout.ItemsSource>
+                    <Binding Path="TierItems" />
+                </BindableLayout.ItemsSource>
+                <BindableLayout.ItemTemplate>
+                    <DataTemplate x:DataType="local:ThinkTierItem">
+                        <Button Text="{Binding Label}"
+                                FontSize="12" HeightRequest="32" Padding="14,0"
+                                CornerRadius="14"
+                                Command="{Binding BindingContext.SetTierCommand, Source={x:Reference ThinkBar}}"
+                                CommandParameter="{Binding Index}">
+                            <Button.Style>
+                                <Style TargetType="Button">
+                                    <Setter Property="BackgroundColor" Value="{StaticResource WcInputBg}" />
+                                    <Setter Property="TextColor" Value="{StaticResource WcSub}" />
+                                    <Style.Triggers>
+                                        <DataTrigger TargetType="Button" Binding="{Binding IsActive}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{StaticResource WcAccent}" />
+                                            <Setter Property="TextColor" Value="{StaticResource WcAccentInk}" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </Button.Style>
+                        </Button>
+                    </DataTemplate>
+                </BindableLayout.ItemTemplate>
+            </HorizontalStackLayout>
+        </ScrollView>
+    </VerticalStackLayout>
+</ContentView>

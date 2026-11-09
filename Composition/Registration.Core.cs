@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore.Composition;
 
@@ -39,6 +40,9 @@ public static class CoreRegistration
         services.AddSingleton<PhysiologyService>();
         // 内心生活：内分泌化学池 + 执念池，事件与对话改变心绪，惦记的事到点自己想
         services.AddSingleton<InnerLifeService>();
+        // 具体化机制：把情绪落到身体与行为（食欲 / 说话欲 / 走动欲 / 躯体化），判定全纯代码，
+        // 只在提示词里自然渗进语气与小动作。依赖 InnerLifeService 的内分泌池，故紧随其后注册。
+        services.AddSingleton<SomatizationService>();
         // 画面生成：装扮 / 背景 / 立绘 / 地图背景
         services.AddSingleton<ImageGenerationService>();
         // 关系网：后台随对话自动长出来
@@ -75,6 +79,8 @@ public static class CoreRegistration
 
         // 运行时配置与跨模块接线
         services.AddSingleton<RuntimeConfigurator>();
+        // 第十四项：思考档位运行时状态（思考条 + 快速按钮共享同一单例）
+        services.AddSingleton<ThinkTierRuntime>();
         services.AddSingleton<BrainAnticipationService>();
         services.AddSingleton<NovelLibrary>();
         // 微信好友：谁加过微信、谁是常驻聊天对象

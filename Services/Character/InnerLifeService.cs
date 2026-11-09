@@ -76,6 +76,15 @@ public sealed class InnerLifeService
         lock (_gate) { _book = new InnerLifeBook(); _loaded = false; }
     }
 
+    /// <summary>同步读取当前（已加载并随背景结算的）化学池；未加载或未开启时返回 null。
+    /// 供具体化机制等纯代码服务在不触发异步结算的前提下取用此刻的情绪-生理信号。</summary>
+    public InnerChemicals? PeekChemicals(string charId)
+    {
+        if (!Enabled || string.IsNullOrEmpty(charId)) return null;
+        lock (_gate)
+            return _book.ByCharacter.TryGetValue(charId, out var p) ? p.Chemicals : null;
+    }
+
     private async Task SaveAsync()
     {
         // 快照后落盘，别让序列化和下一轮改动打架；重入直接跳过（丢一次保存没关系，下轮还会写）。

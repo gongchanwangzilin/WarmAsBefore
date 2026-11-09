@@ -34,8 +34,6 @@ public static class ConfigCatalog
             ["mlg_success_skip_comfort"] = new Entry("4. 落地水成功不触发求安慰", "switch", "true", "双端", "纯代码", false, "", ""),
             ["suffocation_escape_enabled"] = new Entry("5. 窒息自动逃生", "switch", "false", "模组", "纯代码", true, "其他逃生类附属", "检测到其他落地保护或逃生类附属，高级反应逃生已关闭，避免重复放水或重复寻路；无桶时自行打水会改动世界，默认不启用"),
             ["suffocation_path_mode"] = new Entry("6. 窒息逃生路径判断", "select", "auto", "模组", "纯代码", false, "", ""),
-            ["lava_boat_enabled"] = new Entry("7. 岩浆船（实验性）", "switch", "false", "模组", "纯代码", true, "原版船 / 骑乘（maid_ride）", "岩浆船为实验性功能，默认关闭；与原版船在岩浆中焚毁的规则冲突，仅在濒死时尝试一次，非必要不使用"),
-            ["lava_boat_emergency_only"] = new Entry("8. 岩浆船仅濒死时使用", "switch", "true", "模组", "纯代码", false, "", ""),
             ["comfort_seek_enabled"] = new Entry("9. 求安慰行为", "switch", "false", "双端", "可选AI", true, "摸头 / 情绪类附属", "⚠ 求安慰与附属情绪 / 摸头交互可能重复触发，默认关闭；开启前请确认冲突检测已通过"),
             ["comfort_seek_probability"] = new Entry("10. 求安慰概率", "number", "0.05", "双端", "纯代码", false, "", ""),
             ["comfort_probability_source"] = new Entry("11. 求安慰概率来源", "select", "config", "双端", "可选AI", false, "", ""),

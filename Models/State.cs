@@ -341,6 +341,23 @@ public sealed record UserSettings
     public string CustomParamsJson { get; init; } = "";
     /// <summary>第十二项：自定义参数采用的四格式：openai_flat / nested_by_role / vendor_ext / widget_binding。</summary>
     public string CustomParamsFormat { get; init; } = "openai_flat";
+
+    // 第十四项：思考档位（思考条 + 快速按钮）
+    /// <summary>第十四项：思考条总开关 —— 是否显示「正在思考 / 深度思考中」进度条。</summary>
+    public bool ThinkBarEnabled { get; init; }
+    /// <summary>第十四项：快速按钮开关 —— 是否在输入条上方显示切换思考档位的按钮组。</summary>
+    public bool QuickButtonsEnabled { get; init; }
+    /// <summary>第十四项：思考档位数（不含「关闭」档）。用户自定为模型配置几档推理强度，钳到 1~5。</summary>
+    public int ThinkTierCount { get; init; } = 3;
+    /// <summary>第十四项：每档标签（逗号分隔，共 ThinkTierCount 个，不含关闭档）。例如「轻度,标准,深度」。</summary>
+    public string ThinkTierLabels { get; init; } = "轻度,标准,深度";
+    /// <summary>第十四项：当前生效的思考档位（0=关闭，1..ThinkTierCount）。可在对话中由快速按钮即时切换并持久化。</summary>
+    public int ActiveThinkTier { get; init; }
+    /// <summary>第十四项：注入请求体的推理强度参数键名（如 reasoning_effort / thinking_budget）。</summary>
+    public string ThinkParamKey { get; init; } = "reasoning_effort";
+    /// <summary>第十四项：每档对应的参数值（逗号分隔，共 ThinkTierCount 个）。如「low,medium,high」。</summary>
+    public string ThinkParamValues { get; init; } = "low,medium,high";
+
     /// <summary>#13：API 预设标签（openai/deepseek/mimo/kimi/doubao/zhipu/siliconflow/qwen/custom）。仅用于设置页一键填充。</summary>
     public string AiPreset { get; init; } = "custom";
     /// <summary>#13：识图（视觉）模型独立端点；三项都填才能用识图（如表情包自动描述）。</summary>
@@ -851,6 +868,10 @@ public sealed record UserSettings
 
     /// <summary>内心生活：内分泌化学池与执念池。关闭后数值冻结、不进提示词、执念不再醒来。</summary>
     public bool InnerLifeEnabled { get; init; } = true;
+
+    /// <summary>具体化机制：情绪如何落到身体与行为（食欲、说话欲、走动欲、以及严重的躯体化）。
+    /// 关闭后状态冻结、完全不进提示词。判定全部走纯代码，只在提示词里自然渗进语气与动作。</summary>
+    public bool ConcretizationEnabled { get; init; } = true;
 
     /// <summary>金钱系统：关闭后购买不扣币，钱包显示「已停用」。</summary>
     public bool MoneyEnabled { get; init; } = true;

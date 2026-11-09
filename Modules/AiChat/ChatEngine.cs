@@ -59,6 +59,16 @@ public sealed class ChatEngine
     public bool SmallModelCompatEnabled { get; set; }
     public string SmallModelToolFormat { get; set; } = "xml";
 
+    /// <summary>第十四项：思考档位运行时状态（单例）。由 DI 注入；驱动思考条进度与档位切换。</summary>
+    public Services.Core.ThinkTierRuntime? ThinkTierState { get; set; }
+
+    /// <summary>第十四项：快速按钮切档后即时更新主端点的思考档位，使下一轮请求即生效（不重走 Configure）。</summary>
+    public void SetActiveThinkTier(int tier)
+    {
+        try { _cfg = _cfg with { ThinkTier = Math.Max(0, tier) }; }
+        catch (Exception ex) { App.WriteLog("ChatEngine.SetActiveThinkTier -> " + ex.Message); }
+    }
+
     /// <summary>
     /// 工具管理器由构造注入（DI 里 ChatEngine 先于 ToolManager 注册，但单例是首次解析时才构造，
     /// 两者之间也不存在循环依赖，MauiProgram 的注册顺序无需调整）。
@@ -245,6 +255,9 @@ public sealed class ChatEngine
 
     /// <summary>内心生活：激素池随每轮对话涨落，答不上来的事长成执念（ PrepareTurn/AfterReply 在发送链路里调）。</summary>
     public Services.InnerLifeService? InnerLife { get; set; }
+
+    /// <summary>具体化机制：情绪落到身体与行为（食欲/说话欲/走动欲/躯体化）。每轮对话 Feed 一次，纯代码判定。</summary>
+    public Services.SomatizationService? Soma { get; set; }
 
     /// <summary>
     /// 大脑预判：由 RuntimeConfigurator 注入。发送前本地结算期待差（PrepareTurn），
@@ -530,12 +543,21 @@ public sealed class ChatEngine
     {
         var session = Session(charId);
         var cfg = CfgFor(charId);
+        // 第十四项：本轮是否进入深度思考（档位>0 且端点真有推理强度参数要注入）——驱动思考条进度/转动
+        var deepThisTurn = cfg.ThinkTier > 0
+            && !string.IsNullOrWhiteSpace(cfg.ThinkParamKey)
+            && !string.IsNullOrWhiteSpace(Services.Core.ThinkTierRuntime.ParamValueFor(cfg.ThinkTier, cfg.ThinkParamValues));
+        try { ThinkTierState?.SetDeepThinking(deepThisTurn); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.ThinkBar -> " + ex.Message); }
         // 大脑预判：本地结算本轮期待差与惊喜卡（无网络），供下面的动态上下文注入与好感结算用
         try { Brain?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.PrepareTurn -> " + ex.Message); }
         // 内心生活：这条消息让她的激素动一动（夸了会开心、冷话会难受），也记下她被问了什么
         try { InnerLife?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifePrepare -> " + ex.Message); }
+        // 具体化机制：同一条消息驱动情绪→身体/行为的纯代码重算
+        try { Soma?.Feed(charId, text); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.SomaFeed -> " + ex.Message); }
         var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
 
@@ -657,6 +679,11 @@ public sealed class ChatEngine
             // 异常路径的错误提示不进会话历史（避免污染后续上下文的 assistant 记忆），
             // 直接返回给调用方展示。
             return errorMsg;
+        }
+        finally
+        {
+            // 第十四项：无论本轮成功/失败/离线，思考条都停在这一刻。
+            try { ThinkTierState?.SetDeepThinking(false); } catch { }
         }
     }
 

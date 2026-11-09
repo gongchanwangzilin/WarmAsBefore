@@ -1,5 +1,6 @@
 using WarmAsBefore.Controls;
 using WarmAsBefore.Helpers;
+using WarmAsBefore.Services.Core;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -8,10 +9,12 @@ public partial class WeChatPage : ContentPage
 {
     private bool _enterHooked;
 
-    public WeChatPage(WeChatViewModel vm)
+    public WeChatPage(WeChatViewModel vm, ThinkTierRuntime thinkTier)
     {
         InitializeComponent();
         BindingContext = vm;
+        // 第十四项：思考条/快速按钮绑定到单例 ThinkTierRuntime。
+        ThinkBar.BindingContext = thinkTier;
         // 会话列表与消息都要现拉：两个集合任一非空就收骨架。
         LoadingVeil.Attach(this, vm, "ContactList", "Messages");
     }
