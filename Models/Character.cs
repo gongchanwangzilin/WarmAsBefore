@@ -19,6 +19,8 @@ public sealed record CharacterProfile
     /// 关掉后仍会把年龄/生日告诉 AI，方便角色谈论自己。</summary>
     public bool NaturalAging { get; init; } = true;
     public string Nickname { get; init; } = string.Empty;
+    /// <summary>角色口头禅（第十六项）：玩家可改、AI 可改可增、也可以留空没有。</summary>
+    public string Catchphrase { get; init; } = string.Empty;
     public string Personality { get; init; } = string.Empty;
     public string Greeting { get; init; } = string.Empty;
     public string UserAddress { get; init; } = "主人";

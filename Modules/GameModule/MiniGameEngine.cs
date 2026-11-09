@@ -57,7 +57,33 @@ public sealed class MiniGameEngine
     private readonly Random _rnd = new();
 
     public bool GameOver { get; private set; }
-    public string Winner { get; private set; } = "";
+    private string _winner = "";
+    /// <summary>棋局结束时顺带结算女仆情绪；上层可用 SetEmotionOptions 注入玩家设定值。</summary>
+    public string Winner
+    {
+        get => _winner;
+        private set
+        {
+            _winner = value;
+            MaidReaction = WarmAsBefore.Services.Core.ChessEmotionService.OnGameEnded(value, _emotionEnabled,
+                _emotionProbability, Random.Shared.NextDouble(), _emotionComfort).Message;
+        }
+    }
+
+    private bool _emotionEnabled = WarmAsBefore.Services.Core.ConfigCatalog.Default("chess_cry_on_lose_enabled") == "true";
+    private double _emotionProbability = 0.1;
+    private bool _emotionComfort = true;
+
+    /// <summary>玩家可调：输棋哭的总开关、概率、是否允许安慰。</summary>
+    public void SetEmotionOptions(bool enabled, double probability, bool comfort)
+    {
+        _emotionEnabled = enabled;
+        _emotionProbability = Math.Clamp(probability, 0, 1);
+        _emotionComfort = comfort;
+    }
+
+    /// <summary>本局结束时女仆的反应文案；为空表示没有情绪事件。</summary>
+    public string MaidReaction { get; private set; } = "";
     public int Rows { get; private set; } = 8;
     public int Cols { get; private set; } = 8;
     public bool IsSnake => _currentGame == GameKind.Snake;

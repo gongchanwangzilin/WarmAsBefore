@@ -779,6 +779,35 @@
                                 </Grid>
                             </Border>
 
+                            <!-- 手机页下侧栏三键（第十八项）：回退（三角形）/ 回到桌面（正方形）/ 设置（三条线）。
+                                 没有高级任务机制，三条线是设置而不是任务管理；右侧另有「转到主窗口」退出口。 -->
+                            <Grid ColumnDefinitions="*,*,*,Auto" HeightRequest="34" Margin="18,2,18,0" ColumnSpacing="12">
+                                <Label Grid.Column="0" Text="&#x25C1;" FontSize="19" Opacity="0.72"
+                                       TextColor="{DynamicResource WarmDark}" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPhoneBackTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                                <Label Grid.Column="1" Text="&#x25A1;" FontSize="17" Opacity="0.72"
+                                       TextColor="{DynamicResource WarmDark}" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPhoneHomeTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                                <Label Grid.Column="2" Text="&#x2261;" FontSize="20" Opacity="0.72"
+                                       TextColor="{DynamicResource WarmDark}" HorizontalOptions="Center" VerticalOptions="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnPhoneSettingsTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                                <Label Grid.Column="3" Text="转到主窗口" FontSize="10" Opacity="0.72"
+                                       TextColor="{DynamicResource WarmDark}" HorizontalOptions="End" VerticalOptions="Center">
+                                    <Label.GestureRecognizers>
+                                        <TapGestureRecognizer Tapped="OnTransferToMainTapped" />
+                                    </Label.GestureRecognizers>
+                                </Label>
+                            </Grid>
+
                             <!-- 主屏指示条：真机上不该再画一条假 Home Bar -->
                             <BoxView WidthRequest="108" HeightRequest="4" CornerRadius="2" Margin="0,9,0,7"
                                      Color="{DynamicResource WarmDark}" Opacity="0.24" HorizontalOptions="Center"

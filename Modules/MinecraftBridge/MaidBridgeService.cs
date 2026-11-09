@@ -2892,7 +2892,7 @@ public sealed partial class MaidBridgeService : IDisposable
                 return ErrorJson("Minecraft 里没有找到女仆。", "maid_not_found");
 
             if (method is "gather" or "hold" or "container" or "craft" or "build" or "ride" or "fight" or "crew"
-                or "item" or "farm" or "escape" or "sneak_eat" or "mode_switch" or "plan_flow" or "backup_copy"
+                or "item" or "farm" or "escape" or "sneak_eat" or "mode_switch" or "plan_flow" or "backup_copy" or "headpat"
                 && !_config.AllowWorldActions)
                 return ErrorJson("当前不允许改动 Minecraft 世界（插件设置里关闭了世界动作）。", "world_actions_disabled");
             if (method == "act")

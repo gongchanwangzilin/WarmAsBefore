@@ -212,4 +212,35 @@ public partial class PhonePage : ContentPage
         }
         catch (Exception ex) { App.WriteLog("PhonePage.OnAppTapped -> " + ex.Message); }
     }
+    /// <summary>下侧栏「回退」：回到上一屏（桌面分页里往左一页）。</summary>
+    private void OnPhoneBackTapped(object? sender, TappedEventArgs e)
+    {
+        int current = _vm?.PageIndex ?? 0;
+        SetPage(Math.Max(0, current - 1), true);
+    }
+
+    /// <summary>下侧栏「回到桌面」：回到手机主屏第 0 页。</summary>
+    private void OnPhoneHomeTapped(object? sender, TappedEventArgs e) => SetPage(0, true);
+
+    /// <summary>下侧栏「设置」：三条线是设置，不是任务管理。</summary>
+    private async void OnPhoneSettingsTapped(object? sender, TappedEventArgs e)
+    {
+        try { await Shell.Current.GoToAsync("settings"); }
+        catch (Exception ex) { App.WriteLog("PhonePage.Settings -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// 退出口：手机里 APP 关闭回主页，主窗口跳转到对应内容；手机页本身不销毁。
+    /// 展示位置由插件的 display_target 决定，这里只负责把两处视图带回正确状态。
+    /// </summary>
+    private async void OnTransferToMainTapped(object? sender, TappedEventArgs e)
+    {
+        try
+        {
+            SetPage(0, true);
+            await Shell.Current.GoToAsync("main");
+            App.WriteLog("PhonePage -> 已从手机转到主窗口显示，手机页保留");
+        }
+        catch (Exception ex) { App.WriteLog("PhonePage.TransferToMain -> " + ex.Message); }
+    }
 }
