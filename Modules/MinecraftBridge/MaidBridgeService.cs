@@ -1117,10 +1117,15 @@ public sealed partial class MaidBridgeService : IDisposable
             PluginEntry? plugin = await _plugins.FindAsync(PluginId);
             if (plugin is null) return outArray;
             var values = await _plugins.GetSettingsAsync(PluginId);
+            // 126 个目录键先过一遍确定性类型解析与数值夹取；插件原有的 24 项不在目录里，原样透传。
+            // 模组侧的冲突能力上报尚未接入，detectedConflicts 传空集合：用户设定照常生效，
+            // 中文冲突提示仍随 fields 帧下发到游戏内设置页，不会把新功能锁死在默认值上。
+            var effective = WarmAsBefore.Services.Core.ConfigSyncService.Resolve(values);
             foreach (var field in plugin.Manifest.Settings.Fields)
             {
                 if (string.IsNullOrWhiteSpace(field.Key)) continue;
-                var value = values.TryGetValue(field.Key, out var raw) && raw is not null ? raw : field.Default;
+                var savedValue = values.TryGetValue(field.Key, out var raw) && raw is not null ? raw : field.Default;
+                var value = effective.Values.TryGetValue(field.Key, out var ev) ? ev : savedValue;
                 var locked = LockedPluginKeys.Contains(field.Key)
                              || string.Equals(field.Type, "secret", StringComparison.OrdinalIgnoreCase);
                 var entry = new JsonObject
