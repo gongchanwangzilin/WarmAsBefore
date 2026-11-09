@@ -337,6 +337,10 @@ public sealed record UserSettings
     public string AiUrl { get; init; } = "https://api.openai.com/v1/chat/completions";
     public string AiKey { get; init; } = "";
     public string AiModel { get; init; } = "gpt-4o";
+    /// <summary>第十二项：自定义 AI 参数（JSON 对象）。空串表示不附加任何自定义参数；配合 CustomParamsFormat 被 AiParamFormatMapper 转换成目标格式后并入请求体。</summary>
+    public string CustomParamsJson { get; init; } = "";
+    /// <summary>第十二项：自定义参数采用的四格式：openai_flat / nested_by_role / vendor_ext / widget_binding。</summary>
+    public string CustomParamsFormat { get; init; } = "openai_flat";
     /// <summary>#13：API 预设标签（openai/deepseek/mimo/kimi/doubao/zhipu/siliconflow/qwen/custom）。仅用于设置页一键填充。</summary>
     public string AiPreset { get; init; } = "custom";
     /// <summary>#13：识图（视觉）模型独立端点；三项都填才能用识图（如表情包自动描述）。</summary>

@@ -2015,6 +2015,31 @@
             </VerticalStackLayout>
         </DataTemplate>
 
+        <!-- 卡片 38：自定义 AI 参数（第十二项） -->
+        <DataTemplate x:Key="Card38">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="自定义 AI 参数（可选）" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="以 JSON 对象填写额外请求参数（如 reasoning_effort、top_k），会按所选格式并入发给模型的请求体。留空则不附加；结构错误会在日志里跳过，不影响对话。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="110,*">
+                            <Label Text="参数格式" VerticalOptions="Center" FontSize="13" />
+                            <Picker Grid.Column="1" ItemsSource="{Binding CustomParamsFormatChoices}"
+                                    SelectedItem="{Binding CustomParamsFormat}" FontSize="13" />
+                        </Grid>
+                        <Grid ColumnDefinitions="110,*">
+                            <Label Text="参数 JSON" VerticalOptions="Center" FontSize="13" />
+                            <Editor Grid.Column="1" Text="{Binding CustomParamsJson}" AutoSize="TextChanges"
+                                    HeightRequest="90" BackgroundColor="{DynamicResource InputBg}"
+                                    TextColor="{DynamicResource SurfaceFg}"
+                                    Placeholder="留空表示不附加任何参数" FontSize="12" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
         <!-- 卡片 32：金钱系统 -->
         <DataTemplate x:Key="Card32">
             <VerticalStackLayout Spacing="16">

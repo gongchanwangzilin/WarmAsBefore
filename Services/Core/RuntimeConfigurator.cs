@@ -653,7 +653,10 @@ public sealed class RuntimeConfigurator
             DeepThink = ResolveDeepThink(s),
             DeepModel = s.DeepModel,
             MemoryTurns = s.MemoryTurns,
-            ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
+            ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000,
+            // 第十二项：自定义 AI 参数（四格式）从宿主设置接入，空串时请求体不变。
+            CustomParamsJson = s.CustomParamsJson ?? "",
+            ParamFormat = s.CustomParamsFormat ?? "openai_flat"
         };
         if (ConfigCatalog.Default("model_package_enabled") == "true"
             && ConfigCatalog.Default("model_package_auto_apply") == "true")

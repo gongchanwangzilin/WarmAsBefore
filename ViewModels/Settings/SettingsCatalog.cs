@@ -25,7 +25,7 @@ public static class SettingsCatalog
 
         new Section("ai", "AI 与模型", "",
             "厂商与模型、密钥、识图、量化、花费与省钱、AI 绘画",
-            new[] { "Card09", "Card31" },
+            new[] { "Card09", "Card31", "Card38" },
             new[] { "ai", "模型", "端点", "厂商", "密钥", "api", "温度", "超时", "识图", "视觉", "量化", "嵌入", "向量", "embedding", "轮换", "省钱", "花费", "token", "价钱", "绘画", "生图", "图片生成", "image" }),
 
         new Section("memory", "记忆与对话", "",
