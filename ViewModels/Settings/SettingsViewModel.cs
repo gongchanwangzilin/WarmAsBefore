@@ -168,6 +168,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _smallAiUrl = s.SmallAiUrl;
         _smallAiKey = s.SmallAiKey;
         _smallAiModel = s.SmallAiModel;
+        _customParamsJson = s.CustomParamsJson;
+        _customParamsFormat = s.CustomParamsFormat;
         _aiPreset = PresetDisplayOf(s.AiPreset);
         _visionUrl = s.VisionUrl;
         _visionKey = s.VisionKey;
@@ -1308,6 +1310,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private double _aiMaxTokens = 500;
     [ObservableProperty] private bool _deepThink;
     [ObservableProperty] private string _deepModel = "";
+    [ObservableProperty] private string _customParamsJson = "";
+    partial void OnCustomParamsJsonChanged(string value) => PersistSettings();
+    [ObservableProperty] private string _customParamsFormat = "openai_flat";
+    partial void OnCustomParamsFormatChanged(string value) => PersistSettings();
+    /// <summary>第十二项：自定义参数的四格式选项。</summary>
+    public ObservableCollection<string> CustomParamsFormatChoices { get; } = new()
+    {
+        "openai_flat", "nested_by_role", "vendor_ext", "widget_binding"
+    };
     [ObservableProperty] private int _memoryTurns = 5;
 
     /// <summary>人类记忆调取窗口（天）：默认 3 天，0 = 不限。可按角色在角色库里覆写。</summary>
@@ -3071,6 +3082,8 @@ GlassLightWidth = GlassLightWidth,
                 AiUrl = string.IsNullOrWhiteSpace(AiUrl) ? "https://api.openai.com/v1/chat/completions" : AiUrl.Trim(),
                 AiKey = AiKey.Trim(),
                 AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
+                CustomParamsJson = (CustomParamsJson ?? "").Trim(),
+                CustomParamsFormat = CustomParamsFormatChoices.Contains(CustomParamsFormat) ? CustomParamsFormat : "openai_flat",
                 AiPreset = PresetKeyOf(_aiPreset),
                 VisionUrl = VisionUrl.Trim(),
                 VisionKey = VisionKey.Trim(),
