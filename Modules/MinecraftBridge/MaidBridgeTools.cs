@@ -129,7 +129,70 @@ internal static class MaidBridgeTools
             + "guard 守卫），status 看每个人在忙什么，stop 让全部停手。每只女仆各干各的，不会互相抢。",
             args => bridge.RunToolAsync("crew", args),
             CrewSchema);
+
+        // ===== B2 玩法入口：与模组 WabDispatcher 的九个新 method 一一对应 =====
+        tools.RegisterBuiltin("maid_item",
+            "管理女仆自己的物品与附近容器。action=list 看背包（含耐久/附魔/NBT 有无）、container 读附近容器属性、"
+            + "drop 丢弃指定槽位、equip 主动装备、pickup 按名称/属性/耐久筛选捡起。默认全关，要先用对应开关打开。",
+            args => bridge.RunToolAsync("item", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_farm",
+            "农耕。必须显式给 tool（工具）、crop（种植物）、area（区域）和 pos 起点；缺一样就拒绝且不动世界。"
+            + "可开垦田地（farming_allow_tilling）。默认关闭，未指定不自动执行。",
+            args => bridge.RunToolAsync("farm", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_escape",
+            "高级逃生。action=mlg 落地水（须持水桶/铁桶，允许时自己去打水）、suffocation 窒息找空气或挖逃生、"
+            + "lava_boat 岩浆船（实验性，默认关、仅濒死）。落地水成功不触发求安慰。",
+            args => bridge.RunToolAsync("escape", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_comfort",
+            "濒死时按概率找主人求安慰。落地水成功会抑制；概率可来自配置或 AI，取更保守的那个。默认关闭、概率 0.05。",
+            args => bridge.RunToolAsync("comfort", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_sneak_eat",
+            "偷吃。AI 侧与玩家侧各有一个概率，取较小值；检测到原版偷吃动画时让路，避免同一动作播两遍。默认关闭。",
+            args => bridge.RunToolAsync("sneak_eat", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_mode_switch",
+            "按情境切换守家(home)/跟随(follow)，带冷却，玩家手动指令始终优先。默认走代码规则，可开 AI 情境判断。",
+            args => bridge.RunToolAsync("mode_switch", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_chat_turn",
+            "聊天轮控制。action=wake 叫名字或多个称呼语即可唤醒（不必面对面）、dedup 把上下文中每句只留一次并返回"
+            + "每回合只发一遍与隐形对话标志。",
+            args => bridge.RunToolAsync("chat_turn", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_plan_flow",
+            "多步流程：先探测或拍照，再规划路线与工具使用，最多 8 步，最后按 summary/stepwise/none 返回报告。默认关闭。",
+            args => bridge.RunToolAsync("plan_flow", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_backup_copy",
+            "双处备份：把女仆完整快照写进游戏存档（模组侧一份），WAB 侧另存一份；恢复前做完整性校验，"
+            + "冲突按 wab_wins / mod_wins / newest 决定从哪端恢复，校验失败拒绝恢复且不覆盖两端原数据。",
+            args => bridge.RunToolAsync("backup_copy", args), FeatureSchema);
     }
+
+    /** 九个玩法入口共用的参数集合；每个入口只挑自己需要的字段，多余字段模组侧忽略。 */
+    private static readonly string FeatureSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","description":"动作名，见各工具说明"},
+        "slot":{"type":"integer","description":"背包槽位（drop/equip）"},
+        "radius":{"type":"number","description":"搜索半径（格）"},
+        "pos":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"[x,y,z] 起点"},
+        "tool":{"type":"string","description":"农耕工具"},
+        "crop":{"type":"string","description":"种植物 id"},
+        "area":{"type":"string","description":"种植区域描述"},
+        "width":{"type":"integer","description":"区域宽"},
+        "depth":{"type":"integer","description":"区域长"},
+        "airTicks":{"type":"integer","description":"剩余空气 tick"},
+        "nearDeath":{"type":"boolean","description":"是否濒死"},
+        "mlgSuccess":{"type":"boolean","description":"落地水是否成功"},
+        "roll":{"type":"number","description":"外部注入的 0-1 随机值，便于确定性判定"},
+        "aiProbability":{"type":"number","description":"AI 给出的概率"},
+        "spoken":{"type":"string","description":"玩家说的话"},
+        "hashes":{"type":"array","items":{"type":"string"},"description":"上下文句子哈希"},
+        "steps":{"type":"array","items":{"type":"object"},"description":"多步流程的步骤"},
+        "scanned":{"type":"boolean","description":"是否已探测"},
+        "photo":{"type":"boolean","description":"是否已拍照"},
+        "mode":{"type":"string","enum":["home","follow"],"description":"切换目标模式"},
+        "elapsedSeconds":{"type":"integer","description":"距上次切换过去了多少秒"},
+        "wabSavedAt":{"type":"integer","description":"WAB 侧快照时间戳"},
+        "modSavedAt":{"type":"integer","description":"模组侧快照时间戳"}
+        },"additionalProperties":false}
+        """;
 
     private const string MaidProperty =
         @"""maid"":{""type"":""string"",""description"":""女仆名或 UUID；留空则用当前绑定的女仆""}";
