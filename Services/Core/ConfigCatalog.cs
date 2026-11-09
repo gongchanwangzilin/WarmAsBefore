@@ -6,7 +6,7 @@ namespace WarmAsBefore.Services.Core;
 public static class ConfigCatalog
 {
     public const string Version = "wab-next-1";
-    public const int RowCount = 126;
+    public const int RowCount = 124;
 
     public sealed record Entry(string Name, string Type, string Default, string Scope,
                               string AiTag, bool Conflict, string ConflictTarget, string PromptText);
