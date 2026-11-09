@@ -159,6 +159,11 @@ internal static class MaidBridgeTools
         tools.RegisterBuiltin("maid_plan_flow",
             "多步流程：先探测或拍照，再规划路线与工具使用，最多 8 步，最后按 summary/stepwise/none 返回报告。默认关闭。",
             args => bridge.RunToolAsync("plan_flow", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_headpat",
+            "摸头互动。action=request 由 AI 主动选择要摸头（走讨摸概率与冷却，总开关可关避免与附属冲突）、"
+            + "refuse 玩家拒绝后她会伤心并露出伤心表情；三档反应（俯身+飞机耳+眯眼 / 加抱尾巴 / 抱尾巴缩成团）"
+            + "按档位播放，小酒壶不俯身。",
+            args => bridge.RunToolAsync("headpat", args), FeatureSchema);
         tools.RegisterBuiltin("maid_backup_copy",
             "双处备份：把女仆完整快照写进游戏存档（模组侧一份），WAB 侧另存一份；恢复前做完整性校验，"
             + "冲突按 wab_wins / mod_wins / newest 决定从哪端恢复，校验失败拒绝恢复且不覆盖两端原数据。",

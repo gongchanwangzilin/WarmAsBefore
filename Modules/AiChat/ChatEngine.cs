@@ -55,6 +55,9 @@ public sealed class ChatEngine
     public Func<bool>? BridgeConnected { get; set; }
     /// <summary>小模型处理不来时直接回这句，作为升级到大模型的信号。</summary>
     public const string EscalationPhrase = "我需要使用大模型";
+    /// <summary>第十五项：不支持 function calling 的小模型改用 XML / 花括号文本调工具。默认关闭。</summary>
+    public bool SmallModelCompatEnabled { get; set; }
+    public string SmallModelToolFormat { get; set; } = "xml";
 
     /// <summary>
     /// 工具管理器由构造注入（DI 里 ChatEngine 先于 ToolManager 注册，但单例是首次解析时才构造，
@@ -834,6 +837,12 @@ public sealed class ChatEngine
     /// </summary>
     private async Task<(string? Text, string? Error)> RunTurnWithSmallAsync(List<ChatMessage> session, AiEndpoint cfg)
     {
+        // 第十五项：小模型不支持工具时，用提示词引导它输出 XML / {工具名,参数}，解析后走同一套工具白名单。
+        if (SmallEndpoint is not null && SmallModelCompatEnabled && !SmallEndpoint.SupportsTools)
+        {
+            var compat = await RunSmallCompatAsync(session);
+            if (compat.Text is not null) return (compat.Text, null);
+        }
         if (SmallEndpoint is not null && SmallModelFirstEnabled)
         {
             var bridge = BridgeConnected?.Invoke() ?? false;
@@ -853,6 +862,45 @@ public sealed class ChatEngine
             App.WriteLog("ChatEngine: 小模型未处理，升级到大模型");
         }
         return await RunTurnAsync(session, cfg);
+    }
+
+    /// <summary>
+    /// 小模型强兼容回合：注入格式提示 → 解析模型自由文本里的工具调用 → 白名单校验 →
+    /// 复用 RunToolAsync 执行 → 结果回灌让小模型用一句话总结。解析失败不重试，回落普通对话。
+    /// </summary>
+    private async Task<(string? Text, string? Error)> RunSmallCompatAsync(List<ChatMessage> session)
+    {
+        var names = _tools.ChatToolNames();
+        var allowed = new HashSet<string>(names, StringComparer.Ordinal);
+        string hint = WarmAsBefore.Services.Core.SmallModelToolParser.PromptHint(SmallModelToolFormat, names);
+        var (text, error) = await RunTurnAsync(session, SmallEndpoint!, forceNoTools: true, extraSystem: hint);
+        if (error is not null || string.IsNullOrWhiteSpace(text)) return (null, error);
+
+        var calls = WarmAsBefore.Services.Core.SmallModelToolParser.Parse(text, SmallModelToolFormat, allowed);
+        if (calls.Count == 0)
+        {
+            return text.Contains(EscalationPhrase, StringComparison.Ordinal) ? (null, null) : (text, null);
+        }
+
+        var results = new System.Text.StringBuilder();
+        foreach (var c in calls)
+        {
+            var call = new ToolCall
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = c.Tool,
+                Arguments = c.ArgumentsJson
+            };
+            results.Append(c.Tool).Append(" -> ").AppendLine(await RunToolAsync(call, allowed));
+        }
+        var follow = new List<ChatMessage>(session)
+        {
+            new() { Role = "assistant", Content = text },
+            new() { Role = "user", Content = "工具执行结果：\n" + results
+                + "\n请用一句话告诉主人结果，不要再输出工具格式。" }
+        };
+        var (summary, summaryError) = await RunTurnAsync(follow, SmallEndpoint!, forceNoTools: true);
+        return summaryError is null && !string.IsNullOrWhiteSpace(summary) ? (summary, null) : (text, null);
     }
 
     /// <summary>

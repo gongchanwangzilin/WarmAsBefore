@@ -467,6 +467,19 @@ public sealed class RuntimeConfigurator
         catch (Exception ex) { App.WriteLog("RuntimeConfigurator.MarkIntroduced -> " + ex.Message); }
     }
 
+    /// <summary>思考模式：off/fast/deep/auto 四档 + 热度阈值自动关深度思考，全部纯代码判定。</summary>
+    private static bool ResolveDeepThink(UserSettings s)
+    {
+        string mode = WarmAsBefore.Services.Core.ConfigCatalog.Default("think_mode");
+        string thresholdRaw = WarmAsBefore.Services.Core.ConfigCatalog.Default("deep_think_disable_threshold");
+        double threshold = double.TryParse(thresholdRaw,
+            System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v : 0.5;
+        double heat = 0.5; // 机制值：由内心状态/剧情热度给出，这里先给保守默认，不让模型自己判断
+        int resolved = WarmAsBefore.Services.Core.ThinkModeController.Resolve(mode, true, heat, threshold);
+        bool autoOff = WarmAsBefore.Services.Core.ThinkModeController.AutoDisableDeepThink(heat, threshold);
+        return (resolved == 2 && !autoOff) || s.ComplexPlot;
+    }
+
     private string BuildExtraPersona(string charId)
     {
         var s = _settings.Current;
@@ -481,6 +494,15 @@ public sealed class RuntimeConfigurator
             if (!string.IsNullOrWhiteSpace(s.UserGender)) parts.Add(_genders.UserPromptFor(s.UserGender));
         }
         catch (Exception ex) { App.WriteLog("RuntimeConfigurator.GenderPersona -> " + ex.Message); }
+        // 第十六项：口头禅跟着角色档案走，留空就不注入提示词，省 Token。
+        try
+        {
+            bool enabled = WarmAsBefore.Services.Core.ConfigCatalog.Default("catchphrase_enabled") == "true";
+            string phrase = ch?.Profile.Catchphrase ?? "";
+            string line = WarmAsBefore.Services.Core.CatchphraseService.PromptLine(phrase, enabled);
+            if (line.Length > 0) parts.Add(line);
+        }
+        catch (Exception ex) { App.WriteLog("RuntimeConfigurator.Catchphrase -> " + ex.Message); }
         // 年龄/生日：只写进人设文本，不进任何判定。自然增长在读取时按过了几个生日现算（不写盘），
         // 关了开关也照样说给模型听——用户要的是「不涨岁」，不是把设定藏起来。
         try
@@ -624,7 +646,8 @@ public sealed class RuntimeConfigurator
             Model = s.AiModel,
             Temperature = s.AiTemperature,
             MaxTokens = s.AiMaxTokens,
-            DeepThink = s.DeepThink || s.ComplexPlot,
+            // 第十一项：思考模式由纯代码判定，热度由机制值给；默认 off，自动关深度思考省 Token。
+            DeepThink = ResolveDeepThink(s),
             DeepModel = s.DeepModel,
             MemoryTurns = s.MemoryTurns,
             ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
@@ -633,6 +656,11 @@ public sealed class RuntimeConfigurator
         // 只是提示词里明确告诉它「要动游戏就升级」，由它自己判断（见 ChatEngine.RunTurnWithSmallAsync）。
         // 配了模型名才算启用；URL / 密钥留空则复用上面的对话端点。
         _chat.SmallModelFirstEnabled = s.SmallModelFirst;
+        // 第十五项：小模型强兼容（插件里也可开关；默认关）。格式取配置目录，缺省 xml。
+        _chat.SmallModelCompatEnabled =
+            WarmAsBefore.Services.Core.ConfigCatalog.Default("small_model_compat_enabled") == "true";
+        string toolFormat = WarmAsBefore.Services.Core.ConfigCatalog.Default("small_model_tool_format");
+        _chat.SmallModelToolFormat = string.IsNullOrWhiteSpace(toolFormat) ? "xml" : toolFormat;
         _chat.SmallEndpoint = string.IsNullOrWhiteSpace(s.SmallAiModel) ? null : new AiEndpoint
         {
             Url = string.IsNullOrWhiteSpace(s.SmallAiUrl) ? s.AiUrl : s.SmallAiUrl,
