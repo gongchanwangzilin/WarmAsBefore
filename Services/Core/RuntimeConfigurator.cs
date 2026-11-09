@@ -4,6 +4,7 @@ using WarmAsBefore.Modules.Mcp;
 using WarmAsBefore.Modules.RealChat;
 using WarmAsBefore.Modules.RealWorld;
 using WarmAsBefore.Models;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore.Services;
 
@@ -639,7 +640,9 @@ public sealed class RuntimeConfigurator
             }
         }
 
-        _chat.Configure(new AiEndpoint
+        // 第十三项：模型套餐。仅覆盖端点/模型/推荐参数，绝不预置密钥（密钥始终由用户自填）。
+        // 默认 custom = 不动已填配置；需同时开启「套餐选择」与「一键套用」才生效。
+        AiEndpoint mainEndpoint = new AiEndpoint
         {
             Url = s.AiUrl,
             Key = s.AiKey,
@@ -651,7 +654,26 @@ public sealed class RuntimeConfigurator
             DeepModel = s.DeepModel,
             MemoryTurns = s.MemoryTurns,
             ContextTokenLimit = s.ContextTokenLimit > 0 ? s.ContextTokenLimit : 32000
-        }, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
+        };
+        if (ConfigCatalog.Default("model_package_enabled") == "true"
+            && ConfigCatalog.Default("model_package_auto_apply") == "true")
+        {
+            var pkg = ModelPackagePresets.Get(ConfigCatalog.Default("model_package"));
+            if (pkg.Id != ModelPackagePresets.DefaultId)
+            {
+                mainEndpoint = mainEndpoint with
+                {
+                    Url = pkg.Endpoint.Length > 0 ? pkg.Endpoint : mainEndpoint.Url,
+                    Model = pkg.Model.Length > 0 ? pkg.Model : mainEndpoint.Model,
+                    Temperature = pkg.Temperature,
+                    ContextTokenLimit = pkg.ContextWindow,
+                    SupportsTools = pkg.SupportsTools,
+                    SupportsVision = pkg.SupportsVision
+                };
+                App.WriteLog("RuntimeConfigurator: 已套用模型套餐 " + pkg.Id);
+            }
+        }
+        _chat.Configure(mainEndpoint, rotationPool, s.AiRotationEnabled && rotationPool.Count > 0);
         // 小模型优先：不再因为 Minecraft 桥连着就整个禁用——桥连着时小模型照样先答，
         // 只是提示词里明确告诉它「要动游戏就升级」，由它自己判断（见 ChatEngine.RunTurnWithSmallAsync）。
         // 配了模型名才算启用；URL / 密钥留空则复用上面的对话端点。
