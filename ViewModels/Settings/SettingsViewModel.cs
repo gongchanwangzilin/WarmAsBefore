@@ -136,6 +136,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _psychologyBehaviorEnabled = s.PsychologyBehaviorEnabled;
         _physiologyEnabled = s.PhysiologyEnabled;
         _innerLifeEnabled = s.InnerLifeEnabled;
+        _concretizationEnabled = s.ConcretizationEnabled;
         _brainEnabled = s.BrainEnabled;
         _brainExpectationEnabled = s.BrainExpectationEnabled;
         _brainSurpriseEnabled = s.BrainSurpriseEnabled;
@@ -170,6 +171,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         _smallAiModel = s.SmallAiModel;
         _customParamsJson = s.CustomParamsJson;
         _customParamsFormat = s.CustomParamsFormat;
+        _thinkBarEnabled = s.ThinkBarEnabled;
+        _quickButtonsEnabled = s.QuickButtonsEnabled;
+        _thinkTierCount = Math.Clamp(s.ThinkTierCount, 1, 5);
+        _thinkTierLabels = string.IsNullOrWhiteSpace(s.ThinkTierLabels) ? "轻度,标准,深度" : s.ThinkTierLabels;
+        _activeThinkTier = Math.Clamp(s.ActiveThinkTier, 0, Math.Clamp(s.ThinkTierCount, 1, 5));
+        _thinkParamKey = string.IsNullOrWhiteSpace(s.ThinkParamKey) ? "reasoning_effort" : s.ThinkParamKey;
+        _thinkParamValues = string.IsNullOrWhiteSpace(s.ThinkParamValues) ? "low,medium,high" : s.ThinkParamValues;
         _aiPreset = PresetDisplayOf(s.AiPreset);
         _visionUrl = s.VisionUrl;
         _visionKey = s.VisionKey;
@@ -1225,6 +1233,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _psychologyBehaviorEnabled = true;
     [ObservableProperty] private bool _physiologyEnabled = true;
     [ObservableProperty] private bool _innerLifeEnabled = true;
+    [ObservableProperty] private bool _concretizationEnabled = true;
     // 大脑预判：期待差 + 意料之外两层，默认本地跑；可选配一枚免费小模型每 N 轮补一次预判
     [ObservableProperty] private bool _brainEnabled = true;
     [ObservableProperty] private bool _brainExpectationEnabled = true;
@@ -1319,6 +1328,33 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         "openai_flat", "nested_by_role", "vendor_ext", "widget_binding"
     };
+
+    // 第十四项：思考档位（思考条 + 快速按钮）
+    /// <summary>是否显示「正在思考 / 深度思考中」进度条。</summary>
+    [ObservableProperty] private bool _thinkBarEnabled;
+    partial void OnThinkBarEnabledChanged(bool value) => PersistSettings();
+    /// <summary>是否在输入条上方显示切换思考档位的快速按钮组。</summary>
+    [ObservableProperty] private bool _quickButtonsEnabled;
+    partial void OnQuickButtonsEnabledChanged(bool value) => PersistSettings();
+    /// <summary>思考档位数（不含关闭档），钳到 1~5。</summary>
+    [ObservableProperty] private int _thinkTierCount = 3;
+    partial void OnThinkTierCountChanged(int value)
+    {
+        _thinkTierCount = Math.Clamp(value, 1, 5);
+        PersistSettings();
+    }
+    /// <summary>每档标签（逗号分隔，不含关闭档）。</summary>
+    [ObservableProperty] private string _thinkTierLabels = "轻度,标准,深度";
+    partial void OnThinkTierLabelsChanged(string value) => PersistSettings();
+    /// <summary>当前生效的思考档位（0=关闭，1..ThinkTierCount）。</summary>
+    [ObservableProperty] private int _activeThinkTier;
+    partial void OnActiveThinkTierChanged(int value) => PersistSettings();
+    /// <summary>注入请求体的推理强度参数键名。</summary>
+    [ObservableProperty] private string _thinkParamKey = "reasoning_effort";
+    partial void OnThinkParamKeyChanged(string value) => PersistSettings();
+    /// <summary>每档对应的参数值（逗号分隔，共 ThinkTierCount 个）。</summary>
+    [ObservableProperty] private string _thinkParamValues = "low,medium,high";
+    partial void OnThinkParamValuesChanged(string value) => PersistSettings();
     [ObservableProperty] private int _memoryTurns = 5;
 
     /// <summary>人类记忆调取窗口（天）：默认 3 天，0 = 不限。可按角色在角色库里覆写。</summary>
@@ -2640,6 +2676,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnPsychologyBehaviorEnabledChanged(bool value) => PersistSettings();
     partial void OnPhysiologyEnabledChanged(bool value) => PersistSettings();
     partial void OnInnerLifeEnabledChanged(bool value) => PersistSettings();
+    partial void OnConcretizationEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainExpectationEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainSurpriseEnabledChanged(bool value) => PersistSettings();
@@ -3038,6 +3075,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                 PsychologyBehaviorEnabled = PsychologyBehaviorEnabled,
                 PhysiologyEnabled = PhysiologyEnabled,
                 InnerLifeEnabled = InnerLifeEnabled,
+                ConcretizationEnabled = ConcretizationEnabled,
                 BrainEnabled = BrainEnabled,
                 BrainExpectationEnabled = BrainExpectationEnabled,
                 BrainSurpriseEnabled = BrainSurpriseEnabled,
@@ -3084,6 +3122,13 @@ GlassLightWidth = GlassLightWidth,
                 AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
                 CustomParamsJson = (CustomParamsJson ?? "").Trim(),
                 CustomParamsFormat = CustomParamsFormatChoices.Contains(CustomParamsFormat) ? CustomParamsFormat : "openai_flat",
+                ThinkBarEnabled = ThinkBarEnabled,
+                QuickButtonsEnabled = QuickButtonsEnabled,
+                ThinkTierCount = Math.Clamp(ThinkTierCount, 1, 5),
+                ThinkTierLabels = (ThinkTierLabels ?? "").Trim(),
+                ActiveThinkTier = Math.Clamp(ActiveThinkTier, 0, Math.Clamp(ThinkTierCount, 1, 5)),
+                ThinkParamKey = (ThinkParamKey ?? "").Trim(),
+                ThinkParamValues = (ThinkParamValues ?? "").Trim(),
                 AiPreset = PresetKeyOf(_aiPreset),
                 VisionUrl = VisionUrl.Trim(),
                 VisionKey = VisionKey.Trim(),

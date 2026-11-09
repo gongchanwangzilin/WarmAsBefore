@@ -1934,6 +1934,11 @@
                             <Label Text="内心生活（内分泌 / 执念）" Style="{StaticResource TxtBodySm}" />
                             <Label Text="她的心绪有自己的来处：游戏里被打、被喂食，聊天里的冷暖话，都会让激素涨落并渗进语气；她说「不知道」的事会长成执念，惦记到一定程度会自己想明白、主动来讲。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding InnerLifeEnabled}" /></Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="情绪具体化（身体 / 行为）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="情绪会落到身体与行为上：影响食欲、想不想说话、想不想走动；长期压抑或高唤起还可能躯体化——肚子疼、胃灼烧、呼吸急促。判定全部走纯代码，只在对话里自然渗进语气与动作。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ConcretizationEnabled}" /></Grid>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
@@ -2035,6 +2040,54 @@
                                     TextColor="{DynamicResource SurfaceFg}"
                                     Placeholder="留空表示不附加任何参数" FontSize="12" />
                         </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
+
+        <!-- 卡片 39：思考档位（思考条 + 快速按钮）-->
+        <DataTemplate x:Key="Card39">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="14">
+                        <Label Text="思考档位（思考条 + 快速按钮）" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="为模型自配若干档推理强度，对话中输入条上方会出现切换按钮、并在思考时显示进度条。第 0 档永远为「关闭」。当前档位可在对话里即时切换并自动保存。"
+                               Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="显示思考条（正在思考 / 深度思考中）" VerticalOptions="Center" FontSize="13" />
+                            <Switch Grid.Column="1" IsToggled="{Binding ThinkBarEnabled}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="显示快速按钮（切换思考档位）" VerticalOptions="Center" FontSize="13" />
+                            <Switch Grid.Column="1" IsToggled="{Binding QuickButtonsEnabled}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="160,*">
+                            <Label Text="思考档位数（1~5）" VerticalOptions="Center" FontSize="13" />
+                            <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                                <Stepper Minimum="1" Maximum="5" Increment="1" Value="{Binding ThinkTierCount}" />
+                                <Label Text="{Binding ThinkTierCount}" VerticalOptions="Center" FontSize="14" FontAttributes="Bold" />
+                            </HorizontalStackLayout>
+                        </Grid>
+                        <Grid ColumnDefinitions="160,*">
+                            <Label Text="每档标签" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ThinkTierLabels}" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   Placeholder="逗号分隔，如 轻度,标准,深度" />
+                        </Grid>
+                        <Grid ColumnDefinitions="160,*">
+                            <Label Text="推理强度参数键名" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ThinkParamKey}" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   Placeholder="如 reasoning_effort" />
+                        </Grid>
+                        <Grid ColumnDefinitions="160,*">
+                            <Label Text="每档参数值" VerticalOptions="Center" FontSize="13" />
+                            <Entry Grid.Column="1" Text="{Binding ThinkParamValues}" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                   Placeholder="逗号分隔，如 low,medium,high" />
+                        </Grid>
+                        <Label Text="提示：参数键名与每档值需与你所选模型的推理强度接口对应（例如 OpenAI 推理模型用 reasoning_effort=low/medium/high）。不匹配时该模型会忽略或报错，属正常配置差异。"
+                               Style="{StaticResource TxtCaption}" FontSize="11" />
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

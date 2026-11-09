@@ -411,6 +411,7 @@ public sealed class ApiGateway
             : new { model = cfg.Model, messages, temperature = cfg.Temperature, max_tokens = cfg.MaxTokens };
         var root = JsonNode.Parse(JsonSerializer.Serialize(anon))!.AsObject();
         MergeCustomParams(cfg, root);
+        MergeThinkParams(cfg, root);
         return root;
     }
 
@@ -448,6 +449,21 @@ public sealed class ApiGateway
         foreach (var prop in doc.RootElement.EnumerateObject())
             dict[prop.Name] = JsonNode.Parse(prop.Value.GetRawText());
         return dict;
+    }
+
+    /// <summary>
+    /// 第十四项：把「思考档位」翻译成模型能懂的推理强度参数，并入请求体。
+    /// 档位 ≤0（关闭）时完全不动请求体；否则取 <see cref="AiEndpoint.ThinkParamKey"/> 作键，
+    /// 取 <see cref="AiEndpoint.ThinkParamValues"/> 中第 (档位-1) 个值。model/messages/tools 等结构性键不被覆盖。
+    /// </summary>
+    private static void MergeThinkParams(AiEndpoint cfg, JsonObject root)
+    {
+        if (cfg.ThinkTier <= 0) return;
+        var key = (cfg.ThinkParamKey ?? "").Trim();
+        if (string.IsNullOrWhiteSpace(key) || key is "model" or "messages" or "tools") return;
+        var value = WarmAsBefore.Services.Core.ThinkTierRuntime.ParamValueFor(cfg.ThinkTier, cfg.ThinkParamValues);
+        if (string.IsNullOrWhiteSpace(value)) return;
+        root[key] = value;
     }
 
     /// <summary>
