@@ -387,8 +387,12 @@ path/
 android-sdk/platforms/
 proot-build/
 
-# 插件分发包随 Release 发布，不进仓库
-/plugins/
+# 插件分发包随 Release 发布，不进仓库。
+# 例外：wab_minecraft 的 plugin.json 是配置真相源下发的字段表，CI 门禁要读它，必须入库。
+/plugins/*
+!plugins/wab_minecraft/
+plugins/wab_minecraft/*
+!plugins/wab_minecraft/plugin.json
 
 # ==== 构建输出日志与发布目录（2026-11-08 审计后整理，永不入库） ====
 /build_out.txt

@@ -1,0 +1,38 @@
+name: WAB Config Catalog Verify
+
+# T01 门禁：配置真相源是唯一允许声明键名/默认值的地方。
+# 任何 push/PR 都先跑这一步，生成物与目录不一致就直接拦下，不进后面的重构建。
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'tools/wab_config/**'
+      - 'Services/Core/ConfigCatalog.cs'
+      - 'plugins/wab_minecraft/plugin.json'
+      - '.github/workflows/wab-config-verify.yml'
+  pull_request:
+    paths:
+      - 'tools/wab_config/**'
+      - 'Services/Core/ConfigCatalog.cs'
+      - 'plugins/wab_minecraft/plugin.json'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Verify config catalog
+        run: python3 tools/wab_config/verify_config_catalog.py --root .
