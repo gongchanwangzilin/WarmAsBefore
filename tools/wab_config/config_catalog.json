@@ -1,8 +1,8 @@
 {
   "catalogVersion": "wab-next-1",
-  "source": "01-PRD.md §5.1（126 行配置项总表）",
+  "source": "01-PRD.md §5.1（配置项总表；移除岩浆船实验项后 124 行）",
   "note": "唯一允许声明键名与默认值的地方；保守覆盖规则见 02-DESIGN.md §3.4，本文件不另造默认值。",
-  "rowCount": 126,
+  "rowCount": 124,
   "rows": [
     {
       "no": 1,
