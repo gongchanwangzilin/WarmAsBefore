@@ -1,7 +1,9 @@
 using System.Net;
 using System.Text;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using WarmAsBefore.Models;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore.Modules.ApiManager;
 
@@ -263,14 +265,7 @@ public sealed class ApiGateway
         foreach (var cfg in CandidateEndpoints(over))
         {
             var url = BuildChatUrl(cfg);
-            var body = new
-            {
-                model = cfg.Model,
-                messages = history.Select(m => new { role = m.Role, content = m.Content }),
-                temperature = cfg.Temperature,
-                max_tokens = cfg.MaxTokens
-            };
-            var json = JsonSerializer.Serialize(body);
+            var json = JsonSerializer.Serialize(BuildBody(cfg, history, null));
 
             foreach (var key in CandidateKeys(cfg))
             {
@@ -408,25 +403,51 @@ public sealed class ApiGateway
     }
 
     /// <summary>请求体：只有确实有工具时才带 tools 字段（无工具时与 Chat() 逐字段相同）。</summary>
-    private static object BuildBody(AiEndpoint cfg, List<ChatMessage> history, List<object>? tools)
+    private static JsonObject BuildBody(AiEndpoint cfg, List<ChatMessage> history, List<object>? tools)
     {
         var messages = history.Select(Wire).ToList();
-        if (tools is { Count: > 0 })
-            return new
-            {
-                model = cfg.Model,
-                messages,
-                temperature = cfg.Temperature,
-                max_tokens = cfg.MaxTokens,
-                tools
-            };
-        return new
+        object anon = tools is { Count: > 0 }
+            ? new { model = cfg.Model, messages, temperature = cfg.Temperature, max_tokens = cfg.MaxTokens, tools }
+            : new { model = cfg.Model, messages, temperature = cfg.Temperature, max_tokens = cfg.MaxTokens };
+        var root = JsonNode.Parse(JsonSerializer.Serialize(anon))!.AsObject();
+        MergeCustomParams(cfg, root);
+        return root;
+    }
+
+    /// <summary>
+    /// 第十二项：把自定义 AI 参数（<see cref="AiEndpoint.CustomParamsJson"/>）按所选四格式并入请求体。
+    /// 默认空串时完全不动请求体；解析失败只记日志、不阻断本轮对话。model/messages/tools 等结构性键不被覆盖。
+    /// </summary>
+    private static void MergeCustomParams(AiEndpoint cfg, JsonObject root)
+    {
+        if (string.IsNullOrWhiteSpace(cfg.CustomParamsJson)) return;
+        try
         {
-            model = cfg.Model,
-            messages,
-            temperature = cfg.Temperature,
-            max_tokens = cfg.MaxTokens
-        };
+            var flat = ParseFlatParams(cfg.CustomParamsJson);
+            if (flat.Count == 0) return;
+            var format = AiParamFormatMapper.Parse(cfg.ParamFormat);
+            var formatted = AiParamFormatMapper.Format(flat, format);
+            foreach (var (key, value) in formatted)
+            {
+                if (key is "model" or "messages" or "tools" || value is null) continue;
+                root[key] = value.DeepClone();
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ApiGateway.MergeCustomParams -> " + ex.Message);
+        }
+    }
+
+    /// <summary>把自定义参数的 JSON 对象解析成「键 → JsonNode」扁平中间表示，供四格式转换复用。</summary>
+    private static Dictionary<string, JsonNode?> ParseFlatParams(string json)
+    {
+        var dict = new Dictionary<string, JsonNode?>(StringComparer.OrdinalIgnoreCase);
+        using var doc = JsonDocument.Parse(json);
+        if (doc.RootElement.ValueKind != JsonValueKind.Object) return dict;
+        foreach (var prop in doc.RootElement.EnumerateObject())
+            dict[prop.Name] = JsonNode.Parse(prop.Value.GetRawText());
+        return dict;
     }
 
     /// <summary>

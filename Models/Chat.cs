@@ -87,4 +87,8 @@ public sealed record AiEndpoint
     public bool SupportsVision { get; init; }
     /// <summary>该端点的超时（秒）：null 或 ≤0 = 用全局设置。</summary>
     public int? TimeoutSeconds { get; init; }
+    /// <summary>自定义 AI 参数（JSON 对象，键→值）。空串表示不附加任何自定义参数。第十二项：与 ParamFormat 一起被 AiParamFormatMapper 转换成目标格式后并入请求体。</summary>
+    public string CustomParamsJson { get; init; } = string.Empty;
+    /// <summary>自定义参数采用的四格式：openai_flat / nested_by_role / vendor_ext / widget_binding。默认 openai_flat。</summary>
+    public string ParamFormat { get; init; } = "openai_flat";
 }
