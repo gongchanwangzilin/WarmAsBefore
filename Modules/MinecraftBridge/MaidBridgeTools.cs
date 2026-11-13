@@ -177,6 +177,36 @@ internal static class MaidBridgeTools
             "双处备份：把女仆完整快照写进游戏存档（模组侧一份），WAB 侧另存一份；恢复前做完整性校验，"
             + "冲突按 wab_wins / mod_wins / newest 决定从哪端恢复，校验失败拒绝恢复且不覆盖两端原数据。",
             args => bridge.RunToolAsync("backup_copy", args), FeatureSchema);
+
+        // ===== B5 玩法入口：只读坐标、按开关采集、按白名单定建造原点 =====
+        tools.RegisterBuiltin("maid_pos",
+            "查询女仆当前所在坐标与维度，并附带好感度、饥饿度、是否坐着。"
+            + "建造 / 采集 / 规划路线前先调它拿真实原点，不必猜坐标。只读，不改世界。",
+            args => bridge.RunToolAsync("maid_pos", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_collect",
+            "按模组设置里各自的开关采集牛奶 / 水 / 木板。kind=milk|water|board，对应开关没开就拒绝，"
+            + "不会偷偷改世界；原点默认取 maid_pos 的坐标。",
+            args => bridge.RunToolAsync("maid_collect", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_construct",
+            "建造前定原点：AI 给了 origin 就用它，没给就回落到女仆当前坐标（maid_pos）。"
+            + "开启建造白名单时必须显式给 origin，否则拒绝，避免 AI 在没确认位置时误建。",
+            args => bridge.RunToolAsync("maid_construct", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_sleep_consent",
+            "玩家想抱睡时问她愿不愿意。离线按好感度与心情的纯代码阈值判定，返回 consent 0=拒绝 / 1=同意 / 2=勉强同意；"
+            + "AI 在线时应由你的人设决定，不要拿这个结果覆盖角色性格。",
+            args => bridge.RunToolAsync("sleep_consent", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_self_eat",
+            "她饿了或中毒时的自理：主人不在就自己吃背包食物；中毒有牛奶就喝掉解毒，没牛奶则向主人求助。"
+            + "两项各有独立开关，默认关闭。",
+            args => bridge.RunToolAsync("self_eat", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_fire_escape",
+            "着火逃生。优先跳进身边水域（给 waterPos），没水才放落地水，都没有就维持原版行为；"
+            + "放完的水是否进入收回阶段由模组按「放完水收回来」开关决定。",
+            args => bridge.RunToolAsync("fire_escape", args), FeatureSchema);
+        tools.RegisterBuiltin("maid_tame_protect",
+            "判断一只驯服生物要不要纳入保护：本女仆驯服 > 玩家驯服 > 别的女仆驯服 > 无主（不保护）。"
+            + "默认关闭，开启后由模组按优先级决定保护顺序。",
+            args => bridge.RunToolAsync("tame_protect", args), FeatureSchema);
     }
 
     /** 九个玩法入口共用的参数集合；每个入口只挑自己需要的字段，多余字段模组侧忽略。 */
@@ -204,7 +234,22 @@ internal static class MaidBridgeTools
         "mode":{"type":"string","enum":["home","follow"],"description":"切换目标模式"},
         "elapsedSeconds":{"type":"integer","description":"距上次切换过去了多少秒"},
         "wabSavedAt":{"type":"integer","description":"WAB 侧快照时间戳"},
-        "modSavedAt":{"type":"integer","description":"模组侧快照时间戳"}
+        "modSavedAt":{"type":"integer","description":"模组侧快照时间戳"},
+        "hungry":{"type":"boolean","description":"女仆是否饿了；不给则模组侧按饥饿度回落"},
+        "ownerNear":{"type":"boolean","description":"主人是否在附近；不给则模组侧按真实距离回落"},
+        "begElapsedMs":{"type":"number","description":"已经向主人讨食了多久（毫秒）"},
+        "poisoned":{"type":"boolean","description":"女仆是否中毒"},
+        "favorability":{"type":"number","description":"好感度 [0,1]，供抱睡同意判定"},
+        "moodIndex":{"type":"number","description":"心情指数 [-1,1]，由 AI/宿主算好注入"},
+        "onFire":{"type":"boolean","description":"女仆是否着火"},
+        "waterNearby":{"type":"boolean","description":"身边 3×3 内是否有可跳入的水域"},
+        "waterPos":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"水域坐标 [x,y,z]"},
+        "fireOut":{"type":"boolean","description":"火是否已灭（决定落地水是否进入收回阶段）"},
+        "tamedByMaid":{"type":"boolean","description":"目标是否由本女仆驯服"},
+        "tamedByOwner":{"type":"boolean","description":"目标是否由玩家驯服"},
+        "tamedByOther":{"type":"boolean","description":"目标是否由别的女仆驯服"},
+        "origin":{"type":"array","items":{"type":"number"},"minItems":3,"maxItems":3,"description":"AI 显式给的建造原点 [x,y,z]"},
+        "kind":{"type":"string","enum":["milk","water","board"],"description":"采集种类"}
         },"additionalProperties":false}
         """;
 
