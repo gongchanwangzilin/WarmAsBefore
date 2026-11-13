@@ -23,6 +23,7 @@ public sealed class InnerLifeService
     private readonly StorageProvider _store;
     private readonly MemoryScope _scope;
     private readonly SettingsManager _settings;
+    private readonly MentalHealthService _health;
     private readonly object _gate = new();
     private InnerLifeBook _book = new();
     private bool _loaded;
@@ -35,11 +36,13 @@ public sealed class InnerLifeService
     /// <summary>后台巡检周期。</summary>
     private static readonly TimeSpan TickPeriod = TimeSpan.FromMinutes(4);
 
-    public InnerLifeService(StorageProvider store, MemoryScope scope, SettingsManager settings)
+    public InnerLifeService(StorageProvider store, MemoryScope scope, SettingsManager settings,
+                            MentalHealthService health)
     {
         _store = store;
         _scope = scope;
         _settings = settings;
+        _health = health;
         scope.Changed += ReleaseCache;
     }
 
@@ -114,9 +117,9 @@ public sealed class InnerLifeService
 
     // ---- 气质基线：由角色 id 决定的稳定偏移，同一个人永远长同一种性子 ----
 
-    private static (double Dopa, double Cort, double Ser) Baseline(string charId)
+    private static (double Dopa, double Cort, double Ser, double Adr, double Cho, double Ltd) Baseline(string charId)
     {
-        // 稳定散列：同 id 永远同一组基线，读档也不会变性格。
+        // 稳定散列：同 id 永远同一组基线，读档也不会变性格。F28 新增三项同样由 id 决定。
         var h = 2166136261;
         foreach (var c in charId ?? "") { h ^= c; h *= 16777619; }
         double Jitter(int salt, double amp)
@@ -128,7 +131,10 @@ public sealed class InnerLifeService
         return (
             Math.Clamp(0.50 + Jitter(1, 0.10), 0.3, 0.7),
             Math.Clamp(0.28 + Jitter(2, 0.08), 0.15, 0.45),
-            Math.Clamp(0.60 + Jitter(3, 0.10), 0.4, 0.8));
+            Math.Clamp(0.60 + Jitter(3, 0.10), 0.4, 0.8),
+            Math.Clamp(HormoneRules.BaseAdrenaline + Jitter(4, 0.04), 0.02, 0.18),
+            Math.Clamp(HormoneRules.BaseCholesterol + Jitter(5, 0.06), 0.10, 0.34),
+            Math.Clamp(HormoneRules.BaseLongTermDrive + Jitter(6, 0.10), 0.20, 0.55));
     }
 
     // ---- 结算：把三个值按半衰期拉回基线 ----
@@ -144,8 +150,15 @@ public sealed class InnerLifeService
     {
         if (!_book.ByCharacter.TryGetValue(charId, out var p))
         {
-            var (d, c, s) = Baseline(charId);
-            p = new InnerLifeProfile { Chemicals = new InnerChemicals { Dopamine = d, Cortisol = c, Serotonin = s } };
+            var (d, c, s, a, ch, l) = Baseline(charId);
+            p = new InnerLifeProfile
+            {
+                Chemicals = new InnerChemicals
+                {
+                    Dopamine = d, Cortisol = c, Serotonin = s,
+                    Adrenaline = a, Cholesterol = ch, LongTermDrive = l
+                }
+            };
             _book.ByCharacter[charId] = p;
         }
         return p;
@@ -161,7 +174,7 @@ public sealed class InnerLifeService
         var hours = (DateTime.UtcNow - p.Chemicals.UpdatedAt).TotalHours;
         if (hours >= 0.02)
         {
-            var (d, c, s) = Baseline(charId);
+            var (d, c, s, a, ch, l) = Baseline(charId);
             lock (_gate)
             {
                 p.Chemicals.Dopamine = Settle(p.Chemicals.Dopamine, d, hours, 0.75);
@@ -169,6 +182,14 @@ public sealed class InnerLifeService
                 p.Chemicals.Serotonin = Settle(p.Chemicals.Serotonin, s, hours, 4.0);
                 // 疲劳向 0 消解：安静歇着比说话恢复得快，这里只按时间走，说话的成本在 PrepareTurn 里记。
                 p.Chemicals.Fatigue = Settle(p.Chemicals.Fatigue, 0, hours, 5.0);
+                // F28 四角色各自的半衰期，全部纯代码结算。
+                p.Chemicals.Adrenaline = HormoneRules.Settle(p.Chemicals.Adrenaline, a, hours, HormoneRules.HalfLifeAdrenaline);
+                p.Chemicals.Cholesterol = HormoneRules.Settle(p.Chemicals.Cholesterol, ch, hours, HormoneRules.HalfLifeCholesterol);
+                p.Chemicals.LongTermDrive = HormoneRules.Settle(p.Chemicals.LongTermDrive, l, hours, HormoneRules.HalfLifeLongTermDrive);
+                // 肾上腺素过量的器官代价：压血清素、抬皮质醇（只在过量那一段生效，量很小）。
+                var (ds, dc) = HormoneRules.OrganCostOfAdrenaline(p.Chemicals.Adrenaline);
+                p.Chemicals.Serotonin = Math.Clamp(p.Chemicals.Serotonin + ds * hours * 0.1, 0, 1);
+                p.Chemicals.Cortisol = Math.Clamp(p.Chemicals.Cortisol + dc * hours * 0.1, 0, 1);
                 p.Chemicals.UpdatedAt = DateTime.UtcNow;
                 GrowObsessions(p, hours);
             }
@@ -187,23 +208,54 @@ public sealed class InnerLifeService
         }
     }
 
-    private void Shift(string charId, double dopa = 0, double cort = 0, double ser = 0, double fatigue = 0)
+    private void Shift(string charId, double dopa = 0, double cort = 0, double ser = 0, double fatigue = 0,
+                       double danger = 0, double setback = 0, double reward = 0, bool blowSoftened = false)
     {
         if (!Enabled) return;
         _ = Task.Run(async () =>
         {
             var p = await SettledAsync(charId);
             if (p is null) return;
+            bool ptsd = false;
             lock (_gate)
             {
-                p.Chemicals.Dopamine = Math.Clamp(p.Chemicals.Dopamine + dopa, 0, 1);
-                p.Chemicals.Cortisol = Math.Clamp(p.Chemicals.Cortisol + cort, 0, 1);
-                p.Chemicals.Serotonin = Math.Clamp(p.Chemicals.Serotonin + ser, 0, 1);
-                p.Chemicals.Fatigue = Math.Clamp(p.Chemicals.Fatigue + fatigue, 0, 1);
-                p.Chemicals.UpdatedAt = DateTime.UtcNow;
+                var ch = p.Chemicals;
+                ch.Dopamine = Math.Clamp(ch.Dopamine + dopa, 0, 1);
+                ch.Cortisol = Math.Clamp(ch.Cortisol + cort, 0, 1);
+                ch.Serotonin = Math.Clamp(ch.Serotonin + ser, 0, 1);
+                ch.Fatigue = Math.Clamp(ch.Fatigue + fatigue, 0, 1);
+
+                // F28：四个「重磅角色」全部按纯规则结算，不调模型。
+                if (danger > 0)
+                    ch.Adrenaline = HormoneRules.AdrenalineAfterDanger(ch.Adrenaline, danger);
+                if (reward > 0)
+                    ch.LongTermDrive = HormoneRules.LongTermDriveAfterReward(ch.LongTermDrive, reward);
+                if (setback > 0)
+                {
+                    ch.Cholesterol = HormoneRules.CholesterolAfterSetback(
+                        ch.Cholesterol, ch.Dopamine, ch.Fatigue, setback, blowSoftened);
+                    // 一次打击没奏效、胆固醇又过量 → PTSD（只置一次标记，由下方接心理健康层）。
+                    ptsd = HormoneRules.ShouldTriggerPtsd(ch.Cholesterol, blowSoftened);
+                }
+                ch.UpdatedAt = DateTime.UtcNow;
             }
             _ = SaveAsync();
+            if (ptsd) _ = ApplyPtsdAsync(charId);
         });
+    }
+
+    /// <summary>F28：胆固醇过量且打击未被消化 → 记一条 PTSD，只记一次（已有就不重复写）。</summary>
+    private async Task ApplyPtsdAsync(string charId)
+    {
+        try
+        {
+            var existing = await _health.ListAsync(charId);
+            if (existing.Any(x => x.Id.Contains("ptsd", StringComparison.OrdinalIgnoreCase)
+                                  || x.Id.Contains("创伤", StringComparison.Ordinal))) return;
+            await _health.SetAsync(charId, "ptsd", 1,
+                "内分泌层：颓废期遭打击，胆固醇中和未奏效而过量");
+        }
+        catch (Exception ex) { App.WriteLog("InnerLife.Ptsd -> " + ex.Message); }
     }
 
     // ---- 输入：游戏事件 ----
@@ -214,13 +266,14 @@ public sealed class InnerLifeService
         if (!Enabled || string.IsNullOrEmpty(charId)) return;
         switch ((kind ?? "").ToLowerInvariant())
         {
-            case "hurt": Shift(charId, dopa: -0.08, cort: +0.25, ser: -0.05); break;
-            case "death": Shift(charId, dopa: -0.20, cort: +0.50, ser: -0.20); break;
-            case "respawn": Shift(charId, dopa: +0.12, cort: -0.15); break;
-            case "feed": Shift(charId, dopa: +0.10, cort: -0.04); break;
-            case "interaction": Shift(charId, dopa: +0.07, cort: -0.02); break;
-            case "maid_chat": Shift(charId, dopa: +0.05); break;
-            case "owner_sleep": Shift(charId, ser: +0.12, cort: -0.08, fatigue: -0.5); break;
+            // F28：危急→肾上腺素（精力↑警觉↑，过量有器官代价）；死亡/重伤→胆固醇中和的「打击」。
+            case "hurt": Shift(charId, dopa: -0.08, cort: +0.25, ser: -0.05, danger: 0.45, setback: 0.35); break;
+            case "death": Shift(charId, dopa: -0.20, cort: +0.50, ser: -0.20, danger: 0.85, setback: 0.75); break;
+            case "respawn": Shift(charId, dopa: +0.12, cort: -0.15, reward: 0.20); break;
+            case "feed": Shift(charId, dopa: +0.10, cort: -0.04, blowSoftened: true); break;
+            case "interaction": Shift(charId, dopa: +0.07, cort: -0.02, blowSoftened: true); break;
+            case "maid_chat": Shift(charId, dopa: +0.05, blowSoftened: true); break;
+            case "owner_sleep": Shift(charId, ser: +0.12, cort: -0.08, fatigue: -0.5, reward: 0.12); break;
         }
     }
 
@@ -460,7 +513,7 @@ public sealed class InnerLifeService
         if (!Enabled || string.IsNullOrEmpty(charId)) return "";
         var p = await SettledAsync(charId);
         if (p is null) return "";
-        var (bd, bc, bs) = Baseline(charId);
+        var (bd, bc, bs, _, _, _) = Baseline(charId);
         var parts = new List<string>();
         var d = p.Chemicals.Dopamine;
         var c = p.Chemicals.Cortisol;
@@ -471,6 +524,14 @@ public sealed class InnerLifeService
         else if (bc - c > 0.18 && s - bs > 0.1) parts.Add("难得的踏实，什么都不想防备");
         if (bs - s > 0.15) parts.Add("有点烦躁，容易钻牛角尖，话里可能带点刺");
         if (p.Chemicals.Fatigue > 0.65) parts.Add("身体发沉，有点累了，话会少一点、反应慢半拍，也不太想动");
+        // F28：四个「重磅角色」只把感受与倾向渗进语气/动作，绝不报数值或术语。
+        var ch = p.Chemicals;
+        if (ch.Adrenaline > 0.62) parts.Add("心口突突地跳，整个人绷着，一下子来了精神却不太稳当");
+        else if (HormoneRules.HasCrash(ch.Adrenaline, ch.Dopamine)) parts.Add("那股劲过去以后有点发虚，手软软的，想靠着歇一会儿");
+        if (ch.Cholesterol > 0.60) parts.Add("心里憋着一股说不清的劲儿，不太想吃东西，反而想做点什么把自己撑起来");
+        if (ch.LongTermDrive > 0.72) parts.Add("心底有种安安稳稳的踏实，好像往前走一点是值得的");
+        if (ch.Drive > 0.72) parts.Add("这会儿挺有干劲，说话也利落些");
+        else if (ch.Drive < 0.22) parts.Add("提不起什么劲，做什么都慢半拍");
         Obsession? top;
         lock (_gate)
             top = p.Obsessions.Where(o => o.ResolvedAt is null)
@@ -495,7 +556,7 @@ public sealed class InnerLifeService
         if (!Enabled || string.IsNullOrEmpty(charId)) return 0;
         var p = await SettledAsync(charId);
         if (p is null) return 0;
-        var (bd, bc, _) = Baseline(charId);
+        var (bd, bc, _, _, _, _) = Baseline(charId);
         // 相对各自基线的偏移相减：基线本身不算心情，只算「此刻比平时」。
         return Math.Clamp((p.Chemicals.Dopamine - bd) - (p.Chemicals.Cortisol - bc), -0.5, 0.5) * 2;
     }
@@ -514,6 +575,10 @@ public sealed class InnerLifeService
                 cortisol = Math.Round(p.Chemicals.Cortisol, 2),
                 serotonin = Math.Round(p.Chemicals.Serotonin, 2),
                 fatigue = Math.Round(p.Chemicals.Fatigue, 2),
+                adrenaline = Math.Round(p.Chemicals.Adrenaline, 2),
+                cholesterol = Math.Round(p.Chemicals.Cholesterol, 2),
+                longTermDrive = Math.Round(p.Chemicals.LongTermDrive, 2),
+                drive = Math.Round(p.Chemicals.Drive, 2),
                 obsessions = p.Obsessions.Where(o => o.ResolvedAt is null)
                     .OrderByDescending(o => o.Tension).Take(5)
                     .Select(o => new { o.Question, tension = Math.Round(o.Tension, 2) })
@@ -525,7 +590,17 @@ public sealed class InnerLifeService
 
 // ---- 模型 ----
 
-/// <summary>三个激素值 + 疲劳感，0~1。激素按半衰期向气质基线回落，疲劳随时间消解。</summary>
+/// <summary>内分泌池：三种基础激素 + 疲劳 + 四个「重磅角色」，全部 0~1。
+/// 激素按半衰期向气质基线回落，疲劳随时间消解。
+///
+/// F28：新增的四个值语义（论文口径 + 用户设定，均为抽象量而非临床指标）：
+/// · 多巴胺 Dopamine：收益—快乐成正比时产生「干劲」；AI 判定目标有收益也可触发。
+/// · 肾上腺素 Adrenaline：危急时产生，精力↑警觉↑，但伴虚脱感；过量会伤及各器官（设上限）。
+/// · 胆固醇 Cholesterol：颓废且遭打击时用来中和，食欲↓干劲↑变积极；若一次打击没奏效还继续过量 → PTSD。
+/// · 长期性激励素 LongTermDrive：长期少量止痛 + 目标达成时的奖励，衰减极慢。
+/// 另设 <see cref="Drive"/> 为「干劲」的只读派生量（不单独落盘，由多巴胺/胆固醇/肾上腺素算出）。
+///
+/// 存档兼容：新字段默认 0，旧存档反序列化后自动得到 0，由气质基线在首次结算时拉回。</summary>
 public sealed record InnerChemicals
 {
     public double Dopamine { get; set; }
@@ -535,6 +610,20 @@ public sealed record InnerChemicals
     /// <summary>疲劳：每轮对话 +0.04，时间按半衰期（约 5 小时）消解，睡了恢复一大截。
     /// 太累时话少、反应慢——她不是随时满血的。</summary>
     public double Fatigue { get; set; }
+
+    /// <summary>F28 肾上腺素：危急事件抬升，半衰期最短；过量时抑制血清素、抬皮质醇（「影响各器官」）。</summary>
+    public double Adrenaline { get; set; }
+
+    /// <summary>F28 胆固醇：颓废 + 遭打击时抬升用于中和；过量且打击未被消化 → PTSD。</summary>
+    public double Cholesterol { get; set; }
+
+    /// <summary>F28 长期性激励素：目标达成/长期陪伴时抬升，半衰期最长，长期少量止痛。</summary>
+    public double LongTermDrive { get; set; }
+
+    /// <summary>干劲（派生，不落盘）：多巴胺 + 胆固醇的积极化 − 疲劳 − 肾上腺素虚脱。</summary>
+    public double Drive => Math.Clamp(
+        Dopamine * 0.6 + Cholesterol * 0.4 + LongTermDrive * 0.2
+        - Fatigue * 0.4 - Math.Max(0, Adrenaline - 0.75) * 0.5, 0, 1);
 
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
