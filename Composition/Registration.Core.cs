@@ -43,6 +43,8 @@ public static class CoreRegistration
         // 具体化机制：把情绪落到身体与行为（食欲 / 说话欲 / 走动欲 / 躯体化），判定全纯代码，
         // 只在提示词里自然渗进语气与小动作。依赖 InnerLifeService 的内分泌池，故紧随其后注册。
         services.AddSingleton<SomatizationService>();
+        // F16 精力台账：睡眠 / 劳作 / 思考 / 说话四项纯代码结算，宿主算、模组只显示。
+        services.AddSingleton<EnergyLedgerService>();
         // 画面生成：装扮 / 背景 / 立绘 / 地图背景
         services.AddSingleton<ImageGenerationService>();
         // 关系网：后台随对话自动长出来

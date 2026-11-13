@@ -49,6 +49,10 @@ public sealed record HumanMemoryEntry
     /// <summary>图片式记忆的图片路径（相对存储根目录）；其它类型为空。</summary>
     public string ImagePath { get; init; } = "";
 
+    /// <summary>F27：图片记忆被抽象成的「图形 / 词汇 / 联系」三元组；原图路径仍留在 ImagePath 可追溯。
+    /// 旧存档没有这个字段时为 null，读档自动兼容。</summary>
+    public ImageAbstraction? Abstraction { get; init; }
+
     /// <summary>重要性 0.05~1：越重要越不容易忘。</summary>
     public double Importance { get; init; } = 0.5;
 

@@ -252,6 +252,36 @@ ViewModel / 官方通道 / 桥接工具
 
 ---
 
+## 6.1 中枢分层（F29，权威定义）
+
+论文《面向类人情感模拟的神经符号心智架构》把心智分成两级。本项目按同一口径命名，
+`Services/Core/CenterBoundary.cs` 是唯一权威契约：
+
+| 层 | 组成 | 能做什么 | 不能做什么 |
+|---|---|---|---|
+| **低级中枢** | 程序规则（纯 C# 确定性算法）+ **内置**本地小模型 | 算情绪 / 八激素 / 躯体化 / 精力 / 记忆衰减 / 病理状态机；产出**状态包**（`StatePack`）与**行为建议** | 不能生成最终回复、不能发消息、不能持有网络或存储句柄 |
+| **高级中枢** | 云端大模型（`ChatEngine` + `ApiGateway`），含其**内部旁支小模型** | 把状态包演成**最终回复**、决定是否采纳建议 | 不应自己重算确定性状态（避免同一状态两处算不一致） |
+
+约束靠类型落实：`ILowLevelCenter.Observe()` 的返回类型 `StatePack` 里**没有**最终回复字段，
+低级中枢在编译期就无法越权。`CenterBoundary.SafeLines/SafeCircuitBreak` 再做一次运行期限长、
+防「把整段回复塞进状态里」。`SomatizationService` 是首个实现该接口的低级中枢；
+`HormoneRules` / `EnergyRules` / `HumanMemoryMath` / `MemoryAbstractionRules` 是它的纯函数层。
+
+三个容易混淆的点，以本节为准：
+
+1. **`SmallModelFirst` 不是低级中枢**。它是「云端便宜快模型先答、处理不来再升级」，
+   属于高级中枢内部的旁支路由（见 `ChatEngine.RunTurnWithSmallAsync`）。
+2. **论文里的量化小模型内置在构建里、不下载**；F04 的下载器只负责**向量模型**
+   （embedding，近义检索，走 `EmbeddingService`/`QuantBackend`）。
+3. **熔断例外**：PTSD / 惊恐等急性状态允许低级中枢提一句短句
+   （`StatePack.CircuitBreak`），但仍须经高级中枢组织语言，不直接发给用户。
+
+扩展约束：新增确定性状态服务时实现 `ILowLevelCenter`，判定写成静态纯函数
+（时间与随机由调用方注入，便于单测、也便于证明零模型调用），
+输出经 `ExtraContextProvider` 汇总进提示词；不要在 ViewModel 里各拼一份。
+
+---
+
 ## 7. 记忆分层
 
 | 层 | 组件 | 作用 |

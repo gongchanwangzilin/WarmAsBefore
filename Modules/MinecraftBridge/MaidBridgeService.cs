@@ -113,6 +113,9 @@ public sealed partial class MaidBridgeService : IDisposable
     private bool _started;
     private bool _disposed;
 
+    /// <summary>F16：精力台账（宿主结算、模组只显示）。由 RuntimeConfigurator 注入，避免动本服务的长构造函数。</summary>
+    public EnergyLedgerService? Energy { get; set; }
+
     public MaidBridgeService(PluginHost plugins, StorageProvider store,
         Modules.SaveSystem.SaveManager save, GameEngine engine, CharacterLibrary characters,
         ChatEngine chat, MemoryVault memory, HumanMemoryService human, Modules.Tools.ToolManager tools,
@@ -1994,7 +1997,13 @@ public sealed partial class MaidBridgeService : IDisposable
             {
                 // 主人睡了：在场每个人的心绪都往安宁那边挪一点。
                 if (!string.IsNullOrEmpty(pair.Value))
+                {
                     _chat.InnerLife?.OnGameEvent(pair.Value, kind);
+                    // F16：睡一觉是精力唯一的大额回血（含 F05 抱睡共用的睡眠出口）。
+                    var hours = Math.Clamp(BridgeJson.Num(msg, "sleepHours", 8.0), 0.5, 12.0);
+                    try { Energy?.NoteSleep(pair.Value, hours); }
+                    catch (Exception ex) { App.WriteLog("MaidBridge.EnergyNoteSleep -> " + ex.Message); }
+                }
                 await ThinkSceneAsync(session, kind,
                     eventText.Length > 0 ? eventText : "主人上床睡觉了", pair.Key);
             }
@@ -2006,6 +2015,13 @@ public sealed partial class MaidBridgeService : IDisposable
 
         // 游戏里出的事直接进她的激素池：被打、倒下、被喂食……心绪有来处。
         _chat.InnerLife?.OnGameEvent(charId, kind);
+        // F16：干的活按 Job 强度扣精力；模组事件帧可选带 hours（默认按一次动作 0.1 小时）。
+        try
+        {
+            var hours = Math.Clamp(BridgeJson.Num(msg, "hours", 0.1), 0.02, 4.0);
+            Energy?.NoteWork(charId, kind, hours);
+        }
+        catch (Exception ex) { App.WriteLog("MaidBridge.EnergyNoteWork -> " + ex.Message); }
 
         var text = eventText;
         var importance = Math.Clamp(BridgeJson.Num(msg, "importance", 0.5), 0.05, 1);

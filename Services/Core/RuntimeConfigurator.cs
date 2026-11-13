@@ -47,6 +47,7 @@ public sealed class RuntimeConfigurator
     private readonly BrainAnticipationService _brain;
     private readonly InnerLifeService _inner;
     private readonly SomatizationService _soma;
+    private readonly EnergyLedgerService _energy;
     private readonly WorldTreeService _worlds;
     private readonly ThinkTierRuntime _thinkTier;
     private bool _notifyHooked;
@@ -69,7 +70,8 @@ public sealed class RuntimeConfigurator
         GenderLibrary genders, MentalHealthService mental, PhysiologyService body,
         ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map,
         Modules.MinecraftBridge.MaidBridgeService maidBridge, BrainAnticipationService brain,
-        InnerLifeService inner, WorldTreeService worlds, ThinkTierRuntime thinkTier, SomatizationService soma)
+        InnerLifeService inner, WorldTreeService worlds, ThinkTierRuntime thinkTier, SomatizationService soma,
+        EnergyLedgerService energy)
     {
         _settings = settings;
         _chat = chat;
@@ -107,6 +109,7 @@ public sealed class RuntimeConfigurator
         _brain = brain;
         _inner = inner;
         _soma = soma;
+        _energy = energy;
         _worlds = worlds;
         // 第十五项修正「配置通道」：启动时异步拉一次插件设置，让 WAB 目录键的生效值先就位。
         _ = RefreshEffectiveAsync();
@@ -800,6 +803,10 @@ public sealed class RuntimeConfigurator
         // 内心生活：激素池每轮结算、答不上来的事长成执念、惦记到阈值自己想明白
         _chat.InnerLife = _inner;
         _chat.Soma = _soma;
+        // F16 精力：宿主结算、模组只显示。ChatEngine 每轮记账，桥按事件记账，
+        // MainGameViewModel 每帧取权威值并写回 CharacterState（stats 帧推给模组）。
+        _chat.Energy = _energy;
+        _maidBridge.Energy = _energy;
         _inner.ObsessionWake += (charId, question) => _ = OnObsessionWakeAsync(charId, question);
         _inner.DreamRequested += charId => _ = OnDreamAsync(charId);
         _inner.Start();

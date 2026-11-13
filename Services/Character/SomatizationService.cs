@@ -45,7 +45,7 @@ public sealed class SomaBook
     public Dictionary<string, SomaState> ByCharacter { get; set; } = new(StringComparer.Ordinal);
 }
 
-public sealed class SomatizationService
+public sealed class SomatizationService : Services.Core.ILowLevelCenter
 {
     private readonly StorageProvider _store;
     private readonly MemoryScope _scope;
@@ -222,6 +222,26 @@ public sealed class SomatizationService
             }
             _ = SaveAsync();
         });
+    }
+
+    // ---- 输出：低级中枢状态包（F29） ----
+
+    /// <summary>中枢标识，供注册表与日志识别。</summary>
+    public string Id => "somatization";
+
+    /// <summary>
+    /// F29：以低级中枢身份交出状态包。只含状态描述与行为建议，
+    /// 不含最终回复——最终回复只能由高级中枢（ChatEngine + ApiGateway）产出。
+    /// 关闭具体化时返回空包（状态冻结、完全不进提示词）。
+    /// </summary>
+    public Services.Core.StatePack Observe(Services.Core.CenterContext ctx)
+    {
+        var pack = new Services.Core.StatePack { Source = Id };
+        if (!Enabled || string.IsNullOrEmpty(ctx.CharId)) return pack;
+        var text = PromptText(ctx.CharId);
+        if (!string.IsNullOrWhiteSpace(text))
+            pack.Lines.Add(text);
+        return pack;
     }
 
     // ---- 输出：提示词 ----
