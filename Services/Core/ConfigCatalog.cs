@@ -6,7 +6,7 @@ namespace WarmAsBefore.Services.Core;
 public static class ConfigCatalog
 {
     public const string Version = "wab-next-1";
-    public const int RowCount = 125;
+    public const int RowCount = 143;
 
     public sealed record Entry(string Name, string Type, string Default, string Scope,
                               string AiTag, bool Conflict, string ConflictTarget, string PromptText);
@@ -139,6 +139,24 @@ public static class ConfigCatalog
             ["phone_nav_bar_enabled"] = new Entry("6. 手机页下侧栏三键", "switch", "true", "WAB 宿主", "纯代码", true, "PhonePage.xaml 现有 NavBarIsVisible=False", "手机页下侧栏三键会接管默认导航栏（NavBarIsVisible=False）；如与其他导航附属冲突请关闭本项。三键为：回退（三角形）、回到桌面（正方形）、设置（三条线），三条线是设置而非任务管理"),
             ["phone_nav_third_action"] = new Entry("7. 第三键动作", "select", "settings", "WAB 宿主", "纯代码", false, "", ""),
             ["headpat_on_feed_probability"] = new Entry("8. 投喂后讨摸概率", "number", "0", "模组", "纯代码", false, "", ""),
+            ["sleep_consent_enabled"] = new Entry("1. 玩家抱睡同意（纯代码阈值回落）", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["sleep_consent_closeness_min"] = new Entry("2. 抱睡同意所需最低好感度", "number", "0.5", "模组", "纯代码", false, "", ""),
+            ["autonomous_sit_enabled"] = new Entry("3. 女仆自主坐下", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["autonomous_sit_probability"] = new Entry("4. 自主坐下触发概率", "number", "0.1", "模组", "纯代码", false, "", ""),
+            ["steal_food_enabled"] = new Entry("5. 融合偷吃（背包+放置类食物）", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["steal_food_probability"] = new Entry("6. 不饿时偷吃概率", "number", "0.1", "模组", "纯代码", false, "", ""),
+            ["steal_food_period_minutes"] = new Entry("7. 偷吃检测周期（分钟）", "number", "5", "模组", "纯代码", false, "", ""),
+            ["steal_food_beg_timeout_ms"] = new Entry("8. 找主人投喂等待超时（毫秒）", "number", "3000", "模组", "纯代码", false, "", ""),
+            ["self_eat_enabled"] = new Entry("9. 饿了自吃背包食物", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["poison_milk_enabled"] = new Entry("10. 中毒自动喝牛奶自救", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["fire_escape_enabled"] = new Entry("11. 着火逃生（跳水/落地水）", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["mlg_water_retrieve_enabled"] = new Entry("12. 落地水收回（灭火后舀回+还桶）", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["tame_protect_enabled"] = new Entry("13. 驯服生物保护优先级", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["build_whitelist_enabled"] = new Entry("14. 建造白名单（模组端接管）", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["collect_milk_enabled"] = new Entry("15. todo：接牛奶", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["collect_water_enabled"] = new Entry("16. todo：打水/放水/收水", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["collect_board_enabled"] = new Entry("17. todo：上船/上马", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["self_eat_hungry_threshold"] = new Entry("18. 自吃饥饿阈值", "number", "14", "模组", "纯代码", false, "", ""),
         };
 
     /// <summary>默认值的唯一入口；未知键返回空串，由调用方显式处理。</summary>
