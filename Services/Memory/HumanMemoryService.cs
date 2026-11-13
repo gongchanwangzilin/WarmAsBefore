@@ -147,6 +147,22 @@ public sealed class HumanMemoryService
 
         lock (_gate)
         {
+            // F27 ①：图片记忆先抽象成 {图形, 词汇, 联系}，原图路径仍留在 ImagePath 可追溯。
+            // 纯代码：宽高传 0 —— 不为了抽象去解码像素、更不调视觉模型；
+            // 形状/主色从文字与文件名线索认，联系取与同角色已有记忆「共享」的关联词。
+            ImageAbstraction? abstraction = null;
+            if (entry.Kind == HumanMemoryKind.Image)
+            {
+                var own = entry.Associations.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                var shared = _cache
+                    .Where(m => m.CharacterId == charId && !m.IsForgotten && m.Id != entry.Id)
+                    .SelectMany(m => m.Associations)
+                    .Where(a => own.Contains(a))
+                    .ToList();
+                abstraction = MemoryAbstractionRules.Abstract(
+                    entry.Text, entry.ImagePath, entry.Tags, 0, 0, shared);
+            }
+
             // 同一角色 + 同一句话不重复记：人不会把同一件事记两遍
             var dup = _cache.FirstOrDefault(m => m.CharacterId == charId && m.Text == entry.Text);
             if (dup is not null)
@@ -183,12 +199,14 @@ public sealed class HumanMemoryService
                     IsCore = dup.IsCore || entry.IsCore,
                     FusedIntoId = "",
                     FusedAt = null,
+                    // F27：旧条目已有抽象就留着，没有则补上这次算出的三元组
+                    Abstraction = dup.Abstraction ?? abstraction,
                     Tags = merged.SelectMany(m => m.Tags).Distinct(StringComparer.OrdinalIgnoreCase).ToList()
                 };
             }
             else
             {
-                _cache.Add(entry);
+                _cache.Add(abstraction is null ? entry : entry with { Abstraction = abstraction });
             }
         }
         await PersistAsync();
@@ -431,6 +449,39 @@ public sealed class HumanMemoryService
                     var age = Math.Max(0, (now - m.CreatedAt).TotalDays);
                     var weight = HumanMemoryMath.Decay(age, windowDays, m.Importance, m.RecallCount) * m.Importance;
                     if (weight >= HumanMemoryMath.MinWeight * 1.5 || age < windowDays * 2) continue;
+
+                    // F27 ② 网络化淡忘：一条记忆要淡时，先按「联系」把淡忘传给邻居。
+                    // 邻居先淡、中心后消；只传一跳、单次封顶且带重要性下界，防论文 §8 的正反馈锁死。
+                    var own = m.Associations.ToHashSet(StringComparer.OrdinalIgnoreCase);
+                    var neighbors = pool
+                        .Where(x => x.Id != m.Id && !x.IsForgotten && !x.IsCore && !x.IsTrauma)
+                        .Select(x => (Entry: x, Links: x.Associations.Count(a => own.Contains(a))
+                            + x.Tags.Intersect(m.Tags, StringComparer.OrdinalIgnoreCase).Count()))
+                        .Where(x => x.Links > 0)
+                        .ToList();
+                    if (neighbors.Count > 0)
+                    {
+                        var fades = MemoryAbstractionRules.SpreadFade(m.Importance,
+                            neighbors.Select(x => new KeyValuePair<string, double>(
+                                x.Entry.Id, Math.Min(1.0, x.Links / 3.0))));
+                        foreach (var (nb, _) in neighbors)
+                        {
+                            if (!fades.TryGetValue(nb.Id, out var fade) || fade <= 0) continue;
+                            var ni = _cache.FindIndex(c => c.Id == nb.Id);
+                            if (ni < 0) continue;
+                            var next = MemoryAbstractionRules.ApplyFade(_cache[ni].Importance, fade);
+                            if (Math.Abs(next - _cache[ni].Importance) < 0.0001) continue;
+                            _cache[ni] = _cache[ni] with { Importance = next };
+                            changed = true;
+                        }
+                        // 周围还鲜明时中心这一轮先不消失，等邻居也淡下去（6 小时后的下一次维护再看）。
+                        // 但放太久的必须能收尾，避免「永远等邻居」把遗忘卡死。
+                        var neighborMax = neighbors.Max(x =>
+                            _cache.FirstOrDefault(c => c.Id == x.Entry.Id)?.Importance ?? x.Entry.Importance);
+                        if (age < windowDays * 8 && !MemoryAbstractionRules.CenterMayFade(neighborMax, true))
+                            continue;
+                    }
+
                     var target = pool
                         .Where(x => x.Id != m.Id && !x.IsForgotten)
                         .Select(x => (Entry: x, Edge: HumanMemoryMath.ChainEdge(m, x, now).Score))

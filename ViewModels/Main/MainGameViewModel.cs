@@ -2970,16 +2970,31 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private static readonly string[] WeekCn = { "日", "一", "二", "三", "四", "五", "六" };
 
-    /// <summary>精力值 = 时间基线 + AI 修正：基线按「今天醒来的时长」递减（当天 7 点起算，醒得越久越低），
-    /// 再叠上 AI 对本次互动判的修正（EnergyOffset，有界 -60..40，随存档落盘）。</summary>
+    /// <summary>F16 精力值：由「睡眠 / 劳作 / 思考 / 说话」四项纯代码台账结算（宿主算、模组只显示），
+    /// 再叠上 AI 对本次互动判的修正（EnergyOffset，有界 -60..40，随存档落盘）。
+    /// 关掉台账（服务未注入）时回落到旧的时间基线，保证断桥/异常也不会白屏。</summary>
     private void UpdateEnergy(DateTime now)
     {
-        var wake = now.Date.AddHours(7);          // 设定每日早上 7 点为醒来时刻
-        var awakeHours = Math.Max(0, (now - wake).TotalHours);
-        var baseline = 100 - (int)(awakeHours * 2.5);   // 每清醒 1 小时约掉 2.5，醒 40 小时才接近 0
-        var offset = _engine.ActiveCharacter?.State.EnergyOffset ?? 0;
-        Energy = Math.Clamp(baseline + offset, 0, 100);
-        EnergyPct = Energy / 100.0;
+        var ch = _engine.ActiveCharacter;
+        var offset = ch?.State.EnergyOffset ?? 0;
+        int value;
+        // ChatEngine 是单例，台账由 RuntimeConfigurator 注入在它身上（避免给本 VM 的长构造再添参数）
+        var ledger = _chat.Energy;
+        if (ledger is not null && ch is not null)
+        {
+            value = ledger.Settle(ch.Profile.Id, now, offset);
+        }
+        else
+        {
+            var wake = now.Date.AddHours(7);          // 设定每日早上 7 点为醒来时刻
+            var awakeHours = Math.Max(0, (now - wake).TotalHours);
+            var baseline = 100 - (int)(awakeHours * 2.5);
+            value = Math.Clamp(baseline + offset, 0, 100);
+        }
+        Energy = value;
+        EnergyPct = value / 100.0;
+        // 权威值写回角色状态：模组 stats 帧（PushStatsAsync）读的就是它，只显示不结算。
+        if (ch is not null && ch.State.Energy != value) ch.State.Energy = value;
     }
 
     private async Task FetchWeather()

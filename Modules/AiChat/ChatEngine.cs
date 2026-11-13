@@ -62,6 +62,9 @@ public sealed class ChatEngine
     /// <summary>第十四项：思考档位运行时状态（单例）。由 DI 注入；驱动思考条进度与档位切换。</summary>
     public Services.Core.ThinkTierRuntime? ThinkTierState { get; set; }
 
+    /// <summary>F16：精力台账。每轮对话按「说话 + 思考档位」纯代码记账，由 RuntimeConfigurator 注入。</summary>
+    public Services.EnergyLedgerService? Energy { get; set; }
+
     /// <summary>第十四项：快速按钮切档后即时更新主端点的思考档位，使下一轮请求即生效（不重走 Configure）。</summary>
     public void SetActiveThinkTier(int tier)
     {
@@ -558,6 +561,9 @@ public sealed class ChatEngine
         // 具体化机制：同一条消息驱动情绪→身体/行为的纯代码重算
         try { Soma?.Feed(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.SomaFeed -> " + ex.Message); }
+        // F16 精力：说话只扣很小值，深度思考按当前档位扣（纯代码台账，不阻塞回复）
+        try { Energy?.NoteTalk(charId, cfg.ThinkTier, deepThisTurn); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.EnergyNoteTalk -> " + ex.Message); }
         var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
         var ctx = string.Join("\n", recent.Select(m => m.Content));
 

@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>WabRulesSelfTest</RootNamespace>
+    <AssemblyName>RulesSelfTest</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 只编译零项目依赖的纯函数规则层，不引用整个 MAUI 工程 -->
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Services/Character/EnergyRules.cs" Link="EnergyRules.cs" />
+    <Compile Include="../../Services/Character/HormoneRules.cs" Link="HormoneRules.cs" />
+    <Compile Include="../../Services/Core/CenterBoundary.cs" Link="CenterBoundary.cs" />
+    <Compile Include="../../Services/Memory/MemoryAbstractionRules.cs" Link="MemoryAbstractionRules.cs" />
+    <Compile Include="../../Models/ImageAbstraction.cs" Link="ImageAbstraction.cs" />
+  </ItemGroup>
+</Project>

@@ -79,6 +79,7 @@
 | `SettingsManager` | 读取/迁移/保存 `UserSettings`；读取失败时避免默认值覆盖 | `StorageProvider`、`RuntimeConfigurator` |
 | `GameEngine` | 当前 `GameState`、角色名册、当前存档 id、地图解锁判断、运行状态恢复 | `SaveManager`、各 ViewModel |
 | `RuntimeConfigurator` | 把设置与运行时能力下发给对话、天气、生理、语音、通知、官方通道、插件与工具 | 几乎所有模块 |
+| `CenterBoundary` | **F29 中枢分层契约**：`ILowLevelCenter`（只产状态包/建议）/`IHighLevelCenter`（唯一产最终回复）、`StatePack`、限长与防越权校验。权威说明见 `ARCHITECTURE.md` §6.1 | `SomatizationService`、`RuntimeConfigurator` |
 | `NotificationService` | 应用内通知与系统通知，统一走主线程 | 插件、官方通道、自动化 |
 | `AudioController` | 左键/右键/按键音与事件音效；按 `audioassign` 播放 | `MaterialLibrary` |
 | `PageWindowService` | 把页面搬进独立 `ToolWindow`，同一 key 只开一扇 | 关系网、记忆搜索 |
@@ -115,6 +116,10 @@
 | `SceneCalibrationService` | 场景标定的统一入口；导入强制、运行路径弹遮罩、单飞 |
 | `GenderLibrary` | 性别定义、称呼、周期与自定义逻辑 |
 | `LibidoService` | 性欲系统；设定优先于周期；只对点名角色生效 |
+| `HormoneRules` | **F28** 八激素中新增四角色（肾上腺素/胆固醇/长期激励素/干劲）的纯函数层：基线、半衰期、过量器官代价、PTSD 阈值 |
+| `EnergyRules` | **F16** 精力纯函数层：睡眠恢复、劳作/思考/说话消耗、按半衰期休息回落 |
+| `EnergyLedgerService` | **F16** 精力台账：按角色存档、宿主结算、模组只显示；`ChatEngine`/`MaidBridgeService` 记账、`MainGameViewModel` 取权威值 |
+| `SomatizationService` | **具体化 + F29** 情绪落到食欲/说话欲/走动欲与躯体化；实现 `ILowLevelCenter` 交状态包，关闭后冻结且不进提示词 |
 | `PhysiologyService` | 冷/热/渴/饿/想念；随真实时间与天气推移，随存档走 |
 | `MentalHealthService` | 心理状况目录与每角色状态；严重度随经历变化 |
 | `BrainAnticipationService` | 期待差/多巴胺与意料之外；默认本地跑，可选小模型预判 |
@@ -125,7 +130,8 @@
 | 组件 | 职责 |
 |---|---|
 | `MemoryScope` | 记忆作用域：按存档隔离或跨存档共用；`Raise()` 通知各服务重载 |
-| `HumanMemoryService` | 人类记忆的存与取；重要性 × 时间衰减 × 复述 × 扰动 |
+| `HumanMemoryService` | 人类记忆的存与取；重要性 × 时间衰减 × 复述 × 扰动；**F27** 图片入库抽象三元组、淡忘沿联系向邻居扩散 |
+| `MemoryAbstractionRules` | **F27** 纯函数层：图像→{图形,词汇,联系}、网络化淡忘的单跳扩散/削顶/重要性下界 |
 | `MemoryTagService` | 标签层：打标签、组合检索、注入标签清单 |
 | `RelationNetworkService` | 关系网：节点/边、共现生长、模型整理、JSON 视图 |
 | `PersonaMemoryService` | 用户人设与世界树 → 第一人称记忆；AI 不可用时本地分句 |

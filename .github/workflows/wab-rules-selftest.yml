@@ -1,0 +1,44 @@
+name: WAB Host Rules SelfTest
+
+# B3 门禁：四层零依赖纯函数规则层（F16 精力 / F27 记忆抽象 / F28 激素 / F29 中枢边界）
+# 单独编译成控制台跑断言，不引用整个 MAUI 工程、不需要 Windows runner。
+# 与模组侧 tools/wab_rules_selftest/RulesSelfTest.java 同一约定：断言失败即拦下。
+on:
+  push:
+    branches:
+      - '**'
+    paths:
+      - 'Services/Character/EnergyRules.cs'
+      - 'Services/Character/HormoneRules.cs'
+      - 'Services/Core/CenterBoundary.cs'
+      - 'Services/Memory/MemoryAbstractionRules.cs'
+      - 'Models/ImageAbstraction.cs'
+      - 'tools/rules_selftest/**'
+      - '.github/workflows/wab-rules-selftest.yml'
+  pull_request:
+    paths:
+      - 'Services/Character/EnergyRules.cs'
+      - 'Services/Character/HormoneRules.cs'
+      - 'Services/Core/CenterBoundary.cs'
+      - 'Services/Memory/MemoryAbstractionRules.cs'
+      - 'Models/ImageAbstraction.cs'
+      - 'tools/rules_selftest/**'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  selftest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Run pure-function self test
+        run: dotnet run -c Release --project tools/rules_selftest/RulesSelfTest.csproj
