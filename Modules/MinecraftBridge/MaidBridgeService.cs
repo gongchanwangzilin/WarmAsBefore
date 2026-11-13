@@ -66,6 +66,9 @@ public sealed partial class MaidBridgeService : IDisposable
     private readonly SemaphoreSlim _turnLock = new(1, 1);
     private readonly SemaphoreSlim _voiceLock = new(1, 1);
     private readonly SemaphoreSlim _backupLock = new(1, 1);
+    /// <summary>state 帧并发闸：模组每 5 秒发一帧，fire-and-forget 处理不设上限会堆积；
+    /// 这里最多允许 1 个 state 处理在跑，其余直接跳过（下一帧会来）。</summary>
+    private readonly SemaphoreSlim _stateGate = new(1, 1);
     private readonly Dictionary<string, PendingJoin> _pending = new(StringComparer.Ordinal);
     private readonly MaidBridgeBindingStore _bindings = new();
 
@@ -800,8 +803,34 @@ public sealed partial class MaidBridgeService : IDisposable
     {
         Diag("hs start");
         await EnsureBindingsLoadedAsync();
-        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(5)))
-            throw new TimeoutException("binding lock timeout（上一轮绑定操作卡住）");
+        // 等锁超时走降级：不抛异常断连，而是跳过绑定、继续握手发 welcome。
+        // 游戏端保持连接，用户可在插件设置页手动绑定；比「连上一下立刻断开」体验好得多。
+        var lockAcquired = await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(5));
+        if (!lockAcquired)
+        {
+            App.WriteLog("MaidBridge: 握手绑定锁等待超时，降级为不绑定角色直接连上");
+            Diag("hs binding lock timeout, degraded");
+            // 降级路径：只发 welcome 保住连接，跳过存档加载、绑定与角色创建
+            session.SaveActive = false;
+            session.SaveNotice = "上一轮绑定操作尚未结束，这一轮先不绑角色、不切存档。稍后重新连接或在插件设置页手动绑定即可。";
+            session.World = new MaidBridgeWorldSnapshot
+            {
+                World = session.WorldName,
+                Instance = session.Instance,
+                Player = session.Player
+            };
+            ReadMaids(hello["maids"], session);
+            ApplyModConfig(session, hello);
+            var degradedWelcome = await BuildWelcomeAsync(session);
+            degradedWelcome["notice"] = session.SaveNotice;
+            await session.SendAsync(degradedWelcome);
+            Diag("hs degraded welcome sent");
+            return;
+        }
+        // 锁内做匹配与暂存、发 welcome；finally 释放锁后再做 UI 注册——
+        // 角色库 AddAsync 走 UI 线程，不能在持 _bindingOpsLock 时等它。
+        List<PendingCharacter> pendingCreates = new();
+        MaidBridgeWorldBinding? bindWorld = null;
         try
         {
             var saveId = "";
@@ -809,6 +838,7 @@ public sealed partial class MaidBridgeService : IDisposable
                 if (_bindings.Worlds.TryGetValue(session.WorldKey, out var known)) saveId = known.SaveId;
 
             var world = GetOrCreateWorldLocked(session.WorldKey);
+            bindWorld = world;
             var active = _engine.CurrentSaveId;
             var bound = saveId.Length > 0 ? saveId : world.SaveId;
 
@@ -857,8 +887,11 @@ public sealed partial class MaidBridgeService : IDisposable
             };
             ReadMaids(hello["maids"], session);
             ApplyModConfig(session, hello);
-            var boundChanged = session.SaveActive
-                               && await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
+            // 锁内只做匹配与暂存，不调 UI；角色注册放到锁外（见 FlushPendingCharactersAsync）
+            var (boundChanged, pending) = session.SaveActive
+                ? BindMaidsCore(world, session, _config.AutoCreateCharacters)
+                : (false, new List<PendingCharacter>());
+            pendingCreates = pending;
             await SaveBindingsLockedAsync();
 
             var welcome = await BuildWelcomeAsync(session);
@@ -888,12 +921,19 @@ public sealed partial class MaidBridgeService : IDisposable
         finally
         {
             _bindingOpsLock.Release();
+            // 锁外再做 UI 注册：角色库 AddAsync 可能触发 UI 线程渲染，不能在持锁区内等它。
+            if (bindWorld is not null && pendingCreates.Count > 0)
+                await FlushPendingCharactersAsync(bindWorld, session, pendingCreates);
         }
 
         _ = Task.Run(async () =>
         {
-            await Task.Delay(2500);
-            await BackupAllAsync(session, "connect");
+            try
+            {
+                await Task.Delay(2500);
+                await BackupAllAsync(session, "connect");
+            }
+            catch (Exception ex) { App.WriteLog("MaidBridge.ConnectBackup -> " + ex.Message); }
         });
     }
 
@@ -987,12 +1027,14 @@ public sealed partial class MaidBridgeService : IDisposable
         if (string.IsNullOrEmpty(_engine.CurrentSaveId)) return (false, "WAB 里还没有打开存档。");
 
         await EnsureBindingsLoadedAsync();
-        await _bindingOpsLock.WaitAsync();
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10)))
+            return (false, "绑定操作正忙（上一轮未结束），请稍后再试。");
         try
         {
             var world = GetOrCreateWorldLocked(session.WorldKey);
             world.SaveId = _engine.CurrentSaveId;
-            world.Maids[maidId] = new MaidBridgeMaidBinding
+            lock (_bindingsGate)
+                world.Maids[maidId] = new MaidBridgeMaidBinding
             {
                 CharacterId = charId,
                 Name = session.Maids.TryGetValue(maidId, out var m) ? CleanName(m.Name) : "",
@@ -1612,7 +1654,14 @@ public sealed partial class MaidBridgeService : IDisposable
                 case "pong":
                     break;
                 case "state":
-                    _ = RunSafe("State", () => OnStateAsync(session, msg));
+                    // state 帧是定时心跳（每 5 秒），丢一帧不影响正确性；用并发闸限流，
+                    // 避免 OnStateAsync 在 _bindingOpsLock 上堆积大量等锁任务耗尽线程池。
+                    if (await _stateGate.WaitAsync(0))
+                        _ = RunSafe("State", async () =>
+                        {
+                            try { await OnStateAsync(session, msg); }
+                            finally { _stateGate.Release(); }
+                        });
                     break;
                 case "event":
                     _ = RunSafe("Event", () => OnEventAsync(session, msg));
@@ -1725,10 +1774,19 @@ public sealed partial class MaidBridgeService : IDisposable
 
         await EnsureBindingsLoadedAsync();
         var world = GetOrCreateWorldLocked(session.WorldKey);
-        await _bindingOpsLock.WaitAsync();
+        // 等锁带超时：BindMaidsAsync 持锁期间会调度 UI 线程建角色，耗时不可控。
+        // 超时不抛异常——跳过本轮绑定，下一帧 state 会重试，不至于断连或卡死。
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10)))
+        {
+            App.WriteLog("MaidBridge: state 帧绑定锁等待超时，本轮跳过绑定同步");
+            return;
+        }
+        List<PendingCharacter> statePending = new();
         try
         {
-            var changed = await BindMaidsAsync(world, session, _config.AutoCreateCharacters);
+            // 锁内只做匹配与暂存，不调 UI；角色注册放到锁外
+            var (changed, pending) = BindMaidsCore(world, session, _config.AutoCreateCharacters);
+            statePending = pending;
             if (changed)
             {
                 await SaveBindingsLockedAsync();
@@ -1742,6 +1800,9 @@ public sealed partial class MaidBridgeService : IDisposable
         finally
         {
             _bindingOpsLock.Release();
+            // 锁外再做 UI 注册：角色库 AddAsync 走 UI 线程，不在持锁区内等它
+            if (statePending.Count > 0)
+                await FlushPendingCharactersAsync(world, session, statePending);
         }
 
         // 世界快照不要求每帧回存；但界面上的好感显示要跟着 WAB 的权威值走
@@ -1788,15 +1849,32 @@ public sealed partial class MaidBridgeService : IDisposable
         if (msg.ContainsKey("ownerOnline")) session.OwnerOnline = BridgeJson.Bool(msg, "ownerOnline", session.OwnerOnline);
     }
 
-    private async Task<bool> BindMaidsAsync(MaidBridgeWorldBinding world, MaidSession session, bool autoCreate)
+    /// <summary>待创建角色的暂存项：锁内只识别与暂存，真正调 UI 线程注册放到锁外执行。</summary>
+    private sealed record PendingCharacter(string MaidId, string DisplayName, CharacterData Data);
+
+    /// <summary>
+    /// 绑定女仆到角色。返回 changed + 待创建列表。
+    /// <b>调用方持有 _bindingOpsLock 调用本方法</b>；本方法不会调度 UI 线程——
+    /// 需要新建的角色只暂存返回，由调用方释放锁后再调 <see cref="FlushPendingCharactersAsync"/> 注册。
+    /// </summary>
+    private (bool Changed, List<PendingCharacter> Pending) BindMaidsCore(
+        MaidBridgeWorldBinding world, MaidSession session, bool autoCreate)
     {
         var changed = false;
-        var usedCharacters = world.Maids.Values
-            .Select(b => b.CharacterId)
-            .Where(id => !string.IsNullOrEmpty(id)
-                && !session.MaidCharacters.Values.Contains(id, StringComparer.Ordinal))
-            .ToHashSet(StringComparer.Ordinal);
-        var ordered = session.Maids.Values
+        var pending = new List<PendingCharacter>();
+        // world.Maids 是普通 Dictionary，必须用 _bindingsGate 保护（与 BindingsActionAsync 对齐）。
+        // FlushPendingCharactersAsync / ResolvePhoneCharacterAsync 也走这把锁，消除并发写。
+        List<MaidSnapshot> ordered;
+        HashSet<string> usedCharacters;
+        lock (_bindingsGate)
+        {
+            usedCharacters = world.Maids.Values
+                .Select(b => b.CharacterId)
+                .Where(id => !string.IsNullOrEmpty(id)
+                    && !session.MaidCharacters.Values.Contains(id, StringComparer.Ordinal))
+                .ToHashSet(StringComparer.Ordinal);
+        }
+        ordered = session.Maids.Values
             .OrderBy(m => m.Name, StringComparer.OrdinalIgnoreCase)
             .ThenBy(m => m.Id, StringComparer.Ordinal)
             .ToList();
@@ -1804,14 +1882,17 @@ public sealed partial class MaidBridgeService : IDisposable
         foreach (var maid in ordered)
         {
             var displayName = CleanName(maid.Name);
-            if (world.Maids.TryGetValue(maid.Id, out var known)
-                && !string.IsNullOrEmpty(known.CharacterId)
-                && _engine.Roster.ContainsKey(known.CharacterId))
+            lock (_bindingsGate)
             {
-                known.Name = displayName.Length > 0 ? displayName : Truncate(maid.Name, 48);
-                known.LastSeen = DateTime.UtcNow;
-                session.MaidCharacters[maid.Id] = known.CharacterId;
-                continue;
+                if (world.Maids.TryGetValue(maid.Id, out var known)
+                    && !string.IsNullOrEmpty(known.CharacterId)
+                    && _engine.Roster.ContainsKey(known.CharacterId))
+                {
+                    known.Name = displayName.Length > 0 ? displayName : Truncate(maid.Name, 48);
+                    known.LastSeen = DateTime.UtcNow;
+                    session.MaidCharacters[maid.Id] = known.CharacterId;
+                    continue;
+                }
             }
 
             var candidates = _engine.Roster.Values
@@ -1825,36 +1906,55 @@ public sealed partial class MaidBridgeService : IDisposable
             }
             else if (autoCreate && session.MaidCharacters.Count < 64)
             {
-                var created = _characters.CreateDefault(displayName.Length > 0 ? displayName : "女仆", "女", "温柔可爱");
-                var ok = await OnUiAsync(() => _characters.AddAsync(created));
-                if (!ok)
-                {
-                    App.WriteLog($"MaidBridge: 为 {displayName} 新建角色失败");
-                    continue;
-                }
-                charId = created.Profile.Id;
+                // 只暂存，不在此处调 UI 线程注册——AddAsync 可能耗时较长，会把锁占死。
+                var data = _characters.CreateDefault(displayName.Length > 0 ? displayName : "女仆", "女", "温柔可爱");
+                charId = data.Profile.Id;
+                pending.Add(new PendingCharacter(maid.Id, displayName, data));
                 changed = true;
-                App.WriteLog($"MaidBridge: 为 Minecraft 女仆 {displayName} 新建角色 {charId}");
             }
             else
             {
                 continue;
             }
 
-            world.Maids[maid.Id] = new MaidBridgeMaidBinding
+            lock (_bindingsGate)
             {
-                CharacterId = charId,
-                Name = displayName.Length > 0 ? displayName : Truncate(maid.Name, 48),
-                LastSeen = DateTime.UtcNow
-            };
+                world.Maids[maid.Id] = new MaidBridgeMaidBinding
+                {
+                    CharacterId = charId,
+                    Name = displayName.Length > 0 ? displayName : Truncate(maid.Name, 48),
+                    LastSeen = DateTime.UtcNow
+                };
+            }
             usedCharacters.Add(charId);
             session.MaidCharacters[maid.Id] = charId;
             changed = true;
         }
 
-        // 这里原来还会「界面上没选角色就把第一个女仆塞上去」。桥不决定用户在本体里跟谁说话：
-        // 人设已经改成按 charId 取（ChatEngine.ProfileProvider），不选也能正常让她开口。
-        return changed;
+        return (changed, pending);
+    }
+
+    /// <summary>
+    /// 锁外调用：把暂存的角色注册进角色库。
+    /// 注册失败的角色从绑定表中摘除，保持数据一致。
+    /// </summary>
+    private async Task FlushPendingCharactersAsync(
+        MaidBridgeWorldBinding world, MaidSession session, List<PendingCharacter> pending)
+    {
+        if (pending.Count == 0) return;
+        foreach (var item in pending)
+        {
+            var ok = await _characters.AddAsync(item.Data);
+            if (!ok)
+            {
+                App.WriteLog($"MaidBridge: 为 {item.DisplayName} 新建角色失败，已回退绑定");
+                // 注册失败：把暂存时写入的绑定关系摘掉，避免绑定指向不存在的角色
+                lock (_bindingsGate) world.Maids.Remove(item.MaidId);
+                session.MaidCharacters.TryRemove(item.MaidId, out _);
+                continue;
+            }
+            App.WriteLog($"MaidBridge: 为 Minecraft 女仆 {item.DisplayName} 新建角色 {item.Data.Profile.Id}");
+        }
     }
 
     private static string MakeWorldKey(string world, string instance, string player)
@@ -1932,7 +2032,9 @@ public sealed partial class MaidBridgeService : IDisposable
         PruneWorldsLocked();
         try
         {
-            await _store.Save("minecraft_bridge/bindings", _bindings);
+            // 序列化（遍历 world.Maids 字典）在 _bindingsGate 内同步完成取一致快照，
+            // 写盘在锁外异步——不能用 Monitor 跨 await（线程绑定，续延换线程会死锁）。
+            await _store.SaveWithGateAsync("minecraft_bridge/bindings", _bindings, _bindingsGate);
             _lastBindingSaveUtc = DateTime.UtcNow;
         }
         catch (Exception ex)
@@ -2322,11 +2424,13 @@ public sealed partial class MaidBridgeService : IDisposable
 
         // 聊天次数照记 —— 那是她理过多少回话的凭据，不是发奖的计数器。
         await EnsureBindingsLoadedAsync();
-        await _bindingOpsLock.WaitAsync();
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10))) return;
         try
         {
             var world = GetOrCreateWorldLocked(session.WorldKey);
-            if (world.Maids.TryGetValue(maidId, out var binding))
+            MaidBridgeMaidBinding? binding;
+            lock (_bindingsGate) world.Maids.TryGetValue(maidId, out binding);
+            if (binding is not null)
             {
                 binding.Chats++;
                 binding.LastSeen = DateTime.UtcNow;
@@ -2345,7 +2449,7 @@ public sealed partial class MaidBridgeService : IDisposable
         if (trust != 0 && _engine.Roster.TryGetValue(charId, out var ch))
         {
             ch.State.Trust = Math.Clamp(ch.State.Trust + trust, 0, 100);
-            await OnUiAsync(() => _characters.UpdateAsync(ch));
+            await _characters.UpdateAsync(ch);
         }
 
         if (affection != 0)
@@ -2365,7 +2469,7 @@ public sealed partial class MaidBridgeService : IDisposable
             if (actual > 0)
                 ch.State.AffectionPoints = Math.Clamp(ch.State.AffectionPoints + actual * 5, 0, 5000);
             ch.State.LastSeen = DateTime.UtcNow;
-            await OnUiAsync(() => _characters.UpdateAsync(ch));
+            await _characters.UpdateAsync(ch);
             await _memory.LogAffection(charId, actual, string.IsNullOrWhiteSpace(reason) ? "在 Minecraft 里发生的事" : reason);
         }
         catch (Exception ex)
@@ -2386,7 +2490,7 @@ public sealed partial class MaidBridgeService : IDisposable
         var foodName = BridgeJson.Str(msg, "foodName").Trim();
 
         await EnsureBindingsLoadedAsync();
-        await _bindingOpsLock.WaitAsync();
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10))) return;
         try
         {
             var world = GetOrCreateWorldLocked(session.WorldKey);
@@ -2398,13 +2502,15 @@ public sealed partial class MaidBridgeService : IDisposable
                 if (taste.Counts.Count >= 64) taste.Counts.Remove(taste.Counts.Keys.First());
                 taste.Counts[food] = 1;
             }
-            if (world.Maids.TryGetValue(maidId, out var binding))
+            MaidBridgeMaidBinding? feedBinding;
+            lock (_bindingsGate) world.Maids.TryGetValue(maidId, out feedBinding);
+            if (feedBinding is not null)
             {
                 // 整表替换而不是原地增删：BuildContext 读这份表不加写锁，替换引用才不会踩到遍历中的枚举器。
                 var fresh = new List<MaidBridgeFeedRecord> { new() { Food = foodName.Length > 0 ? foodName : food, Verdict = verdict } };
-                fresh.AddRange(binding.RecentFeeds.Take(7));
-                binding.RecentFeeds = fresh;
-                binding.LastSeen = DateTime.UtcNow;
+                fresh.AddRange(feedBinding.RecentFeeds.Take(7));
+                feedBinding.RecentFeeds = fresh;
+                feedBinding.LastSeen = DateTime.UtcNow;
             }
             await SaveBindingsLockedAsync();
             await SendFeedRulesAsync(session, world);
@@ -2435,7 +2541,7 @@ public sealed partial class MaidBridgeService : IDisposable
         if (trust != 0 && _engine.Roster.TryGetValue(charId, out var ch))
         {
             ch.State.Trust = Math.Clamp(ch.State.Trust + trust, 0, 100);
-            await OnUiAsync(() => _characters.UpdateAsync(ch));
+            await _characters.UpdateAsync(ch);
         }
         if (affection != 0)
             await ApplyAffectionAsync(charId, affection,
@@ -2486,7 +2592,8 @@ public sealed partial class MaidBridgeService : IDisposable
             return ErrorJson(session.SaveNotice.Length > 0 ? session.SaveNotice : "WAB 里还没打开存档，口味表落不了盘。", "save_mismatch");
 
         await EnsureBindingsLoadedAsync();
-        await _bindingOpsLock.WaitAsync();
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10)))
+            return ErrorJson("绑定操作正忙（上一轮未结束），口味表暂存不了，请稍后再试。", "busy");
         try
         {
             var world = GetOrCreateWorldLocked(session.WorldKey);
@@ -2872,6 +2979,10 @@ public sealed partial class MaidBridgeService : IDisposable
             session.Client.Close();
         }
         catch { }
+        // HandleClientAsync 的 finally 也会调 DisposeAsync，但那要等它自己退出；
+        // 如果它卡在 HandshakeAsync 里，Reader/Writer 会泄漏。这里先释放一次，
+        // MaidSession.DisposeAsync 内部全部 try/catch 包裹，重复调用安全。
+        try { session.DisposeAsync().GetAwaiter().GetResult(); } catch { }
     }
 
     internal string ResolveCharacter(MaidSession session, string maidId)
@@ -3069,7 +3180,8 @@ public sealed partial class MaidBridgeService : IDisposable
         var notes = new List<string>();
 
         await EnsureBindingsLoadedAsync();
-        await _bindingOpsLock.WaitAsync();
+        if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10)))
+            return ErrorJson("绑定操作正忙（上一轮未结束），请稍后再试。", "busy");
         try
         {
             var world = GetOrCreateWorldLocked(session.WorldKey);
@@ -3112,7 +3224,7 @@ public sealed partial class MaidBridgeService : IDisposable
                 var name = want.Length > 0 ? want : (maidName.Length > 0 ? maidName : "女仆");
                 var gender = BridgeJson.Str(args, "gender", "女").Trim();
                 var created = _characters.CreateDefault(name, gender.Length > 0 ? gender : "女", "温柔可爱");
-                var ok = await OnUiAsync(() => _characters.AddAsync(created));
+                var ok = await _characters.AddAsync(created);
                 if (!ok) return ErrorJson("新建角色失败（角色库可能读取异常）。", "create_failed");
                 charId = created.Profile.Id;
                 notes.Add($"新建角色「{created.Profile.Name}」。");
@@ -3123,12 +3235,18 @@ public sealed partial class MaidBridgeService : IDisposable
                 return ErrorJson($"没有找到角色「{want}」。可设 create=true 新建，或从这些角色里选：{available}", "character_not_found");
             }
 
-            world.Maids[maidId] = new MaidBridgeMaidBinding
+            string boundMaidName;
+            lock (_bindingsGate)
             {
-                CharacterId = charId,
-                Name = session.Maids.TryGetValue(maidId, out var m) ? CleanName(m.Name) : "",
-                LastSeen = DateTime.UtcNow
-            };
+                var binding = new MaidBridgeMaidBinding
+                {
+                    CharacterId = charId,
+                    Name = session.Maids.TryGetValue(maidId, out var m) ? CleanName(m.Name) : "",
+                    LastSeen = DateTime.UtcNow
+                };
+                world.Maids[maidId] = binding;
+                boundMaidName = binding.Name;
+            }
             if (string.IsNullOrEmpty(world.SaveId)) world.SaveId = _engine.CurrentSaveId;
             session.MaidCharacters[maidId] = charId;
             await SaveBindingsLockedAsync();
@@ -3142,7 +3260,7 @@ public sealed partial class MaidBridgeService : IDisposable
             {
                 ["ok"] = true,
                 ["maid"] = maidId,
-                ["maidName"] = world.Maids[maidId].Name,
+                ["maidName"] = boundMaidName,
                 ["character"] = charId,
                 ["characterName"] = character,
                 ["saveId"] = _engine.CurrentSaveId,
@@ -3373,16 +3491,19 @@ public sealed partial class MaidBridgeService : IDisposable
             {
                 if (table.Taste.HasAny)
                     lines.Add($"你的口味表（由主人在 WAB 里设定，工具 maid_feed_rules 可查可改）：{table.Taste.Describe()}。");
-                if (table.Maids.TryGetValue(maidId, out var mb) && mb.RecentFeeds.Count > 0)
+                // table.Maids 是普通 Dictionary，读取 + RecentFeeds 枚举必须在 _bindingsGate 内取快照
+                List<string> recent = new();
+                lock (_bindingsGate)
                 {
-                    var items = mb.RecentFeeds
-                        .Where(f => (DateTime.UtcNow - f.AtUtc).TotalHours < 24)
-                        .Take(5)
-                        .Select(f => f.Verdict == "favorite" ? $"{f.Food}（最爱）" : f.Food)
-                        .ToList();
-                    if (items.Count > 0)
-                        lines.Add($"最近在游戏里吃过的：{string.Join("、", items)}。");
+                    if (table.Maids.TryGetValue(maidId, out var mb))
+                        recent = mb.RecentFeeds
+                            .Where(f => (DateTime.UtcNow - f.AtUtc).TotalHours < 24)
+                            .Take(5)
+                            .Select(f => f.Verdict == "favorite" ? $"{f.Food}（最爱）" : f.Food)
+                            .ToList();
                 }
+                if (recent.Count > 0)
+                    lines.Add($"最近在游戏里吃过的：{string.Join("、", recent)}。");
             }
 
             lines.Add("这些是身体与世界的事实。想改变就调用 maid_* 工具；没有工具结果，就不要说已经做过。");
@@ -3462,18 +3583,16 @@ public sealed partial class MaidBridgeService : IDisposable
         if (_disposed) return;
         _disposed = true;
         try { _cts?.Cancel(); } catch { }
+        try { _listenCts?.Cancel(); } catch { }
         CloseSession(null, "service disposed");
         try { _udp?.Close(); } catch { }
         try { _tcp?.Stop(); } catch { }
-        _cts?.Dispose();
-        _listenCts?.Dispose();
-        _reloadLock.Dispose();
-        _connectLock.Dispose();
-        _bindingOpsLock.Dispose();
-        _bindingsLoadLock.Dispose();
-        _commitLock.Dispose();
-        _turnLock.Dispose();
-        _backupLock.Dispose();
+        try { _settingsWatch?.Dispose(); } catch { }
+        // 不主动 Dispose SemaphoreSlim 和 CancellationTokenSource：
+        // 后台任务的 finally 块可能还在 Release()/使用这些对象，Dispose 后再调会抛
+        // ObjectDisposedException 级联崩溃。交给 GC 回收即可——SemaphoreSlim 若无
+        // wait handle 则 Dispose 是 no-op；CancellationTokenSource 也只在 Cancel 后
+        // 的短暂窗口有意义。这是 .NET 官方推荐的 async 场景做法。
     }
 
     // ==================== 会话 ====================
@@ -3622,7 +3741,7 @@ public sealed partial class MaidBridgeService : IDisposable
             try { Reader.Dispose(); } catch { }
             try { Client.Close(); } catch { }
             try { Cts.Dispose(); } catch { }
-            _writeLock.Dispose();
+            try { _writeLock.Dispose(); } catch { }
             return ValueTask.CompletedTask;
         }
     }

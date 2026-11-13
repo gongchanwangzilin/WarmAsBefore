@@ -175,6 +175,21 @@ public sealed class StorageProvider
         Changed?.Invoke(key);
     }
 
+    /// <summary>
+    /// 在 gate 锁内同步序列化取一致快照，然后在锁外异步写盘。
+    /// 用于「对象含被 lock 保护的字典、又必须 await 落盘」的场景：
+    /// Monitor 是线程绑定的，跨 await 持锁时续延换线程后 Monitor.Exit 会抛
+    /// SynchronizationLockException 且锁永远释放不掉，所以序列化必须在锁内同步完成、
+    /// 写盘在锁外。落盘格式与 <see cref="Save"/> 完全一致（同一份 WriteOptions）。
+    /// </summary>
+    public async Task SaveWithGateAsync<T>(string key, T data, object gate) where T : class
+    {
+        string json;
+        lock (gate) json = JsonSerializer.Serialize(data, WriteOptions);
+        await WriteAtomicAsync(key, json);
+        Changed?.Invoke(key);
+    }
+
     /// <summary>原样写回一段 JSON（云存档把远端文件落到本地，避免反序列化再序列化改变内容）。</summary>
     public async Task WriteRawAsync(string key, string json)
     {
