@@ -272,7 +272,9 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     {
         if (row is null) return;
         if (!await Shell.Current.DisplayAlert("删除插件", $"删除「{row.Name}」的代码与设置？这个操作不可恢复。", "删除", "取消")) return;
-        await _plugins.DeleteAsync(row.Id);
+        var deleted = await _plugins.DeleteAsync(row.Id);
+        if (!deleted)
+            Toast.Error("删除没完成：插件目录可能还被设置页或浏览器占用，关掉后重试一次。");
         await RefreshAsync();
     }
 
