@@ -175,6 +175,8 @@ public sealed class SomatizationService
                 ap += 0.35 * negLow;
                 ap += 0.10 * posConn;
                 ap += 0.20 * Math.Max(0, cort - 0.6);
+                // F28：胆固醇在颓废遭打击时中和情绪，副作用是食欲减退。
+                ap += HormoneRules.AppetiteSuppressionOf(chem?.Cholesterol ?? 0);
                 s.Appetite = Clamp(ap, -1, 1);
 
                 // 说话欲：想念/依赖→想找人说话；轻度难过想倾诉；害羞/紧张/高唤起→话少；严重躯体化/疲劳→不想说话。
@@ -200,6 +202,8 @@ public sealed class SomatizationService
                 // 躯体化负荷（泄漏积分器）：高唤起+负性情绪+疲劳持续累积，平静时回落。
                 double stress = 0.7 * Math.Max(0, cort - 0.4) + 0.5 * negArousal + 0.3 * negLow + 0.2 * fatigue;
                 stress = Clamp(stress, 0, 1.2);
+                // F28：长期性激励素负责长期少量止痛，高的时候躯体化负荷累积得慢一些（仍留 60% 底数，不是免疫）。
+                stress *= 1 - 0.40 * (chem?.LongTermDrive ?? 0);
                 double gain = 0.10 * stress;   // 每小时累积
                 double decay = 0.045;          // 每小时自然恢复
                 s.SomaticLoad = Clamp(s.SomaticLoad + (gain - decay) * hours, 0, 1);
