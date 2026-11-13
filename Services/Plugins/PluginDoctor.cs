@@ -137,7 +137,7 @@ public static class PluginDoctor
         if (!string.IsNullOrEmpty(folder) && !string.Equals(m.Id, folder, StringComparison.OrdinalIgnoreCase))
             Add(f, DoctorLevel.Warn, "id",
                 $"plugin.json 写的 id 是「{m.Id}」，实际装在「{folder}」目录",
-                "装载时以目录名为准（防止 ../ 越界）：把 plugin.json 的 id 改成目录名，两边一致才好找设置与日志");
+                "插件身份以 plugin.json 的 id（UUID）为准，目录只是存放位置：把两边对齐，免得设置与日志落到别处");
         if (string.IsNullOrWhiteSpace(m.Name))
             Add(f, DoctorLevel.Error, "name", "没有 name", "插件必须有名字，否则不会被装载");
         if (string.IsNullOrWhiteSpace(m.Description))

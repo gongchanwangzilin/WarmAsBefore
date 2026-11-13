@@ -140,6 +140,99 @@ public sealed class PluginHost
         if (id == "." || id == "..") return false;
         return id.All(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.');
     }
+
+    /// <summary>
+    /// 插件的身份是 plugin.json 里的 id（UUID），不是文件夹名。这里只把路径不安全字符剔掉；
+    /// 缺 id 时才回落到包名，且安装时会把这个值写回清单固定下来，
+    /// 保证「同一个包重装」永远拿到同一个身份，不会每次随机生成一个新的。
+    /// </summary>
+    private static string NormalizeId(string? raw, string fallbackName)
+    {
+        var id = (raw ?? "").Trim();
+        if (!IsSafeId(id))
+            id = string.Concat(id.Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.'));
+        if (!IsSafeId(id))
+            id = string.Concat((fallbackName ?? "").Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_' or '.'));
+        return IsSafeId(id) ? id : "";
+    }
+
+    /// <summary>
+    /// 扫描插件目录，得到「已安装 UUID → 目录」。只有带有效 plugin.json 的目录才算已安装；
+    /// 删除后剩下的空壳（没清单）不进这张表 —— 列表看不见它，安装判重也不该被它挡住。
+    /// 读 id 的规则与 EnsureLoadedAsync 完全一致，避免两处把同一个插件认成两个身份。
+    /// </summary>
+    private Dictionary<string, string> InstalledDirsById()
+    {
+        var map = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        try
+        {
+            if (!Directory.Exists(PluginsDir)) return map;
+            foreach (var dir in Directory.GetDirectories(PluginsDir))
+            {
+                var manifestPath = Path.Combine(dir, "plugin.json");
+                if (!File.Exists(manifestPath)) continue;
+                try
+                {
+                    var m = JsonSerializer.Deserialize<PluginManifest>(File.ReadAllText(manifestPath), Json);
+                    if (m is null || string.IsNullOrWhiteSpace(m.Name)) continue;
+                    var folderId = Path.GetFileName(dir);
+                    var id = string.IsNullOrWhiteSpace(m.Id) || !IsSafeId(m.Id) ? folderId : m.Id.Trim();
+                    if (!string.IsNullOrWhiteSpace(id)) map[id] = dir;
+                }
+                catch { App.WriteLog("PluginHost.InstalledDirsById -> 读不出清单：" + manifestPath); }
+            }
+        }
+        catch (Exception ex) { App.WriteLog("PluginHost.InstalledDirsById -> " + ex.Message); }
+        return map;
+    }
+
+    /// <summary>
+    /// 删掉一整个插件目录并核验。Windows 上设置页 / 回调 / 杀软常短暂占着文件，
+    /// Directory.Delete(dir, true) 会先把能删的都删掉再抛 IOException，留下一个没清单的空壳 ——
+    /// 正是「列表里没有插件、重装却说重复」的来源。这里清只读属性、等句柄释放后重试。
+    /// </summary>
+    private static async Task<bool> RemoveDirRobustAsync(string dir)
+    {
+        for (var attempt = 0; attempt < 6; attempt++)
+        {
+            if (!Directory.Exists(dir)) return true;
+            try
+            {
+                Directory.Delete(dir, true);
+                return true;
+            }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+            try
+            {
+                foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    try { File.SetAttributes(f, FileAttributes.Normal); } catch { }
+                }
+            }
+            catch { }
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            await Task.Delay(80 * (attempt + 1));
+        }
+        var left = Directory.Exists(dir);
+        if (left) App.WriteLog("PluginHost.RemoveDir -> 目录仍被占用：" + dir);
+        return !left;
+    }
+
+    /// <summary>源目录是否正好是要被删掉的目录（或它里面）——从插件目录里选文件夹安装时会出现。</summary>
+    private static bool IsSameOrInside(string path, string dir)
+    {
+        try
+        {
+            var p = Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar);
+            var d = Path.GetFullPath(dir).TrimEnd(Path.DirectorySeparatorChar);
+            return p.Equals(d, StringComparison.OrdinalIgnoreCase)
+                   || p.StartsWith(d + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase);
+        }
+        catch { return false; }
+    }
+
     private static readonly JsonSerializerOptions Json = new()
     {
         PropertyNameCaseInsensitive = true,
@@ -262,7 +355,19 @@ public sealed class PluginHost
             foreach (var dir in Directory.GetDirectories(PluginsDir))
             {
                 var manifestPath = Path.Combine(dir, "plugin.json");
-                if (!File.Exists(manifestPath)) continue;
+                if (!File.Exists(manifestPath))
+                {
+                    // 上次删除只清掉代码、留下空壳：这个目录本来就不会被当插件装载。
+                    // 里面一个文件都没有时顺手收掉，别让空文件夹在插件目录里越攒越多；
+                    // 还有残留文件的先留着（可能有人正在手工拷东西），安装时会按 UUID 清理。
+                    try
+                    {
+                        if (!Directory.EnumerateFileSystemEntries(dir, "*", SearchOption.AllDirectories).Any())
+                            Directory.Delete(dir, false);
+                    }
+                    catch { }
+                    continue;
+                }
                 try
                 {
                     var manifest = JsonSerializer.Deserialize<PluginManifest>(await File.ReadAllTextAsync(manifestPath), Json);
@@ -355,29 +460,62 @@ public sealed class PluginHost
             if (!File.Exists(manifestPath)) return (false, "这个文件夹里没有 plugin.json。");
             var manifest = JsonSerializer.Deserialize<PluginManifest>(await File.ReadAllTextAsync(manifestPath), Json);
             if (manifest is null || string.IsNullOrWhiteSpace(manifest.Name)) return (false, "plugin.json 缺少 name。");
-            var id = string.IsNullOrWhiteSpace(manifest.Id)
-                ? (string.IsNullOrWhiteSpace(idHint) ? Path.GetFileName(sourceDir) : idHint)
-                : manifest.Id;
-            id = string.Concat(id.Trim().Where(ch => char.IsLetterOrDigit(ch) || ch is '-' or '_'));
+            var fallback = string.IsNullOrWhiteSpace(idHint) ? Path.GetFileName(sourceDir) : idHint;
+            var id = NormalizeId(manifest.Id, fallback);
             if (id.Length == 0) id = "plugin_" + Guid.NewGuid().ToString("N")[..6];
             var dest = Path.Combine(PluginsDir, id);
-            // 设置与角色级字段是用户数据，不属于插件清单。重装时先捞出来、删完目录再放回去，
+
+            // 判重只认「已安装清单里的 UUID」。旧版拿 Directory.Exists(dest) 当依据，
+            // 于是删插件时只要留下一个空壳目录，列表里看不见插件、重装却报「已经装过了」；
+            // 反过来，同一个 UUID 装在另一个名字的目录里又会被漏判成两个插件。
+            var installed = InstalledDirsById();
+            installed.TryGetValue(id, out var existingDir);
+            if (existingDir is not null && !overwrite)
+                return (false, $"插件「{id}」已经装过了（同一 UUID）。");
+
+            // 设置与角色级字段是用户数据，不属于插件清单。先捞出来、删完目录再放回去，
             // 否则「从 zip 更新一次插件」就把所有开关打回默认值。
             string? keptSettings = null;
             var keptCharFiles = new Dictionary<string, string>();
-            if (Directory.Exists(dest))
+            var userDataDir = existingDir ?? (Directory.Exists(dest) ? dest : "");
+            if (userDataDir.Length > 0 && Directory.Exists(userDataDir))
             {
-                if (!overwrite) return (false, $"插件「{id}」已经装过了。");
-                var settingsPath = Path.Combine(dest, "settings.json");
+                var settingsPath = Path.Combine(userDataDir, "settings.json");
                 if (File.Exists(settingsPath)) keptSettings = File.ReadAllText(settingsPath);
-                var charDir = Path.Combine(dest, "char");
+                var charDir = Path.Combine(userDataDir, "char");
                 if (Directory.Exists(charDir))
                     foreach (var file in Directory.GetFiles(charDir, "*", SearchOption.AllDirectories))
                         keptCharFiles[Path.GetRelativePath(charDir, file)] = File.ReadAllText(file);
-                Directory.Delete(dest, true);
             }
-            Directory.CreateDirectory(PluginsDir);
-            CopyDir(sourceDir, dest);
+
+            // 要清的是「占着这个身份的所有目录」：旧插件本体，以及目标位置上没清单的残留空壳。
+            var doomed = new List<string>();
+            if (existingDir is not null && Directory.Exists(existingDir)) doomed.Add(existingDir);
+            if (Directory.Exists(dest) && !doomed.Contains(dest, StringComparer.OrdinalIgnoreCase)) doomed.Add(dest);
+
+            // 从插件目录里选文件夹安装时，源目录可能正是要删的那个：先搬到临时目录，别把自己删了。
+            var source = sourceDir;
+            string? tempSource = null;
+            if (doomed.Any(d => IsSameOrInside(sourceDir, d)))
+            {
+                tempSource = Path.Combine(Path.GetTempPath(), "wab_plugin_src_" + Guid.NewGuid().ToString("N")[..8]);
+                Directory.CreateDirectory(tempSource);
+                CopyDir(sourceDir, tempSource);
+                source = tempSource;
+            }
+            try
+            {
+                foreach (var d in doomed)
+                    if (!await RemoveDirRobustAsync(d))
+                        return (false, $"旧插件目录清不掉（文件被占用）：{d}。关掉这个插件的设置页再重试。");
+                Directory.CreateDirectory(PluginsDir);
+                CopyDir(source, dest);
+            }
+            finally
+            {
+                if (tempSource is not null)
+                    try { Directory.Delete(tempSource, true); } catch { }
+            }
             if (keptSettings is not null)
                 File.WriteAllText(Path.Combine(dest, "settings.json"), keptSettings);
             foreach (var (rel, text) in keptCharFiles)
@@ -443,13 +581,42 @@ public sealed class PluginHost
         await EnsureLoadedAsync();
         PluginEntry? entry;
         lock (_gate) _plugins.TryGetValue(id, out entry);
-        if (entry is null) return false;
+
+        // 目录可能比缓存更「真」：上次删除只清掉代码、留下空壳时，列表里已经没有这个插件，
+        // 但目录还在。仍要能按 UUID 把它删干净，否则用户永远重装不上同名的插件。
+        var doomed = new List<string>();
+        if (entry is not null && Directory.Exists(entry.Dir)) doomed.Add(entry.Dir);
+        if (IsSafeId(id))
+        {
+            var byId = Path.Combine(PluginsDir, id);
+            if (Directory.Exists(byId) && !doomed.Contains(byId, StringComparer.OrdinalIgnoreCase)) doomed.Add(byId);
+        }
+        foreach (var pair in InstalledDirsById())
+            if (string.Equals(pair.Key, id, StringComparison.OrdinalIgnoreCase)
+                && Directory.Exists(pair.Value) && !doomed.Contains(pair.Value, StringComparer.OrdinalIgnoreCase))
+                doomed.Add(pair.Value);
+        if (doomed.Count == 0 && entry is null) return false;
+
         try
         {
-            await RunHookAsync(id, "onUnload", new { plugin = id });
-            StopCallbackServer(id);
-            Directory.Delete(entry.Dir, true);
-            lock (_gate) _plugins.Remove(id);
+            if (entry is not null)
+            {
+                await RunHookAsync(id, "onUnload", new { plugin = id });
+                StopCallbackServer(id);
+            }
+            // 删不干净就明确失败，不能把「代码已删、目录还在」包装成删除成功。
+            foreach (var d in doomed)
+                if (!await RemoveDirRobustAsync(d))
+                {
+                    App.WriteLog("PluginHost.Delete -> 目录删不干净：" + d);
+                    return false;
+                }
+            lock (_gate)
+            {
+                _plugins.Remove(id);
+                _settingsCache.Remove(id);
+                _disabled.Remove(id);
+            }
             // 授权跟着插件一起删：留着的话，日后重装一个同名 id 的插件就直接继承了用户给过的允许。
             await _permissions.ResetAsync(id);
             return true;
@@ -1636,11 +1803,16 @@ public sealed class PluginHost
     /// <summary>
     /// 用系统默认浏览器打开链接。桌面端 Launcher.Default 有时静默失败（点了没反应），
     /// Windows 上直接用 ShellExecute 交给默认浏览器更可靠。
+    /// 自检可把 <see cref="ExternalOpener"/> 换成只记地址的实现，免得跑测试时真的弹浏览器。
     /// </summary>
+    public static Func<string, Task<bool>>? ExternalOpener { get; set; }
+
     private static async Task<bool> OpenExternalAsync(string url)
     {
         try
         {
+            var opener = ExternalOpener;
+            if (opener is not null) return await opener(url);
             if (OperatingSystem.IsWindows())
             {
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(url) { UseShellExecute = true });
