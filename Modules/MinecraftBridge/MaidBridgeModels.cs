@@ -9,7 +9,7 @@ public sealed record MaidBridgeSettings
     public bool Enabled { get; init; } = true;
     public int Port { get; init; } = MaidBridgeService.DefaultPort;
     public bool Lan { get; init; }
-    public bool AutoCreateCharacters { get; init; } = true;
+    public bool AutoCreateCharacters { get; init; } = false;
     public bool AllowWorldActions { get; init; } = true;
     public bool AllowGestures { get; init; } = true;
 
@@ -244,6 +244,10 @@ public sealed class MaidBridgeWorldBinding
     [JsonPropertyName("saveId")]
     public string SaveId { get; set; } = "";
 
+    /// <summary>
+    /// 女仆绑定表。<b>非线程安全的普通 Dictionary</b>——所有读写（含序列化遍历）必须持
+    /// <c>lock (MaidBridgeService._bindingsGate)</c>；<c>_bindingOpsLock</c>（SemaphoreSlim）不能替代它。
+    /// </summary>
     [JsonPropertyName("maids")]
     public Dictionary<string, MaidBridgeMaidBinding> Maids { get; set; } = new(StringComparer.Ordinal);
 

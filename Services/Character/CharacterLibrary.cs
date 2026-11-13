@@ -67,6 +67,12 @@ public sealed partial class CharacterLibrary
     private readonly object _loadGate = new();
 
     /// <summary>
+    /// 落盘互斥：快照 + 写盘必须在同一临界区内完成，
+    /// 否则并发 AddAsync/UpdateAsync/DeleteAsync 时后完成者拿旧快照盖盘，先进者的角色从磁盘丢失。
+    /// </summary>
+    private readonly SemaphoreSlim _saveLock = new(1, 1);
+
+    /// <summary>
     /// 「读过盘」以读完为准：原来先置标记再 await，同一瞬间进来的第二个调用会以为已经加载好了，
     /// 捧着空角色表往下走；装载失败时更惨——空表会被当成花名册整表写回，全部角色消失。
     /// </summary>
@@ -127,8 +133,14 @@ public sealed partial class CharacterLibrary
             App.WriteLog("CharacterLibrary.Save -> 已跳过落盘：characters.json 这次没能读出来，不拿当前花名册盖盘");
             return false;
         }
-        await _store.Save("characters", _engine.Roster.Values.ToList());
-        return true;
+        // 快照 + 写盘在临界区内完成：后进者的快照必含先进者刚 Register 的项，消除丢更新。
+        await _saveLock.WaitAsync();
+        try
+        {
+            await _store.Save("characters", _engine.Roster.Values.ToList());
+            return true;
+        }
+        finally { _saveLock.Release(); }
     }
 
     /// <summary>
@@ -192,7 +204,7 @@ public sealed partial class CharacterLibrary
             if (string.IsNullOrEmpty(charId)) return (false, "没有指定角色。");
             if (!_engine.Roster.TryGetValue(charId, out var ch)) return (false, "角色库里没有这个人。");
             var name = ch.Profile.Name;
-            _engine.Roster.Remove(charId);
+            _engine.Roster.TryRemove(charId, out _);
             if (!await SaveRosterAsync()) return (false, "删除没有落盘：角色表这次没能写进去。");
             if (string.Equals(_engine.State.CharacterId, charId, StringComparison.Ordinal))
                 _engine.ClearCharacter();

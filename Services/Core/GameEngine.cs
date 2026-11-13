@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json;
 using WarmAsBefore.Models;
 
@@ -8,7 +9,15 @@ public sealed class GameEngine
 {
     public GameState State { get; private set; } = new();
     public CharacterData? ActiveCharacter { get; private set; }
-    public Dictionary<string, CharacterData> Roster { get; } = new();
+
+    /// <summary>
+    /// 角色花名册。用 ConcurrentDictionary 而非 Dictionary：
+    /// 桥接服务的后台线程（握手、state 帧处理、推送统计）与 UI 线程（AddAsync/UpdateAsync）
+    /// 会并发读写这张表。普通 Dictionary 在并发读写时内部状态可能损坏，
+    /// 轻则抛 InvalidOperationException/IndexOutOfRange，重则遍历陷入死循环——
+    /// 这正是「连上 Minecraft 后宿主界面卡死、进程退出」的根因。
+    /// </summary>
+    public ConcurrentDictionary<string, CharacterData> Roster { get; } = new();
 
     /// <summary>当前会话的存档槽位：新开一局时创建，读取存档时恢复。快速存档/自动存档写入该槽位。</summary>
     public string CurrentSaveId { get; set; } = "";

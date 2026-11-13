@@ -16,7 +16,8 @@ public sealed partial class MaidBridgeService
             var worldKey = BridgeJson.Str(args, "worldKey");
             if (string.IsNullOrWhiteSpace(worldKey)) return PageFail("没有指定世界。");
 
-            await _bindingOpsLock.WaitAsync();
+            if (!await _bindingOpsLock.WaitAsync(TimeSpan.FromSeconds(10)))
+                return PageFail("绑定操作正忙（上一轮未结束），请稍后再试。");
             try
             {
                 await EnsureBindingsLoadedAsync();

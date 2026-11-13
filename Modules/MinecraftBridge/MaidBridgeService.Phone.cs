@@ -155,8 +155,13 @@ public sealed partial class MaidBridgeService
     private async Task<string> ResolvePhoneCharacterAsync(MaidSession session, MaidBridgeWorldBinding world, string maidId, string maidName)
     {
         if (session.MaidCharacters.TryGetValue(maidId, out var c1) && c1.Length > 0) return c1;
-        if (world.Maids.TryGetValue(maidId, out var known) && !string.IsNullOrEmpty(known.CharacterId)
-            && _engine.Roster.ContainsKey(known.CharacterId)) return known.CharacterId;
+        string? knownCharId = null;
+        lock (_bindingsGate)
+        {
+            if (world.Maids.TryGetValue(maidId, out var known) && !string.IsNullOrEmpty(known.CharacterId))
+                knownCharId = known.CharacterId;
+        }
+        if (knownCharId is not null && _engine.Roster.ContainsKey(knownCharId)) return knownCharId;
         if (maidName.Length > 0)
         {
             var match = _engine.Roster.Values.FirstOrDefault(c =>
@@ -167,9 +172,9 @@ public sealed partial class MaidBridgeService
         try
         {
             var created = _characters.CreateDefault(maidName.Length > 0 ? maidName : "女仆", "女", "温柔可爱");
-            if (await OnUiAsync(() => _characters.AddAsync(created)))
+            if (await _characters.AddAsync(created))
             {
-                world.Maids[maidId] = new MaidBridgeMaidBinding
+                lock (_bindingsGate) world.Maids[maidId] = new MaidBridgeMaidBinding
                 {
                     CharacterId = created.Profile.Id,
                     Name = maidName.Length > 0 ? maidName : "女仆",
