@@ -88,6 +88,8 @@ public partial class AiModelsPage : ContentPage
 
     private async void OnOpenProviders(object? sender, EventArgs e) => await Shell.Current.GoToAsync("aiProviders");
 
+    private async void OnOpenDeployment(object? sender, EventArgs e) => await Shell.Current.GoToAsync("modelDeployment");
+
     private async void OnAddModel(object? sender, EventArgs e)
     {
         var provider = ProviderOf(sender);

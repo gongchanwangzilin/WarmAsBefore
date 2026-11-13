@@ -124,6 +124,8 @@ public partial class AppShell : Shell
         // AI 厂商 / 模型管理：设置 → AI 里进，两页互相跳
         Routing.RegisterRoute("aiProviders", typeof(Views.AiProvidersPage));
         Routing.RegisterRoute("aiModels", typeof(Views.AiModelsPage));
+        // F04 模型部署向导：用户决定模型名 / 来源 / 安装位置，工具自动下载安装
+        Routing.RegisterRoute("modelDeployment", typeof(Views.ModelDeploymentPage));
         // 插件中心：列表 / 启停 / 依赖 / 设置 / 崩溃日志 / 工坊
         Routing.RegisterRoute("pluginCenter", typeof(Views.PluginCenterPage));
         // 原生设置：按 plugin.json 的 fields 现场生成表单

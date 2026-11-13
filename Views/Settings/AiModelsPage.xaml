@@ -129,6 +129,8 @@
                     </BindableLayout.ItemTemplate>
                 </VerticalStackLayout>
 
+                <Button Text="模型部署向导 →" Style="{StaticResource BtnGhost}" HorizontalOptions="Start"
+                        Clicked="OnOpenDeployment" />
                 <Label Text="没有厂商？先去「厂商管理」填端点与密钥。" Style="{StaticResource TxtCaption}" />
                 <Label x:Name="StatusLabel" Style="{StaticResource TxtCaption}" IsVisible="False" />
             </VerticalStackLayout>

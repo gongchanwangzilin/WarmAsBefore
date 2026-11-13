@@ -17,6 +17,7 @@ public static class PageRegistration
         // AI 厂商与模型管理：两页都能独立打开，也互相跳转
         services.AddTransient<AiProvidersPage>();
         services.AddTransient<AiModelsPage>();
+        services.AddTransient<ModelDeploymentPage>();
         services.AddTransient<PhonePage>();
         services.AddTransient<WeChatPage>();
         // QQ 壳：复用 WeChatViewModel（构造后 SetShell("qq")）
