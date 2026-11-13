@@ -6,7 +6,7 @@ namespace WarmAsBefore.Services.Core;
 public static class ConfigCatalog
 {
     public const string Version = "wab-next-1";
-    public const int RowCount = 124;
+    public const int RowCount = 125;
 
     public sealed record Entry(string Name, string Type, string Default, string Scope,
                               string AiTag, bool Conflict, string ConflictTarget, string PromptText);
@@ -138,6 +138,7 @@ public static class ConfigCatalog
             ["main_close_keep_phone"] = new Entry("5. 关闭 APP 时手机页不消失", "switch", "true", "WAB 宿主", "纯代码", false, "", ""),
             ["phone_nav_bar_enabled"] = new Entry("6. 手机页下侧栏三键", "switch", "true", "WAB 宿主", "纯代码", true, "PhonePage.xaml 现有 NavBarIsVisible=False", "手机页下侧栏三键会接管默认导航栏（NavBarIsVisible=False）；如与其他导航附属冲突请关闭本项。三键为：回退（三角形）、回到桌面（正方形）、设置（三条线），三条线是设置而非任务管理"),
             ["phone_nav_third_action"] = new Entry("7. 第三键动作", "select", "settings", "WAB 宿主", "纯代码", false, "", ""),
+            ["headpat_on_feed_probability"] = new Entry("8. 投喂后讨摸概率", "number", "0", "模组", "纯代码", false, "", ""),
         };
 
     /// <summary>默认值的唯一入口；未知键返回空串，由调用方显式处理。</summary>
