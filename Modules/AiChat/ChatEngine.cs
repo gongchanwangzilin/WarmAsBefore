@@ -33,7 +33,16 @@ public sealed class ChatEngine
     // ==================== 错误通道与重试（审计 U1） ====================
     // 系统性错误（网络断、端点配置错、超时）不该伪装成 AI 的台词塞进气泡里：
     // UI 订阅这个事件走独立通道（状态条/Toast），气泡只留给角色真正说的话。
-    public event Action<string, string>? ErrorOccurred;   // (charId, 用户可读的错误说明)
+    public event Action<string, string>? ErrorOccurred;
+
+    /// <summary>F22：一次工具调用的完整记录（工具名 / 参数 / 返回结果）。
+    /// 只用于「勾选后显示工具调用」的 UI 展示，不进会话、不改请求体。</summary>
+    public sealed record ToolTrace(string Name, string Arguments, string Result);
+
+    /// <summary>F22：本轮工具调用产生时逐条通知 UI。
+    /// 由 WeChatViewModel 订阅并累计成一条可展开气泡；不订阅时零开销。
+    /// 不带角色 id —— 订阅方自己知道当前正在跟谁聊，避免为了展示去改整条请求链。</summary>
+    public event Action<ToolTrace>? ToolTraceOccurred;   // (charId, 用户可读的错误说明)
 
     private void NotifyError(string charId, string message)
     {
@@ -70,6 +79,19 @@ public sealed class ChatEngine
     {
         try { _cfg = _cfg with { ThinkTier = Math.Max(0, tier) }; }
         catch (Exception ex) { App.WriteLog("ChatEngine.SetActiveThinkTier -> " + ex.Message); }
+    }
+
+    /// <summary>F23：对话页里的热度滑条改动即时生效（下一轮请求就用新温度），并同步给网关。
+    /// 角色级端点覆写会在 CfgFor 里再叠一次，这里改的是主端点基线，不会推翻角色覆写。</summary>
+    public void SetTemperature(double value)
+    {
+        try
+        {
+            var v = Math.Clamp(double.IsNaN(value) ? 0.8 : value, 0, 2);
+            _cfg = _cfg with { Temperature = v };
+            _api.Configure(_cfg);
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.SetTemperature -> " + ex.Message); }
     }
 
     /// <summary>
@@ -993,6 +1015,12 @@ public sealed class ChatEngine
             {
                 var result = await RunToolAsync(call, allowed);
                 working.Add(new ChatMessage { Role = "tool", Content = result, ToolCallId = call.Id });
+                // F22：只通知 UI，不写会话、不改请求体；展示开关由上层决定。
+                try
+                {
+                    ToolTraceOccurred?.Invoke(new ToolTrace(call.Name, call.Arguments ?? "", result ?? ""));
+                }
+                catch (Exception ex) { App.WriteLog("ChatEngine.ToolTrace -> " + ex.Message); }
             }
         }
 
@@ -1298,6 +1326,12 @@ public sealed class ChatEngine
                 ? $"你是{charId}，温柔可爱。用中文回复，保持自然连贯。"
                 : $"你是{p.Name}，{p.Personality}。用户是你的{p.UserAddress}。" +
                   $"{(string.IsNullOrWhiteSpace(p.Description) ? "" : "你的背景：" + p.Description + " ")}" +
+                  // F31：道德观 / 人生观是选填，留空时一个字都不进提示词；
+                  // 填了也只作为内心的尺子，别变成逐条背诵的设定清单。
+                  $"{(string.IsNullOrWhiteSpace(p.MoralOutlook) ? "" : "你心里守着的道德观：" + p.MoralOutlook + " ")}" +
+                  $"{(string.IsNullOrWhiteSpace(p.LifeOutlook) ? "" : "你看日子的人生观：" + p.LifeOutlook + " ")}" +
+                  $"{(string.IsNullOrWhiteSpace(p.MoralOutlook) && string.IsNullOrWhiteSpace(p.LifeOutlook)
+                      ? "" : "这些是你自己信的东西，自然地影响判断和语气就好，不要主动罗列或说教。 ")}" +
                   $"用中文自然回复，保持人设一致，语气像日常相处一样放松。";
             try
             {

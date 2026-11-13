@@ -48,6 +48,14 @@ public sealed class YesNoLabel : IValueConverter
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
 }
 
+/// <summary>F22：工具气泡展开/收起箭头（true=▾ 展开，false=▸ 收起）。</summary>
+public sealed class BoolToAsterisk : IValueConverter
+{
+    public object Convert(object? v, Type t, object? p, CultureInfo c) =>
+        v is true ? "▾" : "▸";
+    public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
+}
+
 public sealed class BoolGreenRed : IValueConverter
 {
     public object Convert(object? v, Type t, object? p, CultureInfo c) =>

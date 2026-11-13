@@ -238,7 +238,7 @@ tile 摘要一行封顶。两列 tile 里严禁出现第二颗主按钮。
 | 手机道具 | `PhonePage`、`MainGamePhoneView` | 图块渐变品牌色、白色遮罩、微字阶 | 手机壳是叙事道具，内部是模拟器画面 |
 | 桌宠 | `PetPage`、`PetStudioPage` | 桌面壁纸上的遮罩色 | 压在任意壁纸上，语义阶反而不成立 |
 | 图像工具遮罩 | `AvatarCropPage`、`PortraitCalibrationPage`（`#FF5252` 系注释里已说明转 RedSoft） | 裁切白罩、标定彩线 | 图像编辑遮罩必须独立于世界 |
-| 游戏画布 HUD | `MainGamePage`、`MinimapHostView`、`BattlePage`、`TitlePage` 的 HUD 角 | 微字阶（9–11.5）、画布角 | HUD 密仪表有自己的一档，压到 WSizeCaption 就挤爆 |
+| 游戏画布 HUD | `MainGamePage`、`MinimapHostView`、`TitlePage` 的 HUD 角 | 微字阶（9–11.5）、画布角 | HUD 密仪表有自己的一档，压到 WSizeCaption 就挤爆 |
 | 领域调色板 | `MemoryGraphPage` 的节点/图例色 | 节点散色（每类一个色相） | 图谱分类配色是数据语义，不是装饰 |
 
 **豁免≠无序**：豁免域内"挂了样式键就不再内联覆写"这条**仍然生效**；豁免的只是「必须用 WSize*/间距阶/语义色」这三条。

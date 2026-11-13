@@ -95,6 +95,29 @@
                                                             <Switch IsToggled="{Binding SupportsJson}" Scale="0.8"
                                                                     Toggled="OnCapabilityToggled" />
                                                         </FlexLayout>
+
+                                                        <!-- F25：在模型内部决定对话页显示哪些控件，
+                                                             有的模型有热度/思考能力，有的没有，不勾就不显示。 -->
+                                                        <Label Text="对话页控件（按这款模型决定）"
+                                                               Style="{StaticResource TxtCaption}" Margin="0,2,0,0" />
+                                                        <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                                                            <Label Text="热度条" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding ShowHeatSlider}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
+                                                            <Label Text="思考条" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding ShowThinkTierBar}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
+                                                            <Label Text="思考开关" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding ShowThinkToggle}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
+                                                            <Label Text="快速钮" Style="{StaticResource TxtCaption}"
+                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
+                                                            <Switch IsToggled="{Binding ShowQuickButtons}" Scale="0.8"
+                                                                    Toggled="OnCapabilityToggled" />
+                                                        </FlexLayout>
                                                     </VerticalStackLayout>
                                                 </Border>
                                             </DataTemplate>

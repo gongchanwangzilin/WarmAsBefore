@@ -76,7 +76,6 @@ public sealed partial class ToolManager : IDisposable
         RegisterAmapTools();
         RegisterStateTools();
         RegisterFlowTools();
-        Modules.Battle.BattleTools.Register(this);
         ScanExternalTools();
 #if ANDROID
         // Android APK 没有宿主 stdin，Harness JSON-RPC 循环只在桌面端监听
@@ -197,37 +196,18 @@ public sealed partial class ToolManager : IDisposable
     /// <summary>
     /// 不暴露给应用内聊天模型的内置工具：
     ///  · send_message —— 它内部调用 MainGameViewModel.SendMessageCommand → ChatEngine.Send，
-    ///    在聊天回合里调用就是重入：会话历史交错、请求翻倍，还可能一层层套下去；
-    ///  · battle_* —— 服务外部 Harness/MCP 的独立战斗状态（见 BattleSystem 注释，与战斗页的
-    ///    BuiltinBattleDriver 互不相干）。聊天里调用只会产生玩家在战斗页看不到的"影子战斗"，
-    ///    对陪伴剧情没有意义，还白烧 token。
+    ///    在聊天回合里调用就是重入：会话历史交错、请求翻倍，还可能一层层套下去。
     /// </summary>
     private static readonly HashSet<string> ChatExcludedTools = new(StringComparer.Ordinal)
     {
-        "send_message",
-        "battle_start", "battle_attack", "battle_status", "battle_end", "battle_list"
+        "send_message"
     };
 
     /// <summary>某个工具是否可以暴露给应用内聊天：只放内置工具（外部工具要解析运行时、最长可挂 120s，聊天回合扛不住）。</summary>
     private static bool IsChatTool(ToolDefinition t)
     {
         if (t.IsExternal || ChatExcludedTools.Contains(t.Name)) return false;
-        // 战斗系统在设置里被关闭时，battle_* 工具整体不提供给 AI（连"能看见但不能用"都不留，
-        // 否则模型会反复尝试调用被拒的工具，浪费轮次）。
-        if (t.Name.StartsWith("battle_", StringComparison.Ordinal) && !BattleSystemEnabled()) return false;
         return true;
-    }
-
-    /// <summary>读设置里的战斗总开关；设置服务不可用时默认可用，避免误伤。</summary>
-    private static bool BattleSystemEnabled()
-    {
-        try
-        {
-            var settings = ServicesHelper.GetServices()?.GetService(typeof(Services.SettingsManager))
-                as Services.SettingsManager;
-            return settings?.Current.BattleEnabled ?? true;
-        }
-        catch { return true; }
     }
 
     /// <summary>应用内聊天可见的工具名集合：ChatEngine 用它兜住"模型凭空报了一个工具名"的情况。</summary>
@@ -259,12 +239,7 @@ public sealed partial class ToolManager : IDisposable
         ("set_blackout", "把画面黑掉或恢复（仍可对话）"),
         ("send_to_user", "给用户手机真的发一条消息（默认需确认）"),
         ("list_actors", "列出地图实体位置"),
-        ("pull_actor", "拉拽实体到场景"),
-        ("battle_start", "发起战斗"),
-        ("battle_attack", "战斗攻击"),
-        ("battle_status", "战斗状态"),
-        ("battle_end", "结束战斗"),
-        ("battle_list", "列出战斗")
+        ("pull_actor", "拉拽实体到场景")
     };
 
     /// <summary>单个工具的问题描述（缺失 / 描述为空 / schema 解析失败 / 重复注册）。</summary>
@@ -301,13 +276,9 @@ public sealed partial class ToolManager : IDisposable
         var byName = tools.ToDictionary(t => t.Name, StringComparer.Ordinal);
         var issues = new List<ToolIssue>();
         var missing = new List<string>();
-        var battleOn = BattleSystemEnabled();
 
         foreach (var (name, purpose) in ExpectedTools)
         {
-            // 战斗工具在关闭时被有意隐藏，不算缺失。
-            var isBattle = name.StartsWith("battle_", StringComparison.Ordinal);
-            if (isBattle && !battleOn) continue;
             if (!byName.ContainsKey(name)) missing.Add($"{name}（{purpose}）");
         }
 
@@ -385,8 +356,7 @@ public sealed partial class ToolManager : IDisposable
     /// <summary>
     /// 契约是"一个裸参数字符串"的内置工具。只有这几个工具在收到单参数 JSON 时需要剥壳：
     /// 它们的参数本来就是裸串（外部驱动一直这么调，如 "sink"、"客厅/夜灯"），而模型会按 schema
-    /// 传 <c>{"action":"sink"}</c>。像 battle_status / battle_end 那种参数本身就是 JSON 对象的
-    /// 工具必须原样透传 —— 剥了壳它们的解析器会直接报错，那是外部驱动正在用的契约。
+    /// 传 <c>{"action":"sink"}</c>。这些工具必须原样透传 —— 剥了壳它们的解析器会直接报错，那是外部驱动正在用的契约。
     /// </summary>
     private static readonly HashSet<string> RawStringArgTools = new(StringComparer.Ordinal)
     {

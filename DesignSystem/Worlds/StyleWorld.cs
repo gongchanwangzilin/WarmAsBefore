@@ -568,14 +568,6 @@ public static class StyleWorldTokens
         // 演出暗色（战斗 / CG / 升好感）：这几页永远在暗底上演，不随明暗档翻转——
         // 但色值必须有名字。无名的手写色在换主题时是全应用唯一不动的那一块，
         // 而且深色档下它们会和页面其余部分形成两套黑。
-        res["BattleNight"] = Color.FromArgb("#1A1A2E");
-        res["BattlePanel"] = Color.FromArgb("#16213E");
-        res["BattlePurple"] = Color.FromArgb("#533483");
-        res["BattleAccent"] = Color.FromArgb("#E94560");
-        res["BattleHeal"] = Color.FromArgb("#4ECCA3");
-        res["BattleInk"] = Color.FromArgb("#FFFFFF");
-        res["BattleInkDim"] = Color.FromArgb("#9A9AB4");
-        res["BattleScrim"] = Color.FromArgb("#19000000");
         res["CgInk"] = Color.FromArgb("#FFFFFF");
         res["CgInkDim"] = Color.FromArgb("#CCFFFFFF");
         res["CgChip"] = Color.FromArgb("#80FFFFFF");

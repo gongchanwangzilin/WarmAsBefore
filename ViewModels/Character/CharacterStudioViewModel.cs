@@ -154,6 +154,9 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     [ObservableProperty] private string _personality = "";
     [ObservableProperty] private string _description = "";
     [ObservableProperty] private string _greeting = "";
+    /// <summary>F31 高级设置（选填）：道德观 / 人生观。留空即不写进提示词。</summary>
+    [ObservableProperty] private string _moralOutlook = "";
+    [ObservableProperty] private string _lifeOutlook = "";
     [ObservableProperty] private bool _isRomance = true;
 
     // ── 年龄 / 生日 ─────────────────────────────────────────────────────
@@ -308,6 +311,19 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     partial void OnPersonalityChanged(string value) => Note("性格");
     partial void OnDescriptionChanged(string value) => Note("背景");
     partial void OnGreetingChanged(string value) => Note("问候语");
+    partial void OnMoralOutlookChanged(string value) => Note("道德观");
+    partial void OnLifeOutlookChanged(string value) => Note("人生观");
+
+    /// <summary>F31：高级设置折叠区（选填字段不占主设定版面）。</summary>
+    [ObservableProperty] private bool _advancedOpen;
+
+    /// <summary>折叠按钮上的字，跟着展开状态走，省一个 XAML 转换器。</summary>
+    public string AdvancedToggleText => AdvancedOpen ? "收起 ▲" : "展开 ▼";
+
+    partial void OnAdvancedOpenChanged(bool value) => OnPropertyChanged(nameof(AdvancedToggleText));
+
+    [RelayCommand]
+    private void ToggleAdvanced() => AdvancedOpen = !AdvancedOpen;
     partial void OnIsRomanceChanged(bool value) => Note("恋爱对象");
     partial void OnAgeInputChanged(string value) => Note("年龄");
     partial void OnBirthdayInputChanged(string value) => Note("生日");
@@ -456,6 +472,8 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         Personality = _ch.Profile.Personality;
         Description = _ch.Profile.Description;
         Greeting = _ch.Profile.Greeting;
+        MoralOutlook = _ch.Profile.MoralOutlook;
+        LifeOutlook = _ch.Profile.LifeOutlook;
         IsRomance = _ch.Profile.IsRomanceTarget;
         // 年龄留空就留空（不是 0）；生日按盘上的归一写法回填，用户改写法在保存时才归一。
         AgeInput = _ch.Profile.Age?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -1523,6 +1541,8 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                     Personality = Fallback(Personality, p.Personality),
                     Description = Description?.Trim() ?? "",
                     Greeting = Greeting?.Trim() ?? "",
+                    MoralOutlook = MoralOutlook?.Trim() ?? "",
+                    LifeOutlook = LifeOutlook?.Trim() ?? "",
                     IsRomanceTarget = IsRomance,
                     Age = nextAge,
                     Birthday = nextBirthday,

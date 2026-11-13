@@ -195,7 +195,6 @@ JSON 参数需要 URL 转义。
 | `cg/` | CG 目录与解锁状态 |
 | `showcase/` | 展示案脚本与素材 |
 | `McpPacks/` | MCP 服务配置与 `tools.json` |
-| `battles/` | 外部战斗驱动 |
 | `sandbox-native/` | Android 的 proot rootfs 与解释器 |
 | `warm_startup.log` | 启动日志（Windows 在 `Documents/`） |
 | `perf.log` | 性能打点 |

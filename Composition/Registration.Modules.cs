@@ -31,7 +31,6 @@ public static class ModuleRegistration
         services.AddSingleton<Modules.Mcp.McpOrchestrator>();
         services.AddSingleton<Modules.Tools.RuntimeManager>();
         services.AddSingleton<Modules.Affection.AffectionLevelUpService>();
-        services.AddSingleton<Modules.Battle.BattleDriverManager>();
         services.AddSingleton<Modules.Cg.CgStore>();
         services.AddSingleton<Modules.Cg.CgViewPayload>();
         services.AddSingleton<Modules.Showcase.ShowcaseStore>();

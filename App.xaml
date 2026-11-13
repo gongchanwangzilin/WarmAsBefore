@@ -24,6 +24,7 @@
             <conv:AffectionTint x:Key="AffectionTint" />
             <conv:CharInitials x:Key="CharInitials" />
             <conv:YesNoLabel x:Key="YesNoLabel" />
+            <conv:BoolToAsterisk x:Key="BoolToAsterisk" />
             <conv:BoolGreenRed x:Key="BoolGreenRed" />
             <conv:SelectedBg x:Key="SelectedBg" />
             <conv:BoolToColor x:Key="SceneCurrentBg" True="{StaticResource BeigeAccent200}" False="{StaticResource SecondaryBg}" />
