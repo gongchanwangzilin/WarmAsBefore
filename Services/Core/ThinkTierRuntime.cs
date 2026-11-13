@@ -151,6 +151,14 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     /// <summary>请求开始/结束时由 ChatEngine 调用，驱动思考条的进度/转动指示。</summary>
     public void SetDeepThinking(bool value) => IsDeepThinking = value;
 
+    /// <summary>F21：AI 自主选择档位的临时覆盖（-1 表示未覆盖，沿用用户/热度档位）。不持久化、不回传宿主设置。</summary>
+    public int AiTierOverride { get; set; } = -1;
+    /// <summary>F21：AI 通过 wab_set_reasoning 工具指定的档位（tier&lt;0 清除覆盖）。钳到 0..TierCount。</summary>
+    public void SetAiTierOverride(int tier)
+        => AiTierOverride = tier < 0 ? -1 : Math.Clamp(tier, 0, Math.Max(1, TierCount));
+    /// <summary>F21：清除 AI 临时覆盖，回到用户/热度决定的档位。</summary>
+    public void ClearAiTierOverride() => AiTierOverride = -1;
+
     /// <summary>给定档位，算出要注入请求体的参数值（档位≤0 返回 null）。</summary>
     public static string? ParamValueFor(int tier, string paramValues)
     {

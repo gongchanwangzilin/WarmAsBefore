@@ -107,6 +107,8 @@ public static class CoreRegistration
                 sp.GetRequiredService<HumanMemoryService>()));
         // F04：用户驱动的模型部署工具（下载 / 校验 / 解压 / 落盘 / 登记），不内置任何模型名或默认路径
         services.AddSingleton<ModelDeploymentService>();
+        // F08：设置调节 AI（与角色隔离、按频率、默认永不），宿主侧单例
+        services.AddSingleton<SettingsAdvisorService>();
 
         return services;
     }

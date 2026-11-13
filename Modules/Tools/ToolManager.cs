@@ -645,6 +645,41 @@ public sealed partial class ToolManager : IDisposable
 
     private void RegisterSystemTools()
     {
+        // F21：AI 自主选择思考档位（仅当用户在设置中开启「AI 自主深度思考」时生效；否则返回拒绝）
+        RegisterBuiltin("wab_set_reasoning",
+            "设置本轮及后续的思考档位。参数 tier：off=关闭、fast=快速、deep=深度思考，或直接给数字 0~5。" +
+            "仅当用户在设置中开启「AI 自主深度思考」时才被允许，否则返回拒绝。",
+            async args =>
+            {
+                try
+                {
+                    var svc = ServicesHelper.GetServices();
+                    var sm = svc?.GetService(typeof(SettingsManager)) as SettingsManager;
+                    if (sm is null || !sm.Current.AiAutonomousThink)
+                        return JsonSerializer.Serialize(new { ok = false, error = "未开启「AI 自主深度思考」，无法由 AI 设置档位。" });
+                    var ttr = svc?.GetService(typeof(WarmAsBefore.Services.Core.ThinkTierRuntime)) as WarmAsBefore.Services.Core.ThinkTierRuntime;
+                    if (ttr is null) return JsonSerializer.Serialize(new { ok = false, error = "思考运行时不可用。" });
+                    var doc = JsonNode.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);
+                    var tierRaw = doc?["tier"]?.GetValueKind() == JsonValueKind.Number
+                        ? doc["tier"]!.GetValue<int>().ToString(System.Globalization.CultureInfo.InvariantCulture)
+                        : (doc?["tier"]?.GetValue<string>() ?? "off");
+                    int tier = tierRaw.Trim().ToLowerInvariant() switch
+                    {
+                        "off" or "0" => 0,
+                        "fast" or "1" => 1,
+                        "deep" or "2" => 2,
+                        _ => int.TryParse(tierRaw, System.Globalization.NumberStyles.Integer, System.Globalization.CultureInfo.InvariantCulture, out var n) ? Math.Clamp(n, 0, 5) : 1
+                    };
+                    ttr.SetAiTierOverride(tier);
+                    return JsonSerializer.Serialize(new { ok = true, tier, hint = "已设置思考档位，本轮及后续将沿用，直到用户手动切换或对话结束。" });
+                }
+                catch (Exception ex)
+                {
+                    return JsonSerializer.Serialize(new { ok = false, error = ex.Message });
+                }
+            },
+            """{"type":"object","properties":{"tier":{"type":"string","description":"思考档位：off=关闭 / fast=快速 / deep=深度思考 / 或数字 0-5"}},"required":["tier"],"additionalProperties":false}""");
+
         // 获取游戏状态
         RegisterBuiltin("get_state", "获取当前游戏状态（角色、好感、精力、所在地点）", async args =>
         {
