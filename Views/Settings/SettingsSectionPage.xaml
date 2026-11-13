@@ -494,11 +494,13 @@
                                                     SelectedItem="{Binding AiTimeoutSeconds}" FontSize="13" /></Grid>
                                         <!-- 厂商列表：一家厂商 = 端点 + 密钥 + 多款模型。
                                              同一家厂商加模型不必重复填端点密钥（用户反馈：原来是按「一条 = 厂商+模型+密钥」重复填）。 -->
-                                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
                                             <Button Grid.Column="0" Text="厂商管理页面 →" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding OpenAiProvidersCommand}" />
                                             <Button Grid.Column="1" Text="AI 模型管理页面 →" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding OpenAiModelsCommand}" />
+                                            <Button Grid.Column="2" Text="模型部署向导 →" Style="{StaticResource BtnGhost}"
+                                                    Command="{Binding OpenModelDeploymentCommand}" />
                                         </Grid>
                                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AiProviders}">
                                             <BindableLayout.ItemTemplate>

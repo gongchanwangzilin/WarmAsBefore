@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels.Settings"
+             xmlns:models="clr-namespace:WarmAsBefore.Models"
+             x:Class="WarmAsBefore.Views.ModelDeploymentPage"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+    <Grid RowDefinitions="Auto,*" Padding="18,10,18,14" RowSpacing="10">
+
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Button Grid.Column="0" Text="←" Style="{StaticResource BtnText}" Padding="10,2" Clicked="OnBack" />
+            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
+                <Label Text="模型部署向导" FontSize="18" FontAttributes="Bold"
+                       TextColor="{DynamicResource SurfaceFg}" />
+                <Label Text="下载 / 校验 / 解压 / 安装全自动。模型名、来源（链接或本机文件）、安装位置全部由你定。"
+                       Style="{StaticResource TxtCaption}" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="12">
+
+                <!-- 添加部署表单 -->
+                <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="12,10">
+                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="添加部署" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource SurfaceFg}" />
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowSpacing="6">
+                            <Label Grid.Column="0" Text="模型名" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding NewName}" Placeholder="你起的名字，随便一个也行" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}" PlaceholderColor="{DynamicResource MutedFg}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowSpacing="6">
+                            <Label Grid.Column="0" Text="类型" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Picker Grid.Column="1" ItemsSource="{Binding KindChoices}" SelectedItem="{Binding NewKind}" FontSize="12" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowSpacing="6">
+                            <Label Grid.Column="0" Text="来源" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding NewSource}" Placeholder="http(s) 链接，或本机文件路径" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}" PlaceholderColor="{DynamicResource MutedFg}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" RowSpacing="6">
+                            <Label Grid.Column="0" Text="安装位置" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding NewInstallPath}" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}" PlaceholderColor="{DynamicResource MutedFg}" />
+                        </Grid>
+
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowSpacing="6">
+                            <Label Grid.Column="0" Text="校验和" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                            <Entry Grid.Column="1" Text="{Binding NewChecksum}" Placeholder="可选 SHA256，填了才校验" FontSize="12"
+                                   BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}" PlaceholderColor="{DynamicResource MutedFg}" />
+                        </Grid>
+
+                        <HorizontalStackLayout Spacing="8">
+                            <Button Text="按电脑性能推荐" Style="{StaticResource BtnGhost}" Command="{Binding LoadSuggestionsCommand}" />
+                            <Button Text="开始部署" Style="{StaticResource BtnGhost}" Command="{Binding DeployCommand}" />
+                            <Button Text="取消" Style="{StaticResource BtnText}" Command="{Binding CancelCommand}" IsEnabled="{Binding IsBusy}" />
+                        </HorizontalStackLayout>
+
+                        <ProgressBar Progress="{Binding ProgressValue}" IsVisible="{Binding IsBusy}" />
+                        <Label Text="{Binding ProgressText}" Style="{StaticResource TxtCaption}" IsVisible="{Binding IsBusy}" />
+                        <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+
+                        <!-- 推荐示例：点「用这条」只是把示例预填进表单，用户可改任意字段 -->
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="按性能推荐（示例，可改）" Style="{StaticResource TxtCaption}" />
+                            <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Suggestions}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="models:ModelSuggestion">
+                                        <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}" StrokeThickness="0.8" Padding="10,8">
+                                            <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                                    <Label Text="{Binding Name}" FontSize="12" TextColor="{DynamicResource SurfaceFg}" />
+                                                    <Label Text="{Binding Note}" Style="{StaticResource TxtCaption}" />
+                                                    <Label Text="{Binding ExampleSource}" Style="{StaticResource TxtCaption}" LineBreakMode="MiddleTruncation" />
+                                                </VerticalStackLayout>
+                                                <Button Grid.Column="1" Text="用这条" Style="{StaticResource BtnText}"
+                                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ModelDeploymentViewModel}}, Path=UseSuggestionCommand}"
+                                                        CommandParameter="{Binding .}" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 已部署列表 -->
+                <Label Text="已部署" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource SurfaceFg}" />
+                <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Models}">
+                    <BindableLayout.ItemTemplate>
+                        <DataTemplate x:DataType="vm:DeployedModelRow">
+                            <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="10,8">
+                                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <VerticalStackLayout Grid.Column="0" Spacing="1">
+                                        <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" />
+                                        <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                                        <Label Text="{Binding InstallPath}" Style="{StaticResource TxtCaption}" LineBreakMode="MiddleTruncation" />
+                                    </VerticalStackLayout>
+                                    <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                        <Button Text="打开" Style="{StaticResource BtnText}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ModelDeploymentViewModel}}, Path=OpenFolderCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <Button Text="移除" Style="{StaticResource BtnText}"
+                                                Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ModelDeploymentViewModel}}, Path=RemoveCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </HorizontalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </BindableLayout.ItemTemplate>
+                </VerticalStackLayout>
+
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

@@ -698,6 +698,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenAiModelsAsync() => await Shell.Current.GoToAsync("aiModels");
 
+    [RelayCommand]
+    private async Task OpenModelDeploymentAsync() => await Shell.Current.GoToAsync("modelDeployment");
+
     /// <summary>新增一家厂商（可同时填第一款模型；之后还能继续加）。</summary>
     [RelayCommand]
     private void AddProvider()

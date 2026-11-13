@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
+using WarmAsBefore.Services.Model;
 
 namespace WarmAsBefore.Composition;
 
@@ -104,6 +105,8 @@ public static class CoreRegistration
             new EmbeddingService(sp.GetRequiredService<StorageProvider>(),
                 sp.GetRequiredService<SettingsManager>(),
                 sp.GetRequiredService<HumanMemoryService>()));
+        // F04：用户驱动的模型部署工具（下载 / 校验 / 解压 / 落盘 / 登记），不内置任何模型名或默认路径
+        services.AddSingleton<ModelDeploymentService>();
 
         return services;
     }

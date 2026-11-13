@@ -391,6 +391,8 @@ public sealed record UserSettings
     public string EmbeddingModel { get; init; } = "";
     /// <summary>向量维度：0 = 由模型自己定。换维度等于换一套向量，缓存按「模型 + 维度」分开存。</summary>
     public int EmbeddingDimensions { get; init; }
+    /// <summary>F04：用户部署到本机的模型登记（名字 / 来源 / 位置全由用户决定）。部署向导读写它。</summary>
+    public List<DeployedModel> DeployedModels { get; init; } = new();
     public double AiTemperature { get; init; } = 0.8;
     public int AiMaxTokens { get; init; } = 500;
     public bool DeepThink { get; init; }

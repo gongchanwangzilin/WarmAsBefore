@@ -395,6 +395,23 @@ public partial class App : Application
                 WindowTopmost.BringToFront();
             var cfg = services.GetService(typeof(RuntimeConfigurator)) as RuntimeConfigurator;
             cfg?.Start();
+
+            // F26 启动自检：没有任何可用模型时，温和提醒去部署向导。模型名 / 来源 / 位置都由用户自己定。
+            var deploySvc = services.GetService(typeof(WarmAsBefore.Services.Model.ModelDeploymentService)) as WarmAsBefore.Services.Model.ModelDeploymentService;
+            if (deploySvc is not null)
+            {
+                _ = System.Threading.Tasks.Task.Run(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(1500);
+                    if (deploySvc.IsModelConfigured()) return;
+                    try
+                    {
+                        Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
+                            Controls.Toast.Warn("还没配置任何模型：去「AI 模型管理 → 模型部署向导」下载并安装（名字、来源、位置都由你定）。"));
+                    }
+                    catch { }
+                });
+            }
 #if WINDOWS
             // 主题/明暗在 Start → Apply 里才落定：此时再刷一次标题栏，首帧与暗色 HUD 对齐。
             try
