@@ -157,8 +157,17 @@ internal static class MaidBridgeTools
             + "每回合只发一遍与隐形对话标志。",
             args => bridge.RunToolAsync("chat_turn", args), FeatureSchema);
         tools.RegisterBuiltin("maid_plan_flow",
-            "多步流程：先探测或拍照，再规划路线与工具使用，最多 8 步，最后按 summary/stepwise/none 返回报告。默认关闭。",
-            args => bridge.RunToolAsync("plan_flow", args), FeatureSchema);
+            "多步流程：先探测或拍照，再规划路线与工具使用，最多 8 步，最后按 summary/stepwise/none 返回报告。" +
+            "需用户在设置中开启「AI 自主多步计划」才可由 AI 自主发起；否则请改用单一动作工具分步完成。",
+            args =>
+            {
+                var svc = ServicesHelper.GetServices();
+                var sm = svc?.GetService(typeof(WarmAsBefore.Services.SettingsManager)) as WarmAsBefore.Services.SettingsManager;
+                if (sm is null || !sm.Current.AiPlanFlowEnabled)
+                    return System.Threading.Tasks.Task.FromResult(
+                        System.Text.Json.JsonSerializer.Serialize(new { error = "多步计划默认关闭，需在设置里开启「AI 自主多步计划」后才可由 AI 发起。" }));
+                return bridge.RunToolAsync("plan_flow", args);
+            }, FeatureSchema);
         tools.RegisterBuiltin("maid_headpat",
             "摸头互动。action=request 由 AI 主动选择要摸头（走讨摸概率与冷却，总开关可关避免与附属冲突）、"
             + "refuse 玩家拒绝后她会伤心并露出伤心表情；三档反应（俯身+飞机耳+眯眼 / 加抱尾巴 / 抱尾巴缩成团）"

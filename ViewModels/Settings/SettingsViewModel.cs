@@ -192,6 +192,11 @@ public sealed partial class SettingsViewModel : ObservableObject
         _aiMaxTokens = s.AiMaxTokens;
         _deepThink = s.DeepThink;
         _deepModel = s.DeepModel;
+        _aiAutonomousThink = s.AiAutonomousThink;
+        _aiPlanFlowEnabled = s.AiPlanFlowEnabled;
+        _planMaxSteps = Math.Clamp(s.PlanMaxSteps, 1, 32);
+        _settingsAdvisorEnabled = s.SettingsAdvisorEnabled;
+        _settingsAdvisorFrequency = string.IsNullOrWhiteSpace(s.SettingsAdvisorFrequency) ? "never" : s.SettingsAdvisorFrequency;
         _memoryTurns = s.MemoryTurns;
         _aiTimeoutSeconds = s.AiTimeoutSeconds > 0 ? s.AiTimeoutSeconds : 25;
         _memoryWindowDays = MemoryWindowChoices.Contains(s.MemoryWindowDays) ? s.MemoryWindowDays : HumanMemoryMath.DefaultWindowDays;
@@ -700,6 +705,23 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [RelayCommand]
     private async Task OpenModelDeploymentAsync() => await Shell.Current.GoToAsync("modelDeployment");
+
+    // F08：立即跑一次「设置建议 AI」（忽略频率），结果写回 SettingsAdvisorResult 供 UI 展示
+    [RelayCommand]
+    private async Task RunSettingsAdvisorAsync()
+    {
+        var services = WarmAsBefore.Modules.Tools.ServicesHelper.GetServices();
+        var svc = services?.GetService(typeof(WarmAsBefore.Services.Core.SettingsAdvisorService)) as WarmAsBefore.Services.Core.SettingsAdvisorService;
+        if (svc is null) { SettingsAdvisorResult = "设置建议服务不可用。"; return; }
+        SettingsAdvisorIsBusy = true;
+        try
+        {
+            var r = await svc.RunNowAsync();
+            SettingsAdvisorResult = r ?? "（无建议）";
+        }
+        catch (Exception ex) { SettingsAdvisorResult = "失败：" + ex.Message; }
+        finally { SettingsAdvisorIsBusy = false; }
+    }
 
     /// <summary>新增一家厂商（可同时填第一款模型；之后还能继续加）。</summary>
     [RelayCommand]
@@ -1323,6 +1345,27 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private double _aiMaxTokens = 500;
     [ObservableProperty] private bool _deepThink;
     [ObservableProperty] private string _deepModel = "";
+
+    // F21：AI 自主深度思考 / 多步
+    [ObservableProperty] private bool _aiAutonomousThink;
+    partial void OnAiAutonomousThinkChanged(bool value) => PersistSettings();
+    [ObservableProperty] private bool _aiPlanFlowEnabled;
+    partial void OnAiPlanFlowEnabledChanged(bool value) => PersistSettings();
+    [ObservableProperty] private int _planMaxSteps = 8;
+    partial void OnPlanMaxStepsChanged(int value) => PersistSettings();
+
+    // F08：设置调节 AI（与角色隔离，仅临时用；默认「永不」打扰）
+    [ObservableProperty] private bool _settingsAdvisorEnabled;
+    partial void OnSettingsAdvisorEnabledChanged(bool value) => PersistSettings();
+    [ObservableProperty] private string _settingsAdvisorFrequency = "never";
+    partial void OnSettingsAdvisorFrequencyChanged(string value) => PersistSettings();
+    /// <summary>F08：设置建议 AI 的运行频率选项（never/daily/3days/weekly）。</summary>
+    public ObservableCollection<string> SettingsAdvisorFrequencyChoices { get; } = new() { "never", "daily", "3days", "weekly" };
+    /// <summary>F08：最近一次设置建议结果（供设置页展示）。</summary>
+    [ObservableProperty] private string _settingsAdvisorResult = "";
+    /// <summary>F08：设置建议 AI 是否正在运行（UI 可绑定禁用按钮）。</summary>
+    [ObservableProperty] private bool _settingsAdvisorIsBusy;
+
     [ObservableProperty] private string _customParamsJson = "";
     partial void OnCustomParamsJsonChanged(string value) => PersistSettings();
     [ObservableProperty] private string _customParamsFormat = "openai_flat";
@@ -3146,6 +3189,11 @@ GlassLightWidth = GlassLightWidth,
                 AiMaxTokens = Math.Clamp((int)AiMaxTokens, 100, 8000),
                 DeepThink = DeepThink,
                 DeepModel = DeepModel.Trim(),
+                AiAutonomousThink = AiAutonomousThink,
+                AiPlanFlowEnabled = AiPlanFlowEnabled,
+                PlanMaxSteps = Math.Clamp(PlanMaxSteps, 1, 32),
+                SettingsAdvisorEnabled = SettingsAdvisorEnabled,
+                SettingsAdvisorFrequency = SettingsAdvisorFrequencyChoices.Contains(SettingsAdvisorFrequency) ? SettingsAdvisorFrequency : "never",
                 MemoryTurns = MemoryTurns,
                 MemoryWindowDays = MemoryWindowDays,
                 MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),

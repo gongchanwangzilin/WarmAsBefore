@@ -434,6 +434,38 @@
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13"
                                                    IsEnabled="{Binding SmallModelFirst}" /></Grid>
+                                        <!-- F21：AI 自主能力（实验） -->
+                                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                                        <Label Text="AI 自主能力（实验）" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="让 AI 在对话中自行决定思考深度、或发起多步复合任务。两类能力默认关闭；开启后 AI 可通过工具临时提升思考档位、或自主编排「探测→采集→建造→验证」多步流程。多步上限用于防止失控。"
+                                               Style="{StaticResource TxtCaption}" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="AI 自主选择思考档位（含深度思考）" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AiAutonomousThink}" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="AI 自主发起多步计划" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AiPlanFlowEnabled}" /></Grid>
+                                        <Grid ColumnDefinitions="110,*"><Label Text="多步上限" VerticalOptions="Center" FontSize="13" />
+                                            <controls:ViewSlider Grid.Column="1" Minimum="1" Maximum="32" Value="{Binding PlanMaxSteps}" /></Grid>
+                                        <!-- F08：设置调节 AI（与角色隔离，默认永不） -->
+                                        <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
+                                        <Label Text="设置调节 AI（F08）" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="用一段与角色人格、记忆完全隔离的临时 AI 调用，分析当前设置并给优化建议；不写入任何角色记忆。默认「永不」打扰，开启后按你设定的频率运行（每天 / 每三天 / 每周）。"
+                                               Style="{StaticResource TxtCaption}" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="启用设置建议 AI" Style="{StaticResource TxtBodySm}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SettingsAdvisorEnabled}" /></Grid>
+                                        <Grid ColumnDefinitions="110,*"><Label Text="运行频率" VerticalOptions="Center" FontSize="13" />
+                                            <Picker Grid.Column="1" WidthRequest="190" FontSize="13"
+                                                    ItemsSource="{Binding SettingsAdvisorFrequencyChoices}"
+                                                    SelectedItem="{Binding SettingsAdvisorFrequency}" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                            <ActivityIndicator Grid.Column="0" IsRunning="{Binding SettingsAdvisorIsBusy}" IsVisible="{Binding SettingsAdvisorIsBusy}" />
+                                            <Button Grid.Column="1" Text="立即分析" Style="{StaticResource BtnGhost}"
+                                                    Command="{Binding RunSettingsAdvisorCommand}" />
+                                        </Grid>
+                                        <Label Text="{Binding SettingsAdvisorResult}" Style="{StaticResource TxtCaption}"
+                                               IsVisible="{Binding SettingsAdvisorResult, Converter={StaticResource StringNotEmpty}}" />
                                         <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                                         <Label Text="识图模型（可选）" Style="{StaticResource TxtBodySm}" />

@@ -412,6 +412,18 @@ public partial class App : Application
                     catch { }
                 });
             }
+
+            // F08 启动自检：开启设置建议 AI 且到了频率时间就静默跑一次（结果在设置页查看，不弹窗不打扰）
+            var advisor = services.GetService(typeof(WarmAsBefore.Services.Core.SettingsAdvisorService)) as WarmAsBefore.Services.Core.SettingsAdvisorService;
+            if (advisor is not null)
+            {
+                _ = System.Threading.Tasks.Task.Run(async () =>
+                {
+                    await System.Threading.Tasks.Task.Delay(4000);
+                    try { await advisor.MaybeRunAsync(); } catch { }
+                });
+            }
+
 #if WINDOWS
             // 主题/明暗在 Start → Apply 里才落定：此时再刷一次标题栏，首帧与暗色 HUD 对齐。
             try

@@ -568,6 +568,15 @@ public sealed class ChatEngine
     {
         var session = Session(charId);
         var cfg = CfgFor(charId);
+        // F21：AI 自主选择思考档位（开启 AiAutonomousThink 时，模型可用 wab_set_reasoning 工具临时覆盖本轮档位）
+        try
+        {
+            var smF21 = Modules.Tools.ServicesHelper.GetServices()?.GetService(typeof(SettingsManager)) as SettingsManager;
+            var ttr = ThinkTierState;
+            if (smF21 is not null && smF21.Current.AiAutonomousThink && ttr is not null && ttr.AiTierOverride >= 0)
+                cfg = cfg with { ThinkTier = Math.Clamp(ttr.AiTierOverride, 0, Math.Max(1, cfg.ThinkTierCount)) };
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.AiTierOverride -> " + ex.Message); }
         // 第十四项：本轮是否进入深度思考（档位>0 且端点真有推理强度参数要注入）——驱动思考条进度/转动
         var deepThisTurn = cfg.ThinkTier > 0
             && !string.IsNullOrWhiteSpace(cfg.ThinkParamKey)
@@ -880,6 +889,21 @@ public sealed class ChatEngine
 
     /// <summary>单个回合内最多执行的工具调用轮数：模型可以连续要工具，但必须有硬上限，否则不听话的端点会让请求无限套下去。</summary>
     private const int MaxToolRounds = 3;
+    /// <summary>F21：当 AI 自主多步计划开启时，工具循环上限放宽到 PlanMaxSteps（钳 1~32），否则沿用 3。</summary>
+    private int EffectiveMaxToolRounds
+    {
+        get
+        {
+            try
+            {
+                var sm = Modules.Tools.ServicesHelper.GetServices()?.GetService(typeof(SettingsManager)) as SettingsManager;
+                if (sm is not null && sm.Current.AiPlanFlowEnabled)
+                    return Math.Clamp(sm.Current.PlanMaxSteps, 1, 32);
+            }
+            catch { }
+            return MaxToolRounds;
+        }
+    }
 
     /// <summary>模型要过工具、最终却没给出正文时的兜底回复（不能落成"沉默"，那会误触发沉默协议）。</summary>
     private const string ToolFallbackReply = "（我照做啦，只是一时不知道该怎么接话。）";
@@ -984,7 +1008,7 @@ public sealed class ChatEngine
         string? text = null;
         var askedTools = false;
 
-        for (var round = 0; round <= MaxToolRounds; round++)
+        for (var round = 0; round <= EffectiveMaxToolRounds; round++)
         {
             var turn = await _api.ChatWithToolsAsync(working, tools, cfg);
             if (turn.ToolsRejected)
@@ -1002,7 +1026,7 @@ public sealed class ChatEngine
             askedTools = true;
 
             // 用完轮数、或工具已不可用（比如端点凭空报了个工具名）→ 收尾，绝不再发请求
-            if (round == MaxToolRounds || allowed is null || tools is null) break;
+            if (round == EffectiveMaxToolRounds || allowed is null || tools is null) break;
 
             // assistant 的 tool_calls 与每个 tool 结果必须成对追加，否则下一次请求会被端点拒收
             working.Add(new ChatMessage

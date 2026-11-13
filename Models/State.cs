@@ -490,6 +490,22 @@ public sealed record UserSettings
     /// 关闭则回退到旧的固定增量（说一句 +1、动作 +2/+3/+5、精力纯按清醒时长）。</summary>
     public bool StatAiControl { get; init; } = true;
 
+    // F08：设置调节 AI（角色上下文隔离、仅临时用；默认「永不」打扰）
+    /// <summary>F08：是否启用「设置调节 AI」——用一段临时、与角色隔离的 AI 调用，分析当前设置并给优化建议。默认关（频率=永不）。</summary>
+    public bool SettingsAdvisorEnabled { get; init; }
+    /// <summary>F08：设置建议 AI 的运行频率：never（永不，默认）/ daily（每天）/ 3days（每三天）/ weekly（每周）。</summary>
+    public string SettingsAdvisorFrequency { get; init; } = "never";
+    /// <summary>F08：设置建议 AI 上次运行的 UTC 时间戳（Ticks）。0 = 从未运行。</summary>
+    public long SettingsAdvisorLastRun { get; init; }
+
+    // F21：AI 自主深度思考 / 多步
+    /// <summary>F21：允许 AI 在一轮对话里自主选择思考档位（含深度思考），而非只能由用户/热度阈值决定。默认关。</summary>
+    public bool AiAutonomousThink { get; init; }
+    /// <summary>F21：允许 AI 自主发起多步 plan_flow（拆解→测量→采集→建造→验证的复合任务编排）。默认关（模组侧默认也关）。</summary>
+    public bool AiPlanFlowEnabled { get; init; }
+    /// <summary>F21：多步计划的最大步数上限（防失控）。默认 8，钳到 1~32。</summary>
+    public int PlanMaxSteps { get; init; } = 8;
+
     // 语音
     public bool TtsEnabled { get; init; } = true;
     public double TtsRate { get; init; } = 1.0;
