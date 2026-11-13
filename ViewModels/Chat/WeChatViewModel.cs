@@ -97,6 +97,86 @@ public sealed partial class WeChatViewModel : ObservableObject
         _bridge.Incoming += OnRealIncoming;
         _bridge.Replied += OnRealReplied;
         _bridge.StatusChanged += _ => MainThread.BeginInvokeOnMainThread(RefreshMode);
+        // F22：工具调用只在勾选「显示工具调用」时才进消息流
+        _traceHandler = OnToolTrace;
+        _chat.ToolTraceOccurred += _traceHandler;
+        _showToolCalls = _settings.Current.ShowToolCalls;
+        _isFullScreen = _settings.Current.ChatFullScreen;
+        _settings.Applied += OnSettingsApplied;
+    }
+
+    private readonly Action<ChatEngine.ToolTrace> _traceHandler;
+    private readonly List<ChatEngine.ToolTrace> _pendingTraces = new();
+
+    [ObservableProperty] private bool _showToolCalls;
+    [ObservableProperty] private bool _isFullScreen;
+
+    /// <summary>F22：全屏时联系人列表强制让位，退出全屏自动恢复。</summary>
+    public bool ContactLayerVisible => IsContactListVisible && !IsFullScreen;
+
+    partial void OnIsFullScreenChanged(bool value) => OnPropertyChanged(nameof(ContactLayerVisible));
+
+    private void OnSettingsApplied()
+    {
+        var s = _settings.Current;
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ShowToolCalls = s.ShowToolCalls;
+            IsFullScreen = s.ChatFullScreen;
+        });
+    }
+
+    /// <summary>一轮里可能连着调好几个工具：先攒着，等回复出来再合成一条气泡。</summary>
+    private void OnToolTrace(ChatEngine.ToolTrace trace)
+    {
+        if (!ShowToolCalls) return;
+        MainThread.BeginInvokeOnMainThread(() => _pendingTraces.Add(trace));
+    }
+
+    /// <summary>把本轮攒下的工具调用合成一条可展开气泡，插在她回复之前。</summary>
+    private void FlushToolTraces()
+    {
+        List<ChatEngine.ToolTrace> traces;
+        lock (_pendingTraces) { traces = new List<ChatEngine.ToolTrace>(_pendingTraces); _pendingTraces.Clear(); }
+        if (!ShowToolCalls || traces.Count == 0) return;
+        var sb = new System.Text.StringBuilder();
+        for (var i = 0; i < traces.Count; i++)
+        {
+            var t = traces[i];
+            sb.Append(i + 1).Append(". ").AppendLine(t.Name);
+            sb.Append("   参数：").AppendLine(string.IsNullOrWhiteSpace(t.Arguments) ? "（无）" : t.Arguments);
+            sb.Append("   返回：").AppendLine(string.IsNullOrWhiteSpace(t.Result) ? "（无）" : t.Result);
+        }
+        Messages.Add(new ChatItem
+        {
+            Key = Guid.NewGuid().ToString("N")[..12],
+            IsUser = false,
+            IsToolCall = true,
+            ToolSummary = $"{traces.Count} 次工具调用 · 点开看详情",
+            ToolDetails = sb.ToString(),
+            DisplayText = ""
+        });
+    }
+
+    /// <summary>点工具气泡：展开/收起详细内容。</summary>
+    [RelayCommand]
+    private void ToggleToolDetails(ChatItem item)
+    {
+        if (item is null) return;
+        item.ToolExpanded = !item.ToolExpanded;
+    }
+
+    /// <summary>全屏对话：切换并持久化，页面顶部「返回」按钮随时能退出。</summary>
+    [RelayCommand]
+    private void ToggleFullScreen()
+    {
+        IsFullScreen = !IsFullScreen;
+        try
+        {
+            _settings.Apply(_settings.Current with { ChatFullScreen = IsFullScreen });
+            _ = _settings.Persist();
+        }
+        catch (Exception ex) { App.WriteLog("WeChatViewModel.ToggleFullScreen -> " + ex.Message); }
     }
 
     /// <summary>进入微信页时刷新：对方头像+名字 + 真微信/假微信状态。</summary>
@@ -286,6 +366,8 @@ public sealed partial class WeChatViewModel : ObservableObject
         var reply = await _chat.Send(charId, msg);
         _typingCts.Cancel();
         IsTyping = false;
+        // F22：本轮的工具调用先合成一条可展开气泡，再放她的回复
+        FlushToolTraces();
         // #12：剥离 [表情:名字] 标记再展示（表情以图片消息形式发出）
         var replyShown = StripStickerMarkers(reply, out var stickerNames);
         var aiKey = Guid.NewGuid().ToString("N")[..12];

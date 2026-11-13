@@ -725,6 +725,9 @@ public sealed class RuntimeConfigurator
             }
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.ThinkTierPersist -> " + ex.Message); }
         };
+        // F25：按「当前主对话模型」在模型库里勾的能力位决定对话页显示哪些控件；
+        // 手填模型名或旧档（库里没有）一律全开，不会突然少控件。
+        var caps = ModelCapabilities.Resolve(mainEndpoint.Model, s.AiProviders);
         _thinkTier.Configure(
             barVisible: s.ThinkBarEnabled,
             buttonsVisible: s.QuickButtonsEnabled,
@@ -732,7 +735,20 @@ public sealed class RuntimeConfigurator
             labels: s.ThinkTierLabels,
             activeTier: s.ActiveThinkTier,
             paramKey: s.ThinkParamKey,
-            paramValues: s.ThinkParamValues);
+            paramValues: s.ThinkParamValues,
+            caps: caps,
+            heat: s.AiTemperature);
+        // F23：对话页热度滑条即时改端点温度并持久化（不重走 Configure，避免重建会话）。
+        _thinkTier.HeatChangedCallback = heat =>
+        {
+            _chat.SetTemperature(heat);
+            try
+            {
+                _settings.Apply(_settings.Current with { AiTemperature = heat });
+                _ = _settings.Persist();
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.HeatPersist -> " + ex.Message); }
+        };
         // 小模型优先：不再因为 Minecraft 桥连着就整个禁用——桥连着时小模型照样先答，
         // 只是提示词里明确告诉它「要动游戏就升级」，由它自己判断（见 ChatEngine.RunTurnWithSmallAsync）。
         // 配了模型名才算启用；URL / 密钥留空则复用上面的对话端点。

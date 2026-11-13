@@ -103,7 +103,6 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("showcase-play", typeof(Views.ShowcasePlayPage));
         Routing.RegisterRoute("affection-level-up", typeof(Views.AffectionLevelUpPage));
         Routing.RegisterRoute("cg-view", typeof(Views.CgViewPage));
-        Routing.RegisterRoute("battle", typeof(Views.BattlePage));
         Routing.RegisterRoute("materials", typeof(Views.MaterialsPage));
         // 立绘标定：非 1080×1920 逻辑画布的素材从这里调试后再上场
         Routing.RegisterRoute("portraitCalibration", typeof(Views.PortraitCalibrationPage));

@@ -64,6 +64,10 @@
   <ItemGroup>
     <Compile Remove="android-sdk\**" />
     <Compile Remove="android-jdk\**" />
+    <!-- tools/ 下的独立控制台工程（rules_selftest 等）会在自己的 obj/ 里生成
+         AssemblyInfo.cs / GlobalUsings.g.cs；默认 Compile glob 会把它们收进主项目，
+         撞成 CS0579 特性重复。工具工程只应被自己编译，主项目整棵排除。 -->
+    <Compile Remove="tools\**" />
   </ItemGroup>
 
   <!-- 主题 XAML 嵌入为资源 -->

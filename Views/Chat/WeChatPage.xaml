@@ -19,8 +19,8 @@
       所有命令/绑定保持原样，只换皮。
     -->
     <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
-        <!-- 联系人列表层：白底浮在会话之上，点联系人进入单聊 -->
-        <Grid Grid.RowSpan="5" IsVisible="{Binding IsContactListVisible}"
+        <!-- 联系人列表层：白底浮在会话之上，点联系人进入单聊；全屏对话时让位 -->
+        <Grid Grid.RowSpan="5" IsVisible="{Binding ContactLayerVisible}"
               BackgroundColor="{StaticResource WcPageBg}" ZIndex="10">
             <Grid RowDefinitions="Auto,*" Padding="0">
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
@@ -120,11 +120,25 @@
                            FontSize="16" FontAttributes="Bold" />
                     <Label Text="{Binding ModeLabel}" TextColor="{StaticResource WcSub}" FontSize="11" />
                 </VerticalStackLayout>
-                <Border Grid.Column="3" BackgroundColor="{StaticResource WcAccentSoft}"
-                        StrokeThickness="0" Padding="10,4" VerticalOptions="Center">
-                    <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
-                    <Label Text="微信" FontSize="11" TextColor="{StaticResource WcAccent}" />
-                </Border>
+                <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                    <!-- F22：全屏对话按钮（进入/退出同一个键，随时可返回） -->
+                    <Button Text="全屏" Style="{StaticResource BtnText}" TextColor="{StaticResource WcAccent}"
+                            FontSize="12" Padding="8,4" CornerRadius="12"
+                            BackgroundColor="{StaticResource WcAccentSoft}"
+                            Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleFullScreenCommand}">
+                        <Button.Triggers>
+                            <DataTrigger TargetType="Button" Binding="{Binding IsFullScreen}" Value="True">
+                                <Setter Property="Text" Value="返回" />
+                            </DataTrigger>
+                        </Button.Triggers>
+                    </Button>
+                    <Border BackgroundColor="{StaticResource WcAccentSoft}"
+                            StrokeThickness="0" Padding="10,4" VerticalOptions="Center"
+                            IsVisible="{Binding IsFullScreen, Converter={StaticResource InverseBool}}">
+                        <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                        <Label Text="微信" FontSize="11" TextColor="{StaticResource WcAccent}" />
+                    </Border>
+                </HorizontalStackLayout>
             </Grid>
         </Border>
         <BoxView HeightRequest="1" Color="{StaticResource WcSep}" />
@@ -203,6 +217,30 @@
                                 </Grid>
                             </Border>
                         </HorizontalStackLayout>
+
+                        <!-- 工具调用卡片：居中、可点开看详情（F22，仅「显示工具调用」时入流） -->
+                        <Border IsVisible="{Binding IsToolVisible}"
+                                BackgroundColor="{StaticResource WcAccentSoft}"
+                                StrokeThickness="0" Padding="10,8"
+                                HorizontalOptions="Center" MaximumWidthRequest="320">
+                            <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
+                            <VerticalStackLayout Spacing="4" motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                    <Label Text="🛠" FontSize="13" VerticalOptions="Center" />
+                                    <Label Text="{Binding ToolSummary}" TextColor="{StaticResource WcAccent}"
+                                           FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
+                                    <Label Text="{Binding ToolExpanded, Converter={StaticResource BoolToAsterisk}}"
+                                           TextColor="{StaticResource WcAccent}" FontSize="11" VerticalOptions="Center" />
+                                </HorizontalStackLayout>
+                                <Label Text="{Binding ToolDetails}" TextColor="{StaticResource WcTheirsInk}"
+                                       FontSize="11" LineBreakMode="WordWrap" IsVisible="{Binding IsToolDetailVisible}" />
+                                <HorizontalStackLayout.GestureRecognizers>
+                                    <TapGestureRecognizer
+                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleToolDetailsCommand}"
+                                        CommandParameter="{Binding .}" />
+                                </HorizontalStackLayout.GestureRecognizers>
+                            </VerticalStackLayout>
+                        </Border>
                     </Grid>
                 </DataTemplate>
             </CollectionView.ItemTemplate>

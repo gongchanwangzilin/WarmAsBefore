@@ -51,7 +51,12 @@ public partial class AiModelsPage : ContentPage
                         ContextWindow = m.ContextWindow > 0 ? m.ContextWindow.ToString() : "",
                         SupportsVision = m.SupportsVision,
                         SupportsTools = m.SupportsTools,
-                        SupportsJson = m.SupportsJson
+                        SupportsJson = m.SupportsJson,
+                        // F25：模型内部的对话控件能力位，重开页面要能读回来
+                        ShowHeatSlider = m.ShowHeatSlider,
+                        ShowThinkTierBar = m.ShowThinkTierBar,
+                        ShowThinkToggle = m.ShowThinkToggle,
+                        ShowQuickButtons = m.ShowQuickButtons
                     });
                 row.RefreshSummary();
                 Providers.Add(row);

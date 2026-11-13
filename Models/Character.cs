@@ -25,6 +25,10 @@ public sealed record CharacterProfile
     public string Greeting { get; init; } = string.Empty;
     public string UserAddress { get; init; } = "主人";
     public string Description { get; init; } = string.Empty;
+    /// <summary>F31 选填：角色的道德观（什么该做、什么绝不越线）。留空 = 不进提示词，由性格自然带出。</summary>
+    public string MoralOutlook { get; init; } = string.Empty;
+    /// <summary>F31 选填：角色的人生观（觉得什么值得、怎么看待聚散与日子）。留空 = 不进提示词。</summary>
+    public string LifeOutlook { get; init; } = string.Empty;
     public bool IsRomanceTarget { get; init; } = true;
     public string DefaultOutfit { get; init; } = "default";
 }

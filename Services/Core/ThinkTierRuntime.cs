@@ -37,6 +37,21 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     /// <summary>每档对应的参数值（逗号分隔，共 TierCount 个），按 (档位-1) 取用。</summary>
     [ObservableProperty] private string _paramValues = "low,medium,high";
 
+    /// <summary>F23：WAB 内部的实时热度值（0~1）。滑条改动即刻影响下一轮请求。</summary>
+    [ObservableProperty] private double _heat = 0.8;
+
+    /// <summary>F25：按当前模型能力位决定这四个控件在对话页是否出现。</summary>
+    [ObservableProperty] private bool _showHeatSlider = true;
+    [ObservableProperty] private bool _showThinkToggle = true;
+
+    /// <summary>F23：热度滑条改动回传宿主（写设置 + 即时改端点温度）。
+    /// 名字避开 CommunityToolkit 为 Heat 自动生成的 OnHeatChanged 钩子。</summary>
+    public Action<double>? HeatChangedCallback { get; set; }
+
+    /// <summary>热度值变化时即时生效；值由 XAML 滑条限定在 0~1，这里再钳一次防异常。</summary>
+    partial void OnHeatChanged(double value)
+        => HeatChangedCallback?.Invoke(Math.Clamp(double.IsNaN(value) ? 0.8 : value, 0, 1));
+
     /// <summary>按钮列表：第 0 项永远为「关闭」，其后依次为各档标签；IsActive 随 ActiveTier 变化。</summary>
     public ObservableCollection<ThinkTierItem> TierItems { get; } = new();
 
@@ -52,16 +67,52 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     /// 由 RuntimeConfigurator.Apply() 在每次设置生效时调用：把「设置页配置」灌进运行时状态。
     /// 这里只更新状态，不触发 <see cref="OnTierSelected"/>（那代表用户在对话里主动切档，而非配置加载）。
     /// </summary>
+    /// <summary>
+    /// caps 为当前模型的能力位（F25）。总开关与模型能力位取「与」：
+    /// 用户全局关了、或这款模型没这个能力，对应控件都不显示。
+    /// heat 为当前热度设置值；传入时不触发回传（那代表配置加载，不是用户拖动）。
+    /// </summary>
     public void Configure(bool barVisible, bool buttonsVisible, int tierCount, string labels,
-        int activeTier, string paramKey, string paramValues)
+        int activeTier, string paramKey, string paramValues,
+        ModelCapabilitySet? caps = null, double? heat = null)
     {
+        var c = caps ?? ModelCapabilitySet.All;
         TierCount = Math.Clamp(tierCount, 1, 5);
         ParamKey = string.IsNullOrWhiteSpace(paramKey) ? "reasoning_effort" : paramKey;
         ParamValues = string.IsNullOrWhiteSpace(paramValues) ? "low,medium,high" : paramValues;
-        IsBarVisible = barVisible;
-        IsButtonsVisible = buttonsVisible;
+        IsBarVisible = barVisible && c.ThinkTierBar;
+        IsButtonsVisible = buttonsVisible && c.QuickButtons;
+        ShowHeatSlider = c.HeatSlider;
+        ShowThinkToggle = c.ThinkToggle;
+        if (heat is { } h && Math.Abs(Heat - h) > 0.0001)
+        {
+            // 配置加载不该反过来写设置：临时摘掉回调再赋值。
+            var cb = HeatChangedCallback;
+            HeatChangedCallback = null;
+            Heat = Math.Clamp(h, 0, 1);
+            HeatChangedCallback = cb;
+        }
         RebuildItems(labels);
         ActiveTier = Math.Clamp(activeTier, 0, TierCount);
+        OnPropertyChanged(nameof(IsThinkOn));
+    }
+
+    /// <summary>F25：思考开关按钮 —— 关就回 0 档，开就回到上次非 0 档（默认 1 档）。</summary>
+    public IRelayCommand ToggleThinkCommand => _toggleThink ??= new RelayCommand(ToggleThink);
+    private IRelayCommand? _toggleThink;
+    private int _lastNonZeroTier = 1;
+
+    public bool IsThinkOn => ActiveTier > 0;
+
+    private void ToggleThink()
+    {
+        if (ActiveTier > 0)
+        {
+            _lastNonZeroTier = ActiveTier;
+            SetTier(0);
+        }
+        else SetTier(Math.Clamp(_lastNonZeroTier, 1, TierCount));
+        OnPropertyChanged(nameof(IsThinkOn));
     }
 
     private void RebuildItems(string labels)
@@ -93,6 +144,7 @@ public sealed partial class ThinkTierRuntime : ObservableObject
         var clamped = Math.Clamp(tier, 0, TierCount);
         if (clamped == ActiveTier) return;
         ActiveTier = clamped;
+        OnPropertyChanged(nameof(IsThinkOn));
         OnTierSelected?.Invoke(clamped);
     }
 

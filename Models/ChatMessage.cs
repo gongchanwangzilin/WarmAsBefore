@@ -20,10 +20,30 @@ public sealed partial class ChatItem : ObservableObject
     public bool HasImage => ImageSource is not null;
     public bool IsVideo => !string.IsNullOrEmpty(VideoPath);
     public bool IsFile => !HasImage && !IsVideo && !string.IsNullOrEmpty(FileName);
-    public bool IsText => !HasImage && !IsVideo && !IsFile;
+
+    /// <summary>F22：这是一条「工具调用」气泡（不是普通文字消息）。</summary>
+    [ObservableProperty] private bool _isToolCall;
+    /// <summary>工具调用摘要（如「3 次工具调用」），折叠时显示。</summary>
+    [ObservableProperty] private string _toolSummary = "";
+    /// <summary>展开后的详细内容：每次调用的工具名 / 参数 / 返回结果。</summary>
+    [ObservableProperty] private string _toolDetails = "";
+    /// <summary>是否已展开详情。</summary>
+    [ObservableProperty] private bool _toolExpanded;
+
+    public bool IsToolVisible => IsToolCall;
+    public bool IsToolDetailVisible => IsToolCall && ToolExpanded;
+
+    public bool IsText => !HasImage && !IsVideo && !IsFile && !IsToolCall;
     public string Sender => IsUser ? "我" : (string.IsNullOrEmpty(SenderName) ? "小雨" : SenderName);
 
     partial void OnImageSourceChanged(ImageSource? value) => OnPropertyChanged(nameof(HasImage));
     partial void OnFileNameChanged(string value) => OnPropertyChanged(nameof(IsFile));
     partial void OnDisplayTextChanged(string value) => OnPropertyChanged(nameof(IsText));
+    partial void OnIsToolCallChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsToolVisible));
+        OnPropertyChanged(nameof(IsToolDetailVisible));
+        OnPropertyChanged(nameof(IsText));
+    }
+    partial void OnToolExpandedChanged(bool value) => OnPropertyChanged(nameof(IsToolDetailVisible));
 }

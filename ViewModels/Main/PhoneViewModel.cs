@@ -23,8 +23,6 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
     [ObservableProperty] private string _statusTime = "";
     [ObservableProperty] private string _weChatLabel = "微信";
     [ObservableProperty] private string _statusLine = "温暖如初 · 手机";
-    /// <summary>战斗系统在设置里开着时，手机桌面才给「战斗」入口——入口不该比功能多。</summary>
-    [ObservableProperty] private bool _showBattle;
     /// <summary>这扇手机是不是自己一扇独立窗（独立窗的「返回」= 关窗，不是翻主窗口的栈）。</summary>
     [ObservableProperty] private bool _inWindow;
 
@@ -56,7 +54,6 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
         WeChatLabel = real ? "微信 · 真" : "微信 · 本地";
         var s = _bridge.Status;
         StatusLine = s is null or "未开启" ? "温暖如初 · 手机" : $"温暖如初 · {s}";
-        ShowBattle = _settings.Current.BattleEnabled;
     }
 
     [RelayCommand]
@@ -104,9 +101,6 @@ public sealed partial class PhoneViewModel : ObservableObject, IQueryAttributabl
     /// <summary>换装：给当前角色挑一套立绘/服饰。</summary>
     [RelayCommand]
     private async Task OpenOutfit() => await SafeNav("outfit");
-
-    [RelayCommand]
-    private async Task OpenBattle() => await SafeNav("battle");
 
     [RelayCommand]
     private async Task OpenGame(string? kind)

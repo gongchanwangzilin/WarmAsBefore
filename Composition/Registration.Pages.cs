@@ -49,7 +49,6 @@ public static class PageRegistration
         services.AddTransient<ShowcasePlayPage>();
         services.AddTransient<AffectionLevelUpPage>();
         services.AddTransient<CgViewPage>();
-        services.AddTransient<BattlePage>();
         services.AddTransient<MaterialsPage>();
         services.AddTransient<PortraitCalibrationPage>();
         services.AddTransient<SubProfilePage>();

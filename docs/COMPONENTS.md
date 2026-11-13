@@ -55,7 +55,6 @@
 | `Models/PortraitCalibration.cs` | `PortraitCanvas`、`PortraitCalibration`、`PortraitCalibrationMath` | 立绘 1080×1920 逻辑画布与标定数学 |
 | `Models/ShopItem.cs` | `ShopItem`、`GameRecord`、`CharacterBuff` | 商品、游戏记录、Buff |
 | `Models/Showcase.cs` | `ShowcaseScript`、`ShowcaseStep`、`ShowcaseSprite` | 展示案脚本与步骤 |
-| `Models/Battle.cs` | `BattleState`、`BattleCharacter`、`SkillData`、`BattleLogEntry` | 战斗页数据 |
 | `Models/BoardCell.cs` | `BoardCell` | 棋盘格 |
 | `Models/EmotionMix.cs` | `EmotionMix`、`EmotionPart`、`EmotionWords` | 情绪混合与表情词 |
 | `Models/HumanMemory.cs` 等 | 见上 | — |
@@ -222,19 +221,6 @@
 |---|---|
 | `TaskOrchestrator` | 周期任务编排：启动/停止后台循环 |
 | `DailyDiaryWriter` | 每日日记：启动补写、每分钟检查跨天、汇总对话与好感时刻 |
-
-### Battle
-
-| 组件 | 职责 |
-|---|---|
-| `BattleData` / `BattleState` | 战斗页数据模型 |
-| `IBattleDriver` / `BattleBootData` | 可替换战斗驱动契约；每次响应必须带 `ended` |
-| `BattleDriverManager` | 外部驱动优先（`battles/*/battle.json`），内置兜底 |
-| `BuiltinBattleDriver` | 进程内回合制；带立绘、技能、好感联动 |
-| `ExternalBattleDriver` | Python/Java 子进程，stdin/stdout JSON-RPC 2.0 |
-| `BattleStateParser` | 把驱动 JSON 解析成 UI 模型；缺 `ended` 视为结束 |
-| `BattleSystem` | 系统级极简战斗，供工具/MCP 调用；重启即丢 |
-| `BattleTools` | 把战斗能力注册为内置工具 |
 
 ### Cg
 
@@ -471,7 +457,6 @@
 |---|---|
 | `GameViewModel` | 六种小游戏：棋盘、走子、AI、技能/难度、聊天气泡 |
 | `MapCanvasViewModel` | 地图画布：无限画布、浏览/编辑/连线、折点与备注 |
-| `BattleViewModel` | 战斗页：驱动状态、技能、日志、90 秒看门狗 |
 | `AffectionLevelUpViewModel` | 好感升级动画 |
 | `CgViewViewModel` | 全屏 CG 播放 |
 
@@ -569,7 +554,6 @@
 | `MapCreatePage` | AI 建图：检索 → 定范围 → 预览 → 导入 → 补背景；高德 Key 与红绿灯判灯开关 |
 | `FlowEditorPage` | 流程图列表编辑器：人话读规则，向导改触发/条件/动作，可试跑/启停/删 |
 | `Minimal3DPage` | 3D 灰度视图 |
-| `BattlePage` | 战斗 |
 | `AffectionLevelUpPage` | 升级动画 |
 | `CgViewPage` | CG 全屏 |
 | `PetPage` | Windows 头顶小窗 / Android 全屏问答 |
@@ -628,7 +612,6 @@
 | `Converters.cs` | `BoolOpacity`、`InverseBool`、`IsNotNull`、`AffectionTint`、`CharInitials`、`YesNoLabel`、`BoolGreenRed`、`SelectedBg` |
 | `StringConverters.cs` | `StringNotEmptyConverter`、`StringEmptyConverter` |
 | `SpritePathToImageSourceConverter.cs` | 立绘路径 → `ImageSource`；`InvertedBoolConverter`、`ZeroToFalseConverter` |
-| `BattleConverters.cs` | `HpColorConverter`、`SkillTypeColorConverter`、`CriticalColorConverter` |
 
 ### Drawables
 

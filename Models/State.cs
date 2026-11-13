@@ -232,6 +232,15 @@ public sealed record AiProviderModel
     /// <summary>能不能稳定输出 JSON（结构化任务用）。</summary>
     public bool SupportsJson { get; init; }
 
+    /// <summary>F25：这款模型是否显示「热度调节条」。默认开；旧档缺字段自动为 true 由默认值兜底。</summary>
+    public bool ShowHeatSlider { get; init; } = true;
+    /// <summary>F25：是否显示思考等级条。</summary>
+    public bool ShowThinkTierBar { get; init; } = true;
+    /// <summary>F25：是否显示思考开关按钮。</summary>
+    public bool ShowThinkToggle { get; init; } = true;
+    /// <summary>F25：是否显示快速按钮组。</summary>
+    public bool ShowQuickButtons { get; init; } = true;
+
     public string DisplayName => string.IsNullOrWhiteSpace(Label) ? Model : Label;
 
     /// <summary>一行能力摘要，卡片上直接显示。</summary>
@@ -347,6 +356,10 @@ public sealed record UserSettings
     public bool ThinkBarEnabled { get; init; }
     /// <summary>第十四项：快速按钮开关 —— 是否在输入条上方显示切换思考档位的按钮组。</summary>
     public bool QuickButtonsEnabled { get; init; }
+    /// <summary>F22：在对话里显示工具调用气泡（可展开看参数与返回结果）。默认关，勾选才显示。</summary>
+    public bool ShowToolCalls { get; init; }
+    /// <summary>F22：对话信息全屏（隐藏联系人栏与侧栏），页面上另有返回按钮。默认关。</summary>
+    public bool ChatFullScreen { get; init; }
     /// <summary>第十四项：思考档位数（不含「关闭」档）。用户自定为模型配置几档推理强度，钳到 1~5。</summary>
     public int ThinkTierCount { get; init; } = 3;
     /// <summary>第十四项：每档标签（逗号分隔，共 ThinkTierCount 个，不含关闭档）。例如「轻度,标准,深度」。</summary>
@@ -751,14 +764,6 @@ public sealed record UserSettings
 
     /// <summary>免责声明已确认（首次启动标题页弹层「知道了」后写 true；不再重复弹）。</summary>
     public bool DisclaimerAcknowledged { get; init; }
-
-    // ===== 战斗系统 =====
-
-    /// <summary>战斗系统总开关：关闭时 AI 不得发起战斗，battle_* 工具从可用列表剔除，战斗入口隐藏。</summary>
-    public bool BattleEnabled { get; init; } = true;
-
-    /// <summary>是否允许 AI 主动发起战斗（关闭时只有用户手动点进战斗页才能开战）。</summary>
-    public bool BattleAiCanStart { get; init; } = true;
 
     // ===== 天气事件（打雷 / 下雨） =====
 

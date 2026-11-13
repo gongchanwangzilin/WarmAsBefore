@@ -149,6 +149,11 @@ public sealed partial class AiModelRow : ObservableObject
     [ObservableProperty] private bool _supportsVision;
     [ObservableProperty] private bool _supportsTools = true;
     [ObservableProperty] private bool _supportsJson;
+    /// <summary>F25：这款模型在对话页显示哪些控件（模型内部设置）。</summary>
+    [ObservableProperty] private bool _showHeatSlider = true;
+    [ObservableProperty] private bool _showThinkTierBar = true;
+    [ObservableProperty] private bool _showThinkToggle = true;
+    [ObservableProperty] private bool _showQuickButtons = true;
 
     public string DisplayName => string.IsNullOrWhiteSpace(Label) ? (string.IsNullOrWhiteSpace(Model) ? "（未填模型）" : Model) : Label;
     partial void OnModelChanged(string value) { OnPropertyChanged(nameof(DisplayName)); OnPropertyChanged(nameof(CapabilityText)); }
@@ -157,6 +162,10 @@ public sealed partial class AiModelRow : ObservableObject
     partial void OnSupportsVisionChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
     partial void OnSupportsToolsChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
     partial void OnSupportsJsonChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnShowHeatSliderChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnShowThinkTierBarChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnShowThinkToggleChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
+    partial void OnShowQuickButtonsChanged(bool value) => OnPropertyChanged(nameof(CapabilityText));
 
     /// <summary>小字：3.2K 上下文 · 识图 · 工具。</summary>
     public string CapabilityText
@@ -168,6 +177,10 @@ public sealed partial class AiModelRow : ObservableObject
             if (SupportsVision) parts.Add("识图");
             if (SupportsTools) parts.Add("工具");
             if (SupportsJson) parts.Add("JSON");
+            if (ShowHeatSlider) parts.Add("热度条");
+            if (ShowThinkTierBar) parts.Add("思考条");
+            if (ShowThinkToggle) parts.Add("思考开关");
+            if (ShowQuickButtons) parts.Add("快速钮");
             return parts.Count == 0 ? "未标注能力" : string.Join(" · ", parts);
         }
     }
@@ -183,6 +196,10 @@ public sealed partial class AiModelRow : ObservableObject
         ContextWindow = ParseWindow(),
         SupportsVision = SupportsVision,
         SupportsTools = SupportsTools,
-        SupportsJson = SupportsJson
+        SupportsJson = SupportsJson,
+        ShowHeatSlider = ShowHeatSlider,
+        ShowThinkTierBar = ShowThinkTierBar,
+        ShowThinkToggle = ShowThinkToggle,
+        ShowQuickButtons = ShowQuickButtons
     };
 }

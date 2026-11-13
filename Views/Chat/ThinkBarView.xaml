@@ -6,6 +6,18 @@
              x:Name="ThinkBar"
              Padding="0,2,0,2">
     <VerticalStackLayout Spacing="4">
+        <!-- F23/F25：WAB 内部的实时热度条 + 思考开关，按当前模型能力位显示 -->
+        <Grid IsVisible="{Binding ShowHeatSlider}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+              VerticalOptions="Center">
+            <Label Grid.Column="0" Text="热度" TextColor="{StaticResource WcFaint}" FontSize="11"
+                   VerticalOptions="Center" />
+            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Heat}"
+                    MinimumTrackColor="{StaticResource WcAccent}" HeightRequest="24"
+                    VerticalOptions="Center" />
+            <Label Grid.Column="2" Text="{Binding Heat, StringFormat='{0:F2}'}"
+                   TextColor="{StaticResource WcFaint}" FontSize="11" VerticalOptions="Center" />
+        </Grid>
+
         <!-- 思考条：显示当前档位 + 思考中进度（仅开关打开时可见） -->
         <Grid IsVisible="{Binding IsBarVisible}"
               ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" VerticalOptions="Center">
@@ -17,6 +29,19 @@
             <Label Grid.Column="2" Text="{Binding CurrentTierLabel, StringFormat='档位：{0}'}"
                    TextColor="{StaticResource WcFaint}" FontSize="11" VerticalOptions="Center" />
         </Grid>
+
+        <!-- F25：思考开关按钮（按模型能力位显示），关→0 档，开→回到上次档位 -->
+        <Button Text="思考：开" IsVisible="{Binding ShowThinkToggle}"
+                HorizontalOptions="Start" FontSize="11" HeightRequest="28" Padding="12,0"
+                CornerRadius="12" BackgroundColor="{StaticResource WcInputBg}"
+                TextColor="{StaticResource WcSub}"
+                Command="{Binding ToggleThinkCommand}">
+            <Button.Triggers>
+                <DataTrigger TargetType="Button" Binding="{Binding IsThinkOn}" Value="False">
+                    <Setter Property="Text" Value="思考：关" />
+                </DataTrigger>
+            </Button.Triggers>
+        </Button>
 
         <!-- 快速按钮：切换思考档位（仅开关打开时可见） -->
         <ScrollView IsVisible="{Binding IsButtonsVisible}" Orientation="Horizontal"

@@ -443,32 +443,6 @@
                                                     </VerticalStackLayout.GestureRecognizers>
                                                 </VerticalStackLayout>
 
-                                                <!-- 战斗在设置里关掉时，入口跟着一起消失 -->
-                                                <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center"
-                                                                     IsVisible="{Binding ShowBattle}"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
-                                                    <Border WidthRequest="58" HeightRequest="58" Padding="0"
-                                                            StrokeThickness="1" Stroke="#33FFFFFF">
-                                                        <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
-                                                        <Border.Background>
-                                                            <LinearGradientBrush StartPoint="0,0" EndPoint="0.55,1">
-                                                                <GradientStop Color="#FF53647C" Offset="0" />
-                                                                <GradientStop Color="#FF2D3A4C" Offset="1" />
-                                                            </LinearGradientBrush>
-                                                        </Border.Background>
-                                                        <Grid>
-                                                            <BoxView Color="#26FFFFFF" CornerRadius="14,14,8,8" HeightRequest="24"
-                                                                     Margin="5,4,5,0" VerticalOptions="Start" InputTransparent="True" />
-                                                            <Label Text="战斗" TextColor="White" FontSize="12" FontAttributes="Bold"
-                                                                   HorizontalOptions="Center" VerticalOptions="Center" />
-                                                        </Grid>
-                                                    </Border>
-                                                    <Label Text="回合制" FontSize="9.5" LineBreakMode="NoWrap"
-                                                           TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
-                                                    <VerticalStackLayout.GestureRecognizers>
-                                                        <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenBattleCommand}" />
-                                                    </VerticalStackLayout.GestureRecognizers>
-                                                </VerticalStackLayout>
                                             </Grid>
 
                                             <Label Text="小游戏" Style="{StaticResource TxtSection}" CharacterSpacing="1" />

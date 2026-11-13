@@ -99,8 +99,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _novelTesting = s.NovelTestingEnabled;
         _showAffection = s.ShowAllAffection;
         _affectionLevelUp = s.AffectionLevelUpEnabled;
-        _battleEnabled = s.BattleEnabled;
-        _battleAiCanStart = s.BattleAiCanStart;
         _lightningEnabled = s.LightningEnabled;
         _lightningProbability = s.LightningProbability.ToString("0.###");
         _rainEventEnabled = s.RainEventEnabled;
@@ -137,6 +135,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _physiologyEnabled = s.PhysiologyEnabled;
         _innerLifeEnabled = s.InnerLifeEnabled;
         _concretizationEnabled = s.ConcretizationEnabled;
+        _showToolCalls = s.ShowToolCalls;
+        _chatFullScreen = s.ChatFullScreen;
         _brainEnabled = s.BrainEnabled;
         _brainExpectationEnabled = s.BrainExpectationEnabled;
         _brainSurpriseEnabled = s.BrainSurpriseEnabled;
@@ -1177,9 +1177,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _novelTesting;
     [ObservableProperty] private bool _showAffection;
     [ObservableProperty] private bool _affectionLevelUp = true;
-    // 战斗系统开关：关闭后 AI 不能开战、battle_* 工具被剔除
-    [ObservableProperty] private bool _battleEnabled = true;
-    [ObservableProperty] private bool _battleAiCanStart = true;
     // 天气事件（打雷/下雨）：开关 + 概率 + 音效/帧图
     [ObservableProperty] private bool _lightningEnabled = true;
     /// <summary>打雷概率（0-1）：用字符串承接 Entry.Text，落盘时再解析。</summary>
@@ -1234,6 +1231,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _physiologyEnabled = true;
     [ObservableProperty] private bool _innerLifeEnabled = true;
     [ObservableProperty] private bool _concretizationEnabled = true;
+    /// <summary>F22：对话里显示工具调用气泡（可展开）。</summary>
+    [ObservableProperty] private bool _showToolCalls;
+    /// <summary>F22：对话信息全屏。</summary>
+    [ObservableProperty] private bool _chatFullScreen;
     // 大脑预判：期待差 + 意料之外两层，默认本地跑；可选配一枚免费小模型每 N 轮补一次预判
     [ObservableProperty] private bool _brainEnabled = true;
     [ObservableProperty] private bool _brainExpectationEnabled = true;
@@ -2633,8 +2634,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
     partial void OnShowAffectionChanged(bool value) => PersistSettings();
     partial void OnAffectionLevelUpChanged(bool value) => PersistSettings();
-    partial void OnBattleEnabledChanged(bool value) => PersistSettings();
-    partial void OnBattleAiCanStartChanged(bool value) => PersistSettings();
     partial void OnLightningEnabledChanged(bool value) => PersistSettings();
     partial void OnLightningProbabilityChanged(string value) => PersistSettings();
     partial void OnRainEventEnabledChanged(bool value) => PersistSettings();
@@ -2677,6 +2676,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnPhysiologyEnabledChanged(bool value) => PersistSettings();
     partial void OnInnerLifeEnabledChanged(bool value) => PersistSettings();
     partial void OnConcretizationEnabledChanged(bool value) => PersistSettings();
+    partial void OnShowToolCallsChanged(bool value) => PersistSettings();
+    partial void OnChatFullScreenChanged(bool value) => PersistSettings();
     partial void OnBrainEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainExpectationEnabledChanged(bool value) => PersistSettings();
     partial void OnBrainSurpriseEnabledChanged(bool value) => PersistSettings();
@@ -3047,8 +3048,6 @@ public sealed partial class SettingsViewModel : ObservableObject
                 NovelTestingEnabled = NovelTesting,
                 ShowAllAffection = ShowAffection,
                 AffectionLevelUpEnabled = AffectionLevelUp,
-                BattleEnabled = BattleEnabled,
-                BattleAiCanStart = BattleAiCanStart,
                 LightningEnabled = LightningEnabled,
                 LightningProbability = ParseProb(LightningProbability, 0.06),
                 RainEventEnabled = RainEventEnabled,
@@ -3076,6 +3075,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 PhysiologyEnabled = PhysiologyEnabled,
                 InnerLifeEnabled = InnerLifeEnabled,
                 ConcretizationEnabled = ConcretizationEnabled,
+                ShowToolCalls = ShowToolCalls,
+                ChatFullScreen = ChatFullScreen,
                 BrainEnabled = BrainEnabled,
                 BrainExpectationEnabled = BrainExpectationEnabled,
                 BrainSurpriseEnabled = BrainSurpriseEnabled,
