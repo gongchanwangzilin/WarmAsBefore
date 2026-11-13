@@ -1,8 +1,8 @@
 {
   "catalogVersion": "wab-next-1",
-  "source": "01-PRD.md §5.1（配置项总表；移除岩浆船实验项后 124 行）",
+  "source": "01-PRD.md §5.1（配置项总表；移除岩浆船实验项、追加投喂讨摸概率后 125 行）",
   "note": "唯一允许声明键名与默认值的地方；保守覆盖规则见 02-DESIGN.md §3.4，本文件不另造默认值。",
-  "rowCount": 124,
+  "rowCount": 125,
   "rows": [
     {
       "no": 1,
@@ -2278,6 +2278,25 @@
         "plugin"
       ],
       "note": "固定 settings；因无高级任务机制，三条线为设置而非任务管理。选项保留 tasks 仅作未来扩展"
+    },
+    {
+      "no": 127,
+      "group": "十八",
+      "name": "8. 投喂后讨摸概率",
+      "key": "headpat_on_feed_probability",
+      "type": "number",
+      "default": "0",
+      "defaultValue": 0,
+      "scope": "模组",
+      "aiTag": "纯代码",
+      "conflict": false,
+      "conflictTarget": "",
+      "promptText": "",
+      "visibleIn": [
+        "plugin",
+        "cloth"
+      ],
+      "note": "0 = 关闭（投喂后不讨摸）；>0 才有概率发起，与「干完活 / 击杀」共用冷却与窗口。⚠ 战斗中或未掉血时一律不请求，见 WabRules.headpatContextAllowed"
     }
   ]
 }

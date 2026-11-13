@@ -42,7 +42,7 @@ BASELINE_DEFAULTS = {
 # 用户点名要保守的功能（默认关闭）。
 WORLD_RISK_PREFIXES = (
     "item_drop", "item_equip", "item_pickup", "container_write", "farming",
-    "mlg_water", "suffocation", "lava_boat", "comfort_seek", "sneak_eat",
+    "mlg_water", "suffocation", "comfort_seek", "sneak_eat",
     "headpat", "autonomy", "chat_round", "chat_invisible", "plan_execution",
     "small_model_compat", "chess_cry", "catchphrase_ai", "love_words_ai",
     "ai_heat", "workbuddy_", "think_mode",
