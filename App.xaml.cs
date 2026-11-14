@@ -89,76 +89,143 @@ public partial class App : Application
     /// <summary>
     /// Windows 桌面拖放导入：把 zip / .wbsave / 存档 json 直接拖进窗口任意位置，
     /// 自动识别包类型并交给 SmartImporter 路由加载，结果以 Toast 反馈（识别不出会说明原因）。
+    /// 为保证「窗口任意位置都能拖入」：整棵可视树都设为放置目标并挂同一套处理，
+    /// 且在内容就绪前 / 页面导航后补挂，避免静默漏挂导致整窗显示禁止拖入。
     /// </summary>
 #if WINDOWS
+    private static readonly HashSet<object> _dropHooked = new();
+    private static bool _dropRetryPending;
+
     private static void HookZipDrop(Microsoft.UI.Xaml.Window xw)
     {
         try
         {
-            if (xw.Content is not Microsoft.UI.Xaml.FrameworkElement root) return;
-            root.AllowDrop = true;
-            root.DragOver += (_, e) =>
+            if (xw.Content is not Microsoft.UI.Xaml.FrameworkElement root)
             {
-                try
+                // 主窗口内容尚未就绪（例如 HandlerChanged 早于 Content 赋值）：等首次激活再挂一次，
+                // 否则静默 return 会让整窗没有任何放置目标，鼠标全程显示禁止符号。
+                if (!_dropRetryPending)
                 {
-                    if (e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-                        e.AcceptedOperation = global::Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
-                }
-                catch (Exception ex) { WriteLog("ZipDrop.DragOver -> " + ex.Message); }
-            };
-            root.Drop += async (_, e) =>
-            {
-                var deferral = e.GetDeferral();
-                try
-                {
-                    if (!e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-                        return;
-                    var items = await e.DataView.GetStorageItemsAsync();
-                    var paths = items.OfType<global::Windows.Storage.StorageFile>()
-                        .Select(f => f.Path)
-                        .Where(p => p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                                    || p.EndsWith(".wbsave", StringComparison.OrdinalIgnoreCase)
-                                    || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                        .ToList();
-                    if (paths.Count == 0)
+                    _dropRetryPending = true;
+                    void OnActivated(object? s, Microsoft.UI.Xaml.WindowActivatedEventArgs? e)
                     {
-                        MainThread.BeginInvokeOnMainThread(() =>
-                            Controls.Toast.Warn("拖进来的文件不是可导入的包（支持 zip / .wbsave / 存档 json）。"));
-                        return;
+                        xw.Activated -= OnActivated;
+                        _dropRetryPending = false;
+                        HookZipDrop(xw);
                     }
-
-                    var services = Application.Current?.Handler?.MauiContext?.Services;
-                    var smart = services?.GetService(typeof(Modules.DataPack.SmartImporter))
-                        as Modules.DataPack.SmartImporter;
-                    if (smart is null) return;
-
-                    _ = Task.Run(async () =>
-                    {
-                        foreach (var p in paths)
-                        {
-                            var result = await smart.ImportAsync(p);
-                            App.WriteLog($"ZipDrop({result.KindName}) {Path.GetFileName(p)} -> {result.Message}");
-                            MainThread.BeginInvokeOnMainThread(() =>
-                            {
-                                if (result.Ok) Controls.Toast.Success($"【{result.KindName}】{result.Message}");
-                                else Controls.Toast.Error(result.Message);
-                            });
-                        }
-                    });
+                    xw.Activated += OnActivated;
                 }
-                catch (Exception ex)
-                {
-                    WriteLog("ZipDrop -> " + ex);
-                }
-                finally
-                {
-                    deferral.Complete();
-                }
-            };
+                return;
+            }
+            AttachDrop(root);
         }
         catch (Exception ex)
         {
             WriteLog("HookZipDrop: " + ex.Message);
+        }
+    }
+
+    private static void AttachDrop(Microsoft.UI.Xaml.FrameworkElement root)
+    {
+        try
+        {
+            // 整棵可视树都设为放置目标 + 挂同一套处理，保证窗口任意位置都能拖入。
+            EnableDropOnSubtree(root);
+            root.Loaded += (_, _) => EnableDropOnSubtree(root);
+            // 页面导航后新子树也要补挂（祖先已有处理，这里主要覆盖新页控件）。
+            try
+            {
+                if (Microsoft.Maui.Controls.Shell.Current is { } sh)
+                    sh.Navigated += (_, _) => EnableDropOnSubtree(root);
+            }
+            catch (Exception ex) { WriteLog("HookZipDrop.ShellNav -> " + ex.Message); }
+        }
+        catch (Exception ex) { WriteLog("AttachDrop: " + ex.Message); }
+    }
+
+    /// <summary>递归把整棵可视树设为放置目标并挂上拖入处理（处理只挂一次，但 AllowDrop 每次都补开）。</summary>
+    private static void EnableDropOnSubtree(Microsoft.UI.Xaml.DependencyObject node)
+    {
+        try
+        {
+            if (node is Microsoft.UI.Xaml.FrameworkElement fe)
+            {
+                if (_dropHooked.Add(fe))
+                {
+                    fe.AllowDrop = true;
+                    fe.DragOver += RootDragOver;
+                    fe.Drop += RootDrop;
+                }
+                else
+                {
+                    fe.AllowDrop = true;
+                }
+            }
+            var n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node);
+            for (var i = 0; i < n; i++)
+                EnableDropOnSubtree(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, i));
+        }
+        catch (Exception ex) { WriteLog("EnableDropOnSubtree: " + ex.Message); }
+    }
+
+    private static void RootDragOver(object? _, Microsoft.UI.Xaml.DragEventArgs e)
+    {
+        try
+        {
+            if (e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                e.AcceptedOperation = global::Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+        }
+        catch (Exception ex) { WriteLog("ZipDrop.DragOver -> " + ex.Message); }
+    }
+
+    private static async void RootDrop(object? _, Microsoft.UI.Xaml.DragEventArgs e)
+    {
+        var deferral = e.GetDeferral();
+        try
+        {
+            if (!e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
+                return;
+            e.Handled = true;
+            var items = await e.DataView.GetStorageItemsAsync();
+            var paths = items.OfType<global::Windows.Storage.StorageFile>()
+                .Select(f => f.Path)
+                .Where(p => p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                            || p.EndsWith(".wbsave", StringComparison.OrdinalIgnoreCase)
+                            || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                .ToList();
+            if (paths.Count == 0)
+            {
+                MainThread.BeginInvokeOnMainThread(() =>
+                    Controls.Toast.Warn("拖进来的文件不是可导入的包（支持 zip / .wbsave / 存档 json）。"));
+                return;
+            }
+
+            var services = Application.Current?.Handler?.MauiContext?.Services;
+            var smart = services?.GetService(typeof(Modules.DataPack.SmartImporter))
+                as Modules.DataPack.SmartImporter;
+            if (smart is null) return;
+
+            _ = Task.Run(async () =>
+            {
+                foreach (var p in paths)
+                {
+                    var result = await smart.ImportAsync(p);
+                    App.WriteLog($"ZipDrop({result.KindName}) {Path.GetFileName(p)} -> {result.Message}");
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        if (result.Ok) Controls.Toast.Success($"【{result.KindName}】{result.Message}");
+                        else Controls.Toast.Error(result.Message);
+                    });
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            WriteLog("ZipDrop -> " + ex);
+        }
+        finally
+        {
+            deferral.Complete();
         }
     }
 #endif
