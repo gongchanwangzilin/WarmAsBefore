@@ -89,35 +89,34 @@ public partial class App : Application
     /// <summary>
     /// Windows 桌面拖放导入：把 zip / .wbsave / 存档 json 直接拖进窗口任意位置，
     /// 自动识别包类型并交给 SmartImporter 路由加载，结果以 Toast 反馈（识别不出会说明原因）。
-    /// 为保证「窗口任意位置都能拖入」：整棵可视树都设为放置目标并挂同一套处理，
-    /// 且在内容就绪前 / 页面导航后补挂，避免静默漏挂导致整窗显示禁止拖入。
+    ///
+    /// 为什么用 HWND 级 WM_DROPFILES 而不是 WinUI 的 UIElement.DragOver/Drop：
+    /// 在非 MSIX 打包的桌面 exe 里，从 Windows 资源管理器拖进来的文件走的是经典 HDROP 消息，
+    /// 根本不会触发 WinUI 的 WinRT DataPackage 拖放事件。于是元素级 AllowDrop/DragOver 不管挂到
+    /// 整棵可视树的哪个节点都收不到数据，OS 全程显示禁止符号、整窗无法放置。必须到 HWND 层用
+    /// WM_DROPFILES 截获——这与页面 / XAML 元素无关，窗口任意位置都能放（默认全局）。
     /// </summary>
 #if WINDOWS
-    private static readonly HashSet<object> _dropHooked = new();
-    private static bool _dropRetryPending;
+    private static readonly HashSet<IntPtr> _dropHwndHooked = new();
+    private static WndProcDelegate? _dropWndProc;   // 必须保活，否则被 GC 回收后回调变野指针会崩
+    private static IntPtr _dropOldProc;
+
+    private delegate IntPtr WndProcDelegate(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
 
     private static void HookZipDrop(Microsoft.UI.Xaml.Window xw)
     {
         try
         {
-            if (xw.Content is not Microsoft.UI.Xaml.FrameworkElement root)
-            {
-                // 主窗口内容尚未就绪（例如 HandlerChanged 早于 Content 赋值）：等首次激活再挂一次，
-                // 否则静默 return 会让整窗没有任何放置目标，鼠标全程显示禁止符号。
-                if (!_dropRetryPending)
-                {
-                    _dropRetryPending = true;
-                    void OnActivated(object? s, Microsoft.UI.Xaml.WindowActivatedEventArgs? e)
-                    {
-                        xw.Activated -= OnActivated;
-                        _dropRetryPending = false;
-                        HookZipDrop(xw);
-                    }
-                    xw.Activated += OnActivated;
-                }
-                return;
-            }
-            AttachDrop(root);
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(xw);
+            if (hwnd == IntPtr.Zero) return;
+            if (!_dropHwndHooked.Add(hwnd)) return;   // 同一窗口只挂一次
+
+            DropNative.DragAcceptFiles(hwnd, true);   // 告诉 OS 本窗口接受文件拖放 -> 光标变可复制
+            _dropWndProc = new WndProcDelegate(DropWndProc);
+            _dropOldProc = DropNative.SetWindowLongPtrW(
+                hwnd, DropNative.GWLP_WNDPROC,
+                System.Runtime.InteropServices.Marshal.GetFunctionPointerForDelegate(_dropWndProc));
+            WriteLog($"HookZipDrop: WM_DROPFILES hooked hwnd={hwnd}");
         }
         catch (Exception ex)
         {
@@ -125,89 +124,57 @@ public partial class App : Application
         }
     }
 
-    private static void AttachDrop(Microsoft.UI.Xaml.FrameworkElement root)
+    private static IntPtr DropWndProc(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam)
     {
-        try
+        if (msg == DropNative.WM_DROPFILES)
         {
-            // 整棵可视树都设为放置目标 + 挂同一套处理，保证窗口任意位置都能拖入。
-            EnableDropOnSubtree(root);
-            root.Loaded += (_, _) => EnableDropOnSubtree(root);
-            // 页面导航后新子树也要补挂（祖先已有处理，这里主要覆盖新页控件）。
             try
             {
-                if (Microsoft.Maui.Controls.Shell.Current is { } sh)
-                    sh.Navigated += (_, _) => EnableDropOnSubtree(root);
-            }
-            catch (Exception ex) { WriteLog("HookZipDrop.ShellNav -> " + ex.Message); }
-        }
-        catch (Exception ex) { WriteLog("AttachDrop: " + ex.Message); }
-    }
-
-    /// <summary>递归把整棵可视树设为放置目标并挂上拖入处理（处理只挂一次，但 AllowDrop 每次都补开）。</summary>
-    private static void EnableDropOnSubtree(Microsoft.UI.Xaml.DependencyObject node)
-    {
-        try
-        {
-            if (node is Microsoft.UI.Xaml.FrameworkElement fe)
-            {
-                if (_dropHooked.Add(fe))
+                var hDrop = wParam;
+                uint count = DropNative.DragQueryFile(hDrop, 0xFFFFFFFFu, null, 0);
+                var paths = new List<string>(capacity: (int)count);
+                var sb = new System.Text.StringBuilder(32768);
+                for (uint i = 0; i < count; i++)
                 {
-                    fe.AllowDrop = true;
-                    fe.DragOver += RootDragOver;
-                    fe.Drop += RootDrop;
+                    uint len = DropNative.DragQueryFile(hDrop, i, sb, (uint)sb.Capacity);
+                    if (len > 0) paths.Add(sb.ToString(0, (int)len));
                 }
-                else
-                {
-                    fe.AllowDrop = true;
-                }
+                DropNative.DragFinish(hDrop);
+                ImportPaths(paths);
             }
-            var n = Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChildrenCount(node);
-            for (var i = 0; i < n; i++)
-                EnableDropOnSubtree(Microsoft.UI.Xaml.Media.VisualTreeHelper.GetChild(node, i));
+            catch (Exception ex) { WriteLog("WM_DROPFILES -> " + ex); }
+            return IntPtr.Zero;   // 已处理，不再向下传递
         }
-        catch (Exception ex) { WriteLog("EnableDropOnSubtree: " + ex.Message); }
+        return DropNative.CallWindowProcW(_dropOldProc, hWnd, msg, wParam, lParam);
     }
 
-    private static void RootDragOver(object? _, Microsoft.UI.Xaml.DragEventArgs e)
+    private static void ImportPaths(List<string> paths)
     {
-        try
+        var wanted = paths
+            .Where(p => p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
+                     || p.EndsWith(".wbsave", StringComparison.OrdinalIgnoreCase)
+                     || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+            .ToList();
+        if (wanted.Count == 0)
         {
-            if (e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-                e.AcceptedOperation = global::Windows.ApplicationModel.DataTransfer.DataPackageOperation.Copy;
+            MainThread.BeginInvokeOnMainThread(() =>
+                Controls.Toast.Warn("拖进来的文件不是可导入的包（支持 zip / .wbsave / 存档 json）。"));
+            return;
         }
-        catch (Exception ex) { WriteLog("ZipDrop.DragOver -> " + ex.Message); }
-    }
 
-    private static async void RootDrop(object? _, Microsoft.UI.Xaml.DragEventArgs e)
-    {
-        var deferral = e.GetDeferral();
-        try
+        var services = Application.Current?.Handler?.MauiContext?.Services;
+        var smart = services?.GetService(typeof(Modules.DataPack.SmartImporter)) as Modules.DataPack.SmartImporter;
+        if (smart is null)
         {
-            if (!e.DataView.Contains(global::Windows.ApplicationModel.DataTransfer.StandardDataFormats.StorageItems))
-                return;
-            e.Handled = true;
-            var items = await e.DataView.GetStorageItemsAsync();
-            var paths = items.OfType<global::Windows.Storage.StorageFile>()
-                .Select(f => f.Path)
-                .Where(p => p.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
-                            || p.EndsWith(".wbsave", StringComparison.OrdinalIgnoreCase)
-                            || p.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
-                .ToList();
-            if (paths.Count == 0)
-            {
-                MainThread.BeginInvokeOnMainThread(() =>
-                    Controls.Toast.Warn("拖进来的文件不是可导入的包（支持 zip / .wbsave / 存档 json）。"));
-                return;
-            }
+            WriteLog("ImportPaths: SmartImporter 未注册");
+            return;
+        }
 
-            var services = Application.Current?.Handler?.MauiContext?.Services;
-            var smart = services?.GetService(typeof(Modules.DataPack.SmartImporter))
-                as Modules.DataPack.SmartImporter;
-            if (smart is null) return;
-
-            _ = Task.Run(async () =>
+        _ = Task.Run(async () =>
+        {
+            foreach (var p in wanted)
             {
-                foreach (var p in paths)
+                try
                 {
                     var result = await smart.ImportAsync(p);
                     App.WriteLog($"ZipDrop({result.KindName}) {Path.GetFileName(p)} -> {result.Message}");
@@ -217,16 +184,34 @@ public partial class App : Application
                         else Controls.Toast.Error(result.Message);
                     });
                 }
-            });
-        }
-        catch (Exception ex)
-        {
-            WriteLog("ZipDrop -> " + ex);
-        }
-        finally
-        {
-            deferral.Complete();
-        }
+                catch (Exception ex)
+                {
+                    WriteLog("ImportPaths -> " + ex);
+                    MainThread.BeginInvokeOnMainThread(() => Controls.Toast.Error("导入失败：" + ex.Message));
+                }
+            }
+        });
+    }
+
+    internal static class DropNative
+    {
+        public const int GWLP_WNDPROC = -4;
+        public const uint WM_DROPFILES = 0x0233;
+
+        [System.Runtime.InteropServices.DllImport("shell32", SetLastError = true)]
+        public static extern void DragAcceptFiles(IntPtr hWnd, bool fAccept);
+
+        [System.Runtime.InteropServices.DllImport("shell32", CharSet = System.Runtime.InteropServices.CharSet.Unicode, SetLastError = true)]
+        public static extern uint DragQueryFile(IntPtr hDrop, uint iFile, System.Text.StringBuilder? lpszFile, uint cch);
+
+        [System.Runtime.InteropServices.DllImport("shell32", SetLastError = true)]
+        public static extern void DragFinish(IntPtr hDrop);
+
+        [System.Runtime.InteropServices.DllImport("user32", SetLastError = true)]
+        public static extern IntPtr SetWindowLongPtrW(IntPtr hWnd, int nIndex, IntPtr dwNewLong);
+
+        [System.Runtime.InteropServices.DllImport("user32", SetLastError = true)]
+        public static extern IntPtr CallWindowProcW(IntPtr lpPrevWndFunc, IntPtr hWnd, uint Msg, IntPtr wParam, IntPtr lParam);
     }
 #endif
 
