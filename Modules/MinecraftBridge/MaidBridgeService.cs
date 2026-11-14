@@ -2006,6 +2006,7 @@ public sealed partial class MaidBridgeService : IDisposable
             catch (Exception ex)
             {
                 App.WriteLog("MaidBridge.LoadBindings -> " + ex);
+                _bindingsLoaded = true; // 加载失败也算尝试过，避免每次握手重试（S4）
             }
         }
         finally
@@ -3546,9 +3547,10 @@ public sealed partial class MaidBridgeService : IDisposable
         {
             return MainThread.IsMainThread ? work() : MainThread.InvokeOnMainThreadAsync(work);
         }
-        catch
+        catch (Exception ex)
         {
-            return work();
+            App.WriteLog("OnUiAsync<T> UI 线程不可用：" + ex.Message);
+            return Task.FromException<T>(new InvalidOperationException("UI 线程不可用，拒绝在非 UI 线程执行 UI 操作。"));
         }
     }
 
@@ -3560,10 +3562,10 @@ public sealed partial class MaidBridgeService : IDisposable
                 ? RunInline(work)
                 : MainThread.InvokeOnMainThreadAsync(work);
         }
-        catch
+        catch (Exception ex)
         {
-            RunInline(work);
-            return Task.CompletedTask;
+            App.WriteLog("OnUiAsync UI 线程不可用：" + ex.Message);
+            return Task.FromException(new InvalidOperationException("UI 线程不可用，拒绝在非 UI 线程执行 UI 操作。"));
         }
     }
 
@@ -3593,6 +3595,13 @@ public sealed partial class MaidBridgeService : IDisposable
         // ObjectDisposedException 级联崩溃。交给 GC 回收即可——SemaphoreSlim 若无
         // wait handle 则 Dispose 是 no-op；CancellationTokenSource 也只在 Cancel 后
         // 的短暂窗口有意义。这是 .NET 官方推荐的 async 场景做法。
+        // M5: 等后台任务退出（有限超时，避免卡死）
+        try
+        {
+            var tasks = new[] { _watchdogTask, _watchTask, _backupTask }.Where(t => t is not null).Cast<Task>().ToArray();
+            if (tasks.Length > 0) Task.WhenAll(tasks).Wait(TimeSpan.FromSeconds(3));
+        }
+        catch { }
     }
 
     // ==================== 会话 ====================
