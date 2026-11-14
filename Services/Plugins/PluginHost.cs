@@ -1388,6 +1388,9 @@ public sealed class PluginHost
         }
     }
 
+    // 读-改-写必须串行化：并发写不同键时后写覆盖先写会丢设置（S1）。
+    private static readonly SemaphoreSlim SettingsLock = new(1, 1);
+
     public async Task SetSettingAsync(string id, string key, string value)
     {
         if (!IsSafeId(id))
@@ -1395,10 +1398,15 @@ public sealed class PluginHost
             App.WriteLog("PluginHost.SetSetting -> 拒绝非法插件 id：" + id);
             return;
         }
-        var all = await GetSettingsAsync(id);
-        all[key ?? ""] = value ?? "";
-        lock (_gate) _settingsCache[id] = new Dictionary<string, string>(all);
-        await _store.Save(SettingsKey(id), all);
+        await SettingsLock.WaitAsync();
+        try
+        {
+            var all = await GetSettingsAsync(id);
+            all[key ?? ""] = value ?? "";
+            lock (_gate) _settingsCache[id] = new Dictionary<string, string>(all);
+            await _store.Save(SettingsKey(id), all);
+        }
+        finally { SettingsLock.Release(); }
     }
 
     public async Task SaveSettingsAsync(string id, Dictionary<string, string> values)
@@ -1408,10 +1416,15 @@ public sealed class PluginHost
             App.WriteLog("PluginHost.SaveSettings -> 拒绝非法插件 id：" + id);
             return;
         }
-        var merged = await GetSettingsAsync(id);
-        foreach (var (k, v) in values) merged[k ?? ""] = v ?? "";
-        lock (_gate) _settingsCache[id] = new Dictionary<string, string>(merged);
-        await _store.Save(SettingsKey(id), merged);
+        await SettingsLock.WaitAsync();
+        try
+        {
+            var merged = await GetSettingsAsync(id);
+            foreach (var (k, v) in values) merged[k ?? ""] = v ?? "";
+            lock (_gate) _settingsCache[id] = new Dictionary<string, string>(merged);
+            await _store.Save(SettingsKey(id), merged);
+        }
+        finally { SettingsLock.Release(); }
     }
 
     /// <summary>HTML 设置页的可打开地址；页面上会带上 ?callback=http://127.0.0.1:port/save&amp;plugin=id。</summary>
@@ -1726,12 +1739,13 @@ public sealed class PluginHost
 
     private static async Task<(string? Header, byte[] Body)> ReadHttpAsync(NetworkStream stream)
     {
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10)); // M3: 读取超时
         var ms = new MemoryStream();
         var buf = new byte[4096];
         var end = -1;
         while (ms.Length < 65536)
         {
-            var n = await stream.ReadAsync(buf, 0, buf.Length);
+            var n = await stream.ReadAsync(buf, 0, buf.Length, cts.Token);
             if (n <= 0) break;
             ms.Write(buf, 0, n);
             end = FindCrlfCrlf(ms.GetBuffer(), (int)ms.Length);
@@ -1744,12 +1758,13 @@ public sealed class PluginHost
             if (line.StartsWith("Content-Length:", StringComparison.OrdinalIgnoreCase)
                 && int.TryParse(line["Content-Length:".Length..].Trim(), out var cl))
                 contentLength = cl;
+        if (contentLength < 0 || contentLength > MaxRequestBodyBytes) return (null, Array.Empty<byte>()); // M2: 大小上限
         var all = ms.ToArray();
         var body = new List<byte>(Math.Max(0, contentLength));
         for (var i = end + 4; i < all.Length && body.Count < contentLength; i++) body.Add(all[i]);
         while (body.Count < contentLength)
         {
-            var n = await stream.ReadAsync(buf, 0, Math.Min(buf.Length, contentLength - body.Count));
+            var n = await stream.ReadAsync(buf, 0, Math.Min(buf.Length, contentLength - body.Count), cts.Token);
             if (n <= 0) break;
             for (var i = 0; i < n && body.Count < contentLength; i++) body.Add(buf[i]);
         }
