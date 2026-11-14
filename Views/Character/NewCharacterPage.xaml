@@ -120,10 +120,12 @@
             </Grid>
         </Grid>
 
-        <!-- 正文：宽屏左右两栏，窄屏上下叠；两栏在同一个 ScrollView 里 -->
+        <!-- 正文：宽屏左右两栏，窄屏上下叠；两栏在同一个 ScrollView 里。
+             HorizontalOptions=Fill 才会把网格撑满可视区宽度 —— 否则 Center 会让它塌缩到内容自然宽
+             （约 400px）导致 OnBodyResized 的 860 断点永远不触发，整页退化成手机窄列。 -->
         <ScrollView Grid.Row="2" x:Name="StepScroll" Padding="24,18,24,28">
             <Grid x:Name="BodyGrid" ColumnSpacing="16" RowSpacing="16"
-                  MaximumWidthRequest="1180" HorizontalOptions="Center"
+                  MaximumWidthRequest="1180" HorizontalOptions="Fill"
                   SizeChanged="OnBodyResized">
 
                 <!-- 左：预览卡 -->
