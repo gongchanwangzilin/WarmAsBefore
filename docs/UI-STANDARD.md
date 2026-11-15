@@ -228,6 +228,14 @@ tile 摘要一行封顶。两列 tile 里严禁出现第二颗主按钮。
 
 一律走 `BannerService` 成就风（图标框金描边 + Eyebrow + 标题 + 一句话）。方向按文档：上浮/下浮/四角；**必须避让顶栏与底输入栏**，禁止盖住任何可点条。桌宠模式 `PetService.NotifyBubble`，不抢窗口。
 
+**R9 例外 · 读档错误态常驻横幅（2026-11-14，来源页 `Views/Save/SavePage.xaml` / `ViewModels/Save/SaveViewModel.cs`）**：
+`BannerService` 全仓无定义（仅在本书与 `ui-style.md` 被引用），本轮**不新建**该服务；读档链路的「读取中 / 读取失败 / 部分恢复」改用**页面内常驻的 `Border` 横幅**，
+由现成 `CardDialog` + `Txt*` + `Btn*` + `HSep` + `DangerBanner`/`OnScrimInk` 组合完成，**不新增 Style 键、不新增颜色 Token**。
+理由：`Controls/Toast.cs` 的提示可被用户关闭且会自动消失，读档失败必须持续可解释（发生了什么 / 现在什么状态 / 能做什么）；
+用户明确抱怨「完全卡死、拖窗口都卡」，故**不铺全屏压暗 scrim**、不加模态锁，`InputTransparent=True` 的状态层只在卡片内放开点击，
+返回键 / 标题栏 / 窗口拖动全程可用。显隐只写 `IsVisible`，5 行阶段轨预建在 XAML 里、运行时只改 `Text`/`TextColor`/`BackgroundColor` 令牌，
+阶段推进由 `SaveManager.LoadCore` 的真实节点驱动（禁止按时间片假推进，见 `docs/ARCHITECTURE.md`）。
+
 ### R10 · 领域豁免区（成文清单，2026-11-06 修订）
 
 以下页面/元素**不适用**系统字阶、间距阶与裸色禁令——它们的成立依赖画布与叙事，套系统令牌反而会坏：

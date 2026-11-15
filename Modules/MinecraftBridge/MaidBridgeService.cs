@@ -11,6 +11,7 @@ using Microsoft.Maui.ApplicationModel;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore.Modules.MinecraftBridge;
 
@@ -284,6 +285,12 @@ public sealed partial class MaidBridgeService : IDisposable
 
     private async Task RestartListenersAsync(MaidBridgeSettings config)
     {
+        // 已因故障封存：本次会话内不再自动开监听，避免反复崩溃。重启应用可清除封存状态。
+        if (BugReporter.IsStopped("MaidBridge"))
+        {
+            App.WriteLog("MaidBridge: 已因故障封存，本次会话内不再自动监听；重启应用可恢复。");
+            return;
+        }
         await StopListenersAsync();
         _lastBindAttemptUtc = DateTime.UtcNow;
         var cts = new CancellationTokenSource();
@@ -738,9 +745,16 @@ public sealed partial class MaidBridgeService : IDisposable
             await SessionLoopAsync(session, session.Cts.Token);
         }
         catch (OperationCanceledException) { }
+        catch (Exception ex) when (IsBenignNetworkException(ex))
+        {
+            App.WriteLog("MaidBridge.Client(benign) -> " + ex);
+        }
         catch (Exception ex)
         {
             App.WriteLog("MaidBridge.Client -> " + ex);
+            // 连接会话里冒出非良性异常（如并发集合损坏）：上报封存，停掉监听避免反复崩溃。
+            BugReporter.Report(ex, "MaidBridge", "连接会话");
+            _ = StopListenersAsync();
         }
         finally
         {
@@ -852,11 +866,16 @@ public sealed partial class MaidBridgeService : IDisposable
             if (autoOpen && boundExists
                 && (active.Length == 0 || !string.Equals(bound, active, StringComparison.Ordinal)))
             {
+                App.TraceStep($"Bridge.Handshake.AutoOpenSave.Begin {bound}");
+                // P1：链路 B（后台 TCP 握手线程）也同步写会话标记，进程被判无响应杀掉后仍可补报。
+                App.WriteLoadMarker(bound, 1);
                 if (await _save.Load(bound))
                 {
                     active = _engine.CurrentSaveId;
                     App.WriteLog($"MaidBridge 自动打开绑定存档：世界 {session.WorldKey} → {bound}");
                 }
+                App.ClearLoadMarker();   // 任一终态删除会话标记
+                App.TraceStep($"Bridge.Handshake.AutoOpenSave.End {bound}");
             }
             else if (_config.AutoSwitchSave && active.Length == 0)
             {
@@ -965,7 +984,9 @@ public sealed partial class MaidBridgeService : IDisposable
                 }
                 else
                 {
+                    App.TraceStep("Bridge.RevealDisplay.BeforeGoToMain");
                     await shell.GoToAsync("main");
+                    App.TraceStep("Bridge.RevealDisplay.AfterGoToMain");
                 }
                 App.WriteLog("MaidBridge 呈现位置：" + _config.DisplayTarget
                     + " / Galgame=" + (_config.GalgameEnabled ? "开" : "关"));
@@ -1733,10 +1754,41 @@ public sealed partial class MaidBridgeService : IDisposable
         tcs.TrySetResult((JsonObject)msg.DeepClone());
     }
 
+    /// <summary>
+    /// 区分「良性」与「故障」异常：连接/解析过程中的网络抖动、对端断开、坏帧属于预期内，
+    /// 不应触发封存与弹窗；只有字典损坏、空引用、逻辑错误这类才算故障，要上报并停用桥。
+    /// </summary>
+    private static bool IsBenignNetworkException(Exception ex)
+    {
+        for (var cur = ex; cur is not null; cur = cur.InnerException)
+        {
+            switch (cur)
+            {
+                case OperationCanceledException:
+                case IOException:            // 含 EndOfStreamException 等子类
+                case SocketException:
+                case ObjectDisposedException:
+                case System.Text.Json.JsonException:
+                case ArgumentException:      // 含 FormatException / OverflowException 等子类
+                    return true;
+            }
+        }
+        return false;
+    }
+
     private async Task RunSafe(string label, Func<Task> work)
     {
         try { await work(); }
-        catch (Exception ex) { App.WriteLog($"MaidBridge.{label} -> " + ex); }
+        catch (Exception ex)
+        {
+            App.WriteLog($"MaidBridge.{label} -> " + ex);
+            // 非良性异常 = 桥自身逻辑出错（如并发集合损坏）：上报并封存该部分，避免反复崩溃。
+            if (!IsBenignNetworkException(ex))
+            {
+                BugReporter.Report(ex, "MaidBridge", label);
+                _ = StopListenersAsync();
+            }
+        }
     }
 
     private void ReadMaids(JsonNode? node, MaidSession session)
@@ -1949,7 +2001,7 @@ public sealed partial class MaidBridgeService : IDisposable
             {
                 App.WriteLog($"MaidBridge: 为 {item.DisplayName} 新建角色失败，已回退绑定");
                 // 注册失败：把暂存时写入的绑定关系摘掉，避免绑定指向不存在的角色
-                lock (_bindingsGate) world.Maids.Remove(item.MaidId);
+                lock (_bindingsGate) world.Maids.TryRemove(item.MaidId, out _);
                 session.MaidCharacters.TryRemove(item.MaidId, out _);
                 continue;
             }
@@ -2060,7 +2112,7 @@ public sealed partial class MaidBridgeService : IDisposable
                 .Take(overflow)
                 .Select(kv => kv.Key)
                 .ToList();
-            foreach (var key in stale) _bindings.Worlds.Remove(key);
+            foreach (var key in stale) _bindings.Worlds.TryRemove(key, out _);
         }
     }
 
@@ -2500,7 +2552,7 @@ public sealed partial class MaidBridgeService : IDisposable
             else
             {
                 // 只留最近吃过的 64 种：把整个注册表喂进存档没有意义。
-                if (taste.Counts.Count >= 64) taste.Counts.Remove(taste.Counts.Keys.First());
+                if (taste.Counts.Count >= 64) taste.Counts.TryRemove(taste.Counts.Keys.First(), out _);
                 taste.Counts[food] = 1;
             }
             MaidBridgeMaidBinding? feedBinding;

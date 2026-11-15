@@ -134,8 +134,11 @@ public sealed class StorageProvider
     /// <summary>
     /// 内容解析不了就留一份带时间戳的原件再抛。调用方一律按「这份数据没有」继续跑，
     /// 下一次保存会整表覆盖——没有这份备份，用户的东西就真的没了。
+    /// 返回备份文件的绝对路径（失败返回 null）。
+    /// 读档容错链路（2026-11-14）也用它：整体 JSON 语法损坏时必须先备份原件再隔离，
+    /// 绝不能拿空档/修复后的档覆盖原件。
     /// </summary>
-    private static void BackupCorrupt(string path)
+    public static string? BackupCorrupt(string path)
     {
         try
         {
@@ -146,10 +149,28 @@ public sealed class StorageProvider
                 + DateTime.UtcNow.ToString("yyyyMMdd-HHmmss") + Path.GetExtension(path));
             if (!File.Exists(bak)) File.Copy(path, bak);
             App.WriteLog("StorageProvider: 文件读坏了，已备份原件 → " + bak);
+            return bak;
         }
         catch (Exception ex)
         {
             App.WriteLog("StorageProvider.BackupCorrupt -> " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>按存储键备份损坏原件（读档容错链路用）；键不合法或文件不存在时返回 null。</summary>
+    public string? BackupCorruptFile(string key)
+    {
+        try
+        {
+            if (!IsSafeKey(key)) return null;
+            var path = KeyPath(key);
+            return File.Exists(path) ? BackupCorrupt(path) : null;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("StorageProvider.BackupCorruptFile -> " + ex.Message);
+            return null;
         }
     }
 
