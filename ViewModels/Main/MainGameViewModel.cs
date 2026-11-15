@@ -61,6 +61,18 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _weatherDesc = "晴朗";
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
+    /// <summary>启动编排（角色/地图/天气）全部收尾：页面用它掀开 LoadingVeil，就绪前先遮住还没初始化的舞台。</summary>
+    [ObservableProperty] private bool _startupReady;
+    // 入口进度卡：真实阶段进度（读档→立绘→地图→天气），由 RunStartup 里程碑驱动，禁假推进。
+    [ObservableProperty] private bool _entryLoading = true;
+    [ObservableProperty] private double _entryProgress;
+    [ObservableProperty] private string _entryPhase = "准备进入";
+
+    private void EntryStep(double progress, string phase)
+    {
+        EntryProgress = progress;
+        EntryPhase = phase;
+    }
 
     /// <summary>
     /// #10 待发送的文件附件（用户点了"带文件"后先挂在这里，随下一条消息一起发出）。
@@ -292,6 +304,12 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>上一次采样到的行走相位（0~1）。从待机起步时沿用，避免跳回第 0 帧。</summary>
     private double _walkPhase;
     private int _walkFrameIndex = -1;
+    /// <summary>
+    /// 行走帧的 ImageSource 缓存（键 "{motion.Id}:{帧号}:{宽度}"）。
+    /// 循环回到同一帧时回赋同一个实例：setter 的相等检查直接短路，不触发 PropertyChanged，
+    /// 也就不会让 Image 换源走一遍 Measure 失效——这是 GC 风暴与布局环的共犯。每次行走开始时清空。
+    /// </summary>
+    private readonly System.Collections.Generic.Dictionary<string, Microsoft.Maui.Controls.ImageSource> _walkFrameCache = new();
     /// <summary>主界面行走帧的落盘尺寸；手机端降到 720×1280，避免多帧同时解码吃爆内存。</summary>
     private const int WalkFrameDesktopWidth = 1080;
     private const int WalkFramePhoneWidth = 720;
@@ -401,7 +419,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         HookFlows(flows);
         HookStates(states);
         // 角色想给用户手机发消息时：主界面弹出确认入口（AI 不能未经同意往外发）
-        _bridge.OutboundPendingChanged += () => MainThread.BeginInvokeOnMainThread(RefreshOutbound);
+        _bridge.OutboundPendingChanged += () => Helpers.Ui.Post(RefreshOutbound);
         // 黑屏状态变化 → 舞台全黑（聊天面板不受影响）。
         // 订阅统一挪到 AttachRuntimeEvents（审计 A4）：VM 是 Transient、服务是 Singleton，
         // 在构造里常驻订阅，每进出一次主界面就叠一份，切场景会被重复执行。
@@ -452,18 +470,28 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         App.TraceStep("MainGame.RunStartup.Enter");
         var failures = new List<string>();
+        EntryStep(0.15, "恢复角色与立绘");
         try { await LoadCharacterAsync(); }
         catch (Exception ex) { failures.Add("角色加载失败：" + ex.Message); App.WriteLog("MainGame.LoadCharacter -> " + ex); }
         App.TraceStep("MainGame.RunStartup.AfterLoadCharacter");
+        // 渐进入口（2026-11-15）：立刻要用的（界面本体、立绘、聊天）到位即掀骨架遮罩，
+        // 地图与天气（联网 2~8 秒）在遮罩掀开后由进度卡继续反馈，后台慢慢来。
+        StartupReady = true;
+        _ = FlushChatBacklogAsync();
+        EntryStep(0.55, "界面就绪，装载地图");
         try { await InitMapAsync(); }
         catch (Exception ex) { failures.Add("地图初始化失败：" + ex.Message); App.WriteLog("MainGame.InitMap -> " + ex); }
         App.TraceStep("MainGame.RunStartup.AfterInitMap");
+        EntryStep(0.75, "拉取天气");
         try { await FetchWeather(); }
         catch (Exception ex) { failures.Add("天气获取失败：" + ex.Message); App.WriteLog("MainGame.FetchWeather -> " + ex); }
         App.TraceStep("MainGame.RunStartup.AfterWeather");
         if (failures.Count > 0)
             Helpers.Ui.Post(() => Toast.Warn("部分功能没就绪：" + string.Join("；", failures)));
         App.TraceStep("MainGame.RunStartup.Exit");
+        // 全部真实里程碑走完：进度卡收场（只切 IsVisible）。
+        EntryStep(1.0, "完成");
+        EntryLoading = false;
     }
 
     // ==================== 单例服务事件挂/摘（审计 A4） ====================
@@ -474,7 +502,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private bool _mapEventsAttached;
 
     private void OnBlackoutChanged(bool on, string reason) =>
-        MainThread.BeginInvokeOnMainThread(() => { IsBlackout = on; BlackoutReason = reason; });
+        Helpers.Ui.Post(() => { IsBlackout = on; BlackoutReason = reason; });
 
     private void HookMapEvents()
     {
@@ -562,7 +590,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             _ = _sceneDirector.EvaluateTimeNowAsync();
             ApplyScene(_map.CurrentScene);
             RefreshSceneOptions();
-            MainThread.BeginInvokeOnMainThread(async () =>
+            _ = Helpers.Ui.PostAsync(async () =>
             {
                 // 地图有默认出生点时，主播移动到出生场景
                 if (!string.IsNullOrEmpty(_map.CurrentSceneId))
@@ -596,7 +624,7 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void OnMapSceneChanged(MapScene scene)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             // 到达一站先收回走路帧，再换背景；下一段由 WalkSegmentStarted 重新起拍。
             StopWalkMotion();
@@ -762,6 +790,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         var fit = Math.Min(_stageW / sw, _stageH / sh);
         var baseW = sw * fit;
         var baseH = sh * fit;
+        // SpriteFitW/H 仍供手机端 XAML 绑定与行走动画步长使用；桌面立绘改由 AspectFit 按舞台自适应，
+        // 不再写回布局测量。本方法只产出渲染变换值（Scale/Translation/Opacity/Flip），不参与父容器 Measure。
         SpriteFitW = baseW;
         SpriteFitH = baseH;
 
@@ -903,7 +933,7 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     /// <summary>地图被编辑/导入后刷新 AI 语境与场景列表。</summary>
     private void OnMapChanged() =>
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             _chat.SetMapContext(BuildMapContext());
             RefreshSceneOptions();
@@ -1103,7 +1133,10 @@ public sealed partial class MainGameViewModel : ObservableObject
         }
     }
 
-    partial void OnSpriteVisibleChanged(bool value) => OnPropertyChanged(nameof(NoSpriteVisible));
+    partial void OnSpriteVisibleChanged(bool value)
+    {
+        OnPropertyChanged(nameof(NoSpriteVisible));
+    }
 
     /// <summary>
     /// 累计好感积分（独立于 0-100 好感度）：跨过整 500 边界时触发好感等级提升动画。
@@ -1148,7 +1181,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             _levelUp.BackgroundColor = SceneBg;
             _levelUp.HasPayload = true;
 
-            MainThread.BeginInvokeOnMainThread(async () =>
+            _ = Helpers.Ui.PostAsync(async () =>
             {
                 try { await Shell.Current.GoToAsync("affection-level-up"); }
                 catch (Exception ex) { App.WriteLog("TriggerAffectionLevelUp -> " + ex); }
@@ -1185,6 +1218,12 @@ public sealed partial class MainGameViewModel : ObservableObject
         var savedOutfit = ch.State.CurrentOutfit;
         var savedEmotion = ch.State.CurrentEmotion;
         _figureActive = await TryLoadFigurePackAsync(ch);
+        // 读档装扮诊断（双写到数据根 warm_startup.log——"查看日志"能看到；
+        // 原来这条走 App.WriteLog 只写 Documents 侧，本机该目录不存在，证据会丢）。
+        // 用于定位"再续情缘后衣着和上次不同"：看存档记的装扮与实际选中值是否一致。
+        App.TraceStep($"OutfitRestore: char={ch.Profile.Name}, savedOutfit={savedOutfit}, " +
+                      $"savedEmotion={savedEmotion}, figureActive={_figureActive}, " +
+                      $"figurePackId={ch.FigurePackId}, spriteMapCount={ch.SpriteMap.Count}");
         if (_figureActive)
         {
             // 形象包的服装/表情是合成器的两条输入轴，不再依赖 SpriteMap 的键。
@@ -1223,12 +1262,18 @@ public sealed partial class MainGameViewModel : ObservableObject
         }
         _currentEmotion = _defaultEmotion;
 
+        var outfitChanged = !string.IsNullOrEmpty(savedOutfit)
+                            && !string.Equals(savedOutfit, _outfitKey, StringComparison.OrdinalIgnoreCase);
+        App.TraceStep($"OutfitRestore.Result: resolvedOutfit={_outfitKey}, resolvedEmotion={_currentEmotion}, " +
+                      $"changed={outfitChanged} (saved={savedOutfit}); " +
+                      $"figureOutfits=[{string.Join(",", _figureOutfits)}]");
+
         // 写回角色状态，随存档一起持久化 —— 这是「按上次立绘状态恢复」能成立的前提
         ch.State.CurrentOutfit = _outfitKey;
         ch.State.CurrentEmotion = _currentEmotion;
 
         SetEmotion(_currentEmotion);
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             RefreshCharacterName();
             _chat.ConfigureCharacter(ch.Profile);
@@ -1237,25 +1282,49 @@ public sealed partial class MainGameViewModel : ObservableObject
             // 读档后同步黑屏状态（黑屏是存档的一部分，重启也该保持）
             _blackout.SyncFromState();
         });
-        App.WriteLog($"LoadCharacterAsync: char={ch.Profile.Name}, outfit={_outfitKey}, emotion={_currentEmotion}, sprites={ch.SpriteMap.Count}");
+        App.TraceStep($"LoadCharacterAsync: char={ch.Profile.Name}, outfit={_outfitKey}, emotion={_currentEmotion}, sprites={ch.SpriteMap.Count}");
         // 角色读进来后才知道有没有专属背景；切角色/读档都走这里，视图会按新旧两层交叉淡入。
-        MainThread.BeginInvokeOnMainThread(RefreshCharacterBackdrop);
+        Helpers.Ui.Post(RefreshCharacterBackdrop);
         _ = _audio.StartBgmRotationAsync();
     }
 
     /// <summary>读档后恢复聊天界面（消息来自存档里保存的会话记录）。</summary>
+    private List<DialogueMessage>? _pendingChatBacklog;
+
     private void RestoreSession()
     {
-        // 一次 ReplaceRange = 一次 Reset 通知，而不是 N 条 Add 各触发一次列表更新。
-        using (PerfLog.Measure("页 · 主界面 · 恢复聊天记录"))
+        // 按需加载（2026-11-15）：进档首帧的布局风暴里一次性实例化 60 条变高气泡
+        // 是布局环高发窗口（历史崩溃全部落在恢复聊天后 ~200ms 的首次虚拟化布局）。
+        // 先把会话暂存 backlog，等 StartupReady 后 2 秒由 FlushChatBacklogAsync 灌入列表；
+        // 历史对话晚两秒可见，换进场不卡不崩。
+        _pendingChatBacklog = _save.ChatLog.Select(r => new DialogueMessage
         {
-            Messages.ReplaceRange(_save.ChatLog.Select(r => new DialogueMessage
+            Role = r.Role,
+            Text = r.Text,
+            Time = r.At.ToString("HH:mm")
+        }).ToList();
+    }
+
+    /// <summary>进场风暴过后把暂存的历史会话灌入聊天列表；期间新发的消息合并在后，不丢。</summary>
+    private async Task FlushChatBacklogAsync()
+    {
+        try
+        {
+            await Task.Delay(2000);
+            var backlog = _pendingChatBacklog;
+            _pendingChatBacklog = null;
+            if (backlog is null || backlog.Count == 0) return;
+            Helpers.Ui.Post(() =>
             {
-                Role = r.Role,
-                Text = r.Text,
-                Time = r.At.ToString("HH:mm")
-            }));
+                using (PerfLog.Measure("页 · 主界面 · 延迟恢复聊天记录"))
+                {
+                    // backlog 在前、期间新消息在后：ReplaceRange 一次 Reset 通知完成合并。
+                    var merged = backlog.Concat(Messages.ToList()).ToList();
+                    Messages.ReplaceRange(merged);
+                }
+            });
         }
+        catch (Exception ex) { App.WriteLog("MainGame.FlushChatBacklog -> " + ex); }
     }
 
     /// <summary>
@@ -1323,10 +1392,8 @@ public sealed partial class MainGameViewModel : ObservableObject
                 App.WriteLog($"ApplySprite: 未找到立绘 {rel}, 尝试了 {candidates.Count} 条路径");
         }
         if (string.IsNullOrEmpty(full)) { SpriteVisible = false; return; }
-        if (MainThread.IsMainThread)
-            _ = ApplySpriteCoreAsync(full);
-        else
-            MainThread.BeginInvokeOnMainThread(() => _ = ApplySpriteCoreAsync(full));
+        // Ui.Post 在 UI 线程上同步执行，与原先两分支的行为一致。
+        Helpers.Ui.Post(() => _ = ApplySpriteCoreAsync(full));
     }
 
     /// <summary>
@@ -1415,8 +1482,8 @@ public sealed partial class MainGameViewModel : ObservableObject
                 StartWalkMotion();
                 return;
             }
-            if (MainThread.IsMainThread) await ApplySpriteCoreAsync(path);
-            else await MainThread.InvokeOnMainThreadAsync(() => ApplySpriteCoreAsync(path));
+            // Ui.PostAsync 在 UI 线程上就地执行并返回原 Task，与原先两分支的 await 行为一致。
+            await Helpers.Ui.PostAsync(() => ApplySpriteCoreAsync(path));
         }
         catch (Exception ex)
         {
@@ -1463,14 +1530,12 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// </summary>
     private void OnWalkSegmentStarted()
     {
-        if (MainThread.IsMainThread) StartWalkMotion();
-        else MainThread.BeginInvokeOnMainThread(StartWalkMotion);
+        Helpers.Ui.Post(StartWalkMotion);
     }
 
     private void OnWalkRouteCompleted()
     {
-        if (MainThread.IsMainThread) StopWalkMotion();
-        else MainThread.BeginInvokeOnMainThread(() => StopWalkMotion());
+        Helpers.Ui.Post(() => StopWalkMotion());
     }
 
     private void StartWalkMotion()
@@ -1500,10 +1565,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (!restoreStatic || !_figureActive) return;
         var staticPath = _figureStaticPath;
         if (string.IsNullOrWhiteSpace(staticPath) || !File.Exists(staticPath)) return;
-        if (MainThread.IsMainThread)
-            SpriteSource = ImageSource.FromFile(staticPath);
-        else
-            MainThread.BeginInvokeOnMainThread(() => SpriteSource = ImageSource.FromFile(staticPath));
+        // 静态立绘的单发赋值：统一走 Ui.Post，不再区分是否已在 UI 线程。
+        Helpers.Ui.Post(() => SpriteSource = ImageSource.FromFile(staticPath));
     }
 
     /// <summary>
@@ -1519,6 +1582,8 @@ public sealed partial class MainGameViewModel : ObservableObject
             var outfit = _outfitKey ?? "";
             var frames = motion.Frames;
             if (string.IsNullOrWhiteSpace(packId) || frames.Count == 0) return;
+            // 新一段行走开始：上一段的帧缓存作废（着装/表情可能已经换了）。
+            _walkFrameCache.Clear();
 
             // 以角色显示高度作为「一个身长」：步长约 0.38 身长，速度约 0.9 身长/秒。
             // 参数集中在 WalkCycle 的单位里，改速度时不必去改播放器。
@@ -1546,17 +1611,34 @@ public sealed partial class MainGameViewModel : ObservableObject
                 if (index != _walkFrameIndex && !ct.IsCancellationRequested)
                 {
                     _walkFrameIndex = index;
-                    var path = await _figures.RenderMotionAsync(
-                        packId, outfit, "", motion.Id, index, width, height).ConfigureAwait(false);
-                    if (ct.IsCancellationRequested) return;
-                    if (!string.IsNullOrWhiteSpace(path))
+                    // 帧图只构建一次 ImageSource、之后全程复用：逐帧 FromFile 会不停分配大对象，
+                    // 而且每次换新实例都会触发 Image 的 Measure 失效（GC 风暴 + 布局环的共犯）。
+                    var key = $"{motion.Id}:{index}:{width}";
+                    if (_walkFrameCache.TryGetValue(key, out var cached))
                     {
-                        await MainThread.InvokeOnMainThreadAsync(() =>
+                        Helpers.Ui.Post(() =>
                         {
                             if (ct.IsCancellationRequested) return;
-                            SpriteSource = ImageSource.FromFile(path);
+                            SpriteSource = cached;
                             SpriteVisible = true;
                         });
+                    }
+                    else
+                    {
+                        var path = await _figures.RenderMotionAsync(
+                            packId, outfit, "", motion.Id, index, width, height).ConfigureAwait(false);
+                        if (ct.IsCancellationRequested) return;
+                        if (!string.IsNullOrWhiteSpace(path))
+                        {
+                            var src = ImageSource.FromFile(path);
+                            _walkFrameCache[key] = src;
+                            Helpers.Ui.Post(() =>
+                            {
+                                if (ct.IsCancellationRequested) return;
+                                SpriteSource = src;
+                                SpriteVisible = true;
+                            });
+                        }
                     }
                 }
 
@@ -1685,7 +1767,7 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void OnGreet(string msg)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             Speaker = _engine.State.CharacterId;
             Dialogue = msg;
@@ -2029,7 +2111,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     ///  - 下雨：播放雨声（若配了）；若配了雨帧则循环显示。
     /// 全程切到 UI 线程渲染，异常吞掉不影响主对话。
     /// </summary>
-    private void OnWeatherEvent(Modules.Scene.SceneDirector.WeatherEventKind kind, string? weather)
+    private async void OnWeatherEvent(Modules.Scene.SceneDirector.WeatherEventKind kind, string? weather)
     {
         try
         {
@@ -2042,7 +2124,9 @@ public sealed partial class MainGameViewModel : ObservableObject
                 : s.RainSfxPath;
             var frameMs = Math.Clamp(s.WeatherEffectFrameMs, 30, 5000);
 
-            MainThread.BeginInvokeOnMainThread(async () =>
+            // 该回调从 Timer 线程进来：原先的 BeginInvoke 在 WinUI 线程池上取不到 DispatcherQueue 会直接抛
+            // （见 Helpers/Ui.cs 的实证记录），这里统一走 Ui.PostAsync 回 UI 线程。
+            await Helpers.Ui.PostAsync(async () =>
             {
                 try
                 {
@@ -2055,8 +2139,15 @@ public sealed partial class MainGameViewModel : ObservableObject
                         _audio.PlaySfxFile(sfx);
 
                     // 视觉：有帧图则按序切换；打雷且无帧图 → 默认白闪。
+                    // 帧图一次性预建成 ImageSource 实例（装载失败的跳过），循环里只在这批缓存实例间轮换：
+                    // 不再逐帧 FromFile —— 那会不停分配大对象，且每次换新实例都触发一次换源 Measure 失效。
                     var usable = frames.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
-                    if (usable.Count > 0)
+                    var sources = new List<ImageSource>();
+                    foreach (var f in usable)
+                    {
+                        try { sources.Add(ImageSource.FromFile(f)); } catch { }
+                    }
+                    if (sources.Count > 0)
                     {
                         WeatherFxVisible = true;
                         var loops = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
@@ -2064,9 +2155,9 @@ public sealed partial class MainGameViewModel : ObservableObject
                             : 3; // 下雨循环几轮（受雨声时长约束，简单起见固定 3 轮）
                         for (var loop = 0; loop < loops; loop++)
                         {
-                            foreach (var f in usable)
+                            foreach (var src in sources)
                             {
-                                try { WeatherFxImage = ImageSource.FromFile(f); } catch { }
+                                WeatherFxImage = src;
                                 await Task.Delay(frameMs);
                             }
                             if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning) break;
@@ -2100,7 +2191,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>场景库模式被应用（地图/纯库场景）时渲染背景与 BGM。</summary>
     private void OnSceneModeApplied(Models.SceneLibraryEntry entry, Models.SceneMode? mode)
     {
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             // 亮度遮罩跟着生效模式走；「早上开灯看不出变化」已由 SceneDirector 判定并写进给 AI 的回报里
             SceneDim = _sceneDirector.ActiveDim;
@@ -2156,7 +2247,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             foreach (var (file, title) in triggered)
                 _ = AskCgAffectionAsync(file, title);
 
-            MainThread.BeginInvokeOnMainThread(async () =>
+            _ = Helpers.Ui.PostAsync(async () =>
             {
                 try { await Shell.Current.GoToAsync("cg-view"); }
                 catch (Exception ex) { App.WriteLog("HandleCgMarkers cg-view -> " + ex); }
@@ -2348,7 +2439,7 @@ public sealed partial class MainGameViewModel : ObservableObject
             _cgView.Title = title;
             _cgView.HasPayload = path is not null;
             _ = AskCgAffectionAsync(file, title);
-            MainThread.BeginInvokeOnMainThread(async () =>
+            _ = Helpers.Ui.PostAsync(async () =>
             {
                 try { await Shell.Current.GoToAsync("cg-view"); }
                 catch (Exception ex) { App.WriteLog("TriggerSingleCg cg-view -> " + ex); }
@@ -2414,7 +2505,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     private void OnSpeechResult(string text)
     {
         _speech.OnRecognized -= OnSpeechResult;
-        MainThread.BeginInvokeOnMainThread(() =>
+        Helpers.Ui.Post(() =>
         {
             IsListening = false;
             if (!string.IsNullOrWhiteSpace(text))
@@ -2591,7 +2682,12 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>沉浸状态切换：周围栏隐藏后，空缺改由纯黑填充。</summary>
     partial void OnHideDesktopPanelsChanged(bool value)
     {
-        Microsoft.Maui.Storage.Preferences.Default.Set("game.hideDesktopPanels", value);
+        // 偏好落盘是「尽力而为」：preferences.dat 偶发被占用/只读时，File.Create 会抛
+        // UnauthorizedAccessException。沉浸态只是会话内的视图状态，写盘失败顶多「重启后不保留
+        // 收起状态」，绝不该冒泡成未处理异常——实测会被 BugReporter 捕获、直接停掉整个 WinUI
+        // 子系统并弹出错误框（bugs.log 2026-11-15 16:27:57）。故此处吞掉并记日志。
+        try { Microsoft.Maui.Storage.Preferences.Default.Set("game.hideDesktopPanels", value); }
+        catch (Exception ex) { App.WriteLogNow("Save hideDesktopPanels ignored: " + ex.Message); }
         OnPropertyChanged(nameof(StageBackdropFill));
         OnPropertyChanged(nameof(IsImmersive));
         NotifyPanelVisibility();

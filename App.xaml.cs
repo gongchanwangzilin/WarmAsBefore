@@ -52,9 +52,38 @@ public partial class App : Application
                     e.Handled = true;
                     WriteLogNow("WINUI UNHANDLED: " + e.Exception);
                     WriteLogNow("WINUI UNHANDLED STACK: " + e.Exception?.StackTrace);
+                    // 布局环取证（2026-11-15）：LayoutCycleException 原生层无堆栈，静态排查多轮未定位。
+                    // 首次捕获时自抓进程 dump，事后用 dotnet-dump analyze 看 UI 线程此刻的托管调用栈，
+                    // 直接定位是谁在布局风暴里反复 Measure。只抓第一次，避免每次都写几百 MB。
+                    if (e.Exception is Microsoft.UI.Xaml.LayoutCycleException && _lcDumpDone)
+                    {
+                        // 已抓过：只记一次增量日志
+                    }
+                    else if (e.Exception is Microsoft.UI.Xaml.LayoutCycleException)
+                    {
+                        _lcDumpDone = true;
+                        var dumpPath = Path.Combine(FileSystem.AppDataDirectory, "WarmAsBefore", $"layoutcycle_{DateTime.Now:HHmmss}.dmp");
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var psi = new System.Diagnostics.ProcessStartInfo(
+                                    "dotnet-dump", $"collect -p {Environment.ProcessId} -o \"{dumpPath}\"")
+                                {
+                                    UseShellExecute = false,
+                                    CreateNoWindow = true,
+                                };
+                                using var p = System.Diagnostics.Process.Start(psi);
+                                p?.WaitForExit(60000);
+                                WriteLogNow("LC DUMP: " + dumpPath + " exit=" + (p?.ExitCode));
+                            }
+                            catch (Exception ex) { WriteLogNow("LC DUMP FAIL: " + ex.Message); }
+                        });
+                    }
                     FlushLog();
                     try { BugReporter.Report(e.Exception, "WinUI", "未处理的 UI 异常"); } catch { }
                 };
+
 #endif
         }
         catch (Exception ex)
@@ -63,6 +92,9 @@ public partial class App : Application
             throw;
         }
     }
+
+    /// <summary>布局环取证 dump 只抓第一次（每进程一份）。</summary>
+    private static bool _lcDumpDone;
 
     /// <summary>上一次记录进日志的视口宽（节流：拖动时 SizeChanged 一秒几十次，全记会刷屏）。</summary>
     private static double _loggedViewportW;

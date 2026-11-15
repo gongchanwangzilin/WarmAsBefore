@@ -106,7 +106,9 @@ public sealed partial class MinimapViewModel : ObservableObject
 
     partial void OnIsExpandedChanged(bool value)
     {
-        Microsoft.Maui.Storage.Preferences.Default.Set("game.minimap.expanded", value);
+        // 同 OnHideDesktopPanelsChanged：偏好写盘失败只记日志，不能冒泡打断 UI 状态切换。
+        try { Microsoft.Maui.Storage.Preferences.Default.Set("game.minimap.expanded", value); }
+        catch (Exception ex) { App.WriteLogNow("Save minimap.expanded ignored: " + ex.Message); }
         NotifyForm();
     }
 

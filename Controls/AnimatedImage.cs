@@ -1,6 +1,7 @@
 using CommunityToolkit.Maui.Views;
 using Microsoft.Maui.Graphics.Platform;
 using SkiaSharp;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Controls;
@@ -8,22 +9,30 @@ namespace WarmAsBefore.Controls;
 /// <summary>
 /// 能放 GIF / 动图 WebP 的 Image。
 ///
-/// 解码走 SkiaSharp 的 SKCodec：一次只留一帧的像素，按帧延迟换 ImageSource；
+/// 解码走 SkiaSharp 的 SKCodec：动图先在后台一次性预解码全部帧（crop/缩放烘焙进帧图，
+/// 帧数 / 累计字节双上限，超限回落静态首帧），之后播放循环每帧只对 GraphicsView
+/// 换引用 + Invalidate —— 零大对象堆分配、零 Measure 失效，不再逐帧换 Image.Source。
 /// 文件只有一帧（或解码失败）时退回普通 Image，不额外占一颗定时器。
-/// 平铺（tile）在 MAUI 里没有 TileBrush，这里改用 GraphicsView 反复画同一张图，
-/// Windows 与 Android 都是同一套 Skia 绘制路径。
+/// 平铺（tile）在 MAUI 里没有 TileBrush，这里改用 GraphicsView 反复画同一张图；
+/// 动图的 tile 帧同样走预解码 + 换引用，Windows 与 Android 都是同一套 Skia 绘制路径。
 ///
 /// 页面消失 / 控件隐藏 / 从树上卸下都会停表；重新出现时从第一帧重播，
-/// 不偷偷在后台烧 CPU。所有 SKBitmap / SKCodec / SKImage 都在帧处理完立刻释放。
+/// 不偷偷在后台烧 CPU。预解码帧数组由 UI 线程统一持有/释放，drawable 只借引用；
+/// 所有 SKBitmap / SKCodec / SKImage 都在帧处理完立刻释放。
 /// </summary>
 public sealed class AnimatedImage : ContentView
 {
     private const int MaxFrameEdge = 2560;
+    private const int MaxLoopFrames = 36;                   // 预解码帧数硬上限：超过就放弃循环，回落静态首帧
+    private const long MaxFrameBytes = 192L * 1024 * 1024;  // 预解码累计字节硬上限：同上
     private static readonly string[] VideoExts = { ".mp4", ".mov", ".m4v", ".webm" };
 
     private readonly Image _image;
     private readonly GraphicsView _tileView;
     private readonly TileDrawable _tileDrawable = new();
+    private readonly GraphicsView _playerView;              // 动图帧播放器：播放期间只换引用 + Invalidate，不碰布局
+    private readonly FramePlayerDrawable _playerDrawable = new();
+    private FrameSet? _frames;                              // 预解码帧数组：只在 UI 线程上挂账/释放
     private CancellationTokenSource? _playCts;
     private int _loadToken;
     private bool _loaded;
@@ -47,10 +56,17 @@ public sealed class AnimatedImage : ContentView
             VerticalOptions = LayoutOptions.Fill,
             Drawable = _tileDrawable
         };
+        _playerView = new GraphicsView
+        {
+            IsVisible = false,
+            HorizontalOptions = LayoutOptions.Fill,
+            VerticalOptions = LayoutOptions.Fill,
+            Drawable = _playerDrawable
+        };
         Content = new Grid
         {
             IsClippedToBounds = true,
-            Children = { _image, _tileView }
+            Children = { _image, _tileView, _playerView }
         };
 
         Loaded += (_, _) =>
@@ -67,6 +83,8 @@ public sealed class AnimatedImage : ContentView
             StopLoop();
             _image.Source = null;
             _tileDrawable.SetImage(null);
+            ReleaseFrames();          // 预解码帧数组连同两个 drawable 里的借用引用一起收走
+            _playerView.IsVisible = false;
             UnhookPage();
         };
         PropertyChanged += (_, e) =>
@@ -197,13 +215,16 @@ public sealed class AnimatedImage : ContentView
         _loadToken++;
         var token = _loadToken;
         _image.Source = null;
-        _tileDrawable.SetImage(null);
+        _tileDrawable.SetImage(null);   // 先按老路径清静态 tile 图（借用帧不会被它误释放）
+        ReleaseFrames();                // 再收预解码帧数组 + 两个 drawable 里的借用引用
+        _playerView.IsVisible = false;  // 确认要播动图时再翻起来（见 RunFramesAsync 的交接）
 
         var path = Path;
         var fit = CharacterBackgroundService.NormalizeFit(Fit);
         var isTile = fit == "tile";
         _image.IsVisible = !isTile;
         _tileView.IsVisible = isTile;
+        _playerDrawable.Fit = fit;      // fit 在装载时定一次，播放期间不变
         _image.Aspect = fit switch
         {
             "fit" => Aspect.AspectFit,
@@ -259,9 +280,10 @@ public sealed class AnimatedImage : ContentView
             if (fit is not ("crop" or "tile"))
             {
                 if (token == _loadToken)
-                    await MainThread.InvokeOnMainThreadAsync(() =>
+                    await Ui.PostAsync(() =>
                     {
                         if (token == _loadToken) _image.Source = ImageSource.FromFile(path);
+                        return Task.CompletedTask;
                     });
                 return;
             }
@@ -272,7 +294,7 @@ public sealed class AnimatedImage : ContentView
                 return bmp is null ? null : EncodeFrame(bmp, fit, CropX, CropY, CropW, CropH);
             });
             if (bytes is null || token != _loadToken) return;
-            await MainThread.InvokeOnMainThreadAsync(() => ApplyFrame(bytes, token));
+            await Ui.PostAsync(() => { ApplyFrame(bytes, token); return Task.CompletedTask; });
         }
         catch (Exception ex)
         {
@@ -292,48 +314,219 @@ public sealed class AnimatedImage : ContentView
             return bmp is null ? null : EncodeFrame(bmp, fit, CropX, CropY, CropW, CropH);
         });
         if (bytes is null || token != _loadToken) return;
-        await MainThread.InvokeOnMainThreadAsync(() => ApplyFrame(bytes, token));
+        await Ui.PostAsync(() => { ApplyFrame(bytes, token); return Task.CompletedTask; });
     }
 
     private async Task RunFramesAsync(string path, string fit, int token, CancellationToken cancel)
     {
         try
         {
-            using var stream = File.OpenRead(path);
-            using var codec = SKCodec.Create(stream);
-            if (codec is null || codec.FrameCount <= 1) return;
+            // 本方法整段跑在线程池上（StartLoop 里 Task.Run 进来）：
+            // 先一次性预解码全部帧，之后播放循环每帧只剩「换引用 + Invalidate + Task.Delay」。
+            var set = PredecodeFrames(path, fit, token, cancel);
 
-            var info = codec.Info;
-            using var scratch = new SKBitmap(new SKImageInfo(
-                info.Width, info.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
-            var frames = codec.FrameInfo;
-            var count = codec.FrameCount;
-            var index = 0;
-
-            while (!cancel.IsCancellationRequested && token == _loadToken)
+            if (set is null || !set.Complete)
             {
-                var options = index == 0 ? new SKCodecOptions(0) : new SKCodecOptions(index, index - 1);
-                var result = codec.GetPixels(scratch.Info, scratch.GetPixels(), options);
-                if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return;
+                // 帧数 / 累计字节超预算或中途失效：残阵送回 UI 线程清账
+                //（drawable 里可能还挂着第 0 帧的借用引用），再回落静态首帧。
+                if (set is not null)
+                {
+                    Ui.Post(() =>
+                    {
+                        if (token == _loadToken)
+                        {
+                            _playerDrawable.SetFrame(null);
+                            _tileDrawable.SetFrame(null);
+                            if (!_tileView.IsVisible)
+                            {
+                                _playerView.IsVisible = false;
+                                _image.IsVisible = true;
+                            }
+                        }
+                        set.Dispose();
+                    });
+                }
+                await RenderFirstFrameAsync(path, fit, token);
+                return;
+            }
 
-                var bytes = EncodeFrame(scratch, fit, CropX, CropY, CropW, CropH);
-                if (bytes is null) return;
+            var frames = set.Frames;
+            var delays = set.Delays;
+            var count = frames.Length;
+            var isTile = fit == "tile";
 
-                await MainThread.InvokeOnMainThreadAsync(() => ApplyFrame(bytes, token));
-                if (token != _loadToken || !_playingAllowed) return;
+            // 交接：帧数组挂到 UI 线程统一持有/释放，第 0 帧立即上屏
+            //（预解码途中可能已先摆过一次，这里幂等重设）。
+            Ui.Post(() =>
+            {
+                if (token != _loadToken || !_playingAllowed) { set.Dispose(); return; }
+                _frames = set;
+                if (isTile)
+                {
+                    _tileDrawable.SetFrame(frames[0]);
+                    _tileView.Invalidate();
+                }
+                else
+                {
+                    _image.IsVisible = false;
+                    _playerView.IsVisible = true;
+                    _playerDrawable.SetFrame(frames[0]);
+                    _playerView.Invalidate();
+                }
+            });
 
-                var delayMs = index < frames.Length ? frames[index].Duration : 100;
-                delayMs = Math.Clamp(delayMs <= 0 ? 100 : delayMs, 20, 2000);
-                if (!IsLooping && index == count - 1) return;
-
+            // 播放循环：按原帧延迟节奏推进（clamp 已在预解码时做完），
+            // 每帧只对 drawable 换引用 + Invalidate —— 换引用不触碰布局，杜绝 Measure 失效。
+            var index = 0;
+            while (!cancel.IsCancellationRequested && token == _loadToken && _playingAllowed)
+            {
+                if (!IsLooping && index == count - 1) break; // 播完停在最后一帧
+                var delayMs = delays[index];
                 index = (index + 1) % count;
                 await Task.Delay(delayMs, cancel);
+
+                var frame = frames[index];
+                Ui.Post(() =>
+                {
+                    if (token != _loadToken || !_playingAllowed) return;
+                    if (isTile)
+                    {
+                        _tileDrawable.SetFrame(frame);
+                        _tileView.Invalidate();
+                    }
+                    else
+                    {
+                        _playerDrawable.SetFrame(frame);
+                        _playerView.Invalidate();
+                    }
+                });
             }
         }
         catch (OperationCanceledException) { }
         catch (Exception ex)
         {
             App.WriteLog("AnimatedImage.RunFrames -> " + ex.Message);
+        }
+    }
+
+    /// <summary>
+    /// 后台一次性预解码全部帧：逐帧 GetPixels → EncodeFrame（crop / ≤2560 缩放烘焙）→
+    /// PlatformImage。返回 null 仅当连 codec 都打不开；Complete = false 表示超预算或中途失效，
+    /// 已解码的残余帧仍带回来，由调用方送回 UI 线程统一释放。
+    /// </summary>
+    private FrameSet? PredecodeFrames(string path, string fit, int token, CancellationToken cancel)
+    {
+        FrameSet? set = null;
+        try
+        {
+            using var stream = File.OpenRead(path);
+            using var codec = SKCodec.Create(stream);
+            if (codec is null || codec.FrameCount <= 1) return null;
+
+            var count = codec.FrameCount;
+            set = new FrameSet(count);
+            if (count > MaxLoopFrames) return set;
+
+            var info = codec.Info;
+            using var scratch = new SKBitmap(new SKImageInfo(
+                info.Width, info.Height, SKColorType.Rgba8888, SKAlphaType.Premul));
+            var frameInfo = codec.FrameInfo;
+            var frames = set.Frames;
+            var delays = set.Delays;
+            long totalBytes = 0;
+
+            for (var i = 0; i < count; i++)
+            {
+                if (cancel.IsCancellationRequested || token != _loadToken) return set;
+
+                var options = i == 0 ? new SKCodecOptions(0) : new SKCodecOptions(i, i - 1);
+                var result = codec.GetPixels(scratch.Info, scratch.GetPixels(), options);
+                if (result is not (SKCodecResult.Success or SKCodecResult.IncompleteInput)) return set;
+
+                var bytes = EncodeFrame(scratch, fit, CropX, CropY, CropW, CropH);
+                if (bytes is null) return set;
+
+                totalBytes += bytes.Length;
+                if (totalBytes > MaxFrameBytes) return set;
+
+                var delayMs = i < frameInfo.Length ? frameInfo[i].Duration : 100;
+                delays[i] = Math.Clamp(delayMs <= 0 ? 100 : delayMs, 20, 2000);
+
+                Microsoft.Maui.Graphics.IImage? img;
+                try { img = PlatformImage.FromStream(new MemoryStream(bytes)); }
+                catch (Exception ex)
+                {
+                    App.WriteLog("AnimatedImage.FromStream -> " + ex.Message);
+                    return set;
+                }
+                frames[i] = img;
+
+                if (i == 0)
+                {
+                    // 第 0 帧解码完就先摆上：预解码剩余帧期间不留空白
+                    //（若最终超预算，上面的回落路径会把位子再让给静态首帧）。
+                    var tile = fit == "tile";
+                    Ui.Post(() =>
+                    {
+                        if (token != _loadToken || !_playingAllowed) return;
+                        if (tile)
+                        {
+                            _tileDrawable.SetFrame(img);
+                            _tileView.Invalidate();
+                        }
+                        else
+                        {
+                            _image.IsVisible = false;
+                            _playerView.IsVisible = true;
+                            _playerDrawable.SetFrame(img);
+                            _playerView.Invalidate();
+                        }
+                    });
+                }
+            }
+
+            set.Complete = true;
+            return set;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("AnimatedImage.Predecode -> " + ex.Message);
+            return set;
+        }
+    }
+
+    /// <summary>释放预解码帧数组：先把 drawable 里的借用引用摘掉（Draw 不再碰已释放的帧），再统一 Dispose。</summary>
+    private void ReleaseFrames()
+    {
+        var set = _frames;
+        _frames = null;
+        _playerDrawable.SetFrame(null);
+        _tileDrawable.SetFrame(null);
+        set?.Dispose();
+    }
+
+    /// <summary>预解码帧数组与其每帧延迟；Complete = false 表示装载中途放弃，残余帧须整体释放。</summary>
+    private sealed class FrameSet : IDisposable
+    {
+        public readonly Microsoft.Maui.Graphics.IImage?[] Frames;
+        public readonly int[] Delays;
+        public bool Complete;
+
+        public FrameSet(int count)
+        {
+            Frames = new Microsoft.Maui.Graphics.IImage?[count];
+            Delays = new int[count];
+        }
+
+        public void Dispose()
+        {
+            foreach (var frame in Frames)
+            {
+                if (frame is null) continue;
+                try { (frame as IDisposable)?.Dispose(); }
+                catch { }
+            }
+            Array.Clear(Frames);
         }
     }
 
@@ -458,12 +651,22 @@ public sealed class AnimatedImage : ContentView
 internal sealed class TileDrawable : IDrawable
 {
     private Microsoft.Maui.Graphics.IImage? _image;
+    private bool _borrowed; // 当前引用是预解码帧数组借来的：换走时不自行 Dispose，由所有者统一释放
 
     public void SetImage(Microsoft.Maui.Graphics.IImage? image)
     {
         var old = _image;
+        var oldBorrowed = _borrowed;
         _image = image;
-        (old as IDisposable)?.Dispose();
+        _borrowed = false;
+        if (!oldBorrowed) (old as IDisposable)?.Dispose();
+    }
+
+    /// <summary>借用预解码帧：只换引用，不释放旧图（生命周期归帧数组所有者）。</summary>
+    public void SetFrame(Microsoft.Maui.Graphics.IImage? frame)
+    {
+        _image = frame;
+        _borrowed = true;
     }
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
@@ -477,6 +680,63 @@ internal sealed class TileDrawable : IDrawable
             for (var x = dirtyRect.Left; x < dirtyRect.Right; x += image.Width)
                 canvas.DrawImage(image, x, y, image.Width, image.Height);
         }
+        canvas.RestoreState();
+    }
+}
+
+/// <summary>
+/// 动图帧播放器：持当前帧引用（SetFrame 只换引用不释放——帧数组由 AnimatedImage 统一
+/// 管理生命周期），Draw 按 fit 语义画进画布：fit = 等比完整显示（居中 letterbox）、
+/// stretch = 拉伸填满、其余（fill / crop）= 等比裁切填满。crop 已在预解码时烘焙进帧图，
+/// 这里只做缩放适配。
+/// </summary>
+internal sealed class FramePlayerDrawable : IDrawable
+{
+    private Microsoft.Maui.Graphics.IImage? _frame;
+
+    /// <summary>fit 语义；装载时设置一次（见 AnimatedImage.Reload），播放期间不变。</summary>
+    public string Fit { get; set; } = "fill";
+
+    public void SetFrame(Microsoft.Maui.Graphics.IImage? frame) => _frame = frame;
+
+    public void Draw(ICanvas canvas, RectF dirtyRect)
+    {
+        var frame = _frame;
+        if (frame is null || frame.Width <= 0 || frame.Height <= 0) return;
+
+        var scaleX = dirtyRect.Width / frame.Width;
+        var scaleY = dirtyRect.Height / frame.Height;
+        float dx, dy, dw, dh;
+        if (Fit == "fit")
+        {
+            // 等比完整显示，居中 letterbox。
+            var scale = Math.Min(scaleX, scaleY);
+            dw = frame.Width * scale;
+            dh = frame.Height * scale;
+            dx = dirtyRect.Left + (dirtyRect.Width - dw) / 2f;
+            dy = dirtyRect.Top + (dirtyRect.Height - dh) / 2f;
+        }
+        else if (Fit == "stretch")
+        {
+            // 拉伸填满。
+            dx = dirtyRect.Left;
+            dy = dirtyRect.Top;
+            dw = dirtyRect.Width;
+            dh = dirtyRect.Height;
+        }
+        else
+        {
+            // fill / crop：等比裁切填满。
+            var scale = Math.Max(scaleX, scaleY);
+            dw = frame.Width * scale;
+            dh = frame.Height * scale;
+            dx = dirtyRect.Left + (dirtyRect.Width - dw) / 2f;
+            dy = dirtyRect.Top + (dirtyRect.Height - dh) / 2f;
+        }
+
+        canvas.SaveState();
+        canvas.ClipRectangle(dirtyRect);
+        canvas.DrawImage(frame, dx, dy, dw, dh);
         canvas.RestoreState();
     }
 }

@@ -253,8 +253,9 @@
             </Grid>
 
             <!-- Dialogue area -->
-            <CollectionView Grid.Row="2" ItemsSource="{Binding Messages}"
-                            ItemsUpdatingScrollMode="KeepLastItemInView"
+            <!-- Dialogue area（KeepLastItemInView 已删：滚底改由 code-behind 延迟 120ms 执行，
+                 见 OnMessagesChanged） -->
+            <CollectionView Grid.Row="2" x:Name="PhoneChatList" ItemsSource="{Binding Messages}"
                             HeightRequest="300" Margin="12,4"
                             SelectionMode="None">
                 <CollectionView.ItemTemplate>

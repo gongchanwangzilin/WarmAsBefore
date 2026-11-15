@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
@@ -12,6 +13,16 @@ public partial class MainGamePage : ContentPage
     private MainGamePhoneView? _phone;
     private bool _started;
     private bool _backdropSynced;
+    private bool _veilAttached;
+
+    // ===== 临时诊断开关（实机二分定位布局环用；定位完成后整段移除）=====
+    // WAB_DIAG=chat,stage,minimap,top,left,noscroll,noveil（逗号分隔）
+    // 命中 tag = 对应子树整块 IsVisible=false（不参与测量）或跳过对应行为。
+    private static readonly System.Collections.Generic.HashSet<string> Diag = new(StringComparer.OrdinalIgnoreCase);
+    private bool _diagNoScroll;
+    private bool _diagVeilOn;
+    private bool _diagNoGalgameDefer;
+    private bool _galgameDeferred;
 
     public MainGamePage(MainGameViewModel vm)
     {
@@ -20,8 +31,42 @@ public partial class MainGamePage : ContentPage
         BindingContext = vm;
         _vm = vm;
         _backdrop = new CharacterBackdropPresenter(CharacterBgA, CharacterBgB, CharacterBgHost);
-        // 窗口尺寸一变（拉窗、分屏）舞台预算就变；栏的显隐同样会改预算，但那时舞台
-        // 未必收到 SizeChanged（它被立绘钉住了），所以两处都要主动再量一次。
+        Diag.UnionWith((Environment.GetEnvironmentVariable("WAB_DIAG") ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
+        App.TraceStep("MainGamePage.Diag: [" + string.Join(",", Diag) + "]");
+        if (Diag.Contains("chat")) RightChatPanel.IsVisible = false;
+        if (Diag.Contains("stage")) DesktopStage.IsVisible = false;
+        if (Diag.Contains("minimap")) MinimapHost.IsVisible = false;
+        if (Diag.Contains("top")) { LegacyTopBar.IsVisible = false; WidgetTopBarStack.IsVisible = false; }
+        if (Diag.Contains("left")) { LegacyLeftPanel.IsVisible = false; WidgetLeftPanel.IsVisible = false; }
+        // 二级开关：stage 与 top 已被矩阵定为共存必要条件，往里再细分。
+        if (Diag.Contains("sprite")) SpriteLayer.IsVisible = false;
+        if (Diag.Contains("backdrop")) CharacterBgHost.IsVisible = false;
+        if (Diag.Contains("fx")) WeatherFx.IsVisible = false;
+        if (Diag.Contains("navbtns")) { PrevSceneBtn.IsVisible = false; NextSceneBtn.IsVisible = false; }
+        if (Diag.Contains("galgame")) GalgamePanel.IsVisible = false;
+        if (Diag.Contains("legacytop")) LegacyTopBar.IsVisible = false;
+        if (Diag.Contains("widgettop")) WidgetTopBarStack.IsVisible = false;
+        // 三级开关：galgame 面板内部（残余布局环定位）。
+        if (Diag.Contains("galtitle")) GalTitleRow.IsVisible = false;
+        if (Diag.Contains("galhistory")) GalHistoryBorder.IsVisible = false;
+        if (Diag.Contains("galsilence")) GalSilenceHint.IsVisible = false;
+        if (Diag.Contains("galinput")) GalInputRow.IsVisible = false;
+        _diagNoScroll = Diag.Contains("noscroll");
+        _diagVeilOn = !Diag.Contains("noveil");
+        _diagNoGalgameDefer = Diag.Contains("nodefer");
+        // ===== Galgame 面板延迟挂载（2026-11-15）=====
+        // 实测矩阵：整面板摘除必存活、其内部任何单块摘除仍崩、且同版本非确定性复现——
+        // 残余布局环在「面板整体参与进场测量风暴」的窗口里。进场期把它从可视树摘下，
+        // StartupReady（界面本体/立绘就绪）后再挂回：元素实例与全部绑定原样保留，
+        // 只是不在崩溃窗口里参与 Measure/Arrange，也就是「按需加载」的一环。
+        if (!_diagNoGalgameDefer)
+        {
+            DesktopGrid.Children.Remove(GalgamePanel);
+            _galgameDeferred = true;
+        }
+        // 舞台预算只有两个触发源：页面窗口尺寸变化、面板显隐属性变化。二者都只改
+        // 「窗口 − 舞台偏移 − 可见右栏」这份预算，不写回任何布局属性。
         SizeChanged += OnPageSizeChanged;
         vm.PropertyChanged += OnVmPropertyChanged;
         // 手机竖版整块只在手机版式下构建：Windows 上它永远不显示，却会和桌面版一起建完
@@ -32,27 +77,103 @@ public partial class MainGamePage : ContentPage
             _phone = new MainGamePhoneView();
             PhoneHost.Content = _phone;
         }
+        // 聊天列表不再靠 KeepLastItemInView 自动滚底（那会在布局 pass 内强制滚动，
+        // 是 WinUI 布局环崩点），滚底由这里监听集合后延迟执行。
+        if (vm.IsDesktopLayout && !_diagNoScroll) HookChatListScroll();
     }
 
-    /// <summary>
-    /// 承载背景与立绘的容器尺寸变化 → 交给 VM 重算立绘位置与缩放。
-    /// 手机版在 MainGamePhoneView 里自己上报；这里只认桌面版这一块。
-    /// </summary>
-    private void OnStageSizeChanged(object? sender, EventArgs e)
+    // ============ 聊天列表滚底（替代 KeepLastItemInView）============
+    // Messages 是 RangeObservableCollection：整段替换（读档恢复）发 Reset、单条新消息发 Add。
+    // 这里只把「滚到最新一条」挪到插入后的下一拍（120ms 延迟），彻底离开布局 pass；
+    // 120ms 内连发多条时合并为一次滚动（in-flight 标志防抖），滚不到（列表未建好等）就静默放过。
+    private bool _chatScrollQueued;
+    private void HookChatListScroll()
     {
-        if (sender is VisualElement el) ReportStageSize(el);
+        _vm.Messages.CollectionChanged += OnChatMessagesChanged;
+    }
+
+    private void OnChatMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action is not (NotifyCollectionChangedAction.Add
+            or NotifyCollectionChangedAction.Replace
+            or NotifyCollectionChangedAction.Reset)) return;
+        if (_vm.Messages.Count == 0 || _chatScrollQueued) return;
+        _chatScrollQueued = true;
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(120), () =>
+        {
+            _chatScrollQueued = false;
+            try
+            {
+                if (_vm.Messages.Count > 0)
+                    ChatList.ScrollTo(_vm.Messages[_vm.Messages.Count - 1], null,
+                        Microsoft.Maui.Controls.ScrollToPosition.End, false);
+            }
+            catch { }
+        });
+    }
+
+    private void RestoreDeferredPanels()
+    {
+        if (!_galgameDeferred) return;
+        _galgameDeferred = false;
+        try
+        {
+            if (!DesktopGrid.Children.Contains(GalgamePanel))
+                DesktopGrid.Children.Add(GalgamePanel);
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.RestoreGalgame -> " + ex.Message); }
     }
 
     private void OnPageSizeChanged(object? sender, EventArgs e)
     {
-        if (BindingContext is MainGameViewModel { IsDesktopLayout: true }) ReportStageSize(DesktopStage);
+        if (BindingContext is MainGameViewModel { IsDesktopLayout: true }) ScheduleReportStageSize();
+    }
+
+    // 页面尺寸变化与面板显隐属性变化往往连发多轮通知，用防抖令牌把它们合并成
+    // 一次延迟重算：预算只在空闲帧里算一次交给 VM，不做任何布局写回。
+    private CancellationTokenSource? _stageSizeDebounce;
+    private void ScheduleReportStageSize()
+    {
+        _stageSizeDebounce?.Cancel();
+        var cts = new CancellationTokenSource();
+        _stageSizeDebounce = cts;
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(32), () =>
+        {
+            if (cts.IsCancellationRequested) return;
+            ReportStageSize(DesktopStage);
+        });
     }
 
     private void OnVmPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         if (e.PropertyName == nameof(MainGameViewModel.CharacterBackdrop))
         {
-            MainThread.BeginInvokeOnMainThread(() => _ = ApplyCharacterBackdropAsync());
+            // 背景通知可能来自线程池：统一走 Ui.Post 回 UI 线程（WinUI 下线程池取不到 DispatcherQueue 会崩进程）。
+            Ui.Post(() => _ = ApplyCharacterBackdropAsync());
+            return;
+        }
+        if (e.PropertyName == nameof(MainGameViewModel.StartupReady))
+        {
+            // 进场风暴结束（界面本体/立绘就绪）后再过 2 秒，把延迟挂载的 Galgame 面板
+            // 放回可视树。实测 StartupReady 后立即挂回仍会撞上首帧渲染期的布局环窗口
+            //（异常在 Begin.Exit 后约 1 秒抛出），2 秒把挂载挪到窗口之外。
+            // 摘除/挂回都不重建元素，绑定与 Grid 附加属性原样保留。
+            Ui.Post(() => Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(2000), RestoreDeferredPanels));
+            return;
+        }
+        if (e.PropertyName == nameof(MainGameViewModel.EntryProgress))
+        {
+            // 入口进度卡的比例进度线：真实阶段值（VM EntryProgress 0..1）→ 比例 bounds。
+            // 放在 Ui.Post 兜一次线程（进度也可能从后台推进）。
+            Ui.Post(() =>
+            {
+                try
+                {
+                    var p = Math.Clamp(_vm?.EntryProgress ?? 0, 0, 1);
+                    AbsoluteLayout.SetLayoutBounds(EntryBarFill, new Microsoft.Maui.Graphics.Rect(0, 0, p, 1));
+                }
+                catch { }
+            });
             return;
         }
         if (e.PropertyName is not (nameof(MainGameViewModel.HideDesktopPanels)
@@ -60,8 +181,8 @@ public partial class MainGamePage : ContentPage
             or nameof(MainGameViewModel.WidgetModeEnabled)
             or nameof(MainGameViewModel.IsWidgetPanelVisible))) return;
         if (!_vm.IsDesktopLayout) return;
-        // 等这一帧的布局跑完再量：此刻舞台的 X/Y 还是旧值。
-        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(32), () => ReportStageSize(DesktopStage));
+        // 面板显隐会改舞台预算：与页面尺寸变化共用同一条防抖延迟链，合并成一次重算。
+        ScheduleReportStageSize();
     }
 
     /// <summary>角色背景换场：两层图片交叉淡入；没有新背景时收掉，露出场景底色。</summary>
@@ -84,12 +205,9 @@ public partial class MainGamePage : ContentPage
     }
 
     /// <summary>
-    /// 上报给 VM 的舞台尺寸 = 「窗口可用空间」，而不是舞台自己被量出来的尺寸。
-    /// 星号行列会被子元素的期望尺寸撑大（MAUI GridLayoutManager 对星号列取
-    /// max(star, child.DesiredSize)），而立绘的固定宽高正是上一次测量算出来的：
-    /// 一旦舞台被撑得比窗口还大，它就再也收不回来 —— 尺寸不变 → SizeChanged 不触发
-    /// → 立绘不重算 → 舞台连同铺满它的输入栏一直顶在窗外。
-    /// 页面尺寸才是窗口，减去舞台偏移和可见的右栏，就是它真正能用的地方。
+    /// 舞台预算只从「页面窗口尺寸 − 舞台 X/Y 偏移 − 可见右栏宽度」推，绝不读舞台自身
+    /// 被量出来的 Width/Height：那会被立绘的期望尺寸反向撑大，形成 measure→arrange 回环。
+    /// el.X/el.Y 只由固定栏决定，与立绘解耦，可安全当输入。
     /// </summary>
     private double _lastStageW = -1;
     private double _lastStageH = -1;
@@ -98,25 +216,25 @@ public partial class MainGamePage : ContentPage
     {
         if (BindingContext is not MainGameViewModel vm) return;
         if (!el.IsVisible) return;
-        // NaN 用「<= 0」「< 1」都拦不住（NaN 与任何数比较都为 false）。旧守卫一旦放进 NaN，
-        // 它会一路流进 UpdateSpriteTransform，把 SpriteFitW/H、SpriteScale、Translation 算成 NaN
-        // 写回立绘的 WidthRequest / Scale —— WinUI 拿到 NaN 就是原生布局崩溃（0xc000027b）。
-        if (!double.IsFinite(el.Width) || !double.IsFinite(el.Height)
-            || !double.IsFinite(Width) || !double.IsFinite(Height)
-            || el.Width <= 0 || el.Height <= 0 || Width <= 0 || Height <= 0) return;
-        var right = RightChatPanel.IsVisible
-            ? Math.Max(0, Math.Max(RightChatPanel.Width, RightChatPanel.WidthRequest))
-            : 0;
-        // 窗口极小时 Auto,*,Auto 的两条固定栏会把星号列挤成负可用空间：夹到 0，不再往下传。
-        var w = Math.Max(0, Math.Min(el.Width, Width - el.X - right));
-        var h = Math.Max(0, Math.Min(el.Height, Height - el.Y));
+        // 所有输入先挡 NaN/Inf：NaN 与任何数比较都为 false，一旦流进 VM 会把 Scale 算成
+        // NaN，WinUI 拿到 NaN 是原生崩溃。窗口尺寸还必须是正数。
+        if (!double.IsFinite(Width) || !double.IsFinite(Height)
+            || !double.IsFinite(el.X) || !double.IsFinite(el.Y)
+            || Width <= 0 || Height <= 0) return;
+        // 右栏宽度不再量出来：列定义固定 300，面板也不设 WidthRequest，直接用常量扣预算，
+        // 杜绝「读了被布局影响的宽度、又把结果写回布局」的回环。
+        // 右栏宽度以 VM 属性为准：进场早期 Border 的绑定可能还没落，读控件会把
+        // 可见右栏算成 0，预算虚大 300px（立绘基准偏移的老毛病）。
+        var right = vm.IsRightPanelVisible ? 300 : 0;
+        // 窗口极小时固定栏会把星号格挤成负可用空间：夹到 0，不把负数传给 VM。
+        var w = Math.Max(0, Width - el.X - right);
+        var h = Math.Max(0, Height - el.Y);
         if (!double.IsFinite(w) || !double.IsFinite(h) || w < 1 || h < 1) return;
-        // 收敛闸：尺寸没变就不再通知 VM。VM 会写立绘的 WidthRequest/HeightRequest，
-        // 那颗 Image 又住在 DesktopStage 里，写一次就可能再冒一次 SizeChanged ——
-        // 少了这道比较就是「SizeChanged → 重算 → 改宽高 → SizeChanged」的布局死循环。
+        // 预算没实质变化就不重复通知 VM，避免多余重算。
         if (Math.Abs(w - _lastStageW) < 0.5 && Math.Abs(h - _lastStageH) < 0.5) return;
         _lastStageW = w;
         _lastStageH = h;
+        App.TraceStep($"StageSize.Report: page={Width:F0}x{Height:F0}, stageXY=({el.X:F0},{el.Y:F0}), stageMeasured={el.Width:F0}x{el.Height:F0}, right={right:F0}, out={w:F0}x{h:F0}");
         vm.OnStageSizeChanged(w, h, false);
     }
 
@@ -168,6 +286,9 @@ public partial class MainGamePage : ContentPage
         // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
         Motion.ArrivePage(this);
         EnsureHudTopStrip();
+        // 入口反馈由 XAML 里的 EntryProgressHost 进度卡承担（真实阶段进度，绑定 EntryLoading）；
+        // 诊断 noveil 时整卡隐藏（IsVisible 直接赋值会替换绑定，仅诊断路径使用）。
+        if (Diag.Contains("noveil")) EntryProgressHost.IsVisible = false;
         App.TraceStep("MainGamePage.OnAppearing.BeforeBegin");
         StartGameOnce();
         App.TraceStep("MainGamePage.OnAppearing.AfterBegin");
@@ -216,6 +337,8 @@ public partial class MainGamePage : ContentPage
             {
                 Orientation = ScrollOrientation.Horizontal,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
+                // 定高：顶栏行现在是常量测量，横滚带高度不随读数内容变化，掐断 Auto 行测量反馈。
+                HeightRequest = 64,
                 Content = row,
             };
 
