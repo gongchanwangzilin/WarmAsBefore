@@ -95,20 +95,18 @@ public partial class AppShell : Shell
                 BackgroundColor = Microsoft.Maui.Graphics.Colors.Transparent,
                 InputTransparent = true,
             };
+            // 「华丽」口径：复用系统现成的对话框浮层材质 CardDialog（玻璃底 + 世界影子 + 强边），
+            // 影子是该样式静态内联、仅 Brush 跟世界走的安全版，不新造 Shadow 对象（新造会重建合成层）。
             var card = new Border
             {
                 HorizontalOptions = LayoutOptions.Center,
                 VerticalOptions = LayoutOptions.Center,
-                StrokeThickness = 1,
-                Padding = new Thickness(22, 18, 22, 18),
             };
-            card.SetDynamicResource(Border.BackgroundColorProperty, "SurfaceBg");
-            card.SetDynamicResource(Border.StrokeShapeProperty, "WRadiusCard");
-            card.SetDynamicResource(Border.StrokeProperty, "WBorderBrush");
+            card.SetDynamicResource(Border.StyleProperty, "CardDialog");
 
             var stack = new VerticalStackLayout
             {
-                Spacing = 8,
+                Spacing = 10,
                 HorizontalOptions = LayoutOptions.Center,
             };
             var spin = new ActivityIndicator
@@ -122,10 +120,11 @@ public partial class AppShell : Shell
             var label = new Label
             {
                 Text = Controls.LoadingVeil.LoadingText,
-                FontSize = 12,
+                FontSize = 13,
+                FontAttributes = FontAttributes.Bold,
                 HorizontalOptions = LayoutOptions.Center,
             };
-            label.SetDynamicResource(Label.TextColorProperty, "MutedFg");
+            label.SetDynamicResource(Label.TextColorProperty, "SurfaceFg");
             stack.Children.Add(spin);
             stack.Children.Add(label);
             card.Content = stack;

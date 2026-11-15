@@ -113,9 +113,9 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
         <Grid Grid.Row="0" IsVisible="{Binding HasReceipt, Source={x:Static core:RepairReportService.Instance}}"
               VerticalOptions="Start" HorizontalOptions="Fill"
               Padding="{DynamicResource WPadCard}">
-            <Border Style="{StaticResource CardSolid}"
-                    StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="1"
-                    Stroke="{DynamicResource WBorderBrush}">
+            <!-- 「华丽」口径：常驻回执条改用液态玻璃卡 CardLiquidGlass（玻璃底 + 世界影子 + 抬升边），
+                 比实心卡更通透有层次；影子是该样式静态内联安全版（仅 Brush 跟世界），不新造 Shadow 对象。 -->
+            <Border Style="{StaticResource CardLiquidGlass}">
                 <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                         <Label Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
