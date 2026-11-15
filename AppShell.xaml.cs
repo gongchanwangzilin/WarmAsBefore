@@ -125,8 +125,38 @@ public partial class AppShell : Shell
                 HorizontalOptions = LayoutOptions.Center,
             };
             label.SetDynamicResource(Label.TextColorProperty, "SurfaceFg");
+            _busyLabel = label;
+            // 详细信息展开栏（Windows 式）：默认收起，点「详细信息」看每一步在干什么，
+            // 用来回答「到底卡住了没有」。显隐只切 IsVisible。
+            _busyDetail = new Label
+            {
+                IsVisible = false,
+                FontSize = 11,
+                HorizontalOptions = LayoutOptions.Center,
+                HorizontalTextAlignment = Microsoft.Maui.TextAlignment.Start,
+            };
+            _busyDetail.SetDynamicResource(Label.TextColorProperty, "MutedFg");
+            var detailHost = new ScrollView { IsVisible = false, HeightRequest = 110, Content = _busyDetail };
+            _busyDetailHost = detailHost;
+            var detailToggle = new Button
+            {
+                Text = "详细信息 ▾",
+                FontSize = 11,
+                Padding = 0,
+                HeightRequest = 24,
+                MinimumWidthRequest = 0,
+                BackgroundColor = Colors.Transparent,
+                TextColor = Microsoft.Maui.Graphics.Colors.Gray,
+            };
+            detailToggle.Clicked += (_, _) =>
+            {
+                detailHost.IsVisible = !detailHost.IsVisible;
+                detailToggle.Text = detailHost.IsVisible ? "详细信息 ▴" : "详细信息 ▾";
+            };
             stack.Children.Add(spin);
             stack.Children.Add(label);
+            stack.Children.Add(detailToggle);
+            stack.Children.Add(detailHost);
             card.Content = stack;
             overlay.Children.Add(card);
 
@@ -135,6 +165,7 @@ public partial class AppShell : Shell
             Grid.SetColumn(overlay, 0);
             Grid.SetColumnSpan(overlay, Math.Max(1, root.ColumnDefinitions.Count));
             root.Children.Add(overlay);
+            _busyDetailLines.Clear();
             _navBusyOverlay = overlay;
             _navBusyPage = page;
 
@@ -162,6 +193,45 @@ public partial class AppShell : Shell
                 root.Children.Remove(overlay);
         }
         catch (Exception ex) { App.WriteLog("AppShell.HideNavBusy -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// 供「再续情缘」这类先读档、后导航的入口在等待期间提前亮出忙碌层：
+    /// 正常导航链路由 Navigating 自动盖/撤；这里只是把同一层手动开一次，
+    /// 与 Navigated 的自动撤层幂等兼容（层已被撤时是 no-op）。
+    /// </summary>
+    public void ShowBusyNow() => ShowNavBusy();
+
+    /// <summary>与 <see cref="ShowBusyNow"/> 配对的手动撤层；层不在时 no-op。</summary>
+    public void HideBusyNow() => HideNavBusy();
+
+    /// <summary>忙碌卡上的阶段文字（读档 2/5 · 校验数据 之类）。层不在时静默。</summary>
+    public void SetBusyText(string text)
+    {
+        try
+        {
+            if (_navBusyOverlay is not null && _busyLabel is not null)
+                _busyLabel.Text = text;
+        }
+        catch (Exception ex) { App.WriteLog("AppShell.SetBusyText -> " + ex.Message); }
+    }
+
+    private Label? _busyLabel;
+    private Label? _busyDetail;
+    private ScrollView? _busyDetailHost;
+    private readonly List<string> _busyDetailLines = new();
+
+    /// <summary>忙碌卡详细信息：追加一行细步记录，只留最近 6 行，收起态照常记录。</summary>
+    public void SetBusyDetail(string detail)
+    {
+        try
+        {
+            if (_busyDetail is null) return;
+            _busyDetailLines.Add(detail);
+            while (_busyDetailLines.Count > 6) _busyDetailLines.RemoveAt(0);
+            _busyDetail.Text = string.Join("\n", _busyDetailLines);
+        }
+        catch (Exception ex) { App.WriteLog("AppShell.SetBusyDetail -> " + ex.Message); }
     }
 
     private void RegisterRoutes()

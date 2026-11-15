@@ -29,7 +29,10 @@ public sealed class StorageProvider
         var json = DecodeForRead(key, await ReadWithRetryAsync(path));
         try
         {
-            return JsonSerializer.Deserialize<T>(json);
+            // 反序列化挪到线程池（2026-11-15）：几 MB 级 JSON（角色库/记忆库/地图/存档）
+            // 此前都在调用线程（UI）上 Deserialize，读档与页面装载期反复冻结 UI。
+            // JSON 文本不可变，线程池反序列化无并发风险。
+            return await Task.Run(() => JsonSerializer.Deserialize<T>(json));
         }
         catch (JsonException)
         {
@@ -191,9 +194,24 @@ public sealed class StorageProvider
 
     public async Task Save<T>(string key, T data) where T : class
     {
-        var json = JsonSerializer.Serialize(data, WriteOptions);
+        // 序列化挪出调用线程（2026-11-15，回应「点一下存档就卡死」）：
+        // 之前 JsonSerializer.Serialize 整份游戏状态对象图就压在调用方（UI 线程）上，
+        // 快速存档与 5 秒防抖的自动存档每次都把 UI 线程冻住几百毫秒到数秒，没有任何反馈。
+        // 挪到线程池后，若对象图在遍历途中被并发改动会抛 InvalidOperationException——
+        // 重试两轮等写入方停手（状态改动大头在 UI 线程动作上，实际窗口极小），
+        // 三轮都失败才把异常抛回 Commit（已有 catch 记日志并返回失败）。
+        var json = await Task.Run(() => SerializeWithRetry(data));
         await WriteAtomicAsync(key, json);
         Changed?.Invoke(key);
+    }
+
+    private static string SerializeWithRetry<T>(T data) where T : class
+    {
+        for (var attempt = 0; ; attempt++)
+        {
+            try { return JsonSerializer.Serialize(data, WriteOptions); }
+            catch (InvalidOperationException) when (attempt < 2) { Thread.Sleep(60); }
+        }
     }
 
     /// <summary>

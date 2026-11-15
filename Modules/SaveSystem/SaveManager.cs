@@ -131,6 +131,13 @@ public sealed class SaveManager
     /// </summary>
     public Action<int, string>? LoadPhaseHook { get; set; }
 
+    /// <summary>
+    /// 解析细步通知（2026-11-15）：忙碌卡的详细信息展开栏用。
+    /// 每个解析子步骤完成时带一句人话（「正在解析存档五段…」），让用户看见卡在哪一步、
+    /// 是真的在动还是停住了。UI 线程订阅方自行调度。
+    /// </summary>
+    public Action<string>? LoadDetailHook { get; set; }
+
     private void MarkLoadPhase(int phase, string name)
     {
         WarmAsBefore.Services.PerfLog.SetPhase($"读档·P{phase}·{name}");
@@ -255,8 +262,10 @@ public sealed class SaveManager
             json = null;
             App.WriteLog("SaveManager.LoadCore.Read " + id + " -> " + ex);
         }
-        // 真实节点 01：文件已读回（SaveVM 的 _library.ListAsync 也已完成）→ 进入「校验数据」。
-        MarkLoadPhase(2, "校验数据");
+        // 真实节点 01：文件已读回（SaveVM 的 _library.ListAsync 也已完成）→ 进入「解析数据」。
+        // 「校验」改叫「解析」（2026-11-15，用户反馈）：这一步做的不是查坏——是把 JSON 文本
+        // 变成内存对象，没坏也必须做；真正的查坏/修复已整体延后到进档之后（见下方 deferred）。
+        MarkLoadPhase(2, "解析数据");
 
         if (string.IsNullOrEmpty(json))
         {
@@ -283,8 +292,11 @@ public sealed class SaveManager
         }
 
         // 整体 JSON 语法损坏：不可修复（备份 + 隔离），绝不整档覆盖。
+        // 【2026-11-15】Parse + 五段反序列化合并为单个后台任务：此前是 1+5 个 Task.Run 分片，
+        // 启动期线程池饥饿时分片会排队数秒（进度条卡在解析的元凶，时快时慢）；
+        // 单任务单 worker 用时确定。JsonDocument 是只读解析产物，线程池构建安全。
         JsonDocument doc;
-        try { doc = JsonDocument.Parse(json); }
+        try { doc = await Task.Run(() => JsonDocument.Parse(json)); }
         catch (JsonException ex)
         {
             var bakSyn = _store.BackupCorruptFile($"saves/{id}");
@@ -311,19 +323,26 @@ public sealed class SaveManager
         var version = 0;
         using (doc)
         {
-            // 角色库载入与 5 段反序列化并行（CPU 并行）：JsonDocument/JsonElement 只读线程安全。
+            // 角色库载入先起（后台）；五段反序列化合并为单个后台任务，不再分片排队。
+            LoadDetailHook?.Invoke("正在解析角色库…");
             var libTask = _library.ListAsync();
-            var tState = Task.Run(() => ParseSegment<GameState>(doc, "state"));
-            var tCharState = Task.Run(() => ParseSegment<CharacterState>(doc, "char_state"));
-            var tCharStates = Task.Run(() => ParseSegment<Dictionary<string, CharacterState>>(doc, "char_states"));
-            var tSubProfiles = Task.Run(() => ParseSegment<Dictionary<string, CharacterSubProfile>>(doc, "sub_profiles"));
-            var tChat = Task.Run(() => ParseSegment<List<ChatRecord>>(doc, "chat"));
-            await Task.WhenAll(tState, tCharState, tCharStates, tSubProfiles, tChat);
-            var sState = tState.Result;
-            var sCharState = tCharState.Result;
-            var sCharStates = tCharStates.Result;
-            var sSubProfiles = tSubProfiles.Result;
-            var sChat = tChat.Result;
+            LoadDetailHook?.Invoke("正在解析存档五段（状态/角色/对话）…");
+            var parsed = await Task.Run(() =>
+            {
+                var pState = ParseSegment<GameState>(doc, "state");
+                var pCharState = ParseSegment<CharacterState>(doc, "char_state");
+                var pCharStates = ParseSegment<Dictionary<string, CharacterState>>(doc, "char_states");
+                var pSubProfiles = ParseSegment<Dictionary<string, CharacterSubProfile>>(doc, "sub_profiles");
+                var pChat = ParseSegment<List<ChatRecord>>(doc, "chat");
+                var v = doc.RootElement.TryGetProperty("version", out var vv) && vv.TryGetInt32(out var ver) ? ver : 0;
+                return (pState, pCharState, pCharStates, pSubProfiles, pChat, v);
+            });
+            var sState = parsed.pState;
+            var sCharState = parsed.pCharState;
+            var sCharStates = parsed.pCharStates;
+            var sSubProfiles = parsed.pSubProfiles;
+            var sChat = parsed.pChat;
+            LoadDetailHook?.Invoke("五段解析完成，等待角色库…");
 
             // 分段失败只降级自己那一段（用默认值），其余段照常恢复；记录「段名 + 原因」。
             if (sState.Error is not null) { sectionFailed = true; failedSegment = "state"; lost.Add("可能丢失：游戏状态 state（" + sState.Error + "）"); }
@@ -333,6 +352,7 @@ public sealed class SaveManager
             if (sChat.Error is not null) { sectionFailed = true; lost.Add("可能丢失：最近 60 条对话 chat（" + sChat.Error + "）"); }
 
             await libTask;   // 恢复角色状态前确保角色库已载入
+            LoadDetailHook?.Invoke("角色库就绪，恢复游戏状态…");
 
             // ---- 串行 Apply（固定顺序）：RestoreState / Roster / ChatLog / _scope.Raise 必须串行 ----
             GameState? state = null;
@@ -405,15 +425,13 @@ public sealed class SaveManager
             });
         }
 
-        // 自动修复：version 落后补齐 + 3 类内存态修正 + Lost/Fixed 记账。
-        // 回写安全（硬性）：任一段解析失败时禁止整档 Commit，防二次损坏，只做内存态修复。
-        var repair = (Note: string.Empty, Committed: false);
-        if (version < SchemaVersion || sectionFailed)
-            repair = await RepairAsync(id, version, allowWriteBack: !sectionFailed, lost, fixedItems);
-        var note = repair.Note;
-        LastLoadNote = note;
-        if (!string.IsNullOrEmpty(note)) App.WriteLog("SaveManager.Repair -> " + note);
-
+        // 修复延后（2026-11-15，用户决策「先进档、后台校验」）：旧版在这里同步等
+        // RepairAsync（版本迁移 + 三类内存态修正 + 回写），旧档一次拖住进入数秒——
+        // 而这些修复没有一件是「进档前必须完成」的。现在进档立即返回，修复延后
+        // 3 秒在 UI 线程串行补跑（与界面的状态修改天然互斥，不引入并发），完成后
+        // 直接经 RepairReportService 补发回执横幅（R9 常驻语义不变，只是晚几秒出现）。
+        // 只有「空文件 / 整档语法损坏」这类真问题才在进入前阻断（上面已处理）。
+        var needsRepair = version < SchemaVersion || sectionFailed;
         LastRepairReport = new SaveRepairReport
         {
             SaveId = id,
@@ -424,12 +442,53 @@ public sealed class SaveManager
             BackupPath = null,
             // 段失败仍可进入（降级默认值）；整体语法损坏/空文件才是不可修复。
             CanEnter = true,
-            Committed = repair.Committed,
+            Committed = false,
             FailedSegment = failedSegment,
             FailedPhase = sectionFailed ? 2 : 0,
             ErrorKind = sectionFailed ? "section" : (version < SchemaVersion ? "stale" : (fixedItems.Count > 0 ? "refs" : "none")),
-            WriteBackNote = !repair.Committed ? "未回写，原件保留" : ""
+            WriteBackNote = "未回写，原件保留"
         };
+        if (needsRepair)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(3000);
+                    var repairNote = string.Empty;
+                    var repairCommitted = false;
+                    await Helpers.Ui.PostAsync(async () =>
+                    {
+                        var repair = await RepairAsync(id, version, allowWriteBack: !sectionFailed, lost, fixedItems);
+                        repairNote = repair.Note;
+                        repairCommitted = repair.Committed;
+                    });
+                    if (!string.IsNullOrEmpty(repairNote))
+                    {
+                        LastLoadNote = repairNote;
+                        App.WriteLog("SaveManager.Repair(deferred) -> " + repairNote);
+                    }
+                    LastRepairReport = new SaveRepairReport
+                    {
+                        SaveId = id,
+                        IncidentSummary = sectionFailed ? "部分存档段解析失败，已用默认值恢复"
+                            : (fixedItems.Count > 0 ? "存档结构落后，已自动修复" : ""),
+                        LostItems = lost,
+                        FixedItems = fixedItems,
+                        BackupPath = null,
+                        CanEnter = true,
+                        Committed = repairCommitted,
+                        FailedSegment = failedSegment,
+                        FailedPhase = sectionFailed ? 2 : 0,
+                        ErrorKind = sectionFailed ? "section" : (version < SchemaVersion ? "stale" : (fixedItems.Count > 0 ? "refs" : "none")),
+                        WriteBackNote = !repairCommitted ? "未回写，原件保留" : ""
+                    };
+                    try { Services.Core.RepairReportService.Instance.Show(LastRepairReport); }
+                    catch (Exception ex) { App.WriteLog("SaveManager.RepairReceipt(deferred) -> " + ex.Message); }
+                }
+                catch (Exception ex) { App.WriteLog("SaveManager.RepairDeferred -> " + ex); }
+            });
+        }
 
         // 手机端进入存档自动横屏（桌面/平板无方向锁概念）
         try { ScreenOrientationService.EnterSaveLandscape(); }

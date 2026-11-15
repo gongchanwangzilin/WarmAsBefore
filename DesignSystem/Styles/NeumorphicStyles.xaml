@@ -99,16 +99,16 @@
     </Style>
 
     <!-- 液态玻璃卡：材质完全交给 GlassTokens —— 它按当前世界算色标，
-         所以这一段不再需要自己写死一串渐变 hex（那正是「换到蓝灰还剩一块奶油」的来源）。 -->
+         所以这一段不再需要自己写死一串渐变 hex（那正是「换到蓝灰还剩一块奶油」的来源）。
+         【2026-11-15 移除 Shadow】：MAUI Windows 上带投影的元素被反复 Arrange 会触发
+         LayoutCycleException（实测：主界面顶栏/卡片带 Shadow + 进场测量风暴 = 必崩），
+         且投影合成层本身在 UI 硬红线的禁用清单里（换 Shadow 对象会重建合成层）。 -->
     <Style x:Key="CardLiquidGlass" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource GlassCardBg}" />
         <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
         <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="Padding" Value="{DynamicResource WPadCard}" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusRaised}" />
-        <Setter Property="Shadow">
-            <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,8" Radius="18" Opacity="1" />
-        </Setter>
     </Style>
 
     <!-- 可点击卡片（游戏入口/功能块）：悬停提亮、按下压暗，位移交给 PressFeel。
