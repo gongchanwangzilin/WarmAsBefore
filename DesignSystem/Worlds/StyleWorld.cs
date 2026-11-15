@@ -64,31 +64,77 @@ public static class StyleWorldTokens
     public const double DesignWidth = 1280;
     public const double DesignHeight = 800;
 
+    /// <summary>视口逻辑尺寸的合法边界：挡住多屏坐标、DPI 换算溢出这类异常大值。</summary>
+    private const double MinViewport = 1d;
+    private const double MaxViewport = 8192d;
+
     /// <summary>尺度乘子，1.0 = 设计档。夹在 0.86–1.16：再小字就读不出了，再大一屏放不下三行。</summary>
     public static double Scale { get; private set; } = 1.0;
+
+    /// <summary>尺度乘子的安全读口：永远有限、正、在设计夹取范围内。</summary>
+    public static double SafeScale =>
+        double.IsFinite(Scale) && Scale > 0 ? Math.Clamp(Scale, 0.86, 1.16) : 1.0;
 
     /// <summary>最近一次上报的窗口逻辑宽度（内容列宽度要跟着它走，见 CardWidth）。</summary>
     public static double ViewportWidth { get; private set; } = DesignWidth;
 
-    /// <summary>窗口逻辑尺寸变了就重算尺度档。返回 false 表示没跨档，不必重发整套令牌。</summary>
+    /// <summary>
+    /// 视口入参规整：只接受有限、正、有界的逻辑尺寸。
+    /// NaN / ±∞ 用 <c>&lt;= 0</c> 是拦不住的（NaN 与任何数比较都为 false）：旧代码一旦放它们进来，
+    /// Math.Clamp(NaN,…) 仍返回 NaN，整套 WSize* / WPad* / WRadius* / WCardWidth 会被算成 NaN
+    /// 写进资源字典，WinUI 拿到 NaN 的 WidthRequest / FontSize / CornerRadius 就是原生布局崩溃。
+    /// </summary>
+    public static bool TryNormalizeViewport(double width, double height, out double w, out double h)
+    {
+        w = 0d;
+        h = 0d;
+        if (!double.IsFinite(width) || !double.IsFinite(height)) return false;
+        if (width <= 0 || height <= 0) return false;
+        w = Math.Clamp(width, MinViewport, MaxViewport);
+        h = Math.Clamp(height, MinViewport, MaxViewport);
+        return w > 0 && h > 0;
+    }
+
+    /// <summary>窗口逻辑尺寸变了就重算尺度档。返回 false 表示没跨档（或入参非法），不必重发整套令牌。</summary>
     public static bool SetViewport(double width, double height)
     {
-        if (width <= 0 || height <= 0) return false;
-        ViewportWidth = width;
-        var k = Math.Clamp(Math.Min(width / DesignWidth, height / DesignHeight), 0.86, 1.16);
+        if (!TryNormalizeViewport(width, height, out var w, out var h)) return false;
+        ViewportWidth = w;
+        var k = Math.Clamp(Math.Min(w / DesignWidth, h / DesignHeight), 0.86, 1.16);
         // 量化到 0.02 一档：连续值会让拖窗口的每一像素都重发一遍全套令牌（整屏重排），
         // 而 0.01 档的字号差肉眼根本读不出来，白掉一次布局。
         var q = Math.Round(k / 0.02) * 0.02;
+        if (!double.IsFinite(q) || q <= 0) q = 1.0;
         if (Math.Abs(q - Scale) < 0.0001) return false;
         Scale = q;
         return true;
     }
 
-    /// <summary>当前窗口下内容列的建议宽度（逻辑单位）：跟窗走，但封顶，行长过了 900 就读不回来了。
-    /// 下限 320 是手机的宽度那一档 —— 窗口没上报过尺寸时（Android 上 Resized 不一定触发），
-    /// 宁可让卡片按内容收缩，也不要顶出一个 794 的固定宽。</summary>
-    public static double CardWidth(double windowWidth) =>
-        Math.Clamp(Math.Round(windowWidth * 0.62), 320, 900);
+    /// <summary>
+    /// 宽度令牌的地板：本该是手机档 320，但窗口比它还窄时不能让地板顶穿窗口。
+    /// 旧代码把 320 写死，窄窗下内容列比窗口还宽，Grid 星号列被算成负可用空间 ——
+    /// 这正是「缩到极小 UI 崩坏」的那一下。
+    /// 注意：这里给的是 Math.Clamp 的**下界**，不是上界，不能保证令牌 ≤ (窗宽 − 48)。
+    /// 真实不变量是「令牌恒 &lt; 窗宽、绝不顶穿窗口」：地板本身 ≤ 窗宽−48 &lt; 窗宽，
+    /// 候选值取 0.62×窗宽 / 0.9×窗宽，同样恒小于窗宽。极窄窗下令牌可能略大于减去
+    /// 两侧页边距后的可用内容宽（QA 实测窗宽 100 时 WCardWidth=62、WCardWidthWide=90，
+    /// avail=52），这一档由消费方各自的夹取/贴边规则收口，不影响防崩溃不变量。
+    /// </summary>
+    private static double ContentFloor(double windowWidth) =>
+        Math.Min(320d, Math.Max(0d, windowWidth - 48d));
+
+    /// <summary>
+    /// 当前窗口下内容列的建议宽度（逻辑单位）：跟窗走、封顶 900，恒小于窗宽、绝不顶穿窗口。
+    /// 任何尺寸（含 0 / 负 / NaN / ±∞ / 极小）下都返回有限、非负的值。
+    /// </summary>
+    public static double CardWidth(double windowWidth)
+    {
+        if (!double.IsFinite(windowWidth) || windowWidth <= 0) windowWidth = DesignWidth;
+        windowWidth = Math.Clamp(windowWidth, MinViewport, MaxViewport);
+        var floor = ContentFloor(windowWidth);
+        var value = Math.Clamp(Math.Round(windowWidth * 0.62), floor, 900d);
+        return double.IsFinite(value) && value >= 0 ? value : floor;
+    }
 
     // ── 宽度令牌的小型重发 ─────────────────────────────────────────────
     // 内容列宽只跟窗口宽度走，与色板/字号无关。以前它们混在整套 Publish 里，
@@ -106,13 +152,43 @@ public static class StyleWorldTokens
 
     private static void PublishWidth(ResourceDictionary res)
     {
-        res["WCardWidth"] = CardWidth(ViewportWidth);
+        // 入口兜底：ViewportWidth 理论上只由 SetViewport 写，但整套 Publish 也可能在窗口存在前跑
+        // （App 构造函数），任何一条漏网的非法值都不许流进资源字典。
+        var vw = ViewportWidth;
+        if (!double.IsFinite(vw) || vw <= 0) vw = DesignWidth;
+        vw = Math.Clamp(vw, MinViewport, MaxViewport);
+
+        var card = CardWidth(vw);
         // 双栏编辑/桌面伴侣一类的页面要用比正文列宽一档的内容列（桌宠设置 440 预览 + 设置列）。
         // 上限放到 1600（0.9×窗宽）：1920 全屏 1240 封顶会把「内容列跟窗走」读成又一块固定邮票。
-        res["WCardWidthWide"] = Math.Clamp(Math.Round(ViewportWidth * 0.9), 320, 1600);
-        // 导航条宽度：窄到一列都放不下时（手机）交回 -1 = 不请求宽度，让那一列自己塌成一行。
-        // 这个判断只能在这里做：XAML 里 OnPlatform 拿不到窗口尺寸，而尺度档知道。
-        res["WRailWidth"] = CardWidth(ViewportWidth) < 480 ? -1d : Math.Round(262 * Scale);
+        // 地板同样跟着窄窗收缩，不许令牌顶穿可用内容区。
+        var wideFloor = ContentFloor(vw);
+        var wide = Math.Clamp(Math.Round(vw * 0.9), wideFloor, 1600d);
+        // 导航条宽度：窄到一列都放不下时（手机）让那一列自己塌成一行。
+        // 旧代码在这里下发 -1（MAUI「不请求宽度」的哨兵），它是全站唯一被写进资源的负值：
+        // 一旦被任何消费方当成真实宽度做减法，就会算出负可用空间。改成 0 视觉完全等价 ——
+        // 触发这个分支时 CardWidth < 480 即窗宽 < 774，标题页早已切到 CompactBreakpoint=820
+        // 以下的单列版式、ShellGrid 被隐藏，RailGrid 根本不参与排版。
+        var rail = card < 480 ? 0d : Math.Round(262 * SafeScale);
+        if (!double.IsFinite(rail) || rail < 0) rail = 0d;
+
+        SetToken(res, "WCardWidth", card);
+        SetToken(res, "WCardWidthWide", wide);
+        SetToken(res, "WRailWidth", rail);
+    }
+
+    /// <summary>
+    /// 只写「有限、非负、且真的变了」的双精度令牌。
+    /// ResourceDictionary 的 indexer setter 不做值比较：写同一个数也会触发 ValuesChanged，
+    /// 让全站 {DynamicResource} 重新解析（整屏重排）。SizeChanged 一秒几十次时，
+    /// 这个比较就是 WinUI 布局死循环的断路器：重排冒出的同尺寸 SizeChanged 到这里直接零写入，
+    /// 布局链随即收敛；非法值则一律不写，绝不让 NaN / 负数落到原生布局层。
+    /// </summary>
+    private static void SetToken(ResourceDictionary res, string key, double value)
+    {
+        if (!double.IsFinite(value) || value < 0) return;
+        if (res.TryGetValue(key, out var old) && old is double d && Math.Abs(d - value) < 0.0001) return;
+        res[key] = value;
     }
 
     public static string Display(StyleWorld w) => "档案室";
@@ -283,7 +359,9 @@ public static class StyleWorldTokens
         World = world;
         Dark = dark;
         var res = app.Resources;
-        var r = Scaled(Recipe.Of(world), Scale);
+        // 走安全读口：整套 Publish 可能在 App 构造函数（窗口还不存在）里跑，
+        // 也可能在 ThemeManager 的防抖回调里跑，绝不能让非法 Scale 乘出 NaN 字号/圆角。
+        var r = Scaled(Recipe.Of(world), SafeScale);
 
         if (_seedTheme != themeKey)
         {

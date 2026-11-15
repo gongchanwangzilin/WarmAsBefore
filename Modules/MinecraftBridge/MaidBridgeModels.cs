@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
@@ -236,7 +237,7 @@ public sealed class MaidLoveLoathe
 public sealed class MaidBridgeBindingStore
 {
     [JsonPropertyName("worlds")]
-    public Dictionary<string, MaidBridgeWorldBinding> Worlds { get; set; } = new(StringComparer.Ordinal);
+    public ConcurrentDictionary<string, MaidBridgeWorldBinding> Worlds { get; set; } = new(StringComparer.Ordinal);
 }
 
 public sealed class MaidBridgeWorldBinding
@@ -245,11 +246,11 @@ public sealed class MaidBridgeWorldBinding
     public string SaveId { get; set; } = "";
 
     /// <summary>
-    /// 女仆绑定表。<b>非线程安全的普通 Dictionary</b>——所有读写（含序列化遍历）必须持
-    /// <c>lock (MaidBridgeService._bindingsGate)</c>；<c>_bindingOpsLock</c>（SemaphoreSlim）不能替代它。
+    /// 女仆绑定表。改用 <see cref="ConcurrentDictionary{TKey,TValue}"/>（与 Roster 同族修复），
+    /// 单个读写天然线程安全；跨多步的读写组合仍由 _bindingOpsLock / _bindingsGate 保证逻辑一致性。
     /// </summary>
     [JsonPropertyName("maids")]
-    public Dictionary<string, MaidBridgeMaidBinding> Maids { get; set; } = new(StringComparer.Ordinal);
+    public ConcurrentDictionary<string, MaidBridgeMaidBinding> Maids { get; set; } = new(StringComparer.Ordinal);
 
     [JsonPropertyName("taste")]
     public MaidBridgeTasteRules Taste { get; set; } = new();
@@ -275,7 +276,7 @@ public sealed class MaidBridgeTasteRules
 
     /// <summary>每种食物真吃下去的次数，到限就腻。模组本地先记一笔保判得快，宿主是权威、喂一口重推一份。</summary>
     [JsonPropertyName("counts")]
-    public Dictionary<string, int> Counts { get; set; } = new(StringComparer.Ordinal);
+    public ConcurrentDictionary<string, int> Counts { get; set; } = new(StringComparer.Ordinal);
 
     [JsonIgnore]
     public bool HasAny => Picky.Count > 0 || Favorite.Count > 0 || Counts.Count > 0;

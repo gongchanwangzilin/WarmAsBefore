@@ -1,3 +1,4 @@
+using System.Collections.Specialized;
 using System.ComponentModel;
 using WarmAsBefore.Controls;
 using WarmAsBefore.ViewModels;
@@ -18,11 +19,43 @@ public partial class MainGamePhoneView : ContentView
 
     private void OnBindingContextChangedInternal(object? sender, EventArgs e)
     {
-        if (_vm is not null) _vm.PropertyChanged -= OnVmPropertyChanged;
+        // 换绑时把旧 VM 的两个订阅一并摘掉，避免叠订阅。
+        if (_vm is not null)
+        {
+            _vm.PropertyChanged -= OnVmPropertyChanged;
+            _vm.Messages.CollectionChanged -= OnChatMessagesChanged;
+        }
         _vm = BindingContext as MainGameViewModel;
         if (_vm is null) return;
         _vm.PropertyChanged += OnVmPropertyChanged;
+        // 聊天列表不再靠 KeepLastItemInView 自动滚底（同桌面版，WinUI 布局环崩点），
+        // 滚底由这里监听集合后延迟执行。
+        _vm.Messages.CollectionChanged += OnChatMessagesChanged;
         _ = ApplyCharacterBackdropAsync(instant: true);
+    }
+
+    // 滚底挪到插入后的下一拍（120ms 延迟），彻底离开布局 pass；120ms 内连发多条
+    // 合并为一次滚动（in-flight 标志防抖），滚不到（列表未建好等）就静默放过。
+    private bool _chatScrollQueued;
+    private void OnChatMessagesChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (_vm is null) return;
+        if (e.Action is not (NotifyCollectionChangedAction.Add
+            or NotifyCollectionChangedAction.Replace
+            or NotifyCollectionChangedAction.Reset)) return;
+        if (_vm.Messages.Count == 0 || _chatScrollQueued) return;
+        _chatScrollQueued = true;
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(120), () =>
+        {
+            _chatScrollQueued = false;
+            try
+            {
+                if (_vm is { Messages.Count: > 0 })
+                    PhoneChatList.ScrollTo(_vm.Messages[_vm.Messages.Count - 1], null,
+                        Microsoft.Maui.Controls.ScrollToPosition.End, false);
+            }
+            catch { }
+        });
     }
 
     private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)

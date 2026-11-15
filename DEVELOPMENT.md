@@ -264,6 +264,12 @@ builder.Services
   插件中心与权限台。
 - `Views/Settings/PluginSettingsPage.xaml.cs`：`native` 字段渲染。
 
+### UI 速查表 · 读档状态层 / R9 例外（2026-11-14）
+
+| 场景 | 配方 | 出处 |
+|---|---|---|
+| 读档「读取中 / 失败 / 部分恢复」 | 页面内常驻 `CardDialog` 状态层 + `DangerBanner` 横幅（**不新建 `BannerService`**、不新增 Style 键 / 颜色 Token）；5 行阶段轨预建在 XAML，显隐只写 `IsVisible`，推进只改 `Text`/`TextColor`/`BackgroundColor` 令牌；阶段由 `SaveManager.LoadCore` 真实节点驱动并同步 `PerfLog.SetPhase` + `App.TraceStep`；跨线程 UI 更新一律 `Helpers.Ui.Post`，不铺全屏 scrim | `docs/UI-STANDARD.md` §R9 例外；`Views/Save/SavePage.xaml`、`ViewModels/Save/SaveViewModel.cs`、`Modules/SaveSystem/SaveManager.cs` |
+
 ---
 
 ### v1.54.0 新增落点（年龄 / 定位 / 云存档 / 地图照片与天气）

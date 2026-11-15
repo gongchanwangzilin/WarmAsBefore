@@ -15,6 +15,13 @@ public sealed class SaveManager
     private readonly MemoryScope _scope;
     private readonly PluginHost _plugins;
 
+    static SaveManager()
+    {
+        // CPU 并行读档多段解析的饥饿防护：5 段 Task.Run 并行，保证线程池有足够工作线程，
+        // 避免读档线程被其它任务挤到排队而拖慢「读取」进度（也避免并行退化成串行）。
+        try { System.Threading.ThreadPool.SetMinThreads(8, 8); } catch { }
+    }
+
     public SaveManager(StorageProvider store, GameEngine engine, CharacterLibrary library, MemoryScope scope,
         PluginHost plugins)
     {
@@ -114,6 +121,120 @@ public sealed class SaveManager
         return _store.Exists("imports/character");
     }
 
+    /// <summary>
+    /// 读档阶段推进（2026-11-14）：由 SaveViewModel 在 LoadSlot 期间注入，LoadCore 在**真实节点**处触发。
+    /// 参数是「当前进入的阶段号 1..5 与阶段名」，绝不按时间片假推进
+    /// （docs/ARCHITECTURE.md:378、COMPONENTS.md:605 的「不做假加载」是项目成文禁令）。
+    /// 除通知 UI 外，这里同步写 PerfLog.SetPhase（Volatile.Write，不依赖主线程）与
+    /// App.TraceStep（同步落盘到 warm_startup.log）—— UI 线程被占死时，
+    /// 最后一条 SaveLoad.Phase.* 就是「卡在第几步」的唯一证据。
+    /// </summary>
+    public Action<int, string>? LoadPhaseHook { get; set; }
+
+    /// <summary>
+    /// 解析细步通知（2026-11-15）：忙碌卡的详细信息展开栏用。
+    /// 每个解析子步骤完成时带一句人话（「正在解析存档五段…」），让用户看见卡在哪一步、
+    /// 是真的在动还是停住了。UI 线程订阅方自行调度。
+    /// </summary>
+    public Action<string>? LoadDetailHook { get; set; }
+
+    private void MarkLoadPhase(int phase, string name)
+    {
+        WarmAsBefore.Services.PerfLog.SetPhase($"读档·P{phase}·{name}");
+        App.TraceStep($"SaveLoad.Phase.{phase} {name}");
+        try { LoadPhaseHook?.Invoke(phase, name); }
+        catch (Exception ex) { App.WriteLog("SaveManager.LoadPhaseHook -> " + ex.Message); }
+    }
+
+    // ==================== 读档容错（2026-11-14） ====================
+
+    /// <summary>
+    /// 上一次读档的结构化修复结果（null = 还没读过档 / 无需报告）。
+    /// 保持 <see cref="Load"/> 的 <c>Task&lt;bool&gt;</c> 签名不破坏（调用方 SaveViewModel / MaidBridgeService），
+    /// 细节走这个属性。两类结局：<see cref="SaveRepairReport.CanEnter"/> 可修复（修复后自动进入）/
+    /// 不可修复（备份 + 隔离，不自动进入、不捏造空档覆盖原件）。
+    /// </summary>
+    public SaveRepairReport? LastRepairReport { get; private set; }
+
+    /// <summary>
+    /// 把一份读不出来的存档隔离：记入 <see cref="_unreadableSaves"/>（坏档隔离区的唯一数据源）
+    /// 并清掉它的列表缓存与 meta 索引——不清缓存的话 <see cref="List"/> 命中 <c>_slotCache</c>/<c>_index</c>
+    /// 就不再重读本体，磁盘被截断后列表仍显示正常（漏检）。
+    /// </summary>
+    private void QuarantineSave(string id)
+    {
+        try
+        {
+            var path = Path.Combine(_store.Root, "saves", id + ".json");
+            if (!_unreadableSaves.Contains(path)) _unreadableSaves.Add(path);
+            _slotCache.Remove(path);
+            _index.Remove(id);
+            _indexDirty = true;
+        }
+        catch (Exception ex) { App.WriteLog("SaveManager.QuarantineSave -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// 集合显式 null 归一化：GameState/SavePermissions 的集合属性是 <c>{ get; init; } = new()</c>，
+    /// JSON 里显式 <c>null</c> 会让它们变 null，RepairAsync 的 <c>AllowedCharacters.Count</c> 等处会 NRE。
+    /// record 的 with 表达式可以给 init-only 属性赋值，这里就地重建，不动 Models 的可变性。
+    /// </summary>
+    private static GameState NormalizeCollections(GameState s)
+    {
+        if (s.Flags is not null && s.CgUnlocked is not null && s.Achievements is not null
+            && s.AffectionLog is not null && s.AllowedCharacters is not null
+            && s.ScopedWorldbookIds is not null && s.LibidoCharacters is not null
+            && s.Presence is not null && s.Permissions is not null && s.Body is not null)
+            return s;
+        return s with
+        {
+            Flags = s.Flags is null ? new() : s.Flags,
+            CgUnlocked = s.CgUnlocked is null ? new() : s.CgUnlocked,
+            Achievements = s.Achievements is null ? new() : s.Achievements,
+            AffectionLog = s.AffectionLog is null ? new() : s.AffectionLog,
+            AllowedCharacters = s.AllowedCharacters is null ? new() : s.AllowedCharacters,
+            ScopedWorldbookIds = s.ScopedWorldbookIds is null ? new() : s.ScopedWorldbookIds,
+            LibidoCharacters = s.LibidoCharacters is null ? new() : s.LibidoCharacters,
+            Presence = s.Presence is null ? new() : s.Presence,
+            Permissions = NormalizePermissions(s.Permissions),
+            Body = s.Body is null ? new() : s.Body
+        };
+    }
+
+    private static SavePermissions NormalizePermissions(SavePermissions? p)
+    {
+        if (p is null) return new SavePermissions();
+        if (p.AllowedPlugins is not null && p.AllowedTools is not null && p.AllowedCharacters is not null)
+            return p;
+        return p with
+        {
+            AllowedPlugins = p.AllowedPlugins is null ? new() : p.AllowedPlugins,
+            AllowedTools = p.AllowedTools is null ? new() : p.AllowedTools,
+            AllowedCharacters = p.AllowedCharacters is null ? new() : p.AllowedCharacters
+        };
+    }
+
+    /// <summary>单段反序列化的独立结果：失败只影响自己那一段，其余段照常恢复。</summary>
+    private sealed record SegmentResult<T>(string Name, T? Value, string? Error) where T : class;
+
+    /// <summary>
+    /// 反序列化一个顶层段。<c>JsonDocument</c>/<c>JsonElement</c> 是只读线程安全的，
+    /// 所以 5 段可以并行解析（CPU 并行）；解析结果再按固定顺序在调用线程串行 Apply。
+    /// 段缺失（TryGetProperty=false）不算失败——旧档本就没有那一段。
+    /// </summary>
+    private static SegmentResult<T> ParseSegment<T>(JsonDocument doc, string name) where T : class
+    {
+        try
+        {
+            if (!doc.RootElement.TryGetProperty(name, out var el)) return new(name, null, null);
+            return new(name, el.Deserialize<T>(), null);
+        }
+        catch (Exception ex)
+        {
+            return new(name, null, ex.Message);
+        }
+    }
+
     public async Task<bool> Load(string id)
     {
         // 坏档不能把读档流程直接炸穿：返回失败并留下可展示的原因（审计 A3/U4）。
@@ -128,76 +249,170 @@ public sealed class SaveManager
 
     private async Task<bool> LoadCore(string id)
     {
-        var json = await _store.LoadRawAsync($"saves/{id}");
-        if (string.IsNullOrEmpty(json)) return false;
-        // 角色库载入与读档反序列化并行，缩短启动读档耗时
-        var libTask = _library.ListAsync();
-        using var doc = JsonDocument.Parse(json);
-        var root = doc.RootElement;
+        LastRepairReport = null;
+        var lost = new List<string>();       // 可能丢失（推断，措辞必含「可能」）
+        var fixedItems = new List<string>(); // 已自动修复（实证）
+        var sectionFailed = false;           // 任一段解析失败 → 严禁整档回写（防二次损坏）
+        string? failedSegment = null;        // 失败的是哪一段（state 段失败 = 高损需确认）
 
-        if (root.TryGetProperty("state", out var st))
+        string? json;
+        try { json = await _store.LoadRawAsync($"saves/{id}"); }
+        catch (Exception ex)
         {
-            var state = st.Deserialize<GameState>();
-            if (state is not null) _engine.RestoreState(state);
+            json = null;
+            App.WriteLog("SaveManager.LoadCore.Read " + id + " -> " + ex);
         }
-        await libTask;   // 恢复角色状态前确保角色库已载入
-        // 恢复角色状态（好感/信任等）与聊天记录
-        if (!string.IsNullOrEmpty(_engine.State.CharacterId)
-            && root.TryGetProperty("char_state", out var cs)
-            && _engine.Roster.TryGetValue(_engine.State.CharacterId, out var ch))
-        {
-            var cstate = cs.Deserialize<CharacterState>();
-            if (cstate is not null) ch.State = cstate;
-        }
+        // 真实节点 01：文件已读回（SaveVM 的 _library.ListAsync 也已完成）→ 进入「解析数据」。
+        // 「校验」改叫「解析」（2026-11-15，用户反馈）：这一步做的不是查坏——是把 JSON 文本
+        // 变成内存对象，没坏也必须做；真正的查坏/修复已整体延后到进档之后（见下方 deferred）。
+        MarkLoadPhase(2, "解析数据");
 
-        // 非共享角色：有本档快照就用快照，没有就回到建档初始值——
-        // 「在别的档里刷到的好感」不该跟着人走进这一档。
-        var savedIds = new HashSet<string>(StringComparer.Ordinal);
-        if (root.TryGetProperty("char_states", out var css))
+        if (string.IsNullOrEmpty(json))
         {
-            var saved = css.Deserialize<Dictionary<string, CharacterState>>();
-            if (saved is not null)
+            // 空文件 / 读不出：不可修复。备份 + 隔离，绝不捏造空档覆盖原件。
+            var bakEmpty = _store.BackupCorruptFile($"saves/{id}");
+            QuarantineSave(id);
+            lost.Add("可能丢失：整份存档内容（已备份原件，可手工找回）");
+            LastRepairReport = new SaveRepairReport
             {
-                foreach (var (cid, cst) in saved)
+                SaveId = id,
+                IncidentSummary = "存档文件为空或无法读取",
+                LostItems = lost,
+                FixedItems = fixedItems,
+                BackupPath = bakEmpty,
+                CanEnter = false,
+                Committed = false,
+                FailedPhase = 2,
+                ErrorKind = "empty",
+                WriteBackNote = "未回写，原件保留"
+            };
+            App.TraceStep($"SaveLoad.Corrupt kind=empty {id} bak={(bakEmpty ?? "none")}");
+            LastLoadNote = "这份存档读取失败：文件为空或无法读取。";
+            return false;
+        }
+
+        // 整体 JSON 语法损坏：不可修复（备份 + 隔离），绝不整档覆盖。
+        // 【2026-11-15】Parse + 五段反序列化合并为单个后台任务：此前是 1+5 个 Task.Run 分片，
+        // 启动期线程池饥饿时分片会排队数秒（进度条卡在解析的元凶，时快时慢）；
+        // 单任务单 worker 用时确定。JsonDocument 是只读解析产物，线程池构建安全。
+        JsonDocument doc;
+        try { doc = await Task.Run(() => JsonDocument.Parse(json)); }
+        catch (JsonException ex)
+        {
+            var bakSyn = _store.BackupCorruptFile($"saves/{id}");
+            QuarantineSave(id);
+            lost.Add("可能丢失：整份存档内容（已备份原件，可手工找回）");
+            LastRepairReport = new SaveRepairReport
+            {
+                SaveId = id,
+                IncidentSummary = "存档文件语法损坏，无法解析",
+                LostItems = lost,
+                FixedItems = fixedItems,
+                BackupPath = bakSyn,
+                CanEnter = false,
+                Committed = false,
+                FailedPhase = 2,
+                ErrorKind = "syntax",
+                WriteBackNote = "未回写，原件保留"
+            };
+            App.TraceStep($"SaveLoad.Corrupt kind=syntax {id} bak={(bakSyn ?? "none")}");
+            LastLoadNote = "这份存档读取失败：" + ex.Message;
+            return false;
+        }
+
+        var version = 0;
+        using (doc)
+        {
+            // 角色库载入先起（后台）；五段反序列化合并为单个后台任务，不再分片排队。
+            LoadDetailHook?.Invoke("正在解析角色库…");
+            var libTask = _library.ListAsync();
+            LoadDetailHook?.Invoke("正在解析存档五段（状态/角色/对话）…");
+            var parsed = await Task.Run(() =>
+            {
+                var pState = ParseSegment<GameState>(doc, "state");
+                var pCharState = ParseSegment<CharacterState>(doc, "char_state");
+                var pCharStates = ParseSegment<Dictionary<string, CharacterState>>(doc, "char_states");
+                var pSubProfiles = ParseSegment<Dictionary<string, CharacterSubProfile>>(doc, "sub_profiles");
+                var pChat = ParseSegment<List<ChatRecord>>(doc, "chat");
+                var v = doc.RootElement.TryGetProperty("version", out var vv) && vv.TryGetInt32(out var ver) ? ver : 0;
+                return (pState, pCharState, pCharStates, pSubProfiles, pChat, v);
+            });
+            var sState = parsed.pState;
+            var sCharState = parsed.pCharState;
+            var sCharStates = parsed.pCharStates;
+            var sSubProfiles = parsed.pSubProfiles;
+            var sChat = parsed.pChat;
+            LoadDetailHook?.Invoke("五段解析完成，等待角色库…");
+
+            // 分段失败只降级自己那一段（用默认值），其余段照常恢复；记录「段名 + 原因」。
+            if (sState.Error is not null) { sectionFailed = true; failedSegment = "state"; lost.Add("可能丢失：游戏状态 state（" + sState.Error + "）"); }
+            if (sCharState.Error is not null) { sectionFailed = true; lost.Add("可能丢失：主角状态 char_state（" + sCharState.Error + "）"); }
+            if (sCharStates.Error is not null) { sectionFailed = true; lost.Add("可能丢失：角色状态 char_states（" + sCharStates.Error + "）"); }
+            if (sSubProfiles.Error is not null) { sectionFailed = true; lost.Add("可能丢失：角色副设定 sub_profiles（" + sSubProfiles.Error + "）"); }
+            if (sChat.Error is not null) { sectionFailed = true; lost.Add("可能丢失：最近 60 条对话 chat（" + sChat.Error + "）"); }
+
+            await libTask;   // 恢复角色状态前确保角色库已载入
+            LoadDetailHook?.Invoke("角色库就绪，恢复游戏状态…");
+
+            // ---- 串行 Apply（固定顺序）：RestoreState / Roster / ChatLog / _scope.Raise 必须串行 ----
+            GameState? state = null;
+            if (sState.Value is not null)
+            {
+                state = NormalizeCollections(sState.Value);
+                if (!ReferenceEquals(state, sState.Value))
+                    fixedItems.Add("补齐了状态里为 null 的集合字段");
+                _engine.RestoreState(state);
+            }
+
+            if (state is not null && !string.IsNullOrEmpty(state.CharacterId)
+                && _engine.Roster.TryGetValue(state.CharacterId, out var ch)
+                && sCharState.Value is not null)
+                ch.State = sCharState.Value;
+
+            var savedIds = new HashSet<string>(StringComparer.Ordinal);
+            if (sCharStates.Value is not null)
+            {
+                foreach (var (cid, cst) in sCharStates.Value)
                 {
+                    if (cst is null) continue;
                     savedIds.Add(cid);
-                    if (_engine.Roster.TryGetValue(cid, out var c) && cst is not null) c.State = cst;
+                    if (_engine.Roster.TryGetValue(cid, out var c)) c.State = cst;
                 }
             }
-        }
-        foreach (var c in _engine.Roster.Values)
-        {
-            if (c.StateShared || savedIds.Contains(c.Profile.Id)) continue;
-            c.State = SeedNonShared(c);
+            foreach (var c in _engine.Roster.Values)
+            {
+                if (c.StateShared || savedIds.Contains(c.Profile.Id)) continue;
+                c.State = SeedNonShared(c);
+            }
+
+            var savedSubIds = new HashSet<string>(StringComparer.Ordinal);
+            if (sSubProfiles.Value is not null)
+            {
+                foreach (var (cid, sub) in sSubProfiles.Value)
+                {
+                    if (sub is null) continue;
+                    savedSubIds.Add(cid);
+                    if (_engine.Roster.TryGetValue(cid, out var c)) c.SubProfile = sub;
+                }
+            }
+            foreach (var c in _engine.Roster.Values)
+            {
+                if (c.StateShared || savedSubIds.Contains(c.Profile.Id)) continue;
+                c.SubProfile = new CharacterSubProfile();
+            }
+
+            ChatLog.Clear();
+            if (sChat.Value is not null) ChatLog.AddRange(sChat.Value);
+
+            version = doc.RootElement.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
         }
 
-        // 非共享角色的副设定：有本档快照就换进来，没有就回到未播种状态（由副设定服务按主设定重新长）。
-        var savedSubIds = new HashSet<string>(StringComparer.Ordinal);
-        if (root.TryGetProperty("sub_profiles", out var sps))
-        {
-            var subs = sps.Deserialize<Dictionary<string, CharacterSubProfile>>();
-            if (subs is not null)
-            {
-                foreach (var (cid, sub) in subs)
-                {
-                    savedSubIds.Add(cid);
-                    if (_engine.Roster.TryGetValue(cid, out var c) && sub is not null) c.SubProfile = sub;
-                }
-            }
-        }
-        foreach (var c in _engine.Roster.Values)
-        {
-            if (c.StateShared || savedSubIds.Contains(c.Profile.Id)) continue;
-            c.SubProfile = new CharacterSubProfile();
-        }
-        ChatLog.Clear();
-        if (root.TryGetProperty("chat", out var chat))
-        {
-            var records = chat.Deserialize<List<ChatRecord>>();
-            if (records is not null) ChatLog.AddRange(records);
-        }
+        // 真实节点 02：JsonDocument.Parse + 五处 Deserialize 完成 → 进入「恢复角色」。
+        MarkLoadPhase(3, "恢复角色");
         _engine.CurrentSaveId = id;
         _scope.Raise();      // 换档之后，各记忆服务必须重读这个档自己的那一份
+        // 真实节点 03：作用域 Raise 完成 → 进入「唤醒插件」（桌宠刷新 / 过期档修复 / 横屏）。
+        MarkLoadPhase(4, "唤醒插件");
 
         // 桌宠跟着存档走：换档后把桌面上的形象换成这一档的主角（不在桌宠模式时是 no-op）。
         // 由外部注入（审计 A2）：不再跨模块静态调用，且异常必须被观察，不能无声消失。
@@ -210,10 +425,70 @@ public sealed class SaveManager
             });
         }
 
-        // 过期存档自动修复：旧档缺版本字段（=0）或结构漂移时，就地补齐并回写。
-        var version = root.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
-        LastLoadNote = version >= SchemaVersion ? "" : await RepairAsync(id, version);
-        if (!string.IsNullOrEmpty(LastLoadNote)) App.WriteLog("SaveManager.Repair -> " + LastLoadNote);
+        // 修复延后（2026-11-15，用户决策「先进档、后台校验」）：旧版在这里同步等
+        // RepairAsync（版本迁移 + 三类内存态修正 + 回写），旧档一次拖住进入数秒——
+        // 而这些修复没有一件是「进档前必须完成」的。现在进档立即返回，修复延后
+        // 3 秒在 UI 线程串行补跑（与界面的状态修改天然互斥，不引入并发），完成后
+        // 直接经 RepairReportService 补发回执横幅（R9 常驻语义不变，只是晚几秒出现）。
+        // 只有「空文件 / 整档语法损坏」这类真问题才在进入前阻断（上面已处理）。
+        var needsRepair = version < SchemaVersion || sectionFailed;
+        LastRepairReport = new SaveRepairReport
+        {
+            SaveId = id,
+            IncidentSummary = sectionFailed ? "部分存档段解析失败，已用默认值恢复"
+                : (fixedItems.Count > 0 ? "存档结构落后，已自动修复" : ""),
+            LostItems = lost,
+            FixedItems = fixedItems,
+            BackupPath = null,
+            // 段失败仍可进入（降级默认值）；整体语法损坏/空文件才是不可修复。
+            CanEnter = true,
+            Committed = false,
+            FailedSegment = failedSegment,
+            FailedPhase = sectionFailed ? 2 : 0,
+            ErrorKind = sectionFailed ? "section" : (version < SchemaVersion ? "stale" : (fixedItems.Count > 0 ? "refs" : "none")),
+            WriteBackNote = "未回写，原件保留"
+        };
+        if (needsRepair)
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await Task.Delay(3000);
+                    var repairNote = string.Empty;
+                    var repairCommitted = false;
+                    await Helpers.Ui.PostAsync(async () =>
+                    {
+                        var repair = await RepairAsync(id, version, allowWriteBack: !sectionFailed, lost, fixedItems);
+                        repairNote = repair.Note;
+                        repairCommitted = repair.Committed;
+                    });
+                    if (!string.IsNullOrEmpty(repairNote))
+                    {
+                        LastLoadNote = repairNote;
+                        App.WriteLog("SaveManager.Repair(deferred) -> " + repairNote);
+                    }
+                    LastRepairReport = new SaveRepairReport
+                    {
+                        SaveId = id,
+                        IncidentSummary = sectionFailed ? "部分存档段解析失败，已用默认值恢复"
+                            : (fixedItems.Count > 0 ? "存档结构落后，已自动修复" : ""),
+                        LostItems = lost,
+                        FixedItems = fixedItems,
+                        BackupPath = null,
+                        CanEnter = true,
+                        Committed = repairCommitted,
+                        FailedSegment = failedSegment,
+                        FailedPhase = sectionFailed ? 2 : 0,
+                        ErrorKind = sectionFailed ? "section" : (version < SchemaVersion ? "stale" : (fixedItems.Count > 0 ? "refs" : "none")),
+                        WriteBackNote = !repairCommitted ? "未回写，原件保留" : ""
+                    };
+                    try { Services.Core.RepairReportService.Instance.Show(LastRepairReport); }
+                    catch (Exception ex) { App.WriteLog("SaveManager.RepairReceipt(deferred) -> " + ex.Message); }
+                }
+                catch (Exception ex) { App.WriteLog("SaveManager.RepairDeferred -> " + ex); }
+            });
+        }
 
         // 手机端进入存档自动横屏（桌面/平板无方向锁概念）
         try { ScreenOrientationService.EnterSaveLandscape(); }
@@ -243,8 +518,10 @@ public sealed class SaveManager
     /// <summary>
     /// 过期存档修复：把结构落后的存档补齐到当前版本。
     /// 只做「能确定的修正」——越界数值夹回范围、坏行丢弃、缺失的引用补种，绝不猜测剧情内容。
+    /// 回写安全（硬性）：<paramref name="allowWriteBack"/>=false（任一段解析失败）时严禁整档 Commit，
+    /// 防二次损坏，只做内存态修复。实证的修复同时记入 <paramref name="fixedItems"/> 供回执条展示。
     /// </summary>
-    private async Task<string> RepairAsync(string id, int fromVersion)
+    private async Task<(string Note, bool Committed)> RepairAsync(string id, int fromVersion, bool allowWriteBack, List<string> lost, List<string> fixedItems)
     {
         var fixes = new List<string>();
 
@@ -255,7 +532,11 @@ public sealed class SaveManager
             var known = _engine.Roster.Keys.ToHashSet(StringComparer.Ordinal);
             var droppedIds = state.AllowedCharacters.Where(c => !known.Contains(c)).ToList();
             foreach (var d in droppedIds) state.AllowedCharacters.Remove(d);
-            if (droppedIds.Count > 0) fixes.Add($"清理了 {droppedIds.Count} 个已不存在的可用角色");
+            if (droppedIds.Count > 0)
+            {
+                fixes.Add($"清理了 {droppedIds.Count} 个已不存在的可用角色");
+                fixedItems.Add($"清理了 {droppedIds.Count} 个已不存在的可用角色");
+            }
         }
 
         // 聊天记录里的空行（旧版异常退出可能留下）
@@ -264,6 +545,7 @@ public sealed class SaveManager
         {
             ChatLog.RemoveAll(r => string.IsNullOrWhiteSpace(r.Text));
             fixes.Add($"丢弃了 {badChat} 条空聊天记录");
+            fixedItems.Add($"丢弃了 {badChat} 条空聊天记录");
         }
 
         // 角色数值越界（旧版/手改档）：夹回合法范围
@@ -277,17 +559,23 @@ public sealed class SaveManager
             st.Energy = Math.Clamp(st.Energy, 0, 100);
             st.EnergyOffset = Math.Clamp(st.EnergyOffset, -60, 40);
             if (before != (st.Affection, st.AffectionPoints, st.Trust, st.Energy, st.EnergyOffset))
+            {
                 fixes.Add("把越界的好感/信任/精力数值夹回合法范围");
+                fixedItems.Add("把越界的好感/信任/精力数值夹回合法范围");
+            }
         }
 
         var note = fixes.Count == 0
             ? ""
-            : $"存档已自动修复（结构版本 {fromVersion} → {SchemaVersion}）：" + string.Join("；", fixes) + "。";
+            : $"存档已自动修复（结构版本 {fromVersion} → {SchemaVersion}）：" + string.IsNullOrWhiteSpace(string.Join("；", fixes)) + "。";
 
-        // 回写：升级后的版本号与修复结果一并落盘，避免每次读档都重复修
-        await Commit(string.IsNullOrWhiteSpace(_engine.ActiveCharacter?.Profile.Name)
-            ? "自动修复" : _engine.ActiveCharacter!.Profile.Name, "repair");
-        return note;
+        // 回写安全：段解析失败时（allowWriteBack=false）严禁整档 Commit，防二次损坏，只做内存态修复；
+        // 即使允许回写，也如实记录磁盘回写是否成功（极端情形下回写失败不得谎称已提交）。
+        var committed = false;
+        if (allowWriteBack)
+            committed = await Commit(string.IsNullOrWhiteSpace(_engine.ActiveCharacter?.Profile.Name)
+                ? "自动修复" : _engine.ActiveCharacter!.Profile.Name, "repair");
+        return (note, committed);
     }
 
     /// <summary>给存档重命名：改写 meta.Label 并回写文件。</summary>

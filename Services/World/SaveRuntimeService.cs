@@ -92,6 +92,7 @@ public sealed class SaveRuntimeService
         if (_running) return;
         if (!_settings.Current.SaveRuntimeEnabled) return;
         _running = true;
+        App.TraceStep("SaveRuntime.Start");
         _saveId = _engine.CurrentSaveId;
         _cts = new CancellationTokenSource();
         _ = LoopAsync(_cts.Token);

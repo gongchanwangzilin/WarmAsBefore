@@ -8,6 +8,7 @@ xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
 xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
 xmlns:model="clr-namespace:WarmAsBefore.Models"
 xmlns:views="clr-namespace:WarmAsBefore.Views"
+xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
              x:Class="WarmAsBefore.Views.MainGamePage"
              x:Name="GameRoot"
 
@@ -105,6 +106,66 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
 
 
 
+        <!-- ============ 修复回执条（容错自愈）：读档自动修复后随目标页常驻 ============
+             替代会自动消失的 Toast：修复成功仍自动进入游戏（用户诉求「修复后直接进入」），
+             报告以回执条保留，用户可展开看「修了什么 / 可能丢了什么」、可收起。
+             绑定到 RepairReportService 单例；IsVisible 只切子节点，不重建控件。 -->
+        <Grid ZIndex="1" IsVisible="{Binding HasReceipt, Source={x:Static core:RepairReportService.Instance}}"
+              VerticalOptions="Start" HorizontalOptions="Fill"
+              Padding="{DynamicResource WPadCard}">
+            <Border Style="{StaticResource CardSolid}"
+                    StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="1"
+                    Stroke="{DynamicResource WBorderBrush}">
+                <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Label Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
+                               Style="{StaticResource TxtRowTitle}" TextColor="{DynamicResource SignalFg}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding ReceiptSummary, Source={x:Static core:RepairReportService.Instance}}"
+                               Style="{StaticResource TxtBody}" VerticalOptions="Center" MaxLines="1" />
+                        <HorizontalStackLayout Grid.Column="2" Spacing="6">
+                            <Button Text="详情" Style="{StaticResource BtnTextSm}"
+                                    Command="{Binding ToggleExpandedCommand, Source={x:Static core:RepairReportService.Instance}}" />
+                            <Button Text="收起" Style="{StaticResource BtnTextSm}"
+                                    TextColor="{DynamicResource DangerInk}"
+                                    Command="{Binding ClearCommand, Source={x:Static core:RepairReportService.Instance}}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <Label IsVisible="{Binding DetailVisible, Source={x:Static core:RepairReportService.Instance}}"
+                           Text="{Binding DetailText, Source={x:Static core:RepairReportService.Instance}}"
+                           Style="{StaticResource TxtCaption}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- ============ 入口进度卡（真实阶段进度，禁假推进） ============
+             读档 → 立绘 → 地图 → 天气，每一步由 RunStartup 的真实里程碑驱动 Progress，
+             不做按时间片假推进（COMPONENTS.md:605 成文禁令）。遮挡不锁交互（InputTransparent）。 -->
+        <Grid x:Name="EntryProgressHost" ZIndex="60" IsVisible="{Binding EntryLoading}" InputTransparent="True">
+            <Border Style="{DynamicResource CardFrost}" HorizontalOptions="Center" VerticalOptions="Center"
+                    MinimumWidthRequest="300" Padding="24,20">
+                <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
+                <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding EntryLoading}" HorizontalOptions="Center"
+                                       WidthRequest="22" HeightRequest="22" Color="{DynamicResource AccentWarm}" />
+                    <Label Text="{Binding EntryPhase}" FontSize="13" FontAttributes="Bold"
+                           HorizontalOptions="Center" TextColor="{DynamicResource SurfaceFg}" />
+                    <!-- 进度线用 AbsoluteLayout 比例 bounds 的 BoxView（2026-11-15）：
+                         原生 ProgressBar 处理器在首次渲染抛 E_NOINTERFACE（实测），
+                         比例 BoxView 与 HudReadout 进度线同款，零布局反馈、确定性收敛；
+                         比例值由 code-behind 依真实阶段（EntryProgress）更新，非假推进。 -->
+                    <AbsoluteLayout HeightRequest="6" WidthRequest="244" HorizontalOptions="Center">
+                        <BoxView Color="{DynamicResource BeigeAccent100}"
+                                 AbsoluteLayout.LayoutBounds="0,0,1,1"
+                                 AbsoluteLayout.LayoutFlags="All" />
+                        <BoxView x:Name="EntryBarFill" Color="{DynamicResource AccentWarm}"
+                                 AbsoluteLayout.LayoutBounds="0,0,0,1"
+                                 AbsoluteLayout.LayoutFlags="All" />
+                    </AbsoluteLayout>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
         <!-- ============ Phone Layout (vertical) ============
              手机竖版整块搬进了 MainGamePhoneView：Windows 上这块永远不显示，却会和桌面版
              一起建完（两条 MediaElement、两个 CollectionView 与两百来颗控件）——
@@ -114,12 +175,15 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
 
         <!-- ============ Desktop Layout (horizontal) ============
              仅桌面显示；手机/平板都不显（平板走上面的手机主题布局） -->
-        <Grid IsVisible="{Binding IsDesktopLayout}"
-              RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
+        <!-- 行 2/3 与 Auto 列是纯死位：行里没有任何子元素，左右列靠子元素 WidthRequest 反馈宽度，
+             这条隐式测量链在 WinUI 上就是 LayoutCycleException 的温床。行列全部显式给定：
+             左栏 180、右栏 300 常量，中间星号格吃剩余空间，子元素不再向测量链反馈期望宽度。 -->
+        <Grid x:Name="DesktopGrid" IsVisible="{Binding IsDesktopLayout}"
+              RowDefinitions="Auto,*" ColumnDefinitions="180,*,300" Padding="0">
             <!-- 旧版固定顶栏：只在小组件模式关闭、且未沉浸时出现 -->
-            <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
+            <Border x:Name="LegacyTopBar" Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
                     IsVisible="{Binding LegacyPanelsVisible}"
-                    Padding="16,8,16,10">
+                    HeightRequest="52" Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
@@ -149,16 +213,16 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
 
             <!-- 小组件顶栏：左边只放勾选过的 top 组件，右边只放允许的按钮。
                  组件再多也横向滚动，不去挤右边的操作键。 -->
-            <VerticalStackLayout Grid.ColumnSpan="3" IsVisible="{Binding WidgetTopBarVisible}">
+            <VerticalStackLayout x:Name="WidgetTopBarStack" Grid.ColumnSpan="3" IsVisible="{Binding WidgetTopBarVisible}">
                 <!-- 终末地 HUD 顶栏带：只在 HUD 世界出现（IsVisible 由代码按世界设），
                      上面一排方框读数，下沿一条 45° 斜纹 —— 这块才是「终端界面」的第一眼。
                      它一出现，下面那条原来的小组件顶栏就藏起来：两套顶栏叠着会读成「界面坏了两层」。 -->
                 <Grid x:Name="HudTopStrip" IsVisible="False" RowDefinitions="Auto,Auto" Padding="0,0,0,2" BackgroundColor="{DynamicResource WellBg}" />
-                <Border x:Name="StandardTopBar" Style="{StaticResource CardLiquidGlass}" Padding="16,8,16,10">
+                <Border x:Name="StandardTopBar" Style="{StaticResource CardLiquidGlass}" HeightRequest="52" Padding="16,8,16,10">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                     <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
-                                VerticalOptions="Center">
+                                HeightRequest="36" VerticalOptions="Center">
                         <HorizontalStackLayout Spacing="20" VerticalOptions="Center"
                                                BindableLayout.ItemsSource="{Binding TopWidgets}"
                                                BindableLayout.ItemTemplate="{StaticResource TopWidgetItemTemplate}" />
@@ -180,8 +244,8 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                 </Border>
             </VerticalStackLayout>
 
-            <!-- Left: Info panel（窄屏下允许压缩，避免与状态栏按钮挤压）；#E4：ESC 可隐藏 -->
-            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140" Margin="0"
+            <!-- Left: Info panel（列宽已固定 180，面板不再自带 WidthRequest）；#E4：ESC 可隐藏 -->
+            <Border Grid.Row="1" x:Name="LegacyLeftPanel" Style="{StaticResource CardLiquidGlass}" Margin="0"
                     IsVisible="{Binding LegacyPanelsVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <VerticalStackLayout Padding="12,16" Spacing="16">
@@ -227,8 +291,8 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                 </VerticalStackLayout>
             </Border>
 
-            <!-- 小组件左栏：按 Order 排，标题小字 + 主值大字；底部留「组件」入口 -->
-            <Border Grid.Row="1" Style="{StaticResource CardLiquidGlass}" WidthRequest="180" MinimumWidthRequest="140"
+            <!-- 小组件左栏：按 Order 排，标题小字 + 主值大字；底部留「组件」入口（列宽由外层 180 给定） -->
+            <Border Grid.Row="1" x:Name="WidgetLeftPanel" Style="{StaticResource CardLiquidGlass}"
                     IsVisible="{Binding WidgetLeftBarVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="0,0,16,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="12,16" RowSpacing="8">
@@ -249,7 +313,7 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
             </Border>
 
             <!-- Center: Character area -->
-            <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage" SizeChanged="OnStageSizeChanged">
+            <Grid Grid.Row="1" Grid.Column="1" x:Name="DesktopStage">
                 <BoxView Color="{Binding StageBackdropFill}" />
                 <!-- 角色背景：场景/地图都没有背景时才由 VM 给出；两层 AnimatedImage 交叉淡入，
                      视频元素由 Presenter 在真需要时创建，避免每个存档都多挂一颗播放器。 -->
@@ -269,22 +333,29 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                 <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
                          HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <!-- 天气特效帧层 + 打雷白闪层（同手机版说明） -->
-                <Image Source="{Binding WeatherFxImage}" IsVisible="{Binding WeatherFxVisible}"
+                <Image x:Name="WeatherFx" Source="{Binding WeatherFxImage}" IsVisible="{Binding WeatherFxVisible}"
                        Aspect="AspectFill" InputTransparent="True"
                        HorizontalOptions="Fill" VerticalOptions="Fill" />
                 <BoxView Color="White" Opacity="{Binding FlashOpacity}" InputTransparent="True"
                          HorizontalOptions="Fill" VerticalOptions="Fill" />
-                <!-- 立绘支持位置、透明度、缩放；尺寸由 VM 按标定显式给出（见手机版同处说明） -->
-                <Image Source="{Binding SpriteSource}" IsVisible="{Binding SpriteVisible}"
-                       Aspect="AspectFit"
-                       WidthRequest="{Binding SpriteFitW}"
-                       HeightRequest="{Binding SpriteFitH}"
-                       Opacity="{Binding SpriteOpacity}"
-                       TranslationX="{Binding SpriteX}"
-                       TranslationY="{Binding SpriteY}"
-                       Scale="{Binding SpriteScale}"
-                       ScaleX="{Binding SpriteFlipScaleX}"
-                       HorizontalOptions="Center" VerticalOptions="Center" />
+                <!-- 立绘整体隔离在 AbsoluteLayout 里：比例 bounds（0,0,1,1 + All）
+                     由容器给定尺寸，Image 不再向桌面 Grid 的星号行反馈任何期望尺寸。
+                     面板显隐时 Auto 行/列可自由重排，不会带着上一帧的立绘尺寸互锁；
+                     Image 也不再按原图像素撑住舞台。AspectFit 在铺满框内等比居中，
+                     显示尺寸与原按标定算出的框一致；Scale/Translation 是渲染变换，不参与 Measure。 -->
+                <AbsoluteLayout x:Name="SpriteLayer" HorizontalOptions="Fill" VerticalOptions="Fill" InputTransparent="True">
+                    <Image x:Name="DesktopSprite"
+                           AbsoluteLayout.LayoutBounds="0,0,1,1"
+                           AbsoluteLayout.LayoutFlags="All"
+                           Source="{Binding SpriteSource}"
+                           IsVisible="{Binding SpriteVisible}"
+                           Aspect="AspectFit"
+                           Opacity="{Binding SpriteOpacity}"
+                           TranslationX="{Binding SpriteX}"
+                           TranslationY="{Binding SpriteY}"
+                           Scale="{Binding SpriteScale}"
+                           ScaleX="{Binding SpriteFlipScaleX}" />
+                </AbsoluteLayout>
                 <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource WSepBrush}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
@@ -299,7 +370,7 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
 
                 <!-- #9 左右竖条切换地点按键（电脑端同样提供，与键盘方向键、手机滑动共用命令）。
                      无地点时置灰：IsEnabled 绑可用态。 -->
-                <Button Text="◀"
+                <Button x:Name="PrevSceneBtn" Text="◀"
                         Command="{Binding PrevSceneCommand}"
                         IsEnabled="{Binding CanGoPrevScene}"
                         ToolTipProperties.Text="{Binding PrevSceneLabel}"
@@ -307,7 +378,7 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                         FontSize="18" WidthRequest="44" HeightRequest="120" Padding="0"
                         CornerRadius="16" HorizontalOptions="Start" VerticalOptions="Center"
                         Margin="10,0,0,0" />
-                <Button Text="▶"
+                <Button x:Name="NextSceneBtn" Text="▶"
                         Command="{Binding NextSceneCommand}"
                         IsEnabled="{Binding CanGoNextScene}"
                         ToolTipProperties.Text="{Binding NextSceneLabel}"
@@ -320,7 +391,7 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                      用栈排而不是给按钮写死顶距：面板摊开两百多高、收成方片只有 60，那颗按钮该跟着落在下面。 -->
                 <VerticalStackLayout HorizontalOptions="End" VerticalOptions="Start"
                                      Spacing="10" Margin="0,12,12,0">
-                    <views:MinimapHostView BindingContext="{Binding Minimap}" />
+                    <views:MinimapHostView x:Name="MinimapHost" BindingContext="{Binding Minimap}" />
 
                     <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
                             Command="{Binding FollowAiCommand}"
@@ -353,15 +424,17 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                         HorizontalOptions="Start" VerticalOptions="Start" Margin="12,12,0,0" />
             </Grid>
 
-            <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间） -->
-            <Border Grid.Row="1" Grid.Column="2" x:Name="RightChatPanel" BackgroundColor="{DynamicResource PanelGlassStage}" WidthRequest="300" StrokeThickness="0"
+            <!-- Right: Mini-game chat panel（仅桌面显示；手机/平板竖屏时隐藏，给立绘让空间。
+                 列宽由外层 300 给定，不再设 WidthRequest，切显隐时无需反馈测量） -->
+            <Border Grid.Row="1" Grid.Column="2" x:Name="RightChatPanel" BackgroundColor="{DynamicResource PanelGlassStage}" StrokeThickness="0"
                     IsVisible="{Binding IsRightPanelVisible}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16,0,0,16" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,*,Auto" Padding="14,14">
                     <VerticalStackLayout Spacing="6">
                         <!-- 自定义状态：按场景/楼层自动长出来，标签跟着值变，点一下走到下一个 -->
-                        <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
-                                    IsVisible="{Binding HasStateButtons}">
+                    <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
+                                HeightRequest="36" VerticalOptions="Center"
+                                IsVisible="{Binding HasStateButtons}">
                             <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding StateButtons}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:StateChipVm">
@@ -381,7 +454,9 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                             <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
                         </HorizontalStackLayout>
                     </VerticalStackLayout>
-                    <CollectionView Grid.Row="1" ItemsSource="{Binding Messages}" ItemsUpdatingScrollMode="KeepLastItemInView" Margin="0,8" SelectionMode="None">
+                    <!-- KeepLastItemInView 已删：插入项时它在布局 pass 内强制滚底，是 WinUI 布局环
+                         崩点；滚底改由 code-behind 监听集合后延迟 120ms 执行（见 HookChatListScroll） -->
+                    <CollectionView Grid.Row="1" x:Name="ChatList" ItemsSource="{Binding Messages}" Margin="0,8" SelectionMode="None">
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:DialogueMessage">
                                 <Grid Padding="0,3">
@@ -417,7 +492,7 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
             </Border>
 
             <!-- ============ Galgame Panel (半透明覆盖在角色上) ============ -->
-            <Border Grid.Row="1" Grid.Column="1"
+            <Border Grid.Row="1" Grid.Column="1" x:Name="GalgamePanel"
                     IsVisible="{Binding IsGalgamePanelVisible}"
                     BackgroundColor="{DynamicResource PanelGlassSoft}"
                     Padding="16,12" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
@@ -425,12 +500,9 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                     HorizontalOptions="Fill"
                     HeightRequest="180">
                 <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
-                <Border.Shadow>
-                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,-4" Radius="12" Opacity="0.3" />
-                </Border.Shadow>
-                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                <Grid x:Name="GalInnerGrid" RowDefinitions="Auto,*,Auto" RowSpacing="8">
                     <!-- 标题栏：角色名 + 模式切换 -->
-                    <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                    <HorizontalStackLayout x:Name="GalTitleRow" Spacing="12" VerticalOptions="Center">
                         <Border BackgroundColor="{DynamicResource AccentWarm}" StrokeThickness="0"
                                 Padding="10,4" HorizontalOptions="Start">
                             <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
@@ -445,21 +517,23 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                                VerticalOptions="Center" Margin="8,0,0,0" />
                     </HorizontalStackLayout>
 
-                    <!-- 对话历史 -->
-                    <Border Grid.Row="1" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
-                            MaximumHeightRequest="80" Padding="8,6">
+                    <!-- 对话历史：面板总高 180 定死，历史区高度用确定值（72）而非 Maximum 约束——
+                         MAUI Windows 上「星号行内 MaximumHeightRequest」是布局环家族
+                         （测量期望随排列尺寸振荡不收敛），实测隐藏本面板即不再崩溃。 -->
+                    <Border x:Name="GalHistoryBorder" Grid.Row="1" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="0"
+                            HeightRequest="72" Padding="8,6">
                         <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                         <Label Text="{Binding LastMessageText}" TextColor="{DynamicResource SurfaceFg}" FontSize="13"
                                LineBreakMode="WordWrap" MaxLines="4" VerticalOptions="Center" />
                     </Border>
 
                     <!-- 沉默提示（开启「允许 AI 沉默」时显示） -->
-                    <Label Grid.Row="1" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
+                    <Label x:Name="GalSilenceHint" Grid.Row="1" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
                            Text="{Binding SilenceHintText}" TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Start" Margin="8,4,8,0" />
 
                     <!-- 输入栏 -->
-                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1"
+                    <Border x:Name="GalInputRow" Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1"
                             Stroke="{DynamicResource WSepBrush}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
@@ -606,9 +680,6 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
                     Padding="0" Margin="30" VerticalOptions="Center"
                     MaximumWidthRequest="420">
                 <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                <Border.Shadow>
-                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
-                </Border.Shadow>
                 <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="18,16" RowSpacing="12">
                     <!-- 标题 -->
                     <Label Text="礼物箱 " TextColor="{DynamicResource SurfaceFg}" FontSize="16"

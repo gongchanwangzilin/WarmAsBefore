@@ -1,5 +1,6 @@
 #if WINDOWS
 using System.Runtime.InteropServices;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore;
 
@@ -18,6 +19,7 @@ public static class Program
         {
             App.WriteLogNow("UnhandledException -> " + e.ExceptionObject);
             App.FlushLog();
+            try { BugReporter.Report(e.ExceptionObject as Exception, "AppDomain", "未处理的域异常"); } catch { }
         };
         // 注意：FirstChance 处理器内任何抛出的异常都会再次触发 FirstChance，导致无限递归直至栈溢出(0xc00000fd)。
         // 必须用互斥门闩保证重入时立即返回，处理器本体绝不能做可能抛异常的操作。
@@ -33,7 +35,11 @@ public static class Program
             finally { Interlocked.Exchange(ref _firstChanceActive, 0); }
         };
         TaskScheduler.UnobservedTaskException += (s, e) =>
+        {
             App.WriteLog("UnobservedTask -> " + e.Exception);
+            try { e.SetObserved(); } catch { }
+            try { BugReporter.Report(e.Exception, "Task", "未观察的任务异常"); } catch { }
+        };
 
         App.WriteLog("Program.Main: start");
         XamlCheckProcessRequirements();

@@ -22,4 +22,31 @@ public static class Ui
         try { dispatcher.Dispatch(action); }
         catch (Exception ex) { System.Diagnostics.Debug.WriteLine("Ui.Post -> " + ex.Message); }
     }
+
+    /// <summary>
+    /// Post 的可等待版本：把一段「必须在 UI 线程上跑完」的异步工作送回去并等它结束。
+    /// 底层仍是 <c>Application.Current.Dispatcher</c>（与 Post 同源），绝不引入 MainThread.*。
+    /// 用途很窄：工具执行链已整体移到线程池（ChatEngine.RunToolAsync → Task.Run），
+    /// 个别内置 handler 仍要等 UI 上的异步命令完成 —— 只把这一小段切回主线程，
+    /// 不把整个 ExecuteAsync 搬回去。Dispatcher 取不到（进程正在退出）时安静返回完成态，
+    /// 不留下永远不结束的 Task。
+    /// </summary>
+    public static Task PostAsync(Func<Task> work)
+    {
+        if (work is null) return Task.CompletedTask;
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) return Task.CompletedTask;
+        if (!dispatcher.IsDispatchRequired) return work();
+        var tcs = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        try
+        {
+            dispatcher.Dispatch(async () =>
+            {
+                try { await work(); tcs.TrySetResult(); }
+                catch (Exception ex) { tcs.TrySetException(ex); }
+            });
+        }
+        catch (Exception ex) { return Task.FromException(ex); }
+        return tcs.Task;
+    }
 }

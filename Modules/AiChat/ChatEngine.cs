@@ -555,11 +555,29 @@ public sealed class ChatEngine
     public async Task<string> Send(string charId, string text, IReadOnlyList<ChatAttachment>? attachments,
         string memoryCategory = "dialogue")
     {
+        App.TraceStep("ChatEngine.Send.Begin " + charId);
         // 同一角色一次只跑一轮：主界面、QQ/微信、桌宠与后台运行时都会走到这里，
         // 两轮交错会把同一条历史写成乱序，也可能让模型看到自己还没说完的半句。
         var gate = _charGates.GetOrAdd(charId, _ => new SemaphoreSlim(1, 1));
-        await gate.WaitAsync();
-        try { return await SendCore(charId, text, attachments, memoryCategory); }
+        // 端点一直不回复时，后续自动请求（问候/主动消息/桥接思考/内心生活）会全堆在这把锁上，
+        // 越堆越多、越等越久，最后把 UI 线程拖死。等到预算就放弃这一轮，别让队列无限膨胀。
+        var waited = Environment.TickCount64;
+        if (!await gate.WaitAsync(TimeSpan.FromSeconds(TurnWallClockBudgetSeconds)))
+        {
+            var waitedMs = Environment.TickCount64 - waited;
+            App.TraceStep($"ChatEngine.Send.QueueTimeout {charId} waitedMs={waitedMs}");
+            WarmAsBefore.Services.Core.BugReporter.Report(
+                new TimeoutException($"角色 {charId} 的 AI 请求排队超过 {TurnWallClockBudgetSeconds}s，说明上一条请求一直没有回复"),
+                LoopSubsystem,
+                $"ChatEngine.Send 排队 {waitedMs}ms");
+            return "[请求排队超时：上一条请求一直没有回复，本轮已跳过]";
+        }
+        try
+        {
+            var reply = await SendCore(charId, text, attachments, memoryCategory);
+            App.TraceStep($"ChatEngine.Send.End {charId} elapsedMs={Environment.TickCount64 - waited}");
+            return reply;
+        }
         finally { gate.Release(); }
     }
 
@@ -889,6 +907,20 @@ public sealed class ChatEngine
 
     /// <summary>单个回合内最多执行的工具调用轮数：模型可以连续要工具，但必须有硬上限，否则不听话的端点会让请求无限套下去。</summary>
     private const int MaxToolRounds = 3;
+    /// <summary>
+    /// 一整个回合（含多轮工具请求）的墙钟预算。端点「一直不回复」时，单轮 25s 超时会
+    /// 被工具循环放大成几十秒甚至几分钟的连续挂起，UI 线程被拖死、Windows 判无响应杀进程。
+    /// 到这里就停止继续请求（封存该回合），把已拿到的正文或明确错误交还上层，不再往下拖。
+    /// </summary>
+    private const int TurnWallClockBudgetSeconds = 90;
+    /// <summary>
+    /// 单个工具执行链的最长等待：到点即封存该次调用。
+    /// 注意：工具已在线程池执行（见 RunToolAsync），这条超时只决定「本回合不再等它」，
+    /// 不再承担「把 UI 线程救回来」的职责 —— UI 线程从一开始就没被占用。
+    /// </summary>
+    private const int MaxToolWaitSeconds = 20;
+    /// <summary>「多轮工具请求」这个子系统的封存键：一旦被判定为无回复拖死 UI，本次会话不再拉起。</summary>
+    private const string LoopSubsystem = "AI 多轮工具回合";
     /// <summary>F21：当 AI 自主多步计划开启时，工具循环上限放宽到 PlanMaxSteps（钳 1~32），否则沿用 3。</summary>
     private int EffectiveMaxToolRounds
     {
@@ -992,11 +1024,25 @@ public sealed class ChatEngine
     private async Task<(string? Text, string? Error)> RunTurnAsync(List<ChatMessage> session, AiEndpoint cfg,
         bool forceNoTools = false, string? extraSystem = null)
     {
+        // 整回合墙钟预算：端点「多轮请求且一直没回复」时，单轮超时会被工具循环放大成
+        // 几十秒~几分钟的连续挂起，UI 线程被拖死、Windows 判无响应杀进程。到点即封存本回合。
+        var turnStart = Environment.TickCount64;
+        var maxRounds = EffectiveMaxToolRounds;
+        string? budgetError = null;
         // 端点已拒绝过、或根本没有可用工具、或这条端点标注了「不支持工具」时保持 null：
         // 请求体与从前逐字段一致，不会因为带上 tools 被 400 拒掉。
         var tools = forceNoTools || !cfg.SupportsTools ? null : (_toolsUnsupported ? null : _tools.BuildChatTools());
         if (tools is { Count: 0 }) tools = null;
         var allowed = tools is null ? null : _tools.ChatToolNames();
+
+        // 多轮工具循环若曾因「请求一直没回复」被封存，本会话内退化为纯文本单轮对话：
+        // 出错的那部分停止运行，聊天本身仍能继续，不会把整个应用拖死。
+        if (WarmAsBefore.Services.Core.BugReporter.IsStopped(LoopSubsystem))
+        {
+            tools = null;
+            allowed = null;
+            App.TraceStep("AITurn.LoopStopped → 退化为纯文本单轮");
+        }
 
         var working = new List<ChatMessage>(session);
         if (extraSystem is not null)
@@ -1008,9 +1054,25 @@ public sealed class ChatEngine
         string? text = null;
         var askedTools = false;
 
-        for (var round = 0; round <= EffectiveMaxToolRounds; round++)
+        for (var round = 0; round <= maxRounds; round++)
         {
+            var elapsedBefore = Environment.TickCount64 - turnStart;
+            if (elapsedBefore >= TurnWallClockBudgetSeconds * 1000L)
+            {
+                budgetError = $"[请求超时：多轮工具调用累计超过 {TurnWallClockBudgetSeconds}s，已停止继续请求]";
+                App.TraceStep($"AITurn.BudgetExceeded round={round}/{maxRounds} elapsedMs={elapsedBefore}");
+                App.WriteLog("ChatEngine.RunTurn -> " + budgetError);
+                // 按用户要求：把出错的这部分封存、弹 bug 日志窗、并停止它继续运行。
+                WarmAsBefore.Services.Core.BugReporter.Report(
+                    new TimeoutException(budgetError),
+                    LoopSubsystem,
+                    $"RunTurnAsync 第 {round}/{maxRounds} 轮前，累计耗时 {elapsedBefore}ms");
+                break;
+            }
+
+            App.TraceStep($"AITurn.RoundBegin round={round}/{maxRounds} elapsedMs={elapsedBefore} msgs={working.Count}");
             var turn = await _api.ChatWithToolsAsync(working, tools, cfg);
+            App.TraceStep($"AITurn.RoundEnd round={round}/{maxRounds} elapsedMs={Environment.TickCount64 - turnStart} hasError={turn.Error is not null} toolCalls={turn.ToolCalls?.Count ?? 0}");
             if (turn.ToolsRejected)
             {
                 // 端点不认识 tools（已由 ApiGateway 去掉 tools 重试过一次）：记住它，
@@ -1026,7 +1088,7 @@ public sealed class ChatEngine
             askedTools = true;
 
             // 用完轮数、或工具已不可用（比如端点凭空报了个工具名）→ 收尾，绝不再发请求
-            if (round == EffectiveMaxToolRounds || allowed is null || tools is null) break;
+            if (round == maxRounds || allowed is null || tools is null) break;
 
             // assistant 的 tool_calls 与每个 tool 结果必须成对追加，否则下一次请求会被端点拒收
             working.Add(new ChatMessage
@@ -1048,13 +1110,27 @@ public sealed class ChatEngine
             }
         }
 
+        App.TraceStep($"AITurn.Exit elapsedMs={Environment.TickCount64 - turnStart} budgetError={(budgetError is not null)}");
+        // 预算耗尽又没拿到正文：封存本回合，明确报出错误，不让上层继续挂在"等回复"里
+        if (budgetError is not null && string.IsNullOrWhiteSpace(text))
+            return (null, budgetError);
         // 要过工具却始终没正文：给句中性的兜底，别让"模型没说人话"被上层当成沉默
         if (askedTools && string.IsNullOrWhiteSpace(text)) text = ToolFallbackReply;
         return (text, null);
     }
 
     /// <summary>
-    /// 执行一次模型发起的工具调用。工具会碰 MAUI/UI 状态（立绘、动画、场景），必须在主线程执行；
+    /// 执行一次模型发起的工具调用。
+    ///
+    /// 卡死根因（本轮修复）：旧实现用 MainThread.InvokeOnMainThreadAsync 把 _tools.ExecuteAsync
+    /// 整体放到 UI 线程；而插件工具的 callTool / fetch / callPlugin 内部是
+    /// WithBlockingWait(...GetAwaiter().GetResult()) 的同步阻塞（PluginHost.cs:672/770/798）。
+    /// 「请求没回复」时，20s 超时只让调用方停止 await，工具本体仍焊死在 UI 线程上 ——
+    /// 这就是打点/封存之后依然「完全卡死、拖窗口都卡」的原因。
+    ///
+    /// 本轮把默认执行路径整体移到线程池；确实要碰 MAUI 可绑定状态的内置工具，其最小 UI 片段
+    /// 由 ToolManager 内部用 Helpers.Ui.Post 切回主线程（禁止 MainThread.*：Windows 线程池回调里
+    /// 取不到 DispatcherQueue 会抛进程级崩溃，见 Helpers/Ui.cs:6-11）。
     /// 单个工具失败只把错误文本当作工具结果回灌给模型，不让整轮聊天崩掉。
     /// </summary>
     private async Task<string> RunToolAsync(ToolCall call, HashSet<string> allowed)
@@ -1066,14 +1142,48 @@ public sealed class ChatEngine
             return JsonSerializer.Serialize(new { error = $"工具 {call.Name} 不在可用列表中" });
         }
         var args = string.IsNullOrWhiteSpace(call.Arguments) ? "{}" : call.Arguments.Trim();
+        // 精准封存：这个工具若曾因「不回复」被判定故障，本会话内不再执行，直接把停用结果回灌。
+        var toolSubsystem = "AI 工具:" + call.Name;
+        if (WarmAsBefore.Services.Core.BugReporter.IsStopped(toolSubsystem))
+        {
+            App.TraceStep($"AITool.Stopped name={call.Name}");
+            return JsonSerializer.Serialize(new { error = $"工具 {call.Name} 已因超时未回复被停止运行" });
+        }
+        var toolStart = Environment.TickCount64;
+        App.TraceStep($"AITool.Begin name={call.Name}");
+        // 20s 到点 Cancel：让可取消的执行链停下；不支持取消的工具实现无法真正中断，
+        // 但它已在线程池自行结束，不会再占用 UI 线程（如实记录，不伪装成「已中断」）。
+        using var cts = new CancellationTokenSource();
         try
         {
-            var result = await MainThread.InvokeOnMainThreadAsync(() => _tools.ExecuteAsync(call.Name, args));
+            App.TraceStep($"AITool.OffUI.Begin name={call.Name}");
+            // 默认线程池：插件/外部工具的 JSON-RPC、模组/网络请求一律不占 UI 线程。
+            var exec = Task.Run(() => _tools.ExecuteAsync(call.Name, args), cts.Token);
+            var finished = await Task.WhenAny(exec, Task.Delay(TimeSpan.FromSeconds(MaxToolWaitSeconds)));
+            if (finished != exec)
+            {
+                App.TraceStep($"AITool.Timeout name={call.Name} elapsedMs={Environment.TickCount64 - toolStart}");
+                App.WriteLog($"ChatEngine.Tool {call.Name} 执行超时（>{MaxToolWaitSeconds}s），已停止等待（执行链在线程池，UI 线程未被占用）");
+                cts.Cancel();
+                // 迟到的结果不能再抛未观察异常；工具本身在线程池自行结束，不再占 UI 线程。
+                _ = exec.ContinueWith(t => { _ = t.Exception; }, TaskScheduler.Default);
+                App.TraceStep($"AITool.OffUI.End name={call.Name} elapsedMs={Environment.TickCount64 - toolStart} outcome=timeout");
+                WarmAsBefore.Services.Core.BugReporter.Report(
+                    new TimeoutException($"工具 {call.Name} 执行超过 {MaxToolWaitSeconds}s 仍未回复（已在线程池执行，UI 线程未被占用；不支持取消的实现无法真正中断）"),
+                    toolSubsystem,
+                    "RunToolAsync 工具执行超时（线程池路径）");
+                return JsonSerializer.Serialize(new { error = $"工具 {call.Name} 超时未回复，已跳过" });
+            }
+            var result = await exec;
+            App.TraceStep($"AITool.OffUI.End name={call.Name} elapsedMs={Environment.TickCount64 - toolStart} outcome=ok");
+            App.TraceStep($"AITool.End name={call.Name} elapsedMs={Environment.TickCount64 - toolStart}");
             App.WriteLog($"ChatEngine.Tool {call.Name}({args}) -> {Brief(result)}");
             return result ?? "";
         }
         catch (Exception ex)
         {
+            App.TraceStep($"AITool.OffUI.End name={call.Name} elapsedMs={Environment.TickCount64 - toolStart} outcome=fail");
+            App.TraceStep($"AITool.Fail name={call.Name} elapsedMs={Environment.TickCount64 - toolStart} {ex.GetType().Name}");
             App.WriteLog($"ChatEngine.Tool {call.Name} 执行失败 -> {ex}");
             return JsonSerializer.Serialize(new { error = ex.Message });
         }

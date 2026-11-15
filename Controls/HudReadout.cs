@@ -1,3 +1,4 @@
+using Microsoft.Maui.Graphics;
 using WarmAsBefore.DesignSystem.Worlds;
 
 namespace WarmAsBefore.Controls;
@@ -36,11 +37,30 @@ public sealed class HudReadout : ContentView
         };
         _value.SetDynamicResource(Microsoft.Maui.Controls.Label.TextColorProperty, "SurfaceFg");
 
-        _barFill = new BoxView { HeightRequest = 3, HorizontalOptions = LayoutOptions.Start, WidthRequest = 0 };
+        // 进度条宿主（2026-11-15 第三版）：双星列 Grid。
+        //  第一版（Grid+Fill+OnSizeAllocated 写 WidthRequest）：条宽反馈进读数自身期望宽度，
+        //    Auto 列自引用振荡 → LayoutCycleException（dump 实证死在 OnSizeAllocated）。
+        //  第二版（AbsoluteLayout 比例 bounds）：比例子元素在无界宽度（横向 ScrollView 内容区）
+        //    测量时得到无穷尺寸，WinUI 原生 Measure 抛 COMException E_FAIL（实测）。
+        //  第三版（本版）：双星列 Grid——无界测量下星号按 Auto 收缩、期望宽度恒为 0（不反馈）；
+        //    有界排列下按进度权重分割宽度（视觉等价）；进度只改列权重，只触发 Arrange，
+        //    期望尺寸不变，布局必然收敛。
+        _barFill = new BoxView { HeightRequest = 3, HorizontalOptions = LayoutOptions.Fill };
         _barFill.SetDynamicResource(BackgroundColorProperty, "Signal");
-        _barTrack = new BoxView { HeightRequest = 3, Opacity = 0.25 };
+        _barTrack = new BoxView { HeightRequest = 3, HorizontalOptions = LayoutOptions.Fill, Opacity = 0.25 };
         _barTrack.SetDynamicResource(BackgroundColorProperty, "Signal");
-        _barHost = new Grid { HeightRequest = 3, IsVisible = false, Children = { _barTrack, _barFill } };
+        _barHost = new Grid
+        {
+            HeightRequest = 3,
+            IsVisible = false,
+            ColumnDefinitions =
+            {
+                new ColumnDefinition(new GridLength(0, GridUnitType.Star)),
+                new ColumnDefinition(new GridLength(1, GridUnitType.Star)),
+            },
+        };
+        _barHost.Add(_barFill, 0, 0);
+        _barHost.Add(_barTrack, 1, 0);
 
         _frame = new Border { Padding = new Thickness(9, 5), StrokeThickness = 1 };
         _frame.SetDynamicResource(Border.StrokeProperty, "EdgeStrong");
@@ -107,7 +127,7 @@ public sealed class HudReadout : ContentView
     {
         _progress = value;
         _barHost.IsVisible = value >= 0;
-        if (value >= 0) RefreshBar(Math.Max(Width, _stack.Width));
+        if (value >= 0) RefreshBar(value);
     }
 
     /// <summary>把零件装进版式：页面在构造时调一次（读 Horizontal / Framed / LabelColor）。</summary>
@@ -140,16 +160,15 @@ public sealed class HudReadout : ContentView
         Content = Framed ? _frame : _stack;
     }
 
-    protected override void OnSizeAllocated(double width, double height)
+    /// <summary>
+    /// 进度只落成双星列权重（0..1），不依赖也不回写任何分配宽度：
+    /// 无界测量下星号按 Auto 收缩（期望宽度恒为 0，永不反馈），有界排列时按权重分割。
+    /// 列权重变更只触发 Arrange，期望尺寸不变，布局必然收敛。
+    /// </summary>
+    private void RefreshBar(double progress)
     {
-        base.OnSizeAllocated(width, height);
-        RefreshBar(width);
-    }
-
-    private void RefreshBar(double width)
-    {
-        if (_progress < 0) return;
-        var inner = Math.Max(0, width - (Framed ? 18 : 0));
-        _barFill.WidthRequest = inner * Math.Clamp(_progress, 0, 1);
+        var p = Math.Clamp(progress, 0, 1);
+        _barHost.ColumnDefinitions[0].Width = new GridLength(p, GridUnitType.Star);
+        _barHost.ColumnDefinitions[1].Width = new GridLength(1 - p, GridUnitType.Star);
     }
 }
