@@ -1,5 +1,6 @@
 using System.IO;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore;
 
@@ -18,13 +19,17 @@ public partial class App : Application
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             {
                 WriteLog("APPDOMAIN UNHANDLED: " + e.ExceptionObject);
+                try { BugReporter.Report(e.ExceptionObject as Exception, "AppDomain", "未处理的域异常"); } catch { }
+                // 域级异常若 IsTerminating=true 进程仍会退出，这里尽力再弹一次指路日志的提示。
                 TryNotifyCrash("温暖如初遇到问题",
                     "程序即将退出。启动日志已写入：Documents\\warm_startup.log，可把这份文件发给开发者定位问题。");
             };
             TaskScheduler.UnobservedTaskException += (_, e) =>
             {
                 WriteLog("UNOBSERVED TASK: " + e.Exception);
-                e.SetObserved();
+                try { e.SetObserved(); } catch { }
+                // 未观察任务异常默认不会崩进程，但也要归口到 BugReporter，避免被静默吞掉。
+                try { BugReporter.Report(e.Exception, "Task", "未观察的任务异常"); } catch { }
             };
             InitializeComponent();
             // 首帧之前必须把世界令牌摆好：样式字典引用的是 W* / Glass* 这些计算出来的键，
@@ -41,16 +46,44 @@ public partial class App : Application
             if (Microsoft.UI.Xaml.Application.Current is { } app)
                 app.UnhandledException += (_, e) =>
                 {
-                    // 这条路径上进程随时会没：同步写盘，不进后台队列（队列 500ms 才刷一次，
-                    // 崩溃前那几行最要紧）。
+                    // 全局兜底：不让未处理异常直接终结进程。标 Handled，把错误交给 BugReporter
+                    // （写 bugs.log + 弹 bug 日志窗）。这是「卡死退出」类问题的最终防线。
+                    // 同步写盘不进后台队列（崩溃前那几行最要紧）。
+                    e.Handled = true;
                     WriteLogNow("WINUI UNHANDLED: " + e.Exception);
                     WriteLogNow("WINUI UNHANDLED STACK: " + e.Exception?.StackTrace);
+                    // 布局环取证（2026-11-15）：LayoutCycleException 原生层无堆栈，静态排查多轮未定位。
+                    // 首次捕获时自抓进程 dump，事后用 dotnet-dump analyze 看 UI 线程此刻的托管调用栈，
+                    // 直接定位是谁在布局风暴里反复 Measure。只抓第一次，避免每次都写几百 MB。
+                    if (e.Exception is Microsoft.UI.Xaml.LayoutCycleException && _lcDumpDone)
+                    {
+                        // 已抓过：只记一次增量日志
+                    }
+                    else if (e.Exception is Microsoft.UI.Xaml.LayoutCycleException)
+                    {
+                        _lcDumpDone = true;
+                        var dumpPath = Path.Combine(FileSystem.AppDataDirectory, "WarmAsBefore", $"layoutcycle_{DateTime.Now:HHmmss}.dmp");
+                        _ = Task.Run(async () =>
+                        {
+                            try
+                            {
+                                var psi = new System.Diagnostics.ProcessStartInfo(
+                                    "dotnet-dump", $"collect -p {Environment.ProcessId} -o \"{dumpPath}\"")
+                                {
+                                    UseShellExecute = false,
+                                    CreateNoWindow = true,
+                                };
+                                using var p = System.Diagnostics.Process.Start(psi);
+                                p?.WaitForExit(60000);
+                                WriteLogNow("LC DUMP: " + dumpPath + " exit=" + (p?.ExitCode));
+                            }
+                            catch (Exception ex) { WriteLogNow("LC DUMP FAIL: " + ex.Message); }
+                        });
+                    }
                     FlushLog();
-                    // 审计 U5：窗口无声消失对用户是「程序坏了还什么都不说」。
-                    // 尽力弹一次提示指路日志；不设 e.Handled，崩溃语义保持原样。
-                    TryNotifyCrash("温暖如初遇到问题",
-                        "发生了一个未处理的错误，窗口可能即将关闭。\n日志位置：Documents\\warm_startup.log");
+                    try { BugReporter.Report(e.Exception, "WinUI", "未处理的 UI 异常"); } catch { }
                 };
+
 #endif
         }
         catch (Exception ex)
@@ -60,30 +93,108 @@ public partial class App : Application
         }
     }
 
+    /// <summary>布局环取证 dump 只抓第一次（每进程一份）。</summary>
+    private static bool _lcDumpDone;
+
+    /// <summary>上一次记录进日志的视口宽（节流：拖动时 SizeChanged 一秒几十次，全记会刷屏）。</summary>
+    private static double _loggedViewportW;
+
+    /// <summary>上一次真正下发过令牌的窗口逻辑尺寸；同尺寸不再写资源（幂等）。</summary>
+    private static double _appliedViewportW = double.NaN;
+    private static double _appliedViewportH = double.NaN;
+
+    /// <summary>非法尺寸写同步日志的节流时间戳，避免最小化时的事件风暴刷盘。</summary>
+    private static long _lastInvalidViewportTick;
+
+    /// <summary>
+    /// 视口下发重入闸：0=空闲，1=正在写资源。
+    /// 本方法是在 WinUI 的 SizeChanged / 布局回调里被调的；写 Application.Resources 顶层键会触发
+    /// ValuesChanged，让全树 {DynamicResource} 重新解析 = 再排一次版。若这次重排又冒泡出
+    /// SizeChanged，就形成 WinUI 布局死循环（Layout cycle → 0xc000027b stowed exception，
+    /// 进程被原生层直接带走，托管层的 UnhandledException / BugReporter 完全收不到）。
+    /// </summary>
+    private static int _viewportPublishing;
+
     /// <summary>
     /// 把窗口逻辑尺寸喂给尺度档，跨档才重发令牌。
     /// 尺度只在这一处被写：窗口、启动对齐、以后任何新入口都走这里，
     /// 免得出现「颜色跟着窗口变了、字号没变」这种半套下发。
+    ///
+    /// 三条硬约束（缩窗崩坏 / 女仆桥连接后卡几秒退出，都栽在它们缺席上）：
+    ///  1. 入参必须有限且为正：NaN / ±∞ / 0 / 负 一律直接丢弃，既不喂尺度系统也不重发令牌。
+    ///  2. 幂等 + 重入闸：同一尺寸只下发一次；布局周期内被再次调用直接丢掉。
+    ///  3. 异常自吞 + 同步落盘：布局回调里抛出的异常会被 WinUI 打包成原生 stowed exception，
+    ///     全局托管兜底拦不住，只能就地拦住并同步写日志（含把队列里没落盘的几行冲出去）。
     /// </summary>
-    /// <summary>上一次记录进日志的视口宽（节流：拖动时 SizeChanged 一秒几十次，全记会刷屏）。</summary>
-    private static double _loggedViewportW;
-
     private static void ApplyViewport(double width, double height)
     {
-        // 诊断记录：路径是否走通、喂进来的宽度是多少（逻辑还是有效像素），差距大于 4 才记一条。
-        if (Math.Abs(width - _loggedViewportW) > 4)
+        // 重入闸放在最前面：布局周期内被再次调用就丢掉，下一次真实尺寸变化还会再来。
+        if (System.Threading.Interlocked.Exchange(ref _viewportPublishing, 1) != 0) return;
+        try
         {
-            _loggedViewportW = width;
-            WriteLog($"viewport {width:0}x{height:0} → 期望内容列 wide={Math.Clamp(Math.Round(width * 0.9), 320, 1600):0} narrow={Math.Clamp(Math.Round(width * 0.62), 320, 900):0}");
-        }
+            // 最小化 / 句柄切换 / 销毁期，WinUI 会报 0×0，DPI 换算异常时会给出 NaN 或 ±∞。
+            // 旧代码只挡了 <= 0（NaN 与任何数比较都为 false），且挡住后仍会走 RepublishWidth。
+            if (!double.IsFinite(width) || !double.IsFinite(height) || width <= 0 || height <= 0)
+            {
+                var now = Environment.TickCount64;
+                if (now - _lastInvalidViewportTick > 2000)
+                {
+                    _lastInvalidViewportTick = now;
+                    WriteLogNow($"[viewport] 忽略非法尺寸 {width}x{height}（不重发令牌）");
+                }
+                return;
+            }
 
-        // 宽度令牌（内容列宽）跟着窗口宽度逐次重发：跨了尺度档就顺手整套重发（字号/内距要重算），
-        // 没跨档也要把 WCardWidth/WCardWidthWide 刷新——以前不跨档就什么都不发，
-        // 内容列宽卡在启动那一次的值上，用户实测就是「设置首页老是固定大小」。
-        if (DesignSystem.Worlds.StyleWorldTokens.SetViewport(width, height))
-            DesignSystem.Theme.ThemeManager.Current?.RepublishForScale();
-        else
-            DesignSystem.Worlds.StyleWorldTokens.RepublishWidth();
+            // 极端值（多屏坐标、DPI 密度换算溢出）不许进资源字典。
+            width = Math.Clamp(width, 1, 8192);
+            height = Math.Clamp(height, 1, 8192);
+
+            // 幂等：SizeChanged 一秒几十次，写一次顶层资源键就是整屏重排。
+            if (double.IsFinite(_appliedViewportW)
+                && Math.Abs(width - _appliedViewportW) < 1
+                && Math.Abs(height - _appliedViewportH) < 1)
+                return;
+
+            // 诊断记录：路径是否走通、喂进来的宽度是多少（逻辑还是有效像素），差距大于 4 才记一条。
+            if (Math.Abs(width - _loggedViewportW) > 4)
+            {
+                _loggedViewportW = width;
+                WriteLog($"viewport {width:0}x{height:0} → 期望内容列 wide={Math.Clamp(Math.Round(width * 0.9), 320, 1600):0} narrow={Math.Clamp(Math.Round(width * 0.62), 320, 900):0}");
+            }
+
+            // 宽度令牌（内容列宽）跟着窗口宽度逐次重发：跨了尺度档就顺手整套重发（字号/内距要重算），
+            // 没跨档也要把 WCardWidth/WCardWidthWide 刷新——以前不跨档就什么都不发，
+            // 内容列宽卡在启动那一次的值上，用户实测就是「设置首页老是固定大小」。
+            // 真正的「值没变就不写」由 StyleWorldTokens.PublishWidth 的 SetToken 兜底。
+            if (DesignSystem.Worlds.StyleWorldTokens.SetViewport(width, height))
+            {
+                // ThemeManager.Current 是 DI 懒建，可能比首帧晚（见 ThemeManager.cs:44-49）。
+                // 跨档这一刻若为 null，旧写法 ?. 直接短路：整套令牌与宽度令牌都不重发，
+                // 而 _appliedViewportW/H 照常更新，该次跨档之后不会再补发 —— 拖窗时字号/内容列不跟手。
+                // Current 在就仍交给 RepublishForScale 做整套下发（内含 PublishWidth），
+                // 不重复触发整屏重排；只有取不到时才退一步补发三个宽度令牌。
+                var theme = DesignSystem.Theme.ThemeManager.Current;
+                if (theme is not null)
+                    theme.RepublishForScale();
+                else
+                    DesignSystem.Worlds.StyleWorldTokens.RepublishWidth();
+            }
+            else
+                DesignSystem.Worlds.StyleWorldTokens.RepublishWidth();
+
+            _appliedViewportW = width;
+            _appliedViewportH = height;
+        }
+        catch (Exception ex)
+        {
+            // 同步写盘：这条路径上进程可能马上就没了，不能只进后台队列。
+            WriteLogNow("[viewport] ApplyViewport 自吞异常: " + ex);
+            FlushLog();
+        }
+        finally
+        {
+            System.Threading.Interlocked.Exchange(ref _viewportPublishing, 0);
+        }
     }
 
     /// <summary>
@@ -293,7 +404,22 @@ public partial class App : Application
                 }
                 catch (Exception ex) { WriteLog("CreateWindow.TitleBarHook: " + ex.Message); }
                 // 不读事件参数（那个 args 类型和 MAUI 引进来的同名类型撞了），直接问窗口现在的 Bounds。
-                xw.SizeChanged += (_, _) => { var b = xw.Bounds; ApplyViewport(b.Width, b.Height); };
+                // 事件层再包一层「异常自吞 + 同步落盘」：窗口销毁期读 Bounds 也可能抛原生异常，
+                // 而 SizeChanged 是 WinUI 布局回调，托管全局兜底对这里的原生崩溃无效。
+                // 校验 / 幂等 / 重入闸 / 令牌写入全在 ApplyViewport 里，事件本身不重复逻辑。
+                xw.SizeChanged += (_, _) =>
+                {
+                    try
+                    {
+                        var b = xw.Bounds;
+                        ApplyViewport(b.Width, b.Height);
+                    }
+                    catch (Exception ex)
+                    {
+                        WriteLogNow("[viewport] SizeChanged 自吞异常: " + ex);
+                        FlushLog();
+                    }
+                };
                 // 桌面拖 zip 进窗口 = 自动识别导入（见 HookZipDrop）。
                 HookZipDrop(xw);
             };
@@ -538,15 +664,71 @@ public partial class App : Application
     /// <summary>
     /// 同步写盘：只在「进程可能马上没了」的路径上用（未处理异常、崩溃）。
     /// 常规日志走队列是为了不噎住 UI 线程，这条路径已经没有下一次机会了。
+    ///
+    /// 双写：MyDocuments 被 OneDrive 重定向 / 只读时，LogPath 那份 warm_startup.log
+    /// 在某些机器上根本不会出现（见 Helpers\HoverFeel.cs:903-905 的同款说明），
+    /// 而这里的 catch 又会静默吞掉，崩溃证据就全丢了 —— 本轮新增的 [viewport] 三条诊断
+    /// 全走这条通道。所以再同步落一份到 App.RootDirectory（perf.log / bridge_diag.log
+    /// 所在的数据根，也正是实机排查看的目录）。必须同步写：原生布局崩溃 0xc000027b 时
+    /// PerfLog.Note 的异步队列根本来不及 flush。
+    /// 两处写入各自独立自吞，任一处失败都不影响另一处，也不改变原有写入语义。
     /// </summary>
     public static void WriteLogNow(string msg)
     {
+        var line = $"[{DateTime.Now.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}";
         try
         {
-            File.AppendAllText(LogPath,
-                $"[{DateTime.Now.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}");
+            File.AppendAllText(LogPath, line);
         }
         catch { }
+        try
+        {
+            var mirror = Path.Combine(RootDirectory, "warm_startup.log");
+            // 极端配置下两个路径可能指向同一个文件，别把同一行写两遍。
+            if (!string.Equals(LogPath, mirror, StringComparison.OrdinalIgnoreCase))
+            {
+                Directory.CreateDirectory(RootDirectory);
+                File.AppendAllText(mirror, line);
+            }
+        }
+        catch { }
+    }
+
+    /// <summary>进存档/桥接热路径的带时间戳检查点：卡死时最后一条没配对的 step 就是卡点。
+    /// 走 WriteLogNow 同步落盘（含数据根双写），崩溃前也能留下现场。</summary>
+    public static void TraceStep(string tag)
+    {
+        try { WriteLogNow("[trace] " + tag); } catch { }
+    }
+
+    // ============ 读档会话标记（P1，2026-11-14）============
+    // 进程被 Windows 判无响应杀掉时，常规日志队列可能来不及 flush；这份同步写的小文件
+    // 是「上次读取未完成」在下次启动仍成立的唯一路径。读档开始写、任一终态删。
+    public const string LoadMarkerFile = "load_session.marker";
+    public static string LoadMarkerPath => Path.Combine(RootDirectory, LoadMarkerFile);
+
+    public static void WriteLoadMarker(string saveId, int phase)
+    {
+        try
+        {
+            Directory.CreateDirectory(RootDirectory);
+            File.WriteAllText(LoadMarkerPath,
+                $"saveId={saveId}\nphase={phase}\nts={DateTime.Now:O}\n");
+        }
+        catch (Exception ex) { WriteLog("App.WriteLoadMarker -> " + ex.Message); }
+    }
+
+    public static void ClearLoadMarker()
+    {
+        try { if (File.Exists(LoadMarkerPath)) File.Delete(LoadMarkerPath); }
+        catch (Exception ex) { WriteLog("App.ClearLoadMarker -> " + ex.Message); }
+    }
+
+    /// <summary>启动后读取残留标记；有内容说明上次进程在读取中途没了。只读，不在这里删。</summary>
+    public static string? PeekLoadMarker()
+    {
+        try { return File.Exists(LoadMarkerPath) ? File.ReadAllText(LoadMarkerPath) : null; }
+        catch (Exception ex) { WriteLog("App.PeekLoadMarker -> " + ex.Message); return null; }
     }
 
     /// <summary>崩溃前把队列里没落盘的几行一次写完。</summary>

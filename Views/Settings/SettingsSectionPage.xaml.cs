@@ -84,6 +84,21 @@ public partial class SettingsSectionPage : ContentPage
             // 每张卡都触发一次布局，动画和下一次创建抢同一帧，几条卡叠起来就是一格一格的。
             await Task.Delay(24);
 
+            // 「用加载动画 + 让路拖延时间，使看起来没有延迟」：建卡是同步重活，
+            // 一口气建完会冻结 UI 线程（既不出帧也不响应输入 = 看起来卡死）。
+            // 先在卡片区放一枚加载转轮，随后每建一卡让一帧给 UI 线程——
+            // 转轮持续转、窗口可拖、标题可读，固定成本被摊进流畅响应里 = 看起来没有延迟。
+            var loading = new ActivityIndicator
+            {
+                IsRunning = !MotionTokens.Disabled,
+                HorizontalOptions = LayoutOptions.Center,
+                VerticalOptions = LayoutOptions.Center,
+                HeightRequest = 28,
+                Margin = new Thickness(0, 18),
+            };
+            loading.SetDynamicResource(ActivityIndicator.ColorProperty, "AccentWarm");
+            CardsHost.Children.Add(loading);
+
             var cards = new List<View>(section.CardKeys.Length);
             for (var i = 0; i < section.CardKeys.Length; i++)
             {
@@ -101,7 +116,6 @@ public partial class SettingsSectionPage : ContentPage
                 // 入树前先摆到起点：随后统一错峰上浮时，排在后面的卡片不会先以终值出现、
                 // 等轮到自己再跳下去。这里只动位移，不碰 Opacity（沿用站里的进场契约）。
                 content.TranslationY = MotionTokens.EnterRisePx;
-                CardsHost.Add(content);
                 cards.Add(content);
 
                 var chart = content.FindByName("CostChartView") as GraphicsView;
@@ -110,9 +124,15 @@ public partial class SettingsSectionPage : ContentPage
                     chart.Drawable = _vm.CostChart;
                     _vm.InvalidateCostChart = () => chart.Invalidate();
                 }
+
+                // 让一帧给 UI 线程：只让路、不逐卡播进场（那才是一格一格的元凶）；
+                // 进场仍由下面 Motion.Arrive 统一错峰。
+                await Task.Delay(1);
             }
 
-            // 构建已经结束，动画不再和创建抢线程：一批卡共用同一条节奏（45ms 一张、130ms 走完）。
+            // 撤加载转轮，一次性入树（避免一格一格）+ 错峰上浮。
+            CardsHost.Children.Remove(loading);
+            foreach (var c in cards) CardsHost.Add(c);
             Motion.Arrive(cards, (uint)Math.Max(1, MotionTokens.Ms(MotionTokens.CardEnterMs)));
             // 卡片就绪后再补该分类要用的数据（只做这一页需要的）
             _ = SeedAfterCardsAsync(section.Key);

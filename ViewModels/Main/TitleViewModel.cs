@@ -180,6 +180,18 @@ public sealed partial class TitleViewModel : ObservableObject
         // 有存档：再续情缘——直接读最后一次游玩的存档继续；无存档：创建新欢（新开一局）
         if (HasSave)
         {
+            // 读档期间先亮忙碌层（真实反馈）：此前 LoadLatest 期间整条链路零反馈，
+            // 点完按钮像卡死。读档里的 JSON 解析已在存档管理器挪到线程池。
+            // 阶段文字走 LoadPhaseHook：读档到第几步实时上卡，不再是无限转圈。
+            if (Shell.Current is AppShell shell)
+            {
+                shell.ShowBusyNow();
+                _save.LoadPhaseHook = (p, name) => Helpers.Ui.Post(() =>
+                    (Shell.Current as AppShell)?.SetBusyText($"读档 {p}/5 · {name}"));
+                // 细步信息进详细信息展开栏：解析到哪一段、是否卡住，一眼可见。
+                _save.LoadDetailHook = s => Helpers.Ui.Post(() =>
+                    (Shell.Current as AppShell)?.SetBusyDetail(s));
+            }
             try
             {
                 if (await _save.LoadLatest())
@@ -189,6 +201,12 @@ public sealed partial class TitleViewModel : ObservableObject
                 }
             }
             catch (Exception ex) { App.WriteLog("Title: LoadLatest EX -> " + ex); }
+            finally
+            {
+                // 导航成功时 Navigated 已自动撤层，这里是失败/降级路径的兜底撤层（幂等）。
+                _save.LoadPhaseHook = null;
+                if (Shell.Current is AppShell s) s.HideBusyNow();
+            }
             // 读不到最后一局就交给存档页。这里直连、不再走 OpenGate：
             // 刚念完一串「载入模拟宇宙」，接着又念一串「挂载存档库」，读起来像程序没听懂那一句。
             try { await Shell.Current.GoToAsync("save"); }
