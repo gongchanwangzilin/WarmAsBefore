@@ -14,6 +14,11 @@ public partial class AppShell : Shell
             _navTarget = e.Target?.Location?.OriginalString ?? "";
             // 阶段标记给 UI 卡顿看门狗用：卡在「导航途中」还是「目标页装载」日志里能分开。
             Services.PerfLog.SetPhase("导航 → " + _navTarget);
+            // 盖忙碌层：只在「前进」导航（新建/插入/换页）上盖。返回（Pop/PopToRoot）通常
+            // 命中已缓存的旧页、瞬时完成，盖层只会闪一下；前进里第一次访问的重页
+            // （设置/主界面）才是 300–500ms「建卡」的来源，也是最需要进度反馈的地方。
+            if (e.Source is not ShellNavigationSource.Pop and not ShellNavigationSource.PopToRoot)
+                ShowNavBusy();
         };
         Navigated += (_, e) =>
         {
@@ -28,6 +33,8 @@ public partial class AppShell : Shell
             PlayPageTransition(e);
             // 成就横幅的落点跟着页面顶栏走：标题页没有顶栏（贴顶 16），其余页面默认 64（顶栏下方）。
             Controls.Toast.TopInset = CurrentPage is Views.TitlePage ? 16 : 64;
+            // 目标页已上屏（构造+首帧完成），撤掉忙碌层。
+            HideNavBusy();
         };
         // 这里原先在每次导航时重新置顶/BringToFront。
         // 但那会让「设置 → 窗口置顶」关闭后仍被强制置顶（关不掉），
@@ -56,6 +63,106 @@ public partial class AppShell : Shell
             if (!back && CurrentPage is Views.TitlePage) return;
         }
         _ = Helpers.Motion.PageIn(CurrentPage, back);
+    }
+
+    // ============ 导航忙碌层（2026-11-15，回应「切页慢且没有反馈进度」）============
+    // 切页那 300–500ms 的「建卡」期用户完全看不到在动，读起来就是卡死。
+    // 做法：Navigating（此刻目标页尚未构造、当前仍是旧页）把一层轻量忙碌卡盖到「旧页」最上层。
+    // 旧页已经画好上屏，盖上后即便目标页还在构造，画面上也一直有东西在说「正在切换」。
+    // Navigated 撤层；另加 2.5s 保险丝（导航异常没触发 Navigated 时也不能永远盖着）。
+    // 硬规矩与 LoadingVeil 一致：
+    //  · 靠增删子节点控制显隐，绝不写 Opacity；
+    //  · 不铺全屏压暗 scrim（scrim 是布局死循环的帮凶），只放一张居中小卡；
+    //  · 面/边/圆角全取既有令牌（SurfaceBg / WBorderBrush / WRadiusCard / AccentWarm / MutedFg），零新增色；
+    //  · InputTransparent=true：是提示不是模态锁，不吞点击、不锁窗（锁窗曾直接崩进程）；
+    //  · 跨线程回 UI 一律走 Helpers.Ui.Post，绝不用 MainThread.*（线程池上取不到 DispatcherQueue 即崩进程）。
+    private Grid? _navBusyOverlay;
+    private ContentPage? _navBusyPage;
+    private System.Threading.CancellationTokenSource? _navBusyTimeout;
+
+    private void ShowNavBusy()
+    {
+        try
+        {
+            if (_navBusyOverlay is not null) return;              // 重入闸：一次导航只盖一层
+            var page = CurrentPage as ContentPage;
+            if (page?.Content is not Grid root) return;           // 只盖根为 Grid 的页（绝大多数）；非 Grid 不强改其布局
+
+            var overlay = new Grid
+            {
+                HorizontalOptions = LayoutOptions.Fill,
+                VerticalOptions = LayoutOptions.Fill,
+                BackgroundColor = Microsoft.Maui.Graphics.Colors.Transparent,
+                InputTransparent = true,
+            };
+            var card = new Border
+            {
+                HorizontalOptions = LayoutOptions.Center,
+                VerticalOptions = LayoutOptions.Center,
+                StrokeThickness = 1,
+                Padding = new Thickness(22, 18, 22, 18),
+            };
+            card.SetDynamicResource(Border.BackgroundColorProperty, "SurfaceBg");
+            card.SetDynamicResource(Border.StrokeShapeProperty, "WRadiusCard");
+            card.SetDynamicResource(Border.StrokeProperty, "WBorderBrush");
+
+            var stack = new VerticalStackLayout
+            {
+                Spacing = 8,
+                HorizontalOptions = LayoutOptions.Center,
+            };
+            var spin = new ActivityIndicator
+            {
+                IsRunning = true,
+                HorizontalOptions = LayoutOptions.Center,
+                WidthRequest = 22,
+                HeightRequest = 22,
+            };
+            spin.SetDynamicResource(ActivityIndicator.ColorProperty, "AccentWarm");
+            var label = new Label
+            {
+                Text = Controls.LoadingVeil.LoadingText,
+                FontSize = 12,
+                HorizontalOptions = LayoutOptions.Center,
+            };
+            label.SetDynamicResource(Label.TextColorProperty, "MutedFg");
+            stack.Children.Add(spin);
+            stack.Children.Add(label);
+            card.Content = stack;
+            overlay.Children.Add(card);
+
+            Grid.SetRow(overlay, 0);
+            Grid.SetRowSpan(overlay, Math.Max(1, root.RowDefinitions.Count));
+            Grid.SetColumn(overlay, 0);
+            Grid.SetColumnSpan(overlay, Math.Max(1, root.ColumnDefinitions.Count));
+            root.Children.Add(overlay);
+            _navBusyOverlay = overlay;
+            _navBusyPage = page;
+
+            // 保险丝：导航异常没触发 Navigated 也不能永远盖着（LoadingVeil 同款兜底思路）
+            _navBusyTimeout?.Cancel();
+            _navBusyTimeout = new System.Threading.CancellationTokenSource();
+            var token = _navBusyTimeout.Token;
+            System.Threading.Tasks.Task.Delay(2500, token).ContinueWith(t =>
+            {
+                if (t.IsCompletedSuccessfully) Helpers.Ui.Post(HideNavBusy);
+            }, System.Threading.Tasks.TaskScheduler.Default);
+        }
+        catch (Exception ex) { App.WriteLog("AppShell.ShowNavBusy -> " + ex.Message); }
+    }
+
+    private void HideNavBusy()
+    {
+        try
+        {
+            _navBusyTimeout?.Cancel(); _navBusyTimeout = null;
+            var overlay = _navBusyOverlay; var page = _navBusyPage;
+            _navBusyOverlay = null; _navBusyPage = null;
+            if (overlay is null) return;
+            if (page?.Content is Grid root && root.Children.Contains(overlay))
+                root.Children.Remove(overlay);
+        }
+        catch (Exception ex) { App.WriteLog("AppShell.HideNavBusy -> " + ex.Message); }
     }
 
     private void RegisterRoutes()
