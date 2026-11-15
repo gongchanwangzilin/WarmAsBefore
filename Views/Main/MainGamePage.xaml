@@ -8,6 +8,7 @@ xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
 xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
 xmlns:model="clr-namespace:WarmAsBefore.Models"
 xmlns:views="clr-namespace:WarmAsBefore.Views"
+xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
              x:Class="WarmAsBefore.Views.MainGamePage"
              x:Name="GameRoot"
 
@@ -98,23 +99,55 @@ xmlns:views="clr-namespace:WarmAsBefore.Views"
         </DataTemplate>
     </ContentPage.Resources>
 
-    <Grid>
+    <Grid RowDefinitions="Auto,*">
         <!-- 玻璃是「表面材质」：卡片 / 按钮 / 上下栏 / 弹窗的样式引用
              GlassTokens 下发的 {DynamicResource ...} 画刷（见 DesignSystem/Theme/GlassTokens.cs）。
              这里不再有任何整页叠加层 —— 那层既挡点击、压对比度，又要在每次交互时重绘。 -->
 
 
 
+        <!-- ============ 修复回执条（容错自愈）：读档自动修复后随目标页常驻 ============
+             替代会自动消失的 Toast：修复成功仍自动进入游戏（用户诉求「修复后直接进入」），
+             报告以回执条保留，用户可展开看「修了什么 / 可能丢了什么」、可收起。
+             绑定到 RepairReportService 单例；IsVisible 只切子节点，不重建控件。 -->
+        <Grid Grid.Row="0" IsVisible="{Binding HasReceipt, Source={x:Static core:RepairReportService.Instance}}"
+              VerticalOptions="Start" HorizontalOptions="Fill"
+              Padding="{DynamicResource WPadCard}">
+            <Border Style="{StaticResource CardSolid}"
+                    StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="1"
+                    Stroke="{DynamicResource WBorderBrush}">
+                <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Label Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
+                               Style="{StaticResource TxtRowTitle}" TextColor="{DynamicResource SignalFg}" />
+                        <Label Grid.Column="1"
+                               Text="{Binding ReceiptSummary, Source={x:Static core:RepairReportService.Instance}}"
+                               Style="{StaticResource TxtBody}" VerticalOptions="Center" MaxLines="1" />
+                        <HorizontalStackLayout Grid.Column="2" Spacing="6">
+                            <Button Text="详情" Style="{StaticResource BtnTextSm}"
+                                    Command="{Binding ToggleExpandedCommand, Source={x:Static core:RepairReportService.Instance}}" />
+                            <Button Text="收起" Style="{StaticResource BtnTextSm}"
+                                    TextColor="{DynamicResource DangerInk}"
+                                    Command="{Binding ClearCommand, Source={x:Static core:RepairReportService.Instance}}" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                    <Label IsVisible="{Binding DetailVisible, Source={x:Static core:RepairReportService.Instance}}"
+                           Text="{Binding DetailText, Source={x:Static core:RepairReportService.Instance}}"
+                           Style="{StaticResource TxtCaption}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
         <!-- ============ Phone Layout (vertical) ============
              手机竖版整块搬进了 MainGamePhoneView：Windows 上这块永远不显示，却会和桌面版
              一起建完（两条 MediaElement、两个 CollectionView 与两百来颗控件）——
              进存档那一秒的卡顿有一大半在这里。现在只在 VM 判定为手机版时由代码挂进来
              （见 MainGamePage.xaml.cs），桌面上这里只占一颗空的 ContentView。 -->
-        <ContentView x:Name="PhoneHost" IsVisible="{Binding IsPhoneLayout}" />
+        <ContentView x:Name="PhoneHost" Grid.Row="1" IsVisible="{Binding IsPhoneLayout}" />
 
         <!-- ============ Desktop Layout (horizontal) ============
              仅桌面显示；手机/平板都不显（平板走上面的手机主题布局） -->
-        <Grid IsVisible="{Binding IsDesktopLayout}"
+        <Grid Grid.Row="1" IsVisible="{Binding IsDesktopLayout}"
               RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
             <!-- 旧版固定顶栏：只在小组件模式关闭、且未沉浸时出现 -->
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"

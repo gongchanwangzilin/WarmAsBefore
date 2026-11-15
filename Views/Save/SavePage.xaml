@@ -50,7 +50,13 @@
 
         <!-- Save slots：一个存档 = 一行，所有行装在同一张 CardGroup 里 -->
         <Border Grid.Row="3" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
-            <CollectionView ItemsSource="{Binding Slots}" BackgroundColor="Transparent">
+            <!-- P0-4：显式线性布局 + MeasureFirstItem。ItemTemplate 有 5 层嵌套、
+                 FormattedString 5 Span 与 4 个按钮，逐项测量很贵；所有行等高，只测第一项。 -->
+            <CollectionView ItemsSource="{Binding Slots}" BackgroundColor="Transparent"
+                            ItemSizingStrategy="MeasureFirstItem">
+                <CollectionView.ItemsLayout>
+                    <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
+                </CollectionView.ItemsLayout>
                 <CollectionView.EmptyView>
                     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="6"
                                          Padding="{DynamicResource WPadCard}">
@@ -95,6 +101,7 @@
                                     <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Text="读取"
                                             Style="{StaticResource BtnNeumorphSm}" WidthRequest="72"
                                             VerticalOptions="Center"
+                                            IsEnabled="{Binding Path=BindingContext.CanLoad, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                             Command="{Binding Path=BindingContext.LoadSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                             CommandParameter="{Binding Id}" />
 
@@ -132,6 +139,27 @@
              新建存档放在这一页的第一颗主按钮上：用户在这里找的就是「再开一档」，
              不该被赶回标题页再绕一遍「创建新欢」。 -->
         <VerticalStackLayout Grid.Row="4" Spacing="6" Margin="{DynamicResource WPadCard}">
+            <!-- T3：坏档隔离区（容错自愈）：列表扫描读不出来的文件已备份原件并移出列表，这里告知用户。 -->
+            <Border IsVisible="{Binding HasUnreadable}" Style="{StaticResource CardSolid}"
+                    Padding="{DynamicResource WPadWell}" Margin="0,0,0,2">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Label Text="{Binding UnreadableText}" Style="{StaticResource TxtCaption}"
+                           VerticalOptions="Center" MaxLines="3" TextColor="{DynamicResource DangerInk}" />
+                </Grid>
+            </Border>
+            <!-- P1：残留 load_session.marker 的中性补报（进程上次在读取中途被杀）。
+                 不铺遮罩、不用 Toast（会消失）、不新增 Style 键；看过日志即收起。 -->
+            <Border IsVisible="{Binding HasIncompleteLoad}"
+                    Style="{StaticResource CardSolid}"
+                    Padding="{DynamicResource WPadWell}"
+                    Margin="0,0,0,2">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Label Text="{Binding IncompleteLoadNote}" Style="{StaticResource TxtCaption}"
+                           VerticalOptions="Center" MaxLines="2" />
+                    <Button Grid.Column="1" Text="查看日志" Style="{StaticResource BtnText}"
+                            HeightRequest="34" Command="{Binding ViewDiagnosticsCommand}" />
+                </Grid>
+            </Border>
             <Button Text="新建存档" Style="{StaticResource BtnNeumorph}"
                     Command="{Binding NewSaveCommand}" />
             <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
@@ -145,5 +173,151 @@
                     IsVisible="{Binding NovelTesting}"
                     Command="{Binding ImportNovelCommand}" />
         </VerticalStackLayout>
+
+        <!-- ==================== 读档状态层（P0-3，2026-11-14）====================
+             不铺全屏压暗 scrim：用户明确抱怨「完全卡死、拖窗口都卡」，变暗会被误读成又一次模态锁死。
+             容器 InputTransparent=True，只有卡片内放开点击；返回键 / 标题栏 / 窗口拖动全程可用。
+             显隐只写 IsVisible（LoadingVeil.cs:14-17 硬规矩：谁都不写 Opacity）。
+             5 行阶段轨预建在 XAML，运行时绝不 Add/Remove 子控件，推进只改 Text / TextColor 令牌。 -->
+        <Grid Grid.Row="0" Grid.RowSpan="5"
+              IsVisible="{Binding IsRestoring}"
+              InputTransparent="True"
+              BackgroundColor="Transparent">
+            <!-- 宽度一律走 WCardWidth 令牌；HorizontalOptions 必须是 Fill（Center + MaximumWidthRequest
+                 会在桌面塌缩成手机窄列，见 .workbuddy/memory/2026-11-14.md:53-55）。 -->
+            <Border Style="{StaticResource CardDialog}"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="{DynamicResource WCardWidth}"
+                    Margin="{DynamicResource WPadCard}"
+                    VerticalOptions="Center"
+                    InputTransparent="False">
+                <VerticalStackLayout Spacing="12">
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Label Text="{Binding StateTitle}" Style="{StaticResource TxtTitle}"
+                               VerticalOptions="Center" MaxLines="1" />
+                        <Label Grid.Column="1" Text="{Binding StatePhaseText}"
+                               Style="{StaticResource TxtCaption}" VerticalOptions="Center" MaxLines="1" />
+                    </Grid>
+                    <Label Text="{Binding StateBody}" Style="{StaticResource TxtBody}" MaxLines="2" />
+
+                    <!-- 转圈用全局隐式样式（BaseStyles.xaml:19-21），不内联 Color；
+                         MotionTokens.Disabled 时 ShowSpinner=false，改静态 ✦，不做任何逐帧动画。 -->
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                        <ActivityIndicator IsRunning="{Binding ShowSpinner}"
+                                           IsVisible="{Binding ShowSpinner}"
+                                           WidthRequest="20" HeightRequest="20"
+                                           VerticalOptions="Center" />
+                        <Label Text="✦" IsVisible="{Binding ShowStaticGlyph}"
+                               Style="{StaticResource TxtSubhead}"
+                               VerticalOptions="Center" />
+                    </Grid>
+
+                    <!-- 5 行阶段轨：真实节点驱动，当前 ● / 已完成 ✓ / 未开始 ○ / 失败 ✕。
+                         符号只用单色白名单 ✓ ✕ ✦ △ ○ ●，颜色走 Signal / SignalFg / MutedFg / DangerInk 令牌。 -->
+                    <VerticalStackLayout Spacing="6">
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding Stage1Mark}" TextColor="{Binding Stage1Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="读取文件" TextColor="{Binding Stage1Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Stage1Glyph}" TextColor="{Binding Stage1Ink}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding Stage2Mark}" TextColor="{Binding Stage2Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="校验数据" TextColor="{Binding Stage2Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Stage2Glyph}" TextColor="{Binding Stage2Ink}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding Stage3Mark}" TextColor="{Binding Stage3Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="恢复角色" TextColor="{Binding Stage3Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Stage3Glyph}" TextColor="{Binding Stage3Ink}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding Stage4Mark}" TextColor="{Binding Stage4Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="唤醒插件" TextColor="{Binding Stage4Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Stage4Glyph}" TextColor="{Binding Stage4Ink}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                            <Label Text="{Binding Stage5Mark}" TextColor="{Binding Stage5Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="1" Text="进入场景" TextColor="{Binding Stage5Ink}"
+                                   Style="{StaticResource TxtBody}" VerticalOptions="Center" />
+                            <Label Grid.Column="2" Text="{Binding Stage5Glyph}" TextColor="{Binding Stage5Ink}"
+                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <!-- 错误横幅：页面内常驻（Toast 可关且会自动消失，不能承载读档失败）。
+                         用 BackgroundColor 而非 Border.Background（ARCHITECTURE.md:389 的 XC0009 坑）。 -->
+                    <Border IsVisible="{Binding IsError}"
+                            BackgroundColor="{DynamicResource DangerBanner}"
+                            StrokeThickness="0"
+                            StrokeShape="{DynamicResource WRadiusCard}"
+                            Padding="{DynamicResource WPadWell}">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="读取失败说明" Style="{StaticResource TxtRowTitle}"
+                                   TextColor="{DynamicResource OnScrimInk}" />
+                            <Label Text="{Binding StateBody}" Style="{StaticResource TxtBody}"
+                                   TextColor="{DynamicResource OnScrimInk}" MaxLines="2" />
+                            <ScrollView MaximumHeightRequest="120">
+                                <Label Text="{Binding FailureDetail}" Style="{StaticResource TxtCaption}"
+                                       TextColor="{DynamicResource OnScrimInk}" />
+                            </ScrollView>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 动作行右对齐：取消从进入加载起常驻可见（CanCancel 变 false 只禁用、不隐藏）。 -->
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                        <Button Grid.Column="1" Text="取消" Style="{StaticResource BtnText}"
+                                HeightRequest="34" IsEnabled="{Binding CanCancel}"
+                                Command="{Binding CancelLoadCommand}" />
+                        <Button Grid.Column="2" Text="返回列表" Style="{StaticResource BtnText}"
+                                HeightRequest="34" Command="{Binding BackToListCommand}" />
+                        <Button Grid.Column="3" Text="重试" Style="{StaticResource BtnText}"
+                                HeightRequest="34" IsEnabled="{Binding IsError}"
+                                Command="{Binding RetryLoadCommand}" />
+                        <Button Grid.Column="4" Text="查看日志" Style="{StaticResource BtnText}"
+                                HeightRequest="34" Command="{Binding ViewDiagnosticsCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- ==================== 高损确认卡（容错自愈 · P2）====================
+             核心状态段（state）无法解析、已用默认值重建：影响大，停在存档页让用户确认，
+             不静默自动进入。显隐只写 IsVisible（不写 Opacity）；卡片内放开点击。 -->
+        <Grid Grid.Row="0" Grid.RowSpan="5"
+              IsVisible="{Binding IsConfirming}"
+              InputTransparent="True"
+              BackgroundColor="Transparent">
+            <Border Style="{StaticResource CardDialog}"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="{DynamicResource WCardWidth}"
+                    Margin="{DynamicResource WPadCard}"
+                    VerticalOptions="Center"
+                    InputTransparent="False">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="部分修复 · 请确认" Style="{StaticResource TxtTitle}" MaxLines="1" />
+                    <Label Text="{Binding ConfirmDetail}" Style="{StaticResource TxtBody}" />
+                    <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" HorizontalOptions="Center">
+                        <Button Text="仍要进入" Style="{StaticResource BtnNeumorph}"
+                                Command="{Binding ConfirmEnterCommand}" />
+                        <Button Text="返回列表" Style="{StaticResource BtnText}"
+                                Command="{Binding BackToListCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>

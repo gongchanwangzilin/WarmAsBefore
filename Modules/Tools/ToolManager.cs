@@ -551,6 +551,32 @@ public sealed partial class ToolManager : IDisposable
     // ============ 执行 ============
 
     /// <summary>按工具名执行工具。argsJson 为 JSON 参数字符串或空。</summary>
+    /// <remarks>
+    /// 实读工具注册表后的「是否真需要 UI 线程」清单（v1.58.8 卡死修复，2026-11-14）。
+    /// ChatEngine.RunToolAsync 已把 ExecuteAsync 默认执行路径整体移到线程池，
+    /// 所以下面这些 handler 再假定「调用线程就是 UI 线程」会跨线程改可绑定属性。
+    ///
+    /// A. 直接改 ViewModel 可绑定属性 / 触发动画 —— 本轮把「最小必要片段」用 Helpers.Ui.Post 切回主线程：
+    ///    · send_message（vm.InputText + SendMessageCommand）
+    ///    · set_sprite（vm.SpriteOpacity / SpritePosition / SpriteX / SpriteY）
+    ///    · animate（vm.Sink/Jump/ShakeAnimationAsync）
+    ///    纯计算（参数解析、JSON 解析）仍留在线程池，只有赋值/动画那几行回主线程。
+    ///
+    /// B. 直接读页面控件 / 弹窗 / 改 UI 集合 —— 均由服务层自行 marshal，本轮不改：
+    ///    · set_scene_option → SceneDirector.ApplySpecAsync
+    ///    · set_blackout → ScreenBlackoutService.Set
+    ///    · add_wechat / list_wechat_contacts → WeChatService（UI 集合由服务内部维护）
+    ///    · pull_actor / list_actors → MapActorService
+    ///    · send_to_user → OfficialChatBridge.QueueOutbound
+    ///    · get_state / get_scene_options / search_memory / tag_memory / search_by_tags /
+    ///      list_skills / read_skill / wab_set_reasoning —— 只读 CLR 状态或走文件/DB，跨线程读取安全。
+    ///
+    /// C. 外部/插件工具（卡死根因）：session.CallAsync 的 JSON-RPC、插件钩子的
+    ///    WithBlockingWait(...GetResult()) 同步阻塞，全部留在线程池，绝不回 UI 线程。
+    ///
+    /// 禁令：一律 Helpers.Ui.Post（Application.Current.Dispatcher）。禁止 MainThread.*：
+    /// Windows 线程池回调里取不到 DispatcherQueue 会抛 InvalidOperationException（进程级崩溃，见 Helpers/Ui.cs:6-11）。
+    /// </remarks>
     public async Task<string> ExecuteAsync(string name, string argsJson)
     {
         if (!ToolAllowed(name))
@@ -711,8 +737,13 @@ public sealed partial class ToolManager : IDisposable
             if (vm is null) return "错误：MainGameViewModel 不可用";
             var text = args?.Trim() ?? "";
             if (string.IsNullOrEmpty(text)) return "错误：消息为空";
-            vm.InputText = text;
-            await vm.SendMessageCommand.ExecuteAsync(null);
+            // 最小 UI 片段：改可绑定属性 + 触发会写 UI 集合的命令，都回主线程；参数解析留在线程池。
+            // 工具本体已在线程池（ChatEngine.RunToolAsync → Task.Run），这里不把整条链搬回 UI 线程。
+            await WarmAsBefore.Helpers.Ui.PostAsync(async () =>
+            {
+                vm.InputText = text;
+                await vm.SendMessageCommand.ExecuteAsync(null);
+            });
             return "消息已发送";
         });
 
@@ -728,21 +759,30 @@ public sealed partial class ToolManager : IDisposable
             var arg = args?.Trim() ?? "";
             try
             {
+                // 解析是纯计算，留在线程池；只把「给可绑定属性赋值」这一小段切回主线程。
+                double? opacity = null, spriteX = null, spriteY = null;
+                string? spritePos = null;
                 if (arg.StartsWith("opacity:", StringComparison.OrdinalIgnoreCase))
                 {
-                    var o = Math.Clamp(double.Parse(arg["opacity:".Length..].Trim()), 0, 1);
-                    vm.SpriteOpacity = o;
-                    return $"立绘透明度已设置为 {o}";
+                    opacity = Math.Clamp(double.Parse(arg["opacity:".Length..].Trim()), 0, 1);
                 }
-                var parts = arg.Split(',');
-                if (parts.Length >= 1)
+                else
                 {
-                    var pos = parts[0].Trim().ToLower();
-                    vm.SpritePosition = pos switch { "left" => "left", "right" => "right", _ => "center" };
+                    var parts = arg.Split(',');
+                    if (parts.Length >= 1)
+                        spritePos = parts[0].Trim().ToLower() switch { "left" => "left", "right" => "right", _ => "center" };
+                    if (parts.Length >= 2 && double.TryParse(parts[1].Trim(), out var x)) spriteX = x;
+                    if (parts.Length >= 3 && double.TryParse(parts[2].Trim(), out var y)) spriteY = y;
                 }
-                if (parts.Length >= 2 && double.TryParse(parts[1].Trim(), out var x)) vm.SpriteX = x;
-                if (parts.Length >= 3 && double.TryParse(parts[2].Trim(), out var y)) vm.SpriteY = y;
-                return "立绘已设置";
+                var op = opacity; var px = spriteX; var py = spriteY; var pos = spritePos;
+                WarmAsBefore.Helpers.Ui.Post(() =>
+                {
+                    if (op is not null) vm.SpriteOpacity = op.Value;
+                    if (pos is not null) vm.SpritePosition = pos;
+                    if (px is not null) vm.SpriteX = px.Value;
+                    if (py is not null) vm.SpriteY = py.Value;
+                });
+                return op is not null ? $"立绘透明度已设置为 {op.Value}" : "立绘已设置";
             }
             catch (Exception ex)
             {
@@ -762,9 +802,23 @@ public sealed partial class ToolManager : IDisposable
             var vm = services.GetService(typeof(ViewModels.MainGameViewModel)) as ViewModels.MainGameViewModel;
             if (vm is null) return "错误：MainGameViewModel 不可用";
             var action = (args ?? "").Trim().ToLower();
-            if (action == "sink") { vm.SinkAnimationAsync(); return "下沉动画已开始"; }
-            if (action == "jump") { vm.JumpAnimationAsync(); return "跳跃动画已开始"; }
-            if (action == "shake") { vm.ShakeAnimationAsync(); return "颤抖动画已开始"; }
+            // 动画方法驱动 UI 合成层：只把这一行切回主线程，参数判定与返回文案留在线程池。
+            if (action is "sink" or "jump" or "shake")
+            {
+                WarmAsBefore.Helpers.Ui.Post(() =>
+                {
+                    // 动画是「点火即返回」：工具只负责启动，不等待动画播完（与原实现一致）。
+                    if (action == "sink") _ = vm.SinkAnimationAsync();
+                    else if (action == "jump") _ = vm.JumpAnimationAsync();
+                    else if (action == "shake") _ = vm.ShakeAnimationAsync();
+                });
+                return action switch
+                {
+                    "sink" => "下沉动画已开始",
+                    "jump" => "跳跃动画已开始",
+                    _ => "颤抖动画已开始"
+                };
+            }
             return $"未知动画：{action}，可用: sink, jump, shake";
         },
             new List<ToolParameter>

@@ -34,7 +34,7 @@ public sealed partial class MaidBridgeService
                         if (string.IsNullOrWhiteSpace(maidId)) return PageFail("没有指定女仆。");
                         lock (_bindingsGate)
                         {
-                            if (!world.Maids.Remove(maidId))
+                            if (!world.Maids.TryRemove(maidId, out _))
                                 return PageFail("这个世界上没有这只女仆的绑定。");
                         }
                         SyncSessionBinding(worldKey, maidId, null);

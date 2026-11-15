@@ -9,24 +9,53 @@ namespace WarmAsBefore.Modules.ApiManager;
 
 public sealed class ApiGateway
 {
-    /// <summary>超时交给每次请求自己的 CTS（可按端点覆写），HttpClient 自身不再设固定超时。</summary>
-    private readonly HttpClient _http = new() { Timeout = Timeout.InfiniteTimeSpan };
+    /// <summary>
+    /// 请求级 CTS（SendWithTimeoutAsync）是主路径；HttpClient 自身再兜一层有限上限，
+    /// 免得任何绕过 CTS 的调用（含未来新增路径）用 InfiniteTimeSpan 无限挂起。
+    /// 取 MaxSingleRequestSeconds + 5 = 95s，比请求级 90s 略宽，保证 CTS 先到、不会反过来掐断正常收尾。
+    /// </summary>
+    private readonly HttpClient _http = new() { Timeout = TimeSpan.FromSeconds(MaxSingleRequestSeconds + 5) };
     private AiEndpoint _cfg = new();
 
     /// <summary>全局请求超时（秒），由 RuntimeConfigurator 从设置下发；端点可单独覆写。</summary>
     public int GlobalTimeoutSeconds { get; set; } = 25;
+
+    /// <summary>
+    /// 单轮 HTTP 请求的绝对硬上限。端点配置原本允许 600s，一旦端点「连上但一直不回复」，
+    /// 单轮就能把 UI 线程拖到 Windows 判无响应杀进程，轮间预算根本来不及生效。
+    /// 与 ChatEngine 的整回合预算同量级，保证任何情况下单轮都不会无限挂起。
+    /// </summary>
+    private const int MaxSingleRequestSeconds = 90;
 
     /// <summary>一次请求的真实 token 消耗（模型名, 输入, 输出, 缓存输入, 缓存输出）。成本统计订阅它。</summary>
     public event Action<string, int, int, int, int>? UsageReported;
 
     public void Configure(AiEndpoint cfg) => _cfg = cfg;
 
-    /// <summary>按端点超时（未设则用全局）发请求。</summary>
+    /// <summary>按端点超时（未设则用全局）发请求。单轮有绝对硬上限，端点「无回复」不会无限挂。</summary>
     private async Task<HttpResponseMessage> SendWithTimeoutAsync(HttpRequestMessage req, AiEndpoint cfg)
     {
         var seconds = cfg.TimeoutSeconds is { } t && t > 0 ? t : GlobalTimeoutSeconds;
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(Math.Clamp(seconds, 3, 600)));
-        return await _http.SendAsync(req, cts.Token);
+        var effective = (int)Math.Clamp(seconds, 3, MaxSingleRequestSeconds);
+        var started = Environment.TickCount64;
+        WarmAsBefore.App.TraceStep($"AIRequest.Begin timeout={effective}s");
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(effective));
+        try
+        {
+            var resp = await _http.SendAsync(req, cts.Token);
+            WarmAsBefore.App.TraceStep($"AIRequest.End elapsedMs={Environment.TickCount64 - started} status={(int)resp.StatusCode}");
+            return resp;
+        }
+        catch (OperationCanceledException)
+        {
+            WarmAsBefore.App.TraceStep($"AIRequest.Timeout elapsedMs={Environment.TickCount64 - started} limit={effective}s");
+            throw;
+        }
+        catch (Exception ex)
+        {
+            WarmAsBefore.App.TraceStep($"AIRequest.Fail elapsedMs={Environment.TickCount64 - started} {ex.GetType().Name}");
+            throw;
+        }
     }
 
     /// <summary>从响应体里取 usage 并上报（端点不返回 usage 时静默跳过）。</summary>

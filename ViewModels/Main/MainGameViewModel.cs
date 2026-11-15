@@ -435,6 +435,7 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         if (_begun) return;
         _begun = true;
+        App.TraceStep("MainGame.Begin.Enter");
         _auto.Start();
         // 启动重活收敛成一条编排线（审计 P7）：原来三个 fire-and-forget 并发跑、
         // 异常只能进日志，用户看到「界面出来了但数据是空的」。现在统一等待、统一兜底。
@@ -444,19 +445,25 @@ public sealed partial class MainGameViewModel : ObservableObject
         StartClock();
         // 存档一打开，所有内部角色开始运行（本地推演 + 低频 AI 生活 + 小游戏 + 可选主动消息）
         _runtime.Start();
+        App.TraceStep("MainGame.Begin.Exit");
     }
 
     private async Task RunStartupAsync()
     {
+        App.TraceStep("MainGame.RunStartup.Enter");
         var failures = new List<string>();
         try { await LoadCharacterAsync(); }
         catch (Exception ex) { failures.Add("角色加载失败：" + ex.Message); App.WriteLog("MainGame.LoadCharacter -> " + ex); }
+        App.TraceStep("MainGame.RunStartup.AfterLoadCharacter");
         try { await InitMapAsync(); }
         catch (Exception ex) { failures.Add("地图初始化失败：" + ex.Message); App.WriteLog("MainGame.InitMap -> " + ex); }
+        App.TraceStep("MainGame.RunStartup.AfterInitMap");
         try { await FetchWeather(); }
         catch (Exception ex) { failures.Add("天气获取失败：" + ex.Message); App.WriteLog("MainGame.FetchWeather -> " + ex); }
+        App.TraceStep("MainGame.RunStartup.AfterWeather");
         if (failures.Count > 0)
             Helpers.Ui.Post(() => Toast.Warn("部分功能没就绪：" + string.Join("；", failures)));
+        App.TraceStep("MainGame.RunStartup.Exit");
     }
 
     // ==================== 单例服务事件挂/摘（审计 A4） ====================
@@ -666,7 +673,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>承载背景与立绘的容器尺寸变化（页面 SizeChanged 转发）。</summary>
     public void OnStageSizeChanged(double w, double h, bool isPhone)
     {
-        if (w <= 0 || h <= 0) return;
+        // 桌面版与手机版两条上报路径都汇到这里：统一挡一次非有限值。
+        // NaN 与任何数比较都为 false，只写 <= 0 会把它放过去，随后 UpdateSpriteTransform
+        // 会把 SpriteFitW/H / SpriteScale 算成 NaN 写回立绘的 WidthRequest / Scale。
+        if (!double.IsFinite(w) || !double.IsFinite(h) || w <= 0 || h <= 0) return;
         _stageW = w;
         _stageH = h;
         _isPhoneStage = isPhone;

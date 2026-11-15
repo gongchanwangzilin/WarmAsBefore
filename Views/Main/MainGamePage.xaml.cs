@@ -91,14 +91,32 @@ public partial class MainGamePage : ContentPage
     /// → 立绘不重算 → 舞台连同铺满它的输入栏一直顶在窗外。
     /// 页面尺寸才是窗口，减去舞台偏移和可见的右栏，就是它真正能用的地方。
     /// </summary>
+    private double _lastStageW = -1;
+    private double _lastStageH = -1;
+
     private void ReportStageSize(VisualElement el)
     {
         if (BindingContext is not MainGameViewModel vm) return;
-        if (!el.IsVisible || el.Width <= 0 || el.Height <= 0 || Width <= 0 || Height <= 0) return;
-        var right = RightChatPanel.IsVisible ? Math.Max(RightChatPanel.Width, RightChatPanel.WidthRequest) : 0;
-        var w = Math.Min(el.Width, Width - el.X - right);
-        var h = Math.Min(el.Height, Height - el.Y);
-        if (w < 1 || h < 1) return;
+        if (!el.IsVisible) return;
+        // NaN 用「<= 0」「< 1」都拦不住（NaN 与任何数比较都为 false）。旧守卫一旦放进 NaN，
+        // 它会一路流进 UpdateSpriteTransform，把 SpriteFitW/H、SpriteScale、Translation 算成 NaN
+        // 写回立绘的 WidthRequest / Scale —— WinUI 拿到 NaN 就是原生布局崩溃（0xc000027b）。
+        if (!double.IsFinite(el.Width) || !double.IsFinite(el.Height)
+            || !double.IsFinite(Width) || !double.IsFinite(Height)
+            || el.Width <= 0 || el.Height <= 0 || Width <= 0 || Height <= 0) return;
+        var right = RightChatPanel.IsVisible
+            ? Math.Max(0, Math.Max(RightChatPanel.Width, RightChatPanel.WidthRequest))
+            : 0;
+        // 窗口极小时 Auto,*,Auto 的两条固定栏会把星号列挤成负可用空间：夹到 0，不再往下传。
+        var w = Math.Max(0, Math.Min(el.Width, Width - el.X - right));
+        var h = Math.Max(0, Math.Min(el.Height, Height - el.Y));
+        if (!double.IsFinite(w) || !double.IsFinite(h) || w < 1 || h < 1) return;
+        // 收敛闸：尺寸没变就不再通知 VM。VM 会写立绘的 WidthRequest/HeightRequest，
+        // 那颗 Image 又住在 DesktopStage 里，写一次就可能再冒一次 SizeChanged ——
+        // 少了这道比较就是「SizeChanged → 重算 → 改宽高 → SizeChanged」的布局死循环。
+        if (Math.Abs(w - _lastStageW) < 0.5 && Math.Abs(h - _lastStageH) < 0.5) return;
+        _lastStageW = w;
+        _lastStageH = h;
         vm.OnStageSizeChanged(w, h, false);
     }
 
@@ -126,6 +144,7 @@ public partial class MainGamePage : ContentPage
     protected override void OnAppearing()
     {
         base.OnAppearing();
+        App.TraceStep("MainGamePage.OnAppearing.Begin");
         // Singleton 服务上的运行期事件跟页面进出场挂摘（审计 A4）：
         // VM 是 Transient，不摘的话每进出一次主界面就叠一份订阅。
         _vm.AttachRuntimeEvents();
@@ -149,7 +168,9 @@ public partial class MainGamePage : ContentPage
         // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
         Motion.ArrivePage(this);
         EnsureHudTopStrip();
+        App.TraceStep("MainGamePage.OnAppearing.BeforeBegin");
         StartGameOnce();
+        App.TraceStep("MainGamePage.OnAppearing.AfterBegin");
     }
 
     /// <summary>
