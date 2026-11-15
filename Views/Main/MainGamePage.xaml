@@ -99,7 +99,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
         </DataTemplate>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,*">
+    <Grid>
         <!-- 玻璃是「表面材质」：卡片 / 按钮 / 上下栏 / 弹窗的样式引用
              GlassTokens 下发的 {DynamicResource ...} 画刷（见 DesignSystem/Theme/GlassTokens.cs）。
              这里不再有任何整页叠加层 —— 那层既挡点击、压对比度，又要在每次交互时重绘。 -->
@@ -110,12 +110,12 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
              替代会自动消失的 Toast：修复成功仍自动进入游戏（用户诉求「修复后直接进入」），
              报告以回执条保留，用户可展开看「修了什么 / 可能丢了什么」、可收起。
              绑定到 RepairReportService 单例；IsVisible 只切子节点，不重建控件。 -->
-        <Grid Grid.Row="0" IsVisible="{Binding HasReceipt, Source={x:Static core:RepairReportService.Instance}}"
+        <Grid ZIndex="1" IsVisible="{Binding HasReceipt, Source={x:Static core:RepairReportService.Instance}}"
               VerticalOptions="Start" HorizontalOptions="Fill"
               Padding="{DynamicResource WPadCard}">
-            <!-- 「华丽」口径：常驻回执条改用液态玻璃卡 CardLiquidGlass（玻璃底 + 世界影子 + 抬升边），
-                 比实心卡更通透有层次；影子是该样式静态内联安全版（仅 Brush 跟世界），不新造 Shadow 对象。 -->
-            <Border Style="{StaticResource CardLiquidGlass}">
+            <Border Style="{StaticResource CardSolid}"
+                    StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="1"
+                    Stroke="{DynamicResource WBorderBrush}">
                 <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                         <Label Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
@@ -143,11 +143,11 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
              一起建完（两条 MediaElement、两个 CollectionView 与两百来颗控件）——
              进存档那一秒的卡顿有一大半在这里。现在只在 VM 判定为手机版时由代码挂进来
              （见 MainGamePage.xaml.cs），桌面上这里只占一颗空的 ContentView。 -->
-        <ContentView x:Name="PhoneHost" Grid.Row="1" IsVisible="{Binding IsPhoneLayout}" />
+        <ContentView x:Name="PhoneHost" IsVisible="{Binding IsPhoneLayout}" />
 
         <!-- ============ Desktop Layout (horizontal) ============
              仅桌面显示；手机/平板都不显（平板走上面的手机主题布局） -->
-        <Grid Grid.Row="1" IsVisible="{Binding IsDesktopLayout}"
+        <Grid IsVisible="{Binding IsDesktopLayout}"
               RowDefinitions="Auto,*,Auto,Auto" ColumnDefinitions="Auto,*,Auto" Padding="0">
             <!-- 旧版固定顶栏：只在小组件模式关闭、且未沉浸时出现 -->
             <Border Grid.ColumnSpan="3" Style="{StaticResource CardLiquidGlass}"
