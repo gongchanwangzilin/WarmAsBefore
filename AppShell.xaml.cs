@@ -95,14 +95,14 @@ public partial class AppShell : Shell
                 BackgroundColor = Microsoft.Maui.Graphics.Colors.Transparent,
                 InputTransparent = true,
             };
-            // 「华丽」口径：复用系统现成的对话框浮层材质 CardDialog（玻璃底 + 世界影子 + 强边），
-            // 影子是该样式静态内联、仅 Brush 跟世界走的安全版，不新造 Shadow 对象（新造会重建合成层）。
+            // 「华丽」口径：复用系统现成的玻璃卡材质 CardFrost（玻璃底、**无影子**）——
+            // 红线「零新增 Shadow」：新造影子会重建合成层，症状是「元素位置还在、不再绘制」（整页空白）。
             var card = new Border
             {
                 HorizontalOptions = LayoutOptions.Center,
                 VerticalOptions = LayoutOptions.Center,
             };
-            card.SetDynamicResource(Border.StyleProperty, "CardDialog");
+            card.SetDynamicResource(Border.StyleProperty, "CardFrost");
 
             var stack = new VerticalStackLayout
             {

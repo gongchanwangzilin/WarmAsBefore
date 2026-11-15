@@ -167,11 +167,7 @@ public partial class MainGamePage : ContentPage
         HookDesktopArrowKeys();
         // 主页也纳入全站进场契约：只演一次（Arrive 的弱表），从 CG/设置返回不会重播。
         Motion.ArrivePage(this);
-        // HUD 读数带是动态建控件，等过场演完再建，进门那帧只留给画面（同 StartGameOnce 口径）。
-        if (MotionTokens.Disabled) EnsureHudTopStrip();
-        else Dispatcher.DispatchDelayed(
-            TimeSpan.FromMilliseconds(MotionTokens.PageSlideMs + MotionTokens.FrameMs),
-            EnsureHudTopStrip);
+        EnsureHudTopStrip();
         App.TraceStep("MainGamePage.OnAppearing.BeforeBegin");
         StartGameOnce();
         App.TraceStep("MainGamePage.OnAppearing.AfterBegin");
