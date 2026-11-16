@@ -72,6 +72,15 @@ public sealed record WeatherReading
     public double Celsius { get; init; }
     public int Humidity { get; init; }
     public string City { get; init; } = string.Empty;
+
+    /// <summary>能见度（米）。Open-Meteo 提供，取不到为 -1。</summary>
+    public double VisibilityMeters { get; init; } = -1;
+    /// <summary>云量百分比 0..100，取不到为 -1。</summary>
+    public double CloudCover { get; init; } = -1;
+    /// <summary>是否白昼。取不到按时间推断，默认 true。</summary>
+    public bool IsDay { get; init; } = true;
+    /// <summary>原始 WMO 天气码，取不到为 -1。</summary>
+    public int WeatherCode { get; init; } = -1;
 }
 
 public sealed record TimeOfDayInfo

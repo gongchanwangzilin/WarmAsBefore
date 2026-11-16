@@ -4,6 +4,9 @@ using WarmAsBefore.Controls;
 using WarmAsBefore.Modules.Mcp;
 using WarmAsBefore.Services;
 using WarmAsBefore.Models;
+using WarmAsBefore.Models.Background;
+using BgMode = WarmAsBefore.Models.Background.BackgroundMode; // 本类已有同名 string 属性 BackgroundMode，枚举须用别名区分
+using WarmAsBefore.Services.Background;
 using WarmAsBefore.Modules.Screen;
 using System.Collections.ObjectModel;
 using System.Globalization;
@@ -32,6 +35,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly Modules.Market.ShopService _shop;
     private readonly SaveRuntimeService _runtime;
     private readonly Modules.DataPack.SmartImporter _smart;
+    private readonly BackgroundService _bg;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
@@ -43,7 +47,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather,
         Services.CloudSync.CloudSyncService cloud, Services.GenderLibrary genders,
         Modules.Market.ShopService shop, SaveRuntimeService runtime,
-        Modules.DataPack.SmartImporter smart)
+        Modules.DataPack.SmartImporter smart, BackgroundService bg)
     {
         _settings = settings;
         _theme = theme;
@@ -67,6 +71,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _shop = shop;
         _runtime = runtime;
         _smart = smart;
+        _bg = bg;
         _ = shop.InitializeAsync();
         _cloudStatus = cloud.Status;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
@@ -89,6 +94,13 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundMode = string.IsNullOrEmpty(s.BackgroundMode) ? "none" : s.BackgroundMode;
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
+        _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
+        _weatherSceneDisplay = SceneDisplayOf(string.IsNullOrEmpty(s.WeatherSceneName) ? "Sunny" : s.WeatherSceneName);
+        _experimentalSceneFxEnabled = s.ExperimentalSceneFxEnabled;
+        _weatherSceneOverlayEnabled = s.WeatherSceneOverlayEnabled;
+        _sceneLightEnabled = s.SceneLightEnabled;
+        _weatherSceneAudioEnabled = s.WeatherSceneAudioEnabled;
+        _weatherSceneAudioLevel = s.WeatherSceneAudioLevel;
         _glassLightX = s.GlassLightX;
         _glassLightY = s.GlassLightY;
         _glassLightZ = s.GlassLightZ;
@@ -366,6 +378,16 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _backgroundMode = "none";
     [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
     [ObservableProperty] private string _backgroundImagePath = "";
+    [ObservableProperty] private string _backgroundPaletteDisplay = "经典";
+    [ObservableProperty] private string _weatherSceneDisplay = "晴朗";
+    [ObservableProperty] private bool _experimentalSceneFxEnabled;
+    [ObservableProperty] private bool _weatherSceneOverlayEnabled = true;
+    /// <summary>天气场景光照开关，关闭后主界面即时关掉光柱/折射。</summary>
+    [ObservableProperty] private bool _sceneLightEnabled = true;
+    [ObservableProperty] private bool _weatherSceneAudioEnabled = true;
+    [ObservableProperty] private double _weatherSceneAudioLevel = 0.6;
+    public IReadOnlyList<string> BackgroundPaletteChoices { get; } = new[] { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰", "终末地" };
+    public IReadOnlyList<string> WeatherSceneChoices { get; } = new[] { "晴朗", "阴天", "毛毛雨", "小雨", "大雨" };
     public List<string> BackgroundModeChoices { get; } = new() { "纯色（默认）", "自定义图片", "窗口透视（看穿到桌面）" };
     public bool BackgroundImageVisible => BackgroundMode == "image";
     public string BackgroundImageLabel => string.IsNullOrWhiteSpace(BackgroundImagePath)
@@ -394,6 +416,36 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(BackgroundImageLabel));
         PersistSettings();
+    }
+
+    partial void OnBackgroundPaletteDisplayChanged(string value) { PersistSettings(); PushBackgroundConfig(); }
+    partial void OnExperimentalSceneFxEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
+    partial void OnWeatherSceneOverlayEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
+    partial void OnSceneLightEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
+    partial void OnWeatherSceneDisplayChanged(string value) { PersistSettings(); PushBackgroundConfig(); }
+    partial void OnWeatherSceneAudioEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
+    partial void OnWeatherSceneAudioLevelChanged(double value) { PersistSettings(); PushBackgroundConfig(); }
+
+    /// <summary>把当前背景相关设置合成一份统一配置，下发到单例背景服务即时生效。</summary>
+    private void PushBackgroundConfig()
+    {
+        var cfg = BackgroundService.ConfigFromSettings(
+            BackgroundMode, BackgroundImagePath, ThemeKeyOf(ThemeDisplay),
+            null, WeatherSceneAudioEnabled, WeatherSceneAudioLevel, SceneLightEnabled, ExperimentalSceneFxEnabled);
+        // 天气叠加开启 → 强制天气模式；关闭 → 若用户选了图片则用图片，否则纯色
+        var mode = WeatherSceneOverlayEnabled
+            ? BgMode.Weather
+            : (BackgroundMode == "image" ? BgMode.Image : BgMode.Solid);
+        // 测试版总开关关闭：设置页自己算出的天气模式也要降级为纯色，与服务工厂保持一致。
+        if (!ExperimentalSceneFxEnabled && mode == BgMode.Weather) mode = BgMode.Solid;
+        cfg = cfg with
+        {
+            Mode = mode,
+            PaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
+            Scene = Enum.Parse<WeatherSceneKind>(SceneKeyOf(WeatherSceneDisplay)),
+            ExperimentalEnabled = ExperimentalSceneFxEnabled
+        };
+        _bg.Apply(cfg);
     }
 
     /// <summary>选一张背景图；PNG 里的透明像素会穿透到窗口下层。</summary>
@@ -3031,6 +3083,42 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ => "classic"
     };
 
+    private static string PaletteKeyOf(string display) => display switch
+    {
+        "樱花粉" => "sakura",
+        "翠竹绿" => "bamboo",
+        "晨雾蓝灰" => "mist",
+        "终末地" => "endfield",
+        _ => "classic"
+    };
+
+    private static string PaletteDisplayOf(string key) => key switch
+    {
+        "sakura" => "樱花粉",
+        "bamboo" => "翠竹绿",
+        "mist" => "晨雾蓝灰",
+        "endfield" => "终末地",
+        _ => "经典"
+    };
+
+    private static string SceneKeyOf(string display) => display switch
+    {
+        "阴天" => "Cloudy",
+        "毛毛雨" => "Drizzle",
+        "小雨" => "LightRain",
+        "大雨" => "HeavyRain",
+        _ => "Sunny"
+    };
+
+    private static string SceneDisplayOf(string key) => key switch
+    {
+        "Cloudy" => "阴天",
+        "Drizzle" => "毛毛雨",
+        "LightRain" => "小雨",
+        "HeavyRain" => "大雨",
+        _ => "晴朗"
+    };
+
     private static string ChatStyleDisplayOf(string key) => key switch
     {
         "bubble" => "气泡式",
@@ -3151,6 +3239,13 @@ GlassFrost = GlassFrost,
 GlassHeight = GlassHeight,
 BackgroundMode = BackgroundMode,
 BackgroundImagePath = BackgroundImagePath,
+BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
+WeatherSceneName = SceneKeyOf(WeatherSceneDisplay),
+WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
+                ExperimentalSceneFxEnabled = ExperimentalSceneFxEnabled,
+SceneLightEnabled = SceneLightEnabled,
+WeatherSceneAudioEnabled = WeatherSceneAudioEnabled,
+WeatherSceneAudioLevel = WeatherSceneAudioLevel,
 GlassLightX = GlassLightX,
 GlassLightY = GlassLightY,
 GlassLightZ = GlassLightZ,

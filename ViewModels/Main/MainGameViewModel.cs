@@ -7,6 +7,7 @@ using Microsoft.Maui.ApplicationModel;
 using Microsoft.Maui.Dispatching;
 using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
+using WarmAsBefore.Models.Background;
 using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Modules.Automation;
 using WarmAsBefore.Modules.Outfit;
@@ -43,6 +44,14 @@ public sealed partial class MainGameViewModel : ObservableObject
     private readonly Services.MapActorService _mapActors;
     private readonly Services.StickerLibrary _stickers;
     private readonly Services.BrainAnticipationService _brain;
+    // 统一背景系统：配置下发由 BackgroundService 负责，天气音效由 WeatherAudioService 负责（均为 DI 注入单例）。
+    private readonly Services.Background.BackgroundService _background;
+    private readonly Services.Background.WeatherAudioService _weatherAudio;
+    // true = 跟随真实天气：场景由实时天气驱动（此前默认 false 导致真天气拉到后不落到场景，用户反馈「没获取真实天气」）。
+    // 暂不暴露 UI，先留扩展点。
+    private bool _weatherSceneFollowsRealWeather = true;
+    // 最近一次拿到的真实天气：界面时钟(UpdateTime)按时间重算光照时仍带上能见度/云量，不被时间覆盖掉强度。
+    private WeatherReading? _lastWeather;
 
     [ObservableProperty] private string _locationLabel = "家";
     [ObservableProperty] private string _timeLabel = "";
@@ -59,6 +68,17 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private int _attachment;
     [ObservableProperty] private int _balance = 1000;
     [ObservableProperty] private string _weatherDesc = "晴朗";
+    [ObservableProperty] private bool _weatherBackgroundEnabled = true;
+    [ObservableProperty] private bool _weatherBackgroundVisible;
+    [ObservableProperty] private double _weatherBackgroundOpacity;
+    [ObservableProperty] private string _weatherBackgroundColor = "#00000000";
+    // ===== 统一背景系统：场景种类 / 可见性 / 音效 / 闪电信号（由 BackgroundService.Changed 同步） =====
+    [ObservableProperty] private WeatherSceneKind _sceneKind = WeatherSceneKind.Sunny;
+    [ObservableProperty] private bool _weatherSceneVisible = false;
+    [ObservableProperty] private bool _sceneAudioEnabled = true;
+    [ObservableProperty] private double _sceneAudioLevel = 0.6;
+    /// <summary>闪电信号：每次打雷自增，视图监听它触发一次场景层闪光（不透明度/缩放动画由视图决定）。</summary>
+    [ObservableProperty] private int _lightningFlashSignal;
     [ObservableProperty] private string _inputText = "";
     [ObservableProperty] private bool _isListening;
     /// <summary>启动编排（角色/地图/天气）全部收尾：页面用它掀开 LoadingVeil，就绪前先遮住还没初始化的舞台。</summary>
@@ -67,6 +87,18 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private bool _entryLoading = true;
     [ObservableProperty] private double _entryProgress;
     [ObservableProperty] private string _entryPhase = "准备进入";
+
+    // ===== 场景光照：由「当前时间 + 真实天气的能见度/云量」算出，暴露给页面驱动 WeatherSceneLayer.SetLighting =====
+    /// <summary>光源水平方向：-1 偏左(东/上午) → 1 偏右(西/下午)。</summary>
+    [ObservableProperty] private double _sceneLightDirX = -0.7;
+    /// <summary>光源仰角：0 近地平线，1 正当天顶（正午最高，夜间月光低仰角）。</summary>
+    [ObservableProperty] private double _sceneLightElevation = 0.5;
+    /// <summary>光照强度 0..1：由能见度 + 云量决定，夜间再压暗。</summary>
+    [ObservableProperty] private double _sceneLightIntensity = 0.7;
+    /// <summary>光柱/折射等光效开关：总开关关闭时为 false（基础照明仍保留）。</summary>
+    [ObservableProperty] private bool _sceneLightEffectsEnabled = true;
+    /// <summary>光照总开关：由统一背景配置下发；关闭后只关光柱/折射、保留基础光。</summary>
+    [ObservableProperty] private bool _sceneLightEnabled = true;
 
     private void EntryStep(double progress, string phase)
     {
@@ -162,7 +194,10 @@ public sealed partial class MainGameViewModel : ObservableObject
     // ============ 送礼 / 使用面板（主界面聊天时显示） ============
     [ObservableProperty] private bool _isGiftPanelVisible;
     [ObservableProperty] private string _giftPanelTitle = "送给小雨";
-    [ObservableProperty] private string _galgameModeLabel = "Galgame 모드";
+    // 初值必须和 IsInMiniGame 的初值（false）配套：CommunityToolkit 的 partial 回调只在
+    // 值「变化」时触发，构造时初值不会走 OnIsInMiniGameChanged，写错就会出现「首次显示韩文、
+    // 点一下才变中文」的错位。false = 当前 Galgame 态 → 按钮指向「切到聊天模式」。
+    [ObservableProperty] private string _galgameModeLabel = "切到聊天模式";
     [ObservableProperty] private bool _showRightChat;
     [ObservableProperty] private string _lastSpeakerName = "";
     [ObservableProperty] private string _lastMessageText = "";
@@ -205,10 +240,10 @@ public sealed partial class MainGameViewModel : ObservableObject
             && !WarmAsBefore.Modules.Screen.DeviceInfoService.IsTabletScreen();
     }
 
-    /// <summary>右侧介绍/对话框是否可见：仅在横版布局（桌面 / 按分辨率判定的平板）且处于小游戏模式时显示；
-    /// 手机（竖版布局）隐藏——竖版布局自带底部聊天面板，右框只会挤占立绘空间。</summary>
+    /// <summary>右侧介绍/对话框是否可见：仅在横版桌面布局、当前模式正处于聊天区并且用户确实展开时显示；
+    /// 这是根本修复，避免“非对话模式里右栏仍然空占一条空间”的状态残留。</summary>
     public bool IsRightPanelVisible
-        => ShowRightChat && IsDesktopLayout;
+        => IsDesktopLayout && IsInMiniGame && ShowRightChat;
 
     partial void OnIsInMiniGameChanged(bool value)
     {
@@ -217,6 +252,28 @@ public sealed partial class MainGameViewModel : ObservableObject
         GalgameModeLabel = value ? "切回 Galgame" : "切到聊天模式";
         OnPropertyChanged(nameof(IsGalgamePanelVisible));
         OnPropertyChanged(nameof(IsRightPanelVisible));
+    }
+
+    partial void OnWeatherBackgroundEnabledChanged(bool value)
+    {
+        if (!value)
+        {
+            WeatherBackgroundVisible = false;
+            WeatherBackgroundOpacity = 0;
+            WeatherBackgroundColor = "#00000000";
+            return;
+        }
+
+        ApplyWeatherBackground(WeatherDesc);
+    }
+
+    partial void OnWeatherDescChanged(string value)
+    {
+        // 旧层（底色/透明度）照常跟随真实天气，避免大回归。
+        ApplyWeatherBackground(value);
+        // 新层：默认「手动选的场景优先」，真实天气不覆盖用户在设置里选的场景。
+        // 只有显式打开开关（暂未暴露 UI，留作扩展点）时才让真实天气推给统一背景系统。
+        if (_weatherSceneFollowsRealWeather) _background.ApplyWeatherDescription(value);
     }
 
     [RelayCommand]
@@ -378,7 +435,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         Services.CharacterSettingsResolver charSettings,
         PageWindowService pageWindows, Services.SaveRuntimeService runtime,
         Services.MinimapService minimap, Services.StateService states, Services.FlowService flows,
-        Modules.MinecraftBridge.MaidBridgeService maidBridge)
+        Modules.MinecraftBridge.MaidBridgeService maidBridge,
+        Services.Background.BackgroundService background,
+        Services.Background.WeatherAudioService weatherAudio)
     {
         _engine = engine;
         _chat = chat;
@@ -413,6 +472,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         _pageWindows = pageWindows;
         _runtime = runtime;
         _maidBridge = maidBridge;
+        _background = background;
+        _weatherAudio = weatherAudio;
         // 右上角的小地图：电脑默认摊开、手机默认收成方片（拧过一次就记住拧成的样子）。
         // 订阅由页面进出场挂摘（见 MainGamePage.OnAppearing / OnDisappearing），别在这儿常驻。
         Minimap = new MinimapViewModel(map, minimap, !IsPhoneLayout);
@@ -469,6 +530,23 @@ public sealed partial class MainGameViewModel : ObservableObject
     private async Task RunStartupAsync()
     {
         App.TraceStep("MainGame.RunStartup.Enter");
+        // 启动即把设置里的散字段聚合成统一配置并下发一次，让主界面进场就拿到正确的场景/音效。
+        // 异常吞进日志：背景初始化失败不该连累读档/立绘/地图等主流程。
+        try
+        {
+            var s = _settings.Current;
+            var cfg = Services.Background.BackgroundService.ConfigFromSettings(
+                s.BackgroundMode, s.BackgroundImagePath, s.ThemeName, WeatherDesc,
+                s.WeatherSceneAudioEnabled, s.WeatherSceneAudioLevel, s.SceneLightEnabled, s.ExperimentalSceneFxEnabled);
+            // 用户在设置里明确选过的场景优先于「按实时天气反推」：否则每次进场都会被
+            // WeatherDesc（默认晴朗）覆盖回 Sunny，设置里选的大雨重启后丢失。
+            if (!string.IsNullOrWhiteSpace(s.WeatherSceneName)
+                && Enum.TryParse<WeatherSceneKind>(s.WeatherSceneName, ignoreCase: true, out var savedScene))
+                cfg = cfg with { Scene = savedScene };
+            _background.Apply(cfg);
+            SyncSceneFromBackground(cfg);
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.Background init -> " + ex); }
         var failures = new List<string>();
         EntryStep(0.15, "恢复角色与立绘");
         try { await LoadCharacterAsync(); }
@@ -535,6 +613,14 @@ public sealed partial class MainGameViewModel : ObservableObject
         _settings.Applied += SyncWeatherEventConfig;
         _auto.GreetingReady += OnGreet;
         _blackout.Changed += OnBlackoutChanged;
+        // 统一背景配置变化 → 同步场景/音效到 VM（服务内部已用 Ui.Post 切回 UI 线程）。
+        // 订阅必须走 Attach/Detach（审计 A4）：VM 是 Transient、BackgroundService 是 Singleton，
+        // 放构造里会每进出一次主界面叠一份，这里随页面进出场挂摘。
+        _background.Changed += OnBackgroundChanged;
+        // 测试版总开关可能在设置页里改过：那时本 VM 已随离场退订 Changed，收不到通知。
+        // 进场重订阅后必须主动重读一次当前配置，否则天气氛围层的 IsVisible 绑定会停在旧值
+        // （雨层由页面 OnAppearing 自己同步，底层场景与音效靠这里跟上）。同步是幂等的。
+        SyncSceneFromBackground(_background.Current);
         _clock?.Start();
     }
 
@@ -549,7 +635,26 @@ public sealed partial class MainGameViewModel : ObservableObject
         _settings.Applied -= SyncWeatherEventConfig;
         _auto.GreetingReady -= OnGreet;
         _blackout.Changed -= OnBlackoutChanged;
+        _background.Changed -= OnBackgroundChanged;
         _clock?.Stop();
+    }
+
+    /// <summary>统一背景配置变化回调：服务已在 UI 线程发事件，这里再做一次 Post 兜底线程纪律。</summary>
+    private void OnBackgroundChanged(BackgroundConfig cfg)
+        => Helpers.Ui.Post(() => SyncSceneFromBackground(cfg));
+
+    /// <summary>
+    /// 把统一配置里的场景种类 / 可见性 / 音效 / 光照开关同步到 VM 展示属性，
+    /// 并把音效参数下发给 WeatherAudioService（启动与 Changed 订阅共用同一条路径）。
+    /// </summary>
+    private void SyncSceneFromBackground(BackgroundConfig cfg)
+    {
+        SceneKind = cfg.Scene;
+        WeatherSceneVisible = cfg.ExperimentalEnabled && cfg.Mode == BackgroundMode.Weather;
+        SceneAudioEnabled = cfg.AudioEnabled;
+        SceneAudioLevel = cfg.AudioLevel;
+        SceneLightEnabled = cfg.SceneLightEnabled;
+        _weatherAudio.Apply(cfg.Scene, cfg.ExperimentalEnabled && cfg.AudioEnabled, cfg.AudioLevel);
     }
 
     /// <summary>界面时钟：每 30 秒刷新时间/日期/精力，让顶部大时间真实走字。</summary>
@@ -2115,6 +2220,14 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         try
         {
+            // 统一背景系统联动：打雷时播放雷声音效并自增闪电信号，交给视图层做场景闪光。
+            // 下面原有的白闪/帧特效是独立机制，保留不动，两种表现并存。
+            if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning)
+            {
+                _weatherAudio.PlayThunder();
+                Helpers.Ui.Post(() => LightningFlashSignal++);
+            }
+
             var s = _settings.Current;
             var frames = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
                 ? s.LightningFrames
@@ -3040,6 +3153,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 周期跟着「当前角色的性别」走：换一个没有周期的角色，经期表述要当场消失，
         // 不能等到下次设置变更才纠正。
         RefreshCycle();
+        // 时段变化(30 秒时钟)重算光照：带上最近一次真实天气，方向跟时间走、强度仍用能见度/云量，不被时间覆盖。
+        ComputeLighting(_lastWeather);
     }
 
     /// <summary>
@@ -3103,10 +3218,96 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (ch is not null && ch.State.Energy != value) ch.State.Energy = value;
     }
 
+    private void ApplyWeatherBackground(string? condition)
+    {
+        if (!WeatherBackgroundEnabled)
+        {
+            WeatherBackgroundVisible = false;
+            WeatherBackgroundOpacity = 0;
+            WeatherBackgroundColor = "#00000000";
+            return;
+        }
+
+        var normalized = (condition ?? "").Trim();
+        var tuple = normalized.ToLowerInvariant() switch
+        {
+            var c when c.Contains("storm") || c.Contains("雷") => ("#4a5674", 0.28),
+            var c when c.Contains("rain") || c.Contains("阵雨") || c.Contains("雨") => ("#536a7d", 0.24),
+            var c when c.Contains("snow") || c.Contains("雪") => ("#dfeaf7", 0.18),
+            var c when c.Contains("fog") || c.Contains("雾") || c.Contains("mist") => ("#b5b1a8", 0.16),
+            var c when c.Contains("cloud") || c.Contains("阴") || c.Contains("多云") => ("#8d99a4", 0.14),
+            var c when c.Contains("sun") || c.Contains("晴") || c.Contains("clear") => ("#f7d791", 0.10),
+            _ => ("#00000000", 0.0)
+        };
+
+        WeatherBackgroundColor = tuple.Item1;
+        WeatherBackgroundOpacity = tuple.Item2;
+        WeatherBackgroundVisible = tuple.Item2 > 0.01;
+    }
+
+    /// <summary>
+    /// 按「当前时间 + 最近一次真实天气」算场景光照，赋给 4 个 ObservableProperty，
+    /// 供页面订阅后驱动 WeatherSceneLayer.SetLighting(dirX, elevation, intensity, lightFxEnabled)。
+    /// 时间定太阳/月亮方向与仰角，能见度 + 云量定强度；FetchWeather 可能在后台线程，赋值统一走 Ui.Post 回 UI 线程。
+    /// </summary>
+    private void ComputeLighting(WeatherReading? w)
+    {
+        Helpers.Ui.Post(() =>
+        {
+            if (!_background.Current.ExperimentalEnabled) return; // 测试版总开关关闭：光照参数不下发，避免空闲的属性变化驱动场景层。
+            var hour = _time.Now().Now.Hour; // 0..23
+            bool isNight = hour < 6 || hour > 18;
+
+            // 时间定方向：白天太阳 6 点东升(仰角≈0) → 12 点正午最高(1) → 18 点西落(≈0)；夜间月光低仰角、偏右。
+            double elevation = isNight
+                ? 0.25
+                : Math.Clamp(Math.Sin((hour - 6) / 12.0 * Math.PI), 0.0, 1.0);
+            double dirX = isNight
+                ? 0.5
+                : Math.Clamp((hour - 12) / 6.0, -1.0, 1.0);
+
+            // 能见度 + 云量定强度：能见度越高越亮(10000 米封顶、最低留 0.15)，云量 0..100 最多削弱 60%。
+            double intensity;
+            if (w is not null && w.VisibilityMeters >= 0)
+            {
+                double visFactor = Math.Clamp(w.VisibilityMeters / 10000.0, 0.15, 1.0);
+                // 云量未知(-1)按无云处理。
+                double cloudFactor = w.CloudCover >= 0
+                    ? 1.0 - Math.Clamp(w.CloudCover, 0.0, 100.0) / 100.0 * 0.6
+                    : 1.0;
+                intensity = Math.Clamp(0.35 + 0.65 * visFactor * cloudFactor, 0.0, 1.0);
+            }
+            else
+            {
+                intensity = 0.6; // 无数据 / 能见度未知：兜底强度
+            }
+            if (isNight) intensity *= 0.35; // 夜间整体压暗
+
+            // 总开关关掉时只关光柱/折射特效，基础照明保留（云仍受光）。
+            SceneLightDirX = dirX;
+            SceneLightElevation = elevation;
+            SceneLightIntensity = Math.Clamp(intensity, 0.0, 1.0);
+            SceneLightEffectsEnabled = SceneLightEnabled;
+        });
+    }
+
     private async Task FetchWeather()
     {
         var w = await _weather.Fetch();
-        if (w is not null) WeatherDesc = w.Description;
+        if (w is not null)
+        {
+            _lastWeather = w; // 缓存，供 UpdateTime 按时间重算时仍带上能见度/云量
+            WeatherDesc = w.Description;
+            ApplyWeatherBackground(w.Description);
+            if (_weatherSceneFollowsRealWeather && _background.Current.ExperimentalEnabled) _background.ApplyWeatherDescription(w.Description);
+            ComputeLighting(w); // 真天气驱动：按能见度 + 时间算光
+        }
+        else
+        {
+            _lastWeather = null;
+            ApplyWeatherBackground(null);
+            ComputeLighting(null); // 无数据也按时间算一次光
+        }
     }
 }
 

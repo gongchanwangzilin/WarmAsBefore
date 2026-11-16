@@ -13,8 +13,10 @@
       InputTransparent="True">
     <Image Source="atmo_grain.png" Aspect="AspectFill" HorizontalOptions="Fill" VerticalOptions="Fill"
            Opacity="{DynamicResource WAtmoGrainOpacity}" />
+    <!-- 顶部暖光：从 520 放到 720，接近整屏高度，让顶光柔和铺开而不是只压在上半屏；
+         强度由 WAtmoSpotOpacity 压低（0.20），保持低调、不盖过暗角与内容。 -->
     <Image Source="atmo_spot.png" Aspect="AspectFill" HorizontalOptions="Fill" VerticalOptions="Start"
-           HeightRequest="520" Opacity="{DynamicResource WAtmoSpotOpacity}" />
+           HeightRequest="720" Opacity="{DynamicResource WAtmoSpotOpacity}" />
     <Image Source="atmo_vignette.png" Aspect="AspectFill" HorizontalOptions="Fill" VerticalOptions="Fill"
            Opacity="{DynamicResource WAtmoVignetteOpacity}" />
 </Grid>

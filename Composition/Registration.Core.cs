@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Background;
 using WarmAsBefore.Services.Core;
 using WarmAsBefore.Services.Model;
 
@@ -16,6 +17,9 @@ public static class CoreRegistration
         services.AddSingleton<StorageProvider>();
         services.AddSingleton<NotificationService>();
         services.AddSingleton<AudioController>();
+        // 统一背景系统：后台调度 + 天气音频联动（WeatherAudioService 依赖 AudioController，故紧随其后）
+        services.AddSingleton<BackgroundService>();
+        services.AddSingleton<WeatherAudioService>();
         services.AddSingleton<SpeechService>();
 
         // 素材与角色基础

@@ -46,7 +46,8 @@ public static class WeatherFormat
         var s = WeatherSources.Normalize(source);
         if (s == WeatherSources.Wttr)
             return $"https://wttr.in/{N(lat)},{N(lon)}?format=j1&lang=zh";
-        return OpenMeteoLike(customBase, $"latitude={N(lat)}&longitude={N(lon)}&current_weather=true&timezone=auto");
+        // 保留 current_weather 兼容镜像，同时用 current 索取装饰字段；部分镜像忽略 current，解析侧有兜底。
+        return OpenMeteoLike(customBase, $"latitude={N(lat)}&longitude={N(lon)}&current_weather=true&current=visibility,cloud_cover,is_day,weather_code,temperature_2m&timezone=auto");
     }
 
     /// <summary>
@@ -127,13 +128,65 @@ public static class WeatherFormat
         var hasCode = Num(node, "weathercode", out var code) || Num(node, "weather_code", out code);
         var hasTemp = Num(node, "temperature", out var temp) || Num(node, "temperature_2m", out temp);
         if (!hasCode || !hasTemp) return null;
+
+        // 以下都是显示层的装饰字段：能取到就填上，取不到保留默认值，绝不能让天气获取失败。
+        var visibility = -1.0;
+        var cloudCover = -1.0;
+        var isDay = true;
+        try
+        {
+            if (TryCurrentProp(root, node, "visibility", out var visEl)) visibility = NumFrom(visEl);
+            if (TryCurrentProp(root, node, "cloud_cover", out var ccEl)) cloudCover = NumFrom(ccEl);
+            if (TryCurrentProp(root, node, "is_day", out var dayEl)) isDay = IsDayFrom(dayEl) ?? true;
+        }
+        catch { /* 装饰字段解析异常一律忽略，按默认值走 */ }
+
         return new WeatherReading
         {
             Condition = ConditionOf((int)code),
             Description = DescriptionOf((int)code),
             Celsius = temp,
             City = string.IsNullOrWhiteSpace(city) ? "未知" : city,
+            VisibilityMeters = visibility,
+            CloudCover = cloudCover,
+            IsDay = isDay,
+            WeatherCode = hasCode ? (int)code : -1,
         };
+    }
+
+    /// <summary>装饰字段读取：先在 node（current_weather/current）里找，找不到再去顶层 current 里找。</summary>
+    private static bool TryCurrentProp(JsonElement root, JsonElement node, string prop, out JsonElement value)
+    {
+        if (node.ValueKind == JsonValueKind.Object && node.TryGetProperty(prop, out value)) return true;
+        if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("current", out var current)
+            && current.ValueKind == JsonValueKind.Object && current.TryGetProperty(prop, out value)) return true;
+        value = default;
+        return false;
+    }
+
+    /// <summary>把 JSON 数值（数字或字符串）读成 double，读不到返回 fallback。</summary>
+    private static double NumFrom(JsonElement v, double fallback = -1)
+    {
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var n)) return n;
+        if (v.ValueKind == JsonValueKind.String && double.TryParse(v.GetString(),
+            NumberStyles.Float, CultureInfo.InvariantCulture, out var s)) return s;
+        return fallback;
+    }
+
+    /// <summary>is_day：支持 true/false、0/1（数字或字符串），读不到返回 null 让调用方保留默认。</summary>
+    private static bool? IsDayFrom(JsonElement v)
+    {
+        if (v.ValueKind == JsonValueKind.True) return true;
+        if (v.ValueKind == JsonValueKind.False) return false;
+        if (v.ValueKind == JsonValueKind.Number && v.TryGetDouble(out var n)) return n != 0;
+        if (v.ValueKind == JsonValueKind.String)
+        {
+            var s = v.GetString();
+            if (s == "1") return true;
+            if (s == "0") return false;
+            if (bool.TryParse(s, out var b)) return b;
+        }
+        return null;
     }
 
     private static WeatherReading? FromWttr(JsonElement root, string city)
@@ -145,6 +198,17 @@ public static class WeatherFormat
         var desc = (FirstOfArr(cur, "lang_zh") ?? FirstOfArr(cur, "weatherDesc") ?? "").Trim();
         if (desc.Length == 0 || !Num(cur, "temp_C", out var temp)) return null;
         var condition = ConditionFromText(desc);
+
+        // 装饰字段：wttr 的能见度是公里字符串，乘 1000 换成米；无 is_day/天气码，保留默认值。
+        var visibility = -1.0;
+        var cloudCover = -1.0;
+        try
+        {
+            if (Num(cur, "visibility", out var visKm)) visibility = visKm * 1000;
+            if (Num(cur, "cloudcover", out var cc)) cloudCover = cc;
+        }
+        catch { /* 装饰字段解析异常一律忽略，按默认值走 */ }
+
         return new WeatherReading
         {
             Condition = condition,
@@ -152,6 +216,8 @@ public static class WeatherFormat
             Description = desc.Any(IsCjk) ? desc : ChineseOf(condition),
             Celsius = temp,
             City = string.IsNullOrWhiteSpace(city) ? "未知" : city,
+            VisibilityMeters = visibility,
+            CloudCover = cloudCover,
         };
     }
 

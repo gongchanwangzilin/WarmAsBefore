@@ -25,14 +25,18 @@ public sealed class HudReadout : ContentView
 
     public HudReadout()
     {
-        _label = new Label { FontSize = 10, CharacterSpacing = 1.4, LineBreakMode = LineBreakMode.TailTruncation };
+        // 读数带在横向 ScrollView 里（无界宽度测量）：TailTruncation 的 Label 在无界测量下
+        // 请求的宽度不可靠，会被压到 MinimumWidthRequest，导致 21 号粗体数值超出框后被裁掉一半
+        //（实测「21:30」「0 / 100」「100%」都缺尾字符）。NoWrap 让 Label 请求完整单行宽度，
+        // 块随内容自然撑宽、整排超出时横滑，正是这块要的效果。
+        _label = new Label { FontSize = 10, CharacterSpacing = 1.4, LineBreakMode = LineBreakMode.NoWrap, MaxLines = 1 };
         _label.SetDynamicResource(Microsoft.Maui.Controls.Label.TextColorProperty, "MutedFg");
 
         _value = new Label
         {
             FontSize = 21,
             FontAttributes = FontAttributes.Bold,
-            LineBreakMode = LineBreakMode.TailTruncation,
+            LineBreakMode = LineBreakMode.NoWrap,
             MaxLines = 1,
         };
         _value.SetDynamicResource(Microsoft.Maui.Controls.Label.TextColorProperty, "SurfaceFg");

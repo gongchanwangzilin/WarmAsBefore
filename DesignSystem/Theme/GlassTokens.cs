@@ -157,24 +157,27 @@ public static class GlassTokens
     private static Brush BarBrush(string tier, Color surface, Tints t, Func<Color, Color> Bg) => tier switch
     {
         "frost" => Solid(Bg(Alpha(t.Top, 0.70))),
-        "glass" => Gradient(Bg, (Alpha(t.Top, 0.85), 0.0), (Alpha(t.Mid, 0.65), 1.0)),
-        "liquid" => Gradient(Bg, (Alpha(t.Top, 0.90), 0.0), (Alpha(t.Mid, 0.75), 0.55), (Alpha(t.Low, 0.60), 1.0)),
+        "glass" => Gradient(Bg, (Alpha(t.Top, 0.88), 0.0), (Alpha(t.Mid, 0.60), 1.0)),
+        "liquid" => Gradient(Bg, (Alpha(t.Top, 0.92), 0.0), (Alpha(t.Mid, 0.74), 0.55), (Alpha(t.Low, 0.52), 1.0)),
         _ => new SolidColorBrush(surface)
     };
 
     private static Brush CardBrush(string tier, Color surface, Tints t, Func<Color, Color> Bg) => tier switch
     {
         "frost" => Solid(Bg(Alpha(t.Top, 0.55))),
-        "glass" => Gradient(Bg, (Alpha(t.Top, 0.70), 0.0), (Alpha(t.Mid, 0.45), 1.0)),
-        "liquid" => Gradient(Bg, (Alpha(t.Top, 0.80), 0.0), (Alpha(t.Mid, 0.55), 0.55), (Alpha(t.Low, 0.35), 1.0)),
+        // 玻璃浮雕：拉开迎光顶档与背光底档的 alpha 落差 —— 上缘更透亮、下缘更沉，
+        // 同一张卡面上才读得出「受光的体积」，而不只是一块半透明平板。
+        // 只调「参数 → 画刷」的换算强度，色值仍由世界的 GTint* 提供。
+        "glass" => Gradient(Bg, (Alpha(t.Top, 0.82), 0.0), (Alpha(t.Mid, 0.38), 1.0)),
+        "liquid" => Gradient(Bg, (Alpha(t.Top, 0.90), 0.0), (Alpha(t.Mid, 0.56), 0.50), (Alpha(t.Low, 0.26), 1.0)),
         _ => new SolidColorBrush(surface)
     };
 
     private static Brush ButtonBrush(string tier, Color surface, Tints t, Func<Color, Color> Bg) => tier switch
     {
         "frost" => Solid(Bg(Alpha(t.Top, 0.60))),
-        "glass" => Gradient(Bg, (Alpha(t.Top, 0.70), 0.0), (Alpha(t.Mid, 0.50), 1.0)),
-        "liquid" => Gradient(Bg, (Alpha(t.Top, 0.80), 0.0), (Alpha(t.Mid, 0.60), 0.55), (Alpha(t.Low, 0.40), 1.0)),
+        "glass" => Gradient(Bg, (Alpha(t.Top, 0.78), 0.0), (Alpha(t.Mid, 0.44), 1.0)),
+        "liquid" => Gradient(Bg, (Alpha(t.Top, 0.86), 0.0), (Alpha(t.Mid, 0.60), 0.50), (Alpha(t.Low, 0.32), 1.0)),
         _ => new SolidColorBrush(surface)
     };
 
@@ -187,9 +190,11 @@ public static class GlassTokens
     {
         if (tier == "none") return Solid(Colors.Transparent);
 
-        var top = tier switch { "frost" => 0.35, "glass" => 0.70, _ => 0.90 };
-        var mid = tier switch { "frost" => 0.08, "glass" => 0.14, _ => 0.20 };
-        var bottom = tier switch { "frost" => 0.12, "glass" => 0.24, _ => 0.40 };
+        // 浮雕描边：迎光沿更亮、背光沿更沉，中间留一段近乎透明的「玻璃腔体」——
+        // 锐利高光与沉暗边夹出的明暗落差，就是边缘被光雕出来的体积。
+        var top = tier switch { "frost" => 0.44, "glass" => 0.86, _ => 0.96 };
+        var mid = tier switch { "frost" => 0.06, "glass" => 0.10, _ => 0.14 };
+        var bottom = tier switch { "frost" => 0.16, "glass" => 0.34, _ => 0.50 };
         if (bar) bottom = 0.12;
 
         // 渐变沿光的方向铺开：起点在迎光侧，终点在背光侧
