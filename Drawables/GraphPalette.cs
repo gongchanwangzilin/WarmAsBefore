@@ -85,6 +85,12 @@ public static class GraphPalette
         public required Color Unknown;
     }
 
+    // 情绪点名 → 颜色缓存。必须声明在 _bands 之前：_bands 的初始化会调用 Build，
+    // Build 里要 Clear 这个字典；C# 静态字段按声明顺序初始化，若它排在 _bands 后面，
+    // 静态构造期它就是 null，Build 一 Clear 就空引用，整个 GraphPalette 类型初始化失败
+    // （表现为记忆网绘制崩溃，随后连锁 WinUI COMException「找不到元素」+ DWM 合成错误）。
+    private static readonly Dictionary<string, Color> _emotionCache = new(StringComparer.Ordinal);
+
     private static Bands _bands = Build(DesignGround);
 
     private static Bands Build(Color ground)
@@ -187,10 +193,8 @@ public static class GraphPalette
 
     /// <summary>
     /// 情绪点染成它自己的颜色；底账里没有这个名字时退回「连着情绪」那一档。
-    /// 情绪名有几十个，逐个现算太浪费：按名字缓存，换世界时整份丢掉。
+    /// 情绪名有几十个，逐个现算太浪费：按名字缓存（字段声明在文件上方 _bands 之前），换世界时整份丢掉。
     /// </summary>
-    private static readonly Dictionary<string, Color> _emotionCache = new(StringComparer.Ordinal);
-
     public static Color EmotionTint(string name)
     {
         var bands = Current();       // 先确认锚的是哪块地（换世界时已经清了缓存）
