@@ -25,6 +25,12 @@
       三个世界用三种方式表达同一件事：轻质感靠缝，柔和极简靠底色台阶，液态玻璃靠通透与发光边。
     -->
 
+    <!--
+      CardSolid 的面引用 WSurfaceBrush：在 glass 档下，StyleWorld.ApplyFace 已把它接管为
+      GlassCardBg 这张玻璃渐变画刷，描边同样被接管为 GlassCardStroke —— 也就是说平档卡片
+      本身就有玻璃浮雕层次，无需改成裸的 GlassCardBg（那样在关闭玻璃档反而丢掉 Face 渐变）。
+      关联引用全部走 DynamicResource，世界一换已渲染的卡片跟着换，不重建 Shell。
+    -->
     <Style x:Key="CardSolid" TargetType="Border">
         <Setter Property="Background" Value="{DynamicResource WSurfaceBrush}" />
         <Setter Property="Stroke" Value="{DynamicResource WEdgeBrush}" />

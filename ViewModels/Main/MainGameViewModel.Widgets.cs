@@ -160,9 +160,16 @@ public sealed partial class MainGameViewModel
 
     private void RefreshWidgetValues()
     {
+        // HUD 世界的顶栏自带一条读数带（SYSTEM/CLOCK + WEATHER + AFFECTION + ENERGY，
+        // 见 MainGamePage.EnsureHudTopStrip），时间/天气在那里已经显示过。widget 顶栏再显示
+        // 一次就成了两行重复（用户实测截图）。HUD 世界下把这两个 widget 收起，日期保留
+        //（读数带里没有日期），非 HUD 世界照常全显。判据与 HudSkin.IsActive 同源。
+        var hudStripOwnsTimeAndWeather =
+            DesignSystem.Worlds.StyleWorldTokens.World == DesignSystem.Worlds.StyleWorld.Endfield;
         foreach (var w in WidgetItems)
         {
-            w.Shown = w.Visible && (w.Id != "brain"
+            var redundant = hudStripOwnsTimeAndWeather && (w.Id == "clock" || w.Id == "weather");
+            w.Shown = w.Visible && !redundant && (w.Id != "brain"
                 || (BrainVisible && !string.IsNullOrWhiteSpace(BrainStatusText)));
             switch (w.Id)
             {

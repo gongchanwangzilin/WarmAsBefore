@@ -661,9 +661,11 @@ public static class StyleWorldTokens
         res["GTintTop"] = Lift(surface, dark ? 0.16 : 0.58);
         res["GTintMid"] = surface;
         res["GTintLow"] = Sink(surface, dark ? 0.06 : 0.10);
-        res["GEdgeHi"] = dark ? Lift(surface, 0.60) : Colors.White;
-        res["GEdgeMid"] = SinkOrLift(surface, dark, 0.70, 0.30);
-        res["GEdgeLo"] = SinkOrLift(surface, dark, 0.30, 0.55);
+        // 浮雕边缘的明暗层次：高光沿再提一档、暗边沿再沉一档，中间档略向高光侧收，
+        // 让 GlassTokens 的 EdgeBrush 三色标拉开落差（幅度克制，不改变世界性格）。
+        res["GEdgeHi"] = dark ? Lift(surface, 0.68) : Colors.White;
+        res["GEdgeMid"] = SinkOrLift(surface, dark, 0.75, 0.26);
+        res["GEdgeLo"] = SinkOrLift(surface, dark, 0.26, 0.62);
 
         // ── 世界签名层（UI 标准书 2.7）：大气与印记 ──────────────────────
         // 大气层是一整页的纹理叠层（WorldAtmosphere 控件消费这三个透明度），
@@ -674,9 +676,11 @@ public static class StyleWorldTokens
         // 档案室唯一处方：砂纸颗粒（墙）、头顶一盏暖光（灯）、四周沉进阴影（暗角）。
         // 2026-11-06 第二版：第一版 0.04–0.10 实测「看不出区别」，这一轮直接拉到
         // 肉眼可辨的档 —— 玻璃卡面背后要有东西可透，才读得出玻璃。
+        // 参考图是低饱和灰雾 + 柔和暗角：暗角加重一档把四角沉下去，
+        // 顶光收成一盏柔光（不抢暗角的戏），纸纹维持原档不抢质感。
         res["WAtmoGrainOpacity"] = 0.07;
-        res["WAtmoSpotOpacity"] = 0.24;
-        res["WAtmoVignetteOpacity"] = 0.16;
+        res["WAtmoSpotOpacity"] = 0.20;
+        res["WAtmoVignetteOpacity"] = 0.25;
 
         // 印记形态（颜色在 PublishColors 的 WMarkColor，那边才看得到 signal）：
         // 信号色近直角小块，HUD 角标 notch 感。

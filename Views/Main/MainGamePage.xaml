@@ -106,6 +106,14 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
 
 
 
+        <!-- ===== 第3层·天气氛围底「操作背景」：铺满整窗最底层，不碰角色背景图/场景图/立绘 =====
+             GraphicsView 自绘灰雾渐变+暗角，随天气变色；InputTransparent 不拦截点击。
+             移到根 Grid 最底层后，桌面与手机两套布局共用这一层。 -->
+        <controls:WeatherSceneView x:Name="WeatherSceneLayer"
+                                   IsVisible="{Binding WeatherSceneVisible}"
+                                   HorizontalOptions="Fill" VerticalOptions="Fill"
+                                   ZIndex="-2" InputTransparent="True" />
+
         <!-- ============ 修复回执条（容错自愈）：读档自动修复后随目标页常驻 ============
              替代会自动消失的 Toast：修复成功仍自动进入游戏（用户诉求「修复后直接进入」），
              报告以回执条保留，用户可展开看「修了什么 / 可能丢了什么」、可收起。
@@ -329,6 +337,8 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                       ShouldAutoPlay="True" ShouldLoopPlayback="True"
                                       ShouldMute="False" Volume="{Binding SceneVideoVolume}"
                                       HorizontalOptions="Fill" VerticalOptions="Fill" />
+                <!-- 天气场景层已提到根 Grid 最底层（操作背景），桌面与手机共用一层；
+                     舞台内不再挂天气，避免拿天气盖住角色背景图/场景图。 -->
                 <!-- 场景亮度遮罩（同手机版说明） -->
                 <BoxView Color="Black" Opacity="{Binding SceneDim}" InputTransparent="True"
                          HorizontalOptions="Fill" VerticalOptions="Fill" />
@@ -447,12 +457,16 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                 </BindableLayout.ItemTemplate>
                             </HorizontalStackLayout>
                         </ScrollView>
-                        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
-                            <Button Text="摸摸头" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HeadpatCommand}" />
-                            <Button Text="抱抱" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding HugCommand}" />
-                            <Button Text="亲吻" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding KissCommand}" />
-                            <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Command="{Binding ToggleGalgameModeCommand}" />
-                        </HorizontalStackLayout>
+                        <!-- 四个按钮在 300 宽的右栏里会溢出（内容区仅 272px），HorizontalStackLayout
+                             不换行、超出就被裁（截图实测「切回 Galgame」被切成「切回 Galgan」）。
+                             改用 FlexLayout Wrap：放得下就一行、放不下就换行，按钮文字始终完整。
+                             有界宽度内的标准布局，不写回尺寸、不触发测量反馈。 -->
+                        <FlexLayout Wrap="Wrap" AlignItems="Center" JustifyContent="Center" HorizontalOptions="Fill">
+                            <Button Text="摸摸头" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Margin="0,0,8,4" Command="{Binding HeadpatCommand}" />
+                            <Button Text="抱抱" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Margin="0,0,8,4" Command="{Binding HugCommand}" />
+                            <Button Text="亲吻" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="11" Padding="12,0" CornerRadius="16" HeightRequest="34" Margin="0,0,8,4" Command="{Binding KissCommand}" />
+                            <Button Text="{Binding GalgameModeLabel}" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}" FontSize="12" Padding="12,0" CornerRadius="16" HeightRequest="34" Margin="0,0,0,4" Command="{Binding ToggleGalgameModeCommand}" />
+                        </FlexLayout>
                     </VerticalStackLayout>
                     <!-- KeepLastItemInView 已删：插入项时它在布局 pass 内强制滚底，是 WinUI 布局环
                          崩点；滚底改由 code-behind 监听集合后延迟 120ms 执行（见 HookChatListScroll） -->
@@ -834,5 +848,12 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                         HorizontalOptions="Center" Padding="24,10" />
             </VerticalStackLayout>
         </Grid>
+
+        <!-- ===== 第1层·近景雨滴物理层：全屏浮在所有 UI 之上，雨打在方块/文字上凝结滑落 =====
+             InputTransparent 不拦截点击；几何快照由 code-behind 在布局稳定后刷新一次。 -->
+        <controls:ForegroundRainView x:Name="ForegroundRainLayer"
+                                     IsVisible="False"
+                                     HorizontalOptions="Fill" VerticalOptions="Fill"
+                                     ZIndex="55" InputTransparent="True" />
     </Grid>
 </ContentPage>

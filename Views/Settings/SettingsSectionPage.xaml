@@ -151,6 +151,55 @@
                                                     Padding="14,6"
                                                     Command="{Binding PickBackgroundImageCommand}" />
                                         </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                            <VerticalStackLayout>
+                                                <Label Text="测试版场景特效" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="实体云、近景雨、光柱与光向。默认关闭；开启后下方场景选项才生效。"
+                                                       Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ExperimentalSceneFxEnabled}"
+                                                                 OnColor="{DynamicResource AccentWarm}" /></Grid>
+                                        <VerticalStackLayout Spacing="0" IsVisible="{Binding ExperimentalSceneFxEnabled}">
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="天气场景叠加" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="晴/阴/毛毛雨/小雨/大雨，雨滴会浮在界面上" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding WeatherSceneOverlayEnabled}"
+                                                                 OnColor="{DynamicResource AccentWarm}" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="场景光照与光柱" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="光的方向随一天变化、强度随能见度变化；关掉只保留云与底色" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SceneLightEnabled}"
+                                                                 OnColor="{DynamicResource AccentWarm}" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                            <VerticalStackLayout>
+                                                <Label Text="语义调色板" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="覆盖按钮、文字、面板、背景的关键色" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Picker Grid.Column="1" WidthRequest="190"
+                                                    ItemsSource="{Binding BackgroundPaletteChoices}"
+                                                    SelectedItem="{Binding BackgroundPaletteDisplay}" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding WeatherSceneOverlayEnabled}">
+                                            <VerticalStackLayout>
+                                                <Label Text="天气场景" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="晴/阴/毛毛雨/小雨/大雨，云与太阳随之变化" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Picker Grid.Column="1" WidthRequest="190"
+                                                    ItemsSource="{Binding WeatherSceneChoices}"
+                                                    SelectedItem="{Binding WeatherSceneDisplay}" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding WeatherSceneOverlayEnabled}">
+                                            <VerticalStackLayout>
+                                                <Label Text="场景音效" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="雨声、风声、闪电；需先在素材库分配音效卡槽" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding WeatherSceneAudioEnabled}"
+                                                                 OnColor="{DynamicResource AccentWarm}" /></Grid>
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding WeatherSceneOverlayEnabled}">
+                                            <VerticalStackLayout>
+                                                <Label Text="场景音量" Style="{StaticResource TxtBodySm}" />
+                                            </VerticalStackLayout>
+                                            <controls:ViewSlider Grid.Column="1" WidthRequest="140" Minimum="0" Maximum="1"
+                                                                 Value="{Binding WeatherSceneAudioLevel}" />
+                                        </Grid>
+                                        </VerticalStackLayout>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>

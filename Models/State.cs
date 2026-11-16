@@ -331,6 +331,20 @@ public sealed record UserSettings
     public double GlassLightWidth { get; init; } = 0.4;
     public string BackgroundMode { get; init; } = "none";
     public string BackgroundImagePath { get; init; } = "";
+    /// <summary>统一背景调色板 id：classic/sakura/bamboo/mist/endfield。</summary>
+    public string BackgroundPaletteId { get; init; } = "classic";
+    /// <summary>统一天气场景：sunny/cloudy/drizzle/lightrain/heavyrain（存枚举名）。</summary>
+    public string WeatherSceneName { get; init; } = "Sunny";
+    /// <summary>背景场景音效开关（雨声/风声/闪电）。</summary>
+    public bool WeatherSceneAudioEnabled { get; init; } = true;
+    /// <summary>背景场景音效音量 0..1。</summary>
+    public double WeatherSceneAudioLevel { get; init; } = 0.6;
+    /// <summary>是否开启天气场景叠加（灰雾氛围底 + 近景雨滴）。关闭则只保留纯色/图片背景。</summary>
+    public bool WeatherSceneOverlayEnabled { get; init; } = true;
+    /// <summary>天气场景光照（光柱/折射与明暗）是否启用。</summary>
+    public bool SceneLightEnabled { get; init; } = true;
+    /// <summary>测试版场景特效总开关：实体云/近景雨/光柱与光向/真天气驱动。默认关闭，仅在测试计划里手动开启；关闭时背景回退纯色/图片。</summary>
+    public bool ExperimentalSceneFxEnabled { get; init; }
     public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist/endfield
     public string KeySfx { get; init; } = "default";
     public string MenuSide { get; init; } = "left";

@@ -13,9 +13,10 @@ public static class SettingsCatalog
     public static IReadOnlyList<Section> All { get; } = new[]
     {
         new Section("appearance", "外观与主题", "",
-            "玻璃效果、光源方向、页面背景",
+            "玻璃效果、光源方向、页面背景与天气叠加",
             new[] { "Card02", "Card03" },
-            new[] { "外观", "主题", "玻璃", "毛玻璃", "磨砂", "液态", "光源", "高光", "背景", "配色", "终末地", "endfield", "工业", "HUD", "glass", "theme" }),
+            new[] { "外观", "主题", "玻璃", "毛玻璃", "磨砂", "液态", "光源", "高光", "背景", "配色", "终末地", "endfield", "工业", "HUD", "glass", "theme",
+                    "场景", "天气", "调色板", "晴", "阴", "雨", "毛毛雨", "大雨", "3D", "云", "太阳", "雨滴", "音效", "音量" }),
 
         new Section("sound", "声音与语音", "",
             "背景音乐、音效、按键/打字音；朗读与语音识别、音色、外部语音服务",

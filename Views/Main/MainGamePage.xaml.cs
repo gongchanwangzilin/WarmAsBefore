@@ -2,6 +2,8 @@ using System.Collections.Specialized;
 using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
+using WarmAsBefore.Models.Background;
+using WarmAsBefore.Services.Background;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -10,6 +12,7 @@ public partial class MainGamePage : ContentPage
 {
     private readonly MainGameViewModel _vm;
     private readonly CharacterBackdropPresenter _backdrop;
+    private readonly BackgroundService _bg;
     private MainGamePhoneView? _phone;
     private bool _started;
     private bool _backdropSynced;
@@ -24,12 +27,13 @@ public partial class MainGamePage : ContentPage
     private bool _diagNoGalgameDefer;
     private bool _galgameDeferred;
 
-    public MainGamePage(MainGameViewModel vm)
+    public MainGamePage(MainGameViewModel vm, BackgroundService bg)
     {
         using (WarmAsBefore.Services.PerfLog.Measure("页 · 主界面 · XAML 膨胀"))
             InitializeComponent();
         BindingContext = vm;
         _vm = vm;
+        _bg = bg;
         _backdrop = new CharacterBackdropPresenter(CharacterBgA, CharacterBgB, CharacterBgHost);
         Diag.UnionWith((Environment.GetEnvironmentVariable("WAB_DIAG") ?? "")
             .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries));
@@ -69,6 +73,9 @@ public partial class MainGamePage : ContentPage
         // 「窗口 − 舞台偏移 − 可见右栏」这份预算，不写回任何布局属性。
         SizeChanged += OnPageSizeChanged;
         vm.PropertyChanged += OnVmPropertyChanged;
+        // 统一背景配置变化：单例服务保证 Changed 在 UI 线程触发，构造早期场景层可能尚未赋值（方法内 null 检查兜底）。
+        _bg.Changed += OnBackgroundConfigChanged;
+        OnBackgroundConfigChanged(_bg.Current);
         // 手机竖版整块只在手机版式下构建：Windows 上它永远不显示，却会和桌面版一起建完
         // （两条 MediaElement、两个 CollectionView、两百来颗控件），那就是"进存档卡一下"的大头。
         if (vm.IsPhoneLayout)
@@ -80,6 +87,32 @@ public partial class MainGamePage : ContentPage
         // 聊天列表不再靠 KeepLastItemInView 自动滚底（那会在布局 pass 内强制滚动，
         // 是 WinUI 布局环崩点），滚底由这里监听集合后延迟执行。
         if (vm.IsDesktopLayout && !_diagNoScroll) HookChatListScroll();
+    }
+
+    /// <summary>
+    /// 统一背景配置变化（单例服务 Changed 已在 UI 线程触发）：
+    /// 天气氛围底层已提到根 Grid，桌面/手机共用一层，故去掉 IsDesktopLayout 门控；
+    /// 同时把新场景推给近景雨滴物理层，SetScene 内部按场景决定是否开相位泵。
+    /// </summary>
+    private void OnBackgroundConfigChanged(BackgroundConfig cfg)
+    {
+        // 测试版总开关关闭：近景雨整层不参与渲染也不起相位泵；天气氛围层的 IsVisible 由
+        // VM.WeatherSceneVisible 绑定控制（VM 侧已按 ExperimentalEnabled 门控），这里只管雨层。
+        var experimental = cfg.ExperimentalEnabled;
+        if (ForegroundRainLayer is null) return;
+        ForegroundRainLayer.IsVisible = experimental;
+        // 总开关关闭 = 零特效开销：两层相位泵都停掉。否则用户先开雨天再关掉时，
+        // 场景层虽已隐藏但 GraphicsView 泵仍会 90ms 一次空转。
+        if (!experimental)
+        {
+            WeatherSceneLayer?.StopAnimation();
+            ForegroundRainLayer.Stop();
+            return;
+        }
+        if (WeatherSceneLayer is null) return;
+        // 底层氛围（桌面+手机共用一层）+ 近景雨滴物理层同步切场景
+        WeatherSceneLayer.SetScene(cfg.Scene);
+        ForegroundRainLayer.SetScene(cfg.Scene, _bg.CurrentScene.Intensity);
     }
 
     // ============ 聊天列表滚底（替代 KeepLastItemInView）============
@@ -124,9 +157,93 @@ public partial class MainGamePage : ContentPage
         catch (Exception ex) { App.WriteLog("MainGame.RestoreGalgame -> " + ex.Message); }
     }
 
+    // ===== 近景雨滴几何快照：布局稳定后抓一次，不进每帧循环 =====
+    // 窗口尺寸/面板显隐会连发多轮通知：180ms 延后把刷新挪出布局 pass，
+    // 400ms 节流把风暴合并成一次；快照只读可视树几何，不写回任何布局属性。
+    private DateTime _lastRainGeoRefresh = DateTime.MinValue;
+    private void ScheduleRainGeometryRefresh()
+    {
+        if (ForegroundRainLayer is null) return;
+        if (!_bg.Current.ExperimentalEnabled) return; // 测试版关闭：不抓几何、不推舞台矩形
+        if (DateTime.Now - _lastRainGeoRefresh < TimeSpan.FromMilliseconds(400)) return;
+        _lastRainGeoRefresh = DateTime.Now;
+        Dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(180), () =>
+        {
+            // 几何快照与舞台避让矩形都只读可视树，塞进同一延后块一起抓，省一次调度。
+            ForegroundRainLayer?.RefreshGeometry();
+            // 舞台矩形走同一条延后节流链：窗口/面板连发通知合并成一次；
+            // 装饰层失败由 PushStageRectToRain 内部 try/catch 兜住，不影响主流程。
+            PushStageRectToRain();
+        });
+    }
+
+    /// <summary>
+    /// 把 Galgame 舞台矩形推给近景雨：雨落到舞台顶就凝结滑走，不进对话区。
+    /// 沿父链累加 Bounds 拿到 DesktopStage 相对根 Grid 的坐标（前景雨 GraphicsView Fill
+    /// 铺满根 Grid，坐标 1:1）；手机版或舞台不可见时推 null，表示不做避让。
+    /// 只读坐标、不写任何布局属性，全程 try/catch 兜住装饰层异常。
+    /// </summary>
+    private void PushStageRectToRain()
+    {
+        try
+        {
+            if (ForegroundRainLayer is null) return;
+            if (!_bg.Current.ExperimentalEnabled) return;
+            if (!_vm.IsDesktopLayout || DesktopStage is null || !DesktopStage.IsVisible)
+            {
+                ForegroundRainLayer.SetStageRect(null);   // 手机/无舞台：不避让
+                return;
+            }
+            // 沿父链累加 Bounds 得到 DesktopStage 相对页面根 Grid 的坐标
+            double x = 0, y = 0;
+            for (VisualElement? c = DesktopStage; c is not null && c != this.Content; c = c.Parent as VisualElement)
+            { x += c.Bounds.X; y += c.Bounds.Y; }
+            ForegroundRainLayer.SetStageRect(new Microsoft.Maui.Graphics.RectF(
+                (float)x, (float)y, (float)DesktopStage.Width, (float)DesktopStage.Height));
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.PushStageRectToRain -> " + ex.Message); }
+    }
+
     private void OnPageSizeChanged(object? sender, EventArgs e)
     {
-        if (BindingContext is MainGameViewModel { IsDesktopLayout: true }) ScheduleReportStageSize();
+        // 近景雨滴覆盖整窗，桌面/手机共用：几何刷新放在桌面分支之外。
+        ScheduleRainGeometryRefresh();
+        if (BindingContext is MainGameViewModel { IsDesktopLayout: true })
+        {
+            UpdateDesktopColumnLayout();
+            ScheduleReportStageSize();
+        }
+    }
+
+    private void UpdateDesktopColumnLayout()
+    {
+        if (BindingContext is not MainGameViewModel vm || !vm.IsDesktopLayout)
+            return;
+
+        var compact = Width < 960;
+        // 右栏列宽必须跟着「面板是否可见」走，不能只看窗口宽度：非聊天模式下
+        // IsRightPanelVisible=false，若这里仍给 300，列就空占一条、把舞台挤窄。
+        var rightVisible = vm.IsRightPanelVisible && !compact;
+        var rightWidth = rightVisible ? 300 : 0;
+        // 左栏同理：沉浸态（收起）下两个左栏 IsVisible=false，但列宽若仍是 180，
+        // 就在左边留一条空白——用户看到的是「文字抹掉了、面板没收起」。列宽归 0 才真收起。
+        var leftWidth = vm.HideDesktopPanels ? 0 : 180;
+
+        if (DesktopGrid.ColumnDefinitions.Count < 3)
+        {
+            DesktopGrid.ColumnDefinitions.Clear();
+            DesktopGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(leftWidth) });
+            DesktopGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1, GridUnitType.Star) });
+            DesktopGrid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(rightWidth) });
+        }
+        else
+        {
+            DesktopGrid.ColumnDefinitions[0].Width = new GridLength(leftWidth);
+            DesktopGrid.ColumnDefinitions[1].Width = new GridLength(1, GridUnitType.Star);
+            DesktopGrid.ColumnDefinitions[2].Width = new GridLength(rightWidth);
+        }
+
+        RightChatPanel.IsVisible = rightVisible;
     }
 
     // 页面尺寸变化与面板显隐属性变化往往连发多轮通知，用防抖令牌把它们合并成
@@ -176,13 +293,69 @@ public partial class MainGamePage : ContentPage
             });
             return;
         }
+        // 天气场景类型变化：同步给底层氛围层与近景雨滴物理层（SetScene 内部决定开/停相位泵）。
+        if (e.PropertyName == nameof(MainGameViewModel.SceneKind))
+        {
+            if (!_bg.Current.ExperimentalEnabled) return;
+            WeatherSceneLayer?.SetScene(_vm.SceneKind);
+            ForegroundRainLayer?.SetScene(_vm.SceneKind, _bg.CurrentScene.Intensity);
+            return;
+        }
+        // 打雷瞬时信号（VM 每次打雷 +1）：触发场景层一次性白闪。
+        // SceneAudioEnabled / SceneAudioLevel 由 VM 侧联动 WeatherAudioService，页面不直接管音效。
+        if (e.PropertyName == nameof(MainGameViewModel.LightningFlashSignal) && _vm.LightningFlashSignal > 0)
+        {
+            if (_bg.Current.ExperimentalEnabled) WeatherSceneLayer?.FlashLightning();
+            return;
+        }
+        // ===== 场景光照参数（VM 侧可调）→ 底层氛围层 =====
+        // dirX/elevation/intensity 决定光向，lightFxEnabled 是特效子开关，SceneLightEnabled 是总开关；
+        // 5 个属性任一变化都统一重下发一次，避免逐个属性刷新时场景层拿到半套参数。
+        if (e.PropertyName is nameof(MainGameViewModel.SceneLightDirX)
+            or nameof(MainGameViewModel.SceneLightElevation)
+            or nameof(MainGameViewModel.SceneLightIntensity)
+            or nameof(MainGameViewModel.SceneLightEffectsEnabled)
+            or nameof(MainGameViewModel.SceneLightEnabled))
+        {
+            ApplyLightingToScene();
+            return;
+        }
+        // 近景雨滴：面板显隐会改变可绘制区域，延后一拍重抓几何快照（与桌面预算链无关，
+        // 故放在 !IsDesktopLayout 早退之前，桌面/手机都覆盖）。ShowMenu/IsGalgamePanelVisible
+        // 也纳入，菜单或对话浮层收起后雨滴能重新贴合露出的方块/文字。
+        if (e.PropertyName is nameof(MainGameViewModel.HideDesktopPanels)
+            or nameof(MainGameViewModel.IsRightPanelVisible)
+            or nameof(MainGameViewModel.WidgetModeEnabled)
+            or nameof(MainGameViewModel.IsWidgetPanelVisible)
+            or nameof(MainGameViewModel.ShowMenu)
+            or nameof(MainGameViewModel.IsGalgamePanelVisible))
+            ScheduleRainGeometryRefresh();
         if (e.PropertyName is not (nameof(MainGameViewModel.HideDesktopPanels)
             or nameof(MainGameViewModel.IsRightPanelVisible)
             or nameof(MainGameViewModel.WidgetModeEnabled)
             or nameof(MainGameViewModel.IsWidgetPanelVisible))) return;
         if (!_vm.IsDesktopLayout) return;
+        UpdateDesktopColumnLayout();
         // 面板显隐会改舞台预算：与页面尺寸变化共用同一条防抖延迟链，合并成一次重算。
         ScheduleReportStageSize();
+    }
+
+    /// <summary>
+    /// 把 VM 算出的场景光照下发到底层氛围层。总开关 SceneLightEnabled 关掉时把特效子开关
+    /// 一并压成 false，场景层据此停掉光照绘制；装饰层调用失败由 try/catch 兜住，不影响主流程。
+    /// </summary>
+    private void ApplyLightingToScene()
+    {
+        try
+        {
+            if (WeatherSceneLayer is null || _vm is null) return;
+            if (!_bg.Current.ExperimentalEnabled) return; // 测试版关闭：光照参数完全不下发
+            var on = _vm.SceneLightEnabled;
+            WeatherSceneLayer.SetLighting(
+                _vm.SceneLightDirX, _vm.SceneLightElevation, _vm.SceneLightIntensity,
+                on && _vm.SceneLightEffectsEnabled);
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.ApplyLightingToScene -> " + ex.Message); }
     }
 
     /// <summary>角色背景换场：两层图片交叉淡入；没有新背景时收掉，露出场景底色。</summary>
@@ -255,6 +428,12 @@ public partial class MainGamePage : ContentPage
         base.OnDisappearing();
         _vm.DetachRuntimeEvents();
         PauseSceneVideo();
+        // 天气场景层停掉 GraphicsView 相位泵，离场没有可见画面就没必要继续重绘。
+        WeatherSceneLayer?.StopAnimation();
+        // 近景雨滴物理层一并停掉：离场后没有可见画面，不再空转绘制雨滴。
+        ForegroundRainLayer?.Stop();
+        // 单例背景服务的变更通知在离场时退订，防 Transient 页面被长生命周期单例持有而泄漏。
+        _bg.Changed -= OnBackgroundConfigChanged;
         // 小地图跟着离场：取材要跑一遍全图最短路，人在别的页面时没东西看，订阅纯属白算。
         _vm.Minimap.Detach();
     }
@@ -266,6 +445,9 @@ public partial class MainGamePage : ContentPage
         // Singleton 服务上的运行期事件跟页面进出场挂摘（审计 A4）：
         // VM 是 Transient，不摘的话每进出一次主界面就叠一份订阅。
         _vm.AttachRuntimeEvents();
+        // 背景服务同样是长生命周期单例：离场时已退订，这里幂等重挂（先退后进，避免重复订阅）。
+        _bg.Changed -= OnBackgroundConfigChanged;
+        _bg.Changed += OnBackgroundConfigChanged;
         // 音量可能刚在设置里调过：进场先重读一次，视频不必等下一次换场景才跟上
         _vm.RefreshSceneVideoVolume();
         ResumeSceneVideo();
@@ -292,6 +474,16 @@ public partial class MainGamePage : ContentPage
         App.TraceStep("MainGamePage.OnAppearing.BeforeBegin");
         StartGameOnce();
         App.TraceStep("MainGamePage.OnAppearing.AfterBegin");
+        // 测试版关闭时保持雨层隐藏、不起泵；开启才按当前场景重新驱动并延后抓几何快照。
+        OnBackgroundConfigChanged(_bg.Current);
+        if (_bg.Current.ExperimentalEnabled)
+        {
+            ForegroundRainLayer?.SetScene(_bg.CurrentScene.Kind, _bg.CurrentScene.Intensity);
+            ScheduleRainGeometryRefresh();
+        }
+        // 首帧光照：VM 的光照参数可能在进场前就设好，进场后主动下发一次，
+        // 确保底层氛围层拿到当前值（之后的变化由 OnVmPropertyChanged 驱动）。
+        ApplyLightingToScene();
     }
 
     /// <summary>
@@ -338,7 +530,11 @@ public partial class MainGamePage : ContentPage
                 Orientation = ScrollOrientation.Horizontal,
                 HorizontalScrollBarVisibility = ScrollBarVisibility.Never,
                 // 定高：顶栏行现在是常量测量，横滚带高度不随读数内容变化，掐断 Auto 行测量反馈。
-                HeightRequest = 64,
+                // 高度必须容得下读数块全高：小标签(~14) + 21号数值(~28) + 进度线(3)
+                // + frame 上下内边距(10) + row 上下内边距(16) ≈ 73。此前给 64 少了约 9px，
+                // 数值下半截被斜纹带盖住（截图实测「21:48」「0 / 100」被拦腰切断）。
+                // 仍是常量定高，不引入任何测量反馈，只是把尺寸给足。
+                HeightRequest = 80,
                 Content = row,
             };
 
