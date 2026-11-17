@@ -196,6 +196,9 @@ public sealed partial class TitleViewModel : ObservableObject
             {
                 if (await _save.LoadLatest())
                 {
+                    // 存档开始前问一次「是否允许本地人脸识别」（按存档授权，拒绝也能正常玩）。
+                    // 摄像头总开关另在设置里；这里只做一次性授权询问，绝不挡住读档失败/降级路径。
+                    await MaybeAskFaceAuth();
                     await Shell.Current.GoToAsync("main");
                     return;
                 }
@@ -219,6 +222,31 @@ public sealed partial class TitleViewModel : ObservableObject
             App.WriteLog("Title: StartGame navigation ok");
         }
         catch (Exception ex) { App.WriteLog("Title: StartGame EX -> " + ex); }
+    }
+
+    /// <summary>
+    /// 存档开始前的一次性摄像头人脸识别授权询问（v1.60）。按存档记账，只问一次；
+    /// 用户拒绝也能正常进游戏——人脸识别只是可选的情绪/年龄分析，不是游玩前置条件。
+    /// </summary>
+    private async Task MaybeAskFaceAuth()
+    {
+        try
+        {
+            var face = new FaceAnalysisService();
+            var saveId = _engine.State?.CharacterId ?? "";
+            if (!face.ShouldAskBeforeStart(saveId)) return;
+            // 只有摄像头总开关打开时才值得问；总开关关着就不打扰。
+            if (!face.CameraEnabled) { face.MarkAsked(saveId); return; }
+            var page = Application.Current?.MainPage;
+            if (page is null) { face.MarkAsked(saveId); return; }
+            var yes = await page.DisplayAlert(
+                "本地人脸识别",
+                "是否允许用摄像头做本地人脸识别（分析情绪与年龄，数据只在本机处理、不上传）？\n随时可在设置里关闭。",
+                "允许", "不允许");
+            if (yes) face.Grant(saveId); else face.Revoke(saveId);
+            face.MarkAsked(saveId);
+        }
+        catch (Exception ex) { App.WriteLog("Title: MaybeAskFaceAuth -> " + ex.Message); }
     }
 
     [RelayCommand]

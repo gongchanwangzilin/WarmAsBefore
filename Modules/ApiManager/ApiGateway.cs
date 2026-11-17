@@ -1,4 +1,5 @@
 using System.Net;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -136,6 +137,43 @@ public sealed class ApiGateway
         }
         list.Add(_cfg);   // 主配置兜底
         return list;
+    }
+
+    /// <summary>
+    /// 能力路由：从轮换池（+主配置兜底）里挑出满足 <paramref name="capability"/> 的端点，
+    /// 按 <see cref="AiEndpoint.Priority"/> 升序稳定排列（同为 0 保持池内原顺序）。
+    /// 没有任何端点声明该能力时，回退全部端点——旧行为不失效，能力声明缺失不会让功能整个不可用。
+    /// 调用方若只接受真正具备该能力的端点，需自行对返回结果再判一次 capability（本方法的回退集合不保证具备）。
+    /// </summary>
+    /// <param name="capability">能力判定（如 e =&gt; e.SupportsVision）。</param>
+    /// <param name="preferSmall">
+    /// true=按 Priority 升序优先用小模型；false=仅在「无匹配回退」时保留池内原始顺序。
+    /// 两种情况下匹配到的端点都会稳定排序，差别只在回退集合的顺序。
+    /// </param>
+    public IReadOnlyList<AiEndpoint> CandidatesForCapability(Func<AiEndpoint, bool> capability, bool preferSmall = false)
+    {
+        try
+        {
+            // 与 CandidateEndpoints 普通主链同源：轮换池 + 主配置兜底；这里不带游标旋转语义，
+            // 能力路由只关心"谁具备该能力、谁优先"，不关心"这次轮到谁"。
+            var all = new List<AiEndpoint>();
+            if (_rotationEnabled && _pool.Count > 0)
+                all.AddRange(_pool.Where(e => e is not null));
+            all.Add(_cfg);
+
+            var matched = all.Where(e => capability(e)).ToList();
+            if (matched.Count > 0)
+                return matched.OrderBy(e => e.Priority).ToList();   // OrderBy 稳定：Priority 相同保持原顺序
+
+            // 无匹配：回退全部端点。preferSmall=false 保留原顺序（旧行为）；true 也按 Priority 排一遍。
+            return preferSmall ? all.OrderBy(e => e.Priority).ToList() : all;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ApiGateway.CandidatesForCapability -> " + ex.Message);
+            // 任何异常都回退到主配置单点，保证对话不因能力路由崩溃。
+            return new List<AiEndpoint> { _cfg };
+        }
     }
 
     private AiEndpoint? _temporary;
@@ -496,8 +534,39 @@ public sealed class ApiGateway
     }
 
     /// <summary>
+    /// 消息的额外 content 块（多模态 input_audio 等）。不写进 ChatMessage，UI 看到的 Content 仍是纯文本；
+    /// 只有 Wire 序列化时才把 content 从字符串换成 [text, ...extra] 数组。未挂载的消息零影响。
+    /// </summary>
+    private static readonly ConditionalWeakTable<ChatMessage, List<object>> ExtraContentBlocks = new();
+
+    /// <summary>
+    /// 给这条消息挂额外的 content 块（如 input_audio）；重复调用以最后一次为准。
+    /// 挂在 ChatMessage 实例上，故必须在消息最终构造完成后调用（ChatMessage.Content 是 init-only，
+    /// 之后任何 with 复制都会产生新实例、丢失挂载）。异常吞掉，不影响对话。
+    /// </summary>
+    public static void AttachContentBlocks(ChatMessage message, IReadOnlyList<object> blocks)
+    {
+        if (message is null || blocks is null || blocks.Count == 0) return;
+        try
+        {
+            var copy = blocks.ToList();
+            if (ExtraContentBlocks.TryGetValue(message, out var existing))
+            {
+                existing.Clear();
+                existing.AddRange(copy);
+            }
+            else ExtraContentBlocks.Add(message, copy);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ApiGateway.AttachContentBlocks -> " + ex.Message);
+        }
+    }
+
+    /// <summary>
     /// 把 ChatMessage 投影成 OpenAI 线格式。带 tool_calls 的 assistant 必须原样回传（content 可为 null），
     /// role="tool" 的结果必须带 tool_call_id，否则端点会因"tool 消息没有对应的 tool_calls"拒收整段历史。
+    /// 挂了额外 content 块的消息：content 变成 [{"type":"text","text":原内容}, ...额外块]，Content 为空则只发额外块。
     /// </summary>
     private static object Wire(ChatMessage m)
     {
@@ -515,6 +584,17 @@ public sealed class ApiGateway
             };
         if (m.Role == "tool")
             return new { role = "tool", tool_call_id = m.ToolCallId ?? "", content = m.Content };
+
+        // v1.60 真多模态：挂了额外块的消息把 content 从字符串换成块数组。
+        // 没有挂载的消息逐字走旧分支，线上行为零变化。
+        if (ExtraContentBlocks.TryGetValue(m, out var extra) && extra.Count > 0)
+        {
+            var blocks = new List<object>(extra.Count + 1);
+            if (!string.IsNullOrEmpty(m.Content))
+                blocks.Add(new { type = "text", text = m.Content });
+            blocks.AddRange(extra);
+            return new { role = m.Role, content = blocks };
+        }
         return new { role = m.Role, content = m.Content };
     }
 

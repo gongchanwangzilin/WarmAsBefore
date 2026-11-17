@@ -845,6 +845,23 @@
                                             <Picker Grid.Column="1" Title="识别引擎" WidthRequest="100"
                                                     ItemsSource="{Binding VoiceEngineChoices}" SelectedItem="{Binding SttEngine}"
                                                     FontSize="13" /></Grid>
+                                        <!-- v1.60：音频输入模式——大模型能听音频时，直送还是走内部 STT -->
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="音频输入模式" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="internal=先内部识别成文字；direct=音频直送支持听音频的大模型" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Picker Grid.Column="1" Title="输入模式" WidthRequest="100"
+                                                    ItemsSource="{Binding AudioInputModeChoices}" SelectedItem="{Binding AudioInputMode}"
+                                                    FontSize="13" /></Grid>
+                                        <!-- v1.60：高级分析——本地情绪/年龄结果再交大模型深度解读 -->
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="高级分析" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="把人脸识别/语音韵律的情绪与年龄交大模型深度解读（需配置 API）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AdvancedAnalysis}" /></Grid>
+                                        <!-- v1.60：摄像头本地人脸识别总开关（按存档授权在进游戏时另问一次） -->
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                                            <Label Text="摄像头人脸识别" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="允许本地人脸模型分析情绪与年龄，数据只在本机处理" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CameraFaceEnabled}" /></Grid>
                                         <!-- 本地识别模型：识别引擎选 local 时显示 -->
                                         <VerticalStackLayout Spacing="10" IsVisible="{Binding SttEngine, Converter={StaticResource SttEngineIsLocal}}" Margin="0,13,0,0">
                                             <Label Text="本地识别模型" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />

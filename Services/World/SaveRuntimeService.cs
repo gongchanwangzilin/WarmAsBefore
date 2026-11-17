@@ -197,7 +197,9 @@ public sealed class SaveRuntimeService
             }
 
             // 4) 主动消息：只由通道绑定的角色发（QQ/微信各一个身份，不能冒名）。
-            if (s.SaveRuntimeProactive && !quiet && IsOutboundCharacter(id)
+            // 没配 API 时主动对话必须失效（连生活回合都已在 192 行按 HasEndpoint 门控）：
+            // 不进 Due 计时、不更新 presence、不排队任何待发消息。
+            if (s.SaveRuntimeProactive && !quiet && _chat.HasEndpoint && IsOutboundCharacter(id)
                 && Due(_nextMessage, id, now, 120, 240))
             {
                 if (await ProactiveAsync(ch, p, now)) changed = true;

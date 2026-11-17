@@ -232,6 +232,30 @@ public sealed record AiProviderModel
     /// <summary>能不能稳定输出 JSON（结构化任务用）。</summary>
     public bool SupportsJson { get; init; }
 
+    // ===== 模型能力声明（v1.60）：一款模型能干什么由这里说了算，路由按能力挑模型 =====
+    /// <summary>深度思考（推理强度参数）。</summary>
+    public bool SupportsReasoning { get; init; }
+    /// <summary>生成图片。</summary>
+    public bool SupportsImageGen { get; init; }
+    /// <summary>听音频（输入音频，audio/input_audio）。</summary>
+    public bool SupportsAudioInput { get; init; }
+    /// <summary>输出音频（audio/speech）。</summary>
+    public bool SupportsAudioOutput { get; init; }
+    /// <summary>看视频（视频理解）。</summary>
+    public bool SupportsVideoInput { get; init; }
+    /// <summary>输出视频（视频生成）。</summary>
+    public bool SupportsVideoOutput { get; init; }
+    /// <summary>
+    /// 该模型自带的 OCR 能力。小模型必须配 OCR 才能做识图；
+    /// 空串表示用独立的 OCR 服务/回退到视觉模型提示词。
+    /// </summary>
+    public bool SupportsOcr { get; init; }
+    /// <summary>
+    /// 使用顺序权重：同一能力下，数值小的优先被路由选中（0 = 按列表顺序）。
+    /// 让大模型/小模型各自有独立的优先级链，失败时降级到下一个。
+    /// </summary>
+    public int Priority { get; init; }
+
     /// <summary>F25：这款模型是否显示「热度调节条」。默认开；旧档缺字段自动为 true 由默认值兜底。</summary>
     public bool ShowHeatSlider { get; init; } = true;
     /// <summary>F25：是否显示思考等级条。</summary>
@@ -252,7 +276,14 @@ public sealed record AiProviderModel
             if (ContextWindow > 0) parts.Add($"{ContextWindow / 1000.0:0.#}K 上下文");
             if (SupportsVision) parts.Add("识图");
             if (SupportsTools) parts.Add("工具");
+            if (SupportsReasoning) parts.Add("思考");
             if (SupportsJson) parts.Add("JSON");
+            if (SupportsImageGen) parts.Add("生图");
+            if (SupportsAudioInput) parts.Add("听音频");
+            if (SupportsAudioOutput) parts.Add("出音频");
+            if (SupportsVideoInput) parts.Add("看视频");
+            if (SupportsVideoOutput) parts.Add("出视频");
+            if (SupportsOcr) parts.Add("OCR");
             return parts.Count == 0 ? "未标注能力" : string.Join(" · ", parts);
         }
     }
@@ -528,6 +559,18 @@ public sealed record UserSettings
     public string TtsEngine { get; init; } = "system";
     /// <summary>语音识别引擎：system=系统自带识别，local=本地下载的模型，api=外部 STT API。</summary>
     public string SttEngine { get; init; } = "system";
+    /// <summary>
+    /// 大模型能听音频时的处理方式：internal=先经内部 STT 转成文字再发（默认，兼容旧行为），
+    /// direct=把音频以 OpenAI input_audio 块直送支持听音频的大模型（需该模型 SupportsAudioInput）。
+    /// </summary>
+    public string AudioInputMode { get; init; } = "internal";
+    /// <summary>
+    /// 高级分析开关：人脸识别/语音韵律拿到情绪与年龄等原始数据后，是否再交给大模型做深度解读
+    /// （如"她现在的心情说明什么"）。关掉只用本地原始结果。默认关。
+    /// </summary>
+    public bool AdvancedAnalysis { get; init; }
+    /// <summary>是否允许使用摄像头做本地人脸识别（v1.60）。实际授权按存档单独记账。</summary>
+    public bool CameraFaceEnabled { get; init; }
     /// <summary>本地识别模型名称（如 ggml-base.en.bin / ggml-small.bin），对应 {root}/stt/{model}。</summary>
     public string SttModelName { get; init; } = "";
     /// <summary>语音 API 基础地址（OpenAI 兼容，端点 /audio/speech、/audio/transcriptions；SoVITS 模式下为服务根地址，如 http://192.168.1.10:9870）。</summary>

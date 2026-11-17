@@ -659,8 +659,11 @@ public sealed class ChatEngine
         var prefix = string.Join("\n", new[] { buff, extra }.Where(x => !string.IsNullOrWhiteSpace(x)));
         var payload = prefix.Length == 0 ? text : $"{prefix}\n{text}";
 
-        // #10 附件注入：文本类拼正文，二进类只给元信息
-        var fileBlock = BuildAttachmentBlock(attachments);
+        // #10 附件注入：文本类拼正文，二进类只给元信息。
+        // v1.60：AudioInputMode=direct 且有端点能听音频时，音频附件额外构造 input_audio 内容块，
+        // 稍后挂到这条最终 user 消息上，让线格式 content 走 [text, ...input_audio] 真多模态数组。
+        var audioBlocks = new List<object>();
+        var fileBlock = BuildAttachmentBlock(attachments, ApiDirectAudioInline(cfg), audioBlocks);
         if (fileBlock.Length > 0)
             payload = payload.Length > 0 ? $"{payload}\n{fileBlock}" : fileBlock;
 
@@ -675,6 +678,8 @@ public sealed class ChatEngine
         var userMsg = new ChatMessage { Role = "user", Content = $"[{ctx}]\n{payload}" };
         if (attachments is { Count: > 0 })
             userMsg = userMsg with { Attachments = attachments.ToList() };
+        // 必须在消息最终构造后挂载：Content 是 init-only，后续任何 with 复制都会换实例、丢挂载。
+        if (audioBlocks.Count > 0) ApiGateway.AttachContentBlocks(userMsg, audioBlocks);
         session.Add(userMsg);
 
         // 检查 API 是否已配置（主配置或轮换池任一可用即可）
@@ -781,7 +786,17 @@ public sealed class ChatEngine
             msgs.Add(new ChatMessage { Role = "user", Content = prompt });
 
             var reply = await _api.Chat(msgs, cfg);
-            if (string.IsNullOrWhiteSpace(reply)) return null;
+            // [API错误 …] 是 ApiGateway 把失败编成的字符串，不是 AI 说的话。
+            // 这里若不拦，错误串会被当成生活正文写进 session 与 memories.json —— 必须挡在写盘之前。
+            if (string.IsNullOrWhiteSpace(reply) || reply.TrimStart().StartsWith("[", StringComparison.Ordinal))
+            {
+                if (!string.IsNullOrWhiteSpace(reply))
+                {
+                    App.WriteLog("ChatEngine.SendAmbient: API 错误未入记忆 -> " + reply.Trim());
+                    NotifyError(charId, reply.Trim());
+                }
+                return null;
+            }
             var clean = reply.Trim();
 
             lock (_sessionLock)
@@ -822,6 +837,21 @@ public sealed class ChatEngine
     /// 二进制附件只给文件名/类型/大小/路径。没有附件时返回空串。
     /// </summary>
     public static string BuildAttachmentBlock(IReadOnlyList<ChatAttachment>? attachments)
+        => BuildAttachmentBlock(attachments, false, null);
+
+    /// <summary>兼容重载：只产出文本，不收集多模态块（真正发送路径用三参版本）。</summary>
+    public static string BuildAttachmentBlock(IReadOnlyList<ChatAttachment>? attachments, bool inlineAudioAsInputBlock)
+        => BuildAttachmentBlock(attachments, inlineAudioAsInputBlock, null);
+
+    /// <summary>
+    /// v1.60 音频直送模式：AudioInputMode=direct 且有端点支持听音频时，
+    /// 音频附件不再只写文件名，而是读文件→base64→构造 OpenAI 兼容的 input_audio 内容块，
+    /// 由调用方通过 <see cref="ApiGateway.AttachContentBlocks"/> 挂到这条 user 消息上，
+    /// 让 Wire 把 content 拼成 [text, ...input_audio] 真多模态数组。
+    /// 收集到（成功构造）的块会加进 <paramref name="contentBlocks"/>；文件缺失/过大/编码异常则回退旧描述。
+    /// </summary>
+    internal static string BuildAttachmentBlock(IReadOnlyList<ChatAttachment>? attachments,
+        bool inlineAudioAsInputBlock, List<object>? contentBlocks)
     {
         if (attachments is null || attachments.Count == 0) return "";
         var sb = new System.Text.StringBuilder();
@@ -836,12 +866,70 @@ public sealed class ChatEngine
                 sb.Append("\n  内容：").Append(a.TextContent);
                 if (a.Truncated) sb.Append("\n  （内容过长已截断）");
             }
+            else if (inlineAudioAsInputBlock && a.Kind == "audio"
+                     && TryBuildInputAudioObject(a) is { } audioObject)
+            {
+                contentBlocks?.Add(audioObject);
+                sb.Append("\n  （音频已作为 input_audio 内容块直送模型）");
+            }
             else
             {
                 sb.Append("\n  （二进制文件，未内联内容；路径：").Append(a.Path).Append("）");
             }
         }
         return sb.ToString();
+    }
+
+    /// <summary>音频附件 → OpenAI 兼容的 input_audio 匿名内容块。任何失败返回 null 让上层回退旧描述。</summary>
+    private static object? TryBuildInputAudioObject(ChatAttachment a)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(a.Path) || !File.Exists(a.Path)) return null;
+            var bytes = File.ReadAllBytes(a.Path);
+            if (bytes.Length == 0) return null;
+            var b64 = Convert.ToBase64String(bytes);
+            if (b64.Length > 2_000_000) return null;   // 太大不内联，免得一份音频把上下文吃光
+            var format = Path.GetExtension(a.Path).TrimStart('.').ToLowerInvariant();
+            if (format is not ("wav" or "mp3" or "ogg" or "m4a" or "flac" or "aac" or "webm" or "mp4"))
+                format = "wav";
+            return new { type = "input_audio", input_audio = new { data = b64, format } };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.TryBuildInputAudioObject -> " + ex.Message);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 是否启用音频直送：设置 AudioInputMode=direct（直送大模型，不走内部 STT）。
+    /// 同时要求当前端点或轮换池里有一条声明 SupportsAudioInput；否则回退内部 STT 的旧行为。
+    /// 读设置/查能力全程 try/catch，任何异常都返回 false，保持旧消息结构。
+    /// </summary>
+    private static bool ApiDirectAudioInline(AiEndpoint? cfg)
+    {
+        try
+        {
+            if (cfg is null) return false;
+            var services = Modules.Tools.ServicesHelper.GetServices();
+            var sm = services?.GetService(typeof(SettingsManager)) as SettingsManager;
+            var cur = sm?.Current;
+            if (cur is null) return false;
+            if (!string.Equals(cur.AudioInputMode, "direct", StringComparison.OrdinalIgnoreCase))
+                return false;
+
+            // 主配置通常不带能力位（RuntimeConfigurator 只给轮换池下发），
+            // 所以轮换池里有能听音频的端点也算命中，免得这个模式形同虚设。
+            if (cfg.SupportsAudioInput) return true;
+            var speech = services?.GetService(typeof(SpeechService)) as SpeechService;
+            return speech?.ResolveCapabilityEndpoint(e => e.SupportsAudioInput) is not null;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.ApiDirectAudioInline -> " + ex.Message);
+            return false;
+        }
     }
 
     /// <summary>
@@ -951,29 +1039,76 @@ public sealed class ChatEngine
         // 第十五项：小模型不支持工具时，用提示词引导它输出 XML / {工具名,参数}，解析后走同一套工具白名单。
         if (SmallEndpoint is not null && SmallModelCompatEnabled && !SmallEndpoint.SupportsTools)
         {
-            var compat = await RunSmallCompatAsync(session);
-            if (compat.Text is not null) return (compat.Text, null);
+            try
+            {
+                var compat = await RunSmallCompatAsync(session);
+                if (compat.Text is not null) return (compat.Text, null);
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("ChatEngine.RunSmallCompat -> " + ex.Message);
+            }
         }
-        if (SmallEndpoint is not null && SmallModelFirstEnabled)
+
+        // v1.60：候选链 = 小模型（开启时）+ 主配置大模型，按 Priority 升序稳定排列。
+        // Priority 相同的保持加入顺序（小模型在前），失败依次降级到下一个候选。
+        var candidates = new List<AiEndpoint>();
+        if (SmallEndpoint is not null && SmallModelFirstEnabled) candidates.Add(SmallEndpoint);
+        if (cfg is not null) candidates.Add(cfg);
+        try
         {
-            var bridge = BridgeConnected?.Invoke() ?? false;
-            var directive =
-                "你是一个更轻量的小模型，当前没有工具可用，只能用文字回答。"
-                + (bridge
-                    ? "现在主人正在《我的世界》里，你没法直接操作游戏、也没法调用任何工具。"
-                      + "只要这件事需要动游戏、看她身边的情况、或需要你完不成的动作，就不要编，"
-                      + "只输出这一句："
-                    : "如果这件事需要调用工具、操作游戏、或需要你完不成的动作，不要勉强作答，只输出这一句：")
-                + EscalationPhrase + "。其余情况正常、简短地回应。";
-            var (smallText, smallError) = await RunTurnAsync(session, SmallEndpoint,
-                forceNoTools: true, extraSystem: directive);
-            if (smallError is null && !string.IsNullOrWhiteSpace(smallText)
-                && !smallText.Contains(EscalationPhrase, StringComparison.Ordinal))
-                return (smallText, null);
-            App.WriteLog("ChatEngine: 小模型未处理，升级到大模型");
+            candidates = candidates.OrderBy(e => e.Priority).ToList();   // 稳定排序
         }
-        return await RunTurnAsync(session, cfg);
+        catch (Exception ex)
+        {
+            App.WriteLog("ChatEngine.RunTurnWithSmall.Order -> " + ex.Message);
+            // 排序异常不改顺序：小模型仍在前，对话继续
+        }
+        if (candidates.Count == 0) return await RunTurnAsync(session, cfg);
+
+        var bridge = BridgeConnected?.Invoke() ?? false;
+        var directive =
+            "你是一个更轻量的小模型，当前没有工具可用，只能用文字回答。"
+            + (bridge
+                ? "现在主人正在《我的世界》里，你没法直接操作游戏、也没法调用任何工具。"
+                  + "只要这件事需要动游戏、看她身边的情况、或需要你完不成的动作，就不要编，"
+                  + "只输出这一句："
+                : "如果这件事需要调用工具、操作游戏、或需要你完不成的动作，不要勉强作答，只输出这一句：")
+            + EscalationPhrase + "。其余情况正常、简短地回应。";
+
+        foreach (var endpoint in candidates)
+        {
+            var isSmall = IsSameEndpoint(endpoint, SmallEndpoint);
+            try
+            {
+                if (isSmall)
+                {
+                    // 小模型：只有「没报错 + 有正文 + 没要求升级」才采纳；升级短语/空/错都降级到下一候选，
+                    // 保持"小模型处理不来才升级大模型"的原语义。
+                    var (smallText, smallError) = await RunTurnAsync(session, endpoint,
+                        forceNoTools: true, extraSystem: directive);
+                    if (smallError is null && !string.IsNullOrWhiteSpace(smallText)
+                        && !smallText.Contains(EscalationPhrase, StringComparison.Ordinal))
+                        return (smallText, null);
+                    App.WriteLog("ChatEngine: 小模型未处理（升级短语/空/错），降级到下一候选");
+                    continue;
+                }
+                // 主配置大模型：沿用原来的返回值语义，不对正文做二次拦截。
+                return await RunTurnAsync(session, endpoint);
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("ChatEngine.RunTurnWithSmall -> " + ex.Message);
+                // 单条候选异常：继续降级下一条，绝不让整轮对话崩掉。
+            }
+        }
+        return (null, "[API错误] 所有候选模型均失败");
     }
+
+    /// <summary>两个端点是否指向同一条配置（引用相同或 Url+Model 相同）。</summary>
+    private static bool IsSameEndpoint(AiEndpoint? a, AiEndpoint? b)
+        => a is not null && b is not null
+           && (ReferenceEquals(a, b) || (a.Url == b.Url && a.Model == b.Model));
 
     /// <summary>
     /// 小模型强兼容回合：注入格式提示 → 解析模型自由文本里的工具调用 → 白名单校验 →
