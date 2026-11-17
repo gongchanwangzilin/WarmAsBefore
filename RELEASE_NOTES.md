@@ -1,3 +1,21 @@
+# 温暖如初 v1.61.0
+
+本版引入 Evergine 3D 天气大气场（双端 GPU 粒子 + 体积雾），与既有 2D 天气层按测试版总开关互斥切换。
+
+## 3D 天气大气场（Evergine）
+- **引擎**：接入 Evergine 2026.11.12.8（Android = Vulkan / Windows = DirectX11，官方 MAUI 集成方式）。场景全部用 C# 代码创建，不引入 Evergine Studio 资产管线。
+- **GPU 粒子**：雨（细长高密度）与雪（圆形慢速）两台发射器，走 GPU 模拟；粒子下落方向受全局 WindSystem（Direction + Strength）驱动。
+- **体积雾**：自定义 HLSL compute 后处理（全屏），密度随高度衰减，漂移绑定风向量，与粒子共享 WindSystem。
+- **天气状态机**：WeatherController 三态 Clear/Rain/Snow，切换用 1.5 秒平滑插值（发射率 + 雾密度）。产品天气档位映射过来：雪→Snow，各档雨→Rain，晴/多云→Clear。
+- **互斥与降级**：3D 层就绪且测试版总开关开启时，由 3D 粒子接管雨雪，旧 SkiaSharp 2D 层停泵；3D 初始化失败或开关关闭时自动回退 2D 层，绝不空白或崩溃。初始化全程 try/catch 兜底。
+- 默认收起：3D 层初始不可见，跟随既有「测试版总开关」开启后才渲染，不给普通用户增加负担。
+
+## 工程
+- 双端编译验证通过（Android net10.0-android36.0 / Windows net10.0-windows10.0.19041.0，0 错误）。
+- 新增 Evergine 相关包依赖（按 TFM 条件引用），不影响未开启 3D 时的行为。
+
+---
+
 # 温暖如初 v1.60.0
 
 本版是能力体系与多模态大改，同时根治一批 API 错误处理问题。

@@ -1,5 +1,6 @@
 using CommunityToolkit.Maui;
 using WarmAsBefore.Composition;
+using WarmAsBefore.Controls;
 
 namespace WarmAsBefore;
 
@@ -15,7 +16,10 @@ public static class MauiProgram
         builder
             .UseMauiApp<App>()
             .UseMauiCommunityToolkit()
-            .UseMauiCommunityToolkitMediaElement();
+            .UseMauiCommunityToolkitMediaElement()
+            // v1.61 3D 天气大气场：注册 Evergine 承载视图的平台 handler
+            // （Android: AndroidSurfaceView+Vulkan / Windows: SwapChainPanel+DX11）。
+            .ConfigureMauiHandlers(h => h.AddHandler<EvergineWeatherView, EvergineWeatherViewHandler>());
 
         builder.Services
             .AddDesignSystemServices()
