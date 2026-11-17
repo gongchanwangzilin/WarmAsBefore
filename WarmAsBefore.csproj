@@ -97,6 +97,20 @@
     <PackageReference Include="System.Speech" Version="8.0.0" />
   </ItemGroup>
 
+  <!-- 兼容修复：MAUI 9.0.120 的 nupkg 内不含 HybridWebView.js，但 .NET 10 SDK 的
+       Windows publish 复制清单会去找它，缺文件时报 MSB3030。占位一份即可（该文件不参与
+       本应用逻辑：本项目未使用 HybridWebView）。用 Condition 保证只在缺失时创建。 -->
+  <Target Name="EnsureHybridWebViewJsForNet10Sdk" BeforeTargets="PrepareForBuild"
+          Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <ItemGroup>
+      <_MauiHybridJsMissing Include="$(NuGetPackageRoot)microsoft.maui.core/9.0.120/lib/net9.0-windows10.0.19041/Microsoft.Maui/Handlers/HybridWebView/HybridWebView.js" />
+      <_MauiHybridJsMissing Include="$(NuGetPackageRoot)microsoft.maui.controls.core/9.0.120/lib/net9.0-windows10.0.19041/Microsoft.Maui/Handlers/HybridWebView/HybridWebView.js" />
+    </ItemGroup>
+    <MakeDir Directories="@(_MauiHybridJsMissing->'%(RootDir)%(Directory)')" Condition="!Exists('%(_MauiHybridJsMissing.Identity)')" />
+    <WriteLinesToFile File="%(_MauiHybridJsMissing.Identity)" Lines="// placeholder: MAUI 9 package does not ship this file; .NET 10 SDK publish expects it."
+                      Overwrite="false" Condition="!Exists('%(_MauiHybridJsMissing.Identity)')" />
+  </Target>
+
   <!-- v1.61 3D 天气大气场：Evergine（各端渲染后端不同，按 TFM 条件引用）。
        版本统一在下方属性，双端保持同一引擎版本，避免场景代码出现 API 漂移。 -->
   <PropertyGroup>
