@@ -178,6 +178,20 @@ public sealed class SaveRuntimeService
                 p = found;
             }
 
+            // 0) v1.62 AI 日程：一天开始时一次性生成、之后按表推进到点条目（不再实时调 AI，省 token）。
+            //    这是「你不在时卡拉比姆世界照常运行」的驱动：每角色有自己的时程，本地 Tick 零花费。
+            try
+            {
+                var plan = await DailyPlanService.Instance.EnsureTodayAsync(id, _chat.HasEndpoint);
+                if (plan is not null)
+                {
+                    var before = plan.Items.Count(i => i.Done);
+                    DailyPlanService.Instance.Tick(id);
+                    if (plan.Items.Count(i => i.Done) != before) changed = true;
+                }
+            }
+            catch (Exception ex) { App.WriteLog("SaveRuntime.DailyPlan -> " + ex.Message); }
+
             // 1) 本地推演：按时间换活动，不花钱、永远可跑。
             if (RollActivity(ch, p, now)) changed = true;
 

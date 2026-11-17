@@ -22,7 +22,9 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     private SwapChainPanel swapChainPanel = null!;
 
     private WinUIWindowsSystem? windowsSystem;
-    private static bool isEvergineInitialized;
+    // 按 Application 实例记录「是否已 Initialize」：主界面与超级监测页各持一个 Evergine Application，
+    // 全局单布尔会让第二个 app 跳过 Initialize（拿不到 GraphicsContext、场景为空）。
+    private static readonly HashSet<global::Evergine.Framework.Application> InitializedApps = new();
     private static DX11GraphicsContext? graphicsContext;
     private static SwapChain? swapChain;
 
@@ -39,15 +41,8 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
 
         this.windowsSystem ??= new WinUIWindowsSystem();
 
-        if (!isEvergineInitialized)
-        {
-            view.Application.Container.RegisterInstance(this.windowsSystem);
-        }
-        else
-        {
-            view.Application.Container.Unregister<WinUIWindowsSystem>();
-            view.Application.Container.RegisterInstance(this.windowsSystem);
-        }
+        view.Application.Container.Unregister<WinUIWindowsSystem>();
+        view.Application.Container.RegisterInstance(this.windowsSystem);
 
         var surface = (WinUISurface)this.windowsSystem.CreateSurface(this.swapChainPanel);
 
@@ -57,10 +52,10 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
             {
                 this.ConfigureGraphicsContext(view.Application, surface, displayName);
 
-                if (!isEvergineInitialized)
+                if (!InitializedApps.Contains(view.Application))
                 {
                     view.Application.Initialize();
-                    isEvergineInitialized = true;
+                    InitializedApps.Add(view.Application);
                 }
             },
             () =>
@@ -175,15 +170,10 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         var graphicsPresenter = application.Container.Resolve<GraphicsPresenter>();
         var firstDisplay = new Display(surface, swapChain);
 
-        if (!isEvergineInitialized)
-        {
-            graphicsPresenter.AddDisplay(displayName, firstDisplay);
-            application.Container.RegisterInstance(graphicsContext);
-        }
-        else
-        {
-            graphicsPresenter.RemoveDisplay(displayName);
-            graphicsPresenter.AddDisplay(displayName, firstDisplay);
-        }
+        graphicsPresenter.RemoveDisplay(displayName);
+        graphicsPresenter.AddDisplay(displayName, firstDisplay);
+        // 每个 app 都要拿到同一个 GraphicsContext，否则它的 Scene 解析不到、渲染不出东西。
+        application.Container.Unregister<DX11GraphicsContext>();
+        application.Container.RegisterInstance(graphicsContext);
     }
 }

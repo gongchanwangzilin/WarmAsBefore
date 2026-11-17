@@ -267,6 +267,8 @@ public partial class AppShell : Shell
         // 新开一局 / 本局设定：世界树绑定 + 用户人设 + 人格记忆初始化
         Routing.RegisterRoute("newrun", typeof(Views.NewRunPage));
         Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
+        // 超级监测：独立整页，charId 经查询参数传入（入口在存档页 / 角色库右上角）
+        Routing.RegisterRoute("superMonitor", typeof(Views.SuperMonitorPage));
         // 新建角色：角色库顶上那颗按钮进来的四步向导
         Routing.RegisterRoute("newcharacter", typeof(Views.NewCharacterPage));
         // 角色工作室：列表那一行点进来的一页（改 TA 的一切都在这儿，不在列表里）

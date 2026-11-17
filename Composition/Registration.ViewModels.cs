@@ -38,6 +38,8 @@ public static class ViewModelRegistration
         services.AddTransient<FigurePackViewModel>();
         services.AddTransient<MemoryGraphViewModel>();
         services.AddTransient<MemorySearchViewModel>();
+        // v1.62 超级监测页 VM
+        services.AddTransient<SuperMonitorViewModel>();
         services.AddTransient<MemoryManageViewModel>();
         services.AddTransient<SceneLibraryViewModel>();
         services.AddTransient<NovelSelectViewModel>();

@@ -16,7 +16,9 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
 {
     private AndroidSurface androidSurface = null!;
     private AndroidWindowsSystem windowsSystem = null!;
-    private static bool isEvergineInitialized;
+    // 按 Application 实例记录初始化状态：主界面与超级监测页各有一个 Evergine Application，
+    // 全局单布尔会让第二个 app 跳过 Initialize（拿不到 GraphicsContext，场景空白）。
+    private static readonly HashSet<global::Evergine.Framework.Application> InitializedApps = new();
     private static VKGraphicsContext? graphicsContext;
     private static SwapChain? swapChain;
     private static bool surfaceInvalidated;
@@ -31,34 +33,22 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     {
         if (view.Application is null) return;
 
-        if (!isEvergineInitialized)
-        {
-            // Register Windows system
-            view.Application.Container.RegisterInstance(windowsSystem);
-
-            // Creates XAudio device
-            var xaudio = new global::Evergine.OpenAL.ALAudioDevice();
-            view.Application.Container.RegisterInstance(xaudio);
-        }
-        else
-        {
-            view.Application.Container.Unregister<AndroidWindowsSystem>();
-            view.Application.Container.RegisterInstance(windowsSystem);
-        }
+        // 每个 app 都要注册自己的 WindowsSystem / 音频设备，不能只看全局标志。
+        view.Application.Container.Unregister<AndroidWindowsSystem>();
+        view.Application.Container.RegisterInstance(windowsSystem);
+        var xaudio = new global::Evergine.OpenAL.ALAudioDevice();
+        view.Application.Container.Unregister<global::Evergine.OpenAL.ALAudioDevice>();
+        view.Application.Container.RegisterInstance(xaudio);
 
         System.Diagnostics.Stopwatch clockTimer = System.Diagnostics.Stopwatch.StartNew();
         windowsSystem.Run(
         () =>
         {
-            if (!isEvergineInitialized)
+            this.ConfigureGraphicsContext(view.Application, androidSurface);
+            if (!InitializedApps.Contains(view.Application))
             {
-                this.ConfigureGraphicsContext(view.Application, androidSurface);
                 view.Application.Initialize();
-                isEvergineInitialized = true;
-            }
-            else
-            {
-                this.ConfigureGraphicsContext(view.Application, androidSurface);
+                InitializedApps.Add(view.Application);
             }
         },
         () =>
@@ -142,15 +132,10 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         var graphicsPresenter = application.Container.Resolve<GraphicsPresenter>();
         var firstDisplay = new global::Evergine.Framework.Graphics.Display(surface, swapChain);
 
-        if (!isEvergineInitialized)
-        {
-            graphicsPresenter.AddDisplay("DefaultDisplay", firstDisplay);
-            application.Container.RegisterInstance(graphicsContext);
-        }
-        else
-        {
-            graphicsPresenter.RemoveDisplay("DefaultDisplay");
-            graphicsPresenter.AddDisplay("DefaultDisplay", firstDisplay);
-        }
+        graphicsPresenter.RemoveDisplay("DefaultDisplay");
+        graphicsPresenter.AddDisplay("DefaultDisplay", firstDisplay);
+        // 每个 app 都要拿到同一个 GraphicsContext，否则它的 Scene 解析不到、渲染不出东西。
+        application.Container.Unregister<VKGraphicsContext>();
+        application.Container.RegisterInstance(graphicsContext);
     }
 }

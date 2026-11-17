@@ -53,6 +53,11 @@
                      面上摆的仍然是墨 —— 徽章读起来是「一句注解」而不是一颗按钮。
                      窄屏收起注解，把位置让给「新建角色」：那一颗才是这一段唯一的行动。 -->
                 <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+                    <!-- 超级监测入口：Selected.Id 是当前预览的角色；静态命令自带当前角色兜底 -->
+                    <Button Text="监测" Style="{StaticResource BtnGhostSm}"
+                            VerticalOptions="Center"
+                            Command="{x:Static vm:SuperMonitorViewModel.NavigateToMonitor}"
+                            CommandParameter="{Binding Selected.Id}" />
                     <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0" Padding="{DynamicResource WPadWell}" VerticalOptions="Center"
                             StrokeShape="{DynamicResource WRadiusWell}"
