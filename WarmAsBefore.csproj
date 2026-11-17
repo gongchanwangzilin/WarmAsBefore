@@ -10,8 +10,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <ApplicationTitle>温暖如初</ApplicationTitle>
-    <ApplicationDisplayVersion>1.60.0</ApplicationDisplayVersion>
-    <ApplicationVersion>71</ApplicationVersion>
+    <ApplicationDisplayVersion>1.61.0</ApplicationDisplayVersion>
+    <ApplicationVersion>72</ApplicationVersion>
     <!-- 兼容目标：Android 11 (API 30) 及以上；minSdk 设 24 (Android 7.0) 留余量。
          若未来要求支持 Android 9 (API 28)，保持 24 不变即可（代码侧无 28+ 专属 API 依赖）。 -->
     <AndroidMinSdkVersion>24</AndroidMinSdkVersion>
@@ -95,6 +95,47 @@
     <PackageReference Include="System.Drawing.Common" Version="9.0.0" />
     <!-- 「系统识别」引擎用桌面 SAPI：WinRT SpeechRecognizer 在 unpackaged 进程里开不了麦，只会返回 Unknown -->
     <PackageReference Include="System.Speech" Version="8.0.0" />
+  </ItemGroup>
+
+  <!-- v1.61 3D 天气大气场：Evergine（各端渲染后端不同，按 TFM 条件引用）。
+       版本统一在下方属性，双端保持同一引擎版本，避免场景代码出现 API 漂移。 -->
+  <PropertyGroup>
+    <EvergineVersion>2026.11.12.8</EvergineVersion>
+    <!-- 场景全部用 C# 代码创建（不引入 Evergine Studio 的 .weproj 资产管线），
+         关掉资产导出，避免 GetScenesToCompileTask 要求 EvergineAssetContent 目录。 -->
+    <GenerateEvergineAssets>false</GenerateEvergineAssets>
+    <GenerateEvergineScenesCode>false</GenerateEvergineScenesCode>
+    <!-- 纯代码场景无 Studio 资产，但 targets 的内容通配符需要一个存在的安全根目录。 -->
+    <EvergineAssetContent>$(MSBuildProjectDirectory)\EvergineContent</EvergineAssetContent>
+  </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <EvergineProfileName>#MAUI#Windows</EvergineProfileName>
+  </PropertyGroup>
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <EvergineProfileName>#MAUI#Android</EvergineProfileName>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Evergine.Common" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.Framework" Version="$(EvergineVersion)" />
+    <!-- PlaneMesh/MaterialComponent/PostProcessingGraphRenderer 等场景组件都在此包 -->
+    <PackageReference Include="Evergine.Components" Version="$(EvergineVersion)" />
+    <!-- MAUI 集成的 targets：Evergine.Targets 提供 EvergineContentExport 目标，
+         Evergine.Targets.Maui 在其上做 MAUI 平台适配；两者必须同时引用（官方模板如此）。 -->
+    <PackageReference Include="Evergine.Targets" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.Targets.Maui" Version="$(EvergineVersion)" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
+    <!-- 官方 MAUI 模板 Windows 端用 DirectX11 + HLSLEverywhere（不是 DirectX12） -->
+    <PackageReference Include="Evergine.CodeScenes" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.DirectX11" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.HLSLEverywhere" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.XAudio2" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.WinUI" Version="$(EvergineVersion)" />
+  </ItemGroup>
+  <ItemGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <PackageReference Include="Evergine.Android" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.Vulkan" Version="$(EvergineVersion)" />
+    <PackageReference Include="Evergine.OpenAL" Version="$(EvergineVersion)" />
   </ItemGroup>
 
 </Project>

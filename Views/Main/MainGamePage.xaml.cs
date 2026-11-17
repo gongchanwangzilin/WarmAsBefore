@@ -5,6 +5,9 @@ using WarmAsBefore.Helpers;
 using WarmAsBefore.Models.Background;
 using WarmAsBefore.Services.Background;
 using WarmAsBefore.ViewModels;
+#if ANDROID || WINDOWS
+using WarmAsBefore.Weather3D;
+#endif
 
 namespace WarmAsBefore.Views;
 
@@ -17,6 +20,8 @@ public partial class MainGamePage : ContentPage
     private bool _started;
     private bool _backdropSynced;
     private bool _veilAttached;
+    // Evergine 3D 天气层：Application 是否成功初始化（失败会保持隐藏，由 2D 天气层兜底）
+    private bool _evergineReady;
 
     // ===== 临时诊断开关（实机二分定位布局环用；定位完成后整段移除）=====
     // WAB_DIAG=chat,stage,minimap,top,left,noscroll,noveil（逗号分隔）
@@ -87,6 +92,9 @@ public partial class MainGamePage : ContentPage
         // 聊天列表不再靠 KeepLastItemInView 自动滚底（那会在布局 pass 内强制滚动，
         // 是 WinUI 布局环崩点），滚底由这里监听集合后延迟执行。
         if (vm.IsDesktopLayout && !_diagNoScroll) HookChatListScroll();
+        // 3D 天气大气场延后到页面 Loaded 再初始化：避免拖慢进场测量风暴；
+        // 初始化失败保持 IsVisible=False，不影响主界面（见 OnPageLoadedInitEvergine）。
+        Loaded += OnPageLoadedInitEvergine;
     }
 
     /// <summary>
@@ -96,6 +104,9 @@ public partial class MainGamePage : ContentPage
     /// </summary>
     private void OnBackgroundConfigChanged(BackgroundConfig cfg)
     {
+        // Evergine 3D 层跟随测试版总开关：关闭时隐藏（停掉 GPU 负载），Application 实例保留，
+        // 再次开启时无需重建场景；未初始化成功时 _evergineReady=false，始终隐藏。
+        SyncEvergineVisibility(cfg.ExperimentalEnabled);
         // 测试版总开关关闭：近景雨整层不参与渲染也不起相位泵；天气氛围层的 IsVisible 由
         // VM.WeatherSceneVisible 绑定控制（VM 侧已按 ExperimentalEnabled 门控），这里只管雨层。
         var experimental = cfg.ExperimentalEnabled;
@@ -114,6 +125,53 @@ public partial class MainGamePage : ContentPage
         WeatherSceneLayer.SetScene(cfg.Scene);
         ForegroundRainLayer.SetScene(cfg.Scene, _bg.CurrentScene.Intensity);
     }
+
+    // ============ Evergine 3D 天气大气场（失败降级为既有 2D 天气层）============
+    private void OnPageLoadedInitEvergine(object? sender, EventArgs e)
+    {
+        Loaded -= OnPageLoadedInitEvergine;
+        try
+        {
+            if (EvergineWeatherLayer is null) return;
+            EvergineWeatherLayer.Application = new WarmAsBefore.Weather3D.WeatherApplication();
+            _evergineReady = true;
+            SyncEvergineVisibility();
+        }
+        catch (Exception ex)
+        {
+            _evergineReady = false;
+            App.WriteLog("MainGame.InitEvergine3D -> " + ex.Message);
+            if (EvergineWeatherLayer is not null) EvergineWeatherLayer.IsVisible = false;
+        }
+    }
+
+    /// <summary>
+    /// 3D 天气层可见性 = 初始化成功 && 测试版总开关开启。默认跟随现有天气开关；
+    /// 若主 Agent 要改为独立开关（如 VM.Weather3DEnabled），只需替换这里的 enabled 来源。
+    /// </summary>
+    private void SyncEvergineVisibility(bool? experimental = null)
+    {
+        if (EvergineWeatherLayer is null) return;
+        var enabled = experimental ?? _bg.Current.ExperimentalEnabled;
+        var on = _evergineReady && enabled;
+        EvergineWeatherLayer.IsVisible = on;
+        // 3D 关闭时把天气驱动交回 2D 层，并停掉 3D 发射器（Clear）。
+#if ANDROID || WINDOWS
+        if (!on) WeatherController.Instance.Set(WeatherKind.Clear);
+        else WeatherController.Instance.Set(ToWeatherKind(_vm.SceneKind));
+#endif
+    }
+
+#if ANDROID || WINDOWS
+    /// <summary>把产品的天气档位映射到 3D 场景的三态：雪→Snow，各档雨→Rain，晴/多云→Clear。</summary>
+    private static WeatherKind ToWeatherKind(WeatherSceneKind kind) => kind switch
+    {
+        WeatherSceneKind.Snow => WeatherKind.Snow,
+        WeatherSceneKind.Drizzle or WeatherSceneKind.LightRain
+            or WeatherSceneKind.HeavyRain or WeatherSceneKind.Storm => WeatherKind.Rain,
+        _ => WeatherKind.Clear
+    };
+#endif
 
     // ============ 聊天列表滚底（替代 KeepLastItemInView）============
     // Messages 是 RangeObservableCollection：整段替换（读档恢复）发 Reset、单条新消息发 Add。
@@ -297,8 +355,21 @@ public partial class MainGamePage : ContentPage
         if (e.PropertyName == nameof(MainGameViewModel.SceneKind))
         {
             if (!_bg.Current.ExperimentalEnabled) return;
-            WeatherSceneLayer?.SetScene(_vm.SceneKind);
-            ForegroundRainLayer?.SetScene(_vm.SceneKind, _bg.CurrentScene.Intensity);
+            // 3D 层就绪时由 Evergine 粒子接管雨雪，旧 2D 层同步停泵，避免两套雨雪叠加。
+            var use3d = _evergineReady && EvergineWeatherLayer?.IsVisible == true;
+#if ANDROID || WINDOWS
+            WeatherController.Instance.Set(ToWeatherKind(_vm.SceneKind));
+#endif
+            if (!use3d)
+            {
+                WeatherSceneLayer?.SetScene(_vm.SceneKind);
+                ForegroundRainLayer?.SetScene(_vm.SceneKind, _bg.CurrentScene.Intensity);
+            }
+            else
+            {
+                WeatherSceneLayer?.SetScene(WeatherSceneKind.Sunny);
+                ForegroundRainLayer?.SetScene(WeatherSceneKind.Sunny, 0);
+            }
             return;
         }
         // 打雷瞬时信号（VM 每次打雷 +1）：触发场景层一次性白闪。

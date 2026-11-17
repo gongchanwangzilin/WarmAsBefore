@@ -106,6 +106,17 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
 
 
 
+        <!-- ===== Evergine 3D 天气大气场（最底层）：3D 雨雪/体积雾渲染到平台 SwapChain =====
+             叠在既有 2D 天气氛围层（ZIndex=-2）之下，更在舞台容器 DesktopGrid 之下。
+             InputTransparent 不拦截点击；IsVisible 默认 False，3D Application 初始化
+             成功后由 code-behind 按测试版总开关开启；失败则保持隐藏，由 2D 层兜底。
+             注：现有 ForegroundRainView / WeatherSceneView 默认并存，WeatherController.Set
+             时需同步切换旧层可见性以免两套雨雪叠加——该开关接线由主 Agent 补。 -->
+        <controls:EvergineWeatherView x:Name="EvergineWeatherLayer"
+                                      IsVisible="False"
+                                      HorizontalOptions="Fill" VerticalOptions="Fill"
+                                      ZIndex="-3" InputTransparent="True" />
+
         <!-- ===== 第3层·天气氛围底「操作背景」：铺满整窗最底层，不碰角色背景图/场景图/立绘 =====
              GraphicsView 自绘灰雾渐变+暗角，随天气变色；InputTransparent 不拦截点击。
              移到根 Grid 最底层后，桌面与手机两套布局共用这一层。 -->
