@@ -56,6 +56,8 @@ public static class PageRegistration
         services.AddTransient<MemoryManagePage>();
         services.AddTransient<MemoryGraphPage>();
         services.AddTransient<MemorySearchPage>();
+        // v1.62 超级监测独立整页（默认收起，点击才导航到）
+        services.AddTransient<SuperMonitorPage>();
         services.AddTransient<SceneLibraryPage>();
         services.AddTransient<ForceCastPage>();
         services.AddTransient<MentalHealthPage>();

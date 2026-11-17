@@ -13,12 +13,16 @@
         <!-- Header：顶栏不是卡，与内容区同一块地，下面一条发丝线就够了 -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0"
                         Command="{Binding GoBackCommand}" />
                 <Label Grid.Column="1" Text="存档管理" Style="{StaticResource TxtTitle}"
                        VerticalOptions="Center" />
+                <!-- 超级监测入口：静态命令自带 charId 兜底，不用改本页 VM / code-behind -->
+                <Button Grid.Column="2" Text="监测" Style="{StaticResource BtnGhostSm}"
+                        VerticalOptions="Center"
+                        Command="{x:Static vm:SuperMonitorViewModel.NavigateToMonitor}" />
             </Grid>
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />

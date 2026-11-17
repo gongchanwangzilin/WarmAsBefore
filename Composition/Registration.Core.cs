@@ -48,6 +48,10 @@ public static class CoreRegistration
         // 具体化机制：把情绪落到身体与行为（食欲 / 说话欲 / 走动欲 / 躯体化），判定全纯代码，
         // 只在提示词里自然渗进语气与小动作。依赖 InnerLifeService 的内分泌池，故紧随其后注册。
         services.AddSingleton<SomatizationService>();
+        // v1.62 抽象器官层：把躯体化/生理/内分泌组织成可展示的器官节点，静态单例 + 服务定位器延迟解析依赖。
+        services.AddSingleton(_ => OrganSimulationService.Instance);
+        // v1.62 每角色 AI 日程：一天一次生成、按表执行，省 token；构造函数私有，工厂注册。
+        services.AddSingleton(_ => DailyPlanService.Instance);
         // F16 精力台账：睡眠 / 劳作 / 思考 / 说话四项纯代码结算，宿主算、模组只显示。
         services.AddSingleton<EnergyLedgerService>();
         // 画面生成：装扮 / 背景 / 立绘 / 地图背景

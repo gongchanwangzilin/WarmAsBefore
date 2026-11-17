@@ -1,0 +1,123 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.SuperMonitorPage"
+             x:Name="Root"
+             x:DataType="vm:SuperMonitorViewModel"
+             Title="超级监测"
+             BackgroundColor="{DynamicResource PageBg}">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
+
+        <!-- ============ 顶栏：角色 · 日期 · 3D 开关 · 刷新 ============ -->
+        <Border Grid.Row="0" Style="{StaticResource CardSolid}" Padding="12,8"
+                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                <Button Grid.Column="0" Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
+                        Command="{Binding BackCommand}" />
+                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
+                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtBodySm}"
+                           FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" MaxLines="1" />
+                    <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1" />
+                </VerticalStackLayout>
+                <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
+                    <Label Text="3D 向量显示" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                    <controls:ViewSwitch IsToggled="{Binding Show3D, Mode=TwoWay}" VerticalOptions="Center" />
+                </HorizontalStackLayout>
+                <Button Grid.Column="3" Text="刷新" Style="{StaticResource BtnGhostSm}"
+                        Command="{Binding RefreshCommand}" />
+            </Grid>
+        </Border>
+
+        <!-- ============ 上半：今日日程时间线 ============ -->
+        <Border Grid.Row="1" Style="{StaticResource CardSolid}" Padding="10,6"
+                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
+            <VerticalStackLayout Spacing="4">
+                <Label Text="今日日程" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                       TextColor="{DynamicResource WarmDark}" />
+                <CollectionView ItemsSource="{Binding Timeline}" HeightRequest="150"
+                                BackgroundColor="Transparent">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.EmptyView>
+                        <Label Text="今天还没有安排" Style="{StaticResource TxtCaption}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </CollectionView.EmptyView>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="vm:SuperMonitorViewModel+TimelineRow">
+                            <Grid ColumnDefinitions="52,28,*" ColumnSpacing="6" Padding="0,3">
+                                <Label Grid.Column="0" Text="{Binding Time}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" />
+                                <!-- 勾选走 MarkDone（写盘 + 广播 Changed），不直接改 item.Done -->
+                                <Button Grid.Column="1" Text="{Binding Mark}" Style="{StaticResource BtnTextSm}"
+                                        Padding="0" WidthRequest="28" VerticalOptions="Center"
+                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SuperMonitorViewModel}}, Path=ToggleDoneCommand}"
+                                        CommandParameter="{Binding Id}" />
+                                <VerticalStackLayout Grid.Column="2" Spacing="0">
+                                    <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}"
+                                           TextColor="{DynamicResource WarmDark}" LineBreakMode="TailTruncation" />
+                                    <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
+                                           LineBreakMode="TailTruncation" MaxLines="1" />
+                                </VerticalStackLayout>
+                            </Grid>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+            </VerticalStackLayout>
+        </Border>
+
+        <!-- ============ 下半：流程图 + 右侧详情 ============ -->
+        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="0,6">
+
+            <Border Grid.Column="0" Style="{StaticResource CardSolid}" Padding="4"
+                    HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
+                <Grid>
+                    <GraphicsView x:Name="FlowCanvas"
+                                  EndInteraction="OnCanvasEnd"
+                                  BackgroundColor="Transparent" />
+                    <!-- 3D 向量显示：默认隐藏，3D 开关打开时盖在流程图之上；InputTransparent 让点击仍落到 2D 画布 -->
+                    <controls:EvergineWeatherView x:Name="Vector3DView"
+                                                  IsVisible="False"
+                                                  InputTransparent="True"
+                                                  HeightRequest="220"
+                                                  HorizontalOptions="Fill"
+                                                  VerticalOptions="Fill"
+                                                  BackgroundColor="Transparent"
+                                                  DisplayName="MonitorVectors" />
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" IsVisible="{Binding HasSelection}"
+                    Style="{StaticResource CardFrost}" Padding="12,10" WidthRequest="320"
+                    VerticalOptions="Fill">
+                <ScrollView>
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="{Binding SelectedNode.Title}" Style="{StaticResource TxtBodySm}"
+                               FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" />
+                        <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Label Text="{Binding SelectedNode.Detail}" Style="{StaticResource TxtBody}"
+                               TextColor="{DynamicResource WarmBody}" />
+                        <Label Text="影响链" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding SelectedNode.Influence}" Style="{StaticResource TxtBody}"
+                               TextColor="{DynamicResource WarmBody}" />
+                    </VerticalStackLayout>
+                </ScrollView>
+            </Border>
+        </Grid>
+
+        <!-- ============ 底部状态 ============ -->
+        <Border Grid.Row="3" Style="{StaticResource CardSolid}" Padding="10,6"
+                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
+            <VerticalStackLayout Spacing="2">
+                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
+                <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
+                       IsVisible="{Binding HasSelection}" />
+            </VerticalStackLayout>
+        </Border>
+    </Grid>
+</ContentPage>
