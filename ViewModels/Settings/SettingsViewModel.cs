@@ -234,6 +234,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _sttEnabled = s.SttEnabled;
         _ttsEngine = string.IsNullOrWhiteSpace(s.TtsEngine) ? "system" : s.TtsEngine;
         _sttEngine = string.IsNullOrWhiteSpace(s.SttEngine) ? "system" : s.SttEngine;
+        _advancedAnalysis = s.AdvancedAnalysis;
+        // 摄像头总开关以独立配置为权威（FaceAnalysisService 也会写它），设置只做镜像。
+        try { _cameraFaceEnabled = new FaceAnalysisService().CameraEnabled || s.CameraFaceEnabled; } catch { _cameraFaceEnabled = s.CameraFaceEnabled; }
+        _audioInputMode = string.IsNullOrWhiteSpace(s.AudioInputMode) ? "internal" : s.AudioInputMode;
         _voiceApiUrl = string.IsNullOrWhiteSpace(s.VoiceApiUrl) ? "https://api.openai.com/v1" : s.VoiceApiUrl;
         _voiceApiKey = s.VoiceApiKey ?? "";
         _voiceTtsModel = string.IsNullOrWhiteSpace(s.VoiceTtsModel) ? "tts-1" : s.VoiceTtsModel;
@@ -1641,6 +1645,10 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _sttEnabled = true;
     [ObservableProperty] private string _ttsEngine = "system";
     [ObservableProperty] private string _sttEngine = "system";
+    // v1.60：高级分析（大模型深度解读本地情绪/年龄结果）+ 音频直送大模型开关。
+    [ObservableProperty] private bool _advancedAnalysis;
+    [ObservableProperty] private bool _cameraFaceEnabled;
+    [ObservableProperty] private string _audioInputMode = "internal";
     [ObservableProperty] private string _voiceApiUrl = "https://api.openai.com/v1";
     [ObservableProperty] private string _voiceApiKey = "";
     [ObservableProperty] private string _voiceTtsModel = "tts-1";
@@ -1661,6 +1669,8 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _isDownloadingSttModel;
 
     public List<string> VoiceEngineChoices { get; } = new() { "system", "api", "local" };
+    /// <summary>音频输入模式：internal=内部 STT 转文字，direct=直送支持听音频的大模型。</summary>
+    public List<string> AudioInputModeChoices { get; } = new() { "internal", "direct" };
     /// <summary>本地识别模型选项（Picker 用，显示名 = "文件名（大小）"）。</summary>
     public List<string> SttModelChoices { get; } = SpeechService.SttLocalModels
         .Select(m => $"{m.Name}（{m.SizeLabel}）").ToList();
@@ -3009,6 +3019,12 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnSttEnabledChanged(bool value) => PersistSettings();
     partial void OnTtsEngineChanged(string value) { OnPropertyChanged(nameof(NeedsVoiceApi)); PersistSettings(); }
     partial void OnSttEngineChanged(string value) { OnPropertyChanged(nameof(NeedsVoiceApi)); PersistSettings(); }
+    /// <summary>摄像头人脸识别总开关：同步到独立配置供 FaceAnalysisService 与开场询问读取。</summary>
+    partial void OnCameraFaceEnabledChanged(bool value)
+    {
+        try { new FaceAnalysisService().CameraEnabled = value; } catch { }
+        PersistSettings();
+    }
     partial void OnVoiceApiUrlChanged(string value) => PersistSettings();
     partial void OnVoiceApiKeyChanged(string value) => PersistSettings();
     partial void OnVoiceTtsModelChanged(string value) => PersistSettings();
@@ -3315,6 +3331,9 @@ GlassLightWidth = GlassLightWidth,
                 SttEnabled = SttEnabled,
                 TtsEngine = string.IsNullOrWhiteSpace(TtsEngine) ? "system" : TtsEngine,
                 SttEngine = string.IsNullOrWhiteSpace(SttEngine) ? "system" : SttEngine,
+                AdvancedAnalysis = AdvancedAnalysis,
+                CameraFaceEnabled = CameraFaceEnabled,
+                AudioInputMode = string.IsNullOrWhiteSpace(AudioInputMode) ? "internal" : AudioInputMode,
                 VoiceApiUrl = string.IsNullOrWhiteSpace(VoiceApiUrl) ? "https://api.openai.com/v1" : VoiceApiUrl.Trim(),
                 VoiceApiKey = (VoiceApiKey ?? "").Trim(),
                 VoiceTtsModel = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel.Trim(),

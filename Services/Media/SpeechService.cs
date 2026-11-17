@@ -1,4 +1,5 @@
 using WarmAsBefore.Models;
+using WarmAsBefore.Modules.ApiManager;
 
 namespace WarmAsBefore.Services;
 
@@ -46,6 +47,34 @@ public sealed class SpeechService
     /// 在用户看来就是「这麦克风坏了」，谁也不知道是没麦、没授权还是没说话。
     /// </summary>
     public string LastRecognitionNote { get; private set; } = "";
+
+    /// <summary>
+    /// v1.60 能力路由钩子：从 ApiGateway 轮换池里挑一个声明了指定音频能力
+    /// （SupportsAudioInput=听音频 / SupportsAudioOutput=出音频）的端点，供上层判断
+    /// 「api-direct」这类新链路能否走通。纯查询，绝不改动原有 system / local / api 语音流程；
+    /// 取不到、无能力声明或任何异常都返回 null，保持旧行为。
+    /// </summary>
+    public (string Url, string Key, string Model)? ResolveCapabilityEndpoint(Func<AiEndpoint, bool> capability)
+    {
+        try
+        {
+            var api = WarmAsBefore.Modules.Tools.ServicesHelper.GetServices()
+                ?.GetService(typeof(ApiGateway)) as ApiGateway;
+            if (api is null) return null;
+            foreach (var e in api.CandidatesForCapability(capability))
+            {
+                if (e is null || !capability(e)) continue;   // 排除「无匹配回退」塞进来的不具备该能力者
+                if (string.IsNullOrWhiteSpace(e.Url) || string.IsNullOrWhiteSpace(e.Key)
+                    || string.IsNullOrWhiteSpace(e.Model)) continue;
+                return (e.Url.Trim(), e.Key.Trim(), e.Model.Trim());
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SpeechService.ResolveCapabilityEndpoint -> " + ex.Message);
+        }
+        return null;
+    }
 
     /// <summary>
     /// Speak text aloud using the configured TTS engine.

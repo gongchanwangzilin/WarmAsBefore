@@ -1,6 +1,7 @@
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
+using WarmAsBefore.Modules.ApiManager;
 
 namespace WarmAsBefore.Services;
 
@@ -36,26 +37,65 @@ public sealed class ImageGenerationService
                            && !string.IsNullOrWhiteSpace(_settings.Current.ImageGenUrl)
                            && !string.IsNullOrWhiteSpace(_settings.Current.ImageGenKey);
 
+    /// <summary>
+    /// 从 ApiGateway 轮换池里挑一个声明了 SupportsImageGen 的端点。
+    /// 能力路由无匹配时会回退全部端点，所以这里再判一次能力，绝不拿不生图的模型去调 /images。
+    /// Url 归一到根地址（去掉可能存在的 /chat/completions），调用方再补 /images/generations。
+    /// 异常一律吞掉回退 null，让生成继续走旧的三件套配置。
+    /// </summary>
+    private static (string Url, string Key, string Model)? ResolveViaGateway()
+    {
+        try
+        {
+            var api = WarmAsBefore.Modules.Tools.ServicesHelper.GetServices()
+                ?.GetService(typeof(ApiGateway)) as ApiGateway;
+            if (api is null) return null;
+            foreach (var e in api.CandidatesForCapability(x => x.SupportsImageGen))
+            {
+                if (e is null || !e.SupportsImageGen) continue;
+                if (string.IsNullOrWhiteSpace(e.Url) || string.IsNullOrWhiteSpace(e.Key)
+                    || string.IsNullOrWhiteSpace(e.Model)) continue;
+                var url = e.Url.Trim().TrimEnd('/');
+                if (url.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase))
+                    url = url[..^"/chat/completions".Length].TrimEnd('/');
+                return (url, e.Key.Trim(), e.Model.Trim());
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("ImageGenerationService.ResolveViaGateway -> " + ex.Message);
+        }
+        return null;
+    }
+
     /// <summary>生成一张图，返回绝对路径；失败给 null 与一句人话。</summary>
     public async Task<(string? Path, string Message)> GenerateAsync(string prompt, string tag = "image", string? size = null)
     {
         var s = _settings.Current;
         if (!s.ImageGenEnabled) return (null, "画面生成没有开启（设置 → AI → 画面生成）。");
-        if (string.IsNullOrWhiteSpace(s.ImageGenUrl)) return (null, "还没有填写画面生成的接口地址。");
-        if (string.IsNullOrWhiteSpace(s.ImageGenKey)) return (null, "还没有填写画面生成的 API Key。");
         if (string.IsNullOrWhiteSpace(prompt)) return (null, "画面描述是空的。");
 
-        var url = s.ImageGenUrl.Trim().TrimEnd('/');
+        // v1.60 能力路由：优先挑声明了 SupportsImageGen 的端点；找不到就回退旧的
+        // ImageGenUrl / ImageGenKey / ImageGenModel 三件套，行为与从前逐字一致。
+        var routed = ResolveViaGateway();
+        var rawUrl = routed?.Url ?? s.ImageGenUrl;
+        var key = routed?.Key ?? s.ImageGenKey;
+        var model = routed?.Model
+                    ?? (string.IsNullOrWhiteSpace(s.ImageGenModel) ? "gpt-image-1" : s.ImageGenModel.Trim());
+        if (string.IsNullOrWhiteSpace(rawUrl)) return (null, "还没有填写画面生成的接口地址。");
+        if (string.IsNullOrWhiteSpace(key)) return (null, "还没有填写画面生成的 API Key。");
+
+        var url = rawUrl.Trim().TrimEnd('/');
         if (!url.EndsWith("/images/generations", StringComparison.OrdinalIgnoreCase))
             url += "/images/generations";
 
         try
         {
             using var req = new HttpRequestMessage(HttpMethod.Post, url);
-            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", s.ImageGenKey.Trim());
+            req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key.Trim());
             var body = JsonSerializer.Serialize(new
             {
-                model = string.IsNullOrWhiteSpace(s.ImageGenModel) ? "gpt-image-1" : s.ImageGenModel.Trim(),
+                model,
                 prompt,
                 n = 1,
                 size = string.IsNullOrWhiteSpace(size) ? (string.IsNullOrWhiteSpace(s.ImageGenSize) ? "1024x1024" : s.ImageGenSize) : size,

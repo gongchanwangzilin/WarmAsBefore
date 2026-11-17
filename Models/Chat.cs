@@ -85,6 +85,16 @@ public sealed record AiEndpoint
     public bool SupportsTools { get; init; } = true;
     /// <summary>该端点是否能看图：识图没配独立端点时，用它兜底。</summary>
     public bool SupportsVision { get; init; }
+    // ===== 模型能力声明（v1.60）：从 AiProviderModel 下发，供能力路由挑选端点 =====
+    public bool SupportsReasoning { get; init; }
+    public bool SupportsImageGen { get; init; }
+    public bool SupportsAudioInput { get; init; }
+    public bool SupportsAudioOutput { get; init; }
+    public bool SupportsVideoInput { get; init; }
+    public bool SupportsVideoOutput { get; init; }
+    public bool SupportsOcr { get; init; }
+    /// <summary>使用顺序权重：小的优先，用于按能力排序候选端点。</summary>
+    public int Priority { get; init; }
     /// <summary>该端点的超时（秒）：null 或 ≤0 = 用全局设置。</summary>
     public int? TimeoutSeconds { get; init; }
     /// <summary>自定义 AI 参数（JSON 对象，键→值）。空串表示不附加任何自定义参数。第十二项：与 ParamFormat 一起被 AiParamFormatMapper 转换成目标格式后并入请求体。</summary>

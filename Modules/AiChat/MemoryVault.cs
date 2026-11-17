@@ -170,7 +170,16 @@ public sealed class MemoryVault
     /// 文本由调用方压到一句话——后台不该把整段独白背下来。
     /// </summary>
     public Task StoreAmbient(string charId, string content, string category = "life", string? keywords = null, int weight = 1)
-        => Store(new MemoryEntry
+    {
+        // 最后一道防线：ApiGateway 把端点失败编成 [API错误…]/[网络…]/[请求超时…] 串。
+        // 这类文本绝不是角色的记忆，即使是上游漏判也不许落盘污染 memories.json。
+        var t = content?.TrimStart() ?? "";
+        if (t.StartsWith("[API错误", StringComparison.Ordinal)
+            || t.StartsWith("[网络连接失败", StringComparison.Ordinal)
+            || t.StartsWith("[请求超时", StringComparison.Ordinal)
+            || t.StartsWith("[请求排队超时", StringComparison.Ordinal))
+            return Task.CompletedTask;
+        return Store(new MemoryEntry
         {
             CharacterId = charId,
             Content = content,
@@ -178,6 +187,7 @@ public sealed class MemoryVault
             Keywords = keywords,
             Weight = weight
         });
+    }
 
     /// <summary>只裁后台产生的类别，对话与好感记忆一条不动。</summary>
     private static void PruneAmbientLocked(List<MemoryEntry> list, string charId)

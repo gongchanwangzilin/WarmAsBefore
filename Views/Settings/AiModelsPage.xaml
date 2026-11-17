@@ -3,137 +3,307 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.AiModelsPage"
+             x:Name="Page"
+             x:DataType="vm:AiModelsViewModel"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
-    <Grid RowDefinitions="Auto,*" Padding="18,10,18,14" RowSpacing="10">
 
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-            <Button Grid.Column="0" Text="←" Style="{StaticResource BtnText}" Padding="10,2" Clicked="OnBack" />
-            <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                <Label Text="AI 模型管理" FontSize="18" FontAttributes="Bold"
-                       TextColor="{DynamicResource SurfaceFg}" />
-                <Label Text="每个模型单独配上下文窗口与能力：窗口决定历史折叠阈值，能力决定带不带工具、识图用不用它。"
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="0">
+
+        <!-- 顶栏 -->
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10"
+              Padding="{DynamicResource WPadRow}">
+            <Button Grid.Column="0" Text="返回" Style="{StaticResource BtnText}"
+                    Command="{Binding BackCommand}" VerticalOptions="Center" />
+            <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                <Label Text="AI 模型管理" Style="{StaticResource TxtSubhead}" />
+                <Label Text="每款模型单独配上下文窗口与能力；预设一键批量设置，改动自动保存。"
                        Style="{StaticResource TxtCaption}" />
             </VerticalStackLayout>
-            <Button Grid.Column="2" Text="厂商管理 →" Style="{StaticResource BtnGhost}"
-                    Padding="10,4" Clicked="OnOpenProviders" />
+            <Button Grid.Column="2" Text="厂商管理" Style="{StaticResource BtnGhost}"
+                    Command="{Binding OpenProvidersCommand}" VerticalOptions="Center" />
         </Grid>
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-        <ScrollView Grid.Row="1">
-            <VerticalStackLayout Spacing="12">
+        <!-- 主体：列表 / 详情同页切换 -->
+        <Grid Grid.Row="2" RowDefinitions="*,Auto">
 
-                <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Providers}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="vm:AiProviderRow">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="12,10">
-                                <Border.StrokeShape>
-                                    <RoundRectangle CornerRadius="12" />
-                                </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto">
-                                        <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                            <Label Text="{Binding Title}" FontSize="14" FontAttributes="Bold"
-                                                   TextColor="{DynamicResource SurfaceFg}" />
-                                            <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
-                                                   LineBreakMode="TailTruncation" />
-                                        </VerticalStackLayout>
-                                        <Button Grid.Column="1" Text="＋ 模型" Style="{StaticResource BtnText}"
-                                                Clicked="OnAddModel" />
-                                    </Grid>
+            <!-- ==================== 列表 ==================== -->
+            <ScrollView Grid.Row="0" IsVisible="{Binding IsListVisible}">
+                <VerticalStackLayout Spacing="12" Padding="{DynamicResource WPadCard}"
+                                     HorizontalOptions="Fill"
+                                     MaximumWidthRequest="{DynamicResource WCardWidth}">
 
-                                    <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Models}">
-                                        <BindableLayout.ItemTemplate>
-                                            <DataTemplate x:DataType="vm:AiModelRow">
-                                                <Border Stroke="{DynamicResource BorderLine}" StrokeThickness="0.8"
-                                                        Padding="10,8">
-                                                    <Border.StrokeShape>
-                                                        <RoundRectangle CornerRadius="10" />
-                                                    </Border.StrokeShape>
-                                                    <VerticalStackLayout Spacing="6">
-                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                                            <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                                                <Label Text="{Binding DisplayName}" FontSize="13"
-                                                                       TextColor="{DynamicResource SurfaceFg}" />
-                                                                <Label Text="{Binding CapabilityText}"
-                                                                       Style="{StaticResource TxtCaption}" />
-                                                            </VerticalStackLayout>
-                                                            <HorizontalStackLayout Grid.Column="1" Spacing="4">
-                                                                <Switch IsToggled="{Binding Enabled}"
-                                                                        Toggled="OnModelToggled" VerticalOptions="Center" />
+                    <VerticalStackLayout Spacing="12" BindableLayout.ItemsSource="{Binding Providers}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:AiProviderEditRow">
+                                <Border Style="{StaticResource CardSolid}">
+                                    <VerticalStackLayout Spacing="8">
+
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                            <VerticalStackLayout Spacing="2">
+                                                <Label Text="{Binding Title}" Style="{StaticResource TxtBody}" FontAttributes="Bold" />
+                                                <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
+                                                       LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding ModelCountText}" Style="{StaticResource TxtCaption}" />
+                                            </VerticalStackLayout>
+                                            <Switch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                                        </Grid>
+
+                                        <!-- 该厂商下的模型 -->
+                                        <VerticalStackLayout Spacing="8"
+                                                             BindableLayout.ItemsSource="{Binding Models}">
+                                            <BindableLayout.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:AiModelEditRow">
+                                                    <Border Style="{StaticResource CardSolid}">
+                                                        <VerticalStackLayout Spacing="4">
+                                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                                <VerticalStackLayout Spacing="2">
+                                                                    <Label Text="{Binding DisplayName}"
+                                                                           Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                                    <Label Text="{Binding CapabilityText}" Style="{StaticResource TxtCaption}" />
+                                                                </VerticalStackLayout>
+                                                                <Switch Grid.Column="1" IsToggled="{Binding Enabled}"
+                                                                        VerticalOptions="Center" />
+                                                            </Grid>
+                                                            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                                                                <Button Text="编辑" Style="{StaticResource BtnText}" Margin="0,0,8,0"
+                                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.EditModelCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                <Button Text="上移" Style="{StaticResource BtnText}" Margin="0,0,8,0"
+                                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveModelUpCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                                <Button Text="下移" Style="{StaticResource BtnText}" Margin="0,0,8,0"
+                                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveModelDownCommand}"
+                                                                        CommandParameter="{Binding .}" />
                                                                 <Button Text="删除" Style="{StaticResource BtnText}"
-                                                                        Clicked="OnDeleteModel" />
-                                                            </HorizontalStackLayout>
-                                                        </Grid>
+                                                                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteModelCommand}"
+                                                                        CommandParameter="{Binding .}" />
+                                                            </FlexLayout>
+                                                        </VerticalStackLayout>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </BindableLayout.ItemTemplate>
+                                        </VerticalStackLayout>
 
-                                                        <Grid ColumnDefinitions="Auto,120,*" ColumnSpacing="8">
-                                                            <Label Grid.Column="0" Text="上下文窗口"
-                                                                   Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" />
-                                                            <Entry Grid.Column="1" Text="{Binding ContextWindow}"
-                                                                   Placeholder="如 128000" Keyboard="Numeric"
-                                                                   FontSize="12" Unfocused="OnWindowUnfocused"
-                                                                   BackgroundColor="{DynamicResource InputBg}"
-                                                                   TextColor="{DynamicResource SurfaceFg}"
-                                                                   PlaceholderColor="{DynamicResource MutedFg}" />
-                                                            <Label Grid.Column="2" Text="留空 = 用全局上限；填了按 70% 折叠历史"
-                                                                   Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" />
-                                                        </Grid>
+                                        <!-- 厂商级操作 -->
+                                        <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
+                                            <Button Text="加模型" Style="{StaticResource BtnGhost}" Margin="0,0,8,0"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.AddModelCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="上移" Style="{StaticResource BtnText}" Margin="0,0,8,0"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveProviderUpCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="下移" Style="{StaticResource BtnText}" Margin="0,0,8,0"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.MoveProviderDownCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="删除厂商" Style="{StaticResource BtnText}"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeleteProviderCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </FlexLayout>
 
-                                                        <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
-                                                            <Label Text="识图" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding SupportsVision}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
-                                                            <Label Text="工具" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding SupportsTools}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
-                                                            <Label Text="JSON" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding SupportsJson}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" />
-                                                        </FlexLayout>
-
-                                                        <!-- F25：在模型内部决定对话页显示哪些控件，
-                                                             有的模型有热度/思考能力，有的没有，不勾就不显示。 -->
-                                                        <Label Text="对话页控件（按这款模型决定）"
-                                                               Style="{StaticResource TxtCaption}" Margin="0,2,0,0" />
-                                                        <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
-                                                            <Label Text="热度条" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding ShowHeatSlider}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
-                                                            <Label Text="思考条" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding ShowThinkTierBar}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
-                                                            <Label Text="思考开关" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding ShowThinkToggle}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" Margin="0,0,14,0" />
-                                                            <Label Text="快速钮" Style="{StaticResource TxtCaption}"
-                                                                   VerticalOptions="Center" Margin="0,0,4,0" />
-                                                            <Switch IsToggled="{Binding ShowQuickButtons}" Scale="0.8"
-                                                                    Toggled="OnCapabilityToggled" />
-                                                        </FlexLayout>
-                                                    </VerticalStackLayout>
-                                                </Border>
-                                            </DataTemplate>
-                                        </BindableLayout.ItemTemplate>
                                     </VerticalStackLayout>
-                                </VerticalStackLayout>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
-                </VerticalStackLayout>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
 
-                <Button Text="模型部署向导 →" Style="{StaticResource BtnGhost}" HorizontalOptions="Start"
-                        Clicked="OnOpenDeployment" />
-                <Label Text="没有厂商？先去「厂商管理」填端点与密钥。" Style="{StaticResource TxtCaption}" />
-                <Label x:Name="StatusLabel" Style="{StaticResource TxtCaption}" IsVisible="False" />
-            </VerticalStackLayout>
-        </ScrollView>
+                    <Button Text="加厂商" Style="{StaticResource BtnGhost}" HorizontalOptions="Start"
+                            Command="{Binding AddProviderCommand}" />
+                    <Button Text="模型部署向导" Style="{StaticResource BtnText}" HorizontalOptions="Start"
+                            Command="{Binding OpenDeploymentCommand}" />
+                    <Label Text="端点与密钥在「厂商管理」维护；这里只管模型与能力。" Style="{StaticResource TxtCaption}" />
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- ==================== 详情 ==================== -->
+            <ScrollView Grid.Row="0" IsVisible="{Binding IsDetailVisible}">
+                <VerticalStackLayout Spacing="12" Padding="{DynamicResource WPadCard}"
+                                     HorizontalOptions="Fill"
+                                     MaximumWidthRequest="{DynamicResource WCardWidth}">
+
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Button Grid.Column="0" Text="返回列表" Style="{StaticResource BtnText}"
+                                Command="{Binding BackToListCommand}" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="{Binding DetailTitle}" Style="{StaticResource TxtSubhead}"
+                               VerticalOptions="Center" LineBreakMode="TailTruncation" />
+                    </Grid>
+
+                    <!-- 基础 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="基础" Style="{StaticResource TxtSubhead}" />
+                            <Grid ColumnDefinitions="88,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="8">
+                                <Label Grid.Row="0" Grid.Column="0" Text="模型 id" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Entry Grid.Row="0" Grid.Column="1" Text="{Binding SelectedModel.Model}"
+                                       FontSize="{DynamicResource WSizeBody}" Placeholder="如 deepseek-chat"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" />
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="显示名" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Entry Grid.Row="1" Grid.Column="1" Text="{Binding SelectedModel.Label}"
+                                       FontSize="{DynamicResource WSizeBody}" Placeholder="留空则用模型 id"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" />
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="上下文窗口" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Entry Grid.Row="2" Grid.Column="1" Text="{Binding SelectedModel.ContextWindowText}"
+                                       FontSize="{DynamicResource WSizeBody}" Placeholder="如 128000"
+                                       Keyboard="Numeric"
+                                       BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
+                                       PlaceholderColor="{DynamicResource MutedFg}" />
+                            </Grid>
+                            <Label Text="留空 = 用全局上限；填了按 70% 折叠历史，为输出留空间。"
+                                   Style="{StaticResource TxtCaption}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 预设 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="8">
+                            <Label Text="能力预设（一键批量设置）" Style="{StaticResource TxtSubhead}" />
+                            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center"
+                                        BindableLayout.ItemsSource="{Binding BuiltinPresets}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:CapabilityPreset">
+                                        <Button Text="{Binding Name}" Style="{StaticResource BtnGhost}" Margin="0,0,8,6"
+                                                Command="{Binding Source={x:Reference Page}, Path=BindingContext.ApplyPresetCommand}"
+                                                CommandParameter="{Binding .}" />
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                            <Label Text="通用对话 = 工具 + JSON；视觉模型 = 识图 + OCR；全模态 = 全开；纯文本小模型 = 全关。"
+                                   Style="{StaticResource TxtCaption}" />
+
+                            <BoxView Style="{StaticResource HSepBleed}" />
+                            <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center"
+                                        BindableLayout.ItemsSource="{Binding CustomPresets}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:CapabilityPreset">
+                                        <HorizontalStackLayout Spacing="2" Margin="0,0,8,6">
+                                            <Button Text="{Binding Name}" Style="{StaticResource BtnText}"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.ApplyPresetCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                            <Button Text="✕" Style="{StaticResource BtnText}"
+                                                    Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeletePresetCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </HorizontalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </FlexLayout>
+                            <Button Text="另存为预设" Style="{StaticResource BtnText}" HorizontalOptions="Start"
+                                    Command="{Binding SaveAsPresetCommand}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 能力开关：文本与工具 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="文本与工具" Style="{StaticResource TxtSubhead}" />
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                                <Label Grid.Row="0" Grid.Column="0" Text="工具（function calling）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsTools}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="JSON 结构化输出" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsJson}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="深度思考（推理强度）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsReasoning}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 能力开关：图像 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="图像" Style="{StaticResource TxtSubhead}" />
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                                <Label Grid.Row="0" Grid.Column="0" Text="识图（看图理解）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVision}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="生图（生成图片）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsImageGen}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="OCR（自带文字识别）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsOcr}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 能力开关：音频 / 视频 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="音频与视频" Style="{StaticResource TxtSubhead}" />
+                            <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                                <Label Grid.Row="0" Grid.Column="0" Text="听音频（输入音频）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsAudioInput}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="1" Grid.Column="0" Text="出音频（语音合成）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsAudioOutput}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="2" Grid.Column="0" Text="看视频（视频理解）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVideoInput}" VerticalOptions="Center" />
+
+                                <Label Grid.Row="3" Grid.Column="0" Text="出视频（视频生成）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                <Switch Grid.Row="3" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVideoOutput}" VerticalOptions="Center" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 使用顺序 -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="6">
+                            <Label Text="使用顺序（Priority）" Style="{StaticResource TxtSubhead}" />
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Slider Grid.Column="0" Minimum="0" Maximum="20" VerticalOptions="Center"
+                                        Value="{Binding SelectedModel.Priority}" />
+                                <Label Grid.Column="1" Text="{Binding SelectedModel.PriorityText}"
+                                       Style="{StaticResource TxtBody}" MinimumWidthRequest="28" HorizontalTextAlignment="Center" />
+                            </Grid>
+                            <Label Text="数值小的优先被路由选中；0 = 按列表顺序。上移/下移按钮调整列表顺序。"
+                                   Style="{StaticResource TxtCaption}" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <!-- 对话页显示开关（折叠区） -->
+                    <Border Style="{StaticResource CardSolid}">
+                        <VerticalStackLayout Spacing="6">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="2">
+                                    <Label Text="对话页控件显示" Style="{StaticResource TxtSubhead}" />
+                                    <Label Text="按这款模型决定对话页显示哪些控件。" Style="{StaticResource TxtCaption}" />
+                                </VerticalStackLayout>
+                                <Switch Grid.Column="1" IsToggled="{Binding ShowDisplaySwitches}" VerticalOptions="Center" />
+                            </Grid>
+                            <VerticalStackLayout Spacing="6" IsVisible="{Binding ShowDisplaySwitches}">
+                                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="6">
+                                    <Label Grid.Row="0" Grid.Column="0" Text="热度条" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowHeatSlider}" VerticalOptions="Center" />
+
+                                    <Label Grid.Row="1" Grid.Column="0" Text="思考等级条" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkTierBar}" VerticalOptions="Center" />
+
+                                    <Label Grid.Row="2" Grid.Column="0" Text="思考开关" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkToggle}" VerticalOptions="Center" />
+
+                                    <Label Grid.Row="3" Grid.Column="0" Text="快速按钮组" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="3" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowQuickButtons}" VerticalOptions="Center" />
+                                </Grid>
+                            </VerticalStackLayout>
+                        </VerticalStackLayout>
+                    </Border>
+
+                </VerticalStackLayout>
+            </ScrollView>
+
+            <!-- 状态卡：显隐只写 IsVisible，宽度走 WCardWidth 令牌 -->
+            <Border Grid.Row="1" Style="{StaticResource CardSolid}"
+                    IsVisible="{Binding HasStatus}"
+                    HorizontalOptions="Fill"
+                    MaximumWidthRequest="{DynamicResource WCardWidth}"
+                    Margin="{DynamicResource WPadCard}">
+                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+            </Border>
+        </Grid>
     </Grid>
 </ContentPage>

@@ -617,6 +617,9 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 订阅必须走 Attach/Detach（审计 A4）：VM 是 Transient、BackgroundService 是 Singleton，
         // 放构造里会每进出一次主界面叠一份，这里随页面进出场挂摘。
         _background.Changed += OnBackgroundChanged;
+        // API 错误独立通道：ChatEngine 把端点失败走这里，不再伪装成 AI 台词。
+        // 收到后红色 Toast + 可点开的分析窗（BugReporter），错误本身绝不进聊天气泡。
+        _chat.ErrorOccurred += OnApiError;
         // 测试版总开关可能在设置页里改过：那时本 VM 已随离场退订 Changed，收不到通知。
         // 进场重订阅后必须主动重读一次当前配置，否则天气氛围层的 IsVisible 绑定会停在旧值
         // （雨层由页面 OnAppearing 自己同步，底层场景与音效靠这里跟上）。同步是幂等的。
@@ -636,7 +639,47 @@ public sealed partial class MainGameViewModel : ObservableObject
         _auto.GreetingReady -= OnGreet;
         _blackout.Changed -= OnBlackoutChanged;
         _background.Changed -= OnBackgroundChanged;
+        _chat.ErrorOccurred -= OnApiError;
         _clock?.Stop();
+    }
+
+    /// <summary>
+    /// API 调用失败：红色 Toast 立即告知 + 可点开的分析窗（BugReporter 落 bugs.log 并弹出详情）。
+    /// <paramref name="message"/> 是网关编码的错误文本，只作为分析材料，绝不写进会话或记忆。
+    /// </summary>
+    private void OnApiError(string charId, string message)
+    {
+        Helpers.Ui.Post(() =>
+        {
+            try
+            {
+                var who = _engine.Roster.TryGetValue(charId, out var ch) ? ch.Profile.Name : "角色";
+                Controls.Toast.Error("AI 调用失败：" + ShortApiError(message));
+                // subsystem 传 null：这是可恢复的请求级错误，不封存任何子系统；分析窗照常弹出。
+                Services.Core.BugReporter.Report(
+                    new InvalidOperationException(message), null, $"AI 调用失败 · {who}");
+            }
+            catch (Exception ex) { App.WriteLog("MainGameViewModel.OnApiError -> " + ex.Message); }
+        });
+    }
+
+    /// <summary>识别网关的错误串：这些前缀是 ApiGateway/ChatEngine 对失败的编码，不是 AI 台词。</summary>
+    private static bool IsApiErrorText(string? text)
+    {
+        if (string.IsNullOrWhiteSpace(text)) return false;
+        var t = text.TrimStart();
+        return t.StartsWith("[API错误", StringComparison.Ordinal)
+            || t.StartsWith("[网络连接失败", StringComparison.Ordinal)
+            || t.StartsWith("[请求超时", StringComparison.Ordinal)
+            || t.StartsWith("[请求排队超时", StringComparison.Ordinal);
+    }
+
+    /// <summary>错误文本截短给 Toast（分析窗里保留完整原文）。</summary>
+    private static string ShortApiError(string message)
+    {
+        if (string.IsNullOrWhiteSpace(message)) return "未知错误";
+        var one = message.Replace("\r", " ").Replace("\n", " ").Trim();
+        return one.Length <= 60 ? one : one[..60] + "…";
     }
 
     /// <summary>统一背景配置变化回调：服务已在 UI 线程发事件，这里再做一次 Post 兜底线程纪律。</summary>
@@ -1912,6 +1955,10 @@ public sealed partial class MainGameViewModel : ObservableObject
                 var reply = files.Count > 0
                     ? await _chat.Send(charId, msg, files)
                     : await _chat.Send(charId, msg);
+                // API 失败时网关返回 [API错误…]/[网络…]/[请求超时…] 串。错误已经走
+                // OnApiError 的红色提示 + 分析窗，这里绝不能把它当 AI 台词塞进气泡。
+                // 返回空串让下游走「本轮没有可显示的正文」分支，不新增助手气泡。
+                if (IsApiErrorText(reply)) reply = "";
                 // #12：先剥离 [表情:名字] 标记，正文照常处理
                 var (replyClean, foundStickers) = Services.StickerLibrary.SplitMarkers(reply);
                 reply = replyClean;

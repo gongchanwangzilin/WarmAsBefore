@@ -638,6 +638,15 @@ public sealed class RuntimeConfigurator
                         ContextTokenLimit = limit,
                         SupportsTools = m.SupportsTools,
                         SupportsVision = m.SupportsVision,
+                        // v1.60：模型能力逐项下发，路由按能力挑端点。
+                        SupportsReasoning = m.SupportsReasoning,
+                        SupportsImageGen = m.SupportsImageGen,
+                        SupportsAudioInput = m.SupportsAudioInput,
+                        SupportsAudioOutput = m.SupportsAudioOutput,
+                        SupportsVideoInput = m.SupportsVideoInput,
+                        SupportsVideoOutput = m.SupportsVideoOutput,
+                        SupportsOcr = m.SupportsOcr,
+                        Priority = m.Priority,
                         TimeoutSeconds = v.TimeoutSeconds
                     });
                 }
