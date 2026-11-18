@@ -329,6 +329,8 @@ public sealed class ApiGateway
     public async Task<string?> Chat(List<ChatMessage> history, AiEndpoint? over = null)
     {
         string? lastError = null;
+        // 架构流程图打点：进入模型路由（第5层 eng）。charId 由上游 ChatEngine 打点写入 FlowTracer。
+        Services.Core.FlowTracer.Trace("eng.router", Services.Core.FlowTracer.LastCharId);
         foreach (var cfg in CandidateEndpoints(over))
         {
             var url = BuildChatUrl(cfg);
@@ -355,6 +357,14 @@ public sealed class ApiGateway
 
                     AdvanceAfterSuccess(cfg, key);
                     ReportUsage(raw, cfg.Model);
+                    // 架构流程图打点：命中轻量本地模型 or 云端大模型（第5层 eng）。
+                    var u = (cfg.Url ?? "");
+                    var isLocal = u.Contains("127.0.0.1", StringComparison.OrdinalIgnoreCase)
+                        || u.Contains("localhost", StringComparison.OrdinalIgnoreCase)
+                        || cfg.Provider.Contains("llama", StringComparison.OrdinalIgnoreCase)
+                        || cfg.Provider.Contains("local", StringComparison.OrdinalIgnoreCase);
+                    Services.Core.FlowTracer.Trace(isLocal ? "eng.model.light" : "eng.model.heavy",
+                        Services.Core.FlowTracer.LastCharId);
                     return JsonDocument.Parse(raw)
                         .RootElement.GetProperty("choices")[0]
                         .GetProperty("message")

@@ -8,12 +8,14 @@ using Microsoft.Maui.Graphics;
 using WarmAsBefore.Drawables;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Core;
 
 namespace WarmAsBefore.ViewModels;
 
 /// <summary>
-/// 超级监测页：日程 / 器官 / 记忆 / 数值 四路现状汇总到一页，点流程图的节点展开说明。
-/// 页面只在导航进来时构建，离开就退订事件、停掉刷新钟；所有展示性读取都各自 try/catch，
+/// 超级监测页：论文五层架构的「活流程图」+ 日程 / 器官 / 记忆 / 数值 现状汇总。
+/// 对话流程执行到哪个节点，FlowTracer 点亮该节点，Drawable 按 Glow 渐隐余辉重绘（数据驱动、非永续动画）。
+/// 页面只在导航进来时构建，离开就退订事件、停掉两只钟；所有展示性读取都各自 try/catch，
 /// 任何一路服务出错都只让那一路空着，不把整页带崩。
 /// </summary>
 public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttributable
@@ -25,20 +27,30 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     private bool _pageVisible;
     private bool _loading;
     private bool _refreshPending;
-    private IDispatcherTimer? _clock;
+    private IDispatcherTimer? _clock;      // 30s 数据刷新（保留原行为）
+    private IDispatcherTimer? _glowClock;  // 120ms 余辉渐隐刷新，只在页面可见时运行
+    private bool _flowHooked;
 
     private readonly Dictionary<string, NodeDetail> _details = new(StringComparer.Ordinal);
     // 每个节点的「仔细看」字段：LoadAsync 时连同原始领域对象一起组装好，选中时直接取，不再回读服务。
     private readonly Dictionary<string, IReadOnlyList<DetailLine>> _detailLinesById = new(StringComparer.Ordinal);
     private readonly Action<string> _sourceChangedHandler;
+    private readonly Action _flowChangedHandler;
 
-    public MonitorFlowDrawable Drawable { get; } = new();
+    // 架构骨架：五层节点 + 论文 Mermaid 拓扑连线，首进页面（LoadAsync）构造一次，之后复用。
+    private IReadOnlyList<ArchNode>? _archNodes;
+    private IReadOnlyList<ArchLink>? _archLinks;
+
+    public ArchitectureFlowDrawable ArchDrawable { get; } = new();
 
     public SuperMonitorViewModel(GameEngine engine, MemoryOverviewService overview)
     {
         _engine = engine;
         _overview = overview;
         _sourceChangedHandler = OnSourceChanged;
+        _flowChangedHandler = OnFlowChanged;
+        // 余辉亮度直连追踪器；Drawable 只认 Func<string,float>，不反查静态类。
+        ArchDrawable.GlowProvider = FlowTracer.Glow;
     }
 
     private string CharId
@@ -119,7 +131,15 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
         if (query.TryGetValue("charId", out var v) && v is string id && !string.IsNullOrWhiteSpace(id))
-            _charId = Uri.UnescapeDataString(id);
+        {
+            var decoded = Uri.UnescapeDataString(id);
+            if (!string.Equals(decoded, _charId, StringComparison.Ordinal))
+            {
+                _charId = decoded;
+                // 换角色/进新存档：清掉上一轮残留的亮灯。
+                try { FlowTracer.Clear(); } catch { /* 追踪器永不外泄异常，这里仅作保险 */ }
+            }
+        }
         _ = LoadAsync();
     }
 
@@ -130,14 +150,15 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     private void Redraw()
     {
-        if (!_pageVisible || _invalidate is null) return;
-        try { MainThread.BeginInvokeOnMainThread(_invalidate); }
+        var invalidate = _invalidate;
+        if (!_pageVisible || invalidate is null) return;
+        try { Helpers.Ui.Post(invalidate); }
         catch (Exception ex) { App.WriteLog("SuperMonitor.Redraw -> " + ex.Message); }
     }
 
     public void SetViewport(double w, double h)
     {
-        Drawable.SetCanvasSize(w, h);
+        ArchDrawable.SetCanvasSize(w, h);
         Redraw();
     }
 
@@ -145,6 +166,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     {
         _pageVisible = true;
         HookSourceEvents();
+        HookFlow();
         // Changed 只在 Tick 真的改变了状态签名时才广播；只订阅不 Tick 事件永远不会来。
         TickSources(CharId);
         if (_clock is null)
@@ -161,6 +183,21 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             }
             catch (Exception ex) { App.WriteLog("SuperMonitor.StartClock -> " + ex.Message); }
         }
+        // 余辉钟：120ms 触发一次「按需 Invalidate」，只在页可见时跑；无亮灯则什么都不画。
+        if (_glowClock is null)
+        {
+            try
+            {
+                _glowClock = Application.Current?.Dispatcher.CreateTimer();
+                if (_glowClock is not null)
+                {
+                    _glowClock.Interval = TimeSpan.FromMilliseconds(120);
+                    _glowClock.Tick += OnGlowTick;
+                    _glowClock.Start();
+                }
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.GlowClock -> " + ex.Message); }
+        }
         if (Timeline.Count == 0 && Organs.Count == 0) _ = LoadAsync();
         else Redraw();
     }
@@ -174,12 +211,29 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             if (_clock is not null) { _clock.Stop(); _clock.Tick -= OnClockTick; _clock = null; }
         }
         catch (Exception ex) { App.WriteLog("SuperMonitor.StopClock -> " + ex.Message); }
+        try
+        {
+            if (_glowClock is not null) { _glowClock.Stop(); _glowClock.Tick -= OnGlowTick; _glowClock = null; }
+        }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.StopGlow -> " + ex.Message); }
         UnhookSourceEvents();
+        UnhookFlow();
     }
 
     private void OnClockTick(object? sender, EventArgs e)
     {
         if (_pageVisible && !_loading) _ = LoadAsync();
+    }
+
+    private void OnGlowTick(object? sender, EventArgs e)
+    {
+        if (!_pageVisible) return;
+        try
+        {
+            // 数据驱动：只有余辉窗口内还有节点时才刷新，避免变成永续动画。
+            if (FlowTracer.LitNodes().Count > 0) Redraw();
+        }
+        catch { /* 装饰性刷新失败不打扰主流程 */ }
     }
 
     /// <summary>
@@ -194,7 +248,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         catch (Exception ex) { App.WriteLog("SuperMonitor.PlanTick -> " + ex.Message); }
     }
 
-    // ==================== 事件订阅：两个 Changed 都是 Action<string>（参数 charId） ====================
+    // ==================== 事件订阅：源 Changed 是 Action<string>，FlowTracer.Changed 是 Action ====================
 
     private void HookSourceEvents()
     {
@@ -222,6 +276,36 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         // 单例服务会给所有角色广播，只理当前角色的那一条。
         if (!string.IsNullOrEmpty(charId) && !string.Equals(charId, CharId, StringComparison.Ordinal)) return;
         ScheduleRefresh();
+    }
+
+    private void HookFlow()
+    {
+        if (_flowHooked) return;
+        try { FlowTracer.Changed += _flowChangedHandler; _flowHooked = true; }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.HookFlow -> " + ex.Message); }
+    }
+
+    private void UnhookFlow()
+    {
+        if (!_flowHooked) return;
+        try { FlowTracer.Changed -= _flowChangedHandler; }
+        catch { /* 追踪器已释放：忽略 */ }
+        _flowHooked = false;
+    }
+
+    /// <summary>
+    /// 执行打点回调：FlowTracer.Changed 可能从 ChatEngine 的后台线程触发，
+    /// 角色过滤后统一走 Helpers.Ui.Post 回到 UI 线程再 Invalidate（数据驱动的按需重绘）。
+    /// </summary>
+    private void OnFlowChanged()
+    {
+        try
+        {
+            var last = FlowTracer.LastCharId;
+            if (!string.IsNullOrEmpty(last) && !string.Equals(last, CharId, StringComparison.Ordinal)) return;
+        }
+        catch { /* 过滤失败就不过滤，宁可多画一次 */ }
+        Helpers.Ui.Post(Redraw);
     }
 
     private async void ScheduleRefresh()
@@ -285,8 +369,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             else CharacterName = _engine.Roster.TryGetValue(id, out var rosterCh) ? rosterCh.Profile.Name : id;
 
             var timelineRows = new List<TimelineRow>();
-            var flowNodes = new List<MonitorFlowNode>();
-            var flowLinks = new List<MonitorFlowLink>();
             _details.Clear();
             _detailLinesById.Clear();
 
@@ -297,7 +379,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     var time = item.TimeText;
                     timelineRows.Add(new TimelineRow(item.Id, time, item.Done ? "✓" : "○",
                         item.Title, $"{KindText(item.Kind)} · {item.Detail}", item.Done));
-                    AddNode(flowNodes, $"plan-{item.Id}", item.Title, "日程",
+                    Remember($"plan-{item.Id}", item.Title, "日程",
                         item.Done ? "Active" : "Inactive", $"{time} · {item.Detail}", "",
                         new[]
                         {
@@ -325,7 +407,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     ? influence
                     : (string.IsNullOrWhiteSpace(influence) ? ruleText : influence + "；" + ruleText);
                 // Status 传枚举名给 drawable 判亮灯；详情里直接显示服务给好的中文 StatusText。
-                AddNode(flowNodes, key, o.Name, "器官", o.Status.ToString(),
+                Remember(key, o.Name, "器官", o.Status.ToString(),
                     $"{o.StatusText} · {(string.IsNullOrWhiteSpace(symptoms) ? influence : symptoms)}", influence,
                     new[]
                     {
@@ -340,7 +422,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
             foreach (var layer in layers)
             {
-                AddNode(flowNodes, $"mem-{layer.Layer}", layer.Name, "记忆", "",
+                Remember($"mem-{layer.Layer}", layer.Name, "记忆", "",
                     $"{layer.Count} {layer.Unit} · {layer.Detail}", layer.Describe,
                     new[]
                     {
@@ -352,7 +434,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     });
             }
 
-            AddNode(flowNodes, "stat-affection", $"好感 {numeric.Affection:0}", "数值", "Active",
+            Remember("stat-affection", $"好感 {numeric.Affection:0}", "数值", "Active",
                 "关系亲近程度", "好感越高，越愿意主动靠近你",
                 new[]
                 {
@@ -360,7 +442,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     new DetailLine("说明", "关系亲近程度"),
                     new DetailLine("影响", "好感越高，越愿意主动靠近你"),
                 });
-            AddNode(flowNodes, "stat-trust", $"信任 {numeric.Trust:0}", "数值", "Active",
+            Remember("stat-trust", $"信任 {numeric.Trust:0}", "数值", "Active",
                 "愿意把软弱露出来的程度", "信任够高才会说出真心话",
                 new[]
                 {
@@ -368,7 +450,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     new DetailLine("说明", "愿意把软弱露出来的程度"),
                     new DetailLine("影响", "信任够高才会说出真心话"),
                 });
-            AddNode(flowNodes, "stat-energy", $"精力 {numeric.Energy:0}", "数值", "Active",
+            Remember("stat-energy", $"精力 {numeric.Energy:0}", "数值", "Active",
                 "今天还剩多少力气", "精力低时不想动、不想说话",
                 new[]
                 {
@@ -376,11 +458,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     new DetailLine("说明", "今天还剩多少力气"),
                     new DetailLine("影响", "精力低时不想动、不想说话"),
                 });
-
-            // 四组各取第一枚连一条示意线，告诉用户「这些是同一时刻的同一件事」。
-            LinkGroups(flowNodes, flowLinks, "日程", "器官");
-            LinkGroups(flowNodes, flowLinks, "器官", "记忆");
-            LinkGroups(flowNodes, flowLinks, "记忆", "数值");
 
             if (influences.Count > 0)
             {
@@ -401,11 +478,13 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 new StatRow("精力", $"{numeric.Energy:0}")
             });
 
-            Drawable.Nodes = flowNodes;
-            Drawable.Links = flowLinks;
-            Drawable.SelectedId = null;
+            // 架构骨架：首进页面构造一次五层节点与 Mermaid 拓扑连线。
+            EnsureArchitecture();
+            ArchDrawable.Nodes = _archNodes;
+            ArchDrawable.Links = _archLinks;
+            ArchDrawable.SelectedId = null;
             SelectedNode = null;
-            StatusText = $"日程 {timelineRows.Count} · 器官 {organs.Count} · 记忆 {layers.Count} · 数值 3";
+            StatusText = $"日程 {timelineRows.Count} · 器官 {organs.Count} · 记忆 {layers.Count} · 数值 3 · 架构 {_archNodes?.Count ?? 0} 节点";
 
             if (!string.IsNullOrWhiteSpace(plan?.Outfit))
                 StatusText += $" · 今日穿搭：{plan.Outfit}";
@@ -441,19 +520,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         return ("", 0, 0, 0);
     }
 
-    private void AddNode(List<MonitorFlowNode> nodes, string id, string label, string group,
-        string status, string detail, string influence, IReadOnlyList<DetailLine>? lines = null)
+    private void Remember(string id, string label, string group, string status, string detail, string influence,
+        IReadOnlyList<DetailLine>? lines = null)
     {
-        nodes.Add(new MonitorFlowNode { Id = id, Label = label, Group = group, Status = status, Detail = detail });
         _details[id] = new NodeDetail(id, label, group, status, detail, influence);
         if (lines is not null) _detailLinesById[id] = lines;
-    }
-
-    private static void LinkGroups(List<MonitorFlowNode> nodes, List<MonitorFlowLink> links, string from, string to)
-    {
-        var a = nodes.FirstOrDefault(n => n.Group == from);
-        var b = nodes.FirstOrDefault(n => n.Group == to);
-        if (a is not null && b is not null) links.Add(new MonitorFlowLink { From = a.Id, To = b.Id });
     }
 
     // 服务模型里 Symptoms / Influences 可能是字符串也可能是列表，这里统一成人话，免得绑定类型一变就崩。
@@ -472,23 +543,84 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [RelayCommand]
     private void SelectNode(object? parameter)
     {
-        var id = parameter as string;
-        if (string.IsNullOrEmpty(id))
-        {
-            // 画布点击走同一条路：把坐标交给 drawable 的命中测试。
-            if (parameter is PointF p) id = Drawable.HitTest(p.X, p.Y);
-        }
-        if (string.IsNullOrEmpty(id) || !_details.TryGetValue(id, out var detail)) return;
-        SelectedNode = detail;
-        // 按节点类型取出当初随原始对象一起组装好的逐字段详情；取不到就留空，不让装饰性详情崩页。
         try
         {
-            DetailLines = new ObservableCollection<DetailLine>(
-                _detailLinesById.TryGetValue(id, out var lines) ? lines : Array.Empty<DetailLine>());
+            var id = parameter as string;
+            if (string.IsNullOrEmpty(id) && parameter is PointF p) id = ArchDrawable.HitTest(p.X, p.Y);
+            if (string.IsNullOrEmpty(id)) return;
+
+            var node = ArchDrawable.Find(id);
+            if (node is null)
+            {
+                // 兼容仍留在领域数据里的旧 id（日程 / 器官 / 记忆 / 数值）。
+                if (_detailLinesById.TryGetValue(id, out var legacy))
+                {
+                    SelectedNode = _details.TryGetValue(id, out var d)
+                        ? d : new NodeDetail(id, id, "", "", "", "");
+                    DetailLines = new ObservableCollection<DetailLine>(legacy);
+                    ArchDrawable.SelectedId = id;
+                    Redraw();
+                }
+                return;
+            }
+
+            var lines = new List<DetailLine> { new("所在层", LayerTitle(node.Layer)) };
+            if (!string.IsNullOrWhiteSpace(node.Module)) lines.Add(new DetailLine("实现模块", node.Module!));
+            if (!string.IsNullOrWhiteSpace(node.Detail)) lines.Add(new DetailLine("机制说明", node.Detail!));
+            var lit = FlowTracer.IsLit(id);
+            lines.Add(new DetailLine("执行状态", lit ? "✓ 正在流经" : "○ 静默"));
+            try
+            {
+                var extra = RealTimeLines(id);
+                if (extra.Count > 0)
+                {
+                    lines.Add(new DetailLine("· 实时关联", "同刻的领域数据"));
+                    lines.AddRange(extra);
+                }
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.RealTime -> " + ex.Message); }
+
+            SelectedNode = new NodeDetail(id, node.Label, LayerTitle(node.Layer),
+                lit ? "流经中" : "静默", node.Detail ?? "", "");
+            DetailLines = new ObservableCollection<DetailLine>(lines);
+            ArchDrawable.SelectedId = id;
+            Redraw();
         }
-        catch (Exception ex) { App.WriteLog("SuperMonitor.DetailLines -> " + ex.Message); }
-        Drawable.SelectedId = id;
-        Redraw();
+        catch (Exception ex) { App.WriteLog("SuperMonitor.SelectNode -> " + ex.Message); }
+    }
+
+    /// <summary>若节点 id 能在现有器官 / 记忆 / 日程 / 数值数据里找到对应项，附上实时值。</summary>
+    private IReadOnlyList<DetailLine> RealTimeLines(string id)
+    {
+        var result = new List<DetailLine>();
+        if (string.IsNullOrEmpty(id)) return result;
+        if (_detailLinesById.TryGetValue(id, out var exact) && exact.Count > 0)
+        {
+            result.AddRange(exact);
+            return result;
+        }
+        if (id.StartsWith("soma.", StringComparison.Ordinal))
+        {
+            foreach (var o in Organs.Take(8))
+                result.Add(new DetailLine(o.Name, $"{o.Value} · {o.Status}"));
+        }
+        else if (id.StartsWith("mem.", StringComparison.Ordinal) || id.StartsWith("emo.", StringComparison.Ordinal))
+        {
+            foreach (var l in MemoryLayers)
+                result.Add(new DetailLine(l.Name, $"{l.Count} · {l.Detail}"));
+        }
+        else if (id.StartsWith("eng.", StringComparison.Ordinal))
+        {
+            foreach (var s in Stats)
+                result.Add(new DetailLine(s.Name, s.Value));
+        }
+        else if (id.StartsWith("in.", StringComparison.Ordinal) || id.StartsWith("plan", StringComparison.Ordinal))
+        {
+            result.Add(new DetailLine("今日日程", $"{Timeline.Count} 项"));
+            foreach (var t in Timeline.Take(3))
+                result.Add(new DetailLine($"{t.Time} {t.Title}", t.Detail));
+        }
+        return result;
     }
 
     /// <summary>画布 EndInteraction 的落点（相对画布左上角）。</summary>
@@ -512,6 +644,211 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");
+
+    // ==================== 架构骨架：论文五层 ~50 节点 + Mermaid 拓扑 ====================
+
+    private static string LayerTitle(string layer) => layer switch
+    {
+        "1" => "1 感知与输入抽象层",
+        "2" => "2 记忆与情绪双向耦合",
+        "3" => "3 核心心智与病理",
+        "4" => "4 低级中枢熔断与躯体化",
+        "5" => "5 .NET 工程落地",
+        _ => "层 " + layer
+    };
+
+    private void EnsureArchitecture()
+    {
+        if (_archNodes is not null) return;
+        try
+        {
+            var nodes = new List<ArchNode>();
+            void N(string id, string label, string layer, string module, string detail) =>
+                nodes.Add(new ArchNode(id, label, layer, module, detail));
+
+            // ---- 层 1 感知与输入抽象层（13）----
+            N("in.text", "文字输入", "1", "ChatEngine.SendCore", "Send 入口记录用户文本，整条执行链的起点");
+            N("in.image", "图像输入", "1", "ChatEngine.SendCore", "附件图片入口，交给视觉特征提取");
+            N("in.voice", "语音输入", "1", "ChatEngine.SendCore", "语音转写文本入口，交给声学分析");
+            N("in.fusion", "多模态融合", "1", "ChatEngine.SendCore", "文字/图像/语音特征融合后进入具身锚定");
+            N("in.semantic", "语义解析", "1", "ChatEngine.SendCore", "文本 → 语义特征");
+            N("in.visual", "视觉特征", "1", "ChatEngine.SendCore", "图像附件的视觉特征提取");
+            N("in.audio", "声学分析", "1", "ChatEngine.SendCore", "语音附件的声学特征分析");
+            N("in.imagery", "意象唤起", "1", "HumanMemoryService", "语义特征触发记忆意象");
+            N("in.intent", "意图识别", "1", "ChatEngine.SendCore", "识别意图，参与后续路由预判");
+            N("in.edge", "边缘检测", "1", "ChatEngine.SendCore", "图形线条 / 边缘检测");
+            N("in.entity", "实体识别", "1", "HumanMemoryService", "识别实体并关联记忆条目");
+            N("in.tone", "语调情绪", "1", "EmotionMix", "语调 / 情绪分析，写入情绪基调");
+            N("in.embodied", "具身锚定", "1", "EmotionMix / ChatEngine", "具身认知 / 情感锚定：多模态汇聚到心智入口");
+
+            // ---- 层 2 记忆与情绪双向耦合（13）----
+            N("mem.shallow", "浅记忆", "2", "HumanMemoryService.RecallAsync", "浅记忆 / 前记忆：近期对话缓冲");
+            N("mem.deepen", "记忆深化", "2", "HumanMemoryService", "重要性 / 回想次数 / 唤醒度 / 时间衰减共同深化");
+            N("mem.deep", "深层记忆", "2", "HumanMemoryService", "深层记忆：情景 / 语义 / 程序三类");
+            N("mem.episodic", "情景记忆", "2", "HumanMemoryService.RecallTextAsync", "带时间地点的经历");
+            N("mem.semanticM", "语义记忆", "2", "HumanMemoryService", "概念与事实");
+            N("mem.procedural", "程序记忆", "2", "HumanMemoryService", "习惯化的应对套路");
+            N("mem.retrieval", "记忆检索器", "2", "HumanMemoryService.RecallTextAsync", "按窗口 / 线索回想，受情绪偏置 moodBias 影响");
+            N("emo.state", "情绪状态", "2", "EmotionMix / ChatEngine", "当前情绪：效价 / 唤醒度 / 控制感三维");
+            N("emo.valence", "情绪效价", "2", "EmotionMix", "Valence（-1..1）");
+            N("emo.arousal", "唤醒度", "2", "EmotionMix", "Arousal（0..1）");
+            N("emo.dominance", "控制感", "2", "EmotionMix", "Dominance");
+            N("emo.coupling", "记忆情绪耦合", "2", "ChatEngine.SendCore", "记忆 ↔ 情绪双向耦合，moodBias 生效时点亮");
+            N("mem.rumination", "反刍循环", "2", "HumanMemoryService.ChainSearchAsync", "负面回忆链延展，加剧情绪内耗");
+
+            // ---- 层 3 核心心智与病理（10）----
+            N("mind.trauma", "创伤节点", "3", "ChatEngine", "核心信念与旧伤的锚点");
+            N("mind.persona", "人格系统", "3", "ChatEngine", "人格 / 核心信念：设定情绪基调");
+            N("mind.pattern", "行为模式", "3", "ChatEngine", "由深层记忆塑造的行为模式");
+            N("mind.intrusive", "侵入性思维", "3", "ChatEngine", "不受控的念头");
+            N("mind.summary", "总结评估", "3", "ChatEngine.ProcessReplyAsync", "对当前情境的认知评价");
+            N("path.state", "病理状态机", "3", "ChatEngine", "PTSD / 抑郁 / 焦虑 / BPD 状态机");
+            N("path.ptsd", "PTSD", "3", "ChatEngine", "降低创伤阈值，杏仁核劫持");
+            N("path.depression", "抑郁", "3", "ChatEngine", "反刍死锁，情绪基线极低");
+            N("path.anxiety", "焦虑", "3", "ChatEngine", "联想过度发散");
+            N("path.bpd", "BPD", "3", "ChatEngine", "防御机制极化");
+
+            // ---- 层 4 低级中枢熔断与躯体化（11）----
+            N("soma.coping", "应对机制", "4", "OrganSimulationService", "应对决策：战 / 逃 / 僵三分支");
+            N("soma.fight", "反击防御", "4", "OrganSimulationService", "高唤醒下的对峙分支");
+            N("soma.reply", "理智回复", "4", "ChatEngine", "常态输出分支");
+            N("soma.freeze", "僵直宕机", "4", "OrganSimulationService", "低控制感时的冻结分支");
+            N("soma.bypass", "低级中枢越权", "4", "ChatEngine", "低级中枢越权 / 熔断，绕过理智");
+            N("soma.response", "器官响应", "4", "OrganSimulationService.Observe", "器官响应 / 躯体化：脏器状态外显");
+            N("soma.delay", "输出延迟", "4", "ChatEngine", "输出延迟 / 反应迟钝（Task.Delay）");
+            N("soma.stutter", "字符碎裂", "4", "ChatEngine", "字符碎裂 / 结巴 / 颤抖（正则打断）");
+            N("soma.downgrade", "逻辑降级", "4", "ApiGateway", "逻辑降级 / 算力熔断（MaxTokens 限制）");
+            N("soma.panic", "惊恐发作", "4", "OrganSimulationService", "惊恐发作 / 呼吸急促模拟");
+            N("soma.recovery", "器官恢复期", "4", "OrganSimulationService", "恢复期：情绪反复 / 迟滞");
+
+            // ---- 层 5 .NET 工程落地（11）----
+            N("eng.statepack", "状态打包", "5", "ChatEngine.RunTurnAsync", "把心智 / 器官状态打成模型输入");
+            N("eng.router", "意图路由", "5", "ApiGateway", "意图路由分发：本地轻量 / 云端重量");
+            N("eng.redis", "Redis 缓存", "5", "ApiGateway", "Redis 状态缓存（MindState）");
+            N("eng.qdrant", "Qdrant 向量", "5", "HumanMemoryService", "Qdrant 向量记忆库（Vectors）");
+            N("eng.sqlite", "SQLite 结构化", "5", "DailyPlanService", "SQLite / PostgreSQL 结构化数据");
+            N("eng.model.light", "轻量模型", "5", "ApiGateway", "轻量本地模型（LLamaSharp / Qwen）");
+            N("eng.model.heavy", "云端模型", "5", "ApiGateway.Chat", "云端大模型（Azure OpenAI / GPT-4o）");
+            N("eng.prompt", "Prompt 组装", "5", "ApiGateway", "System Prompt 动态组装（Semantic Kernel）");
+            N("eng.postprocess", "后处理", "5", "ChatEngine.ProcessReplyAsync", "文本修饰器 / 流式拦截中间件");
+            N("eng.output", "流式输出", "5", "ChatEngine", "SSE 流式输出给用户");
+            N("eng.loop", "循环反馈", "5", "ChatEngine.SendCore", "输出回灌为下一轮输入");
+
+            var links = new List<ArchLink>();
+            void L(string from, string to, LinkKind kind = LinkKind.Normal) =>
+                links.Add(new ArchLink(from, to, kind));
+
+            // ---- 层 1 层内主干 ----
+            L("in.text", "in.semantic");
+            L("in.image", "in.visual");
+            L("in.voice", "in.audio");
+            L("in.fusion", "in.embodied");
+            L("in.semantic", "in.imagery");
+            L("in.semantic", "in.intent");
+            L("in.visual", "in.edge");
+            L("in.visual", "in.entity");
+            L("in.audio", "in.tone");
+            L("in.imagery", "in.embodied");
+            L("in.intent", "in.embodied");
+            L("in.entity", "in.embodied");
+            L("in.tone", "in.embodied");
+            // 层 1 → 层 2
+            L("in.embodied", "mem.shallow");
+
+            // ---- 层 2 层内主干 + 双向 / 反馈 ----
+            L("mem.shallow", "mem.deepen");
+            L("mem.deepen", "mem.deep");
+            L("mem.deep", "mem.episodic");
+            L("mem.deep", "mem.semanticM");
+            L("mem.deep", "mem.procedural");
+            L("emo.state", "emo.valence");
+            L("emo.state", "emo.arousal");
+            L("emo.state", "emo.dominance");
+            L("mem.deep", "emo.state", LinkKind.Bidirectional);      // 自下而上唤醒 / 自上而下
+            L("emo.state", "mem.retrieval", LinkKind.Bidirectional); // 心境一致性过滤
+            L("mem.deep", "mem.retrieval");
+            L("mem.retrieval", "emo.coupling");
+            L("emo.coupling", "emo.state", LinkKind.Bidirectional);
+            L("mem.rumination", "mem.retrieval", LinkKind.Feedback);
+            L("mem.rumination", "emo.state", LinkKind.Feedback);
+
+            // ---- 层 2 → 层 3 ----
+            L("mem.retrieval", "mind.trauma");
+            L("mem.deep", "mind.pattern");
+            L("emo.state", "mind.trauma", LinkKind.Bidirectional);
+            L("path.ptsd", "mind.trauma", LinkKind.Feedback);
+
+            // ---- 层 3 层内主干 + 病理反馈 ----
+            L("mind.trauma", "mind.persona");
+            L("mind.pattern", "mind.intrusive");
+            L("mind.pattern", "mind.summary");
+            L("mind.intrusive", "mind.summary");
+            L("mind.summary", "mind.persona", LinkKind.Bidirectional);
+            L("path.state", "path.ptsd");
+            L("path.state", "path.depression");
+            L("path.state", "path.anxiety");
+            L("path.state", "path.bpd");
+            L("path.depression", "mem.rumination", LinkKind.Feedback);
+            L("path.anxiety", "mem.deep", LinkKind.Feedback);
+            L("path.bpd", "mind.persona", LinkKind.Feedback);
+
+            // ---- 层 3 → 层 2 反向固化 ----
+            L("mind.persona", "emo.state", LinkKind.Bidirectional);
+            L("mind.summary", "emo.state", LinkKind.Bidirectional);
+
+            // ---- 层 3 → 层 4 ----
+            L("mind.persona", "soma.coping");
+            L("emo.state", "soma.coping");
+            L("mind.summary", "soma.coping");
+            L("mind.trauma", "soma.bypass", LinkKind.Bidirectional);
+            L("path.ptsd", "soma.bypass", LinkKind.Feedback);
+
+            // ---- 层 4 层内主干 + 恢复反馈 ----
+            L("soma.coping", "soma.fight");
+            L("soma.coping", "soma.reply");
+            L("soma.coping", "soma.freeze");
+            L("soma.bypass", "soma.response");
+            L("soma.response", "soma.delay");
+            L("soma.response", "soma.stutter");
+            L("soma.response", "soma.downgrade");
+            L("soma.response", "soma.panic");
+            L("soma.response", "soma.recovery");
+            L("soma.recovery", "emo.state", LinkKind.Feedback);
+
+            // ---- 层 4 / 层 2 → 层 5 ----
+            L("soma.fight", "eng.statepack");
+            L("soma.reply", "eng.statepack");
+            L("soma.freeze", "eng.statepack");
+            L("soma.delay", "eng.statepack");
+            L("soma.stutter", "eng.statepack");
+            L("mem.rumination", "eng.statepack");
+
+            // ---- 层 5 层内主干 + 数据双向 + 循环反馈 ----
+            L("eng.statepack", "eng.router");
+            L("eng.router", "eng.redis", LinkKind.Bidirectional);
+            L("eng.router", "eng.qdrant", LinkKind.Bidirectional);
+            L("eng.router", "eng.sqlite", LinkKind.Bidirectional);
+            L("eng.statepack", "eng.prompt");
+            L("eng.prompt", "eng.model.light");
+            L("eng.prompt", "eng.model.heavy");
+            L("eng.router", "eng.model.light");
+            L("eng.router", "eng.model.heavy");
+            L("eng.model.light", "eng.postprocess");
+            L("eng.model.heavy", "eng.postprocess");
+            L("eng.postprocess", "eng.output");
+            L("eng.output", "eng.loop");
+            L("eng.loop", "in.text", LinkKind.Feedback);
+
+            _archNodes = nodes;
+            _archLinks = links;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SuperMonitor.Arch -> " + ex.Message);
+            _archNodes ??= new List<ArchNode>();
+            _archLinks ??= new List<ArchLink>();
+        }
+    }
 
     // ==================== 给 XAML 绑定的行模型 ====================
 
