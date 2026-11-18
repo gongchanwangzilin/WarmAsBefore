@@ -24,9 +24,7 @@ public static class WidgetRegistry
     /// <summary>可用小组件（顺序即默认顺序）。id 与 <see cref="WidgetPref"/> 注释里的约定一致。</summary>
     public static IReadOnlyList<WidgetDefinition> Widgets { get; } = new[]
     {
-        new WidgetDefinition("clock", "时间", "当前时刻，让这一屏有在走的感觉。", "top", 10),
         new WidgetDefinition("date", "日期", "今天几号、星期几。", "top", 20),
-        new WidgetDefinition("weather", "天气", "窗外此刻的天气。", "top", 30),
         new WidgetDefinition("location", "位置", "你和 TA 现在所在的地点。", "left", 40),
         new WidgetDefinition("affection", "好感", "好感度与当前等级。", "left", 50),
         new WidgetDefinition("trust", "信任", "信任度读数。", "left", 60),

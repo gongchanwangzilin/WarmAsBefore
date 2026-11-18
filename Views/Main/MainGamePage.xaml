@@ -256,6 +256,10 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                 Command="{Binding PickAnswerAiCommand}" ToolTipProperties.Text="{Binding AnswerAiLabel}" />
                         <Button Text="收起" IsVisible="{Binding ShowHideButton}" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                                 Command="{Binding ToggleHidePanelsCommand}" ToolTipProperties.Text="隐藏信息栏与顶部（Esc）" />
+                        <!-- 超级监测入口：从当前正在玩的这份存档进入（charId 取 GameEngine.State.CharacterId）。
+                             放在含「组件」那行的顶栏按钮列，风格与「存档/菜单/收起」一致。 -->
+                        <Button Text="监测" TextColor="{DynamicResource SurfaceFg}" BackgroundColor="{DynamicResource TopBarChipBg}" FontSize="12" Padding="8,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
+                                Command="{Binding OpenMonitorCommand}" ToolTipProperties.Text="查看当前存档的超级监测" />
                         <Button Text="组件" TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource AccentWarm}" FontSize="12" Padding="10,0" CornerRadius="16" HeightRequest="32" MinimumWidthRequest="0"
                                 Command="{Binding ToggleWidgetPanelCommand}" ToolTipProperties.Text="选择顶栏与左栏显示什么" />
                     </HorizontalStackLayout>
@@ -277,7 +281,8 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感度</Label>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                             <ProgressBar Progress="{Binding AffectionPct}" ProgressColor="{DynamicResource AccentWarm}" BackgroundColor="{DynamicResource BeigeAccent100}" HeightRequest="6" VerticalOptions="Center" />
-                            <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0}/100'}" TextColor="{DynamicResource SurfaceFg}" FontSize="11" />
+                            <!-- v1.63 好感多级：显示累计积分而非满 100 的旧刻度（进度条也改按等级进度） -->
+                            <Label Grid.Column="1" Text="{Binding AffectionPoints, StringFormat='{0}点'}" TextColor="{DynamicResource SurfaceFg}" FontSize="11" />
                         </Grid>
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="2">

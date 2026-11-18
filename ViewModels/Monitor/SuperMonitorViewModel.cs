@@ -28,6 +28,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     private IDispatcherTimer? _clock;
 
     private readonly Dictionary<string, NodeDetail> _details = new(StringComparer.Ordinal);
+    // 每个节点的「仔细看」字段：LoadAsync 时连同原始领域对象一起组装好，选中时直接取，不再回读服务。
+    private readonly Dictionary<string, IReadOnlyList<DetailLine>> _detailLinesById = new(StringComparer.Ordinal);
     private readonly Action<string> _sourceChangedHandler;
 
     public MonitorFlowDrawable Drawable { get; } = new();
@@ -92,12 +94,19 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private bool _show3D;
     [ObservableProperty] private bool _hasSelection;
     [ObservableProperty] private NodeDetail? _selectedNode;
+    /// <summary>选中节点的逐字段详情（标签,值），供 XAML BindableLayout 逐行展示，能「仔细看」。</summary>
+    [ObservableProperty] private ObservableCollection<DetailLine> _detailLines = new();
     [ObservableProperty] private ObservableCollection<TimelineRow> _timeline = new();
     [ObservableProperty] private ObservableCollection<OrganRow> _organs = new();
     [ObservableProperty] private ObservableCollection<LayerRow> _memoryLayers = new();
     [ObservableProperty] private ObservableCollection<StatRow> _stats = new();
 
-    partial void OnSelectedNodeChanged(NodeDetail? value) => HasSelection = value is not null;
+    partial void OnSelectedNodeChanged(NodeDetail? value)
+    {
+        HasSelection = value is not null;
+        // 取消选中（如定时重载）时把详情清空，避免残留上一个节点的字段。
+        if (value is null) DetailLines = new ObservableCollection<DetailLine>();
+    }
 
     /// <summary>3D 开关只改状态 + 通知外部桥；显隐由页面 IsVisible 负责，不做任何循环动画。</summary>
     partial void OnShow3DChanged(bool value)
@@ -279,6 +288,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             var flowNodes = new List<MonitorFlowNode>();
             var flowLinks = new List<MonitorFlowLink>();
             _details.Clear();
+            _detailLinesById.Clear();
 
             if (plan is not null && plan.Items is { Count: > 0 } items)
             {
@@ -288,7 +298,16 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     timelineRows.Add(new TimelineRow(item.Id, time, item.Done ? "✓" : "○",
                         item.Title, $"{KindText(item.Kind)} · {item.Detail}", item.Done));
                     AddNode(flowNodes, $"plan-{item.Id}", item.Title, "日程",
-                        item.Done ? "Active" : "Inactive", $"{time} · {item.Detail}", "");
+                        item.Done ? "Active" : "Inactive", $"{time} · {item.Detail}", "",
+                        new[]
+                        {
+                            new DetailLine("时间", time),
+                            new DetailLine("类别", KindText(item.Kind)),
+                            new DetailLine("标题", item.Title),
+                            new DetailLine("说明", string.IsNullOrWhiteSpace(item.Detail) ? "无" : item.Detail),
+                            new DetailLine("状态", item.Done ? "✓ 已完成" : "○ 未完成"),
+                            new DetailLine("完成于", item.ResultAt?.ToLocalTime().ToString("yyyy-MM-dd HH:mm") ?? "未完成"),
+                        });
                 }
             }
 
@@ -297,23 +316,66 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 var key = $"organ-{o.Kind}";
                 var symptoms = Text(o.Symptoms);
                 var influence = Text(o.Influences);
+                // 6 条连锁规则里与该器官相关的（From/To 命中中文名），拼成一行人话。
+                var ruleText = string.Join("；", influences
+                    .Where(i => string.Equals(i.From, o.Name, StringComparison.Ordinal)
+                             || string.Equals(i.To, o.Name, StringComparison.Ordinal))
+                    .Select(i => $"{i.From} → {i.To}：{i.Effect}（{i.DelayMinutes} 分钟）"));
+                var influenceAll = string.IsNullOrWhiteSpace(ruleText)
+                    ? influence
+                    : (string.IsNullOrWhiteSpace(influence) ? ruleText : influence + "；" + ruleText);
                 // Status 传枚举名给 drawable 判亮灯；详情里直接显示服务给好的中文 StatusText。
                 AddNode(flowNodes, key, o.Name, "器官", o.Status.ToString(),
-                    $"{o.StatusText} · {(string.IsNullOrWhiteSpace(symptoms) ? influence : symptoms)}", influence);
+                    $"{o.StatusText} · {(string.IsNullOrWhiteSpace(symptoms) ? influence : symptoms)}", influence,
+                    new[]
+                    {
+                        new DetailLine("器官", o.Name),
+                        new DetailLine("当前值", $"{o.Value:0.##}"),
+                        new DetailLine("状态", o.StatusText),
+                        new DetailLine("症状", string.IsNullOrWhiteSpace(symptoms) ? "无" : symptoms),
+                        new DetailLine("连锁影响", string.IsNullOrWhiteSpace(influenceAll) ? "无" : influenceAll),
+                        new DetailLine("更新于", o.UpdatedAt.ToLocalTime().ToString("HH:mm:ss")),
+                    });
             }
 
             foreach (var layer in layers)
             {
                 AddNode(flowNodes, $"mem-{layer.Layer}", layer.Name, "记忆", "",
-                    $"{layer.Count} {layer.Unit} · {layer.Detail}", layer.Describe);
+                    $"{layer.Count} {layer.Unit} · {layer.Detail}", layer.Describe,
+                    new[]
+                    {
+                        new DetailLine("名称", layer.Name),
+                        new DetailLine("说明", layer.Describe),
+                        new DetailLine("数量", $"{layer.Count}"),
+                        new DetailLine("单位", layer.Unit),
+                        new DetailLine("详情", layer.Detail),
+                    });
             }
 
             AddNode(flowNodes, "stat-affection", $"好感 {numeric.Affection:0}", "数值", "Active",
-                "关系亲近程度", "好感越高，越愿意主动靠近你");
+                "关系亲近程度", "好感越高，越愿意主动靠近你",
+                new[]
+                {
+                    new DetailLine("数值", $"{numeric.Affection:0.##}"),
+                    new DetailLine("说明", "关系亲近程度"),
+                    new DetailLine("影响", "好感越高，越愿意主动靠近你"),
+                });
             AddNode(flowNodes, "stat-trust", $"信任 {numeric.Trust:0}", "数值", "Active",
-                "愿意把软弱露出来的程度", "信任够高才会说出真心话");
+                "愿意把软弱露出来的程度", "信任够高才会说出真心话",
+                new[]
+                {
+                    new DetailLine("数值", $"{numeric.Trust:0.##}"),
+                    new DetailLine("说明", "愿意把软弱露出来的程度"),
+                    new DetailLine("影响", "信任够高才会说出真心话"),
+                });
             AddNode(flowNodes, "stat-energy", $"精力 {numeric.Energy:0}", "数值", "Active",
-                "今天还剩多少力气", "精力低时不想动、不想说话");
+                "今天还剩多少力气", "精力低时不想动、不想说话",
+                new[]
+                {
+                    new DetailLine("数值", $"{numeric.Energy:0.##}"),
+                    new DetailLine("说明", "今天还剩多少力气"),
+                    new DetailLine("影响", "精力低时不想动、不想说话"),
+                });
 
             // 四组各取第一枚连一条示意线，告诉用户「这些是同一时刻的同一件事」。
             LinkGroups(flowNodes, flowLinks, "日程", "器官");
@@ -380,10 +442,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     }
 
     private void AddNode(List<MonitorFlowNode> nodes, string id, string label, string group,
-        string status, string detail, string influence)
+        string status, string detail, string influence, IReadOnlyList<DetailLine>? lines = null)
     {
         nodes.Add(new MonitorFlowNode { Id = id, Label = label, Group = group, Status = status, Detail = detail });
         _details[id] = new NodeDetail(id, label, group, status, detail, influence);
+        if (lines is not null) _detailLinesById[id] = lines;
     }
 
     private static void LinkGroups(List<MonitorFlowNode> nodes, List<MonitorFlowLink> links, string from, string to)
@@ -417,6 +480,13 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         if (string.IsNullOrEmpty(id) || !_details.TryGetValue(id, out var detail)) return;
         SelectedNode = detail;
+        // 按节点类型取出当初随原始对象一起组装好的逐字段详情；取不到就留空，不让装饰性详情崩页。
+        try
+        {
+            DetailLines = new ObservableCollection<DetailLine>(
+                _detailLinesById.TryGetValue(id, out var lines) ? lines : Array.Empty<DetailLine>());
+        }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.DetailLines -> " + ex.Message); }
         Drawable.SelectedId = id;
         Redraw();
     }
@@ -450,4 +520,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     public sealed record LayerRow(string Name, string Count, string Detail);
     public sealed record StatRow(string Name, string Value);
     public sealed record NodeDetail(string Id, string Title, string Group, string Status, string Detail, string Influence);
+    /// <summary>详情区的一行：标签 + 值。值可以很长，交给 XAML 换行显示。</summary>
+    public sealed record DetailLine(string Label, string Value);
 }

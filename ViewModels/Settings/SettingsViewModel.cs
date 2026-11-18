@@ -95,7 +95,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
         _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
-        _weatherSceneDisplay = SceneDisplayOf(string.IsNullOrEmpty(s.WeatherSceneName) ? "Sunny" : s.WeatherSceneName);
         _experimentalSceneFxEnabled = s.ExperimentalSceneFxEnabled;
         _weatherSceneOverlayEnabled = s.WeatherSceneOverlayEnabled;
         _sceneLightEnabled = s.SceneLightEnabled;
@@ -383,7 +382,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
     [ObservableProperty] private string _backgroundImagePath = "";
     [ObservableProperty] private string _backgroundPaletteDisplay = "经典";
-    [ObservableProperty] private string _weatherSceneDisplay = "晴朗";
     [ObservableProperty] private bool _experimentalSceneFxEnabled;
     [ObservableProperty] private bool _weatherSceneOverlayEnabled = true;
     /// <summary>天气场景光照开关，关闭后主界面即时关掉光柱/折射。</summary>
@@ -391,7 +389,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _weatherSceneAudioEnabled = true;
     [ObservableProperty] private double _weatherSceneAudioLevel = 0.6;
     public IReadOnlyList<string> BackgroundPaletteChoices { get; } = new[] { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰", "终末地" };
-    public IReadOnlyList<string> WeatherSceneChoices { get; } = new[] { "晴朗", "阴天", "毛毛雨", "小雨", "大雨" };
     public List<string> BackgroundModeChoices { get; } = new() { "纯色（默认）", "自定义图片", "窗口透视（看穿到桌面）" };
     public bool BackgroundImageVisible => BackgroundMode == "image";
     public string BackgroundImageLabel => string.IsNullOrWhiteSpace(BackgroundImagePath)
@@ -426,7 +423,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnExperimentalSceneFxEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnWeatherSceneOverlayEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnSceneLightEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
-    partial void OnWeatherSceneDisplayChanged(string value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnWeatherSceneAudioEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnWeatherSceneAudioLevelChanged(double value) { PersistSettings(); PushBackgroundConfig(); }
 
@@ -446,7 +442,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         {
             Mode = mode,
             PaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
-            Scene = Enum.Parse<WeatherSceneKind>(SceneKeyOf(WeatherSceneDisplay)),
+            // 天气场景由天气数据自动推导（BackgroundService.ApplyWeatherDescription），
+            // 这里只沿用当前生效的场景，不再用设置页的手动覆盖把它打回某个固定值。
+            Scene = _bg.Current.Scene,
             ExperimentalEnabled = ExperimentalSceneFxEnabled
         };
         _bg.Apply(cfg);
@@ -3117,24 +3115,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         _ => "经典"
     };
 
-    private static string SceneKeyOf(string display) => display switch
-    {
-        "阴天" => "Cloudy",
-        "毛毛雨" => "Drizzle",
-        "小雨" => "LightRain",
-        "大雨" => "HeavyRain",
-        _ => "Sunny"
-    };
-
-    private static string SceneDisplayOf(string key) => key switch
-    {
-        "Cloudy" => "阴天",
-        "Drizzle" => "毛毛雨",
-        "LightRain" => "小雨",
-        "HeavyRain" => "大雨",
-        _ => "晴朗"
-    };
-
     private static string ChatStyleDisplayOf(string key) => key switch
     {
         "bubble" => "气泡式",
@@ -3256,7 +3236,6 @@ GlassHeight = GlassHeight,
 BackgroundMode = BackgroundMode,
 BackgroundImagePath = BackgroundImagePath,
 BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
-WeatherSceneName = SceneKeyOf(WeatherSceneDisplay),
 WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
                 ExperimentalSceneFxEnabled = ExperimentalSceneFxEnabled,
 SceneLightEnabled = SceneLightEnabled,

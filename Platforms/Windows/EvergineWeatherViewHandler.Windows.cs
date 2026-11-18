@@ -41,7 +41,10 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
 
         this.windowsSystem ??= new WinUIWindowsSystem();
 
-        view.Application.Container.Unregister<WinUIWindowsSystem>();
+        // 第二个 Application（超级监测页）从未注册过 WinUIWindowsSystem，
+        // 无条件 Unregister 会抛 KeyNotFoundException（导航即崩、3D 层出不来）。
+        if (view.Application.Container.IsRegistered<WinUIWindowsSystem>())
+            view.Application.Container.Unregister<WinUIWindowsSystem>();
         view.Application.Container.RegisterInstance(this.windowsSystem);
 
         var surface = (WinUISurface)this.windowsSystem.CreateSurface(this.swapChainPanel);

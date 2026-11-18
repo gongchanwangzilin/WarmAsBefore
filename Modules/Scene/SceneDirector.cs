@@ -233,9 +233,10 @@ public sealed class SceneDirector : IDisposable
         _weather = weather;
         // 门控表：时间 + 天气。天气门控用委托读缓存的 _currentWeather（volatile），不直接碰网络。
         _gates = new() { new SceneTimeGate(), new SceneWeatherGate(() => _currentWeather) };
-        // 1 分钟一次：早中晚边界响应更快（旧值 5 分钟最坏要等 5 分钟才换背景）。
-        // tick 只做一次线性查找 + 状态比较，成本可忽略；真正会阻塞的只有命中后的应用。
-        _timeTimer = new Timer(_ => _ = EvaluateTimeAsync(), null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(1));
+        // 保底轮询 5 分钟一次：进存档即时加载、AI 对话后的天气即时拉取都由调用方主动触发
+        // （RefreshWeatherNowAsync），这里只兜底，避免把联网天气拉取绑在高频 tick 上。
+        // 注意：本 Timer 同时驱动时间/天气场景评估，周期放宽后早中晚边界的被动换景最坏延迟 5 分钟。
+        _timeTimer = new Timer(_ => _ = EvaluateTimeAsync(), null, TimeSpan.FromSeconds(30), TimeSpan.FromMinutes(5));
         _ = LoadAsync();
         // 启动即刷新一次天气；失败也无妨，门控会按「未知」放行。
         _ = RefreshWeatherAsync();
