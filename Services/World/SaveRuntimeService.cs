@@ -202,8 +202,12 @@ public sealed class SaveRuntimeService
                 changed = true;
             }
 
+            // API 连续出错后自动暂停全部被动 AI（主动消息/生活回合/心跳写记忆），
+            // 直到下次进存档或用户修复 API 时 BugReporter.Reset("AI")。避免错误风暴刷屏。
+            var aiPaused = Core.BugReporter.IsStopped("AI");
+
             // 3) AI 生活回合：用自己的模型写一条生活记忆（串行 + 小时预算 + 按角色冷却）。
-            if (s.SaveRuntimeAiEnabled && !quiet && _chat.HasEndpoint
+            if (!aiPaused && s.SaveRuntimeAiEnabled && !quiet && _chat.HasEndpoint
                 && Due(_nextAi, id, now, aiMinutes, aiMinutes * 2)
                 && TakeBudget(budget))
             {
@@ -213,7 +217,7 @@ public sealed class SaveRuntimeService
             // 4) 主动消息：只由通道绑定的角色发（QQ/微信各一个身份，不能冒名）。
             // 没配 API 时主动对话必须失效（连生活回合都已在 192 行按 HasEndpoint 门控）：
             // 不进 Due 计时、不更新 presence、不排队任何待发消息。
-            if (s.SaveRuntimeProactive && !quiet && _chat.HasEndpoint && IsOutboundCharacter(id)
+            if (!aiPaused && s.SaveRuntimeProactive && !quiet && _chat.HasEndpoint && IsOutboundCharacter(id)
                 && Due(_nextMessage, id, now, 120, 240))
             {
                 if (await ProactiveAsync(ch, p, now)) changed = true;

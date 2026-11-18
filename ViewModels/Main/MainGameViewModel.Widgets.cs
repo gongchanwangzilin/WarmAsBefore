@@ -190,8 +190,9 @@ public sealed partial class MainGameViewModel
                     w.SubValue = "";
                     break;
                 case "affection":
-                    w.Value = $"{Affection}/100";
-                    w.SubValue = AffectionLevelLabel;
+                    // v1.63 好感多级：细分刻度看累计积分 + 阶，不再压在满 100 上。
+                    w.Value = AffectionLevelLabel;
+                    w.SubValue = "";
                     break;
                 case "trust":
                     w.Value = $"{Trust}/100";

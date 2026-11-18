@@ -90,21 +90,33 @@
                 </Grid>
             </Border>
 
+            <!-- 选中节点详情：保留可滚动容器，按节点类型逐字段列出，能「仔细看」。
+                 字段由 VM 组装成 DetailLines（标签,值），改字段不用再动这页 XAML。 -->
             <Border Grid.Column="1" IsVisible="{Binding HasSelection}"
                     Style="{StaticResource CardFrost}" Padding="12,10" WidthRequest="320"
+                    HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}"
                     VerticalOptions="Fill">
                 <ScrollView>
-                    <VerticalStackLayout Spacing="6">
+                    <VerticalStackLayout Spacing="8">
                         <Label Text="{Binding SelectedNode.Title}" Style="{StaticResource TxtBodySm}"
                                FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" />
-                        <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
-                        <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
+                        <HorizontalStackLayout Spacing="10">
+                            <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
+                        </HorizontalStackLayout>
                         <BoxView Style="{StaticResource HSep}" />
-                        <Label Text="{Binding SelectedNode.Detail}" Style="{StaticResource TxtBody}"
-                               TextColor="{DynamicResource WarmBody}" />
-                        <Label Text="影响链" Style="{StaticResource TxtCaption}" />
-                        <Label Text="{Binding SelectedNode.Influence}" Style="{StaticResource TxtBody}"
-                               TextColor="{DynamicResource WarmBody}" />
+                        <VerticalStackLayout Spacing="8"
+                                             BindableLayout.ItemsSource="{Binding DetailLines}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:SuperMonitorViewModel+DetailLine">
+                                    <VerticalStackLayout Spacing="2">
+                                        <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" />
+                                        <Label Text="{Binding Value}" Style="{StaticResource TxtBody}"
+                                               TextColor="{DynamicResource WarmBody}" LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
                     </VerticalStackLayout>
                 </ScrollView>
             </Border>

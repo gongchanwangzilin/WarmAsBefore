@@ -61,9 +61,18 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private int _affection = 30;
     [ObservableProperty] private int _affectionLevel = 1;
     [ObservableProperty] private string _affectionLevelTitle = "初识";
-    public string AffectionLevelLabel => $"Lv.{AffectionLevel} {AffectionLevelTitle}";
+    // 好感累计积分（与 0-100 好感度门控正交）：HUD 用「阶 + 积分/5000」显示，
+    // 不再把细分刻度压在满 100 上；门控仍读 Affection，绝不动。
+    [ObservableProperty] private int _affectionPoints;
+    /// <summary>HUD 好感显示：第N阶 · 称号 · 累计积分/5000（多级细分，不 clamp 到 100）。</summary>
+    public string AffectionLevelLabel => $"第{AffectionLevel}阶 · {AffectionLevelTitle} · {AffectionPoints}/{Modules.Affection.AffectionLevel.MaxPoints}点";
     partial void OnAffectionLevelChanged(int value) => OnPropertyChanged(nameof(AffectionLevelLabel));
     partial void OnAffectionLevelTitleChanged(string value) => OnPropertyChanged(nameof(AffectionLevelLabel));
+    partial void OnAffectionPointsChanged(int value)
+    {
+        OnPropertyChanged(nameof(AffectionLevelLabel));
+        AffectionPct = Modules.Affection.AffectionLevel.LevelProgress(value);
+    }
     [ObservableProperty] private int _trust = 30;
     [ObservableProperty] private int _attachment;
     [ObservableProperty] private int _balance = 1000;
@@ -538,11 +547,8 @@ public sealed partial class MainGameViewModel : ObservableObject
             var cfg = Services.Background.BackgroundService.ConfigFromSettings(
                 s.BackgroundMode, s.BackgroundImagePath, s.ThemeName, WeatherDesc,
                 s.WeatherSceneAudioEnabled, s.WeatherSceneAudioLevel, s.SceneLightEnabled, s.ExperimentalSceneFxEnabled);
-            // 用户在设置里明确选过的场景优先于「按实时天气反推」：否则每次进场都会被
-            // WeatherDesc（默认晴朗）覆盖回 Sunny，设置里选的大雨重启后丢失。
-            if (!string.IsNullOrWhiteSpace(s.WeatherSceneName)
-                && Enum.TryParse<WeatherSceneKind>(s.WeatherSceneName, ignoreCase: true, out var savedScene))
-                cfg = cfg with { Scene = savedScene };
+            // v1.63：天气设置项已删除，场景完全由存档/实时天气自动反推（_weatherSceneFollowsRealWeather
+            // 默认 true）。不再读旧设置里的 WeatherSceneName 覆盖，否则会把自动天气钉死成手动旧值。
             _background.Apply(cfg);
             SyncSceneFromBackground(cfg);
         }
@@ -605,6 +611,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// <summary>页面进场调用；重复调用无副作用。</summary>
     public void AttachRuntimeEvents()
     {
+        // 进主界面（含从设置页修好 API 后返回）：解除 API 错误对被动 AI 的封停。
+        Services.Core.BugReporter.Reset("AI");
         if (_runtimeEventsAttached) return;
         _runtimeEventsAttached = true;
         if (_map.IsLoaded) HookMapEvents();
@@ -618,7 +626,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         // 放构造里会每进出一次主界面叠一份，这里随页面进出场挂摘。
         _background.Changed += OnBackgroundChanged;
         // API 错误独立通道：ChatEngine 把端点失败走这里，不再伪装成 AI 台词。
-        // 收到后红色 Toast + 可点开的分析窗（BugReporter），错误本身绝不进聊天气泡。
+        // 收到后红色 Toast + 封停被动 AI（不再走 BugReporter 分析窗），错误本身绝不进聊天气泡。
         _chat.ErrorOccurred += OnApiError;
         // 测试版总开关可能在设置页里改过：那时本 VM 已随离场退订 Changed，收不到通知。
         // 进场重订阅后必须主动重读一次当前配置，否则天气氛围层的 IsVisible 绑定会停在旧值
@@ -644,20 +652,22 @@ public sealed partial class MainGameViewModel : ObservableObject
     }
 
     /// <summary>
-    /// API 调用失败：红色 Toast 立即告知 + 可点开的分析窗（BugReporter 落 bugs.log 并弹出详情）。
-    /// <paramref name="message"/> 是网关编码的错误文本，只作为分析材料，绝不写进会话或记忆。
+    /// API 调用失败：红色 Toast 立即告知，并封停「AI」子系统，暂停一切被动 AI 调用
+    /// （主动对话 / 心跳 AI / 后台生成；各调用点须检查 BugReporter.IsStopped("AI") 跳过），
+    /// 直到下次进存档 / 切存档 / 新建角色 / 用户重新指定 AI 时 Reset("AI")。
+    /// 这是可恢复的请求级错误，不再走 BugReporter.Report 异常管线（不弹分析窗、不写 bugs.log）；
+    /// 真正的非 API 异常仍照常由各子系统 Report。message 是网关编码的错误文本，绝不写进会话或记忆。
     /// </summary>
     private void OnApiError(string charId, string message)
     {
+        // 先立即封停，再弹提示：即便 UI 线程正忙，后台的被动 AI 也不会继续排队重试/烧 token。
+        Services.Core.BugReporter.Stop("AI");
         Helpers.Ui.Post(() =>
         {
             try
             {
                 var who = _engine.Roster.TryGetValue(charId, out var ch) ? ch.Profile.Name : "角色";
-                Controls.Toast.Error("AI 调用失败：" + ShortApiError(message));
-                // subsystem 传 null：这是可恢复的请求级错误，不封存任何子系统；分析窗照常弹出。
-                Services.Core.BugReporter.Report(
-                    new InvalidOperationException(message), null, $"AI 调用失败 · {who}");
+                Controls.Toast.Error($"AI 暂时连不上（{who}）：{ShortApiError(message)}。请检查 API 设置，重新进存档或换一条端点后恢复。");
             }
             catch (Exception ex) { App.WriteLog("MainGameViewModel.OnApiError -> " + ex.Message); }
         });
@@ -1296,6 +1306,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         var before = _char.State.AffectionPoints;
         var after = Math.Min(Modules.Affection.AffectionLevel.MaxPoints, before + Math.Max(0, delta));
         _char.State.AffectionPoints = after;
+        AffectionPoints = after;
 
         var newLevel = Modules.Affection.AffectionLevel.LevelOf(after);
         if (AffectionLevel != newLevel)
@@ -1343,6 +1354,10 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private async Task LoadCharacterAsync()
     {
+        // 进存档 / 切存档 / 新建角色：解除 API 错误对被动 AI 的封停。
+        Services.Core.BugReporter.Reset("AI");
+        // 天气即时拉取一次（用户约定：进存档 / 每5分钟 / AI对话各一次）。
+        _ = _sceneDirector.RefreshWeatherNowAsync();
         var charId = _engine.State.CharacterId;
         if (string.IsNullOrEmpty(charId)) return;
         var chars = await _chars.ListAsync();
@@ -1354,6 +1369,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         Balance = Math.Max(0, ch.State.Energy);
         AffectionLevel = Modules.Affection.AffectionLevel.LevelOf(ch.State.AffectionPoints);
         AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(AffectionLevel);
+        AffectionPoints = ch.State.AffectionPoints;
         UpdateStats();
         RefreshBrainStatus();
 
@@ -1958,7 +1974,11 @@ public sealed partial class MainGameViewModel : ObservableObject
                 // API 失败时网关返回 [API错误…]/[网络…]/[请求超时…] 串。错误已经走
                 // OnApiError 的红色提示 + 分析窗，这里绝不能把它当 AI 台词塞进气泡。
                 // 返回空串让下游走「本轮没有可显示的正文」分支，不新增助手气泡。
-                if (IsApiErrorText(reply)) reply = "";
+                var apiFailed = IsApiErrorText(reply);
+                if (apiFailed) reply = "";
+                // 天气跟随 AI 对话即时拉取一次（用户约定：进存档 / 每5分钟 / AI对话各一次）。
+                // 失败无妨，SceneDirector 内部已吞异常；异步不阻塞本轮对话渲染。
+                if (!apiFailed) _ = _sceneDirector.RefreshWeatherNowAsync();
                 // #12：先剥离 [表情:名字] 标记，正文照常处理
                 var (replyClean, foundStickers) = Services.StickerLibrary.SplitMarkers(reply);
                 reply = replyClean;
@@ -2827,6 +2847,21 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task OpenFullMap() => await OpenMap();
 
+    /// <summary>
+    /// 超级监测入口：从「正在玩的这份存档」进入，charId 取当前存档角色。
+    /// 导航失败只记日志，不让主界面因为一个装饰性入口崩掉。
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenMonitor()
+    {
+        var charId = _engine.State.CharacterId;
+        try
+        {
+            await Shell.Current.GoToAsync($"superMonitor?charId={Uri.EscapeDataString(charId ?? "")}");
+        }
+        catch (Exception ex) { App.WriteLog("MainGame.OpenMonitor -> " + ex.Message); }
+    }
+
     // ============ #E4 电脑端：隐藏顶栏/侧栏（ESC）与全屏（F11，code-behind 处理） ============
 
     /// <summary>
@@ -2965,6 +3000,8 @@ public sealed partial class MainGameViewModel : ObservableObject
                 });
             }
 
+            // 用户重新指定了本局的 AI：视为一次手动修复，解除 API 错误对被动 AI 的封停。
+            Services.Core.BugReporter.Reset("AI");
             RefreshAnswerAiLabel();
             if (bound.Length > 0 && HasTemporaryAi)
                 Toast.Info($"{CharacterName} 仍用绑定的「{bound}」，这次指定只对没绑模型的角色生效。");
@@ -3057,7 +3094,8 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void UpdateStats()
     {
-        AffectionPct = Affection / 100.0;
+        // 好感进度条改用累计积分的「阶内进度」细分刻度，而不是被 clamp 到 100 的 Affection。
+        AffectionPct = Modules.Affection.AffectionLevel.LevelProgress(AffectionPoints);
         TrustPct = Trust / 100.0;
     }
 
@@ -3238,9 +3276,13 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private static readonly string[] WeekCn = { "日", "一", "二", "三", "四", "五", "六" };
 
+    // 无台账兜底路径用：记住上一次已叠加进 ch.State.Energy 的 EnergyOffset，
+    // 之后只叠加「变化量」，避免把同一个修正每个时钟 tick 重复累加（那会伪装成空转掉精力）。
+    private int _lastAppliedEnergyOffset;
+
     /// <summary>F16 精力值：由「睡眠 / 劳作 / 思考 / 说话」四项纯代码台账结算（宿主算、模组只显示），
     /// 再叠上 AI 对本次互动判的修正（EnergyOffset，有界 -60..40，随存档落盘）。
-    /// 关掉台账（服务未注入）时回落到旧的时间基线，保证断桥/异常也不会白屏。</summary>
+    /// 无台账（服务未注入）时用存档权威值 + 修正变化量兜底，绝不按清醒时长空转扣减。</summary>
     private void UpdateEnergy(DateTime now)
     {
         var ch = _engine.ActiveCharacter;
@@ -3251,13 +3293,15 @@ public sealed partial class MainGameViewModel : ObservableObject
         if (ledger is not null && ch is not null)
         {
             value = ledger.Settle(ch.Profile.Id, now, offset);
+            _lastAppliedEnergyOffset = offset;
         }
         else
         {
-            var wake = now.Date.AddHours(7);          // 设定每日早上 7 点为醒来时刻
-            var awakeHours = Math.Max(0, (now - wake).TotalHours);
-            var baseline = 100 - (int)(awakeHours * 2.5);
-            value = Math.Clamp(baseline + offset, 0, 100);
+            // 无台账时不再按时间空转扣减：权威规则只允许真实行为（说话/思考/劳作/睡眠）改变精力。
+            // 只叠加「修正量的变化」，避免每个时钟 tick 把同一个 EnergyOffset 重复累加。
+            var delta = offset - _lastAppliedEnergyOffset;
+            _lastAppliedEnergyOffset = offset;
+            value = Math.Clamp((ch?.State.Energy ?? 100) + delta, 0, 100);
         }
         Energy = value;
         EnergyPct = value / 100.0;

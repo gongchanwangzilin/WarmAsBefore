@@ -34,10 +34,13 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         if (view.Application is null) return;
 
         // 每个 app 都要注册自己的 WindowsSystem / 音频设备，不能只看全局标志。
-        view.Application.Container.Unregister<AndroidWindowsSystem>();
+        // 第二个 Application 可能从未注册过这些单例，无条件 Unregister 抛 KeyNotFoundException。
+        if (view.Application.Container.IsRegistered<AndroidWindowsSystem>())
+            view.Application.Container.Unregister<AndroidWindowsSystem>();
         view.Application.Container.RegisterInstance(windowsSystem);
         var xaudio = new global::Evergine.OpenAL.ALAudioDevice();
-        view.Application.Container.Unregister<global::Evergine.OpenAL.ALAudioDevice>();
+        if (view.Application.Container.IsRegistered<global::Evergine.OpenAL.ALAudioDevice>())
+            view.Application.Container.Unregister<global::Evergine.OpenAL.ALAudioDevice>();
         view.Application.Container.RegisterInstance(xaudio);
 
         System.Diagnostics.Stopwatch clockTimer = System.Diagnostics.Stopwatch.StartNew();

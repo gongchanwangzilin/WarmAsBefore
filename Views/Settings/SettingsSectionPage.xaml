@@ -180,14 +180,6 @@
                                         </Grid>
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding WeatherSceneOverlayEnabled}">
                                             <VerticalStackLayout>
-                                                <Label Text="天气场景" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="晴/阴/毛毛雨/小雨/大雨，云与太阳随之变化" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Picker Grid.Column="1" WidthRequest="190"
-                                                    ItemsSource="{Binding WeatherSceneChoices}"
-                                                    SelectedItem="{Binding WeatherSceneDisplay}" />
-                                        </Grid>
-                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding WeatherSceneOverlayEnabled}">
-                                            <VerticalStackLayout>
                                                 <Label Text="场景音效" Style="{StaticResource TxtBodySm}" />
                                                 <Label Text="雨声、风声、闪电；需先在素材库分配音效卡槽" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding WeatherSceneAudioEnabled}"

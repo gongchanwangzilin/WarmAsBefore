@@ -114,6 +114,9 @@ public sealed class ViewSwitch : ContentView
 
     private void Apply(bool on, bool animate)
     {
+        // 本地值与动态资源要互斥：不清掉上一次写的本地值，下次 SetDynamicResource 会被它压住，
+        // 关闭时轨道就不回退（只剩拇指位移）。每次切换先清空，再按当前状态写一种。
+        _track.ClearValue(BackgroundColorProperty);
         if (on && OnColor is Color onColor) _track.BackgroundColor = onColor;
         else _track.SetDynamicResource(BackgroundColorProperty, on ? "PrimaryAction" : "WSep");
         var x = on ? TrackW - ThumbD - Pad : Pad;
