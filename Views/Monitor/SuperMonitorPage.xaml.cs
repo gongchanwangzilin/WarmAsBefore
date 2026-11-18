@@ -10,6 +10,7 @@ namespace WarmAsBefore.Views;
 /// <summary>
 /// 超级监测整页：进来才建数据、离开就退订停钟（见 VM.StartClock/StopClock）。
 /// 画布照 MemoryGraphPage 的套路：XAML 里只放 GraphicsView，Drawable 在构造函数里从 VM 取。
+/// 活流程图（ArchCanvas）+ 余辉计时器 + FlowTracer 订阅都在 VM 内，页面只管绑定 / 命中 / 生命周期。
 /// 3D 向量层是纯装饰：初始化或显隐失败都保持隐藏，2D 流程图照常工作。
 /// </summary>
 public partial class SuperMonitorPage : ContentPage
@@ -26,9 +27,9 @@ public partial class SuperMonitorPage : ContentPage
         InitializeComponent();
         _vm = vm;
         BindingContext = vm;
-        FlowCanvas.Drawable = vm.Drawable;
-        vm.AttachInvalidate(() => FlowCanvas.Invalidate());
-        FlowCanvas.SizeChanged += (_, _) => vm.SetViewport(FlowCanvas.Width, FlowCanvas.Height);
+        ArchCanvas.Drawable = vm.ArchDrawable;
+        vm.AttachInvalidate(() => ArchCanvas.Invalidate());
+        ArchCanvas.SizeChanged += (_, _) => vm.SetViewport(ArchCanvas.Width, ArchCanvas.Height);
 
 #if ANDROID || WINDOWS
         try

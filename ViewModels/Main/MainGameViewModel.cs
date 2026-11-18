@@ -2011,6 +2011,8 @@ public sealed partial class MainGameViewModel : ObservableObject
                 display = "……";
             }
             finally { IsThinking = false; }
+            // 架构流程图打点：一轮输出完成，循环反馈回到输入（第5层 eng）。
+            Services.Core.FlowTracer.Trace("eng.output", _engine?.State?.CharacterId);
 
             // 双端互通：把 WAB 主对话这一轮同步到游戏里的女仆（没连桥 / 没绑角色时内部直接返回）。
             _ = _maidBridge.NotifyWabDialogAsync(charId, msg, display);
@@ -2453,6 +2455,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     /// </summary>
     private async Task<(List<string> Segments, bool HasReaction)> ProcessReplyAsync(string reply)
     {
+        // 架构流程图打点：模型文本进入后处理管线（第5层 eng）。
+        Services.Core.FlowTracer.Trace("eng.postprocess", _engine?.State?.CharacterId);
         if (string.IsNullOrWhiteSpace(reply))
             return (new List<string>(), false);
 

@@ -556,6 +556,7 @@ public sealed class ChatEngine
         string memoryCategory = "dialogue")
     {
         App.TraceStep("ChatEngine.Send.Begin " + charId);
+        Services.Core.FlowTracer.Trace("in.text", charId);
         // 同一角色一次只跑一轮：主界面、QQ/微信、桌宠与后台运行时都会走到这里，
         // 两轮交错会把同一条历史写成乱序，也可能让模型看到自己还没说完的半句。
         var gate = _charGates.GetOrAdd(charId, _ => new SemaphoreSlim(1, 1));
@@ -604,16 +605,21 @@ public sealed class ChatEngine
         // 大脑预判：本地结算本轮期待差与惊喜卡（无网络），供下面的动态上下文注入与好感结算用
         try { Brain?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.PrepareTurn -> " + ex.Message); }
+        Services.Core.FlowTracer.Trace("mind.anticipation", charId);
         // 内心生活：这条消息让她的激素动一动（夸了会开心、冷话会难受），也记下她被问了什么
         try { InnerLife?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifePrepare -> " + ex.Message); }
+        Services.Core.FlowTracer.Trace("mind.chemicals", charId);
         // 具体化机制：同一条消息驱动情绪→身体/行为的纯代码重算
         try { Soma?.Feed(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.SomaFeed -> " + ex.Message); }
+        Services.Core.FlowTracer.Trace("soma.somatization", charId);
         // F16 精力：说话只扣很小值，深度思考按当前档位扣（纯代码台账，不阻塞回复）
         try { Energy?.NoteTalk(charId, cfg.ThinkTier, deepThisTurn); }
         catch (Exception ex) { App.WriteLog("ChatEngine.EnergyNoteTalk -> " + ex.Message); }
+        Services.Core.FlowTracer.Trace("soma.energy", charId);
         var recent = await _memory.Recent(charId, Math.Max(1, cfg.MemoryTurns));
+        Services.Core.FlowTracer.Trace("mem.recent", charId);
         var ctx = string.Join("\n", recent.Select(m => m.Content));
 
         // 人类记忆层：按「重要性 × 时间衰减 × 复述次数 × 随机扰动」回想（默认以三天内为主），
@@ -628,11 +634,13 @@ public sealed class ChatEngine
                 {
                     try { moodBias = await InnerLife.RecallBiasAsync(charId); }
                     catch (Exception ex) { App.WriteLog("ChatEngine.MoodBias -> " + ex.Message); }
+                    if (moodBias != 0) Services.Core.FlowTracer.Trace("emo.coupling", charId);
                 }
                 var recalled = await Human.RecallTextAsync(charId,
                     Resolver?.MemoryWindowDays(charId) ?? HumanMemoryMath.DefaultWindowDays,
                     Resolver?.MemoryRecallRandomness(charId) ?? HumanMemoryMath.DefaultRandomness,
                     6, moodBias);
+                Services.Core.FlowTracer.Trace("mem.retrieval", charId);
                 if (!string.IsNullOrWhiteSpace(recalled))
                     ctx = ctx.Length == 0 ? recalled : recalled + "\n" + ctx;
             }
@@ -666,6 +674,7 @@ public sealed class ChatEngine
         var fileBlock = BuildAttachmentBlock(attachments, ApiDirectAudioInline(cfg), audioBlocks);
         if (fileBlock.Length > 0)
             payload = payload.Length > 0 ? $"{payload}\n{fileBlock}" : fileBlock;
+        if (attachments is { Count: > 0 }) Services.Core.FlowTracer.Trace("in.multimodal", charId);
 
         // 插件 beforeSend：只改写用户正文，记忆与上下文保持原样
         try
@@ -681,6 +690,8 @@ public sealed class ChatEngine
         // 必须在消息最终构造后挂载：Content 是 init-only，后续任何 with 复制都会换实例、丢挂载。
         if (audioBlocks.Count > 0) ApiGateway.AttachContentBlocks(userMsg, audioBlocks);
         session.Add(userMsg);
+        // 架构流程图打点：上下文+正文打包完成，进入模型路由（第5层 eng）。
+        Services.Core.FlowTracer.Trace("eng.statepack", charId);
 
         // 检查 API 是否已配置（主配置或轮换池任一可用即可）
         if (!_api.HasAnyEndpoint)

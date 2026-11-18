@@ -21,6 +21,9 @@
                     <Label Text="{Binding CharacterName}" Style="{StaticResource TxtBodySm}"
                            FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" MaxLines="1" />
                     <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1" />
+                    <!-- 活流程图说明：对话执行时，流经的节点会亮起（余辉渐隐，数据驱动刷新） -->
+                    <Label Text="对话执行时，流经的节点会亮起" Style="{StaticResource TxtCaption}"
+                           TextColor="{DynamicResource WarmBody}" MaxLines="1" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
                     <Label Text="3D 向量显示" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
@@ -75,7 +78,7 @@
             <Border Grid.Column="0" Style="{StaticResource CardSolid}" Padding="4"
                     HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
                 <Grid>
-                    <GraphicsView x:Name="FlowCanvas"
+                    <GraphicsView x:Name="ArchCanvas"
                                   EndInteraction="OnCanvasEnd"
                                   BackgroundColor="Transparent" />
                     <!-- 3D 向量显示：默认隐藏，3D 开关打开时盖在流程图之上；InputTransparent 让点击仍落到 2D 画布 -->
