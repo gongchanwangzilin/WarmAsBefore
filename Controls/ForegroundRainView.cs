@@ -37,7 +37,7 @@ public sealed class ForegroundRainView : ContentView
         // GraphicsView 铺满，Drawable 负责全部绘制；Windows 上是原生视图，必须输入透传。
         _graphics = new GraphicsView
         {
-            Drawable = _drawable,
+            Drawable = Helpers.SafeDrawable.Wrap(_drawable, "ForegroundRain"),
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             InputTransparent = true,

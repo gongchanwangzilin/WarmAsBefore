@@ -54,14 +54,14 @@ public sealed class AnimatedImage : ContentView
             IsVisible = false,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            Drawable = _tileDrawable
+            Drawable = SafeDrawable.Wrap(_tileDrawable, "AnimatedTile")
         };
         _playerView = new GraphicsView
         {
             IsVisible = false,
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
-            Drawable = _playerDrawable
+            Drawable = SafeDrawable.Wrap(_playerDrawable, "AnimatedFrames")
         };
         Content = new Grid
         {

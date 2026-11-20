@@ -25,8 +25,14 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     // 按 Application 实例记录「是否已 Initialize」：主界面与超级监测页各持一个 Evergine Application，
     // 全局单布尔会让第二个 app 跳过 Initialize（拿不到 GraphicsContext、场景为空）。
     private static readonly HashSet<global::Evergine.Framework.Application> InitializedApps = new();
+    // 显卡设备是全进程一份（两个 Evergine Application 必须共用同一个 device）；
+    // 但 SwapChain 必须按面板各建一条 —— 它绑死在一个 SwapChainPanel 的合成表面上。
+    // 曾经是静态字段：第二个面板建链时把字段指过去，第一个面板的尺寸变化就会去 Resize 别人的链，
+    // 原生层随即抛 COMException 0x80004005（DComp 合成失败），托管侧连堆栈都没有。
     private static DX11GraphicsContext? graphicsContext;
-    private static SwapChain? swapChain;
+    private SwapChain? swapChain;
+    // 本次会话已经因原生层异常放弃 3D 层（放弃后只保留 2D 天气，不再重试拉起）。
+    private static bool _evergineGivenUp;
 
     public EvergineWeatherViewHandler(IPropertyMapper mapper, CommandMapper? commandMapper = null)
         : base(mapper, commandMapper)
@@ -38,14 +44,36 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     {
         if (!this.isViewLoaded) return;
         if (view.Application is null) return;
+        if (_evergineGivenUp) return;
 
+        // 整段兜底：Evergine + DX11 + DComp 这一路任何失败都只让 3D 层消失，
+        // 绝不以未处理 UI 异常的形式冒到 WinUI 上（那会弹 bug 窗，还把整页画布带成空白）。
+        try
+        {
+            this.UpdateApplicationCore(view, displayName);
+        }
+        catch (Exception ex)
+        {
+            _evergineGivenUp = true;
+            this.TryHide(view);
+            App.WriteLogNow("Evergine.UpdateApplication -> " + ex);
+            try
+            {
+                WarmAsBefore.Services.Core.BugReporter.Report(
+                    ex, "Weather3D", "3D 天气层初始化失败，已降级为 2D 天气层", recordOnly: true);
+            }
+            catch { }
+        }
+    }
+
+    private void UpdateApplicationCore(EvergineWeatherView view, string displayName)
+    {
         this.windowsSystem ??= new WinUIWindowsSystem();
 
         // 第二个 Application（超级监测页）从未注册过 WinUIWindowsSystem，
         // 无条件 Unregister 会抛 KeyNotFoundException（导航即崩、3D 层出不来）。
-        if (view.Application.Container.IsRegistered<WinUIWindowsSystem>())
-            view.Application.Container.Unregister<WinUIWindowsSystem>();
-        view.Application.Container.RegisterInstance(this.windowsSystem);
+        // 换了容器实现之后 IsRegistered 与 Unregister 也不保证同口径，故再兜一层。
+        ReplaceRegistration(view.Application.Container, this.windowsSystem);
 
         var surface = (WinUISurface)this.windowsSystem.CreateSurface(this.swapChainPanel);
 
@@ -139,7 +167,35 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
             return;
         }
 
-        swapChain?.ResizeSwapChain((uint)e.NewSize.Width, (uint)e.NewSize.Height);
+        // 只动自己这条链：DComp 表面绑面板，替别的面板调 Resize 会直接抛原生 COMException。
+        try { swapChain?.ResizeSwapChain((uint)e.NewSize.Width, (uint)e.NewSize.Height); }
+        catch (Exception ex) { App.WriteLog("Evergine.ResizeSwapChain -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// 用 <paramref name="instance"/> 覆盖容器里的同类型注册，缺注册 / 重复注册都不抛。
+    ///
+    /// Evergine 的 SimpleIoCContainer：Unregister 对未注册类型抛 KeyNotFoundException，
+    /// RegisterInstance 对已注册类型同样会抛。两条各自兜一次 —— 这类异常以前直接冒到
+    /// WinUI 的 UnhandledException，用户看到的是「子系统 WinUI 已停止运行」加一整页空白。
+    /// 放不进去也不致命：容器里已有的那一个仍然是可用的设备 / 窗口系统。
+    /// </summary>
+    private static void ReplaceRegistration<T>(global::Evergine.Framework.Container container, T instance)
+        where T : class
+    {
+        try { container.Unregister<T>(); }
+        catch { /* 本来就没注册（或口径不一致）：忽略，下面照样放进去 */ }
+        try { container.RegisterInstance(instance); }
+        catch (Exception ex)
+        {
+            App.WriteLog($"Evergine.ReplaceRegistration<{typeof(T).Name}> -> {ex.Message}");
+        }
+    }
+
+    private void TryHide(EvergineWeatherView view)
+    {
+        try { view.IsVisible = false; }
+        catch { /* 隐藏失败也只剩一条空链，不抛 */ }
     }
 
     private void ConfigureGraphicsContext(global::Evergine.Framework.Application application, WinUISurface surface, string displayName)
@@ -176,7 +232,7 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         graphicsPresenter.RemoveDisplay(displayName);
         graphicsPresenter.AddDisplay(displayName, firstDisplay);
         // 每个 app 都要拿到同一个 GraphicsContext，否则它的 Scene 解析不到、渲染不出东西。
-        application.Container.Unregister<DX11GraphicsContext>();
-        application.Container.RegisterInstance(graphicsContext);
+        // 这里原来是裸 Unregister：该 app 没注册过就抛 KeyNotFoundException（进监测页即崩）。
+        ReplaceRegistration(application.Container, graphicsContext);
     }
 }

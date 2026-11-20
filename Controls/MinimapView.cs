@@ -31,7 +31,7 @@ public sealed class MinimapView : ContentView
     {
         _surface = new GraphicsView
         {
-            Drawable = Drawable,
+            Drawable = Helpers.SafeDrawable.Wrap(Drawable, "Minimap"),
             BackgroundColor = Colors.Transparent,
         };
         _surface.StartInteraction += (_, e) => _downAt = FirstTouch(e);

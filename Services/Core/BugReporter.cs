@@ -64,6 +64,27 @@ public static class BugReporter
         => Report(ex, subsystem, context, recordOnly: false);
 
     /// <summary>
+    /// WinUI / DComp / Win2D 的「连锁噪音」：根因是上一拍绘制或合成失败，这些异常本身不带信息。
+    ///
+    /// 实证（bugs.log 2026-11-15 批次，265 条里 158 条是这一类）：
+    ///  · DCOMPOSITION_ERROR_SURFACE_BEING_RENDERED —— 上一层还在合成，这一帧重入；
+    ///  · The last drawing session returned by CreateDrawingSession must be disposed —— 上一次绘制
+    ///    被异常打断、画笔画没关，下一帧开局即失败（绘制异常本身现在由 SafeDrawable 就地兜住）；
+    ///  · Window was already deactivated —— MAUI 生命周期映射在窗口失活重入时自己抛的。
+    /// 它们每一条都弹一次 bug 窗、还把「WinUI」标成已停止运行：用户读到的是「程序坏了」，
+    /// 真正的根因（有堆栈的那一条）反而被淹在几百条同样的弹窗里。
+    /// 一律只落盘（recordOnly），不进弹窗、不封存子系统。
+    /// </summary>
+    private static bool IsNativeCascade(Exception ex)
+    {
+        var m = ex.Message ?? "";
+        if (m.Length == 0) return false;
+        return m.Contains("DCOMPOSITION_ERROR_SURFACE_BEING_RENDERED", StringComparison.Ordinal)
+            || m.Contains("CreateDrawingSession must be disposed", StringComparison.Ordinal)
+            || m.Contains("Window was already deactivated", StringComparison.Ordinal);
+    }
+
+    /// <summary>
     /// 上报一个 bug。会：写 bugs.log、必要时弹 bug 日志窗（带去重）、追加 feedback_outbox.json。
     /// <paramref name="recordOnly"/>=true 时只记录与落盘反馈箱，不弹窗、不封存子系统。
     /// 传 null 异常时直接返回，不抛。
@@ -72,6 +93,13 @@ public static class BugReporter
     {
         if (ex is null) return;
         var when = DateTime.Now;
+
+        // 原生层连锁噪音不算 recordOnly 之外的独立 bug，也不该弹窗（见 IsNativeCascade）。
+        if (IsNativeCascade(ex)) recordOnly = true;
+
+        if (!string.IsNullOrWhiteSpace(subsystem) && !recordOnly)
+            Stop(subsystem);
+
         try { AppendLog(when, subsystem, context, ex); }
         catch { /* 日志落盘失败也不能让兜底崩 */ }
 
@@ -79,9 +107,6 @@ public static class BugReporter
         catch { }
 
         if (recordOnly) return;
-
-        if (!string.IsNullOrWhiteSpace(subsystem))
-            Stop(subsystem);
 
         // 同一处错误 5 秒内只弹一次窗，避免一帧一抛把界面刷爆；重复次数合并显示。
         var sig = $"{subsystem}|{ex.GetType().FullName}|{context ?? ""}";

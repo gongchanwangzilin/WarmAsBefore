@@ -18,7 +18,7 @@ public sealed class Minimal3DView : ContentView
 
     public Minimal3DView()
     {
-        _surface = new GraphicsView { Drawable = Drawable };
+        _surface = new GraphicsView { Drawable = Helpers.SafeDrawable.Wrap(Drawable, "Minimal3D") };
         GestureRecognizers.Add(new PanGestureRecognizer());
         var gesture = (PanGestureRecognizer)GestureRecognizers[0];
         gesture.PanUpdated += OnPan;

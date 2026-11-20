@@ -9,130 +9,195 @@
              Title="超级监测"
              BackgroundColor="{DynamicResource PageBg}">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
+    <!-- ============ 页面骨架（UI 标准书 3.1）：顶栏 → 发丝线 → 工作台 ============
+         这一页是 R5 工作台式：左边看「系统怎么跑」（架构活流程图 + 3D 向量），
+         右边读「系统现在怎么样」（选中节点详情 / 日程 / 器官 / 记忆层 / 数值）。
+         以前所有卡片竖着摞在同一列：日程被切成 150px 的小窗、画布被上下两块卡夹住、
+         器官与记忆层根本没有地方显示 —— 读起来就是「全挤在顶上」。
+         现在只有两个容器：一块画布 + 一条右栏，栏内用 HSep 分组而不是卡套卡。 -->
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="0">
 
-        <!-- ============ 顶栏：角色 · 日期 · 3D 开关 · 刷新 ============ -->
-        <Border Grid.Row="0" Style="{StaticResource CardSolid}" Padding="12,8"
-                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+        <!-- ============ 顶栏：返回 · 角色 · 3D 开关 · 刷新 ============ -->
+        <Border Grid.Row="0" BackgroundColor="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
                 <Button Grid.Column="0" Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
-                        Command="{Binding BackCommand}" />
-                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtBodySm}"
-                           FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" MaxLines="1" />
+                        VerticalOptions="Center" Command="{Binding BackCommand}" />
+                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                    <Label Text="// VITALS" Style="{StaticResource Eyebrow}" />
+                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtTitle}"
+                           MaxLines="1" LineBreakMode="TailTruncation" />
                     <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1" />
-                    <!-- 活流程图说明：对话执行时，流经的节点会亮起（余辉渐隐，数据驱动刷新） -->
-                    <Label Text="对话执行时，流经的节点会亮起" Style="{StaticResource TxtCaption}"
-                           TextColor="{DynamicResource WarmBody}" MaxLines="1" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
-                    <Label Text="3D 向量显示" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                    <Label Text="3D 向量" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                     <controls:ViewSwitch IsToggled="{Binding Show3D, Mode=TwoWay}" VerticalOptions="Center" />
                 </HorizontalStackLayout>
                 <Button Grid.Column="3" Text="刷新" Style="{StaticResource BtnGhostSm}"
-                        Command="{Binding RefreshCommand}" />
+                        VerticalOptions="Center" Command="{Binding LoadCommand}" />
             </Grid>
         </Border>
 
-        <!-- ============ 上半：今日日程时间线 ============ -->
-        <Border Grid.Row="1" Style="{StaticResource CardSolid}" Padding="10,6"
-                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
-            <VerticalStackLayout Spacing="4">
-                <Label Text="今日日程" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
-                       TextColor="{DynamicResource WarmDark}" />
-                <CollectionView ItemsSource="{Binding Timeline}" HeightRequest="150"
-                                BackgroundColor="Transparent">
-                    <CollectionView.ItemsLayout>
-                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
-                    </CollectionView.ItemsLayout>
-                    <CollectionView.EmptyView>
-                        <Label Text="今天还没有安排" Style="{StaticResource TxtCaption}"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </CollectionView.EmptyView>
-                    <CollectionView.ItemTemplate>
-                        <DataTemplate x:DataType="vm:SuperMonitorViewModel+TimelineRow">
-                            <Grid ColumnDefinitions="52,28,*" ColumnSpacing="6" Padding="0,3">
-                                <Label Grid.Column="0" Text="{Binding Time}" Style="{StaticResource TxtCaption}"
-                                       VerticalOptions="Center" />
-                                <!-- 勾选走 MarkDone（写盘 + 广播 Changed），不直接改 item.Done -->
-                                <Button Grid.Column="1" Text="{Binding Mark}" Style="{StaticResource BtnTextSm}"
-                                        Padding="0" WidthRequest="28" VerticalOptions="Center"
-                                        Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SuperMonitorViewModel}}, Path=ToggleDoneCommand}"
-                                        CommandParameter="{Binding Id}" />
-                                <VerticalStackLayout Grid.Column="2" Spacing="0">
-                                    <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}"
-                                           TextColor="{DynamicResource WarmDark}" LineBreakMode="TailTruncation" />
-                                    <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
-                                           LineBreakMode="TailTruncation" MaxLines="1" />
-                                </VerticalStackLayout>
-                            </Grid>
-                        </DataTemplate>
-                    </CollectionView.ItemTemplate>
-                </CollectionView>
-            </VerticalStackLayout>
-        </Border>
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-        <!-- ============ 下半：流程图 + 右侧详情 ============ -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="0,6">
+        <!-- ============ 工作台：左画布 / 右读数栏（窄窗由 code-behind 折成一列） ============ -->
+        <Grid Grid.Row="2" x:Name="BodyGrid"
+              RowDefinitions="*" ColumnDefinitions="*,360"
+              HorizontalOptions="Center" MaximumWidthRequest="{DynamicResource WCardWidthWide}"
+              Padding="{DynamicResource WPageMargin}">
 
-            <Border Grid.Column="0" Style="{StaticResource CardSolid}" Padding="4"
-                    HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
-                <Grid>
-                    <GraphicsView x:Name="ArchCanvas"
-                                  EndInteraction="OnCanvasEnd"
-                                  BackgroundColor="Transparent" />
-                    <!-- 3D 向量显示：默认隐藏，3D 开关打开时盖在流程图之上；InputTransparent 让点击仍落到 2D 画布 -->
-                    <controls:EvergineWeatherView x:Name="Vector3DView"
-                                                  IsVisible="False"
-                                                  InputTransparent="True"
-                                                  HeightRequest="220"
-                                                  HorizontalOptions="Fill"
-                                                  VerticalOptions="Fill"
-                                                  BackgroundColor="Transparent"
-                                                  DisplayName="MonitorVectors" />
-                </Grid>
-            </Border>
+            <!-- 左：架构活流程图（+ 可选 3D 向量覆盖层） -->
+            <Grid x:Name="CanvasHost" Grid.Row="0" Grid.Column="0"
+                  RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                <VerticalStackLayout Grid.Row="0" Spacing="2">
+                    <Label Text="架构活流程图" Style="{StaticResource TxtSection}" />
+                    <Label Text="对话执行时，流经的节点会亮起；点任意节点看它的读数与影响"
+                           Style="{StaticResource TxtCaption}" MaxLines="2" />
+                </VerticalStackLayout>
 
-            <!-- 选中节点详情：保留可滚动容器，按节点类型逐字段列出，能「仔细看」。
-                 字段由 VM 组装成 DetailLines（标签,值），改字段不用再动这页 XAML。 -->
-            <Border Grid.Column="1" IsVisible="{Binding HasSelection}"
-                    Style="{StaticResource CardFrost}" Padding="12,10" WidthRequest="320"
-                    HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}"
-                    VerticalOptions="Fill">
-                <ScrollView>
-                    <VerticalStackLayout Spacing="8">
-                        <Label Text="{Binding SelectedNode.Title}" Style="{StaticResource TxtBodySm}"
-                               FontAttributes="Bold" TextColor="{DynamicResource WarmDark}" />
+                <Border Grid.Row="1" Style="{StaticResource CardSolid}" Padding="4">
+                    <Grid>
+                        <GraphicsView x:Name="ArchCanvas"
+                                      EndInteraction="OnCanvasEnd"
+                                      BackgroundColor="Transparent" />
+                        <!-- 3D 向量显示：默认隐藏，开关打开时盖在流程图之上；
+                             InputTransparent 让点击仍落到 2D 画布。 -->
+                        <controls:EvergineWeatherView x:Name="Vector3DView"
+                                                      IsVisible="False"
+                                                      InputTransparent="True"
+                                                      HorizontalOptions="Fill"
+                                                      VerticalOptions="Fill"
+                                                      BackgroundColor="Transparent"
+                                                      DisplayName="MonitorVectors" />
+                    </Grid>
+                </Border>
+
+                <VerticalStackLayout Grid.Row="2" Spacing="2">
+                    <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
+                    <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
+                           IsVisible="{Binding HasSelection}" />
+                </VerticalStackLayout>
+            </Grid>
+
+            <!-- 右：读数栏。选中节点是此刻的焦点，独占一张浮阶卡（全屏配额 1） -->
+            <Grid x:Name="RailHost" Grid.Row="0" Grid.Column="1"
+                  RowDefinitions="Auto,*" RowSpacing="8">
+
+                <Border Grid.Row="0" IsVisible="{Binding HasSelection}"
+                        Style="{StaticResource CardNeumorph}" Padding="{DynamicResource WPadCard}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="{Binding SelectedNode.Title}" Style="{StaticResource TxtSubhead}"
+                               MaxLines="2" />
                         <HorizontalStackLayout Spacing="10">
                             <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
                         </HorizontalStackLayout>
                         <BoxView Style="{StaticResource HSep}" />
-                        <VerticalStackLayout Spacing="8"
-                                             BindableLayout.ItemsSource="{Binding DetailLines}">
-                            <BindableLayout.ItemTemplate>
-                                <DataTemplate x:DataType="vm:SuperMonitorViewModel+DetailLine">
-                                    <VerticalStackLayout Spacing="2">
-                                        <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" />
-                                        <Label Text="{Binding Value}" Style="{StaticResource TxtBody}"
-                                               TextColor="{DynamicResource WarmBody}" LineBreakMode="WordWrap" />
-                                    </VerticalStackLayout>
-                                </DataTemplate>
-                            </BindableLayout.ItemTemplate>
-                        </VerticalStackLayout>
+                        <ScrollView MaximumHeightRequest="260">
+                            <VerticalStackLayout Spacing="8"
+                                                 BindableLayout.ItemsSource="{Binding DetailLines}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SuperMonitorViewModel+DetailLine">
+                                        <VerticalStackLayout Spacing="1">
+                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" />
+                                            <Label Text="{Binding Value}" Style="{StaticResource TxtBodySm}"
+                                                   LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                        </ScrollView>
                     </VerticalStackLayout>
-                </ScrollView>
-            </Border>
-        </Grid>
+                </Border>
 
-        <!-- ============ 底部状态 ============ -->
-        <Border Grid.Row="3" Style="{StaticResource CardSolid}" Padding="10,6"
-                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
-            <VerticalStackLayout Spacing="2">
-                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
-                <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
-                       IsVisible="{Binding HasSelection}" />
-            </VerticalStackLayout>
-        </Border>
+                <Border Grid.Row="1" Style="{StaticResource CardSolid}" Padding="0">
+                    <ScrollView Padding="{DynamicResource WPadCard}">
+                        <VerticalStackLayout Spacing="0">
+
+                            <!-- 今日日程：用 BindableLayout 而不是 CollectionView。
+                                 一个列表塞在滚动栏里，CollectionView 的无界测量会跟外层滚动打架
+                                 （LayoutCycleException 的经典来源）；日程本来只有几条，不需要虚拟化。 -->
+                            <Label Text="今日日程" Style="{StaticResource TxtSection}" />
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Timeline}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SuperMonitorViewModel+TimelineRow">
+                                        <Grid ColumnDefinitions="52,28,*" ColumnSpacing="6" Padding="0,4">
+                                            <Label Grid.Column="0" Text="{Binding Time}"
+                                                   Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                            <!-- 勾选走 MarkDone（写盘 + 广播 Changed），不直接改 item.Done -->
+                                            <Button Grid.Column="1" Text="{Binding Mark}"
+                                                    Style="{StaticResource BtnTextSm}" Padding="0"
+                                                    WidthRequest="28" VerticalOptions="Center"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SuperMonitorViewModel}}, Path=ToggleDoneCommand}"
+                                                    CommandParameter="{Binding Id}" />
+                                            <VerticalStackLayout Grid.Column="2" Spacing="0">
+                                                <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation" />
+                                                <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation" />
+                                            </VerticalStackLayout>
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+                            <BoxView Style="{StaticResource HSep}" Margin="0,10" />
+
+                            <!-- 器官：名字 + 状态 + 当前值（点画布上的器官节点看连锁影响） -->
+                            <Label Text="器官状态" Style="{StaticResource TxtSection}" />
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Organs}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SuperMonitorViewModel+OrganRow">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                            <Label Grid.Column="0" Text="{Binding Name}"
+                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1" />
+                                            <Label Grid.Column="1" Text="{Binding Status}"
+                                                   Style="{StaticResource TxtRowDesc}" VerticalOptions="Center" />
+                                            <Label Grid.Column="2" Text="{Binding Value}"
+                                                   Style="{StaticResource TxtBodySm}" WidthRequest="44"
+                                                   HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+
+                            <BoxView Style="{StaticResource HSep}" Margin="0,10" />
+
+                            <!-- 记忆分层：层名 + 数量（点记忆节点看这一层的说明） -->
+                            <Label Text="记忆分层" Style="{StaticResource TxtSection}" />
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding MemoryLayers}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SuperMonitorViewModel+LayerRow">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
+                                            <Label Grid.Column="0" Text="{Binding Name}"
+                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1" />
+                                            <Label Grid.Column="1" Text="{Binding Count}"
+                                                   Style="{StaticResource TxtRowDesc}" VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+
+                            <BoxView Style="{StaticResource HSep}" Margin="0,10" />
+
+                            <!-- 数值：好感 / 信任 / 精力 -->
+                            <Label Text="关系数值" Style="{StaticResource TxtSection}" />
+                            <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Stats}">
+                                <BindableLayout.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:SuperMonitorViewModel+StatRow">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
+                                            <Label Grid.Column="0" Text="{Binding Name}"
+                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1" />
+                                            <Label Grid.Column="1" Text="{Binding Value}"
+                                                   Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </BindableLayout.ItemTemplate>
+                            </VerticalStackLayout>
+
+                        </VerticalStackLayout>
+                    </ScrollView>
+                </Border>
+            </Grid>
+        </Grid>
     </Grid>
 </ContentPage>

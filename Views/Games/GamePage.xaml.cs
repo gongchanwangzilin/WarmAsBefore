@@ -20,7 +20,7 @@ public partial class GamePage : ContentPage
         InitializeComponent();
         _vm = vm;
         BindingContext = vm;
-        BoardView.Drawable = _drawable;
+        BoardView.Drawable = SafeDrawable.Wrap(_drawable, "GameBoard");
         _vm.PropertyChanged += OnVmPropChanged;
         // 新消息自动滚到底部（聊天区）
         _vm.Messages.CollectionChanged += (_, _) => MainThread.BeginInvokeOnMainThread(() =>

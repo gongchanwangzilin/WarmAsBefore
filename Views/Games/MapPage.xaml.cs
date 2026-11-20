@@ -17,7 +17,7 @@ public partial class MapPage : ContentPage
     {
         InitializeComponent();
         BindingContext = vm;
-        MapCanvas.Drawable = vm.Drawable;
+        MapCanvas.Drawable = SafeDrawable.Wrap(vm.Drawable, "MapCanvas");
         vm.AttachInvalidate(() => MapCanvas.Invalidate());
         // 切层动画要把目标层摆进视口中心：中心在哪只有页面知道
         MapCanvas.SizeChanged += (_, _) => vm.SetViewport(MapCanvas.Width, MapCanvas.Height);

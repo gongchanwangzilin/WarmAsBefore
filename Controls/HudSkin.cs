@@ -67,7 +67,7 @@ public static class HudSkin
     public static GraphicsView CornerBrackets(double size = 9, double stroke = 1.4)
     {
         var view = new GraphicsView { InputTransparent = true, IsVisible = IsActive, HeightRequest = 14 };
-        view.Drawable = new CornerBracketDrawable(size, stroke);
+        view.Drawable = Helpers.SafeDrawable.Wrap(new CornerBracketDrawable(size, stroke), "HudCorner");
         return view;
     }
 
@@ -75,7 +75,7 @@ public static class HudSkin
     public static GraphicsView Hatch(double height = 6, float gap = 5, float line = 1.2f)
     {
         var view = new GraphicsView { InputTransparent = true, IsVisible = IsActive, HeightRequest = height };
-        view.Drawable = new HudHatchDrawable(gap, line);
+        view.Drawable = Helpers.SafeDrawable.Wrap(new HudHatchDrawable(gap, line), "HudHatch");
         return view;
     }
 }
