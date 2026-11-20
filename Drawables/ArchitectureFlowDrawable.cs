@@ -116,10 +116,14 @@ public sealed class ArchitectureFlowDrawable : IDrawable
         foreach (var n in nodes) _byId[n.Id] = n;
 
         var availW = Math.Max(120f, _viewW - LeftPad - RightPad);
-        // 列数先按「节点至少 MinNodeW 宽」定，再算单一等比 scale；宽屏也不让节点无限拉宽。
+        // 列数先按「节点至少 MinNodeW 宽」定，再算单一等比 scale。
         var cols = Math.Clamp((int)Math.Floor((availW + GapX) / (MinNodeW + GapX)), 1, MaxCols);
-        var nw = Math.Min(NodeW, (availW - (cols - 1) * GapX) / cols);
-        var scale = nw / NodeW;                            // <= 1
+        var nw = (availW - (cols - 1) * GapX) / cols;
+        // 以前只往下缩（nw 封顶 NodeW）：画布一大，136 宽的小方块就缩在左上角，
+        // 右半张与下半张空着，读起来像"没排完"。这里允许适度放大到 1.35 档，
+        // 让五层拓扑在大画布上真正铺开；字号、圆角、状态灯都跟着同一个 scale 走。
+        nw = Math.Clamp(nw, MinNodeW, NodeW * 1.35f);
+        var scale = nw / NodeW;
         var nh = Math.Max(28f, NodeH * Math.Max(0.74f, scale));
         var gx = GapX * Math.Max(0.55f, scale);
         var gy = GapY * Math.Max(0.60f, scale);
@@ -130,19 +134,32 @@ public sealed class ArchitectureFlowDrawable : IDrawable
             .OrderBy(l => int.TryParse(l, out var k) ? k : int.MaxValue)
             .ToList();
 
-        var y = TopPad;
+        // 第一遍只算高度：整块拓扑在画布里居中（上下留白对称），而不是永远贴顶。
+        var placed = new List<(string Layer, List<ArchNode> Nodes)>(layers.Count);
+        var totalH = TopPad;
         foreach (var layer in layers)
         {
-            _layerHeaders.Add((layer, new RectF(LeftPad, y, availW, HeaderH), LayerColor(layer)));
+            var list = nodes.Where(n => string.Equals(n.Layer, layer, StringComparison.Ordinal)).ToList();
+            placed.Add((layer, list));
+            var rows = (list.Count + cols - 1) / cols;
+            totalH += HeaderH + rows * (nh + gy) + LayerGap;
+        }
+        var contentW = Math.Min(availW, cols * (nw + gx) - gx);
+        var offX = LeftPad + Math.Max(0f, (availW - contentW) * 0.5f);
+        var offY = Math.Max(0f, (_viewH - totalH + LayerGap) * 0.5f);
+
+        var y = TopPad + offY;
+        foreach (var (layer, list) in placed)
+        {
+            _layerHeaders.Add((layer, new RectF(offX, y, contentW, HeaderH), LayerColor(layer)));
             y += HeaderH;
 
-            var list = nodes.Where(n => string.Equals(n.Layer, layer, StringComparison.Ordinal)).ToList();
             var rows = (list.Count + cols - 1) / cols;
             for (var i = 0; i < list.Count; i++)
             {
                 var col = i % cols;
                 var row = i / cols;
-                var x = LeftPad + col * (nw + gx);
+                var x = offX + col * (nw + gx);
                 var ry = y + row * (nh + gy);
                 _rects[list[i].Id] = new RectF(x, ry, nw, nh);
             }

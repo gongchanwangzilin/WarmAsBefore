@@ -121,7 +121,7 @@ public partial class SettingsSectionPage : ContentPage
                 var chart = content.FindByName("CostChartView") as GraphicsView;
                 if (chart is not null)
                 {
-                    chart.Drawable = _vm.CostChart;
+                    chart.Drawable = SafeDrawable.Wrap(_vm.CostChart, "CostChart");
                     _vm.InvalidateCostChart = () => chart.Invalidate();
                 }
 

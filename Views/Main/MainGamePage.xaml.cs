@@ -111,7 +111,11 @@ public partial class MainGamePage : ContentPage
         // VM.WeatherSceneVisible 绑定控制（VM 侧已按 ExperimentalEnabled 门控），这里只管雨层。
         var experimental = cfg.ExperimentalEnabled;
         if (ForegroundRainLayer is null) return;
-        ForegroundRainLayer.IsVisible = experimental;
+        // 3D 大气场接管雨雪时，2D 的近景雨滴必须整层让位：
+        // 两层同时开着就是两套雨落在同一个画面上（以前这里无条件 IsVisible = experimental，
+        // XAML 注释里那句「该开关接线由主 Agent 补」说的就是这条缺口）。
+        var use3d = _evergineReady && EvergineWeatherLayer?.IsVisible == true;
+        ForegroundRainLayer.IsVisible = experimental && !use3d;
         // 总开关关闭 = 零特效开销：两层相位泵都停掉。否则用户先开雨天再关掉时，
         // 场景层虽已隐藏但 GraphicsView 泵仍会 90ms 一次空转。
         if (!experimental)
@@ -121,6 +125,13 @@ public partial class MainGamePage : ContentPage
             return;
         }
         if (WeatherSceneLayer is null) return;
+        if (use3d)
+        {
+            // 底层氛围层退回晴天（只留雾气与光，不再叠自己的雨雪），近景雨滴整层归零。
+            WeatherSceneLayer.SetScene(WeatherSceneKind.Sunny);
+            ForegroundRainLayer.SetScene(WeatherSceneKind.Sunny, 0);
+            return;
+        }
         // 底层氛围（桌面+手机共用一层）+ 近景雨滴物理层同步切场景
         WeatherSceneLayer.SetScene(cfg.Scene);
         ForegroundRainLayer.SetScene(cfg.Scene, _bg.CurrentScene.Intensity);
@@ -155,6 +166,17 @@ public partial class MainGamePage : ContentPage
         var enabled = experimental ?? _bg.Current.ExperimentalEnabled;
         var on = _evergineReady && enabled;
         EvergineWeatherLayer.IsVisible = on;
+        // 3D 层与 2D 近景雨滴互斥（同一规则的另一半在 OnBackgroundConfigChanged）：
+        // 3D 一方接管的瞬间就把 2D 侧归零，避免两层雨雪在同一个画面上各下一半。
+        if (enabled && ForegroundRainLayer is not null)
+        {
+            ForegroundRainLayer.IsVisible = !on;
+            if (on)
+            {
+                WeatherSceneLayer?.SetScene(WeatherSceneKind.Sunny);
+                ForegroundRainLayer.SetScene(WeatherSceneKind.Sunny, 0);
+            }
+        }
         // 3D 关闭时把天气驱动交回 2D 层，并停掉 3D 发射器（Clear）。
 #if ANDROID || WINDOWS
         if (!on) WeatherController.Instance.Set(WeatherKind.Clear);
@@ -627,7 +649,36 @@ public partial class MainGamePage : ContentPage
             }
 
             row.Add(Make("SYSTEM/CLOCK", nameof(MainGameViewModel.CurrentTimeStr)));
-            row.Add(Make("WEATHER", nameof(MainGameViewModel.WeatherDesc)));
+
+            // WEATHER 块：一句话天气 + 一条云量进度线。
+            // 这条线不是装饰：它读的是真实天气源的 cloud_cover（取不到就是 -1 = 不画），
+            // 于是"雾/小雨/阴"不再只是一个词，天空有多满在读数带上直接看得见 ——
+            // 和下面 3D 大气场的浓度是同一个天气，读数带因此不是贴上去的贴纸。
+            var weather = new Controls.HudReadout
+            {
+                Label = "WEATHER",
+                Framed = true,
+                MinimumWidthRequest = 128,
+                BindingContext = vm,
+            };
+            weather.SetBinding(Controls.HudReadout.ValueProperty, nameof(MainGameViewModel.WeatherDesc));
+            weather.SetBinding(Controls.HudReadout.ProgressProperty, nameof(MainGameViewModel.CloudCoverPct));
+            weather.Compose();
+            row.Add(weather);
+
+            // OUTDOOR：室外温度。没有真实读数时文本为空，块只剩一个标签，
+            // 所以按文本长度隐藏整块（写在 VM 层会多一个字段，这里一次 IsVisible 就够）。
+            var outdoor = new Controls.HudReadout
+            {
+                Label = "OUTDOOR",
+                Framed = true,
+                MinimumWidthRequest = 96,
+                BindingContext = vm,
+            };
+            outdoor.SetBinding(Controls.HudReadout.ValueProperty, nameof(MainGameViewModel.WeatherTempText));
+            outdoor.SetBinding(VisualElement.IsVisibleProperty, nameof(MainGameViewModel.HasWeatherTemp));
+            outdoor.Compose();
+            row.Add(outdoor);
 
             // 好感这一块要「数值 + 进度线」：单独建一次，把百分比也绑上。
             var affection = new Controls.HudReadout { Label = "AFFECTION", Framed = true, MinimumWidthRequest = 128, BindingContext = vm };

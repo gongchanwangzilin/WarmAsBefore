@@ -59,7 +59,7 @@ public sealed class WeatherSceneView : ContentView
         //    不透传会吞掉父级手势。
         _sceneLayer = new GraphicsView
         {
-            Drawable = _drawable,
+            Drawable = Helpers.SafeDrawable.Wrap(_drawable, "WeatherScene"),
             HorizontalOptions = LayoutOptions.Fill,
             VerticalOptions = LayoutOptions.Fill,
             InputTransparent = true,

@@ -77,6 +77,13 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private int _attachment;
     [ObservableProperty] private int _balance = 1000;
     [ObservableProperty] private string _weatherDesc = "晴朗";
+    /// <summary>室外温度读数（HUD 的 OUTDOOR 块）。没有真实数据时为空串，块自己缩掉。</summary>
+    [ObservableProperty] private string _weatherTempText = "";
+    partial void OnWeatherTempTextChanged(string value) => OnPropertyChanged(nameof(HasWeatherTemp));
+    /// <summary>有没有真实温度读数：HUD 的 OUTDOOR 块据此整块显示/收起。</summary>
+    public bool HasWeatherTemp => !string.IsNullOrEmpty(WeatherTempText);
+    /// <summary>云量 0..1（HUD 的 WEATHER 块进度线）。取不到为 -1 = 不画这条线。</summary>
+    [ObservableProperty] private double _cloudCoverPct = -1;
     [ObservableProperty] private bool _weatherBackgroundEnabled = true;
     [ObservableProperty] private bool _weatherBackgroundVisible;
     [ObservableProperty] private double _weatherBackgroundOpacity;
@@ -3393,6 +3400,10 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             _lastWeather = w; // 缓存，供 UpdateTime 按时间重算时仍带上能见度/云量
             WeatherDesc = w.Description;
+            // 天气读数本来就取到了温度与云量，只是以前只把一句话摆上 HUD：
+            // 现在温度进 OUTDOOR 块、云量变成 WEATHER 块的进度线（取不到就 -1，不画）。
+            WeatherTempText = double.IsFinite(w.Celsius) ? $"{Math.Round(w.Celsius):0}°" : "";
+            CloudCoverPct = w.CloudCover >= 0 ? Math.Clamp(w.CloudCover / 100.0, 0, 1) : -1;
             ApplyWeatherBackground(w.Description);
             if (_weatherSceneFollowsRealWeather && _background.Current.ExperimentalEnabled) _background.ApplyWeatherDescription(w.Description);
             ComputeLighting(w); // 真天气驱动：按能见度 + 时间算光
@@ -3400,6 +3411,8 @@ public sealed partial class MainGameViewModel : ObservableObject
         else
         {
             _lastWeather = null;
+            WeatherTempText = "";
+            CloudCoverPct = -1;
             ApplyWeatherBackground(null);
             ComputeLighting(null); // 无数据也按时间算一次光
         }

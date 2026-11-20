@@ -18,7 +18,7 @@ public partial class MemoryGraphPage : ContentPage
         InitializeComponent();
         _vm = vm;
         BindingContext = vm;
-        GraphCanvas.Drawable = vm.Drawable;
+        GraphCanvas.Drawable = SafeDrawable.Wrap(vm.Drawable, "MemoryGraph");
         vm.AttachInvalidate(() => GraphCanvas.Invalidate());
         vm.AttachDrawableInvalidate();
         GraphCanvas.SizeChanged += (_, _) => vm.SetViewport(GraphCanvas.Width, GraphCanvas.Height);

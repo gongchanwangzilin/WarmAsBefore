@@ -27,7 +27,7 @@ public partial class SceneCalibrationPage : ContentPage
         _cal = cal;
         _maps = maps;
         BindingContext = vm;
-        CalCanvas.Drawable = vm.Drawable;
+        CalCanvas.Drawable = SafeDrawable.Wrap(vm.Drawable, "SceneCalibration");
         vm.AttachInvalidate(() => CalCanvas.Invalidate());
     }
 
