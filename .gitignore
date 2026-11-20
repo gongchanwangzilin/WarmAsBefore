@@ -402,3 +402,4 @@ plugins/wab_minecraft/*
 
 # ==== 宣传片成片：只在本地留，不进仓库（2026-11-20 用户要求） ====
 /docs/promo/*.mp4
+/docs/promo/*.jpg
