@@ -404,3 +404,23 @@ plugins/wab_minecraft/*
 /docs/promo/
 /docs/第一帧·宣传片.md
 /docs/数字生命·分镜.md
+
+# ==== 媒体与渲染产物：任何位置都不入库（2026-11-21 历史清理后追加） ====
+*.mp4
+*.mov
+*.mkv
+*.webm
+*.avi
+*.wav
+*.m4a
+*.mp3
+*.flac
+*.aiff
+*.psd
+*.ai
+# 宣传片渲染脚本与图数据（原本放在 docs/promo/，防止被挪到别处再提交）
+render_promo.py
+render_promo_*.py
+parse_mermaid.py
+graph_data.py
+beat_sync.py
