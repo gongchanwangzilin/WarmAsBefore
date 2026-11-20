@@ -256,6 +256,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("outfit", typeof(Views.OutfitPage));
         Routing.RegisterRoute("figurePack", typeof(Views.FigurePackPage));
         Routing.RegisterRoute("save", typeof(Views.SavePage));
+        // 分支树：VS Code 式 git graph，按 ParentId 还原存档血缘；?focus=saveId 从节点回存档页高亮
+        Routing.RegisterRoute("saveTree", typeof(Views.SaveTreePage));
         // 云存档：看远端有哪些、哪台机器什么时候存过，一键拉回本地
         Routing.RegisterRoute("cloudsaves", typeof(Views.CloudSavesPage));
         // 头像裁剪：相册/拍照之后就地裁剪，回传绝对路径

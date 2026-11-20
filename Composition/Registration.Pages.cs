@@ -28,6 +28,7 @@ public static class PageRegistration
         services.AddTransient<GalleryPage>();
         services.AddTransient<OutfitPage>();
         services.AddTransient<SavePage>();
+        services.AddTransient<Views.SaveTreePage>();
         services.AddTransient<CloudSavesPage>();
         services.AddTransient<GamePage>();
         services.AddTransient<PetPage>();

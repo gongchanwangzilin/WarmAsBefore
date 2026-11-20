@@ -20,9 +20,14 @@
                 <Label Grid.Column="1" Text="存档管理" Style="{StaticResource TxtTitle}"
                        VerticalOptions="Center" />
                 <!-- 超级监测入口：静态命令自带 charId 兜底，不用改本页 VM / code-behind -->
-                <Button Grid.Column="2" Text="监测" Style="{StaticResource BtnGhostSm}"
-                        VerticalOptions="Center"
-                        Command="{x:Static vm:SuperMonitorViewModel.NavigateToMonitor}" />
+                <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                    <Button Text="监测" Style="{StaticResource BtnGhostSm}"
+                            VerticalOptions="Center"
+                            Command="{x:Static vm:SuperMonitorViewModel.NavigateToMonitor}" />
+                    <Button Text="分支树" Style="{StaticResource BtnGhostSm}"
+                            VerticalOptions="Center"
+                            Command="{x:Static vm:SaveTreeViewModel.NavigateToTree}" />
+                </HorizontalStackLayout>
             </Grid>
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />

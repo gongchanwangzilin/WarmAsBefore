@@ -20,6 +20,7 @@ public static class ViewModelRegistration
         services.AddTransient<GalleryViewModel>();
         services.AddTransient<OutfitViewModel>();
         services.AddTransient<SaveViewModel>();
+        services.AddTransient<SaveTreeViewModel>();
         services.AddTransient<CloudSavesViewModel>();
         services.AddTransient<GameViewModel>();
         services.AddTransient<PetSettingsViewModel>();
