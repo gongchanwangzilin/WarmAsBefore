@@ -400,6 +400,7 @@ plugins/wab_minecraft/*
 /dist/
 *.tmp
 
-# ==== 宣传片成片：只在本地留，不进仓库（2026-11-20 用户要求） ====
-/docs/promo/*.mp4
-/docs/promo/*.jpg
+# ==== 视频制作相关：全部只在本地，永不入库（2026-11-20 用户要求） ====
+/docs/promo/
+/docs/第一帧·宣传片.md
+/docs/数字生命·分镜.md

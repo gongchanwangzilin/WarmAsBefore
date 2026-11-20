@@ -471,7 +471,6 @@ flowchart TB
 | [`DEVELOPMENT.md`](DEVELOPMENT.md) | 维护者手册：环境、构建、扩展点与验证清单 |
 | [`RELEASE_NOTES.md`](RELEASE_NOTES.md) | 版本条目 |
 | [`PRODUCT.md`](PRODUCT.md) | 产品定位、用户与设计约束 |
-| [`docs/数字生命·分镜.md`](docs/数字生命·分镜.md) | 三幕长片分镜：质疑 → 混剪 → 我们的数字生命 |
 
 ---
 
