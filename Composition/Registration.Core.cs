@@ -52,6 +52,8 @@ public static class CoreRegistration
         services.AddSingleton(_ => OrganSimulationService.Instance);
         // v1.62 每角色 AI 日程：一天一次生成、按表执行，省 token；构造函数私有，工厂注册。
         services.AddSingleton(_ => DailyPlanService.Instance);
+        // v1.65 专注/神游双系统：多巴胺驱动的本地状态机 + 专属精力/训练，静态单例 + 服务定位器。
+        services.AddSingleton(_ => WarmAsBefore.Services.CognitionModeService.Instance);
         // F16 精力台账：睡眠 / 劳作 / 思考 / 说话四项纯代码结算，宿主算、模组只显示。
         services.AddSingleton<EnergyLedgerService>();
         // 画面生成：装扮 / 背景 / 立绘 / 地图背景

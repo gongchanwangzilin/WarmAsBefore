@@ -565,7 +565,7 @@
                                                 Style="{StaticResource BtnGhostSm}"
                                                 Command="{Binding ToggleAdvancedCommand}" />
                                     </Grid>
-                                    <Label Text="不填也没关系：这两栏留空时完全不会写进提示词，TA 仍按性格自然说话。"
+                                    <Label Text="不填也没关系：这些栏留空时完全不会写进提示词，TA 仍按性格自然说话。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                     <VerticalStackLayout Spacing="8" IsVisible="{Binding AdvancedOpen}">
                                         <Label Text="道德观" Style="{StaticResource FieldLabel}" />
@@ -576,6 +576,28 @@
                                         <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
                                                 Text="{Binding LifeOutlook}"
                                                 Placeholder="TA 觉得什么值得、怎么看聚散与日子（可留空）" />
+                                        <Label Text="生平" Style="{StaticResource FieldLabel}" />
+                                        <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
+                                                Text="{Binding Biography}"
+                                                Placeholder="TA 从哪来、经历过什么（可留空）" />
+                                        <Label Text="政治倾向" Style="{StaticResource FieldLabel}" />
+                                        <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
+                                                Text="{Binding PoliticalOutlook}"
+                                                Placeholder="TA 对权力、秩序与立场的看法（可留空）" />
+                                        <Label Text="思维主义 / 意识形态" Style="{StaticResource FieldLabel}" />
+                                        <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
+                                                Text="{Binding Ideology}"
+                                                Placeholder="TA 用什么眼光看世界、信什么道理（可留空）" />
+                                        <Label Text="深刻记忆（可分行写）" Style="{StaticResource FieldLabel}" />
+                                        <Editor Style="{StaticResource FieldMulti}" HeightRequest="112"
+                                                Text="{Binding DeepMemories}"
+                                                Placeholder="一行一条，TA 忘不掉的那几件事（可留空）" />
+                                        <Label Text="创伤背景" Style="{StaticResource FieldLabel}" />
+                                        <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
+                                                Text="{Binding TraumaBackground}"
+                                                Placeholder="TA 受过的伤、留下的阴影（可留空）" />
+                                        <Label Text="精神状况请在超级监测 / 心理健康处配置，不在这里新增字段。"
+                                               Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                     </VerticalStackLayout>
                                 </VerticalStackLayout>
 
@@ -751,19 +773,6 @@
                                         </VerticalStackLayout>
                                     </Border>
 
-                                    <BoxView Style="{StaticResource HSep}" />
-
-                                    <!-- 跨存档：这颗开关说的是「在游戏里改世界观算谁的」，
-                                         不是「这一套给谁用」—— 文案要把这一步说死。 -->
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                        <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                                            <Label Text="世界观改动跨存档生效" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding WorldviewCrossSaveHint}" Style="{StaticResource TxtCaption}"
-                                                   LineHeight="1.3" />
-                                        </VerticalStackLayout>
-                                        <controls:ViewSwitch x:Name="WorldviewSwitch" Grid.Column="1" VerticalOptions="Center"
-                                                IsToggled="{Binding WorldviewCrossSave, Mode=OneWay}" />
-                                    </Grid>
                                 </VerticalStackLayout>
 
                                 <!-- 插件特质 / 口味：由插件清单 character_profile 声明，按角色存 -->
@@ -805,27 +814,6 @@
                                 </VerticalStackLayout>
                                 <Label Text="拖动就改，但和设定一样：按「保存」才写进角色。这几项直接进 AI 的提示词。"
                                        Style="{StaticResource TxtCaption}" />
-
-                                <!-- 共享 / 非共享：这一屏改的到底是「现实」还是「建档起点」。
-                                     这句话必须常驻在最上面：两种口径下同样一根滑杆改的是两个不同的东西，
-                                     用户看不到这条界线，就会以为「非共享角色在这里拉一下 = 改了当前这一档」。 -->
-                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
-                                        Padding="{DynamicResource WPadWell}"
-                                        StrokeShape="{DynamicResource WRadiusWell}">
-                                    <VerticalStackLayout Spacing="6">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                                            <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                                                <Label Text="共享状态" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="{Binding StateSharedHint}" Style="{StaticResource TxtCaption}"
-                                                       LineHeight="1.3" />
-                                            </VerticalStackLayout>
-                                            <controls:ViewSwitch x:Name="SharedSwitch" Grid.Column="1" VerticalOptions="Center"
-                                                    IsToggled="{Binding StateShared, Mode=OneWay}" />
-                                        </Grid>
-                                        <Label Text="共享：好感/信任/精力/性欲只有一份「现实值」。非共享：每一档从下面的建档初始值起步，各记各的。切换不会把已有存档的数值倒回去。"
-                                               Style="{StaticResource TxtCaption}" LineHeight="1.3" />
-                                    </VerticalStackLayout>
-                                </Border>
 
                                 <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
                                     <Grid ColumnDefinitions="*,Auto">

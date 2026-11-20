@@ -174,6 +174,14 @@ public sealed record SaveSlot
     public int PlayMinutes { get; init; }
     /// <summary>绑定世界树 id；空 = 普通酒馆（无地图）。</summary>
     public string World { get; init; } = string.Empty;
+
+    // ===== Git 式分支存档（v1.65）：以下三个字段老档缺失时走默认值，不影响读旧档 =====
+    /// <summary>父存档 Id；null/空 = 这是一个独立存档（不是从别的档分出来的）。</summary>
+    public string? ParentId { get; init; }
+    /// <summary>分支名（创建分支时用户起的名字）；空 = 没有命名。</summary>
+    public string BranchName { get; init; } = "";
+    /// <summary>分叉时间（UTC）；null = 这不是分支档。</summary>
+    public DateTime? ForkedAt { get; init; }
 }
 
 /// <summary>会话中的一条聊天记录：随存档一起持久化，读档后恢复聊天界面。</summary>
@@ -477,10 +485,9 @@ public sealed record UserSettings
     public bool SemanticAiAssist { get; init; }
 
     /// <summary>
-    /// 让同一个角色跨存档共用一份记忆（默认关闭）。
-    /// 关掉时每个存档各记各的：换一个档，TA 不记得别处发生过什么——
-    /// 「这段关系是在这个存档里慢慢长出来的」是产品的底座，串档记忆会把它抹平。
-    /// 打开后所有存档读写同一份；那时想把两个人分开，只能复制角色（连记忆一起复制一份）。
+    /// 【v1.65 起已废弃，不再作为开关】让同一个角色跨存档共用一份记忆。
+    /// 字段保留只为兼容旧设置的反序列化与可能的外部引用；MemoryScope 现在强制按存档隔离，
+    /// 无论本字段是真是假，记忆都只落在当前存档作用域。老扁平文件会在首次切档时复制进各档，不删原件。
     /// </summary>
     public bool CrossSaveMemory { get; init; }
 

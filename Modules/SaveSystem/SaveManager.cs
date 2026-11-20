@@ -45,8 +45,9 @@ public sealed class SaveManager
     public IReadOnlyList<string> UnreadableSaves => _unreadableSaves;
     private readonly List<string> _unreadableSaves = new();
 
-    /// <summary>存档结构版本：旧档（缺此字段 = 0）在加载时自动迁移修复。</summary>
-    public const int SchemaVersion = 1;
+    /// <summary>存档结构版本：旧档（缺此字段 = 0）在加载时自动迁移修复。
+    /// v2（v1.65）：新增分支血缘字段，并把旧的跨存档共享角色状态定格进各档 char_states。</summary>
+    public const int SchemaVersion = 2;
 
     /// <summary>上一次读档时的自动修复说明（空 = 无需修复）。</summary>
     public string LastLoadNote { get; private set; } = "";
@@ -70,13 +71,21 @@ public sealed class SaveManager
         {
             LastCommitError = "";
             if (string.IsNullOrEmpty(_engine.CurrentSaveId)) NewRun();
+            // 分支血缘跟着档走：分支档再次保存时不能被覆盖成普通档。
+            // 优先走内存索引（List/BranchAsync 已把带血缘的 meta 缓存进去，零额外 IO），
+            // 只有索引还没加载时才读盘兜底；读不到一律当普通档。
+            _index.TryGetValue(_engine.CurrentSaveId, out var prev);
+            prev ??= await ReadCurrentSlotAsync(_engine.CurrentSaveId);
             var slot = new SaveSlot
             {
                 Id = _engine.CurrentSaveId,
                 Label = label,
                 Character = _engine.State.CharacterId,
                 Scene = _engine.State.Location,
-                World = _engine.State.WorldId
+                World = _engine.State.WorldId,
+                ParentId = prev?.ParentId,
+                BranchName = prev?.BranchName ?? "",
+                ForkedAt = prev?.ForkedAt
             };
             var data = new Dictionary<string, object>
             {
@@ -85,14 +94,13 @@ public sealed class SaveManager
                 ["mode"] = mode,
                 ["version"] = SchemaVersion,
                 ["char_state"] = _engine.ActiveCharacter?.State,
-                // 非共享角色按存档各存一份：同一角色在 A 档走到好感 80，不该在 B 档也是 80。
-                // 共享角色（StateShared=true）不写这里——TA 的进度本来就只有一份。
+                // v1.65 起所有角色一律按存档隔离：不再因为 StateShared=true 就不写。
+                // 老机制的「好感/信任全局共享」已在读档时定格进各档（见 LoadCore 的 SeedNonShared 分支），
+                // 这里把每个角色的当前状态都随存档落盘，A 档好感 80 不会再串到 B 档。
                 ["char_states"] = _engine.Roster.Values
-                    .Where(c => !c.StateShared)
                     .ToDictionary(c => c.Profile.Id, c => c.State),
-                // 副设定同理：非共享角色每档一份「此刻之我」，共享角色只有一份全局的。
+                // 副设定同理：每档一份「此刻之我」，不再区分共享与否。
                 ["sub_profiles"] = _engine.Roster.Values
-                    .Where(c => !c.StateShared)
                     .ToDictionary(c => c.Profile.Id, c => c.SubProfile),
                 ["chat"] = ChatLog.TakeLast(60).ToList()
             };
@@ -108,6 +116,26 @@ public sealed class SaveManager
             LastCommitError = ex.Message;
             App.WriteLog("SaveManager.Commit -> " + ex);
             return false;
+        }
+    }
+
+    /// <summary>
+    /// 读当前档已有的 meta（只为继承分支血缘）。读不到/损坏一律当普通档处理，绝不阻断保存；
+    /// 全程 try/catch —— 保存路径不能被一次额外的读取拖垮。
+    /// </summary>
+    private async Task<SaveSlot?> ReadCurrentSlotAsync(string id)
+    {
+        try
+        {
+            var json = await _store.LoadRawAsync($"saves/{id}");
+            if (string.IsNullOrEmpty(json)) return null;
+            using var doc = JsonDocument.Parse(json);
+            return doc.RootElement.TryGetProperty("meta", out var m) ? m.Deserialize<SaveSlot>() : null;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.ReadCurrentSlot -> " + ex.Message);
+            return null;
         }
     }
 
@@ -381,8 +409,14 @@ public sealed class SaveManager
             }
             foreach (var c in _engine.Roster.Values)
             {
-                if (c.StateShared || savedIds.Contains(c.Profile.Id)) continue;
-                c.State = SeedNonShared(c);
+                if (savedIds.Contains(c.Profile.Id)) continue;
+                // v1.65 迁移：老档里 StateShared=true 的角色从不写 char_states，只留一份全局实时值。
+                // 现在按存档隔离——把这份全局值就地定格为本档起点，记入修复项让 RepairAsync 回写落盘，
+                // 从此各档各存一份、不再串档。不能照旧 SeedNonShared：那会把玩家养久的角色打回建档初始值。
+                if (c.StateShared)
+                    fixedItems.Add($"把共享角色「{c.Profile.Name}」的当前状态定格进本存档");
+                else
+                    c.State = SeedNonShared(c);
             }
 
             var savedSubIds = new HashSet<string>(StringComparer.Ordinal);
@@ -397,8 +431,11 @@ public sealed class SaveManager
             }
             foreach (var c in _engine.Roster.Values)
             {
-                if (c.StateShared || savedSubIds.Contains(c.Profile.Id)) continue;
-                c.SubProfile = new CharacterSubProfile();
+                if (savedSubIds.Contains(c.Profile.Id)) continue;
+                // 副设定同理：不再因 StateShared=true 跳过。老共享角色只有一份全局值，
+                // 这里就地定格进本档（不重置），随后 RepairAsync 回写落盘；缺字段的新角色照旧补种。
+                if (!c.StateShared)
+                    c.SubProfile = new CharacterSubProfile();
             }
 
             ChatLog.Clear();
@@ -629,8 +666,9 @@ public sealed class SaveManager
     }
 
     /// <summary>
-    /// 从已有存档分出一个新档（插件 / AI 的「新增存档」）：复制同一份进度，换新 id 与新名字，
-    /// 不改动原档，也不打断当前进度。
+    /// 从已有存档分出一个新档（Git 式分支 / 插件 / AI 的「新增存档」）：复制同一份进度，换新 id 与新名字，
+    /// 记下父档血缘与分叉时刻，并把旧机制下全局共享的角色状态播种成新档的私有副本（分道扬镳）。
+    /// 不改动原档，也不打断当前进度。签名保持不变，兼容 ToolManager.World.cs / MaidBridgeService.cs 的调用。
     /// </summary>
     public async Task<(bool Ok, string Message, string Id)> BranchAsync(string sourceId, string label)
     {
@@ -641,16 +679,62 @@ public sealed class SaveManager
             if (JsonNode.Parse(json) is not JsonObject root || root["meta"] is not JsonObject meta)
                 return (false, "原存档结构不完整。", "");
             var newId = Guid.NewGuid().ToString("N")[..12];
+            var branchName = string.IsNullOrWhiteSpace(label) ? "分支存档" : label.Trim();
+            var now = DateTime.Now;
+
+            // Git 式血缘：父档 id + 分支名 + 分叉时刻。老档缺这三个字段时读档端走默认值，不影响展示。
             meta["Id"] = newId;
-            meta["Label"] = string.IsNullOrWhiteSpace(label) ? "分支存档" : label.Trim();
-            meta["SavedAt"] = JsonSerializer.SerializeToNode(DateTime.Now);
+            meta["Label"] = branchName;
+            meta["ParentId"] = sourceId;
+            meta["BranchName"] = branchName;
+            meta["ForkedAt"] = JsonSerializer.SerializeToNode(now);
+            meta["SavedAt"] = JsonSerializer.SerializeToNode(now);
+
+            // 源档 JSON 深拷贝已带来它落盘的角色状态（旧机制里只有非共享角色在 char_states）。
+            // 那些 StateShared=true 的角色旧机制只留一份全局状态、从不写档 —— 分叉时补一份进新档，
+            // 父子两档从此各走各的，互不影响（见 SeedSharedCharactersForBranch）。
+            SeedSharedCharactersForBranch(root);
+
             await _store.WriteRawAsync($"saves/{newId}", root.ToJsonString(WriteJson));
-            return (true, $"已从当前进度新增存档「{meta["Label"]}」。", newId);
+            // 新档立刻进列表缓存，存档页刷新时能马上看到刚分出来的分支。
+            if (meta.Deserialize<SaveSlot>() is { } slot) RememberSlotInListCache(slot);
+            return (true, $"已从当前进度分出分支「{branchName}」。", newId);
         }
         catch (Exception ex)
         {
             App.WriteLog("SaveManager.Branch -> " + ex);
             return (false, "新增存档失败：" + ex.Message, "");
+        }
+    }
+
+    /// <summary>
+    /// 分支出生时给「旧机制下全局共享、从不进存档」的角色补一份私有状态（分道扬镳）。
+    /// 只补 char_states / sub_profiles 里还缺的 id，绝不覆盖源档已落盘的角色状态；全程 try/catch。
+    /// </summary>
+    private void SeedSharedCharactersForBranch(JsonObject root)
+    {
+        try
+        {
+            var shared = _engine.Roster.Values.Where(c => c.StateShared).ToList();
+            if (shared.Count == 0) return;   // 没有共享角色就不凭空造空段，保持源档结构原样
+
+            var states = root["char_states"] as JsonObject;
+            var subs = root["sub_profiles"] as JsonObject;
+            if (states is null) { states = new JsonObject(); root["char_states"] = states; }
+            if (subs is null) { subs = new JsonObject(); root["sub_profiles"] = subs; }
+
+            foreach (var c in shared)
+            {
+                var id = c.Profile.Id;
+                if (!states.ContainsKey(id))
+                    states[id] = JsonSerializer.SerializeToNode(c.State, WriteJson);
+                if (!subs.ContainsKey(id))
+                    subs[id] = JsonSerializer.SerializeToNode(c.SubProfile, WriteJson);
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveManager.SeedSharedForBranch -> " + ex.Message);
         }
     }
 

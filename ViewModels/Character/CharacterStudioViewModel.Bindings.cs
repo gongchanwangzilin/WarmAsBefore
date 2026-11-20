@@ -25,7 +25,6 @@ public sealed partial class CharacterStudioViewModel
     // ══ ① 共享 / 非共享数值 ════════════════════════════════════════════
 
     [ObservableProperty] private bool _stateShared = true;
-    [ObservableProperty] private string _stateSharedHint = "";
 
     /// <summary>共享角色的实时性欲（State.Libido）。非共享时这一栏不显示，改的是 Initial.Libido。</summary>
     [ObservableProperty] private double _libido = 20;
@@ -56,43 +55,6 @@ public sealed partial class CharacterStudioViewModel
     partial void OnInitLibidoChanged(double value) => Note("初始性欲");
     partial void OnInitAffectionPointsChanged(string value) => Note("初始好感积分");
 
-    /// <summary>
-    /// 共享 ↔ 非共享。切过去之后立刻落盘：这颗开关换的是「盘上数值属于谁」，
-    /// 拖到「保存」再写，用户可能已经关掉这一页，看到的却是旧口径。
-    /// 两边的解释都要说清「已有存档不会因此倒回去」——这是最容易被误解的一步。
-    /// </summary>
-    [RelayCommand]
-    private async Task ToggleStateShared()
-    {
-        var next = !StateShared;
-        CharacterData updated;
-        if (next)
-        {
-            updated = _ch with { StateShared = true };
-            if (!await PersistExtendedAsync(updated, "已改为共享：这个角色的数值只有一份（现实值），所有存档共用。")) return;
-            Toast.Info("已有存档里各自存过的那份数字不会再被读出来，但不会被删掉；它们下次读取时改用这一份现实值。");
-        }
-        else
-        {
-            // 新建存档的起点先照抄这一刻的现实值：改口径不应把以后每一档都打回 0。
-            var seeded = new CharacterInitialStats
-            {
-                Affection = Clamp(Affection, 0, 100),
-                AffectionPoints = Math.Clamp(ParseInt(AffectionPoints, _ch.State.AffectionPoints), 0, 5000),
-                Trust = Clamp(Trust, 0, 100),
-                Energy = Clamp(Energy, 0, 100),
-                Libido = Clamp(Libido, 0, 100)
-            };
-            updated = _ch with { StateShared = false, Initial = seeded };
-            if (!await PersistExtendedAsync(updated, "已改为非共享：之后新建的存档从「建档初始值」开始。")) return;
-            Toast.Info("已有存档的数值不会倒回初始值——它们各自留着这一档的进度，下面那条只用来对照。");
-        }
-
-        StateShared = _ch.StateShared;
-        LoadInitialFields(_ch);
-        RefreshStateDerived();
-    }
-
     private void LoadInitialFields(CharacterData ch)
     {
         var init = ch.Initial ?? new CharacterInitialStats();
@@ -119,9 +81,6 @@ public sealed partial class CharacterStudioViewModel
     /// </summary>
     private void RefreshStateDerived()
     {
-        StateSharedHint = StateShared
-            ? "现实值，所有存档共用：这里改的是 TA 真实的进度。"
-            : "只决定新建存档时的初始状态，不影响已有存档。";
         HasSaveStatePreview = !StateShared && !string.IsNullOrEmpty(_engine.CurrentSaveId);
         SaveStatePreview = HasSaveStatePreview ? BuildSaveCompare(_ch) : "";
         OnPropertyChanged(nameof(LibidoSystemOff));
@@ -332,8 +291,6 @@ public sealed partial class CharacterStudioViewModel
     [ObservableProperty] private string _activeWorldviewName = "";
     [ObservableProperty] private string _worldviewName = "";
     [ObservableProperty] private string _worldviewDescription = "";
-    [ObservableProperty] private bool _worldviewCrossSave = true;
-    [ObservableProperty] private string _worldviewCrossSaveHint = "";
 
     /// <summary>世界书 id → 标题。绑定了但已经被删掉的书也要留一条，否则它会静默从清单里消失。</summary>
     private readonly Dictionary<string, string> _worldbookTitles = new(StringComparer.Ordinal);
@@ -422,11 +379,9 @@ public sealed partial class CharacterStudioViewModel
                 WorldviewSummary(w)));
 
         HasWorldviews = Worldviews.Count > 0;
-        WorldviewCrossSave = ch.WorldviewCrossSave;
         ActiveWorldviewName = active.Length == 0
             ? (HasWorldviews ? "还没指定默认世界观" : "没有角色世界观")
             : Worldviews.FirstOrDefault(v => v.Id == active)?.Name ?? "还没指定默认世界观";
-        RefreshWorldviewCrossSaveHint();
         LoadWorldviewEditor(ch);
     }
 
@@ -460,28 +415,6 @@ public sealed partial class CharacterStudioViewModel
         WorldviewBooks.Clear();
         foreach (var (id, title) in _worldbookTitles)
             WorldviewBooks.Add(new StudioAxisItem(id, title) { IsOn = selected.Contains(id) });
-    }
-
-    private void RefreshWorldviewCrossSaveHint() => WorldviewCrossSaveHint = WorldviewCrossSave
-        ? "开：在存档里改世界观，会写回角色本身，所有存档一起变。"
-        : "关：在存档里改世界观只影响那一档，角色本身不动，换一份存档还是这一套。";
-
-    [RelayCommand]
-    private async Task ToggleWorldviewCrossSave()
-    {
-        var next = !WorldviewCrossSave;
-        if (!await PersistExtendedAsync(_ch with { WorldviewCrossSave = next },
-                next ? "世界观改动将跨存档生效。" : "世界观改动只在本存档内生效。"))
-        {
-            WorldviewCrossSave = _ch.WorldviewCrossSave;
-            RefreshWorldviewCrossSaveHint();
-            return;
-        }
-        WorldviewCrossSave = _ch.WorldviewCrossSave;
-        RefreshWorldviewCrossSaveHint();
-        Toast.Info(next
-            ? "之后在游戏里换世界观，改的是角色上的这一套：别的存档也看得到。"
-            : "之后在游戏里换世界观，只在当前这一档生效：角色本身的世界观不会跟着动。");
     }
 
     [RelayCommand]
@@ -898,7 +831,6 @@ public sealed partial class CharacterStudioViewModel
         {
             StateShared = StateShared,
             Initial = StateShared ? updated.Initial : BuildInitial(),
-            WorldviewCrossSave = WorldviewCrossSave,
             Voice = BuildVoice(VoiceEnabled),
             Model = new CharacterModelBinding { ProviderId = _selectedProviderId, Model = _selectedModel }
         };

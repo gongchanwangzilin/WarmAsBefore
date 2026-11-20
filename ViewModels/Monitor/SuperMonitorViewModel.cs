@@ -357,13 +357,52 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             var memoryTask = LoadMemoryAsync(id);
             var numericTask = Task.Run(() => ReadNumeric(id));
 
-            await Task.WhenAll(organTask, influenceTask, planTask, memoryTask, numericTask);
+            // 三种监测的真实数据源：心理健康目录 / 内分泌池 / 记忆核心。
+            // 各自独立取数、独立 try/catch，任一服务拿不到只让那一路空着，不把整页带崩。
+            var mentalTask = Task.Run(async () =>
+            {
+                try
+                {
+                    var svc = ResolveService<MentalHealthService>();
+                    return svc is null
+                        ? (IReadOnlyList<MentalConditionState>)Array.Empty<MentalConditionState>()
+                        : await svc.ListAsync(id);
+                }
+                catch { return (IReadOnlyList<MentalConditionState>)Array.Empty<MentalConditionState>(); }
+            });
+            var innerTask = Task.Run<InnerChemicals?>(async () =>
+            {
+                try
+                {
+                    var svc = ResolveService<InnerLifeService>();
+                    if (svc is null) return null;
+                    await svc.SnapshotAsync(id); // 先结算一次，PeekChemicals 才拿得到当前值
+                    return svc.PeekChemicals(id);
+                }
+                catch { return null; }
+            });
+            var coreTask = Task.Run<(List<HumanMemoryEntry> Core, List<HumanMemoryEntry> All)>(async () =>
+            {
+                try
+                {
+                    var svc = ResolveService<HumanMemoryService>();
+                    if (svc is null) return (new List<HumanMemoryEntry>(), new List<HumanMemoryEntry>());
+                    return (await svc.CoreAsync(id), await svc.AllAsync(id));
+                }
+                catch { return (new List<HumanMemoryEntry>(), new List<HumanMemoryEntry>()); }
+            });
+
+            await Task.WhenAll(organTask, influenceTask, planTask, memoryTask, numericTask,
+                mentalTask, innerTask, coreTask);
 
             var organs = organTask.Result ?? Array.Empty<OrganState>();
             var influences = influenceTask.Result ?? Array.Empty<OrganInfluence>();
             var plan = planTask.Result;
             var layers = memoryTask.Result ?? new List<MemoryOverviewService.LayerStat>();
             var numeric = numericTask.Result;
+            var mentalStates = mentalTask.Result ?? Array.Empty<MentalConditionState>();
+            var chem = innerTask.Result;
+            var (coreMemories, allMemories) = coreTask.Result;
 
             if (!string.IsNullOrWhiteSpace(numeric.Name)) CharacterName = numeric.Name;
             else CharacterName = _engine.Roster.TryGetValue(id, out var rosterCh) ? rosterCh.Profile.Name : id;
@@ -459,6 +498,140 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     new DetailLine("影响", "精力低时不想动、不想说话"),
                 });
 
+            // ========== 三种监测的真实数据：挂到架构节点上，选中节点即在详情区逐行显示 ==========
+            var healthSvc = ResolveService<MentalHealthService>();
+
+            // ① 侵入性思维：心理健康目录里 id 含 intrusive 的真实条目（症状 / 严重度 / 稳定性）。
+            try
+            {
+                var intrusive = mentalStates
+                    .Where(s => s.Id.Contains("intrusive", StringComparison.OrdinalIgnoreCase))
+                    .Select(s => (State: s, Cond: healthSvc?.Find(s.Id)))
+                    .ToList();
+                var lines = new List<DetailLine>
+                {
+                    new("监测项", "侵入性思维（心理健康目录中 id 含 intrusive 的条目）")
+                };
+                if (intrusive.Count == 0)
+                {
+                    lines.Add(new DetailLine("当前记录", "无——该角色尚未配置侵入性思维类状况"));
+                }
+                else
+                {
+                    lines.Add(new DetailLine("当前条数", $"{intrusive.Count}"));
+                    foreach (var (st, cond) in intrusive)
+                    {
+                        var symptoms = string.IsNullOrWhiteSpace(cond?.Symptoms) ? "无" : cond!.Symptoms;
+                        var note = string.IsNullOrWhiteSpace(st.Note) ? "" : $" · 备注：{st.Note}";
+                        lines.Add(new DetailLine(cond?.Name ?? st.Id,
+                            $"{MentalHealthService.SeverityName(st.Severity)} · 稳定度 {st.Stability:0.00} · 症状：{symptoms}{note}"));
+                    }
+                }
+                Remember("mind.intrusive", "侵入性思维", "核心心智与病理", "监测",
+                    intrusive.Count == 0 ? "当前无侵入性思维类状况" : $"已记录 {intrusive.Count} 条侵入性思维相关状况",
+                    "", lines);
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.Intrusive -> " + ex.Message); }
+
+            // ② 互相调制：内分泌当前值（InnerLifeService）+ 器官连锁规则（Influences 的 6 条）。
+            try
+            {
+                var lines = new List<DetailLine>();
+                if (chem is null)
+                {
+                    lines.Add(new DetailLine("内分泌", "内心生活未开启或尚未结算，暂无化学池读数"));
+                }
+                else
+                {
+                    lines.Add(new DetailLine("数据来源", "InnerLifeService 当前化学池（已按半衰期结算）"));
+                    lines.Add(new DetailLine("多巴胺（兴奋/快乐）", $"{chem.Dopamine:0.00}"));
+                    lines.Add(new DetailLine("皮质醇（压力/警觉）", $"{chem.Cortisol:0.00}"));
+                    lines.Add(new DetailLine("血清素（安宁/稳定）", $"{chem.Serotonin:0.00}"));
+                    lines.Add(new DetailLine("肾上腺素（危急）", $"{chem.Adrenaline:0.00}"));
+                    lines.Add(new DetailLine("胆固醇（打击中和）", $"{chem.Cholesterol:0.00}"));
+                    lines.Add(new DetailLine("长期性激励素（长期）", $"{chem.LongTermDrive:0.00}"));
+                    lines.Add(new DetailLine("干劲（派生）", $"{chem.Drive:0.00}"));
+                    lines.Add(new DetailLine("更新于", chem.UpdatedAt.ToLocalTime().ToString("HH:mm:ss")));
+                }
+                if (influences.Count == 0)
+                {
+                    lines.Add(new DetailLine("连锁规则", "OrganSimulationService 暂无连锁规则"));
+                }
+                else
+                {
+                    lines.Add(new DetailLine("· 连锁规则", $"共 {influences.Count} 条（器官 → 器官 / 全身）"));
+                    foreach (var i in influences)
+                        lines.Add(new DetailLine($"{i.From} → {i.To}（{i.DelayMinutes} 分）", i.Effect));
+                }
+                Remember("emo.coupling", "记忆情绪耦合", "记忆与情绪双向耦合", "监测",
+                    $"内分泌读数 + {influences.Count} 条连锁规则", "", lines);
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.Coupling -> " + ex.Message); }
+
+            // ③ 创伤：心理健康目录的创伤类 + 核心记忆里 IsTrauma 的条目（阶段用 TraumaStageName）。
+            try
+            {
+                var traumaStates = mentalStates.Where(s =>
+                {
+                    var c = healthSvc?.Find(s.Id);
+                    return c is not null && (string.Equals(c.Category, "创伤", StringComparison.Ordinal)
+                        || s.Id.Contains("ptsd", StringComparison.OrdinalIgnoreCase)
+                        || s.Id.Contains("trauma", StringComparison.OrdinalIgnoreCase));
+                }).ToList();
+                var traumaMems = coreMemories.Where(m => m.IsTrauma).Take(6).ToList();
+                var lines = new List<DetailLine>
+                {
+                    new("数据来源", "心理健康目录（创伤类）+ 核心记忆 IsTrauma 条目")
+                };
+                if (traumaStates.Count == 0)
+                {
+                    lines.Add(new DetailLine("心理状况", "无——未配置创伤类状况"));
+                }
+                else
+                {
+                    foreach (var st in traumaStates)
+                    {
+                        var c = healthSvc?.Find(st.Id);
+                        var symptoms = string.IsNullOrWhiteSpace(c?.Symptoms) ? "" : c!.Symptoms + " · ";
+                        var behavior = string.IsNullOrWhiteSpace(c?.Behavior) ? "无" : c!.Behavior;
+                        lines.Add(new DetailLine(c?.Name ?? st.Id,
+                            $"{MentalHealthService.SeverityName(st.Severity)} · 稳定度 {st.Stability:0.00} · {symptoms}表现：{behavior}"));
+                    }
+                }
+                if (traumaMems.Count == 0)
+                {
+                    lines.Add(new DetailLine("创伤记忆", "无核心创伤记忆"));
+                }
+                else
+                {
+                    foreach (var m in traumaMems)
+                    {
+                        var stage = HumanMemoryMath.TraumaStageName(m.TraumaStage);
+                        lines.Add(new DetailLine($"记忆 · {stage}",
+                            $"{m.Text}（情绪强度 {m.EmotionalIntensity:0.00}，{stage}）"));
+                    }
+                }
+                Remember("mind.trauma", "创伤监测", "核心心智与病理", "监测",
+                    $"创伤类状况 {traumaStates.Count} 条 · 核心创伤记忆 {traumaMems.Count} 条", "", lines);
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.Trauma -> " + ex.Message); }
+
+            // ④ 行为模式：目前没有专门的数值化服务，只给真实记忆计数 + 程序记忆机制说明，不编造数值。
+            try
+            {
+                var coreCount = coreMemories.Count;
+                var abstractionCount = allMemories.Count(m => m.Kind == HumanMemoryKind.Abstraction);
+                Remember("mind.pattern", "行为模式", "核心心智与病理", "监测",
+                    "程序记忆 / 习惯化应对套路（暂无专门数值化服务）", "",
+                    new[]
+                    {
+                        new DetailLine("机制说明", "程序记忆：由深层记忆塑造的习惯化应对套路（对应架构节点 mem.procedural）"),
+                        new DetailLine("建模状态", "当前无专门的数值化服务，不显示推测数值"),
+                        new DetailLine("相关记忆", $"核心记忆 {coreCount} 条 · 抽象印象 {abstractionCount} 条（来自 HumanMemoryService）")
+                    });
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.Pattern -> " + ex.Message); }
+
             if (influences.Count > 0)
             {
                 InfluenceNote = string.Join("、", influences.Select(i =>
@@ -525,6 +698,18 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     {
         _details[id] = new NodeDetail(id, label, group, status, detail, influence);
         if (lines is not null) _detailLinesById[id] = lines;
+    }
+
+    /// <summary>从 MAUI 服务容器取单例服务（与 OrganSimulationService / 工具层的取法一致）。</summary>
+    private static T? ResolveService<T>() where T : class
+    {
+        try
+        {
+            var services = Microsoft.Maui.IPlatformApplication.Current?.Services
+                ?? Application.Current?.Handler?.MauiContext?.Services;
+            return services?.GetService(typeof(T)) as T;
+        }
+        catch { return null; }
     }
 
     // 服务模型里 Symptoms / Influences 可能是字符串也可能是列表，这里统一成人话，免得绑定类型一变就崩。
@@ -695,6 +880,10 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("emo.dominance", "控制感", "2", "EmotionMix", "Dominance");
             N("emo.coupling", "记忆情绪耦合", "2", "ChatEngine.SendCore", "记忆 ↔ 情绪双向耦合，moodBias 生效时点亮");
             N("mem.rumination", "反刍循环", "2", "HumanMemoryService.ChainSearchAsync", "负面回忆链延展，加剧情绪内耗");
+            // v1.65 专注 / 神游双系统：多巴胺驱动的本地状态机，专注重时神游会随机塞旧记忆介入。
+            N("cognition.focus", "专注模式", "2", "CognitionModeService.EnterFocus", "多巴胺驱动、大模型高精度；耗专属精力，用得越多停留越久");
+            N("cognition.wander", "神游模式", "2", "CognitionModeService.WanderInject", "低精度默认态；反刍/整理/纠错/新想法/回忆连线");
+            N("cognition.intervene", "神游介入", "2", "CognitionModeService.ShouldWanderIntervene", "专注快撑不住时，神游往脑海随机塞旧记忆");
 
             // ---- 层 3 核心心智与病理（10）----
             N("mind.trauma", "创伤节点", "3", "ChatEngine", "核心信念与旧伤的锚点");
@@ -771,6 +960,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             L("emo.coupling", "emo.state", LinkKind.Bidirectional);
             L("mem.rumination", "mem.retrieval", LinkKind.Feedback);
             L("mem.rumination", "emo.state", LinkKind.Feedback);
+            // 双系统：专注 ⇄ 神游，快撑不住时神游介入（反馈到专注）
+            L("cognition.focus", "cognition.wander", LinkKind.Bidirectional);
+            L("cognition.focus", "cognition.intervene", LinkKind.Feedback);
+            L("cognition.intervene", "cognition.wander");
+            L("cognition.wander", "mem.rumination", LinkKind.Feedback);
 
             // ---- 层 2 → 层 3 ----
             L("mem.retrieval", "mind.trauma");

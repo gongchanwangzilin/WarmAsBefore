@@ -29,6 +29,16 @@ public sealed record CharacterProfile
     public string MoralOutlook { get; init; } = string.Empty;
     /// <summary>F31 选填：角色的人生观（觉得什么值得、怎么看待聚散与日子）。留空 = 不进提示词。</summary>
     public string LifeOutlook { get; init; } = string.Empty;
+    /// <summary>高级设置·选填：角色生平（从哪来、经历过什么）。留空 = 不进提示词。</summary>
+    public string Biography { get; init; } = string.Empty;
+    /// <summary>高级设置·选填：角色的政治倾向。留空 = 不进提示词。</summary>
+    public string PoliticalOutlook { get; init; } = string.Empty;
+    /// <summary>高级设置·选填：角色的思维主义 / 意识形态。留空 = 不进提示词。</summary>
+    public string Ideology { get; init; } = string.Empty;
+    /// <summary>高级设置·选填：角色的深刻记忆（多行）。留空 = 不进提示词。</summary>
+    public string DeepMemories { get; init; } = string.Empty;
+    /// <summary>高级设置·选填：角色的创伤背景。留空 = 不进提示词。</summary>
+    public string TraumaBackground { get; init; } = string.Empty;
     public bool IsRomanceTarget { get; init; } = true;
     public string DefaultOutfit { get; init; } = "default";
 }

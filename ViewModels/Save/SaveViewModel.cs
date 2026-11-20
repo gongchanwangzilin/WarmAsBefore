@@ -319,6 +319,32 @@ public sealed partial class SaveViewModel : ObservableObject
     }
 
     /// <summary>
+    /// 创建分支：从选中的存档复制一份进度（含角色私有状态），原档不动。
+    /// 分支会记下父档血缘与分叉时刻；旧机制下全局共享的角色状态在分支里各存一份，从此不再串档。
+    /// </summary>
+    [RelayCommand]
+    private async Task BranchSlot(string id)
+    {
+        try
+        {
+            var slot = Slots.FirstOrDefault(s => s.Id == id);
+            var input = await Shell.Current.DisplayPromptAsync("创建分支",
+                "给分支起个名字？原存档不会被改动。", "创建", "取消",
+                string.IsNullOrWhiteSpace(slot?.Label) ? "分支存档" : slot!.Label + " · 分支");
+            if (input is null) return;   // 用户取消
+            var label = string.IsNullOrWhiteSpace(input) ? "分支存档" : input.Trim();
+            var (ok, message, _) = await _save.BranchAsync(id, label);
+            if (ok) { Toast.Success(message); await Refresh(); }
+            else Toast.Error(message);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SaveViewModel.BranchSlot -> " + ex);
+            Toast.Error("创建分支失败");
+        }
+    }
+
+    /// <summary>
     /// 新建存档：进角色选择页（select），选人确认后由那一页带着角色 id 跳进
     /// 「世界 → 人设 → 细则 → 开始」四步向导（newrun）。与标题页「创建新欢」同一条链，
     /// 不直接裸跳 newrun——缺角色参数时会回落到引擎里残存的旧角色，不是干净的新一局。

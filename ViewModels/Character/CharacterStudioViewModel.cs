@@ -157,6 +157,12 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     /// <summary>F31 高级设置（选填）：道德观 / 人生观。留空即不写进提示词。</summary>
     [ObservableProperty] private string _moralOutlook = "";
     [ObservableProperty] private string _lifeOutlook = "";
+    // 高级设置·选填：与道德观/人生观同一套路子，留空就不进提示词。
+    [ObservableProperty] private string _biography = "";
+    [ObservableProperty] private string _politicalOutlook = "";
+    [ObservableProperty] private string _ideology = "";
+    [ObservableProperty] private string _deepMemories = "";
+    [ObservableProperty] private string _traumaBackground = "";
     [ObservableProperty] private bool _isRomance = true;
 
     // ── 年龄 / 生日 ─────────────────────────────────────────────────────
@@ -313,6 +319,11 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     partial void OnGreetingChanged(string value) => Note("问候语");
     partial void OnMoralOutlookChanged(string value) => Note("道德观");
     partial void OnLifeOutlookChanged(string value) => Note("人生观");
+    partial void OnBiographyChanged(string value) => Note("生平");
+    partial void OnPoliticalOutlookChanged(string value) => Note("政治倾向");
+    partial void OnIdeologyChanged(string value) => Note("思维主义");
+    partial void OnDeepMemoriesChanged(string value) => Note("深刻记忆");
+    partial void OnTraumaBackgroundChanged(string value) => Note("创伤背景");
 
     /// <summary>F31：高级设置折叠区（选填字段不占主设定版面）。</summary>
     [ObservableProperty] private bool _advancedOpen;
@@ -474,6 +485,12 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         Greeting = _ch.Profile.Greeting;
         MoralOutlook = _ch.Profile.MoralOutlook;
         LifeOutlook = _ch.Profile.LifeOutlook;
+        // 高级设置·选填：老档缺这些字段时是空字符串（init 默认值），直接回填即可。
+        Biography = _ch.Profile.Biography;
+        PoliticalOutlook = _ch.Profile.PoliticalOutlook;
+        Ideology = _ch.Profile.Ideology;
+        DeepMemories = _ch.Profile.DeepMemories;
+        TraumaBackground = _ch.Profile.TraumaBackground;
         IsRomance = _ch.Profile.IsRomanceTarget;
         // 年龄留空就留空（不是 0）；生日按盘上的归一写法回填，用户改写法在保存时才归一。
         AgeInput = _ch.Profile.Age?.ToString(CultureInfo.InvariantCulture) ?? "";
@@ -1543,6 +1560,11 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
                     Greeting = Greeting?.Trim() ?? "",
                     MoralOutlook = MoralOutlook?.Trim() ?? "",
                     LifeOutlook = LifeOutlook?.Trim() ?? "",
+                    Biography = Biography?.Trim() ?? "",
+                    PoliticalOutlook = PoliticalOutlook?.Trim() ?? "",
+                    Ideology = Ideology?.Trim() ?? "",
+                    DeepMemories = DeepMemories?.Trim() ?? "",
+                    TraumaBackground = TraumaBackground?.Trim() ?? "",
                     IsRomanceTarget = IsRomance,
                     Age = nextAge,
                     Birthday = nextBirthday,

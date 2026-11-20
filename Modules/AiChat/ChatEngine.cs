@@ -606,6 +606,28 @@ public sealed class ChatEngine
         try { Brain?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.PrepareTurn -> " + ex.Message); }
         Services.Core.FlowTracer.Trace("mind.anticipation", charId);
+        // 专注 / 神游双系统：本地状态机（零模型调用）。多巴胺高 + 本轮深度思考 → 进入专注；
+        // 专注每轮扣专属精力，快撑不住时神游会往脑海随机塞旧记忆（下面 ctx 段处理）。
+        var cognition = WarmAsBefore.Services.CognitionModeService.Instance;
+        try
+        {
+            cognition.Tick(charId, DateTime.UtcNow);
+            // 多巴胺取内分泌层当前值（0..1）换算成 0..100（50 为平静），与大脑预判层语义一致。
+            var chemNow = InnerLife?.PeekChemicals(charId);
+            var brainDopamine = chemNow is null ? 50d : 50d + (chemNow.Dopamine - 0.5d) * 100d;
+            if (cognition.Current(charId) == WarmAsBefore.Models.CognitionMode.Wandering
+                && brainDopamine >= 58d && (deepThisTurn || cfg.ThinkTier >= 2))
+            {
+                cognition.EnterFocus(charId, brainDopamine);
+                cognition.TrainCapacity(charId); // 用得越多，能在专注模式停留越久
+                Services.Core.FlowTracer.Trace("cognition.focus", charId);
+            }
+            else
+            {
+                Services.Core.FlowTracer.Trace("cognition.wander", charId);
+            }
+        }
+        catch (Exception ex) { App.WriteLog("ChatEngine.Cognition -> " + ex.Message); }
         // 内心生活：这条消息让她的激素动一动（夸了会开心、冷话会难受），也记下她被问了什么
         try { InnerLife?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifePrepare -> " + ex.Message); }
@@ -644,6 +666,21 @@ public sealed class ChatEngine
                 if (!string.IsNullOrWhiteSpace(recalled))
                     ctx = ctx.Length == 0 ? recalled : recalled + "\n" + ctx;
             }
+            // 神游介入：专注快撑不住但用户还在撑时，神游往大脑随机塞一条旧记忆/念头，
+            // 干扰专注（论文的双系统竞争）。这是"想专注但走神"的可观测来源。
+            try
+            {
+                if (cognition.ShouldWanderIntervene(charId))
+                {
+                    var intrusive = cognition.WanderInject(charId);
+                    if (!string.IsNullOrWhiteSpace(intrusive))
+                    {
+                        ctx = ctx.Length == 0 ? intrusive : intrusive + "\n" + ctx;
+                        Services.Core.FlowTracer.Trace("cognition.intervene", charId);
+                    }
+                }
+            }
+            catch (Exception ex) { App.WriteLog("ChatEngine.WanderInject -> " + ex.Message); }
         }
         catch (Exception ex) { App.WriteLog("ChatEngine.HumanRecall -> " + ex.Message); }
 
@@ -1612,6 +1649,12 @@ public sealed class ChatEngine
                   $"{(string.IsNullOrWhiteSpace(p.LifeOutlook) ? "" : "你看日子的人生观：" + p.LifeOutlook + " ")}" +
                   $"{(string.IsNullOrWhiteSpace(p.MoralOutlook) && string.IsNullOrWhiteSpace(p.LifeOutlook)
                       ? "" : "这些是你自己信的东西，自然地影响判断和语气就好，不要主动罗列或说教。 ")}" +
+                  // v1.65 角色高级模式选填字段：有值才进提示词，留空一个字都不加。
+                  $"{(string.IsNullOrWhiteSpace(p.Biography) ? "" : "你的生平：" + p.Biography + " ")}" +
+                  $"{(string.IsNullOrWhiteSpace(p.PoliticalOutlook) ? "" : "你的政治倾向：" + p.PoliticalOutlook + " ")}" +
+                  $"{(string.IsNullOrWhiteSpace(p.Ideology) ? "" : "你的思维主义：" + p.Ideology + " ")}" +
+                  $"{(string.IsNullOrWhiteSpace(p.DeepMemories) ? "" : "你铭刻深处的记忆：" + p.DeepMemories + " ")}" +
+                  $"{(string.IsNullOrWhiteSpace(p.TraumaBackground) ? "" : "你经历过的创伤：" + p.TraumaBackground + " ")}" +
                   $"用中文自然回复，保持人设一致，语气像日常相处一样放松。";
             try
             {

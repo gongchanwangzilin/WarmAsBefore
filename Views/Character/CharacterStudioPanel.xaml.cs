@@ -37,10 +37,7 @@ public partial class CharacterStudioPanel : ContentView
         CrossSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleCrossSaveCommand);
         CrossSwitchStage.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleCrossSaveCommand);
         AllowedSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleAllowedCommand);
-        // 这三颗换的都不是一个字段，而是「盘上那份数据属于谁」或「要不要写全局/角色」：
-        // 直接绑 IsToggled 会只改内存里的布尔，盘上不动 —— 那比不接线更糟。
-        SharedSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleStateSharedCommand);
-        WorldviewSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleWorldviewCrossSaveCommand);
+        // v1.65：状态共享 / 世界观跨存档开关已移除（改为按存档隔离 + Git 式分支存档）。
         VoiceSwitch.Toggled += (_, e) => OnSwitchToggled(e.Value, () => _vm?.ToggleVoiceEnabledCommand);
         HookVm();
     }
@@ -67,7 +64,6 @@ public partial class CharacterStudioPanel : ContentView
         if (e.PropertyName is nameof(CharacterStudioViewModel.CrossSave)
                         or nameof(CharacterStudioViewModel.AllowedInSave)
                         or nameof(CharacterStudioViewModel.StateShared)
-                        or nameof(CharacterStudioViewModel.WorldviewCrossSave)
                         or nameof(CharacterStudioViewModel.VoiceEnabled))
         {
             SyncSwitches();
@@ -157,8 +153,6 @@ public partial class CharacterStudioPanel : ContentView
         CrossSwitch.IsToggled = _vm.CrossSave;
         CrossSwitchStage.IsToggled = _vm.CrossSave;
         AllowedSwitch.IsToggled = _vm.AllowedInSave;
-        SharedSwitch.IsToggled = _vm.StateShared;
-        WorldviewSwitch.IsToggled = _vm.WorldviewCrossSave;
         VoiceSwitch.IsToggled = _vm.VoiceEnabled;
         _syncingSwitch = false;
     }
