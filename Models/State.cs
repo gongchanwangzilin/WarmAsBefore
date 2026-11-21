@@ -960,6 +960,10 @@ public sealed record UserSettings
     /// 关闭后状态冻结、完全不进提示词。判定全部走纯代码，只在提示词里自然渗进语气与动作。</summary>
     public bool ConcretizationEnabled { get; init; } = true;
 
+    /// <summary>内驱动系统：三种基本动力（攻击性/性/自恋）、七个驱动与自律，含八级发泄。
+    /// 关闭后数值冻结、不进提示词。</summary>
+    public bool InnerDriveEnabled { get; init; } = true;
+
     /// <summary>金钱系统：关闭后购买不扣币，钱包显示「已停用」。</summary>
     public bool MoneyEnabled { get; init; } = true;
 

@@ -281,6 +281,9 @@ public sealed class ChatEngine
     /// <summary>内心生活：激素池随每轮对话涨落，答不上来的事长成执念（ PrepareTurn/AfterReply 在发送链路里调）。</summary>
     public Services.InnerLifeService? InnerLife { get; set; }
 
+    /// <summary>内驱动系统：三种基本动力、七个驱动、自律闸门与八级发泄。</summary>
+    public Services.InnerDriveService? InnerDrive { get; set; }
+
     /// <summary>具体化机制：情绪落到身体与行为（食欲/说话欲/走动欲/躯体化）。每轮对话 Feed 一次，纯代码判定。</summary>
     public Services.SomatizationService? Soma { get; set; }
 
@@ -352,6 +355,9 @@ public sealed class ChatEngine
         // 内心生活：回复回来了——「不知道」长执念，想明白了就放下；同时记一笔情绪。
         try { InnerLife?.AfterReply(charId, reply ?? ""); }
         catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifeAfter -> " + ex.Message); }
+        // 内驱动：这轮火气压没压住、要不要选一个出口，以及被满足的驱动该释放什么
+        try { InnerDrive?.AfterReply(charId, reply ?? ""); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.InnerDriveAfter -> " + ex.Message); }
 
         if (AfterTurn is null) return;
         try
@@ -631,6 +637,9 @@ public sealed class ChatEngine
         // 内心生活：这条消息让她的激素动一动（夸了会开心、冷话会难受），也记下她被问了什么
         try { InnerLife?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.InnerLifePrepare -> " + ex.Message); }
+        // 内驱动：这句话把哪几股驱动推了一下（顶撞抬火气、夸赞满足自恋与连接）
+        try { InnerDrive?.PrepareTurn(charId, text); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.InnerDrivePrepare -> " + ex.Message); }
         Services.Core.FlowTracer.Trace("mind.chemicals", charId);
         // 具体化机制：同一条消息驱动情绪→身体/行为的纯代码重算
         try { Soma?.Feed(charId, text); }

@@ -45,6 +45,9 @@ public static class CoreRegistration
         services.AddSingleton<PhysiologyService>();
         // 内心生活：内分泌化学池 + 执念池，事件与对话改变心绪，惦记的事到点自己想
         services.AddSingleton<InnerLifeService>();
+        // 内驱动系统：三种基本动力 + 七个驱动 + 自律闸门 + 八级发泄。
+        // 驱动被满足时往内分泌层推多巴胺，故紧随 InnerLifeService 之后注册。
+        services.AddSingleton<InnerDriveService>();
         // 具体化机制：把情绪落到身体与行为（食欲 / 说话欲 / 走动欲 / 躯体化），判定全纯代码，
         // 只在提示词里自然渗进语气与小动作。依赖 InnerLifeService 的内分泌池，故紧随其后注册。
         services.AddSingleton<SomatizationService>();

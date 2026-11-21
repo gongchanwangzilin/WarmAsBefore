@@ -290,6 +290,18 @@ public sealed class InnerLifeService
     private static int Hits(string text, string[] words)
         => words.Count(w => (text ?? "").Contains(w, StringComparison.Ordinal));
 
+    /// <summary>
+    /// 外部层推一把化学池：内驱动系统满足一次驱动、或压住一次火气之后，用它把
+    /// 多巴胺/血清素/皮质醇直接推到内分泌层，让「想做的事做成了」真的变成一点干劲。
+    /// 只加不结算，值由本层的半衰期负责拉回基线。
+    /// </summary>
+    public void Nudge(string charId, double dopamine = 0, double serotonin = 0, double cortisol = 0)
+    {
+        if (!Enabled || string.IsNullOrEmpty(charId)) return;
+        if (dopamine == 0 && serotonin == 0 && cortisol == 0) return;
+        Shift(charId, dopa: dopamine, cort: cortisol, ser: serotonin);
+    }
+
     /// <summary>用户消息进来：warmth 由文本粗估，事件大小按词命中数走。</summary>
     public void PrepareTurn(string charId, string userText)
     {

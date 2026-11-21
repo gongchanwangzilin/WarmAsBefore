@@ -2022,6 +2022,14 @@
                             <Label Text="情绪会落到身体与行为上：影响食欲、想不想说话、想不想走动；长期压抑或高唤起还可能躯体化——肚子疼、胃灼烧、呼吸急促。判定全部走纯代码，只在对话里自然渗进语气与动作。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ConcretizationEnabled}" /></Grid>
                         <BoxView Style="{StaticResource HSepBleed}" />
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
+                            <Label Text="内驱动系统（基本动力 / 七个驱动 / 自律）" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="给她一套自己的动机：攻击性、性、自恋三种基本动力决定她多容易被推动；贪欲、暴食、色欲、嫉妒、傲慢、怠惰、暴怒七个驱动决定她此刻想做什么，做成之后化成干劲与松快。自律是闸门，方向由角色的道德观、人生观、思维主义决定，也会被她自己的克制与放纵练硬或磨软。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding InnerDriveEnabled}" /></Grid>
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,4" ColumnSpacing="8">
+                            <Label Text="生气在这一层被拆成八种出口，从强到弱：叛逆、撒泼、怄气、任性、郁闷、拖延、厌烦、退缩。走哪个出口由火气、攻击性与自律共同决定，说完会松一口，忍着则留下闷并把自律练硬一点。" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
                         <!-- F22：工具调用展示 + 对话信息全屏 -->
                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                             <Label Text="显示工具调用" Style="{StaticResource TxtBodySm}" />

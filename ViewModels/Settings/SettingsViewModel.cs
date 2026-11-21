@@ -146,6 +146,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _physiologyEnabled = s.PhysiologyEnabled;
         _innerLifeEnabled = s.InnerLifeEnabled;
         _concretizationEnabled = s.ConcretizationEnabled;
+        _innerDriveEnabled = s.InnerDriveEnabled;
         _showToolCalls = s.ShowToolCalls;
         _chatFullScreen = s.ChatFullScreen;
         _brainEnabled = s.BrainEnabled;
@@ -618,6 +619,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _physiologyEnabled = true;
     [ObservableProperty] private bool _innerLifeEnabled = true;
     [ObservableProperty] private bool _concretizationEnabled = true;
+    [ObservableProperty] private bool _innerDriveEnabled = true;
     /// <summary>F22：对话里显示工具调用气泡（可展开）。</summary>
     [ObservableProperty] private bool _showToolCalls;
     /// <summary>F22：对话信息全屏。</summary>
@@ -1134,6 +1136,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnPhysiologyEnabledChanged(bool value) => PersistSettings();
     partial void OnInnerLifeEnabledChanged(bool value) => PersistSettings();
     partial void OnConcretizationEnabledChanged(bool value) => PersistSettings();
+    partial void OnInnerDriveEnabledChanged(bool value) => PersistSettings();
     partial void OnShowToolCallsChanged(bool value) => PersistSettings();
     partial void OnChatFullScreenChanged(bool value) => PersistSettings();
     partial void OnBrainEnabledChanged(bool value) => PersistSettings();
@@ -1423,6 +1426,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                     PhysiologyEnabled = PhysiologyEnabled,
                     InnerLifeEnabled = InnerLifeEnabled,
                     ConcretizationEnabled = ConcretizationEnabled,
+                    InnerDriveEnabled = InnerDriveEnabled,
                     ShowToolCalls = ShowToolCalls,
                     ChatFullScreen = ChatFullScreen,
                     BrainEnabled = BrainEnabled,

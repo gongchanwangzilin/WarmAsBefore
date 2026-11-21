@@ -47,6 +47,7 @@ public sealed class RuntimeConfigurator
     private readonly BrainAnticipationService _brain;
     private readonly InnerLifeService _inner;
     private readonly SomatizationService _soma;
+    private readonly InnerDriveService _drive;
     private readonly EnergyLedgerService _energy;
     private readonly WorldTreeService _worlds;
     private readonly ThinkTierRuntime _thinkTier;
@@ -71,7 +72,7 @@ public sealed class RuntimeConfigurator
         ImageGenerationService images, PluginHost plugins, McpOrchestrator mcp, MapService map,
         Modules.MinecraftBridge.MaidBridgeService maidBridge, BrainAnticipationService brain,
         InnerLifeService inner, WorldTreeService worlds, ThinkTierRuntime thinkTier, SomatizationService soma,
-        EnergyLedgerService energy)
+        EnergyLedgerService energy, InnerDriveService drive)
     {
         _settings = settings;
         _chat = chat;
@@ -110,6 +111,7 @@ public sealed class RuntimeConfigurator
         _inner = inner;
         _soma = soma;
         _energy = energy;
+        _drive = drive;
         _worlds = worlds;
         // 第十五项修正「配置通道」：启动时异步拉一次插件设置，让 WAB 目录键的生效值先就位。
         _ = RefreshEffectiveAsync();
@@ -828,6 +830,13 @@ public sealed class RuntimeConfigurator
         // 内心生活：激素池每轮结算、答不上来的事长成执念、惦记到阈值自己想明白
         _chat.InnerLife = _inner;
         _chat.Soma = _soma;
+        // 内驱动：三种基本动力、七个驱动、自律闸门与八级发泄。自律的方向来自角色自己的
+        // 道德观 / 人生观 / 思维主义——这三样已经写在她的档案里，这里只负责取出来。
+        _chat.InnerDrive = _drive;
+        _drive.OutlookProvider = charId =>
+            _engine.Roster.TryGetValue(charId, out var who)
+                ? (who.Profile.MoralOutlook, who.Profile.LifeOutlook, who.Profile.Ideology)
+                : null;
         // F16 精力：宿主结算、模组只显示。ChatEngine 每轮记账，桥按事件记账，
         // MainGameViewModel 每帧取权威值并写回 CharacterState（stats 帧推给模组）。
         _chat.Energy = _energy;
@@ -900,6 +909,13 @@ public sealed class RuntimeConfigurator
                 if (!string.IsNullOrWhiteSpace(inner)) parts.Add(inner);
             }
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.InnerLifeContext -> " + ex.Message); }
+            // 内驱动：此刻最想要的那一口、火气的出口、闸门松紧。紧跟在心绪之后，两者互为来处。
+            try
+            {
+                var drive = await _drive.PromptTextAsync(charId);
+                if (!string.IsNullOrWhiteSpace(drive)) parts.Add(drive);
+            }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.InnerDriveContext -> " + ex.Message); }
             // 角色世界观（需求 16）：角色自己可以有多套、每套复合多本世界书；存档里选的那一套优先。
             // 与「存档绑定的世界书」并存 —— 角色来自哪里，和这一局发生在哪里，是两件事。
             try
