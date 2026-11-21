@@ -34,6 +34,16 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     // 本次会话已经因原生层异常放弃 3D 层（放弃后只保留 2D 天气，不再重试拉起）。
     private static bool _evergineGivenUp;
 
+    /// <summary>最近一次 3D 初始化失败的原因：界面上要能说「为什么没有 3D」，不能静默失败。</summary>
+    internal static string? LastFailure { get; private set; }
+
+    /// <summary>
+    /// 每次进入带 3D 的页面时给一次重试机会：以前这个放弃标记是整个进程一份，
+    /// 主界面 3D 天气层失败一次，监测页的 3D 就再也起不来，且界面上没有任何提示。
+    /// 重置后若原生层仍然失败，会重新置位并记录原因，不会陷入崩溃循环。
+    /// </summary>
+    internal static void ResetGiveUpForNewPage() => _evergineGivenUp = false;
+
     public EvergineWeatherViewHandler(IPropertyMapper mapper, CommandMapper? commandMapper = null)
         : base(mapper, commandMapper)
     {
@@ -55,6 +65,7 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         catch (Exception ex)
         {
             _evergineGivenUp = true;
+            LastFailure = ex.Message;
             this.TryHide(view);
             App.WriteLogNow("Evergine.UpdateApplication -> " + ex);
             try

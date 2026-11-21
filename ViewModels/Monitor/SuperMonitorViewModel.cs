@@ -40,6 +40,9 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     // 架构骨架：五层节点 + 论文 Mermaid 拓扑连线，首进页面（LoadAsync）构造一次，之后复用。
     private IReadOnlyList<ArchNode>? _archNodes;
     private IReadOnlyList<ArchLink>? _archLinks;
+    // 病理特效与断链：每轮取数后重算，drawable 只读这两份。
+    private readonly Dictionary<string, NodeFx> _fx = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _severed = new(StringComparer.Ordinal);
 
     public ArchitectureFlowDrawable ArchDrawable { get; } = new();
 
@@ -47,6 +50,14 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     /// 以前是硬塞进一个固定框里等比缩小，65 个节点挤成一团看不清线条，这里改成按内容给尺寸。</summary>
     [ObservableProperty] private double _canvasWidth = 1200;
     [ObservableProperty] private double _canvasHeight = 900;
+
+    /// <summary>还没进存档：监测页只给一句提示，不去取任何数据（没存档就没人可监测）。</summary>
+    [ObservableProperty] private bool _noSave;
+    /// <summary>3D 层不可用时的原因（拿不到就留空，页面不显示这行）。</summary>
+    [ObservableProperty] private string _vector3DNote = "";
+    [ObservableProperty] private bool _hasVector3DNote;
+
+    partial void OnVector3DNoteChanged(string value) => HasVector3DNote = !string.IsNullOrWhiteSpace(value);
 
     public SuperMonitorViewModel(GameEngine engine, MemoryOverviewService overview)
     {
@@ -57,6 +68,14 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         // 余辉亮度直连追踪器；Drawable 只认 Func<string,float>，不反查静态类。
         ArchDrawable.GlowProvider = FlowTracer.Glow;
         // 布局算完把自然尺寸交回页面，页面据此给 GraphicsView 请求宽高，靠外层滚动而不是压缩。
+        // 子系统框的标题：图上一块一块，读得出来「这一坨是记忆」「这一坨是内驱」。
+        ArchDrawable.GroupTitles = new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["memory"] = "五层记忆分层系统",
+            ["drive"] = "内驱动子系统 · 可整体停用"
+        };
+        ArchDrawable.EffectProvider = id => _fx.TryGetValue(id, out var fx) ? fx : NodeFx.None;
+        ArchDrawable.SeveredProvider = link => _severed.Contains(link.From + ">" + link.To);
         ArchDrawable.ContentSizeChanged += (w, h) =>
         {
             if (w > 0 && Math.Abs(CanvasWidth - w) > 0.5) CanvasWidth = w;
@@ -345,6 +364,16 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         _loading = true;
         try
         {
+            // 监测只在存档里成立：没进存档时这片土地上没有「她」，取任何数都是空的。
+            var scopeNow = ResolveService<MemoryScope>();
+            if (scopeNow is not null && scopeNow.IsShared)
+            {
+                NoSave = true;
+                StatusText = "还没进入存档 —— 监测读的是存档里那个人的当下，先去开一份存档。";
+                return;
+            }
+            NoSave = false;
+
             var id = CharId;
             DateText = DateTime.Now.ToString("yyyy-MM-dd");
             TickSources(id);
@@ -428,6 +457,52 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             var chem = await innerTask;
             var drive = await driveTask;
             var (coreMemories, allMemories) = await coreTask;
+
+            // ---- 图上的实时读数（角标）、病理特效与被强制切断的路径 ----
+            // 角标：把这一刻的真值压到节点上，不用逐点开面板也能看出她在什么状态。
+            var badges = new Dictionary<string, string>(StringComparer.Ordinal);
+            if (chem is not null)
+            {
+                badges["emo.state"] = $"效价 {chem.Dopamine - chem.Cortisol:0.00} · 唤醒 {chem.Adrenaline:0.00}";
+                badges["emo.coupling"] = $"多巴胺 {chem.Dopamine:0.00} · 血清素 {chem.Serotonin:0.00}";
+            }
+            if (drive is not null)
+            {
+                badges["core.driveSystem"] = "运行中 · 可停用";
+                badges["core.drivePower"] = $"攻{drive.Aggression:0.00} 性{drive.Sexuality:0.00} 自{drive.Narcissism:0.00}";
+                badges["core.driveSeven"] = $"{DriveRules.NameOf(DominantOf(drive))} {DominantValueOf(drive):0.00}";
+                badges["core.driveGate"] = $"自律 {drive.Discipline:0.00} · {drive.MoralName}";
+                badges["core.discharge"] = $"火气 {drive.Anger:0.00} · {drive.DischargeName}";
+            }
+            badges["mem.shallow"] = $"近期 {coreMemories.Count + allMemories.Count} 条在场";
+            badges["mem.deep"] = $"深层 {allMemories.Count} 条";
+            badges["mem.retrieval"] = coreMemories.Count > 0
+                ? $"核心 {coreMemories.Count} 条可回想"
+                : "按线索回想";
+
+            // 病理特效：身上真带着的那几条，对应的节点画成呼吸的警示环（越重越急、越稳越淡）。
+            _fx.Clear();
+            foreach (var st in mentalStates)
+            {
+                var key = st.Id.ToLowerInvariant();
+                var nodeId = key.Contains("ptsd") ? "path.ptsd"
+                    : key.Contains("depress") ? "path.depression"
+                    : key.Contains("anxi") ? "path.anxiety"
+                    : key.Contains("bpd") ? "path.bpd"
+                    : null;
+                if (nodeId is null) continue;
+                var severity = Math.Clamp(0.35 + 0.28 * st.Severity - 0.25 * st.Stability, 0.08, 1.0);
+                _fx[nodeId] = new NodeFx(severity, true);
+            }
+
+            // 被强制切断的路径：不是「没走」，是被顶掉了——所以图上断开并打叉。
+            _severed.Clear();
+            if (chem is not null && chem.Cortisol > 0.68)
+                _severed.Add("soma.coping>soma.reply");     // 皮质醇过顶：低级中枢越权，理智回复被切
+            if (_fx.ContainsKey("path.depression"))
+                _severed.Add("mem.deepen>mem.deep");        // 反刍死锁：记忆深化下不去
+            if (_fx.ContainsKey("path.ptsd"))
+                _severed.Add("in.tone>mind.trauma");        // 创伤路径被直接触发，绕过了常规解析
 
             if (!string.IsNullOrWhiteSpace(numeric.Name)) CharacterName = numeric.Name;
             else CharacterName = _engine.Roster.TryGetValue(id, out var rosterCh) ? rosterCh.Profile.Name : id;
@@ -743,7 +818,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
             // 架构骨架：首进页面构造一次五层节点与 Mermaid 拓扑连线。
             EnsureArchitecture();
-            ArchDrawable.Nodes = _archNodes;
+            // 角标随每轮取数更新：rebuild 一份带 Badge 的节点表再交给 drawable（记录式，代价很小）。
+            var badgeMap = badges;
+            ArchDrawable.Nodes = _archNodes?
+                .Select(n => badgeMap.TryGetValue(n.Id, out var b) ? n with { Badge = b } : n)
+                .ToList() ?? _archNodes;
             ArchDrawable.Links = _archLinks;
             ArchDrawable.SelectedId = null;
             SelectedNode = null;
@@ -953,8 +1032,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         {
             var nodes = new List<ArchNode>();
             void N(string id, string label, string layer, string module, string detail,
-                   ArchNodeKind kind = ArchNodeKind.Step) =>
-                nodes.Add(new ArchNode(id, label, layer, module, detail, kind));
+                   ArchNodeKind kind = ArchNodeKind.Step, string? group = null) =>
+                nodes.Add(new ArchNode(id, label, layer, module, detail, kind, group));
 
             // ---- 层 1 感知与输入抽象层（13）----
             N("in.text", "文字输入", "1", "ChatEngine.SendCore", "Send 入口记录用户文本，整条执行链的起点");
@@ -972,12 +1051,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("in.embodied", "具身锚定", "1", "EmotionMix / ChatEngine", "具身认知 / 情感锚定：多模态汇聚到心智入口");
 
             // ---- 层 2 记忆与情绪双向耦合（13）----
-            N("mem.shallow", "浅记忆", "2", "HumanMemoryService.RecallAsync", "浅记忆 / 前记忆：近期对话缓冲");
-            N("mem.deepen", "记忆深化", "2", "HumanMemoryService", "重要性 / 回想次数 / 唤醒度 / 时间衰减共同深化");
-            N("mem.deep", "深层记忆", "2", "HumanMemoryService", "深层记忆：情景 / 语义 / 程序三类");
-            N("mem.episodic", "情景记忆", "2", "HumanMemoryService.RecallTextAsync", "带时间地点的经历");
+            N("mem.shallow", "浅记忆", "2", "HumanMemoryService.RecallAsync", "浅记忆 / 前记忆：近期对话缓冲", group: "memory");
+            N("mem.deepen", "记忆深化", "2", "HumanMemoryService", "重要性 / 回想次数 / 唤醒度 / 时间衰减共同深化", group: "memory");
+            N("mem.deep", "深层记忆", "2", "HumanMemoryService", "深层记忆：情景 / 语义 / 程序三类", group: "memory");
+            N("mem.episodic", "情景记忆", "2", "HumanMemoryService.RecallTextAsync", "带时间地点的经历", group: "memory");
             N("mem.semanticM", "语义记忆", "2", "HumanMemoryService", "概念与事实");
-            N("mem.procedural", "程序记忆", "2", "HumanMemoryService", "习惯化的应对套路");
+            N("mem.procedural", "程序记忆", "2", "HumanMemoryService", "习惯化的应对套路", group: "memory");
             N("mem.retrieval", "记忆检索器", "2", "HumanMemoryService.RecallTextAsync", "按窗口 / 线索回想，受情绪偏置 moodBias 影响");
             N("emo.state", "情绪状态", "2", "EmotionMix / ChatEngine", "当前情绪：效价 / 唤醒度 / 控制感三维");
             N("emo.valence", "情绪效价", "2", "EmotionMix", "Valence（-1..1）");

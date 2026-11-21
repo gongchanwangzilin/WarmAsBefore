@@ -80,6 +80,8 @@
                 </Border>
 
                 <VerticalStackLayout Grid.Row="2" Spacing="2">
+                    <Label Text="{Binding Vector3DNote}" IsVisible="{Binding HasVector3DNote}"
+                           Style="{StaticResource TxtCaption}" MaxLines="3" />
                     <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
                     <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
                            IsVisible="{Binding HasSelection}" />

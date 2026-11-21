@@ -67,6 +67,8 @@ public partial class SuperMonitorPage : ContentPage
         Loaded -= OnPageLoadedInitVector3D;
         try
         {
+            // 给这一页一次干净的重试机会：进程级的放弃标记会让监测页的 3D 永远起不来。
+            Controls.EvergineWeatherViewHandler.ResetGiveUpForNewPage();
             _vectorApp = new WarmAsBefore.Weather3D.MonitorVectorApplication();
             Vector3DView.Application = _vectorApp;
             _vectorReady = true;
@@ -77,6 +79,7 @@ public partial class SuperMonitorPage : ContentPage
             _vectorReady = false;
             try { Vector3DView.IsVisible = false; } catch { }
             App.WriteLog("SuperMonitor.InitVector3D -> " + ex.Message);
+            _vm.Vector3DNote = "3D 层没能初始化：" + ex.Message;
         }
     }
 #endif
@@ -152,6 +155,14 @@ public partial class SuperMonitorPage : ContentPage
             if (Vector3DView is null) return;
 
             Vector3DView.IsVisible = show && _vectorReady;
+            if (show && !_vectorReady)
+            {
+                // 打不开就说清原因，不再静默什么都不发生。
+                _vm.Vector3DNote = "3D 层不可用："
+                    + (Controls.EvergineWeatherViewHandler.LastFailure ?? "未初始化成功")
+                    + "（2D 流程图不受影响）";
+                return;
+            }
             if (!show || !_vectorReady) return;
 
             // Application.Initialize 没跑成功时 Scene 为 null：跳过，不崩。

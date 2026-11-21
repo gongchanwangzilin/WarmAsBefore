@@ -23,6 +23,12 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     private static SwapChain? swapChain;
     private static bool surfaceInvalidated;
 
+    /// <summary>最近一次 3D 初始化失败的原因（与 Windows 端同名成员保持跨端一致，供页面提示用）。</summary>
+    internal static string? LastFailure { get; private set; }
+
+    /// <summary>每次进入带 3D 的页面时给一次重试机会（与 Windows 端同名成员保持一致）。</summary>
+    internal static void ResetGiveUpForNewPage() => LastFailure = null;
+
     public EvergineWeatherViewHandler(IPropertyMapper mapper, CommandMapper? commandMapper = null)
         : base(mapper, commandMapper)
     {
