@@ -101,6 +101,9 @@
                             <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
                         </HorizontalStackLayout>
+                        <Button Text="打开这个模块的页面"
+                                Command="{Binding OpenInspectorCommand}"
+                                Style="{StaticResource BtnGhost}" />
                         <BoxView Style="{StaticResource HSep}" />
                         <ScrollView MaximumHeightRequest="260">
                             <VerticalStackLayout Spacing="8"

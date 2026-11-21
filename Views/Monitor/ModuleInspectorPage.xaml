@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.ModuleInspectorPage"
+             x:Name="Root"
+             x:DataType="vm:ModuleInspectorViewModel"
+             Title="模块详情"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!-- ============ 一枚节点的整页详情（UI 标准书 3.1：顶栏 → 发丝线 → 工作台） ============
+         进来的是图上某个节点的 id，所以这一页只回答三件事：
+         这是谁（模块名 / 所属系统 / 三态状态灯 / 一句话说明）、
+         它此刻是多少（键值读数，每行都有出处）、
+         它最近怎么变的（最多 12 条时间线）。
+         取不到的那一行由 VM 写成「该模块暂无独立读数」——这一页永远不显示猜出来的数。 -->
+    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="0">
+
+        <!-- ============ 顶栏：返回 · 模块名 · 刷新 ============ -->
+        <Border Grid.Row="0" BackgroundColor="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Button Grid.Column="0" Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
+                        VerticalOptions="Center" Command="{Binding BackCommand}" />
+                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
+                    <Label Text="// MODULE INSPECTOR" Style="{StaticResource Eyebrow}" />
+                    <Label Text="{Binding ModuleTitle}" Style="{StaticResource TxtTitle}"
+                           MaxLines="1" LineBreakMode="TailTruncation" />
+                    <Label Text="{Binding SystemName}" Style="{StaticResource TxtCaption}" MaxLines="1" />
+                </VerticalStackLayout>
+                <Button Grid.Column="2" Text="刷新" Style="{StaticResource BtnGhostSm}"
+                        VerticalOptions="Center" Command="{Binding RefreshCommand}" />
+            </Grid>
+        </Border>
+
+        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+
+        <!-- ============ 工作台：三张卡竖着排，窄屏一列到底 ============ -->
+        <ScrollView Grid.Row="2" Padding="{DynamicResource WPageMargin}">
+            <VerticalStackLayout Spacing="12" HorizontalOptions="Fill"
+                                 MaximumWidthRequest="{DynamicResource WCardWidthWide}">
+
+                <!-- 上半部：这是谁 -->
+                <Border Style="{StaticResource CardNeumorph}" Padding="{DynamicResource WPadCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                            <!-- 三态状态灯：亮 / 暗 / 异常，颜色由 VM 给，文字跟在旁边，色觉不同也读得出来 -->
+                            <Border WidthRequest="14" HeightRequest="14" StrokeThickness="0"
+                                    BackgroundColor="{Binding LampColor}" VerticalOptions="Center">
+                                <Border.StrokeShape>
+                                    <RoundRectangle CornerRadius="7" />
+                                </Border.StrokeShape>
+                            </Border>
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Label Text="{Binding ModuleTitle}" Style="{StaticResource TxtSubhead}"
+                                       MaxLines="2" />
+                                <Label Text="{Binding SystemName}" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                        </Grid>
+                        <Label Text="{Binding LampText}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding Summary}" Style="{StaticResource TxtBodySm}"
+                               LineBreakMode="WordWrap" />
+                        <BoxView Style="{StaticResource HSep}" />
+                        <Label Text="{Binding LocationText}" Style="{StaticResource TxtCaption}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 中部：它此刻是多少 -->
+                <Border Style="{StaticResource CardSolid}" Padding="{DynamicResource WPadCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="实时读数" Style="{StaticResource TxtSection}" />
+                        <Label Text="每一行都带着出处；取不到的那一行会写明「该模块暂无独立读数」，不猜数。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Readings}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ModuleInspectorViewModel+InspectorRow">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                        <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}"
+                                               MaximumWidthRequest="132" MaxLines="3" VerticalOptions="Start" />
+                                        <Label Grid.Column="1" Text="{Binding Value}" Style="{StaticResource TxtBodySm}"
+                                               LineBreakMode="WordWrap" HorizontalOptions="Fill" />
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 下部：它最近怎么变的 -->
+                <Border Style="{StaticResource CardSolid}" Padding="{DynamicResource WPadCard}">
+                    <VerticalStackLayout Spacing="8">
+                        <Label Text="最近变化" Style="{StaticResource TxtSection}" />
+                        <Label Text="最多 12 条，按时间倒序；每条都带着它的出处。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <VerticalStackLayout Spacing="10" BindableLayout.ItemsSource="{Binding Timeline}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ModuleInspectorViewModel+TimelineEvent">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                        <Label Text="{Binding Time}" Style="{StaticResource TxtCaption}"
+                                               VerticalOptions="Start" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="1">
+                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding Text}" Style="{StaticResource TxtRowDesc}"
+                                                   LineBreakMode="WordWrap" />
+                                        </VerticalStackLayout>
+                                    </Grid>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Label Text="这一路还没有留下变化记录。"
+                               Style="{StaticResource TxtCaption}"
+                               IsVisible="{Binding HasTimeline, Converter={StaticResource InverseBool}}" />
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
+</ContentPage>

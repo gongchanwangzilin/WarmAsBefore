@@ -237,6 +237,8 @@ public partial class AppShell : Shell
     private void RegisterRoutes()
     {
         Routing.RegisterRoute("main", typeof(Views.MainGamePage));
+        // 模块详情页：从架构图点进某个模块自己的页面（多档等级、实时读数、时间线）
+        Routing.RegisterRoute("moduleInspector", typeof(Views.ModuleInspectorPage));
         Routing.RegisterRoute("select", typeof(Views.CharacterSelectPage));
         Routing.RegisterRoute("setup", typeof(Views.SetupPage));
         Routing.RegisterRoute("settings", typeof(Views.SettingsPage));

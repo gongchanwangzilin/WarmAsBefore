@@ -57,6 +57,19 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private string _vector3DNote = "";
     [ObservableProperty] private bool _hasVector3DNote;
 
+    /// <summary>点进选中模块自己的页面：图上只给一眼，细节在那页里看（含多档等级与时间线）。</summary>
+    [RelayCommand]
+    private async Task OpenInspector()
+    {
+        var id = SelectedNode?.Id;
+        if (string.IsNullOrWhiteSpace(id)) return;
+        try
+        {
+            await Shell.Current.GoToAsync($"moduleInspector?id={Uri.EscapeDataString(id)}&charId={Uri.EscapeDataString(CharId)}");
+        }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.OpenInspector -> " + ex.Message); }
+    }
+
     partial void OnVector3DNoteChanged(string value) => HasVector3DNote = !string.IsNullOrWhiteSpace(value);
 
     public SuperMonitorViewModel(GameEngine engine, MemoryOverviewService overview)
