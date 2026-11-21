@@ -97,7 +97,7 @@ DesignTokens.cs[CU5T]: F:间距与尺寸令牌（Spacing、Sizing），全站布
 StyleWorld.cs[CU8L]: F:五个风格世界的定义与令牌表：材质、几何、描边、填充、阴影与字号台阶都由世界决定。 | R:code:DesignSystem/Theme/ThemeManager.cs, code:DesignSystem/Tokens/DesignTokens.cs | A:StyleWorld, StyleWorldTokens | S:世界只决定材质与形态，颜色由色板独立轴给；在世界里写死颜色会让切色板失效。
 
 ===/<repository>/Drawables/===
-ArchitectureFlowDrawable.cs[CU6M]: F:架构活流程图的绘制层：节点、连线、分层着色与角标。 | R:code:Drawables/GraphPalette.cs, code:Helpers/SafeDrawable.cs | A:ArchNode, ArchLink | S:-
+ArchitectureFlowDrawable.cs[CU7L]: F:架构活流程图的绘制层：五层横带内按流序排版，四种节点身份（最小节点/模块/整体模式/输出）各按自己的形状画，正交折线带箭头连接，并按追踪余辉亮灯。 | R:code:Drawables/GraphPalette.cs, code:Helpers/SafeDrawable.cs, code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:ArchNode, ArchLink, ArchNodeKind, LinkKind, ContentSizeChanged | S:尺寸由内容决定，算出自然宽高交给 VM 设 GraphicsView，别为塞进视口整体缩字——缩到 9px 就看不清了。绘制顺序必须是层带 → 连线 → 节点，否则线被方块吃掉。整体模式排带首调控栏、走左侧虚线总线；混进流程格就分不出「总开关」和「零件」。
 CostChartDrawable.cs[CU5M]: F:成本图表：各模型条形对比与按天趋势折线。 | R:code:Models/ModelPricing.cs | A:CostChartDrawable, ChartMode | S:-
 ForegroundRainDrawable.cs[CU6M]: F:覆盖在 UI 之上的「雨打玻璃」绘制层：雨滴、水珠滞留与滑落轨迹。 | R:code:Controls/ForegroundRainView.cs | A:ForegroundRainDrawable | S:障碍物几何由视图层采集后传入，绘制层不自己去查控件树——在那里遍历视觉树会拖慢每帧。
 GraphPalette.cs[CU6M]: F:关系网配色：画布与页面图例共用的唯一出处。 | R:code:Drawables/MemoryGraphDrawable.cs | A:GraphPalette | S:图例与画布必须共用这一份配色，任何一侧另写一套都会让图例与实际颜色对不上。
@@ -504,7 +504,7 @@ MemoryManageViewModel.cs[AU6M]: F:记忆管理：关系网入口、标签与人�
 MemorySearchViewModel.cs[AU6M]: F:搜事件：按人怎么找回一件记忆的方式检索。 | R:code:Services/Memory/EmbeddingService.cs | A:- | S:-
 
 ===/<repository>/ViewModels/Monitor/===
-SuperMonitorViewModel.cs[AC7L]: F:超级监测的视图模型：把日程、器官、记忆、数值与架构节点汇到一张活流程图，选中节点即显示该处的真实读数。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Character/InnerDriveService.cs | A:- | S:监测数据是高频率刷新源，更新必须节流，否则整页持续重绘拖慢全局；一次刷新里并行的取数任务要全部 await 后再统一写状态，不要在 UI 线程阻塞等结果。每路数据各自 try/catch——任一服务取不到只让那一路空着，不许把整页带崩；节点读数必须是真取到的值，取不到就写「未开启」而不是编造数字。
+SuperMonitorViewModel.cs[AC7L]: F:超级监测的视图模型：把日程、器官、记忆、数值与架构节点汇到一张活流程图，选中节点即显示该处的真实读数，并把赵图的自然尺寸交给页面。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Character/InnerDriveService.cs, code:Services/Memory/MemoryScope.cs | A:- | S:监测数据是高频率刷新源，更新必须节流；并行取数要全部 await 后再统一写状态，不要在 UI 线程阻塞。每路数据各自兜底，取不到只让那一路空着，读数必须是真的，不许编造。节点身份按语义给：能整体停用、跨层生效的是 Mode 不是 Step。
 
 ===/<repository>/ViewModels/Save/===
 CloudSavesViewModel.cs[AU6M]: F:云存档浏览器：只做查看与取回，合并交给后台服务。 | R:code:Services/CloudSync/CloudSyncService.cs | A:- | S:这里刻意不提供合并操作，合并只能走 MemoryReconcileService；在此处直接覆盖会丢数据。
@@ -641,7 +641,7 @@ MemorySearchPage.xaml[FU5S]: F:记忆检索界面：按人找事的方式组织�
 MemorySearchPage.xaml.cs[AU4T]: F:记忆检索页逻辑。 | R:code:ViewModels/Memory/MemorySearchViewModel.cs | A:- | S:-
 
 ===/<repository>/Views/Monitor/===
-SuperMonitorPage.xaml[FU6M]: F:超级监测界面：活流程图与实时读数布局。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:- | S:-
+SuperMonitorPage.xaml[FU6M]: F:超级监测界面：活流程图与实时读数布局，画布按内容自然尺寸放在双向滚动容器里。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Drawables/ArchitectureFlowDrawable.cs | A:- | S:画布的请求宽高绑 CanvasWidth/CanvasHeight，别给固定高度——固定框会把整张图等比压小，65 个节点挤成一团。3D 向量覆盖层要留在 ScrollView 外面，否则会跟着画布滚走。
 SuperMonitorPage.xaml.cs[AU6M]: F:超级监测页逻辑：图表装配与定时刷新。 | R:code:Drawables/MonitorFlowDrawable.cs | A:- | S:定时刷新必须在离开页面时停掉，否则后台持续重绘会拖慢整个应用。
 
 ===/<repository>/Views/Save/===

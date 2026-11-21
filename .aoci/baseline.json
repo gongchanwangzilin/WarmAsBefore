@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-21T17:31:13Z",
+  "updated_at": "2026-11-21T18:05:19Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -383,9 +383,9 @@
     },
     "Drawables/ArchitectureFlowDrawable.cs": {
       "role": "index",
-      "sha256": "e49d628f0b08fe735f3c4801947d29072101f520195b9dab0f2ba74354574571",
-      "size": 16010,
-      "normalized_sha256": "e2abaf1b69a5063adad5a2ae361b52075237cc70581533e48c62f4b854a731f2"
+      "sha256": "2302ffed2fe814d5a331f28bf86adeff5800066ca55f29542d95a0b54c8ce156",
+      "size": 24635,
+      "normalized_sha256": "2302ffed2fe814d5a331f28bf86adeff5800066ca55f29542d95a0b54c8ce156"
     },
     "Drawables/CostChartDrawable.cs": {
       "role": "index",
@@ -2408,9 +2408,9 @@
     },
     "ViewModels/Monitor/SuperMonitorViewModel.cs": {
       "role": "index",
-      "sha256": "53ffe12e48a2b8498e6b27a92e93b8a4f9f3978ac79720c359822619c4adce6a",
-      "size": 60436,
-      "normalized_sha256": "53ffe12e48a2b8498e6b27a92e93b8a4f9f3978ac79720c359822619c4adce6a"
+      "sha256": "fad820d32b44a1634edab049c14d9d0f61d35c92c4635b020c5fd42805f6acdb",
+      "size": 62900,
+      "normalized_sha256": "fad820d32b44a1634edab049c14d9d0f61d35c92c4635b020c5fd42805f6acdb"
     },
     "ViewModels/Save/CloudSavesViewModel.cs": {
       "role": "index",
@@ -3074,9 +3074,9 @@
     },
     "Views/Monitor/SuperMonitorPage.xaml": {
       "role": "index",
-      "sha256": "281037fa218979fdc8aa9cccdecf5a2e3b96bd2266b25f735b0a7f21e24564fb",
-      "size": 14652,
-      "normalized_sha256": "0283ec3db837b41047c686673dd63ffb515fba54c4baeb672ca69c730acdccff"
+      "sha256": "e07335d63d5d0c45cc39219191e027928166cd7e4f4131a6b1638014e7fa6698",
+      "size": 14989,
+      "normalized_sha256": "e07335d63d5d0c45cc39219191e027928166cd7e4f4131a6b1638014e7fa6698"
     },
     "Views/Monitor/SuperMonitorPage.xaml.cs": {
       "role": "index",
@@ -3428,9 +3428,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "30e908b96ec6c616b7d517a8ef28eaced1b2cbc7dd7022393018932fc13f3036",
-      "size": 132657,
-      "normalized_sha256": "30e908b96ec6c616b7d517a8ef28eaced1b2cbc7dd7022393018932fc13f3036"
+      "sha256": "ad7ef33178978d4d7984ed3664cb69376cbe4eed45f00b483d56371d38856a11",
+      "size": 133533,
+      "normalized_sha256": "ad7ef33178978d4d7984ed3664cb69376cbe4eed45f00b483d56371d38856a11"
     },
     "aoci.meta.txt": {
       "role": "index",
