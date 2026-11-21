@@ -57,9 +57,16 @@
 
                 <Border Grid.Row="1" Style="{StaticResource CardSolid}" Padding="4">
                     <Grid>
-                        <GraphicsView x:Name="ArchCanvas"
-                                      EndInteraction="OnCanvasEnd"
-                                      BackgroundColor="Transparent" />
+                        <!-- 流程图按内容自然尺寸绘制，装不下就滚动，不再等比压缩挤成一团 -->
+                        <ScrollView Orientation="Both"
+                                    HorizontalScrollBarVisibility="Default"
+                                    VerticalScrollBarVisibility="Default">
+                            <GraphicsView x:Name="ArchCanvas"
+                                          EndInteraction="OnCanvasEnd"
+                                          WidthRequest="{Binding CanvasWidth}"
+                                          HeightRequest="{Binding CanvasHeight}"
+                                          BackgroundColor="Transparent" />
+                        </ScrollView>
                         <!-- 3D 向量显示：默认隐藏，开关打开时盖在流程图之上；
                              InputTransparent 让点击仍落到 2D 画布。 -->
                         <controls:EvergineWeatherView x:Name="Vector3DView"

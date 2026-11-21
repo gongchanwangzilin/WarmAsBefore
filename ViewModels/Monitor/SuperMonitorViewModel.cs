@@ -43,6 +43,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     public ArchitectureFlowDrawable ArchDrawable { get; } = new();
 
+    /// <summary>流程图的自然尺寸：绑到 GraphicsView 的请求宽高上，外面套 ScrollView 滚动。
+    /// 以前是硬塞进一个固定框里等比缩小，65 个节点挤成一团看不清线条，这里改成按内容给尺寸。</summary>
+    [ObservableProperty] private double _canvasWidth = 1200;
+    [ObservableProperty] private double _canvasHeight = 900;
+
     public SuperMonitorViewModel(GameEngine engine, MemoryOverviewService overview)
     {
         _engine = engine;
@@ -51,6 +56,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         _flowChangedHandler = OnFlowChanged;
         // 余辉亮度直连追踪器；Drawable 只认 Func<string,float>，不反查静态类。
         ArchDrawable.GlowProvider = FlowTracer.Glow;
+        // 布局算完把自然尺寸交回页面，页面据此给 GraphicsView 请求宽高，靠外层滚动而不是压缩。
+        ArchDrawable.ContentSizeChanged += (w, h) =>
+        {
+            if (w > 0 && Math.Abs(CanvasWidth - w) > 0.5) CanvasWidth = w;
+            if (h > 0 && Math.Abs(CanvasHeight - h) > 0.5) CanvasHeight = h;
+        };
     }
 
     private string CharId
@@ -597,6 +608,10 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 }
                 else
                 {
+                    // 这层状态跟存档走：换档就是另一副心情，所以把归属写在最前面。
+                    var scopeSvc = ResolveService<MemoryScope>();
+                    powerLines.Add(new DetailLine("归属存档",
+                        scopeSvc is null ? "本存档" : $"{scopeSvc.Label}（{scopeSvc.Current}）"));
                     powerLines.Add(new DetailLine("数据来源", "InnerDriveService（已按半衰期结算）"));
                     powerLines.Add(new DetailLine("攻击性（向外的力）", $"{drive.Aggression:0.00} · 越高越容易把火往外放"));
                     powerLines.Add(new DetailLine("性（连接与亲密）", $"{drive.Sexuality:0.00} · 被满足时镇痛最强"));
@@ -937,8 +952,9 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         try
         {
             var nodes = new List<ArchNode>();
-            void N(string id, string label, string layer, string module, string detail) =>
-                nodes.Add(new ArchNode(id, label, layer, module, detail));
+            void N(string id, string label, string layer, string module, string detail,
+                   ArchNodeKind kind = ArchNodeKind.Step) =>
+                nodes.Add(new ArchNode(id, label, layer, module, detail, kind));
 
             // ---- 层 1 感知与输入抽象层（13）----
             N("in.text", "文字输入", "1", "ChatEngine.SendCore", "Send 入口记录用户文本，整条执行链的起点");
@@ -970,8 +986,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("emo.coupling", "记忆情绪耦合", "2", "ChatEngine.SendCore", "记忆 ↔ 情绪双向耦合，moodBias 生效时点亮");
             N("mem.rumination", "反刍循环", "2", "HumanMemoryService.ChainSearchAsync", "负面回忆链延展，加剧情绪内耗");
             // v1.65 专注 / 神游双系统：多巴胺驱动的本地状态机，专注重时神游会随机塞旧记忆介入。
-            N("cognition.focus", "专注模式", "2", "CognitionModeService.EnterFocus", "多巴胺驱动、大模型高精度；耗专属精力，用得越多停留越久");
-            N("cognition.wander", "神游模式", "2", "CognitionModeService.WanderInject", "低精度默认态；反刍/整理/纠错/新想法/回忆连线");
+            N("cognition.focus", "专注模式", "2", "CognitionModeService.EnterFocus", "多巴胺驱动、大模型高精度；耗专属精力，用得越多停留越久", ArchNodeKind.Mode);
+            N("cognition.wander", "神游模式", "2", "CognitionModeService.WanderInject", "低精度默认态；反刍/整理/纠错/新想法/回忆连线", ArchNodeKind.Mode);
             N("cognition.intervene", "神游介入", "2", "CognitionModeService.ShouldWanderIntervene", "专注快撑不住时，神游往脑海随机塞旧记忆");
 
             // ---- 层 3 核心心智与病理（14）----
@@ -985,11 +1001,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("path.depression", "抑郁", "3", "ChatEngine", "反刍死锁，情绪基线极低");
             N("path.anxiety", "焦虑", "3", "ChatEngine", "联想过度发散");
             N("path.bpd", "BPD", "3", "ChatEngine", "防御机制极化");
-            // v1.66 内驱动系统：三种基本动力 / 七个驱动 / 自律闸门 / 八级发泄，全部纯本地规则
-            N("core.drivePower", "三种基本动力", "3", "InnerDriveService", "攻击性 / 性 / 自恋：力的来源");
-            N("core.driveSeven", "七个驱动", "3", "InnerDriveService", "贪欲 / 暴食 / 色欲 / 嫉妒 / 傲慢 / 怠惰 / 暴怒");
-            N("core.driveGate", "自律闸门", "3", "DriveRules.ConstraintOn", "道德观 × 人生观 × 思维主义决定的压制力道");
-            N("core.discharge", "八级发泄", "3", "DriveRules.PickForm", "叛逆 → 撒泼 → 怄气 → 任性 → 郁闷 → 拖延 → 厌烦 → 退缩");
+            // v1.66 内驱动系统：整套可以整体停用（Mode），四个子系统挂在它下面（Module）。
+            N("core.driveSystem", "内驱动系统", "3", "InnerDriveService", "可整体停用：关掉后数值冻结、不进提示词，也不再产驱动力", ArchNodeKind.Mode);
+            N("core.drivePower", "三种基本动力", "3", "InnerDriveService", "攻击性 / 性 / 自恋：力的来源", ArchNodeKind.Module);
+            N("core.driveSeven", "七个驱动", "3", "InnerDriveService", "贪欲 / 暴食 / 色欲 / 嫉妒 / 傲慢 / 怠惰 / 暴怒", ArchNodeKind.Module);
+            N("core.driveGate", "自律闸门", "3", "DriveRules.ConstraintOn", "道德观 × 人生观 × 思维主义决定的压制力道", ArchNodeKind.Module);
+            N("core.discharge", "八级发泄", "3", "DriveRules.PickForm", "叛逆 → 撒泼 → 怄气 → 任性 → 郁闷 → 拖延 → 厌烦 → 退缩", ArchNodeKind.Module);
 
             // ---- 层 4 低级中枢熔断与躯体化（11）----
             N("soma.coping", "应对机制", "4", "OrganSimulationService", "应对决策：战 / 逃 / 僵三分支");
@@ -1014,7 +1031,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("eng.model.heavy", "云端模型", "5", "ApiGateway.Chat", "云端大模型（Azure OpenAI / GPT-4o）");
             N("eng.prompt", "Prompt 组装", "5", "ApiGateway", "System Prompt 动态组装（Semantic Kernel）");
             N("eng.postprocess", "后处理", "5", "ChatEngine.ProcessReplyAsync", "文本修饰器 / 流式拦截中间件");
-            N("eng.output", "流式输出", "5", "ChatEngine", "SSE 流式输出给用户");
+            N("eng.output", "流式输出", "5", "ChatEngine", "SSE 流式输出给用户", ArchNodeKind.Output);
             N("eng.loop", "循环反馈", "5", "ChatEngine.SendCore", "输出回灌为下一轮输入");
 
             var links = new List<ArchLink>();
@@ -1126,6 +1143,19 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             L("eng.postprocess", "eng.output");
             L("eng.output", "eng.loop");
             L("eng.loop", "in.text", LinkKind.Feedback);
+
+            // ---- 调控线（模式 → 它调控的那几块）：虚线，不进数据流，画在流程下面 ----
+            // 内驱动是整套可停的内部系统：总开关关掉，四个子系统与它对情绪的推手一起停。
+            L("core.driveSystem", "core.drivePower", LinkKind.Control);
+            L("core.driveSystem", "core.driveSeven", LinkKind.Control);
+            L("core.driveSystem", "core.driveGate", LinkKind.Control);
+            L("core.driveSystem", "core.discharge", LinkKind.Control);
+            L("core.driveSystem", "emo.state", LinkKind.Control);
+            // 专注 / 神游是整体模式：切换时启用的模块跟着变，不是流程里多走一步。
+            L("cognition.focus", "mem.retrieval", LinkKind.Control);
+            L("cognition.focus", "eng.router", LinkKind.Control);
+            L("cognition.wander", "mem.deepen", LinkKind.Control);
+            L("cognition.wander", "mem.episodic", LinkKind.Control);
 
             _archNodes = nodes;
             _archLinks = links;
