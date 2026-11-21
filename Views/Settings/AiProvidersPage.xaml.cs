@@ -3,6 +3,8 @@ using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
 
+using WarmAsBefore.Helpers;
+
 namespace WarmAsBefore.Views;
 
 /// <summary>
@@ -84,17 +86,17 @@ public partial class AiProvidersPage : ContentPage
     private static AiProviderRow? RowOf(object? sender)
         => (sender as BindableObject)?.BindingContext as AiProviderRow;
 
-    private async void OnBack(object? sender, EventArgs e) => await Shell.Current.GoToAsync("..");
+    private void OnBack(object? sender, EventArgs e) => UiGuard.Run(() => Shell.Current.GoToAsync(".."), "AiProviders.OnBack");
 
-    private async void OnOpenModels(object? sender, EventArgs e) => await Shell.Current.GoToAsync("aiModels");
+    private void OnOpenModels(object? sender, EventArgs e) => UiGuard.Run(() => Shell.Current.GoToAsync("aiModels"), "AiProviders.OnOpenModels");
 
-    private async void OnProviderToggled(object? sender, ToggledEventArgs e)
+    private async Task OnProviderToggledAsync(object? sender, ToggledEventArgs e)
     {
         if (_loading) return;
         await SaveAsync(e.Value ? "已启用这家厂商。" : "已停用这家厂商：轮换池里不再用它。");
     }
 
-    private async void OnEditBasics(object? sender, EventArgs e)
+    private async Task OnEditBasicsAsync(object? sender, EventArgs e)
     {
         var row = RowOf(sender);
         if (row is null) return;
@@ -109,7 +111,7 @@ public partial class AiProvidersPage : ContentPage
         await SaveAsync("厂商信息已保存。");
     }
 
-    private async void OnEditKeys(object? sender, EventArgs e)
+    private async Task OnEditKeysAsync(object? sender, EventArgs e)
     {
         var row = RowOf(sender);
         if (row is null) return;
@@ -120,7 +122,7 @@ public partial class AiProvidersPage : ContentPage
         await SaveAsync("密钥已保存。");
     }
 
-    private async void OnEditTimeout(object? sender, EventArgs e)
+    private async Task OnEditTimeoutAsync(object? sender, EventArgs e)
     {
         var row = RowOf(sender);
         if (row is null) return;
@@ -132,7 +134,7 @@ public partial class AiProvidersPage : ContentPage
         await SaveAsync("超时已保存。");
     }
 
-    private async void OnMoveUp(object? sender, EventArgs e)
+    private async Task OnMoveUpAsync(object? sender, EventArgs e)
     {
         var row = RowOf(sender);
         if (row is null) return;
@@ -142,7 +144,7 @@ public partial class AiProvidersPage : ContentPage
         await SaveAsync("顺序已调整：靠前的先用。");
     }
 
-    private async void OnMoveDown(object? sender, EventArgs e)
+    private async Task OnMoveDownAsync(object? sender, EventArgs e)
     {
         var row = RowOf(sender);
         if (row is null) return;
@@ -152,7 +154,7 @@ public partial class AiProvidersPage : ContentPage
         await SaveAsync("顺序已调整。");
     }
 
-    private async void OnDeleteProvider(object? sender, EventArgs e)
+    private async Task OnDeleteProviderAsync(object? sender, EventArgs e)
     {
         var row = RowOf(sender);
         if (row is null) return;
@@ -162,7 +164,7 @@ public partial class AiProvidersPage : ContentPage
         await SaveAsync("已删除。");
     }
 
-    private async void OnAddProvider(object? sender, EventArgs e)
+    private async Task OnAddProviderAsync(object? sender, EventArgs e)
     {
         var url = (NewUrl.Text ?? "").Trim();
         if (url.Length == 0)
@@ -189,4 +191,13 @@ public partial class AiProvidersPage : ContentPage
         NewTimeout.Text = "";
         await SaveAsync("已添加厂商。到「模型管理」里补上下文窗口和能力。");
     }
+
+    private void OnProviderToggled(object? sender, ToggledEventArgs e) => UiGuard.Run(() => OnProviderToggledAsync(sender, e), "AiProviders.OnProviderToggled", "操作没成功，已记录日志。请再试一次。");
+    private void OnEditBasics(object? sender, EventArgs e) => UiGuard.Run(() => OnEditBasicsAsync(sender, e), "AiProviders.OnEditBasics", "操作没成功，已记录日志。请再试一次。");
+    private void OnEditKeys(object? sender, EventArgs e) => UiGuard.Run(() => OnEditKeysAsync(sender, e), "AiProviders.OnEditKeys", "操作没成功，已记录日志。请再试一次。");
+    private void OnEditTimeout(object? sender, EventArgs e) => UiGuard.Run(() => OnEditTimeoutAsync(sender, e), "AiProviders.OnEditTimeout", "操作没成功，已记录日志。请再试一次。");
+    private void OnMoveUp(object? sender, EventArgs e) => UiGuard.Run(() => OnMoveUpAsync(sender, e), "AiProviders.OnMoveUp", "操作没成功，已记录日志。请再试一次。");
+    private void OnMoveDown(object? sender, EventArgs e) => UiGuard.Run(() => OnMoveDownAsync(sender, e), "AiProviders.OnMoveDown", "操作没成功，已记录日志。请再试一次。");
+    private void OnDeleteProvider(object? sender, EventArgs e) => UiGuard.Run(() => OnDeleteProviderAsync(sender, e), "AiProviders.OnDeleteProvider", "操作没成功，已记录日志。请再试一次。");
+    private void OnAddProvider(object? sender, EventArgs e) => UiGuard.Run(() => OnAddProviderAsync(sender, e), "AiProviders.OnAddProvider", "操作没成功，已记录日志。请再试一次。");
 }

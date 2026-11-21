@@ -1,6 +1,8 @@
 using WarmAsBefore.Controls;
 using WarmAsBefore.Services;
 
+using WarmAsBefore.Helpers;
+
 namespace WarmAsBefore.Views;
 
 /// <summary>
@@ -53,7 +55,7 @@ public partial class PluginWebPage : ContentPage
         HintLabel.Text = "页面没打开（" + e.Result + "）。可以点右上角改用系统浏览器。";
     }
 
-    private async void OnBackClicked(object sender, EventArgs e)
+    private async Task OnBackClickedAsync(object sender, EventArgs e)
         => await Shell.Current.GoToAsync("..");
 
     private void OnReloadClicked(object sender, EventArgs e)
@@ -64,10 +66,13 @@ public partial class PluginWebPage : ContentPage
         Browser.Reload();
     }
 
-    private async void OnOpenBrowserClicked(object sender, EventArgs e)
+    private async Task OnOpenBrowserClickedAsync(object sender, EventArgs e)
     {
         var url = Uri.UnescapeDataString(PageUrl ?? "");
         var (ok, message) = await _host.OpenInBrowserAsync(url);
         if (!ok) Toast.Error(message);
     }
+
+    private void OnBackClicked(object sender, EventArgs e) => UiGuard.Run(() => OnBackClickedAsync(sender, e), "PluginWeb.OnBackClicked", "操作没成功，已记录日志。请再试一次。");
+    private void OnOpenBrowserClicked(object sender, EventArgs e) => UiGuard.Run(() => OnOpenBrowserClickedAsync(sender, e), "PluginWeb.OnOpenBrowserClicked", "操作没成功，已记录日志。请再试一次。");
 }
