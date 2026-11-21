@@ -97,7 +97,7 @@ DesignTokens.cs[CU5T]: F:间距与尺寸令牌（Spacing、Sizing），全站布
 StyleWorld.cs[CU8L]: F:五个风格世界的定义与令牌表：材质、几何、描边、填充、阴影与字号台阶都由世界决定。 | R:code:DesignSystem/Theme/ThemeManager.cs, code:DesignSystem/Tokens/DesignTokens.cs | A:StyleWorld, StyleWorldTokens | S:世界只决定材质与形态，颜色由色板独立轴给；在世界里写死颜色会让切色板失效。
 
 ===/<repository>/Drawables/===
-ArchitectureFlowDrawable.cs[CU7L]: F:架构活流程图的绘制层：曲线连线与流动光点、按模块分色与按身份分形、子系统围框、实时角标、病理呼吸环与被切断的断链。 | R:code:Drawables/GraphPalette.cs, code:Helpers/SafeDrawable.cs, code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:ArchNode, ArchLink, ArchNodeKind, LinkKind, NodeFx | S:尺寸按内容算、交给 VM 设 GraphicsView，别压字；绘制顺序是层带→子系统框→连线→节点。切断判定与特效都由 VM 注入的 provider 决定，drawable 不读业务。弧度的散列只用来错开重叠，不是随机数——同一对节点必须每次画在同一条曲线上。
+ArchitectureFlowDrawable.cs[CU7L]: F:架构图的绘制层：子系统格子布局（激素居中作媒介）、曲线连线与流动光点、分色分形、实时角标、病理呼吸环与断链。 | R:code:Drawables/GraphPalette.cs, code:Helpers/SafeDrawable.cs, code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:ArchNode, ArchLink, ArchNodeKind, LinkKind, NodeFx, GroupCells | S:没有层：每个 Group 占一格，格子由 VM 的 GroupCells 决定，drawable 不猜邻接关系。HubGroup 那块按媒介画（更淡更宽 + 广播说明），别当普通系统。尺寸按内容算交给 VM，别压字。切断与特效只由 VM 注入的 provider 判定，drawable 不读业务。
 CostChartDrawable.cs[CU5M]: F:成本图表：各模型条形对比与按天趋势折线。 | R:code:Models/ModelPricing.cs | A:CostChartDrawable, ChartMode | S:-
 ForegroundRainDrawable.cs[CU6M]: F:覆盖在 UI 之上的「雨打玻璃」绘制层：雨滴、水珠滞留与滑落轨迹。 | R:code:Controls/ForegroundRainView.cs | A:ForegroundRainDrawable | S:障碍物几何由视图层采集后传入，绘制层不自己去查控件树——在那里遍历视觉树会拖慢每帧。
 GraphPalette.cs[CU6M]: F:关系网配色：画布与页面图例共用的唯一出处。 | R:code:Drawables/MemoryGraphDrawable.cs | A:GraphPalette | S:图例与画布必须共用这一份配色，任何一侧另写一套都会让图例与实际颜色对不上。
@@ -292,7 +292,7 @@ MainApplication.cs[EH4T]: F:Android 应用对象声明。 | R:code:Platforms/And
 ===/<repository>/Platforms/Windows/===
 App.xaml[FV3T]: F:WinUI 应用定义文件，触发 WinUI XAML 编译。 | R:code:Platforms/Windows/App.xaml.cs | A:- | S:-
 App.xaml.cs[EH5T]: F:WinUI 应用入口，负责创建 MAUI 应用对象。 | R:code:App.xaml.cs, code:MauiProgram.cs | A:- | S:-
-EvergineWeatherViewHandler.Windows.cs[IU6M]: F:天气/监测视图的 Windows handler：WinUIGrid + SwapChainPanel + DX11，负责按面板建链并记录 3D 失败原因。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:UpdateApplication, ResetGiveUpForNewPage, LastFailure | S:必须等 SwapChainPanel 的 Loaded 之后才能更新，提前取句柄会拿到空面板并把图层压成黑块。SwapChain 不能做成静态字段：它绑死在一个面板的合成面上，串给别人会抛 0x80004005。进程级的「放弃 3D」标记必须在每次进页面时重置，否则一处失败会让整个会话再无 3D。
+EvergineWeatherViewHandler.Windows.cs[IU6M]: F:天气/监测视图的 Windows handler：WinUIGrid + SwapChainPanel + DX11，负责按面板建链、尺寸未就绪时挂起、并记录失败原因。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:UpdateApplication, ResetGiveUpForNewPage, LastFailure | S:必须等 SwapChainPanel 的 Loaded 之后才能更新，且 ActualWidth/Height 为 0 时不能建链——CreateSwapChainForComposition 会返回 DXGI_ERROR_INVALID_CALL（bugs.log 2026-11-22 实证）。SwapChain 不能静态共享：它绑死在一个面板的合成面上。
 MainWindow.cs[EH3T]: F:Windows 主窗口类型声明，供 WinUI 编译期识别。 | R:code:App.xaml.cs | A:- | S:-
 PetLayeredWindow.cs[IH7L]: F:桌宠立绘宿主：自建 Win32 分层窗口并用 UpdateLayeredWindow 做按像素 alpha 贴图。 | R:code:Services/World/PetService.cs | A:PetLayeredWindow | S:XAML 窗口做不到每像素透明，所以必须走 Win32 分层窗口；改成普通窗口会在立绘边缘出现黑色矩形。
 WindowChrome.cs[IH5T]: F:WinUI 原生标题栏跟随当前主题配色。 | R:code:DesignSystem/Theme/ThemeManager.cs | A:- | S:-
@@ -323,7 +323,7 @@ CharacterSubProfileService.cs[DB6M]: F:副设定服务：主设定到副设定�
 CognitionModeService.cs[DB8L]: F:双系统大脑档位（专注/神游）的运行期状态与切换。 | R:code:Models/CognitionMode.cs | A:CognitionProfile | S:档位切换要落到存档，重启后必须恢复上一次的档位而不是默认值。
 DailyPlanService.cs[DB8L]: F:每角色独立的 AI 日程服务，是省 token 的核心：一天只生成一次。 | R:code:Models/DailyPlan.cs, code:Services/Character/DailyPlanStore.cs | A:- | S:日程一天只生成一次并落盘；每轮对话重新生成会成倍放大 token 成本。
 DailyPlanStore.cs[PD6S]: F:日程落盘：按角色把日程字典读写到独立文件。 | R:code:Services/Character/DailyPlanService.cs, code:Models/DailyPlan.cs | A:- | S:-
-DriveRules.cs[DA7L]: F:内驱动的纯规则层：气质基线、半衰期回落、观念分类、自律闸门与八种发泄形态的取舍与代价表。 | R:code:Models/Drive.cs, code:Services/Character/InnerDriveService.cs | A:DriveRules.PickForm, DriveRules.ConstraintOn, DriveRules.ClassifyOutlook | S:出口选择用「火气 + 修正项」的加法而不是连乘：三个小于 1 的系数会把人压成一概「厌烦」。有两条硬门槛（叛逆要攻击性 ≥0.45、撒泼要自恋 ≥0.45），另有一条硬规则：关系安全度 <0.30 且火气 <0.95 时出口最高只到郁闷——不安全的关系里她不会当面炸。
+DriveRules.cs[DA7L]: F:内驱动的纯规则层：气质基线、半衰期回落、观念分类、自律闸门与八种发泄形态的取舍与代价表，建模参照 Panksepp 的并行情绪回路与神经调质广播。 | R:code:Models/Drive.cs, code:Services/Character/InnerDriveService.cs | A:DriveRules.PickForm, DriveRules.ConstraintOn, DriveRules.ClassifyOutlook | S:驱动力、自律闸门、激素三者互不隶属：驱动力是并行回路，闸门是压制，激素是广播介质，别把任何一个当上级。出口选择用「火气 + 修正项」的加法不是连乘。关系安全度 <0.30 且火气 <0.95 时出口最高只到郁闷。
 EnergyLedgerService.cs[DB7S]: F:精力流水账：记录精力的收支与当前状态。 | R:code:Services/Character/EnergyRules.cs | A:EnergyLedgerState | S:-
 EnergyRules.cs[DA8T]: F:F16 精力结算的纯代码规则：零 IO、零模型、零时间源。 | R:code:Services/Character/EnergyLedgerService.cs | A:- | S:纯函数、不读时间也不读盘，才能被离线自检直接编译断言；引入任何 IO 都会让那条门禁失效。
 GenderLibrary.cs[DD6L]: F:性别定义库：称谓、代词与相关文案。 | R:code:Models/Character.cs | A:GenderDefinition | S:-
@@ -504,7 +504,7 @@ MemoryManageViewModel.cs[AU6M]: F:记忆管理：关系网入口、标签与人�
 MemorySearchViewModel.cs[AU6M]: F:搜事件：按人怎么找回一件记忆的方式检索。 | R:code:Services/Memory/EmbeddingService.cs | A:- | S:-
 
 ===/<repository>/ViewModels/Monitor/===
-SuperMonitorViewModel.cs[AC7L]: F:超级监测的视图模型：汇日程/器官/记忆/数值/架构节点，给每个节点算实时角标、病理特效与被切断的路径，并把图的自然尺寸交给页面。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Character/InnerDriveService.cs, code:Services/Memory/MemoryScope.cs | A:- | S:监测只在存档内成立：没进存档就不取数、只提示去开存档。并行取数全部 await 后再统一写状态。角标和特效必须是真取到的值，取不到就留空。断链只在真有对应状态时置位，不许为了「好看」默认断开。
+SuperMonitorViewModel.cs[AC7L]: F:超级监测的视图模型：把节点归成 12 个并行系统（激素居中作媒介），算实时角标、病理特效与切断的路径，并把图的自然尺寸交给页面。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Character/InnerDriveService.cs, code:Services/Memory/MemoryScope.cs | A:- | S:不再按「层」组织：SystemOf 把节点归到并行系统，激素是介质不是一层，靠调控线广播。监测只在存档内成立，没存档不取数。并行取数全部 await 后再统一写状态；角标与断链必须是真值，取不到就留空。
 
 ===/<repository>/ViewModels/Save/===
 CloudSavesViewModel.cs[AU6M]: F:云存档浏览器：只做查看与取回，合并交给后台服务。 | R:code:Services/CloudSync/CloudSyncService.cs | A:- | S:这里刻意不提供合并操作，合并只能走 MemoryReconcileService；在此处直接覆盖会丢数据。
