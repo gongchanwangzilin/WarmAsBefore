@@ -67,19 +67,22 @@ public sealed class ArchitectureFlowDrawable : IDrawable
 {
     // ---- 设计尺寸：自然布局 ----
     private const float NodeW = 176f;
-    private const float NodeH = 50f;
-    private const float ModuleH = 54f;
-    private const float ModeW = 158f;
-    private const float ModeH = 50f;
-    private const float GapX = 34f;
-    private const float GapY = 26f;
-    private const float BandPad = 20f;
-    private const float HeaderH = 28f;
-    private const float BandGap = 30f;
-    private const float ModeGap = 26f;
+    private const float NodeH = 48f;
+    private const float ModuleH = 52f;
+    private const float ModeH = 52f;
+    private const float GapX = 16f;
+    private const float GapY = 14f;
+    private const float CellW = 470f;
+    private const float CellH = 404f;
+    private const float CellGap = 24f;
+    private const float CellPad = 14f;
+    private const float CellTitleH = 26f;
     private const float OuterPad = 30f;
-    private const float MinBandW = 1120f;
-    private const float MaxBandW = 1480f;
+    private const int GridCols = 4;
+    private const int GridRows = 3;
+
+    /// <summary>没归进任何系统的节点统一收进这一块。</summary>
+    private const string LooseGroupId = "__loose";
 
     private IReadOnlyList<ArchNode>? _nodes;
     public IReadOnlyList<ArchNode>? Nodes
@@ -109,6 +112,12 @@ public sealed class ArchitectureFlowDrawable : IDrawable
     /// <summary>子系统在图上围出来的框的标题：Group id -> 人话名字。</summary>
     public IReadOnlyDictionary<string, string>? GroupTitles { get; set; }
 
+    /// <summary>每个子系统摆在哪一格（列, 行）：布局由 VM 决定谁挨着谁，drawable 只负责摆。</summary>
+    public IReadOnlyDictionary<string, (int Col, int Row)>? GroupCells { get; set; }
+
+    /// <summary>激素这块是媒介而不是一层：画得比别的系统更宽更淡，并标注它向全系统广播。</summary>
+    public string? HubGroup { get; set; }
+
     /// <summary>
     /// 层色覆盖：key 是 Layer（"1".."5"），value 直接用 GraphPalette 现有成员重钉即可。
     /// 不传则用内置的五层配色。
@@ -123,9 +132,6 @@ public sealed class ArchitectureFlowDrawable : IDrawable
 
     private readonly Dictionary<string, RectF> _rects = new(StringComparer.Ordinal);
     private readonly Dictionary<string, ArchNode> _byId = new(StringComparer.Ordinal);
-    private readonly List<(string Layer, RectF Rect, Color Color)> _layerHeaders = new();
-    private readonly List<(string Layer, RectF Rect, Color Color)> _bands = new();
-    private readonly List<(string Layer, RectF Rect)> _modeRails = new();
     private readonly Dictionary<string, RectF> _groupFrames = new(StringComparer.Ordinal);
     private float _viewW;
     private float _viewH;
@@ -146,9 +152,6 @@ public sealed class ArchitectureFlowDrawable : IDrawable
     {
         _rects.Clear();
         _byId.Clear();
-        _layerHeaders.Clear();
-        _bands.Clear();
-        _modeRails.Clear();
         _groupFrames.Clear();
 
         var nodes = _nodes;
@@ -159,102 +162,72 @@ public sealed class ArchitectureFlowDrawable : IDrawable
         }
         foreach (var n in nodes) _byId[n.Id] = n;
 
-        var bandW = Math.Clamp(Math.Max(_viewW - OuterPad * 2f, MinBandW), MinBandW, MaxBandW);
-        var cols = (int)Math.Floor((bandW - 2 * BandPad - (ModeW + ModeGap) + GapX) / (NodeW + GapX));
-        cols = Math.Clamp(cols, 2, 5);
-
-        var layers = nodes.Select(n => n.Layer)
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(l => int.TryParse(l, out var k) ? k : int.MaxValue)
+        // 系统即格子：每个子系统一块区域，激素那块居中当媒介。没有层，没有上下级——
+        // 它们同时存在，只是在图上各占一块、互相连线。
+        var groups = nodes
+            .Where(n => !string.IsNullOrEmpty(n.Group))
+            .GroupBy(n => n.Group!, StringComparer.Ordinal)
+            .Select(g => g.Key)
             .ToList();
+        var loose = nodes.Where(n => string.IsNullOrEmpty(n.Group)).ToList();
 
-        var bands = new List<(string Layer, List<ArchNode> Modes, List<ArchNode> Steps, int Rows, float Height)>();
-        foreach (var layer in layers)
+        var cells = new Dictionary<string, (int Col, int Row)>(StringComparer.Ordinal);
+        if (GroupCells is not null)
+            foreach (var kv in GroupCells) cells[kv.Key] = kv.Value;
+        // 没给格子的子系统：按顺序填进还没被占的格子。
+        var used = new HashSet<(int, int)>(cells.Values);
+        var nextCell = 0;
+        foreach (var g in groups.Where(g => !cells.ContainsKey(g)))
         {
-            var inBand = nodes.Where(n => string.Equals(n.Layer, layer, StringComparison.Ordinal)).ToList();
-            var modes = inBand.Where(n => n.Kind == ArchNodeKind.Mode).ToList();
-            var steps = OrderByFlow(inBand.Where(n => n.Kind != ArchNodeKind.Mode).ToList());
-            var rows = Math.Max(1, (steps.Count + cols - 1) / cols);
-            var modeStackH = modes.Count == 0 ? 0 : modes.Count * ModeH + (modes.Count - 1) * 12f;
-            var stepStackH = steps.Count == 0 ? 0 : rows * NodeH + (rows - 1) * GapY;
-            var bodyH = Math.Max(Math.Max(modeStackH, stepStackH), NodeH);
-            bands.Add((layer, modes, steps, rows, HeaderH + BandPad * 2 + bodyH));
+            while (used.Contains((nextCell % GridCols, nextCell / GridCols))) nextCell++;
+            cells[g] = (nextCell % GridCols, nextCell / GridCols);
+            used.Add(cells[g]);
+            nextCell++;
+        }
+        if (loose.Count > 0 && !cells.ContainsKey(LooseGroupId))
+        {
+            while (used.Contains((nextCell % GridCols, nextCell / GridCols))) nextCell++;
+            cells[LooseGroupId] = (nextCell % GridCols, nextCell / GridCols);
+            used.Add(cells[LooseGroupId]);
         }
 
-        var totalH = OuterPad * 2 + bands.Sum(b => b.Height) + BandGap * (bands.Count - 1);
-        var bandX = OuterPad;
-        var y = OuterPad;
+        var cols = Math.Max(GridCols, cells.Values.Select(c => c.Col + 1).DefaultIfEmpty(1).Max());
+        var rows = Math.Max(GridRows, cells.Values.Select(c => c.Row + 1).DefaultIfEmpty(1).Max());
+        var contentW = OuterPad * 2 + cols * CellW + (cols - 1) * CellGap;
+        var contentH = OuterPad * 2 + rows * CellH + (rows - 1) * CellGap;
 
-        foreach (var (layer, modes, steps, rows, height) in bands)
+        foreach (var (group, cell) in cells)
         {
-            _layerHeaders.Add((layer, new RectF(bandX, y, bandW, HeaderH), LayerColor(layer)));
-            _bands.Add((layer, new RectF(bandX, y, bandW, height), LayerColor(layer)));
+            var frame = new RectF(OuterPad + cell.Col * (CellW + CellGap),
+                OuterPad + cell.Row * (CellH + CellGap), CellW, CellH);
+            _groupFrames[group] = frame;
 
-            var bodyTop = y + HeaderH + BandPad;
-            var bodyCenter = bodyTop + (height - HeaderH - BandPad * 2) / 2f;
+            var members = group == LooseGroupId
+                ? loose
+                : OrderByFlow(nodes.Where(n => string.Equals(n.Group, group, StringComparison.Ordinal)).ToList());
+            if (members.Count == 0) continue;
 
-            // 调控栏：整体模式竖排在带首，和流程节点分开，视觉上就是「管着这一层」而不是「在这一层里跑」。
-            if (modes.Count > 0)
+            // 系统内排布：两列、紧凑居中，读的时候是一簇一簇的。
+            var innerCols = Math.Max(1, Math.Min(2, (int)Math.Floor((frame.Width - 2 * CellPad + GapX) / (NodeW + GapX))));
+            var innerRows = (members.Count + innerCols - 1) / innerCols;
+            var stackH = innerRows * NodeH + (innerRows - 1) * GapY;
+            var top = frame.Y + CellTitleH + Math.Max(CellPad, (frame.Height - CellTitleH - stackH) / 2f);
+            for (var i = 0; i < members.Count; i++)
             {
-                _modeRails.Add((layer, new RectF(bandX + BandPad, y + HeaderH * 0.4f, ModeW + 14f,
-                    height - BandPad * 0.6f)));
-                var stackH = modes.Count * ModeH + (modes.Count - 1) * 12f;
-                var my = bodyCenter - stackH / 2f;
-                foreach (var m in modes)
-                {
-                    _rects[m.Id] = new RectF(bandX + BandPad + 7f, my, ModeW, ModeH);
-                    my += ModeH + 12f;
-                }
-            }
-
-            var gridLeft = bandX + BandPad + (modes.Count > 0 ? ModeW + ModeGap : 0f);
-            var gridW = bandW - (gridLeft - bandX) - BandPad;
-            var gridCols = Math.Max(1, Math.Min(cols, (int)Math.Floor((gridW + GapX) / (NodeW + GapX))));
-            var gridTop = bodyCenter - (rows * NodeH + (rows - 1) * GapY) / 2f;
-            for (var i = 0; i < steps.Count; i++)
-            {
-                var row = i / gridCols;
-                var col = i % gridCols;
-                var inRow = Math.Min(gridCols, steps.Count - row * gridCols);
+                var row = i / innerCols;
+                var col = i % innerCols;
+                var inRow = Math.Min(innerCols, members.Count - row * innerCols);
                 var rowW = inRow * NodeW + (inRow - 1) * GapX;
-                var rowLeft = gridLeft + Math.Max(0f, (gridW - rowW) / 2f);
-                var x = rowLeft + col * (NodeW + GapX);
-                var h = steps[i].Kind == ArchNodeKind.Module ? ModuleH : NodeH;
-                var ry = gridTop + row * (NodeH + GapY) + (NodeH - h) / 2f;
-                _rects[steps[i].Id] = new RectF(x, ry, NodeW, h);
+                var left = frame.X + (frame.Width - rowW) / 2f;
+                var h = members[i].Kind == ArchNodeKind.Mode ? ModeH - 4f
+                    : members[i].Kind == ArchNodeKind.Module ? ModuleH - 4f
+                    : NodeH;
+                _rects[members[i].Id] = new RectF(left + col * (NodeW + GapX),
+                    top + row * (NodeH + GapY) + (NodeH - h) / 2f, NodeW, h);
             }
-
-            y += height + BandGap;
         }
 
-        BuildGroupFrames();
-        SetContent(bandW + OuterPad * 2f, totalH);
-    }
-
-    /// <summary>
-    /// 子系统框：把同 Group 的成员围起来（外扩留出标题位），让「五层记忆」「内驱动」这些
-    /// 在图上是一块，而不是散在格里靠人猜。
-    /// </summary>
-    private void BuildGroupFrames()
-    {
-        var nodes = _nodes;
-        if (nodes is null) return;
-        foreach (var g in nodes.Where(n => !string.IsNullOrEmpty(n.Group)).GroupBy(n => n.Group!, StringComparer.Ordinal))
-        {
-            float left = float.MaxValue, top = float.MaxValue, right = float.MinValue, bottom = float.MinValue;
-            var any = false;
-            foreach (var n in g)
-            {
-                if (!_rects.TryGetValue(n.Id, out var r)) continue;
-                any = true;
-                left = Math.Min(left, r.X);
-                top = Math.Min(top, r.Y);
-                right = Math.Max(right, r.Right);
-                bottom = Math.Max(bottom, r.Bottom);
-            }
-            if (!any) continue;
-            _groupFrames[g.Key] = new RectF(left - 12f, top - 20f, right - left + 24f, bottom - top + 30f);
-        }
+        SetContent(contentW, contentH);
     }
 
     /// <summary>
@@ -314,72 +287,55 @@ public sealed class ArchitectureFlowDrawable : IDrawable
             canvas.Font = Microsoft.Maui.Graphics.Font.Default;
             canvas.FontSize = 12;
             canvas.FontColor = body.WithAlpha(0.7f);
-            canvas.DrawString("流程数据还没到位。", OuterPad, OuterPad + HeaderH,
+            canvas.DrawString("流程数据还没到位。", OuterPad, OuterPad + CellTitleH,
                 Math.Max(80f, dirtyRect.Width - OuterPad * 2), 28,
                 HorizontalAlignment.Left, VerticalAlignment.Top);
             return;
         }
 
-        // 顺序：层带 → 子系统框 → 连线 → 节点。线压在框上、节点压在线头上，层次才读得出来。
-        DrawBands(canvas, ink);
+        // 顺序：系统块 → 连线 → 节点。线压在块上、节点压在线头上，层次才读得出来。
         DrawGroups(canvas, ink);
         DrawLinks(canvas);
         foreach (var n in _nodes ?? Array.Empty<ArchNode>())
             if (_rects.TryGetValue(n.Id, out var r)) DrawNode(canvas, n, r, ink);
     }
 
-    private void DrawBands(ICanvas canvas, Color ink)
-    {
-        foreach (var (layer, r, color) in _bands)
-        {
-            canvas.FillColor = color.WithAlpha(0.045f);
-            canvas.FillRoundedRectangle(r.X, r.Y, r.Width, r.Height, 14);
-            canvas.FillColor = color.WithAlpha(0.55f);
-            canvas.FillRoundedRectangle(r.X, r.Y, 3f, r.Height, 2);
-        }
-
-        foreach (var (layer, r, color) in _layerHeaders)
-        {
-            canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
-            canvas.FontSize = Math.Max(10.5f, _nodeFont - 1.5f);
-            canvas.FontColor = ink.WithAlpha(0.75f);
-            canvas.DrawString(LayerTitle(layer), r.X + 14, r.Y, r.Width - 28, r.Height,
-                HorizontalAlignment.Left, VerticalAlignment.Center);
-        }
-
-        foreach (var (_, r) in _modeRails)
-        {
-            canvas.StrokeColor = GraphPalette.Tag.WithAlpha(0.20f);
-            canvas.StrokeSize = 1f;
-            canvas.StrokeDashPattern = new[] { 4f, 5f };
-            canvas.DrawRoundedRectangle(r.X, r.Y, r.Width, r.Height, 12);
-            canvas.StrokeDashPattern = null;
-            canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
-            canvas.FontSize = _smallFont;
-            canvas.FontColor = GraphPalette.Tag.WithAlpha(0.72f);
-            canvas.DrawString("整体模式", r.X + 9, r.Y + 2, r.Width - 18, 14,
-                HorizontalAlignment.Left, VerticalAlignment.Center);
-        }
-    }
-
+    /// <summary>
+    /// 系统块：每个子系统占一格，标题写在块顶。激素那块当媒介画——更淡、更宽、
+    /// 带一句「向全系统广播」，因为它不是又一层，而是所有系统共享的通信介质。
+    /// </summary>
     private void DrawGroups(ICanvas canvas, Color ink)
     {
         foreach (var (id, r) in _groupFrames)
         {
-            canvas.FillColor = GraphPalette.MemoryCard.WithAlpha(0.05f);
-            canvas.FillRoundedRectangle(r.X, r.Y, r.Width, r.Height, 16);
-            canvas.StrokeColor = GraphPalette.MemoryCard.WithAlpha(0.30f);
-            canvas.StrokeSize = 1.1f;
-            canvas.StrokeDashPattern = new[] { 6f, 5f };
-            canvas.DrawRoundedRectangle(r.X, r.Y, r.Width, r.Height, 16);
+            var isHub = !string.IsNullOrEmpty(HubGroup) && string.Equals(id, HubGroup, StringComparison.Ordinal);
+            var tint = isHub ? GraphPalette.Tag : GraphPalette.MemoryCard;
+
+            canvas.FillColor = tint.WithAlpha(isHub ? 0.075f : 0.045f);
+            canvas.FillRoundedRectangle(r.X, r.Y, r.Width, r.Height, 18);
+            canvas.StrokeColor = tint.WithAlpha(isHub ? 0.42f : 0.22f);
+            canvas.StrokeSize = isHub ? 1.6f : 1f;
+            canvas.StrokeDashPattern = isHub ? new[] { 8f, 5f } : new[] { 6f, 5f };
+            canvas.DrawRoundedRectangle(r.X, r.Y, r.Width, r.Height, 18);
             canvas.StrokeDashPattern = null;
 
-            var title = GroupTitles is not null && GroupTitles.TryGetValue(id, out var t) ? t : id;
+            var title = GroupTitles is not null && GroupTitles.TryGetValue(id, out var t)
+                ? t
+                : id == LooseGroupId ? "其他" : id;
             canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
-            canvas.FontSize = _smallFont + 0.5f;
-            canvas.FontColor = ink.WithAlpha(0.62f);
-            canvas.DrawString(title, r.X + 10, r.Y + 2, r.Width - 20, 14,
+            canvas.FontSize = _smallFont + 1f;
+            canvas.FontColor = (isHub ? GraphPalette.Tag : ink).WithAlpha(isHub ? 0.85f : 0.62f);
+            canvas.DrawString(title, r.X + 14, r.Y + 4, r.Width - 28, 18,
                 HorizontalAlignment.Left, VerticalAlignment.Center);
+
+            if (isHub)
+            {
+                canvas.Font = Microsoft.Maui.Graphics.Font.Default;
+                canvas.FontSize = _smallFont;
+                canvas.FontColor = GraphPalette.Tag.WithAlpha(0.62f);
+                canvas.DrawString("全系统广播 · 慢性调制", r.X + 14, r.Y + 20, r.Width - 28, 14,
+                    HorizontalAlignment.Left, VerticalAlignment.Center);
+            }
         }
     }
 
@@ -666,16 +622,6 @@ public sealed class ArchitectureFlowDrawable : IDrawable
                 "5" => GraphPalette.Emotion,
                 _ => GraphPalette.Unknown
             };
-
-    private static string LayerTitle(string layer) => layer switch
-    {
-        "1" => "1 · 感知与输入抽象层",
-        "2" => "2 · 记忆与情绪双向耦合",
-        "3" => "3 · 核心心智与病理",
-        "4" => "4 · 低级中枢熔断与躯体化",
-        "5" => "5 · .NET 工程落地",
-        _ => "层 " + layer
-    };
 
     /// <summary>画布坐标命中哪枚节点；点不中返回 null。</summary>
     public string? HitTest(double x, double y)

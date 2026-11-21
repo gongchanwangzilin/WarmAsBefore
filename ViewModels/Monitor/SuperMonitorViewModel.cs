@@ -71,9 +71,36 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         // 子系统框的标题：图上一块一块，读得出来「这一坨是记忆」「这一坨是内驱」。
         ArchDrawable.GroupTitles = new Dictionary<string, string>(StringComparer.Ordinal)
         {
-            ["memory"] = "五层记忆分层系统",
-            ["drive"] = "内驱动子系统 · 可整体停用"
+            ["sense"] = "感知输入",
+            ["parse"] = "特征解析",
+            ["memory"] = "五层记忆",
+            ["cognition"] = "认知与注意",
+            ["emotion"] = "情绪与病理",
+            ["hormone"] = "激素与神经调制",
+            ["drive"] = "内驱系统",
+            ["self"] = "自我与人格",
+            ["bodylow"] = "低级中枢",
+            ["somatize"] = "躯体化",
+            ["assembly"] = "装配与路由",
+            ["output"] = "生成与输出"
         };
+        // 谁挨着谁由这里定：激素在中间，其余系统围在四周，同类的挨在一起（感知↔解析、中枢↔躯体化）。
+        ArchDrawable.GroupCells = new Dictionary<string, (int Col, int Row)>(StringComparer.Ordinal)
+        {
+            ["sense"] = (0, 0),
+            ["parse"] = (1, 0),
+            ["memory"] = (2, 0),
+            ["cognition"] = (3, 0),
+            ["emotion"] = (0, 1),
+            ["hormone"] = (1, 1),
+            ["drive"] = (2, 1),
+            ["self"] = (3, 1),
+            ["bodylow"] = (0, 2),
+            ["somatize"] = (1, 2),
+            ["assembly"] = (2, 2),
+            ["output"] = (3, 2)
+        };
+        ArchDrawable.HubGroup = "hormone";
         ArchDrawable.EffectProvider = id => _fx.TryGetValue(id, out var fx) ? fx : NodeFx.None;
         ArchDrawable.SeveredProvider = link => _severed.Contains(link.From + ">" + link.To);
         ArchDrawable.ContentSizeChanged += (w, h) =>
@@ -1113,6 +1140,19 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("eng.output", "流式输出", "5", "ChatEngine", "SSE 流式输出给用户", ArchNodeKind.Output);
             N("eng.loop", "循环反馈", "5", "ChatEngine.SendCore", "输出回灌为下一轮输入");
 
+            // ---- 激素与神经调制：不是又一层的节点，而是所有系统共享的通信介质 ----
+            // 参考文献线索：Panksepp 的初级情绪回路是并行系统（SEEKING / RAGE / FEAR / LUST / CARE /
+            // PANIC / PLAY），神经调质则通过弥散投射对多个系统做广播与慢性调制——所以激素在这张图上
+            // 占据中间一块，连向其余系统，而不是挂在哪一层下面。
+            N("horm.pool", "内分泌池", "H", "InnerLifeService", "六项化学值按半衰期向气质基线回落");
+            N("horm.dopa", "多巴胺", "H", "InnerLifeService", "收益预期与干劲：想做、想要、有盼头");
+            N("horm.sero", "血清素", "H", "InnerLifeService", "安宁与稳定：不急、不钻牛角尖");
+            N("horm.cort", "皮质醇", "H", "InnerLifeService", "压力与警觉：往坏处想、绷着");
+            N("horm.adr", "肾上腺素", "H", "HormoneRules", "危急：精力↑警觉↑，过量有器官代价");
+            N("horm.endo", "内啡肽", "H", "InnerDriveService", "镇痛与松快：发泄过、忍下来之后的那口气");
+            N("horm.chol", "胆固醇", "H", "HormoneRules", "颓废遭打击时的中和：食欲↓干劲↑");
+            N("horm.ltd", "长期激励素", "H", "HormoneRules", "长期目标达成的奖励，衰减极慢");
+
             var links = new List<ArchLink>();
             void L(string from, string to, LinkKind kind = LinkKind.Normal) =>
                 links.Add(new ArchLink(from, to, kind));
@@ -1235,6 +1275,41 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             L("cognition.focus", "eng.router", LinkKind.Control);
             L("cognition.wander", "mem.deepen", LinkKind.Control);
             L("cognition.wander", "mem.episodic", LinkKind.Control);
+
+            // 神经调质对系统的广播：不是「流过去」，是「同时影响一片」，所以一律画调控线。
+            L("horm.pool", "horm.dopa", LinkKind.Bidirectional);
+            L("horm.dopa", "core.drivePower", LinkKind.Control);
+            L("horm.dopa", "cognition.focus", LinkKind.Control);
+            L("horm.sero", "emo.state", LinkKind.Control);
+            L("horm.cort", "emo.state", LinkKind.Control);
+            L("horm.cort", "soma.coping", LinkKind.Control);
+            L("horm.adr", "soma.fight", LinkKind.Control);
+            L("horm.endo", "core.discharge", LinkKind.Control);
+
+            // ---- 系统归属：并行子系统，不是层级 ----
+            // 情绪、内驱、认知、记忆、感知、躯体、执行是同时存在的回路，激素是它们之间的介质。
+            // 图上不分上下，只分「谁在哪一块、谁连谁」。
+            static string SystemOf(string id) => id switch
+            {
+                "in.text" or "in.image" or "in.voice" or "in.fusion" or "in.embodied" => "sense",
+                "mem.shallow" or "mem.deepen" or "mem.deep" or "mem.episodic" or "mem.semanticM"
+                    or "mem.procedural" or "mem.retrieval" or "mem.rumination" => "memory",
+                "emo.state" or "emo.valence" or "emo.arousal" or "emo.dominance" or "emo.coupling"
+                    or "path.state" or "path.ptsd" or "path.depression" or "path.anxiety" or "path.bpd" => "emotion",
+                "cognition.focus" or "cognition.wander" or "cognition.intervene"
+                    or "mind.summary" or "mind.intrusive" => "cognition",
+                "mind.trauma" or "mind.persona" or "mind.pattern" => "self",
+                "core.driveSystem" or "core.drivePower" or "core.driveSeven" or "core.driveGate"
+                    or "core.discharge" => "drive",
+                "soma.coping" or "soma.fight" or "soma.reply" or "soma.freeze" or "soma.bypass" => "bodylow",
+                "soma.response" or "soma.delay" or "soma.stutter" or "soma.downgrade"
+                    or "soma.panic" or "soma.recovery" => "somatize",
+                "eng.statepack" or "eng.router" or "eng.redis" or "eng.qdrant" or "eng.sqlite" => "assembly",
+                var s when s.StartsWith("horm.", StringComparison.Ordinal) => "hormone",
+                var s when s.StartsWith("in.", StringComparison.Ordinal) => "parse",
+                _ => "output"
+            };
+            for (var i = 0; i < nodes.Count; i++) nodes[i] = nodes[i] with { Group = SystemOf(nodes[i].Id) };
 
             _archNodes = nodes;
             _archLinks = links;

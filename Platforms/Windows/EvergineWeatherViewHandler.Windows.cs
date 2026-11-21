@@ -18,6 +18,8 @@ namespace WarmAsBefore.Controls;
 public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherView, WinUIGrid>
 {
     private bool isViewLoaded;
+    // 面板尺寸还没就绪时挂起建链，等尺寸事件再回来建。
+    private bool _pendingSwapChain;
 
     private SwapChainPanel swapChainPanel = null!;
 
@@ -79,6 +81,17 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
 
     private void UpdateApplicationCore(EvergineWeatherView view, string displayName)
     {
+        // bugs.log 实证（2026-11-22 02:23）：面板还没量出尺寸就建链，
+        // CreateSwapChainForComposition 会返回 DXGI_ERROR_INVALID_CALL —— 0 宽高是非法参数。
+        // 这里先跳过，等 SwapChainPanel 报出非零尺寸再建（见 OnSwapChainPanelSizeChanged）。
+        if (this.swapChainPanel.ActualWidth < 4 || this.swapChainPanel.ActualHeight < 4)
+        {
+            this._pendingSwapChain = true;
+            App.WriteLog($"Evergine.延迟建链: 面板尺寸 {this.swapChainPanel.ActualWidth:0}x{this.swapChainPanel.ActualHeight:0}");
+            return;
+        }
+        this._pendingSwapChain = false;
+
         this.windowsSystem ??= new WinUIWindowsSystem();
 
         // 第二个 Application（超级监测页）从未注册过 WinUIWindowsSystem，
@@ -179,7 +192,16 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         }
 
         // 只动自己这条链：DComp 表面绑面板，替别的面板调 Resize 会直接抛原生 COMException。
-        try { swapChain?.ResizeSwapChain((uint)e.NewSize.Width, (uint)e.NewSize.Height); }
+        try
+        {
+            if (swapChain is null && _pendingSwapChain && this.isViewLoaded && this.VirtualView?.Application is not null)
+            {
+                // 尺寸到了：把 Application 再推一遍，走同一条建链路径。
+                this.UpdateValue(nameof(EvergineWeatherView.Application));
+                return;
+            }
+            swapChain?.ResizeSwapChain((uint)e.NewSize.Width, (uint)e.NewSize.Height);
+        }
         catch (Exception ex) { App.WriteLog("Evergine.ResizeSwapChain -> " + ex.Message); }
     }
 
