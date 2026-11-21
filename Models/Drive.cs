@@ -192,6 +192,16 @@ public sealed class DriveProfile
     }
 }
 
+/// <summary>
+/// 给监测面板与工具读的一份内驱快照：三种基本动力、七个驱动、火气与当前出口、自律与三种观念。
+/// 面板只读它，不写它；写入口在 <see cref="Services.InnerDriveService"/>。
+/// </summary>
+public sealed record DriveReadout(
+    double Aggression, double Sexuality, double Narcissism,
+    double Greed, double Gluttony, double Lust, double Envy, double Pride, double Sloth, double Wrath,
+    double Anger, string DischargeName, string DischargeBehavior, double Endorphin, double Discipline,
+    string MoralName, string LifeName, string ThinkingName, double RelationSafety, DateTime UpdatedAt);
+
 /// <summary>一份存档里的内驱状态：按角色 id 分开存，跟着存档走。</summary>
 public sealed class DriveBook
 {

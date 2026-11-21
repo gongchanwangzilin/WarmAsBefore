@@ -380,6 +380,61 @@ public sealed class InnerDriveService
                + "把这些只落在语气、动作与愿不愿意配合上；不要点破、不要报数值、也不要说成一段自我剖析。";
     }
 
+    /// <summary>
+    /// 给监测面板读的一份快照：三种基本动力、七个驱动、火气与此刻的出口、自律与三种观念。
+    /// 未开启或没有这个角色时返回 null，面板只让那一路空着。
+    /// </summary>
+    public async Task<DriveReadout?> ReadAsync(string charId)
+    {
+        var p = await SettledAsync(charId);
+        if (p is null) return null;
+        lock (_gate)
+        {
+            var spec = p.Discharge is { } form && DriveRules.Forms.TryGetValue(form, out var s) ? s : null;
+            return new DriveReadout(
+                p.Aggression, p.Sexuality, p.Narcissism,
+                p.Greed, p.Gluttony, p.Lust, p.Envy, p.Pride, p.Sloth, p.Wrath,
+                p.Anger,
+                spec?.Name ?? "无",
+                spec?.Behavior ?? (p.Anger >= DriveRules.AngerThreshold
+                    ? "还没发作，按现在的火气与闸门，下一个出口是「" + DriveRules.PickForm(p, p.RelationSafety).Name + "」"
+                    : "此刻没压着火"),
+                p.Endorphin, p.Discipline,
+                MoralName(p.Moral), LifeName(p.Life), ThinkingName(p.Thinking),
+                p.RelationSafety, p.UpdatedAt);
+        }
+    }
+
+    public static string MoralName(MoralStance m) => m switch
+    {
+        MoralStance.Egoism => "利己",
+        MoralStance.Altruism => "利他",
+        MoralStance.Order => "守序",
+        MoralStance.Care => "重情",
+        MoralStance.Pragmatic => "务实",
+        _ => "—"
+    };
+
+    public static string LifeName(LifeStance l) => l switch
+    {
+        LifeStance.Hedonism => "享乐",
+        LifeStance.Asceticism => "克制",
+        LifeStance.Duty => "责任",
+        LifeStance.Nihilism => "虚无",
+        LifeStance.Growth => "成长",
+        _ => "—"
+    };
+
+    public static string ThinkingName(ThinkingStyle t) => t switch
+    {
+        ThinkingStyle.Rational => "理性",
+        ThinkingStyle.Intuitive => "直觉",
+        ThinkingStyle.Empathic => "共情",
+        ThinkingStyle.Obsessive => "偏执",
+        ThinkingStyle.Cynical => "犬儒",
+        _ => "—"
+    };
+
     /// <summary>给监测面板 / 工具读的结构化快照。</summary>
     public async Task<object> SnapshotAsync(string charId)
     {

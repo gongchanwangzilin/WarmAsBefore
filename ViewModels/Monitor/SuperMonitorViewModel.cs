@@ -385,6 +385,15 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 }
                 catch { return null; }
             });
+            var driveTask = Task.Run<DriveReadout?>(async () =>
+            {
+                try
+                {
+                    var svc = ResolveService<InnerDriveService>();
+                    return svc is null ? null : await svc.ReadAsync(id);
+                }
+                catch { return null; }
+            });
             var coreTask = Task.Run<(List<HumanMemoryEntry> Core, List<HumanMemoryEntry> All)>(async () =>
             {
                 try
@@ -397,7 +406,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             });
 
             await Task.WhenAll(organTask, influenceTask, planTask, memoryTask, numericTask,
-                mentalTask, innerTask, coreTask);
+                mentalTask, innerTask, driveTask, coreTask);
 
             var organs = await organTask ?? Array.Empty<OrganState>();
             var influences = await influenceTask ?? Array.Empty<OrganInfluence>();
@@ -406,6 +415,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             var numeric = await numericTask;
             var mentalStates = await mentalTask ?? Array.Empty<MentalConditionState>();
             var chem = await innerTask;
+            var drive = await driveTask;
             var (coreMemories, allMemories) = await coreTask;
 
             if (!string.IsNullOrWhiteSpace(numeric.Name)) CharacterName = numeric.Name;
@@ -572,6 +582,67 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             }
             catch (Exception ex) { App.WriteLog("SuperMonitor.Coupling -> " + ex.Message); }
 
+            // ③ 内驱动：三种基本动力、七个驱动、自律闸门与火气的当前出口。
+            // 四块共用同一份结算后的快照，各自挂到自己的架构节点上；拿不到就只让这一路空着。
+            try
+            {
+                var powerLines = new List<DetailLine>();
+                var sevenLines = new List<DetailLine>();
+                var gateLines = new List<DetailLine>();
+                var dischargeLines = new List<DetailLine>();
+                if (drive is null)
+                {
+                    foreach (var rows in new[] { powerLines, sevenLines, gateLines, dischargeLines })
+                        rows.Add(new DetailLine("状态", "内驱动系统未开启，或这个角色还没有驱动记录"));
+                }
+                else
+                {
+                    powerLines.Add(new DetailLine("数据来源", "InnerDriveService（已按半衰期结算）"));
+                    powerLines.Add(new DetailLine("攻击性（向外的力）", $"{drive.Aggression:0.00} · 越高越容易把火往外放"));
+                    powerLines.Add(new DetailLine("性（连接与亲密）", $"{drive.Sexuality:0.00} · 被满足时镇痛最强"));
+                    powerLines.Add(new DetailLine("自恋（被看见）", $"{drive.Narcissism:0.00} · 受挫时掉得最快"));
+                    powerLines.Add(new DetailLine("更新于", drive.UpdatedAt.ToLocalTime().ToString("HH:mm:ss")));
+
+                    sevenLines.Add(new DetailLine("数据来源", "InnerDriveService 当前七股驱动的压力（0~1）"));
+                    sevenLines.Add(new DetailLine("贪欲", $"{drive.Greed:0.00} · 名利 / 金钱 / 掌控感"));
+                    sevenLines.Add(new DetailLine("暴食", $"{drive.Gluttony:0.00}"));
+                    sevenLines.Add(new DetailLine("色欲", $"{drive.Lust:0.00}"));
+                    sevenLines.Add(new DetailLine("嫉妒", $"{drive.Envy:0.00}"));
+                    sevenLines.Add(new DetailLine("傲慢", $"{drive.Pride:0.00}"));
+                    sevenLines.Add(new DetailLine("怠惰", $"{drive.Sloth:0.00}"));
+                    sevenLines.Add(new DetailLine("暴怒", $"{drive.Wrath:0.00} · 与火气同源"));
+                    sevenLines.Add(new DetailLine("越过 0.42", "会化成一句「想做点什么」进提示词"));
+
+                    gateLines.Add(new DetailLine("自律", $"{drive.Discipline:0.00} · 闸门的力道，可被锻炼"));
+                    gateLines.Add(new DetailLine("道德观", drive.MoralName));
+                    gateLines.Add(new DetailLine("人生观", drive.LifeName));
+                    gateLines.Add(new DetailLine("思维主义", drive.ThinkingName));
+                    gateLines.Add(new DetailLine("关系安全度", $"{drive.RelationSafety:0.00} · 低于 0.30 时火不往外放，只往内消"));
+
+                    dischargeLines.Add(new DetailLine("火气", $"{drive.Anger:0.00} · 到 0.30 要找出口，0.88 过顶硬跳最强的一档"));
+                    dischargeLines.Add(new DetailLine("当前出口", drive.DischargeName));
+                    dischargeLines.Add(new DetailLine("具体表现", drive.DischargeBehavior));
+                    dischargeLines.Add(new DetailLine("内啡肽", $"{drive.Endorphin:0.00} · 发泄或忍住之后的那口松快"));
+                    dischargeLines.Add(new DetailLine("八种出口", "叛逆 > 撒泼 > 怄气 > 任性 > 郁闷 > 拖延 > 厌烦 > 退缩"));
+                }
+                Remember("core.drivePower", "三种基本动力", "核心心智与病理", drive is null ? "未启用" : "监测",
+                    drive is null ? "内驱动未开启"
+                        : $"攻 {drive.Aggression:0.00} · 性 {drive.Sexuality:0.00} · 自恋 {drive.Narcissism:0.00}",
+                    "三种基本动力是力的来源，决定她多容易被推动", powerLines);
+                Remember("core.driveSeven", "七个驱动", "核心心智与病理", drive is null ? "未启用" : "监测",
+                    drive is null ? "内驱动未开启"
+                        : $"最强一股 {DriveRules.NameOf(DominantOf(drive))} {DominantValueOf(drive):0.00}",
+                    "七股驱动决定她此刻想做什么，做成后释放多巴胺与内啡肽", sevenLines);
+                Remember("core.driveGate", "自律闸门", "核心心智与病理", drive is null ? "未启用" : "监测",
+                    drive is null ? "内驱动未开启"
+                        : $"自律 {drive.Discipline:0.00}（{drive.MoralName} / {drive.LifeName} / {drive.ThinkingName}）",
+                    "闸门不消灭驱动，只决定这次给不给出口、给哪一个出口", gateLines);
+                Remember("core.discharge", "八级发泄", "核心心智与病理", drive is null ? "未启用" : "监测",
+                    drive is null ? "内驱动未开启" : $"火气 {drive.Anger:0.00} · 出口「{drive.DischargeName}」",
+                    "火气落到哪个出口由火气、攻击性、自律与关系安全度共同决定", dischargeLines);
+            }
+            catch (Exception ex) { App.WriteLog("SuperMonitor.Drive -> " + ex.Message); }
+
             // ③ 创伤：心理健康目录的创伤类 + 核心记忆里 IsTrauma 的条目（阶段用 TraumaStageName）。
             try
             {
@@ -696,6 +767,20 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         catch (Exception ex) { App.WriteLog("SuperMonitor.Numeric -> " + ex.Message); }
         return ("", 0, 0, 0);
     }
+
+    /// <summary>面板用：此刻最强的那股驱动（暴怒与火气同源，已经算在里面）。</summary>
+    private static DriveImpulse DominantOf(DriveReadout d)
+        => PairsOf(d).OrderByDescending(p => p.Value).First().Kind;
+
+    private static double DominantValueOf(DriveReadout d)
+        => PairsOf(d).OrderByDescending(p => p.Value).First().Value;
+
+    private static IEnumerable<(DriveImpulse Kind, double Value)> PairsOf(DriveReadout d) => new[]
+    {
+        (DriveImpulse.Greed, d.Greed), (DriveImpulse.Gluttony, d.Gluttony), (DriveImpulse.Lust, d.Lust),
+        (DriveImpulse.Envy, d.Envy), (DriveImpulse.Pride, d.Pride), (DriveImpulse.Sloth, d.Sloth),
+        (DriveImpulse.Wrath, d.Anger)
+    };
 
     private void Remember(string id, string label, string group, string status, string detail, string influence,
         IReadOnlyList<DetailLine>? lines = null)
@@ -889,7 +974,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("cognition.wander", "神游模式", "2", "CognitionModeService.WanderInject", "低精度默认态；反刍/整理/纠错/新想法/回忆连线");
             N("cognition.intervene", "神游介入", "2", "CognitionModeService.ShouldWanderIntervene", "专注快撑不住时，神游往脑海随机塞旧记忆");
 
-            // ---- 层 3 核心心智与病理（10）----
+            // ---- 层 3 核心心智与病理（14）----
             N("mind.trauma", "创伤节点", "3", "ChatEngine", "核心信念与旧伤的锚点");
             N("mind.persona", "人格系统", "3", "ChatEngine", "人格 / 核心信念：设定情绪基调");
             N("mind.pattern", "行为模式", "3", "ChatEngine", "由深层记忆塑造的行为模式");
@@ -900,6 +985,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             N("path.depression", "抑郁", "3", "ChatEngine", "反刍死锁，情绪基线极低");
             N("path.anxiety", "焦虑", "3", "ChatEngine", "联想过度发散");
             N("path.bpd", "BPD", "3", "ChatEngine", "防御机制极化");
+            // v1.66 内驱动系统：三种基本动力 / 七个驱动 / 自律闸门 / 八级发泄，全部纯本地规则
+            N("core.drivePower", "三种基本动力", "3", "InnerDriveService", "攻击性 / 性 / 自恋：力的来源");
+            N("core.driveSeven", "七个驱动", "3", "InnerDriveService", "贪欲 / 暴食 / 色欲 / 嫉妒 / 傲慢 / 怠惰 / 暴怒");
+            N("core.driveGate", "自律闸门", "3", "DriveRules.ConstraintOn", "道德观 × 人生观 × 思维主义决定的压制力道");
+            N("core.discharge", "八级发泄", "3", "DriveRules.PickForm", "叛逆 → 撒泼 → 怄气 → 任性 → 郁闷 → 拖延 → 厌烦 → 退缩");
 
             // ---- 层 4 低级中枢熔断与躯体化（11）----
             N("soma.coping", "应对机制", "4", "OrganSimulationService", "应对决策：战 / 逃 / 僵三分支");
