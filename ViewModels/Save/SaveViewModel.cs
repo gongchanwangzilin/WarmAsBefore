@@ -216,7 +216,10 @@ public sealed partial class SaveViewModel : ObservableObject
                 App.TraceStep("SaveVM.LoadSlot.NavSkipped " + id);
                 return;
             }
+            // 崩溃/卡死定位：这两条面包屑夹住导航，日志停在哪一侧就能判断死在哪一段。
+            App.WriteLogNow("SaveVM.BeforeGoToMain " + id);
             await Shell.Current.GoToAsync("main");
+            App.WriteLogNow("SaveVM.AfterGoToMain " + id);
             App.TraceStep("SaveVM.LoadSlot.AfterGoToMain " + id);
             WarmAsBefore.Services.PerfLog.SetPhase("读档·完成");
             App.TraceStep("SaveLoad.Done " + id);
