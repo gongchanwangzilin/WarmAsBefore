@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-21T18:05:19Z",
+  "updated_at": "2026-11-21T18:21:37Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -383,9 +383,9 @@
     },
     "Drawables/ArchitectureFlowDrawable.cs": {
       "role": "index",
-      "sha256": "2302ffed2fe814d5a331f28bf86adeff5800066ca55f29542d95a0b54c8ce156",
-      "size": 24635,
-      "normalized_sha256": "2302ffed2fe814d5a331f28bf86adeff5800066ca55f29542d95a0b54c8ce156"
+      "sha256": "530eb836926ac804fb64cc2f1be4b87f2e6b2cee7fb5485ef983c9f08cf47c46",
+      "size": 30887,
+      "normalized_sha256": "530eb836926ac804fb64cc2f1be4b87f2e6b2cee7fb5485ef983c9f08cf47c46"
     },
     "Drawables/CostChartDrawable.cs": {
       "role": "index",
@@ -1193,9 +1193,9 @@
     },
     "Platforms/Android/EvergineWeatherViewHandler.Android.cs": {
       "role": "index",
-      "sha256": "0b24d4b7c9c36171ecc3342f58860b8cc7a395e6781c865c1d471bf9f6c6bdf8",
-      "size": 6408,
-      "normalized_sha256": "d4cf632f24f4d2a57a15467fa7ce04363005c935a7cb3b12949a0a2bcf55fdc6"
+      "sha256": "299bc2613f17bf05e0950e861d5ea17af09c0bd9efb98e13e91392f0009e8731",
+      "size": 6671,
+      "normalized_sha256": "299bc2613f17bf05e0950e861d5ea17af09c0bd9efb98e13e91392f0009e8731"
     },
     "Platforms/Android/MainActivity.cs": {
       "role": "index",
@@ -1223,9 +1223,9 @@
     },
     "Platforms/Windows/EvergineWeatherViewHandler.Windows.cs": {
       "role": "index",
-      "sha256": "2befdc55aa2e4c8981c45271c548ddde07ff9ec2afca1d72cf6e55a8cc441265",
-      "size": 9993,
-      "normalized_sha256": "2befdc55aa2e4c8981c45271c548ddde07ff9ec2afca1d72cf6e55a8cc441265"
+      "sha256": "181232bedcb0ec92afd020b01697a18d2fa09d68b51583bde845816284df9767",
+      "size": 10680,
+      "normalized_sha256": "181232bedcb0ec92afd020b01697a18d2fa09d68b51583bde845816284df9767"
     },
     "Platforms/Windows/MainWindow.cs": {
       "role": "index",
@@ -2408,9 +2408,9 @@
     },
     "ViewModels/Monitor/SuperMonitorViewModel.cs": {
       "role": "index",
-      "sha256": "fad820d32b44a1634edab049c14d9d0f61d35c92c4635b020c5fd42805f6acdb",
-      "size": 62900,
-      "normalized_sha256": "fad820d32b44a1634edab049c14d9d0f61d35c92c4635b020c5fd42805f6acdb"
+      "sha256": "d90fb6cf92cfcb8b8f73cdec998494aac67e8894def9974adc07ac92789740f2",
+      "size": 67989,
+      "normalized_sha256": "d90fb6cf92cfcb8b8f73cdec998494aac67e8894def9974adc07ac92789740f2"
     },
     "ViewModels/Save/CloudSavesViewModel.cs": {
       "role": "index",
@@ -3074,15 +3074,15 @@
     },
     "Views/Monitor/SuperMonitorPage.xaml": {
       "role": "index",
-      "sha256": "e07335d63d5d0c45cc39219191e027928166cd7e4f4131a6b1638014e7fa6698",
-      "size": 14989,
-      "normalized_sha256": "e07335d63d5d0c45cc39219191e027928166cd7e4f4131a6b1638014e7fa6698"
+      "sha256": "7ad5bdd212842b94ed7ba90ffd51046b0956f39e4794d926bd797132daeefeb1",
+      "size": 15163,
+      "normalized_sha256": "7ad5bdd212842b94ed7ba90ffd51046b0956f39e4794d926bd797132daeefeb1"
     },
     "Views/Monitor/SuperMonitorPage.xaml.cs": {
       "role": "index",
-      "sha256": "aff46be798996eff4c220b7fdbcdd6ac5e1b3de3875d85be3e528351aad40914",
-      "size": 8799,
-      "normalized_sha256": "80c3b4708c26451db3d3e51a02023950212ec3df3ddcb09e0e4ceb61f8271103"
+      "sha256": "7119d6cacf4020797bb6391f6a1dbbcd380099f157a8f925f5cffbb46480241f",
+      "size": 9229,
+      "normalized_sha256": "7119d6cacf4020797bb6391f6a1dbbcd380099f157a8f925f5cffbb46480241f"
     },
     "Views/Save/SavePage.xaml": {
       "role": "index",
@@ -3428,9 +3428,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "ad7ef33178978d4d7984ed3664cb69376cbe4eed45f00b483d56371d38856a11",
-      "size": 133533,
-      "normalized_sha256": "ad7ef33178978d4d7984ed3664cb69376cbe4eed45f00b483d56371d38856a11"
+      "sha256": "d940bfc2fed2f67d93717ee84dbf437bb8d0a9e680c60277672555a93c782b1a",
+      "size": 134167,
+      "normalized_sha256": "d940bfc2fed2f67d93717ee84dbf437bb8d0a9e680c60277672555a93c782b1a"
     },
     "aoci.meta.txt": {
       "role": "index",

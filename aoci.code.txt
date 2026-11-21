@@ -97,7 +97,7 @@ DesignTokens.cs[CU5T]: F:间距与尺寸令牌（Spacing、Sizing），全站布
 StyleWorld.cs[CU8L]: F:五个风格世界的定义与令牌表：材质、几何、描边、填充、阴影与字号台阶都由世界决定。 | R:code:DesignSystem/Theme/ThemeManager.cs, code:DesignSystem/Tokens/DesignTokens.cs | A:StyleWorld, StyleWorldTokens | S:世界只决定材质与形态，颜色由色板独立轴给；在世界里写死颜色会让切色板失效。
 
 ===/<repository>/Drawables/===
-ArchitectureFlowDrawable.cs[CU7L]: F:架构活流程图的绘制层：五层横带内按流序排版，四种节点身份（最小节点/模块/整体模式/输出）各按自己的形状画，正交折线带箭头连接，并按追踪余辉亮灯。 | R:code:Drawables/GraphPalette.cs, code:Helpers/SafeDrawable.cs, code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:ArchNode, ArchLink, ArchNodeKind, LinkKind, ContentSizeChanged | S:尺寸由内容决定，算出自然宽高交给 VM 设 GraphicsView，别为塞进视口整体缩字——缩到 9px 就看不清了。绘制顺序必须是层带 → 连线 → 节点，否则线被方块吃掉。整体模式排带首调控栏、走左侧虚线总线；混进流程格就分不出「总开关」和「零件」。
+ArchitectureFlowDrawable.cs[CU7L]: F:架构活流程图的绘制层：曲线连线与流动光点、按模块分色与按身份分形、子系统围框、实时角标、病理呼吸环与被切断的断链。 | R:code:Drawables/GraphPalette.cs, code:Helpers/SafeDrawable.cs, code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:ArchNode, ArchLink, ArchNodeKind, LinkKind, NodeFx | S:尺寸按内容算、交给 VM 设 GraphicsView，别压字；绘制顺序是层带→子系统框→连线→节点。切断判定与特效都由 VM 注入的 provider 决定，drawable 不读业务。弧度的散列只用来错开重叠，不是随机数——同一对节点必须每次画在同一条曲线上。
 CostChartDrawable.cs[CU5M]: F:成本图表：各模型条形对比与按天趋势折线。 | R:code:Models/ModelPricing.cs | A:CostChartDrawable, ChartMode | S:-
 ForegroundRainDrawable.cs[CU6M]: F:覆盖在 UI 之上的「雨打玻璃」绘制层：雨滴、水珠滞留与滑落轨迹。 | R:code:Controls/ForegroundRainView.cs | A:ForegroundRainDrawable | S:障碍物几何由视图层采集后传入，绘制层不自己去查控件树——在那里遍历视觉树会拖慢每帧。
 GraphPalette.cs[CU6M]: F:关系网配色：画布与页面图例共用的唯一出处。 | R:code:Drawables/MemoryGraphDrawable.cs | A:GraphPalette | S:图例与画布必须共用这一份配色，任何一侧另写一套都会让图例与实际颜色对不上。
@@ -285,14 +285,14 @@ WorldbookGenerator.cs[DB6S]: F:世界志生成：按设定生成条目与角色�
 ===/<repository>/Platforms/Android/===
 AndroidManifest.xml[FV6T]: F:Android 清单：权限、服务声明与包标识。 | R:code:Platforms/Android/BridgeKeepAliveService.cs | A:- | S:桥接保活服务与定位权限都靠这里的声明；漏声明会表现为运行时静默不可用，而不是编译错误。
 BridgeKeepAliveService.cs[IH6T]: F:Android 前台服务：让桥接监听在切到游戏后仍存活。 | R:code:Platforms/Android/AndroidManifest.xml | A:BridgeKeepAliveService | S:前台服务必须带通知，否则新系统会直接杀掉它。
-EvergineWeatherViewHandler.Android.cs[IU6S]: F:天气承载视图的 Android handler：AndroidSurfaceView 与图形上下文。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:UpdateApplication | S:-
+EvergineWeatherViewHandler.Android.cs[IU6S]: F:天气/监测视图的 Android handler：AndroidSurfaceView 与 Vulkan 图形上下文，并与 Windows 端保持同名失败诊断成员。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:UpdateApplication, ResetGiveUpForNewPage, LastFailure | S:两端的 handler 是同一 partial 类的两份平台实现，跨端共用的诊断成员必须在两边都有，否则只在一边编译的改法会让另一端构建失败。
 MainActivity.cs[EH5T]: F:Android 主 Activity，持有当前 Activity 供权限与其他平台调用。 | R:code:Modules/RealWorld/PermissionBroker.cs | A:CurrentActivity | S:CurrentActivity 可能为空（应用在后台或被回收），使用前必须判空。
 MainApplication.cs[EH4T]: F:Android 应用对象声明。 | R:code:Platforms/Android/MainActivity.cs | A:- | S:-
 
 ===/<repository>/Platforms/Windows/===
 App.xaml[FV3T]: F:WinUI 应用定义文件，触发 WinUI XAML 编译。 | R:code:Platforms/Windows/App.xaml.cs | A:- | S:-
 App.xaml.cs[EH5T]: F:WinUI 应用入口，负责创建 MAUI 应用对象。 | R:code:App.xaml.cs, code:MauiProgram.cs | A:- | S:-
-EvergineWeatherViewHandler.Windows.cs[IU6M]: F:天气承载视图的 Windows handler：WinUIGrid 与 SwapChainPanel。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:UpdateApplication | S:必须等 SwapChainPanel 的 Loaded 之后才能更新，提前取句柄会拿到空面板并把天气层压成黑块。
+EvergineWeatherViewHandler.Windows.cs[IU6M]: F:天气/监测视图的 Windows handler：WinUIGrid + SwapChainPanel + DX11，负责按面板建链并记录 3D 失败原因。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:UpdateApplication, ResetGiveUpForNewPage, LastFailure | S:必须等 SwapChainPanel 的 Loaded 之后才能更新，提前取句柄会拿到空面板并把图层压成黑块。SwapChain 不能做成静态字段：它绑死在一个面板的合成面上，串给别人会抛 0x80004005。进程级的「放弃 3D」标记必须在每次进页面时重置，否则一处失败会让整个会话再无 3D。
 MainWindow.cs[EH3T]: F:Windows 主窗口类型声明，供 WinUI 编译期识别。 | R:code:App.xaml.cs | A:- | S:-
 PetLayeredWindow.cs[IH7L]: F:桌宠立绘宿主：自建 Win32 分层窗口并用 UpdateLayeredWindow 做按像素 alpha 贴图。 | R:code:Services/World/PetService.cs | A:PetLayeredWindow | S:XAML 窗口做不到每像素透明，所以必须走 Win32 分层窗口；改成普通窗口会在立绘边缘出现黑色矩形。
 WindowChrome.cs[IH5T]: F:WinUI 原生标题栏跟随当前主题配色。 | R:code:DesignSystem/Theme/ThemeManager.cs | A:- | S:-
@@ -504,7 +504,7 @@ MemoryManageViewModel.cs[AU6M]: F:记忆管理：关系网入口、标签与人�
 MemorySearchViewModel.cs[AU6M]: F:搜事件：按人怎么找回一件记忆的方式检索。 | R:code:Services/Memory/EmbeddingService.cs | A:- | S:-
 
 ===/<repository>/ViewModels/Monitor/===
-SuperMonitorViewModel.cs[AC7L]: F:超级监测的视图模型：把日程、器官、记忆、数值与架构节点汇到一张活流程图，选中节点即显示该处的真实读数，并把赵图的自然尺寸交给页面。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Character/InnerDriveService.cs, code:Services/Memory/MemoryScope.cs | A:- | S:监测数据是高频率刷新源，更新必须节流；并行取数要全部 await 后再统一写状态，不要在 UI 线程阻塞。每路数据各自兜底，取不到只让那一路空着，读数必须是真的，不许编造。节点身份按语义给：能整体停用、跨层生效的是 Mode 不是 Step。
+SuperMonitorViewModel.cs[AC7L]: F:超级监测的视图模型：汇日程/器官/记忆/数值/架构节点，给每个节点算实时角标、病理特效与被切断的路径，并把图的自然尺寸交给页面。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Character/InnerDriveService.cs, code:Services/Memory/MemoryScope.cs | A:- | S:监测只在存档内成立：没进存档就不取数、只提示去开存档。并行取数全部 await 后再统一写状态。角标和特效必须是真取到的值，取不到就留空。断链只在真有对应状态时置位，不许为了「好看」默认断开。
 
 ===/<repository>/ViewModels/Save/===
 CloudSavesViewModel.cs[AU6M]: F:云存档浏览器：只做查看与取回，合并交给后台服务。 | R:code:Services/CloudSync/CloudSyncService.cs | A:- | S:这里刻意不提供合并操作，合并只能走 MemoryReconcileService；在此处直接覆盖会丢数据。
@@ -641,8 +641,8 @@ MemorySearchPage.xaml[FU5S]: F:记忆检索界面：按人找事的方式组织�
 MemorySearchPage.xaml.cs[AU4T]: F:记忆检索页逻辑。 | R:code:ViewModels/Memory/MemorySearchViewModel.cs | A:- | S:-
 
 ===/<repository>/Views/Monitor/===
-SuperMonitorPage.xaml[FU6M]: F:超级监测界面：活流程图与实时读数布局，画布按内容自然尺寸放在双向滚动容器里。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Drawables/ArchitectureFlowDrawable.cs | A:- | S:画布的请求宽高绑 CanvasWidth/CanvasHeight，别给固定高度——固定框会把整张图等比压小，65 个节点挤成一团。3D 向量覆盖层要留在 ScrollView 外面，否则会跟着画布滚走。
-SuperMonitorPage.xaml.cs[AU6M]: F:超级监测页逻辑：图表装配与定时刷新。 | R:code:Drawables/MonitorFlowDrawable.cs | A:- | S:定时刷新必须在离开页面时停掉，否则后台持续重绘会拖慢整个应用。
+SuperMonitorPage.xaml[FU6M]: F:超级监测界面：活流程图（自然尺寸 + 双向滚动）与实时读数栏，另有一条 3D 不可用提示。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Drawables/ArchitectureFlowDrawable.cs | A:- | S:画布请求宽高绑 CanvasWidth/CanvasHeight，别给固定高度——固定框会把图等比压小。3D 覆盖层留在 ScrollView 外，否则跟着画布滚走。
+SuperMonitorPage.xaml.cs[AU6M]: F:超级监测页逻辑：装配 drawable、起停时钟、把 3D 层的初始化结果与失败原因回写到页面提示。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Controls/EvergineWeatherViewHandler.cs | A:- | S:定时刷新必须在离开页面时停掉，否则后台持续重绘拖慢整个应用。3D 失败要写清原因到页面，不许静默——静默失败会被当成「功能没做」。
 
 ===/<repository>/Views/Save/===
 SavePage.xaml[FU6M]: F:存档界面：列表、详情与操作。 | R:code:ViewModels/Save/SaveViewModel.cs | A:- | S:-
