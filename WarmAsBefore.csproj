@@ -9,6 +9,8 @@
     <SingleProject>true</SingleProject>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <!-- 带 Source 的绑定也走编译期生成，省掉运行时反射（XC0025）。 -->
+    <MauiEnableXamlCBindingWithSourceCompilation>true</MauiEnableXamlCBindingWithSourceCompilation>
     <ApplicationTitle>温暖如初</ApplicationTitle>
     <ApplicationDisplayVersion>1.65.0</ApplicationDisplayVersion>
     <ApplicationVersion>76</ApplicationVersion>
