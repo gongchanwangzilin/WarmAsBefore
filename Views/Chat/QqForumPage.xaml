@@ -5,7 +5,6 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.QqForumPage"
              x:Name="Page"
-             x:DataType="vm:QqForumViewModel"
              Shell.NavBarIsVisible="False"
              Background="{StaticResource QqPageBg}">
 

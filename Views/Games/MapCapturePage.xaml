@@ -6,7 +6,6 @@
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.MapCapturePage"
-             x:DataType="vm:MapCaptureViewModel"
              Title="取景与导入"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">

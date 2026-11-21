@@ -7,7 +7,6 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.SetupPage"
              x:Name="Page"
-             x:DataType="vm:SetupViewModel"
 
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
