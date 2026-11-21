@@ -25,8 +25,3 @@ public sealed class MapSceneOption
     public string Label { get; init; } = "";
     public bool IsCurrent { get; init; }
 }
-
-/// <summary>
-/// 舞台要显示的角色背景：路径 + 适配方式 + 归一化裁剪框。
-/// 单独成一条记录，视图层只在它真正变化时切一场，而不是每次刷新都重放。
-/// </summary>
