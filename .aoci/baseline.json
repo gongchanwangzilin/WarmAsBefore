@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-21T16:38:18Z",
+  "updated_at": "2026-11-21T17:23:20Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -95,9 +95,9 @@
     },
     "Composition/Registration.Core.cs": {
       "role": "index",
-      "sha256": "399aadbb3bb3075bded76984b0887212dccf897efbbbf4d60b7719d60824f03a",
-      "size": 8117,
-      "normalized_sha256": "9eaef41ef44157f905998823549a49b16fb954a1d8d28f41a7585d773549363e"
+      "sha256": "61414bd8136dd7a67ab874f1e5005ea701026d618ab0686d0ca1f3e291d18e21",
+      "size": 8242,
+      "normalized_sha256": "61414bd8136dd7a67ab874f1e5005ea701026d618ab0686d0ca1f3e291d18e21"
     },
     "Composition/Registration.DesignSystem.cs": {
       "role": "index",
@@ -591,6 +591,12 @@
       "size": 7660,
       "normalized_sha256": "1f192b6037ea09cf2909558be2eca5071eb4a6f7814f7a3905fc42bb48e7f487"
     },
+    "Models/Drive.cs": {
+      "role": "index",
+      "sha256": "5bbae0304f9271dc068372bad81c1c00cfd3e45e142dec28bcb7c25ea6e0b20c",
+      "size": 8230,
+      "normalized_sha256": "5bbae0304f9271dc068372bad81c1c00cfd3e45e142dec28bcb7c25ea6e0b20c"
+    },
     "Models/EmotionMix.cs": {
       "role": "index",
       "sha256": "44e0d479bff224eb4ab4f466e7f4247cb1e4b5e131ccd0ba7f73bc44cad1c415",
@@ -743,9 +749,9 @@
     },
     "Models/State.cs": {
       "role": "index",
-      "sha256": "eebb7d176fbeb5f2b5d77ffb721418e4bacc846c47cc7894bbea8321ece9d334",
-      "size": 63488,
-      "normalized_sha256": "9dd7f71a2e45c05ce5041530b3a979f06d5c9c10fcd170cd1990c3bbf98ccfc8"
+      "sha256": "568da2615a1877110e97e887f4c556277fdc0ac3a9f42173c69a5e792d013d55",
+      "size": 62693,
+      "normalized_sha256": "568da2615a1877110e97e887f4c556277fdc0ac3a9f42173c69a5e792d013d55"
     },
     "Models/WeChatContact.cs": {
       "role": "index",
@@ -773,9 +779,9 @@
     },
     "Modules/AiChat/ChatEngine.cs": {
       "role": "index",
-      "sha256": "80ad8cff13b4ad7f7c3d24fcf17dba8be11207f96ad0d73385bec54c17f98301",
-      "size": 105394,
-      "normalized_sha256": "80ad8cff13b4ad7f7c3d24fcf17dba8be11207f96ad0d73385bec54c17f98301"
+      "sha256": "beb63be17abfec44efbdb3444eacedff7b86eed50d8130b8fb2df69f2ff41d78",
+      "size": 106108,
+      "normalized_sha256": "beb63be17abfec44efbdb3444eacedff7b86eed50d8130b8fb2df69f2ff41d78"
     },
     "Modules/AiChat/MemoryVault.cs": {
       "role": "index",
@@ -1494,6 +1500,12 @@
       "size": 4033,
       "normalized_sha256": "ef9f240d17053d14c563010ccb04d86fd37fdffd38126fd790d6735fa556c771"
     },
+    "Services/Character/DriveRules.cs": {
+      "role": "index",
+      "sha256": "e48d1911808f79d0fe49fc5d2a1443f14731653347e0647f3a649b54fc3b1ac4",
+      "size": 20610,
+      "normalized_sha256": "e48d1911808f79d0fe49fc5d2a1443f14731653347e0647f3a649b54fc3b1ac4"
+    },
     "Services/Character/EnergyLedgerService.cs": {
       "role": "index",
       "sha256": "750c96eb1f42c04ac0e951f3e2b61e74b429f3ba06e581df6ec65bcc7ba2636a",
@@ -1518,11 +1530,17 @@
       "size": 4656,
       "normalized_sha256": "386742758a6764c50b6d244c900619e0d230e404ecfe3bd10d7ceffa4051b9b4"
     },
+    "Services/Character/InnerDriveService.cs": {
+      "role": "index",
+      "sha256": "16e0e81dad64461c1dc80739626fd71cd06c27a9d476f9cfb92876444c2c4b15",
+      "size": 19917,
+      "normalized_sha256": "16e0e81dad64461c1dc80739626fd71cd06c27a9d476f9cfb92876444c2c4b15"
+    },
     "Services/Character/InnerLifeService.cs": {
       "role": "index",
-      "sha256": "71cdea23ebb537b4496baa9c069ca916f417d681422882c48863a60fe352e815",
-      "size": 32814,
-      "normalized_sha256": "52d3a91957db8de1ffda47a3cc49a0d1713074879d3897bc7134b74eb6f3b1f5"
+      "sha256": "2a1695c0546a4bdcb505dcae2c48655e80c0a7f731c850badc36ac378fd91f06",
+      "size": 33488,
+      "normalized_sha256": "b3c89718e7cfe63099dbed142895b4fa8aaafd60e4c6c09032fb03886fd17556"
     },
     "Services/Character/LibidoService.cs": {
       "role": "index",
@@ -1736,9 +1754,9 @@
     },
     "Services/Core/RuntimeConfigurator.cs": {
       "role": "index",
-      "sha256": "fd98b429ddbb084510eade83c62da50e07f963344a85a1587075e39aabe3a32e",
-      "size": 61228,
-      "normalized_sha256": "bc6a3040504e94ece8622e763651a0347bea44450920320824a42f70b7a2c6f0"
+      "sha256": "b24cd713f609859f3b4c9417e1c6df7dc6d9d8adc8508ca5777538d7f78cbb94",
+      "size": 61166,
+      "normalized_sha256": "b24cd713f609859f3b4c9417e1c6df7dc6d9d8adc8508ca5777538d7f78cbb94"
     },
     "Services/Core/SafeZip.cs": {
       "role": "index",
@@ -2456,9 +2474,9 @@
     },
     "ViewModels/Settings/SettingsCatalog.cs": {
       "role": "index",
-      "sha256": "f29c842d37ec84a737e0501bec73527ab94b58d67be805fb6b3bb62209678488",
-      "size": 6290,
-      "normalized_sha256": "48864419b3972425ec66d81ee2ef0f38b43f7742539338f42557624b7d83007a"
+      "sha256": "389b825d7c430f3c72b60c78d61291c4e5c47b4097527096d4f6788ea8859e9e",
+      "size": 6303,
+      "normalized_sha256": "389b825d7c430f3c72b60c78d61291c4e5c47b4097527096d4f6788ea8859e9e"
     },
     "ViewModels/Settings/SettingsViewModel.Cost.cs": {
       "role": "index",
@@ -2504,9 +2522,9 @@
     },
     "ViewModels/Settings/SettingsViewModel.cs": {
       "role": "index",
-      "sha256": "7f3283596f189aad47d3fce8ec47e6990635e99399d6568dba2ab4612075a97f",
-      "size": 89724,
-      "normalized_sha256": "d2cc88ec62a1ab77dffe512fe0598d5a187b059849593ff5b8bf96b6abe0928c"
+      "sha256": "17f0c962a578cc4fde59730a37746e2879df980f256ea310f0e8ba40d6964d12",
+      "size": 88284,
+      "normalized_sha256": "17f0c962a578cc4fde59730a37746e2879df980f256ea310f0e8ba40d6964d12"
     },
     "ViewModels/Settings/UsageStatsViewModel.cs": {
       "role": "index",
@@ -3224,9 +3242,9 @@
     },
     "Views/Settings/SettingsSectionPage.xaml": {
       "role": "index",
-      "sha256": "ff3bbb8d26514cf8b5846c0f88b791b9230c0f914cff3dea0eb0a472fc1100d4",
-      "size": 272843,
-      "normalized_sha256": "ea6474d0fc20f27d154d2308c76474c0e6d72d69d7bcb8c42d3df70b8f1d4f09"
+      "sha256": "68d1e84c32f15b00be85ef99389566faad1969e586ab1b52e86fd32be7f09632",
+      "size": 271664,
+      "normalized_sha256": "68d1e84c32f15b00be85ef99389566faad1969e586ab1b52e86fd32be7f09632"
     },
     "Views/Settings/SettingsSectionPage.xaml.cs": {
       "role": "index",
@@ -3410,9 +3428,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "fb0fcf13bf8852358459f68ed44e50cf41245535f63dbbb8d3969970c4a1f370",
-      "size": 128646,
-      "normalized_sha256": "fb0fcf13bf8852358459f68ed44e50cf41245535f63dbbb8d3969970c4a1f370"
+      "sha256": "d7b6934b5196669ed54a919569a3fbdbd765f3dcb531fa395a3e1e4f484015fb",
+      "size": 132117,
+      "normalized_sha256": "d7b6934b5196669ed54a919569a3fbdbd765f3dcb531fa395a3e1e4f484015fb"
     },
     "aoci.meta.txt": {
       "role": "index",

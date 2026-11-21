@@ -36,7 +36,7 @@ views-maingamepage-xaml.md[SU4T]: F:主聊天界面的设计简报：四套材�
 
 ===/<repository>/Composition/===
 Registration.Character.cs[AB6T]: F:角色工作流注册：角色包、头像裁剪、形象包与装扮素材服务。 | R:code:MauiProgram.cs | A:AddCharacterServices | S:-
-Registration.Core.cs[AG8M]: F:基础设施注册：存储、设置、运行时、窗口与平台适配等跨模块服务。 | R:code:MauiProgram.cs | A:AddCoreServices | S:生命周期即状态——有状态的运行时服务若注册成 Transient，会建出两份互相覆盖的实例。
+Registration.Core.cs[AG8M]: F:基础设施注册：存储、设置、运行时、窗口与平台适配等跨模块服务。 | R:code:MauiProgram.cs | A:AddCoreServices | S:生命周期即状态——有状态的运行时服务若注册成 Transient，会建出两份互相覆盖的实例。内驱动系统依赖内心生活的化学池，注册顺序上必须排在 InnerLifeService 之后。
 Registration.DesignSystem.cs[AG5T]: F:设计系统注册：主题管理器与它的中文别名包装，两个入口共用同一份状态。 | R:code:DesignSystem/Theme/ColorPalette.xaml | A:AddDesignSystemServices | S:-
 Registration.Modules.cs[AG7M]: F:业务模块注册：对话、记忆、商店、存档、场景、MCP、小游戏与真实世界感知。 | R:code:MauiProgram.cs | A:AddModuleServices | S:-
 Registration.Pages.cs[AU6T]: F:页面注册，全部 Transient：页面关闭即释放。 | R:code:AppShell.xaml.cs | A:AddPages | S:页面刻意注册为 Transient；改成单例会跨次打开保留上一次的页面数据与事件订阅。
@@ -135,6 +135,7 @@ ChatMessage.cs[DB6T]: F:聊天消息的绑定侧模型，向 UI 暴露图像源�
 CognitionMode.cs[DB7S]: F:双系统大脑的两个档位定义，以及专注训练的会话状态。 | R:code:Services/Character/EnergyRules.cs | A:CognitionMode, FocusTraining | S:档位语义由契约固定（专注 / 神游），改枚举名等于改对外契约，读取侧的历史数据会失配。
 DailyPlan.cs[DB6T]: F:日程模型：条目种类与具体计划项。 | R:code:Services/World/DailyScheduleService.cs | A:PlanKind, PlanItem | S:AI 只输出这里枚举的英文名（Wear/Chat/…），新增种类必须同时改模型与提示词侧白名单。
 Data.cs[DD7S]: F:核心数据记录：记忆条目、日记与相关附件路径。 | R:code:Services/Memory/MemoryService.cs | A:MemoryEntry, DiaryNote | S:-
+Drive.cs[DA7M]: F:内驱动系统的模型：三种基本动力、七个驱动的压力、火气与八种出口、内啡肽与自律，以及按角色存的驱动簿。 | R:code:Services/Character/DriveRules.cs, code:Services/Character/InnerDriveService.cs | A:DriveProfile, DriveBook, DischargeForm | S:全部是 0~1 的抽象量，不是临床指标。七个驱动名是「推力」不是「罪名」，写提示词时不要把它们说成道德评判。枚举 DischargeForm 的数值就是强度档位（1 退缩最隐蔽、8 叛逆最直接），排序被选出口的逻辑直接依赖这个顺序，改数值会改行为。
 EmotionMix.cs[DB7S]: F:情绪混合模型：多种情绪成分及其归一化权重。 | R:code:Services/Character/EmotionService.cs | A:EmotionPart, EmotionMix | S:-
 FlowData.cs[DB6S]: F:流程图规则模型：触发起止、条件判定与动作，含可用触发器清单。 | R:code:ViewModels/Games/FlowEditorViewModel.cs | A:FlowRule, FlowTriggers | S:触发器名是规则持久化的一部分，改字面量会让旧存档里的规则全部失效。
 ForceCastEntry.cs[DB5T]: F:「点名」条目：人类指定角色及其初始位置与出场设定。 | R:code:Models/MapActor.cs | A:ForceCastEntry | S:-
@@ -160,7 +161,7 @@ SceneLibrary.cs[DD5T]: F:场景库：独立于地图的结构化「场景 + 模�
 ScenePlacement.cs[DD6M]: F:场景标定：落脚点种类与缩放依据的常量集合。 | R:code:Drawables/SceneCalibrationDrawable.cs | A:LandingKinds, ScaleMethods | S:-
 ShopItem.cs[DB5T]: F:商店商品与购买记录模型。 | R:code:Modules/Market/ShopService.cs | A:ShopItem, GameRecord | S:-
 Showcase.cs[DB5T]: F:开发者展示案：一段可完整回放的 AI 与用户对话脚本。 | R:code:Views/Story/ShowcasePlayPage.xaml | A:ShowcaseScript, ShowcaseStep | S:-
-State.cs[DB9L]: F:存档主状态：世界的全部可持久化字段，含角色白名单、在场状态与进度。 | R:code:Modules/SaveSystem/SaveManager.cs, code:Models/Character.cs | A:GameState, CharacterPresence | S:角色白名单非空时，AI 只能在白名单内选人——新增角色必须同时进白名单，否则她永远不会出场。
+State.cs[DB9L]: F:存档主状态：世界的全部可持久化字段，含角色白名单、在场状态与进度。 | R:code:Modules/SaveSystem/SaveManager.cs, code:Models/Character.cs | A:GameState, CharacterPresence | S:角色白名单非空时，AI 只能在白名单内选人——新增角色必须同时进白名单，否则她永远不会出场。新增的开关字段要给默认值且只增不改名，旧存档反序列化时才不会拿不到值。
 WeChatContact.cs[DD4T]: F:微信联系人：一个已加上好友的角色。 | R:code:Services/CloudSync/CloudSyncService.cs | A:WeChatContact | S:-
 WorldbookData.cs[DD5T]: F:世界志条目与角色模型。 | R:code:Services/World/WorldbookService.cs | A:WorldbookEntry, WorldbookCharacter | S:-
 
@@ -172,7 +173,7 @@ AffectionLevel.cs[DB5T]: F:好感度等级：独立于 0-100 好感度的累计�
 AffectionLevelUpService.cs[DB5T]: F:好感升级动画的载荷编组，在主界面导航前写入。 | R:code:Modules/Affection/AffectionLevel.cs | A:AffectionLevelUpService, SpritePathResolver | S:载荷要在导航发起前写入，导航后再写会丢——目标页在 OnAppearing 就取走它。
 
 ===/<repository>/Modules/AiChat/===
-ChatEngine.cs[DB9L]: F:对话引擎：会话编排、工具调用循环、上下文拼装与流式回复。 | R:code:Modules/ApiManager/ApiGateway.cs, code:Modules/AiChat/MemoryVault.cs, code:Modules/Tools/ToolManager.cs | A:ChatEngine, ToolTrace | S:会话锁是必须的——并发进入同一会话会写乱历史；读附件前要判空路径，否则异常被吞后用户只看到回复里少了内容。
+ChatEngine.cs[DB9L]: F:对话引擎：会话编排、工具调用循环、上下文拼装与流式回复，并逐轮驱动大脑预判、内分泌、具体化与内驱动几层。 | R:code:Modules/ApiManager/ApiGateway.cs, code:Modules/AiChat/MemoryVault.cs, code:Modules/Tools/ToolManager.cs, code:Services/Character/InnerDriveService.cs | A:ChatEngine, ToolTrace | S:会话锁是必须的——并发进入同一会话会写乱历史；读附件前要判空路径，否则异常被吞后用户只看到回复里少了内容。心智各层（预判/内分泌/具体化/内驱）都在同一轮里按序调一次，任何一层抛异常都必须就地兜住，不能掀翻整轮回复。
 MemoryVault.cs[DP7S]: F:记忆落盘闸门：用信号量串行化写入，避免并发写坏记忆文件。 | R:code:Services/Memory/MemoryService.cs | A:MemoryVault | S:写入必须走这里的 SemaphoreSlim；绕过它直接写文件会与主流程竞争同一份 JSON。
 
 ===/<repository>/Modules/ApiManager/===
@@ -322,11 +323,13 @@ CharacterSubProfileService.cs[DB6M]: F:副设定服务：主设定到副设定�
 CognitionModeService.cs[DB8L]: F:双系统大脑档位（专注/神游）的运行期状态与切换。 | R:code:Models/CognitionMode.cs | A:CognitionProfile | S:档位切换要落到存档，重启后必须恢复上一次的档位而不是默认值。
 DailyPlanService.cs[DB8L]: F:每角色独立的 AI 日程服务，是省 token 的核心：一天只生成一次。 | R:code:Models/DailyPlan.cs, code:Services/Character/DailyPlanStore.cs | A:- | S:日程一天只生成一次并落盘；每轮对话重新生成会成倍放大 token 成本。
 DailyPlanStore.cs[PD6S]: F:日程落盘：按角色把日程字典读写到独立文件。 | R:code:Services/Character/DailyPlanService.cs, code:Models/DailyPlan.cs | A:- | S:-
+DriveRules.cs[DA7L]: F:内驱动的纯规则层：气质基线、半衰期回落、观念分类、自律闸门与八种发泄形态的取舍与代价表。 | R:code:Models/Drive.cs, code:Services/Character/InnerDriveService.cs | A:DriveRules.PickForm, DriveRules.ConstraintOn, DriveRules.ClassifyOutlook | S:出口选择用「火气 + 修正项」的加法而不是连乘：三个小于 1 的系数会把人压成一概「厌烦」。有两条硬门槛（叛逆要攻击性 ≥0.45、撒泼要自恋 ≥0.45），另有一条硬规则：关系安全度 <0.30 且火气 <0.95 时出口最高只到郁闷——不安全的关系里她不会当面炸。
 EnergyLedgerService.cs[DB7S]: F:精力流水账：记录精力的收支与当前状态。 | R:code:Services/Character/EnergyRules.cs | A:EnergyLedgerState | S:-
 EnergyRules.cs[DA8T]: F:F16 精力结算的纯代码规则：零 IO、零模型、零时间源。 | R:code:Services/Character/EnergyLedgerService.cs | A:- | S:纯函数、不读时间也不读盘，才能被离线自检直接编译断言；引入任何 IO 都会让那条门禁失效。
 GenderLibrary.cs[DD6L]: F:性别定义库：称谓、代词与相关文案。 | R:code:Models/Character.cs | A:GenderDefinition | S:-
 HormoneRules.cs[DA8T]: F:F28 内分泌结算规则：纯函数，含各种激素的半衰期。 | R:code:Services/Character/InnerLifeService.cs | A:- | S:半衰期是数值真相源，别处再写一份常量会让模拟结果与图表对不上。
-InnerLifeService.cs[DA8L]: F:内心生活：内分泌化学池与执念池的演化。 | R:code:Services/Character/HormoneRules.cs | A:- | S:-
+InnerDriveService.cs[DA7L]: F:内驱动系统的服务层：按真实时间结算驱动与火气、读一句话推动哪几股驱动、按闸门选出口并释放多巴胺与内啡肽。 | R:code:Models/Drive.cs, code:Services/Character/DriveRules.cs, code:Services/Character/InnerLifeService.cs, code:Services/Core/SettingsManager.cs | A:InnerDriveService.PrepareTurn, InnerDriveService.AfterReply, InnerDriveService.PromptTextAsync | S:只单向依赖内分泌层（Nudge 推多巴胺），反向不成立，避免循环依赖。状态存 inner_drive 键、随 MemoryScope 隔离。三种观念只在首次见到角色时从人设分类一次，之后不再覆盖——自律可以练，立场不该随对话漂。提示词段只写倾向，不报数值、不点破「驱动」这类词。
+InnerLifeService.cs[DA8L]: F:内心生活：内分泌化学池与执念池的演化，对外提供 Nudge 供其他层推多巴胺。 | R:code:Services/Character/HormoneRules.cs, code:Services/Character/InnerDriveService.cs | A:InnerLifeService.Nudge | S:化学池的所有写入都要经半衰期结算后再落盘，直接赋值会让下次结算把改动当成漂移拉回去。Nudge 只加不结算，供内驱动等上层用；反过来让本层去读上层状态会形成环依赖。
 LibidoService.cs[DB5T]: F:性欲系统，只对用户在存档里点名的角色生效。 | R:code:Models/Character.cs | A:- | S:只对被点名的角色生效，全量开启会让所有角色都出现不该有的状态。
 LingshuImporter.cs[DI5S]: F:灵枢 AI 导入：把导出的记忆 JSON 注入角色世界志与记忆。 | R:code:Models/LingshuImport.cs | A:- | S:导入是外部格式，字段缺失要容忍，不能直接反序列化到非空字段。
 MaterialLibrary.cs[DD6L]: F:素材库：音乐库与背景库。 | R:code:Models/AudioAssets.cs | A:- | S:-
@@ -366,7 +369,7 @@ NotificationService.cs[CU4T]: F:系统通知的轻量封装。 | R:- | A:- | S:-
 PageWindowService.cs[AU6S]: F:把一页搬进独立窗口：关系网、搜索等可以单独开一扇窗。 | R:code:AppShell.xaml.cs | A:- | S:-
 PerfLog.cs[CO6S]: F:轻量性能日志：把一次操作花了多久写到数据目录。 | R:code:App.xaml.cs | A:- | S:-
 RepairReportService.cs[CR6S]: F:修复回执的当前快照，供界面告诉用户哪些数据被补救。 | R:code:Modules/SaveSystem/SaveRepairReport.cs | A:- | S:-
-RuntimeConfigurator.cs[AC9L]: F:运行时配置器：把用户设置实时下发到 AI、天气、语音等各子系统。 | R:code:Services/Core/SettingsManager.cs, code:Modules/ApiManager/ApiGateway.cs | A:- | S:下发必须幂等且顺序无关——同一份设置被重复下发不能产生第二次副作用，否则切一次设置会重复注册监听。
+RuntimeConfigurator.cs[AC9L]: F:运行时配置器：把用户设置实时下发到 AI、天气、语音等各子系统，并把人设、心绪与内驱动接进每轮上下文。 | R:code:Services/Core/SettingsManager.cs, code:Modules/ApiManager/ApiGateway.cs, code:Services/Character/InnerDriveService.cs | A:- | S:下发必须幂等且顺序无关——同一份设置被重复下发不能产生第二次副作用，否则切一次设置会重复注册监听。每轮动态上下文按「心绪 → 内驱 → 世界观」的顺序拼，新加的层要各自 try/catch 兜住，否则一层失败会让整段上下文消失。
 SafeZip.cs[CS7T]: F:带资源上限的 ZIP 解压，防压缩炸弹与路径穿越。 | R:code:Modules/DataPack/PackImporter.cs | A:- | S:解压一律走这里；直接用 ZipFile.ExtractToDirectory 会放过 ../ 条目与超大解压比。
 ScreenBlackoutService.cs[CU4T]: F:黑屏：AI 可以选择把画面黑掉。 | R:code:AppShell.xaml.cs | A:- | S:-
 SettingsAdvisorService.cs[DA6S]: F:F08 设置调节 AI：用一段与角色隔离的临时会话给出设置建议。 | R:code:Services/Core/SettingsManager.cs | A:- | S:这段会话必须与角色隔离，混进角色上下文会让建议被人物设定带偏。
@@ -516,7 +519,7 @@ PluginCenterViewModel.cs[AU7L]: F:插件中心：市场浏览、安装、更新�
 PluginPermissionsViewModel.cs[AU6M]: F:插件权限页：逐项授权与撤销。 | R:code:Services/Plugins/PluginPermissions.cs | A:- | S:-
 SaveRulesViewModel.cs[AU5M]: F:存档规则页：自动存档与保留策略。 | R:code:Modules/SaveSystem/SaveManager.cs | A:- | S:-
 SettingsCardFilter.cs[AU5S]: F:设置页卡片的搜索与过滤。 | R:code:ViewModels/Settings/SettingsCatalog.cs | A:- | S:-
-SettingsCatalog.cs[AU6T]: F:设置目录：全站设置项的定义与分组真相源。 | R:code:Services/Core/ConfigCatalog.cs | A:- | S:设置项键名必须与 ConfigCatalog 对齐，两处各写一套会让默认值与界面显示对不上。
+SettingsCatalog.cs[AU6T]: F:设置目录：全站设置项的定义与分组真相源，含首页分类说明与搜索关键词。 | R:code:Services/Core/ConfigCatalog.cs | A:- | S:设置项键名必须与 ConfigCatalog 对齐，两处各写一套会让默认值与界面显示对不上。搜索只认这里登记的关键词——新设置项不补关键词，用户在设置页就搜不到。
 SettingsViewModel.Cost.cs[AU7M]: F:成本与超时：智能省钱的开关与阈值，以及按模型对比、按天趋势两张成本图表的数据。 | R:code:Services/Memory/CostEstimatorService.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:图表数据是从成本账本派生的只读量，不要让它反过来写回账本，否则统计口径与真实花费会互相污染。
 SettingsViewModel.Extras.cs[AU7M]: F:设置页的扩展分区：数据管理、诊断与实验项。 | R:code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:-
 SettingsViewModel.Home.cs[AU7S]: F:设置首页：分类条目列表，以及按关键词过滤到具体条目的设置搜索。 | R:code:ViewModels/Settings/SettingsCatalog.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:搜索命中靠目录里登记的关键词而不是界面文字，新增设置项必须同时在目录登记关键词，否则首页与搜索都找不到它。
@@ -524,7 +527,7 @@ SettingsViewModel.Integrations.cs[AU8L]: F:外部集成与扩展：工具完整�
 SettingsViewModel.Life.cs[AU6M]: F:生活相关设置：定位与城市数据源、按性别区分的周期设置、金钱余额的增减。 | R:code:Modules/RealWorld/LocationService.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:城市有两个来源（手选与定位），同时存在时以手选为准；只刷新定位不会覆盖用户已经选定的城市。
 SettingsViewModel.Misc.cs[AU5L]: F:零散设置功能：桌宠思考、自定义性别的增删与导入、数据包的导出与导入。 | R:code:ViewModels/Settings/SettingsViewModel.cs, code:Services/World/DataPackageService.cs | A:- | S:数据包导入是整包替换，导入前必须先备份当前数据；没有备份就无法退回导入前的状态。
 SettingsViewModel.Providers.cs[AU8L]: F:模型厂商与端点配置：多端点轮换（厂商 × 模型）、API 预设、识图模型与量化模型的选择。 | R:code:Services/Core/SettingsManager.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:轮换表里每个「厂商 × 模型」组合都要单独带凭据；换厂商时必须一并清掉上一家的模型名与地址，否则会拿 A 家的 key 打 B 家的域名。
-SettingsViewModel.cs[AU9L]: F:设置页总模型：持有设置、主题、桥接、MCP、插件、运行时等服务，全部设置项的读写与即时生效，各项按职责拆在同名 partial 文件里。 | R:code:ViewModels/Settings/SettingsViewModel.Providers.cs, code:ViewModels/Settings/SettingsViewModel.Integrations.cs, code:ViewModels/Settings/SettingsViewModel.Misc.cs, code:Services/Core/SettingsManager.cs, code:ViewModels/Settings/SettingsCatalog.cs | A:- | S:设置一改就落盘并广播，任何一项写失败都不能让整页停在「已保存」的假象上。新设置项还要登记进设置目录，否则首页与搜索都看不到它。
+SettingsViewModel.cs[AU9L]: F:设置页总模型：持有设置、主题、桥接、MCP、插件、运行时等服务，全部设置项的读写与即时生效，各项按职责拆在同名 partial 文件里。 | R:code:ViewModels/Settings/SettingsViewModel.Providers.cs, code:ViewModels/Settings/SettingsViewModel.Integrations.cs, code:ViewModels/Settings/SettingsViewModel.Misc.cs, code:Services/Core/SettingsManager.cs, code:ViewModels/Settings/SettingsCatalog.cs | A:- | S:设置一改就落盘并广播，任何一项写失败都不能让整页停在「已保存」的假象上。新设置项要同时改三处：可观察字段、PersistSettings 里的赋值、设置目录关键词，漏掉最后一处会让搜索找不到它。
 UsageStatsViewModel.cs[AU6L]: F:用量统计页：token 与花费的聚合视图。 | R:code:Services/Memory/CostEstimatorService.cs | A:- | S:-
 
 ===/<repository>/ViewModels/Shop/===
@@ -670,7 +673,7 @@ SaveRulesPage.xaml[FU5M]: F:存档规则界面。 | R:code:ViewModels/Settings/S
 SaveRulesPage.xaml.cs[AU4T]: F:存档规则页逻辑。 | R:code:Modules/SaveSystem/SaveManager.cs | A:- | S:-
 SettingsPage.xaml[FU6T]: F:设置总入口界面：分组卡片与搜索。 | R:code:Views/Settings/SettingsPage.xaml.cs | A:- | S:-
 SettingsPage.xaml.cs[AU6M]: F:设置总页逻辑：分组导航与卡片过滤。 | R:code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:-
-SettingsSectionPage.xaml[FU8L]: F:设置分区界面：全部设置项的集中渲染（全仓库最大的 XAML 之一）。 | R:code:Views/Settings/SettingsSectionPage.xaml.cs | A:- | S:大文件里按分区注释分段，新增项应按既有分区插入并复用样式，否则会同时拖慢编译期与运行时的布局解析。
+SettingsSectionPage.xaml[FU8L]: F:设置分区界面：全部设置项的集中渲染（全仓库最大的 XAML 之一）。 | R:code:Views/Settings/SettingsSectionPage.xaml.cs | A:- | S:大文件里按分区注释分段，新增项应按既有分区插入并复用样式，否则会同时拖慢编译期与运行时的布局解析。开关统一用 ViewSwitch 绑可观察字段，处理器一律由兜底入口进。
 SettingsSectionPage.xaml.cs[AU6S]: F:设置分区页逻辑：控件与设置项的挂接。 | R:code:ViewModels/Settings/SettingsViewModel.Extras.cs | A:- | S:-
 UsageStatsPage.xaml[FU5M]: F:用量统计界面。 | R:code:ViewModels/Settings/UsageStatsViewModel.cs | A:- | S:-
 UsageStatsPage.xaml.cs[AU4T]: F:用量统计页逻辑。 | R:code:Services/Memory/CostEstimatorService.cs | A:- | S:统计数据是只读派生量，页面不得回写账本；事件入口统一走兜底，异常只提示不崩页。
