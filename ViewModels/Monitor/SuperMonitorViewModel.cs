@@ -399,14 +399,14 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             await Task.WhenAll(organTask, influenceTask, planTask, memoryTask, numericTask,
                 mentalTask, innerTask, coreTask);
 
-            var organs = organTask.Result ?? Array.Empty<OrganState>();
-            var influences = influenceTask.Result ?? Array.Empty<OrganInfluence>();
-            var plan = planTask.Result;
-            var layers = memoryTask.Result ?? new List<MemoryOverviewService.LayerStat>();
-            var numeric = numericTask.Result;
-            var mentalStates = mentalTask.Result ?? Array.Empty<MentalConditionState>();
-            var chem = innerTask.Result;
-            var (coreMemories, allMemories) = coreTask.Result;
+            var organs = await organTask ?? Array.Empty<OrganState>();
+            var influences = await influenceTask ?? Array.Empty<OrganInfluence>();
+            var plan = await planTask;
+            var layers = await memoryTask ?? new List<MemoryOverviewService.LayerStat>();
+            var numeric = await numericTask;
+            var mentalStates = await mentalTask ?? Array.Empty<MentalConditionState>();
+            var chem = await innerTask;
+            var (coreMemories, allMemories) = await coreTask;
 
             if (!string.IsNullOrWhiteSpace(numeric.Name)) CharacterName = numeric.Name;
             else CharacterName = _engine.Roster.TryGetValue(id, out var rosterCh) ? rosterCh.Profile.Name : id;

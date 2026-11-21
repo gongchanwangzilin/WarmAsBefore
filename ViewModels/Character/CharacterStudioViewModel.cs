@@ -397,14 +397,14 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         var listTask = _library.ListAsync();
         var savesTask = _saves.List();
         await Task.WhenAll(listTask, savesTask);
-        var found = listTask.Result.FirstOrDefault(c => c.Profile.Id == charId);
+        var found = (await listTask).FirstOrDefault(c => c.Profile.Id == charId);
         if (found is null)
         {
             Status = "这个角色的资料读不出来了。";
             return false;
         }
         // 存档数在这里自己数：由列表页传入字符串会让独立窗口只能显示空白句。
-        var runs = savesTask.Result.Count(s => s.Character == charId);
+        var runs = (await savesTask).Count(s => s.Character == charId);
         Apply(found, runs == 0 ? "暂无存档" : $"存档 {runs} 个", false);
         await LoadPluginProfileAsync();
         return true;
