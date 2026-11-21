@@ -1,5 +1,7 @@
 using WarmAsBefore.ViewModels;
 
+using WarmAsBefore.Helpers;
+
 namespace WarmAsBefore.Views;
 
 /// <summary>用量统计页：总览、成本构成、Token 活跃度、时间序列、分组明细与单价设定。</summary>
@@ -54,7 +56,7 @@ public partial class UsageStatsPage : ContentPage
         }
     }
 
-    private async void OnBackClicked(object? sender, EventArgs e)
+    private async Task OnBackClickedAsync(object? sender, EventArgs e)
     {
         try { await Shell.Current.GoToAsync(".."); }
         catch (Exception ex) { App.WriteLog("UsageStatsPage.Back -> " + ex.Message); }
@@ -67,4 +69,7 @@ public partial class UsageStatsPage : ContentPage
         PriceBody.IsVisible = open;
         PriceToggle.Text = open ? "收起" : "展开";
     }
+
+    // 事件入口：UsageStats 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnBackClicked(object? sender, EventArgs e) => UiGuard.Run(() => OnBackClickedAsync(sender, e), "UsageStats.OnBackClicked", "操作没成功，已记录日志。请再试一次。");
 }

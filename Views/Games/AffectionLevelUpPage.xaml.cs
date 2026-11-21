@@ -27,28 +27,32 @@ public partial class AffectionLevelUpPage : ContentPage
     /// <summary>入场 + 爱心动画；播放完成后由用户轻触退出。</summary>
     private async void PlayLevelUp()
     {
-        if (_service is not { HasPayload: true })
+        try
         {
-            if (Navigation.NavigationStack.Count > 1) await Shell.Current.GoToAsync("..");
-            return;
+            if (_service is not { HasPayload: true })
+            {
+                if (Navigation.NavigationStack.Count > 1) await Shell.Current.GoToAsync("..");
+                return;
+            }
+
+            var v = (AffectionLevelUpViewModel)BindingContext;
+            v.Level = _service.Level;
+            v.Title = _service.Title;
+            v.CharacterName = _service.CharacterName;
+            v.SpritePath = _service.SpritePath;
+            v.BackgroundPath = _service.BackgroundPath;
+            v.Refresh();
+
+            // 入场：整页一次「上浮 6px」，不再把页面 Opacity 归 0 后淡入。
+            // 用 Arrive(this) 而不是 ArrivePage：根 Grid 的孩子里有满屏背景，
+            // 逐个错峰会把背景一层层揭开，看着像资源没加载完。
+            // Arrive 自带「演过一次就不再演」，从别的页面返回时不会重播。
+            Motion.Arrive(this);
+
+            _animating = true;
+            _ = LaunchHeartsAsync();
         }
-
-        var v = (AffectionLevelUpViewModel)BindingContext;
-        v.Level = _service.Level;
-        v.Title = _service.Title;
-        v.CharacterName = _service.CharacterName;
-        v.SpritePath = _service.SpritePath;
-        v.BackgroundPath = _service.BackgroundPath;
-        v.Refresh();
-
-        // 入场：整页一次「上浮 6px」，不再把页面 Opacity 归 0 后淡入。
-        // 用 Arrive(this) 而不是 ArrivePage：根 Grid 的孩子里有满屏背景，
-        // 逐个错峰会把背景一层层揭开，看着像资源没加载完。
-        // Arrive 自带「演过一次就不再演」，从别的页面返回时不会重播。
-        Motion.Arrive(this);
-
-        _animating = true;
-        _ = LaunchHeartsAsync();
+        catch (Exception ex) { App.WriteLog("AffectionLevelUp.PlayLevelUp -> " + ex); }
     }
 
     /// <summary>白心形从画面中段不断飘散上升（图形资产，禁 emoji 见 UI 标准书 2.6）。</summary>

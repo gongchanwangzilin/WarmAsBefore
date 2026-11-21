@@ -84,7 +84,7 @@ public partial class GamePage : ContentPage
     }
 
     /// <summary>GraphicsView 触摸：像素坐标换算为棋盘 (Row,Col)，线制取最近交点、格制取所在格。</summary>
-    private async void OnBoardTouched(object? sender, TouchEventArgs e)
+    private async Task OnBoardTouchedAsync(object? sender, TouchEventArgs e)
     {
         if (!_vm.InGame) return;
         var touches = e.Touches.ToArray();
@@ -115,4 +115,7 @@ public partial class GamePage : ContentPage
         _vm.PropertyChanged -= OnVmPropChanged;
         _vm.Detach();
     }
+
+    // 事件入口：Game 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnBoardTouched(object? sender, TouchEventArgs e) => UiGuard.Run(() => OnBoardTouchedAsync(sender, e), "Game.OnBoardTouched", "操作没成功，已记录日志。请再试一次。");
 }

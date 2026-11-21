@@ -2296,85 +2296,89 @@ public sealed partial class MainGameViewModel : ObservableObject
     {
         try
         {
-            // 统一背景系统联动：打雷时播放雷声音效并自增闪电信号，交给视图层做场景闪光。
-            // 下面原有的白闪/帧特效是独立机制，保留不动，两种表现并存。
-            if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning)
+            try
             {
-                _weatherAudio.PlayThunder();
-                Helpers.Ui.Post(() => LightningFlashSignal++);
-            }
-
-            var s = _settings.Current;
-            var frames = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
-                ? s.LightningFrames
-                : s.RainFrames;
-            var sfx = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
-                ? s.LightningSfxPath
-                : s.RainSfxPath;
-            var frameMs = Math.Clamp(s.WeatherEffectFrameMs, 30, 5000);
-
-            // 该回调从 Timer 线程进来：原先的 BeginInvoke 在 WinUI 线程池上取不到 DispatcherQueue 会直接抛
-            // （见 Helpers/Ui.cs 的实证记录），这里统一走 Ui.PostAsync 回 UI 线程。
-            await Helpers.Ui.PostAsync(async () =>
-            {
-                try
+                // 统一背景系统联动：打雷时播放雷声音效并自增闪电信号，交给视图层做场景闪光。
+                // 下面原有的白闪/帧特效是独立机制，保留不动，两种表现并存。
+                if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning)
                 {
-                    // 音效：优先取「音效库卡槽」（素材库长按 → 设为打雷音 / 雨声音）；没装填再回落设置里的路径。
-                    // 两条都没有就不放音（画面照常闪）。
-                    var slotKind = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning ? "lightning" : "rain";
-                    if (await _audio.HasAssignedAsync(slotKind))
-                        _audio.PlayAssigned(slotKind);
-                    else if (!string.IsNullOrWhiteSpace(sfx))
-                        _audio.PlaySfxFile(sfx);
-
-                    // 视觉：有帧图则按序切换；打雷且无帧图 → 默认白闪。
-                    // 帧图一次性预建成 ImageSource 实例（装载失败的跳过），循环里只在这批缓存实例间轮换：
-                    // 不再逐帧 FromFile —— 那会不停分配大对象，且每次换新实例都触发一次换源 Measure 失效。
-                    var usable = frames.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
-                    var sources = new List<ImageSource>();
-                    foreach (var f in usable)
-                    {
-                        try { sources.Add(ImageSource.FromFile(f)); } catch { }
-                    }
-                    if (sources.Count > 0)
-                    {
-                        WeatherFxVisible = true;
-                        var loops = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
-                            ? 1 // 打雷只播一遍
-                            : 3; // 下雨循环几轮（受雨声时长约束，简单起见固定 3 轮）
-                        for (var loop = 0; loop < loops; loop++)
-                        {
-                            foreach (var src in sources)
-                            {
-                                WeatherFxImage = src;
-                                await Task.Delay(frameMs);
-                            }
-                            if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning) break;
-                        }
-                        WeatherFxVisible = false;
-                        WeatherFxImage = null;
-                    }
-                    else if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning)
-                    {
-                        // 默认表现：屏幕白一下，再慢慢恢复。
-                        FlashOpacity = 1.0;
-                        await Task.Delay(frameMs);
-                        var steps = 12;
-                        for (var i = steps; i >= 0; i--)
-                        {
-                            FlashOpacity = i / (double)steps * 0.9;
-                            await Task.Delay(45);
-                        }
-                        FlashOpacity = 0;
-                    }
+                    _weatherAudio.PlayThunder();
+                    Helpers.Ui.Post(() => LightningFlashSignal++);
                 }
-                catch (Exception ex) { App.WriteLog("MainGame.OnWeatherEvent(render) -> " + ex); }
-            });
+
+                var s = _settings.Current;
+                var frames = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
+                    ? s.LightningFrames
+                    : s.RainFrames;
+                var sfx = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
+                    ? s.LightningSfxPath
+                    : s.RainSfxPath;
+                var frameMs = Math.Clamp(s.WeatherEffectFrameMs, 30, 5000);
+
+                // 该回调从 Timer 线程进来：原先的 BeginInvoke 在 WinUI 线程池上取不到 DispatcherQueue 会直接抛
+                // （见 Helpers/Ui.cs 的实证记录），这里统一走 Ui.PostAsync 回 UI 线程。
+                await Helpers.Ui.PostAsync(async () =>
+                {
+                    try
+                    {
+                        // 音效：优先取「音效库卡槽」（素材库长按 → 设为打雷音 / 雨声音）；没装填再回落设置里的路径。
+                        // 两条都没有就不放音（画面照常闪）。
+                        var slotKind = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning ? "lightning" : "rain";
+                        if (await _audio.HasAssignedAsync(slotKind))
+                            _audio.PlayAssigned(slotKind);
+                        else if (!string.IsNullOrWhiteSpace(sfx))
+                            _audio.PlaySfxFile(sfx);
+
+                        // 视觉：有帧图则按序切换；打雷且无帧图 → 默认白闪。
+                        // 帧图一次性预建成 ImageSource 实例（装载失败的跳过），循环里只在这批缓存实例间轮换：
+                        // 不再逐帧 FromFile —— 那会不停分配大对象，且每次换新实例都触发一次换源 Measure 失效。
+                        var usable = frames.Where(f => !string.IsNullOrWhiteSpace(f)).ToList();
+                        var sources = new List<ImageSource>();
+                        foreach (var f in usable)
+                        {
+                            try { sources.Add(ImageSource.FromFile(f)); } catch { }
+                        }
+                        if (sources.Count > 0)
+                        {
+                            WeatherFxVisible = true;
+                            var loops = kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning
+                                ? 1 // 打雷只播一遍
+                                : 3; // 下雨循环几轮（受雨声时长约束，简单起见固定 3 轮）
+                            for (var loop = 0; loop < loops; loop++)
+                            {
+                                foreach (var src in sources)
+                                {
+                                    WeatherFxImage = src;
+                                    await Task.Delay(frameMs);
+                                }
+                                if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning) break;
+                            }
+                            WeatherFxVisible = false;
+                            WeatherFxImage = null;
+                        }
+                        else if (kind == Modules.Scene.SceneDirector.WeatherEventKind.Lightning)
+                        {
+                            // 默认表现：屏幕白一下，再慢慢恢复。
+                            FlashOpacity = 1.0;
+                            await Task.Delay(frameMs);
+                            var steps = 12;
+                            for (var i = steps; i >= 0; i--)
+                            {
+                                FlashOpacity = i / (double)steps * 0.9;
+                                await Task.Delay(45);
+                            }
+                            FlashOpacity = 0;
+                        }
+                    }
+                    catch (Exception ex) { App.WriteLog("MainGame.OnWeatherEvent(render) -> " + ex); }
+                });
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("MainGame.OnWeatherEvent -> " + ex);
+            }
         }
-        catch (Exception ex)
-        {
-            App.WriteLog("MainGame.OnWeatherEvent -> " + ex);
-        }
+        catch (Exception ex) { App.WriteLog("MainGame.OnWeatherEvent -> " + ex); }
     }
 
     /// <summary>场景库模式被应用（地图/纯库场景）时渲染背景与 BGM。</summary>

@@ -2008,32 +2008,36 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async void RunCitySearch()
     {
-        var keyword = CitySearchText.Trim();
-        var seq = ++_citySearchSeq;
-        if (keyword.Length == 0)
-        {
-            CityResults.Clear();
-            HasCityResults = false;
-            return;
-        }
-        IsSearchingCity = true;
         try
         {
-            var hits = await _cities.SearchAsync(keyword, WeatherSource, WeatherApiUrl);
-            // 只让最后一次输入的结果落地：连打字时旧请求回得晚会把新结果盖掉
-            if (seq != _citySearchSeq) return;
-            CityResults.Clear();
-            foreach (var h in hits) CityResults.Add(h);
-            HasCityResults = CityResults.Count > 0;
+            var keyword = CitySearchText.Trim();
+            var seq = ++_citySearchSeq;
+            if (keyword.Length == 0)
+            {
+                CityResults.Clear();
+                HasCityResults = false;
+                return;
+            }
+            IsSearchingCity = true;
+            try
+            {
+                var hits = await _cities.SearchAsync(keyword, WeatherSource, WeatherApiUrl);
+                // 只让最后一次输入的结果落地：连打字时旧请求回得晚会把新结果盖掉
+                if (seq != _citySearchSeq) return;
+                CityResults.Clear();
+                foreach (var h in hits) CityResults.Add(h);
+                HasCityResults = CityResults.Count > 0;
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("SettingsViewModel.CitySearch -> " + ex);
+            }
+            finally
+            {
+                IsSearchingCity = false;
+            }
         }
-        catch (Exception ex)
-        {
-            App.WriteLog("SettingsViewModel.CitySearch -> " + ex);
-        }
-        finally
-        {
-            IsSearchingCity = false;
-        }
+        catch (Exception ex) { App.WriteLog("Settings.RunCitySearch -> " + ex); }
     }
 
     // ============ 周期设置：按性别分开 ============
@@ -3163,234 +3167,238 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     private async void PersistNow()
     {
-        using var _scope = Services.PerfLog.Measure("保存设置（序列化 + 下发）");
         try
         {
-            var port = int.TryParse(WechatPort, out var p) && p > 0 && p < 65536 ? p : 8012;
-            // 必须以「当前设置」为基底：用 new UserSettings{...} 重建整份时，
-            // 未列进初始化器的字段（免责声明确认标记、开发者模式解锁等）
-            // 会被默认值冲掉，免责声明就会每次启动都弹。
-            var s = _settings.Current with
+            using var _scope = Services.PerfLog.Measure("保存设置（序列化 + 下发）");
+            try
             {
-                BgmLevel = BgmLevel,
-                SfxLevel = SfxLevel,
-                ComplexPlot = ComplexPlot,
-                NovelTestingEnabled = NovelTesting,
-                ShowAllAffection = ShowAffection,
-                AffectionLevelUpEnabled = AffectionLevelUp,
-                LightningEnabled = LightningEnabled,
-                LightningProbability = ParseProb(LightningProbability, 0.06),
-                RainEventEnabled = RainEventEnabled,
-                RainProbability = ParseProb(RainProbability, 0.15),
-                LightningSfxPath = (LightningSfxPath ?? "").Trim(),
-                RainSfxPath = (RainSfxPath ?? "").Trim(),
-                LightningFrames = SplitLines(LightningFramesText),
-                RainFrames = SplitLines(RainFramesText),
-                WeatherEffectFrameMs = ParseFrameMs(WeatherEffectFrameMs),
-                AiTravelAlone = AiTravelAlone,
-                AllowFollowAi = AllowFollowAi,
-                PhoneStandaloneWindow = PhoneStandaloneWindow,
-                MainWindowCloseBehavior = MainWindowCloseBehavior,
-                NarratorAiEnabled = NarratorAiEnabled,
-                UserGender = (UserGender ?? "").Trim(),
-                UserBirthday = CharacterAgeService.NormalizeBirthday(UserBirthday),
-                LowMemoryMode = LowMemoryMode,
-                PerformanceMode = PerformanceMode,
-                CoreMemoryEnabled = CoreMemoryEnabled,
-                CoreMemoryThreshold = Math.Clamp(CoreMemoryThreshold, 0.5, 0.99),
-                TraumaHealingEnabled = TraumaHealingEnabled,
-                ChainSearchLimit = Math.Clamp((int)ChainSearchLimit, 1, 30),
-                MentalHealthEnabled = MentalHealthEnabled,
-                PsychologyBehaviorEnabled = PsychologyBehaviorEnabled,
-                PhysiologyEnabled = PhysiologyEnabled,
-                InnerLifeEnabled = InnerLifeEnabled,
-                ConcretizationEnabled = ConcretizationEnabled,
-                ShowToolCalls = ShowToolCalls,
-                ChatFullScreen = ChatFullScreen,
-                BrainEnabled = BrainEnabled,
-                BrainExpectationEnabled = BrainExpectationEnabled,
-                BrainSurpriseEnabled = BrainSurpriseEnabled,
-                BrainAiAssistEnabled = BrainAiAssistEnabled,
-                BrainAiUrl = (BrainAiUrl ?? "").Trim(),
-                BrainAiKey = (BrainAiKey ?? "").Trim(),
-                BrainAiModel = (BrainAiModel ?? "").Trim(),
-                BrainAiEveryTurns = Math.Clamp(BrainAiEveryTurns, 2, 999),
-                StatAiControl = StatAiControl,
-                MoneyEnabled = MoneyEnabled,
-                ImageGenEnabled = ImageGenEnabled,
-                ImageGenUrl = (ImageGenUrl ?? "").Trim(),
-                ImageGenKey = (ImageGenKey ?? "").Trim(),
-                ImageGenModel = (ImageGenModel ?? "").Trim(),
-                ImageGenSize = string.IsNullOrWhiteSpace(ImageGenSize) ? "1024x1024" : ImageGenSize.Trim(),
-                SaveBundleWithPlugins = SaveBundleWithPlugins,
-                PluginHooksEnabled = PluginHooksEnabled,
-                PluginCrashLogs = PluginCrashLogs,
-                FrostEnabled = FrostOn,
-                GlassEnabled = GlassOn,
-                LiquidEnabled = LiquidOn,
-                StyleWorldName = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.NameOf(SelectedWorld),
-                GlassTranslucency = GlassTranslucency,
-                GlassReducedTransparency = GlassReducedTransparency,
-GlassFrost = GlassFrost,
-GlassHeight = GlassHeight,
-BackgroundMode = BackgroundMode,
-BackgroundImagePath = BackgroundImagePath,
-BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
-WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
-                ExperimentalSceneFxEnabled = ExperimentalSceneFxEnabled,
-SceneLightEnabled = SceneLightEnabled,
-WeatherSceneAudioEnabled = WeatherSceneAudioEnabled,
-WeatherSceneAudioLevel = WeatherSceneAudioLevel,
-GlassLightX = GlassLightX,
-GlassLightY = GlassLightY,
-GlassLightZ = GlassLightZ,
-GlassLightWidth = GlassLightWidth,
-                ThemeName = ThemeKeyOf(ThemeDisplay),
-                MenuSide = MenuRight ? "right" : "left",
-                Lang = Lang,
-                TextSpeed = TextSpeed,
-                AutoSaveEnabled = AutoSave,
-                KeySfx = KeySfx,
-                ChatStyle = ChatStyle,
-                AllowSilence = AllowSilence,
+                var port = int.TryParse(WechatPort, out var p) && p > 0 && p < 65536 ? p : 8012;
+                // 必须以「当前设置」为基底：用 new UserSettings{...} 重建整份时，
+                // 未列进初始化器的字段（免责声明确认标记、开发者模式解锁等）
+                // 会被默认值冲掉，免责声明就会每次启动都弹。
+                var s = _settings.Current with
+                {
+                    BgmLevel = BgmLevel,
+                    SfxLevel = SfxLevel,
+                    ComplexPlot = ComplexPlot,
+                    NovelTestingEnabled = NovelTesting,
+                    ShowAllAffection = ShowAffection,
+                    AffectionLevelUpEnabled = AffectionLevelUp,
+                    LightningEnabled = LightningEnabled,
+                    LightningProbability = ParseProb(LightningProbability, 0.06),
+                    RainEventEnabled = RainEventEnabled,
+                    RainProbability = ParseProb(RainProbability, 0.15),
+                    LightningSfxPath = (LightningSfxPath ?? "").Trim(),
+                    RainSfxPath = (RainSfxPath ?? "").Trim(),
+                    LightningFrames = SplitLines(LightningFramesText),
+                    RainFrames = SplitLines(RainFramesText),
+                    WeatherEffectFrameMs = ParseFrameMs(WeatherEffectFrameMs),
+                    AiTravelAlone = AiTravelAlone,
+                    AllowFollowAi = AllowFollowAi,
+                    PhoneStandaloneWindow = PhoneStandaloneWindow,
+                    MainWindowCloseBehavior = MainWindowCloseBehavior,
+                    NarratorAiEnabled = NarratorAiEnabled,
+                    UserGender = (UserGender ?? "").Trim(),
+                    UserBirthday = CharacterAgeService.NormalizeBirthday(UserBirthday),
+                    LowMemoryMode = LowMemoryMode,
+                    PerformanceMode = PerformanceMode,
+                    CoreMemoryEnabled = CoreMemoryEnabled,
+                    CoreMemoryThreshold = Math.Clamp(CoreMemoryThreshold, 0.5, 0.99),
+                    TraumaHealingEnabled = TraumaHealingEnabled,
+                    ChainSearchLimit = Math.Clamp((int)ChainSearchLimit, 1, 30),
+                    MentalHealthEnabled = MentalHealthEnabled,
+                    PsychologyBehaviorEnabled = PsychologyBehaviorEnabled,
+                    PhysiologyEnabled = PhysiologyEnabled,
+                    InnerLifeEnabled = InnerLifeEnabled,
+                    ConcretizationEnabled = ConcretizationEnabled,
+                    ShowToolCalls = ShowToolCalls,
+                    ChatFullScreen = ChatFullScreen,
+                    BrainEnabled = BrainEnabled,
+                    BrainExpectationEnabled = BrainExpectationEnabled,
+                    BrainSurpriseEnabled = BrainSurpriseEnabled,
+                    BrainAiAssistEnabled = BrainAiAssistEnabled,
+                    BrainAiUrl = (BrainAiUrl ?? "").Trim(),
+                    BrainAiKey = (BrainAiKey ?? "").Trim(),
+                    BrainAiModel = (BrainAiModel ?? "").Trim(),
+                    BrainAiEveryTurns = Math.Clamp(BrainAiEveryTurns, 2, 999),
+                    StatAiControl = StatAiControl,
+                    MoneyEnabled = MoneyEnabled,
+                    ImageGenEnabled = ImageGenEnabled,
+                    ImageGenUrl = (ImageGenUrl ?? "").Trim(),
+                    ImageGenKey = (ImageGenKey ?? "").Trim(),
+                    ImageGenModel = (ImageGenModel ?? "").Trim(),
+                    ImageGenSize = string.IsNullOrWhiteSpace(ImageGenSize) ? "1024x1024" : ImageGenSize.Trim(),
+                    SaveBundleWithPlugins = SaveBundleWithPlugins,
+                    PluginHooksEnabled = PluginHooksEnabled,
+                    PluginCrashLogs = PluginCrashLogs,
+                    FrostEnabled = FrostOn,
+                    GlassEnabled = GlassOn,
+                    LiquidEnabled = LiquidOn,
+                    StyleWorldName = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.NameOf(SelectedWorld),
+                    GlassTranslucency = GlassTranslucency,
+                    GlassReducedTransparency = GlassReducedTransparency,
+    GlassFrost = GlassFrost,
+    GlassHeight = GlassHeight,
+    BackgroundMode = BackgroundMode,
+    BackgroundImagePath = BackgroundImagePath,
+    BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
+    WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
+                    ExperimentalSceneFxEnabled = ExperimentalSceneFxEnabled,
+    SceneLightEnabled = SceneLightEnabled,
+    WeatherSceneAudioEnabled = WeatherSceneAudioEnabled,
+    WeatherSceneAudioLevel = WeatherSceneAudioLevel,
+    GlassLightX = GlassLightX,
+    GlassLightY = GlassLightY,
+    GlassLightZ = GlassLightZ,
+    GlassLightWidth = GlassLightWidth,
+                    ThemeName = ThemeKeyOf(ThemeDisplay),
+                    MenuSide = MenuRight ? "right" : "left",
+                    Lang = Lang,
+                    TextSpeed = TextSpeed,
+                    AutoSaveEnabled = AutoSave,
+                    KeySfx = KeySfx,
+                    ChatStyle = ChatStyle,
+                    AllowSilence = AllowSilence,
 
-                AiUrl = string.IsNullOrWhiteSpace(AiUrl) ? "https://api.openai.com/v1/chat/completions" : AiUrl.Trim(),
-                AiKey = AiKey.Trim(),
-                AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
-                CustomParamsJson = (CustomParamsJson ?? "").Trim(),
-                CustomParamsFormat = CustomParamsFormatChoices.Contains(CustomParamsFormat) ? CustomParamsFormat : "openai_flat",
-                ThinkBarEnabled = ThinkBarEnabled,
-                QuickButtonsEnabled = QuickButtonsEnabled,
-                ThinkTierCount = Math.Clamp(ThinkTierCount, 1, 5),
-                ThinkTierLabels = (ThinkTierLabels ?? "").Trim(),
-                ActiveThinkTier = Math.Clamp(ActiveThinkTier, 0, Math.Clamp(ThinkTierCount, 1, 5)),
-                ThinkParamKey = (ThinkParamKey ?? "").Trim(),
-                ThinkParamValues = (ThinkParamValues ?? "").Trim(),
-                AiPreset = PresetKeyOf(_aiPreset),
-                VisionUrl = VisionUrl.Trim(),
-                VisionKey = VisionKey.Trim(),
-                VisionModel = VisionModel.Trim(),
-                EmbeddingEnabled = EmbeddingEnabled,
-                EmbeddingUrl = EmbeddingUrl.Trim(),
-                EmbeddingKey = EmbeddingKey.Trim(),
-                EmbeddingModel = EmbeddingModel.Trim(),
-                EmbeddingDimensions = EmbeddingDimensionChoices.Contains(EmbeddingDimensions) ? EmbeddingDimensions : 0,
-                AiTemperature = AiTemperature,
-                AiMaxTokens = Math.Clamp((int)AiMaxTokens, 100, 8000),
-                DeepThink = DeepThink,
-                DeepModel = DeepModel.Trim(),
-                AiAutonomousThink = AiAutonomousThink,
-                AiPlanFlowEnabled = AiPlanFlowEnabled,
-                PlanMaxSteps = Math.Clamp(PlanMaxSteps, 1, 32),
-                SettingsAdvisorEnabled = SettingsAdvisorEnabled,
-                SettingsAdvisorFrequency = SettingsAdvisorFrequencyChoices.Contains(SettingsAdvisorFrequency) ? SettingsAdvisorFrequency : "never",
-                MemoryTurns = MemoryTurns,
-                MemoryWindowDays = MemoryWindowDays,
-                MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),
-                SubProfileAiRewrite = SubProfileAiRewrite,
-                SemanticAiAssist = SemanticAiAssist,
-                CrossSaveMemory = CrossSaveMemory,
-                SmallModelFirst = SmallModelFirst,
-                SmallAiUrl = SmallAiUrl.Trim(),
-                SmallAiKey = SmallAiKey.Trim(),
-                SmallAiModel = SmallAiModel.Trim(),
-                SmartSavingEnabled = SmartSavingEnabled,
-                LightMode = LightMode,
-                PreferDiscreteGpu = PreferDiscreteGpu,
-                AiProviders = AiProviders.Select(v => v.ToProvider())
-                    .Where(v => !string.IsNullOrWhiteSpace(v.Url) || v.Keys.Count > 0)
-                    .ToList(),
-                AiRotationEnabled = AiRotationEnabled,
-                AiTimeoutSeconds = AiTimeoutSeconds > 0 ? AiTimeoutSeconds : 25,
-                ModelPrices = ModelPricesSnapshot,
-                ContextTokenLimit = Math.Clamp(_contextTokenLimit > 0 ? _contextTokenLimit : 32000, 4000, 256000),
+                    AiUrl = string.IsNullOrWhiteSpace(AiUrl) ? "https://api.openai.com/v1/chat/completions" : AiUrl.Trim(),
+                    AiKey = AiKey.Trim(),
+                    AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
+                    CustomParamsJson = (CustomParamsJson ?? "").Trim(),
+                    CustomParamsFormat = CustomParamsFormatChoices.Contains(CustomParamsFormat) ? CustomParamsFormat : "openai_flat",
+                    ThinkBarEnabled = ThinkBarEnabled,
+                    QuickButtonsEnabled = QuickButtonsEnabled,
+                    ThinkTierCount = Math.Clamp(ThinkTierCount, 1, 5),
+                    ThinkTierLabels = (ThinkTierLabels ?? "").Trim(),
+                    ActiveThinkTier = Math.Clamp(ActiveThinkTier, 0, Math.Clamp(ThinkTierCount, 1, 5)),
+                    ThinkParamKey = (ThinkParamKey ?? "").Trim(),
+                    ThinkParamValues = (ThinkParamValues ?? "").Trim(),
+                    AiPreset = PresetKeyOf(_aiPreset),
+                    VisionUrl = VisionUrl.Trim(),
+                    VisionKey = VisionKey.Trim(),
+                    VisionModel = VisionModel.Trim(),
+                    EmbeddingEnabled = EmbeddingEnabled,
+                    EmbeddingUrl = EmbeddingUrl.Trim(),
+                    EmbeddingKey = EmbeddingKey.Trim(),
+                    EmbeddingModel = EmbeddingModel.Trim(),
+                    EmbeddingDimensions = EmbeddingDimensionChoices.Contains(EmbeddingDimensions) ? EmbeddingDimensions : 0,
+                    AiTemperature = AiTemperature,
+                    AiMaxTokens = Math.Clamp((int)AiMaxTokens, 100, 8000),
+                    DeepThink = DeepThink,
+                    DeepModel = DeepModel.Trim(),
+                    AiAutonomousThink = AiAutonomousThink,
+                    AiPlanFlowEnabled = AiPlanFlowEnabled,
+                    PlanMaxSteps = Math.Clamp(PlanMaxSteps, 1, 32),
+                    SettingsAdvisorEnabled = SettingsAdvisorEnabled,
+                    SettingsAdvisorFrequency = SettingsAdvisorFrequencyChoices.Contains(SettingsAdvisorFrequency) ? SettingsAdvisorFrequency : "never",
+                    MemoryTurns = MemoryTurns,
+                    MemoryWindowDays = MemoryWindowDays,
+                    MemoryRecallRandomness = Math.Clamp(MemoryRecallRandomness, 0, 1),
+                    SubProfileAiRewrite = SubProfileAiRewrite,
+                    SemanticAiAssist = SemanticAiAssist,
+                    CrossSaveMemory = CrossSaveMemory,
+                    SmallModelFirst = SmallModelFirst,
+                    SmallAiUrl = SmallAiUrl.Trim(),
+                    SmallAiKey = SmallAiKey.Trim(),
+                    SmallAiModel = SmallAiModel.Trim(),
+                    SmartSavingEnabled = SmartSavingEnabled,
+                    LightMode = LightMode,
+                    PreferDiscreteGpu = PreferDiscreteGpu,
+                    AiProviders = AiProviders.Select(v => v.ToProvider())
+                        .Where(v => !string.IsNullOrWhiteSpace(v.Url) || v.Keys.Count > 0)
+                        .ToList(),
+                    AiRotationEnabled = AiRotationEnabled,
+                    AiTimeoutSeconds = AiTimeoutSeconds > 0 ? AiTimeoutSeconds : 25,
+                    ModelPrices = ModelPricesSnapshot,
+                    ContextTokenLimit = Math.Clamp(_contextTokenLimit > 0 ? _contextTokenLimit : 32000, 4000, 256000),
 
-                TtsEnabled = TtsEnabled,
-                TtsRate = TtsRate,
-                SttEnabled = SttEnabled,
-                TtsEngine = string.IsNullOrWhiteSpace(TtsEngine) ? "system" : TtsEngine,
-                SttEngine = string.IsNullOrWhiteSpace(SttEngine) ? "system" : SttEngine,
-                AdvancedAnalysis = AdvancedAnalysis,
-                CameraFaceEnabled = CameraFaceEnabled,
-                AudioInputMode = string.IsNullOrWhiteSpace(AudioInputMode) ? "internal" : AudioInputMode,
-                VoiceApiUrl = string.IsNullOrWhiteSpace(VoiceApiUrl) ? "https://api.openai.com/v1" : VoiceApiUrl.Trim(),
-                VoiceApiKey = (VoiceApiKey ?? "").Trim(),
-                VoiceTtsModel = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel.Trim(),
-                VoiceSttModel = string.IsNullOrWhiteSpace(VoiceSttModel) ? "whisper-1" : VoiceSttModel.Trim(),
-                VoiceName = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName.Trim(),
-                VoiceApiMode = string.IsNullOrWhiteSpace(VoiceApiMode) ? "openai" : VoiceApiMode.Trim().ToLowerInvariant(),
-                VoiceExtra = (VoiceExtra ?? "").Trim(),
-                SttModelName = SttModelNameOf(SttModelDisplay),
+                    TtsEnabled = TtsEnabled,
+                    TtsRate = TtsRate,
+                    SttEnabled = SttEnabled,
+                    TtsEngine = string.IsNullOrWhiteSpace(TtsEngine) ? "system" : TtsEngine,
+                    SttEngine = string.IsNullOrWhiteSpace(SttEngine) ? "system" : SttEngine,
+                    AdvancedAnalysis = AdvancedAnalysis,
+                    CameraFaceEnabled = CameraFaceEnabled,
+                    AudioInputMode = string.IsNullOrWhiteSpace(AudioInputMode) ? "internal" : AudioInputMode,
+                    VoiceApiUrl = string.IsNullOrWhiteSpace(VoiceApiUrl) ? "https://api.openai.com/v1" : VoiceApiUrl.Trim(),
+                    VoiceApiKey = (VoiceApiKey ?? "").Trim(),
+                    VoiceTtsModel = string.IsNullOrWhiteSpace(VoiceTtsModel) ? "tts-1" : VoiceTtsModel.Trim(),
+                    VoiceSttModel = string.IsNullOrWhiteSpace(VoiceSttModel) ? "whisper-1" : VoiceSttModel.Trim(),
+                    VoiceName = string.IsNullOrWhiteSpace(VoiceName) ? "alloy" : VoiceName.Trim(),
+                    VoiceApiMode = string.IsNullOrWhiteSpace(VoiceApiMode) ? "openai" : VoiceApiMode.Trim().ToLowerInvariant(),
+                    VoiceExtra = (VoiceExtra ?? "").Trim(),
+                    SttModelName = SttModelNameOf(SttModelDisplay),
 
-                NotificationsEnabled = NotificationsEnabled,
-                GreetingEnabled = GreetingEnabled,
+                    NotificationsEnabled = NotificationsEnabled,
+                    GreetingEnabled = GreetingEnabled,
 
-                WeatherCity = WeatherCity.Trim(),
-                WeatherLatitude = WeatherLatitude,
-                WeatherLongitude = WeatherLongitude,
-                WeatherSource = WeatherSource,
-                WeatherApiUrl = WeatherApiUrl.Trim(),
-                WeatherApiKey = WeatherApiKey.Trim(),
-                CycleRules = new Dictionary<string, CycleRule>(_cycleRules, StringComparer.Ordinal),
+                    WeatherCity = WeatherCity.Trim(),
+                    WeatherLatitude = WeatherLatitude,
+                    WeatherLongitude = WeatherLongitude,
+                    WeatherSource = WeatherSource,
+                    WeatherApiUrl = WeatherApiUrl.Trim(),
+                    WeatherApiKey = WeatherApiKey.Trim(),
+                    CycleRules = new Dictionary<string, CycleRule>(_cycleRules, StringComparer.Ordinal),
 
-                AlwaysOnTop = AlwaysOnTop,
-                PetIdleMinutes = Math.Max(0, PetIdleMinutes),
-                PetThinkMode = ThinkModeKeyOf(_petThinkModeDisplay),
-                PetThinkIntervalMinutes = Math.Max(1, PetThinkIntervalMinutes),
-                PetChromeCrossScreen = PetChromeCrossScreen,
-                PetScale = Math.Clamp(PetScale, 0.4, 2.6),
-                ScreenOrientation = ScreenOrientation,
+                    AlwaysOnTop = AlwaysOnTop,
+                    PetIdleMinutes = Math.Max(0, PetIdleMinutes),
+                    PetThinkMode = ThinkModeKeyOf(_petThinkModeDisplay),
+                    PetThinkIntervalMinutes = Math.Max(1, PetThinkIntervalMinutes),
+                    PetChromeCrossScreen = PetChromeCrossScreen,
+                    PetScale = Math.Clamp(PetScale, 0.4, 2.6),
+                    ScreenOrientation = ScreenOrientation,
 
-                QqBotEnabled = QqBotEnabled,
-                QqAppId = QqAppId.Trim(),
-                QqAppSecret = QqAppSecret.Trim(),
-                QqBoundCharacterId = _qqBoundCharacterId,
-                WechatBoundCharacterId = _wechatBoundCharacterId,
-                QqReplyGroup = QqReplyGroup,
-                QqUserOpenId = (QqUserOpenId ?? "").Trim(),
-                QqUserName = (QqUserName ?? "").Trim(),
-                QqProactiveEnabled = QqProactiveEnabled,
-                QqProactiveRequireConfirm = QqProactiveRequireConfirm,
-                QqProactivePerHour = Math.Clamp(QqProactivePerHour, 1, 30),
-                RealOutboundChannel = OutboundChannelValue,
-                WechatEnabled = WechatEnabled,
-                WechatAppId = WechatAppId.Trim(),
-                WechatAppSecret = WechatAppSecret.Trim(),
-                WechatToken = WechatToken.Trim(),
-                 WechatPort = port,
-                 ChannelsUrl = ChannelsUrl.Trim(),
+                    QqBotEnabled = QqBotEnabled,
+                    QqAppId = QqAppId.Trim(),
+                    QqAppSecret = QqAppSecret.Trim(),
+                    QqBoundCharacterId = _qqBoundCharacterId,
+                    WechatBoundCharacterId = _wechatBoundCharacterId,
+                    QqReplyGroup = QqReplyGroup,
+                    QqUserOpenId = (QqUserOpenId ?? "").Trim(),
+                    QqUserName = (QqUserName ?? "").Trim(),
+                    QqProactiveEnabled = QqProactiveEnabled,
+                    QqProactiveRequireConfirm = QqProactiveRequireConfirm,
+                    QqProactivePerHour = Math.Clamp(QqProactivePerHour, 1, 30),
+                    RealOutboundChannel = OutboundChannelValue,
+                    WechatEnabled = WechatEnabled,
+                    WechatAppId = WechatAppId.Trim(),
+                    WechatAppSecret = WechatAppSecret.Trim(),
+                    WechatToken = WechatToken.Trim(),
+                     WechatPort = port,
+                     ChannelsUrl = ChannelsUrl.Trim(),
 
-                 CloudSaveEnabled = CloudSaveEnabled,
-                 CloudRepo = Services.CloudSync.CloudSyncService.NormalizeRepo(CloudRepo),
-                 CloudToken = CloudToken.Trim(),
-                 CloudBranch = CloudBranch.Trim(),
-                 CloudDeviceName = CloudDeviceName.Trim(),
-                 CloudAutoUpload = CloudAutoUpload,
-                 CloudReconcileMemory = CloudReconcileMemory,
+                     CloudSaveEnabled = CloudSaveEnabled,
+                     CloudRepo = Services.CloudSync.CloudSyncService.NormalizeRepo(CloudRepo),
+                     CloudToken = CloudToken.Trim(),
+                     CloudBranch = CloudBranch.Trim(),
+                     CloudDeviceName = CloudDeviceName.Trim(),
+                     CloudAutoUpload = CloudAutoUpload,
+                     CloudReconcileMemory = CloudReconcileMemory,
 
-                 McpEnabled = McpEnabled,
-                 McpAutoApprove = McpAutoApprove,
+                     McpEnabled = McpEnabled,
+                     McpAutoApprove = McpAutoApprove,
 
-                 GameDifficulty = GameDifficulty,
-                 AiAutoDifficulty = AiAutoDifficulty,
-                 ChessApiEnabled = ChessApiEnabled,
-                 ChessApiUrl = ChessApiUrl.Trim(),
-                 ChessApiKey = ChessApiKey.Trim(),
-                 ChessApiModel = string.IsNullOrWhiteSpace(ChessApiModel) ? "gpt-4o-mini" : ChessApiModel.Trim(),
+                     GameDifficulty = GameDifficulty,
+                     AiAutoDifficulty = AiAutoDifficulty,
+                     ChessApiEnabled = ChessApiEnabled,
+                     ChessApiUrl = ChessApiUrl.Trim(),
+                     ChessApiKey = ChessApiKey.Trim(),
+                     ChessApiModel = string.IsNullOrWhiteSpace(ChessApiModel) ? "gpt-4o-mini" : ChessApiModel.Trim(),
 
-                 BetaChannel = BetaChannel,
-DeveloperShowcaseUnlocked = ShowcaseUnlocked,
-                 PythonPath = _runtimes.ManualPythonPath,
-                 JavaPath = _runtimes.ManualJavaPath
-             };
-            s = ApplyExtraOptions(s);
-            _settings.Apply(s);
-            await _settings.Persist();
+                     BetaChannel = BetaChannel,
+    DeveloperShowcaseUnlocked = ShowcaseUnlocked,
+                     PythonPath = _runtimes.ManualPythonPath,
+                     JavaPath = _runtimes.ManualJavaPath
+                 };
+                s = ApplyExtraOptions(s);
+                _settings.Apply(s);
+                await _settings.Persist();
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("SettingsViewModel.PersistSettings EX -> " + ex);
+            }
         }
-        catch (Exception ex)
-        {
-            App.WriteLog("SettingsViewModel.PersistSettings EX -> " + ex);
-        }
+        catch (Exception ex) { App.WriteLog("Settings.PersistNow -> " + ex); }
     }
 
     // 与 PersistNow 同体（主线程执行，落盘失败只记日志不阻塞），但返回 Task 供导出前 await

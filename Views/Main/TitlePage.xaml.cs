@@ -202,7 +202,7 @@ public partial class TitlePage : ContentPage
     private void OnIntroTapped(object? sender, TappedEventArgs e) => IntroCard.Skip();
 
     /// <summary>同住体验腿上的第三条路：直通桌宠设置台（petsettings 路由，仅桌面端可用）。</summary>
-    private async void OnPetSettingsTapped(object? sender, EventArgs e)
+    private async Task OnPetSettingsTappedAsync(object? sender, EventArgs e)
     {
         try { await Shell.Current.GoToAsync("petsettings"); }
         catch (Exception ex) { App.WriteLog("TitlePage.PetSettings -> " + ex.Message); }
@@ -452,6 +452,9 @@ public partial class TitlePage : ContentPage
     private void HookKeys() { }
     private void UnhookKeys() { }
 #endif
+
+    // 事件入口：Title 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnPetSettingsTapped(object? sender, EventArgs e) => UiGuard.Run(() => OnPetSettingsTappedAsync(sender, e), "Title.OnPetSettingsTapped", "操作没成功，已记录日志。请再试一次。");
 }
 
 /// <summary>按键到「这一屏听得懂的动作」的翻译：平台层只负责报键名，含义归页面。</summary>

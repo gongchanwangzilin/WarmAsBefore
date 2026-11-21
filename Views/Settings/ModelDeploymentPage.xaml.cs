@@ -2,6 +2,8 @@ using WarmAsBefore.Services;
 using WarmAsBefore.Services.Model;
 using WarmAsBefore.ViewModels.Settings;
 
+using WarmAsBefore.Helpers;
+
 namespace WarmAsBefore.Views;
 
 /// <summary>
@@ -18,5 +20,7 @@ public partial class ModelDeploymentPage : ContentPage
         BindingContext = _vm;
     }
 
-    private async void OnBack(object? sender, EventArgs e) => await Shell.Current.GoToAsync("..");
+    private void OnBack(object? sender, EventArgs e) => UiGuard.Run(() => Shell.Current.GoToAsync(".."), "ModelDeployment.OnBack");
+
+    // 事件入口：ModelDeployment 页的处理器都从这里进，异常由 UiGuard 兜住。
 }

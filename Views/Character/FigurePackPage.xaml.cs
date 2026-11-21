@@ -22,9 +22,13 @@ public partial class FigurePackPage : ContentPage, IQueryAttributable
 
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        Motion.ArrivePage(this);
-        await _vm.LoadAsync();
+        try
+        {
+            base.OnAppearing();
+            Motion.ArrivePage(this);
+            await _vm.LoadAsync();
+        }
+        catch (Exception ex) { App.WriteLog("FigurePack.OnAppearing -> " + ex); }
     }
 
     protected override void OnDisappearing()

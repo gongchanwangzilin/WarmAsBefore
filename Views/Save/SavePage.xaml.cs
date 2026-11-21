@@ -19,16 +19,20 @@ public partial class SavePage : ContentPage
 
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        // 回到存档列表：撤掉「进存档自动横屏」，恢复用户原来的方向选择
-        WarmAsBefore.Modules.Screen.ScreenOrientationService.ExitSaveLandscape();
-        Motion.ArrivePage(this);
-        using var _ = WarmAsBefore.Services.PerfLog.Measure("页 · 存档 · 刷新");
-        await _vm.RefreshCommand.ExecuteAsync(null);
+        try
+        {
+            base.OnAppearing();
+            // 回到存档列表：撤掉「进存档自动横屏」，恢复用户原来的方向选择
+            WarmAsBefore.Modules.Screen.ScreenOrientationService.ExitSaveLandscape();
+            Motion.ArrivePage(this);
+            using var _ = WarmAsBefore.Services.PerfLog.Measure("页 · 存档 · 刷新");
+            await _vm.RefreshCommand.ExecuteAsync(null);
+        }
+        catch (Exception ex) { App.WriteLog("Save.OnAppearing -> " + ex); }
     }
 
     /// <summary>云存档入口：路由注册在 AppShell，这里只负责跳过去；没接上时给一句可读提示，不崩。</summary>
-    private async void OnCloudSavesTapped(object sender, TappedEventArgs e)
+    private async Task OnCloudSavesTappedAsync(object sender, TappedEventArgs e)
     {
         try { await Shell.Current.GoToAsync("cloudsaves"); }
         catch (Exception ex)
@@ -37,4 +41,7 @@ public partial class SavePage : ContentPage
             Toast.Warn("云存档页面还没接通，请先完成路由注册。");
         }
     }
+
+    // 事件入口：Save 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnCloudSavesTapped(object sender, TappedEventArgs e) => UiGuard.Run(() => OnCloudSavesTappedAsync(sender, e), "Save.OnCloudSavesTapped", "操作没成功，已记录日志。请再试一次。");
 }

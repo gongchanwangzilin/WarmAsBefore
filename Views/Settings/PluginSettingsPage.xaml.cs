@@ -2,6 +2,8 @@ using WarmAsBefore.Controls;
 using WarmAsBefore.Modules.MinecraftBridge;
 using WarmAsBefore.Services;
 
+using WarmAsBefore.Helpers;
+
 namespace WarmAsBefore.Views;
 
 /// <summary>
@@ -78,13 +80,13 @@ public partial class PluginSettingsPage : ContentPage
         }
     }
 
-    private async void OnBindWizardClicked(object sender, EventArgs e)
+    private async Task OnBindWizardClickedAsync(object sender, EventArgs e)
     {
         var (ok, message) = await _bridge.RequestBindWizardAsync();
         if (!ok) Toast.Error(message);
     }
 
-    private async void OnOpenPanelClicked(object sender, EventArgs e)
+    private async Task OnOpenPanelClickedAsync(object sender, EventArgs e)
     {
         var entry = await _host.FindAsync(MaidBridgeService.PluginId);
         if (entry is null) return;
@@ -146,7 +148,7 @@ public partial class PluginSettingsPage : ContentPage
         return box;
     }
 
-    private async void OnSaveClicked(object? sender, EventArgs e)
+    private async Task OnSaveClickedAsync(object? sender, EventArgs e)
     {
         if (_entry is null) return;
         try
@@ -179,9 +181,15 @@ public partial class PluginSettingsPage : ContentPage
         }
     }
 
-    private async void OnBackClicked(object? sender, EventArgs e)
+    private async Task OnBackClickedAsync(object? sender, EventArgs e)
     {
         try { await Shell.Current.GoToAsync(".."); }
         catch (Exception ex) { App.WriteLog("PluginSettingsPage.Back -> " + ex.Message); }
     }
+
+    // 事件入口：PluginSettings 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnBindWizardClicked(object sender, EventArgs e) => UiGuard.Run(() => OnBindWizardClickedAsync(sender, e), "PluginSettings.OnBindWizardClicked", "操作没成功，已记录日志。请再试一次。");
+    private void OnOpenPanelClicked(object sender, EventArgs e) => UiGuard.Run(() => OnOpenPanelClickedAsync(sender, e), "PluginSettings.OnOpenPanelClicked", "操作没成功，已记录日志。请再试一次。");
+    private void OnSaveClicked(object? sender, EventArgs e) => UiGuard.Run(() => OnSaveClickedAsync(sender, e), "PluginSettings.OnSaveClicked", "操作没成功，已记录日志。请再试一次。");
+    private void OnBackClicked(object? sender, EventArgs e) => UiGuard.Run(() => OnBackClickedAsync(sender, e), "PluginSettings.OnBackClicked", "操作没成功，已记录日志。请再试一次。");
 }

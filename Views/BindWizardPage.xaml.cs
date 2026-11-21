@@ -4,6 +4,8 @@ using WarmAsBefore.Modules.MinecraftBridge;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
 
+using WarmAsBefore.Helpers;
+
 namespace WarmAsBefore.Views;
 
 /// <summary>
@@ -275,7 +277,7 @@ public partial class BindWizardPage : ContentPage
                 : "";
     }
 
-    private async void OnBindClicked(object sender, EventArgs e)
+    private async Task OnBindClickedAsync(object sender, EventArgs e)
     {
         if (_busy) return;
         _busy = true;
@@ -378,4 +380,7 @@ public partial class BindWizardPage : ContentPage
         HintLabel.Text = message;
         Toast.Error(message);
     }
+
+    // 事件入口：BindWizard 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnBindClicked(object sender, EventArgs e) => UiGuard.Run(() => OnBindClickedAsync(sender, e), "BindWizard.OnBindClicked", "操作没成功，已记录日志。请再试一次。");
 }

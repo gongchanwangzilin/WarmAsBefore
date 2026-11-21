@@ -17,9 +17,13 @@ public partial class CloudSavesPage : ContentPage
 
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        Motion.ArrivePage(this);
-        try { await _vm.RefreshCommand.ExecuteAsync(null); }
-        catch (Exception ex) { App.WriteLog("CloudSavesPage.OnAppearing -> " + ex); }
+        try
+        {
+            base.OnAppearing();
+            Motion.ArrivePage(this);
+            try { await _vm.RefreshCommand.ExecuteAsync(null); }
+            catch (Exception ex) { App.WriteLog("CloudSavesPage.OnAppearing -> " + ex); }
+        }
+        catch (Exception ex) { App.WriteLog("CloudSaves.OnAppearing -> " + ex); }
     }
 }

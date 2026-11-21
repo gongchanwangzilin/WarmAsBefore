@@ -34,9 +34,13 @@ public partial class SaveTreePage : ContentPage
 
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        try { await _vm.RefreshAsync(); }
-        catch (Exception ex) { App.WriteLog("SaveTree.OnAppearing -> " + ex.Message); }
+        try
+        {
+            base.OnAppearing();
+            try { await _vm.RefreshAsync(); }
+            catch (Exception ex) { App.WriteLog("SaveTree.OnAppearing -> " + ex.Message); }
+        }
+        catch (Exception ex) { App.WriteLog("SaveTree.OnAppearing -> " + ex); }
     }
 
     private void OnCanvasEnd(object? sender, TouchEventArgs e)

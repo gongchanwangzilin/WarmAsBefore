@@ -310,15 +310,19 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     private async void ScheduleRefresh()
     {
-        if (!_pageVisible || _refreshPending) return;
-        _refreshPending = true;
         try
         {
-            await Task.Delay(250);
-            if (_pageVisible && !_loading) await LoadAsync();
+            if (!_pageVisible || _refreshPending) return;
+            _refreshPending = true;
+            try
+            {
+                await Task.Delay(250);
+                if (_pageVisible && !_loading) await LoadAsync();
+            }
+            catch { /* 装饰性刷新失败不打扰主流程 */ }
+            finally { _refreshPending = false; }
         }
-        catch { /* 装饰性刷新失败不打扰主流程 */ }
-        finally { _refreshPending = false; }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.ScheduleRefresh -> " + ex); }
     }
 
     // ==================== 并行加载 ====================

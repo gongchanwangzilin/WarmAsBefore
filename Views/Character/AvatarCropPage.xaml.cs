@@ -102,9 +102,9 @@ public partial class AvatarCropPage : ContentPage
         }
     }
 
-    private async void OnConfirmClicked(object? sender, EventArgs e) => await _vm.ConfirmCommand.ExecuteAsync(null);
+    private void OnConfirmClicked(object? sender, EventArgs e) => UiGuard.Run(() => _vm.ConfirmCommand.ExecuteAsync(null), "AvatarCrop.OnConfirmClicked");
 
-    private async void OnCancelClicked(object? sender, EventArgs e) => await _vm.CancelCommand.ExecuteAsync(null);
+    private void OnCancelClicked(object? sender, EventArgs e) => UiGuard.Run(() => _vm.CancelCommand.ExecuteAsync(null), "AvatarCrop.OnCancelClicked");
 
 #if WINDOWS
     private bool _hooked;
@@ -140,4 +140,6 @@ public partial class AvatarCropPage : ContentPage
         frame.DispatcherQueue.TryEnqueue(() => _vm.ZoomBy(delta > 0 ? 1.12 : 1 / 1.12, x, y));
     }
 #endif
+
+    // 事件入口：AvatarCrop 页的处理器都从这里进，异常由 UiGuard 兜住。
 }

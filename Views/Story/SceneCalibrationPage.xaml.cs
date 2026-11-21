@@ -71,7 +71,7 @@ public partial class SceneCalibrationPage : ContentPage
     private void OnCanvasSizeChanged(object? sender, EventArgs e) =>
         _vm.OnViewportChanged(CalCanvas.Width, CalCanvas.Height);
 
-    private async void OnCompleteClicked(object? sender, EventArgs e)
+    private async Task OnCompleteClickedAsync(object? sender, EventArgs e)
     {
         if (!await _vm.TryCommitAsync()) return;
         await LeaveAsync(true);
@@ -202,4 +202,7 @@ public partial class SceneCalibrationPage : ContentPage
         source.DispatcherQueue.TryEnqueue(() => _vm.Zoom(-delta, pos));
     }
 #endif
+
+    // 事件入口：SceneCalibration 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnCompleteClicked(object? sender, EventArgs e) => UiGuard.Run(() => OnCompleteClickedAsync(sender, e), "SceneCalibration.OnCompleteClicked", "操作没成功，已记录日志。请再试一次。");
 }

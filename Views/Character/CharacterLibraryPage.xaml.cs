@@ -23,11 +23,15 @@ public partial class CharacterLibraryPage : ContentPage
 
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        Motion.ArrivePage(this);
-        using var _ = WarmAsBefore.Services.PerfLog.Measure("页 · 角色库 · 刷新");
-        if (BindingContext is CharacterLibraryViewModel vm) await vm.RefreshCommand.ExecuteAsync(null);
-        _backdrop.Resume();
+        try
+        {
+            base.OnAppearing();
+            Motion.ArrivePage(this);
+            using var _ = WarmAsBefore.Services.PerfLog.Measure("页 · 角色库 · 刷新");
+            if (BindingContext is CharacterLibraryViewModel vm) await vm.RefreshCommand.ExecuteAsync(null);
+            _backdrop.Resume();
+        }
+        catch (Exception ex) { App.WriteLog("CharacterLibrary.OnAppearing -> " + ex); }
     }
 
     protected override void OnDisappearing()

@@ -56,7 +56,7 @@ public partial class PetPage : ContentPage
         Motion.ArrivePage(this);
     }
 
-    private async void OnLoaded(object? sender, EventArgs e)
+    private async Task OnLoadedAsync(object? sender, EventArgs e)
     {
 #if WINDOWS
         // 放在最前面：下面几处「没角色/没立绘」的 return 不该把小窗的显隐也一起跳过
@@ -92,7 +92,7 @@ public partial class PetPage : ContentPage
     private void OnDoubleTapped(object sender, TappedEventArgs e) => BackToMain();
 
     /// <summary>单击立绘：延迟 350ms 判定——没有第二击时触发一次「思考」嘀咕。</summary>
-    private async void OnSingleTapped(object? sender, TappedEventArgs e) => await QueueThinkAsync();
+    private void OnSingleTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => QueueThinkAsync(), "Pet.OnSingleTapped");
 
     private async Task QueueThinkAsync()
     {
@@ -228,7 +228,7 @@ public partial class PetPage : ContentPage
     private void OnBack(object sender, EventArgs e) => PetService.ShowMainWindowStatic();
 
     /// <summary>输入条发送：走 ChatEngine（与主界面同一 AI），回复显示在头顶气泡。</summary>
-    private async void OnSend(object sender, EventArgs e)
+    private async Task OnSendAsync(object sender, EventArgs e)
     {
         try
         {
@@ -397,7 +397,7 @@ public partial class PetPage : ContentPage
     // ============ 语音输入 ============
 
     /// <summary>麦克风：识别结果填进输入框，不自动发送——说错了还能改。</summary>
-    private async void OnMicClicked(object? sender, EventArgs e)
+    private async Task OnMicClickedAsync(object? sender, EventArgs e)
     {
         if (_listening) return;
         if (!_speech.SttEnabled)
@@ -510,4 +510,9 @@ public partial class PetPage : ContentPage
         }
         catch (Exception ex) { App.WriteLog("PetPage.OnPan -> " + ex); }
     }
+
+    // 事件入口：Pet 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnLoaded(object? sender, EventArgs e) => UiGuard.Run(() => OnLoadedAsync(sender, e), "Pet.OnLoaded", "操作没成功，已记录日志。请再试一次。");
+    private void OnSend(object sender, EventArgs e) => UiGuard.Run(() => OnSendAsync(sender, e), "Pet.OnSend", "操作没成功，已记录日志。请再试一次。");
+    private void OnMicClicked(object? sender, EventArgs e) => UiGuard.Run(() => OnMicClickedAsync(sender, e), "Pet.OnMicClicked", "操作没成功，已记录日志。请再试一次。");
 }

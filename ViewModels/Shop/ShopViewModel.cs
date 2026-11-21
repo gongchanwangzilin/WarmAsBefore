@@ -54,17 +54,21 @@ public sealed partial class ShopViewModel : ObservableObject
     {
         try
         {
-            // 先给即时反馈：立即用种子目录渲染（不等待任何 IO）
-            Reload();
-            await _shop.InitializeAsync();
-            // 转圈由 IsCatalogLoading 驱动：补货进行中保持显示，完成时 Changed→Reload 自动停
-            Reload();
+            try
+            {
+                // 先给即时反馈：立即用种子目录渲染（不等待任何 IO）
+                Reload();
+                await _shop.InitializeAsync();
+                // 转圈由 IsCatalogLoading 驱动：补货进行中保持显示，完成时 Changed→Reload 自动停
+                Reload();
+            }
+            catch (Exception ex)
+            {
+                IsSyncing = false;
+                App.WriteLog($"ShopViewModel.OnAppearing -> {ex.Message}");
+            }
         }
-        catch (Exception ex)
-        {
-            IsSyncing = false;
-            App.WriteLog($"ShopViewModel.OnAppearing -> {ex.Message}");
-        }
+        catch (Exception ex) { App.WriteLog("Shop.OnAppearing -> " + ex); }
     }
 
     private void Reload()

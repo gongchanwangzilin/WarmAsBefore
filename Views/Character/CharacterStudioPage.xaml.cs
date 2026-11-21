@@ -39,38 +39,42 @@ public partial class CharacterStudioPage : ContentPage
 
     protected override async void OnAppearing()
     {
-        base.OnAppearing();
-        if (_loaded) return;
-        _loaded = true;
-
-        _startAfterCreate = StartAfter == "1";
-        StartAfter = "";
-
-        using var total = WarmAsBefore.Services.PerfLog.Measure("页 · 工作室 · OnAppearing 总计");
-        // 起点必须在上屏前摆好：下面读盘要几百毫秒，这一页那时已经画出来了，
-        // 等读完再摆，用户看到的是内容先到位、再跳回去重演一遍。
-        Studio.PrepareEntrance();
-
-        if (NewDraft == "1")
+        try
         {
-            NewDraft = "";
-            _vm.OpenNew();
-        }
-        else
-        {
-            bool ok;
-            using (WarmAsBefore.Services.PerfLog.Measure("页 · 工作室 · 读角色"))
-                ok = await _vm.OpenAsync(TargetId);
-            if (!ok)
+            base.OnAppearing();
+            if (_loaded) return;
+            _loaded = true;
+
+            _startAfterCreate = StartAfter == "1";
+            StartAfter = "";
+
+            using var total = WarmAsBefore.Services.PerfLog.Measure("页 · 工作室 · OnAppearing 总计");
+            // 起点必须在上屏前摆好：下面读盘要几百毫秒，这一页那时已经画出来了，
+            // 等读完再摆，用户看到的是内容先到位、再跳回去重演一遍。
+            Studio.PrepareEntrance();
+
+            if (NewDraft == "1")
             {
-                // 这个人不在盘上了（被删了、id 传错了）。留一张空工作室只会让人以为程序坏了，
-                // 回列表去：那里读得见「现在到底有谁」。
-                await Shell.Current.GoToAsync("..");
-                return;
+                NewDraft = "";
+                _vm.OpenNew();
             }
+            else
+            {
+                bool ok;
+                using (WarmAsBefore.Services.PerfLog.Measure("页 · 工作室 · 读角色"))
+                    ok = await _vm.OpenAsync(TargetId);
+                if (!ok)
+                {
+                    // 这个人不在盘上了（被删了、id 传错了）。留一张空工作室只会让人以为程序坏了，
+                    // 回列表去：那里读得见「现在到底有谁」。
+                    await Shell.Current.GoToAsync("..");
+                    return;
+                }
+            }
+            using (WarmAsBefore.Services.PerfLog.Measure("页 · 工作室 · 面板进场"))
+                await Studio.OpenAsync();
         }
-        using (WarmAsBefore.Services.PerfLog.Measure("页 · 工作室 · 面板进场"))
-            await Studio.OpenAsync();
+        catch (Exception ex) { App.WriteLog("CharacterStudio.OnAppearing -> " + ex); }
     }
 
     /// <summary>

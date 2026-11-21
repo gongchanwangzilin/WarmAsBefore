@@ -190,7 +190,7 @@ public partial class PhonePage : ContentPage
     /// 命令不挂在手势的 Command 上而是走 CommandParameter —— 否则手势会在 Tapped 之前就执行，
     /// 动画只能演给已经翻走的那一页看。小游戏的 kind 放 StyleId：参数位被命令本身占住了。
     /// </summary>
-    private async void OnAppTapped(object? sender, TappedEventArgs e)
+    private async Task OnAppTappedAsync(object? sender, TappedEventArgs e)
     {
         if (sender is not View host || e.Parameter is not ICommand command) return;
         try
@@ -223,7 +223,7 @@ public partial class PhonePage : ContentPage
     private void OnPhoneHomeTapped(object? sender, TappedEventArgs e) => SetPage(0, true);
 
     /// <summary>下侧栏「设置」：三条线是设置，不是任务管理。</summary>
-    private async void OnPhoneSettingsTapped(object? sender, TappedEventArgs e)
+    private async Task OnPhoneSettingsTappedAsync(object? sender, TappedEventArgs e)
     {
         try { await Shell.Current.GoToAsync("settings"); }
         catch (Exception ex) { App.WriteLog("PhonePage.Settings -> " + ex.Message); }
@@ -233,7 +233,7 @@ public partial class PhonePage : ContentPage
     /// 退出口：手机里 APP 关闭回主页，主窗口跳转到对应内容；手机页本身不销毁。
     /// 展示位置由插件的 display_target 决定，这里只负责把两处视图带回正确状态。
     /// </summary>
-    private async void OnTransferToMainTapped(object? sender, TappedEventArgs e)
+    private async Task OnTransferToMainTappedAsync(object? sender, TappedEventArgs e)
     {
         try
         {
@@ -243,4 +243,9 @@ public partial class PhonePage : ContentPage
         }
         catch (Exception ex) { App.WriteLog("PhonePage.TransferToMain -> " + ex.Message); }
     }
+
+    // 事件入口：Phone 页的处理器都从这里进，异常由 UiGuard 兜住。
+    private void OnAppTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnAppTappedAsync(sender, e), "Phone.OnAppTapped", "操作没成功，已记录日志。请再试一次。");
+    private void OnPhoneSettingsTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnPhoneSettingsTappedAsync(sender, e), "Phone.OnPhoneSettingsTapped", "操作没成功，已记录日志。请再试一次。");
+    private void OnTransferToMainTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnTransferToMainTappedAsync(sender, e), "Phone.OnTransferToMainTapped", "操作没成功，已记录日志。请再试一次。");
 }

@@ -102,57 +102,61 @@ public sealed class OfficialChatBridge
     {
         try
         {
-            await _gate.WaitAsync();
-
-            // 群聊默认不理：在群里刷屏是最容易被讨厌的行为，需在设置里显式打开。
-            if (msg.IsGroup && !_settings.Current.QqReplyGroup)
+            try
             {
-                App.WriteLog($"OfficialChatBridge: 忽略群消息（未开启群聊回复）：{msg.SenderName} {msg.Content}");
-                return;
+                await _gate.WaitAsync();
+
+                // 群聊默认不理：在群里刷屏是最容易被讨厌的行为，需在设置里显式打开。
+                if (msg.IsGroup && !_settings.Current.QqReplyGroup)
+                {
+                    App.WriteLog($"OfficialChatBridge: 忽略群消息（未开启群聊回复）：{msg.SenderName} {msg.Content}");
+                    return;
+                }
+
+                // 识别「用户本人」：配置了 openid 就按它认人，之后角色可以用昵称称呼他
+                RememberUserIfKnown(msg);
+
+                Incoming?.Invoke(msg);
+                var charId = ResolveCharacter(msg);
+
+                // 认出本人时告诉他「这是谁在跟我说话」——否则角色只会看到一个陌生 openid 的名字
+                var s0 = _settings.Current;
+                var incoming = msg.Content;
+                if (!msg.IsGroup)
+                {
+                    if (msg.Channel == _qq.Name && IsKnownUser && !string.IsNullOrWhiteSpace(s0.QqUserName))
+                        incoming = $"[这是你认得的「{s0.QqUserName}」从手机 QQ 上发来的] {incoming}";
+                    else if (msg.Channel != _qq.Name && !string.IsNullOrWhiteSpace(WeChatUserName))
+                        incoming = $"[这是「{WeChatUserName}」从微信上发来的] {incoming}";
+                }
+
+                // 文本指令：送礼/使用 直接消耗商店库存（不进 AI）
+                var command = TryHandleCommand(msg.Content);
+                var reply = command is not null
+                    ? command
+                    : await _chat.Send(charId, incoming);
+                Replied?.Invoke(msg, reply);
+
+                var channel = msg.Channel == _qq.Name ? (IOfficialChannel)_qq : _wechat;
+                // #18：真实通道（QQ/微信官方）暂不支持直接发送表情图片（官方协议需要富媒体上传），
+                // 回复里的 [表情:名字] 标记降级为文字，保证语义不丢失；本地界面侧仍按图片显示。
+                await channel.SendAsync(msg, Services.StickerLibrary.ToPlainFallback(reply));
+
+                var s = _settings.Current;
+                if (s.NotificationsEnabled)
+                    _notify.Show("温暖如初", $"「{msg.Content.Trim()}」 → {reply}");
+                // 对话已由 ChatEngine 存入记忆（回忆录可查）；日记由每日自动总结生成，无需逐条写入。
             }
-
-            // 识别「用户本人」：配置了 openid 就按它认人，之后角色可以用昵称称呼他
-            RememberUserIfKnown(msg);
-
-            Incoming?.Invoke(msg);
-            var charId = ResolveCharacter(msg);
-
-            // 认出本人时告诉他「这是谁在跟我说话」——否则角色只会看到一个陌生 openid 的名字
-            var s0 = _settings.Current;
-            var incoming = msg.Content;
-            if (!msg.IsGroup)
+            catch (Exception ex)
             {
-                if (msg.Channel == _qq.Name && IsKnownUser && !string.IsNullOrWhiteSpace(s0.QqUserName))
-                    incoming = $"[这是你认得的「{s0.QqUserName}」从手机 QQ 上发来的] {incoming}";
-                else if (msg.Channel != _qq.Name && !string.IsNullOrWhiteSpace(WeChatUserName))
-                    incoming = $"[这是「{WeChatUserName}」从微信上发来的] {incoming}";
+                App.WriteLog("OfficialChatBridge.OnMessage -> " + ex);
             }
-
-            // 文本指令：送礼/使用 直接消耗商店库存（不进 AI）
-            var command = TryHandleCommand(msg.Content);
-            var reply = command is not null
-                ? command
-                : await _chat.Send(charId, incoming);
-            Replied?.Invoke(msg, reply);
-
-            var channel = msg.Channel == _qq.Name ? (IOfficialChannel)_qq : _wechat;
-            // #18：真实通道（QQ/微信官方）暂不支持直接发送表情图片（官方协议需要富媒体上传），
-            // 回复里的 [表情:名字] 标记降级为文字，保证语义不丢失；本地界面侧仍按图片显示。
-            await channel.SendAsync(msg, Services.StickerLibrary.ToPlainFallback(reply));
-
-            var s = _settings.Current;
-            if (s.NotificationsEnabled)
-                _notify.Show("温暖如初", $"「{msg.Content.Trim()}」 → {reply}");
-            // 对话已由 ChatEngine 存入记忆（回忆录可查）；日记由每日自动总结生成，无需逐条写入。
+            finally
+            {
+                _gate.Release();
+            }
         }
-        catch (Exception ex)
-        {
-            App.WriteLog("OfficialChatBridge.OnMessage -> " + ex);
-        }
-        finally
-        {
-            _gate.Release();
-        }
+        catch (Exception ex) { App.WriteLog("OfficialChatBridge.OnMessage -> " + ex); }
     }
 
     /// <summary>
