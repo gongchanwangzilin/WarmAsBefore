@@ -994,7 +994,7 @@ public sealed class ChatEngine
         catch { }
         string? text = null;
         var truncated = false;
-        if (kind == "text")
+        if (kind == "text" && !string.IsNullOrEmpty(path))
         {
             try
             {

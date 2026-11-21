@@ -177,14 +177,14 @@ public sealed class ForegroundRainView : ContentView
         Stop();
     }
 
-    /// <summary>沿 Parent 链向上找到最近的宿主 Page（拿不到则回退到 MainPage）。</summary>
+    /// <summary>沿 Parent 链向上找到最近的宿主 Page（拿不到则回退到当前窗口的 Page）。</summary>
     private Page? FindHostPage()
     {
         for (Element? c = this; c is not null; c = c.Parent)
         {
             if (c is Page page) return page;
         }
-        return Application.Current?.MainPage;
+        return Application.Current?.Windows.FirstOrDefault()?.Page;
     }
 
     /// <summary>

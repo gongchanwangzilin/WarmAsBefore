@@ -321,7 +321,6 @@ public sealed class RuntimeManager
                 progress?.Report($"下载 Java {major}（Temurin JRE 便携版）…");
                 await DownloadAsync(zipUrl, zipPath);
                 progress?.Report("解压引擎…");
-                var root = "jre-" + major;
                 if (Directory.Exists(dest)) Directory.Delete(dest, true);
                 Directory.CreateDirectory(dest);
                 ZipFile.ExtractToDirectory(zipPath, dest);

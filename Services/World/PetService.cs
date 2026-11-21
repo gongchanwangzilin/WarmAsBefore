@@ -592,7 +592,9 @@ public sealed class PetService
     /// </summary>
     private void EnsurePetWindow()
     {
-        if (_petWindow is not null && Application.Current.Windows.Contains(_petWindow)) return;
+        var mauiApp = Application.Current;
+        if (mauiApp is null) return;
+        if (_petWindow is not null && mauiApp.Windows.Contains(_petWindow)) return;
         var services = Application.Current?.Handler?.MauiContext?.Services;
         if (services is null) return;
         var page = services.GetService(typeof(Views.PetPage)) as Views.PetPage;
@@ -604,7 +606,7 @@ public sealed class PetService
             Width = 340,
             Height = 56
         };
-        Application.Current.OpenWindow(win);
+        mauiApp.OpenWindow(win);
         _petWindow = win;
         _chromeVisible = false;
         _chromeExpanded = false;
@@ -1402,9 +1404,10 @@ public sealed class PetService
         _typeCts?.Cancel();
         _typedTarget = "";
         _typing = false;
-        if (_petWindow is not null && Application.Current.Windows.Contains(_petWindow))
+        var app = Application.Current;
+        if (app is not null && _petWindow is not null && app.Windows.Contains(_petWindow))
         {
-            try { Application.Current.CloseWindow(_petWindow); } catch { }
+            try { app.CloseWindow(_petWindow); } catch { }
         }
         _petWindow = null;
         _page = null;

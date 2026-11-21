@@ -19,7 +19,6 @@ public partial class MainGamePage : ContentPage
     private MainGamePhoneView? _phone;
     private bool _started;
     private bool _backdropSynced;
-    private bool _veilAttached;
     // Evergine 3D 天气层：Application 是否成功初始化（失败会保持隐藏，由 2D 天气层兜底）
     private bool _evergineReady;
 

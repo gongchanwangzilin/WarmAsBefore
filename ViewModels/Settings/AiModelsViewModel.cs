@@ -353,7 +353,7 @@ public sealed partial class AiModelsViewModel : ObservableObject
 
     private static async Task<bool> ConfirmDeleteAsync(string title, string message)
     {
-        var page = Shell.Current?.CurrentPage ?? Application.Current?.MainPage;
+        var page = Shell.Current?.CurrentPage ?? Application.Current?.Windows.FirstOrDefault()?.Page;
         return page is not null && await page.DisplayAlert(title, message, "删除", "取消");
     }
 

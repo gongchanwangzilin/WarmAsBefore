@@ -34,7 +34,6 @@ public sealed class MiniGameEngine
 
     // 国际象棋：易位/吃过路兵状态跟踪
     private bool _wkMoved, _bkMoved, _wQmRookMoved, _wKmRookMoved, _bQmRookMoved, _bKmRookMoved;
-    private (int fr, int fc, int tr, int tc)? _lastChessMove;   // 上一步（吃过路兵判定）
     private (int fr, int fc, int tr, int tc)? _lastPawnDouble;  // 上一步兵双格推进（吃过路兵判定）
 
     // 围棋：气/提子/打劫状态
@@ -133,7 +132,6 @@ public sealed class MiniGameEngine
         _ownerRed = null;
         // 国际象棋状态重置
         _wkMoved = _bkMoved = _wQmRookMoved = _wKmRookMoved = _bQmRookMoved = _bKmRookMoved = false;
-        _lastChessMove = null;
         _lastPawnDouble = null;
         // 围棋状态重置
         _goPrevBoard = null;
@@ -1263,7 +1261,6 @@ public sealed class MiniGameEngine
         {
             var newPos = pos + _ludoDie;
             if (newPos >= LudoRing + LudoFinish) continue;   // 超出终点放弃
-            if (newPos >= LudoRing) newPos = newPos;          // 进入终点通道（40..43）
             var idx = pieces.IndexOf(pos);
             pieces[idx] = newPos;
             // 踩子：环上 40 格内踩到对方

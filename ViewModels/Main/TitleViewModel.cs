@@ -237,7 +237,7 @@ public sealed partial class TitleViewModel : ObservableObject
             if (!face.ShouldAskBeforeStart(saveId)) return;
             // 只有摄像头总开关打开时才值得问；总开关关着就不打扰。
             if (!face.CameraEnabled) { face.MarkAsked(saveId); return; }
-            var page = Application.Current?.MainPage;
+            var page = Application.Current?.Windows.FirstOrDefault()?.Page;
             if (page is null) { face.MarkAsked(saveId); return; }
             var yes = await page.DisplayAlert(
                 "本地人脸识别",

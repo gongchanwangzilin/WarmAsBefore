@@ -1412,7 +1412,12 @@ private Func<MapCanvasNode, string?>? _bgResolver;
         _ = Task.Run(() =>
         {
             byte[] bytes;
-            try { bytes = File.ReadAllBytes(_resolveBg(n)); }
+            try
+            {
+                var bg = _resolveBg(n);
+                if (string.IsNullOrEmpty(bg)) return;
+                bytes = File.ReadAllBytes(bg);
+            }
             catch { return; }
             MainThread.BeginInvokeOnMainThread(() =>
             {

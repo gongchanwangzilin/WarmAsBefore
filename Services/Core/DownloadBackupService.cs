@@ -60,8 +60,8 @@ public static class DownloadBackupService
     /// <summary>把 zip 落到「下载」目录。桌面返回 false（no-op）；Android 返回是否成功。</summary>
     static bool SaveToDownloads(string sourceZip)
     {
-        const string fileName = "WarmAsBefore_backup.zip";
 #if ANDROID
+        const string fileName = "WarmAsBefore_backup.zip";
         try
         {
             if (Android.OS.Build.VERSION.SdkInt >= Android.OS.BuildVersionCodes.Q)
