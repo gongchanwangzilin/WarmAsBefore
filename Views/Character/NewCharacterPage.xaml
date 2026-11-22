@@ -76,19 +76,14 @@
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
         <!-- 顶栏 -->
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
-                        VerticalOptions="Center" Command="{Binding BackCommand}" />
-                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                    <Label Text="// NEW SUBJECT" Style="{StaticResource Eyebrow}" />
-                    <Label Text="新建角色" Style="{StaticResource TxtTitle}" />
-                </VerticalStackLayout>
-                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+        <controls:PageHeader Grid.Row="0" Eyebrow="// NEW SUBJECT" Title="新建角色"
+                             BackCommand="{Binding BackCommand}">
+            <controls:PageHeader.Actions>
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StepEyebrow}"
+                       Style="{StaticResource TxtCaption}"
                        FontFamily="Bahnschrift" VerticalOptions="Center" />
-            </Grid>
-        </Border>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <!-- 进度：四段等宽，走过的段点亮 -->
         <Grid Grid.Row="1" Padding="24,14,24,0" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceRegular}">
