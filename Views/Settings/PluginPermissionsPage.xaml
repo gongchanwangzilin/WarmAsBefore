@@ -9,8 +9,8 @@
         <!-- 一行能力。命令挂在行上，模板里不引页面名字，放进 Resources 被四处复用也不会断。 -->
         <DataTemplate x:Key="CapRow">
             <Border Style="{StaticResource CardSolid}">
-                <VerticalStackLayout Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <VerticalStackLayout Spacing="2">
                             <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                             <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
@@ -28,7 +28,7 @@
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LastResult, StringFormat='最近一次判定：{0}'}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding HasLast}" TextColor="{DynamicResource AccentWarmFg}" />
 
-                    <HorizontalStackLayout Spacing="6">
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                         <Button Text="禁止" Style="{StaticResource BtnGhostSm}"
                                 BackgroundColor="{Binding IsDeny, Converter={StaticResource SceneCurrentBg}}"
                                 TextColor="{Binding IsDeny, Converter={StaticResource SceneCurrentFg}}"
@@ -55,7 +55,7 @@
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <VerticalStackLayout Grid.Column="1" Spacing="0">
@@ -68,9 +68,9 @@
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,32">
-            <VerticalStackLayout Spacing="16" MaximumWidthRequest="920" HorizontalOptions="Fill">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="920" HorizontalOptions="Fill">
 
-                <VerticalStackLayout Spacing="6">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                     <Label Text="{Binding Summary}" Style="{StaticResource TxtBody}" LineBreakMode="WordWrap" />
                     <Label Text="一条能力要用，得同时满足两件事：这个插件被允许，而且它确实要过——越出自己家门的用法（工具、别的插件、广播、联网）必须在 plugin.json 里写明，没写明的即使你点「允许」也不会给它。「只在自己家里」那一组不要求声明：它碰的只有这个插件自己的设置项和文件区，圈是程序划的，作者重复声明一遍买不到任何保证。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -85,8 +85,8 @@
                 </VerticalStackLayout>
 
                 <!-- 四档风险，从「只在自己家里」到「出本机」：档位决定默认策略，也决定这一组长什么样 -->
-                <VerticalStackLayout Spacing="10">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <BoxView WidthRequest="4" HeightRequest="18" Color="{DynamicResource BeigeAccent200}"
                                  HorizontalOptions="Start" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="只在自己家里 · 默认允许" Style="{StaticResource TxtSection}" />
@@ -94,23 +94,23 @@
                     </Grid>
                     <BoxView Style="{StaticResource HSep}" />
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding GroupOwn}"
-                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="8"
+                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="{DynamicResource WSpaceRegular}"
                                          IsVisible="{Binding HasOwn}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasPipeline}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasPipeline}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <BoxView WidthRequest="4" HeightRequest="18" Color="{DynamicResource AccentWarm}"
                                  HorizontalOptions="Start" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="动主程序的管线 · 默认允许，接管要问" Style="{StaticResource TxtSection}" />
                     </Grid>
                     <BoxView Style="{StaticResource HSep}" />
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding GroupPipeline}"
-                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="8" />
+                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="{DynamicResource WSpaceRegular}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasInteract}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasInteract}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <BoxView WidthRequest="4" HeightRequest="18" Color="{DynamicResource AccentWarm}"
                                  HorizontalOptions="Start" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="动用别的东西 · 默认要问" Style="{StaticResource TxtSection}" />
@@ -118,11 +118,11 @@
                     </Grid>
                     <BoxView Style="{StaticResource HSep}" />
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding GroupInteract}"
-                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="8" />
+                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="{DynamicResource WSpaceRegular}" />
                 </VerticalStackLayout>
 
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasExternal}">
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasExternal}">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <BoxView WidthRequest="4" HeightRequest="18" Color="{DynamicResource DangerTint}"
                                  HorizontalOptions="Start" VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="出本机 · 默认禁止" Style="{StaticResource TxtSection}" />
@@ -130,12 +130,12 @@
                     </Grid>
                     <BoxView Style="{StaticResource HSep}" />
                     <VerticalStackLayout BindableLayout.ItemsSource="{Binding GroupExternal}"
-                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="8" />
+                                         BindableLayout.ItemTemplate="{StaticResource CapRow}" Spacing="{DynamicResource WSpaceRegular}" />
                 </VerticalStackLayout>
 
                 <!-- 留痕：它撞过哪些闸，比任何说明书都直白 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="8">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="判定留痕" Style="{StaticResource TxtSubhead}" VerticalOptions="Center" />
                             <Button Grid.Column="1" Text="{Binding AuditToggleLabel}"
@@ -146,11 +146,11 @@
                         <Label Text="还没有判定记录：这个插件至今没撞上任何一道闸。"
                                Style="{StaticResource TxtCaption}" IsVisible="{Binding NoAudit}"
                                LineBreakMode="WordWrap" />
-                        <VerticalStackLayout IsVisible="{Binding AuditVisible}" Spacing="6"
+                        <VerticalStackLayout IsVisible="{Binding AuditVisible}" Spacing="{DynamicResource WSpaceTight}"
                                              BindableLayout.ItemsSource="{Binding Audit}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate>
-                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="{Binding When}" Style="{StaticResource TxtCaption}"
                                                VerticalOptions="Center" />
                                         <Label Grid.Column="1" Text="{Binding Text}" Style="{StaticResource TxtCaption}"

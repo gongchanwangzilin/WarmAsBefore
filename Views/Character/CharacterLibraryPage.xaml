@@ -31,29 +31,13 @@
         </Style>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*">
-        <!-- Header：顶栏与内容区同一块地，靠一条发丝线分界，不靠描边盒子 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        Padding="0"
-                        Command="{Binding BackCommand}" />
-                <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                    <HorizontalStackLayout Spacing="7" VerticalOptions="End">
-                        <!-- 世界印记（2.7）：每世界一种形状与颜色的小块 —— 设置页/角色库同款，
-                             世界一换整页 性格就跟印记走；它不参与悬停/按压状态（签名不演戏）。 -->
-                        <BoxView Color="{DynamicResource WMarkColor}"
-                                 WidthRequest="{DynamicResource WMarkSize}" HeightRequest="{DynamicResource WMarkSize}"
-                                 CornerRadius="{DynamicResource WMarkRadius}" VerticalOptions="End" />
-                        <Label Text="// ROSTER" Style="{StaticResource Eyebrow}" />
-                    </HorizontalStackLayout>
-                    <Label Text="角色库" Style="{StaticResource TxtTitle}" />
-                </VerticalStackLayout>
-                <!-- 说明性徽章：井面 + 淡墨字。淡彩（*Tint / BeigeAccent*）只能当面，
-                     面上摆的仍然是墨 —— 徽章读起来是「一句注解」而不是一颗按钮。
-                     窄屏收起注解，把位置让给「新建角色」：那一颗才是这一段唯一的行动。 -->
-                <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+    <Grid RowDefinitions="Auto,*">
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Grid.Row="0" Eyebrow="// ROSTER" Title="角色库"
+                        BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <!-- 窄屏收起注解，把位置让给「新建角色」：那一颗才是这一段唯一的行动。 -->
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceLoose}" VerticalOptions="Center">
                     <!-- 超级监测入口：Selected.Id 是当前预览的角色；静态命令自带当前角色兜底 -->
                     <Button Text="监测" Style="{StaticResource BtnGhostSm}"
                             VerticalOptions="Center"
@@ -68,9 +52,8 @@
                     <Button Text="＋ 新建角色" Style="{StaticResource BtnPrimarySm}"
                             Command="{Binding NewCharacterCommand}" />
                 </HorizontalStackLayout>
-            </Grid>
-        </Border>
-        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!--
           左右两栏：左边是名册，右边是此刻选中的那个人。
@@ -78,7 +61,7 @@
           现在名册只负责「选」，预览负责「看」，改设定留到工作室：一页只做一件事，空间才立得住。
           手机上下叠：名册固定 300，预览吃掉剩下的高度。
         -->
-        <FlexLayout Grid.Row="2" Direction="{OnIdiom Desktop=Row, Tablet=Row, Phone=Column}"
+        <FlexLayout Grid.Row="1" Direction="{OnIdiom Desktop=Row, Tablet=Row, Phone=Column}"
                     AlignItems="Stretch" Padding="{DynamicResource WPadCard}">
 
             <!-- ── 名册 ─────────────────────────────────────────────── -->
@@ -102,23 +85,9 @@
                                     SelectionMode="None"
                                     BackgroundColor="Transparent">
                         <CollectionView.EmptyView>
-                            <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                                 Spacing="12" Padding="{DynamicResource WPadCard}">
-                                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
-                                        WidthRequest="72" HeightRequest="72"
-                                        StrokeShape="{DynamicResource WRadiusPill}">
-                                    <!-- 空态图形也得是墨档：WarmFaint 在这套语言里是淡档面，
-                                         压在井面上只剩 1.x:1，圆片里等于什么都没有。 -->
-                                    <Label Text="&#xE00B;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource TxtDisplay}"
-                                           TextColor="{DynamicResource MutedFg}"
-                                           HorizontalOptions="Center" VerticalOptions="Center" />
-                                </Border>
-                                <Label Text="角色库还是空的" Style="{StaticResource TxtTitle}"
-                                       HorizontalOptions="Center" />
-                                <Label Text="在角色选择页新建或导入角色后，新角色会出现在这里"
-                                       Style="{StaticResource TxtMuted}"
-                                       HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-                            </VerticalStackLayout>
+                            <ctl:EmptyState Title="角色库还是空的"
+                                            Reason="名册里还没有任何人"
+                                            Hint="在角色选择页新建或导入角色，新角色会出现在这里" />
                         </CollectionView.EmptyView>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:CharacterLibraryItem">
@@ -129,7 +98,7 @@
                                                 Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectCommand}"
                                                 CommandParameter="{Binding .}" />
                                         </Border.GestureRecognizers>
-                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                             <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
                                                     StrokeThickness="0" WidthRequest="46" HeightRequest="46"
                                                     VerticalOptions="Center"
@@ -148,7 +117,7 @@
                                                 <Label Text="{Binding Personality}" Style="{StaticResource TxtRowDesc}"
                                                        LineBreakMode="TailTruncation" MaxLines="1" />
                                             </VerticalStackLayout>
-                                            <HorizontalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                                            <HorizontalStackLayout Grid.Column="2" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                                 <!-- 行内动作不抢整行：点「导出」只打包这一个人，点行别处仍进工作室 -->
                                                 <Button Text="导出" Style="{StaticResource BtnTextSm}"
                                                         Padding="6,2"
@@ -203,7 +172,7 @@
                                    IsVisible="{Binding HasPreviewImage}" />
                             <!-- 没有立绘也没有头像：露缺图说明，不拿姓名首字顶成一个「大字」——
                                  用户原话是「大字放在那里无疑是太丑的」。 -->
-                            <VerticalStackLayout Spacing="8" HorizontalOptions="Center" VerticalOptions="Center"
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" HorizontalOptions="Center" VerticalOptions="Center"
                                                  IsVisible="{Binding HasPreviewImage, Converter={StaticResource InverseBool}}">
                                 <Image Source="studio_mark.png" WidthRequest="72" HeightRequest="72"
                                        Opacity="0.30" InputTransparent="True"
@@ -218,8 +187,8 @@
                             </VerticalStackLayout>
                         </Grid>
 
-                        <VerticalStackLayout Grid.Row="1" Padding="{DynamicResource WPadCard}" Spacing="8">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Grid.Row="1" Padding="{DynamicResource WPadCard}" Spacing="{DynamicResource WSpaceRegular}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <VerticalStackLayout Spacing="0">
                                     <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}" />
                                     <!-- 详情位是唯一能读到全名的地方：长名字给两行，不再一行截断 -->
@@ -240,7 +209,7 @@
 
                             <!-- 需求 5：单角色背景在这里设。换人时上面那块会交叉淡入，
                                  适配五档跟着窗口尺寸走，游戏内与工作室读同一份。 -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="{Binding BackgroundHint}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
                                 <Button Grid.Column="1" Text="换背景" Style="{StaticResource BtnGhostSm}"
@@ -273,7 +242,7 @@
                             <Grid ColumnDefinitions="*,1,*,1,*" Margin="0,2">
                                 <VerticalStackLayout Spacing="0">
                                     <Label Text="AFFECTION" Style="{StaticResource Eyebrow}" />
-                                    <HorizontalStackLayout Spacing="4">
+                                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                         <Label Text="{Binding PreviewAffection}" FontFamily="Bahnschrift"
                                                FontSize="24" TextColor="{DynamicResource WarmDark}" />
                                         <Label Text="好感" Style="{StaticResource TxtCaption}"
@@ -284,7 +253,7 @@
                                          VerticalOptions="Fill" Margin="0,2" />
                                 <VerticalStackLayout Grid.Column="2" Spacing="0" Padding="10,0">
                                     <Label Text="SPRITES" Style="{StaticResource Eyebrow}" />
-                                    <HorizontalStackLayout Spacing="4">
+                                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                         <Label Text="{Binding PreviewCells}" FontFamily="Bahnschrift"
                                                FontSize="24" TextColor="{DynamicResource WarmDark}" />
                                         <Label Text="张立绘" Style="{StaticResource TxtCaption}"
@@ -295,7 +264,7 @@
                                          VerticalOptions="Fill" Margin="0,2" />
                                 <VerticalStackLayout Grid.Column="4" Spacing="0" Padding="10,0,0,0">
                                     <Label Text="SAVES" Style="{StaticResource Eyebrow}" />
-                                    <HorizontalStackLayout Spacing="4">
+                                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                         <Label Text="{Binding PreviewSaves}" FontFamily="Bahnschrift"
                                                FontSize="24" TextColor="{DynamicResource WarmDark}" />
                                         <Label Text="个存档" Style="{StaticResource TxtCaption}"
@@ -304,7 +273,7 @@
                                 </VerticalStackLayout>
                             </Grid>
 
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Margin="0,4,0,0">
                                 <Button Text="进入 TA 的工作室  →" Style="{StaticResource BtnPrimary}"
                                         HorizontalOptions="Fill"
                                         Command="{Binding EnterCommand}" />
@@ -317,7 +286,7 @@
                     </Grid>
 
                     <!-- 名册为空 -->
-                    <VerticalStackLayout Spacing="6" HorizontalOptions="Center" VerticalOptions="Center"
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" HorizontalOptions="Center" VerticalOptions="Center"
                                          Padding="{DynamicResource WPadCard}"
                                          IsVisible="{Binding HasSelection, Converter={StaticResource InverseBool}}">
                         <Label Text="// NO SUBJECTS" Style="{StaticResource Eyebrow}"

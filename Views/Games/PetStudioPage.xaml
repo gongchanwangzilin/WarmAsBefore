@@ -12,7 +12,7 @@
         <!-- 眉栏：一块「地」而不是一张卡，底下用发丝线收住（与素材库同一处理） -->
         <VerticalStackLayout Spacing="0">
             <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                     <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                             FontSize="{DynamicResource WSizeSmall}" Padding="0"
                             Command="{Binding BackCommand}" />
@@ -30,10 +30,10 @@
         </VerticalStackLayout>
 
         <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
-            <VerticalStackLayout Spacing="16" MaximumWidthRequest="1000" HorizontalOptions="Fill">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="1000" HorizontalOptions="Fill">
 
                 <!-- ① 选角色 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="① 挑一位角色" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
@@ -47,7 +47,7 @@
                                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickCharacterCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                     <BoxView WidthRequest="9" HeightRequest="9" CornerRadius="4.5"
                                                              Color="Transparent" VerticalOptions="Center">
                                                         <BoxView.Triggers>
@@ -79,10 +79,10 @@
                 </VerticalStackLayout>
 
                 <!-- ② 一键生成：真实进度、逐帧回报、随时可取消 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="② 一键生成整套状态动画" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
-                        <VerticalStackLayout Spacing="12" Padding="{DynamicResource WPadRow}">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" Padding="{DynamicResource WPadRow}">
                             <Label Text="代码先按走动速度算好走动循环的帧数与步频，再逐状态串行出图；每出一帧就点亮下面对应的一行。进度是真的，不会用假动画糊弄你。"
                                    Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap"
                                    TextColor="{DynamicResource MutedFg}" />
@@ -93,7 +93,7 @@
                                    IsVisible="{Binding ImageHint, Converter={StaticResource StringNotEmpty}}" />
 
                             <!-- 真实进度条：只在生成时可见 -->
-                            <VerticalStackLayout Spacing="4" IsVisible="{Binding Busy}">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding Busy}">
                                 <ProgressBar Progress="{Binding Progress}" ProgressColor="{DynamicResource Signal}"
                                              HeightRequest="4" />
                                 <Label Text="{Binding ProgressText}" Style="{StaticResource TxtCaption}"
@@ -108,7 +108,7 @@
                                    TextColor="{DynamicResource WarmDark}" LineBreakMode="WordWrap"
                                    IsVisible="{Binding ResultMessage, Converter={StaticResource StringNotEmpty}}" />
 
-                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Button Text="一键生成桌宠动画" Style="{StaticResource BtnPrimary}"
                                         FontSize="{DynamicResource WSizeSmall}" Padding="16,7"
                                         Command="{Binding GenerateCommand}" />
@@ -121,7 +121,7 @@
                 </VerticalStackLayout>
 
                 <!-- ③ 逐状态出图与预览 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="③ 状态动画与预览" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0"
@@ -130,7 +130,7 @@
                                 <DataTemplate x:DataType="vm:PetStudioStateRow">
                                     <VerticalStackLayout Spacing="0">
                                         <Border Style="{StaticResource SettingRow}">
-                                            <Grid ColumnDefinitions="64,*,Auto" ColumnSpacing="12">
+                                            <Grid ColumnDefinitions="64,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 缩略图井：出好帧就放图，否则留占位（图是内容，面只用井底） -->
                                                 <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                                         HeightRequest="64" VerticalOptions="Center"

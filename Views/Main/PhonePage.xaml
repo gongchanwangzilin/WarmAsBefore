@@ -65,7 +65,7 @@
 
                     <Grid RowDefinitions="Auto,*,Auto">
                         <!-- 状态栏：左侧退出口袋、时间，右侧信号 / WiFi / 电池。图标全部用几何拼，没有一个 emoji。 -->
-                        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8"
+                        <Grid Grid.Row="0" ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}"
                               Padding="18,10,18,0">
                             <Border BackgroundColor="#26FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1" Padding="7,3"
                                     VerticalOptions="Center"
@@ -82,7 +82,7 @@
                             <Label Grid.Column="1" Text="{Binding TimeLabel}" FontSize="12.5" FontAttributes="Bold"
                                    TextColor="{DynamicResource WarmDark}" VerticalOptions="Center" />
 
-                            <HorizontalStackLayout Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                            <HorizontalStackLayout Grid.Column="3" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                 <HorizontalStackLayout Spacing="1.5" VerticalOptions="Center">
                                     <BoxView Color="{DynamicResource WarmDark}" WidthRequest="2.5" HeightRequest="3.5"
                                              CornerRadius="1" VerticalOptions="End" />
@@ -143,7 +143,7 @@
                                             </Grid>
 
                                             <Label Text="TA 的世界" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
-                                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="16">
+                                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 微信 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
                                                                      motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
@@ -302,7 +302,7 @@
                                             </Grid>
 
                                             <Label Text="内容与设定" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
-                                            <Grid ColumnDefinitions="*,*,*,*" RowSpacing="16">
+                                            <Grid ColumnDefinitions="*,*,*,*" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 素材库 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
                                                                      motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
@@ -390,7 +390,7 @@
                                     <ScrollView VerticalScrollBarVisibility="Never">
                                         <VerticalStackLayout Padding="22,4,22,10" Spacing="0">
                                             <Label Text="一起玩" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
-                                            <Grid ColumnDefinitions="*,*,*,*" RowSpacing="16">
+                                            <Grid ColumnDefinitions="*,*,*,*" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 点名 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
                                                                      motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
@@ -446,7 +446,7 @@
                                             </Grid>
 
                                             <Label Text="小游戏" Style="{StaticResource TxtSection}" CharacterSpacing="1" />
-                                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="16">
+                                            <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 五子棋 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center" StyleId="gobang"
                                                                      motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
@@ -755,7 +755,7 @@
 
                             <!-- 手机页下侧栏三键（第十八项）：回退（三角形）/ 回到桌面（正方形）/ 设置（三条线）。
                                  没有高级任务机制，三条线是设置而不是任务管理；右侧另有「转到主窗口」退出口。 -->
-                            <Grid ColumnDefinitions="*,*,*,Auto" HeightRequest="34" Margin="18,2,18,0" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,*,*,Auto" HeightRequest="34" Margin="18,2,18,0" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <Label Grid.Column="0" Text="&#x25C1;" FontSize="19" Opacity="0.72"
                                        TextColor="{DynamicResource WarmDark}" HorizontalOptions="Center" VerticalOptions="Center">
                                     <Label.GestureRecognizers>

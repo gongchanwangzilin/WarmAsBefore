@@ -14,7 +14,7 @@
              原来那圈 GlassBar 描边在极简档会被读成一条不属于地面的框。 -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0"
                         Command="{Binding GoBackCommand}" />
@@ -29,7 +29,7 @@
         <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
             <CollectionView ItemsSource="{Binding Novels}" BackgroundColor="Transparent">
                 <CollectionView.EmptyView>
-                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="6"
+                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="{DynamicResource WSpaceTight}"
                                          Padding="{DynamicResource WPadCard}">
                         <Label Text="还没有平行宇宙" Style="{StaticResource TxtSubhead}"
                                HorizontalOptions="Center" />
@@ -41,9 +41,9 @@
                     <DataTemplate x:DataType="vm:NovelItem">
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                     <VerticalStackLayout Grid.Column="0" Spacing="3" VerticalOptions="Center">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                             <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
                                                    LineBreakMode="TailTruncation" />
                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding ImportedAt, StringFormat='{0:MM/dd}'}"
@@ -54,7 +54,7 @@
                                         <Label Text="{Binding CharactersLabel}" Style="{StaticResource TxtCaption}"
                                                LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
-                                    <VerticalStackLayout Grid.Column="1" Spacing="8"
+                                    <VerticalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceRegular}"
                                                          VerticalOptions="Center" HorizontalOptions="End">
                                         <Button Text="进入世界" Style="{StaticResource BtnNeumorphSm}"
                                                 WidthRequest="96"

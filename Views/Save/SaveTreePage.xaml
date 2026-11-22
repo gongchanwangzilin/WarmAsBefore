@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.SaveTreePage"
              x:Name="Page"
              Title=""
@@ -14,12 +15,14 @@
         <!-- 顶栏：< 返回 + 标题，沿用存档页的 BtnText / TxtTitle，不加任何新样式 -->
         <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0" VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="分支树" Style="{StaticResource TxtTitle}"
                        VerticalOptions="Center" />
+                <!-- 压测档徽标：与全站同一个组件，压测档没开时宽高为 0 -->
+                <ctl:WorstCaseBadge Grid.Column="2" HorizontalOptions="End" VerticalOptions="Center" />
             </Grid>
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />

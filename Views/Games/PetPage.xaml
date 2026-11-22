@@ -14,13 +14,13 @@
         <!-- 顶部：输入条 + 回复气泡共用一个纵向栈。
              Windows 上这条就是小窗的全部内容，整条小窗靠显隐控制（不再藏输入条本身）；
              气泡出现时小窗长高，输入行位置不动。 -->
-        <VerticalStackLayout VerticalOptions="Start" Spacing="6"
+        <VerticalStackLayout VerticalOptions="Start" Spacing="{DynamicResource WSpaceTight}"
                              Margin="{OnPlatform WinUI='0,0,0,0', Default='8,6,8,0'}">
             <Border x:Name="InputBar" StrokeThickness="0" Padding="8,6"
                     BackgroundColor="{OnPlatform WinUI={StaticResource PetShadeClear}, Default={StaticResource PetBarBgMobile}}"
                     IsVisible="{OnPlatform WinUI=True, Default=False}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
+                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                     <Entry x:Name="InputEntry" TextColor="White" PlaceholderColor="{StaticResource PetPlaceholderInk}"
                            Placeholder="和 TA 说点什么…" BackgroundColor="{StaticResource PetInputBg}"
                            FontSize="12" VerticalOptions="Center"

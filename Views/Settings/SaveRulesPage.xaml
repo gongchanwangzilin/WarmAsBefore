@@ -12,7 +12,7 @@
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="存档高级设置" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
@@ -20,8 +20,8 @@
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,28">
-            <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
-                <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="900" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SaveLabel}" Style="{StaticResource TxtSubhead}" />
                     <Label Text="这些白名单只属于这一份存档：换档就换一套。插件与工具被关掉时不会执行；角色白名单决定 AI 能在这份存档里让谁出场。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -31,7 +31,7 @@
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="0">
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                     <Label Text="允许全部插件" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="关掉后，只有下面勾选的插件能在这份存档里跑" Style="{StaticResource TxtRowDesc}" />
@@ -41,7 +41,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSepInset}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                     <Label Text="允许全部工具" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="工具包括内置工具与外部 Java/Python 工具" Style="{StaticResource TxtRowDesc}" />
@@ -51,7 +51,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSepInset}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                     <Label Text="AI 可以自行安装插件" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="默认关闭：装代码应该由你做决定" Style="{StaticResource TxtRowDesc}" />
@@ -63,7 +63,7 @@
                 </Border>
 
                 <!-- 插件 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="可以运行的插件" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
@@ -72,7 +72,7 @@
                                     <DataTemplate>
                                         <VerticalStackLayout Spacing="0">
                                             <Border Style="{StaticResource SettingRow}">
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
@@ -95,7 +95,7 @@
                 </VerticalStackLayout>
 
                 <!-- 工具 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="可以调用的工具" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
@@ -104,7 +104,7 @@
                                     <DataTemplate>
                                         <VerticalStackLayout Spacing="0">
                                             <Border Style="{StaticResource SettingRow}">
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
@@ -125,7 +125,7 @@
                 </VerticalStackLayout>
 
                 <!-- 本档主角：主角只属于这一份存档，不写在角色库里 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="这一档的主角" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
@@ -142,7 +142,7 @@
                                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SetMainCommand}"
                                                         CommandParameter="{Binding Id}" />
                                                 </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                     <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
                                                            VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Grid.Column="1" Text="{Binding Mark}"
@@ -162,12 +162,12 @@
                 </VerticalStackLayout>
 
                 <!-- 角色 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="可以出场的角色" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="允许全部角色" Style="{StaticResource TxtRowTitle}" />
                                         <Label Text="关掉后只让勾选的角色进入这份存档的剧情" Style="{StaticResource TxtRowDesc}" />
@@ -181,7 +181,7 @@
                                     <DataTemplate>
                                         <VerticalStackLayout Spacing="0">
                                             <Border Style="{StaticResource SettingRow}">
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
@@ -205,12 +205,12 @@
                 </VerticalStackLayout>
 
                 <!-- 角色世界观：这套设定属于角色，但「这一档用哪一套」可以按档覆盖 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="这一档的角色世界观" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="世界观改动跨存档生效" Style="{StaticResource TxtRowTitle}" />
                                         <Label Text="{Binding WorldviewCrossSaveHint}" Style="{StaticResource TxtRowDesc}"
@@ -233,7 +233,7 @@
                                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickWorldviewCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                     <BoxView WidthRequest="9" HeightRequest="9" CornerRadius="4.5"
                                                              Color="Transparent" VerticalOptions="Center">
                                                         <BoxView.Triggers>
@@ -263,12 +263,12 @@
                 </VerticalStackLayout>
 
                 <!-- 性欲系统：只在这份存档里点名的人生效 -->
-                <VerticalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="性欲系统参与角色" Style="{StaticResource TxtSubhead}" />
                     <Border Style="{StaticResource CardGroup}">
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
-                                <VerticalStackLayout Spacing="4">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                     <Label Text="只对这里点名的人生效" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="没点名的人完全不参与。数值由设定（写死的值）与女性周期共同决定，设定优先——写死时周期不再影响它。"
                                            Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
@@ -283,7 +283,7 @@
                                     <DataTemplate>
                                         <VerticalStackLayout Spacing="0">
                                             <Border Style="{StaticResource SettingRow}">
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"

@@ -18,7 +18,7 @@
         <!-- Header -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0" VerticalOptions="Center"
                         Command="{Binding GoBackCommand}" />
@@ -37,7 +37,7 @@
 
         <!-- Messages -->
         <ScrollView Grid.Row="2" x:Name="MsgScroll">
-            <VerticalStackLayout Spacing="6" Padding="{DynamicResource WPadCard}"
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" Padding="{DynamicResource WPadCard}"
                                  BindableLayout.ItemsSource="{Binding Messages}">
                 <BindableLayout.ItemTemplate>
                     <DataTemplate x:DataType="vm:NovelMessage">
@@ -70,7 +70,7 @@
         <BoxView Grid.Row="3" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
         <Border Grid.Row="4" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <!-- 输入是一条井（比卡面沉一档），不是一块贴上去的白 -->
                 <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0" Padding="10,0"
                         StrokeShape="{DynamicResource WRadiusPill}">

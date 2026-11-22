@@ -30,6 +30,33 @@ public sealed class ShopItem
 
     public bool HasImage => (_imageUsable ??= IsRemote(ImagePath) || File.Exists(ImagePath)) == true;
 
+    /// <summary>
+    /// 本地文件已经在盘上，能立刻画出像素。远程 URL 不算：它要先下载，
+    /// 下载完成之前 Image 一个像素也画不出来 —— 这段时间由占位层顶着。
+    /// </summary>
+    public bool HasLocalImage => !IsRemote(ImagePath) && File.Exists(ImagePath);
+
+    /// <summary>
+    /// 占位层要不要出现：只要「不能立刻画出图」就出现（远程图在路上、本地文件被清掉、压根没图）。
+    /// 它是垫底而不是替代 —— 图片一旦下载完就画在它上面，所以两者同时存在也没关系。
+    /// </summary>
+    public bool ShowPlaceholder => !HasLocalImage;
+
+    /// <summary>
+    /// 垫底用的首字：商品名的第一个字形（不是第一个 char —— emoji 与组合字按字形取，
+    /// 取半个代理对会变成替换符）。名字全空时给个中性问号，不留空格子。
+    /// </summary>
+    public string Initial
+    {
+        get
+        {
+            var name = DisplayName;
+            if (string.IsNullOrWhiteSpace(name)) return "?";
+            var glyph = System.Globalization.StringInfo.GetNextTextElement(name.Trim());
+            return string.IsNullOrEmpty(glyph) ? "?" : glyph;
+        }
+    }
+
     public bool Bought => Owned > 0;
 
     /// <summary>行标题：同步商品可以缺 name，空白行读不出是什么，兜一句说明。</summary>

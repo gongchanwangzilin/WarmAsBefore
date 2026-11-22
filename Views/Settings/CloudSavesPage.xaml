@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.CloudSavesPage"
              x:Name="Page"
              Title="云存档"
@@ -13,7 +14,7 @@
         <DataTemplate x:Key="SaveRowTemplate" x:DataType="vm:CloudSaveRow">
             <VerticalStackLayout Spacing="0">
                 <Border Style="{StaticResource SettingRow}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}"
                           RowDefinitions="Auto,Auto" RowSpacing="2">
                         <Label Text="{Binding SaveName}" Style="{StaticResource TxtRowTitle}"
                                LineBreakMode="TailTruncation" />
@@ -34,7 +35,7 @@
         <DataTemplate x:Key="ConflictRowTemplate" x:DataType="vm:CloudConflictRow">
             <VerticalStackLayout Spacing="0">
                 <Border Style="{StaticResource SettingRow}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}"
                           RowDefinitions="Auto,Auto" RowSpacing="2">
                         <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
                                LineBreakMode="TailTruncation" />
@@ -53,35 +54,26 @@
         </DataTemplate>
     </ContentPage.Resources>
 
-    <Grid RowDefinitions="Auto,Auto,*">
-        <!-- 顶栏：标题与「上次同步」同列，刷新在右；手机宽度下也只占一行 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
-                        Command="{Binding GoBackCommand}" />
-                <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
-                    <Label Text="云存档" Style="{StaticResource TxtTitle}" />
-                    <Label Text="{Binding SyncLine}" Style="{StaticResource TxtCaption}"
-                           LineBreakMode="TailTruncation" />
-                </VerticalStackLayout>
-                <Button Grid.Column="2" Text="{Binding RefreshText}"
+    <Grid RowDefinitions="Auto,*">
+        <!-- 顶栏：标题与「上次同步」同列，刷新在右（结构走 PageHeader） -->
+        <ctl:PageHeader Title="云存档" Subtitle="{Binding SyncLine}" BackCommand="{Binding GoBackCommand}">
+            <ctl:PageHeader.Actions>
+                <Button Text="{Binding RefreshText}"
                         Style="{StaticResource BtnNeumorphSm}" WidthRequest="80"
                         VerticalOptions="Center"
                         Command="{Binding RefreshCommand}"
                         IsEnabled="{Binding IsLoading, Converter={StaticResource InverseBool}}" />
-            </Grid>
-        </Border>
-        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
-        <ScrollView Grid.Row="2" Padding="16,14,16,32">
-            <VerticalStackLayout Spacing="14" MaximumWidthRequest="880" HorizontalOptions="Fill">
+        <ScrollView Grid.Row="1" Padding="{DynamicResource WPadHero}">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="880" HorizontalOptions="Fill">
 
                 <!-- 私人仓库门禁：云存档只写进自己的私人仓库，公开仓库会让存档跟着公开。
                      检查结果来自 CloudSyncService.RepoPrivacyNote；未验证 / 通过 / 警告三种外观分开摆。 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="6">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <Label Text="云存档只写私人仓库" Style="{StaticResource TxtSubhead}"
                                    VerticalOptions="Center" />
                             <Button Grid.Column="1" Text="{Binding PrivacyButtonText}"
@@ -109,7 +101,7 @@
                            Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
 
-                <HorizontalStackLayout Spacing="8" IsVisible="{Binding IsLoading}">
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding IsLoading}">
                     <ActivityIndicator IsRunning="{Binding IsLoading}" WidthRequest="14" HeightRequest="14"
                                        VerticalOptions="Center" Color="{DynamicResource AccentWarm}" />
                     <Label Text="正在读取云端…" Style="{StaticResource TxtMuted}" VerticalOptions="Center" />
@@ -120,7 +112,7 @@
                         BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
                         Padding="{DynamicResource WPadCard}"
                         StrokeShape="{DynamicResource WRadiusWell}">
-                    <VerticalStackLayout Spacing="4">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                         <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding HintTitle}" Style="{StaticResource TxtSubhead}" />
                         <Label Text="{Binding HintText}" Style="{StaticResource TxtMuted}"
                                LineBreakMode="WordWrap" />
@@ -128,7 +120,7 @@
                 </Border>
 
                 <!-- 空状态：不是加载中，是真的没有 -->
-                <VerticalStackLayout IsVisible="{Binding ShowEmpty}" Spacing="6"
+                <VerticalStackLayout IsVisible="{Binding ShowEmpty}" Spacing="{DynamicResource WSpaceTight}"
                                      Padding="0,44,0,20" HorizontalOptions="Center">
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding EmptyTitle}" Style="{StaticResource TxtSubhead}"
                            HorizontalOptions="Center" />
@@ -138,7 +130,7 @@
                 </VerticalStackLayout>
 
                 <!-- 第一段：当前设备 -->
-                <VerticalStackLayout Spacing="8" IsVisible="{Binding ShowCurrentSection}">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding ShowCurrentSection}">
                     <Grid ColumnDefinitions="*,Auto">
                         <Label Text="当前设备" Style="{StaticResource TxtSection}" />
                         <Label Grid.Column="1" Text="{Binding CurrentCountText}"
@@ -156,10 +148,10 @@
                 </VerticalStackLayout>
 
                 <!-- 第二段：其他设备 / 历史 -->
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasHistorySection}">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasHistorySection}">
                     <Label Text="其他设备 / 历史" Style="{StaticResource TxtSection}" />
 
-                    <VerticalStackLayout Spacing="6" IsVisible="{Binding HasOther}">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding HasOther}">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="其他设备" Style="{StaticResource TxtSubhead}" />
                             <Label Grid.Column="1" Text="{Binding OtherCountText}"
@@ -172,7 +164,7 @@
                         </Border>
                     </VerticalStackLayout>
 
-                    <VerticalStackLayout Spacing="6" IsVisible="{Binding HasConflicts}">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding HasConflicts}">
                         <Label Text="历史副本" Style="{StaticResource TxtSubhead}" />
                         <Label Text="云同步覆盖前自动留的旧版本。恢复后本机当前版本也会先留底，下一次同步会把它推回云端。"
                                Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap"

@@ -98,7 +98,7 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSaveCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="01" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="{Binding [Title_Save], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
@@ -111,7 +111,7 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenNovelsCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="02" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="{Binding [Title_Novels], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
@@ -124,7 +124,7 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenRosterCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="03" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="{Binding [Title_Roster], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
@@ -137,7 +137,7 @@
                         <Border.GestureRecognizers>
                             <TapGestureRecognizer Command="{Binding OpenSettingsCommand}" />
                         </Border.GestureRecognizers>
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="04" Style="{StaticResource Eyebrow}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="{Binding [Title_Settings], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
@@ -150,7 +150,7 @@
 
                     <VerticalStackLayout x:Name="RailBottom" Grid.Row="2" Spacing="0">
                     <BoxView Style="{StaticResource HSep}" />
-                    <Grid x:Name="RailFoot" Padding="{DynamicResource WPadCard}" RowDefinitions="Auto,Auto" RowSpacing="12">
+                    <Grid x:Name="RailFoot" Padding="{DynamicResource WPadCard}" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceLoose}">
                         <VerticalStackLayout Grid.Row="0" Spacing="3">
                             <!-- 这一句是「这软件是什么」，不是免责声明：放在导航带底部，
                                  读起来像页脚的签名，而不是主行动下面又一颗按钮的说明。 -->
@@ -162,7 +162,7 @@
                         <!-- 退出原来是「一行浮空的文字」，看着像哪个控件坏了没画完；
                              给它一颗真的次要钮，它才读得出是「可以按，但不重要」。
                              现在再垫一颗「桌宠设置」：同住体验这一带的第三条路，手机上没有桌宠可以不显。 -->
-                        <HorizontalStackLayout Grid.Row="1" Spacing="8">
+                        <HorizontalStackLayout Grid.Row="1" Spacing="{DynamicResource WSpaceRegular}">
                             <Button Text="桌宠设置" Style="{StaticResource BtnGhostSm}"
                                     IsVisible="{OnIdiom Desktop=True, Tablet=False, Phone=False}"
                                     Clicked="OnPetSettingsTapped" />
@@ -226,7 +226,7 @@
                             VerticalOptions="End" HorizontalOptions="Start"
                             Margin="{DynamicResource WPadCard}"
                             MaximumWidthRequest="520" Style="{StaticResource CardSolid}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="// LAST SAVE" Style="{StaticResource Eyebrow}" />
                                 <Label Text="{Binding RecentName}" Style="{StaticResource TxtTitle}" MaxLines="1"
@@ -266,7 +266,7 @@
             <Border x:Name="DisclaimerCard" Style="{StaticResource CardDialog}"
                     MaximumWidthRequest="560" MaximumHeightRequest="640" Margin="20,0"
                     HorizontalOptions="Center" VerticalOptions="Center">
-                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="14">
+                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="{DynamicResource WSpaceLoose}">
                     <Label Grid.Row="0" Text="免责声明与使用条款" FontSize="18"
                            FontAttributes="Bold" TextColor="{DynamicResource WarmDark}"
                            HorizontalOptions="Center" />

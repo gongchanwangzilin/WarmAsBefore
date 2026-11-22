@@ -23,7 +23,7 @@
     -->
     <ContentPage.Resources>
         <DataTemplate x:Key="OptionRow" x:DataType="vm:SetupOption">
-            <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="12"
+            <Grid ColumnDefinitions="4,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}"
                   HeightRequest="{DynamicResource WRowHeight}">
                 <BoxView Grid.ColumnSpan="3" Color="{DynamicResource SecondaryBg}"
                          CornerRadius="10" Margin="8,0" VerticalOptions="Fill" HorizontalOptions="Fill"
@@ -88,7 +88,7 @@
                 <Grid>
 
                     <!-- 1 · 语言 -->
-                    <VerticalStackLayout x:Name="StepLang" Spacing="6" IsVisible="{Binding AtLang}">
+                    <VerticalStackLayout x:Name="StepLang" Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding AtLang}">
                         <Label Text="{Binding [Setup_Lang_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
                         <Label Text="{Binding [Setup_Lang_Sub], Source={x:Static i18n:LocalizationService.Current}}"
@@ -100,7 +100,7 @@
                     </VerticalStackLayout>
 
                     <!-- 2 · 材质与色板：选一颗，整页当场换 -->
-                    <VerticalStackLayout x:Name="StepStyle" Spacing="6" IsVisible="{Binding AtStyle}">
+                    <VerticalStackLayout x:Name="StepStyle" Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding AtStyle}">
                         <Label Text="{Binding [Setup_Style_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
                         <Label Text="{Binding [Setup_Style_Sub], Source={x:Static i18n:LocalizationService.Current}}"
@@ -115,13 +115,13 @@
                     </VerticalStackLayout>
 
                     <!-- 3 · 常驻与桌宠（只有 Windows 走这一步） -->
-                    <VerticalStackLayout x:Name="StepReside" Spacing="6" IsVisible="{Binding AtReside}">
+                    <VerticalStackLayout x:Name="StepReside" Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding AtReside}">
                         <Label Text="{Binding [Setup_Reside_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
                         <Label Text="{Binding [Setup_Reside_Sub], Source={x:Static i18n:LocalizationService.Current}}"
                                Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}"
                                Margin="0,0,0,10" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}" Padding="0,8">
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="{Binding [Setup_Reside_Top], Source={x:Static i18n:LocalizationService.Current}}"
                                        Style="{StaticResource TxtBodySm}" />
@@ -142,14 +142,14 @@
                     </VerticalStackLayout>
 
                     <!-- 4 · AI 端点：只有这一屏要打字，所以只有它用下划线输入 -->
-                    <VerticalStackLayout x:Name="StepAi" Spacing="16" IsVisible="{Binding AtAi}">
-                        <VerticalStackLayout Spacing="6">
+                    <VerticalStackLayout x:Name="StepAi" Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding AtAi}">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Label Text="{Binding [Setup_Ai_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                    FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
                             <Label Text="{Binding [Setup_Ai_Sub], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}" />
                         </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="4">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Label Text="{Binding [Settings_AiUrl], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
                             <Entry Text="{Binding AiUrl, Mode=TwoWay}"
@@ -158,7 +158,7 @@
                                    TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeBody}" />
                             <BoxView HeightRequest="1" Color="{DynamicResource EdgeStrong}" />
                         </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="4">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Label Text="{Binding [Settings_AiKey], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
                             <Entry Text="{Binding AiKey, Mode=TwoWay}" IsPassword="True" Placeholder="sk-…"
@@ -166,7 +166,7 @@
                                    TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeBody}" />
                             <BoxView HeightRequest="1" Color="{DynamicResource EdgeStrong}" />
                         </VerticalStackLayout>
-                        <VerticalStackLayout Spacing="4">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Label Text="{Binding [Settings_AiModel], Source={x:Static i18n:LocalizationService.Current}}"
                                    Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
                             <Entry Text="{Binding AiModel, Mode=TwoWay}" Placeholder="gpt-4o"
@@ -179,7 +179,7 @@
                     </VerticalStackLayout>
 
                     <!-- 5 · 收尾：不只是「完事了」，还教一眼 —— 有什么、去哪调、最低要什么 -->
-                    <VerticalStackLayout x:Name="StepDone" Spacing="6" IsVisible="{Binding AtDone}">
+                    <VerticalStackLayout x:Name="StepDone" Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding AtDone}">
                         <Label Text="{Binding [Setup_Done_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
                         <Label Text="{Binding [Setup_Done_Sub], Source={x:Static i18n:LocalizationService.Current}}"
@@ -189,7 +189,7 @@
                                Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}"
                                Margin="0,14,0,2" />
 
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
                                     Color="{DynamicResource Signal}" VerticalOptions="Center" />
                             <VerticalStackLayout Grid.Column="1" Spacing="1">
@@ -200,7 +200,7 @@
                             </VerticalStackLayout>
                         </Grid>
 
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,6">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}" Margin="0,6">
                             <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
                                     Color="{DynamicResource Signal}" VerticalOptions="Center" />
                             <VerticalStackLayout Grid.Column="1" Spacing="1">
@@ -211,7 +211,7 @@
                             </VerticalStackLayout>
                         </Grid>
 
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12" Margin="0,6">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}" Margin="0,6">
                             <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
                                     Color="{DynamicResource Signal}" VerticalOptions="Center" />
                             <VerticalStackLayout Grid.Column="1" Spacing="1">
@@ -226,7 +226,7 @@
                 </ScrollView>
 
                 <!-- ── 行动：文字次行动在左，实心主行动在最右 ── -->
-                <HorizontalStackLayout Grid.Row="2" Spacing="10" HorizontalOptions="End" Margin="0,22,0,0">
+                <HorizontalStackLayout Grid.Row="2" Spacing="{DynamicResource WSpaceRegular}" HorizontalOptions="End" Margin="0,22,0,0">
                     <Button Text="{Binding [Setup_Back], Source={x:Static i18n:LocalizationService.Current}}"
                             Style="{StaticResource BtnText}" Command="{Binding BackCommand}"
                             IsVisible="{Binding CanBack}" />

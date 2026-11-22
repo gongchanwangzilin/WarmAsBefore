@@ -636,6 +636,30 @@ public static class StyleWorldTokens
         res["WPillRadius"] = (int)Math.Round(r.SizeBody * 2.9 / 2);
         PublishWidth(res);
         res["WGapItem"] = Math.Round(r.PadCard * 0.62);
+
+        // ── 间距四档（语义化，2026-11-22）────────────────────────────────
+        // 页面里原来散着 4/6/8/10/12/14/18 七种数：同一个「行与行之间」在三页里有三种气口，
+        // 读者说不出哪里不对，只觉得每页都差一点。现在只有四档，且每一档都从卡内距推出来，
+        // 所以窗口尺度换档时它们跟着一起缩放，不会出现「卡片变大了、间距还是老数」。
+        //   紧凑     tight   = 0.25 档  = 4   同一个读数的两行字之间（标题与紧跟着它的说明）
+        //   常规     regular = 0.50 档  = 8   列表项之间、按钮与按钮之间
+        //   宽松     loose   = 0.85 档  = 14  卡内的分块之间、卡与卡之间
+        //   分区间   section = 1.15 档  = 18  主题与主题之间（整页只该出现几次）
+        res["WSpaceTight"] = Math.Round(r.PadCard * 0.25);
+        res["WSpaceRegular"] = Math.Round(r.PadCard * 0.5);
+        res["WSpaceLoose"] = Math.Round(r.PadCard * 0.85);
+        res["WSpaceSection"] = Math.Round(r.PadCard * 1.15);
+
+        // ── 页头（2026-11-22）──────────────────────────────────────────
+        // 之前每页自己写 Border + Grid，高度 44/52/56 各一档、内距各异。
+        // 现在只有这一个高度：一行标题的行框 + 上下各 0.8 档井距，落在 48 上下。
+        // 有副标题时页头自然长高 —— 副标题本来就该把页头撑开，而不是靠内距硬给。
+        res["WHeaderPad"] = new Thickness(r.PadWell * 1.4, r.PadWell * 0.8, r.PadWell * 1.4, r.PadWell * 0.8);
+        res["WHeaderHeight"] = Math.Round(r.PadWell * 1.6 + r.SizeTitle * 1.45);
+        // 返回 / 标题 / 动作三段之间的横距：一档宽松，比行内密、比卡与卡紧。
+        res["WHeaderGap"] = Math.Round(r.PadCard * 0.75);
+        // 胶囊的内距：横向一档紧凑，纵向比它更窄 —— 胶囊的高度由字撑开，不靠上下内距。
+        res["WPillPad"] = new Thickness(r.PadCard * 0.5, r.PadCard * 0.1);
         // 主行动带的气口：横向比行宽一档，纵向给到 1.55 档。抬头/页脚用 WPadCard，
         // 只有这一带需要「比列表松」，因为它是整屏唯一要被先看到的东西。
         res["WPadHero"] = new Thickness(r.PadCard * 1.45, r.PadCard * 1.55, r.PadCard * 1.45, r.PadCard * 1.7);

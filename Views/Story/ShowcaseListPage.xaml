@@ -14,7 +14,7 @@
         <VerticalStackLayout Grid.Row="0" Spacing="0">
             <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                     Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
                     <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
                             Style="{StaticResource BtnText}" Padding="0" VerticalOptions="Center"
                             Command="{Binding BackCommand}" />
@@ -36,14 +36,14 @@
                         <DataTemplate x:DataType="models:ShowcaseScript">
                             <VerticalStackLayout Spacing="0">
                                 <Border Style="{StaticResource SettingRow}">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                         <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                             <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Steps.Count, StringFormat='步骤 {0}'}"
                                                    Style="{StaticResource TxtRowDesc}" />
                                         </VerticalStackLayout>
-                                        <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                                        <HorizontalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                             <Button Text="编辑" Style="{StaticResource BtnGhostSm}"
                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseListViewModel}}, Path=EditCommand}"
                                                     CommandParameter="{Binding .}" />

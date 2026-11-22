@@ -14,7 +14,7 @@
         <!-- 顶部栏：与内容区同一块地，只靠底下一条发丝线分界（LineColor 是退役别名，早没人发这个键了） -->
         <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
@@ -41,7 +41,7 @@
                         <DataTemplate x:DataType="models:SceneLibraryEntry">
                             <VerticalStackLayout Spacing="0">
                                 <Border Style="{StaticResource SettingRow}">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                         <VerticalStackLayout Grid.Column="0" Spacing="3" VerticalOptions="Center">
                                             <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
                                                    LineBreakMode="TailTruncation" />
@@ -66,8 +66,8 @@
 
             <!-- 选中条目操作区：一块平的面板，里面的模式列表靠发丝线分行，不再套第二层卡 -->
             <Border Grid.Row="1" Style="{StaticResource CardSolid}" IsVisible="{Binding CanEdit}">
-                <VerticalStackLayout Spacing="10">
-                    <HorizontalStackLayout Spacing="8">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Button Text="重命名" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding RenameEntryCommand}" />
                         <Button Text="引用地图场景" Style="{StaticResource BtnGhostSm}"
@@ -75,7 +75,7 @@
                         <Button Text="变换规则" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding EditRulesCommand}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="8">
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Button Text="＋ 加模式" Style="{StaticResource BtnGhostSm}"
                                 Command="{Binding AddModeCommand}" />
                         <Button Text="删除条目" Style="{StaticResource BtnDangerSm}"
@@ -92,7 +92,7 @@
                             <DataTemplate x:DataType="vm:SceneModeRow">
                                 <VerticalStackLayout Spacing="0">
                                     <Border Style="{StaticResource SettingRow}">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                                 <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
                                                        LineBreakMode="TailTruncation" />
@@ -113,7 +113,7 @@
                         </CollectionView.ItemTemplate>
                     </CollectionView>
 
-                    <HorizontalStackLayout Spacing="8">
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Button Text="模式名" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeNameCommand}"
@@ -127,7 +127,7 @@
                                 Command="{Binding EditModeBgmCommand}"
                                 CommandParameter="{Binding SelectedModeRow}" />
                     </HorizontalStackLayout>
-                    <HorizontalStackLayout Spacing="8">
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Button Text="灯光" Style="{StaticResource BtnGhostSm}"
                                 IsEnabled="{Binding CanEditMode}"
                                 Command="{Binding EditModeLightingCommand}"
@@ -147,7 +147,7 @@
         </Grid>
 
         <!-- 底部：当前生效状态（解释「AI 为什么切不动」）+ 用法提示，直接落在地上 -->
-        <VerticalStackLayout Grid.Row="2" Padding="{DynamicResource WPadCard}" Spacing="4">
+        <VerticalStackLayout Grid.Row="2" Padding="{DynamicResource WPadCard}" Spacing="{DynamicResource WSpaceTight}">
             <Label MaxLines="1" LineBreakMode="TailTruncation" Style="{StaticResource TxtBodySm}" Text="{Binding StateText}" />
             <Label Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap"
                    Text="点条目或模式右侧的「应用」即可立刻切换当前场景（点击式，无需拖拽）；切换结果与此刻可用性会显示在上方状态栏。时间到点自动切换，AI 只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。" />

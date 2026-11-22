@@ -59,7 +59,7 @@
                     Padding="30,24"
                     HorizontalOptions="Center">
                 <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
-                <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" HorizontalOptions="Center">
                     <Image Source="ic_heart_contrast.png" WidthRequest="52" HeightRequest="52" HorizontalOptions="Center" />
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LevelText}"
                            TextColor="White"

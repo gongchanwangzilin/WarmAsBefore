@@ -11,7 +11,7 @@
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="心理状况" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
@@ -19,8 +19,8 @@
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,28">
-            <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
-                <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="900" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CharacterLabel, StringFormat='{0} · 心理状况'}" Style="{StaticResource TxtTitle}" />
                     <Label Text="这不是诊断，也不会把病名写进对话：只决定 TA 怎么感受、怎么应对。安慰与陪伴会提高稳定度；时间几乎不起作用。涉及自伤、自杀、伤人的条目有硬边界——可以写痛苦与冲动，不写方法、不美化，始终引向现实求助。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -29,11 +29,11 @@
                 </VerticalStackLayout>
 
                 <!-- 当前生效的状况 -->
-                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Active}" Spacing="10">
+                <VerticalStackLayout BindableLayout.ItemsSource="{Binding Active}" Spacing="{DynamicResource WSpaceRegular}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource CardSolid}">
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Spacing="2">
                                             <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
@@ -51,7 +51,7 @@
                                     <Label Text="这条有安全边界：不提供做法、不美化，只做陪伴与转向求助。"
                                            Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}"
                                            IsVisible="{Binding Safety}" />
-                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="6">
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Button Text="轻" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                 Command="{Binding BindingContext.SetMildCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
@@ -73,9 +73,9 @@
 
                 <!-- 添加一条 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="添加一条" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Picker Title="选择心理状况（115 条）" ItemsSource="{Binding CatalogNames}"
                                     SelectedItem="{Binding NewCondition}" FontSize="13" />
                             <Picker Grid.Column="1" WidthRequest="100" ItemsSource="{Binding SeverityChoices}"

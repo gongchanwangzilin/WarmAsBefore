@@ -8,11 +8,11 @@
              Title="流程图"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*" Padding="16,14" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*" Padding="16,14" RowSpacing="{DynamicResource WSpaceLoose}">
 
         <!-- 头：标题 + 状态 + 两颗钮 -->
         <Border Style="{StaticResource CardGroup}">
-            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <VerticalStackLayout Spacing="3" VerticalOptions="Center">
                     <Label Text="流程图" Style="{StaticResource TxtTitle}" />
                     <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -29,8 +29,8 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:FlowRowVm">
                     <!-- 一条规则一段，靠发丝线分，不再一摞同款卡片 -->
-                    <VerticalStackLayout Spacing="4" Padding="4,10">
-                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10" RowSpacing="4">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" Padding="4,10">
+                        <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" RowSpacing="{DynamicResource WSpaceTight}">
                             <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                             <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding EnabledLabel}" Style="{StaticResource TxtCaption}"
                                    VerticalOptions="Center" />
@@ -42,7 +42,7 @@
                             <Label Grid.Row="3" Text="{Binding ThenText}" Style="{StaticResource TxtBodySm}"
                                    LineBreakMode="WordWrap" />
 
-                            <HorizontalStackLayout Grid.Row="3" Grid.Column="1" Spacing="6" VerticalOptions="End">
+                            <HorizontalStackLayout Grid.Row="3" Grid.Column="1" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="End">
                                 <Button Text="试跑" Style="{StaticResource BtnGhostSm}" HeightRequest="28"
                                         Padding="10,0"
                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:FlowEditorViewModel}}, Path=TestCommand}"

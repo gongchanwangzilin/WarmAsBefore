@@ -14,8 +14,8 @@
         <!-- ============ 搜索条：一张平卡（此刻要「动」的是结果行，不是这条输入），
               内距与圆角都归 CardSolid，不再自己写 14,12 ============ -->
         <Border Grid.Row="0" Style="{StaticResource CardSolid}">
-            <VerticalStackLayout Spacing="10">
-                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <Entry Grid.Column="0"
                            Text="{Binding Query, Mode=TwoWay}"
                            Placeholder="一句话、#标签、一种感觉、或者 8月24号…"
@@ -37,7 +37,7 @@
                 </Grid>
 
                 <!-- 类型：先说清要哪一类，省得「手机」这件事把那句夸手机的话也捞上来 -->
-                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding KindChips}">
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding KindChips}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:MemorySearchViewModel+Chip">
                             <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
@@ -49,7 +49,7 @@
                 </HorizontalStackLayout>
 
                 <!-- 感觉：命中里出现过的情绪名，点一下就按那种感觉再搜一遍 -->
-                <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding EmotionChips}"
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding EmotionChips}"
                                        IsVisible="{Binding HasEmotionChips}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:MemorySearchViewModel+Chip">
@@ -63,10 +63,10 @@
 
                 <!-- 数值：字面没对上时的第二条路。这些说法是量化模型把这句话换算成数值之后，
                      挨得最近的一批 —— 从没和它同框出现过的近义词，只有语境向量看得见。 -->
-                <HorizontalStackLayout Spacing="6" IsVisible="{Binding HasQuantChips}">
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding HasQuantChips}">
                     <Label Text="数值上接近：" Style="{StaticResource TxtCaption}"
                            VerticalTextAlignment="Center" />
-                    <HorizontalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding QuantChips}">
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding QuantChips}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:MemorySearchViewModel+Chip">
                                 <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
@@ -78,7 +78,7 @@
                     </HorizontalStackLayout>
                 </HorizontalStackLayout>
 
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <ActivityIndicator Grid.Column="0" IsRunning="{Binding Searching}" WidthRequest="16" HeightRequest="16"
                                        Color="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding Status}" Style="{StaticResource TxtCaption}"
@@ -95,7 +95,7 @@
 
                 <!-- 空结果是「一句话井」：比卡沉一档，读起来是提示不是另一条命中 -->
                 <Border Style="{StaticResource CardNeumorphInset}" IsVisible="{Binding HasNoResults}">
-                    <VerticalStackLayout Spacing="4">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                         <Label Text="没找着。" Style="{StaticResource TxtRowTitle}" />
                         <Label Text="{Binding EmptyHint}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
@@ -109,9 +109,9 @@
                         <DataTemplate x:DataType="vm:MemorySearchViewModel+HitRow">
                             <VerticalStackLayout Spacing="0">
                                 <Border Style="{StaticResource SettingRow}">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
-                                        <VerticalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
-                                            <HorizontalStackLayout Spacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
+                                        <VerticalStackLayout Grid.Column="0" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
+                                            <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Kind}" Style="{StaticResource TxtRowTitle}"
                                                        VerticalTextAlignment="Center" />
                                                 <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Why}" Style="{StaticResource TxtBodySm}"
@@ -119,7 +119,7 @@
                                                        IsVisible="{Binding HasWhy}" VerticalTextAlignment="Center" />
                                             </HorizontalStackLayout>
 
-                                            <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding Lines}">
+                                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding Lines}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="helpers:MemoryHighlight+Line">
                                                         <Border BackgroundColor="{Binding Tint}" Stroke="Transparent"
@@ -131,7 +131,7 @@
                                             </VerticalStackLayout>
 
                                             <!-- 情绪配比：条是几分几分，字是名字与成数 —— 只留一个词就说不清那晚 -->
-                                            <HorizontalStackLayout Spacing="8" IsVisible="{Binding HasEmotion}">
+                                            <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasEmotion}">
                                                 <HorizontalStackLayout Spacing="1" VerticalOptions="Center"
                                                                        BindableLayout.ItemsSource="{Binding Slices}">
                                                     <BindableLayout.ItemTemplate>

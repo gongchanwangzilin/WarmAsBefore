@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.SavePage"
              x:Name="Page"
 
@@ -10,18 +11,12 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="0">
-        <!-- Header：顶栏不是卡，与内容区同一块地，下面一条发丝线就够了 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        Padding="0"
-                        Command="{Binding GoBackCommand}" />
-                <Label Grid.Column="1" Text="存档管理" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" />
+    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0">
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Title="存档管理" BackCommand="{Binding GoBackCommand}">
+            <ctl:PageHeader.Actions>
                 <!-- 超级监测入口：静态命令自带 charId 兜底，不用改本页 VM / code-behind -->
-                <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                     <Button Text="监测" Style="{StaticResource BtnGhostSm}"
                             VerticalOptions="Center"
                             Command="{x:Static vm:SuperMonitorViewModel.NavigateToMonitor}" />
@@ -29,18 +24,17 @@
                             VerticalOptions="Center"
                             Command="{x:Static vm:SaveTreeViewModel.NavigateToTree}" />
                 </HorizontalStackLayout>
-            </Grid>
-        </Border>
-        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 云存档入口：用户找不到「打开口」，所以给它一条真行，而不是只藏在设置里。
              路由由主智能体注册；这里只负责跳过去。 -->
-        <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
+        <Border Grid.Row="1" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
             <Border Style="{StaticResource TappableRow}">
                 <Border.GestureRecognizers>
                     <TapGestureRecognizer Tapped="OnCloudSavesTapped" />
                 </Border.GestureRecognizers>
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                     <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
                             WidthRequest="34" HeightRequest="34" VerticalOptions="Center"
                             StrokeShape="{DynamicResource WRadiusWell}">
@@ -59,7 +53,7 @@
         </Border>
 
         <!-- Save slots：一个存档 = 一行，所有行装在同一张 CardGroup 里 -->
-        <Border Grid.Row="3" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
+        <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
             <!-- P0-4：显式线性布局 + MeasureFirstItem。ItemTemplate 有 5 层嵌套、
                  FormattedString 5 Span 与 4 个按钮，逐项测量很贵；所有行等高，只测第一项。 -->
             <CollectionView ItemsSource="{Binding Slots}" BackgroundColor="Transparent"
@@ -68,20 +62,16 @@
                     <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.EmptyView>
-                    <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="6"
-                                         Padding="{DynamicResource WPadCard}">
-                        <Label Text="暂无存档" Style="{StaticResource TxtSubhead}"
-                               HorizontalOptions="Center" />
-                        <Label Text="点下方「新建存档」开始新的一局吧" Style="{StaticResource TxtMuted}"
-                               HorizontalOptions="Center" HorizontalTextAlignment="Center" />
-                    </VerticalStackLayout>
+                    <ctl:EmptyState Title="还没有存档"
+                                    Reason="这台机器上还没有任何一局"
+                                    Hint="点下方「新建存档」开始新的一局" />
                 </CollectionView.EmptyView>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="vm:SaveSlotItem">
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
-                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14"
-                                      RowDefinitions="Auto,Auto" RowSpacing="6">
+                                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}"
+                                      RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceTight}">
                                     <!-- 头像：凹一档的井就够了。44px 圆片自带描边和左上落影，
                                          会形成「凸起」的拟物感，与这套语言相反。 -->
                                     <Border Grid.Row="0" Grid.RowSpan="2" Grid.Column="0"
@@ -117,7 +107,7 @@
 
                                     <!-- 次要动作是文字级的，压在说明下面：三个小钮并排会把一行撑成两块 -->
                                     <HorizontalStackLayout Grid.Row="1" Grid.Column="1"
-                                                           Spacing="4">
+                                                           Spacing="{DynamicResource WSpaceTight}">
                                         <Button Text="重命名" Style="{StaticResource BtnTextSm}"
                                                 TextColor="{DynamicResource MutedFg}"
                                                 Command="{Binding Path=BindingContext.RenameSlotCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
@@ -152,11 +142,11 @@
         <!-- Bottom bar: new / import / backup / novel-test。
              新建存档放在这一页的第一颗主按钮上：用户在这里找的就是「再开一档」，
              不该被赶回标题页再绕一遍「创建新欢」。 -->
-        <VerticalStackLayout Grid.Row="4" Spacing="6" Margin="{DynamicResource WPadCard}">
+        <VerticalStackLayout Grid.Row="3" Spacing="{DynamicResource WSpaceRegular}" Margin="{DynamicResource WPadCard}">
             <!-- T3：坏档隔离区（容错自愈）：列表扫描读不出来的文件已备份原件并移出列表，这里告知用户。 -->
             <Border IsVisible="{Binding HasUnreadable}" Style="{StaticResource CardSolid}"
                     Padding="{DynamicResource WPadWell}" Margin="0,0,0,2">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <Label Text="{Binding UnreadableText}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center" MaxLines="3" TextColor="{DynamicResource DangerInk}" />
                 </Grid>
@@ -167,7 +157,7 @@
                     Style="{StaticResource CardSolid}"
                     Padding="{DynamicResource WPadWell}"
                     Margin="0,0,0,2">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <Label Text="{Binding IncompleteLoadNote}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center" MaxLines="2" />
                     <Button Grid.Column="1" Text="查看日志" Style="{StaticResource BtnText}"
@@ -176,7 +166,7 @@
             </Border>
             <Button Text="新建存档" Style="{StaticResource BtnNeumorph}"
                     Command="{Binding NewSaveCommand}" />
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Button Text="导入存档" Style="{StaticResource BtnNeumorph}"
                         Command="{Binding ImportSaveCommand}" />
                 <Button Grid.Column="1" Text="备份全部" Style="{StaticResource BtnNeumorph}"
@@ -189,14 +179,14 @@
         </VerticalStackLayout>
 
         <!-- dev 压测条：带 worst 启动参数时才出现 -->
-        <dev:WorstCaseBar Grid.Row="3" />
+        <dev:WorstCaseBar Grid.RowSpan="4" />
 
         <!-- ==================== 读档状态层（P0-3，2026-11-14）====================
              不铺全屏压暗 scrim：用户明确抱怨「完全卡死、拖窗口都卡」，变暗会被误读成又一次模态锁死。
              容器 InputTransparent=True，只有卡片内放开点击；返回键 / 标题栏 / 窗口拖动全程可用。
              显隐只写 IsVisible（LoadingVeil.cs:14-17 硬规矩：谁都不写 Opacity）。
              5 行阶段轨预建在 XAML，运行时绝不 Add/Remove 子控件，推进只改 Text / TextColor 令牌。 -->
-        <Grid Grid.Row="0" Grid.RowSpan="5"
+        <Grid Grid.Row="0" Grid.RowSpan="4"
               IsVisible="{Binding IsRestoring}"
               InputTransparent="True"
               BackgroundColor="Transparent">
@@ -208,9 +198,9 @@
                     Margin="{DynamicResource WPadCard}"
                     VerticalOptions="Center"
                     InputTransparent="False">
-                <VerticalStackLayout Spacing="12">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}">
 
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <Label Text="{Binding StateTitle}" Style="{StaticResource TxtTitle}"
                                VerticalOptions="Center" MaxLines="1" />
                         <Label Grid.Column="1" Text="{Binding StatePhaseText}"
@@ -220,7 +210,7 @@
 
                     <!-- 转圈用全局隐式样式（BaseStyles.xaml:19-21），不内联 Color；
                          MotionTokens.Disabled 时 ShowSpinner=false，改静态星形（MDL2 E735），不做任何逐帧动画。 -->
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <ActivityIndicator IsRunning="{Binding ShowSpinner}"
                                            IsVisible="{Binding ShowSpinner}"
                                            WidthRequest="20" HeightRequest="20"
@@ -232,8 +222,8 @@
 
                     <!-- 5 行阶段轨：真实节点驱动，当前 ● / 已完成 ✓ / 未开始 ○ / 失败 ✕。
                          符号只用单色白名单 ✓ ✕ ✦ △ ○ ●，颜色走 Signal / SignalFg / MutedFg / DangerInk 令牌。 -->
-                    <VerticalStackLayout Spacing="6">
-                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="{Binding Stage1Mark}" TextColor="{Binding Stage1Ink}"
                                    Style="{StaticResource TxtBody}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="读取文件" TextColor="{Binding Stage1Ink}"
@@ -241,7 +231,7 @@
                             <Label Grid.Column="2" Text="{Binding Stage1Glyph}" TextColor="{Binding Stage1Ink}"
                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                         </Grid>
-                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="{Binding Stage2Mark}" TextColor="{Binding Stage2Ink}"
                                    Style="{StaticResource TxtBody}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="校验数据" TextColor="{Binding Stage2Ink}"
@@ -249,7 +239,7 @@
                             <Label Grid.Column="2" Text="{Binding Stage2Glyph}" TextColor="{Binding Stage2Ink}"
                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                         </Grid>
-                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="{Binding Stage3Mark}" TextColor="{Binding Stage3Ink}"
                                    Style="{StaticResource TxtBody}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="恢复角色" TextColor="{Binding Stage3Ink}"
@@ -257,7 +247,7 @@
                             <Label Grid.Column="2" Text="{Binding Stage3Glyph}" TextColor="{Binding Stage3Ink}"
                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                         </Grid>
-                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="{Binding Stage4Mark}" TextColor="{Binding Stage4Ink}"
                                    Style="{StaticResource TxtBody}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="唤醒插件" TextColor="{Binding Stage4Ink}"
@@ -265,7 +255,7 @@
                             <Label Grid.Column="2" Text="{Binding Stage4Glyph}" TextColor="{Binding Stage4Ink}"
                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                         </Grid>
-                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="28,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="{Binding Stage5Mark}" TextColor="{Binding Stage5Ink}"
                                    Style="{StaticResource TxtBody}" VerticalOptions="Center" />
                             <Label Grid.Column="1" Text="进入场景" TextColor="{Binding Stage5Ink}"
@@ -282,7 +272,7 @@
                             StrokeThickness="0"
                             StrokeShape="{DynamicResource WRadiusCard}"
                             Padding="{DynamicResource WPadWell}">
-                        <VerticalStackLayout Spacing="4">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Label Text="读取失败说明" Style="{StaticResource TxtRowTitle}"
                                    TextColor="{DynamicResource OnScrimInk}" />
                             <Label Text="{Binding StateBody}" Style="{StaticResource TxtBody}"
@@ -295,7 +285,7 @@
                     </Border>
 
                     <!-- 动作行右对齐：取消从进入加载起常驻可见（CanCancel 变 false 只禁用、不隐藏）。 -->
-                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <Button Grid.Column="1" Text="取消" Style="{StaticResource BtnText}"
                                 HeightRequest="34" IsEnabled="{Binding CanCancel}"
                                 Command="{Binding CancelLoadCommand}" />
@@ -314,7 +304,7 @@
         <!-- ==================== 高损确认卡（容错自愈 · P2）====================
              核心状态段（state）无法解析、已用默认值重建：影响大，停在存档页让用户确认，
              不静默自动进入。显隐只写 IsVisible（不写 Opacity）；卡片内放开点击。 -->
-        <Grid Grid.Row="0" Grid.RowSpan="5"
+        <Grid Grid.Row="0" Grid.RowSpan="4"
               IsVisible="{Binding IsConfirming}"
               InputTransparent="True"
               BackgroundColor="Transparent">
@@ -324,10 +314,10 @@
                     Margin="{DynamicResource WPadCard}"
                     VerticalOptions="Center"
                     InputTransparent="False">
-                <VerticalStackLayout Spacing="12">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}">
                     <Label Text="部分修复 · 请确认" Style="{StaticResource TxtTitle}" MaxLines="1" />
                     <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding ConfirmDetail}" Style="{StaticResource TxtBody}" />
-                    <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="10" HorizontalOptions="Center">
+                    <Grid ColumnDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" HorizontalOptions="Center">
                         <Button Text="仍要进入" Style="{StaticResource BtnNeumorph}"
                                 Command="{Binding ConfirmEnterCommand}" />
                         <Button Text="返回列表" Style="{StaticResource BtnText}"

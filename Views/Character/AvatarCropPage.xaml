@@ -20,7 +20,7 @@
         <!-- 顶栏 -->
         <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                     <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" LineBreakMode="TailTruncation" />
                     <Label Text="{Binding SourceInfo}" Style="{StaticResource TxtCaption}"
@@ -72,14 +72,14 @@
         </Grid>
 
         <!-- 缩放与网格 -->
-        <VerticalStackLayout Grid.Row="2" Padding="20,10,20,4" Spacing="8" IsVisible="{Binding HasImage}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <VerticalStackLayout Grid.Row="2" Padding="20,10,20,4" Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasImage}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Button Text="{Binding GridLabel}" Style="{StaticResource BtnGhostSm}"
                         HeightRequest="32" Padding="12,4" Command="{Binding ToggleGridCommand}" />
                 <Label Grid.Column="1" Text="拖动取景 · 滚轮 / 双指缩放" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" HorizontalOptions="Center" />
             </Grid>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Label Text="1×" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                 <controls:ViewSlider Grid.Column="1" Minimum="1" Maximum="5" Value="{Binding Zoom, Mode=TwoWay}"
                         MinimumTrackColor="{DynamicResource BeigeAccent300}"
@@ -96,7 +96,7 @@
         <!-- 底部动作：手机端落在安全区里 -->
         <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="16,10,16,14">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}"
                   Margin="{OnPlatform WinUI='0', Default='0,0,0,12'}">
                 <Button Text="取消" Style="{StaticResource BtnText}"
                         Clicked="OnCancelClicked" VerticalOptions="Center" />
@@ -113,7 +113,7 @@
               ZIndex="20">
             <Border Style="{StaticResource CardGroup}" Padding="22,18" Margin="28"
                     HorizontalOptions="Center" VerticalOptions="Center">
-                <HorizontalStackLayout Spacing="12" VerticalOptions="Center">
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceLoose}" VerticalOptions="Center">
                     <ActivityIndicator IsRunning="{Binding IsBusy}" WidthRequest="18" HeightRequest="18"
                                        Color="{DynamicResource BeigeAccent300}" />
                     <Label Text="正在处理这张图…" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />

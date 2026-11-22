@@ -78,7 +78,7 @@
         <!-- 顶栏 -->
         <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         VerticalOptions="Center" Command="{Binding BackCommand}" />
                 <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
@@ -91,7 +91,7 @@
         </Border>
 
         <!-- 进度：四段等宽，走过的段点亮 -->
-        <Grid Grid.Row="1" Padding="24,14,24,0" RowDefinitions="Auto,Auto" RowSpacing="8">
+        <Grid Grid.Row="1" Padding="24,14,24,0" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceRegular}">
             <Grid ColumnDefinitions="*,6,*,6,*,6,*" HeightRequest="4">
                 <Grid Grid.Column="0">
                     <BoxView Color="{DynamicResource WRule}" CornerRadius="2" HeightRequest="4" />
@@ -114,7 +114,7 @@
                              IsVisible="{Binding Reached4}" />
                 </Grid>
             </Grid>
-            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+            <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
                 <Label Grid.Column="1" Text="随时可以回上一步" Style="{StaticResource TxtCaption}" />
             </Grid>
@@ -124,13 +124,13 @@
              HorizontalOptions=Fill 才会把网格撑满可视区宽度 —— 否则 Center 会让它塌缩到内容自然宽
              （约 400px）导致 OnBodyResized 的 860 断点永远不触发，整页退化成手机窄列。 -->
         <ScrollView Grid.Row="2" x:Name="StepScroll" Padding="24,18,24,28">
-            <Grid x:Name="BodyGrid" ColumnSpacing="16" RowSpacing="16"
+            <Grid x:Name="BodyGrid" ColumnSpacing="{DynamicResource WSpaceLoose}" RowSpacing="{DynamicResource WSpaceLoose}"
                   MaximumWidthRequest="1180" HorizontalOptions="Fill"
                   SizeChanged="OnBodyResized">
 
                 <!-- 左：预览卡 -->
                 <Border x:Name="PreviewCard" Style="{StaticResource CardSolid}" VerticalOptions="Start">
-                    <VerticalStackLayout Spacing="12">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="// PREVIEW" Style="{StaticResource Eyebrow}" />
                             <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
@@ -143,7 +143,7 @@
                             <Grid IsClippedToBounds="True">
                                 <Image Source="{Binding PreviewSource}" Aspect="AspectFit" Margin="14"
                                        IsVisible="{Binding HasPreview}" />
-                                <VerticalStackLayout Spacing="8" HorizontalOptions="Center" VerticalOptions="Center"
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" HorizontalOptions="Center" VerticalOptions="Center"
                                                      Padding="24"
                                                      IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}">
                                     <Image Source="studio_mark.png" WidthRequest="72" HeightRequest="72"
@@ -172,7 +172,7 @@
 
                         <BoxView Style="{StaticResource HSep}" />
 
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <VerticalStackLayout Spacing="1">
                                 <Label Text="立绘" Style="{StaticResource Eyebrow}" />
                                 <Label Text="{Binding SpriteLabel}" Style="{StaticResource TxtCaption}"
@@ -192,11 +192,11 @@
 
                 <!-- 右：分步表单 -->
                 <Border x:Name="FormCard" Grid.Column="1" Style="{StaticResource CardGroup}">
-                    <VerticalStackLayout Padding="{DynamicResource WPadCard}" Spacing="16">
+                    <VerticalStackLayout Padding="{DynamicResource WPadCard}" Spacing="{DynamicResource WSpaceLoose}">
 
                         <!-- ① 基本 -->
-                        <VerticalStackLayout x:Name="StepBasics" Spacing="14" IsVisible="{Binding AtStep1}">
-                            <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout x:Name="StepBasics" Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding AtStep1}">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                 <Label Text="01 · BASICS" Style="{StaticResource Eyebrow}" />
                                 <Label Text="先认识一下" Style="{StaticResource StepTitle}" />
                                 <Label Text="名字与性别是必填的；其余留空也能创建，之后在工作室里随时补。"
@@ -244,7 +244,7 @@
                                        Placeholder="主人 / 哥哥 / 名字" />
                             </VerticalStackLayout>
 
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                     <Label Text="恋爱对象" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="关掉后 TA 不会主动推进关系，周期与亲密内容也不进提示词。"
@@ -256,8 +256,8 @@
                         </VerticalStackLayout>
 
                         <!-- ② 人设 -->
-                        <VerticalStackLayout x:Name="StepPersona" Spacing="14" IsVisible="{Binding AtStep2}">
-                            <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout x:Name="StepPersona" Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding AtStep2}">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                 <Label Text="02 · PERSONA" Style="{StaticResource Eyebrow}" />
                                 <Label Text="TA 是什么样的人" Style="{StaticResource StepTitle}" />
                                 <Label Text="这三段直接进提示词。写具体一点，TA 回话时才有东西可抓。"
@@ -287,8 +287,8 @@
                         </VerticalStackLayout>
 
                         <!-- ③ 形象 -->
-                        <VerticalStackLayout x:Name="StepLooks" Spacing="14" IsVisible="{Binding AtStep3}">
-                            <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout x:Name="StepLooks" Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding AtStep3}">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                 <Label Text="03 · IMAGE" Style="{StaticResource Eyebrow}" />
                                 <Label Text="让 TA 站到光里" Style="{StaticResource StepTitle}" />
                                 <Label Text="立绘先支持一张默认表情；头像会用在列表、对话与手机里。两样都能之后在工作室换。"
@@ -298,8 +298,8 @@
                             <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
                                     Padding="{DynamicResource WPadWell}"
                                     StrokeShape="{DynamicResource WRadiusWell}">
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="立绘" Style="{StaticResource TxtBodySm}"
                                                VerticalOptions="Center" />
                                         <Label Grid.Column="1" Text="{Binding SpriteLabel}"
@@ -318,8 +318,8 @@
                             <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
                                     Padding="{DynamicResource WPadWell}"
                                     StrokeShape="{DynamicResource WRadiusWell}">
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="头像" Style="{StaticResource TxtBodySm}"
                                                VerticalOptions="Center" />
                                         <Label Grid.Column="1" Text="{Binding AvatarLabel}"
@@ -342,16 +342,16 @@
                         </VerticalStackLayout>
 
                         <!-- ④ 世界观与绑定（可跳过） -->
-                        <VerticalStackLayout x:Name="StepWorld" Spacing="14" IsVisible="{Binding AtStep4}">
-                            <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout x:Name="StepWorld" Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding AtStep4}">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                 <Label Text="04 · WORLD" Style="{StaticResource Eyebrow}" />
                                 <Label Text="TA 从哪个世界来" Style="{StaticResource StepTitle}" />
                                 <Label Text="这一步可以整步跳过：不绑世界书也能创建，之后在工作室里补。"
                                        Style="{StaticResource StepSub}" />
                             </VerticalStackLayout>
 
-                            <VerticalStackLayout Spacing="6">
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="世界书（可多选）" Style="{StaticResource TxtSubhead}"
                                            VerticalOptions="Center" />
                                     <Label Grid.Column="1" Text="{Binding SelectedWorldCountLabel}"
@@ -371,7 +371,7 @@
                                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.ToggleWorldCommand}"
                                                                     CommandParameter="{Binding .}" />
                                                             </Border.GestureRecognizers>
-                                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                                                 <BoxView WidthRequest="3" HeightRequest="24"
                                                                          Color="{DynamicResource WAccentInk}"
                                                                          VerticalOptions="Center"
@@ -410,8 +410,8 @@
                             <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
                                     Padding="{DynamicResource WPadWell}"
                                     StrokeShape="{DynamicResource WRadiusWell}">
-                                <VerticalStackLayout Spacing="10">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                             <Label Text="语音引擎" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="用哪套声音说话" Style="{StaticResource TxtCaption}" />
@@ -420,7 +420,7 @@
                                                VerticalOptions="Center" />
                                     </Grid>
                                     <BoxView Style="{StaticResource HSep}" />
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                             <Label Text="AI 模型" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="用哪一档模型回话" Style="{StaticResource TxtCaption}" />
@@ -444,7 +444,7 @@
                  HorizontalOptions="Fill" VerticalOptions="Start" InputTransparent="True" />
         <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}" VerticalOptions="End">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12"
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}"
                   Margin="{OnPlatform WinUI='0', Default='0,0,0,12'}">
                 <Button Text="← 上一步" Style="{StaticResource BtnText}"
                         Padding="6,2" FontSize="{DynamicResource WSizeCaption}"
@@ -452,7 +452,7 @@
                         Command="{Binding PrevCommand}" />
                 <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding StepLabel}" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" HorizontalTextAlignment="Center" />
-                <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
+                <HorizontalStackLayout Grid.Column="2" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                                        WidthRequest="18" HeightRequest="18" />
                     <Button Text="下一步 →" Style="{StaticResource BtnPrimary}"
