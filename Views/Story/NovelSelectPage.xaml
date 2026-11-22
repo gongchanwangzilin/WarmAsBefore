@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.NovelSelectPage"
              x:Name="Page"
 
@@ -9,24 +10,13 @@
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,Auto,*,Auto" Padding="0">
-        <!-- Header：顶栏与内容区是同一块地，它不是卡 —— 只靠底下一条发丝线分界。
-             原来那圈 GlassBar 描边在极简档会被读成一条不属于地面的框。 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        Padding="0"
-                        Command="{Binding GoBackCommand}" />
-                <Label Grid.Column="1" Text="平行宇宙" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" />
-            </Grid>
-        </Border>
-        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+    <Grid RowDefinitions="Auto,*,Auto" Padding="0">
+        <!-- 页头：顶栏与内容区是同一块地，它不是卡 —— 结构与分隔线走 PageHeader（全站同一份）。 -->
+        <ctl:PageHeader Grid.Row="0" Title="平行宇宙" BackCommand="{Binding GoBackCommand}" />
 
         <!-- Novel list：一部小说 = 一行，全部装进同一张 CardGroup。
              一行一张卡时卡间距比行内还大，「一组宇宙」被读成「一摞牌子」，分组关系因此消失。 -->
-        <Border Grid.Row="2" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
+        <Border Grid.Row="1" Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}">
             <CollectionView ItemsSource="{Binding Novels}" BackgroundColor="Transparent">
                 <CollectionView.EmptyView>
                     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="{DynamicResource WSpaceTight}"
@@ -78,7 +68,7 @@
         </Border>
 
         <!-- Bottom bar：主行动直接落在地面上，不再套一层同色的空盒子 -->
-        <Button Grid.Row="3" Text="导入小说，创建新世界" Style="{StaticResource BtnNeumorph}"
+        <Button Grid.Row="2" Text="导入小说，创建新世界" Style="{StaticResource BtnNeumorph}"
                 Margin="{DynamicResource WPadCard}"
                 Command="{Binding ImportNovelCommand}" />
     </Grid>

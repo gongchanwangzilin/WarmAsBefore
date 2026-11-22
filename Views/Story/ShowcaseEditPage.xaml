@@ -3,28 +3,23 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.ShowcaseEditPage"
              Title="编辑展示案"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*">
-        <!-- 顶栏不是一张卡：它跟地面同档、只比地面沉一点，靠下面那条发丝线跟内容区分界。
-             原来挂的是 GlassBar 那圈发光边，在极简档上是一圈不属于这个世界的轮廓。 -->
-        <VerticalStackLayout Grid.Row="0" Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                    Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                    <Label Grid.Column="0" Text="编辑展示案" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                    <!-- 主行动只用强调档样式：面是 WAccentBrush、字是钉在它上面的 WAccentInk，
-                         页面里再内联 AccentWarm/AccentWarmFg 就是把两个令牌当装饰手抄一遍。 -->
-                    <Button Grid.Column="1" Text="保存" Style="{StaticResource BtnNeumorphAccent}"
-                            Command="{Binding SaveCommand}" />
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份）。
+             这一页没有返回钮（它从展示列表进来，退出靠底部的「返回」），所以关掉返回。 -->
+        <ctl:PageHeader Grid.Row="0" Title="编辑展示案" ShowBack="False">
+            <ctl:PageHeader.Actions>
+                <!-- 主行动只用强调档样式：面是 WAccentBrush、字是钉在它上面的 WAccentInk，
+                     页面里再内联 AccentWarm/AccentWarmFg 就是把两个令牌当装饰手抄一遍。 -->
+                <Button Grid.Column="1" Text="保存" Style="{StaticResource BtnNeumorphAccent}"
+                        Command="{Binding SaveCommand}" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
             <!-- Spacing 归 0：分组之间的距离由 TxtSection 自带的上方留白给。

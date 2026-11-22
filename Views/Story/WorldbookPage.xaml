@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.WorldbookPage"
              x:DataType="vm:WorldbookViewModel"
              Title="世界书"
@@ -31,27 +32,20 @@
 
     <Grid RowDefinitions="Auto,*">
 
-        <!-- Header -->
-        <VerticalStackLayout Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="{DynamicResource WSizeSmall}"
-                            Padding="0" Command="{Binding GoBackCommand}" />
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="0">
-                        <Label Text="世界书" Style="{StaticResource TxtTitle}" />
-                        <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
-                               LineBreakMode="TailTruncation" />
-                    </VerticalStackLayout>
-                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsBusy}"
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Grid.Row="0" Title="世界书" Subtitle="{Binding Status}"
+                        BackCommand="{Binding GoBackCommand}">
+            <ctl:PageHeader.Actions>
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding IsBusy}"
                                        IsVisible="{Binding IsBusy}" Color="{DynamicResource BeigeAccent300}"
                                        WidthRequest="20" HeightRequest="20" VerticalOptions="Center" />
-                    <Button Grid.Column="3" Text="新建" Style="{StaticResource BtnGhostSm}"
+                    <Button Text="新建" Style="{StaticResource BtnGhostSm}"
                             IsVisible="{Binding IsEditing, Converter={StaticResource InverseBool}}"
                             Command="{Binding NewManualCommand}" />
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+                </HorizontalStackLayout>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}"
