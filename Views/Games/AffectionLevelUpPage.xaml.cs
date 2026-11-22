@@ -37,6 +37,7 @@ public partial class AffectionLevelUpPage : ContentPage
 
             var v = (AffectionLevelUpViewModel)BindingContext;
             v.Level = _service.Level;
+            v.Points = _service.Points;
             v.Title = _service.Title;
             v.CharacterName = _service.CharacterName;
             v.SpritePath = _service.SpritePath;

@@ -245,7 +245,7 @@
                                     <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                         <Label Text="{Binding PreviewAffection}" FontFamily="Bahnschrift"
                                                FontSize="24" TextColor="{DynamicResource WarmDark}" />
-                                        <Label Text="好感" Style="{StaticResource TxtCaption}"
+                                        <Label Text="{Binding PreviewAffectionNote}" Style="{StaticResource TxtCaption}"
                                                VerticalOptions="End" Margin="0,0,0,4" />
                                     </HorizontalStackLayout>
                                 </VerticalStackLayout>

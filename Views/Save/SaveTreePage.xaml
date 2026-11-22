@@ -12,70 +12,57 @@
 
     <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
 
-        <!-- 顶栏：< 返回 + 标题，沿用存档页的 BtnText / TxtTitle，不加任何新样式 -->
+        <!-- 顶栏：返回 + 标题 + 根档选择 + 去这个存档。根档选择就是「这是哪一局的树」，
+             所以它必须和标题同一行、随时能换，而不是藏进菜单。 -->
         <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0" VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="分支树" Style="{StaticResource TxtTitle}"
                        VerticalOptions="Center" />
+                <!-- 每份初始存档一棵树：这里选树根，切换时重算布局 -->
+                <Picker Grid.Column="2" Title="选择起始存档"
+                        ItemsSource="{Binding Roots}"
+                        ItemDisplayBinding="{Binding Label}"
+                        SelectedItem="{Binding SelectedRoot}"
+                        WidthRequest="170" VerticalOptions="Center"
+                        FontSize="12"
+                        BackgroundColor="Transparent"
+                        TextColor="{DynamicResource SurfaceFg}"
+                        TitleColor="{DynamicResource MutedFg}"
+                        ToolTipProperties.Text="每份初始存档一棵树，选一个看它的分支" />
+                <Button Grid.Column="3" Text="去这个存档" Style="{StaticResource BtnNeumorphSm}"
+                        WidthRequest="104" VerticalOptions="Center"
+                        IsEnabled="{Binding CanOpenSlot}"
+                        Command="{Binding OpenSlotCommand}" />
                 <!-- 压测档徽标：与全站同一个组件，压测档没开时宽高为 0 -->
-                <ctl:WorstCaseBadge Grid.Column="2" HorizontalOptions="End" VerticalOptions="Center" />
+                <ctl:WorstCaseBadge Grid.Column="3" HorizontalOptions="End" VerticalOptions="Center" />
             </Grid>
         </Border>
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
-        <!-- 画布：GraphicsView 由 code-behind 注入 Drawable；Empty 态由 Drawable 自己画提示 -->
+        <!-- 画布：GraphicsView 由 code-behind 注入 Drawable。
+             宽高都按内容撑（列数 × 列距 / 泳道数 × 行高），外层 ScrollView 双向可滚 ——
+             泳道一多、存档一长，横向拖动就能看到完整的一棵树。 -->
         <Border Grid.Row="2" Style="{StaticResource CardSolid}" Padding="4"
                 Margin="{DynamicResource WPadCard}"
                 HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
             <Grid RowDefinitions="*,Auto" RowSpacing="4">
-                <!-- 画布按泳道数撑高（code-behind 用 Drawable.ContentHeight 设 HeightRequest），
-                     节点多于可视区时靠这一层滚动到达 —— 固定高度会把第 6 条以下的分支整个切掉。 -->
-                <ScrollView Orientation="Vertical" VerticalScrollBarVisibility="Default">
+                <ScrollView x:Name="CanvasScroll" Orientation="Both"
+                            HorizontalScrollBarVisibility="Default"
+                            VerticalScrollBarVisibility="Default">
                     <GraphicsView x:Name="TreeCanvas"
                                   EndInteraction="OnCanvasEnd"
-                                  MinimumHeightRequest="260"
                                   BackgroundColor="Transparent" />
                 </ScrollView>
-                <Label Grid.Row="1" Text="横向为时间（左旧右新），纵向为分支泳道；点节点看详情"
-                       Style="{StaticResource TxtCaption}" MaxLines="2" />
+                <Label Grid.Row="1" Style="{StaticResource TxtCaption}" MaxLines="2"
+                       Text="{Binding StatusText}" />
             </Grid>
         </Border>
 
-        <!-- 详情条：选中前整条隐藏，显隐只写 IsVisible -->
-        <Border Grid.Row="3" IsVisible="{Binding HasSelection}" Style="{StaticResource CardSolid}"
-                Padding="{DynamicResource WPadCard}" Margin="{DynamicResource WPadCard}"
-                HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                <VerticalStackLayout Grid.Column="0" Spacing="4">
-                    <!-- 卡片里只放得下 8 个字，全名必须在这里读得到：详情条给两行 -->
-                    <Label Text="{Binding Selected.Title}" Style="{StaticResource TxtSubhead}"
-                           MaxLines="2" LineBreakMode="TailTruncation" />
-                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowDefinitions="Auto,Auto,Auto,Auto"
-                          RowSpacing="2">
-                        <Label Grid.Row="0" Grid.Column="0" Text="分支" Style="{StaticResource TxtCaption}" />
-                        <Label Grid.Row="0" Grid.Column="1" Text="{Binding Selected.BranchText}"
-                               Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
-                        <Label Grid.Row="1" Grid.Column="0" Text="角色" Style="{StaticResource TxtCaption}" />
-                        <Label Grid.Row="1" Grid.Column="1" Text="{Binding Selected.CharacterText}"
-                               Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
-                        <Label Grid.Row="2" Grid.Column="0" Text="保存" Style="{StaticResource TxtCaption}" />
-                        <Label Grid.Row="2" Grid.Column="1" Text="{Binding Selected.SavedAtText}"
-                               Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
-                        <Label Grid.Row="3" Grid.Column="0" Text="父档" Style="{StaticResource TxtCaption}" />
-                        <Label Grid.Row="3" Grid.Column="1" Text="{Binding Selected.ParentText}"
-                               Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
-                    </Grid>
-                </VerticalStackLayout>
-                <Button Grid.Column="1" Text="去这个存档" Style="{StaticResource BtnNeumorphSm}"
-                        WidthRequest="108" VerticalOptions="Center"
-                        Command="{Binding OpenSlotCommand}" />
-            </Grid>
-        </Border>
         <!-- dev 压测条：带 worst 启动参数时才出现 -->
-        <dev:WorstCaseBar Grid.Row="2" />
+        <dev:WorstCaseBar Grid.Row="3" />
     </Grid>
 </ContentPage>

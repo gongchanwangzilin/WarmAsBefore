@@ -346,7 +346,7 @@ public sealed class ShopService
         };
         var lines = new List<string>
         {
-            $"好感 {s.Affection}  ·  信任 {s.Trust}  ·  精力 {s.Energy}",
+            $"好感 {Helpers.AffectionScale.TextOf(s.Affection)}  ·  信任 {s.Trust}  ·  精力 {s.Energy}",
             $"心情：{moodText}",
             $"位置：{s.Location}"
         };

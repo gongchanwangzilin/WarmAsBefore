@@ -2516,14 +2516,16 @@ public sealed partial class MaidBridgeService : IDisposable
         {
             if (!_engine.Roster.TryGetValue(charId, out var ch)) return;
             var before = ch.State.Affection;
-            ch.State.Affection = Math.Clamp(ch.State.Affection + delta, 0, 100);
+            // 模组送来的是旧 0–100 刻度的增减，折成点数再落值（好感就是那一条 0–1000 的点数轨道）。
+            ch.State.Affection = Helpers.AffectionScale.Clamp(
+                ch.State.Affection + Helpers.AffectionScale.FromLegacy(delta));
             var actual = ch.State.Affection - before;
             if (actual == 0) return;
-            if (actual > 0)
-                ch.State.AffectionPoints = Math.Clamp(ch.State.AffectionPoints + actual * 5, 0, 5000);
             ch.State.LastSeen = DateTime.UtcNow;
             await _characters.UpdateAsync(ch);
-            await _memory.LogAffection(charId, actual, string.IsNullOrWhiteSpace(reason) ? "在 Minecraft 里发生的事" : reason);
+            // 回忆录里的好感时刻仍按旧 0–100 刻度记，和聊天/CG 那几路同一个单位。
+            await _memory.LogAffection(charId, Helpers.AffectionScale.ToLegacy(actual),
+                string.IsNullOrWhiteSpace(reason) ? "在 Minecraft 里发生的事" : reason);
         }
         catch (Exception ex)
         {
@@ -2737,7 +2739,8 @@ public sealed partial class MaidBridgeService : IDisposable
                 // 头顶第一行要显示的是「她叫什么」，不是那串 10 位角色 id。
                 ["characterName"] = ch.Profile.Name,
                 ["affection"] = ch.State.Affection,
-                ["affectionPoints"] = ch.State.AffectionPoints,
+                // 协议字段沿用，值是同一把尺子（0–1000 点数）：模组侧只显示，不做二次换算。
+                ["affectionPoints"] = ch.State.Affection,
                 ["trust"] = ch.State.Trust,
                 ["energy"] = ch.State.Energy,
                 ["mood"] = ch.State.Mood

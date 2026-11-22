@@ -174,6 +174,8 @@ public sealed record SaveSlot
     public int PlayMinutes { get; init; }
     /// <summary>绑定世界树 id；空 = 普通酒馆（无地图）。</summary>
     public string World { get; init; } = string.Empty;
+    /// <summary>世界树名称快照（老档没有这个字段，读出来是空串 —— 展示端回退到 id）。</summary>
+    public string WorldName { get; init; } = string.Empty;
 
     // ===== Git 式分支存档（v1.65）：以下三个字段老档缺失时走默认值，不影响读旧档 =====
     /// <summary>父存档 Id；null/空 = 这是一个独立存档（不是从别的档分出来的）。</summary>

@@ -221,7 +221,8 @@ public sealed class CharacterSubProfileService
     /// </summary>
     private static string DeriveTone(CharacterProfile main, CharacterState st)
     {
-        var closeness = st.Affection switch
+        // 好感存的是 0–1000 点数，这里的档位仍是旧 0–100 的百分比（10/30/60/80），先折回去再比。
+        var closeness = Helpers.AffectionScale.ToLegacy(st.Affection) switch
         {
             < 10 => "对你还有些生疏，说话会留一点距离",
             < 30 => "已经习惯你在身边，语气自然放松",

@@ -56,7 +56,11 @@ public sealed class SaveManager
 
     /// <summary>存档结构版本：旧档（缺此字段 = 0）在加载时自动迁移修复。
     /// v2（v1.65）：新增分支血缘字段，并把旧的跨存档共享角色状态定格进各档 char_states。</summary>
-    public const int SchemaVersion = 2;
+    /// <summary>
+    /// 存档结构版本。3：好感从 0–100 百分比改成 0–1000 绝对点数（每 100 点 1 级，共 10 级）；
+    /// 低于 3 的存档读进内存时按 <see cref="Helpers.AffectionScale.Migrate"/> 就地 ×10，回写即抬到 3。
+    /// </summary>
+    public const int SchemaVersion = 3;
 
     /// <summary>上一次读档时的自动修复说明（空 = 无需修复）。</summary>
     public string LastLoadNote { get; private set; } = "";
@@ -93,6 +97,7 @@ public sealed class SaveManager
                 Character = _engine.State.CharacterId,
                 Scene = _engine.State.Location,
                 World = _engine.State.WorldId,
+                WorldName = _engine.State.WorldName,
                 ParentId = prev?.ParentId,
                 BranchName = prev?.BranchName ?? "",
                 ForkedAt = prev?.ForkedAt
@@ -467,6 +472,16 @@ public sealed class SaveManager
             version = doc.RootElement.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
         }
 
+        // 结构版本 3 的迁移：好感 0–100 → 0–1000。必须放在这里（进档前、所有角色都在内存里）：
+        // 交给延后 3 秒的 RepairAsync 只覆盖得到主角，配角会在那几秒里继续拿旧刻度说话，
+        // 甚至被自动存档原样写回去。日志只记一条汇总，不按角色刷屏。
+        if (version < SchemaVersion)
+        {
+            var migrated = MigrateAffectionScale(fixedItems);
+            if (migrated > 0)
+                App.WriteLog($"SaveManager.Load 好感刻度迁移：{migrated} 个角色 0–100 → 0–1000（存档 {id}，结构版本 {version} → {SchemaVersion}）");
+        }
+
         // 真实节点 02：JsonDocument.Parse + 五处 Deserialize 完成 → 进入「恢复角色」。
         MarkLoadPhase(3, "恢复角色");
         _engine.CurrentSaveId = id;
@@ -557,13 +572,38 @@ public sealed class SaveManager
     }
 
     /// <summary>
+    /// 结构版本 3 迁移：把每个角色存量的好感从 0–100 折成 0–1000（×10、夹边界）。
+    /// 纯换算交给 <see cref="Helpers.AffectionScale.Migrate"/>，这里只负责遍历与记账。
+    /// 返回被改动的角色数，0 表示这份档本来就没有旧刻度（或者全是 0）。
+    /// </summary>
+    private int MigrateAffectionScale(List<string> fixedItems)
+    {
+        var changed = 0;
+        try
+        {
+            foreach (var c in _engine.Roster.Values)
+            {
+                if (c.State is not { } st) continue;
+                var after = Helpers.AffectionScale.Migrate(st.Affection);
+                if (after == st.Affection) continue;
+                st.Affection = after;
+                changed++;
+            }
+        }
+        catch (Exception ex) { App.WriteLog("SaveManager.MigrateAffection -> " + ex.Message); }
+        if (changed > 0)
+            fixedItems.Add($"把好感刻度从 0–100 迁移到 0–1000（每 {Helpers.AffectionScale.PerLevel} 点 1 级，共 {Helpers.AffectionScale.MaxLevel} 级）");
+        return changed;
+    }
+
+    /// <summary>
     /// 非共享角色在新档里的起点：数值取自角色的「建档初始值」，其余（心情、表情、精力修正、预判）
     /// 一律回到新角色该有的样子——把上一个档的心理曲线带过来，会让 TA 一见面就带着不属于这段关系的情绪。
     /// </summary>
     private static CharacterState SeedNonShared(CharacterData ch) => new()
     {
-        Affection = ch.Initial.Affection,
-        AffectionPoints = ch.Initial.AffectionPoints,
+        // 建档初始值写的是 0–100 的百分比刻度（工作室滑杆），存档里存 0–1000 点数，这里折一次。
+        Affection = Helpers.AffectionScale.Migrate(ch.Initial.Affection),
         Trust = ch.Initial.Trust,
         Energy = ch.Initial.Energy,
         Libido = ch.Initial.Libido,
@@ -612,14 +652,15 @@ public sealed class SaveManager
         if (_engine.ActiveCharacter is { } ch)
         {
             var st = ch.State;
-            var before = (st.Affection, st.AffectionPoints, st.Trust, st.Energy, st.EnergyOffset);
-            st.Affection = Math.Clamp(st.Affection, 0, 100);
-            st.AffectionPoints = Math.Clamp(st.AffectionPoints, 0, 5000);
+            var before = (st.Affection, st.Trust, st.Energy, st.EnergyOffset);
+            st.Affection = Helpers.AffectionScale.Clamp(st.Affection);
             st.Trust = Math.Clamp(st.Trust, 0, 100);
             st.Energy = Math.Clamp(st.Energy, 0, 100);
             st.EnergyOffset = Math.Clamp(st.EnergyOffset, -60, 40);
-            if (before != (st.Affection, st.AffectionPoints, st.Trust, st.Energy, st.EnergyOffset))
+            if (before != (st.Affection, st.Trust, st.Energy, st.EnergyOffset))
             {
+                // 手改档 / 坏档才会走到：一次汇总进 bug 日志，界面只留回执条，不弹窗。
+                App.WriteLog($"SaveManager.Repair 夹回越界数值（存档 {id}）：好感 {before.Affection} → {st.Affection}");
                 fixes.Add("把越界的好感/信任/精力数值夹回合法范围");
                 fixedItems.Add("把越界的好感/信任/精力数值夹回合法范围");
             }

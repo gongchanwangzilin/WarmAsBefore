@@ -681,7 +681,8 @@ public partial class MainGamePage : ContentPage
 
             // 好感这一块要「数值 + 进度线」：单独建一次，把百分比也绑上。
             var affection = new Controls.HudReadout { Label = "AFFECTION", Framed = true, MinimumWidthRequest = 128, BindingContext = vm };
-            affection.SetBinding(Controls.HudReadout.ValueProperty, nameof(MainGameViewModel.Affection), stringFormat: "{0} / 100");
+            // 读数带这一格放「Lv.3 · 240/1000」：等级和点数一起看，进度线是本级进度。
+            affection.SetBinding(Controls.HudReadout.ValueProperty, nameof(MainGameViewModel.AffectionText));
             affection.SetBinding(Controls.HudReadout.ProgressProperty, nameof(MainGameViewModel.AffectionPct));
             affection.Compose();
             row.Add(affection);

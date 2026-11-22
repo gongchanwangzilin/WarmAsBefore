@@ -45,10 +45,12 @@ public sealed record CharacterProfile
 
 public sealed record CharacterState
 {
+    /// <summary>
+    /// 好感绝对点数（0–1000）：每 100 点 1 级、共 10 级，显示成「Lv.3 · 240/1000」。
+    /// 换算、越界、旧档迁移全走 <see cref="Helpers.AffectionScale"/>，别在别处再写一遍除法。
+    /// 旧档（结构版本 &lt; 3）里这格是 0–100 的百分比，读档时 ×10 迁移。
+    /// </summary>
     public int Affection { get; set; }
-
-    /// <summary>累计好感积分（独立于 0-100 好感度）：每 500 分升 1 级，共 10 级（上限 5000）。</summary>
-    public int AffectionPoints { get; set; }
 
     public int Trust { get; set; }
     public int Energy { get; set; } = 100;
@@ -201,8 +203,8 @@ public sealed record CharacterWorldview
 /// <summary>非共享角色的建档初始值（只决定新存档的开始状态，不影响已有存档）。</summary>
 public sealed record CharacterInitialStats
 {
+    /// <summary>建档初始好感：仍是旧 0–100 百分比刻度（工作室的滑杆就是这个），播种进存档时 ×10 折成点数。</summary>
     public int Affection { get; init; }
-    public int AffectionPoints { get; init; }
     public int Trust { get; init; }
     public int Energy { get; init; } = 100;
     public int Libido { get; init; } = 20;

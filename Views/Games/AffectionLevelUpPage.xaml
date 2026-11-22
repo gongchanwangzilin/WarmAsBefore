@@ -70,6 +70,12 @@
                            TextColor="{DynamicResource AffectionInk}"
                            FontSize="16"
                            HorizontalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
+                    <!-- 升级页只说等级，点数与刻度仍要与主界面同源（Lv.N 与 p/1000 一起出现） -->
+                    <Label Text="{Binding PointsText}"
+                           TextColor="{DynamicResource AffectionInkSoft}"
+                           FontSize="12"
+                           Opacity="0.85"
+                           HorizontalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
             </Border>
         </Grid>

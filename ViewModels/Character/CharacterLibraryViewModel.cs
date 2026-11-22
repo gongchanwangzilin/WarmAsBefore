@@ -39,6 +39,8 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject, IWorst
     [ObservableProperty] private string _previewDescription = "";
     [ObservableProperty] private string _previewSaves = "";
     [ObservableProperty] private string _previewAffection = "";
+    /// <summary>读数条副标「好感 · 240/1000」：等级用大字、点数用这句，两个都来自 AffectionScale。</summary>
+    [ObservableProperty] private string _previewAffectionNote = "好感";
     [ObservableProperty] private string _previewCells = "";
     [ObservableProperty] private string _previewStatus = "";
 
@@ -149,6 +151,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject, IWorst
             PreviewDescription = "";
             PreviewSaves = "";
             PreviewAffection = "";
+            PreviewAffectionNote = "好感";
             PreviewCells = "";
             PreviewStatus = "";
             PreviewBackdrop = null;
@@ -167,7 +170,9 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject, IWorst
             ? "还没有背景故事：进工作室补一段，AI 才会照着这个人回话。"
             : ch.Profile.Description;
         PreviewSaves = value.SaveCount.ToString();
-        PreviewAffection = ch.State.Affection.ToString("F0");
+        // 角色库只给一瞥：等级用大字，绝对点数跟在副标里，和主界面同一套刻度。
+        PreviewAffection = Helpers.AffectionScale.LevelTextOf(ch.State.Affection);
+        PreviewAffectionNote = $"好感 · {Helpers.AffectionScale.Clamp(ch.State.Affection)}/{Helpers.AffectionScale.MaxPoints}";
         PreviewCells = value.CellCount.ToString();
         // 「主角/配角」是某一份存档里的事，不属于角色库：这里只说 ta 进过几份存档。
         PreviewStatus = value.SaveCount > 0 ? $"在 {value.SaveCount} 份存档里" : "还没进过存档";

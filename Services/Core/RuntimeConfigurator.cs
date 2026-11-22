@@ -214,7 +214,9 @@ public sealed class RuntimeConfigurator
                 case "affection":
                 case "好感":
                 case "好感度":
-                    s.Affection = Math.Clamp(s.Affection + delta, 0, 100);
+                    // AI/用户给的增减是旧 0–100 刻度，折成点数再落值；越界在 Clamp 里夹死。
+                    s.Affection = Helpers.AffectionScale.Clamp(
+                        s.Affection + Helpers.AffectionScale.FromLegacy(delta));
                     break;
                 case "trust":
                 case "信任":
@@ -857,7 +859,9 @@ public sealed class RuntimeConfigurator
                     var st = ch.State;
                     parts.Add("数值结算：本轮请在回复最后附一条只给程序读、绝不要念给用户听的指令，格式为【状态:好感±n 信任±n 精力±n】，" +
                               "n 是整数、可正可负，三项都写（没变化就写 0）。依据刚才这段互动里的亲疏与 TA 此刻心情，给小幅增减，别一次加太多。" +
-                              $"当前：好感 {Math.Clamp(st.Affection, 0, 100)}/100、信任 {Math.Clamp(st.Trust, 0, 100)}/100、精力 {Math.Clamp(st.Energy, 0, 100)}/100。");
+                              $"当前：好感 {Helpers.AffectionScale.TextOf(st.Affection)}（每 {Helpers.AffectionScale.PerLevel} 点 1 级）、" +
+                              $"信任 {Math.Clamp(st.Trust, 0, 100)}/100、精力 {Math.Clamp(st.Energy, 0, 100)}/100。" +
+                              $"好感的增减请按旧 0–100 刻度给（±1~10 之间），程序会折成点数累加。");
                 }
             }
             // 性欲系统：只对用户在这份存档里点过名的角色生效；设定锁着时周期不参与（设定 > 周期）

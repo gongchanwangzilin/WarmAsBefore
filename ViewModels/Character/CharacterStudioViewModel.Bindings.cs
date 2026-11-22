@@ -37,7 +37,6 @@ public sealed partial class CharacterStudioViewModel
     [ObservableProperty] private double _initTrust;
     [ObservableProperty] private double _initEnergy = 100;
     [ObservableProperty] private double _initLibido = 20;
-    [ObservableProperty] private string _initAffectionPoints = "0";
 
     /// <summary>非共享且正在某个存档里时才为真：那时才有一份「这一档现在的实际值」可以对照。</summary>
     [ObservableProperty] private bool _hasSaveStatePreview;
@@ -53,7 +52,6 @@ public sealed partial class CharacterStudioViewModel
     partial void OnInitTrustChanged(double value) => Note("初始信任");
     partial void OnInitEnergyChanged(double value) => Note("初始精力");
     partial void OnInitLibidoChanged(double value) => Note("初始性欲");
-    partial void OnInitAffectionPointsChanged(string value) => Note("初始好感积分");
 
     private void LoadInitialFields(CharacterData ch)
     {
@@ -62,13 +60,11 @@ public sealed partial class CharacterStudioViewModel
         InitTrust = Math.Clamp(init.Trust, 0, 100);
         InitEnergy = Math.Clamp(init.Energy, 0, 100);
         InitLibido = Math.Clamp(init.Libido, 0, 100);
-        InitAffectionPoints = Math.Max(0, init.AffectionPoints).ToString(CultureInfo.InvariantCulture);
     }
 
     private CharacterInitialStats BuildInitial() => new()
     {
         Affection = Clamp(InitAffection, 0, 100),
-        AffectionPoints = Math.Clamp(ParseInt(InitAffectionPoints, 0), 0, 5000),
         Trust = Clamp(InitTrust, 0, 100),
         Energy = Clamp(InitEnergy, 0, 100),
         Libido = Clamp(InitLibido, 0, 100)
@@ -91,7 +87,7 @@ public sealed partial class CharacterStudioViewModel
         var st = ch.State;
         var parts = new List<string>
         {
-            $"好感 {Math.Clamp(st.Affection, 0, 100)}",
+            $"好感 {Helpers.AffectionScale.TextOf(st.Affection)}",
             $"信任 {Math.Clamp(st.Trust, 0, 100)}",
             $"精力 {Math.Clamp(st.Energy, 0, 100)}",
             $"性欲 {Math.Clamp(st.Libido, 0, 100)}"

@@ -58,21 +58,17 @@ public sealed partial class MainGameViewModel : ObservableObject
     [ObservableProperty] private string _speaker = "";
     [ObservableProperty] private string _dialogue = "";
     [ObservableProperty] private bool _isAuto;
-    [ObservableProperty] private int _affection = 30;
-    [ObservableProperty] private int _affectionLevel = 1;
-    [ObservableProperty] private string _affectionLevelTitle = "初识";
-    // 好感累计积分（与 0-100 好感度门控正交）：HUD 用「阶 + 积分/5000」显示，
-    // 不再把细分刻度压在满 100 上；门控仍读 Affection，绝不动。
-    [ObservableProperty] private int _affectionPoints;
-    /// <summary>HUD 好感显示：第N阶 · 称号 · 累计积分/5000（多级细分，不 clamp 到 100）。</summary>
-    public string AffectionLevelLabel => $"第{AffectionLevel}阶 · {AffectionLevelTitle} · {AffectionPoints}/{Modules.Affection.AffectionLevel.MaxPoints}点";
-    partial void OnAffectionLevelChanged(int value) => OnPropertyChanged(nameof(AffectionLevelLabel));
-    partial void OnAffectionLevelTitleChanged(string value) => OnPropertyChanged(nameof(AffectionLevelLabel));
-    partial void OnAffectionPointsChanged(int value)
-    {
-        OnPropertyChanged(nameof(AffectionLevelLabel));
-        AffectionPct = Modules.Affection.AffectionLevel.LevelProgress(value);
-    }
+    // 好感绝对点数 0–1000：每 100 点 1 级、共 10 级。等级/进度/文案全部从它派生，
+    // 不再另存一份「阶」——两套刻度并存时必然各算各的（旧版就是 0–100 好感 + 0–5000 积分）。
+    [ObservableProperty] private int _affection = 300;
+
+    /// <summary>等级（1..10），派生量。</summary>
+    public int AffectionLevel => Helpers.AffectionScale.LevelOf(Affection);
+    public string AffectionLevelTitle => Modules.Affection.AffectionLevel.TitleOf(AffectionLevel);
+    /// <summary>「Lv.3 · 240/1000」：左栏好感读数与 HUD 读数带共用这一条原文。</summary>
+    public string AffectionText => Helpers.AffectionScale.TextOf(Affection);
+    /// <summary>「Lv.3 · 熟悉」：左栏「好感等级」那一行。</summary>
+    public string AffectionLevelLabel => $"{Helpers.AffectionScale.LevelTextOf(Affection)} · {AffectionLevelTitle}";
     [ObservableProperty] private int _trust = 30;
     [ObservableProperty] private int _attachment;
     [ObservableProperty] private int _balance = 1000;
@@ -591,8 +587,16 @@ public sealed partial class MainGameViewModel : ObservableObject
         RefreshSceneSwitch();
     }
 
-    /// <summary>好感/信任变化时同步回角色状态，保证自动保存真正落盘。</summary>
-    partial void OnAffectionChanged(int value) => SyncStatsToState();
+    /// <summary>好感/信任变化时同步回角色状态，保证自动保存真正落盘；好感顺带重算本级进度与派生文案。</summary>
+    partial void OnAffectionChanged(int value)
+    {
+        SyncStatsToState();
+        AffectionPct = Helpers.AffectionScale.ProgressInLevel(value);
+        OnPropertyChanged(nameof(AffectionLevel));
+        OnPropertyChanged(nameof(AffectionLevelTitle));
+        OnPropertyChanged(nameof(AffectionText));
+        OnPropertyChanged(nameof(AffectionLevelLabel));
+    }
     partial void OnTrustChanged(int value) => SyncStatsToState();
     partial void OnBalanceChanged(int value) => SyncStatsToState();
 
@@ -614,30 +618,23 @@ public sealed partial class MainGameViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 累计好感积分（独立于 0-100 好感度）：跨过整 500 边界时触发好感等级提升动画。
+    /// 好感的唯一加点入口：聊天结算、场景判定、CG 奖励都走这里。
+    /// 传进来的是旧 0–100 刻度的增减（AI 判的 ±n、固定的 +2/+3/+5 都没变），在这里 ×10 折成点数 ——
+    /// 手感与旧版一致，只是存量换了刻度。跨过整 100 点（= 跨级）时播好感等级提升动画；
     /// 开关：设置 › 好感度 › 等级提升动画。
     /// </summary>
-    private void AddAffectionPoints(int delta, bool withAnimation)
+    private void AwardAffection(int legacyDelta)
     {
         if (_char is null) return;
-        var before = _char.State.AffectionPoints;
-        var after = Math.Min(Modules.Affection.AffectionLevel.MaxPoints, before + Math.Max(0, delta));
-        _char.State.AffectionPoints = after;
-        AffectionPoints = after;
+        var levelBefore = Helpers.AffectionScale.LevelOf(_char.State.Affection);
+        var after = Helpers.AffectionScale.Clamp(
+            _char.State.Affection + Helpers.AffectionScale.FromLegacy(legacyDelta));
+        _char.State.Affection = after;
+        Affection = after;      // 触发 OnAffectionChanged：落回状态 + 重算本级进度与文案
 
-        var newLevel = Modules.Affection.AffectionLevel.LevelOf(after);
-        if (AffectionLevel != newLevel)
-        {
-            AffectionLevel = newLevel;
-            AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(newLevel);
-        }
-        if (withAnimation
-            && after > 0
-            && newLevel > Modules.Affection.AffectionLevel.LevelOf(before)
-            && _settings.Current.AffectionLevelUpEnabled)
-        {
+        var newLevel = Helpers.AffectionScale.LevelOf(after);
+        if (newLevel > levelBefore && _settings.Current.AffectionLevelUpEnabled)
             TriggerAffectionLevelUp(newLevel);
-        }
     }
 
     /// <summary>好感等级提升：在后台组装动画页数据，主线程导航播放。</summary>
@@ -647,6 +644,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         try
         {
             _levelUp.Level = newLevel;
+            _levelUp.Points = _char.State.Affection;
             _levelUp.CharacterName = CharacterMask.DisplayName(_char, _settings.Current.MaskUnintroducedNames);
             _levelUp.Title = Modules.Affection.AffectionLevel.TitleOf(newLevel);
             _levelUp.SpritePath = Modules.Affection.SpritePathResolver.Resolve(
@@ -681,12 +679,10 @@ public sealed partial class MainGameViewModel : ObservableObject
         var ch = chars.FirstOrDefault(c => c.Profile.Id == charId);
         if (ch is null) return;
         _char = ch;
-        Affection = ch.State.Affection;
+        // 读档时夹一次：手改档 / 老档的越界值（负数、9999）在这里就归零或封顶，界面永远看不到 -1。
+        Affection = Helpers.AffectionScale.Clamp(ch.State.Affection);
         Trust = ch.State.Trust;
         Balance = Math.Max(0, ch.State.Energy);
-        AffectionLevel = Modules.Affection.AffectionLevel.LevelOf(ch.State.AffectionPoints);
-        AffectionLevelTitle = Modules.Affection.AffectionLevel.TitleOf(AffectionLevel);
-        AffectionPoints = ch.State.AffectionPoints;
         UpdateStats();
         RefreshBrainStatus();
 
@@ -1032,7 +1028,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         try
         {
             var delta = Math.Clamp(await _chat.AskAffectionDeltaAsync(title), 0, 20);
-            AddAffectionPoints(delta, true);
+            AwardAffection(delta);
             if (_engine.ActiveCharacter is { } ch)
                 _ = _memory.LogAffection(ch.Profile.Id, delta, $"CG「{title}」");
         }
@@ -1177,7 +1173,8 @@ public sealed partial class MainGameViewModel : ObservableObject
     [RelayCommand]
     private async Task Kiss()
     {
-        if (Affection < 40)
+        // 门槛仍是旧刻度的 40（好感 40%）：换算一次保持原意，别把 40 直接当 40 点（那只有 4%）。
+        if (Affection < Helpers.AffectionScale.FromLegacy(40))
         {
             AddMessage("assistant", "小雨脸红了，躲开了... 好感度还不够呢。");
             return;
@@ -1470,8 +1467,8 @@ public sealed partial class MainGameViewModel : ObservableObject
 
     private void UpdateStats()
     {
-        // 好感进度条改用累计积分的「阶内进度」细分刻度，而不是被 clamp 到 100 的 Affection。
-        AffectionPct = Modules.Affection.AffectionLevel.LevelProgress(AffectionPoints);
+        // 好感进度条读的是「本级进度」(0..1)，不是 0–1000 的绝对量。
+        AffectionPct = Helpers.AffectionScale.ProgressInLevel(Affection);
         TrustPct = Trust / 100.0;
     }
 
@@ -1554,11 +1551,11 @@ public sealed partial class MainGameViewModel : ObservableObject
         RefreshBrainStatus();
     }
 
-    /// <summary>把 AI 判出来的增减落到三条数值上：好感/信任可涨可跌，积分只涨不退；精力只累进「AI 修正项」，
-    /// 基线仍随清醒时长走（时间基线 + AI 修正）。</summary>
+    /// <summary>把 AI 判出来的增减落到三条数值上：好感/信任可涨可跌，精力只累进「AI 修正项」，
+    /// 基线仍随清醒时长走（时间基线 + AI 修正）。好感的增减在 AwardAffection 里换成点数。</summary>
     private void Settle(int affectionDelta, int trustDelta, int energyDelta)
     {
-        Affection = Math.Clamp(Affection + affectionDelta, 0, 100);
+        AwardAffection(affectionDelta);
         Trust = Math.Clamp(Trust + trustDelta, 0, 100);
         if (energyDelta != 0 && _engine.ActiveCharacter is { } ch)
         {
@@ -1566,7 +1563,6 @@ public sealed partial class MainGameViewModel : ObservableObject
             UpdateEnergy(_time.Now().Now);
         }
         UpdateStats();
-        if (affectionDelta > 0) AddAffectionPoints(affectionDelta, true);
         RefreshBrainStatus();
         _ = AutoSave();
     }
