@@ -60,6 +60,22 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     /// <summary>这一版只有 2D 流程图：3D 层在 Windows 上会原生崩溃，开关先藏起来。</summary>
     [ObservableProperty] private bool _has3D;
 
+    // ---- 整页状态灯：专注 / 神游 / 即将失效，是三盏灯而不是某一格的属性 ----
+    [ObservableProperty] private string _ambientTitle = "神游";
+    [ObservableProperty] private string _ambientDetail = "";
+    [ObservableProperty] private string _focusLampText = "专注 0%";
+    [ObservableProperty] private string _wanderLampText = "神游";
+    [ObservableProperty] private string _alarmLampText = "—";
+    [ObservableProperty] private Color _focusLampColor = LampOff;
+    [ObservableProperty] private Color _wanderLampColor = LampCold;
+    [ObservableProperty] private Color _alarmLampColor = LampOff;
+
+    private static readonly Color LampOff = Color.FromArgb("#3A3226");
+    private static readonly Color LampWarm = Color.FromArgb("#FFB454");
+    private static readonly Color LampCold = Color.FromArgb("#5FD3C4");
+    private static readonly Color LampAlarm = Color.FromArgb("#FF5A5A");
+    private static readonly Color LampAlarmDim = Color.FromArgb("#6B2A2A");
+
     /// <summary>点进选中模块自己的页面：图上只给一眼，细节在那页里看（含多档等级与时间线）。</summary>
     [RelayCommand]
     private async Task OpenInspector()
@@ -303,10 +319,60 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         if (!_pageVisible) return;
         try
         {
-            // 数据驱动：只有余辉窗口内还有节点时才刷新，避免变成永续动画。
-            if (FlowTracer.LitNodes().Count > 0) Redraw();
+            // 整页氛围一直有呼吸：相位匀速走，每 4 个 tick（约 480ms）重画一帧。
+            // 8fps 对「慢慢呼吸」够用，又不至于为了背景把画布烧满。
+            ArchDrawable.AmbientPhase = (ArchDrawable.AmbientPhase + 0.055) % 1;
+            _ambientSkip = (_ambientSkip + 1) % 4;
+            var beat = _ambientSkip == 0;
+            if (beat) RefreshAmbient();
+            if (beat || FlowTracer.LitNodes().Count > 0) Redraw();
         }
         catch { /* 装饰性刷新失败不打扰主流程 */ }
+    }
+
+    private int _ambientSkip;
+
+    /// <summary>
+    /// 读一次「她此刻是什么模式」并把整页氛围与三根状态灯定下来。
+    /// 专注快撑不住（Reserve 掉到 25% 以下）时神游就要介入，这时候红灯会跟着相位闪 ——
+    /// 这是失效前的提示，靠画布边缘泛红和这盏灯一起说，而不是弹个对话框。
+    /// </summary>
+    private void RefreshAmbient()
+    {
+        try
+        {
+            var id = CharId;
+            var focused = CognitionModeService.Instance.Current(id) == CognitionMode.Focused;
+            var intervene = CognitionModeService.Instance.ShouldWanderIntervene(id);
+            var reserve = CognitionModeService.Instance.FocusReserve(id);
+            var capacity = CognitionModeService.Instance.Capacity(id);
+            var ratio = capacity > 0 ? Math.Clamp(reserve / capacity, 0, 1) : 0;
+
+            var patho = 0.0;
+            foreach (var fx in _fx.Values)
+                if (fx.Pathological && fx.Severity > patho) patho = fx.Severity;
+
+            var alarm = focused && intervene;
+            ArchDrawable.AmbientMode = alarm ? 2 : focused ? 1 : 0;
+            ArchDrawable.AmbientSeverity = Math.Clamp(patho, 0, 1);
+            // 神游压暗、专注全亮：一眼就能看出她是在认真想还是在飘。
+            ArchDrawable.AmbientOpacity = focused ? 1.0 : 0.84 - 0.10 * Math.Clamp(patho, 0, 1);
+
+            var blinkOn = ArchDrawable.AmbientPhase < 0.5;
+            AmbientTitle = alarm ? "专注即将失效" : focused ? "专注" : "神游";
+            AmbientDetail = focused
+                ? $"专属精力 {Math.Round(reserve)}/{Math.Round(capacity)}（{ratio * 100:0}%）"
+                  + (alarm ? " · 神游正在敲门，随时会塞一段旧记忆进来" : " · 高精度思考，耗专属精力")
+                : "低精度默认态 · 反刍、整理、纠错、回忆连线都在这里发生";
+
+            FocusLampText = $"专注 {ratio * 100:0}%";
+            WanderLampText = "神游";
+            AlarmLampText = alarm ? "神游介入" : "—";
+            FocusLampColor = focused ? LampWarm : LampOff;
+            WanderLampColor = focused ? LampOff : LampCold;
+            AlarmLampColor = alarm ? (blinkOn ? LampAlarm : LampAlarmDim) : LampOff;
+        }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.Ambient -> " + ex.Message); }
     }
 
     /// <summary>
@@ -537,6 +603,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 var severity = Math.Clamp(0.35 + 0.28 * st.Severity - 0.25 * st.Stability, 0.08, 1.0);
                 _fx[nodeId] = new NodeFx(severity, true);
             }
+
+            RefreshAmbient();
 
             // 被强制切断的路径：不是「没走」，是被顶掉了——所以图上断开并打叉。
             _severed.Clear();

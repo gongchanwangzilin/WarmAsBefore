@@ -124,6 +124,24 @@ public sealed class ArchitectureFlowDrawable : IDrawable
     /// </summary>
     public IReadOnlyDictionary<string, Color>? LayerColors { get; set; }
 
+    /// <summary>
+    /// 整页氛围：0 神游、1 专注、2 专注即将失效。
+    /// 这三件事是整个心智的模式，不是某一格的属性，所以画在整页上而不是画在节点上。
+    /// </summary>
+    public int AmbientMode { get; set; }
+
+    /// <summary>0..1 循环相位，由 VM 的钟推进；呼吸与脉冲的节奏都取它。</summary>
+    public double AmbientPhase { get; set; }
+
+    /// <summary>0..1 病理浓度：越高压暗底色、边缘泛红越重。</summary>
+    public double AmbientSeverity { get; set; }
+
+    /// <summary>
+    /// 整张图的亮度：神游时压暗（低精度默认态，系统大半在后台怠速），专注时全亮。
+    /// 图跟着状态变，而不是永远同一张。
+    /// </summary>
+    public double AmbientOpacity { get; set; } = 1;
+
     /// <summary>自然内容尺寸变了：VM 据此改 GraphicsView 的请求宽高，让外面能滚。</summary>
     public event Action<float, float>? ContentSizeChanged;
 
@@ -293,11 +311,81 @@ public sealed class ArchitectureFlowDrawable : IDrawable
             return;
         }
 
-        // 顺序：系统块 → 连线 → 节点。线压在块上、节点压在线头上，层次才读得出来。
+        // 顺序：整页氛围 → 系统块 → 连线 → 节点 → 边缘光。底色垫在下面，光压在最外面。
+        DrawAmbient(canvas, dirtyRect);
+        // 神游时整张图压暗：低精度默认态里大部分系统在怠速，图也该是暗的。
+        canvas.SaveState();
+        canvas.Alpha = (float)Math.Clamp(AmbientOpacity, 0.3, 1.0);
         DrawGroups(canvas, ink);
         DrawLinks(canvas);
         foreach (var n in _nodes ?? Array.Empty<ArchNode>())
             if (_rects.TryGetValue(n.Id, out var r)) DrawNode(canvas, n, r, ink);
+        canvas.RestoreState();
+        DrawAura(canvas, dirtyRect);
+    }
+
+    // 氛围用的四种底色：神游冷、专注暖、失效红、病理紫红。写在本地而不是 GraphPalette，
+    // 因为 palette 是名词色（人、地、物、情绪），这里要的是「整页此刻的气质」。
+    private static readonly Color ToneWander = Color.FromArgb("#4FA3C7");
+    private static readonly Color ToneFocus = Color.FromArgb("#FFB454");
+    private static readonly Color ToneLapse = Color.FromArgb("#FF5A5A");
+    private static readonly Color TonePatho = Color.FromArgb("#B25DD6");
+
+    private double Wave => 0.5 + 0.5 * Math.Sin(AmbientPhase * Math.PI * 2);
+
+    /// <summary>
+    /// 整页底色：神游时是缓慢的冷色呼吸，专注时暖起来，专注快撑不住时泛红并加快脉冲，
+    /// 病理浓度越高整页越压暗。这样一眼看过去就知道「她现在是神游还是在硬撑」。
+    /// </summary>
+    private void DrawAmbient(ICanvas canvas, RectF r)
+    {
+        var wave = Wave;
+        Color tone;
+        double alpha;
+        switch (AmbientMode)
+        {
+            case 1:
+                tone = ToneFocus;
+                alpha = 0.045 + 0.055 * wave;
+                break;
+            case 2:
+                tone = ToneLapse;
+                alpha = 0.06 + 0.15 * wave;
+                break;
+            default:
+                tone = ToneWander;
+                alpha = 0.03 + 0.04 * wave;
+                break;
+        }
+        if (AmbientSeverity > 0.01)
+        {
+            tone = GraphPalette.Blend(tone, TonePatho, Math.Min(1, AmbientSeverity));
+            alpha += 0.045 * AmbientSeverity;
+        }
+
+        canvas.FillColor = tone.WithAlpha((float)Math.Min(0.26, alpha));
+        canvas.FillRectangle(r);
+    }
+
+    /// <summary>
+    /// 边缘光：由外到内三道低透明度描边，读起来是「边缘在发光」而不是画了个框。
+    /// 神游时几乎不闪、专注时缓慢呼吸、即将失效时红得明显 —— 失效前的提示就靠它。
+    /// </summary>
+    private void DrawAura(ICanvas canvas, RectF r)
+    {
+        var wave = Wave;
+        var tone = AmbientMode == 2 ? ToneLapse : AmbientMode == 1 ? ToneFocus : ToneWander;
+        var strength = AmbientMode == 2 ? 0.62 : AmbientMode == 1 ? 0.34 : 0.18;
+        var beat = AmbientMode == 2 ? 0.35 + 0.65 * wave : 0.55 + 0.45 * wave;
+
+        for (var i = 0; i < 3; i++)
+        {
+            var inset = 3f + i * 6f;
+            if (r.Width <= inset * 2 || r.Height <= inset * 2) break;
+            canvas.StrokeColor = tone.WithAlpha((float)Math.Max(0, (strength - i * 0.1) * beat));
+            canvas.StrokeSize = 1.6f;
+            canvas.DrawRoundedRectangle(inset, inset, r.Width - inset * 2, r.Height - inset * 2, 14);
+        }
     }
 
     /// <summary>

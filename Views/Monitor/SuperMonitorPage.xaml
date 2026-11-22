@@ -51,11 +51,45 @@
             <!-- 左：架构活流程图（+ 可选 3D 向量覆盖层） -->
             <Grid x:Name="CanvasHost" Grid.Row="0" Grid.Column="0"
                   RowDefinitions="Auto,*,Auto" RowSpacing="8">
-                <VerticalStackLayout Grid.Row="0" Spacing="2">
-                    <Label Text="架构活流程图" Style="{StaticResource TxtSection}" />
-                    <Label Text="对话执行时，流经的节点会亮起；点任意节点看它的读数与影响"
-                           Style="{StaticResource TxtCaption}" MaxLines="2" />
-                </VerticalStackLayout>
+                <!-- 标题 + 三盏状态灯：专注（暖）/ 神游（冷）/ 神游介入（红，会闪）。
+                     这是整页的状态，不是某一格的属性，所以放在画布顶上。 -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
+                        <Label Text="架构活流程图" Style="{StaticResource TxtSection}" />
+                        <Label Text="对话执行时，流经的节点会亮起；点任意节点看它的读数与影响"
+                               Style="{StaticResource TxtCaption}" MaxLines="2" />
+                    </VerticalStackLayout>
+                    <VerticalStackLayout Grid.Column="1" Spacing="5" HorizontalOptions="End" VerticalOptions="Center">
+                        <Label Text="{Binding AmbientTitle}" Style="{StaticResource TxtSection}"
+                               HorizontalTextAlignment="End" />
+                        <HorizontalStackLayout Spacing="12" HorizontalOptions="End">
+                            <HorizontalStackLayout Spacing="5">
+                                <Border BackgroundColor="{Binding FocusLampColor}" StrokeThickness="0"
+                                        WidthRequest="9" HeightRequest="9" StrokeShape="RoundRectangle 99"
+                                        VerticalOptions="Center" />
+                                <Label Text="{Binding FocusLampText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="5">
+                                <Border BackgroundColor="{Binding WanderLampColor}" StrokeThickness="0"
+                                        WidthRequest="9" HeightRequest="9" StrokeShape="RoundRectangle 99"
+                                        VerticalOptions="Center" />
+                                <Label Text="{Binding WanderLampText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                            <HorizontalStackLayout Spacing="5">
+                                <Border BackgroundColor="{Binding AlarmLampColor}" StrokeThickness="0"
+                                        WidthRequest="9" HeightRequest="9" StrokeShape="RoundRectangle 99"
+                                        VerticalOptions="Center" />
+                                <Label Text="{Binding AlarmLampText}" Style="{StaticResource TxtCaption}"
+                                       VerticalOptions="Center" />
+                            </HorizontalStackLayout>
+                        </HorizontalStackLayout>
+                        <Label Text="{Binding AmbientDetail}" Style="{StaticResource TxtCaption}"
+                               MaxLines="2" LineBreakMode="TailTruncation"
+                               HorizontalTextAlignment="End" MaximumWidthRequest="330" />
+                    </VerticalStackLayout>
+                </Grid>
 
                 <Border Grid.Row="1" Style="{StaticResource CardSolid}" Padding="4">
                     <Grid>
