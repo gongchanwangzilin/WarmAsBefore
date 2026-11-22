@@ -9,10 +9,11 @@ using WarmAsBefore.Modules.Automation;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
-public sealed partial class SaveViewModel : ObservableObject
+public sealed partial class SaveViewModel : ObservableObject, IWorstCaseAware
 {
     private readonly SaveManager _save;
     private readonly SettingsManager _settings;
@@ -85,9 +86,39 @@ public sealed partial class SaveViewModel : ObservableObject
         NovelTesting = settings.Current.NovelTestingEnabled;
     }
 
+    /// <summary>
+    /// 压测档：存档列表整个换成 fixture。读盘 / 清 marker / 写任何文件都不做 ——
+    /// 这一档存在的意义就是把界面逼到边界，而不是碰用户的档。
+    /// </summary>
+    public void ReloadWorstCase() => _ = Refresh();
+
+    private void LoadWorstCaseSlots()
+    {
+        var mode = WorstCaseProvider.Mode;
+        Slots = WorstCaseFixtures.Archive.Slots(mode)
+            .Select(s => new SaveSlotItem { Slot = s.Slot, CharacterName = s.CharacterName })
+            .ToList();
+        // 坏档隔离区也一起走最坏：一条读不出来 + 一条上次读到一半被杀。
+        HasUnreadable = mode != WorstCaseMode.One && mode != WorstCaseMode.Empty;
+        UnreadableText = "2 份存档暂时无法读取，已备份原件并移出列表；可在数据目录手工找回。";
+        HasIncompleteLoad = mode == WorstCaseMode.Worst;
+        IncompleteLoadNote = "上次读取在「校验数据」阶段被中断（可能是强制关闭或断电）；存档本身未受影响。";
+        NovelTesting = _settings.Current.NovelTestingEnabled;
+    }
+
+    /// <summary>压测档挡掉所有会读真实档 / 写盘 / 调模型的入口，只留一句可读的说明。</summary>
+    private static bool BlockedByWorstCase()
+    {
+        if (!WorstCaseProvider.IsActive) return false;
+        Toast.Info("压测档只读 fixture：读档、改名、分支、导出、删除都不执行。");
+        return true;
+    }
+
     [RelayCommand]
     private async Task Refresh()
     {
+        if (WorstCaseProvider.IsActive) { LoadWorstCaseSlots(); return; }
+
         // P1：残留 marker = 上次进程在读取中途被杀，进存档页时给一条中性补报（一次性）。
         // 放在这里而不是 App.OnStart：本项目没有 OnStart override，且 Refresh 每次进页面都会跑，
         // 时序上比启动期的静态标志更可靠，也不需要跨组件事件。
@@ -129,6 +160,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task LoadSlot(string id)
     {
+        if (BlockedByWorstCase()) return;
         // 重入门禁：连点 5 次「读取」只触发 1 次 Load（体验契约的防呆）。
         if (Interlocked.CompareExchange(ref _loading, 1, 0) != 0)
         {
@@ -277,6 +309,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportSlot(string id)
     {
+        if (BlockedByWorstCase()) return;
         try
         {
             var bundle = _settings.Current.SaveBundleWithPlugins;
@@ -296,11 +329,15 @@ public sealed partial class SaveViewModel : ObservableObject
     /// <summary>存档高级设置：插件/工具/角色白名单，不进入游戏也能改。</summary>
     [RelayCommand]
     private async Task OpenRules(string id)
-        => await Shell.Current.GoToAsync($"saveRules?id={Uri.EscapeDataString(id)}");
+    {
+        if (BlockedByWorstCase()) return;
+        await Shell.Current.GoToAsync($"saveRules?id={Uri.EscapeDataString(id)}");
+    }
 
     [RelayCommand]
     private async Task DeleteSlot(string id)
     {
+        if (BlockedByWorstCase()) return;
         var slot = Slots.FirstOrDefault(s => s.Id == id);
         var ok = await Shell.Current.DisplayAlert("删除存档",
             $"确定删除「{slot?.Label ?? id}」吗？删除后不可恢复", "删除", "取消");
@@ -312,6 +349,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task RenameSlot(string id)
     {
+        if (BlockedByWorstCase()) return;
         var slot = Slots.FirstOrDefault(s => s.Id == id);
         var input = await Shell.Current.DisplayPromptAsync("重命名存档",
             "新的存档名称？", "保存", "取消", slot?.Label ?? "");
@@ -328,6 +366,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task BranchSlot(string id)
     {
+        if (BlockedByWorstCase()) return;
         try
         {
             var slot = Slots.FirstOrDefault(s => s.Id == id);
@@ -355,6 +394,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task NewSave()
     {
+        if (BlockedByWorstCase()) return;
         try { await Shell.Current.GoToAsync("select"); }
         catch (Exception ex)
         {
@@ -366,6 +406,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task ImportSave()
     {
+        if (BlockedByWorstCase()) return;
         try
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions
@@ -394,6 +435,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task BackupAll()
     {
+        if (BlockedByWorstCase()) return;
         try
         {
             var folder = await CommunityToolkit.Maui.Storage.FolderPicker.Default.PickAsync();
@@ -412,6 +454,7 @@ public sealed partial class SaveViewModel : ObservableObject
     [RelayCommand]
     private async Task ImportNovel()
     {
+        if (BlockedByWorstCase()) return;
         try
         {
             var pick = await FilePicker.Default.PickAsync(new PickOptions

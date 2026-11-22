@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:model="clr-namespace:WarmAsBefore.Models"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.ShopPage"
 
              Title=""
@@ -211,16 +212,19 @@
                                             </Grid>
                                         </Border>
                                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
+                                            <!-- 名字截断后必须还能读到全名：行只有一行，说明放在悬停提示里 -->
+                                            <Label Text="{Binding DisplayName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation"
+                                                   ToolTipProperties.Text="{Binding DisplayName}" />
                                             <Label Text="{Binding Desc}"
                                                    Style="{StaticResource TxtRowDesc}"
                                                    LineBreakMode="WordWrap" MaxLines="2" />
                                             <HorizontalStackLayout Spacing="6">
-                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Category}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CategoryText}"
                                                        Style="{StaticResource TxtMuted}" />
-                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Merchant, StringFormat='{0}'}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Merchant}"
                                                        Style="{StaticResource TxtMuted}"
-                                                       TextColor="{DynamicResource AccentWarmFg}" />
+                                                       TextColor="{DynamicResource AccentWarmFg}"
+                                                       IsVisible="{Binding HasMerchant}" />
                                                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Owned, StringFormat='已购 {0} 件'}"
                                                        Style="{StaticResource TxtMuted}"
                                                        TextColor="{DynamicResource AccentWarmFg}"
@@ -228,7 +232,8 @@
                                             </HorizontalStackLayout>
                                         </VerticalStackLayout>
                                         <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
-                                            <Label Text="{Binding Price, StringFormat='{0} 币'}"
+                                            <!-- 七位数价格自带千分位；负数是坏数据，写成「价格异常」而不是「-1 币」 -->
+                                            <Label Text="{Binding PriceText}"
                                                    Style="{StaticResource TxtRowTitle}" HorizontalOptions="End" />
                                             <Button Text="{Binding IsTicket, Converter={StaticResource TicketLabel}}"
                                                     Style="{StaticResource BtnNeumorphic}"
@@ -268,6 +273,9 @@
                        HorizontalOptions="Center" />
             </VerticalStackLayout>
         </Grid>
+
+        <!-- dev 压测条：带 worst 启动参数时才出现 -->
+        <dev:WorstCaseBar Grid.RowSpan="3" />
 
         <!-- 身体状态覆盖层（查看小雨身体/状态总览） -->
         <Grid Grid.RowSpan="3"

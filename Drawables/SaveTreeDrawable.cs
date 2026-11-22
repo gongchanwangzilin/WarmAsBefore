@@ -85,6 +85,13 @@ public sealed class SaveTreeDrawable : IDrawable
 
     private float _viewW;
     private float _viewH;
+
+    /// <summary>
+    /// 画布需要的总高度 = 轴 + 泳道数 × 行高。泳道只由数据决定、与视口高度无关，
+    /// 所以页面照它撑高画布不会和布局互相追着改 —— 存档一多，节点会排到视口外，
+    /// 页面必须能滚动到它们（否则「有 40 条分支」等于「只看得到 5 条」）。
+    /// </summary>
+    public float ContentHeight { get; private set; } = 260f;
     private long _tMin;
     private long _tMax;
     private float _plotX0;
@@ -111,6 +118,7 @@ public sealed class SaveTreeDrawable : IDrawable
         _edges.Clear();
         _ticks.Clear();
 
+        ContentHeight = 260f;
         var nodes = _nodes;
         if (nodes is null || nodes.Count == 0) return;
         foreach (var n in nodes)
@@ -217,6 +225,7 @@ public sealed class SaveTreeDrawable : IDrawable
         // 5) 卡片矩形。
         var laneH = CardH + LaneGap;
         var top = TopPad + AxisH;
+        ContentHeight = Math.Max(260f, top + Math.Max(1, nextLane) * laneH + 8f);
         foreach (var n in nodes)
             _rects[n.Id] = new RectF(xOf[n.Id], top + _laneOf[n.Id] * laneH, CardW, CardH);
 

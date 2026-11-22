@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.SaveTreePage"
              x:Name="Page"
              Title=""
@@ -28,10 +29,14 @@
                 Margin="{DynamicResource WPadCard}"
                 HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
             <Grid RowDefinitions="*,Auto" RowSpacing="4">
-                <GraphicsView x:Name="TreeCanvas"
-                              EndInteraction="OnCanvasEnd"
-                              MinimumHeightRequest="260"
-                              BackgroundColor="Transparent" />
+                <!-- 画布按泳道数撑高（code-behind 用 Drawable.ContentHeight 设 HeightRequest），
+                     节点多于可视区时靠这一层滚动到达 —— 固定高度会把第 6 条以下的分支整个切掉。 -->
+                <ScrollView Orientation="Vertical" VerticalScrollBarVisibility="Default">
+                    <GraphicsView x:Name="TreeCanvas"
+                                  EndInteraction="OnCanvasEnd"
+                                  MinimumHeightRequest="260"
+                                  BackgroundColor="Transparent" />
+                </ScrollView>
                 <Label Grid.Row="1" Text="横向为时间（左旧右新），纵向为分支泳道；点节点看详情"
                        Style="{StaticResource TxtCaption}" MaxLines="2" />
             </Grid>
@@ -43,8 +48,9 @@
                 HorizontalOptions="Fill" MaximumWidthRequest="{DynamicResource WCardWidth}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <VerticalStackLayout Grid.Column="0" Spacing="4">
+                    <!-- 卡片里只放得下 8 个字，全名必须在这里读得到：详情条给两行 -->
                     <Label Text="{Binding Selected.Title}" Style="{StaticResource TxtSubhead}"
-                           MaxLines="1" LineBreakMode="TailTruncation" />
+                           MaxLines="2" LineBreakMode="TailTruncation" />
                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8" RowDefinitions="Auto,Auto,Auto,Auto"
                           RowSpacing="2">
                         <Label Grid.Row="0" Grid.Column="0" Text="分支" Style="{StaticResource TxtCaption}" />
@@ -66,5 +72,7 @@
                         Command="{Binding OpenSlotCommand}" />
             </Grid>
         </Border>
+        <!-- dev 压测条：带 worst 启动参数时才出现 -->
+        <dev:WorstCaseBar Grid.Row="2" />
     </Grid>
 </ContentPage>

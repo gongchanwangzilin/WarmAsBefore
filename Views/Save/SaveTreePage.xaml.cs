@@ -28,7 +28,11 @@ public partial class SaveTreePage : ContentPage
         BindingContext = vm;
         // 绘制异常只让这一帧空着，不升级成 WinUI 原生异常。
         TreeCanvas.Drawable = Helpers.SafeDrawable.Wrap(vm.Drawable, "SaveTree");
-        vm.AttachInvalidate(() => TreeCanvas.Invalidate());
+        vm.AttachInvalidate(() =>
+        {
+            TreeCanvas.Invalidate();
+            SyncCanvasHeight();
+        });
         TreeCanvas.SizeChanged += (_, _) => vm.SetViewport(TreeCanvas.Width, TreeCanvas.Height);
     }
 
@@ -41,6 +45,21 @@ public partial class SaveTreePage : ContentPage
             catch (Exception ex) { App.WriteLog("SaveTree.OnAppearing -> " + ex.Message); }
         }
         catch (Exception ex) { App.WriteLog("SaveTree.OnAppearing -> " + ex); }
+    }
+
+    /// <summary>
+    /// 画布高度跟随泳道数：节点多到超出视口时靠外层 ScrollView 滚过去。
+    /// 只在真的变了才写，避免「设高度 → SizeChanged → 重排 → 再设高度」自激。
+    /// </summary>
+    private void SyncCanvasHeight()
+    {
+        try
+        {
+            var want = Math.Max(TreeCanvas.MinimumHeightRequest, _vm.Drawable.ContentHeight);
+            if (double.IsNaN(TreeCanvas.HeightRequest) || Math.Abs(TreeCanvas.HeightRequest - want) > 0.5)
+                TreeCanvas.HeightRequest = want;
+        }
+        catch (Exception ex) { App.WriteLog("SaveTree.SyncCanvasHeight -> " + ex.Message); }
     }
 
     private void OnCanvasEnd(object? sender, TouchEventArgs e)

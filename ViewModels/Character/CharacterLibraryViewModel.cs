@@ -7,6 +7,7 @@ using WarmAsBefore.Controls;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -19,7 +20,7 @@ namespace WarmAsBefore.ViewModels;
 ///
 /// 除主角外，AI 在对话里仍会按存档白名单调用库里的其他角色。
 /// </summary>
-public sealed partial class CharacterLibraryViewModel : ObservableObject
+public sealed partial class CharacterLibraryViewModel : ObservableObject, IWorstCaseAware
 {
     private readonly GameEngine _engine;
     private readonly CharacterLibrary _library;
@@ -70,13 +71,25 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         // 角色库和存档目录是两份互不依赖的盘上数据：并行读，别让用户等两遍 IO。
         List<CharacterData> list;
         List<SaveSlot> allSaves;
-        using (PerfLog.Measure("页 · 角色库 · 读取列表"))
+        // 压测档的「进过几份存档」直接来自 fixture，不去造几千条假存档再数一遍。
+        Dictionary<string, int> worstCounts = new(StringComparer.Ordinal);
+        if (WorstCaseProvider.IsActive)
         {
-            var listTask = _library.ListAsync();
-            var savesTask = _save.List();
-            await Task.WhenAll(listTask, savesTask);
-            list = await listTask;
-            allSaves = await savesTask;
+            var seeds = WorstCaseFixtures.Characters.Roster(WorstCaseProvider.Mode);
+            list = seeds.Select(s => s.Data).ToList();
+            allSaves = new List<SaveSlot>();
+            worstCounts = seeds.ToDictionary(s => s.Data.Profile.Id, s => s.SaveCount, StringComparer.Ordinal);
+        }
+        else
+        {
+            using (PerfLog.Measure("页 · 角色库 · 读取列表"))
+            {
+                var listTask = _library.ListAsync();
+                var savesTask = _save.List();
+                await Task.WhenAll(listTask, savesTask);
+                list = await listTask;
+                allSaves = await savesTask;
+            }
         }
 
         var keep = Selected?.Id;
@@ -93,7 +106,8 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
                     var full = Path.Combine(_store.Root, ch.Avatar);
                     if (File.Exists(full)) avatar = ImageSource.FromFile(full);
                 }
-                return new CharacterLibraryItem(ch, avatar, savesCount: saves.Count,
+                var savesCount = worstCounts.TryGetValue(ch.Profile.Id, out var n) ? n : saves.Count;
+                return new CharacterLibraryItem(ch, avatar, savesCount: savesCount,
                     displayName: CharacterMask.DisplayName(ch, _settings.Current.MaskUnintroducedNames));
             }).ToList();
         }
@@ -109,6 +123,17 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
         {
             Selected = items.FirstOrDefault(i => i.Id == keep) ?? items.FirstOrDefault();
         }
+    }
+
+    /// <summary>压测条换了档：名册与预览一起重读。</summary>
+    public void ReloadWorstCase() => _ = Refresh();
+
+    /// <summary>压测档挡掉所有会写盘 / 打开真实角色的入口。</summary>
+    private static bool BlockedByWorstCase()
+    {
+        if (!WorstCaseProvider.IsActive) return false;
+        Toast.Info("压测档只读 fixture：不导出、不删除、不改背景、不进工作室。");
+        return true;
     }
 
     partial void OnSelectedChanged(CharacterLibraryItem? value)
@@ -211,7 +236,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task Enter()
     {
-        if (Selected is null) return;
+        if (Selected is null || BlockedByWorstCase()) return;
         await Shell.Current.GoToAsync($"studio?id={Uri.EscapeDataString(Selected.Id)}");
     }
 
@@ -222,7 +247,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task Export(CharacterLibraryItem? item)
     {
-        if (item is null || _exporting) return;
+        if (item is null || _exporting || BlockedByWorstCase()) return;
         _exporting = true;
         item.IsExporting = true;
         try
@@ -264,7 +289,11 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
 
     /// <summary>顶部那颗「新建角色」：走四步向导，不在这里塞表单。</summary>
     [RelayCommand]
-    private async Task NewCharacter() => await Shell.Current.GoToAsync("newcharacter");
+    private async Task NewCharacter()
+    {
+        if (BlockedByWorstCase()) return;
+        await Shell.Current.GoToAsync("newcharacter");
+    }
 
     /// <summary>
     /// 给选中的人换专属背景。图片 / GIF / 视频都走同一条导入口，
@@ -273,7 +302,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task PickBackground()
     {
-        if (Selected is null) return;
+        if (Selected is null || BlockedByWorstCase()) return;
         var ch = Selected.Data;
         try
         {
@@ -305,7 +334,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task SetBackgroundFit(string? fit)
     {
-        if (Selected is null) return;
+        if (Selected is null || BlockedByWorstCase()) return;
         var normalized = CharacterBackgroundService.NormalizeFit(fit);
         var ch = Selected.Data;
         var crop = ch.BackgroundCrop;
@@ -343,7 +372,7 @@ public sealed partial class CharacterLibraryViewModel : ObservableObject
     [RelayCommand]
     private async Task Delete(CharacterLibraryItem? item)
     {
-        if (item is null) return;
+        if (item is null || BlockedByWorstCase()) return;
         var inSaves = (await _save.List()).Count(s => string.Equals(s.Character, item.Id, StringComparison.Ordinal));
         var warn = inSaves > 0
             ? Environment.NewLine + Environment.NewLine
