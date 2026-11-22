@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:models="clr-namespace:WarmAsBefore.Models"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.SceneLibraryPage"
              x:Name="Page"
              x:DataType="vm:SceneLibraryViewModel"
@@ -11,20 +12,14 @@
 
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <!-- 顶部栏：与内容区同一块地，只靠底下一条发丝线分界（LineColor 是退役别名，早没人发这个键了） -->
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
-                        VerticalOptions="Center"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="场景工坊" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="＋ 新建" Style="{StaticResource BtnPrimary}"
+        <!-- 页头：与内容区同一块地，结构与分隔线走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Grid.Row="0" Title="场景工坊" BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Button Text="＋ 新建" Style="{StaticResource BtnPrimary}"
                         VerticalOptions="Center"
                         Command="{Binding AddEntryCommand}" />
-            </Grid>
-        </Border>
-        <BoxView Grid.Row="0" Style="{StaticResource HSep}" VerticalOptions="End" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 主区：条目列表 + 选中详情 -->
         <Grid Grid.Row="1" RowDefinitions="*,Auto" RowSpacing="{DynamicResource WGapSection}"
