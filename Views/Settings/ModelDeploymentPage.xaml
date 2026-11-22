@@ -76,7 +76,7 @@
                                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                                    <Label Text="{Binding Name}" FontSize="12" TextColor="{DynamicResource SurfaceFg}" />
+                                                    <Label Text="{Binding Name}" FontSize="12" TextColor="{DynamicResource SurfaceFg}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Note}" Style="{StaticResource TxtCaption}" />
                                                     <Label Text="{Binding ExampleSource}" Style="{StaticResource TxtCaption}" LineBreakMode="MiddleTruncation" />
                                                 </VerticalStackLayout>
@@ -101,7 +101,7 @@
                                 <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                     <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                        <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" />
+                                        <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" MaxLines="1" LineBreakMode="TailTruncation" />
                                         <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
                                         <Label Text="{Binding InstallPath}" Style="{StaticResource TxtCaption}" LineBreakMode="MiddleTruncation" />
                                     </VerticalStackLayout>

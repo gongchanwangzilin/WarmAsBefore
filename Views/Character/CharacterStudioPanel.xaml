@@ -709,7 +709,7 @@
                                                             </BoxView.Triggers>
                                                         </BoxView>
                                                         <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                                            <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                                            <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                             <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}"
                                                                    LineBreakMode="TailTruncation" />
                                                         </VerticalStackLayout>
@@ -785,7 +785,7 @@
                                             <DataTemplate x:DataType="vm:PluginProfileItem">
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                                                        <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" />
+                                                        <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label Text="{Binding Help}" Style="{StaticResource TxtCaption}"
                                                                LineHeight="1.3" IsVisible="{Binding HasHelp}" />
                                                     </VerticalStackLayout>
@@ -1129,7 +1129,7 @@
                                         <DataTemplate x:DataType="vm:StudioLayerRow">
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,5">
                                                 <VerticalStackLayout Spacing="1">
-                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
                                                            LineBreakMode="TailTruncation" />
                                                 </VerticalStackLayout>

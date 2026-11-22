@@ -108,7 +108,7 @@
                                         StrokeShape="{DynamicResource WRadiusPill}">
                                     <!-- 空态图形也得是墨档：WarmFaint 在这套语言里是淡档面，
                                          压在井面上只剩 1.x:1，圆片里等于什么都没有。 -->
-                                    <Label Text="♡" Style="{StaticResource TxtDisplay}"
+                                    <Label Text="&#xE00B;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource TxtDisplay}"
                                            TextColor="{DynamicResource MutedFg}"
                                            HorizontalOptions="Center" VerticalOptions="Center" />
                                 </Border>
@@ -139,7 +139,7 @@
                                                 <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
                                                        Style="{StaticResource TxtRowTitle}"
                                                        HorizontalOptions="Center" VerticalOptions="Center"
-                                                       IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                                       IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             </Border>
                                             <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="1">
                                                 <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"

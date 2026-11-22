@@ -147,7 +147,7 @@
                                         <Button Grid.Column="2" Text="选" Style="{StaticResource BtnGhostSm}"
                                                 Command="{Binding SelectPhotoCommand, Source={RelativeSource AncestorType={x:Type vm:MapCaptureViewModel}}}"
                                                 CommandParameter="{Binding}" />
-                                        <Button Grid.Column="3" Text="✕" Style="{StaticResource BtnGhostSm}"
+                                        <Button Grid.Column="3" Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource BtnGhostSm}"
                                                 Command="{Binding DeleteCommand, Source={RelativeSource AncestorType={x:Type vm:MapCaptureViewModel}}}"
                                                 CommandParameter="{Binding}" />
                                     </Grid>

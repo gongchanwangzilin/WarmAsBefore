@@ -31,7 +31,7 @@
                     <!-- 一条规则一段，靠发丝线分，不再一摞同款卡片 -->
                     <VerticalStackLayout Spacing="4" Padding="4,10">
                         <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10" RowSpacing="4">
-                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                             <Label Grid.Column="1" Text="{Binding EnabledLabel}" Style="{StaticResource TxtCaption}"
                                    VerticalOptions="Center" />
 

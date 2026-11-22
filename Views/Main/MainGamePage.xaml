@@ -25,7 +25,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
         <!-- 顶栏小组件：标题小、读数大，靠字号差拉开层次，不画盒子 -->
         <DataTemplate x:Key="TopWidgetItemTemplate" x:DataType="vm:WidgetItemVm">
             <VerticalStackLayout Spacing="0" IsVisible="{Binding Shown}" VerticalOptions="Center">
-                <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="9" />
+                <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="9" MaxLines="1" LineBreakMode="TailTruncation" />
                 <Label Text="{Binding Value}" TextColor="{DynamicResource WarmDark}"
                        FontSize="{Binding ValueFontSize}" FontAttributes="Bold"
                        LineBreakMode="TailTruncation" MaximumWidthRequest="150" />
@@ -37,7 +37,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
         <!-- 左栏小组件：一列呼吸开的文字，不塞进等大的卡片盒 -->
         <DataTemplate x:Key="LeftWidgetItemTemplate" x:DataType="vm:WidgetItemVm">
             <VerticalStackLayout Spacing="1" IsVisible="{Binding Shown}">
-                <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="10" MaxLines="1" LineBreakMode="TailTruncation" />
                 <Label Text="{Binding Value}" TextColor="{DynamicResource SurfaceFg}"
                        FontSize="{Binding ValueFontSize}" FontAttributes="Bold" LineBreakMode="WordWrap" />
                 <Label Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
@@ -52,7 +52,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                 <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                 <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="8">
                     <Label Text="{Binding Title}" TextColor="{DynamicResource SurfaceFg}"
-                           FontSize="13" FontAttributes="Bold" VerticalOptions="Center" />
+                           FontSize="13" FontAttributes="Bold" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                     <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Visible, Mode=TwoWay}"
                             OnColor="{DynamicResource AccentWarm}" VerticalOptions="Center" />
                     <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding Desc}"
@@ -386,12 +386,12 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
                         <Image Source="ic_masks.png" WidthRequest="64" HeightRequest="64" HorizontalOptions="Center" />
-                        <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" />
+                        <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                     </VerticalStackLayout>
                 </Border>
                 <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="{DynamicResource PanelGlass}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
-                    <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
+                    <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                 </Border>
 
                 <!-- #9 左右竖条切换地点按键（电脑端同样提供，与键盘方向键、手机滑动共用命令）。
@@ -537,7 +537,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                 Padding="10,4" HorizontalOptions="Start">
                             <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                             <Label Text="{Binding CharacterName}" TextColor="{DynamicResource AccentWarmFg}"
-                                   FontSize="13" FontAttributes="Bold" />
+                                   FontSize="13" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                         </Border>
                         <Button Text="{Binding GalgameModeLabel}"
                                 TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}"
@@ -583,7 +583,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                     BackgroundColor="Transparent" FontSize="13"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding ToggleGiftPanelCommand}" />
-                            <Button Grid.Column="3" Text="🎤" TextColor="{DynamicResource MutedFg}"
+                            <Button Grid.Column="3" Text="&#xE720;" FontFamily="Segoe MDL2 Assets" TextColor="{DynamicResource MutedFg}"
                                     BackgroundColor="Transparent" FontSize="11"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding VoiceInputCommand}" />

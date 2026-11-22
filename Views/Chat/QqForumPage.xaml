@@ -44,7 +44,7 @@
                         </Border.GestureRecognizers>
                         <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
                             <Label Text="{Binding Icon}" FontSize="13" />
-                            <Label Text="{Binding Title}" FontSize="13" TextColor="{StaticResource QqInk}" />
+                            <Label Text="{Binding Title}" FontSize="13" TextColor="{StaticResource QqInk}" MaxLines="1" LineBreakMode="TailTruncation" />
                         </HorizontalStackLayout>
                         <Border.Triggers>
                             <DataTrigger TargetType="Border" Binding="{Binding IsSelected}" Value="True">

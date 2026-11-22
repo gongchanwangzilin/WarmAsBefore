@@ -75,7 +75,7 @@
                                         </Grid>
                                         <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
                                             <Label Text="{Binding Name}" TextColor="{StaticResource QqInk}"
-                                                   FontSize="17" FontAttributes="Bold" />
+                                                   FontSize="17" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding LastMessage}" TextColor="{StaticResource QqSub}"
                                                    FontSize="13" LineBreakMode="TailTruncation" MaxLines="1" />
                                         </VerticalStackLayout>
@@ -115,11 +115,11 @@
                     <Label Text="{Binding PartnerName, Converter={StaticResource CharInitials}}"
                            TextColor="{StaticResource QqInk}" FontSize="15"
                            HorizontalOptions="Center" VerticalOptions="Center" FontAttributes="Bold"
-                           IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" />
+                           IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" MaxLines="1" LineBreakMode="TailTruncation" />
                 </Grid>
                 <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="1">
                     <Label Text="{Binding PartnerName}" TextColor="{StaticResource QqInk}"
-                           FontSize="16" FontAttributes="Bold" />
+                           FontSize="16" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                     <Label Text="{Binding ModeLabel}" TextColor="{StaticResource QqSub}" FontSize="11" />
                 </VerticalStackLayout>
                 <Border Grid.Column="3" BackgroundColor="{StaticResource QqAccentSoft}"
@@ -293,12 +293,12 @@
                             Completed="OnEditorCompleted"
                             VerticalOptions="Center" />
                 </Border>
-                <Button Grid.Column="2" Text="🙂"
+                <Button Grid.Column="2" Text="&#xE76E;" FontFamily="Segoe MDL2 Assets"
                         BackgroundColor="Transparent"
                         FontSize="18" Padding="6"
                         HeightRequest="40" WidthRequest="40"
                         Command="{Binding ToggleStickerPanelCommand}" />
-                <Button Grid.Column="3" Text="📎"
+                <Button Grid.Column="3" Text="&#xE723;" FontFamily="Segoe MDL2 Assets"
                         BackgroundColor="Transparent"
                         FontSize="16" Padding="6"
                         HeightRequest="40" WidthRequest="40"

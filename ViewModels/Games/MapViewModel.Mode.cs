@@ -84,6 +84,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(EditModeLabel));
         OnPropertyChanged(nameof(LinkModeLabel));
         OnPropertyChanged(nameof(DoodleModeLabel));
+        // 浏览态是「地图」，编辑/连线/涂鸦才是「编辑器」：框与提示只在后者露出来。
+        RefreshChrome();
     }
 
     [RelayCommand]
@@ -112,6 +114,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             _ => "连线：先点卡片/临时节点设起点，点目标连线，点空白加折点"
         };
         if (wasPlotting) StatusText += "；刚才圈到一半的地已取消";
+        PingStatusStrip();
         Touch();
     }
 
@@ -294,6 +297,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         UpdateFloorBar();
         OnPropertyChanged(nameof(HasSelection));
         OnPropertyChanged(nameof(SelectedNodeLabel));
+        // 点中一个场景标记 → 底部抽屉升起（名字 / 一句话 / 距离 / 两颗按钮）
+        SyncSheetFromSelection();
         Touch();
     }
 
@@ -343,6 +348,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     public void SetViewport(double w, double h)
     {
         if (w > 40 && h > 40) { _viewW = w; _viewH = h; _measured = true; }
+        RefreshScaleBar();   // 比例尺是按像素折的，视口一变就得重算
         TryLandPending();
     }
 }

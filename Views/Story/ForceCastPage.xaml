@@ -65,7 +65,7 @@
                                         </Border>
                                         <!-- 名字：行标题 + 行说明，垂直居中 -->
                                         <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
-                                            <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding SceneName, StringFormat='初始位置 · {0}'}"
                                                    Style="{StaticResource TxtRowDesc}" />
                                         </VerticalStackLayout>

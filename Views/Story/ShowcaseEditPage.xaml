@@ -52,7 +52,7 @@
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                                 <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                     <Label Text="主角" Style="{StaticResource TxtRowTitle}" />
-                                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowDesc}" />
+                                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
                                 </VerticalStackLayout>
                                 <Button Grid.Column="1" Text="选择角色" Style="{StaticResource BtnNeumorphSm}"
                                         VerticalOptions="Center" Command="{Binding PickCharacterCommand}" />
@@ -76,7 +76,7 @@
                                     <Border Style="{StaticResource SettingRow}">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
-                                                <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" />
+                                                <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                 <Label Text="{Binding Sub}" Style="{StaticResource TxtRowDesc}"
                                                        IsVisible="{Binding Sub, Converter={StaticResource StringNotEmpty}}" />
                                             </VerticalStackLayout>

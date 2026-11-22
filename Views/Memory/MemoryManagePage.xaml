@@ -14,7 +14,7 @@
                  「刷新」整页只此一处，摆在这儿比塞进某一行更贴合它的作用域。 -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                 <VerticalStackLayout Grid.Column="0" Spacing="3">
-                    <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" />
+                    <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                     <Label Text="这里能看到并修改 TA 的记忆：关系网、标签、TA 记得的事，以及主设定 × 副设定。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                     <Label Text="{Binding ScopeNote, StringFormat='这些记忆：{0}（开关在设置 → 记忆里）'}"
@@ -105,7 +105,7 @@
                             <Border BackgroundColor="{Binding Fill}" Stroke="Transparent" StrokeThickness="0"
                                     Padding="8,2" StrokeShape="{RoundRectangle CornerRadius=6}">
                                 <Label Text="{Binding Label}" FontSize="{DynamicResource WSizeCaption}"
-                                       TextColor="{DynamicResource WarmDark}" />
+                                       TextColor="{DynamicResource WarmDark}" MaxLines="1" LineBreakMode="TailTruncation" />
                             </Border>
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>

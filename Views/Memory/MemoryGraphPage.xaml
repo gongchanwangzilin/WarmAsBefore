@@ -22,7 +22,7 @@
                         <Button Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
                                 IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" />
                         <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
-                               TextColor="{DynamicResource WarmDark}" VerticalTextAlignment="Center" />
+                               TextColor="{DynamicResource WarmDark}" VerticalTextAlignment="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                     </HorizontalStackLayout>
 
                     <ScrollView Grid.Column="1" Orientation="Horizontal" HeightRequest="22">

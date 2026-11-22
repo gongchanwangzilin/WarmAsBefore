@@ -72,7 +72,7 @@
                                 <VerticalStackLayout Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Spacing="2">
-                                            <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
                                                    LineBreakMode="WordWrap" />
                                         </VerticalStackLayout>
@@ -249,7 +249,7 @@
                                         <VerticalStackLayout Spacing="8">
                                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                                 <VerticalStackLayout Spacing="2">
-                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
                                                            IsVisible="{Binding HasDescription}" LineBreakMode="WordWrap" />
                                                     <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
@@ -271,7 +271,7 @@
                                                                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
                                                                     <HorizontalStackLayout Spacing="6">
                                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
-                                                                               FontAttributes="Bold" VerticalOptions="Center" />
+                                                                               FontAttributes="Bold" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                                                         <Label Text="{Binding KindLabel}" Style="{StaticResource TxtCaption}"
                                                                                VerticalOptions="Center" />
                                                                         <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"

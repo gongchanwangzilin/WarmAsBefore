@@ -132,7 +132,7 @@
                                                                  Color="{DynamicResource BeigeAccent300}"
                                                                  IsVisible="{Binding IsSelected}" />
                                                         <VerticalStackLayout Grid.Column="1" Spacing="3" VerticalOptions="Center">
-                                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                             <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
                                                                    LineBreakMode="WordWrap" IsVisible="{Binding HasSummary}" />
                                                         </VerticalStackLayout>
@@ -200,7 +200,7 @@
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                                     <Label Text="TA" Style="{StaticResource TxtCaption}" WidthRequest="48"
                                            VerticalOptions="Center" />
-                                    <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                     <Label Grid.Column="2" Text="这一局的主角" Style="{StaticResource TxtRowDesc}"
                                            VerticalOptions="Center" />
                                 </Grid>
@@ -251,7 +251,7 @@
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                                     <Label Text="与谁" Style="{StaticResource TxtCaption}" WidthRequest="48"
                                            VerticalOptions="Center" />
-                                    <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" />
+                                    <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                 </Grid>
                             </Border>
                             <BoxView Style="{StaticResource HSepInset}" />

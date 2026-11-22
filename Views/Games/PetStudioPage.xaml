@@ -57,7 +57,7 @@
                                                         </BoxView.Triggers>
                                                     </BoxView>
                                                     <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
                                                                LineBreakMode="TailTruncation" MaxLines="1" />
                                                     </VerticalStackLayout>
@@ -144,7 +144,7 @@
                                                 </Border>
 
                                                 <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding StateText}" Style="{StaticResource TxtRowDesc}"
                                                            LineBreakMode="TailTruncation" MaxLines="1" />
                                                 </VerticalStackLayout>

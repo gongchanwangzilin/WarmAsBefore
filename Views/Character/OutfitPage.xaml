@@ -25,7 +25,7 @@
                 <!-- 当前立绘：一张图 + 一行说明，不再做成一排缩略图 -->
                 <Border Style="{StaticResource CardSolid}">
                     <VerticalStackLayout Spacing="10">
-                        <Label Text="{Binding CharacterName}" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="{Binding CharacterName}" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
                         <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                 HeightRequest="360" HorizontalOptions="Fill"
                                 StrokeShape="{DynamicResource WRadiusCard}">
@@ -59,12 +59,12 @@
                                                         <Image Source="{Binding Image}" Aspect="AspectFill"
                                                                IsVisible="{Binding HasImage}"
                                                                HorizontalOptions="Fill" VerticalOptions="Fill" />
-                                                        <Label Text="♡" Style="{StaticResource TxtMuted}"
+                                                        <Label Text="&#xE00B;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource TxtMuted}"
                                                                HorizontalOptions="Center" VerticalOptions="Center"
                                                                IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
                                                     </Border>
                                                     <Label Grid.Column="1" Text="{Binding Name}"
-                                                           Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
+                                                           Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
                                                         <Label Text="{Binding CurrentLabel}" Style="{StaticResource TxtCaption}"
                                                                TextColor="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />

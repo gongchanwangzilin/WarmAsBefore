@@ -121,7 +121,7 @@
                                     <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10,4">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="11" /></Border.StrokeShape>
                                         <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource SurfaceFg}"
-                                               VerticalOptions="Center" />
+                                               VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                     </Border>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
@@ -290,7 +290,7 @@
                                     <DataTemplate x:DataType="vm:PetHoverOption">
                                         <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
                                             <Label Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
-                                                   VerticalOptions="Center" />
+                                                   VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Button Grid.Column="1" Text="↑" Padding="8,2" HeightRequest="28"
                                                     Style="{StaticResource BtnGhost}"
                                                     IsVisible="{Binding IsOn}"

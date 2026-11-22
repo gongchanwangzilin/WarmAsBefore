@@ -12,7 +12,7 @@
                 <VerticalStackLayout Spacing="8">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                         <VerticalStackLayout Spacing="2">
-                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                             <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
                         </VerticalStackLayout>
                         <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"

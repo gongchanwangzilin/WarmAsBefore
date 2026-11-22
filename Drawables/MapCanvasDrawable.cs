@@ -94,6 +94,11 @@ public sealed class MapCanvasDrawable : IDrawable
 
     // ---- 交互状态 ----
     public MapCanvasNode? SelectedNode { get; set; }
+    /// <summary>编辑器那一层（地点框、备注卡、空地点提示）：浏览态收起，地图才像地图。</summary>
+    public bool MapChrome { get; set; } = true;
+    /// <summary>区域划分：正在编辑的那块地的顶点手柄要画出来。</summary>
+    public bool RegionEditMode { get; set; }
+    public string? RegionEditId { get; set; }
     public string? SelectedEdgeId { get; set; }
     /// <summary>编辑器里选中的地块（画布高亮、右键菜单认它）。</summary>
     public string? SelectedRegionId { get; set; }
@@ -123,36 +128,82 @@ public sealed class MapCanvasDrawable : IDrawable
     public void AttachInvalidate(Action a) => _onInvalidate = a;
     private void NeedRedraw() => _onInvalidate?.Invoke();
 
-    private static readonly Color[] Palette =
+    // ==================== 取色：只走世界令牌 ====================
+    // 地图的每一档颜色都由「当前地面 + 这个世界最浅的一份 + 墨色」混出来：
+    // 深色世界里同一套相对关系仍然成立（纸面沉、路面浮、墨色亮），不必维护两套色表。
+    // 下面的十六进制只剩两类：调色种子（交给 Reanchor 重钉到当前地面）与红绿灯三色
+    // （红停绿走是这盏灯本身的意思，不随世界换）。界面里不该再出现裸色值。
+    private static readonly Color[] GroupSeeds =
     {
         Color.FromArgb("#E8B4B8"), Color.FromArgb("#A8C3E0"), Color.FromArgb("#C3B1E1"),
         Color.FromArgb("#A9CBB7"), Color.FromArgb("#F0D9A8"), Color.FromArgb("#F2B8C6"),
         Color.FromArgb("#B5D8C7"), Color.FromArgb("#D9C8A9")
     };
 
-    // ---- 每帧都要用的常量色 ----
-    // Color.FromArgb 每次都走一遍字符串解析；这几种色在 Draw 里每秒要出现几百次，直接钉成字段。
-    private static readonly Color GridPaper = Color.FromArgb("#FDF6EE");
-    private static readonly Color GridLine = Color.FromArgb("#F0E4D6");
-    private static readonly Color InkStrong = Color.FromArgb("#5D4037");
-    private static readonly Color InkSoft = Color.FromArgb("#4A3226");
-    private static readonly Color CardOutline = Color.FromArgb("#E3D5C4");
-    private static readonly Color Gold = Color.FromArgb("#C9A227");
-    private static readonly Color NamePlate = Color.FromArgb("#AA000000");
-    // 审计 P6：这些色在 Draw 里每帧出现，钉成字段，不再每帧解析字符串
-    private static readonly Color FrameFillParent = Color.FromArgb("#14FFFFFF");
-    private static readonly Color FrameFillChild = Color.FromArgb("#22FFFFFF");
-    private static readonly Color FrameFillMarquee = Color.FromArgb("#30FFFFFF");
-    private static readonly Color FrameTitleInk = Color.FromArgb("#7A6252");
-    private static readonly Color FarMassFont = Color.FromArgb("#80FFFFFF");
-    private static readonly Color TransitFill = Color.FromArgb("#203A8CFF");
-    private static readonly Color TransitStroke = Color.FromArgb("#7FA8FF");
+    // 初值只是「还没跟世界对齐」时的占位；第一次 SyncPalette 就会全部改写。
+    private static Color _palGround = Color.FromArgb("#F5F0E8");
+    private static Color _palLift = Color.FromArgb("#FFFFFF");
+    private static Color _palInk = Color.FromArgb("#4A3D2C");
+    private static Color _palMuted = Color.FromArgb("#6B5D4B");
+    private static Color _palSurface = Color.FromArgb("#FDF8F0");
+    private static Color _palWell = Color.FromArgb("#EADCC0");
+    private static Color _palLine = Color.FromArgb("#F5DFC0");
+    private static Color _palPaper = Color.FromArgb("#FDF6EE");
+    private static Color _palAccent = Color.FromArgb("#E8B87A");
+    private static Color[] _palGroups = System.Array.Empty<Color>();
+    private static bool _palReady;
+
+    private static Color Mix(Color a, Color b, double t) => GraphPalette.Blend(a, b, t);
+
+    private static bool SameColor(Color a, Color b) =>
+        a.Red == b.Red && a.Green == b.Green && a.Blue == b.Blue && a.Alpha == b.Alpha;
+
+    /// <summary>地面换了才重算（切世界 / 系统翻深浅）。每帧都要取十几次，不能每帧做 HSL 换算。</summary>
+    private static void SyncPalette()
+    {
+        var ground = StyleWorldTokens.Pick("PageBg", Color.FromArgb("#F5F0E8"));
+        if (_palReady && SameColor(_palGround, ground)) return;
+        _palReady = true;
+        _palGround = ground;
+        _palLift = StyleWorldTokens.Pick("ShadowLight", Color.FromArgb("#FFFFFF"));
+        _palInk = StyleWorldTokens.Pick("SurfaceFg", Color.FromArgb("#4A3D2C"));
+        _palMuted = StyleWorldTokens.Pick("MutedFg", Color.FromArgb("#6B5D4B"));
+        _palSurface = StyleWorldTokens.Pick("SurfaceBg", Color.FromArgb("#FDF8F0"));
+        _palWell = StyleWorldTokens.Pick("WellBg", Color.FromArgb("#EADCC0"));
+        _palPaper = Mix(ground, _palLift, StyleWorldTokens.Dark ? 0.13 : 0.52);
+        _palLine = Mix(ground, _palInk, 0.14);
+        _palAccent = GraphPalette.Person;
+        _palGroups = new Color[GroupSeeds.Length];
+        for (var i = 0; i < GroupSeeds.Length; i++)
+            _palGroups[i] = StyleWorldTokens.Reanchor(GroupSeeds[i], ground);
+    }
+
+    // 下面这些名字是绘制里已有的「角色」，值全部来自当前世界的一份
+    private static Color InkStrong => _palInk;
+    private static Color InkSoft => _palInk;
+    private static Color CardOutline => _palLine;
+    private static Color Gold => _palAccent;
+    private static Color GridPaper => _palPaper;
+    private static Color GridLine => _palLine;
+    private static Color NamePlate => Mix(_palInk, _palPaper, 0.1).WithAlpha(0.88f);
+    private static Color FrameFillParent => _palSurface.WithAlpha(0.14f);
+    private static Color FrameFillChild => _palSurface.WithAlpha(0.24f);
+    private static Color FrameFillMarquee => _palAccent.WithAlpha(0.22f);
+    private static Color FrameTitleInk => _palMuted;
+    private static Color FarMassFont => _palInk;
+    private static Color TransitFill => GraphPalette.Place.WithAlpha(0.16f);
+    private static Color TransitStroke => GraphPalette.Place;
+
+    /// <summary>针的颜色：浅色世界里往墨色压一档，暗色世界里往亮处提一档——都是为了让它在纸面上站住。</summary>
+    private static Color PinTone(Color group) =>
+        StyleWorldTokens.Dark ? Mix(group, _palLift, 0.10) : Mix(group, _palInk, 0.30);
 
     public Color GroupColor(string groupKey)
     {
+        SyncPalette();
         var h = 0;
         foreach (var ch in groupKey) h = (h * 31 + ch) & 0x7fffffff;
-        return Palette[h % Palette.Length];
+        return _palGroups[h % _palGroups.Length];
     }
 
     // ==================== 慢帧诊断 ====================
@@ -178,7 +229,10 @@ public sealed class MapCanvasDrawable : IDrawable
         var frameStart = Stopwatch.GetTimestamp();
         _drawTick++;
         _dirty = dirtyRect;
-        DrawGrid(canvas, dirtyRect);
+        _viewWv = dirtyRect.Width;
+        _viewHv = dirtyRect.Height;
+        SyncPalette();
+        DrawGround(canvas, dirtyRect);
 
         // 地表在最底下：先铺地块（一片公园、一条河、一块校区），再往上长路、楼与字。
         if (Regions is not null) foreach (var r in Regions) DrawRegion(canvas, r, dirtyRect);
@@ -186,7 +240,7 @@ public sealed class MapCanvasDrawable : IDrawable
         // 远景只画大框：卡片与字在 0.3 倍下糊成一团，画了反而看不清城市结构。
         var lod = Detail;
 
-        if (lod != Lod.Far) DrawLocationFrames(canvas, dirtyRect);
+        if (lod != Lod.Far && MapChrome) DrawLocationFrames(canvas, dirtyRect);
 
         if (Edges is not null) foreach (var e in Edges) DrawEdge(canvas, e, dirtyRect);
         if (LinkStartNode is not null || LinkStartTransit is not null) DrawLinkPreview(canvas);
@@ -195,14 +249,14 @@ public sealed class MapCanvasDrawable : IDrawable
         if (lod != Lod.Far)
         {
             if (Transits is not null) foreach (var t in Transits) { if (InView(new Point(t.X, t.Y), dirtyRect)) DrawTransit(canvas, t); }
-            if (Nodes is not null) foreach (var n in Nodes) { if (InView(n.X, n.Y, CardW, CardH, dirtyRect)) DrawCard(canvas, n); }
+            if (Nodes is not null) foreach (var n in Nodes) { if (InView(n.X, n.Y, CardW, CardH, dirtyRect)) DrawPoi(canvas, n); }
         }
         else if (Nodes is not null)
         {
             DrawCityMass(canvas, dirtyRect);
         }
 
-        if (lod == Lod.Near)
+        if (lod == Lod.Near && MapChrome)
         {
             DrawLocationNotes(canvas);
             if (Nodes is not null) foreach (var n in Nodes) DrawNodeNote(canvas, n);
@@ -210,6 +264,11 @@ public sealed class MapCanvasDrawable : IDrawable
             DrawEdgeNotes(canvas);
         }
         DrawEdgeLengthLabels(canvas);
+
+        // 顶点手柄压在一切之上：拖它的时候不该被路名或卡片挡掉
+        if (RegionEditMode && RegionEditId is { } editId
+            && Regions?.FirstOrDefault(r => r.Id == editId) is { } editing)
+            DrawRegionHandles(canvas, editing);
 
         DrawMarquee(canvas);
         if (Menu is not null) DrawMenu(canvas);
@@ -242,24 +301,33 @@ public sealed class MapCanvasDrawable : IDrawable
         }
     }
 
-    /// <summary>
-    /// 一块地该怎么铺：面状类别填一层淡色再描圈边；航道是细长一条，按「路基→路面」两条带子画，
-    /// 跟路同一套画法，读图时才知道那是能走的一条线、不块绿地。MinScale 之下这一类不露面。
-    /// </summary>
-    private static (string Fill, string Line, double Width, double MinScale, bool Dash) RegionStyle(string? kind) => kind switch
+    /// <summary>地图上颜色的「族」：人物/地点/绿地/地块各自一族，世界换档时整族跟着走。</summary>
+    private enum Tone { Amber, Green, Blue, Sand, Rose }
+
+    private static Color ToneColor(Tone t) => t switch
     {
-        RegionKinds.Water => ("#9FC8DE", "#2F6A85", 1.2, 0.24, false),
-        RegionKinds.Plaza => ("#E7DCC8", "#A08A62", 1.0, 0.30, false),
-        RegionKinds.District => ("#C9A8E1", "#6B4A8A", 1.6, 0.18, true),
-        RegionKinds.Route => ("#A8CFE0", "#2F6A85", 3.6, 0.26, true),
-        _ => ("#9CC49A", "#4E6B4A", 1.2, 0.24, false),
+        Tone.Green => GraphPalette.Tag,
+        Tone.Blue => GraphPalette.Place,
+        Tone.Sand => GraphPalette.ImageFrame,
+        Tone.Rose => GraphPalette.Emotion,
+        _ => GraphPalette.Person,
+    };
+
+    /// <summary>一块地该怎么铺：面状类别填一层淡色再描圈边；航道是细长一条，按「路基→路面」两条带子画。</summary>
+    private static (double Width, double MinScale, bool Dash, double Skin, Tone Tone) RegionStyle(string? kind) => kind switch
+    {
+        RegionKinds.Water => (1.4, 0.24, false, 0.55, Tone.Blue),
+        RegionKinds.Plaza => (1.2, 0.30, false, 0.46, Tone.Sand),
+        RegionKinds.District => (1.8, 0.18, true, 0.14, Tone.Rose),
+        RegionKinds.Route => (3.8, 0.26, true, 0.95, Tone.Blue),
+        _ => (1.4, 0.24, false, 0.52, Tone.Green),
     };
 
     private void DrawRegion(ICanvas canvas, MapRegion r, RectF dirty)
     {
         if (!r.HasShape) return;
         var style = RegionStyle(r.Kind);
-        var selected = SelectedRegionId == r.Id;
+        var selected = SelectedRegionId == r.Id || RegionEditId == r.Id;
         if (Scale < style.MinScale && !selected) return;
 
         float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
@@ -278,7 +346,8 @@ public sealed class MapCanvasDrawable : IDrawable
         for (var i = 1; i < r.Points.Count; i++) path.LineTo(ScreenPt(new Point(r.Points[i].X, r.Points[i].Y)));
         if (!linear) path.Close();
 
-        var ink = selected ? InkStrong : ParseHex(style.Line, "#4E6B4A");
+        var family = ToneColor(style.Tone);
+        var ink = selected ? InkStrong : Mix(family, InkStrong, 0.55);
         var w = Math.Max(0.8, style.Width * Scale);
         if (style.Dash) canvas.StrokeDashPattern = new[] { 6f, 4f };
 
@@ -287,17 +356,16 @@ public sealed class MapCanvasDrawable : IDrawable
             canvas.StrokeColor = ink.WithAlpha(0.75f);
             canvas.StrokeSize = (float)(w + Math.Max(1.0, w * 0.4));
             canvas.DrawPath(path);
-            canvas.StrokeColor = ParseHex(style.Fill, "#A8CFE0").WithAlpha(selected ? 1f : 0.9f);
+            canvas.StrokeColor = Mix(family, _palPaper, 0.35).WithAlpha(selected ? 1f : 0.9f);
             canvas.StrokeSize = (float)w;
             canvas.DrawPath(path);
         }
         else
         {
             // 分区只是「这片叫这个名字」，不占地表颜色；绿化与水面才真的铺一层地皮。
-            var skin = r.Kind == RegionKinds.District ? 0.10f : 0.42f;
-            canvas.FillColor = ParseHex(style.Fill, "#9CC49A").WithAlpha(skin);
+            canvas.FillColor = family.WithAlpha((float)style.Skin);
             canvas.FillPath(path);
-            canvas.StrokeColor = ink.WithAlpha(0.8f);
+            canvas.StrokeColor = ink.WithAlpha(0.85f);
             canvas.StrokeSize = selected ? 2.4f : (float)w;
             canvas.DrawPath(path);
         }
@@ -315,15 +383,15 @@ public sealed class MapCanvasDrawable : IDrawable
         return new Point(x / pts.Count, y / pts.Count);
     }
 
-    private void DrawGrid(ICanvas canvas, RectF dirty)
+    /// <summary>地面：一张铺满的图底。网格只在近处淡淡露一手，远景是一整片纸，像真地图的底。</summary>
+    private void DrawGround(ICanvas canvas, RectF dirty)
     {
         canvas.FillColor = GridPaper;
         canvas.FillRectangle(dirty);
-        var step = 24 * Scale;
-        if (step < 10) step = 10;
-        if (Scale < 0.05) return;
+        var step = 56 * Scale;
+        if (step < 18 || Scale < 0.4) return;
         canvas.StrokeSize = 1;
-        canvas.StrokeColor = GridLine;
+        canvas.StrokeColor = GridLine.WithAlpha(0.7f);
         var x0 = Math.Floor((dirty.Left - OffsetX) / step) * step + OffsetX;
         for (var x = x0; x <= dirty.Right; x += step)
             canvas.DrawLine((float)x, dirty.Top, (float)x, dirty.Bottom);
@@ -622,24 +690,24 @@ public sealed class MapCanvasDrawable : IDrawable
     }
 
     /// <summary>
-    /// 一条路该多宽、涂什么色：MinScale 之下这一级路就不画了（远景只见高速与主街，拉近才长出小巷）。
-    /// 画两遍——先深一条路基、再亮一条路面，路与路相交时才有真地图那种「路网」层次。
+    /// 一条路该多宽、涂哪一族色：MinScale 之下这一级路就不画了（远景只见高速与主街，拉近才长出小巷）。
+    /// 画两遍——先一条「路基」、再一条「路面」，路与路相交时才有真地图那种路网层次。
     /// </summary>
-    private static (double Width, string Surface, string Casing, double MinScale, bool Dash) RoadStyle(string? kind) => kind switch
+    private static (double Width, double Mix, double MinScale, bool Dash, Tone Tone) RoadStyle(string? kind) => kind switch
     {
-        RoadKinds.Highway => (7.2, "#E3B34C", "#6B4A18", 0.28, false),
-        RoadKinds.Trunk => (5.6, "#E8C97A", "#7A5620", 0.30, false),
-        RoadKinds.County => (4.8, "#DFC489", "#705122", 0.32, false),
-        RoadKinds.Rural => (3.2, "#D9CBB2", "#6F5E46", 0.45, false),
-        RoadKinds.Street => (4.0, "#D8C3AA", "#6E5240", 0.34, false),
-        RoadKinds.Lane => (2.4, "#E4D6C4", "#7A5F4A", 0.62, false),
-        RoadKinds.Walkway => (1.8, "#BFD6BC", "#4E6B4A", 0.60, true),
-        RoadKinds.Steps => (1.6, "#D6C8E2", "#5B4A6B", 0.62, true),
-        RoadKinds.Bridge => (4.6, "#DCCDB8", "#5D4037", 0.42, false),
-        RoadKinds.Tunnel => (4.0, "#BFCAD6", "#3E5163", 0.42, true),
-        RoadKinds.Waterway => (5.0, "#A8CFE0", "#2F6A85", 0.30, false),
-        RoadKinds.Interior => (1.4, "#E7D9A8", "#8A6D1A", 0.70, true),
-        _ => (4.0, "#D8C3AA", "#6E5240", 0.34, false),
+        RoadKinds.Highway => (7.6, 0.74, 0.28, false, Tone.Amber),
+        RoadKinds.Trunk => (6.0, 0.60, 0.30, false, Tone.Amber),
+        RoadKinds.County => (5.0, 0.48, 0.32, false, Tone.Amber),
+        RoadKinds.Rural => (3.4, 0.30, 0.45, false, Tone.Sand),
+        RoadKinds.Street => (4.4, 0.40, 0.34, false, Tone.Sand),
+        RoadKinds.Lane => (2.6, 0.28, 0.62, false, Tone.Sand),
+        RoadKinds.Walkway => (2.0, 0.42, 0.60, true, Tone.Green),
+        RoadKinds.Steps => (1.8, 0.40, 0.62, true, Tone.Rose),
+        RoadKinds.Bridge => (4.8, 0.44, 0.42, false, Tone.Sand),
+        RoadKinds.Tunnel => (4.2, 0.46, 0.42, true, Tone.Blue),
+        RoadKinds.Waterway => (5.2, 0.80, 0.30, false, Tone.Blue),
+        RoadKinds.Interior => (1.6, 0.42, 0.70, true, Tone.Amber),
+        _ => (4.4, 0.40, 0.34, false, Tone.Sand),
     };
 
     /// <summary>灯色：红停绿走黄等一等，三颗色是钉死的——灯不随世界换色，换到暗世界上也一眼读得出。</summary>
@@ -694,11 +762,14 @@ public sealed class MapCanvasDrawable : IDrawable
         var dashed = e.Length == 0 || style.Dash;
         if (dashed) canvas.StrokeDashPattern = new[] { 7f, 5f };
 
-        // 路基（深）→ 路面（亮）：两条叠出来才有「一条路」的分量
-        canvas.StrokeColor = selected ? InkStrong : ParseHex(style.Casing, "#5D4037").WithAlpha(0.85f);
+        var surface = Mix(_palPaper, ToneColor(style.Tone), style.Mix);
+        var casing = Mix(surface, _palInk, 0.72);
+
+        // 路基（沉）→ 路面（浮）：两条叠出来才有「一条路」的分量
+        canvas.StrokeColor = selected ? InkStrong : casing.WithAlpha(0.9f);
         canvas.StrokeSize = (float)(selected ? w + 3.4 : w + Math.Max(1.0, w * 0.34));
         canvas.DrawPath(path);
-        canvas.StrokeColor = ParseHex(style.Surface, "#B08968");
+        canvas.StrokeColor = surface;
         canvas.StrokeSize = (float)w;
         canvas.DrawPath(path);
         canvas.StrokeDashPattern = null;
@@ -713,7 +784,7 @@ public sealed class MapCanvasDrawable : IDrawable
             if (len > 0.001)
             {
                 d = new Point(d.X / len, d.Y / len);
-                DrawArrow(canvas, ScreenPt(pts[^1]), d, ParseHex(style.Casing, "#5D4037"));
+                DrawArrow(canvas, ScreenPt(pts[^1]), d, casing);
             }
             // 单行道再往中段补一支：一眼看出这路不许倒着开
             if (e.OneWay && pts.Count > 5)
@@ -721,7 +792,7 @@ public sealed class MapCanvasDrawable : IDrawable
                 var m = pts.Count / 2;
                 var md = new Point(pts[m].X - pts[m - 1].X, pts[m].Y - pts[m - 1].Y);
                 var ml = Math.Sqrt(md.X * md.X + md.Y * md.Y);
-                if (ml > 0.001) DrawArrow(canvas, ScreenPt(pts[m]), new Point(md.X / ml, md.Y / ml), ParseHex(style.Casing, "#5D4037"));
+                if (ml > 0.001) DrawArrow(canvas, ScreenPt(pts[m]), new Point(md.X / ml, md.Y / ml), casing);
             }
         }
 
@@ -736,15 +807,15 @@ public sealed class MapCanvasDrawable : IDrawable
                 // 认的是「顺着箭头那一侧（A→B）」现在能不能走：红=停，绿=过。
                 canvas.FillColor = SignalFill(LightKindOf(e));
                 canvas.FillEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
-                canvas.StrokeColor = Color.FromArgb("#FFFDF9");
+                canvas.StrokeColor = _palLift;
                 canvas.StrokeSize = 1.4f;
                 canvas.DrawEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
             }
             if (e.Toll)
             {
-                canvas.FillColor = Color.FromArgb("#8A5A3B");
+                canvas.FillColor = Mix(_palInk, ToneColor(Tone.Sand), 0.35f);
                 canvas.FillRoundedRectangle((float)(sp.X + (e.TrafficLight ? 10 : 2)), (float)(sp.Y - 7), 22, 14, 4);
-                canvas.FontColor = Colors.White;
+                canvas.FontColor = _palLift;
                 canvas.FontSize = 9;
                 canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
                 canvas.DrawString(e.TollFee > 0 ? $"¥{e.TollFee:0.#}" : "收费",
@@ -763,7 +834,7 @@ public sealed class MapCanvasDrawable : IDrawable
         // 折点手柄（选中时显示）
         if (selected && e.Waypoints.Count > 0)
         {
-            canvas.FillColor = Color.FromArgb("#8D6E63");
+            canvas.FillColor = _palAccent;
             foreach (var w2 in e.Waypoints)
             {
                 var sp = ScreenPt(new Point(w2.X, w2.Y));
@@ -777,7 +848,7 @@ public sealed class MapCanvasDrawable : IDrawable
         var text = name.Length > 12 ? name[..12] : name;
         var tw = (float)(text.Length * 11 + 8);
         var th = 15f;
-        canvas.FillColor = Color.FromArgb("#C8FFFDF9");
+        canvas.FillColor = _palSurface.WithAlpha(0.86f);
         canvas.FillRoundedRectangle((float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th, 4);
         canvas.FontColor = InkSoft;
         canvas.FontSize = 11;
@@ -847,7 +918,7 @@ public sealed class MapCanvasDrawable : IDrawable
             var sp = ScreenPt(p);
             canvas.FillColor = ink;
             canvas.FillEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
-            canvas.StrokeColor = Color.FromArgb("#FFFDF9");
+            canvas.StrokeColor = _palLift;
             canvas.StrokeSize = 1.4f;
             canvas.DrawEllipse((float)(sp.X - 4), (float)(sp.Y - 4), 8, 8);
         }
@@ -865,15 +936,15 @@ public sealed class MapCanvasDrawable : IDrawable
         // 路口有自己的长相：环岛画圈、收费站画方、红绿灯画点、楼梯画个小梯子
         canvas.FillColor = kind switch
         {
-            JunctionKinds.Roundabout => Color.FromArgb("#FFFDF9"),
-            JunctionKinds.Toll => Color.FromArgb("#8A5A3B"),
-            JunctionKinds.Crossing => Color.FromArgb("#D2544A"),
-            JunctionKinds.Stop => Color.FromArgb("#5B8DEF"),
-            JunctionKinds.Junction => Color.FromArgb("#F0E0C8"),
-            _ => Color.FromArgb("#FFFDF9"),
+            JunctionKinds.Roundabout => _palSurface,
+            JunctionKinds.Toll => Mix(_palInk, ToneColor(Tone.Sand), 0.35f),
+            JunctionKinds.Crossing => ToneColor(Tone.Rose),
+            JunctionKinds.Stop => ToneColor(Tone.Blue),
+            JunctionKinds.Junction => Mix(_palSurface, ToneColor(Tone.Sand), 0.3f),
+            _ => _palSurface,
         };
         canvas.StrokeSize = selected ? (float)(3 * Scale) : (float)(2 * Scale);
-        canvas.StrokeColor = selected ? InkStrong : Color.FromArgb("#8D6E63");
+        canvas.StrokeColor = selected ? InkStrong : Mix(_palInk, _palSurface, 0.35f);
         if (kind == JunctionKinds.Toll || kind == JunctionKinds.Stop)
         {
             canvas.FillRoundedRectangle((float)(sp.X - r), (float)(sp.Y - r), (float)(r * 2), (float)(r * 2), (float)(r * 0.4));
@@ -890,7 +961,7 @@ public sealed class MapCanvasDrawable : IDrawable
             }
         }
 
-        canvas.FontColor = Color.FromArgb("#3E2A1C");
+        canvas.FontColor = _palInk;
         canvas.FontSize = (float)Math.Max(8, 11 * Scale);
         canvas.Font = Microsoft.Maui.Graphics.Font.Default;
         var name = t.Name;
@@ -900,85 +971,140 @@ public sealed class MapCanvasDrawable : IDrawable
         // 性质写在名字下面一行（路口/环岛/收费站…），一眼能认出这是什么节点
         if (kind.Length > 0 && Scale >= 0.55)
         {
-            canvas.FontColor = Color.FromArgb("#8A7259");
+            canvas.FontColor = _palMuted;
             canvas.FontSize = (float)Math.Max(7, 9 * Scale);
             canvas.DrawString(JunctionKinds.Display(kind), (float)(sp.X - r), (float)(sp.Y + r + 15), (float)(r * 2), 12,
                 HorizontalAlignment.Center, VerticalAlignment.Top);
         }
     }
 
-    // ==================== 场景卡片 ====================
+    // ==================== 场景标记（地图上的「点」） ====================
 
-    private void DrawCard(ICanvas canvas, MapCanvasNode n)
+    /// <summary>
+    /// 场景画成一枚地图点：水滴形针 + 一枚名字牌，而不是一张卡片。
+    /// 位置仍以 CardW×CardH 的矩形为准（拖拽与命中都吃这个框），针尖落在矩形中心。
+    /// </summary>
+    private void DrawPoi(ICanvas canvas, MapCanvasNode n)
     {
-        var rect = new RectF((float)(n.X * Scale + OffsetX), (float)(n.Y * Scale + OffsetY),
-            (float)(CardW * Scale), (float)(CardH * Scale));
-        var group = GroupColor(n.GroupKey);
+        var cx = (float)((n.X + CardW / 2) * Scale + OffsetX);
+        var cy = (float)((n.Y + CardH / 2) * Scale + OffsetY);
+        var group = PinTone(GroupColor(n.GroupKey));
+        var selected = n.IsSelected || n == SelectedNode;
+        var radius = (float)Math.Clamp(7.5 * Scale, 6, 12);
 
         // 这一层之外的房间淡成影子：还看得见它在哪，但不抢当前层的注意力
         if (Ghosted(n))
         {
-            canvas.FillColor = group.WithAlpha(0.22f);
-            canvas.FillRoundedRectangle(rect, 10);
-            canvas.StrokeSize = 1;
-            canvas.StrokeColor = group.WithAlpha(0.35f);
-            canvas.DrawRoundedRectangle(rect, 10);
+            canvas.FillColor = group.WithAlpha(0.25f);
+            canvas.FillCircle(cx, cy, radius * 0.8f);
             return;
         }
 
-        // 主体：背景图或底色
-        var img = Detail == Lod.Near && !string.IsNullOrWhiteSpace(n.Scene.Background) ? GetImage(n) : null;
-        if (img is not null)
-        {
-            canvas.DrawImage(img, rect.X, rect.Y, rect.Width, rect.Height);
-        }
-        else
-        {
-            canvas.FillColor = ParseHex(n.Scene.BackgroundColor, "#2C1810");
-            canvas.FillRoundedRectangle(rect, 10);
-        }
+        // 针身：圆头往下收成尖
+        var top = cy - radius * 1.9f;
+        var path = new PathF();
+        path.MoveTo(cx, cy + radius * 0.9f);
+        path.CurveTo(cx - radius * 0.55f, cy + radius * 0.1f, cx - radius, cy - radius * 0.55f, cx - radius, top + radius);
+        path.CurveTo(cx - radius, top + radius * 0.15f, cx - radius * 0.55f, top, cx, top);
+        path.CurveTo(cx + radius * 0.55f, top, cx + radius, top + radius * 0.15f, cx + radius, top + radius);
+        path.CurveTo(cx + radius, cy - radius * 0.55f, cx + radius * 0.55f, cy + radius * 0.1f, cx, cy + radius * 0.9f);
+        path.Close();
 
-        // 顶部地点色条
         canvas.FillColor = group;
-        var barH = (float)(18 * Scale);
-        canvas.FillRoundedRectangle(new RectF(rect.X, rect.Y, rect.Width, barH), 4);
-        canvas.FillRectangle(new RectF(rect.X, rect.Y + barH / 2, rect.Width, barH / 2));
+        canvas.FillPath(path);
+        canvas.StrokeSize = selected ? 2.6f : 1.4f;
+        canvas.StrokeColor = selected ? _palAccent : _palSurface;
+        canvas.DrawPath(path);
 
-        // 底部名称条
-        var nameH = (float)(22 * Scale);
-        canvas.FillColor = NamePlate;
-        canvas.FillRoundedRectangle(new RectF(rect.X, rect.Bottom - nameH, rect.Width, nameH), 4);
-        canvas.FillRectangle(new RectF(rect.X, rect.Bottom - nameH * 2, rect.Width, nameH));
+        // 针心一点「孔」：针上有内容，不是一块纯色
+        canvas.FillColor = _palSurface;
+        canvas.FillCircle(cx, top + radius, radius * 0.36f);
 
-        canvas.FontColor = Colors.White;
-        canvas.FontSize = (float)Math.Max(9, 13 * Scale);
-        canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
-        var name = n.SceneName;
-        if (name.Length > 12) name = name[..12];
-        canvas.DrawString(name, rect.X + 4, (float)(rect.Bottom - nameH), rect.Width - 8, nameH,
-            HorizontalAlignment.Center, VerticalAlignment.Center);
-
-        // 顶部色条：地点名 + 当前标记
-        canvas.FontColor = InkSoft;
-        canvas.FontSize = (float)Math.Max(7, 10 * Scale);
-        canvas.Font = Microsoft.Maui.Graphics.Font.Default;
-        var locName = n.LocationName;
-        if (locName.Length > 8) locName = locName[..8];
-        canvas.DrawString(locName, rect.X + 5, rect.Y + 2, rect.Width - 12, barH - 3,
-            HorizontalAlignment.Left, VerticalAlignment.Center);
+        // 她此刻站着的这一枚再套一圈光
         if (n.IsCurrent)
         {
-            canvas.FontColor = Color.FromArgb("#8A6D1A");
-            canvas.DrawString("📍", rect.X + 5, rect.Y + 2, rect.Width - 10, barH - 3,
-                HorizontalAlignment.Right, VerticalAlignment.Center);
+            canvas.StrokeSize = 2f;
+            canvas.StrokeColor = _palAccent.WithAlpha(0.9f);
+            canvas.DrawCircle(cx, top + radius, radius + 4f);
         }
 
-        // 边框
-        canvas.StrokeSize = (float)(n.IsCurrent ? 3.5 * Scale : n.IsSelected || n == SelectedNode ? 2.8 * Scale : 1.2 * Scale);
-        canvas.StrokeColor = n.IsCurrent ? Gold
-            : n.IsSelected || n == SelectedNode ? InkStrong
-            : CardOutline;
-        canvas.DrawRoundedRectangle(rect, 10);
+        // 名字牌：贴在针脚下方，面 + 一道缝，深色世界里自然变成深底浅字
+        var label = n.SceneName;
+        if (label.Length > 10) label = label[..10] + "…";
+        var font = (float)Math.Clamp(12 * Scale, 10, 14);
+        var chipW = Math.Min((float)(CardW * Scale), font * (label.Length + 1) * 1.05f);
+        var chipH = font + 8;
+        var chip = new RectF(cx - chipW / 2, cy + radius * 1.2f, chipW, chipH);
+        canvas.FillColor = _palSurface.WithAlpha(0.94f);
+        canvas.FillRoundedRectangle(chip, chipH / 2);
+        if (selected)
+        {
+            canvas.StrokeSize = 1.4f;
+            canvas.StrokeColor = _palAccent;
+            canvas.DrawRoundedRectangle(chip, chipH / 2);
+        }
+        canvas.FontColor = _palInk;
+        canvas.FontSize = font;
+        canvas.Font = selected ? Microsoft.Maui.Graphics.Font.DefaultBold : Microsoft.Maui.Graphics.Font.Default;
+        canvas.DrawString(label, chip.X, chip.Y, chip.Width, chip.Height,
+            HorizontalAlignment.Center, VerticalAlignment.Center);
+    }
+
+    // ==================== 区域划分：顶点手柄 ====================
+
+    private void DrawRegionHandles(ICanvas canvas, MapRegion r)
+    {
+        var pts = r.Points;
+        if (pts.Count == 0) return;
+        for (var i = 0; i < pts.Count; i++)
+        {
+            var sp = WorldToScreen(new Point(pts[i].X, pts[i].Y));
+            canvas.FillColor = _palSurface;
+            canvas.FillCircle((float)sp.X, (float)sp.Y, 5.5f);
+            canvas.StrokeSize = 2f;
+            canvas.StrokeColor = _palAccent;
+            canvas.DrawCircle((float)sp.X, (float)sp.Y, 5.5f);
+        }
+        if (pts.Count < 2) return;
+        var segments = RegionKinds.IsLinear(r.Kind) ? pts.Count - 1 : pts.Count;
+        for (var i = 0; i < segments; i++)
+        {
+            var j = (i + 1) % pts.Count;
+            var a = WorldToScreen(new Point(pts[i].X, pts[i].Y));
+            var b = WorldToScreen(new Point(pts[j].X, pts[j].Y));
+            var mx = (float)((a.X + b.X) / 2);
+            var my = (float)((a.Y + b.Y) / 2);
+            canvas.FillColor = _palAccent.WithAlpha(0.85f);
+            canvas.FillRoundedRectangle(mx - 3.5f, my - 3.5f, 7, 7, 1.5f);
+        }
+    }
+
+    /// <summary>命中某个顶点（屏幕坐标，-1 = 没点中）。</summary>
+    public int HitRegionHandle(MapRegion r, Point screen, double tol = 11)
+    {
+        for (var i = 0; i < r.Points.Count; i++)
+        {
+            var sp = WorldToScreen(new Point(r.Points[i].X, r.Points[i].Y));
+            if (Math.Abs(sp.X - screen.X) <= tol && Math.Abs(sp.Y - screen.Y) <= tol) return i;
+        }
+        return -1;
+    }
+
+    /// <summary>命中某条边的中点手柄（屏幕坐标）：返回这条边的起点索引，-1 = 没中。</summary>
+    public int HitRegionEdge(MapRegion r, Point screen, double tol = 9)
+    {
+        var pts = r.Points;
+        if (pts.Count < 2) return -1;
+        var segments = RegionKinds.IsLinear(r.Kind) ? pts.Count - 1 : pts.Count;
+        for (var i = 0; i < segments; i++)
+        {
+            var j = (i + 1) % pts.Count;
+            var a = WorldToScreen(new Point(pts[i].X, pts[i].Y));
+            var b = WorldToScreen(new Point(pts[j].X, pts[j].Y));
+            if (Math.Abs((a.X + b.X) / 2 - screen.X) <= tol && Math.Abs((a.Y + b.Y) / 2 - screen.Y) <= tol)
+                return i;
+        }
+        return -1;
     }
 
     private Point ScreenPt(Point w) => WorldToScreen(w);
@@ -1019,20 +1145,20 @@ public sealed class MapCanvasDrawable : IDrawable
             if (group.Count == 0) continue;
             var minX = group.Min(n => n.X);
             var minY = group.Min(n => n.Y);
-            DrawNoteCard(canvas, new Point(minX, minY - 48), loc.Note, Color.FromArgb("#EFE3D3"), Color.FromArgb("#6B5340"));
+            DrawNoteCard(canvas, new Point(minX, minY - 48), loc.Note, _palSurface, _palMuted);
         }
     }
 
     private void DrawNodeNote(ICanvas canvas, MapCanvasNode n)
     {
         if (string.IsNullOrWhiteSpace(n.Scene.Note)) return;
-        DrawNoteCard(canvas, new Point(n.X + CardW, n.Y + CardH / 2), n.Scene.Note, Color.FromArgb("#EFE9DE"), Color.FromArgb("#5B4A3A"));
+        DrawNoteCard(canvas, new Point(n.X + CardW, n.Y + CardH / 2), n.Scene.Note, _palSurface, _palInk);
     }
 
     private void DrawTransitNote(ICanvas canvas, MapTransitNode t)
     {
         if (string.IsNullOrWhiteSpace(t.Transit.Note)) return;
-        DrawNoteCard(canvas, new Point(t.X + 16, t.Y + 16), t.Transit.Note, Color.FromArgb("#EFE9DE"), Color.FromArgb("#5B4A3A"));
+        DrawNoteCard(canvas, new Point(t.X + 16, t.Y + 16), t.Transit.Note, _palSurface, _palInk);
     }
 
     private void DrawEdgeNotes(ICanvas canvas)
@@ -1043,7 +1169,7 @@ public sealed class MapCanvasDrawable : IDrawable
             if (string.IsNullOrWhiteSpace(e.Note)) continue;
             var pts = SampleEdge(e);
             var mid = pts[pts.Count / 2];
-            DrawNoteCard(canvas, mid, e.Note, Color.FromArgb("#F3E5CF"), Color.FromArgb("#7A5C3E"));
+            DrawNoteCard(canvas, mid, e.Note, _palSurface, _palMuted);
         }
     }
 
@@ -1059,7 +1185,7 @@ public sealed class MapCanvasDrawable : IDrawable
         canvas.FillColor = bg;
         canvas.FillRoundedRectangle(rect, 6);
         canvas.StrokeSize = 1;
-        canvas.StrokeColor = Color.FromArgb("#D8C4A8");
+        canvas.StrokeColor = _palLine;
         canvas.DrawRoundedRectangle(rect, 6);
         canvas.FontColor = fg;
         canvas.FontSize = (float)Math.Max(8, 11 * Scale);
@@ -1138,12 +1264,12 @@ public sealed class MapCanvasDrawable : IDrawable
         var tw = (float)(text.Length * 9 * Scale + 10);
         var th = (float)(16 * Scale);
         var rect = new RectF((float)(sp.X - tw / 2), (float)(sp.Y - th / 2), tw, th);
-        canvas.FillColor = Colors.White;
+        canvas.FillColor = _palSurface;
         canvas.FillRoundedRectangle(rect, 5);
         canvas.StrokeSize = 1;
         canvas.StrokeColor = Gold;
         canvas.DrawRoundedRectangle(rect, 5);
-        canvas.FontColor = Colors.Black;
+        canvas.FontColor = _palInk;
         canvas.DrawString(text, rect.X, rect.Y, tw, th, HorizontalAlignment.Center, VerticalAlignment.Center);
     }
 
@@ -1158,53 +1284,176 @@ public sealed class MapCanvasDrawable : IDrawable
 
     // ==================== 右键菜单 ====================
 
+    // ---- 菜单布局（每帧算一次，命中测试与滚动沿用同一份） ----
+    private RectF _menuPanel;
+    private RectF _menuContent;
+    private float _menuContentH;
+    private float _menuScroll;
+    private string _menuSig = "";
+    private readonly List<(RectF Rect, int Index)> _menuHitRects = new();
+    private bool _menuDragging;
+    private float _menuDragY;
+    private float _viewWv, _viewHv;
+
+    public bool MenuDragging => _menuDragging;
+
+    private static string MenuGroupOf(string cmd) => cmd switch
+    {
+        "bg" or "bg-lib" or "bg-clear" or "cal" or "stand" => "背景",
+        "ai-note" or "ai-anchor" or "ai-ratio" => "AI",
+        "floor" or "unit" or "indoor" or "floors" or "basement" or "height" => "楼层与户型",
+        _ => "本项",
+    };
+
+    /// <summary>
+    /// 右键菜单：高度不超过屏幕可用高度，超出时内容区可滚，标题条钉住不动；
+    /// 整块面板夹在窗口里（四边至少 8px），点靠下就向上弹、靠右就向左展开。
+    /// </summary>
     private void DrawMenu(ICanvas canvas)
     {
+        _menuHitRects.Clear();
         if (Menu is null) return;
-        var itemH = (float)(30 * Scale);
-        var w = (float)(150 * Scale);
-        var pos = ScreenPt(Menu.Pos);
-        var rect = new RectF((float)pos.X, (float)pos.Y, w, (float)(Menu.Items.Count * itemH + 8 * Scale));
 
-        // 标题条
-        var th = (float)(24 * Scale);
+        SyncPalette();
+        var vw = _viewWv > 40 ? _viewWv : 1200;
+        var vh = _viewHv > 40 ? _viewHv : 720;
+        var itemH = (float)Math.Clamp(30 * Scale, 26, 36);
+        var titleH = (float)Math.Clamp(24 * Scale, 22, 30);
+        var w = (float)Math.Clamp(184 * Scale, 176, 236);
+        var pad = 5f;
+
+        var sig = Menu.TargetId + "|" + Menu.Title + "|" + Menu.Items.Count + "|" + vw.ToString("0") + vh.ToString("0");
+        if (sig != _menuSig) { _menuSig = sig; _menuScroll = 0; }
+
+        var seps = 0;
+        for (var i = 1; i < Menu.Items.Count; i++)
+            if (MenuGroupOf(Menu.Items[i].Cmd) != MenuGroupOf(Menu.Items[i - 1].Cmd)) seps++;
+        const float sepH = 9f;
+        _menuContentH = pad * 2 + Menu.Items.Count * itemH + seps * sepH;
+
+        var anchor = ScreenPt(Menu.Pos);
+        var below = vh - anchor.Y - 8;
+        var above = anchor.Y - 8;
+        var total = titleH + _menuContentH;
+        var wantBelow = below >= total || below >= above;
+        var avail = Math.Max(titleH + itemH * 2, wantBelow ? below : above);
+        var panelH = (float)Math.Min(total, avail);
+        panelH = Math.Max(panelH, titleH + itemH);          // 至少露出两项，别缩成一条
+
+        var x = (float)Math.Clamp(anchor.X, 8f, Math.Max(8f, vw - w - 8f));
+        var y = wantBelow ? (float)anchor.Y : (float)(anchor.Y - panelH);
+        y = (float)Math.Clamp(y, 8f, Math.Max(8f, vh - panelH - 8f));
+        _menuPanel = new RectF(x, y, w, panelH);
+        _menuContent = new RectF(x, y + titleH, w, Math.Max(itemH, panelH - titleH));
+
+        var maxScroll = Math.Max(0, _menuContentH - _menuContent.Height);
+        _menuScroll = Math.Clamp(_menuScroll, 0, maxScroll);
+
+        // 面板
+        canvas.FillColor = _palSurface;
+        canvas.FillRoundedRectangle(_menuPanel, 8);
+        canvas.StrokeSize = 1;
+        canvas.StrokeColor = _palLine;
+        canvas.DrawRoundedRectangle(_menuPanel, 8);
+
+        // 标题条：钉在面板顶上，不跟着滚
         if (!string.IsNullOrEmpty(Menu.Title))
         {
-            rect.Height += th;
-            canvas.FillColor = Color.FromArgb("#8D6E63");
-            canvas.FillRoundedRectangle(new RectF(rect.X, rect.Y, rect.Width, th), 6);
-            canvas.FillRectangle(new RectF(rect.X, rect.Y + th / 2, rect.Width, th / 2));
-            canvas.FontColor = Colors.White;
-            canvas.FontSize = (float)(11 * Scale);
+            canvas.FillColor = Mix(_palInk, _palAccent, 0.35f);
+            canvas.FillRoundedRectangle(new RectF(x, y, w, titleH), 6);
+            canvas.FillRectangle(new RectF(x, y + titleH / 2, w, titleH / 2));
+            canvas.FontColor = _palLift;
+            canvas.FontSize = (float)Math.Clamp(11 * Scale, 10, 13);
             canvas.Font = Microsoft.Maui.Graphics.Font.DefaultBold;
-            canvas.DrawString(Menu.Title, rect.X + 8, rect.Y, w - 16, th,
+            canvas.DrawString(Menu.Title, x + 8, y, w - 16, titleH,
                 HorizontalAlignment.Left, VerticalAlignment.Center);
-            rect.Y += th;
-            rect.Height -= th; // 面板本身高度（标题除外）
         }
 
-        canvas.FillColor = Color.FromArgb("#FFFDF9");
-        canvas.FillRoundedRectangle(rect, 8);
-        canvas.StrokeSize = 1;
-        canvas.StrokeColor = Color.FromArgb("#C8B4A0");
-        canvas.DrawRoundedRectangle(rect, 8);
-
-        canvas.FontColor = Color.FromArgb("#3E2A1C");
-        canvas.FontSize = (float)(13 * Scale);
+        // 内容区：滚动 + 裁剪
+        canvas.SaveState();
+        canvas.ClipRectangle(_menuContent);
+        var yy = _menuContent.Y + pad - _menuScroll;
+        canvas.FontColor = _palInk;
+        canvas.FontSize = (float)Math.Clamp(13 * Scale, 11, 15);
         canvas.Font = Microsoft.Maui.Graphics.Font.Default;
-        var y = rect.Y + 4 * Scale;
         for (var i = 0; i < Menu.Items.Count; i++)
         {
-            var itemRect = new RectF(rect.X, (float)y, rect.Width, itemH);
-            canvas.FillColor = Color.FromArgb("#F5E9DA");
-            canvas.FillRoundedRectangle(itemRect, 4);
-            canvas.DrawString(Menu.Items[i].Label, itemRect.X + 12, itemRect.Y, itemRect.Width - 24, itemRect.Height,
-                HorizontalAlignment.Left, VerticalAlignment.Center);
-            y += itemH;
+            if (i > 0 && MenuGroupOf(Menu.Items[i].Cmd) != MenuGroupOf(Menu.Items[i - 1].Cmd))
+            {
+                canvas.FillColor = _palLine.WithAlpha(0.5f);
+                canvas.FillRectangle(_menuContent.X + 8, yy + 3, _menuContent.Width - 16, 1);
+                yy += sepH;
+            }
+            var r = new RectF(_menuContent.X + pad, yy, _menuContent.Width - pad * 2, itemH);
+            if (r.Bottom > _menuContent.Top && r.Y < _menuContent.Bottom)
+            {
+                canvas.FillColor = _palWell;
+                canvas.FillRoundedRectangle(r, 4);
+                canvas.DrawString(Menu.Items[i].Label, r.X + 10, r.Y, r.Width - 20, r.Height,
+                    HorizontalAlignment.Left, VerticalAlignment.Center);
+
+                var top = Math.Max(r.Y, _menuContent.Top);
+                var bottom = Math.Min(r.Bottom, _menuContent.Bottom);
+                if (bottom - top > 8)
+                    _menuHitRects.Add((new RectF(r.X, top, r.Width, bottom - top), i));
+            }
+            yy += itemH;
+        }
+        canvas.RestoreState();
+
+        // 可滚时右侧一道细条，提示「还没完」
+        if (maxScroll > 0)
+        {
+            var trackH = _menuContent.Height - 8;
+            var thumbH = Math.Max(18f, trackH * _menuContent.Height / _menuContentH);
+            var thumbY = _menuContent.Y + 4 + (trackH - thumbH) * (_menuScroll / maxScroll);
+            canvas.FillColor = _palMuted.WithAlpha(0.35f);
+            canvas.FillRoundedRectangle(_menuContent.Right - 5, thumbY, 2.5f, thumbH, 1.2f);
         }
     }
 
-    // ==================== 命中测试 ====================
+    /// <summary>滚一格（wheelDelta &gt; 0 = 向上）。光标不在面板里就交还给缩放。</summary>
+    public bool ScrollMenu(double wheelDelta, Point screen)
+    {
+        if (Menu is null) return false;
+        if (!_menuPanel.Contains((float)screen.X, (float)screen.Y)) return false;
+        ScrollMenuBy((float)(-Math.Sign(wheelDelta) * 44));
+        return true;
+    }
+
+    private void ScrollMenuBy(float dy)
+    {
+        if (Menu is null) return;
+        var maxScroll = Math.Max(0, _menuContentH - _menuContent.Height);
+        _menuScroll = Math.Clamp(_menuScroll + dy, 0, maxScroll);
+        NeedRedraw();
+    }
+
+    public void BeginMenuDrag(Point screen)
+    {
+        _menuDragging = true;
+        _menuDragY = (float)screen.Y;
+    }
+
+    public void DragMenu(Point screen)
+    {
+        if (!_menuDragging) return;
+        var dy = (float)screen.Y - _menuDragY;
+        _menuDragY = (float)screen.Y;
+        ScrollMenuBy(-dy);
+    }
+
+    public void EndMenuDrag() => _menuDragging = false;
+
+    /// <summary>命中菜单项索引（屏幕坐标；-1=面板外，-3=面板内空白处，可拖动滚动）。</summary>
+    public int HitMenu(Point screen)
+    {
+        if (Menu is null) return -1;
+        foreach (var (rect, index) in _menuHitRects)
+            if (rect.Contains((float)screen.X, (float)screen.Y)) return index;
+        if (_menuPanel.Contains((float)screen.X, (float)screen.Y)) return -3;
+        return -1;
+    }
 
     public MapCanvasNode? HitCard(Point world)
     {
@@ -1268,23 +1517,6 @@ public sealed class MapCanvasDrawable : IDrawable
             if (dx * dx + dy * dy <= tol * tol) return i;
         }
         return -1;
-    }
-
-    /// <summary>命中菜单项索引（屏幕坐标；-1=未命中面板，-2=标题区）。与 DrawMenu 同参照系（屏幕）。</summary>
-    public int HitMenu(Point screen)
-    {
-        if (Menu is null) return -1;
-        var itemH = 30 * Scale;
-        var w = 150 * Scale;
-        var pos = ScreenPt(Menu.Pos);   // 世界→屏幕，与绘制一致
-        var y = pos.Y;
-        if (!string.IsNullOrEmpty(Menu.Title)) y += 24 * Scale;
-        var h = Menu.Items.Count * itemH + 8 * Scale;
-        // 面板含 4*Scale 上内边距，items 从 y+4*Scale 开始
-        var panel = new RectF((float)pos.X, (float)y, (float)w, (float)h);
-        if (!panel.Contains((float)screen.X, (float)screen.Y)) return -1;
-        var itemStart = y + 4 * Scale;
-        return (int)((screen.Y - itemStart) / itemH);
     }
 
     /// <summary>命中地点框：返回包含该点的最深（最内层）地点，供右键时"新建场景/子地点归属此地点"。</summary>

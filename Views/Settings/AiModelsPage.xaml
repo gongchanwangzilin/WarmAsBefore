@@ -42,7 +42,7 @@
 
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                             <VerticalStackLayout Spacing="2">
-                                                <Label Text="{Binding Title}" Style="{StaticResource TxtBody}" FontAttributes="Bold" />
+                                                <Label Text="{Binding Title}" Style="{StaticResource TxtBody}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                 <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
                                                        LineBreakMode="TailTruncation" />
                                                 <Label Text="{Binding ModelCountText}" Style="{StaticResource TxtCaption}" />
@@ -60,7 +60,7 @@
                                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                                 <VerticalStackLayout Spacing="2">
                                                                     <Label Text="{Binding DisplayName}"
-                                                                           Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                                           Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                                     <Label Text="{Binding CapabilityText}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
                                                                 <Switch Grid.Column="1" IsToggled="{Binding Enabled}"
@@ -184,7 +184,7 @@
                                             <Button Text="{Binding Name}" Style="{StaticResource BtnText}"
                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.ApplyPresetCommand}"
                                                     CommandParameter="{Binding .}" />
-                                            <Button Text="✕" Style="{StaticResource BtnText}"
+                                            <Button Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource BtnText}"
                                                     Command="{Binding Source={x:Reference Page}, Path=BindingContext.DeletePresetCommand}"
                                                     CommandParameter="{Binding .}" />
                                         </HorizontalStackLayout>

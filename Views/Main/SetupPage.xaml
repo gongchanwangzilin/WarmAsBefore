@@ -36,7 +36,7 @@
                          Color="{DynamicResource Signal}" VerticalOptions="Center"
                          InputTransparent="True" IsVisible="{Binding Selected}" />
                 <Label Grid.Column="1" Text="{Binding Label}" Style="{StaticResource TxtBody}"
-                       VerticalOptions="Center" InputTransparent="True" />
+                       VerticalOptions="Center" InputTransparent="True" MaxLines="1" LineBreakMode="TailTruncation" />
                 <HorizontalStackLayout Grid.Column="2" Spacing="3" VerticalOptions="Center"
                                        InputTransparent="True" IsVisible="{Binding HasSwatches}"
                                        BindableLayout.ItemsSource="{Binding Swatches}">

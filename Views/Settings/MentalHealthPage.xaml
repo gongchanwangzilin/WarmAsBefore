@@ -36,7 +36,7 @@
                                 <VerticalStackLayout Spacing="8">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Spacing="2">
-                                            <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" />
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Category, StringFormat='{0} · 目录条目'}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                         <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"

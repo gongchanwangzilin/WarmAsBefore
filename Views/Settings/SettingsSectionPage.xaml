@@ -243,7 +243,7 @@
                                                     <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="8" Padding="0,4">
                                                         <Image Source="{Binding Path}" Aspect="AspectFit" HeightRequest="40" WidthRequest="40" />
                                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
-                                                            <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                                            <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                             <Label Text="{Binding DescLabel}" Style="{StaticResource TxtCaption}"
                                                                    LineBreakMode="TailTruncation" />
                                                         </VerticalStackLayout>
@@ -615,17 +615,17 @@
                                                                             <VerticalStackLayout Spacing="1">
                                                                                 <HorizontalStackLayout Spacing="4">
                                                                                     <Label Text="{Binding DisplayName}" FontSize="11"
-                                                                                           TextColor="{DynamicResource SurfaceFg}" VerticalOptions="Center">
+                                                                                           TextColor="{DynamicResource SurfaceFg}" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation">
                                                                                         <Label.GestureRecognizers>
                                                                                             <TapGestureRecognizer
                                                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=ToggleModelCommand}"
                                                                                                 CommandParameter="{Binding .}" />
                                                                                         </Label.GestureRecognizers>
                                                                                     </Label>
-                                                                                    <Button Text="⚙" Style="{StaticResource BtnText}" Padding="2,0"
+                                                                                    <Button Text="&#xE713;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource BtnText}" Padding="2,0"
                                                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=EditModelSettingsCommand}"
                                                                                             CommandParameter="{Binding .}" />
-                                                                                    <Button Text="✕" Style="{StaticResource BtnText}" Padding="2,0"
+                                                                                    <Button Text="&#xE711;" FontFamily="Segoe MDL2 Assets" Style="{StaticResource BtnText}" Padding="2,0"
                                                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveModelFromProviderCommand}"
                                                                                             CommandParameter="{Binding .}" />
                                                                                 </HorizontalStackLayout>
@@ -1335,7 +1335,7 @@
                                                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                                                                 <VerticalStackLayout Spacing="2">
                                                                     <HorizontalStackLayout Spacing="6">
-                                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                                         <Label Text="{Binding TransportLabel}" Style="{StaticResource TxtCaption}"
                                                                                VerticalOptions="Center" Opacity="0.75" />
                                                                         <Label Text="{Binding StatusLabel}" Style="{StaticResource TxtCaption}"
@@ -1481,10 +1481,10 @@
                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="0,4">
                                                         <Label Text="✓" FontSize="11" VerticalOptions="Start"
                                                                IsVisible="{Binding Present}" />
-                                                        <Label Text="✕" FontSize="11" VerticalOptions="Start"
+                                                        <Label Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalOptions="Start"
                                                                IsVisible="{Binding Present, Converter={StaticResource InverseBool}}" />
                                                         <VerticalStackLayout Grid.Column="1" Spacing="2">
-                                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" />
+                                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                             <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
                                                                    Opacity="0.75" LineBreakMode="CharacterWrap"
                                                                    IsVisible="{Binding Detail, Converter={StaticResource StringNotEmpty}}" />
@@ -2260,7 +2260,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Spacing="3">
                                                 <HorizontalStackLayout Spacing="6">
-                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
+                                                    <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
                                                            VerticalOptions="Center" Opacity="0.75" />
                                                 </HorizontalStackLayout>

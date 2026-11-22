@@ -70,11 +70,11 @@
                                     <Label Text="{Binding Name, Converter={StaticResource CharInitials}}"
                                            TextColor="{StaticResource WcInk}" FontSize="18" FontAttributes="Bold"
                                            HorizontalOptions="Center" VerticalOptions="Center"
-                                           IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
+                                           IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" MaxLines="1" LineBreakMode="TailTruncation" />
                                 </Grid>
                                 <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
                                     <Label Text="{Binding Name}" TextColor="{StaticResource WcInk}"
-                                           FontSize="17" FontAttributes="Bold" />
+                                           FontSize="17" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                     <Label Text="{Binding Subtitle}" TextColor="{StaticResource WcSub}"
                                            FontSize="13" LineBreakMode="TailTruncation" MaxLines="1" />
                                 </VerticalStackLayout>

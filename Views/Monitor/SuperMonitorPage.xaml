@@ -163,7 +163,7 @@
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+DetailLine">
                                         <VerticalStackLayout Spacing="1">
-                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" />
+                                            <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Value}" Style="{StaticResource TxtBodySm}"
                                                    LineBreakMode="WordWrap" />
                                         </VerticalStackLayout>

@@ -165,7 +165,7 @@
                                                               CommandParameter="{Binding .}" />
                                     </Border.GestureRecognizers>
                                     <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"
-                                           FontAttributes="{Binding IsSelected, Converter={StaticResource BoolFontBold}}" />
+                                           FontAttributes="{Binding IsSelected, Converter={StaticResource BoolFontBold}}" MaxLines="1" LineBreakMode="TailTruncation" />
                                 </Border>
                             </DataTemplate>
                         </BindableLayout.ItemTemplate>
@@ -211,7 +211,7 @@
                                             </Grid>
                                         </Border>
                                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Desc}"
                                                    Style="{StaticResource TxtRowDesc}"
                                                    LineBreakMode="WordWrap" MaxLines="2" />

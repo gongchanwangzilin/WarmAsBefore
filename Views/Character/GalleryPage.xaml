@@ -82,7 +82,7 @@
                                     <Border Style="{StaticResource SettingRow}">
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2">
-                                                <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" />
+                                                <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                 <Label Text="{Binding Describe}" Style="{StaticResource TxtRowDesc}" />
                                                 <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}" />
                                             </VerticalStackLayout>
@@ -351,7 +351,7 @@
                                     <Image Source="{Binding Image}" HeightRequest="210" Aspect="AspectFit" />
                                     <Label Text="{Binding Title}" Style="{StaticResource TxtCaption}"
                                            Padding="{DynamicResource WPadWell}"
-                                           HorizontalTextAlignment="Center" />
+                                           HorizontalTextAlignment="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>

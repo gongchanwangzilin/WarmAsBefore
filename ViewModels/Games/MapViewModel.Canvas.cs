@@ -20,6 +20,13 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     public void CanvasStart(PointF screen)
     {
         var world = Drawable.ScreenToWorld(new Point(screen.X, screen.Y));
+        _tapDownScreen = screen;
+        // 浮层先收：点在地图上就是要看地图，不是要继续翻图层/搜索结果
+        if (IsLayerPanelOpen) IsLayerPanelOpen = false;
+        if (IsSearchOpen) IsSearchOpen = false;
+
+        // 区域划分优先于一切：顶点/边中点的命中都在屏幕坐标里
+        if (RegionEditStart(screen)) { Touch(); return; }
 
         // 右键菜单打开时：先响应菜单点击（菜单面板为屏幕坐标，直接用屏幕点命中）
         if (Drawable.Menu is not null)
@@ -33,8 +40,21 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
                 return;
             }
             var idx = Drawable.HitMenu(new Point(screen.X, screen.Y));
+            // 面板内空白处：按下开始拖动滚动，别把菜单关掉
+            if (idx == -3)
+            {
+                Drawable.BeginMenuDrag(new Point(screen.X, screen.Y));
+                Touch();
+                return;
+            }
+            if (idx < 0)
+            {
+                Drawable.Menu = null;
+                Touch();
+                return;
+            }
             var items = Drawable.Menu.Items;
-            var item = idx >= 0 && idx < items.Count ? items[idx] : default;
+            var item = idx < items.Count ? items[idx] : default;
             var kind = Drawable.Menu.TargetKind;
             var targetId = Drawable.Menu.TargetId;
             Drawable.Menu = null;
@@ -84,7 +104,10 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         {
             if (Mode == ModeKind.View)
             {
-                _ = GoToSceneAsync(card);
+                // 高德式：点中一个点先升抽屉，去不去由抽屉里的「进这里」决定
+                SelectedNode = card;
+                Drawable.SelectedEdgeId = null;
+                Touch();
                 return;
             }
             // 编辑模式：选中 + 可拖
@@ -161,6 +184,13 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     public void CanvasDrag(PointF screen)
     {
+        if (Drawable.Menu is not null && Drawable.MenuDragging)
+        {
+            Drawable.DragMenu(new Point(screen.X, screen.Y));
+            Touch();
+            return;
+        }
+        if (RegionEditDrag(screen)) { PingStatusStrip(); return; }
         if (Mode == ModeKind.Doodle)
         {
             // 涂鸦模式：按住拖动时不断追加折点；非按下拖动实际由 Start/End 驱动
@@ -248,17 +278,39 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
             Drawable.OffsetX += screen.X - _panLastScreen.X;
             Drawable.OffsetY += screen.Y - _panLastScreen.Y;
             _panLastScreen = screen;
+            PingStatusStrip();      // 拖动时状态条亮一下，停手 1.6 秒后自己淡掉
             Touch();
         }
     }
 
     public void CanvasEnd(PointF screen)
     {
+        if (Drawable.MenuDragging) Drawable.EndMenuDrag();
+        // 区域划分收尾（顶点拖动落盘 / 加点的最后一下）
+        if (RegionEditEnd()) { PingStatusStrip(); return; }
         // 右键回声：同一按压的 Touch End 不当作“纯点击”/结算框选，避免清空已有框选
         if (IsPointerEcho)
         {
             Touch();
             return;
+        }
+        // 双击放大：同一位置 350ms 内点两下，以落点为锚放大一档
+        var tapLike = Math.Abs(screen.X - _tapDownScreen.X) < 6 && Math.Abs(screen.Y - _tapDownScreen.Y) < 6
+                      && _dragCard is null && _dragTransit is null && _dragEdge is null && _dragLocId is null
+                      && _plotRing is null && !_marqueeMode;
+        if (tapLike)
+        {
+            var now = DateTime.UtcNow;
+            if (_lastTapScreen is { } last && (now - _lastTapAt).TotalMilliseconds < 350
+                && Math.Abs(last.X - screen.X) < 16 && Math.Abs(last.Y - screen.Y) < 16)
+            {
+                _lastTapScreen = null;
+                Zoom(1, screen);
+                PingStatusStrip();
+                return;
+            }
+            _lastTapScreen = screen;
+            _lastTapAt = now;
         }
         if (_plotRing is not null)
         {
@@ -382,6 +434,12 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     /// <summary>滚轮缩放（屏幕点为锚）。</summary>
     public void Zoom(double delta, PointF screen)
     {
+        // 菜单开着且光标在面板里：滚轮滚的是菜单，不是地图
+        if (Drawable.Menu is not null && Drawable.ScrollMenu(delta, new Point(screen.X, screen.Y)))
+        {
+            Touch();
+            return;
+        }
         var oldScale = Drawable.Scale;
         var factor = delta > 0 ? 1.15 : 1 / 1.15;
         var newScale = Math.Clamp(oldScale * factor, 0.3, 2.5);
@@ -392,6 +450,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         Drawable.OffsetX = screen.X - wx * newScale;
         Drawable.OffsetY = screen.Y - wy * newScale;
         Drawable.Scale = newScale;
+        PingStatusStrip();
         Touch();
     }
 

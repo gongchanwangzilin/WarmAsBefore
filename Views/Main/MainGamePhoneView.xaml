@@ -53,7 +53,7 @@
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:WidgetItemVm">
                                     <VerticalStackLayout Spacing="0" IsVisible="{Binding Shown}" VerticalOptions="Center">
-                                        <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="8" />
+                                        <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="8" MaxLines="1" LineBreakMode="TailTruncation" />
                                         <Label Text="{Binding Value}" TextColor="{DynamicResource WarmDark}"
                                                FontSize="{Binding ValueFontSize}" FontAttributes="Bold"
                                                LineBreakMode="TailTruncation" MaximumWidthRequest="90" />
@@ -205,10 +205,10 @@
                             <Label Text="{Binding CharacterName, Converter={StaticResource CharInitials}}"
                                    TextColor="{DynamicResource WarmDark}" FontSize="28"
                                    HorizontalOptions="Center" VerticalOptions="Center"
-                                   FontAttributes="Bold" />
+                                   FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                         </Border>
                         <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="16"
-                               HorizontalOptions="Center" FontAttributes="Bold" />
+                               HorizontalOptions="Center" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                         <Label Text="暂无立绘" TextColor="{DynamicResource WarmBody}" FontSize="11"
                                HorizontalOptions="Center" />
                     </VerticalStackLayout>
@@ -223,7 +223,7 @@
                         <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,2" Radius="8" Opacity="0.15" />
                     </Border.Shadow>
                     <Label Text="{Binding CharacterName}"
-                           TextColor="{DynamicResource WarmDark}" FontSize="15" FontAttributes="Bold" />
+                           TextColor="{DynamicResource WarmDark}" FontSize="15" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                 </Border>
 
                 <!-- #9 左右竖条切换地点按键（左右两侧各一条）：无地点时置灰（IsEnabled 绑可用态）。
@@ -384,7 +384,7 @@
                             <DataTemplate x:DataType="vm:StateChipVm">
                                 <Border Padding="12,5" StrokeThickness="0" BackgroundColor="#F2E9CF">
                                     <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                                    <Label Text="{Binding Label}" TextColor="{DynamicResource WarmDark}" FontSize="11" />
+                                    <Label Text="{Binding Label}" TextColor="{DynamicResource WarmDark}" FontSize="11" MaxLines="1" LineBreakMode="TailTruncation" />
                                     <Border.GestureRecognizers>
                                         <TapGestureRecognizer
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MainGameViewModel}}, Path=ToggleStateCommand}"

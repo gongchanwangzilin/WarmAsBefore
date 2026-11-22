@@ -89,11 +89,11 @@
                                             StrokeShape="{DynamicResource WRadiusWell}">
                                         <Label Text="{Binding CharacterName, Converter={StaticResource CharInitials}}"
                                                Style="{StaticResource TxtRowTitle}"
-                                               HorizontalOptions="Center" VerticalOptions="Center" />
+                                               HorizontalOptions="Center" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                     </Border>
 
                                     <VerticalStackLayout Grid.Row="0" Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                                        <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                         <Label Style="{StaticResource TxtRowDesc}">
                                             <Label.FormattedText>
                                                 <FormattedString>

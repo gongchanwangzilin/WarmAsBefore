@@ -128,7 +128,7 @@
                                                 CommandParameter="{Binding Radius}" />
                                         </Border.GestureRecognizers>
                                         <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}"
-                                               FontAttributes="{Binding IsCurrent, Converter={StaticResource BoolFontBold}}" />
+                                               FontAttributes="{Binding IsCurrent, Converter={StaticResource BoolFontBold}}" MaxLines="1" LineBreakMode="TailTruncation" />
                                         <Border.Triggers>
                                             <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
                                                 <Setter Property="BackgroundColor" Value="{DynamicResource WAccentBrush}" />

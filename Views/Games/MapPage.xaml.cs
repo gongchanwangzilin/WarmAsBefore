@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Linq;
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.Controls;
@@ -13,6 +14,9 @@ public partial class MapPage : ContentPage
     /// <summary>跳转带来的「要看哪一个点」；VM 会等图读盘与画布量尺寸都齐了再摆，这里只管交出去。</summary>
     public string? FocusSceneId { get; set; }
 
+    private bool _shellHooked;
+    private double _sheetDrag;
+
     public MapPage(MapViewModel vm)
     {
         InitializeComponent();
@@ -22,6 +26,109 @@ public partial class MapPage : ContentPage
         // 切层动画要把目标层摆进视口中心：中心在哪只有页面知道
         MapCanvas.SizeChanged += (_, _) => vm.SetViewport(MapCanvas.Width, MapCanvas.Height);
         LoadingVeil.Attach(this, vm, "Nodes");   // 节点表读盘才有：Nodes 是 VM 已有的集合
+        vm.InitializeShell();
+        HookShell(vm);
+    }
+
+    /// <summary>画布不改的数据（抽屉开关 / 抽屉升降）由页面负责动起来，VM 只管状态。</summary>
+    private void HookShell(MapViewModel vm)
+    {
+        if (_shellHooked) return;
+        _shellHooked = true;
+        vm.PropertyChanged += OnVmPropertyChanged;
+    }
+
+    private void OnVmPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (sender is not MapViewModel vm) return;
+        if (e.PropertyName == nameof(MapViewModel.IsLayerPanelOpen))
+            _ = AnimateLayerPanelAsync(vm.IsLayerPanelOpen);
+        else if (e.PropertyName == nameof(MapViewModel.IsSheetOpen))
+            _ = AnimateSheetAsync(vm.IsSheetOpen);
+    }
+
+    /// <summary>图层面板从右侧滑出：先把面板摆到窗外，再滑进来；收起时滑出去再藏。</summary>
+    private async Task AnimateLayerPanelAsync(bool open)
+    {
+        try
+        {
+            if (open)
+            {
+                LayerPanel.TranslationX = 360;
+                LayerPanel.IsVisible = true;
+                await LayerPanel.TranslateTo(0, 0, 180, Easing.CubicOut);
+            }
+            else
+            {
+                if (!LayerPanel.IsVisible) return;
+                await LayerPanel.TranslateTo(360, 0, 150, Easing.CubicIn);
+                LayerPanel.IsVisible = false;
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapPage.AnimateLayerPanel -> " + ex);
+        }
+    }
+
+    private async Task AnimateSheetAsync(bool open)
+    {
+        try
+        {
+            if (!open) return;
+            Sheet.TranslationY = 26;
+            await Sheet.TranslateTo(0, 0, 180, Easing.CubicOut);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapPage.AnimateSheet -> " + ex);
+        }
+    }
+
+    /// <summary>抽屉把手拖动：往下拖过一巴掌就收起，否则弹回去。</summary>
+    private void OnSheetPan(object? sender, PanUpdatedEventArgs e)
+    {
+        switch (e.StatusType)
+        {
+            case GestureStatus.Started:
+                _sheetDrag = 0;
+                break;
+            case GestureStatus.Running:
+                _sheetDrag = Math.Max(0, e.TotalY);
+                Sheet.TranslationY = _sheetDrag;
+                break;
+            case GestureStatus.Completed:
+            case GestureStatus.Canceled:
+            {
+                var collapse = _sheetDrag > 56;
+                _sheetDrag = 0;
+                _ = Sheet.TranslateTo(0, 0, 140, Easing.CubicOut);
+                if (collapse && BindingContext is MapViewModel vm) vm.CloseSheetCommand.Execute(null);
+                break;
+            }
+        }
+    }
+
+    /// <summary>定位：先飞回她那儿，按钮自己呼吸一次。</summary>
+    private async void OnLocateTapped(object? sender, TappedEventArgs e)
+    {
+        try
+        {
+            if (BindingContext is MapViewModel vm) vm.LocateMeCommand.Execute(null);
+            await LocateButton.ScaleTo(1.14, 120, Easing.CubicOut);
+            await LocateButton.ScaleTo(1.0, 240, Easing.CubicIn);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("MapPage.OnLocateTapped -> " + ex);
+        }
+    }
+
+    /// <summary>点搜索胶囊：展开下拉并真的把光标放进输入框（页面不该自己抢焦点）。</summary>
+    private void OnSearchPillTapped(object? sender, TappedEventArgs e)
+    {
+        if (BindingContext is MapViewModel vm) vm.OpenSearchCommand.Execute(null);
+        SearchEntry.Focus();
     }
 
     protected override void OnAppearing()
@@ -44,7 +151,7 @@ public partial class MapPage : ContentPage
     /// 桌面端需要额外的右键/滚轮事件源：MAUI GraphicsView 的 Touch 事件不含右键与滚轮。
     /// Win2D 的 CanvasControl 会先处理（handled）指针事件，普通 += 收不到，
     /// 因此用 AddHandler(handledEventsToo: true) 捕获，并在 Loaded 后挂载（避免 Handler 未就绪）。
-    /// 关键：坐标必须相对「画布原生元素」而非页面根，否则头部高度会让右键永远命中空白分支。
+    /// 关键：坐标必须相对「画布原生元素」而非页面根，否则浮动控件会让右键永远命中空白分支。
     /// </summary>
     protected override void OnHandlerChanged()
     {

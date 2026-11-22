@@ -168,7 +168,7 @@
                     <Label Text="{Binding PartnerName, Converter={StaticResource CharInitials}}"
                            TextColor="{StaticResource WcInk}" FontSize="15"
                            HorizontalOptions="Center" VerticalOptions="Center" FontAttributes="Bold"
-                           IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" />
+                           IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" MaxLines="1" LineBreakMode="TailTruncation" />
                 </Grid>
                 <!-- 名字与副标题各占一行：原来塞进同一个 VerticalStackLayout，两行字紧贴在一起就是「上侧重合」。 -->
                 <Label Grid.Row="0" Grid.Column="2" Text="{Binding PartnerName}"
@@ -287,7 +287,7 @@
                             <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                             <VerticalStackLayout Spacing="4" motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
                                 <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
-                                    <Label Text="🛠" FontSize="13" VerticalOptions="Center" />
+                                    <Label Text="&#xE90F;" FontFamily="Segoe MDL2 Assets" FontSize="13" VerticalOptions="Center" />
                                     <Label Text="{Binding ToolSummary}" TextColor="{StaticResource WcAccent}"
                                            FontSize="12" FontAttributes="Bold" VerticalOptions="Center" />
                                     <Label Text="{Binding ToolExpanded, Converter={StaticResource BoolToAsterisk}}"
@@ -391,12 +391,12 @@
                                 Completed="OnEditorCompleted"
                                 VerticalOptions="Center" />
                     </Border>
-                    <Button Grid.Column="3" Text="🙂"
+                    <Button Grid.Column="3" Text="&#xE76E;" FontFamily="Segoe MDL2 Assets"
                             BackgroundColor="Transparent"
                             FontSize="18" Padding="6"
                             HeightRequest="40" WidthRequest="40"
                             Command="{Binding ToggleStickerPanelCommand}" />
-                    <Button Grid.Column="4" Text="📎"
+                    <Button Grid.Column="4" Text="&#xE723;" FontFamily="Segoe MDL2 Assets"
                             BackgroundColor="Transparent"
                             FontSize="16" Padding="6"
                             HeightRequest="40" WidthRequest="40"

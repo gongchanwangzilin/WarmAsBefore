@@ -49,7 +49,7 @@
                 <Label Grid.Column="1" Text="{Binding ProgressText}" Style="{StaticResource TxtBodySm}"
                        HorizontalOptions="Center" VerticalOptions="Center" />
                 <Label Grid.Column="2" Text="{Binding Script.Name}" Style="{StaticResource TxtCaption}"
-                       HorizontalOptions="End" VerticalOptions="Center" />
+                       HorizontalOptions="End" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
             </Grid>
         </Border>
 

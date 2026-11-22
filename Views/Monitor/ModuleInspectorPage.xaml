@@ -99,7 +99,7 @@
                                         <Label Text="{Binding Time}" Style="{StaticResource TxtCaption}"
                                                VerticalOptions="Start" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="1">
-                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Text}" Style="{StaticResource TxtRowDesc}"
                                                    LineBreakMode="WordWrap" />
                                         </VerticalStackLayout>

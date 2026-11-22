@@ -9,152 +9,387 @@
              Title="地图"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid Padding="0" RowDefinitions="Auto,*,Auto">
-
-        <!-- Header：工具条与画布之外是同一块地，不再是一块深色板 ——
-             深底逼着所有文字都用 OffWhite50/Cream200 这些「面」当字，切到深色世界时整排糊掉。 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadWell}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
-                <!-- 第一行：标题 + 模式切换 + 工具。钮多（14 颗），窄窗时整条横向滚动，
-                     不再把标题挤成零宽、把最后几颗裁掉。 -->
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
-                    <VerticalStackLayout Spacing="4" VerticalOptions="Center">
-                        <Label Text="地图编辑器" Style="{StaticResource TxtTitle}" />
-                        <Label Text="{Binding StatusText}" TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
-                               LineBreakMode="TailTruncation" MaxLines="1" />
-                        <Label Text="{Binding LocationLabel, StringFormat='当前位置：{0}'}"
-                               TextColor="{DynamicResource SurfaceFg}" FontSize="{DynamicResource WSizeCaption}"
-                               FontAttributes="Bold" />
-                    </VerticalStackLayout>
-                    <ScrollView Grid.Column="1" Orientation="Horizontal" HorizontalScrollBarVisibility="Never"
-                                VerticalOptions="Center">
-                        <HorizontalStackLayout Spacing="8">
-                            <!-- 一排同档的次级钮（白底 + 一道缝）：当前模式由文字前的「●」说，不靠其中一颗涂成深色 -->
-                            <Button Text="{Binding ViewModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding SetModeCommand}" CommandParameter="view" />
-                            <Button Text="{Binding EditModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding SetModeCommand}" CommandParameter="edit" />
-                            <Button Text="{Binding LinkModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding SetModeCommand}" CommandParameter="link" />
-                            <Button Text="{Binding LinkKindText}" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding ToggleLinkKindCommand}"
-                                    IsVisible="{Binding IsLinkMode}" />
-                            <Button Text="{Binding DoodleModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding SetModeCommand}" CommandParameter="doodle" />
-                            <Button Text="↻ 重置布局" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding ResetLayoutCommand}" />
-                            <Button Text="导出" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding ExportMapCommand}" />
-                            <Button Text="创建地图…" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding CreateMapCommand}" />
-                            <!-- 天气来源：这张图按哪儿算（跟随用户 / 地图当地 / 自定义地点） -->
-                            <Button Text="{Binding WeatherModeLabel}" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding PickWeatherModeCommand}" />
-                            <!-- 取景/导入：手机端取景、电脑端导入，同一页两面 -->
-                            <Button Text="取景 / 导入" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding OpenCaptureCommand}" />
-                            <!-- 3D 灰度：同一张图的街面读法（编辑器保持 2D 不变） -->
-                            <Button Text="3D 灰度" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding Open3dCommand}" />
-                            <!-- 流程图：规则（时机 + 条件 + 动作） -->
-                            <Button Text="流程图" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding OpenFlowsCommand}" />
-                            <Button Text="返回" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding BackCommand}" />
-                            <Button Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
-                                    Command="{Binding HelpCommand}" />
-                        </HorizontalStackLayout>
-                    </ScrollView>
-                </Grid>
-
-                <!-- 编辑模式提示行 -->
-                <Grid Grid.Row="1" IsVisible="{Binding IsEditMode}" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="8">
-                    <Label Text="编辑：拖卡片=移动 · 空白拖动=平移 · 按住空白 0.6秒再拖=框选地点 · 右键=菜单" 
-                           TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}" VerticalOptions="Center" />
-                    <Button Grid.Column="1" Text="＋ 新地点" Style="{StaticResource BtnNeumorphSm}"
-                            HeightRequest="32" Command="{Binding AddLocationCommand}" />
-                    <Button Grid.Column="2" Text="＋ 新场景 / 临时节点" Style="{StaticResource BtnNeumorphSm}"
-                            HeightRequest="32" Command="{Binding AddSceneCommand}" />
-                    <Button Grid.Column="3" Text="背景（素材库）" Style="{StaticResource BtnNeumorphSm}"
-                            HeightRequest="32" Command="{Binding BackgroundFromLibraryCommand}" />
-                    <Button Grid.Column="4" Text="AI 画背景" Style="{StaticResource BtnNeumorphSm}"
-                            HeightRequest="32" Command="{Binding GenerateBackgroundCommand}" />
-                </Grid>
-            </Grid>
-        </Border>
+    <!-- 高德式全屏地图：地图铺满整页，所有控件浮在图上，没有顶栏。 -->
+    <Grid>
 
         <!-- 画布：占满窗口，平移缩放由内部视图实现 -->
-        <GraphicsView Grid.Row="1" x:Name="MapCanvas"
+        <GraphicsView x:Name="MapCanvas"
                       StartInteraction="OnCanvasStart"
                       DragInteraction="OnCanvasDrag"
                       EndInteraction="OnCanvasEnd"
                       BackgroundColor="Transparent" />
 
-        <!-- 楼层条：贴在画布右缘竖着摞，顶层在上、地下在下（FloorsOf 的次序）。
-             当前层由强调底 + 加粗大号字说；「全部」或再点当前层退出分层视图。
-             点层 = 切层动画（缩放与位移一起走的「抬层」），不是硬闪。 -->
-        <Border Grid.Row="1" IsVisible="{Binding HasFloorBar}"
-                HorizontalOptions="End" VerticalOptions="Center" Margin="0,0,14,0"
-                Background="{DynamicResource WBarBrush}" Stroke="{DynamicResource WControlEdgeBrush}"
-                StrokeThickness="{DynamicResource WControlEdgeWidth}" Padding="6"
-                StrokeShape="{DynamicResource WRadiusRaised}">
-            <VerticalStackLayout Spacing="4" WidthRequest="88">
-                <Label Text="{Binding FloorBarTitle}" Style="{StaticResource TxtMuted}"
-                       HorizontalTextAlignment="Center" LineBreakMode="TailTruncation" MaxLines="1" />
-                <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding FloorChips}">
-                    <BindableLayout.ItemTemplate>
-                        <DataTemplate x:DataType="vm:FloorChip">
-                            <Border motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True"
-                                    BackgroundColor="{DynamicResource WWellBrush}" StrokeThickness="0"
-                                    Padding="8,6">
-                                <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                                <Border.GestureRecognizers>
-                                    <TapGestureRecognizer Command="{Binding TapCommand}" />
-                                </Border.GestureRecognizers>
-                                <Label Text="{Binding Label}" FontSize="13" HorizontalTextAlignment="Center"
-                                       TextColor="{DynamicResource SurfaceFg}">
-                                    <Label.Triggers>
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
-                                            <Setter Property="FontSize" Value="15" />
-                                            <Setter Property="FontAttributes" Value="Bold" />
-                                        </DataTrigger>
-                                        <DataTrigger TargetType="Label" Binding="{Binding IsAll}" Value="True">
-                                            <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
-                                        </DataTrigger>
-                                    </Label.Triggers>
-                                </Label>
-                                <Border.Triggers>
-                                    <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
-                                        <Setter Property="BackgroundColor" Value="{DynamicResource WAccentBrush}" />
-                                    </DataTrigger>
-                                </Border.Triggers>
-                            </Border>
-                        </DataTemplate>
-                    </BindableLayout.ItemTemplate>
+        <!-- ==================== 左上：搜索 + 状态条 ==================== -->
+        <VerticalStackLayout HorizontalOptions="Start" VerticalOptions="Start"
+                             Margin="16,14,0,0" Spacing="8" WidthRequest="360" MaximumWidthRequest="420">
+
+            <!-- 搜索胶囊 -->
+            <Border BackgroundColor="{DynamicResource SurfaceBg}"
+                    Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                    Padding="12,0" HeightRequest="44"
+                    StrokeShape="{DynamicResource WRadiusPill}">
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnSearchPillTapped" />
+                </Border.GestureRecognizers>
+                <Border.Shadow>
+                    <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,3" Radius="10" Opacity="0.45" />
+                </Border.Shadow>
+                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                    <Label Text="🔍" FontSize="15" VerticalOptions="Center" />
+                    <Entry x:Name="SearchEntry" Grid.Column="1"
+                           Text="{Binding SearchText}" Placeholder="搜索地点、区域…"
+                           PlaceholderColor="{DynamicResource MutedFg}"
+                           TextColor="{DynamicResource SurfaceFg}"
+                           BackgroundColor="Transparent" FontSize="{DynamicResource WSizeBody}"
+                           ReturnType="Search" ReturnCommand="{Binding SearchCommand}"
+                           VerticalOptions="Center" />
+                    <Label Grid.Column="2" Text="✕" FontSize="15"
+                           TextColor="{DynamicResource MutedFg}" VerticalOptions="Center"
+                           IsVisible="{Binding IsSearchOpen}">
+                        <Label.GestureRecognizers>
+                            <TapGestureRecognizer Command="{Binding CloseSearchCommand}" />
+                        </Label.GestureRecognizers>
+                    </Label>
+                </Grid>
+            </Border>
+
+            <!-- 状态条：拖动/缩放时亮一下，停手后淡出 -->
+            <Border IsVisible="{Binding IsStatusStripVisible}"
+                    BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.92"
+                    StrokeThickness="0" Padding="10,5" HorizontalOptions="Start"
+                    StrokeShape="{DynamicResource WRadiusWell}">
+                <Label Text="{Binding StatusStripText}" TextColor="{DynamicResource MutedFg}"
+                       FontSize="{DynamicResource WSizeCaption}" LineBreakMode="TailTruncation" MaxLines="1" />
+            </Border>
+
+            <!-- 搜索下拉 -->
+            <Border IsVisible="{Binding IsSearchOpen}"
+                    BackgroundColor="{DynamicResource SurfaceBg}"
+                    Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                    Padding="6" StrokeShape="{DynamicResource WRadiusRaised}">
+                <VerticalStackLayout Spacing="2">
+                    <Label Text="搜索地点、区域，或说句话让她带你去"
+                           IsVisible="{Binding IsSearchEmpty}"
+                           TextColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeCaption}"
+                           Padding="8,6" />
+                    <VerticalStackLayout BindableLayout.ItemsSource="{Binding SearchHits}" Spacing="2">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MapPlaceHit">
+                                <Border BackgroundColor="Transparent" Padding="8,7"
+                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer
+                                            Command="{Binding Source={x:Reference MapPageRoot}, Path=BindingContext.PickSearchResultCommand}"
+                                            CommandParameter="{Binding .}" />
+                                    </Border.GestureRecognizers>
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                        <Label Text="{Binding Glyph}" TextColor="{DynamicResource MutedFg}"
+                                               FontSize="13" VerticalOptions="Center" />
+                                        <VerticalStackLayout Grid.Column="1" Spacing="0">
+                                            <Label Text="{Binding Title}" TextColor="{DynamicResource SurfaceFg}"
+                                                   FontSize="{DynamicResource WSizeBody}" LineBreakMode="TailTruncation" MaxLines="1" />
+                                            <Label Text="{Binding Sub}" TextColor="{DynamicResource MutedFg}"
+                                                   FontSize="{DynamicResource WSizeCaption}" LineBreakMode="TailTruncation" MaxLines="1" />
+                                        </VerticalStackLayout>
+                                        <Label Grid.Column="2" Text="↗" TextColor="{DynamicResource MutedFg}"
+                                               FontSize="12" VerticalOptions="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </VerticalStackLayout>
                 </VerticalStackLayout>
-            </VerticalStackLayout>
+            </Border>
+        </VerticalStackLayout>
+
+        <!-- ==================== 右上：图层按钮 ==================== -->
+        <Border HorizontalOptions="End" VerticalOptions="Start" Margin="0,14,16,0"
+                WidthRequest="46" HeightRequest="46"
+                BackgroundColor="{DynamicResource SurfaceBg}"
+                Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                StrokeShape="{DynamicResource WRadiusPill}"
+                motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+            <Border.Shadow>
+                <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,3" Radius="10" Opacity="0.45" />
+            </Border.Shadow>
+            <Border.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding ToggleLayerPanelCommand}" />
+            </Border.GestureRecognizers>
+            <Label Text="☰" FontSize="18" HorizontalOptions="Center" VerticalOptions="Center"
+                   TextColor="{DynamicResource SurfaceFg}" />
         </Border>
 
-        <!-- 底部：模式操作提示。CardSolid 已经把缝发到画刷（WEdgeBrush）上 ——
-             原来这里写 Stroke="{DynamicResource BorderLine}"，那是个 Color 键，Border.Stroke 只吃画刷。 -->
-        <Border Grid.Row="2" Style="{StaticResource CardSolid}"
-                IsVisible="{Binding IsEditMode}"
-                Margin="12,0,12,12" VerticalOptions="End">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="8">
-                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0" Padding="12,0"
-                        StrokeShape="{DynamicResource WRadiusWell}">
-                    <Label Text="{Binding SelectedNodeLabel}" Style="{StaticResource TxtBodySm}"
-                           VerticalOptions="Center" />
-                </Border>
-                <Label Grid.Column="1" Text="拖拽卡片调整位置" Style="{StaticResource TxtMuted}"
-                       VerticalOptions="Center" />
-                <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnDangerSm}"
-                        HeightRequest="36" Command="{Binding RemoveSceneCommand}"
-                        IsVisible="{Binding HasSelection}" />
-                <Button Grid.Column="3" Text="返回" Style="{StaticResource BtnGhostSm}"
-                        HeightRequest="36" Command="{Binding BackCommand}" />
-            </Grid>
+        <!-- ==================== 图层面板：从右侧滑出 ==================== -->
+        <BoxView IsVisible="{Binding IsLayerPanelOpen}" Color="{DynamicResource OverlayDim}" Opacity="0.35">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Command="{Binding CloseLayerPanelCommand}" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <Border x:Name="LayerPanel" IsVisible="False"
+                HorizontalOptions="End" VerticalOptions="Fill"
+                WidthRequest="336" Margin="0,10,10,10"
+                TranslationX="360"
+                BackgroundColor="{DynamicResource SurfaceBg}"
+                Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                StrokeShape="{DynamicResource WRadiusRaised}">
+            <ScrollView>
+                <VerticalStackLayout Padding="16,14,16,16" Spacing="10">
+
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="图层" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
+                        <Label Grid.Column="1" Text="✕" FontSize="16" TextColor="{DynamicResource MutedFg}"
+                               VerticalOptions="Center">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding CloseLayerPanelCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Grid>
+
+                    <!-- 图层 -->
+                    <Label Text="图层" Style="{StaticResource TxtMuted}" />
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Start">
+                        <Button Text="{Binding RegionEditLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding ToggleRegionEditCommand}" />
+                        <Button Text="{Binding WeatherModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding PickWeatherModeCommand}" />
+                        <Button Text="3D 灰度" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding Open3dCommand}" />
+                    </FlexLayout>
+
+                    <!-- 楼层：点这栋楼才有的分层视图 -->
+                    <VerticalStackLayout IsVisible="{Binding HasFloorBar}" Spacing="4">
+                        <Label Text="{Binding FloorBarTitle, StringFormat='楼层 · {0}'}" Style="{StaticResource TxtMuted}" />
+                        <VerticalStackLayout Spacing="3" BindableLayout.ItemsSource="{Binding FloorChips}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:FloorChip">
+                                    <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                                            Padding="10,7" StrokeShape="{DynamicResource WRadiusWell}">
+                                        <Border.GestureRecognizers>
+                                            <TapGestureRecognizer Command="{Binding TapCommand}" />
+                                        </Border.GestureRecognizers>
+                                        <Label Text="{Binding Label}" FontSize="13" TextColor="{DynamicResource SurfaceFg}">
+                                            <Label.Triggers>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
+                                                    <Setter Property="FontAttributes" Value="Bold" />
+                                                </DataTrigger>
+                                                <DataTrigger TargetType="Label" Binding="{Binding IsAll}" Value="True">
+                                                    <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+                                                </DataTrigger>
+                                            </Label.Triggers>
+                                        </Label>
+                                        <Border.Triggers>
+                                            <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryAction}" />
+                                            </DataTrigger>
+                                        </Border.Triggers>
+                                    </Border>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+
+                    <!-- 编辑 -->
+                    <Label Text="编辑" Style="{StaticResource TxtMuted}" />
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Start">
+                        <Button Text="{Binding ViewModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding SetModeCommand}" CommandParameter="view" />
+                        <Button Text="{Binding EditModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding SetModeCommand}" CommandParameter="edit" />
+                        <Button Text="{Binding LinkModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding SetModeCommand}" CommandParameter="link" />
+                        <Button Text="{Binding DoodleModeLabel}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding SetModeCommand}" CommandParameter="doodle" />
+                        <Button Text="{Binding LinkKindText}" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" IsVisible="{Binding IsLinkMode}"
+                                Command="{Binding ToggleLinkKindCommand}" />
+                        <Button Text="↻ 重置布局" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding ResetLayoutCommand}" />
+                        <Button Text="＋ 新地点" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding AddLocationCommand}" />
+                        <Button Text="＋ 新场景" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding AddSceneCommand}" />
+                        <Button Text="背景（素材库）" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding BackgroundFromLibraryCommand}" />
+                        <Button Text="AI 画背景" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding GenerateBackgroundCommand}" />
+                    </FlexLayout>
+                    <Label Text="编辑：拖卡片=移动 · 空白拖动=平移 · 按住空白 0.6 秒再拖=框选 · 右键=菜单"
+                           Style="{StaticResource TxtMuted}" FontSize="{DynamicResource WSizeCaption}" />
+
+                    <!-- 导入导出 -->
+                    <Label Text="导入导出" Style="{StaticResource TxtMuted}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Label Text="{Binding MapSourceLabel, StringFormat='这张图来自：{0}'}"
+                               TextColor="{DynamicResource SurfaceFg}"
+                               FontSize="{DynamicResource WSizeCaption}" VerticalOptions="Center"
+                               LineBreakMode="TailTruncation" MaxLines="1" />
+                        <Button Grid.Column="1" Text="换来源…" Style="{StaticResource BtnGhostSm}"
+                                HeightRequest="30" Command="{Binding OpenMapSourceCommand}" />
+                    </Grid>
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Start">
+                        <Button Text="导入地图" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding ImportMapCommand}" />
+                        <Button Text="取景（拍照钉在地图上）" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding OpenCaptureCommand}" />
+                        <Button Text="创建地图…（高德 / 开放街道图）" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding CreateMapCommand}" />
+                        <Button Text="导出" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding ExportMapCommand}" />
+                        <Button Text="流程图" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding OpenFlowsCommand}" />
+                    </FlexLayout>
+
+                    <!-- 其他 -->
+                    <Label Text="其他" Style="{StaticResource TxtMuted}" />
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Start">
+                        <Button Text="返回" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding BackCommand}" />
+                        <Button Text="ℹ 帮助" Style="{StaticResource BtnNeumorphSm}"
+                                Margin="0,0,8,8" Command="{Binding HelpCommand}" />
+                    </FlexLayout>
+                </VerticalStackLayout>
+            </ScrollView>
+        </Border>
+
+        <!-- ==================== 右下：缩放 / 定位 / 指南针 ==================== -->
+        <VerticalStackLayout HorizontalOptions="End" VerticalOptions="End"
+                             Margin="0,0,16,118" Spacing="10">
+
+            <Border WidthRequest="44" HeightRequest="44" BackgroundColor="{DynamicResource SurfaceBg}"
+                    Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                    StrokeShape="{DynamicResource WRadiusPill}"
+                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                <Border.Shadow>
+                    <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,2" Radius="8" Opacity="0.4" />
+                </Border.Shadow>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding ZoomInCommand}" />
+                </Border.GestureRecognizers>
+                <Label Text="＋" FontSize="20" TextColor="{DynamicResource SurfaceFg}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <Border WidthRequest="44" HeightRequest="44" BackgroundColor="{DynamicResource SurfaceBg}"
+                    Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                    StrokeShape="{DynamicResource WRadiusPill}"
+                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                <Border.Shadow>
+                    <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,2" Radius="8" Opacity="0.4" />
+                </Border.Shadow>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding ZoomOutCommand}" />
+                </Border.GestureRecognizers>
+                <Label Text="－" FontSize="20" TextColor="{DynamicResource SurfaceFg}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <!-- 定位：回到她此刻所在的位置，按下去自己呼吸一次 -->
+            <Border x:Name="LocateButton" WidthRequest="44" HeightRequest="44"
+                    BackgroundColor="{DynamicResource SurfaceBg}"
+                    Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                    StrokeShape="{DynamicResource WRadiusPill}"
+                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                <Border.Shadow>
+                    <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,2" Radius="8" Opacity="0.4" />
+                </Border.Shadow>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Tapped="OnLocateTapped" />
+                </Border.GestureRecognizers>
+                <Label Text="⌖" FontSize="18" TextColor="{DynamicResource SurfaceFg}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+
+            <!-- 指南针：这张图不旋转，回正 = 正北朝上 + 全图取景 -->
+            <Border WidthRequest="44" HeightRequest="44" BackgroundColor="{DynamicResource SurfaceBg}"
+                    Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                    StrokeShape="{DynamicResource WRadiusPill}"
+                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                <Border.Shadow>
+                    <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,2" Radius="8" Opacity="0.4" />
+                </Border.Shadow>
+                <Border.GestureRecognizers>
+                    <TapGestureRecognizer Command="{Binding CompassCommand}" />
+                </Border.GestureRecognizers>
+                <Label Text="N" FontSize="15" FontAttributes="Bold"
+                       TextColor="{DynamicResource SurfaceFg}"
+                       HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+        </VerticalStackLayout>
+
+        <!-- ==================== 左下：比例尺 ==================== -->
+        <HorizontalStackLayout HorizontalOptions="Start" VerticalOptions="End"
+                               Margin="18,0,0,26" Spacing="6">
+            <BoxView WidthRequest="{Binding ScaleBarWidth}" HeightRequest="3"
+                     Color="{DynamicResource SurfaceFg}" VerticalOptions="End" CornerRadius="1" />
+            <Label Text="{Binding ScaleBarLabel}" TextColor="{DynamicResource MutedFg}"
+                   FontSize="{DynamicResource WSizeCaption}" VerticalOptions="End" />
+        </HorizontalStackLayout>
+
+        <!-- ==================== 底部抽屉 ==================== -->
+        <Border x:Name="Sheet" IsVisible="{Binding HasSheetTarget}"
+                VerticalOptions="End" Margin="12,0,12,12"
+                BackgroundColor="{DynamicResource SurfaceBg}"
+                Stroke="{DynamicResource WEdgeBrush}" StrokeThickness="1"
+                StrokeShape="RoundRectangle 18">
+            <Border.Shadow>
+                <Shadow Brush="{DynamicResource WShadowDialogBrush}" Offset="0,6" Radius="18" Opacity="0.4" />
+            </Border.Shadow>
+            <VerticalStackLayout>
+
+                <!-- 把手：可拖；收起时只剩这一条 -->
+                <Grid x:Name="SheetHandle" HeightRequest="26">
+                    <Grid.GestureRecognizers>
+                        <PanGestureRecognizer PanUpdated="OnSheetPan" />
+                        <TapGestureRecognizer Command="{Binding ExpandSheetCommand}" />
+                    </Grid.GestureRecognizers>
+                    <BoxView WidthRequest="38" HeightRequest="4" CornerRadius="2"
+                             Color="{DynamicResource WEdgeBrush}"
+                             HorizontalOptions="Center" VerticalOptions="Center" />
+                </Grid>
+
+                <VerticalStackLayout x:Name="SheetBody" IsVisible="{Binding IsSheetOpen}"
+                                     Padding="18,0,18,16" Spacing="8">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="{Binding SheetTitle}" Style="{StaticResource TxtSubhead}"
+                                   LineBreakMode="TailTruncation" MaxLines="1" />
+                            <Label Text="{Binding SheetMeta}" TextColor="{DynamicResource MutedFg}"
+                                   FontSize="{DynamicResource WSizeCaption}" />
+                        </VerticalStackLayout>
+                        <Label Grid.Column="1" Text="✕" TextColor="{DynamicResource MutedFg}" FontSize="15"
+                               VerticalOptions="Start">
+                            <Label.GestureRecognizers>
+                                <TapGestureRecognizer Command="{Binding CloseSheetCommand}" />
+                            </Label.GestureRecognizers>
+                        </Label>
+                    </Grid>
+
+                    <Label Text="{Binding SheetSub}" TextColor="{DynamicResource SurfaceFg}"
+                           FontSize="{DynamicResource WSizeBody}" LineBreakMode="TailTruncation" MaxLines="2" />
+
+                    <!-- 场景：进这里 / 和她说话 -->
+                    <HorizontalStackLayout Spacing="10" IsVisible="{Binding SheetIsScene}">
+                        <Button Text="进这里" Style="{StaticResource BtnPrimarySm}"
+                                HeightRequest="38" Command="{Binding EnterHereCommand}" />
+                        <Button Text="和她说话" Style="{StaticResource BtnNeumorphSm}"
+                                HeightRequest="38" Command="{Binding TalkToHerCommand}" />
+                        <Button Text="改名" Style="{StaticResource BtnGhostSm}"
+                                HeightRequest="38" Command="{Binding RenameSheetTargetCommand}" />
+                        <Button Text="删除" Style="{StaticResource BtnDangerSm}"
+                                HeightRequest="38" Command="{Binding RemoveSceneCommand}" />
+                    </HorizontalStackLayout>
+
+                    <!-- 区域：改名 / 完成 -->
+                    <HorizontalStackLayout Spacing="10" IsVisible="{Binding SheetIsRegion}">
+                        <Button Text="改名" Style="{StaticResource BtnNeumorphSm}"
+                                HeightRequest="38" Command="{Binding RenameSheetTargetCommand}" />
+                        <Button Text="完成" Style="{StaticResource BtnPrimarySm}"
+                                HeightRequest="38" Command="{Binding FinishRegionEditCommand}"
+                                IsVisible="{Binding IsRegionEditMode}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </VerticalStackLayout>
         </Border>
     </Grid>
 </ContentPage>

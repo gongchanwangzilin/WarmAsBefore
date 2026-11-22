@@ -102,7 +102,7 @@
                                                 </Border.GestureRecognizers>
                                                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
                                                     <VerticalStackLayout Spacing="3" VerticalOptions="Center">
-                                                        <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" />
+                                                        <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"
                                                                LineBreakMode="WordWrap" IsVisible="{Binding HasSummary}" />
                                                         <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />

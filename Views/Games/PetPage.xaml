@@ -26,7 +26,7 @@
                            FontSize="12" VerticalOptions="Center"
                            Completed="OnSend" />
                     <!-- 语音输入：识别结果填进输入框，不自动发送——说错了还能改 -->
-                    <Button Grid.Column="1" x:Name="MicButton" Text="🎤" FontSize="12" TextColor="White"
+                    <Button Grid.Column="1" x:Name="MicButton" Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="White"
                             BackgroundColor="#33FFFFFF" CornerRadius="10" Padding="10,4"
                             Clicked="OnMicClicked" />
                     <Button Grid.Column="2" Text="发送" FontSize="12" TextColor="White"
