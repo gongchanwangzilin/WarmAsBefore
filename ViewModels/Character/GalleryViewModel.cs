@@ -89,9 +89,29 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
         }
     }
 
+    /// <summary>回忆录顶部的好感读数条：「当前好感 Lv.3 · 240/1000」。没有主角时整行不显示。</summary>
+    [ObservableProperty] private string _affectionLine = "";
+    [ObservableProperty] private bool _hasAffectionLine;
+
+    private void RefreshAffectionLine()
+    {
+        try
+        {
+            var st = _engine.ActiveCharacter?.State;
+            HasAffectionLine = st is not null;
+            AffectionLine = st is null ? "" : $"当前好感 {Helpers.AffectionScale.TextOf(st.Affection)}";
+        }
+        catch (Exception ex)
+        {
+            HasAffectionLine = false;
+            App.WriteLog("Gallery.AffectionLine -> " + ex.Message);
+        }
+    }
+
     [RelayCommand]
     private async Task Refresh()
     {
+        RefreshAffectionLine();
         // 日记是每日自动生成的核心机制：打开回忆录时确保当天总结已存档
         // （压测档不写盘：这一句会真的生成并落一篇日记）
         if (!WorstCaseProvider.IsActive) await _diary.EnsureTodayAsync();

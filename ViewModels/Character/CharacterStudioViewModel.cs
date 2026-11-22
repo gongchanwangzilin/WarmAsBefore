@@ -174,10 +174,10 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     [ObservableProperty] private bool _naturalAging = true;
 
     // ── 状态与身体 ──────────────────────────────────────────────────────
+    /// <summary>好感绝对点数 0–1000（每 100 点 1 级，共 10 级）；滑杆直接拖点数。</summary>
     [ObservableProperty] private double _affection;
     [ObservableProperty] private double _trust;
     [ObservableProperty] private double _energy = 100;
-    [ObservableProperty] private string _affectionPoints = "";
     [ObservableProperty] private string _mood = "";
     [ObservableProperty] private string _location = "";
     [ObservableProperty] private bool _cycleTracked;
@@ -339,10 +339,20 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
     partial void OnAgeInputChanged(string value) => Note("年龄");
     partial void OnBirthdayInputChanged(string value) => Note("生日");
     partial void OnNaturalAgingChanged(bool value) => Note("自然增长");
-    partial void OnAffectionChanged(double value) => Note("好感");
+    partial void OnAffectionChanged(double value)
+    {
+        Note("好感");
+        OnPropertyChanged(nameof(AffectionLevelText));
+        OnPropertyChanged(nameof(AffectionPointsText));
+    }
+
+    /// <summary>读数条的大字：「Lv.4」。</summary>
+    public string AffectionLevelText => Helpers.AffectionScale.LevelTextOf((int)Math.Round(Affection));
+    /// <summary>滑杆右侧与读数条的小字：「400/1000」。</summary>
+    public string AffectionPointsText =>
+        $"{Helpers.AffectionScale.Clamp((int)Math.Round(Affection))}/{Helpers.AffectionScale.MaxPoints}";
     partial void OnTrustChanged(double value) => Note("信任");
     partial void OnEnergyChanged(double value) => Note("精力");
-    partial void OnAffectionPointsChanged(string value) => Note("好感积分");
     partial void OnMoodChanged(string value) { Note("心情"); SyncChoice(MoodChoices, value); }
     partial void OnLocationChanged(string value) => Note("位置");
     partial void OnCycleTrackedChanged(bool value) => Note("周期记录");
@@ -501,7 +511,6 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         Affection = st.Affection;
         Trust = st.Trust;
         Energy = st.Energy;
-        AffectionPoints = st.AffectionPoints.ToString(CultureInfo.InvariantCulture);
         Mood = st.Mood;
         Location = st.Location;
         CycleTracked = st.Cycle.Tracked;
@@ -1333,7 +1342,7 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
         if (!string.IsNullOrWhiteSpace(Nickname)) rows.Add("小名：" + Nickname);
         if (!string.IsNullOrWhiteSpace(Personality)) rows.Add("性格：" + Personality);
         if (!string.IsNullOrWhiteSpace(Description)) rows.Add("背景：" + Description);
-        rows.Add($"与对方的关系：好感 {Affection:0}/100，信任 {Trust:0}/100");
+        rows.Add($"与对方的关系：好感 {Helpers.AffectionScale.TextOf((int)Math.Round(Affection))}，信任 {Trust:0}/100");
         if (!string.IsNullOrWhiteSpace(Mood))
             rows.Add("此刻心情：" + (MoodChoices.FirstOrDefault(m =>
                 string.Equals(m.Key, Mood, StringComparison.OrdinalIgnoreCase))?.Label ?? Mood));
@@ -1525,12 +1534,9 @@ public sealed partial class CharacterStudioViewModel : ObservableObject
             // 「放弃修改」会原样读回那被改过的一份，等于按钮是假的。
             var st = _ch.State with
             {
-                Affection = StateShared ? Clamp(Affection, 0, 100) : _ch.State.Affection,
+                Affection = StateShared ? Helpers.AffectionScale.Clamp((int)Math.Round(Affection)) : _ch.State.Affection,
                 Trust = StateShared ? Clamp(Trust, 0, 100) : _ch.State.Trust,
                 Energy = StateShared ? Clamp(Energy, 0, 100) : _ch.State.Energy,
-                AffectionPoints = StateShared
-                    ? ParseInt(AffectionPoints, _ch.State.AffectionPoints)
-                    : _ch.State.AffectionPoints,
                 Libido = StateShared ? Clamp(Libido, 0, 100) : _ch.State.Libido,
                 LibidoLock = StateShared ? (LibidoLocked ? Clamp(LibidoLockValue, 0, 100) : null) : _ch.State.LibidoLock,
                 Mood = string.IsNullOrWhiteSpace(Mood) ? "normal" : Mood.Trim().ToLowerInvariant(),

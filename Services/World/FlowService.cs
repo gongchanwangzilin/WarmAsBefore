@@ -222,7 +222,8 @@ public sealed class FlowService : IDisposable
 
     private bool AffectionMatches(string expr)
     {
-        var affection = _engine.ActiveCharacter?.State.Affection ?? 0;
+        // 流程条件里写的仍是旧 0–100（好感 >= 80），而状态存的是 0–1000，比较前折回旧刻度。
+        var affection = Helpers.AffectionScale.ToLegacy(_engine.ActiveCharacter?.State.Affection ?? 0);
         var text = (expr ?? "").Trim().Replace(" ", "");
         if (text.Length == 0) return false;
         var op = text.StartsWith(">=", StringComparison.Ordinal) ? ">="
@@ -326,7 +327,8 @@ public sealed class FlowService : IDisposable
             if (prev.Length > 0 && prev != kind) lightChanges.Add((edge.RoadName, kind));
         }
 
-        var affection = _engine.ActiveCharacter?.State.Affection ?? 0;
+        // 触发阈值同样是旧 0–100 刻度（TriggerKey=80），这里统一用旧刻度的当前值比较。
+        var affection = Helpers.AffectionScale.ToLegacy(_engine.ActiveCharacter?.State.Affection ?? 0);
         var affectionBefore = _lastAffection;
         _lastAffection = affection;
 

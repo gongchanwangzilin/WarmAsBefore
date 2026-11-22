@@ -68,6 +68,9 @@
             <Label Text="回忆录" Style="{StaticResource TxtTitle}" />
             <Label Text="全部好感时刻与全部对话都在这里，可搜索；日记是每天自动生成的陪伴总结（核心机制，无需开启）"
                    Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+            <!-- 好感读数条：和主界面/角色库同一条 AffectionScale 文案（Lv.N · p/1000） -->
+            <Label Text="{Binding AffectionLine}" IsVisible="{Binding HasAffectionLine}"
+                   Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource AccentWarmFg}" />
 
             <!-- 记忆分层总览：五层是同一件事的五条，并成一张卡的五行，数量落在右缘 -->
             <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasLayerStats}">

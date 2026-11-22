@@ -106,7 +106,7 @@ public sealed class BrainAnticipationService
         if (s.BrainExpectationEnabled)
         {
             var err = actual - expect;                            // -1..1 的预测误差
-            var anchor = 0.35 + 0.4 * (ch.State.Affection / 100.0);
+            var anchor = 0.35 + 0.4 * (ch.State.Affection / (double)Helpers.AffectionScale.MaxPoints);
             brain.ExpectedWarmth = Math.Clamp(0.7 * expect + 0.2 * actual + 0.1 * anchor, 0, 1);
             var target = 50 + (err >= 0 ? 65 * err : 85 * err);   // 正误差比负误差更快回落
             brain.Dopamine = Math.Clamp(0.35 * brain.Dopamine + 0.65 * target, 0, 100);
@@ -323,7 +323,7 @@ public sealed class BrainAnticipationService
         var msg =
             $"你是「{who}」{personaLine}。\n" +
             $"对方刚说：{u}\n你回了：{r}\n" +
-            $"此刻好感 {ch.State.Affection}/100，信任 {ch.State.Trust}/100。\n" +
+            $"此刻好感 {Helpers.AffectionScale.TextOf(ch.State.Affection)}（共 {Helpers.AffectionScale.MaxLevel} 级），信任 {ch.State.Trust}/100。\n" +
             "请预判对方下一条会有多热（0-100），并给一个下一步「意料之外但符合人设」的小动作（14字内）。" +
             "只输出一行，格式：expect=数字;hint=小动作";
         var raw = await _api.Chat(new List<ChatMessage> { new() { Role = "user", Content = msg } }, ep);

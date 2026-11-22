@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>WabAffectionSelfTest</RootNamespace>
+    <AssemblyName>AffectionSelfTest</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 只编译零依赖的好感刻度纯函数，不引用整个 MAUI 工程 -->
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Helpers/AffectionScale.cs" Link="AffectionScale.cs" />
+  </ItemGroup>
+</Project>

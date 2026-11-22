@@ -8,6 +8,8 @@ namespace WarmAsBefore.Modules.Affection;
 public sealed class AffectionLevelUpService
 {
     public int Level { get; set; } = 1;
+    /// <summary>升到这一级时的绝对好感点数（0–1000）：动画页据此写出「300/1000」。</summary>
+    public int Points { get; set; }
     public string CharacterName { get; set; } = "";
     public string Title { get; set; } = "";
     public string? SpritePath { get; set; }

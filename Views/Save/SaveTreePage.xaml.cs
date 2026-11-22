@@ -4,8 +4,11 @@ using WarmAsBefore.ViewModels;
 namespace WarmAsBefore.Views;
 
 /// <summary>
-/// 分支树独立页：XAML 里只放 GraphicsView，Drawable / Invalidate / 命中都在 code-behind 接好，
+/// 分支树独立页：XAML 里只放 GraphicsView，Drawable / Invalidate / 命中 / 悬停都在 code-behind 接好，
 /// 数据组装与选中状态在 VM。页面不碰 SaveManager，也不实现读档 —— 那部分仍归 SavePage。
+///
+/// 画布是**双向可滚**的：宽按列数撑（每档一列、固定列距），高按泳道数撑，
+/// 外层 ScrollView 的 Orientation=Both 让横向拖动看完整棵树；滚轮纵滚、Shift+滚轮横滚由平台滚动容器负责。
 /// </summary>
 public partial class SaveTreePage : ContentPage
 {
@@ -30,10 +33,32 @@ public partial class SaveTreePage : ContentPage
         TreeCanvas.Drawable = Helpers.SafeDrawable.Wrap(vm.Drawable, "SaveTree");
         vm.AttachInvalidate(() =>
         {
+            SyncCanvasSize();
             TreeCanvas.Invalidate();
-            SyncCanvasHeight();
         });
-        TreeCanvas.SizeChanged += (_, _) => vm.SetViewport(TreeCanvas.Width, TreeCanvas.Height);
+
+        // 视口 = ScrollView 的尺寸（画布本身是内容尺寸，不是视口）。
+        CanvasScroll.SizeChanged += (_, _) => _vm.SetViewport(CanvasScroll.Width, CanvasScroll.Height);
+        CanvasScroll.Scrolled += (_, e) => _vm.SetScroll(e.ScrollX, e.ScrollY);
+
+        // 悬停：Windows / Mac 有指针移动事件，悬停即浮出详情面板；触屏没有悬停，
+        // 点一下选中同样会把面板浮在卡片旁（EndInteraction），所以这里挂了也不影响手机。
+        try
+        {
+            var pointer = new PointerGestureRecognizer();
+            pointer.PointerMoved += (_, e) =>
+            {
+                try
+                {
+                    var p = e.GetPosition(TreeCanvas);
+                    _vm.CanvasHover(p is null ? null : new PointF((float)p.Value.X, (float)p.Value.Y));
+                }
+                catch (Exception ex) { App.WriteLog("SaveTree.PointerMove -> " + ex.Message); }
+            };
+            pointer.PointerExited += (_, _) => _vm.CanvasHover(null);
+            TreeCanvas.GestureRecognizers.Add(pointer);
+        }
+        catch (Exception ex) { App.WriteLog("SaveTree.PointerAttach -> " + ex.Message); }
     }
 
     protected override async void OnAppearing()
@@ -48,18 +73,22 @@ public partial class SaveTreePage : ContentPage
     }
 
     /// <summary>
-    /// 画布高度跟随泳道数：节点多到超出视口时靠外层 ScrollView 滚过去。
-    /// 只在真的变了才写，避免「设高度 → SizeChanged → 重排 → 再设高度」自激。
+    /// 画布宽高跟随内容（列数 / 泳道数）：节点多到超出视口时靠外层 ScrollView 滚过去。
+    /// 只在真的变了才写，避免「设尺寸 → SizeChanged → 重排 → 再设尺寸」自激。
     /// </summary>
-    private void SyncCanvasHeight()
+    private void SyncCanvasSize()
     {
         try
         {
-            var want = Math.Max(TreeCanvas.MinimumHeightRequest, _vm.Drawable.ContentHeight);
-            if (double.IsNaN(TreeCanvas.HeightRequest) || Math.Abs(TreeCanvas.HeightRequest - want) > 0.5)
-                TreeCanvas.HeightRequest = want;
+            var wantW = Math.Max(CanvasScroll.Width, _vm.Drawable.ContentWidth);
+            if (double.IsNaN(TreeCanvas.WidthRequest) || Math.Abs(TreeCanvas.WidthRequest - wantW) > 0.5)
+                TreeCanvas.WidthRequest = wantW;
+
+            var wantH = Math.Max(CanvasScroll.Height, _vm.Drawable.ContentHeight);
+            if (double.IsNaN(TreeCanvas.HeightRequest) || Math.Abs(TreeCanvas.HeightRequest - wantH) > 0.5)
+                TreeCanvas.HeightRequest = wantH;
         }
-        catch (Exception ex) { App.WriteLog("SaveTree.SyncCanvasHeight -> " + ex.Message); }
+        catch (Exception ex) { App.WriteLog("SaveTree.SyncCanvasSize -> " + ex.Message); }
     }
 
     private void OnCanvasEnd(object? sender, TouchEventArgs e)

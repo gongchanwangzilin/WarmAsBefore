@@ -218,10 +218,10 @@
                             <VerticalStackLayout Spacing="1">
                                 <Label Text="AFFECTION" Style="{StaticResource Eyebrow}" />
                                 <HorizontalStackLayout Spacing="4">
-                                    <Label Text="{Binding Affection, StringFormat='{0:F0}'}"
+                                    <Label Text="{Binding AffectionLevelText}"
                                            FontFamily="Bahnschrift" FontSize="24"
                                            TextColor="{DynamicResource WarmDark}" />
-                                    <Label Text="好感" Style="{StaticResource TxtCaption}"
+                                    <Label Text="{Binding AffectionPointsText}" Style="{StaticResource TxtCaption}"
                                            VerticalOptions="End" Margin="0,0,0,4" />
                                 </HorizontalStackLayout>
                             </VerticalStackLayout>
@@ -818,10 +818,12 @@
                                 <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <Label Text="好感" Style="{StaticResource FieldLabel}" />
-                                        <Label Grid.Column="1" Text="{Binding Affection, StringFormat='{0:F0} / 100'}"
-                                               Style="{StaticResource TxtCaption}" />
+                                        <!-- 滑杆拖的是绝对点数 0–1000；左边报等级，右下报点数 -->
+                                        <Label Grid.Column="1" Text="{Binding AffectionLevelText}" Style="{StaticResource TxtCaption}" />
                                     </Grid>
-                                    <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding Affection}" />
+                                    <controls:ViewSlider Minimum="0" Maximum="1000" Value="{Binding Affection}" />
+                                    <Label Text="{Binding AffectionPointsText}" Style="{StaticResource TxtCaption}"
+                                           HorizontalOptions="End" />
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
@@ -873,12 +875,6 @@
                                             IsVisible="{Binding LibidoLocked}" />
                                 </VerticalStackLayout>
 
-                                <VerticalStackLayout Spacing="2" IsVisible="{Binding StateShared}">
-                                    <Label Text="好感积分（升级用的那把数）" Style="{StaticResource FieldLabel}" />
-                                    <Entry Style="{StaticResource Field}" Text="{Binding AffectionPoints}"
-                                           Keyboard="Numeric" />
-                                </VerticalStackLayout>
-
                                 <!-- 非共享角色：这一屏改的是「以后的存档从哪儿开始」，不是当前这一档。 -->
                                 <VerticalStackLayout Spacing="10"
                                                      IsVisible="{Binding StateShared, Converter={StaticResource InverseBool}}">
@@ -922,11 +918,6 @@
                                         <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding InitLibido}" />
                                     </VerticalStackLayout>
 
-                                    <VerticalStackLayout Spacing="0">
-                                        <Label Text="好感积分（升级用的那把数）" Style="{StaticResource FieldLabel}" />
-                                        <Entry Style="{StaticResource Field}" Text="{Binding InitAffectionPoints}"
-                                               Keyboard="Numeric" />
-                                    </VerticalStackLayout>
                                 </VerticalStackLayout>
 
                                 <!-- 正在某一档里时，额外给一条只读对照：看得出「初始 20 / 这一档现在 47」。

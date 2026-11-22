@@ -1730,7 +1730,7 @@
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="好感等级提升动画" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="每累计 500 好感积分升 1 级（共10级），跨越等级时全屏播放爱心动画" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Label Text="每 100 点好感升 1 级（共 10 级，上限 1000 点），跨越等级时全屏播放爱心动画" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding AffectionLevelUp}" /></Grid>
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
                                         <Label Text="天气事件（打雷 / 下雨）" Style="{StaticResource TxtBodySm}" Margin="0,9,0,0" />
