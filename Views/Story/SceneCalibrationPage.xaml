@@ -2,35 +2,35 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.SceneCalibrationPage"
              x:Name="CalRoot"
              x:DataType="vm:SceneCalibrationViewModel"
              Title="背景标定"
              Background="{DynamicResource PageBgBrush}">
 
-    <Grid RowDefinitions="Auto,*,Auto">
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+
+        <!-- ===== 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） ===== -->
+        <ctl:PageHeader Grid.Row="0" Title="{Binding SceneName, StringFormat='标定背景：{0}'}"
+                        Subtitle="{Binding ImageInfo}">
+            <ctl:PageHeader.Actions>
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
+                    <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}"
+                           LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="Center" />
+                    <Button Text="取消" Style="{StaticResource BtnGhostSm}"
+                            VerticalOptions="Center" Clicked="OnCancelClicked" />
+                </HorizontalStackLayout>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- ===== 工具条：同一块地的一条 bar，不是一块深色板 =====
              原来底是 WarmDark（最深那档墨），字只能借 OffWhite50/Cream200 这些「面」来用，
              切到深色世界时面与面几乎同色，整排说明直接读不出来。 -->
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+        <Border Grid.Row="1" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
             <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
-
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                    <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SceneName, StringFormat='标定背景：{0}'}"
-                               Style="{StaticResource TxtTitle}" />
-                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ImageInfo}" TextColor="{DynamicResource MutedFg}"
-                               FontSize="{DynamicResource WSizeCaption}" />
-                        <Label Text="{Binding StatusText}" TextColor="{DynamicResource SurfaceFg}"
-                               FontSize="{DynamicResource WSizeCaption}"
-                               LineBreakMode="TailTruncation" MaxLines="1" />
-                    </VerticalStackLayout>
-                    <Button Grid.Column="1" Text="取消" Style="{StaticResource BtnGhostSm}"
-                            VerticalOptions="Center" Clicked="OnCancelClicked" />
-                </Grid>
 
                 <!-- 落脚点类型 -->
                 <Grid ColumnDefinitions="Auto,*,*,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
@@ -74,7 +74,7 @@
         </Border>
 
         <!-- ===== 画布 ===== -->
-        <GraphicsView Grid.Row="1" x:Name="CalCanvas"
+        <GraphicsView Grid.Row="2" x:Name="CalCanvas"
                       StartInteraction="OnCanvasStart"
                       DragInteraction="OnCanvasDrag"
                       EndInteraction="OnCanvasEnd"
@@ -82,7 +82,7 @@
                       BackgroundColor="Black" />
 
         <!-- ===== 底部：强制输出 + 完成（CardSolid 把缝发到画刷上；BorderLine 是 Color，喂不了 Border.Stroke） ===== -->
-        <Border Grid.Row="2" Style="{StaticResource CardSolid}" Margin="12,8,12,12">
+        <Border Grid.Row="3" Style="{StaticResource CardSolid}" Margin="12,8,12,12">
             <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                 <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding SummaryText}" Style="{StaticResource TxtBodySm}" />
                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding MissingText}" IsVisible="{Binding HasMissing}"
