@@ -18,7 +18,7 @@
     <Grid RowDefinitions="Auto,*,Auto" Padding="0">
 
         <!-- 顶栏：白条 + 深色字，微信移动端的消息列表头 -->
-        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}"
               BackgroundColor="{StaticResource WcHeader}" Padding="14,14,14,14">
             <Button Text="&lt;" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
                     Padding="0" WidthRequest="30" Command="{Binding BackCommand}" />
@@ -36,7 +36,7 @@
                         SelectionMode="None" BackgroundColor="Transparent">
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                     Spacing="10" Padding="32">
+                                     Spacing="{DynamicResource WSpaceRegular}" Padding="32">
                     <Grid WidthRequest="64" HeightRequest="64" HorizontalOptions="Center">
                         <BoxView WidthRequest="64" HeightRequest="64" CornerRadius="32"
                                  Color="{StaticResource WcAvatar}" InputTransparent="True" />
@@ -58,7 +58,7 @@
                                 <TapGestureRecognizer Command="{Binding Source={x:Reference Page}, Path=BindingContext.PickCommand}"
                                                       CommandParameter="{Binding Id}" />
                             </Border.GestureRecognizers>
-                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <!-- 头像：无图时浅灰圆片 + 首字 -->
                                 <Grid Grid.Column="0" WidthRequest="48" HeightRequest="48">
                                     <BoxView WidthRequest="48" HeightRequest="48" CornerRadius="24"
@@ -91,7 +91,7 @@
         </CollectionView>
 
         <!-- 底部：新建 / 导入，微信白+蓝按钮 -->
-        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="10"
+        <Grid Grid.Row="2" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}"
               BackgroundColor="{StaticResource WcPageBg}" Padding="14,12,14,16">
             <BoxView HeightRequest="1" Color="{StaticResource WcSep}" VerticalOptions="Start" />
             <Button Text="＋ 新建角色"

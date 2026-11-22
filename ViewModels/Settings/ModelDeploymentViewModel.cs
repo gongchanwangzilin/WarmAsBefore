@@ -156,6 +156,7 @@ public sealed class DeployedModelRow
     {
         DeployStatus.Installed => $"已安装 · {Bytes / 1_000_000d:0.0} MB",
         DeployStatus.Failed => "失败：" + LastError,
-        _ => Status.ToString()
+        // 剩下的状态走全站同一张映射表：枚举名不许直接印到界面上（Failed / failed / 失败 会并存）
+        _ => WarmAsBefore.Helpers.StatusText.Format(Status)
     };
 }

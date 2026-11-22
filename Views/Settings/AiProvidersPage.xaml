@@ -5,10 +5,10 @@
              x:Class="WarmAsBefore.Views.AiProvidersPage"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
-    <Grid RowDefinitions="Auto,*" Padding="18,10,18,14" RowSpacing="10">
+    <Grid RowDefinitions="Auto,*" Padding="18,10,18,14" RowSpacing="{DynamicResource WSpaceRegular}">
 
         <!-- 顶栏 -->
-        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+        <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
             <Button Grid.Column="0" Text="←" Style="{StaticResource BtnText}" Padding="10,2"
                     Clicked="OnBack" />
             <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
@@ -22,10 +22,10 @@
         </Grid>
 
         <ScrollView Grid.Row="1">
-            <VerticalStackLayout Spacing="10">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
 
                 <!-- 厂商列表 -->
-                <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Providers}">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" BindableLayout.ItemsSource="{Binding Providers}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:AiProviderRow">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
@@ -34,8 +34,8 @@
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="12" />
                                 </Border.StrokeShape>
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Grid.Column="0" Spacing="1">
                                             <Label Text="{Binding Title}" FontSize="14" FontAttributes="Bold"
                                                    TextColor="{DynamicResource SurfaceFg}" MaxLines="1" LineBreakMode="TailTruncation" />
@@ -73,9 +73,9 @@
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>
-                    <VerticalStackLayout Spacing="8">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="新增厂商" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Entry Grid.Column="0" x:Name="NewName" Placeholder="厂商名（如：硅基流动）"
                                    BackgroundColor="{DynamicResource InputBg}"
                                    TextColor="{DynamicResource SurfaceFg}"
@@ -89,7 +89,7 @@
                                BackgroundColor="{DynamicResource InputBg}"
                                TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" />
-                        <Grid ColumnDefinitions="*,110" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,110" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Entry Grid.Column="0" x:Name="NewKeys" Placeholder="密钥（一行一枚，可多枚轮流用）"
                                    BackgroundColor="{DynamicResource InputBg}"
                                    TextColor="{DynamicResource SurfaceFg}"

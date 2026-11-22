@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.MaterialsPage"
              x:Name="Page"
@@ -69,28 +70,20 @@
     </ContentPage.Resources>
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
-        <!-- Header：眉栏是一块地而不是一张卡，底下用发丝线收住 -->
-        <VerticalStackLayout Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                            FontSize="{DynamicResource WSizeSmall}" Padding="0"
-                            Command="{Binding BackCommand}" />
-                    <Label Grid.Column="1" Text="素材库" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                    <Border Grid.Column="2" Background="{DynamicResource WWellBrush}"
-                            StrokeThickness="0" Padding="10,5"
-                            StrokeShape="{DynamicResource WRadiusPill}">
-                        <Label Text="背景 · 音乐" Style="{StaticResource TxtBodySm}"
-                               TextColor="{DynamicResource WarmDark}" />
-                    </Border>
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+        <!-- Header：结构走 PageHeader（全站同一份），底与发丝线由组件自己带 -->
+        <ctl:PageHeader Grid.Row="0" Title="素材库" BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Border Background="{DynamicResource WWellBrush}"
+                        StrokeThickness="0" Padding="10,5"
+                        StrokeShape="{DynamicResource WRadiusPill}">
+                    <Label Text="背景 · 音乐" Style="{StaticResource TxtBodySm}"
+                           TextColor="{DynamicResource WarmDark}" />
+                </Border>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- Tabs -->
-        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8" Padding="{DynamicResource WPadCard}">
+        <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadCard}">
             <Button Text="背景库" Style="{StaticResource TabBackgrounds}"
                     Command="{Binding ShowBackgroundsCommand}" />
             <Button Grid.Column="1" Text="音乐库" Style="{StaticResource TabMusic}"
@@ -104,7 +97,7 @@
                         ItemsLayout="VerticalGrid, 3">
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                     Spacing="12" Padding="32">
+                                     Spacing="{DynamicResource WSpaceLoose}" Padding="32">
                     <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                             WidthRequest="96" HeightRequest="96"
                             StrokeShape="{DynamicResource WRadiusPill}">
@@ -123,7 +116,7 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:BackgroundGridItem">
                     <Border motion:HoverFeel.Enabled="True" Style="{StaticResource AssetCell}" Margin="0,0,10,12">
-                        <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                     HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">
                                 <Image Source="{Binding Thumb}" Aspect="AspectFill"
@@ -156,7 +149,7 @@
                         ItemsLayout="VerticalGrid, 3">
             <CollectionView.EmptyView>
                 <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
-                                     Spacing="12" Padding="32">
+                                     Spacing="{DynamicResource WSpaceLoose}" Padding="32">
                     <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                             WidthRequest="96" HeightRequest="96"
                             StrokeShape="{DynamicResource WRadiusPill}">
@@ -176,7 +169,7 @@
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="vm:MusicGridItem">
                     <Border motion:HoverFeel.Enabled="True" Style="{StaticResource AssetCell}" Margin="0,0,10,12">
-                        <VerticalStackLayout Spacing="6">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                     HeightRequest="64" StrokeShape="{DynamicResource WRadiusWell}">
                                 <Image Source="ic_music.png" WidthRequest="20" HeightRequest="20" Opacity="0.55"
@@ -197,7 +190,7 @@
         </CollectionView>
 
         <!-- Footer: import buttons -->
-        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="12" Padding="{DynamicResource WPadCard}">
+        <Grid Grid.Row="3" ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceLoose}" Padding="{DynamicResource WPadCard}">
             <Button Text="导入背景" Style="{StaticResource BtnPrimary}"
                     Command="{Binding ImportBackgroundCommand}"
                     IsVisible="{Binding IsMusicTab, Converter={StaticResource InverseBool}}" />

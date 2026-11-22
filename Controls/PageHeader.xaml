@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  页头骨架（2026-11-22）：全站只有这一份页头。
+
+  在本组件之前，每页自己写 Border + Grid：高度 44 / 52 / 56 各一档、内距七种、
+  标题字号有 20 和 30 两种、「返回」有「< 返回」「←」两种写法。
+  读者不会说「页头不一致」，只会说「这页看起来不太对」。
+
+  三件事收进这里：
+    结构   返回 · 眉标/标题/副标题 · 右侧动作（同一套列定义与横距 WHeaderGap）
+    尺寸   高度 WHeaderHeight、内距 WHeaderPad、字号走 TxtTitle/TxtCaption（世界令牌）
+    分隔线 HSep 由组件自己带 —— 页面不再各写一条 BoxView，也不再各写一行 Grid.Row
+
+  两个形态：
+    Bar    页面级顶栏（有自己的底 WBarBrush + 一条发丝线）。大多数页用这一档。
+    Ground 落在地上的一页头（无底、无线），给「页头本身就是内容首屏」的信息页用。
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
+             x:Class="WarmAsBefore.Controls.PageHeader"
+             x:Name="Root">
+
+    <VerticalStackLayout Spacing="0">
+        <Border x:Name="Bar" StrokeThickness="0"
+                Background="{DynamicResource WBarBrush}"
+                Padding="{DynamicResource WHeaderPad}"
+                MinimumHeightRequest="{DynamicResource WHeaderHeight}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WHeaderGap}">
+
+                <!-- 返回：文字钮。文案由 BackText 给（"< 返回" / "←"），没有命令时就整颗不出现 -->
+                <Button x:Name="Back"
+                        Style="{StaticResource BtnText}"
+                        Text="{Binding BackText, Source={x:Reference Root}}"
+                        Command="{Binding BackCommand, Source={x:Reference Root}}"
+                        Padding="0" FontSize="{DynamicResource WSizeCaption}"
+                        VerticalOptions="Center" />
+
+                <VerticalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
+                    <!-- 眉标 + 世界印记：印记是这一页「属于哪个世界」的签名，不参与悬停/按压 -->
+                    <HorizontalStackLayout Spacing="7" VerticalOptions="Center"
+                                           IsVisible="{Binding Eyebrow, Source={x:Reference Root}, Converter={StaticResource StringNotEmpty}}">
+                        <BoxView Color="{DynamicResource WMarkColor}"
+                                 WidthRequest="{DynamicResource WMarkSize}"
+                                 HeightRequest="{DynamicResource WMarkSize}"
+                                 CornerRadius="{DynamicResource WMarkRadius}"
+                                 VerticalOptions="Center" />
+                        <Label Text="{Binding Eyebrow, Source={x:Reference Root}}" Style="{StaticResource Eyebrow}" />
+                    </HorizontalStackLayout>
+
+                    <Label Text="{Binding Title, Source={x:Reference Root}}" Style="{StaticResource TxtTitle}"
+                           MaxLines="1" LineBreakMode="TailTruncation" />
+
+                    <!-- 副标题：一行说明这页在说什么。窄窗时截断，全量放 ToolTip，不折成两行把页头顶高 -->
+                    <Label Text="{Binding Subtitle, Source={x:Reference Root}}" Style="{StaticResource TxtCaption}"
+                           MaxLines="1" LineBreakMode="TailTruncation"
+                           ToolTipProperties.Text="{Binding Subtitle, Source={x:Reference Root}}"
+                           IsVisible="{Binding Subtitle, Source={x:Reference Root}, Converter={StaticResource StringNotEmpty}}" />
+                </VerticalStackLayout>
+
+                <!-- 右侧：压测档徽标（永久第一位）+ 页面自己的动作 -->
+                <HorizontalStackLayout x:Name="Right" Grid.Column="2"
+                                       Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
+                    <ctl:WorstCaseBadge x:Name="Badge" />
+                </HorizontalStackLayout>
+            </Grid>
+        </Border>
+
+        <BoxView x:Name="Rule" Style="{StaticResource HSep}" />
+    </VerticalStackLayout>
+</ContentView>

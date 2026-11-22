@@ -7,6 +7,7 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              xmlns:views="clr-namespace:WarmAsBefore.Views.Chat"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.WeChatPage"
              x:Name="Page"
 
@@ -192,6 +193,8 @@
                        TextColor="{StaticResource WcSub}" FontSize="11"
                        LineBreakMode="TailTruncation" MaxLines="1" Margin="0,2,0,0" VerticalOptions="Start" />
                 <HorizontalStackLayout Grid.RowSpan="2" Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                    <!-- 压测档徽标：与全站同一个组件，压测档没开时宽高为 0 -->
+                    <ctl:WorstCaseBadge VerticalOptions="Center" />
                     <!-- F22：全屏对话按钮（进入/退出同一个键，随时可返回） -->
                     <Button Text="全屏" Style="{StaticResource BtnText}" TextColor="{StaticResource WcAccent}"
                             FontSize="12" Padding="8,4" CornerRadius="12"

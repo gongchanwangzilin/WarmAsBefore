@@ -38,7 +38,7 @@
         <!-- 顶栏：标题 + 这一句现在正在发生什么；忙的时候只多一颗「取消」 -->
         <VerticalStackLayout Spacing="0">
             <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="{DynamicResource WSizeSmall}"
                             Padding="0" VerticalOptions="Center" Command="{Binding GoBackCommand}" />
                     <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
@@ -62,8 +62,8 @@
 
                 <!-- ============ ① 找地方 ============ -->
                 <Label Text="① 找地方" Style="{StaticResource TxtSection}" />
-                <VerticalStackLayout Spacing="8">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Entry Style="{StaticResource Field}" Text="{Binding Query}"
                                    Placeholder="城市 / 区县 / 街道，或直接写经纬度：120.15,30.27"
                                    ReturnType="Search" ReturnCommand="{Binding SearchCommand}" />
@@ -87,7 +87,7 @@
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MapCreateViewModel}}, Path=SelectHitCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
                                                                FontAttributes="{Binding IsSelected, Converter={StaticResource BoolFontBold}}"
@@ -117,9 +117,9 @@
                     </VerticalStackLayout>
 
                 <!-- ============ ② 取多大一片 ============ -->
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasSelection}">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasSelection}">
                     <Label Text="② 取多大一片" Style="{StaticResource TxtSection}" />
-                        <HorizontalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding Presets}">
+                        <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" BindableLayout.ItemsSource="{Binding Presets}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:MapPresetChip">
                                     <Border Style="{StaticResource Chip}"
@@ -141,7 +141,7 @@
                             </BindableLayout.ItemTemplate>
                         </HorizontalStackLayout>
 
-                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="半径" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                             <controls:ViewSlider Grid.Column="1" Minimum="100" Maximum="3000" Value="{Binding RadiusMeters, Mode=TwoWay}"
                                     MinimumTrackColor="{DynamicResource BeigeAccent300}"
@@ -153,7 +153,7 @@
                         </Grid>
                         <Label Text="{Binding RadiusLabel}" Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
 
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding SelectedHasBox}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding SelectedHasBox}">
                             <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                 <Label Text="按检索到的整片边界取" Style="{StaticResource TxtBodySm}" />
                                 <Label Text="城市与区县会带回自己的边界；整片取会把边界框收进可承受的最大范围。"
@@ -169,9 +169,9 @@
                 </VerticalStackLayout>
 
                 <!-- ============ ③ 预览与导入 ============ -->
-                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasSelection}">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasSelection}">
                     <Label Text="③ 预览与导入" Style="{StaticResource TxtSection}" />
-                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Button Text="预览：先数一数" Style="{StaticResource BtnGhost}"
                                     IsEnabled="{Binding IsBusy, Converter={StaticResource InverseBool}}"
                                     Command="{Binding PreviewCommand}" />
@@ -196,14 +196,14 @@
                 </VerticalStackLayout>
 
                 <!-- ============ ④ 背景 ============ -->
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="④ 背景：形状之外的那一层" Style="{StaticResource TxtSection}" />
                         <Label Text="{Binding BackgroundSummary}" Style="{StaticResource TxtBodySm}"
                                LineBreakMode="WordWrap" />
                         <Label Text="真实城市导进来只有建筑轮廓、道路命名与店名，画面是空的：自己拍的照片回到地图页右键场景 →「背景图（电脑导入）」挂上，这里只负责让 AI 补。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
 
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Picker ItemsSource="{Binding BatchChoices}" SelectedItem="{Binding BatchChoice}"
                                     FontSize="{DynamicResource WSizeSmall}" WidthRequest="96" VerticalOptions="Center"
                                     IsEnabled="{Binding CanRunAi}" />
@@ -228,17 +228,17 @@
 
                         <!-- 谷歌地点照片：高德只有地名与道路、没有照片接口，这一条走谷歌 Places -->
                         <Border Style="{StaticResource SettingRow}" Margin="0,4,0,0">
-                            <VerticalStackLayout Spacing="8">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="谷歌地图地点照片" Style="{StaticResource TxtRowTitle}" />
                                 <Label Text="{Binding GoogleKeyState}" Style="{StaticResource TxtRowDesc}"
                                        LineBreakMode="WordWrap" />
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <Entry Style="{StaticResource Field}" Text="{Binding GoogleKeyInput}"
                                            Placeholder="Google Maps API Key（需启用 Places API）" />
                                     <Button Grid.Column="1" Text="存 Key" Style="{StaticResource BtnGhostSm}"
                                             Command="{Binding SaveGoogleKeyCommand}" />
                                 </Grid>
-                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <Picker ItemsSource="{Binding BatchChoices}" SelectedItem="{Binding BatchChoice}"
                                             FontSize="{DynamicResource WSizeSmall}" WidthRequest="96"
                                             VerticalOptions="Center" IsEnabled="{Binding CanFillGoogle}" />
@@ -259,13 +259,13 @@
                 </VerticalStackLayout>
 
                 <!-- ============ ⑤ 地图天气 ============ -->
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="⑤ 地图天气：这张图按哪儿算" Style="{StaticResource TxtSection}" />
                     <Label Text="导入的真实城市地图默认按抓取位置的当地天气算；也可以改成跟随用户设置里的城市，或者自己填一个地点。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                     <Border Style="{StaticResource SettingRow}">
-                        <VerticalStackLayout Spacing="8">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="天气按哪儿算" Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
                                 <Picker Grid.Column="1" WidthRequest="180" FontSize="{DynamicResource WSizeSmall}"
                                         ItemsSource="{Binding MapWeatherChoices}"
@@ -281,9 +281,9 @@
                         </VerticalStackLayout>
                     </Border>
 
-                    <VerticalStackLayout Spacing="8" IsVisible="{Binding IsMapWeatherCustom}">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding IsMapWeatherCustom}">
                         <Label Text="自定义地点" Style="{StaticResource FieldLabel}" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Entry Style="{StaticResource Field}" Text="{Binding MapWeatherCityInput}"
                                    Placeholder="城市名，例如：杭州市" />
                             <Button Grid.Column="1" Text="保存地点" Style="{StaticResource BtnGhostSm}"
@@ -301,7 +301,7 @@
                 <VerticalStackLayout Spacing="0">
                     <Label Text="⑥ 自己的文件 / 高德 Key / 判灯" Style="{StaticResource TxtSection}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                     <Label Text="导入我自己准备好的地图" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="一份地图 JSON：只有形状与路名，背景同样要实地取材或让 AI 补。"
@@ -315,11 +315,11 @@
                         </Border>
                         <BoxView Style="{StaticResource HSepInset}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <VerticalStackLayout Spacing="6">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                 <Label Text="高德 Key（选填）" Style="{StaticResource TxtRowTitle}" />
                                 <Label Text="{Binding AmapKeyState}" Style="{StaticResource TxtRowDesc}"
                                        LineBreakMode="WordWrap" />
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <Entry Style="{StaticResource Field}" Text="{Binding AmapKeyInput}"
                                            Placeholder="高德 Web 服务的 key" />
                                     <Button Grid.Column="1" Text="存 Key" Style="{StaticResource BtnGhostSm}"
@@ -329,7 +329,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSepInset}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                     <Label Text="红绿灯看高德路况" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="{Binding SignalSourceState}" Style="{StaticResource TxtRowDesc}"

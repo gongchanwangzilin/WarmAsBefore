@@ -15,7 +15,7 @@
     <ScrollView Padding="{DynamicResource WPadCard}">
         <VerticalStackLayout Spacing="{DynamicResource WGapSection}" MaximumWidthRequest="760">
 
-            <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                 <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" LineBreakMode="WordWrap" />
                 <Label Text="立绘按 1080×1920 的逻辑画布对齐。允许角色溢出画布，但脚底必须落在这块画布的下沿线上，大小与朝向也要正确。"
                        Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
@@ -58,7 +58,7 @@
 
             <!-- 三条读数：卡自己带内距、行不写内距，所以线用 HSepBleed 顶回卡边 -->
             <Border Style="{StaticResource CardSolid}">
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SourceLabel, StringFormat='素材尺寸：{0}'}"
                            Style="{StaticResource TxtBodySm}" />
                     <BoxView Style="{StaticResource HSepBleed}" />
@@ -71,9 +71,9 @@
             <!-- 方向：左标题、右三个动作 -->
             <Border Style="{StaticResource CardGroup}">
                 <Border Style="{StaticResource SettingRow}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                         <Label Grid.Column="0" Text="方向" Style="{StaticResource TxtRowTitle}" />
-                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                        <HorizontalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                             <Button Text="水平翻转" Style="{StaticResource BtnGhostSm}"
                                     Command="{Binding ToggleFlipHorizontalCommand}" />
                             <Button Text="垂直翻转" Style="{StaticResource BtnGhostSm}"
@@ -88,10 +88,10 @@
             <!-- 大小 -->
             <Border Style="{StaticResource CardGroup}">
                 <Border Style="{StaticResource SettingRow}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                         <Label Grid.Column="0" Text="大小（&gt;100% 即溢出画布）"
                                Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" />
-                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                        <HorizontalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                             <Button Text="缩小" Style="{StaticResource BtnGhostSm}" WidthRequest="80"
                                     Command="{Binding ScaleDownCommand}" />
                             <!-- 当前值是这一行的「读数」：夹在两个动作中间、占固定宽，数字跳动时不推挤按钮 -->
@@ -109,9 +109,9 @@
             <Border Style="{StaticResource CardGroup}">
                 <VerticalStackLayout Spacing="0">
                     <Border Style="{StaticResource SettingRow}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <Label Grid.Column="0" Text="位置与脚底线" Style="{StaticResource TxtRowTitle}" />
-                            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <HorizontalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                                 <Button Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="52"
                                         Command="{Binding NudgeLeftCommand}" />
                                 <Button Text="→" Style="{StaticResource BtnGhostSm}" WidthRequest="52"
@@ -125,9 +125,9 @@
                     </Border>
                     <BoxView Style="{StaticResource HSep}" />
                     <Border Style="{StaticResource SettingRow}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <Label Grid.Column="0" Text="脚底线" Style="{StaticResource TxtRowTitle}" />
-                            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <HorizontalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                                 <Button Text="抬脚线上移" Style="{StaticResource BtnGhostSm}" WidthRequest="96"
                                         Command="{Binding FootUpCommand}" />
                                 <Button Text="回到底边" Style="{StaticResource BtnGhostSm}" WidthRequest="96"
@@ -145,7 +145,7 @@
                        TextColor="{DynamicResource DangerInk}" LineBreakMode="WordWrap" />
             </Border>
 
-            <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+            <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" HorizontalOptions="Center">
                 <Button Text="重置" Style="{StaticResource BtnGhostSm}" Command="{Binding ResetCommand}" />
                 <!-- 清除标定是可撤销的损失：走危险档，不再是三颗一模一样的钮 -->
                 <Button Text="清除标定" Style="{StaticResource BtnDangerSm}"
@@ -157,8 +157,8 @@
             <Border Style="{StaticResource CardGroup}">
                 <VerticalStackLayout Spacing="0">
                     <Border Style="{StaticResource SettingRow}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <VerticalStackLayout Grid.Column="0" Spacing="4" VerticalOptions="Center">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
+                            <VerticalStackLayout Grid.Column="0" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                 <Label Text="规范化（可选）" Style="{StaticResource TxtRowTitle}" />
                                 <Label Text="标定只记「怎么映射」，不改文件；规范化会按当前的翻转与旋转，真的生成一张 1080×1920 的 PNG（等比居中、余量透明），并把角色的立绘指向它。"
                                        Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />

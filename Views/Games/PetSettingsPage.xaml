@@ -4,6 +4,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              x:Class="WarmAsBefore.Views.PetSettingsPage"
              x:DataType="vm:PetSettingsViewModel"
@@ -16,28 +17,21 @@
 
     <Grid RowDefinitions="Auto,*" Padding="0">
 
-        <!-- 顶栏：玻璃 bar，返回 + 眉标 + 标题，右侧留给「使用统计」快捷 -->
-        <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="12"
-              Background="{DynamicResource WBarBrush}" Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="12">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
-                        Command="{Binding GoBackCommand}" VerticalOptions="Center" />
-                <VerticalStackLayout Grid.Column="1" Spacing="0">
-                    <Label Text="// DESKTOP PET" Style="{StaticResource Eyebrow}" />
-                    <Label Text="桌宠设置" Style="{StaticResource TxtTitle}" />
-                </VerticalStackLayout>
-                <Label Grid.Column="2" Text="改了立刻生效——左边就是她" Style="{StaticResource TxtCaption}"
-                       VerticalOptions="End" Margin="6,0,0,0" />
-            </Grid>
-            <Button Grid.Column="1" Text="使用统计…" Style="{StaticResource BtnGhostSm}" VerticalOptions="Center"
-                    Command="{Binding OpenUsageStatsCommand}" />
-        </Grid>
+        <!-- 顶栏：返回 + 眉标 + 标题 +「使用统计」快捷（结构走 PageHeader） -->
+        <ctl:PageHeader Grid.Row="0" Eyebrow="// DESKTOP PET" Title="桌宠设置"
+                        Subtitle="改了立刻生效——左边就是她"
+                        BackCommand="{Binding GoBackCommand}">
+            <ctl:PageHeader.Actions>
+                <Button Text="使用统计…" Style="{StaticResource BtnGhostSm}" VerticalOptions="Center"
+                        Command="{Binding OpenUsageStatsCommand}" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 主体：宽屏左预览右设置；窄屏（代码里切）预览在上、设置在下。
              内容列用双栏档上限（WCardWidthWide）：左预览 + 右设置单列 900 装不下两栏。 -->
         <Grid x:Name="BodyGrid" Grid.Row="1" Padding="24,16,24,24"
               HorizontalOptions="Center" MaximumWidthRequest="{DynamicResource WCardWidthWide}"
-              RowDefinitions="*" ColumnDefinitions="440,*" ColumnSpacing="20">
+              RowDefinitions="*" ColumnDefinitions="440,*" ColumnSpacing="{DynamicResource WSpaceSection}">
 
             <!-- ============ 实时预览舞台 ============ -->
             <Border x:Name="StageCard" Style="{StaticResource CardSolid}" Padding="0"
@@ -49,7 +43,7 @@
                         <BoxView Color="{DynamicResource PageBg}" Grid.RowSpan="3" />
                         <BoxView Color="{DynamicResource InputBg}" VerticalOptions="End" HeightRequest="18" />
                         <!-- 假任务栏上的三个小点，让这块底读起来像桌面而不是一张纸 -->
-                        <HorizontalStackLayout Spacing="6" VerticalOptions="End" HorizontalOptions="Center" Margin="0,0,0,4">
+                        <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" VerticalOptions="End" HorizontalOptions="Center" Margin="0,0,0,4">
                             <BoxView Color="{DynamicResource WSep}" WidthRequest="8" HeightRequest="8" CornerRadius="4" />
                             <BoxView Color="{DynamicResource WSep}" WidthRequest="8" HeightRequest="8" CornerRadius="4" />
                             <BoxView Color="{DynamicResource WSep}" WidthRequest="8" HeightRequest="8" CornerRadius="4" />
@@ -57,7 +51,7 @@
                     </Grid>
 
                     <!-- 头顶区：气泡 + 输入条（随 PetStatusBubble / PetInputBubble 收起） -->
-                    <VerticalStackLayout Grid.Row="0" Spacing="6" Padding="14,14,14,0" ZIndex="3">
+                    <VerticalStackLayout Grid.Row="0" Spacing="{DynamicResource WSpaceTight}" Padding="14,14,14,0" ZIndex="3">
                         <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10,6"
                                 HorizontalOptions="Center" MaximumWidthRequest="300"
                                 IsVisible="{Binding PetStatusBubble}">
@@ -70,7 +64,7 @@
                                 HorizontalOptions="Center" WidthRequest="260"
                                 IsVisible="{Binding PetInputBubble}">
                             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                 <Label Text="和 TA 说点什么…" TextColor="{DynamicResource MutedFg}"
                                        FontSize="{Binding PetFontSize}" VerticalOptions="Center" />
                                 <Border Grid.Column="1" Background="{DynamicResource WWellBrush}" StrokeThickness="0" Padding="8,2">
@@ -113,7 +107,7 @@
                         </Border>
 
                         <!-- 悬停按钮：真实桌宠里竖排在右侧（中文短标签药丸），这里给一颗代表看字准与底色 -->
-                        <HorizontalStackLayout Grid.Row="0" Spacing="6" Padding="6,2"
+                        <HorizontalStackLayout Grid.Row="0" Spacing="{DynamicResource WSpaceTight}" Padding="6,2"
                                                HorizontalOptions="Center" VerticalOptions="Start"
                                                BindableLayout.ItemsSource="{Binding ActiveHoverOptions}"
                                                IsVisible="{Binding HasHoverButtons}">
@@ -145,14 +139,14 @@
 
             <!-- ============ 右侧：hero + 分段标签 + 每段一张卡 ============ -->
             <ScrollView x:Name="SettingsScroll" Grid.Column="1">
-                <VerticalStackLayout x:Name="GroupsHost" Spacing="16" Padding="0,0,4,24">
+                <VerticalStackLayout x:Name="GroupsHost" Spacing="{DynamicResource WSpaceLoose}" Padding="0,0,4,24">
 
                     <Label MaxLines="3" LineBreakMode="WordWrap" x:Name="HintLabel" Text="{Binding HoverHint}" IsVisible="False"
                            Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}" />
 
                     <!-- ── Hero：AI 制作桌宠（Q 版化逐状态出帧）── 路由到工作室的唯一大入口 -->
                     <Border x:Name="CardPack" Style="{StaticResource CardSolid}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="{DynamicResource WPadRow}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}" Padding="{DynamicResource WPadRow}">
                             <VerticalStackLayout Spacing="3">
                                 <Label Text="// PET STUDIO" Style="{StaticResource Eyebrow}" />
                                 <Label Text="AI 制作桌宠" Style="{StaticResource TxtSubhead}" />
@@ -167,7 +161,7 @@
                     </Border>
 
                     <!-- ── 分段标签：外观 / 动作 / 气泡 / 声音 / 语音 / 位置 / 自主（代码切换可用性） -->
-                    <HorizontalStackLayout x:Name="SegBar" Spacing="6" HorizontalOptions="Start">
+                    <HorizontalStackLayout x:Name="SegBar" Spacing="{DynamicResource WSpaceTight}" HorizontalOptions="Start">
                         <Button Text="外观" Padding="12,6" Clicked="OnSegClicked" ClassId="0"
                                 Style="{StaticResource BtnGhostSm}" />
                         <Button Text="动作" Padding="12,6" Clicked="OnSegClicked" ClassId="1"
@@ -185,10 +179,10 @@
                     </HorizontalStackLayout>
 
                     <!-- ══ 外观 ══ -->
-                    <VerticalStackLayout x:Name="TabLook" Spacing="16">
+                    <VerticalStackLayout x:Name="TabLook" Spacing="{DynamicResource WSpaceLoose}">
                     <Border x:Name="CardLook" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="体型" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="站在桌面上的大小；也可以在角色上滚轮直接调" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -199,7 +193,7 @@
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}"
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}"
                                   IsVisible="{Binding IsDesktop}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="气泡字号" Style="{StaticResource TxtRowTitle}" />
@@ -211,7 +205,7 @@
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}"
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}"
                                   IsVisible="{Binding IsDesktop}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="外发光" Style="{StaticResource TxtRowTitle}" />
@@ -223,7 +217,7 @@
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout>
                                     <Label Text="绑定角色" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="默认跟随当前存档主角；换档时桌面上的她会跟着换，也可以钉住某一个角色" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -237,10 +231,10 @@
                     </VerticalStackLayout>
 
                     <!-- ══ 动作 ══ -->
-                    <VerticalStackLayout x:Name="TabMotion" Spacing="16" IsVisible="False">
+                    <VerticalStackLayout x:Name="TabMotion" Spacing="{DynamicResource WSpaceLoose}" IsVisible="False">
                     <Border x:Name="CardMotion" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}"
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}"
                                   IsVisible="{Binding IsDesktop}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="动作帧率" Style="{StaticResource TxtRowTitle}" />
@@ -289,7 +283,7 @@
                             <VerticalStackLayout BindableLayout.ItemsSource="{Binding HoverOptions}" Margin="0,6,0,4">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:PetHoverOption">
-                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
+                                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                             <Label Grid.Column="0" Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
                                                    VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Button Grid.Column="1" Text="↑" Padding="8,2" HeightRequest="28"
@@ -312,7 +306,7 @@
                     </VerticalStackLayout>
 
                     <!-- ══ 气泡 ══ -->
-                    <VerticalStackLayout x:Name="TabBubble" Spacing="16" IsVisible="False">
+                    <VerticalStackLayout x:Name="TabBubble" Spacing="{DynamicResource WSpaceLoose}" IsVisible="False">
                     <Border x:Name="CardBubble" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -331,7 +325,7 @@
                                 <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetInputBubble}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="气泡浮现速度" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="回复逐字浮现的节奏；×1 ≈ 正文同速，越大越快" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -342,7 +336,7 @@
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout>
                                     <Label Text="打字音" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="气泡逐字浮现时的那串小键盘声" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -357,10 +351,10 @@
                     </VerticalStackLayout>
 
                     <!-- ══ 声音 ══ -->
-                    <VerticalStackLayout x:Name="TabSound" Spacing="16" IsVisible="False">
+                    <VerticalStackLayout x:Name="TabSound" Spacing="{DynamicResource WSpaceLoose}" IsVisible="False">
                     <Border x:Name="CardSound" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
-                            <Grid ColumnDefinitions="*,150,72,44" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72,44" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="单击音效" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="点她一下、按悬停按钮时的那一声" Style="{StaticResource TxtCaption}" />
@@ -373,7 +367,7 @@
                                         Command="{Binding PreviewSfxCommand}" CommandParameter="tap" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,150,72,44" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72,44" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="打字音" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="气泡逐字浮现时那串小键盘声；开关在「气泡」段里" Style="{StaticResource TxtCaption}" />
@@ -386,7 +380,7 @@
                                         Command="{Binding PreviewSfxCommand}" CommandParameter="typing" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="撒娇时长" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="按「呼噜/摸摸头」时她抖多久，状态行也写多久" Style="{StaticResource TxtCaption}" />
@@ -400,7 +394,7 @@
                     </VerticalStackLayout>
 
                     <!-- ══ 语音 ══ 两端都有 TTS，这一段不随 IsDesktop 收 -->
-                    <VerticalStackLayout x:Name="TabVoice" Spacing="16" IsVisible="False">
+                    <VerticalStackLayout x:Name="TabVoice" Spacing="{DynamicResource WSpaceLoose}" IsVisible="False">
                     <Border x:Name="CardVoice" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -421,7 +415,7 @@
                                         SelectedItem="{Binding VoiceDisplay}" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="音高" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="×1 是原声；调小更低沉，调大更软" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -432,7 +426,7 @@
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="10" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,150,72" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="语速" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="与全局语速相乘，不是替换" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -457,7 +451,7 @@
                     </VerticalStackLayout>
 
                     <!-- ══ 位置 ══ -->
-                    <VerticalStackLayout x:Name="TabPos" Spacing="16" IsVisible="False">
+                    <VerticalStackLayout x:Name="TabPos" Spacing="{DynamicResource WSpaceLoose}" IsVisible="False">
                     <Border x:Name="CardPos" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}">
@@ -468,7 +462,7 @@
                                 <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PetRememberPosition}" VerticalOptions="Center" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" />
-                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="{DynamicResource WPadRow}">
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="{DynamicResource WPadRow}">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="当前锚点" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="{Binding AnchorReadout}" Style="{StaticResource TxtRowDesc}" MaxLines="2" />
@@ -499,7 +493,7 @@
                     </VerticalStackLayout>
 
                     <!-- ══ 自主 ══ 语言/闲置/思考 + 她自调 + 使用统计入口 -->
-                    <VerticalStackLayout x:Name="TabSelf" Spacing="16" IsVisible="False">
+                    <VerticalStackLayout x:Name="TabSelf" Spacing="{DynamicResource WSpaceLoose}" IsVisible="False">
                     <Border x:Name="CardOther" Style="{StaticResource CardSolid}">
                         <VerticalStackLayout Spacing="0">
                             <Grid ColumnDefinitions="*,Auto" Padding="{DynamicResource WPadRow}" IsVisible="{Binding IsDesktop}">

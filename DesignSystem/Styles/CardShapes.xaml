@@ -154,4 +154,65 @@
         </Setter>
     </Style>
 
+    <!-- ════════════════════════════════════════════════════════════════════
+         卡片与列表的五个部位（2026-11-22）
+         ────────────────────────────────────────────────────────────────────
+         一张卡在一页里的读法永远是这五段：标题 → 说明 → 行 → 空态 → 脚注。
+         以前每一页都自己写这五段：有的用 15.5 号加粗当标题、有的直接复用行标题，
+         说明有的 13 号有的 11.5 号，脚注干脆是最后一行顺带的灰字。
+         读者的感受不是「不统一」，而是「这一页的卡比上一页轻」。
+
+         现在只有这五个键：CardTitle / CardNote / SettingRow（行，见上）/ EmptyState（控件）/
+         CardFooter。页面不该再自己给这五样写字号与颜色。
+         ════════════════════════════════════════════════════════════════════ -->
+
+    <!-- 卡片的头：一行标题（+右侧动作）。没有按压反馈 —— 它不可点，给悬停色等于谎报成按钮。 -->
+    <Style x:Key="CardHead" TargetType="Border">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="StrokeThickness" Value="0" />
+        <Setter Property="Padding" Value="{DynamicResource WPadRow}" />
+        <Setter Property="MinimumHeightRequest" Value="{DynamicResource WRowHeight}" />
+    </Style>
+
+    <!-- 卡内标题：比行标题大一档、同权重。它说的是「这一块是什么」，行标题说的是「这一条是什么」。 -->
+    <Style x:Key="CardTitle" TargetType="Label">
+        <Setter Property="FontSize" Value="{DynamicResource WSizeSubhead}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- 卡内说明：跟在标题下面的一行（或两行）解释。灰一档、行高收紧，免得把卡片顶开。 -->
+    <Style x:Key="CardNote" TargetType="Label">
+        <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+        <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+        <Setter Property="LineHeight" Value="1.25" />
+    </Style>
+
+    <!-- 卡脚注：整张卡最后一句口径说明（「按本地账本计」「每天 4 点归档」）。
+         它不属于任何一行，所以带自己的内距；字号比说明还轻一档的空间没有了，就同档换灰。 -->
+    <Style x:Key="CardFooter" TargetType="Label">
+        <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+        <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+        <Setter Property="Padding" Value="{DynamicResource WPadRow}" />
+        <Setter Property="LineBreakMode" Value="WordWrap" />
+    </Style>
+
+    <!-- 首字垫：图还没到（或压根没有）时格子里那一层。灰面由容器给，这里只管字：
+         比行标题轻一档、比说明重一档 —— 它要能被看成「还没画出来的图」，不能被看成商品名。 -->
+    <Style x:Key="Monogram" TargetType="Label">
+        <Setter Property="FontSize" Value="{DynamicResource WSizeSubhead}" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+        <Setter Property="HorizontalOptions" Value="Center" />
+        <Setter Property="VerticalOptions" Value="Center" />
+    </Style>
+
+    <!-- 读数小标题：仪表盘里「这个数字是什么」那一行。宽体、字距拉开、比正文小一档。 -->
+    <Style x:Key="StatLabel" TargetType="Label">
+        <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
+        <Setter Property="TextColor" Value="{DynamicResource MutedFg}" />
+        <Setter Property="CharacterSpacing" Value="0.6" />
+    </Style>
+
 </ResourceDictionary>

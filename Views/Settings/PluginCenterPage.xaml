@@ -11,7 +11,7 @@
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Command="{Binding BackCommand}" />
                 <Label Grid.Column="1" Text="插件中心" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
@@ -21,8 +21,8 @@
         </Border>
 
         <ScrollView Grid.Row="1" Padding="24,16,24,28">
-            <VerticalStackLayout Spacing="16" MaximumWidthRequest="1000" HorizontalOptions="Fill">
-                <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="1000" HorizontalOptions="Fill">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                     <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                            TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
                     <Label Text="插件可以改人设、改写发送前/回复后的文本、读取上下文、按轮次记账，也能带自己的设置页与页面。钩子运行在受限 JS 沙箱里（语句数与内存有硬上限，等授权的时间不计入预算）；设置页三选一是硬性要求，没声明就不能运行。每项能力都要两边点头才生效：插件在 plugin.json 里声明过，你在「权限」里放行——没声明的允许了也不给，声明了但被禁止的一律拦下。"
@@ -32,9 +32,9 @@
                 <!-- 安装入口：这一张卡存在的全部理由——之前只有顶栏那颗小字按钮，
                      找不到入口的人只会得出「只能把文件夹拖进去」这个结论。 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="安装插件" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Button Text="从 zip 安装" Style="{StaticResource BtnPrimary}" Padding="16,7"
                                     Command="{Binding InstallZipCommand}"
                                     IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}" />
@@ -65,11 +65,11 @@
                        Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
                        IsVisible="{Binding ShowEmpty}" />
 
-                <VerticalStackLayout x:Name="RowsHost" BindableLayout.ItemsSource="{Binding Rows}" Spacing="10">
+                <VerticalStackLayout x:Name="RowsHost" BindableLayout.ItemsSource="{Binding Rows}" Spacing="{DynamicResource WSpaceRegular}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate>
                             <Border Style="{StaticResource CardSolid}">
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Spacing="2">
                                             <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
@@ -108,7 +108,7 @@
                                     <Label Text="{Binding DoctorLabel}" Style="{StaticResource TxtCaption}"
                                            LineBreakMode="WordWrap"
                                            TextColor="{DynamicResource AccentWarmFg}" />
-                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="6">
+                                    <Grid ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto,*,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Button Text="{Binding ToggleLabel}" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                                 Command="{Binding BindingContext.ToggleCommand, Source={x:Reference Page}}"
                                                 CommandParameter="{Binding .}" />
@@ -148,7 +148,7 @@
                                     <Border IsVisible="{Binding DoctorVisible}" BackgroundColor="{DynamicResource InputBg}"
                                             StrokeThickness="0" Padding="10">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                        <VerticalStackLayout Spacing="6">
+                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                             <Label Text="体检结论（✕ 跑不起来 · △ 提醒 · · 说明）" Style="{StaticResource TxtCaption}"
                                                    Opacity="0.7" />
                                             <Label Text="{Binding DoctorText}" Style="{StaticResource TxtCaption}"
@@ -163,7 +163,7 @@
                                     <Border IsVisible="{Binding LogVisible}" BackgroundColor="{DynamicResource InputBg}"
                                             StrokeThickness="0" Padding="10">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                        <VerticalStackLayout Spacing="6">
+                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                             <Label Text="{Binding LogText}" Style="{StaticResource TxtCaption}"
                                                    LineBreakMode="WordWrap" />
                                             <Button Text="清空日志" Style="{StaticResource BtnGhost}"
@@ -180,7 +180,7 @@
 
                 <!-- 插件工坊 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="插件工坊" Style="{StaticResource TxtSubhead}" />
                         <Label Text="用一句话说你要什么，AI 会写出清单、设置项和 JS 钩子，并直接安装。装完可以点「试跑」；坏了就到「日志」看原因，不影响主程序。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -188,7 +188,7 @@
                                 Text="{Binding WorkshopPrompt}" HeightRequest="110" FontSize="13"
                                 BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                 PlaceholderColor="{DynamicResource MutedFg}" />
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Button Text="生成并安装" Style="{StaticResource BtnPrimary}" Padding="16,7"
                                     Command="{Binding GeneratePluginCommand}"
                                     IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}" />
@@ -205,7 +205,7 @@
 
                 <!-- MCP 工坊：说一句话，AI 写数据包 + 工具，直接注册并可试跑 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="MCP 工坊" Style="{StaticResource TxtSubhead}" />
                         <Label Text="用一句话描述你要的外部能力，AI 会生成一个 MCP 数据包（服务器 + 若干工具），直接注册并试跑。本地工具跑在受限 JS 沙箱里；只有给了远程地址的工具才会走 HTTP。装好后 AI 用 mcp_list / mcp_call 调用。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -213,7 +213,7 @@
                                 Text="{Binding McpPrompt}" HeightRequest="100" FontSize="13"
                                 BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                 PlaceholderColor="{DynamicResource MutedFg}" />
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Button Text="生成并注册" Style="{StaticResource BtnPrimary}" Padding="16,7"
                                     Command="{Binding GenerateMcpCommand}"
                                     IsEnabled="{Binding McpBusy, Converter={StaticResource InverseBool}}" />
@@ -228,7 +228,7 @@
                         <Label Text="已装 MCP 数据包" Style="{StaticResource TxtSubhead}" />
                         <Label Text="数据包＝自己写的 tools.json（本地 JS 工具或远程 HTTP 端点），是往机器里装东西，所以和插件放在一起。要接的是外部 MCP 服务（本机启动进程或连一个地址），去设置 → 外部与接入 → MCP。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Button Text="导入数据包 zip" Style="{StaticResource BtnNeumorphSm}" Padding="12,4"
                                     Command="{Binding ImportPackZipCommand}"
                                     IsEnabled="{Binding McpBusy, Converter={StaticResource InverseBool}}" />
@@ -242,12 +242,12 @@
                         <Label Text="还没有 MCP 数据包。可以在上面用一句话生成，或用这三颗按钮导入现成的。"
                                Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
                                IsVisible="{Binding HasMcpServers, Converter={StaticResource InverseBool}}" />
-                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding McpServers}" Spacing="10">
+                        <VerticalStackLayout BindableLayout.ItemsSource="{Binding McpServers}" Spacing="{DynamicResource WSpaceRegular}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate>
                                     <Border Style="{StaticResource CardSolid}">
-                                        <VerticalStackLayout Spacing="8">
-                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                 <VerticalStackLayout Spacing="2">
                                                     <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Description}" Style="{StaticResource TxtCaption}"
@@ -262,14 +262,14 @@
                                                         Command="{Binding BindingContext.DeleteMcpServerCommand, Source={x:Reference Page}}"
                                                         CommandParameter="{Binding .}" />
                                             </Grid>
-                                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Tools}" Spacing="8">
+                                            <VerticalStackLayout BindableLayout.ItemsSource="{Binding Tools}" Spacing="{DynamicResource WSpaceRegular}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate>
                                                         <Border BackgroundColor="{DynamicResource InputBg}" StrokeThickness="0" Padding="10">
                                                             <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                                            <VerticalStackLayout Spacing="6">
-                                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                                                                    <HorizontalStackLayout Spacing="6">
+                                                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                                                <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
+                                                                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
                                                                                FontAttributes="Bold" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                                                         <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding KindLabel}" Style="{StaticResource TxtCaption}"

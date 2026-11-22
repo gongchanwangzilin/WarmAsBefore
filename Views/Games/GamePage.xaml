@@ -14,7 +14,7 @@
         <!-- 顶栏与底部控制条用同一块 bar 面：玻璃档那圈描边在浅底上会被读成一条不属于地面的框 -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="8,6,12,6">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="6">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="8,0"
                         Command="{Binding GoBackCommand}" />
@@ -57,14 +57,14 @@
             <!-- Chat Area -->
             <Border Grid.Column="1" Style="{StaticResource CardFrost}"
                     Padding="8" Margin="0,8,8,8">
-                <Grid RowDefinitions="*,Auto" RowSpacing="6">
+                <Grid RowDefinitions="*,Auto" RowSpacing="{DynamicResource WSpaceTight}">
                     <!-- 消息列表：CollectionView 虚拟化，新消息自动滚到底部 -->
                     <CollectionView x:Name="ChatList" Grid.Row="0"
                                     ItemsSource="{Binding Messages}"
                                     SelectionMode="None"
                                     VerticalScrollBarVisibility="Default">
                         <CollectionView.ItemsLayout>
-                            <LinearItemsLayout Orientation="Vertical" ItemSpacing="6" />
+                            <LinearItemsLayout Orientation="Vertical" ItemSpacing="{DynamicResource WSpaceTight}" />
                         </CollectionView.ItemsLayout>
                         <CollectionView.ItemTemplate>
                             <DataTemplate x:DataType="vm:ChatBubble">
@@ -102,7 +102,7 @@
                     </CollectionView>
 
                     <!-- 聊天输入框 -->
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="6"
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}"
                           IsVisible="{Binding InGame}">
                         <!-- 输入框是「凹」的那一档：井底 + 上沿一道线。浮档（CardNeumorph）会给它一团落影，
                              读起来像一颗能按下去的按钮，而它其实是承接文字的地方。 -->
@@ -131,8 +131,8 @@
                 Padding="8,6,8,10"
                 IsVisible="{Binding InGame}">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <VerticalStackLayout Spacing="6">
-                <HorizontalStackLayout HorizontalOptions="Center" Spacing="8">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                <HorizontalStackLayout HorizontalOptions="Center" Spacing="{DynamicResource WSpaceRegular}">
                     <Button Text="嘲讽" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" Padding="14,0"
                             Command="{Binding TauntCommand}" />
@@ -155,7 +155,7 @@
 
                 <!-- 围棋：点目结算 -->
                 <HorizontalStackLayout IsVisible="{Binding IsGo}"
-                                       HorizontalOptions="Center" Spacing="8">
+                                       HorizontalOptions="Center" Spacing="{DynamicResource WSpaceRegular}">
                     <Button Text="点目结算" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" Padding="16,0"
                             Command="{Binding SettleGoCommand}" />
@@ -171,7 +171,7 @@
 
                 <!-- 飞行棋：掷骰子 -->
                 <HorizontalStackLayout IsVisible="{Binding IsLudo}"
-                                       HorizontalOptions="Center" Spacing="8">
+                                       HorizontalOptions="Center" Spacing="{DynamicResource WSpaceRegular}">
                     <Button Text="掷骰子" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" Padding="16,0"
                             Command="{Binding RollLudoCommand}" />
@@ -188,7 +188,7 @@
                 <!-- 贪吃蛇：方向键 -->
                 <Grid IsVisible="{Binding IsSnake}"
                       ColumnDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto"
-                      ColumnSpacing="6" HorizontalOptions="Center">
+                      ColumnSpacing="{DynamicResource WSpaceTight}" HorizontalOptions="Center">
                     <Button Grid.Column="1" Text="↑" Style="{StaticResource BtnNeumorphic}"
                             HeightRequest="34" WidthRequest="40" Padding="0"
                             Command="{Binding SnakeUpCommand}" />

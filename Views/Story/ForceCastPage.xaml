@@ -20,7 +20,7 @@
         <!-- 顶栏：返回 + 标题 + 状态读数 -->
         <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0" VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
@@ -47,7 +47,7 @@
                         <DataTemplate x:DataType="models:ForceCastEntry">
                             <VerticalStackLayout Spacing="0">
                                 <Border Style="{StaticResource SettingRow}">
-                                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                                    <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                         <!-- 勾选 -->
                                         <CheckBox Grid.Column="0" IsChecked="{Binding Selected}"
                                                   Color="{DynamicResource BeigeAccent300}" VerticalOptions="Center" />
@@ -89,7 +89,7 @@
 
             <!-- 空状态：不是卡，是地上的一段文字 -->
             <VerticalStackLayout IsVisible="{Binding HasNoCharacters}"
-                                 HorizontalOptions="Center" VerticalOptions="Center" Spacing="8">
+                                 HorizontalOptions="Center" VerticalOptions="Center" Spacing="{DynamicResource WSpaceRegular}">
                 <Label Text="角色库还是空的" Style="{StaticResource TxtSubhead}"
                        HorizontalOptions="Center" />
                 <Label Text="先创建几个角色，再来点名吧" Style="{StaticResource TxtMuted}"

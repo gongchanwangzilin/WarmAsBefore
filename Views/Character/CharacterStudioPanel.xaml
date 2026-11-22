@@ -95,7 +95,7 @@
             <!-- ── 抬头：从档案柜里翻出来的那一格 ─────────────────────────── -->
             <Grid x:Name="HeadBand" Background="{DynamicResource WBarBrush}"
                   Padding="{OnIdiom Desktop='20,14,20,10', Tablet='20,14,20,10', Phone='12,10,12,8'}"
-                  ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="12">
+                  ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" VerticalOptions="Center"
                         Command="{Binding CloseCommand}" />
                 <!-- 定位条：一屏只有一次，就放在这一屏的开始。三格里只有一格是强调色，另两格是墨与缝。 -->
@@ -109,7 +109,7 @@
                     <Label Text="{Binding MetaLine}" Style="{StaticResource TxtCaption}"
                            LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
-                <HorizontalStackLayout Grid.Column="3" Spacing="8" VerticalOptions="Center">
+                <HorizontalStackLayout Grid.Column="3" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DirtyLabel}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center"
                            IsVisible="{Binding IsDirty}" />
@@ -128,7 +128,7 @@
                  挤成半宽。用户截图里左栏滑出窗外、右栏压在立绘上的正是这一条。
                  Grid 的 352 列是硬的，右栏拿 * 列 —— 横向上再没有互相挤压的余地。 -->
             <Grid Grid.Row="2" x:Name="BodyGrid" ColumnDefinitions="352,*" RowDefinitions="*"
-                  Padding="{DynamicResource WPadCard}" ColumnSpacing="12" RowSpacing="12"
+                  Padding="{DynamicResource WPadCard}" ColumnSpacing="{DynamicResource WSpaceLoose}" RowSpacing="{DynamicResource WSpaceLoose}"
                   IsClippedToBounds="True">
 
                 <!-- 立绘舞台。整栏可滚：服装/表情芯片比一屏高，滚轮够得着；
@@ -159,7 +159,7 @@
                                    HorizontalOptions="Center" VerticalOptions="Center" />
 
                             <!-- 没有立绘时这块底必须说清楚「缺什么」，而不是留一张空舞台 -->
-                            <VerticalStackLayout Spacing="8" IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}"
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}"
                                                  HorizontalOptions="Center" VerticalOptions="Center">
                                 <Image Source="studio_mark.png" WidthRequest="92" HeightRequest="92"
                                        Opacity="0.32" InputTransparent="True"
@@ -180,7 +180,7 @@
                              这里刻意不用胶囊底 —— 名字是「这一页的主题」，不是一枚标签。
                              右端那颗方格是 TA 的头像：点它就换一张，空着就露一个加号。
                              头像不是立绘的缩略图，它是「谁」的那张小照片（列表、对话、手机都用它）。 -->
-                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <VerticalStackLayout Grid.Column="0" Spacing="2">
                                 <BoxView Style="{StaticResource HSep}" />
                                 <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}" Margin="0,8,0,0" />
@@ -217,7 +217,7 @@
                         <Grid Grid.Row="2" ColumnDefinitions="*,1,*,1,*" Margin="0,12,0,2">
                             <VerticalStackLayout Spacing="1">
                                 <Label Text="AFFECTION" Style="{StaticResource Eyebrow}" />
-                                <HorizontalStackLayout Spacing="4">
+                                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                     <Label Text="{Binding Affection, StringFormat='{0:F0}'}"
                                            FontFamily="Bahnschrift" FontSize="24"
                                            TextColor="{DynamicResource WarmDark}" />
@@ -229,7 +229,7 @@
                                      VerticalOptions="Fill" Margin="0,2" />
                             <VerticalStackLayout Grid.Column="2" Spacing="1" Padding="10,0">
                                 <Label Text="TRUST" Style="{StaticResource Eyebrow}" />
-                                <HorizontalStackLayout Spacing="4">
+                                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                     <Label Text="{Binding Trust, StringFormat='{0:F0}'}"
                                            FontFamily="Bahnschrift" FontSize="24"
                                            TextColor="{DynamicResource WarmDark}" />
@@ -241,7 +241,7 @@
                                      VerticalOptions="Fill" Margin="0,2" />
                             <VerticalStackLayout Grid.Column="4" Spacing="1" Padding="10,0,0,0">
                                 <Label Text="ENERGY" Style="{StaticResource Eyebrow}" />
-                                <HorizontalStackLayout Spacing="4">
+                                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                     <Label Text="{Binding Energy, StringFormat='{0:F0}'}"
                                            FontFamily="Bahnschrift" FontSize="24"
                                            TextColor="{DynamicResource WarmDark}" />
@@ -255,9 +255,9 @@
                              「无限宽」去测量子元素，里面的 FlexLayout 因此永远不折行——几十颗选项排成一条
                              几千像素长的直线，整块面板被顶出屏幕，看到的就是「扭成了一团」。
                              Grid 的 * 列把宽度还回来，折行才是真的折行。 -->
-                        <VerticalStackLayout Grid.Row="3" Spacing="8" Margin="0,12,0,0">
+                        <VerticalStackLayout Grid.Row="3" Spacing="{DynamicResource WSpaceRegular}" Margin="0,12,0,0">
                             <BoxView Style="{StaticResource HSep}" Margin="0,0,0,4" />
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                 <Label Text="服装" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
                                        WidthRequest="34" />
                                 <FlexLayout Grid.Column="1" Direction="Row" Wrap="Wrap"
@@ -281,7 +281,7 @@
                                 </FlexLayout>
                             </Grid>
 
-                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="6">
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                 <Label Text="表情" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
                                        WidthRequest="34" />
                                 <FlexLayout Grid.Column="1" Direction="Row" Wrap="Wrap"
@@ -315,7 +315,7 @@
                             <!-- 跨存档共用记忆：改的是全局设置、影响所有角色所有存档，
                                  因此在立绘下方也放一颗。和「记忆」栏里那颗读同一个 VM.CrossSave，
                                  改完由 VM 回写，不会各说各话。 -->
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                     <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="关掉就一份存档记一份，互不串" Style="{StaticResource TxtCaption}" />
@@ -342,7 +342,7 @@
                 <Grid x:Name="PaneCol" RowDefinitions="Auto,Auto,*">
                     <!-- 页签是等分的：每颗等宽、字重不变，选中只换底与字色，位置从头到尾不动。
                          窄屏由 SetNarrow 改成四列两行（见 CharacterStudioPanel.xaml.cs）。 -->
-                    <Grid x:Name="TabGrid" ColumnDefinitions="*,*,*,*,*,*,*" ColumnSpacing="6"
+                    <Grid x:Name="TabGrid" ColumnDefinitions="*,*,*,*,*,*,*" ColumnSpacing="{DynamicResource WSpaceTight}"
                           Padding="{DynamicResource WPadRow}">
                         <Button x:Name="TabSet" Text="01 设定" Style="{StaticResource Chip}"
                                 Command="{Binding GoTabCommand}" CommandParameter="set">
@@ -427,12 +427,12 @@
                              Color="{DynamicResource Signal}" ScaleX="1" AnchorX="0" />
 
                     <ScrollView x:Name="PaneScroll" Grid.Row="2" Padding="{DynamicResource WPadRow}">
-                        <VerticalStackLayout Spacing="14">
+                        <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}">
 
                             <!-- ══ 设定 ══════════════════════════════════════ -->
-                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabSet}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabSet}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="01" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// WHO" Style="{StaticResource Eyebrow}" />
@@ -442,7 +442,7 @@
                                     <BoxView Style="{StaticResource HSep}" />
                                 </VerticalStackLayout>
 
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="姓名" Style="{StaticResource FieldLabel}" />
                                         <Entry Style="{StaticResource Field}" Text="{Binding Name}" />
@@ -454,7 +454,7 @@
                                     </VerticalStackLayout>
                                 </Grid>
 
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="称呼 TA 对你的叫法" Style="{StaticResource FieldLabel}" />
                                         <Entry Style="{StaticResource Field}" Text="{Binding UserAddress}"
@@ -489,7 +489,7 @@
                                 <!-- 年龄 / 生日：只喂给 TA「怎么谈自己」，不参与任何身体/周期判定。
                                      自然增长是读取时按「过了几个生日」现算的，不每年写盘；
                                      关掉只是冻结显示，年龄与生日仍然进人设——用户要的是不涨岁，不是藏起设定。 -->
-                                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="年龄" Style="{StaticResource FieldLabel}" />
                                         <Entry Style="{StaticResource Field}" Text="{Binding AgeInput}"
@@ -502,7 +502,7 @@
                                     </VerticalStackLayout>
                                 </Grid>
 
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="自然增长" Style="{StaticResource TxtBodySm}" />
                                         <Label Text="关掉后年龄就停在你填的这个数；年龄与生日仍会告诉 AI。"
@@ -512,7 +512,7 @@
                                             IsToggled="{Binding NaturalAging}" />
                                 </Grid>
 
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="恋爱对象" Style="{StaticResource TxtBodySm}" />
                                         <Label Text="关掉后 TA 不会主动推进关系，周期与亲密内容也不进提示词。"
@@ -523,7 +523,7 @@
                                 </Grid>
 
                                 <VerticalStackLayout Spacing="0">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="性格" Style="{StaticResource FieldLabel}" VerticalOptions="End" />
                                         <Button Grid.Column="1" Text="AI 改写" Style="{StaticResource BtnGhostSm}"
                                                 IsEnabled="{Binding CanAi}"
@@ -534,7 +534,7 @@
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="0">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="背景 / 前情" Style="{StaticResource FieldLabel}" VerticalOptions="End" />
                                         <Button Grid.Column="1" Text="AI 改写" Style="{StaticResource BtnGhostSm}"
                                                 IsEnabled="{Binding CanAi}"
@@ -545,7 +545,7 @@
                                 </VerticalStackLayout>
 
                                 <VerticalStackLayout Spacing="0">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="开场白" Style="{StaticResource FieldLabel}" VerticalOptions="End" />
                                         <Button Grid.Column="1" Text="AI 改写" Style="{StaticResource BtnGhostSm}"
                                                 IsEnabled="{Binding CanAi}"
@@ -558,8 +558,8 @@
                                 <BoxView Style="{StaticResource HSep}" />
 
                                 <!-- F31 高级设置（选填）：道德观 / 人生观。留空就不进提示词，全凭你决定要不要写。 -->
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Label Text="高级设置 · 选填" Style="{StaticResource PaneTitle}" VerticalOptions="Center" />
                                         <Button Grid.Column="1" Text="{Binding AdvancedToggleText}"
                                                 Style="{StaticResource BtnGhostSm}"
@@ -567,7 +567,7 @@
                                     </Grid>
                                     <Label Text="不填也没关系：这些栏留空时完全不会写进提示词，TA 仍按性格自然说话。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
-                                    <VerticalStackLayout Spacing="8" IsVisible="{Binding AdvancedOpen}">
+                                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding AdvancedOpen}">
                                         <Label Text="道德观" Style="{StaticResource FieldLabel}" />
                                         <Editor Style="{StaticResource FieldMulti}" HeightRequest="72"
                                                 Text="{Binding MoralOutlook}"
@@ -604,11 +604,11 @@
                                 <BoxView Style="{StaticResource HSep}" />
 
                                 <!-- AI 生成整套设定：一句话 → 七行资料，落进字段还要按保存 -->
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="让 AI 写一整份设定" Style="{StaticResource PaneTitle}" />
                                     <Label Text="一句话描述想要的人，TA 的名字、性别、性格、背景、开场白一次填好。写进字段后仍要按「保存」才落到盘上。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Entry Style="{StaticResource Field}" Text="{Binding AiBrief}"
                                                Placeholder="例：青梅竹马的邻居姐姐，学医，嘴上嫌弃其实很惦记人" />
                                         <Button Grid.Column="1" Text="生成" Style="{StaticResource BtnPrimarySm}"
@@ -622,7 +622,7 @@
                                             Padding="{DynamicResource WPadWell}"
                                             StrokeShape="{DynamicResource WRadiusWell}"
                                             IsVisible="{Binding HasAiDraft}">
-                                        <VerticalStackLayout Spacing="8">
+                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AiTarget, StringFormat='AI 写的{0}'}"
                                                    Style="{StaticResource TxtCaption}" />
                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AiDraft}" Style="{StaticResource TxtBodySm}"
@@ -645,12 +645,12 @@
                                      两件事在这一段里并排说：上面「TA 用哪几本世界书」（语料），
                                      下面「TA 来自哪个世界」（可以有好几套，单选一套默认启用）。
                                      世界书本身不在这一页编辑 —— 这里只管绑定，编辑去世界书那一页。 -->
-                                <VerticalStackLayout Spacing="10">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="TA 的世界观" Style="{StaticResource PaneTitle}" />
                                     <Label Text="可多本复合，作为生成 TA 世界观的语料。角色世界观可以与存档世界书不同；存档内仍可改世界观。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
 
-                                    <VerticalStackLayout Spacing="6">
+                                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                         <Label Text="世界书（可多选）" Style="{StaticResource FieldLabel}" />
                                         <FlexLayout Direction="Row" Wrap="Wrap"
                                                     BindableLayout.ItemsSource="{Binding Worldbooks}">
@@ -677,7 +677,7 @@
 
                                     <BoxView Style="{StaticResource HSep}" />
 
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                             <Label Text="角色世界观" Style="{StaticResource TxtBodySm}" />
                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ActiveWorldviewName, StringFormat='现在启用：{0}'}"
@@ -689,7 +689,7 @@
                                     <Label Text="一套 = 几本世界书 + 一段描述。点一行就是指定 TA 默认用哪一套（单选）。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
 
-                                    <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Worldviews}">
+                                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding Worldviews}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="vm:StudioWorldviewItem">
                                                 <Border Style="{StaticResource ArtCell}" Padding="10,8">
@@ -698,7 +698,7 @@
                                                             Command="{Binding Source={x:Reference Root}, Path=BindingContext.SelectWorldviewCommand}"
                                                             CommandParameter="{Binding Id}" />
                                                     </Border.GestureRecognizers>
-                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                         <!-- 单选点：不画第二个圆环，选中只让这颗点亮起来 -->
                                                         <BoxView WidthRequest="8" HeightRequest="8" CornerRadius="4"
                                                                  Color="Transparent" VerticalOptions="Center">
@@ -730,8 +730,8 @@
                                             Padding="{DynamicResource WPadWell}"
                                             StrokeShape="{DynamicResource WRadiusWell}"
                                             IsVisible="{Binding HasWorldviewEditor}">
-                                        <VerticalStackLayout Spacing="8">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                 <Label Text="正在编辑这一套" Style="{StaticResource TxtCaption}"
                                                        VerticalOptions="Center" />
                                                 <Button Grid.Column="1" Text="删除这套" Style="{StaticResource BtnDangerSm}"
@@ -776,14 +776,14 @@
                                 </VerticalStackLayout>
 
                                 <!-- 插件特质 / 口味：由插件清单 character_profile 声明，按角色存 -->
-                                <VerticalStackLayout Spacing="10" IsVisible="{Binding HasPluginProfile}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasPluginProfile}">
                                     <BoxView Style="{StaticResource HSep}" />
                                     <Label Text="插件特质与口味" Style="{StaticResource PaneTitle}" />
-                                    <VerticalStackLayout Spacing="10"
+                                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}"
                                                          BindableLayout.ItemsSource="{Binding PluginProfileItems}">
                                         <BindableLayout.ItemTemplate>
                                             <DataTemplate x:DataType="vm:PluginProfileItem">
-                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                         <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Help}" Style="{StaticResource TxtCaption}"
@@ -801,9 +801,9 @@
                                     </VerticalStackLayout>
                                 </VerticalStackLayout>
                             </VerticalStackLayout>
-                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabState}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabState}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="02" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// STATUS" Style="{StaticResource Eyebrow}" />
@@ -855,7 +855,7 @@
                                                Style="{StaticResource TxtCaption}" />
                                     </Grid>
                                     <controls:ViewSlider Minimum="0" Maximum="100" Value="{Binding Libido}" />
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                             <Label Text="设定锁" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="锁上之后性欲停在你写的值上：周期与 AI 判定都改不动它。"
@@ -880,7 +880,7 @@
                                 </VerticalStackLayout>
 
                                 <!-- 非共享角色：这一屏改的是「以后的存档从哪儿开始」，不是当前这一档。 -->
-                                <VerticalStackLayout Spacing="10"
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}"
                                                      IsVisible="{Binding StateShared, Converter={StaticResource InverseBool}}">
                                     <Label Text="建档初始值" Style="{StaticResource Eyebrow}" />
                                     <Label Text="只决定新建存档时的初始状态，不影响已有存档。"
@@ -976,8 +976,8 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="8">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                             <Label Text="记身体周期" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="关掉后提示词里不会出现周期，与 TA 的性别无关。"
@@ -986,7 +986,7 @@
                                         <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding CycleTracked}" />
                                     </Grid>
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10"
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}"
                                           IsVisible="{Binding CycleTracked}">
                                         <VerticalStackLayout Spacing="0">
                                             <Label Text="第几天" Style="{StaticResource FieldLabel}" />
@@ -1005,14 +1005,14 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="副设定（当下这一阵的 TA）" Style="{StaticResource PaneTitle}" />
                                     <Label Text="主设定是「TA 是什么样的人」，副设定是「TA 最近怎么样」。它会自己漂，也能回正。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                     <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                             Padding="{DynamicResource WPadWell}"
                                             StrokeShape="{DynamicResource WRadiusWell}">
-                                        <VerticalStackLayout Spacing="6">
+                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SubTone}" Style="{StaticResource TxtBodySm}" />
                                             <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding SubNotes}" Style="{StaticResource TxtCaption}"
                                                    LineHeight="1.3" />
@@ -1031,9 +1031,9 @@
                             </VerticalStackLayout>
 
                             <!-- ══ 素材 ══════════════════════════════════════ -->
-                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabArt}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabArt}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="03" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// PORTRAIT" Style="{StaticResource Eyebrow}" />
@@ -1048,7 +1048,7 @@
                                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding ArtRows}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:StudioArtRow">
-                                            <VerticalStackLayout Spacing="6" Margin="0,0,0,10">
+                                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" Margin="0,0,0,10">
                                                 <Grid ColumnDefinitions="*,Auto">
                                                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding OutfitName}" Style="{StaticResource TxtBodySm}" />
                                                     <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding FillLabel}"
@@ -1087,12 +1087,12 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="生成这一格" Style="{StaticResource PaneTitle}" />
                                     <Editor Style="{StaticResource FieldMulti}" HeightRequest="64"
                                             Text="{Binding ArtPrompt}"
                                             Placeholder="例：白色针织衫配浅色长裙，站在午后窗边，微微笑" />
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Button Text="画立绘" Style="{StaticResource BtnPrimarySm}"
                                                 IsEnabled="{Binding CanGenerateArt}"
                                                 Command="{Binding GenerateArtCommand}" />
@@ -1114,9 +1114,9 @@
                             </VerticalStackLayout>
 
                             <!-- ══ 记忆 ══════════════════════════════════════ -->
-                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabMem}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabMem}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="04" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// MEMORY" Style="{StaticResource Eyebrow}" />
@@ -1129,7 +1129,7 @@
                                 <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Layers}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:StudioLayerRow">
-                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,5">
+                                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="0,5">
                                                 <VerticalStackLayout Spacing="1">
                                                     <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
@@ -1144,9 +1144,9 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="这份记忆归谁" Style="{StaticResource PaneTitle}" />
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                             <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ScopePath}" Style="{StaticResource TxtCaption}" />
@@ -1163,11 +1163,11 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="10">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="这一个角色的 AI 参数" Style="{StaticResource PaneTitle}" />
                                     <Label Text="留空 = 跟随全局设置。填了就只改 TA，别人的不动。"
                                            Style="{StaticResource TxtCaption}" />
-                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="0">
                                             <Label Text="记忆条数" Style="{StaticResource FieldLabel}" />
                                             <Entry Style="{StaticResource Field}" Text="{Binding OvMemoryTurns}"
@@ -1184,7 +1184,7 @@
                                                    Placeholder="全局" Keyboard="Numeric" />
                                         </VerticalStackLayout>
                                     </Grid>
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="0">
                                             <Label Text="遗忘指数（天）" Style="{StaticResource FieldLabel}" />
                                             <Entry Style="{StaticResource Field}" Text="{Binding OvWindowDays}"
@@ -1203,9 +1203,9 @@
                                 <!-- 需求 8 / 19：这一个角色怎么说话。关掉只影响 TA，
                                      别的角色仍按各自的设置出声。视觉状态由 code-behind 的
                                      SyncSwitches 回写，XAML 里一律 OneWay（同本页其它开关）。 -->
-                                <VerticalStackLayout Spacing="10">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="这一个角色的声音" Style="{StaticResource PaneTitle}" />
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                             <Label Text="让 TA 出声" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="关掉后 TA 不再开口朗读：对话照常，只是没有声音，别的角色不受影响。"
@@ -1237,7 +1237,7 @@
                                             </DataTemplate>
                                         </BindableLayout.ItemTemplate>
                                     </FlexLayout>
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="0">
                                             <Label Text="音色" Style="{StaticResource FieldLabel}" />
                                             <Entry Style="{StaticResource Field}" Text="{Binding VoiceNameText}"
@@ -1253,7 +1253,7 @@
                                     <!-- 角色专属 TTS API：地址与密钥成对生效（只填一半整体回退全局），
                                          协议与模型逐字段回退；与右上角 AI 指定一样，绑定优先于全局。 -->
                                     <Label Text="专属语音 API（可选，地址+密钥都填才生效）" Style="{StaticResource FieldLabel}" />
-                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                                    <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <VerticalStackLayout Spacing="0">
                                             <Label Text="API 地址" Style="{StaticResource FieldLabel}" />
                                             <Entry Style="{StaticResource Field}" Text="{Binding VoiceApiUrlText}"
@@ -1343,7 +1343,7 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="把别处的记忆搬进来" Style="{StaticResource PaneTitle}" />
                                     <Label Text="灵枢（Lingshu）导出的记忆 JSON 可以直接读进来：追加是并进来，替换是先清掉 TA 现在记得的。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
@@ -1368,9 +1368,9 @@
                             </VerticalStackLayout>
 
                             <!-- ══ 关联 ══════════════════════════════════════ -->
-                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabLink}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabLink}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="05" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// THIS SAVE" Style="{StaticResource Eyebrow}" />
@@ -1380,7 +1380,7 @@
                                     <BoxView Style="{StaticResource HSep}" />
                                 </VerticalStackLayout>
 
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="这份存档的可用配角" Style="{StaticResource TxtBodySm}" />
                                         <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding AllowedHint}" Style="{StaticResource TxtCaption}"
@@ -1392,7 +1392,7 @@
 
                                 <BoxView Style="{StaticResource HSep}" />
 
-                                <VerticalStackLayout Spacing="8">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="复制一个 TA" Style="{StaticResource PaneTitle}" />
                                     <Label Text="副本共用同一批立绘文件，不占双份磁盘。记忆可以一起带走，也可以从零开始。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
@@ -1422,9 +1422,9 @@
                                  需求 10：每张 CG 都要说清「多久 / 多大 / 关联哪一幕 / 怎么解锁」。
                                  VM 已把四样都算成现成字符串（MetaLine / SceneLine / ConditionLine），
                                  模板只负责摆位置，不再做判断。 -->
-                            <VerticalStackLayout Spacing="14" IsVisible="{Binding IsTabCg}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabCg}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="07" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// GALLERY" Style="{StaticResource Eyebrow}" />
@@ -1434,7 +1434,7 @@
                                     <BoxView Style="{StaticResource HSep}" />
                                 </VerticalStackLayout>
 
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <Label Text="剧情里触发过才算解锁；解锁前只看得到条件，看不到画面。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3"
                                            VerticalOptions="Center" />
@@ -1443,14 +1443,14 @@
                                 </Grid>
                                 <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding CgSummary}" Style="{StaticResource TxtCaption}" />
 
-                                <VerticalStackLayout Spacing="8"
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}"
                                                      IsVisible="{Binding HasCgItems, Converter={StaticResource InverseBool}}">
                                     <Label Text="还没有 CG。" Style="{StaticResource TxtBodySm}" />
                                     <Label Text="在剧情里触发第一张之后，这里会按类别列出它的时长、大小、关联场景与引入条件。"
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                 </VerticalStackLayout>
 
-                                <VerticalStackLayout Spacing="10"
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}"
                                                      BindableLayout.ItemsSource="{Binding CgPageItems}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:StudioCgItem">
@@ -1460,7 +1460,7 @@
                                                         Command="{Binding Source={x:Reference Root}, Path=BindingContext.OpenCgCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Grid ColumnDefinitions="112,*" ColumnSpacing="10">
+                                                <Grid ColumnDefinitions="112,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                     <Grid HeightRequest="112">
                                                         <Image Source="{Binding Thumb}" Aspect="AspectFill"
                                                                IsVisible="{Binding HasThumb}" />
@@ -1470,7 +1470,7 @@
                                                     </Grid>
                                                     <VerticalStackLayout Grid.Column="1" Spacing="2"
                                                                          Padding="0,10,10,10">
-                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                             <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
                                                                    LineBreakMode="TailTruncation" />
                                                             <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding UnlockLabel}"
@@ -1492,7 +1492,7 @@
                                     </BindableLayout.ItemTemplate>
                                 </VerticalStackLayout>
                                 <!-- 脚：一次 50 张，还有就写清共多少、已列多少，再续一页 -->
-                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" IsVisible="{Binding HasMoreCg}">
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasMoreCg}">
                                     <Label Text="{Binding CgPageNote}" Style="{StaticResource TxtCaption}"
                                            VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                     <Button Grid.Column="1" Text="再看 50 张" Style="{StaticResource BtnGhostSm}"
@@ -1504,9 +1504,9 @@
                                  这一栏不是存档：它把「此刻这一屏上填着的设定」临时拼成一个人，
                                  发给模型听一句回话，读完就算。所以顶上第一句就把这件事说清楚，
                                  免得用户聊完以为 TA 记住了。 -->
-                            <VerticalStackLayout Spacing="12" IsVisible="{Binding IsTabTalk}">
-                                <VerticalStackLayout Spacing="6">
-                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="4">
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding IsTabTalk}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+                                    <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                         <Label Text="06" Style="{StaticResource SectionNo}" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                                             <Label Text="// REPLY" Style="{StaticResource Eyebrow}" />
@@ -1524,7 +1524,7 @@
                                            Style="{StaticResource TxtCaption}" LineHeight="1.3" />
                                 </VerticalStackLayout>
 
-                                <VerticalStackLayout Spacing="8" BindableLayout.ItemsSource="{Binding TalkLines}">
+                                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" BindableLayout.ItemsSource="{Binding TalkLines}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate x:DataType="vm:TalkLine">
                                             <!-- 颜色、圆角、内距全吃令牌（BubbleMine/BubbleTheirs 由风格世界算），
@@ -1570,7 +1570,7 @@
                                             <Label Grid.Column="1" Text="回车送出" Style="{StaticResource TxtCaption}" />
                                         </Grid>
                                         <Grid Grid.Column="1" Grid.Row="1" Padding="12,0,8,0"
-                                              ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                              ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                             <Label Text="›" FontFamily="Bahnschrift" FontSize="18"
                                                    TextColor="{DynamicResource WarmFaint}"
                                                    VerticalOptions="Center" />
@@ -1582,7 +1582,7 @@
                                                     IsVisible="{Binding CanTalk}" Command="{Binding TalkCommand}" />
                                         </Grid>
                                         <Grid Grid.Column="1" Grid.Row="2" Padding="12,0,12,8" ColumnDefinitions="*,Auto">
-                                            <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                                            <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                                 <ActivityIndicator IsRunning="{Binding TalkBusy}"
                                                                    IsVisible="{Binding TalkBusy}"
                                                                    WidthRequest="16" HeightRequest="16" />
@@ -1605,7 +1605,7 @@
             <!-- ── 底部：任何操作都要有一句回话 ─────────────────────────── -->
             <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                     Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10">
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <ActivityIndicator IsRunning="{Binding Busy}" IsVisible="{Binding Busy}"
                                        WidthRequest="18" HeightRequest="18" VerticalOptions="Center" />
                     <Label Grid.Column="1" Text="{Binding Status}" Style="{StaticResource TxtBodySm}"

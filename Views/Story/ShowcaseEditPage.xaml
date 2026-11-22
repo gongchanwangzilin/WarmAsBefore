@@ -14,7 +14,7 @@
         <VerticalStackLayout Grid.Row="0" Spacing="0">
             <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                     Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                     <Label Grid.Column="0" Text="编辑展示案" Style="{StaticResource TxtTitle}"
                            VerticalOptions="Center" />
                     <!-- 主行动只用强调档样式：面是 WAccentBrush、字是钉在它上面的 WAccentInk，
@@ -36,7 +36,7 @@
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="0">
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <Label Grid.Column="0" Text="名称" Style="{StaticResource TxtRowTitle}" />
                                 <!-- 输入框是「井」，不是「贴在卡上的白条」：底走 WWellBrush、角走 WRadiusWell，
                                      Entry 自己那层底色透明掉，四个世界才会一起换档。 -->
@@ -49,7 +49,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                                 <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                     <Label Text="主角" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowDesc}" MaxLines="1" LineBreakMode="TailTruncation" />
@@ -74,13 +74,13 @@
                             <DataTemplate x:DataType="vm:ShowcaseStepDisplay">
                                 <VerticalStackLayout Spacing="0">
                                     <Border Style="{StaticResource SettingRow}">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                                 <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                                 <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding Sub}" Style="{StaticResource TxtRowDesc}"
                                                        IsVisible="{Binding Sub, Converter={StaticResource StringNotEmpty}}" />
                                             </VerticalStackLayout>
-                                            <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
+                                            <HorizontalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                                 <Button Text="↑" Style="{StaticResource BtnTextSm}"
                                                         Command="{Binding Source={RelativeSource AncestorType={x:Type vm:ShowcaseEditViewModel}}, Path=MoveUpCommand}"
                                                         CommandParameter="{Binding .}" />
@@ -109,7 +109,7 @@
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="0">
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Button Grid.Column="0" Text="添加对话" Style="{StaticResource BtnNeumorphSm}"
                                         Command="{Binding AddDialogueCommand}" />
                                 <Button Grid.Column="1" Text="插入CG" Style="{StaticResource BtnNeumorphSm}"
@@ -118,7 +118,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Button Grid.Column="0" Text="添加立绘" Style="{StaticResource BtnNeumorphSm}"
                                         Command="{Binding AddSpriteCommand}" />
                                 <Button Grid.Column="1" Text="清空立绘" Style="{StaticResource BtnNeumorphSm}"

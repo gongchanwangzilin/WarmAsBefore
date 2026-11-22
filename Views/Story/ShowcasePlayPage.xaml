@@ -59,7 +59,7 @@
         <!-- 底部对话 -->
         <Border Style="{StaticResource CardFrost}" IsVisible="{Binding DialogueVisible}"
                 VerticalOptions="End" Margin="{DynamicResource WPadCard}">
-            <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                 <!-- 说话人以前挂的是 AccentWarm：那是一张「面」，压在浅面上只有 1.1:1，等于没写。
                      换成信号墨 —— 整屏唯一的一颗饱和色，正好用来指「此刻是谁在说」。 -->
                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SpeakerName}" Style="{StaticResource TxtRowTitle}"
@@ -72,7 +72,7 @@
         <!-- 播放结束：这是盖住整页的对话框，所以用 CardDialog（边和那档影子由世界发） -->
         <Border Style="{StaticResource CardDialog}" IsVisible="{Binding IsFinished}"
                 HorizontalOptions="Center" VerticalOptions="Center">
-            <VerticalStackLayout Spacing="12" HorizontalOptions="Center">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" HorizontalOptions="Center">
                 <Label Text="播放结束" Style="{StaticResource TxtTitle}" HorizontalOptions="Center" />
                 <Button Text="返回列表" Style="{StaticResource BtnNeumorphSm}" HorizontalOptions="Center"
                         Command="{Binding BackCommand}" />

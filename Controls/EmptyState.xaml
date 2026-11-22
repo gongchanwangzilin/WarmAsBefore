@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  空态骨架（2026-11-22）：一句「为什么空」+ 一句「怎么才不空」。
+
+  之前各页的空态是一行灰字（「暂无数据」「还没有记录」），读者读完只知道这里空，
+  不知道是「本来就没到那一步」还是「出问题了」，也不知道下一步该点哪儿。
+  所以空态必须两句：原因（为什么空）与出路（怎么才不空）；两句都缺时不许画空态。
+
+  不画插图、不画大图标：这一套界面的质感靠留白与字，插一张通用空箱图会把
+  「这里本来该有内容」变成「这个软件有个可爱的空箱子」。
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Controls.EmptyState"
+             x:Name="Root">
+
+    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}"
+                         Padding="{DynamicResource WPadHero}"
+                         VerticalOptions="Center" HorizontalOptions="Fill">
+
+        <Label Text="{Binding Title, Source={x:Reference Root}}"
+               Style="{StaticResource TxtSubhead}"
+               HorizontalTextAlignment="Center"
+               LineBreakMode="WordWrap" MaxLines="3" />
+
+        <Label Text="{Binding Reason, Source={x:Reference Root}}"
+               Style="{StaticResource TxtMuted}"
+               HorizontalTextAlignment="Center"
+               LineBreakMode="WordWrap" MaxLines="3"
+               IsVisible="{Binding Reason, Source={x:Reference Root}, Converter={StaticResource StringNotEmpty}}" />
+
+        <!-- 出路：唯一一句带方向感的话，所以它拿信号墨，其余都是灰的 -->
+        <Label Text="{Binding Hint, Source={x:Reference Root}}"
+               Style="{StaticResource TxtCaption}"
+               TextColor="{DynamicResource SignalFg}"
+               HorizontalTextAlignment="Center"
+               LineBreakMode="WordWrap" MaxLines="3"
+               IsVisible="{Binding Hint, Source={x:Reference Root}, Converter={StaticResource StringNotEmpty}}" />
+    </VerticalStackLayout>
+</ContentView>

@@ -15,11 +15,11 @@
       温馨元素只保留在读得出来的地方：暖米底色、宽体编号、组标题的字距——不堆花纹。
     -->
     <Grid RowDefinitions="Auto,1,*">
-        <Grid Grid.Row="0" Padding="24,16,24,12" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+        <Grid Grid.Row="0" Padding="24,16,24,12" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
             <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
                     Padding="0" VerticalOptions="Center"
                     Command="{Binding GoBackCommand}" />
-            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="10">
+            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Image Source="titlelogo.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFill"
                        VerticalOptions="Center" />
                 <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
@@ -30,7 +30,7 @@
         <Border Grid.Row="1" Background="{DynamicResource WRule}" HeightRequest="1" StrokeThickness="0" />
 
         <ScrollView Grid.Row="2" Padding="24,20,24,32">
-            <VerticalStackLayout x:Name="SettingsBody" Spacing="12">
+            <VerticalStackLayout x:Name="SettingsBody" Spacing="{DynamicResource WSpaceLoose}">
 
                 <!-- 大标题：iPhone 的 large title，只有窄屏摆（手机上那是唯一看得见的页名）。
                      电脑上顶栏已有页面名，再顶一个大大的「设置」就是拿手机排宽屏的错觉来源之一。 -->
@@ -40,7 +40,7 @@
 
                 <!-- 搜索：设置项多，先搜再点比一页页翻快。 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <Entry Grid.Column="0" Text="{Binding SettingsSearchText}" Placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
                                BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" ClearButtonVisibility="WhileEditing" />
@@ -52,7 +52,7 @@
 
                 <!-- 匹配计数与空结果提示：挂在卡外，避免搜索时卡片高度反复跳。 -->
                 <VerticalStackLayout Spacing="2">
-                    <Label Text="{Binding Filter.MatchCount, StringFormat='匹配到 {0} 个设置项（进子页后只显示这些）'}" Style="{StaticResource TxtCaption}"
+                    <Label Text="{Binding Filter.MatchCount, Converter={StaticResource CountText}, ConverterParameter='匹配到 {0} 个设置项（进子页后只显示这些）'}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding Filter.IsSearching}" />
                     <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
                            TextColor="{DynamicResource AccentWarmFg}" />

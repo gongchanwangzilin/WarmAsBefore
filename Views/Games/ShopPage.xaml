@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:model="clr-namespace:WarmAsBefore.Models"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.ShopPage"
 
              Title=""
@@ -12,37 +13,30 @@
 
     <Grid RowDefinitions="Auto,Auto,*" Padding="0">
 
-        <!-- Header：眉栏跟页面底同一块地，靠下面那条发丝线与内容分开，不靠描边 -->
-        <VerticalStackLayout Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="6">
-                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                            FontSize="{DynamicResource WSizeCaption}" Padding="8,0"
-                            Command="{Binding GoBackCommand}" />
-                    <Button Grid.Column="1" Text="身体状态" Style="{StaticResource BtnText}"
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Title="美了么" BackCommand="{Binding GoBackCommand}">
+            <ctl:PageHeader.Actions>
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
+                    <Button Text="身体状态" Style="{StaticResource BtnText}"
                             FontSize="{DynamicResource WSizeCaption}" Padding="8,0"
                             Command="{Binding OpenBodyStatusCommand}" />
-                    <Label Grid.Column="2" Text="美了么"
-                           Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                    <Border Grid.Column="3"
-                            Background="{DynamicResource WWellBrush}"
+                    <Border Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0" Padding="10,0" HeightRequest="24"
                             VerticalOptions="Center" StrokeShape="{DynamicResource WRadiusPill}">
-                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WalletLabel}" Style="{StaticResource TxtRowTitle}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WalletLabel}"
+                               Style="{StaticResource TxtRowTitle}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+                </HorizontalStackLayout>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 战绩条 + buff 标记条：同一个店的两条实时状态，因此并成一栏、中间一条发丝线。
              这里不用 SettingRow（那是 52 高的表单行），状态条压到井距一档才不会读成两行设置。 -->
         <Border Grid.Row="1" Background="{DynamicResource WBarBrush}" Padding="0" StrokeThickness="0">
             <VerticalStackLayout Spacing="0">
                 <Border Padding="{DynamicResource WPadWell}">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding RecordLabel}" Style="{StaticResource TxtBodySm}"
                                VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="胜局 +30 亲密币 · 败局 +10" Style="{StaticResource TxtMuted}"
@@ -76,13 +70,13 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                 <Entry Text="{Binding AiPrompt}"
                                        Placeholder="例：小雨喜欢的草莓味饮品、生日蛋糕…"
                                        FontSize="{DynamicResource WSizeCaption}"
                                        BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                        PlaceholderColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
-                                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
+                                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                     <ActivityIndicator IsRunning="{Binding Busy}"
                                                        IsVisible="{Binding Busy}"
                                                        WidthRequest="18" HeightRequest="18"
@@ -112,13 +106,13 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                 <Entry Text="{Binding SyncRepo}"
                                        Placeholder="owner/repo，如 my-username/my-shop"
                                        FontSize="{DynamicResource WSizeCaption}"
                                        BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                        PlaceholderColor="{DynamicResource MutedFg}" VerticalOptions="Center" />
-                                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="6">
+                                <Grid Grid.Column="1" ColumnDefinitions="Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
                                     <!-- 点击同步立即转圈反馈，完成后消失 -->
                                     <ActivityIndicator IsRunning="{Binding IsSyncing}"
                                                        IsVisible="{Binding IsSyncing}"
@@ -155,7 +149,7 @@
 
                 <!-- 分类横滑 -->
                 <ScrollView Orientation="Horizontal" HorizontalScrollBarVisibility="Never">
-                    <HorizontalStackLayout Spacing="8"
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}"
                                             BindableLayout.ItemsSource="{Binding Categories}">
                         <BindableLayout.ItemTemplate>
                             <DataTemplate x:DataType="vm:ShopCategoryTag">
@@ -192,23 +186,29 @@
                     <CollectionView.ItemsLayout>
                         <LinearItemsLayout Orientation="Vertical" ItemSpacing="0" />
                     </CollectionView.ItemsLayout>
+                    <!-- 空态：货架为空只有两种可能（筛选没命中 / 还没上架），所以两句话都要说清楚 -->
+                    <CollectionView.EmptyView>
+                        <ctl:EmptyState Title="货架上是空的"
+                                        Reason="搜索词或分类把商品全过滤掉了，也可能是还没同步过仓库"
+                                        Hint="清空搜索、点「全部」，或者用上面的 AI 选品现生成一件" />
+                    </CollectionView.EmptyView>
                     <CollectionView.ItemTemplate>
                         <DataTemplate>
                             <VerticalStackLayout Spacing="0">
                                 <Border Style="{StaticResource SettingRow}">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                         <Border Grid.Column="0" Background="{DynamicResource WWellBrush}"
                                                 StrokeThickness="0"
                                                 WidthRequest="50" HeightRequest="50"
                                                 StrokeShape="{DynamicResource WRadiusWell}"
                                                 VerticalOptions="Center">
                                             <Grid>
-                                                <!-- 菜品图片（GitHub 同步下载到本地后显示；无图时 Emoji 兜底） -->
+                                                <!-- 垫底：能立刻画出图（本地文件）就不垫；远程图还在下载、或根本没有图时，
+                                                     垫一层与卡片同色系的灰面 + 商品名首字。下载完成图片画在它上面，自然替换 -->
+                                                <Label Text="{Binding Initial}" Style="{StaticResource Monogram}"
+                                                       IsVisible="{Binding ShowPlaceholder}" />
                                                 <Image Source="{Binding ImagePath}" Aspect="AspectFill"
                                                        IsVisible="{Binding HasImage}" />
-                                                <Label Text="{Binding Emoji}" FontSize="{DynamicResource WSizeSubhead}"
-                                                       HorizontalOptions="Center" VerticalOptions="Center"
-                                                       IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
                                             </Grid>
                                         </Border>
                                         <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
@@ -218,20 +218,20 @@
                                             <Label Text="{Binding Desc}"
                                                    Style="{StaticResource TxtRowDesc}"
                                                    LineBreakMode="WordWrap" MaxLines="2" />
-                                            <HorizontalStackLayout Spacing="6">
+                                            <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CategoryText}"
                                                        Style="{StaticResource TxtMuted}" />
                                                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Merchant}"
                                                        Style="{StaticResource TxtMuted}"
                                                        TextColor="{DynamicResource AccentWarmFg}"
                                                        IsVisible="{Binding HasMerchant}" />
-                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Owned, StringFormat='已购 {0} 件'}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Owned, Converter={StaticResource CountText}, ConverterParameter='已购 {0} 件'}"
                                                        Style="{StaticResource TxtMuted}"
                                                        TextColor="{DynamicResource AccentWarmFg}"
                                                        IsVisible="{Binding Owned, Converter={StaticResource GreaterThanZero}}" />
                                             </HorizontalStackLayout>
                                         </VerticalStackLayout>
-                                        <VerticalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                                        <VerticalStackLayout Grid.Column="2" Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                                             <!-- 七位数价格自带千分位；负数是坏数据，写成「价格异常」而不是「-1 币」 -->
                                             <Label Text="{Binding PriceText}"
                                                    Style="{StaticResource TxtRowTitle}" HorizontalOptions="End" />
@@ -241,7 +241,7 @@
                                                     Command="{Binding Path=BindingContext.BuyCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
                                                     CommandParameter="{Binding .}" />
                                             <!-- 送礼 / 使用（始终可见，无库存时点击有提示） -->
-                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="4">
+                                            <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceTight}">
                                                 <Button Grid.Column="0" Text="送礼" Style="{StaticResource BtnNeumorphic}"
                                                         HeightRequest="26" Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
                                                         Command="{Binding Path=BindingContext.GiftCommand, Source={RelativeSource AncestorType={x:Type ContentPage}}}"
@@ -262,7 +262,7 @@
             </Border>
 
             <!-- 后台补货转圈（完整目录生成期间显示，列表仍可先浏览种子商品） -->
-            <VerticalStackLayout Grid.Row="1" Spacing="6"
+            <VerticalStackLayout Grid.Row="1" Spacing="{DynamicResource WSpaceTight}"
                                  IsVisible="{Binding IsSyncing}"
                                  VerticalOptions="Center" HorizontalOptions="Center">
                 <ActivityIndicator IsRunning="{Binding IsSyncing}"
@@ -283,7 +283,7 @@
               IsVisible="{Binding ShowBodyStatus}">
             <Border Style="{StaticResource CardDialog}"
                     WidthRequest="320" VerticalOptions="Center" HorizontalOptions="Center">
-                <VerticalStackLayout Spacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                     <Label Text="小雨的身体状态"
                            Style="{StaticResource TxtTitle}"
                            HorizontalOptions="Center" />

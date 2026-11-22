@@ -11,7 +11,7 @@
              原来一张卡套一个字段，卡间距比行内还大，读不出「这是同一件事的几条」。 -->
         <VerticalStackLayout Spacing="{DynamicResource WGapSection}" MaximumWidthRequest="860">
 
-            <VerticalStackLayout Spacing="4">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                 <Label Text="{Binding Title}" Style="{StaticResource TxtDisplay}" LineBreakMode="WordWrap" />
                 <Label Text="左边是主设定（角色库规定，运行时不改）；右边是副设定（随经历漂移的当下之我）。"
                        Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
@@ -59,7 +59,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <VerticalStackLayout Grid.Column="0" Spacing="2">
                                     <Label Text="性格" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="{Binding SubPersonality}" Style="{StaticResource TxtRowDesc}"
@@ -75,7 +75,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <VerticalStackLayout Grid.Column="0" Spacing="2">
                                     <Label Text="背景" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="{Binding SubDescription}" Style="{StaticResource TxtRowDesc}"
@@ -89,7 +89,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Grid.Column="0" Text="此刻心境" Style="{StaticResource TxtRowTitle}" />
                                 <Label Grid.Column="1" Text="{Binding Tone}" Style="{StaticResource TxtBodySm}"
                                        HorizontalOptions="End" VerticalOptions="Center"
@@ -112,7 +112,7 @@
                     <BoxView Style="{StaticResource HSep}" />
                     <Border Style="{StaticResource SettingRow}">
                         <Grid ColumnDefinitions="*,Auto">
-                            <VerticalStackLayout Grid.Column="0" Spacing="4">
+                            <VerticalStackLayout Grid.Column="0" Spacing="{DynamicResource WSpaceTight}">
                                 <Label Text="{Binding NotesText}" Style="{StaticResource TxtBody}"
                                        LineBreakMode="WordWrap" />
                                 <Label Text="心事由每次折叠出的记忆要点累积而来，最多保留 8 条、留影 12 份。"
@@ -139,7 +139,7 @@
                             <DataTemplate x:DataType="vm:SubProfileViewModel+DriftItem">
                                 <VerticalStackLayout Spacing="0">
                                     <Border Style="{StaticResource SettingRow}">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2">
                                                 <Label Text="{Binding Reason}" Style="{StaticResource TxtRowTitle}"
                                                        LineBreakMode="WordWrap" />
@@ -162,7 +162,7 @@
                 </VerticalStackLayout>
             </Border>
 
-            <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
+            <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" HorizontalOptions="Center">
                 <Button Text="刷新" Style="{StaticResource BtnGhostSm}" Command="{Binding RefreshCommand}" />
                 <!-- 回正会清空心境、心事与留影（点下去有确认框），所以它是危险档：
                      字用 DangerInk、缝用 RedSoft，不铺一块实心红。 -->

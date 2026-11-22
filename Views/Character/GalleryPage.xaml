@@ -4,6 +4,7 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.GalleryPage"
              x:DataType="vm:GalleryViewModel"
              Title="回忆录"
@@ -65,9 +66,9 @@
         <VerticalStackLayout Padding="{DynamicResource WPadCard}"
                              Spacing="{DynamicResource WGapSection}">
 
-            <Label Text="回忆录" Style="{StaticResource TxtTitle}" />
-            <Label Text="全部好感时刻与全部对话都在这里，可搜索；日记是每天自动生成的陪伴总结（核心机制，无需开启）"
-                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+            <!-- 页头：这一页没有返回钮（它从手机/首页进来），所以走 Ground 档：落在地上、不带顶栏底 -->
+            <ctl:PageHeader Variant="Ground" Title="回忆录" ShowBack="False"
+                            Subtitle="全部好感时刻与全部对话都在这里，可搜索；日记是每天自动生成的陪伴总结（核心机制，无需开启）" />
 
             <!-- 记忆分层总览：五层是同一件事的五条，并成一张卡的五行，数量落在右缘 -->
             <Border Style="{StaticResource CardGroup}" IsVisible="{Binding HasLayerStats}">
@@ -103,7 +104,7 @@
             </Border>
 
             <!-- Tab switch -->
-            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="8">
+            <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Border motion:HoverFeel.Enabled="True" Style="{StaticResource TabMemoir}">
                     <Label Text="回忆录" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmDark}"
                            FontAttributes="{Binding IsMemoirSelected, Converter={StaticResource BoolFontBold}}"
@@ -228,7 +229,7 @@
                                 <DataTemplate x:DataType="vm:HumanMemoryItem">
                                     <VerticalStackLayout Spacing="0">
                                         <Border Style="{StaticResource SettingRow}">
-                                            <VerticalStackLayout Spacing="4">
+                                            <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                                 <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}"
                                                        MaxLines="1" LineBreakMode="TailTruncation"
                                                        ToolTipProperties.Text="{Binding Header}" />
@@ -249,7 +250,7 @@
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                         <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreHuman}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="{Binding HumanNote}" Style="{StaticResource TxtRowDesc}"
                                        VerticalOptions="Center" LineBreakMode="WordWrap" />
                                 <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
@@ -264,7 +265,7 @@
             <VerticalStackLayout IsVisible="{Binding IsMemoirSelected}" Spacing="{DynamicResource WGapSection}">
                 <Border Style="{StaticResource CardGroup}">
                     <Border Style="{StaticResource SettingRow}">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Entry Grid.Column="0" Text="{Binding SearchText}" Placeholder="搜索对话回忆…"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="{DynamicResource WSizeSmall}" />
@@ -290,7 +291,7 @@
                                         <BoxView Style="{StaticResource HSep}" />
                                         <Border Style="{StaticResource SettingRow}">
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <VerticalStackLayout Grid.Column="0" Spacing="6">
+                                                <VerticalStackLayout Grid.Column="0" Spacing="{DynamicResource WSpaceTight}">
                                                     <Label Text="{Binding Display}" Style="{StaticResource TxtBody}"
                                                            LineBreakMode="WordWrap" />
                                                     <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
@@ -304,7 +305,7 @@
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                         <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreAffection}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="{Binding AffectionNote}" Style="{StaticResource TxtRowDesc}"
                                        VerticalOptions="Center" LineBreakMode="WordWrap" />
                                 <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
@@ -335,7 +336,7 @@
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                         <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreMemory}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="{Binding MemoryNote}" Style="{StaticResource TxtRowDesc}"
                                        VerticalOptions="Center" LineBreakMode="WordWrap" />
                                 <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
@@ -362,7 +363,7 @@
                                         <BoxView Style="{StaticResource HSep}" />
                                         <Border Style="{StaticResource SettingRow}">
                                             <Grid ColumnDefinitions="*,Auto">
-                                                <VerticalStackLayout Grid.Column="0" Spacing="4">
+                                                <VerticalStackLayout Grid.Column="0" Spacing="{DynamicResource WSpaceTight}">
                                                     <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}"
                                                            MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Content}" Style="{StaticResource TxtBody}"
@@ -375,7 +376,7 @@
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                         <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreDiary}">
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                 <Label Text="{Binding DiaryNote}" Style="{StaticResource TxtRowDesc}"
                                        VerticalOptions="Center" LineBreakMode="WordWrap" />
                                 <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
@@ -421,7 +422,7 @@
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
                 <!-- 脚：一页 50 张，还有就写清共多少、已列多少，再续一页 -->
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasMoreCg}">
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding HasMoreCg}">
                     <Label Text="{Binding CgPageNote}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                     <Button Grid.Column="1" Text="再看 50 张" Style="{StaticResource BtnGhostSm}"

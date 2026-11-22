@@ -4,6 +4,7 @@
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.SuperMonitorPage"
              x:Name="Root"
              x:DataType="vm:SuperMonitorViewModel"
@@ -16,40 +17,30 @@
          以前所有卡片竖着摞在同一列：日程被切成 150px 的小窗、画布被上下两块卡夹住、
          器官与记忆层根本没有地方显示 —— 读起来就是「全挤在顶上」。
          现在只有两个容器：一块画布 + 一条右栏，栏内用 HSep 分组而不是卡套卡。 -->
-    <Grid RowDefinitions="Auto,Auto,*" RowSpacing="0">
+    <Grid RowDefinitions="Auto,*" RowSpacing="0">
 
-        <!-- ============ 顶栏：返回 · 角色 · 3D 开关 · 刷新 ============ -->
-        <Border Grid.Row="0" BackgroundColor="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="12">
-                <Button Grid.Column="0" Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
-                        VerticalOptions="Center" Command="{Binding BackCommand}" />
-                <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                    <Label Text="// VITALS" Style="{StaticResource Eyebrow}" />
-                    <Label Text="{Binding CharacterName}" Style="{StaticResource TxtTitle}"
-                           MaxLines="1" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1"
-                           LineBreakMode="TailTruncation" />
-                </VerticalStackLayout>
-                <Button Grid.Column="3" Text="刷新" Style="{StaticResource BtnGhostSm}"
+        <!-- ============ 顶栏：返回 · 角色 · 刷新（结构走 PageHeader） ============ -->
+        <ctl:PageHeader Grid.Row="0" Eyebrow="// VITALS"
+                        Title="{Binding CharacterName}" Subtitle="{Binding DateText}"
+                        BackText="←" BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Button Text="刷新" Style="{StaticResource BtnGhostSm}"
                         VerticalOptions="Center" Command="{Binding LoadCommand}" />
-            </Grid>
-        </Border>
-
-        <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- ============ 工作台：左画布 / 右读数栏（窄窗由 code-behind 折成一列） ============ -->
-        <Grid Grid.Row="2" x:Name="BodyGrid"
+        <Grid Grid.Row="1" x:Name="BodyGrid"
               RowDefinitions="*" ColumnDefinitions="*,360"
               HorizontalOptions="Center" MaximumWidthRequest="{DynamicResource WCardWidthWide}"
               Padding="{DynamicResource WPageMargin}">
 
             <!-- 左：架构活流程图（+ 可选 3D 向量覆盖层） -->
             <Grid x:Name="CanvasHost" Grid.Row="0" Grid.Column="0"
-                  RowDefinitions="Auto,*,Auto,Auto" RowSpacing="8">
+                  RowDefinitions="Auto,*,Auto,Auto" RowSpacing="{DynamicResource WSpaceRegular}">
                 <!-- 标题 + 三盏状态灯：专注（暖）/ 神游（冷）/ 神游介入（红，会闪）。
                      这是整页的状态，不是某一格的属性，所以放在画布顶上。 -->
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="14">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                         <Label Text="架构活动流程图" Style="{StaticResource TxtSection}" />
                         <Label Text="对话执行时，流经的节点会亮起；点任意节点看它的读数与影响"
@@ -59,7 +50,7 @@
                         <Label Text="{Binding AmbientTitle}" Style="{StaticResource TxtSection}"
                                HorizontalTextAlignment="End" MaxLines="1" LineBreakMode="TailTruncation"
                                ToolTipProperties.Text="{Binding AmbientTitle}" />
-                        <HorizontalStackLayout Spacing="12" HorizontalOptions="End">
+                        <HorizontalStackLayout Spacing="{DynamicResource WSpaceLoose}" HorizontalOptions="End">
                             <HorizontalStackLayout Spacing="5">
                                 <Border BackgroundColor="{Binding FocusLampColor}" StrokeThickness="0"
                                         WidthRequest="9" HeightRequest="9" StrokeShape="RoundRectangle 99"
@@ -108,7 +99,7 @@
                 <!-- 向量空间：三维坐标系由 2D 投影画出来（不走原生 3D，见 VectorCloudDrawable），
                      右边并排列出每个点的坐标与它对应的那句话。 -->
                 <Border Grid.Row="2" Style="{StaticResource CardSolid}" Padding="8">
-                    <Grid ColumnDefinitions="*,236" ColumnSpacing="8" RowDefinitions="Auto,*">
+                    <Grid ColumnDefinitions="*,236" ColumnSpacing="{DynamicResource WSpaceRegular}" RowDefinitions="Auto,*">
                         <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
                             <Label Text="向量空间" Style="{StaticResource TxtSection}" />
                             <!-- 副标题就是状态：有点时是「量化模型算出的 N 条…」，没点时是原因，
@@ -126,7 +117,7 @@
                                         HeightRequest="300" VerticalScrollBarVisibility="Always">
                             <CollectionView.ItemTemplate>
                                 <DataTemplate x:DataType="vm:VectorCloudRow">
-                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Padding="0,3">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}" Padding="0,3">
                                         <Label Grid.Column="0" Text="{Binding Word}"
                                                Style="{StaticResource TxtCaption}" MaxLines="1"
                                                LineBreakMode="TailTruncation" />
@@ -155,15 +146,15 @@
 
             <!-- 右：读数栏。选中节点是此刻的焦点，独占一张浮阶卡（全屏配额 1） -->
             <Grid x:Name="RailHost" Grid.Row="0" Grid.Column="1"
-                  RowDefinitions="Auto,*" RowSpacing="8">
+                  RowDefinitions="Auto,*" RowSpacing="{DynamicResource WSpaceRegular}">
 
                 <Border Grid.Row="0" IsVisible="{Binding HasSelection}"
                         Style="{StaticResource CardNeumorph}" Padding="{DynamicResource WPadCard}">
-                    <VerticalStackLayout Spacing="6">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                         <Label Text="{Binding SelectedNode.Title}" Style="{StaticResource TxtSubhead}"
                                MaxLines="2" LineBreakMode="TailTruncation"
                                ToolTipProperties.Text="{Binding SelectedNode.Title}" />
-                        <HorizontalStackLayout Spacing="10">
+                        <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                             <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}"
                                    MaxLines="1" LineBreakMode="TailTruncation"
                                    ToolTipProperties.Text="{Binding SelectedNode.Group}" />
@@ -174,7 +165,7 @@
                                 Style="{StaticResource BtnGhost}" />
                         <BoxView Style="{StaticResource HSep}" />
                         <ScrollView MaximumHeightRequest="260">
-                            <VerticalStackLayout Spacing="8"
+                            <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}"
                                                  BindableLayout.ItemsSource="{Binding DetailLines}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+DetailLine">
@@ -208,7 +199,7 @@
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Timeline}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+TimelineRow">
-                                        <Grid ColumnDefinitions="52,28,*" ColumnSpacing="6" Padding="0,4">
+                                        <Grid ColumnDefinitions="52,28,*" ColumnSpacing="{DynamicResource WSpaceTight}" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Time}"
                                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                                             <!-- 勾选走 MarkDone（写盘 + 广播 Changed），不直接改 item.Done -->
@@ -227,7 +218,7 @@
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
-                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,6,0,0"
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Margin="0,6,0,0"
                                   IsVisible="{Binding HasMoreTimeline}">
                                 <Label Text="{Binding TimelineNote}" Style="{StaticResource TxtRowDesc}"
                                        VerticalOptions="Center" LineBreakMode="WordWrap" />
@@ -244,7 +235,7 @@
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Organs}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+OrganRow">
-                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Name}"
                                                    Style="{StaticResource TxtRowTitle}" MaxLines="1"
                                                    LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding Name}" />
@@ -270,7 +261,7 @@
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding MemoryLayers}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+LayerRow">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Name}"
                                                    Style="{StaticResource TxtRowTitle}" MaxLines="1"
                                                    LineBreakMode="TailTruncation" />
@@ -291,7 +282,7 @@
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Stats}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+StatRow">
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Name}"
                                                    Style="{StaticResource TxtRowTitle}" MaxLines="1"
                                                    LineBreakMode="TailTruncation" />
@@ -309,6 +300,6 @@
         </Grid>
 
         <!-- dev 压测条：带 worst 启动参数时贴在窗口底边中央，其余时候 0 宽 0 高 -->
-        <dev:WorstCaseBar Grid.RowSpan="3" />
+        <dev:WorstCaseBar Grid.RowSpan="2" />
     </Grid>
 </ContentPage>

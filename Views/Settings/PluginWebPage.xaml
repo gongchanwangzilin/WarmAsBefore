@@ -9,7 +9,7 @@
         <Border Background="{DynamicResource GlassBarBg}" Stroke="{DynamicResource GlassBarStroke}"
                 StrokeThickness="{DynamicResource GlassBarStrokeThickness}" Padding="16,12">
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10">
+            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                         Clicked="OnBackClicked" />
                 <Label x:Name="TitleLabel" Grid.Column="1" Text="插件页面" Style="{StaticResource TxtTitle}"

@@ -31,7 +31,7 @@
 
     <Grid RowDefinitions="Auto,Auto,*">
         <Grid Background="{DynamicResource WBarBrush}"
-              Padding="{DynamicResource WPadWell}" ColumnDefinitions="Auto,*" ColumnSpacing="12">
+              Padding="{DynamicResource WPadWell}" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
             <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
                     Command="{Binding BackCommand}" />
             <VerticalStackLayout Grid.Column="1" Spacing="1" VerticalOptions="Center">
@@ -42,13 +42,13 @@
         <BoxView Grid.Row="1" Style="{StaticResource HSep}" />
 
         <ScrollView Grid.Row="2" Padding="16,14,16,32">
-            <VerticalStackLayout Spacing="14" MaximumWidthRequest="880" HorizontalOptions="Fill">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="880" HorizontalOptions="Fill">
 
                 <!-- 先选人：绑定与解绑都作用在这一位身上 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="绑给谁" Style="{StaticResource TxtSubhead}" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <Picker ItemsSource="{Binding Characters}"
                                     SelectedItem="{Binding SelectedCharacter}"
                                     ItemDisplayBinding="{Binding Label}"
@@ -66,15 +66,15 @@
 
                 <!-- 预览：点下面任意一个包，先看合成结果，再播动作 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <Label Text="预览与动作" Style="{StaticResource TxtSubhead}" />
                             <Label Grid.Column="1" Text="{Binding PreviewTitle}"
                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center"
                                    LineBreakMode="TailTruncation" />
                         </Grid>
 
-                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="14">
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
                             <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
                                     WidthRequest="128" HeightRequest="218"
                                     StrokeShape="RoundRectangle 12">
@@ -86,7 +86,7 @@
                                            IsVisible="{Binding HasPreview, Converter={StaticResource InverseBool}}" />
                                 </Grid>
                             </Border>
-                            <VerticalStackLayout Grid.Column="1" Spacing="8">
+                            <VerticalStackLayout Grid.Column="1" Spacing="{DynamicResource WSpaceRegular}">
                                 <Picker ItemsSource="{Binding PreviewOutfits}"
                                         SelectedItem="{Binding SelectedPreviewOutfit}"
                                         ItemDisplayBinding="{Binding Label}"
@@ -99,7 +99,7 @@
                                         SelectedItem="{Binding SelectedMotion}"
                                         ItemDisplayBinding="{Binding Label}"
                                         Title="动作" FontSize="13" />
-                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <Button Text="{Binding PreviewPlayLabel}" Style="{StaticResource BtnPrimarySm}"
                                             IsEnabled="{Binding CanPlayMotion}"
                                             Command="{Binding PlayMotionCommand}" />
@@ -117,12 +117,12 @@
 
                 <!-- AI 素材流水线：生图 → 切图 → 动作录入 -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="AI 着装素材" Style="{StaticResource TxtSubhead}" />
                         <Label Text="生图模型画一张部件素材表 → 这里按网格切开并写入包 → 动画由外部按帧渲染或录成透明视频 → 回到这里导入动作。没有开启画面生成时不会假装成功。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
 
-                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <VerticalStackLayout Spacing="0">
                                 <Label Text="包 id" Style="{StaticResource FieldLabel}" />
                                 <Entry Style="{StaticResource Field}" Text="{Binding GeneratePackId}"
@@ -139,7 +139,7 @@
                                 Text="{Binding GeneratePrompt}"
                                 Placeholder="例：同一位少女的头发、上衣、裙子、鞋子分件，透明背景" />
 
-                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <VerticalStackLayout Spacing="0">
                                 <Label Text="行" Style="{StaticResource FieldLabel}" />
                                 <Entry Style="{StaticResource Field}" Text="{Binding SliceRows}"
@@ -163,7 +163,7 @@
 
                         <BoxView Style="{StaticResource HSepInset}" />
 
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                             <VerticalStackLayout Spacing="0">
                                 <Label Text="动作 id" Style="{StaticResource FieldLabel}" />
                                 <Entry Style="{StaticResource Field}" Text="{Binding MotionId}"
@@ -194,7 +194,7 @@
 
                 <!-- 导入：zip 里必须有 figure.json -->
                 <Border Style="{StaticResource CardSolid}">
-                    <VerticalStackLayout Spacing="10">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="导入形象包" Style="{StaticResource TxtSubhead}" />
                         <Label Text="选一个 zip。压缩包根目录（或唯一的一层文件夹）里要有 figure.json，贴图路径按包内相对路径解析。"
                                Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
@@ -208,10 +208,10 @@
                 <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap" />
 
-                <VerticalStackLayout Spacing="8">
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                         <Label Text="已安装" Style="{StaticResource TxtSubhead}" />
-                        <Label Grid.Column="1" Text="{Binding Packs.Count, StringFormat='共 {0} 个'}"
+                        <Label Grid.Column="1" Text="{Binding Packs.Count, Converter={StaticResource CountText}, ConverterParameter='共 {0} 个'}"
                                Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                     </Grid>
 
@@ -231,8 +231,8 @@
                                                         Command="{Binding Source={x:Reference Page}, Path=BindingContext.SelectPackCommand}"
                                                         CommandParameter="{Binding .}" />
                                                 </Border.GestureRecognizers>
-                                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="4">
-                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="{DynamicResource WSpaceTight}">
+                                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}"
                                                                LineBreakMode="TailTruncation" />
                                                         <Label Grid.Column="1" Text="预览中"

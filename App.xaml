@@ -41,6 +41,11 @@
             <conv:BoolFontBold x:Key="BoolFontBold" />
             <conv:IsSovitsMode x:Key="IsSovitsMode" />
             <conv:SttEngineIsLocal x:Key="SttEngineIsLocal" />
+            <!-- 显示层口径：计数与状态文字各一个入口（CountText / StatusText），页面不再各自格式化 -->
+            <conv:CountNumber x:Key="CountNumber" />
+            <conv:CountCompact x:Key="CountCompact" />
+            <conv:StatusLabel x:Key="StatusLabel" />
+            <conv:CountWithTemplate x:Key="CountText" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>
