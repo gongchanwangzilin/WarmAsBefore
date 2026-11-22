@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.NewRunPage"
              x:Name="Page"
              x:DataType="vm:NewRunViewModel"
@@ -44,19 +45,13 @@
 
     <Grid RowDefinitions="Auto,Auto,*,Auto">
 
-        <!-- 顶栏 -->
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        Padding="0" VerticalOptions="Center"
-                        Command="{Binding BackCommand}" />
-                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding PageTitle}"
-                       Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Label Grid.Column="2" Text="{Binding CharacterName}" Style="{StaticResource TxtCaption}"
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Grid.Row="0" Title="{Binding PageTitle}" BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Label Text="{Binding CharacterName}" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
-            </Grid>
-        </Border>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 进度：四段等宽，走过的段点亮；单页模式下不出现（一屏已经全在眼前） -->
         <Grid Grid.Row="1" Padding="24,14,24,0" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceRegular}"
