@@ -44,6 +44,9 @@ public sealed class MapTileSource
     /// <summary>是不是一张底图（手工绘制不是）。</summary>
     public bool HasTiles => Id != MapTiles.ManualId;
 
+    /// <summary>是不是 MBTiles 离线包（读本地文件，不走网络也不走瓦片缓存目录）。</summary>
+    public bool IsMbTiles => Id == MapTiles.MbTilesId;
+
     /// <summary>拼一块瓦片的地址。高德有 wprd01–04 四台前端机，按 x+y 摊开，别全压在 1 号上。</summary>
     public string BuildUrl(int z, int x, int y)
     {
@@ -65,6 +68,7 @@ public static class MapTiles
     public const string AmapSatId = "amap-sat";
     public const string OsmId = "osm";
     public const string OfflineId = "offline";
+    public const string MbTilesId = "mbtiles";
 
     /// <summary>OSM 要求 UA 里带应用标识与联系方式，别用默认库 UA。</summary>
     public const string UserAgent = "WarmAsBefore/1.65 (MAUI map tile client; +https://github.com/gongchanwangzilin/warmasbefore)";
@@ -111,15 +115,29 @@ public static class MapTiles
     public static readonly MapTileSource Offline = new()
     {
         Id = OfflineId,
-        Name = "离线包",
+        Name = "本地缓存",
         Note = "只用本地缓存里的瓦片，不发任何请求。切到这个来源前先联网逛一遍要用的区域。",
         UrlTemplate = null,
         Attribution = "本地瓦片缓存",
     };
 
+    /// <summary>
+    /// 第六种来源：用户自己选的 .mbtiles 文件。
+    /// 与「本地缓存」不同 —— 缓存是逛图时顺手存的，离线包是一个完整的、打包好的地区。
+    /// 路径在设置里，这里只给定义；真正打开与读瓦片由 <see cref="MbTilesSource"/> 负责。
+    /// </summary>
+    public static readonly MapTileSource MbTiles = new()
+    {
+        Id = MbTilesId,
+        Name = "离线包",
+        Note = "读取你选的 .mbtiles 文件：整个地区都在本地，没网也能看。",
+        UrlTemplate = null,
+        Attribution = "离线包 · MBTiles",
+    };
+
     public static readonly IReadOnlyList<MapTileSource> All = new[]
     {
-        Manual, AmapRoad, AmapSatellite, Osm, Offline
+        Manual, AmapRoad, AmapSatellite, Osm, Offline, MbTiles
     };
 
     /// <summary>存档里的来源 id → 定义。认不出来的（老存档 / 手改过）当手工绘制。</summary>

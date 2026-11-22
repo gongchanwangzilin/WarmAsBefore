@@ -98,7 +98,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundImagePath = s.BackgroundImagePath ?? "";
         _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
         _mapTileOnline = s.MapTileOnline;
+        _mapTileMbTilesPath = s.MapTileMbTilesPath;
         RefreshTileCacheText();
+        RefreshMapTileStatus();
         _experimentalSceneFxEnabled = s.ExperimentalSceneFxEnabled;
         _weatherSceneOverlayEnabled = s.WeatherSceneOverlayEnabled;
         _sceneLightEnabled = s.SceneLightEnabled;
@@ -391,6 +393,88 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _mapTileOnline = true;
 
     partial void OnMapTileOnlineChanged(bool value) => PersistSettings();
+
+    // ---- MBTiles 离线包 ----
+
+    /// <summary>当前离线包路径（设置里存的那份）。</summary>
+    [ObservableProperty] private string _mapTileMbTilesPath = "";
+
+    /// <summary>给设置页看的一句话：选了哪个包、包是什么结构、档位范围。</summary>
+    [ObservableProperty] private string _mbTilesStatusText = "";
+
+    /// <summary>导入 / 复制大文件时置位，按钮跟着禁用。</summary>
+    [ObservableProperty] private bool _mbTilesBusy;
+
+    public bool HasMbTiles => !string.IsNullOrWhiteSpace(MapTileMbTilesPath);
+
+    /// <summary>进设置页 / 换包后刷新那一行状态（没选、文件不在、读不出都要说清楚）。</summary>
+    internal void RefreshMapTileStatus()
+    {
+        MbTilesStatusText = _tiles.OfflinePackage.Message;
+        OnPropertyChanged(nameof(HasMbTiles));
+    }
+
+    /// <summary>选一个 .mbtiles：复制进应用的 Offline 目录，打开成功后把路径写进设置。</summary>
+    [RelayCommand]
+    private async Task PickMbTilesAsync()
+    {
+        if (MbTilesBusy) return;
+        try
+        {
+            var pick = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "选择 MBTiles 离线包",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".mbtiles" } },
+                    { DevicePlatform.Android, new[] { "application/octet-stream", "application/vnd.sqlite3", "application/x-sqlite3", "*/*" } }
+                })
+            });
+            if (pick is null) return;
+
+            MbTilesBusy = true;
+            MbTilesStatusText = "正在导入离线包（大文件要复制一会儿）…";
+            var status = await _tiles.ImportMbTilesAsync(pick.FullPath);
+            if (status.State is MbTilesState.Ready)
+            {
+                MapTileMbTilesPath = _tiles.MbTilesPath;
+                _settings.Apply(_settings.Current with { MapTileMbTilesPath = MapTileMbTilesPath });
+                await _settings.Persist();
+            }
+            RefreshMapTileStatus();
+            if (status.IsReady) Toast.Info("离线包已就绪。");
+            else Toast.Error(status.Message);
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.PickMbTiles -> " + ex);
+            MbTilesStatusText = "选离线包失败：" + ex.Message;
+        }
+        finally
+        {
+            MbTilesBusy = false;
+        }
+    }
+
+    /// <summary>取消离线包：断开连接、清掉解码缓存，设置里的路径也一起清空。</summary>
+    [RelayCommand]
+    private async Task ClearMbTilesAsync()
+    {
+        try
+        {
+            await _tiles.ConfigureMbTilesAsync("");
+            MapTileMbTilesPath = "";
+            _settings.Apply(_settings.Current with { MapTileMbTilesPath = "" });
+            await _settings.Persist();
+            RefreshMapTileStatus();
+            Toast.Info("已取消离线包。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ClearMbTiles -> " + ex);
+            Toast.Error("取消离线包没成功：" + ex.Message);
+        }
+    }
 
     /// <summary>瓦片缓存现在占多少 —— 给「清空瓦片缓存」那一行一句交代。</summary>
     [ObservableProperty] private string _tileCacheText = "";
@@ -1495,6 +1579,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     BackgroundImagePath = BackgroundImagePath,
     BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
     MapTileOnline = MapTileOnline,
+                    MapTileMbTilesPath = MapTileMbTilesPath,
     WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
                     ExperimentalSceneFxEnabled = ExperimentalSceneFxEnabled,
     SceneLightEnabled = SceneLightEnabled,

@@ -152,6 +152,7 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        _tileIdleTicks = 0;
         StopFloorAnim();
         StopSignalTicker();
         _maps.SceneChanged -= OnSceneChanged;

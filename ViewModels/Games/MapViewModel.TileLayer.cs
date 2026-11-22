@@ -40,6 +40,7 @@ public sealed partial class MapViewModel
     private readonly TileLayerDrawable _tileLayer = new();
     private MapTileSource _tileSource = MapTiles.Manual;
     private DateTime _tileStatusAt = DateTime.MinValue;
+    private int _tileIdleTicks;
 
     /// <summary>图层抽屉里的来源药丸（手工绘制 / 高德路网 / 高德卫星 / OSM / 离线包）。</summary>
     public ObservableCollection<MapSourceChip> TileSourceChips { get; } = new();
@@ -94,6 +95,13 @@ public sealed partial class MapViewModel
     {
         // 设置页里拨了总闸：这里跟着变，下一次取图就按新值走（TileService 每次请求都读设置）。
         SetOnlineMirror(_settings?.Current.MapTileOnline ?? true);
+        // 设置页换了 .mbtiles：这里跟着换包，不用来回切一次底图才生效。
+        if (_settings is { } s && _tiles is { } t)
+        {
+            var path = s.Current.MapTileMbTilesPath ?? "";
+            if (!string.Equals(path, t.MbTilesPath, StringComparison.Ordinal)) t.ConfigureMbTiles(path);
+        }
+        RefreshTileNote();
         RefreshTileStatus(force: true);
     }
 
@@ -131,7 +139,7 @@ public sealed partial class MapViewModel
     {
         _tileSource = source;
         _tileLayer.Source = source;
-        TileSourceNote = source.Note;
+        RefreshTileNote();
         foreach (var chip in TileSourceChips)
             chip.IsCurrent = string.Equals(chip.Id, source.Id, StringComparison.Ordinal);
         OnPropertyChanged(nameof(IsTileLayerActive));
@@ -157,11 +165,27 @@ public sealed partial class MapViewModel
         {
             if (!source.HasTiles)
                 Toast.Info("回到手工绘制底图。");
+            else if (source.Id == MapTiles.MbTilesId)
+                Toast.Info(_tiles?.OfflinePackage.IsReady == true
+                    ? $"底图：离线包 · {_tiles.OfflinePackage.Message}"
+                    : "离线包还没就绪：" + (_tiles?.OfflinePackage.Message ?? "去设置里选一个 .mbtiles 文件。"));
             else if (!IsOnlineTilesEnabled && source.IsOnline)
                 Toast.Info($"已切到{source.Name}；联网瓦片是关着的，只显示缓存里已有的瓦片。");
             else
                 Toast.Info($"底图：{source.Name}");
         }
+    }
+
+    /// <summary>抽屉里那句说明：离线包要把文件状态一并讲清楚（没选 / 不在 / 读不出 / 就绪）。</summary>
+    private void RefreshTileNote()
+    {
+        if (_tileSource.Id == MapTiles.MbTilesId && _tiles is { } t)
+        {
+            var status = t.OfflinePackage;
+            TileSourceNote = _tileSource.Note + " " + status.Message;
+            return;
+        }
+        TileSourceNote = _tileSource.Note;
     }
 
     /// <summary>锚点：有真实中心就用它，手绘图没有经纬度就落到默认城市（不改存档，只给底图一个落点）。</summary>
@@ -218,19 +242,55 @@ public sealed partial class MapViewModel
         if (!force && (now - _tileStatusAt).TotalMilliseconds < 250) return;
         _tileStatusAt = now;
 
-        var parts = new System.Collections.Generic.List<string>(4);
+        var parts = new System.Collections.Generic.List<string>(6);
         var zoom = MapProjection.ZoomForCanvasScale(Drawable.Scale, _tileLayer.MetersPerUnit, _tileLayer.AnchorLat);
         var z = Math.Clamp((int)Math.Round(zoom), MapProjection.MinZoom, MapProjection.MaxZoom);
         parts.Add("z" + z.ToString(CultureInfo.InvariantCulture));
         if (_tileLayer.LastTiles > 0)
-            parts.Add($"看得见 {_tileLayer.LastTiles} 块 · 已到 {_tileLayer.LastReady} 块");
+            parts.Add($"可见 {_tileLayer.LastTiles} 块 · 已到 {_tileLayer.LastReady} 块");
         if (_tiles is { } t)
         {
             var mb = t.DiskBytes / 1024 / 1024;
-            if (mb > 0) parts.Add($"缓存 {mb}MB");
+            parts.Add(t.MemoryCount > 0 ? $"缓存 {t.MemoryCount} 张 · {mb}MB" : $"缓存 0 张 · {mb}MB");
+            parts.Add($"失败 {t.FailureCount}");
+            parts.Add($"退避 {t.BackoffSeconds}s");
+            if (_tileSource.Id == MapTiles.MbTilesId)
+            {
+                var status = t.OfflinePackage;
+                parts.Add(status.IsReady ? $"离线包 {status.CacheCount} 块 · 缺 {status.Misses}" : status.Message);
+            }
             if (!IsOnlineTilesEnabled && _tileSource.IsOnline) parts.Add("联网已关");
         }
         TileStatusText = string.Join(" · ", parts);
+        KickTileIdleWork();
+    }
+
+    /// <summary>
+    /// 停手之后再多画几帧：瓦片层每帧会顺手把视口外一屏的瓦片排进队列。
+    /// 只排三帧（约 1 秒），够把周边铺上，又不会让画布一直空转。
+    /// </summary>
+    private void KickTileIdleWork()
+    {
+        if (!IsTileLayerActive || _tileIdleTicks > 0) return;
+        _tileIdleTicks = 3;
+        PumpTileIdleFrame();
+    }
+
+    private void PumpTileIdleFrame()
+    {
+        var dispatcher = Application.Current?.Dispatcher;
+        if (dispatcher is null) { _tileIdleTicks = 0; return; }
+        try
+        {
+            dispatcher.DispatchDelayed(TimeSpan.FromMilliseconds(320), () =>
+            {
+                if (_tileIdleTicks <= 0) return;
+                _tileIdleTicks--;
+                Touch();
+                if (_tileIdleTicks > 0) PumpTileIdleFrame();
+            });
+        }
+        catch { _tileIdleTicks = 0; }
     }
 
     /// <summary>
@@ -253,6 +313,7 @@ public sealed partial class MapViewModel
     internal void RefreshTileDrawer()
     {
         RefreshTileAnchor();
+        RefreshTileNote();
         SetOnlineMirror(_settings?.Current.MapTileOnline ?? true);
         foreach (var chip in TileSourceChips)
             chip.IsCurrent = string.Equals(chip.Id, _tileSource.Id, StringComparison.Ordinal);

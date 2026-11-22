@@ -141,6 +141,109 @@ Console.WriteLine("== 7. 档位边界 ==");
     Near("钳位后仍是 19", Math.Clamp(z, MapProjection.MinZoom, MapProjection.MaxZoom), 19, 0);
 }
 
+Console.WriteLine("== 8. MBTiles：TMS tile_row → XYZ y ==");
+{
+    Check("z0 只有一块，怎么翻都是 0", MbTilesInfo.FlipRow(0, 0) == 0);
+    Check("z3 最南一行 row0 → 最北 y7", MbTilesInfo.FlipRow(0, 3) == 7, $"得到 {MbTilesInfo.FlipRow(0, 3)}");
+    Check("z10 row418 → y605", MbTilesInfo.FlipRow(418, 10) == 605, $"得到 {MbTilesInfo.FlipRow(418, 10)}");
+    Check("翻两次回到原值", MbTilesInfo.FlipRow(MbTilesInfo.FlipRow(12345, 15), 15) == 12345);
+    Check("z19 顶行 → 底行", MbTilesInfo.FlipRow(0, 19) == 524287);
+    Check("TMS 写库：y605 → row418", MbTilesInfo.RowForY(605, 10, xyzScheme: false) == 418);
+    Check("XYZ 包不翻：y605 → row605", MbTilesInfo.RowForY(605, 10, xyzScheme: true) == 605);
+    Check("读出来的 row418 → y605", MbTilesInfo.YForRow(418, 10, xyzScheme: false) == 605);
+    Check("越界 row 被拒", !MbTilesInfo.TryYForRow(1024, 10, xyzScheme: false, out _));
+    // 与地图几何对拍：上海 z10 的 XYZ y 是 418，那么它在 MBTiles 里的 row 就是 605。
+    var y = (int)Math.Floor(MapProjection.TileY(31.2304, 10));
+    Check("上海 z10 y418 ↔ row605", y == 418 && MbTilesInfo.RowForY(y, 10, false) == 605);
+}
+
+Console.WriteLine("== 9. MBTiles metadata 解析 ==");
+{
+    var raw = new Dictionary<string, string?>
+    {
+        ["name"] = "上海离线包",
+        ["format"] = "jpg",
+        ["minzoom"] = "8",
+        ["maxzoom"] = "16",
+        ["bounds"] = "121.0,30.8,121.9,31.5"
+    };
+    var m = MbTilesInfo.ParseMetadata(raw, "fallback", "view");
+    Check("name 取自 metadata", m.Name == "上海离线包", m.Name);
+    Check("jpg 归一成 jpeg", m.Format == "jpeg", m.Format);
+    Check("档位 8–16", m.MinZoom == 8 && m.MaxZoom == 16);
+    Check("bounds 四值", m.HasBounds && m.West == 121.0 && m.South == 30.8 && m.East == 121.9 && m.North == 31.5);
+    Check("默认 TMS", !m.XyzScheme);
+    Check("视图结构被记下", m.Layout == "view", m.Layout);
+    Check("覆盖判断", m.Covers(10) && !m.Covers(7) && !m.Covers(17));
+    Check("摘要带档位与结构", MbTilesInfo.Describe(m).Contains("z8–16") && MbTilesInfo.Describe(m).Contains("视图结构"));
+
+    var bare = MbTilesInfo.ParseMetadata(null, "无名包");
+    Check("缺 metadata：名字用文件名", bare.Name == "无名包", bare.Name);
+    Check("缺 metadata：默认 png / z0–22", bare.Format == "png" && bare.MinZoom == 0 && bare.MaxZoom == 22);
+    Check("缺 bounds 不算有范围", !bare.HasBounds);
+
+    var swapped = MbTilesInfo.ParseMetadata(new Dictionary<string, string?>
+        { ["minzoom"] = "16", ["maxzoom"] = "8" }, null);
+    Check("上下限写反了自动换回来", swapped.MinZoom == 8 && swapped.MaxZoom == 16);
+
+    var bad = MbTilesInfo.ParseMetadata(new Dictionary<string, string?>
+        { ["bounds"] = "121.9,30.8,121.0,31.5" }, null);
+    Check("bounds 顺序反了当坏数据", !bad.HasBounds);
+    Check("bounds 少一个数当坏数据", MbTilesInfo.ParseBounds("1,2,3") is null);
+    Check("bounds 超纬度当坏数据", MbTilesInfo.ParseBounds("121,30.8,121.9,90") is null);
+
+    var xyz = MbTilesInfo.ParseMetadata(new Dictionary<string, string?> { ["scheme"] = "XYZ" }, null);
+    Check("scheme=xyz 记成 XYZ", xyz.XyzScheme);
+    Check("format 大小写归一", MbTilesInfo.NormalizeFormat("JPEG") == "jpeg" && MbTilesInfo.NormalizeFormat("WebP") == "webp");
+    Check("认不出的 format 原样小写", MbTilesInfo.NormalizeFormat("AVIF") == "avif");
+}
+
+Console.WriteLine("== 10. MBTiles 路径校验（纯函数） ==");
+{
+    var empty = MbTilesInfo.CheckPath("", exists: false);
+    Check("空路径 = 没选", empty.State == MbTilesPathState.NotSet);
+    Check("空路径给的是可操作的提示", empty.Message.Contains("选择"));
+
+    var gone = MbTilesInfo.CheckPath(@"C:\maps\shanghai.mbtiles", exists: false);
+    Check("文件不在 → Missing", gone.State == MbTilesPathState.Missing);
+    Check("Missing 的提示带文件名", gone.Message.Contains("shanghai.mbtiles"));
+
+    var wrong = MbTilesInfo.CheckPath(@"C:\maps\shanghai.sqlite", exists: true);
+    Check("扩展名不对 → WrongExtension", wrong.State == MbTilesPathState.WrongExtension);
+
+    var ok = MbTilesInfo.CheckPath(@"C:\maps\shanghai.MBTILES", exists: true);
+    Check("存在且扩展名对（大小写不敏感）→ Ok", ok.State == MbTilesPathState.Ok);
+    Check("Ok 的提示带文件名", ok.Message.Contains("shanghai.MBTILES"));
+
+    var cs = MbTilesInfo.ReadOnlyConnectionString(@"C:\maps\it's.mbtiles");
+    Check("连接串只读", cs.Contains("Mode=ReadOnly"));
+    Check("连接串不池化（文件能换）", cs.Contains("Pooling=False"));
+    Check("连接串转义单引号", cs.Contains("it''s.mbtiles"), cs);
+}
+
+Console.WriteLine("== 11. 瓦片格式按魔数判断 ==");
+{
+    byte[] png = { 0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00 };
+    byte[] jpeg = { 0xFF, 0xD8, 0xFF, 0xE0, 0x00 };
+    byte[] webp = { (byte)'R', (byte)'I', (byte)'F', (byte)'F', 0, 0, 0, 0, (byte)'W', (byte)'E', (byte)'B', (byte)'P' };
+    Check("PNG 魔数", MbTilesInfo.SniffFormat(png) == "png");
+    Check("JPEG 魔数", MbTilesInfo.SniffFormat(jpeg) == "jpeg");
+    Check("WEBP 魔数", MbTilesInfo.SniffFormat(webp) == "webp");
+    Check("短字节不认", MbTilesInfo.SniffFormat(new byte[] { 1, 2 }) == "");
+    Check("非图片不认", MbTilesInfo.SniffFormat(System.Text.Encoding.UTF8.GetBytes("not an image")) == "");
+}
+
+Console.WriteLine("== 12. MBTiles 表结构：table 与 view ==");
+{
+    Check("tiles 是 view", MbTilesInfo.IsViewLayout("view"));
+    Check("tiles 是 view（大小写）", MbTilesInfo.IsViewLayout("VIEW"));
+    Check("tiles 是 table", !MbTilesInfo.IsViewLayout("table"));
+    Check("查不到类型", !MbTilesInfo.IsViewLayout(null));
+    var viewMeta = MbTilesInfo.ParseMetadata(null, "x", "view");
+    var tableMeta = MbTilesInfo.ParseMetadata(null, "x", "table");
+    Check("两种结构都只影响描述、不影响读法", viewMeta.Layout == "view" && tableMeta.Layout == "table");
+}
+
 Console.WriteLine();
 Console.WriteLine(fail == 0
     ? $"全部通过：{pass} 项"

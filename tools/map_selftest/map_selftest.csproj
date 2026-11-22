@@ -12,6 +12,7 @@
     <!-- 只编译零依赖的纯函数层（投影 / 坐标互转），不引用整个 MAUI 工程 -->
     <Compile Include="Program.cs" />
     <Compile Include="../../Services/Map/MapProjection.cs" Link="MapProjection.cs" />
+    <Compile Include="../../Services/Map/MbTilesInfo.cs" Link="MbTilesInfo.cs" />
     <Compile Include="../../Services/World/CoordConvert.cs" Link="CoordConvert.cs" />
   </ItemGroup>
 </Project>
