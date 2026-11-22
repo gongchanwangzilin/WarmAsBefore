@@ -20,6 +20,8 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     private bool isViewLoaded;
     // 建链单线：布局线程与 Loaded 回调可能同时触发，重入会崩原生层。
     private bool _creatingSwapChain;
+    /// <summary>已排队一次「下一轮再建链」：布局没落定之前不碰 SwapChainPanel。</summary>
+    private bool _createScheduled;
 
     private SwapChainPanel swapChainPanel = null!;
 
@@ -95,8 +97,37 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
             this.TryHide(view);
             return;
         }
+        // 面板必须在活动可视树里：不在树里时 SwapChainPanel 的 COM native 接口拿不到，
+        // Evergine 随后对 null 调 SetSwapChain，结果就是 combase.dll / 0x80004003（WER 已证）。
+        if (!this.swapChainPanel.IsLoaded || this.swapChainPanel.XamlRoot is null)
+        {
+            LastFailure = "面板还没进可视树（IsLoaded=" + this.swapChainPanel.IsLoaded
+                + ", XamlRoot=" + (this.swapChainPanel.XamlRoot is null ? "null" : "ok") + "）";
+            App.WriteLogNow("Evergine.等待上树: " + LastFailure);
+            return;
+        }
         // 防重入：布局线程与 Loaded 回调可能同时进来，建链必须单线。
         if (this._creatingSwapChain) return;
+
+        // 不在「尺寸/可见性正在变」的那一帧建链。
+        // 事件里发起的 SwapChainPanel COM interop 会变成 stowed exception：
+        // 事件日志实证 0xc000027b / CoreMessagingXP.dll，WER 里是 combase 的 E_POINTER —— 这种崩
+        // 托管 catch 兜不住（进程直接消失，bugs.log 一条都没有）。推迟到下一轮低优先级派发，
+        // 那时布局已经落定，面板的 native peer 才是稳定的。
+        if (!this._createScheduled)
+        {
+            var queue = this.swapChainPanel.DispatcherQueue;
+            if (queue is null) return;
+            this._createScheduled = true;
+            var queued = queue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
+            {
+                this._createScheduled = false;
+                this.UpdateApplicationCore(view, displayName);
+            });
+            if (!queued) this._createScheduled = false;
+            return;
+        }
+        this._createScheduled = false;
         this._creatingSwapChain = true;
 
         this.windowsSystem ??= new WinUIWindowsSystem();
@@ -106,6 +137,8 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         // 换了容器实现之后 IsRegistered 与 Unregister 也不保证同口径，故再兜一层。
         ReplaceRegistration(view.Application.Container, this.windowsSystem);
 
+        App.WriteLogNow("Evergine.CreateSurface: panel=" + this.swapChainPanel.ActualWidth.ToString("0")
+            + "x" + this.swapChainPanel.ActualHeight.ToString("0") + ", app=" + displayName);
         var surface = (WinUISurface)this.windowsSystem.CreateSurface(this.swapChainPanel);
 
         var clockTimer = Stopwatch.StartNew();
@@ -258,9 +291,13 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
 
         displayName = string.IsNullOrWhiteSpace(displayName) ? "DefaultDisplay" : displayName;
 
+        App.WriteLogNow("Evergine.CreateSwapChain: " + surface.Width.ToString("0") + "x"
+            + surface.Height.ToString("0") + ", app=" + displayName);
         swapChain = graphicsContext.CreateSwapChain(swapChainDescription);
         swapChain.VerticalSync = true;
+        App.WriteLogNow("Evergine.SetSwapChain.Before: app=" + displayName);
         surface.NativeSurface.SwapChain = swapChain;
+        App.WriteLogNow("Evergine.SetSwapChain.After: app=" + displayName);
 
         var graphicsPresenter = application.Container.Resolve<GraphicsPresenter>();
         var firstDisplay = new Display(surface, swapChain);

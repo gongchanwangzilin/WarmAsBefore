@@ -57,8 +57,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private string _vector3DNote = "";
     [ObservableProperty] private bool _hasVector3DNote;
 
-    /// <summary>这一版只有 2D 流程图：3D 层在 Windows 上会原生崩溃，开关先藏起来。</summary>
-    [ObservableProperty] private bool _has3D;
+    /// <summary>3D 向量层是否可用：建链已经改成「延后一轮派发」，所以开关重新放出来。</summary>
+    [ObservableProperty] private bool _has3D = true;
 
     // ---- 整页状态灯：专注 / 神游 / 即将失效，是三盏灯而不是某一格的属性 ----
     [ObservableProperty] private string _ambientTitle = "神游";

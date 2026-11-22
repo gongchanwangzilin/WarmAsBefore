@@ -67,12 +67,11 @@ public partial class SuperMonitorPage : ContentPage
         Loaded -= OnPageLoadedInitVector3D;
         try
         {
-            // 监测页的 3D 层会把进程直接带走：原生崩溃，bugs.log 里连托管异常都没有，
-            // 日志就停在打开开关那一刻。Evergine + DX11 + DComp 这条路径失败时停不到托管侧，
-            // 所以在能验证它之前，监测页只用 2D 流程图，开关也藏起来。
+            // 这里不建 3D：面板此刻是 Collapsed（尺寸 0），在布局没落定时碰 SwapChainPanel
+            // 正是 0xc000027b 那条崩溃路径。Application 推迟到第一次打开开关时创建，
+            // handler 的建链再被推迟到下一轮派发（见 EvergineWeatherViewHandler._createScheduled）。
             _vectorReady = false;
-            Vector3DView.IsVisible = false;
-            _vm.Vector3DNote = "3D 向量层已停用：打开会触发原生崩溃（DX11/DComp），当前版本只提供 2D 流程图。";
+            _vm.Vector3DNote = string.Empty;
         }
         catch (Exception ex)
         {
@@ -155,18 +154,25 @@ public partial class SuperMonitorPage : ContentPage
         {
             if (Vector3DView is null) return;
 
-            Vector3DView.IsVisible = show && _vectorReady;
-            if (show && !_vectorReady)
+            if (!show)
             {
-                // 打不开就说清原因，不再静默什么都不发生。
-                _vm.Vector3DNote = "3D 层不可用："
-                    + (Controls.EvergineWeatherViewHandler.LastFailure ?? "未初始化成功")
-                    + "（2D 流程图不受影响）";
+                Vector3DView.IsVisible = false;
                 return;
             }
-            if (!show || !_vectorReady) return;
 
-            // Application.Initialize 没跑成功时 Scene 为 null：跳过，不崩。
+            // 第一次打开才建 Application：此时面板已经可见，尺寸事件与建链都在下一轮落定。
+            if (_vectorApp is null)
+            {
+                Controls.EvergineWeatherViewHandler.ResetGiveUpForNewPage();
+                _vectorApp = new WarmAsBefore.Weather3D.MonitorVectorApplication();
+                Vector3DView.Application = _vectorApp;
+                _vectorReady = true;
+                _vm.Vector3DNote = "3D 向量：器官状态球已开启（DX11）";
+                App.WriteLogNow("SuperMonitor.VectorOverlay: 首次开启，已建 Application");
+            }
+            Vector3DView.IsVisible = true;
+
+            // Application.Initialize 还没跑完时 Scene 为 null：跳过这一轮，下一次刷新再来。
             var scene = _vectorApp?.Scene;
             if (scene is null) return;
 

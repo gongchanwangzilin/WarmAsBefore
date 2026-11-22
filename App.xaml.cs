@@ -352,6 +352,25 @@ public partial class App : Application
     {
         try
         {
+            // 独立进程探针：3D 建链失败可能在原生侧直接带走进程（WER: combase.dll / 0x80004003），
+            // 那就单独开一个进程去测它，崩了只死探针，主程序与存档完全不受影响。
+            var argv = Environment.GetCommandLineArgs();
+            for (var ai = 1; ai < argv.Length; ai++)
+            {
+                var isProbe = string.Equals(argv[ai], "--probe3d", StringComparison.OrdinalIgnoreCase);
+                var isLazy = string.Equals(argv[ai], "--probe3d-hide", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(argv[ai], "--probe3d-show", StringComparison.OrdinalIgnoreCase);
+                if (!isProbe && !isLazy) continue;
+                var mode = isProbe ? "page" : (argv[ai].EndsWith("hide", StringComparison.OrdinalIgnoreCase) ? "hide" : "show");
+                WriteLog("Probe3D: 以探针模式启动（独立进程, mode=" + mode + "）");
+                return new Window(new Views.Probe3DPage(mode))
+                {
+                    Title = "3D 建链探针",
+                    Width = 760,
+                    Height = 680
+                };
+            }
+
             // 设置必须在构建界面之前读完：标题页要按 DisclaimerAcknowledged 决定是否弹免责声明；
             // 读晚了首帧拿到默认值，每次启动都会弹一遍。
             try
