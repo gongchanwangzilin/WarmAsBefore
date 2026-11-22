@@ -287,7 +287,9 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="2">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感等级</Label>
-                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{DynamicResource AccentWarmFg}" FontSize="13" FontAttributes="Bold" />
+                        <Label Text="{Binding AffectionLevelLabel}" TextColor="{DynamicResource AccentWarmFg}" FontSize="13" FontAttributes="Bold"
+                               MaxLines="1" LineBreakMode="TailTruncation"
+                               ToolTipProperties.Text="{Binding AffectionLevelLabel}" />
                     </VerticalStackLayout>
                     <!-- 大脑预判：一句话读出 TA 现在什么心情（总开关关着整行隐藏） -->
                     <VerticalStackLayout Spacing="2" IsVisible="{Binding BrainVisible}">

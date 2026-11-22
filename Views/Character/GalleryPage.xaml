@@ -229,7 +229,9 @@
                                     <VerticalStackLayout Spacing="0">
                                         <Border Style="{StaticResource SettingRow}">
                                             <VerticalStackLayout Spacing="4">
-                                                <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}" />
+                                                <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding Header}" />
                                                 <Label Text="{Binding Text}" Style="{StaticResource TxtBody}"
                                                        LineBreakMode="WordWrap" FlowDirection="{Binding Text, Converter={StaticResource BidiFlow}}" HorizontalTextAlignment="{Binding Text, Converter={StaticResource BidiAlign}}" />
                                                 <Label Text="{Binding TagText}" Style="{StaticResource TxtRowDesc}"
@@ -385,12 +387,15 @@
             </VerticalStackLayout>
 
             <!-- CG 收藏册 tab：图是内容而不是设置项，所以不塞进行式卡片，保留网格。
-                 地面就是页面底，格子只用面卡（无影、缝由世界决定），状态只换底色档位。 -->
+                 地面就是页面底，格子只用面卡（无影、缝由世界决定），状态只换底色档位。
+
+                 网格跟上面四个列表一样按页铺：FlexLayout 一次只测量 50 格，120 张收藏也只花 50 格的布局；
+                 图也只在铺出来的那 50 格里才会进 Image 处理器解码，翻到下一页的 50 张之前它们不占解码内存。 -->
             <VerticalStackLayout IsVisible="{Binding IsCgSelected}" Spacing="{DynamicResource WGapSection}">
                 <Label IsVisible="{Binding HasCg, Converter={StaticResource InverseBool}}"
                        Text="还没有收藏的 CG。当 TA 在对话里引用【CG:文件名】时就会解锁收藏~"
                        Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding CgItems}">
+                <FlexLayout Direction="Row" Wrap="Wrap" BindableLayout.ItemsSource="{Binding CgPageItems}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:CgCollectionItem">
                             <Border motion:HoverFeel.Enabled="True" Style="{StaticResource CgCell}" WidthRequest="220"
@@ -415,6 +420,13 @@
                         </DataTemplate>
                     </BindableLayout.ItemTemplate>
                 </FlexLayout>
+                <!-- 脚：一页 50 张，还有就写清共多少、已列多少，再续一页 -->
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" IsVisible="{Binding HasMoreCg}">
+                    <Label Text="{Binding CgPageNote}" Style="{StaticResource TxtCaption}"
+                           VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
+                    <Button Grid.Column="1" Text="再看 50 张" Style="{StaticResource BtnGhostSm}"
+                            Command="{Binding LoadMoreCgCommand}" />
+                </Grid>
             </VerticalStackLayout>
 
         </VerticalStackLayout>

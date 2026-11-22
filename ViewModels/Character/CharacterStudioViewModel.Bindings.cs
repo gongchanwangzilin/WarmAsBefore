@@ -103,8 +103,28 @@ public sealed partial class CharacterStudioViewModel
     // ══ ② CG 收藏 ═════════════════════════════════════════════════════
 
     public ObservableCollection<StudioCgItem> CgItems { get; } = new();
+
+    /// <summary>
+    /// 这一栏一次只铺 50 行。CG 目录整本挂在 CgItems 上，界面上只铺 CgPageItems 那一截：
+    /// 一栏里摊上百行袖珍卡跟收藏册摊上百格是同一件事 —— 无界测量。
+    /// </summary>
+    public ObservableCollection<StudioCgItem> CgPageItems { get; } = new();
+    private const int CgPageSize = 50;
+    [ObservableProperty] private bool _hasMoreCg;
+    [ObservableProperty] private string _cgPageNote = "";
+
     [ObservableProperty] private bool _hasCgItems;
     [ObservableProperty] private string _cgSummary = "";
+
+    private void AppendCgPage()
+    {
+        foreach (var item in CgItems.Skip(CgPageItems.Count).Take(CgPageSize)) CgPageItems.Add(item);
+        HasMoreCg = CgPageItems.Count < CgItems.Count;
+        CgPageNote = HasMoreCg ? $"共 {CgItems.Count} 张，已列 {CgPageItems.Count} 张" : "";
+    }
+
+    [RelayCommand]
+    private void LoadMoreCg() => AppendCgPage();
 
     /// <summary>场景 id → 名字。地图场景与场景库条目共用一个表：CG 的 SceneId 两种都指过。</summary>
     private readonly Dictionary<string, string> _sceneNames = new(StringComparer.Ordinal);
@@ -113,7 +133,10 @@ public sealed partial class CharacterStudioViewModel
     private void ResetCg()
     {
         CgItems.Clear();
+        CgPageItems.Clear();
         HasCgItems = false;
+        HasMoreCg = false;
+        CgPageNote = "";
         CgSummary = "";
     }
 
@@ -143,6 +166,8 @@ public sealed partial class CharacterStudioViewModel
 
             CgItems.Clear();
             foreach (var item in items) CgItems.Add(item);
+            CgPageItems.Clear();
+            AppendCgPage();
             HasCgItems = CgItems.Count > 0;
             var unlocked = items.Count(i => i.Unlocked);
             CgSummary = HasCgItems ? $"共 {items.Count} 张 · 已解锁 {unlocked} 张" : "";

@@ -57,7 +57,8 @@
                     </VerticalStackLayout>
                     <VerticalStackLayout Grid.Column="1" Spacing="5" HorizontalOptions="End" VerticalOptions="Center">
                         <Label Text="{Binding AmbientTitle}" Style="{StaticResource TxtSection}"
-                               HorizontalTextAlignment="End" />
+                               HorizontalTextAlignment="End" MaxLines="1" LineBreakMode="TailTruncation"
+                               ToolTipProperties.Text="{Binding AmbientTitle}" />
                         <HorizontalStackLayout Spacing="12" HorizontalOptions="End">
                             <HorizontalStackLayout Spacing="5">
                                 <Border BackgroundColor="{Binding FocusLampColor}" StrokeThickness="0"
@@ -163,7 +164,9 @@
                                MaxLines="2" LineBreakMode="TailTruncation"
                                ToolTipProperties.Text="{Binding SelectedNode.Title}" />
                         <HorizontalStackLayout Spacing="10">
-                            <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}"
+                                   MaxLines="1" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding SelectedNode.Group}" />
                             <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
                         </HorizontalStackLayout>
                         <Button Text="打开这个模块的页面"

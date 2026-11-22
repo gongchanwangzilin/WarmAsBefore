@@ -69,13 +69,21 @@
                                 <Label Text="标签（TA 怎么记人和事）" Style="{StaticResource TxtRowTitle}" />
                                 <Label Text="{Binding TagStatus}" Style="{StaticResource TxtRowDesc}"
                                        LineBreakMode="WordWrap" />
-                                <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding TagItems}">
+                                <VerticalStackLayout Spacing="2" BindableLayout.ItemsSource="{Binding TagPageItems}">
                                     <BindableLayout.ItemTemplate>
                                         <DataTemplate>
                                             <Label Text="{Binding .}" FontSize="{DynamicResource WSizeCaption}"
-                                                   TextColor="{DynamicResource PrimaryFg}" />
+                                                   TextColor="{DynamicResource PrimaryFg}"
+                                                   MaxLines="1" LineBreakMode="TailTruncation" />
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
+                                </VerticalStackLayout>
+                                <!-- 一页 50 个，还有就写清共多少、已列多少，再续一页 -->
+                                <VerticalStackLayout Spacing="4" IsVisible="{Binding HasMoreTags}">
+                                    <Label Text="{Binding TagPageNote}" Style="{StaticResource TxtRowDesc}"
+                                           MaxLines="1" LineBreakMode="TailTruncation" />
+                                    <Button Text="再看 50 个" Style="{StaticResource BtnGhostSm}"
+                                            HorizontalOptions="Start" Command="{Binding LoadMoreTagsCommand}" />
                                 </VerticalStackLayout>
                             </VerticalStackLayout>
                             <VerticalStackLayout Grid.Column="1" Spacing="8"

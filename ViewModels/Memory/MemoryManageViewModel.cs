@@ -51,6 +51,31 @@ public sealed partial class MemoryManageViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private bool _hasTags;
     [ObservableProperty] private string _tagStatus = "";
 
+    /// <summary>
+    /// 标签一次只铺 50 条。标签是 AI 在对话里随手打的，聊久了能攒出上百个；
+    /// 全铺进 BindableLayout 就是又一次无界测量，跟收藏册、回忆列表是同一类。
+    /// </summary>
+    public ObservableCollection<string> TagPageItems { get; } = new();
+    private const int TagPageSize = 50;
+    [ObservableProperty] private bool _hasMoreTags;
+    [ObservableProperty] private string _tagPageNote = "";
+
+    partial void OnTagItemsChanged(ObservableCollection<string> value)
+    {
+        TagPageItems.Clear();
+        AppendTagPage();
+    }
+
+    [RelayCommand]
+    private void LoadMoreTags() => AppendTagPage();
+
+    private void AppendTagPage()
+    {
+        foreach (var item in TagItems.Skip(TagPageItems.Count).Take(TagPageSize)) TagPageItems.Add(item);
+        HasMoreTags = TagPageItems.Count < TagItems.Count;
+        TagPageNote = HasMoreTags ? $"共 {TagItems.Count} 个，已列 {TagPageItems.Count} 个" : "";
+    }
+
     // ===== 人类记忆 =====
     public sealed class MemoryRow
     {

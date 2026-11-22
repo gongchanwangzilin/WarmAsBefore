@@ -3,6 +3,7 @@
              
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
+             xmlns:draw="clr-namespace:WarmAsBefore.Drawables"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
@@ -31,12 +32,14 @@
                     <ScrollView Grid.Column="1" Orientation="Horizontal" HeightRequest="22">
                         <HorizontalStackLayout Spacing="12">
                             <Label Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}"
-                                   VerticalTextAlignment="Center" />
+                                   VerticalTextAlignment="Center" MaxLines="1" LineBreakMode="NoWrap"
+                                   ToolTipProperties.Text="{Binding ScopeNote}" />
                             <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center"
                                    FlowDirection="{Binding Status, Converter={StaticResource BidiFlow}}"
                                    HorizontalTextAlignment="{Binding Status, Converter={StaticResource BidiAlign}}" />
                             <Label Text="{Binding GrowthHint}" FontSize="12" TextColor="{DynamicResource WarmDark}"
-                                   VerticalTextAlignment="Center" />
+                                   VerticalTextAlignment="Center" MaxLines="1" LineBreakMode="NoWrap"
+                                   ToolTipProperties.Text="{Binding GrowthHint}" />
                         </HorizontalStackLayout>
                     </ScrollView>
 
@@ -81,7 +84,9 @@
 
                 <Label Text="{Binding LinkPendingText}" IsVisible="{Binding LinkPending}"
                        FontSize="12" TextColor="{DynamicResource WarmDark}"
-                       BackgroundColor="{DynamicResource AccentWarm}" Padding="8,4">
+                       BackgroundColor="{DynamicResource AccentWarm}" Padding="8,4"
+                       MaxLines="1" LineBreakMode="TailTruncation"
+                       ToolTipProperties.Text="{Binding LinkPendingText}">
                     <Label.GestureRecognizers>
                         <TapGestureRecognizer Command="{Binding CancelLinkCommand}" />
                     </Label.GestureRecognizers>
@@ -161,8 +166,11 @@
                                                     CommandParameter="{Binding .}" />
                                             </Border.GestureRecognizers>
                                             <HorizontalStackLayout Spacing="6">
-                                                <Label Text="{Binding Text}" FontSize="12" TextColor="{DynamicResource WarmDark}" />
-                                                <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}" />
+                                                <Label Text="{Binding Text}" FontSize="12" TextColor="{DynamicResource WarmDark}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding Text}" />
+                                                <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation" />
                                             </HorizontalStackLayout>
                                         </Border>
                                     </DataTemplate>
@@ -201,13 +209,17 @@
                             <controls:ViewSlider Minimum="1" Maximum="4" Value="{Binding MaxDepth, Mode=TwoWay}" />
 
                             <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}"
+                                   MaxLines="2" LineBreakMode="TailTruncation"
                                    FlowDirection="{Binding ParamSummary, Converter={StaticResource BidiFlow}}"
-                                   HorizontalTextAlignment="{Binding ParamSummary, Converter={StaticResource BidiAlign}}" />
+                                   HorizontalTextAlignment="{Binding ParamSummary, Converter={StaticResource BidiAlign}}"
+                                   ToolTipProperties.Text="{Binding ParamSummary}" />
                             <Border HeightRequest="1" BackgroundColor="{DynamicResource BorderLine}" Stroke="Transparent"
                                     StrokeThickness="0" Margin="0,2" />
                             <Label Text="现在顺着钉住的那个说法能想起：" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding RecallText}" Style="{StaticResource TxtBody}"
-                                   TextColor="{DynamicResource WarmBody}" />
+                                   TextColor="{DynamicResource WarmBody}"
+                                   MaxLines="3" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding RecallText}" />
                             <HorizontalStackLayout Spacing="6">
                                 <Button Text="存成 TA 的联想方式" Style="{StaticResource BtnPrimarySm}" Command="{Binding SaveParamsCommand}" />
                                 <Button Text="回到默认" Style="{StaticResource BtnGhostSm}" Command="{Binding ResetParamsCommand}" />
@@ -225,16 +237,23 @@
                             <Label Text="知识库管理员干的是这件事：词进去、一组数值出来，活得像同一类东西的说法数值就挨得近。它看得见从没同框出现过的近义 —— 共现统计和全文检索都到不了这一层。"
                                    Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding QuantSelected}" Style="{StaticResource TxtCaption}"
-                                   IsVisible="{Binding HasQuantSelected}" />
-                            <Label Text="{Binding QuantBackend}" Style="{StaticResource TxtCaption}" />
+                                   IsVisible="{Binding HasQuantSelected}"
+                                   MaxLines="2" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding QuantSelected}" />
+                            <Label Text="{Binding QuantBackend}" Style="{StaticResource TxtCaption}"
+                                   MaxLines="1" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding QuantBackend}" />
 
                             <VerticalStackLayout Spacing="3" BindableLayout.ItemsSource="{Binding QuantNear}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MemoryGraphViewModel+QuantRow">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
                                             <VerticalStackLayout Grid.Column="0" Spacing="0" VerticalOptions="Center">
-                                                <Label Text="{Binding Text}" FontSize="12" TextColor="{DynamicResource WarmDark}" />
-                                                <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}" />
+                                                <Label Text="{Binding Text}" FontSize="12" TextColor="{DynamicResource WarmDark}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding Text}" />
+                                                <Label Text="{Binding Meta}" FontSize="11" TextColor="{DynamicResource MutedFg}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation" />
                                             </VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="4">
                                                 <Button Text="跳过去" Style="{StaticResource BtnGhostSm}" Padding="8,2"
@@ -249,7 +268,9 @@
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
 
-                            <Label Text="{Binding QuantHint}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding QuantHint}" Style="{StaticResource TxtCaption}"
+                                   MaxLines="2" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding QuantHint}" />
                             <Button Text="整张网按数值再织一遍" Style="{StaticResource BtnPrimarySm}"
                                     Command="{Binding WeaveByNumbersCommand}" />
                             <Label Text="「牵上」= 把这一对按数值落一条线；「再织一遍」= 让模型把所有挨得近又没连上的对子都补一遍（贵，按一次就好）。"
@@ -276,15 +297,21 @@
                                 <Button Text="收起" Style="{StaticResource BtnGhostSm}" Command="{Binding ClearProposalsCommand}"
                                         IsVisible="{Binding HasProposals}" />
                             </HorizontalStackLayout>
-                            <Label Text="{Binding ThinkStatus}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding ThinkStatus}" Style="{StaticResource TxtCaption}"
+                                   MaxLines="2" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding ThinkStatus}" />
                             <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Proposals}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:MemoryGraphViewModel+ProposalRow">
                                         <Border Style="{StaticResource CardNeumorphInset}" Padding="10,8">
                                             <VerticalStackLayout Spacing="4">
                                                 <Label Text="{Binding Head}" FontSize="12" FontAttributes="Bold"
-                                                       TextColor="{DynamicResource WarmDark}" />
-                                                <Label Text="{Binding Reason}" Style="{StaticResource TxtCaption}" />
+                                                       TextColor="{DynamicResource WarmDark}"
+                                                       MaxLines="1" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding Head}" />
+                                                <Label Text="{Binding Reason}" Style="{StaticResource TxtCaption}"
+                                                       MaxLines="2" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding Reason}" />
                                                 <Label Text="{Binding ConfText}" Style="{StaticResource TxtCaption}" />
                                                 <HorizontalStackLayout Spacing="6">
                                                     <Button Text="采纳" Style="{StaticResource BtnNeumorphSm}"
@@ -294,7 +321,8 @@
                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=IgnoreCommand}"
                                                             CommandParameter="{Binding .}" />
                                                     <Label Text="{Binding Result}" VerticalTextAlignment="Center"
-                                                           FontSize="11" TextColor="{DynamicResource MutedFg}" />
+                                                           FontSize="11" TextColor="{DynamicResource MutedFg}"
+                                                           MaxLines="1" LineBreakMode="TailTruncation" />
                                                 </HorizontalStackLayout>
                                             </VerticalStackLayout>
                                         </Border>
@@ -326,12 +354,12 @@
             <ScrollView Orientation="Horizontal">
                 <HorizontalStackLayout Spacing="12">
                     <HorizontalStackLayout Spacing="4">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#E8B87A" Stroke="Transparent"
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{x:Static draw:GraphPalette.Person}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="人" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="4">
-                        <Border WidthRequest="13" HeightRequest="9" BackgroundColor="{DynamicResource SecondaryBg}" Stroke="#8A6A48"
+                        <Border WidthRequest="13" HeightRequest="9" BackgroundColor="{x:Static draw:GraphPalette.MemoryCard}" Stroke="{DynamicResource BorderLine}"
                                 StrokeThickness="1" StrokeShape="{RoundRectangle CornerRadius=2}" VerticalOptions="Center" />
                         <Label Text="记得的事" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
@@ -341,22 +369,22 @@
                         <Label Text="标签" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="4">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#AFCFEA" Stroke="Transparent"
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{x:Static draw:GraphPalette.Place}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="地点" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="4">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#EFB0AE" Stroke="Transparent"
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{x:Static draw:GraphPalette.Thing}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="东西" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="4">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="#F2C4D6" Stroke="Transparent"
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{x:Static draw:GraphPalette.Emotion}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="情绪" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="4">
-                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{DynamicResource AccentWarm}" Stroke="Transparent"
+                        <Border WidthRequest="11" HeightRequest="11" BackgroundColor="{x:Static draw:GraphPalette.Word}" Stroke="Transparent"
                                 StrokeThickness="0" StrokeShape="{RoundRectangle CornerRadius=6}" VerticalOptions="Center" />
                         <Label Text="词" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
@@ -381,7 +409,7 @@
                              VerticalOptions="Center" />
                     <Label Text="淡=快要想不起来了" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
 
-                    <Border WidthRequest="8" HeightRequest="8" BackgroundColor="#8FA8C8" Stroke="Transparent" StrokeThickness="0"
+                    <Border WidthRequest="8" HeightRequest="8" BackgroundColor="{x:Static draw:GraphPalette.AiMark}" Stroke="Transparent" StrokeThickness="0"
                             StrokeShape="{RoundRectangle CornerRadius=4}" VerticalOptions="Center" />
                     <Label Text="这个点是 AI 整理出来的" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
                 </HorizontalStackLayout>

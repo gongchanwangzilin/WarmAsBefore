@@ -97,7 +97,9 @@
                                                     </VerticalStackLayout>
                                                     <Border Grid.Column="1" Style="{StaticResource Chip}"
                                                             VerticalOptions="Center" Padding="10,4">
-                                                        <Label Text="{Binding SourceLabel}" Style="{StaticResource TxtCaption}" />
+                                                        <Label Text="{Binding SourceLabel}" Style="{StaticResource TxtCaption}"
+                                                               MaxLines="1" LineBreakMode="TailTruncation"
+                                                               ToolTipProperties.Text="{Binding SourceLabel}" />
                                                     </Border>
                                                 </Grid>
                                                 <Border.Triggers>

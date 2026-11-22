@@ -54,7 +54,9 @@
                             <VerticalStackLayout Grid.Column="1" Spacing="2">
                                 <Label Text="{Binding ModuleTitle}" Style="{StaticResource TxtSubhead}"
                                        MaxLines="2" />
-                                <Label Text="{Binding SystemName}" Style="{StaticResource TxtCaption}" />
+                                <Label Text="{Binding SystemName}" Style="{StaticResource TxtCaption}"
+                                       MaxLines="1" LineBreakMode="TailTruncation"
+                                       ToolTipProperties.Text="{Binding SystemName}" />
                             </VerticalStackLayout>
                         </Grid>
                         <Label Text="{Binding LampText}" Style="{StaticResource TxtCaption}" />
@@ -63,7 +65,9 @@
                                FlowDirection="{Binding Summary, Converter={StaticResource BidiFlow}}"
                                HorizontalTextAlignment="{Binding Summary, Converter={StaticResource BidiAlign}}" />
                         <BoxView Style="{StaticResource HSep}" />
-                        <Label Text="{Binding LocationText}" Style="{StaticResource TxtCaption}" />
+                        <Label Text="{Binding LocationText}" Style="{StaticResource TxtCaption}"
+                               MaxLines="1" LineBreakMode="TailTruncation"
+                               ToolTipProperties.Text="{Binding LocationText}" />
                     </VerticalStackLayout>
                 </Border>
 
