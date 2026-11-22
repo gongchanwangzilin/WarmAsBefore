@@ -183,7 +183,7 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
             {
                 Name = s.Name,
                 Describe = s.Describe,
-                CountText = $"{s.Count} {s.Unit}",
+                CountText = Helpers.CountText.FormatWithUnit(s.Count, s.Unit),
                 Detail = s.Detail
             }));
             HasLayerStats = LayerStats.Count > 0;
@@ -237,7 +237,7 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
         HasAffection = AffectionItems.Count > 0;
         HasMoreAffection = AffectionItems.Count < _affectionAll.Count;
         AffectionNote = HasMoreAffection
-            ? $"共 {_affectionAll.Count} 条，这里只列最新的 {AffectionItems.Count} 条"
+            ? $"共 {Helpers.CountText.FormatWithUnit(_affectionAll.Count, "条")}，这里只列最新的 {Helpers.CountText.FormatWithUnit(AffectionItems.Count, "条")}"
             : "";
     }
 
@@ -246,7 +246,7 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
         HasMemory = MemoryItems.Count > 0;
         HasMoreMemory = MemoryItems.Count < _memoryAll.Count;
         MemoryNote = HasMoreMemory
-            ? $"共 {_memoryAll.Count} 条，这里只列前 {MemoryItems.Count} 条"
+            ? $"共 {Helpers.CountText.FormatWithUnit(_memoryAll.Count, "条")}，这里只列前 {Helpers.CountText.FormatWithUnit(MemoryItems.Count, "条")}"
             : "";
     }
 
@@ -255,7 +255,7 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
         HasDiary = DiaryItems.Count > 0;
         HasMoreDiary = DiaryItems.Count < _diaryAll.Count;
         DiaryNote = HasMoreDiary
-            ? $"共 {_diaryAll.Count} 篇，这里只列最近 {DiaryItems.Count} 篇"
+            ? $"共 {Helpers.CountText.FormatWithUnit(_diaryAll.Count, "篇")}，这里只列最近 {Helpers.CountText.FormatWithUnit(DiaryItems.Count, "篇")}"
             : "";
     }
 
@@ -319,7 +319,7 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
                 _ => "事件"
             },
             Time = e.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm"),
-            RecallText = e.RecallCount > 0 ? $" · 被想起 {e.RecallCount} 次" : "",
+            RecallText = e.RecallCount > 0 ? $" · 被想起 {Helpers.CountText.FormatWithUnit(e.RecallCount, "次")}" : "",
             TagText = e.Tags.Count == 0 ? "" : "#" + string.Join(" #", e.Tags),
             Image = img
         };

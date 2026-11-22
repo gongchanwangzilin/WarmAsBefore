@@ -83,7 +83,9 @@
                         </HorizontalStackLayout>
                         <Label Text="{Binding AmbientDetail}" Style="{StaticResource TxtCaption}"
                                MaxLines="2" LineBreakMode="TailTruncation"
-                               HorizontalTextAlignment="End" MaximumWidthRequest="330" />
+                               FlowDirection="{Binding AmbientDetail, Converter={StaticResource BidiFlow}}"
+                               HorizontalTextAlignment="{Binding AmbientDetail, Converter={StaticResource BidiAlign}}"
+                               MaximumWidthRequest="330" />
                     </VerticalStackLayout>
                 </Grid>
 
@@ -111,7 +113,9 @@
                             <!-- 副标题就是状态：有点时是「量化模型算出的 N 条…」，没点时是原因，
                                  不再写一句永远成立不了的承诺。 -->
                             <Label Text="{Binding VectorNote}"
-                                   Style="{StaticResource TxtCaption}" MaxLines="3" />
+                                   Style="{StaticResource TxtCaption}" MaxLines="3" LineBreakMode="WordWrap"
+                                   FlowDirection="{Binding VectorNote, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding VectorNote, Converter={StaticResource BidiAlign}}" />
                         </VerticalStackLayout>
                         <Label Grid.Row="0" Grid.Column="1" Text="坐标 · 词语" Style="{StaticResource TxtCaption}"
                                VerticalOptions="End" HorizontalOptions="End" />
@@ -137,9 +141,13 @@
 
                 <VerticalStackLayout Grid.Row="3" Spacing="2">
                     <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2"
-                           LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding StatusText}" />
+                           LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding StatusText}"
+                           FlowDirection="{Binding StatusText, Converter={StaticResource BidiFlow}}"
+                           HorizontalTextAlignment="{Binding StatusText, Converter={StaticResource BidiAlign}}" />
                     <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
                            LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding InfluenceNote}"
+                           FlowDirection="{Binding InfluenceNote, Converter={StaticResource BidiFlow}}"
+                           HorizontalTextAlignment="{Binding InfluenceNote, Converter={StaticResource BidiAlign}}"
                            IsVisible="{Binding HasSelection}" />
                 </VerticalStackLayout>
             </Grid>
@@ -169,8 +177,11 @@
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+DetailLine">
                                         <VerticalStackLayout Spacing="1">
                                             <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding Value}" Style="{StaticResource TxtBodySm}"
-                                                   LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding Value, Converter={StaticResource SoftWrap}}"
+                                                   Style="{StaticResource TxtBodySm}"
+                                                   LineBreakMode="WordWrap"
+                                                   FlowDirection="{Binding Value, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding Value, Converter={StaticResource BidiAlign}}" />
                                         </VerticalStackLayout>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
@@ -262,7 +273,9 @@
                                                    LineBreakMode="TailTruncation" />
                                             <Label Grid.Column="1" Text="{Binding Count}"
                                                    Style="{StaticResource TxtRowDesc}" VerticalOptions="Center"
-                                                   MaxLines="1" LineBreakMode="TailTruncation" />
+                                                   MaxLines="1" LineBreakMode="TailTruncation"
+                                                   FlowDirection="{Binding Count, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding Count, Converter={StaticResource BidiAlign}}" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>

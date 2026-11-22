@@ -293,7 +293,9 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
             }
 
             await RelayoutAsync(replay: true);
-            Status = $"{NodeCount} 个概念 · {EdgeCount} 条联系 · {_nets.Count} 片";
+            Status = $"{Helpers.CountText.FormatWithUnit(NodeCount, "个概念")} · "
+                    + $"{Helpers.CountText.FormatWithUnit(EdgeCount, "条联系")} · "
+                    + $"{Helpers.CountText.Format(_nets.Count)} 片";
             await RefreshJsonAsync();
             await PreviewRecallAsync();
         }
@@ -450,8 +452,8 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
             Drawable.Grown = skip;
             Drawable.ElapsedMs = skip ? _totalGrowMs : 0;
             GrowthHint = skip
-                ? $"已直接展开 · {nodes.Count} 个概念"
-                : $"正在长出 {chips.Count} 片 · 每片 {depth} 圈";
+                ? $"已直接展开 · {Helpers.CountText.FormatWithUnit(nodes.Count, "个概念")}"
+                : $"正在长出 {Helpers.CountText.Format(chips.Count)} 片 · 每片 {depth} 圈";
             // 跳过展开时连时钟都不开：静态出一张完整的网，也不必为呼吸效果空转。
             if (skip) StopClockCore(); else ResumeClock();
         }
@@ -561,7 +563,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         {
             Drawable.Grown = true;
             _clock?.Interval = TimeSpan.FromMilliseconds(120);   // 长完只留极轻的摆动，别一直全速刷
-            GrowthHint = $"长好了 · {NodeCount} 个概念";
+            GrowthHint = $"长好了 · {Helpers.CountText.FormatWithUnit(NodeCount, "个概念")}";
             _lastHintPct = -1;
         }
         else if (!Drawable.Grown && _totalGrowMs > 1)
@@ -695,7 +697,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         SelectedKind = Relations.NodeText(n.Kind);
         var degree = _graph.Edges.Count(e => e.From == n.Id || e.To == n.Id);
         var netName = _nets.FirstOrDefault(x => x.Id == n.NetId)?.Name;
-        SelectedMeta = $"{degree} 条联系 · {SourceText(n.Source)}" +
+        SelectedMeta = $"{Helpers.CountText.FormatWithUnit(degree, "条联系")} · {SourceText(n.Source)}" +
                        (string.IsNullOrWhiteSpace(netName) ? "" : $" · 「{netName}」这一片") +
                        (n.Depth > 0 ? $" · 离片心 {n.Depth} 跳" : " · 这片的地标");
         SelectedDetail = n.Kind == NodeKind.Memory ? MemoryTextFor(n.Ref) :
@@ -1592,7 +1594,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         public string Text => Term;
 
         /// <summary>选中一条记忆时问的其实是句里取出的词 —— 不写出来，人不知道这个近邻是从哪儿冒出来的。</summary>
-        public string Meta => $"像 {Cosine:P0} · {Turns} 轮" +
+        public string Meta => $"像 {Cosine:P0} · {Helpers.CountText.FormatWithUnit(Turns, "轮")}" +
                               (string.IsNullOrWhiteSpace(Via) ? "" : $" · 由「{Via}」算出");
     }
 
@@ -1608,10 +1610,10 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         /// </summary>
         private static string Fit(string name) => name.Length <= 10 ? name : name[..10] + "…";
 
-        public string Text => $"{Fit(Name)} {Count}";
+        public string Text => $"{Fit(Name)} {Helpers.CountText.Format(Count)}";
 
         /// <summary>完整片名：胶囊上放不下，鼠标停在上面时给全。</summary>
-        public string FullText => $"{Name} {Count}";
+        public string FullText => $"{Name} {Helpers.CountText.Format(Count)}";
 
         // 按下去的那枚是「强调面」，配给它的那份墨（AccentWarmFg）才是有保证的一对：
         // 世界把这一对锁在 5:1 以上，浅档往黑沉、深档往白提，方向不会写反。

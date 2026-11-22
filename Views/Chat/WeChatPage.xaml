@@ -128,9 +128,15 @@
                                 <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                                     <Label Text="{Binding Name}" TextColor="{StaticResource WcInk}"
                                            FontSize="14" LineBreakMode="TailTruncation" MaxLines="1"
+                                           FlowDirection="{Binding Name, Converter={StaticResource BidiFlow}}"
+                                           HorizontalTextAlignment="{Binding Name, Converter={StaticResource BidiAlign}}"
                                            ToolTipProperties.Text="{Binding Name}" />
-                                    <Label Text="{Binding LastMessage}" TextColor="{StaticResource WcSub}"
-                                           FontSize="12" LineBreakMode="TailTruncation" MaxLines="1" />
+                                    <!-- 摘要里可能是没空格的邮箱 / 路径：软换行只为显示补断点，搜索仍用原文 -->
+                                    <Label Text="{Binding LastMessage, Converter={StaticResource SoftWrap}}"
+                                           TextColor="{StaticResource WcSub}"
+                                           FontSize="12" LineBreakMode="TailTruncation" MaxLines="1"
+                                           FlowDirection="{Binding LastMessage, Converter={StaticResource BidiFlow}}"
+                                           HorizontalTextAlignment="{Binding LastMessage, Converter={StaticResource BidiAlign}}" />
                                 </VerticalStackLayout>
                                 <Grid Grid.Column="2" RowDefinitions="Auto,Auto" RowSpacing="4"
                                       VerticalOptions="Center" HorizontalOptions="End">
@@ -179,6 +185,8 @@
                 <Label Grid.Row="0" Grid.Column="2" Text="{Binding PartnerName}"
                        TextColor="{StaticResource WcInk}" FontSize="15" FontAttributes="Bold"
                        LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="End"
+                       FlowDirection="{Binding PartnerName, Converter={StaticResource BidiFlow}}"
+                       HorizontalTextAlignment="{Binding PartnerName, Converter={StaticResource BidiAlign}}"
                        ToolTipProperties.Text="{Binding PartnerName}" />
                 <Label Grid.Row="1" Grid.Column="2" Text="{Binding ModeLabel}"
                        TextColor="{StaticResource WcSub}" FontSize="11"
@@ -232,8 +240,11 @@
                                 HorizontalOptions="End" MaximumWidthRequest="300">
                             <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                             <Grid>
-                                <Label Text="{Binding BubbleText}" TextColor="{StaticResource WcMineInk}"
-                                       FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
+                                <Label Text="{Binding BubbleText, Converter={StaticResource SoftWrap}}"
+                                       TextColor="{StaticResource WcMineInk}"
+                                       FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}"
+                                       FlowDirection="{Binding BubbleText, Converter={StaticResource BidiFlow}}"
+                                       HorizontalTextAlignment="{Binding BubbleText, Converter={StaticResource BidiAlign}}" />
                                 <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                        WidthRequest="150" HeightRequest="150"
                                        IsVisible="{Binding HasImage}" />
@@ -266,8 +277,11 @@
                                     HorizontalOptions="Start" MaximumWidthRequest="300">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                 <Grid>
-                                    <Label Text="{Binding BubbleText}" TextColor="{StaticResource WcTheirsInk}"
-                                           FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
+                                    <Label Text="{Binding BubbleText, Converter={StaticResource SoftWrap}}"
+                                           TextColor="{StaticResource WcTheirsInk}"
+                                           FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}"
+                                           FlowDirection="{Binding BubbleText, Converter={StaticResource BidiFlow}}"
+                                           HorizontalTextAlignment="{Binding BubbleText, Converter={StaticResource BidiAlign}}" />
                                     <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                            WidthRequest="150" HeightRequest="150"
                                            IsVisible="{Binding HasImage}" />
@@ -307,7 +321,8 @@
                                     <Label Text="{Binding ToolExpanded, Converter={StaticResource BoolToAsterisk}}"
                                            TextColor="{StaticResource WcAccent}" FontSize="11" VerticalOptions="Center" />
                                 </HorizontalStackLayout>
-                                <Label Text="{Binding ToolDetails}" TextColor="{StaticResource WcTheirsInk}"
+                                <Label Text="{Binding ToolDetails, Converter={StaticResource SoftWrap}}"
+                                       TextColor="{StaticResource WcTheirsInk}"
                                        FontSize="11" LineBreakMode="WordWrap" IsVisible="{Binding IsToolDetailVisible}" />
                                 <HorizontalStackLayout.GestureRecognizers>
                                     <TapGestureRecognizer
@@ -396,6 +411,8 @@
                     <Border Grid.Column="2" BackgroundColor="{StaticResource WcInputBg}" StrokeThickness="0" Padding="12,4">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Editor x:Name="TextEditor" Placeholder="输入…" Text="{Binding InputText}"
+                                FlowDirection="{Binding InputText, Converter={StaticResource BidiFlow}}"
+                                HorizontalTextAlignment="{Binding InputText, Converter={StaticResource BidiAlign}}"
                                 BackgroundColor="Transparent"
                                 TextColor="{StaticResource WcInk}"
                                 PlaceholderColor="{StaticResource WcFaint}"

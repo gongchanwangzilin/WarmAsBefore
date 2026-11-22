@@ -231,7 +231,7 @@
                                             <VerticalStackLayout Spacing="4">
                                                 <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}" />
                                                 <Label Text="{Binding Text}" Style="{StaticResource TxtBody}"
-                                                       LineBreakMode="WordWrap" />
+                                                       LineBreakMode="WordWrap" FlowDirection="{Binding Text, Converter={StaticResource BidiFlow}}" HorizontalTextAlignment="{Binding Text, Converter={StaticResource BidiAlign}}" />
                                                 <Label Text="{Binding TagText}" Style="{StaticResource TxtRowDesc}"
                                                        MaxLines="2" LineBreakMode="TailTruncation"
                                                        ToolTipProperties.Text="{Binding TagText}"
@@ -364,7 +364,7 @@
                                                     <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}"
                                                            MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Content}" Style="{StaticResource TxtBody}"
-                                                           LineBreakMode="WordWrap" />
+                                                           LineBreakMode="WordWrap" FlowDirection="{Binding Content, Converter={StaticResource BidiFlow}}" HorizontalTextAlignment="{Binding Content, Converter={StaticResource BidiAlign}}" />
                                                 </VerticalStackLayout>
                                             </Grid>
                                         </Border>

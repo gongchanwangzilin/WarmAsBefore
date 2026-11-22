@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Graphics;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
@@ -133,7 +134,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
                 events.Select(e => new TimelineEvent(TimeText(e.At), e.Title, e.Text)));
             HasTimeline = Timeline.Count > 0;
             SetLamp(report.Tone);
-            StatusText = $"读数 {Readings.Count} 行 · 变化 {Timeline.Count} 条 · 取数于 "
+            StatusText = $"读数 {CountText.Format(Readings.Count)} 行 · 变化 {CountText.FormatWithUnit(Timeline.Count, "条")} · 取数于 "
                 + DateTime.Now.ToString("HH:mm:ss", CultureInfo.InvariantCulture);
         }
         catch (Exception ex)
@@ -413,7 +414,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
             case "emo.coupling":
                 rows.Add(new InspectorRow("多巴胺", Num(chem?.Dopamine)));
                 rows.Add(new InspectorRow("血清素", Num(chem?.Serotonin)));
-                rows.Add(new InspectorRow("带情绪配比的记忆", recent.Count == 0 ? NoReading : $"{recent.Count} 条最近回想"));
+                rows.Add(new InspectorRow("带情绪配比的记忆", recent.Count == 0 ? NoReading : CountText.FormatWithUnit(recent.Count, "条最近回想")));
                 foreach (var m in recent)
                     rows.Add(new InspectorRow($"回想 {Clock(m.CreatedAt)}", m.Emotion?.Text ?? NoReading));
                 rows.Add(new InspectorRow("耦合方式", "回想时的情绪偏置 moodBias 会按配比改写记忆检索的权重"));
@@ -480,53 +481,53 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
         {
             case "mem.shallow":
                 rows.Add(new InspectorRow("数据来源", "HumanMemoryService 记忆库"));
-                rows.Add(new InspectorRow("在场记忆", all.Count == 0 ? NoReading : $"{live.Count} 条"));
-                rows.Add(new InspectorRow("核心记忆", core.Count == 0 ? NoReading : $"{core.Count} 条"));
+                rows.Add(new InspectorRow("在场记忆", all.Count == 0 ? NoReading : CountText.FormatWithUnit(live.Count, "条")));
+                rows.Add(new InspectorRow("核心记忆", core.Count == 0 ? NoReading : CountText.FormatWithUnit(core.Count, "条")));
                 rows.Add(new InspectorRow("最近写入", latest is null ? NoReading : $"{MemoryLabel(latest)} · {Clock(latest.CreatedAt)}"));
                 rows.Add(new InspectorRow("最近回想", lastRecalled is null ? NoReading : $"{MemoryLabel(lastRecalled)} · {Clock(lastRecalled.LastRecalledAt)}"));
                 break;
 
             case "mem.deepen":
-                rows.Add(new InspectorRow("核心记忆", core.Count == 0 ? NoReading : $"{core.Count} 条"));
+                rows.Add(new InspectorRow("核心记忆", core.Count == 0 ? NoReading : CountText.FormatWithUnit(core.Count, "条")));
                 rows.Add(new InspectorRow("平均重要性", all.Count == 0 ? NoReading : F(all.Average(m => m.Importance))));
                 rows.Add(new InspectorRow("平均回想次数", all.Count == 0 ? NoReading : F(all.Average(m => (double)m.RecallCount))));
                 rows.Add(new InspectorRow("深化依据", "重要性 × 回想次数 × 唤醒度 × 时间衰减共同决定下不下去"));
                 break;
 
             case "mem.deep":
-                rows.Add(new InspectorRow("深层记忆", all.Count == 0 ? NoReading : $"{live.Count} 条"));
-                rows.Add(new InspectorRow("情景", all.Count == 0 ? NoReading : $"{episodic.Count} 条"));
-                rows.Add(new InspectorRow("语义", all.Count == 0 ? NoReading : $"{abstracted.Count} 条"));
-                rows.Add(new InspectorRow("核心 / 创伤", all.Count == 0 ? NoReading : $"{core.Count} / {traumatic.Count} 条"));
+                rows.Add(new InspectorRow("深层记忆", all.Count == 0 ? NoReading : CountText.FormatWithUnit(live.Count, "条")));
+                rows.Add(new InspectorRow("情景", all.Count == 0 ? NoReading : CountText.FormatWithUnit(episodic.Count, "条")));
+                rows.Add(new InspectorRow("语义", all.Count == 0 ? NoReading : CountText.FormatWithUnit(abstracted.Count, "条")));
+                rows.Add(new InspectorRow("核心 / 创伤", all.Count == 0 ? NoReading : $"{CountText.Format(core.Count)} / {CountText.FormatWithUnit(traumatic.Count, "条")}"));
                 break;
 
             case "mem.episodic":
-                rows.Add(new InspectorRow("情景记忆", all.Count == 0 ? NoReading : $"{episodic.Count} 条"));
+                rows.Add(new InspectorRow("情景记忆", all.Count == 0 ? NoReading : CountText.FormatWithUnit(episodic.Count, "条")));
                 foreach (var m in episodic.OrderByDescending(m => m.CreatedAt).Take(4))
                     rows.Add(new InspectorRow(Clock(m.CreatedAt), TextOf(m)));
                 break;
 
             case "mem.semanticM":
-                rows.Add(new InspectorRow("语义记忆", all.Count == 0 ? NoReading : $"{abstracted.Count} 条"));
+                rows.Add(new InspectorRow("语义记忆", all.Count == 0 ? NoReading : CountText.FormatWithUnit(abstracted.Count, "条")));
                 foreach (var m in abstracted.OrderByDescending(m => m.CreatedAt).Take(4))
                     rows.Add(new InspectorRow(Clock(m.CreatedAt), TextOf(m)));
                 break;
 
             case "mem.procedural":
                 rows.Add(new InspectorRow("程序记忆", NoReading));
-                rows.Add(new InspectorRow("可用的抽象印象", all.Count == 0 ? NoReading : $"{abstracted.Count} 条"));
+                rows.Add(new InspectorRow("可用的抽象印象", all.Count == 0 ? NoReading : CountText.FormatWithUnit(abstracted.Count, "条")));
                 rows.Add(new InspectorRow("机制", "程序记忆是习惯化的应对套路，由深层记忆塑造；它现在没有独立的数值化服务"));
                 break;
 
             case "mem.retrieval":
-                rows.Add(new InspectorRow("可回想的核心记忆", core.Count == 0 ? NoReading : $"{core.Count} 条"));
+                rows.Add(new InspectorRow("可回想的核心记忆", core.Count == 0 ? NoReading : CountText.FormatWithUnit(core.Count, "条")));
                 rows.Add(new InspectorRow("情绪偏置 moodBias", Num(moodBias)));
                 rows.Add(new InspectorRow("最近回想", lastRecalled is null ? NoReading : $"{MemoryLabel(lastRecalled)} · {Clock(lastRecalled.LastRecalledAt)}"));
                 rows.Add(new InspectorRow("检索方式", "按窗口 / 线索打分：重要性 × 时间衰减 × 复述次数 × 随机扰动，再乘情绪偏置"));
                 break;
 
             case "mem.rumination":
-                rows.Add(new InspectorRow("创伤记忆", all.Count == 0 ? NoReading : $"{traumatic.Count} 条"));
+                rows.Add(new InspectorRow("创伤记忆", all.Count == 0 ? NoReading : CountText.FormatWithUnit(traumatic.Count, "条")));
                 rows.Add(new InspectorRow("反刍链读数", NoReading));
                 rows.Add(new InspectorRow("最近回想", lastRecalled is null ? NoReading : $"{MemoryLabel(lastRecalled)} · {Clock(lastRecalled.LastRecalledAt)}"));
                 rows.Add(new InspectorRow("机制", "负面回忆顺着关联词串开，越串越重；这条链只有「被走了几次」，没有独立数值"));
@@ -574,7 +575,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
         switch (id)
         {
             case "path.state":
-                rows.Add(new InspectorRow("携带状况", states.Count == 0 ? "未携带任何目录条目" : $"{states.Count} 条"));
+                rows.Add(new InspectorRow("携带状况", states.Count == 0 ? "未携带任何目录条目" : CountText.FormatWithUnit(states.Count, "条")));
                 foreach (var st in states.Take(6))
                     rows.Add(new InspectorRow(ConditionName(health, st.Id),
                         $"{MentalHealthService.SeverityName(st.Severity)} · 稳定度 {F(st.Stability)}"));
@@ -606,7 +607,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
                     rows.Add(Row("行为倾向", cond?.Behavior));
                     rows.Add(Row("备注", hit.Select(s => s.Note).FirstOrDefault(n => !string.IsNullOrWhiteSpace(n))));
                     if (string.Equals(id, "path.ptsd", StringComparison.Ordinal))
-                        rows.Add(new InspectorRow("创伤记忆", core.Count == 0 ? NoReading : $"{trauma.Count} 条"));
+                        rows.Add(new InspectorRow("创伤记忆", core.Count == 0 ? NoReading : CountText.FormatWithUnit(trauma.Count, "条")));
 
                     tone = hit.Any(IsUnstable) ? Tone.Fault
                         : (hit.Count > 0 || (id == "path.ptsd" && trauma.Count > 0) ? Tone.Lit : Tone.Dim);
@@ -623,11 +624,11 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
                             || s.Id.Contains("ptsd", StringComparison.OrdinalIgnoreCase)
                             || s.Id.Contains("trauma", StringComparison.OrdinalIgnoreCase));
                     }).ToList();
-                    rows.Add(new InspectorRow("创伤类状况", traumaStates.Count == 0 ? "无" : $"{traumaStates.Count} 条"));
+                    rows.Add(new InspectorRow("创伤类状况", traumaStates.Count == 0 ? "无" : CountText.FormatWithUnit(traumaStates.Count, "条")));
                     foreach (var st in traumaStates.Take(4))
                         rows.Add(new InspectorRow(ConditionName(health, st.Id),
                             $"{MentalHealthService.SeverityName(st.Severity)} · 稳定度 {F(st.Stability)}"));
-                    rows.Add(new InspectorRow("核心创伤记忆", core.Count == 0 ? NoReading : $"{trauma.Count} 条"));
+                    rows.Add(new InspectorRow("核心创伤记忆", core.Count == 0 ? NoReading : CountText.FormatWithUnit(trauma.Count, "条")));
                     rows.Add(new InspectorRow("最深的阶段", trauma.Count == 0 ? NoReading
                         : HumanMemoryMath.TraumaStageName(trauma.Min(m => m.TraumaStage))));
                     foreach (var m in trauma.OrderByDescending(m => m.EmotionalIntensity).Take(3))
@@ -647,7 +648,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
                     var intrusive = states
                         .Where(s => s.Id.Contains("intrusive", StringComparison.OrdinalIgnoreCase))
                         .ToList();
-                    rows.Add(new InspectorRow("侵入性思维", intrusive.Count == 0 ? "当前无侵入性思维类状况" : $"{intrusive.Count} 条"));
+                    rows.Add(new InspectorRow("侵入性思维", intrusive.Count == 0 ? "当前无侵入性思维类状况" : CountText.FormatWithUnit(intrusive.Count, "条")));
                     foreach (var st in intrusive)
                     {
                         var c = health?.Find(st.Id);
@@ -662,8 +663,8 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
 
             case "mind.persona":
                 rows.Add(new InspectorRow("人格读数", NoReading));
-                rows.Add(new InspectorRow("人格锚点（核心记忆）", core.Count == 0 ? NoReading : $"{core.Count} 条"));
-                rows.Add(new InspectorRow("携带状况", states.Count == 0 ? "无" : $"{states.Count} 条"));
+                rows.Add(new InspectorRow("人格锚点（核心记忆）", core.Count == 0 ? NoReading : CountText.FormatWithUnit(core.Count, "条")));
+                rows.Add(new InspectorRow("携带状况", states.Count == 0 ? "无" : CountText.FormatWithUnit(states.Count, "条")));
                 rows.Add(new InspectorRow("说明", "核心记忆与情绪基调共同设这个人格；它自己没有单独的数值"));
                 tone = states.Count > 0 || core.Count > 0 ? Tone.Lit : Tone.Dim;
                 break;
@@ -672,7 +673,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
                 {
                     var abstracted = core.Count(m => m.Kind == HumanMemoryKind.Abstraction);
                     rows.Add(new InspectorRow("行为模式读数", NoReading));
-                    rows.Add(new InspectorRow("抽象印象", core.Count == 0 ? NoReading : $"{abstracted} 条"));
+                    rows.Add(new InspectorRow("抽象印象", core.Count == 0 ? NoReading : CountText.FormatWithUnit(abstracted, "条")));
                     rows.Add(new InspectorRow("机制", "程序记忆：由深层记忆塑造的习惯化应对套路（对应图上 mem.procedural）"));
                     rows.Add(new InspectorRow("建模状态", "没有专门的数值化服务，这一页不显示推测数值"));
                     tone = core.Count > 0 ? Tone.Lit : Tone.Dim;
@@ -681,7 +682,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
 
             case "mind.summary":
                 rows.Add(new InspectorRow("总结评估读数", NoReading));
-                rows.Add(new InspectorRow("携带状况", states.Count == 0 ? "无" : $"{states.Count} 条"));
+                rows.Add(new InspectorRow("携带状况", states.Count == 0 ? "无" : CountText.FormatWithUnit(states.Count, "条")));
                 rows.Add(new InspectorRow("说明", "总结评估是对当前情境的认知评价，每次回复都会重算，不落盘成单独数值"));
                 tone = FlowTracer.IsLit(id) ? Tone.Lit : Tone.Dim;
                 break;
@@ -724,11 +725,11 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
 
         var rows = new List<InspectorRow>
         {
-            new("器官读数覆盖", organs.Count == 0 ? NoReading : $"{organs.Count} 个器官"),
+            new("器官读数覆盖", organs.Count == 0 ? NoReading : CountText.FormatWithUnit(organs.Count, "个器官")),
             new("点亮的器官", lit.Count == 0 ? "全部平静" : string.Join("、", lit.Select(o => o.Name))),
             new("读数最高的一处", hottest is null ? NoReading : $"{hottest.Name} {F(hottest.Value)} · {hottest.StatusText}"),
             new("当前症状", symptoms.Count == 0 ? "无明显症状" : string.Join("、", symptoms)),
-            new("连锁规则", influences.Count == 0 ? NoReading : $"{influences.Count} 条"),
+            new("连锁规则", influences.Count == 0 ? NoReading : CountText.FormatWithUnit(influences.Count, "条")),
             new("更新于", Clock(organs.Count == 0 ? null : organs.Max(o => o.UpdatedAt)))
         };
 
@@ -840,7 +841,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
             new("执行状态", lit ? "✓ 正在流经" : "○ 静默"),
             new("余辉", lit ? F(glow) : "0.00"),
             new("本节点读数", NoReading),
-            new("写入的记忆", total is null ? NoReading : $"{total} 条"),
+            new("写入的记忆", total is null ? NoReading : CountText.FormatWithUnit(total.Value, "条")),
             new("最近写入", latest is null ? NoReading : $"{Clock(latest.CreatedAt)} · {TextOf(latest)}")
         };
 

@@ -1274,7 +1274,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         else if (id.StartsWith("in.", StringComparison.Ordinal) || id.StartsWith("plan", StringComparison.Ordinal))
         {
-            result.Add(new DetailLine("今日日程", $"{_timelineAll.Count} 项"));
+            result.Add(new DetailLine("今日日程", Helpers.CountText.FormatWithUnit(_timelineAll.Count, "项")));
             foreach (var t in Timeline.Take(3))
                 result.Add(new DetailLine($"{t.Time} {t.Title}", t.Detail));
         }
