@@ -456,8 +456,14 @@ public sealed class ArchitectureFlowDrawable : IDrawable
 
         var (p0, c1, c2, p3) = CurveOf(a, b, e);
 
+        // 这一轮计算真的流过这条链路时，线本身也亮起来：只亮节点看不出「从哪儿流到哪儿」。
+        var linkGlow = Math.Max(GlowProvider?.Invoke(e.From) ?? 0f, GlowProvider?.Invoke(e.To) ?? 0f);
+        if (!severed && linkGlow > 0.05f)
+            color = color.WithAlpha(Math.Min(1f, color.Alpha + 0.45f * linkGlow));
+
         canvas.StrokeColor = color;
-        canvas.StrokeSize = severed ? 1.6f : e.Kind is LinkKind.Bidirectional or LinkKind.Control ? 1.5f : 1.2f;
+        canvas.StrokeSize = (severed ? 1.6f : e.Kind is LinkKind.Bidirectional or LinkKind.Control ? 1.5f : 1.2f)
+            + (severed ? 0f : 0.7f * linkGlow);
         canvas.StrokeDashPattern = severed || e.Kind is LinkKind.Feedback or LinkKind.Control
             ? new[] { 5f, 4f }
             : null;
