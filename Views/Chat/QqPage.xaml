@@ -75,9 +75,15 @@
                                         </Grid>
                                         <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="3">
                                             <Label Text="{Binding Name}" TextColor="{StaticResource QqInk}"
-                                                   FontSize="17" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding LastMessage}" TextColor="{StaticResource QqSub}"
-                                                   FontSize="13" LineBreakMode="TailTruncation" MaxLines="1" />
+                                                   FontSize="17" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation"
+                                                   FlowDirection="{Binding Name, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding Name, Converter={StaticResource BidiAlign}}" />
+                                            <!-- 摘要里可能是没空格的邮箱 / 路径：软换行只为显示补断点，搜索仍用原文 -->
+                                            <Label Text="{Binding LastMessage, Converter={StaticResource SoftWrap}}"
+                                                   TextColor="{StaticResource QqSub}"
+                                                   FontSize="13" LineBreakMode="TailTruncation" MaxLines="1"
+                                                   FlowDirection="{Binding LastMessage, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding LastMessage, Converter={StaticResource BidiAlign}}" />
                                         </VerticalStackLayout>
                                         <BoxView Grid.Column="2" IsVisible="{Binding Unread}"
                                                  Color="{StaticResource QqBadge}"
@@ -119,7 +125,9 @@
                 </Grid>
                 <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" Spacing="1">
                     <Label Text="{Binding PartnerName}" TextColor="{StaticResource QqInk}"
-                           FontSize="16" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
+                           FontSize="16" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation"
+                           FlowDirection="{Binding PartnerName, Converter={StaticResource BidiFlow}}"
+                           HorizontalTextAlignment="{Binding PartnerName, Converter={StaticResource BidiAlign}}" />
                     <Label Text="{Binding ModeLabel}" TextColor="{StaticResource QqSub}" FontSize="11" />
                 </VerticalStackLayout>
                 <Border Grid.Column="3" BackgroundColor="{StaticResource QqAccentSoft}"
@@ -150,8 +158,11 @@
                                 HorizontalOptions="End" MaximumWidthRequest="300">
                             <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                             <Grid>
-                                <Label Text="{Binding DisplayText}" TextColor="{StaticResource QqMineInk}"
-                                       FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
+                                <Label Text="{Binding DisplayText, Converter={StaticResource SoftWrap}}"
+                                       TextColor="{StaticResource QqMineInk}"
+                                       FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}"
+                                       FlowDirection="{Binding DisplayText, Converter={StaticResource BidiFlow}}"
+                                       HorizontalTextAlignment="{Binding DisplayText, Converter={StaticResource BidiAlign}}" />
                                 <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                        WidthRequest="150" HeightRequest="150"
                                        IsVisible="{Binding HasImage}" />
@@ -184,8 +195,11 @@
                                     HorizontalOptions="Start" MaximumWidthRequest="300">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                 <Grid>
-                                    <Label Text="{Binding DisplayText}" TextColor="{StaticResource QqTheirsInk}"
-                                           FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
+                                    <Label Text="{Binding DisplayText, Converter={StaticResource SoftWrap}}"
+                                           TextColor="{StaticResource QqTheirsInk}"
+                                           FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}"
+                                           FlowDirection="{Binding DisplayText, Converter={StaticResource BidiFlow}}"
+                                           HorizontalTextAlignment="{Binding DisplayText, Converter={StaticResource BidiAlign}}" />
                                     <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                            WidthRequest="150" HeightRequest="150"
                                            IsVisible="{Binding HasImage}" />
@@ -284,6 +298,8 @@
                 <Border Grid.Column="1" BackgroundColor="{StaticResource QqInputBg}" StrokeThickness="0" Padding="12,4">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <Editor x:Name="TextEditor" Placeholder="输入…" Text="{Binding InputText}"
+                            FlowDirection="{Binding InputText, Converter={StaticResource BidiFlow}}"
+                            HorizontalTextAlignment="{Binding InputText, Converter={StaticResource BidiAlign}}"
                             BackgroundColor="Transparent"
                             TextColor="{StaticResource QqInk}"
                             PlaceholderColor="{StaticResource QqFaint}"

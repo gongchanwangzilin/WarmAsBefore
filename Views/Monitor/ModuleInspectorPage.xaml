@@ -58,8 +58,10 @@
                             </VerticalStackLayout>
                         </Grid>
                         <Label Text="{Binding LampText}" Style="{StaticResource TxtCaption}" />
-                        <Label Text="{Binding Summary}" Style="{StaticResource TxtBodySm}"
-                               LineBreakMode="WordWrap" />
+                        <Label Text="{Binding Summary, Converter={StaticResource SoftWrap}}"
+                               Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap"
+                               FlowDirection="{Binding Summary, Converter={StaticResource BidiFlow}}"
+                               HorizontalTextAlignment="{Binding Summary, Converter={StaticResource BidiAlign}}" />
                         <BoxView Style="{StaticResource HSep}" />
                         <Label Text="{Binding LocationText}" Style="{StaticResource TxtCaption}" />
                     </VerticalStackLayout>
@@ -76,9 +78,14 @@
                                 <DataTemplate x:DataType="vm:ModuleInspectorViewModel+InspectorRow">
                                     <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
                                         <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}"
-                                               MaximumWidthRequest="132" MaxLines="3" VerticalOptions="Start" />
-                                        <Label Grid.Column="1" Text="{Binding Value}" Style="{StaticResource TxtBodySm}"
-                                               LineBreakMode="WordWrap" HorizontalOptions="Fill" />
+                                               MaximumWidthRequest="132" MaxLines="3" VerticalOptions="Start"
+                                               FlowDirection="{Binding Label, Converter={StaticResource BidiFlow}}"
+                                               HorizontalTextAlignment="{Binding Label, Converter={StaticResource BidiAlign}}" />
+                                        <Label Grid.Column="1" Text="{Binding Value, Converter={StaticResource SoftWrap}}"
+                                               Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap"
+                                               HorizontalOptions="Fill"
+                                               FlowDirection="{Binding Value, Converter={StaticResource BidiFlow}}"
+                                               HorizontalTextAlignment="{Binding Value, Converter={StaticResource BidiAlign}}" />
                                     </Grid>
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
@@ -100,8 +107,10 @@
                                                VerticalOptions="Start" />
                                         <VerticalStackLayout Grid.Column="1" Spacing="1">
                                             <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding Text}" Style="{StaticResource TxtRowDesc}"
-                                                   LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding Text, Converter={StaticResource SoftWrap}}"
+                                                   Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap"
+                                                   FlowDirection="{Binding Text, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding Text, Converter={StaticResource BidiAlign}}" />
                                         </VerticalStackLayout>
                                     </Grid>
                                 </DataTemplate>
@@ -113,7 +122,9 @@
                     </VerticalStackLayout>
                 </Border>
 
-                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
+                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2"
+                       FlowDirection="{Binding StatusText, Converter={StaticResource BidiFlow}}"
+                       HorizontalTextAlignment="{Binding StatusText, Converter={StaticResource BidiAlign}}" />
             </VerticalStackLayout>
         </ScrollView>
     </Grid>

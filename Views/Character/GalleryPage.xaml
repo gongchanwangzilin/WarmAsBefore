@@ -204,8 +204,11 @@
                             <Border Style="{StaticResource SettingRow}">
                                 <VerticalStackLayout Spacing="2">
                                     <Label Text="关系网（联系最紧的几个）" Style="{StaticResource TxtRowTitle}" />
-                                    <Label Text="{Binding SemanticSummary}" Style="{StaticResource TxtRowDesc}"
+                                    <Label Text="{Binding SemanticSummary, Converter={StaticResource SoftWrap}}"
+                                           Style="{StaticResource TxtRowDesc}"
                                            MaxLines="3" LineBreakMode="TailTruncation"
+                                           FlowDirection="{Binding SemanticSummary, Converter={StaticResource BidiFlow}}"
+                                           HorizontalTextAlignment="{Binding SemanticSummary, Converter={StaticResource BidiAlign}}"
                                            ToolTipProperties.Text="{Binding SemanticSummary}" />
                                 </VerticalStackLayout>
                             </Border>
@@ -222,8 +225,10 @@
                                     <Border Style="{StaticResource SettingRow}">
                                         <VerticalStackLayout Spacing="4">
                                             <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}" />
-                                            <Label Text="{Binding Text}" Style="{StaticResource TxtBody}"
-                                                   LineBreakMode="WordWrap" />
+                                            <Label Text="{Binding Text, Converter={StaticResource SoftWrap}}"
+                                                   Style="{StaticResource TxtBody}" LineBreakMode="WordWrap"
+                                                   FlowDirection="{Binding Text, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding Text, Converter={StaticResource BidiAlign}}" />
                                             <Label Text="{Binding TagText}" Style="{StaticResource TxtRowDesc}"
                                                    MaxLines="2" LineBreakMode="TailTruncation"
                                                    ToolTipProperties.Text="{Binding TagText}"
@@ -265,7 +270,9 @@
                         <Border Style="{StaticResource SettingRow}"
                                 IsVisible="{Binding AffectionNote, Converter={StaticResource StringNotEmpty}}">
                             <Label Text="{Binding AffectionNote}" Style="{StaticResource TxtRowDesc}"
-                                   LineBreakMode="WordWrap" />
+                                   LineBreakMode="WordWrap"
+                                   FlowDirection="{Binding AffectionNote, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding AffectionNote, Converter={StaticResource BidiAlign}}" />
                         </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AffectionItems}">
                             <BindableLayout.ItemTemplate>
@@ -275,8 +282,10 @@
                                         <Border Style="{StaticResource SettingRow}">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <VerticalStackLayout Grid.Column="0" Spacing="6">
-                                                    <Label Text="{Binding Display}" Style="{StaticResource TxtBody}"
-                                                           LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding Display, Converter={StaticResource SoftWrap}}"
+                                                           Style="{StaticResource TxtBody}" LineBreakMode="WordWrap"
+                                                           FlowDirection="{Binding Display, Converter={StaticResource BidiFlow}}"
+                                                           HorizontalTextAlignment="{Binding Display, Converter={StaticResource BidiAlign}}" />
                                                     <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
                                                            HeightRequest="150" Aspect="AspectFill"
                                                            HorizontalOptions="Start" />
@@ -300,7 +309,9 @@
                         <Border Style="{StaticResource SettingRow}"
                                 IsVisible="{Binding MemoryNote, Converter={StaticResource StringNotEmpty}}">
                             <Label Text="{Binding MemoryNote}" Style="{StaticResource TxtRowDesc}"
-                                   LineBreakMode="WordWrap" />
+                                   LineBreakMode="WordWrap"
+                                   FlowDirection="{Binding MemoryNote, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding MemoryNote, Converter={StaticResource BidiAlign}}" />
                         </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding MemoryItems}">
                             <BindableLayout.ItemTemplate>
@@ -308,8 +319,11 @@
                                     <VerticalStackLayout Spacing="0">
                                         <BoxView Style="{StaticResource HSep}" />
                                         <Border Style="{StaticResource SettingRow}">
-                                            <Label Text="{Binding Display}" Style="{StaticResource TxtBody}"
-                                                   LineBreakMode="WordWrap" VerticalOptions="Center" />
+                                            <Label Text="{Binding Display, Converter={StaticResource SoftWrap}}"
+                                                   Style="{StaticResource TxtBody}" LineBreakMode="WordWrap"
+                                                   VerticalOptions="Center"
+                                                   FlowDirection="{Binding Display, Converter={StaticResource BidiFlow}}"
+                                                   HorizontalTextAlignment="{Binding Display, Converter={StaticResource BidiAlign}}" />
                                         </Border>
                                     </VerticalStackLayout>
                                 </DataTemplate>
@@ -331,7 +345,9 @@
                         <Border Style="{StaticResource SettingRow}"
                                 IsVisible="{Binding DiaryNote, Converter={StaticResource StringNotEmpty}}">
                             <Label Text="{Binding DiaryNote}" Style="{StaticResource TxtRowDesc}"
-                                   LineBreakMode="WordWrap" />
+                                   LineBreakMode="WordWrap"
+                                   FlowDirection="{Binding DiaryNote, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding DiaryNote, Converter={StaticResource BidiAlign}}" />
                         </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding DiaryItems}">
                             <BindableLayout.ItemTemplate>
@@ -343,8 +359,10 @@
                                                 <VerticalStackLayout Grid.Column="0" Spacing="4">
                                                     <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}"
                                                            MaxLines="1" LineBreakMode="TailTruncation" />
-                                                    <Label Text="{Binding Content}" Style="{StaticResource TxtBody}"
-                                                           LineBreakMode="WordWrap" />
+                                                    <Label Text="{Binding Content, Converter={StaticResource SoftWrap}}"
+                                                           Style="{StaticResource TxtBody}" LineBreakMode="WordWrap"
+                                                           FlowDirection="{Binding Content, Converter={StaticResource BidiFlow}}"
+                                                           HorizontalTextAlignment="{Binding Content, Converter={StaticResource BidiAlign}}" />
                                                 </VerticalStackLayout>
                                             </Grid>
                                         </Border>

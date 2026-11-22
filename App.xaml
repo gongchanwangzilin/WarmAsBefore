@@ -31,6 +31,10 @@
             <conv:SelectedBg x:Key="SelectedBg" />
             <conv:BoolToColor x:Key="SceneCurrentBg" True="{StaticResource BeigeAccent200}" False="{StaticResource SecondaryBg}" />
             <conv:BoolToColor x:Key="SceneCurrentFg" True="{StaticResource WarmDark}" False="{StaticResource SurfaceFg}" />
+            <!-- 显示层文本健壮性：RTL 段落方向 / 无空格长串软换行（数据本身一个字不改） -->
+            <conv:BidiFlowDirection x:Key="BidiFlow" />
+            <conv:BidiTextAlignment x:Key="BidiAlign" />
+            <conv:SoftWrapText x:Key="SoftWrap" />
             <conv:StringNotEmpty x:Key="StringNotEmpty" />
             <conv:GreaterThanZero x:Key="GreaterThanZero" />
             <conv:TicketLabel x:Key="TicketLabel" />

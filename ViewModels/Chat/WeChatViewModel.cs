@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WarmAsBefore.Controls;
 using WarmAsBefore.Drawables;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Modules.Automation;
@@ -49,7 +50,7 @@ public sealed partial class WeChatViewModel : ObservableObject, IWorstCaseAware
     [ObservableProperty] private string _contactSearch = "";
 
     /// <summary>竖栏「消息」那一格下面的数字：有未读的会话有几条。</summary>
-    public string UnreadTotalLabel => ContactList.Count(c => c.Unread) is var n && n > 99 ? "99+" : n > 0 ? n.ToString() : "消息";
+    public string UnreadTotalLabel => ContactList.Count(c => c.Unread) is var n && n > 0 ? CountText.FormatCompact(n) : "消息";
 
     partial void OnContactSearchChanged(string value)
     {

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>WabTextSelfTest</RootNamespace>
+    <AssemblyName>TextSelfTest</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 只编译零依赖的显示层纯函数（方向判定 / 软换行 / 计数格式），不引用整个 MAUI 工程 -->
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Helpers/BidiText.cs" Link="BidiText.cs" />
+    <Compile Include="../../Helpers/CountText.cs" Link="CountText.cs" />
+  </ItemGroup>
+</Project>

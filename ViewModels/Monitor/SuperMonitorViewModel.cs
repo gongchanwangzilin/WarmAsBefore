@@ -6,6 +6,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.Drawables;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
@@ -391,7 +392,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 var worst = WorstCaseFixtures.Monitor.Vectors(WorstCaseProvider.Mode);
                 SetVectorCloud(worst, worst.Count == 0
                     ? "这个角色还没有可投影的记忆。"
-                    : $"量化模型算出的 {worst.Count} 条记忆向量；三轴是向量三段均值，越亮的点越靠近你。");
+                    : $"量化模型算出的 {CountText.FormatWithUnit(worst.Count, "条记忆向量")}；三轴是向量三段均值，越亮的点越靠近你。");
                 return;
             }
 
@@ -445,7 +446,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 SetVectorCloud(Array.Empty<VectorPoint>(), "有向量但维度不足三维，跳过了。");
                 return;
             }
-            SetVectorCloud(points, $"量化模型算出的 {points.Count} 条记忆向量；三轴是向量三段均值，越亮的点越靠近你。");
+            SetVectorCloud(points, $"量化模型算出的 {CountText.FormatWithUnit(points.Count, "条记忆向量")}；三轴是向量三段均值，越亮的点越靠近你。");
         }
         catch (Exception ex)
         {
@@ -712,10 +713,10 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 badges["core.driveGate"] = $"自律 {drive.Discipline:0.00} · {drive.MoralName}";
                 badges["core.discharge"] = $"火气 {drive.Anger:0.00} · {drive.DischargeName}";
             }
-            badges["mem.shallow"] = $"近期 {coreMemories.Count + allMemories.Count} 条在场";
-            badges["mem.deep"] = $"深层 {allMemories.Count} 条";
+            badges["mem.shallow"] = $"近期 {CountText.FormatWithUnit(coreMemories.Count + allMemories.Count, "条在场")}";
+            badges["mem.deep"] = $"深层 {CountText.FormatWithUnit(allMemories.Count, "条")}";
             badges["mem.retrieval"] = coreMemories.Count > 0
-                ? $"核心 {coreMemories.Count} 条可回想"
+                ? $"核心 {CountText.FormatWithUnit(coreMemories.Count, "条可回想")}"
                 : "按线索回想";
 
             // 病理特效：身上真带着的那几条，对应的节点画成呼吸的警示环（越重越急、越稳越淡）。
@@ -804,12 +805,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             foreach (var layer in layers)
             {
                 Remember($"mem-{layer.Layer}", layer.Name, "记忆", "",
-                    $"{layer.Count} {layer.Unit} · {layer.Detail}", layer.Describe,
+                    $"{CountText.FormatWithUnit(layer.Count, layer.Unit)} · {layer.Detail}", layer.Describe,
                     new[]
                     {
                         new DetailLine("名称", layer.Name),
                         new DetailLine("说明", layer.Describe),
-                        new DetailLine("数量", $"{layer.Count}"),
+                        new DetailLine("数量", CountText.Format(layer.Count)),
                         new DetailLine("单位", layer.Unit),
                         new DetailLine("详情", layer.Detail),
                     });
@@ -860,7 +861,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 }
                 else
                 {
-                    lines.Add(new DetailLine("当前条数", $"{intrusive.Count}"));
+                    lines.Add(new DetailLine("当前条数", CountText.Format(intrusive.Count)));
                     foreach (var (st, cond) in intrusive)
                     {
                         var symptoms = string.IsNullOrWhiteSpace(cond?.Symptoms) ? "无" : cond!.Symptoms;
@@ -870,7 +871,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     }
                 }
                 Remember("mind.intrusive", "侵入性思维", "核心心智与病理", "监测",
-                    intrusive.Count == 0 ? "当前无侵入性思维类状况" : $"已记录 {intrusive.Count} 条侵入性思维相关状况",
+                    intrusive.Count == 0 ? "当前无侵入性思维类状况" : $"已记录 {CountText.FormatWithUnit(intrusive.Count, "条侵入性思维相关状况")}",
                     "", lines);
             }
             catch (Exception ex) { App.WriteLog("SuperMonitor.Intrusive -> " + ex.Message); }
@@ -1019,7 +1020,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     }
                 }
                 Remember("mind.trauma", "创伤监测", "核心心智与病理", "监测",
-                    $"创伤类状况 {traumaStates.Count} 条 · 核心创伤记忆 {traumaMems.Count} 条", "", lines);
+                    $"创伤类状况 {CountText.FormatWithUnit(traumaStates.Count, "条")} · 核心创伤记忆 {CountText.FormatWithUnit(traumaMems.Count, "条")}", "", lines);
             }
             catch (Exception ex) { App.WriteLog("SuperMonitor.Trauma -> " + ex.Message); }
 
@@ -1034,7 +1035,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     {
                         new DetailLine("机制说明", "程序记忆：由深层记忆塑造的习惯化应对套路（对应架构节点 mem.procedural）"),
                         new DetailLine("建模状态", "当前无专门的数值化服务，不显示推测数值"),
-                        new DetailLine("相关记忆", $"核心记忆 {coreCount} 条 · 抽象印象 {abstractionCount} 条（来自 HumanMemoryService）")
+                        new DetailLine("相关记忆", $"核心记忆 {CountText.FormatWithUnit(coreCount, "条")} · 抽象印象 {CountText.FormatWithUnit(abstractionCount, "条")}（来自 HumanMemoryService）")
                     });
             }
             catch (Exception ex) { App.WriteLog("SuperMonitor.Pattern -> " + ex.Message); }
@@ -1050,12 +1051,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 o.Name, o.StatusText, $"{o.Value:0.##}",
                 Text(o.Symptoms), Text(o.Influences), $"{o.UpdatedAt:HH:mm}")));
             MemoryLayers = new ObservableCollection<LayerRow>(layers.Select(l => new LayerRow(
-                l.Name, $"{l.Count} {l.Unit}", l.Detail)));
+                l.Name, CountText.FormatWithUnit(l.Count, l.Unit), l.Detail)));
             Stats = new ObservableCollection<StatRow>(new[]
             {
-                new StatRow("好感", $"{numeric.Affection:N0}"),
-                new StatRow("信任", $"{numeric.Trust:N0}"),
-                new StatRow("精力", $"{numeric.Energy:N0}")
+                new StatRow("好感", CountText.Format((int)Math.Round(numeric.Affection))),
+                new StatRow("信任", CountText.Format((int)Math.Round(numeric.Trust))),
+                new StatRow("精力", CountText.Format((int)Math.Round(numeric.Energy)))
             });
             OnPropertyChanged(nameof(HasTimeline));
             OnPropertyChanged(nameof(HasOrgans));
@@ -1071,7 +1072,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             ArchDrawable.Links = _archLinks;
             ArchDrawable.SelectedId = null;
             SelectedNode = null;
-            StatusText = $"日程 {timelineRows.Count} · 器官 {organs.Count} · 记忆 {layers.Count} · 数值 3 · 架构 {_archNodes?.Count ?? 0} 节点";
+            StatusText = $"日程 {CountText.Format(timelineRows.Count)} · 器官 {CountText.Format(organs.Count)} · 记忆 {CountText.Format(layers.Count)} · 数值 3"
+                + $" · 架构 {CountText.FormatWithUnit(_archNodes?.Count ?? 0, "节点")}";
 
             if (!string.IsNullOrWhiteSpace(plan?.Outfit))
                 StatusText += $" · 今日穿搭：{plan.Outfit}";
@@ -1244,7 +1246,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         else if (id.StartsWith("in.", StringComparison.Ordinal) || id.StartsWith("plan", StringComparison.Ordinal))
         {
-            result.Add(new DetailLine("今日日程", $"{Timeline.Count} 项"));
+            result.Add(new DetailLine("今日日程", CountText.FormatWithUnit(Timeline.Count, "项")));
             foreach (var t in Timeline.Take(3))
                 result.Add(new DetailLine($"{t.Time} {t.Title}", t.Detail));
         }

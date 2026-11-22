@@ -32,7 +32,9 @@
                         <HorizontalStackLayout Spacing="12">
                             <Label Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}"
                                    VerticalTextAlignment="Center" />
-                            <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center" />
+                            <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" VerticalTextAlignment="Center"
+                                   FlowDirection="{Binding Status, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding Status, Converter={StaticResource BidiAlign}}" />
                             <Label Text="{Binding GrowthHint}" FontSize="12" TextColor="{DynamicResource WarmDark}"
                                    VerticalTextAlignment="Center" />
                         </HorizontalStackLayout>
@@ -124,15 +126,23 @@
                     <!-- 选中了什么 -->
                     <Border IsVisible="{Binding HasSelection}" Style="{StaticResource CardFrost}" Padding="12,10">
                         <VerticalStackLayout Spacing="6">
-                            <Label Text="{Binding SelectedLabel}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
+                            <Label Text="{Binding SelectedLabel, Converter={StaticResource SoftWrap}}"
+                                   Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
                                    TextColor="{DynamicResource WarmDark}"
                                    MaxLines="2" LineBreakMode="TailTruncation"
+                                   FlowDirection="{Binding SelectedLabel, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding SelectedLabel, Converter={StaticResource BidiAlign}}"
                                    ToolTipProperties.Text="{Binding SelectedLabel}" />
                             <Label Text="{Binding SelectedKind}" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding SelectedMeta}" Style="{StaticResource TxtCaption}"
-                                   MaxLines="2" LineBreakMode="TailTruncation" />
-                            <Label Text="{Binding SelectedDetail}" Style="{StaticResource TxtBody}"
-                                   TextColor="{DynamicResource WarmBody}" />
+                                   MaxLines="2" LineBreakMode="TailTruncation"
+                                   FlowDirection="{Binding SelectedMeta, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding SelectedMeta, Converter={StaticResource BidiAlign}}" />
+                            <Label Text="{Binding SelectedDetail, Converter={StaticResource SoftWrap}}"
+                                   Style="{StaticResource TxtBody}"
+                                   TextColor="{DynamicResource WarmBody}" LineBreakMode="WordWrap"
+                                   FlowDirection="{Binding SelectedDetail, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding SelectedDetail, Converter={StaticResource BidiAlign}}" />
                             <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
                                 <Button Text="钉住它" Style="{StaticResource BtnNeumorphSm}" Command="{Binding MarkSelectedCommand}" />
                                 <Button Text="和它连…" Style="{StaticResource BtnNeumorphSm}" Command="{Binding LinkFromSelectedCommand}" />
@@ -190,7 +200,9 @@
                             <Label Text="往外看几圈" Style="{StaticResource TxtCaption}" />
                             <controls:ViewSlider Minimum="1" Maximum="4" Value="{Binding MaxDepth, Mode=TwoWay}" />
 
-                            <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding ParamSummary}" Style="{StaticResource TxtCaption}"
+                                   FlowDirection="{Binding ParamSummary, Converter={StaticResource BidiFlow}}"
+                                   HorizontalTextAlignment="{Binding ParamSummary, Converter={StaticResource BidiAlign}}" />
                             <Border HeightRequest="1" BackgroundColor="{DynamicResource BorderLine}" Stroke="Transparent"
                                     StrokeThickness="0" Margin="0,2" />
                             <Label Text="现在顺着钉住的那个说法能想起：" Style="{StaticResource TxtCaption}" />
