@@ -130,14 +130,14 @@
                                                            TextColor="{DynamicResource WarmDark}" />
                                                     <Label Text="{Binding StatusTime}" FontSize="11.5"
                                                            TextColor="{DynamicResource WarmBody}" />
-                                                    <Label Text="{Binding StatusLine}" FontSize="9.5"
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusLine}" FontSize="9.5"
                                                            TextColor="{DynamicResource MutedFg}" Margin="0,2,0,0" />
                                                 </VerticalStackLayout>
                                                 <Border Grid.Column="1" VerticalOptions="Start"
                                                         BackgroundColor="#26FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1"
                                                         Padding="10,5">
                                                     <Border.StrokeShape><RoundRectangle CornerRadius="13" /></Border.StrokeShape>
-                                                    <Label Text="{Binding WeatherText}" FontSize="10.5"
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WeatherText}" FontSize="10.5"
                                                            TextColor="{DynamicResource WarmBody}" />
                                                 </Border>
                                             </Grid>

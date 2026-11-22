@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.SuperMonitorPage"
              x:Name="Root"
              x:DataType="vm:SuperMonitorViewModel"
@@ -27,7 +28,8 @@
                     <Label Text="// VITALS" Style="{StaticResource Eyebrow}" />
                     <Label Text="{Binding CharacterName}" Style="{StaticResource TxtTitle}"
                            MaxLines="1" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1" />
+                    <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1"
+                           LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
                 <Button Grid.Column="3" Text="刷新" Style="{StaticResource BtnGhostSm}"
                         VerticalOptions="Center" Command="{Binding LoadCommand}" />
@@ -134,8 +136,10 @@
                 </Border>
 
                 <VerticalStackLayout Grid.Row="3" Spacing="2">
-                    <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
+                    <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2"
+                           LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding StatusText}" />
                     <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
+                           LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding InfluenceNote}"
                            IsVisible="{Binding HasSelection}" />
                 </VerticalStackLayout>
             </Grid>
@@ -148,7 +152,8 @@
                         Style="{StaticResource CardNeumorph}" Padding="{DynamicResource WPadCard}">
                     <VerticalStackLayout Spacing="6">
                         <Label Text="{Binding SelectedNode.Title}" Style="{StaticResource TxtSubhead}"
-                               MaxLines="2" />
+                               MaxLines="2" LineBreakMode="TailTruncation"
+                               ToolTipProperties.Text="{Binding SelectedNode.Title}" />
                         <HorizontalStackLayout Spacing="10">
                             <Label Text="{Binding SelectedNode.Group}" Style="{StaticResource TxtCaption}" />
                             <Label Text="{Binding SelectedNode.Status}" Style="{StaticResource TxtCaption}" />
@@ -182,6 +187,9 @@
                                  一个列表塞在滚动栏里，CollectionView 的无界测量会跟外层滚动打架
                                  （LayoutCycleException 的经典来源）；日程本来只有几条，不需要虚拟化。 -->
                             <Label Text="今日日程" Style="{StaticResource TxtSection}" />
+                            <Label Text="今天还没有日程：她还没排，或者这一档刚开局"
+                                   Style="{StaticResource TxtRowDesc}" Margin="0,2,0,4" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding HasTimeline, Converter={StaticResource InverseBool}}" />
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Timeline}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+TimelineRow">
@@ -208,16 +216,22 @@
 
                             <!-- 器官：名字 + 状态 + 当前值（点画布上的器官节点看连锁影响） -->
                             <Label Text="器官状态" Style="{StaticResource TxtSection}" />
+                            <Label Text="还没有器官读数：躯体化服务还没开始记"
+                                   Style="{StaticResource TxtRowDesc}" Margin="0,2,0,4" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding HasOrgans, Converter={StaticResource InverseBool}}" />
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding Organs}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+OrganRow">
                                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Name}"
-                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1" />
+                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1"
+                                                   LineBreakMode="TailTruncation" ToolTipProperties.Text="{Binding Name}" />
                                             <Label Grid.Column="1" Text="{Binding Status}"
-                                                   Style="{StaticResource TxtRowDesc}" VerticalOptions="Center" />
+                                                   Style="{StaticResource TxtRowDesc}" VerticalOptions="Center"
+                                                   MaxLines="1" LineBreakMode="TailTruncation" />
+                                            <!-- 数值列给足 60：44 装不下 9999 / -1 这类极端读数 -->
                                             <Label Grid.Column="2" Text="{Binding Value}"
-                                                   Style="{StaticResource TxtBodySm}" WidthRequest="44"
+                                                   Style="{StaticResource TxtBodySm}" WidthRequest="60"
                                                    HorizontalTextAlignment="End" VerticalOptions="Center" />
                                         </Grid>
                                     </DataTemplate>
@@ -228,14 +242,19 @@
 
                             <!-- 记忆分层：层名 + 数量（点记忆节点看这一层的说明） -->
                             <Label Text="记忆分层" Style="{StaticResource TxtSection}" />
+                            <Label Text="五层都还是 0：和她聊几句，这里会开始长"
+                                   Style="{StaticResource TxtRowDesc}" Margin="0,2,0,4" LineBreakMode="WordWrap"
+                                   IsVisible="{Binding HasLayers, Converter={StaticResource InverseBool}}" />
                             <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding MemoryLayers}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+LayerRow">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Name}"
-                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1" />
+                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1"
+                                                   LineBreakMode="TailTruncation" />
                                             <Label Grid.Column="1" Text="{Binding Count}"
-                                                   Style="{StaticResource TxtRowDesc}" VerticalOptions="Center" />
+                                                   Style="{StaticResource TxtRowDesc}" VerticalOptions="Center"
+                                                   MaxLines="1" LineBreakMode="TailTruncation" />
                                         </Grid>
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
@@ -250,7 +269,8 @@
                                     <DataTemplate x:DataType="vm:SuperMonitorViewModel+StatRow">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,4">
                                             <Label Grid.Column="0" Text="{Binding Name}"
-                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1" />
+                                                   Style="{StaticResource TxtRowTitle}" MaxLines="1"
+                                                   LineBreakMode="TailTruncation" />
                                             <Label Grid.Column="1" Text="{Binding Value}"
                                                    Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
                                         </Grid>
@@ -263,5 +283,8 @@
                 </Border>
             </Grid>
         </Grid>
+
+        <!-- dev 压测条：带 worst 启动参数时贴在窗口底边中央，其余时候 0 宽 0 高 -->
+        <dev:WorstCaseBar Grid.RowSpan="3" />
     </Grid>
 </ContentPage>

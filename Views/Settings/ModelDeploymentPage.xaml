@@ -64,7 +64,7 @@
 
                         <ProgressBar Progress="{Binding ProgressValue}" IsVisible="{Binding IsBusy}" />
                         <Label Text="{Binding ProgressText}" Style="{StaticResource TxtCaption}" IsVisible="{Binding IsBusy}" />
-                        <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
 
                         <!-- 推荐示例：点「用这条」只是把示例预填进表单，用户可改任意字段 -->
                         <VerticalStackLayout Spacing="6">
@@ -77,7 +77,7 @@
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                 <VerticalStackLayout Grid.Column="0" Spacing="1">
                                                     <Label Text="{Binding Name}" FontSize="12" TextColor="{DynamicResource SurfaceFg}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                    <Label Text="{Binding Note}" Style="{StaticResource TxtCaption}" />
+                                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Note}" Style="{StaticResource TxtCaption}" />
                                                     <Label Text="{Binding ExampleSource}" Style="{StaticResource TxtCaption}" LineBreakMode="MiddleTruncation" />
                                                 </VerticalStackLayout>
                                                 <Button Grid.Column="1" Text="用这条" Style="{StaticResource BtnText}"
@@ -102,7 +102,7 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                     <VerticalStackLayout Grid.Column="0" Spacing="1">
                                         <Label Text="{Binding Name}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                        <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
                                         <Label Text="{Binding InstallPath}" Style="{StaticResource TxtCaption}" LineBreakMode="MiddleTruncation" />
                                     </VerticalStackLayout>
                                     <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">

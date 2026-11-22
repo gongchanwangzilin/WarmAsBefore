@@ -28,7 +28,7 @@
                             Background="{DynamicResource WWellBrush}"
                             StrokeThickness="0" Padding="10,0" HeightRequest="24"
                             VerticalOptions="Center" StrokeShape="{DynamicResource WRadiusPill}">
-                        <Label Text="{Binding WalletLabel}" Style="{StaticResource TxtRowTitle}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WalletLabel}" Style="{StaticResource TxtRowTitle}"
                                HorizontalOptions="Center" VerticalOptions="Center" />
                     </Border>
                 </Grid>
@@ -42,7 +42,7 @@
             <VerticalStackLayout Spacing="0">
                 <Border Padding="{DynamicResource WPadWell}">
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                        <Label Text="{Binding RecordLabel}" Style="{StaticResource TxtBodySm}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding RecordLabel}" Style="{StaticResource TxtBodySm}"
                                VerticalOptions="Center" />
                         <Label Grid.Column="1" Text="胜局 +30 亲密币 · 败局 +10" Style="{StaticResource TxtMuted}"
                                VerticalOptions="Center" />
@@ -96,7 +96,7 @@
                         </Border>
                         <BoxView Style="{StaticResource HSep}" />
                         <Border Style="{StaticResource SettingRow}">
-                            <Label Text="{Binding AiStatus}" Style="{StaticResource TxtRowDesc}"
+                            <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding AiStatus}" Style="{StaticResource TxtRowDesc}"
                                    VerticalOptions="Center" />
                         </Border>
                     </VerticalStackLayout>
@@ -135,7 +135,7 @@
                                              IsVisible="{Binding SyncStatus, Converter={StaticResource StringNotEmpty}}">
                             <BoxView Style="{StaticResource HSep}" />
                             <Border Style="{StaticResource SettingRow}">
-                                <Label Text="{Binding SyncStatus}" Style="{StaticResource TxtRowDesc}"
+                                <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding SyncStatus}" Style="{StaticResource TxtRowDesc}"
                                        VerticalOptions="Center" />
                             </Border>
                         </VerticalStackLayout>
@@ -173,7 +173,7 @@
                 </ScrollView>
 
                 <!-- 提示消息 -->
-                <Label Text="{Binding ResultMessage}"
+                <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding ResultMessage}"
                        Style="{StaticResource TxtMuted}"
                        TextColor="{DynamicResource AccentWarmFg}"
                        IsVisible="{Binding ResultMessage, Converter={StaticResource StringNotEmpty}}" />
@@ -216,12 +216,12 @@
                                                    Style="{StaticResource TxtRowDesc}"
                                                    LineBreakMode="WordWrap" MaxLines="2" />
                                             <HorizontalStackLayout Spacing="6">
-                                                <Label Text="{Binding Category}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Category}"
                                                        Style="{StaticResource TxtMuted}" />
-                                                <Label Text="{Binding Merchant, StringFormat='{0}'}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Merchant, StringFormat='{0}'}"
                                                        Style="{StaticResource TxtMuted}"
                                                        TextColor="{DynamicResource AccentWarmFg}" />
-                                                <Label Text="{Binding Owned, StringFormat='已购 {0} 件'}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Owned, StringFormat='已购 {0} 件'}"
                                                        Style="{StaticResource TxtMuted}"
                                                        TextColor="{DynamicResource AccentWarmFg}"
                                                        IsVisible="{Binding Owned, Converter={StaticResource GreaterThanZero}}" />

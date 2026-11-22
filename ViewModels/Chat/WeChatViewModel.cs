@@ -8,10 +8,11 @@ using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Modules.Automation;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
-public sealed partial class WeChatViewModel : ObservableObject
+public sealed partial class WeChatViewModel : ObservableObject, IWorstCaseAware
 {
     private readonly GameEngine _engine;
     private readonly ChatEngine _chat;
@@ -35,6 +36,8 @@ public sealed partial class WeChatViewModel : ObservableObject
     [ObservableProperty] private int _typingDots;
     [ObservableProperty] private string _typingLabel = "";
     [ObservableProperty] private string _partnerName = "TA";
+    /// <summary>顶栏头像里的首字：emoji 开头的名字不能让首字变成半个代理对。</summary>
+    [ObservableProperty] private string _partnerInitial = "TA";
     [ObservableProperty] private ImageSource? _partnerAvatar;
     [ObservableProperty] private bool _hasPartnerAvatar;
     [ObservableProperty] private string _modeLabel = "本地微信";
@@ -45,10 +48,19 @@ public sealed partial class WeChatViewModel : ObservableObject
     /// <summary>会话列表的搜索词（按名字和最后一条过滤，纯本地）。</summary>
     [ObservableProperty] private string _contactSearch = "";
 
-    /// <summary>竖栏「消息」那一格下面的数字：所有会话的未读之和。</summary>
-    public string UnreadTotalLabel => ContactList.Count(c => c.Unread) is var n && n > 0 ? n.ToString() : "消息";
+    /// <summary>竖栏「消息」那一格下面的数字：有未读的会话有几条。</summary>
+    public string UnreadTotalLabel => ContactList.Count(c => c.Unread) is var n && n > 99 ? "99+" : n > 0 ? n.ToString() : "消息";
 
-    partial void OnContactSearchChanged(string value) => ApplyContactFilter();
+    partial void OnContactSearchChanged(string value)
+    {
+        ApplyContactFilter();
+        OnPropertyChanged(nameof(ContactsEmptyHint));
+    }
+
+    /// <summary>会话列表空了时到底是「这一档没有角色」还是「搜索没命中」——两句话，不能共用一句。</summary>
+    public string ContactsEmptyHint => string.IsNullOrWhiteSpace(ContactSearch)
+        ? "这一档还没有角色"
+        : $"没有会话匹配「{ContactSearch.Trim()}」";
 
     // 全屏对话时左栏与中栏要真的收成 0 宽：IsVisible=false 只是不画，列宽还占着，
     // 于是「全屏」左边永远留着一条空白。宽度由 VM 说话，收起时是 0，展开时是 64/300。
@@ -56,6 +68,15 @@ public sealed partial class WeChatViewModel : ObservableObject
     public GridLength ListWidth => IsFullScreen ? new GridLength(0) : new GridLength(300);
 
     private List<WeChatContactItem> _allContacts = new();
+
+    /// <summary>取第一个字素（emoji、组合音标、ZWJ 序列都算一个）；空串给「?」。</summary>
+    private static string FirstGlyph(string? text)
+    {
+        var s = (text ?? "").Trim();
+        if (s.Length == 0) return "?";
+        var it = System.Globalization.StringInfo.GetTextElementEnumerator(s);
+        return it.MoveNext() ? it.Current as string ?? "?" : "?";
+    }
 
     /// <summary>列表右上角的时间：今天只给时分，昨天给「昨天」，更早给月-日。</summary>
     private static string RelativeTime(DateTime at)
@@ -81,6 +102,7 @@ public sealed partial class WeChatViewModel : ObservableObject
             ContactList.ReplaceRange(rows);
             HasContacts = ContactList.Count > 0;
             OnPropertyChanged(nameof(UnreadTotalLabel));
+            OnPropertyChanged(nameof(ContactsEmptyHint));
         });
     }
 
@@ -233,6 +255,11 @@ public sealed partial class WeChatViewModel : ObservableObject
     public async Task LoadAsync()
     {
         await LoadContactsAsync();
+        if (WorstCaseProvider.IsActive)
+        {
+            LoadWorstCaseChat();
+            return;
+        }
         var charId = EffectiveChatId();
         // 若还没定聊天对象，取第一个联系人
         if (string.IsNullOrEmpty(charId) && ContactList.Count > 0)
@@ -247,6 +274,7 @@ public sealed partial class WeChatViewModel : ObservableObject
             if (ch is not null)
             {
                 PartnerName = ch.Profile.Name;
+                PartnerInitial = FirstGlyph(ch.Profile.Name);
                 ImageSource? avatar = null;
                 if (!string.IsNullOrEmpty(ch.Avatar))
                 {
@@ -402,6 +430,14 @@ public sealed partial class WeChatViewModel : ObservableObject
         if (string.IsNullOrWhiteSpace(InputText)) return;
         var msg = InputText.Trim();
         InputText = "";
+        if (WorstCaseProvider.IsActive)
+        {
+            // 压测档：只往列表里放两条，不连模型、不落盘（正式数据一个字节都不碰）。
+            Messages.Add(new ChatItem { Text = msg, DisplayText = msg, IsUser = true });
+            const string echo = "（压测档：不连模型、不落盘。这条回复是固定的。）";
+            Messages.Add(new ChatItem { Text = echo, DisplayText = echo, IsUser = false });
+            return;
+        }
         var charId = EffectiveChatId();
         if (string.IsNullOrEmpty(charId)) return;
 
@@ -783,53 +819,55 @@ public sealed partial class WeChatViewModel : ObservableObject
     {
         try
         {
-            // 两份盘上数据互不依赖：微信好友表 + 角色库并行读，少等一个来回。
-            List<WeChatContact> contacts;
-            List<CharacterData> chars;
-            using (PerfLog.Measure("页 · 微信 · 读取联系人"))
+            List<WorstCaseFixtures.ContactSeed> seeds;
+            if (WorstCaseProvider.IsActive)
             {
-                var contactsTask = _wechat.ListAsync();
-                var charsTask = _library.ListAsync();
-                await Task.WhenAll(contactsTask, charsTask);
-                contacts = await contactsTask;
-                chars = await charsTask;
+                // 压测档：会话从同一个边界进来（联系人源 → 同一段显示映射），但不读盘、不写盘。
+                seeds = WorstCaseFixtures.Chat.Contacts(WorstCaseProvider.Mode);
             }
-
-            var items = new List<WeChatContactItem>();
-            using (PerfLog.Measure("页 · 微信 · 构造联系人"))
+            else
             {
-                // 存档内的每个角色都在好友列表里——微信是「这一档里的人和你的聊天」：
-                // 显式加过好友的（contacts）在前，本档其余角色补在后面。
-                var ids = new List<string>();
-                foreach (var c in contacts)
-                    if (!ids.Contains(c.CharacterId)) ids.Add(c.CharacterId);
-                foreach (var c in _engine.Roster.Keys)
-                    if (!ids.Contains(c)) ids.Add(c);
-
-                foreach (var id in ids)
+                // 两份盘上数据互不依赖：微信好友表 + 角色库并行读，少等一个来回。
+                List<WeChatContact> contacts;
+                List<CharacterData> chars;
+                using (PerfLog.Measure("页 · 微信 · 读取联系人"))
                 {
-                    var c = contacts.FirstOrDefault(x => x.CharacterId == id) ?? new WeChatContact { CharacterId = id };
-                    var ch = chars.FirstOrDefault(x => x.Profile.Id == c.CharacterId);
-                    if (ch is null) continue;
-                    var avatarPath = "";
-                    if (!string.IsNullOrEmpty(ch.Avatar))
+                    var contactsTask = _wechat.ListAsync();
+                    var charsTask = _library.ListAsync();
+                    await Task.WhenAll(contactsTask, charsTask);
+                    contacts = await contactsTask;
+                    chars = await charsTask;
+                }
+
+                seeds = new List<WorstCaseFixtures.ContactSeed>();
+                using (PerfLog.Measure("页 · 微信 · 构造联系人"))
+                {
+                    // 存档内的每个角色都在好友列表里——微信是「这一档里的人和你的聊天」：
+                    // 显式加过好友的（contacts）在前，本档其余角色补在后面。
+                    var ids = new List<string>();
+                    foreach (var c in contacts)
+                        if (!ids.Contains(c.CharacterId)) ids.Add(c.CharacterId);
+                    foreach (var c in _engine.Roster.Keys)
+                        if (!ids.Contains(c)) ids.Add(c);
+
+                    foreach (var id in ids)
                     {
-                        var full = Path.Combine(_store.Root, ch.Avatar);
-                        if (File.Exists(full)) avatarPath = full;
+                        var c = contacts.FirstOrDefault(x => x.CharacterId == id) ?? new WeChatContact { CharacterId = id };
+                        var ch = chars.FirstOrDefault(x => x.Profile.Id == c.CharacterId);
+                        if (ch is null) continue;
+                        var avatarPath = "";
+                        if (!string.IsNullOrEmpty(ch.Avatar))
+                        {
+                            var full = Path.Combine(_store.Root, ch.Avatar);
+                            if (File.Exists(full)) avatarPath = full;
+                        }
+                        seeds.Add(new WorstCaseFixtures.ContactSeed(c.CharacterId, ch.Profile.Name, avatarPath,
+                            c.LastMessage, c.Unread, c.LastMessageAt));
                     }
-                    items.Add(new WeChatContactItem
-                    {
-                        CharacterId = c.CharacterId,
-                        Name = ch.Profile.Name,
-                        Avatar = avatarPath,
-                        // 没有最后一条时给一句话，而不是留一片空白（QQ 列表里每行都有副标题）。
-                        LastMessage = string.IsNullOrWhiteSpace(c.LastMessage) ? "还没有聊过" : c.LastMessage,
-                        Unread = c.Unread,
-                        TimeLabel = RelativeTime(c.LastMessageAt),
-                        UnreadLabel = ""   // 只有 bool 没有计数：红点就是红点，不编数字
-                    });
                 }
             }
+
+            var items = BuildContactItems(seeds);
             _allContacts = items;
             MainThread.BeginInvokeOnMainThread(() =>
             {
@@ -844,6 +882,66 @@ public sealed partial class WeChatViewModel : ObservableObject
         {
             App.WriteLog("WeChatViewModel.LoadContactsAsync -> " + ex);
         }
+    }
+
+    /// <summary>
+    /// 联系人源 → 列表行。头像兜底、空最后一条的占位文案、右侧相对时间都只在这里决定，
+    /// 正式数据和压测数据走同一段，看到的差别只来自数据本身。
+    /// </summary>
+    private static List<WeChatContactItem> BuildContactItems(IEnumerable<WorstCaseFixtures.ContactSeed> seeds)
+    {
+        var items = new List<WeChatContactItem>();
+        foreach (var s in seeds)
+        {
+            items.Add(new WeChatContactItem
+            {
+                CharacterId = s.CharacterId,
+                // 名字是空串时，行里就只剩头像和副标题，看不出这是谁：回落到 id。
+                Name = !string.IsNullOrWhiteSpace(s.Name) ? s.Name
+                    : !string.IsNullOrWhiteSpace(s.CharacterId) ? s.CharacterId : "未命名联系人",
+                Avatar = s.AvatarPath,
+                // 没有最后一条时给一句话，而不是留一片空白（QQ 列表里每行都有副标题）。
+                LastMessage = string.IsNullOrWhiteSpace(s.LastMessage) ? "还没有聊过" : s.LastMessage,
+                Unread = s.Unread,
+                TimeLabel = RelativeTime(s.LastMessageAt),
+                UnreadLabel = ""   // 只有 bool 没有计数：红点就是红点，不编数字
+            });
+        }
+        return items;
+    }
+
+    /// <summary>
+    /// 压测档的聊天区：顶栏身份与消息都来自 fixture，一次装完，不走 AI、不落盘。
+    /// 展示逻辑（气泡几态、换行）仍是页面自己那一套。
+    /// </summary>
+    private void LoadWorstCaseChat()
+    {
+        var mode = WorstCaseProvider.Mode;
+        var partner = WorstCaseFixtures.Chat.Partner(mode);
+        PartnerName = partner.Name;
+        PartnerInitial = FirstGlyph(partner.Name);
+        PartnerAvatar = null;
+        HasPartnerAvatar = false;
+        ModeLabel = partner.ModeLabel;
+        Messages.Clear();
+        foreach (var m in WorstCaseFixtures.Chat.Messages(mode))
+        {
+            Messages.Add(new ChatItem
+            {
+                Key = m.Id,
+                Text = m.Text,
+                DisplayText = m.Text,
+                IsUser = m.IsUser,
+                SenderName = m.SenderName
+            });
+        }
+    }
+
+    /// <summary>压测条换了档：聊天区重装一遍（联系人一起重读）。</summary>
+    public void ReloadWorstCase()
+    {
+        Messages.Clear();
+        _ = LoadAsync();
     }
 
     /// <summary>点联系人：切换聊天对象并进入聊天视图。</summary>
@@ -892,5 +990,19 @@ public sealed class WeChatContactItem
     /// <summary>未读小红点里的数字，超 99 显示 99+。</summary>
     public string UnreadLabel { get; init; } = "1";
     public bool HasAvatar => !string.IsNullOrEmpty(Avatar);
-    public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name[..1];
+
+    /// <summary>
+    /// 头像里的那个字。以前是 Name[..1]：`🦊 Fox` 会被切成半个代理对，画出来是个「�」，
+    /// 中文名的首字没事，emoji 开头的名字全废。取文本元素（.NET 按扩展字素聚簇切）就不会锯开。
+    /// </summary>
+    public string Initial
+    {
+        get
+        {
+            var s = (Name ?? "").Trim();
+            if (s.Length == 0) return "?";
+            var it = System.Globalization.StringInfo.GetTextElementEnumerator(s);
+            return it.MoveNext() ? it.Current as string ?? "?" : "?";
+        }
+    }
 }

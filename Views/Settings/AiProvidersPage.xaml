@@ -41,7 +41,7 @@
                                                    TextColor="{DynamicResource SurfaceFg}" MaxLines="1" LineBreakMode="TailTruncation" />
                                             <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
                                                    LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" />
+                                            <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Summary}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                         <Switch Grid.Column="1" IsToggled="{Binding Enabled}"
                                                 Toggled="OnProviderToggled" VerticalOptions="Center" />
@@ -60,7 +60,7 @@
                                         <Button Text="删除" Style="{StaticResource BtnText}"
                                                 Clicked="OnDeleteProvider" />
                                     </FlexLayout>
-                                    <Label Text="{Binding ModelsHint}" Style="{StaticResource TxtCaption}" />
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding ModelsHint}" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>

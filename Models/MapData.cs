@@ -40,6 +40,13 @@ public sealed class MapDefinition
     public double CenterLongitude { get; set; }
 
     /// <summary>
+    /// 这张图有没有真实经纬度。没有的（手绘）底图只能按画布仿射映射兜底对齐，
+    /// 有的话（高德/OSM 检索导入）瓦片与地点共用同一个锚点，位置是对得上的。
+    /// </summary>
+    [JsonIgnore] public bool HasGeoAnchor =>
+        Math.Abs(CenterLatitude) > 1e-6 && Math.Abs(CenterLongitude) > 1e-6;
+
+    /// <summary>
     /// 这张图的天气按哪儿算：user 跟随用户设置的城市 / map 抓取位置的当地 / custom 手填地点。
     /// 老存档没有这一节，默认 user —— 升级前的观感一点不变。
     /// </summary>
@@ -260,6 +267,11 @@ public sealed class MapLocation
     public string Address { get; set; } = "";
     public double Latitude { get; set; }
     public double Longitude { get; set; }
+    /// <summary>
+    /// 这个地点有没有落地的经纬度（WGS-84）。有就用它（导入来的真实城市），
+    /// 没有就在底图上按画布坐标的仿射映射兜底（手绘地点）。
+    /// </summary>
+    [JsonIgnore] public bool HasGeo => Math.Abs(Latitude) > 1e-6 && Math.Abs(Longitude) > 1e-6;
     /// <summary>建筑外轮廓（画布世界坐标）；空 = 没有形状，按卡片框画。</summary>
     public List<MapWaypoint> Outline { get; set; } = new();
     /// <summary>外部数据源编号（OSM relation/way 之类），重新导入时拿来对齐，不展示给用户。</summary>

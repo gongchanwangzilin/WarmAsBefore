@@ -18,14 +18,14 @@
                         <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"
                                 StrokeThickness="0" Padding="10,4" VerticalOptions="Start">
                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                            <Label Text="{Binding StateLabel}" FontSize="12" TextColor="{DynamicResource WarmDark}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StateLabel}" FontSize="12" TextColor="{DynamicResource WarmDark}" />
                         </Border>
                     </Grid>
 
                     <Label Text="{Binding ArgsText}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding HasArgs}" LineBreakMode="WordWrap" />
                     <Label Text="{Binding Note}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                    <Label Text="{Binding LastResult, StringFormat='最近一次判定：{0}'}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LastResult, StringFormat='最近一次判定：{0}'}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding HasLast}" TextColor="{DynamicResource AccentWarmFg}" />
 
                     <HorizontalStackLayout Spacing="6">

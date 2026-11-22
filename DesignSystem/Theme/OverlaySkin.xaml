@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!--
+      叠加面专用配色：取景舞台、桌宠小窗、舞台光晕。静态、不随风格世界与明暗档切换。
+
+      为什么不进色板：这几块面不是「软件的界面」，它们浮在别的东西上面 ——
+      取景台浮在用户的照片上，桌宠小窗浮在桌面上，光晕浮在立绘后面。
+      世界把页面底和墨阶算出来是为了页面内部自洽；这些面一旦跟着翻深浅，
+      半透明的压暗层和白线就会在浅色背景上消失，在深色背景上糊成一片。
+
+      命名：Stage* 是取景/预览的舞台，Pet* 是桌宠小窗（WinUI 与移动端两套值），
+      *Ink 是写在上面的字，*Bg 是面。与 Wc* 同一条规矩。
+    -->
+
+    <!-- ── 取景舞台（头像裁剪）：框外压暗、框内点亮，参照物是同一张照片 ── -->
+    <Color x:Key="StageBg">#141110</Color>          <!-- 舞台底：框外那片近黑，不是纯黑，免得和照片暗部粘住 -->
+    <Color x:Key="StageBgDeep">#0B0A09</Color>      <!-- 取景框底：图片 cover 之前的垫底 -->
+    <Color x:Key="StageScrim">#A6000000</Color>     <!-- 框外压暗：65% 黑 -->
+    <Color x:Key="StageRule">#4DFFFFFF</Color>      <!-- 三分构图线：30% 白 -->
+    <Color x:Key="StageFrameEdge">#E6FFFFFF</Color> <!-- 取景框边：90% 白，压在照片上要够硬 -->
+
+    <!-- ── 舞台光晕：立绘背后的暖色径向光，三档只有 alpha 在变 ── -->
+    <Color x:Key="StageGlowNear">#B0E8B27A</Color>
+    <Color x:Key="StageGlowMid">#58E8B27A</Color>
+    <Color x:Key="StageGlowFar">#00E8B27A</Color>
+
+    <!-- ── 桌宠小窗：WinUI 是小窗表面，其它平台是全屏问答舞台 ── -->
+    <Color x:Key="PetWindowBgWin">#4A3D2C</Color>       <!-- WinUI 小窗表面：不透明，圆角交给 DWM -->
+    <Color x:Key="PetWindowBgMobile">#1E1712</Color>    <!-- 移动端全屏舞台底：比小窗更深，衬白字 -->
+    <Color x:Key="PetBarBgMobile">#E64A3D2C</Color>     <!-- 移动端输入条面 -->
+    <Color x:Key="PetBubbleBgMobile">#CC4A3D2C</Color>  <!-- 移动端回复气泡面 -->
+    <Color x:Key="PetNoteBg">#7A4A3D2C</Color>          <!-- 立绘旁的提示条 -->
+    <Color x:Key="PetInputBg">#22FFFFFF</Color>         <!-- 输入框面：13% 白，浮在棕色小窗上 -->
+    <Color x:Key="PetChipBg">#33FFFFFF</Color>          <!-- 麦克风/发送小药丸：20% 白 -->
+    <Color x:Key="PetPlaceholderInk">#AAFFFFFF</Color>  <!-- 占位字：67% 白 -->
+    <Color x:Key="PetInkSoft">#CCFFFFFF</Color>         <!-- 次要白字 -->
+    <Color x:Key="PetShadeClear">#00000000</Color>      <!-- 透明：小窗透出桌面时用同一个键，免得两套写法 -->
+
+</ResourceDictionary>

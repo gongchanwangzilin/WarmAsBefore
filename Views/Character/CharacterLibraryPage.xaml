@@ -227,7 +227,7 @@
                                 <Border Grid.Column="1" Background="{DynamicResource WWellBrush}"
                                         StrokeThickness="0" Padding="8,3" VerticalOptions="Start"
                                         StrokeShape="{DynamicResource WRadiusWell}">
-                                    <Label Text="{Binding PreviewStatus}" Style="{StaticResource TxtCaption}" />
+                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding PreviewStatus}" Style="{StaticResource TxtCaption}" />
                                 </Border>
                             </Grid>
 

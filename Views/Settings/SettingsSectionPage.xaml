@@ -146,7 +146,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding BackgroundImageVisible}">
                                             <VerticalStackLayout>
                                                 <Label Text="背景图片" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="{Binding BackgroundImageLabel}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding BackgroundImageLabel}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <Button Grid.Column="1" Text="选择图片" Style="{StaticResource BtnGhost}"
                                                     Padding="14,6"
                                                     Command="{Binding PickBackgroundImageCommand}" />
@@ -203,12 +203,12 @@
                                         IsVisible="{Binding Filter.Sandbox}">
                                     <VerticalStackLayout Spacing="12">
                                         <Label Text="工具安全 · 沙箱信任名单" Style="{StaticResource TxtSubhead}" />
-                                        <Label Text="{Binding SandboxHint}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding SandboxHint}" Style="{StaticResource TxtCaption}" />
                                         <CollectionView ItemsSource="{Binding TrustedTools}" HeightRequest="100">
                                             <CollectionView.ItemTemplate>
                                                 <DataTemplate x:DataType="sbx:TrustEntry">
                                                     <Grid ColumnDefinitions="*,Auto">
-                                                        <Label Text="{Binding ToolName}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ToolName}" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
                                                         <Button Grid.Column="1" Text="移除" Style="{StaticResource BtnText}"
                                                                 Padding="8,2"
                                                                 Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveTrustedToolCommand}"
@@ -227,7 +227,7 @@
                                                Style="{StaticResource TxtCaption}" />
                                         <Button Text="检查工具完整性" Style="{StaticResource BtnGhost}"
                                                 Command="{Binding VerifyToolsCommand}" />
-                                        <Label Text="{Binding ToolIntegrityText}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ToolIntegrityText}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding ToolIntegrityText, Converter={StaticResource IsNotNull}}"
                                                TextColor="{Binding ToolIntegrityHealthy, Converter={StaticResource BoolGreenRed}}" />
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
@@ -236,7 +236,7 @@
                                                Style="{StaticResource TxtCaption}" />
                                         <Button Text="＋ 导入表情" Style="{StaticResource BtnGhost}"
                                                 Command="{Binding ImportStickerCommand}" />
-                                        <Label Text="{Binding StickerStatus}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StickerStatus}" Style="{StaticResource TxtCaption}" />
                                         <CollectionView ItemsSource="{Binding Stickers}" SelectionMode="None" MaximumHeightRequest="240">
                                             <CollectionView.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:StickerRow">
@@ -432,7 +432,7 @@
                                                     Command="{Binding FetchModelsCommand}"
                                                     IsEnabled="{Binding IsLoadingModels, Converter={StaticResource InverseBool}}" />
                                         </Grid>
-                                        <Label Text="{Binding ModelListStatus}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ModelListStatus}" Style="{StaticResource TxtCaption}"
                                                TextColor="{DynamicResource MutedFg}"
                                                IsVisible="{Binding ModelListStatus, Converter={StaticResource StringNotEmpty}}" />
                                         <Grid ColumnDefinitions="80,*"><Label Text="{Binding [Settings_Temperature], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
@@ -505,7 +505,7 @@
                                             <Button Grid.Column="1" Text="立即分析" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding RunSettingsAdvisorCommand}" />
                                         </Grid>
-                                        <Label Text="{Binding SettingsAdvisorResult}" Style="{StaticResource TxtCaption}"
+                                        <Label LineBreakMode="WordWrap" Text="{Binding SettingsAdvisorResult}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding SettingsAdvisorResult, Converter={StaticResource StringNotEmpty}}" />
                                         <!-- #13 识图模型：独立配置，可用于表情包自动描述等看图任务 -->
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
@@ -524,7 +524,7 @@
                                             <Entry Grid.Column="1" Text="{Binding VisionModel}" Placeholder="gpt-4o-mini / qwen-vl-plus / glm-4v …"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
                                                    PlaceholderColor="{DynamicResource MutedFg}" FontSize="13" /></Grid>
-                                        <Label Text="{Binding VisionHint}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding VisionHint}" Style="{StaticResource TxtCaption}" />
                                         <!-- 量化模型（embedding）：把说法换成数值向量的那个角色。
                                              没配上时关系网与按数值搜记忆自动退回本地共现统计（不花钱），界面会说明是哪条路算的。 -->
                                         <BoxView HeightRequest="1" Color="{DynamicResource BorderLine}" Margin="0,4" />
@@ -596,7 +596,7 @@
                                                                            LineBreakMode="TailTruncation" />
                                                                     <Label Text="{Binding Url}" Style="{StaticResource TxtCaption}"
                                                                            LineBreakMode="TailTruncation" />
-                                                                    <Label Text="{Binding Summary}" Style="{StaticResource TxtCaption}" />
+                                                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Summary}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
                                                                 <controls:ViewSwitch Grid.Column="2" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
                                                                 <Button Grid.Column="3" Text="删除" Style="{StaticResource BtnText}" Padding="8,2"
@@ -629,7 +629,7 @@
                                                                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=RemoveModelFromProviderCommand}"
                                                                                             CommandParameter="{Binding .}" />
                                                                                 </HorizontalStackLayout>
-                                                                                <Label Text="{Binding CapabilityText}" FontSize="9"
+                                                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CapabilityText}" FontSize="9"
                                                                                        TextColor="{DynamicResource MutedFg}" />
                                                                             </VerticalStackLayout>
                                                                         </Border>
@@ -656,7 +656,7 @@
                                                 </DataTemplate>
                                             </BindableLayout.ItemTemplate>
                                         </VerticalStackLayout>
-                                        <Label Text="{Binding AiProviderStatus}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AiProviderStatus}" Style="{StaticResource TxtCaption}" />
 
                                         <!-- 新增厂商：端点与密钥只填一次，模型可以往里继续加 -->
                                         <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
@@ -692,7 +692,7 @@
                                             <Label Text="智能省钱" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后折叠历史前先预测「现在总结 / 不总结」哪个更省，并识别编程办公场景改用轻总结；关闭则恢复「到上限就总结」。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SmartSavingEnabled}" /></Grid>
-                                        <Label Text="{Binding CostSummary}" Style="{StaticResource TxtBodySm}" />
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding CostSummary}" Style="{StaticResource TxtBodySm}" />
                                         <Grid ColumnDefinitions="*,*,*,Auto" ColumnSpacing="6">
                                             <Entry Grid.Column="0" Text="{Binding NewPriceModel}" Placeholder="模型名"
                                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -722,7 +722,7 @@
                                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                             <GraphicsView x:Name="CostChartView" HeightRequest="178" />
                                         </Border>
-                                        <Label Text="{Binding CostChartCaption}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding CostChartCaption}" Style="{StaticResource TxtCaption}" />
                                         <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
                                             <Button Text="{Binding CostChartModeLabel}" Style="{StaticResource BtnGhost}"
                                                     Command="{Binding ToggleChartModeCommand}" />
@@ -739,10 +739,10 @@
                                         <Label Text="{Binding TokenTable}" FontSize="11" FontFamily="Consolas"
                                                TextColor="{DynamicResource MutedFg}" LineBreakMode="NoWrap" />
                                         <Label Text="花钱排行榜" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
-                                        <Label Text="{Binding CostRanking}" FontSize="11" FontFamily="Consolas"
+                                        <Label LineBreakMode="WordWrap" Text="{Binding CostRanking}" FontSize="11" FontFamily="Consolas"
                                                TextColor="{DynamicResource MutedFg}" />
                                         <Label Text="token 排行榜" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" Margin="0,6,0,0" />
-                                        <Label Text="{Binding TokenRanking}" FontSize="11" FontFamily="Consolas"
+                                        <Label LineBreakMode="WordWrap" Text="{Binding TokenRanking}" FontSize="11" FontFamily="Consolas"
                                                TextColor="{DynamicResource MutedFg}" />
                                     </VerticalStackLayout>
                                 </Border>
@@ -775,7 +775,7 @@
                                             <Picker Grid.Column="1" Title="遗忘快慢" WidthRequest="110"
                                                     ItemsSource="{Binding MemoryWindowLabels}" SelectedItem="{Binding MemoryWindowDisplay}"
                                                     FontSize="13" /></Grid>
-                                        <Label Text="{Binding MemoryWindowExplain}" Style="{StaticResource TxtCaption}" />
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding MemoryWindowExplain}" Style="{StaticResource TxtCaption}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="回忆的随机度" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="越大越像人：会跳着想、偶尔想不起来。0 = 严格按时间与重要性排序。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
@@ -859,7 +859,7 @@
                                             <Label Text="本地识别模型" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
                                             <Picker Title="本地模型" ItemsSource="{Binding SttModelChoices}"
                                                     SelectedItem="{Binding SttModelDisplay}" FontSize="13" />
-                                            <Label Text="{Binding SttModelStatus}" Style="{StaticResource TxtCaption}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SttModelStatus}" Style="{StaticResource TxtCaption}"
                                                    TextColor="{DynamicResource MutedFg}" />
                                             <ProgressBar Progress="{Binding SttModelProgress}"
                                                          IsVisible="{Binding IsDownloadingSttModel}"
@@ -895,7 +895,7 @@
                                                         FontSize="12" Padding="14,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                         WidthRequest="70" />
                                             </Grid>
-                                            <Label Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
                                                    TextColor="{DynamicResource MutedFg}"
                                                    IsVisible="{Binding TestVoiceStatus, Converter={StaticResource StringNotEmpty}}" />
                                         </VerticalStackLayout>
@@ -939,7 +939,7 @@
                                                     BackgroundColor="{DynamicResource SurfaceBg}" TextColor="{DynamicResource MutedFg}"
                                                     FontSize="12" Padding="12,0" HeightRequest="36" CornerRadius="{DynamicResource WRadiusButton}"
                                                     HorizontalOptions="Start" WidthRequest="100" />
-                                            <Label Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding TestVoiceStatus}" Style="{StaticResource TxtCaption}"
                                                    TextColor="{DynamicResource MutedFg}"
                                                    IsVisible="{Binding TestVoiceStatus, Converter={StaticResource StringNotEmpty}}" />
                                         </VerticalStackLayout>
@@ -978,8 +978,8 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Padding="0,13">
                                             <VerticalStackLayout Spacing="2">
                                                 <Label Text="{Binding [Settings_City], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="{Binding WeatherCityDisplay}" FontSize="15" TextColor="{DynamicResource PrimaryFg}" />
-                                                <Label Text="{Binding WeatherCoordDisplay}" Style="{StaticResource TxtCaption}" />
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WeatherCityDisplay}" FontSize="15" TextColor="{DynamicResource PrimaryFg}" />
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WeatherCoordDisplay}" Style="{StaticResource TxtCaption}" />
                                             </VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
                                                 <Button Text="{Binding [Settings_Locate], Source={x:Static i18n:LocalizationService.Current}}"
@@ -991,7 +991,7 @@
                                                         Command="{Binding ToggleCityChooserCommand}" />
                                             </HorizontalStackLayout>
                                         </Grid>
-                                        <Label Text="{Binding WeatherStatusText}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WeatherStatusText}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding HasWeatherStatus}" />
                                         <!-- IP 只给候选：设备定位失败时也不直接改设置，等用户点「采用」 -->
                                         <Border BackgroundColor="{DynamicResource WWellBrush}" StrokeThickness="0"
@@ -1037,8 +1037,8 @@
                                                         <DataTemplate>
                                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                                 <VerticalStackLayout Grid.Column="0" Spacing="1">
-                                                                    <Label Text="{Binding Display}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" />
-                                                                    <Label Text="{Binding CoordText}" Style="{StaticResource TxtCaption}" />
+                                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Display}" FontSize="13" TextColor="{DynamicResource SurfaceFg}" />
+                                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CoordText}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
                                                                 <Button Grid.Column="1" Text="{Binding [Settings_UseCity], Source={x:Static i18n:LocalizationService.Current}}"
                                                                         Style="{StaticResource BtnText}" VerticalOptions="Center"
@@ -1284,7 +1284,7 @@
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13">
                                             <VerticalStackLayout>
                                                 <Label Text="{Binding [Settings_ConnStatus], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1" Text="{Binding [Settings_TestConn], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnNeumorphSm}"
                                                     Command="{Binding TestConnectionCommand}" />
@@ -1336,9 +1336,9 @@
                                                                 <VerticalStackLayout Spacing="2">
                                                                     <HorizontalStackLayout Spacing="6">
                                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                                        <Label Text="{Binding TransportLabel}" Style="{StaticResource TxtCaption}"
+                                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding TransportLabel}" Style="{StaticResource TxtCaption}"
                                                                                VerticalOptions="Center" Opacity="0.75" />
-                                                                        <Label Text="{Binding StatusLabel}" Style="{StaticResource TxtCaption}"
+                                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusLabel}" Style="{StaticResource TxtCaption}"
                                                                                VerticalOptions="Center" Opacity="0.75" />
                                                                     </HorizontalStackLayout>
                                                                     <Label Text="{Binding EndpointLine}" Style="{StaticResource TxtCaption}"
@@ -1429,7 +1429,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Spacing="4">
                                                 <Label Text="Python" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                                <Label Text="{Binding PythonStatus}" Style="{StaticResource TxtCaption}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding PythonStatus}" Style="{StaticResource TxtCaption}"
                                                        IsVisible="{Binding RuntimeOsSupported}" />
                                             </VerticalStackLayout>
                                             <Button Grid.Column="1" Text="检测" Style="{StaticResource BtnNeumorphSm}"
@@ -1440,7 +1440,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Spacing="4">
                                                 <Label Text="Java" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" />
-                                                <Label Text="{Binding JavaStatus}" Style="{StaticResource TxtCaption}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding JavaStatus}" Style="{StaticResource TxtCaption}"
                                                        IsVisible="{Binding RuntimeOsSupported}" />
                                                 <Label Text="外部工具仅桌面端可用" Style="{StaticResource TxtCaption}"
                                                        IsVisible="{Binding RuntimeOsSupported, Converter={StaticResource InverseBool}}" />
@@ -1479,7 +1479,7 @@
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate>
                                                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Padding="0,4">
-                                                        <Label Text="✓" FontSize="11" VerticalOptions="Start"
+                                                        <Label Text="&#xE73E;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalOptions="Start"
                                                                IsVisible="{Binding Present}" />
                                                         <Label Text="&#xE711;" FontFamily="Segoe MDL2 Assets" FontSize="11" VerticalOptions="Start"
                                                                IsVisible="{Binding Present, Converter={StaticResource InverseBool}}" />
@@ -1540,7 +1540,7 @@
 
                                         <ActivityIndicator IsRunning="{Binding IsRuntimeBusy}" IsVisible="{Binding IsRuntimeBusy}"
                                                            HorizontalOptions="Center" Color="{DynamicResource AccentWarm}" />
-                                        <Label Text="{Binding RuntimeBusyText}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding RuntimeBusyText}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding RuntimeBusyText, Converter={StaticResource StringNotEmpty}}" />
                                     </VerticalStackLayout>
                                 </Border>
@@ -1694,7 +1694,7 @@
                                         </Grid>
                                         <Label Text="{Binding UpdateStatus}" Style="{StaticResource TxtCaption}"
                                                LineBreakMode="WordWrap" IsVisible="{Binding UpdateStatus, Converter={StaticResource StringNotEmpty}}" />
-                                        <Label Text="{Binding LatestUpdateVersion, StringFormat='发现版本：{0}'}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LatestUpdateVersion, StringFormat='发现版本：{0}'}" Style="{StaticResource TxtCaption}"
                                                IsVisible="{Binding LatestUpdateVersion, Converter={StaticResource StringNotEmpty}}" />
                                     </VerticalStackLayout>
                                 </Border>
@@ -1809,7 +1809,7 @@
                                         IsVisible="{Binding Filter.Sponsor}">
                                     <VerticalStackLayout Spacing="12">
                                         <Label Text="能力包（Skills）" Style="{StaticResource TxtSubhead}" HorizontalOptions="Center" />
-                                        <Label Text="{Binding SkillsSummary}" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding SkillsSummary}" Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
                                         <Label Text="一个能力包 = 一个目录，可含 SKILL.md（写给 AI 的说明书，按需加载）和 tool.json（可执行入口，复用 Python/Java 运行时）。装上后 AI 会先读说明书再动手。"
                                                Style="{StaticResource TxtCaption}" HorizontalOptions="Center" />
                                         <HorizontalStackLayout Spacing="10" HorizontalOptions="Center">
@@ -1887,7 +1887,7 @@
                             <Label Text="优先使用独显" Style="{StaticResource TxtBodySm}" />
                             <Label Text="在本程序的 Windows 图形设置里登记「高性能」，重启程序后生效。它只影响玻璃模糊、大图缩放这类合成工作——之前量到的界面构建慢是 CPU 侧的事，换显卡帮不上。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding PreferDiscreteGpu}" /></Grid>
-                        <Label Text="{Binding GpuStatusText}" Style="{StaticResource TxtCaption}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding GpuStatusText}" Style="{StaticResource TxtCaption}"
                                TextColor="{DynamicResource AccentWarmFg}" />
                     </VerticalStackLayout>
                 </Border>
@@ -1941,7 +1941,7 @@
                         <BoxView Style="{StaticResource HSepBleed}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13"><VerticalStackLayout>
                             <Label Text="你的生日" Style="{StaticResource TxtBodySm}" />
-                            <Label Text="{Binding UserBirthdayDisplay, StringFormat='已记：{0}'}" Style="{StaticResource TxtCaption}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding UserBirthdayDisplay, StringFormat='已记：{0}'}" Style="{StaticResource TxtCaption}" />
                             <Label Text="留空 = 不设置。填了之后 AI 会记得这一天；只存月日，不需要年份。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Entry Grid.Column="1" WidthRequest="140" FontSize="13" Text="{Binding UserBirthday}"
                                    Placeholder="MM-dd，如 08-02" BackgroundColor="{DynamicResource InputBg}"
@@ -2204,7 +2204,7 @@
                             <Label Text="启用金钱" Style="{StaticResource TxtBodySm}" />
                             <Label Text="关闭后商店与礼物不再扣钱，余额原样保留；再打开时继续用原来的数。开着时也可以在这里随意加钱或改余额。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MoneyEnabled}" /></Grid>
-                        <Label Text="{Binding WalletText}" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource AccentWarmFg}" />
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WalletText}" Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource AccentWarmFg}" />
                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,10">
                             <Entry Text="{Binding MoneyInput}" Keyboard="Numeric" FontSize="13"
                                    BackgroundColor="{DynamicResource InputBg}" TextColor="{DynamicResource SurfaceFg}"
@@ -2261,7 +2261,7 @@
                                             <VerticalStackLayout Spacing="3">
                                                 <HorizontalStackLayout Spacing="6">
                                                     <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                    <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
                                                            VerticalOptions="Center" Opacity="0.75" />
                                                 </HorizontalStackLayout>
                                                 <Label Style="{StaticResource TxtCaption}" Opacity="0.8">
@@ -2414,7 +2414,7 @@
                             <Label Text="节点多的时候，长枝条动画要播很久才有反应。超过阈值就直接出图。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding GraphAutoSkipAnim}" /></Grid>
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13" IsEnabled="{Binding GraphAutoSkipAnim}">
-                            <Label Text="{Binding GraphSkipAnimNodes, StringFormat='节点超过 {0:0} 个就跳过'}" FontSize="13" VerticalOptions="Center" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding GraphSkipAnimNodes, StringFormat='节点超过 {0:0} 个就跳过'}" FontSize="13" VerticalOptions="Center" />
                             <controls:ViewSlider Grid.Column="1" WidthRequest="150" Minimum="40" Maximum="1200"
                                     Value="{Binding GraphSkipAnimNodes}" VerticalOptions="Center" />
                         </Grid>
@@ -2513,7 +2513,7 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
                             <VerticalStackLayout>
                                 <Label Text="角色此刻在做什么" Style="{StaticResource TxtBodySm}" />
-                                <Label Text="{Binding RuntimePresenceText}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding RuntimePresenceText}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                             <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnNeumorphSm}"
                                     Command="{Binding RefreshRuntimePresenceCommand}" /></Grid>
                     </VerticalStackLayout>

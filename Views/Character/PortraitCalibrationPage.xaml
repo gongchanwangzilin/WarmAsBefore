@@ -59,12 +59,12 @@
             <!-- 三条读数：卡自己带内距、行不写内距，所以线用 HSepBleed 顶回卡边 -->
             <Border Style="{StaticResource CardSolid}">
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="{Binding SourceLabel, StringFormat='素材尺寸：{0}'}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SourceLabel, StringFormat='素材尺寸：{0}'}"
                            Style="{StaticResource TxtBodySm}" />
                     <BoxView Style="{StaticResource HSepBleed}" />
-                    <Label Text="{Binding Status}" Style="{StaticResource TxtBodySm}" />
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Status}" Style="{StaticResource TxtBodySm}" />
                     <BoxView Style="{StaticResource HSepBleed}" />
-                    <Label Text="{Binding AnchorNote}" Style="{StaticResource TxtCaption}" />
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding AnchorNote}" Style="{StaticResource TxtCaption}" />
                 </VerticalStackLayout>
             </Border>
 

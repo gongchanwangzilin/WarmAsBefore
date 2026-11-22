@@ -5,6 +5,7 @@
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.MemoryGraphPage"
              x:Name="GraphRoot"
              x:DataType="vm:MemoryGraphViewModel"
@@ -22,7 +23,9 @@
                         <Button Text="←" Style="{StaticResource BtnGhostSm}" WidthRequest="34"
                                 IsVisible="{Binding ShowBack}" Command="{Binding BackCommand}" />
                         <Label Text="{Binding Title}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
-                               TextColor="{DynamicResource WarmDark}" VerticalTextAlignment="Center" MaxLines="1" LineBreakMode="TailTruncation" />
+                               TextColor="{DynamicResource WarmDark}" VerticalTextAlignment="Center" MaxLines="1"
+                               LineBreakMode="TailTruncation" MaximumWidthRequest="240"
+                               ToolTipProperties.Text="{Binding Title}" />
                     </HorizontalStackLayout>
 
                     <ScrollView Grid.Column="1" Orientation="Horizontal" HeightRequest="22">
@@ -64,6 +67,7 @@
                                     <!-- 是按钮不是可点的画片：键盘 tab 得到、读屏念得出、自检也点得动。 -->
                                     <Button Text="{Binding Text}" Style="{StaticResource BtnGhostSm}"
                                             BackgroundColor="{Binding Fill}" TextColor="{Binding Ink}"
+                                            ToolTipProperties.Text="{Binding FullText}"
                                             Padding="10,0"
                                             Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryGraphViewModel}}, Path=ShowOnlyNetCommand}"
                                             CommandParameter="{Binding .}" />
@@ -97,7 +101,8 @@
                     HorizontalOptions="Start" VerticalOptions="End" WidthRequest="246">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="{Binding OnlyNetName, StringFormat='只看这一片：{0}'}"
-                           Style="{StaticResource TxtCaption}" IsVisible="{Binding HasNetFilter}" />
+                           Style="{StaticResource TxtCaption}" MaxLines="2" LineBreakMode="TailTruncation"
+                           ToolTipProperties.Text="{Binding OnlyNetName}" IsVisible="{Binding HasNetFilter}" />
                     <Label Text="{Binding HiddenCount, StringFormat='还有 {0} 个在更深处，摊开就能看到'}"
                            IsVisible="{Binding HasHidden}" Style="{StaticResource TxtCaption}" />
                     <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
@@ -120,9 +125,12 @@
                     <Border IsVisible="{Binding HasSelection}" Style="{StaticResource CardFrost}" Padding="12,10">
                         <VerticalStackLayout Spacing="6">
                             <Label Text="{Binding SelectedLabel}" Style="{StaticResource TxtBodySm}" FontAttributes="Bold"
-                                   TextColor="{DynamicResource WarmDark}" />
+                                   TextColor="{DynamicResource WarmDark}"
+                                   MaxLines="2" LineBreakMode="TailTruncation"
+                                   ToolTipProperties.Text="{Binding SelectedLabel}" />
                             <Label Text="{Binding SelectedKind}" Style="{StaticResource TxtCaption}" />
-                            <Label Text="{Binding SelectedMeta}" Style="{StaticResource TxtCaption}" />
+                            <Label Text="{Binding SelectedMeta}" Style="{StaticResource TxtCaption}"
+                                   MaxLines="2" LineBreakMode="TailTruncation" />
                             <Label Text="{Binding SelectedDetail}" Style="{StaticResource TxtBody}"
                                    TextColor="{DynamicResource WarmBody}" />
                             <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
@@ -367,5 +375,8 @@
                 </HorizontalStackLayout>
             </ScrollView>
         </Border>
+
+        <!-- dev 压测条：带 worst 启动参数时浮在画布底边中央 -->
+        <dev:WorstCaseBar Grid.Row="1" />
     </Grid>
 </ContentPage>

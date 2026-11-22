@@ -81,9 +81,9 @@
                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
                     <ActivityIndicator Grid.Column="0" IsRunning="{Binding Searching}" WidthRequest="16" HeightRequest="16"
                                        Color="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                            VerticalTextAlignment="Center" />
-                    <Label Grid.Column="2" Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Grid.Column="2" Text="{Binding ScopeNote}" Style="{StaticResource TxtCaption}"
                            VerticalTextAlignment="Center" />
                 </Grid>
             </VerticalStackLayout>
@@ -112,9 +112,9 @@
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
                                         <VerticalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
                                             <HorizontalStackLayout Spacing="8">
-                                                <Label Text="{Binding Kind}" Style="{StaticResource TxtRowTitle}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Kind}" Style="{StaticResource TxtRowTitle}"
                                                        VerticalTextAlignment="Center" />
-                                                <Label Text="{Binding Why}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Why}" Style="{StaticResource TxtBodySm}"
                                                        TextColor="{DynamicResource AccentWarmFg}"
                                                        IsVisible="{Binding HasWhy}" VerticalTextAlignment="Center" />
                                             </HorizontalStackLayout>
@@ -124,7 +124,7 @@
                                                     <DataTemplate x:DataType="helpers:MemoryHighlight+Line">
                                                         <Border BackgroundColor="{Binding Tint}" Stroke="Transparent"
                                                                 StrokeThickness="0" Padding="8,5" StrokeShape="{RoundRectangle CornerRadius=6}">
-                                                            <Label FormattedText="{Binding Text}" />
+                                                            <Label MaxLines="1" LineBreakMode="TailTruncation" FormattedText="{Binding Text}" />
                                                         </Border>
                                                     </DataTemplate>
                                                 </BindableLayout.ItemTemplate>
@@ -141,11 +141,11 @@
                                                         </DataTemplate>
                                                     </BindableLayout.ItemTemplate>
                                                 </HorizontalStackLayout>
-                                                <Label Text="{Binding EmotionText}" Style="{StaticResource TxtMuted}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding EmotionText}" Style="{StaticResource TxtMuted}"
                                                        VerticalTextAlignment="Center" />
                                             </HorizontalStackLayout>
 
-                                            <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
                                             <Image Source="{Binding Image}" IsVisible="{Binding HasImage}" Aspect="AspectFill"
                                                    HeightRequest="112" WidthRequest="168" HorizontalOptions="Start" />
                                         </VerticalStackLayout>

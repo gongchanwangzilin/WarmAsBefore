@@ -10,6 +10,7 @@ using WarmAsBefore.DesignSystem.Worlds;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.ApiManager;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -31,7 +32,7 @@ namespace WarmAsBefore.ViewModels;
 ///
 /// 存的格式就是 JSON（<see cref="RelationGraph"/>），所以页面上的 JSON 视图和磁盘上的文件是同一份东西。
 /// </summary>
-public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttributable
+public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttributable, IWorstCaseAware
 {
     private const int MaxPlacedNodes = 420;
 
@@ -231,6 +232,9 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         _ = EnterAsync();
     }
 
+    /// <summary>压测条换了档：整张网重读一遍。</summary>
+    public void ReloadWorstCase() => _ = EnterAsync();
+
     /// <summary>先装载、再跳：点得等网长出来才找得到，顺序反了就成了「网里还没有这个说法」。</summary>
     private async Task EnterAsync()
     {
@@ -248,14 +252,25 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         try
         {
             await LoadMemoryTextsAsync();
-            CharacterName = _engine.Roster.TryGetValue(_charId, out var ch) ? ch.Profile.Name : "";
+            CharacterName = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.PersonName(WorstCaseProvider.Mode)
+                : _engine.Roster.TryGetValue(_charId, out var ch) ? ch.Profile.Name : "";
             Title = "关系网" + (string.IsNullOrWhiteSpace(CharacterName) ? "" : $" · {CharacterName}");
             ScopeNote = _scope.Label;
             Status = "正在长…";
 
-            await _network.SyncFromMemoriesAsync(_charId);
-            _graph = await _network.SnapshotAsync(_charId);
-            _params = await _network.ParamsAsync(_charId);
+            if (WorstCaseProvider.IsActive)
+            {
+                // 压测档：网只来自 fixture，不同步、不读盘、不调模型，参数用默认那一套。
+                _graph = WorstCaseFixtures.Graph.Build(WorstCaseProvider.Mode);
+                _params = RelationParams.Default;
+            }
+            else
+            {
+                await _network.SyncFromMemoriesAsync(_charId);
+                _graph = await _network.SnapshotAsync(_charId);
+                _params = await _network.ParamsAsync(_charId);
+            }
             ParamSummary = _params.Summary;
             PushParamsToSliders();
             RefreshModels();
@@ -364,7 +379,9 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
         if (_graph.Nodes.Count == 0) return;
         var now = DateTime.UtcNow;
 
-        _nets = await _network.NetsAsync(_charId);
+        _nets = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Graph.Nets(_graph)
+            : await _network.NetsAsync(_charId);
         _netOf = RelationNets.Membership(_nets);
         var depth = Math.Clamp((int)Math.Round(MaxDepth), 1, RelationLayout.MaxDepth);
         var mesh = RelationLayout.BuildMesh(_graph.Edges, _nets, _graph.Nodes.Count, MaxPlacedNodes, depth);
@@ -1049,8 +1066,9 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
     {
         try
         {
-            var raw = await _network.ToJsonAsync(_charId);
-            JsonText = raw;
+            JsonText = WorstCaseProvider.IsActive
+                ? JsonSerializer.Serialize(_graph, new JsonSerializerOptions { WriteIndented = true })
+                : await _network.ToJsonAsync(_charId);
         }
         catch (Exception ex)
         {
@@ -1143,6 +1161,7 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
     private async Task PreviewRecallAsync()
     {
         if (string.IsNullOrWhiteSpace(SelectedLabel)) { RecallText = ""; return; }
+        if (WorstCaseProvider.IsActive) { RecallText = ""; return; }   // 压测档不跑真实网上的扩散
         try
         {
             var hit = await _network.ExpandAsync(_charId, new[] { SelectedLabel }, 10, Math.Clamp(PDepth + 1, 1, 3));
@@ -1539,7 +1558,9 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
     {
         try
         {
-            var entries = await _human.AllAsync(_charId);
+            var entries = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Gallery.HumanMemories(WorstCaseProvider.Mode)
+                : await _human.AllAsync(_charId);
             _memoryTexts.Clear();
             _memoryEmotions.Clear();
             foreach (var e in entries)
@@ -1581,7 +1602,16 @@ public sealed partial class MemoryGraphViewModel : ObservableObject, IQueryAttri
     /// </summary>
     public sealed record NetChip(string Id, string Name, int Count, bool IsLoose, bool Active)
     {
-        public string Text => $"{Name} {Count}";
+        /// <summary>
+        /// 片名取自这片里最中心的那个说法，所以它可能是一整句话（最坏是一次超长名字或邮箱）。
+        /// 不截的话一枚胶囊就能把整条片名条撑满，「只看这一片」的其余入口全被推出屏幕。
+        /// </summary>
+        private static string Fit(string name) => name.Length <= 10 ? name : name[..10] + "…";
+
+        public string Text => $"{Fit(Name)} {Count}";
+
+        /// <summary>完整片名：胶囊上放不下，鼠标停在上面时给全。</summary>
+        public string FullText => $"{Name} {Count}";
 
         // 按下去的那枚是「强调面」，配给它的那份墨（AccentWarmFg）才是有保证的一对：
         // 世界把这一对锁在 5:1 以上，浅档往黑沉、深档往白提，方向不会写反。

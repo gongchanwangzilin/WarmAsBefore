@@ -22,7 +22,7 @@
                         <Label Text="{Binding DateLabel}"
                                TextColor="{DynamicResource MutedFg}" FontSize="10" />
                     </VerticalStackLayout>
-                    <Label Text="{Binding WeatherDesc}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding WeatherDesc}"
                            TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Center" Grid.Column="1" />
                     <!-- 临时指定这次由哪个 AI 回答（指定后高亮） -->
@@ -95,7 +95,7 @@
                         BackgroundColor="#CC000000" Padding="8,4" Margin="12,12,0,0"
                         HorizontalOptions="Start" VerticalOptions="Start">
                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                    <Label Text="{Binding StatusText}" TextColor="White" FontSize="11" />
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusText}" TextColor="White" FontSize="11" />
                 </Border>
 
                 <!-- 右上小地图：手机先收成一枚 60 的方片（竖屏舞台窄，摊开会压住立绘），
@@ -302,7 +302,7 @@
                    Text="气泡式已开启：多角色可直接以对话气泡交流"
                    TextColor="{DynamicResource MutedFg}" FontSize="11"
                    HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
-            <Label Grid.Row="2" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
+            <Label MaxLines="3" LineBreakMode="WordWrap" Grid.Row="2" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
                    Text="{Binding SilenceHintText}"
                    TextColor="{DynamicResource MutedFg}" FontSize="11"
                    HorizontalOptions="Center" VerticalOptions="Start" Margin="0,4,0,0" />
@@ -342,7 +342,7 @@
                             CornerRadius="18" HeightRequest="36"
                             Padding="10,0"
                             Command="{Binding PickAttachmentCommand}" />
-                    <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}"
+                    <Button Grid.Column="2" Text="礼物" TextColor="{DynamicResource MutedFg}"
                             BackgroundColor="{DynamicResource SurfaceBg}" FontSize="13"
                             CornerRadius="18" HeightRequest="36"
                             Padding="10,0"
@@ -362,7 +362,7 @@
                 <!-- #10 待发附件提示：有文件挂着时才显示，点"清空"卸下 -->
                 <Grid IsVisible="{Binding HasPendingAttachments}" Margin="0,6,0,0"
                       ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <Label Grid.Column="0" Text="{Binding PendingAttachmentsLabel}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="0" Text="{Binding PendingAttachmentsLabel}"
                            TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="清空" TextColor="{DynamicResource MutedFg}"

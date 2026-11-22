@@ -46,7 +46,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                             <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
                                                    LineBreakMode="TailTruncation" />
-                                            <Label Grid.Column="1" Text="{Binding ImportedAt, StringFormat='{0:MM/dd}'}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding ImportedAt, StringFormat='{0:MM/dd}'}"
                                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                                         </Grid>
                                         <Label Text="{Binding Summary}" Style="{StaticResource TxtRowDesc}"

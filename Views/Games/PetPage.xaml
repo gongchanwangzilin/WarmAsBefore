@@ -5,7 +5,7 @@
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              x:Class="WarmAsBefore.Views.PetPage"
              Shell.NavBarIsVisible="False"
-             BackgroundColor="{OnPlatform WinUI='#4A3D2C', Default='#1E1712'}">
+             BackgroundColor="{OnPlatform WinUI={StaticResource PetWindowBgWin}, Default={StaticResource PetWindowBgMobile}}">
     <!-- Windows：这一页不再是「舞台」，只剩头顶那条对话小窗，底色就是小窗本身（窗口表面不透明，
          圆角交给 DWM）。立绘改由 PetLayeredWindow 按像素 alpha 直接贴在桌面上，四周与脚下没有矩形。
          其余平台：全屏问答模式，深色舞台底仍然必要——页面上所有文字都是白色系。 -->
@@ -17,20 +17,20 @@
         <VerticalStackLayout VerticalOptions="Start" Spacing="6"
                              Margin="{OnPlatform WinUI='0,0,0,0', Default='8,6,8,0'}">
             <Border x:Name="InputBar" StrokeThickness="0" Padding="8,6"
-                    BackgroundColor="{OnPlatform WinUI='Transparent', Default='#E64A3D2C'}"
+                    BackgroundColor="{OnPlatform WinUI={StaticResource PetShadeClear}, Default={StaticResource PetBarBgMobile}}"
                     IsVisible="{OnPlatform WinUI=True, Default=False}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="6">
-                    <Entry x:Name="InputEntry" TextColor="White" PlaceholderColor="#AAFFFFFF"
-                           Placeholder="和 TA 说点什么…" BackgroundColor="#22FFFFFF"
+                    <Entry x:Name="InputEntry" TextColor="White" PlaceholderColor="{StaticResource PetPlaceholderInk}"
+                           Placeholder="和 TA 说点什么…" BackgroundColor="{StaticResource PetInputBg}"
                            FontSize="12" VerticalOptions="Center"
                            Completed="OnSend" />
                     <!-- 语音输入：识别结果填进输入框，不自动发送——说错了还能改 -->
                     <Button Grid.Column="1" x:Name="MicButton" Text="&#xE720;" FontFamily="Segoe MDL2 Assets" FontSize="12" TextColor="White"
-                            BackgroundColor="#33FFFFFF" CornerRadius="10" Padding="10,4"
+                            BackgroundColor="{StaticResource PetChipBg}" CornerRadius="10" Padding="10,4"
                             Clicked="OnMicClicked" />
                     <Button Grid.Column="2" Text="发送" FontSize="12" TextColor="White"
-                            BackgroundColor="#33FFFFFF" CornerRadius="10" Padding="12,4"
+                            BackgroundColor="{StaticResource PetChipBg}" CornerRadius="10" Padding="12,4"
                             Clicked="OnSend" />
                 </Grid>
             </Border>
@@ -39,7 +39,7 @@
                  不再限 MaxLines——换行后整段都要看得见，小窗高度由 PetService 按实测文本高度调。
                  超长时 code-behind 会截断到放得下的行数，而不是让它在窗口外被切掉。 -->
             <Border x:Name="ReplyBubble" StrokeThickness="0" Padding="10,6" IsVisible="False"
-                    BackgroundColor="{OnPlatform WinUI='Transparent', Default='#CC4A3D2C'}">
+                    BackgroundColor="{OnPlatform WinUI={StaticResource PetShadeClear}, Default={StaticResource PetBubbleBgMobile}}">
                 <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                 <Label x:Name="ReplyLabel" TextColor="White" FontSize="12"
                        LineBreakMode="WordWrap" />
@@ -66,7 +66,7 @@
                 </Image.GestureRecognizers>
             </Image>
             <!-- 名字角标 -->
-            <Border BackgroundColor="#7A4A3D2C" StrokeThickness="0"
+            <Border BackgroundColor="{StaticResource PetNoteBg}" StrokeThickness="0"
                     Padding="14,5" HorizontalOptions="Center" VerticalOptions="End"
                     Margin="0,0,0,6">
                 <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
@@ -77,8 +77,8 @@
         <!-- 返回按钮：挪到左下角，不再和顶部输入条抢位置。Windows 上双击角色就回去了，
              小窗里没有它的位置。 -->
         <Button x:Name="BackButton" Text="← 返回"
-                TextColor="#CCFFFFFF"
-                BackgroundColor="#7A4A3D2C"
+                TextColor="{StaticResource PetInkSoft}"
+                BackgroundColor="{StaticResource PetNoteBg}"
                 FontSize="12" Padding="10,0" CornerRadius="14" HeightRequest="28"
                 HorizontalOptions="Start" VerticalOptions="End"
                 Margin="8,0,0,8"

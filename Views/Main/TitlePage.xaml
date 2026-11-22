@@ -233,7 +233,7 @@
                                        LineBreakMode="TailTruncation" />
                                 <Label Text="{Binding RecentScene}" Style="{StaticResource TxtRowDesc}"
                                        MaxLines="1" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding RecentMeta}" Style="{StaticResource TxtCaption}" />
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding RecentMeta}" Style="{StaticResource TxtCaption}" />
                             </VerticalStackLayout>
                             <Button Grid.Column="1" Text="继续" Style="{StaticResource BtnGhost}"
                                     VerticalOptions="Center" Command="{Binding StartGameCommand}" />

@@ -6,6 +6,7 @@
              xmlns:mdl="clr-namespace:WarmAsBefore.Models"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
              xmlns:views="clr-namespace:WarmAsBefore.Views.Chat"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.WeChatPage"
              x:Name="Page"
 
@@ -28,7 +29,8 @@
         <!-- 左栏：QQ 桌面版那根窄竖栏（头像 + 各入口）。全屏对话时让位。 -->
         <Border Grid.Column="0" Grid.RowSpan="2" BackgroundColor="{StaticResource WcHeader}" StrokeThickness="0"
                 Padding="0,14" IsVisible="{Binding IsFullScreen, Converter={StaticResource InverseBool}}">
-            <VerticalStackLayout Spacing="20" HorizontalOptions="Center">
+          <Grid>
+            <VerticalStackLayout Spacing="20" HorizontalOptions="Center" VerticalOptions="Start">
                 <Grid WidthRequest="38" HeightRequest="38">
                     <BoxView WidthRequest="38" HeightRequest="38" CornerRadius="19"
                              Color="{StaticResource WcAccent}" />
@@ -63,6 +65,9 @@
                     </VerticalStackLayout>
                 </VerticalStackLayout>
             </VerticalStackLayout>
+            <!-- dev 压测条：只有带 worst 启动参数时才占地方，竖排塞进 64 宽的竖栏 -->
+            <dev:WorstCaseBar Vertical="True" Margin="0,0,0,2" />
+          </Grid>
         </Border>
 
             <!-- 与右栏头部同高（56）：两条分隔线落在同一条基线上，不会一高一低。 -->
@@ -96,7 +101,8 @@
                     <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center"
                                          Spacing="10" Padding="24">
                         <Image Source="ic_chat.png" WidthRequest="36" HeightRequest="36" HorizontalOptions="Center" />
-                        <Label Text="这一档还没有角色" TextColor="{StaticResource WcSub}"
+                        <Label Text="{Binding Source={x:Reference Page}, Path=BindingContext.ContactsEmptyHint}"
+                               TextColor="{StaticResource WcSub}"
                                FontSize="15" HorizontalOptions="Center" />
                         <Label Text="存档里的角色都会出现在这里，随时能给你发消息"
                                TextColor="{StaticResource WcFaint}" FontSize="12"
@@ -121,7 +127,8 @@
                                 </Grid>
                                 <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
                                     <Label Text="{Binding Name}" TextColor="{StaticResource WcInk}"
-                                           FontSize="14" LineBreakMode="TailTruncation" MaxLines="1" />
+                                           FontSize="14" LineBreakMode="TailTruncation" MaxLines="1"
+                                           ToolTipProperties.Text="{Binding Name}" />
                                     <Label Text="{Binding LastMessage}" TextColor="{StaticResource WcSub}"
                                            FontSize="12" LineBreakMode="TailTruncation" MaxLines="1" />
                                 </VerticalStackLayout>
@@ -163,7 +170,7 @@
                     <Image Source="{Binding PartnerAvatar}" Aspect="AspectFill"
                            IsVisible="{Binding HasPartnerAvatar}"
                            HorizontalOptions="Fill" VerticalOptions="Fill" />
-                    <Label Text="{Binding PartnerName, Converter={StaticResource CharInitials}}"
+                    <Label Text="{Binding PartnerInitial}"
                            TextColor="{StaticResource WcInk}" FontSize="15"
                            HorizontalOptions="Center" VerticalOptions="Center" FontAttributes="Bold"
                            IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" MaxLines="1" LineBreakMode="TailTruncation" />
@@ -171,7 +178,8 @@
                 <!-- 名字与副标题各占一行：原来塞进同一个 VerticalStackLayout，两行字紧贴在一起就是「上侧重合」。 -->
                 <Label Grid.Row="0" Grid.Column="2" Text="{Binding PartnerName}"
                        TextColor="{StaticResource WcInk}" FontSize="15" FontAttributes="Bold"
-                       LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="End" />
+                       LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="End"
+                       ToolTipProperties.Text="{Binding PartnerName}" />
                 <Label Grid.Row="1" Grid.Column="2" Text="{Binding ModeLabel}"
                        TextColor="{StaticResource WcSub}" FontSize="11"
                        LineBreakMode="TailTruncation" MaxLines="1" Margin="0,2,0,0" VerticalOptions="Start" />
@@ -206,6 +214,14 @@
         <CollectionView Grid.Row="0" ItemsSource="{Binding Messages}"
                         ItemsUpdatingScrollMode="KeepLastItemInView"
                         BackgroundColor="Transparent" Margin="10,8,10,4">
+            <CollectionView.EmptyView>
+                <VerticalStackLayout VerticalOptions="Center" HorizontalOptions="Center" Spacing="8" Padding="24">
+                    <Label Text="还没有聊过" TextColor="{StaticResource WcSub}" FontSize="14"
+                           HorizontalOptions="Center" />
+                    <Label Text="说点什么，她会在下面回你" TextColor="{StaticResource WcFaint}" FontSize="12"
+                           HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </CollectionView.EmptyView>
             <CollectionView.ItemTemplate>
                 <DataTemplate x:DataType="mdl:ChatItem">
                     <Grid Padding="0,3">
@@ -216,7 +232,7 @@
                                 HorizontalOptions="End" MaximumWidthRequest="300">
                             <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                             <Grid>
-                                <Label Text="{Binding DisplayText}" TextColor="{StaticResource WcMineInk}"
+                                <Label Text="{Binding BubbleText}" TextColor="{StaticResource WcMineInk}"
                                        FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
                                 <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                        WidthRequest="150" HeightRequest="150"
@@ -250,7 +266,7 @@
                                     HorizontalOptions="Start" MaximumWidthRequest="300">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                 <Grid>
-                                    <Label Text="{Binding DisplayText}" TextColor="{StaticResource WcTheirsInk}"
+                                    <Label Text="{Binding BubbleText}" TextColor="{StaticResource WcTheirsInk}"
                                            FontSize="14" LineBreakMode="WordWrap" IsVisible="{Binding IsText}" />
                                     <Image Source="{Binding ImageSource}" Aspect="AspectFit"
                                            WidthRequest="150" HeightRequest="150"

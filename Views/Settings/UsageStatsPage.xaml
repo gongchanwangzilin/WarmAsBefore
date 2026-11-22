@@ -25,7 +25,7 @@
                     <Label Text="用量统计" Style="{StaticResource TxtDisplay}" />
                     <Label Text="每次请求的真实 token 记在本地账上：缓存命中的输入按缓存价重算，思考/缓存输出另计一笔。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" MaxLines="2" />
-                    <Label Text="{Binding BusyNote}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding BusyNote}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding IsBusy}" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
@@ -41,31 +41,31 @@
 
                 <!-- 总览：三档大数字 + 缓存口径说明。不套卡——页头带下来的一段读数，比 boxed 更像仪表盘首屏 -->
                 <VerticalStackLayout Spacing="10">
-                    <Label Text="{Binding OverviewUnit}" Style="{StaticResource TxtSection}" />
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding OverviewUnit}" Style="{StaticResource TxtSection}" />
                     <Grid ColumnDefinitions="*,1,*,1,*" ColumnSpacing="14">
                         <VerticalStackLayout Grid.Column="0" Spacing="2">
                             <Label Text="今日" Style="{StaticResource TxtCaption}" />
-                            <Label Text="{Binding TodayHead}" Style="{StaticResource TxtDisplay}" />
-                            <Label Text="{Binding TodayMeta}" Style="{StaticResource TxtBodySm}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding TodayHead}" Style="{StaticResource TxtDisplay}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding TodayMeta}" Style="{StaticResource TxtBodySm}" />
                         </VerticalStackLayout>
                         <BoxView Grid.Column="1" WidthRequest="1" Color="{DynamicResource BorderLine}"
                                  VerticalOptions="Fill" HorizontalOptions="Fill" />
                         <VerticalStackLayout Grid.Column="2" Spacing="2">
                             <Label Text="近 7 天" Style="{StaticResource TxtCaption}" />
-                            <Label Text="{Binding WeekHead}" Style="{StaticResource TxtDisplay}" />
-                            <Label Text="{Binding WeekMeta}" Style="{StaticResource TxtBodySm}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WeekHead}" Style="{StaticResource TxtDisplay}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding WeekMeta}" Style="{StaticResource TxtBodySm}" />
                         </VerticalStackLayout>
                         <BoxView Grid.Column="3" WidthRequest="1" Color="{DynamicResource BorderLine}"
                                  VerticalOptions="Fill" HorizontalOptions="Fill" />
                         <VerticalStackLayout Grid.Column="4" Spacing="2">
                             <Label Text="累计" Style="{StaticResource TxtCaption}" />
-                            <Label Text="{Binding AllHead}" Style="{StaticResource TxtDisplay}" />
-                            <Label Text="{Binding AllMeta}" Style="{StaticResource TxtBodySm}" />
-                            <Label Text="{Binding AllSub}" Style="{StaticResource TxtCaption}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AllHead}" Style="{StaticResource TxtDisplay}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AllMeta}" Style="{StaticResource TxtBodySm}" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AllSub}" Style="{StaticResource TxtCaption}" />
                         </VerticalStackLayout>
                     </Grid>
                     <Label Text="{Binding TokenBreakdown}" Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
-                    <Label Text="{Binding EmptyHint}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding EmptyHint}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding HasUsage, Converter={StaticResource InverseBool}}" />
                 </VerticalStackLayout>
 
@@ -84,8 +84,8 @@
                                                    Style="{StaticResource TxtBodySm}"
                                                    LineBreakMode="TailTruncation" VerticalOptions="Center" />
                                             <HorizontalStackLayout Grid.Column="1" Spacing="8">
-                                                <Label Text="{Binding ValueLabel}" Style="{StaticResource TxtCaption}" />
-                                                <Label Text="{Binding ShareLabel}" Style="{StaticResource TxtCaption}" />
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ValueLabel}" Style="{StaticResource TxtCaption}" />
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ShareLabel}" Style="{StaticResource TxtCaption}" />
                                             </HorizontalStackLayout>
                                         </Grid>
                                         <Grid HeightRequest="8"
@@ -139,10 +139,10 @@
                                 </BindableLayout.ItemTemplate>
                             </HorizontalStackLayout>
                             <Grid ColumnDefinitions="Auto,*,Auto">
-                                <Label Grid.Column="0" Text="{Binding TrendStart}" Style="{StaticResource TxtCaption}" />
-                                <Label Grid.Column="2" Text="{Binding TrendEnd}" Style="{StaticResource TxtCaption}" />
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="0" Text="{Binding TrendStart}" Style="{StaticResource TxtCaption}" />
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding TrendEnd}" Style="{StaticResource TxtCaption}" />
                             </Grid>
-                            <Label Text="{Binding TrendNote}" Style="{StaticResource TxtBodySm}" />
+                            <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding TrendNote}" Style="{StaticResource TxtBodySm}" />
                             <Label Text="深色段 = 当日走缓存价的输入 token；点柱子看当天明细。"
                                    Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                         </VerticalStackLayout>
@@ -187,19 +187,19 @@
                                             <Grid Padding="12,7" ColumnDefinitions="1.6*,0.6*,0.8*,0.8*,0.9*,0.9*,0.8*" ColumnSpacing="6">
                                                 <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
                                                        LineBreakMode="TailTruncation" VerticalOptions="Center" />
-                                                <Label Grid.Column="1" Text="{Binding Calls}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding Calls}" Style="{StaticResource TxtBodySm}"
                                                        HorizontalTextAlignment="End" VerticalOptions="Center" />
-                                                <Label Grid.Column="2" Text="{Binding Input}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding Input}" Style="{StaticResource TxtBodySm}"
                                                        HorizontalTextAlignment="End" VerticalOptions="Center" />
-                                                <Label Grid.Column="3" Text="{Binding Output}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="3" Text="{Binding Output}" Style="{StaticResource TxtBodySm}"
                                                        HorizontalTextAlignment="End" VerticalOptions="Center" />
-                                                <Label Grid.Column="4" Text="{Binding CachedInput}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="4" Text="{Binding CachedInput}" Style="{StaticResource TxtBodySm}"
                                                        TextColor="{DynamicResource MutedFg}"
                                                        HorizontalTextAlignment="End" VerticalOptions="Center" />
-                                                <Label Grid.Column="5" Text="{Binding CachedOutput}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="5" Text="{Binding CachedOutput}" Style="{StaticResource TxtBodySm}"
                                                        TextColor="{DynamicResource MutedFg}"
                                                        HorizontalTextAlignment="End" VerticalOptions="Center" />
-                                                <Label Grid.Column="6" Text="{Binding Cost}" Style="{StaticResource TxtBodySm}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="6" Text="{Binding Cost}" Style="{StaticResource TxtBodySm}"
                                                        FontAttributes="Bold" TextColor="{DynamicResource WarmDark}"
                                                        HorizontalTextAlignment="End" VerticalOptions="Center" />
                                             </Grid>
@@ -242,7 +242,7 @@
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="vm:UsageStatsViewModel+HeatRow">
                                         <Grid ColumnDefinitions="32,*" ColumnSpacing="6">
-                                            <Label Grid.Column="0" Text="{Binding DayLabel}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="0" Text="{Binding DayLabel}"
                                                    Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
                                             <HorizontalStackLayout Grid.Column="1" Spacing="2"
                                                                    BindableLayout.ItemsSource="{Binding Cells}">

@@ -389,6 +389,19 @@ public sealed record UserSettings
     public string MenuSide { get; init; } = "left";
     public bool AutoSaveEnabled { get; init; } = true;
 
+    // 地图底图（瓦片）
+    /// <summary>
+    /// 地图页的底图来源：manual 手工绘制（默认）/ amap-road 高德路网 / amap-sat 高德卫星 /
+    /// osm 开放街道图 / offline 离线包。认不出来的值按手工绘制处理。
+    /// </summary>
+    public string MapTileSource { get; init; } = "manual";
+
+    /// <summary>
+    /// 瓦片联网总闸：关掉之后只读本地缓存，一个请求都不发。
+    /// 离线用户与不想让地图偷偷联网的人都用它，免得底图一直转圈。
+    /// </summary>
+    public bool MapTileOnline { get; init; } = true;
+
     // 多角色单场景对话
     /// <summary>聊天显示风格：bubble=气泡式（消息直接成对话气泡流），galgame=剧本式（底部面板 + 立绘）。</summary>
     public string ChatStyle { get; init; } = "galgame";

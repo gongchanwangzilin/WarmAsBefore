@@ -76,7 +76,7 @@
                             Padding="6,2" FontSize="{DynamicResource WSizeSubhead}"
                             Command="{Binding BackCommand}" IsVisible="{Binding CanBack}"
                             SemanticProperties.Description="{Binding [Setup_Back], Source={x:Static i18n:LocalizationService.Current}}" />
-                    <Label Grid.Column="2" Text="{Binding StepEyebrow}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding StepEyebrow}"
                            Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}"
                            VerticalOptions="Center" />
                 </Grid>

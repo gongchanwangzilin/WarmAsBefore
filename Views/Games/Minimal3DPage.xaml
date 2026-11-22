@@ -43,7 +43,7 @@
                            VerticalOptions="Center" />
                     <Slider Grid.Column="1" x:Name="PanKnob" Minimum="0" Maximum="360"
                             ValueChanged="OnPanKnobChanged" VerticalOptions="Center" />
-                    <Label Grid.Column="2" Text="{Binding Heading}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding Heading}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center" WidthRequest="34" HorizontalTextAlignment="Center" />
                 </Grid>
                 <Grid Grid.Row="2" ColumnDefinitions="*,*,*,*,Auto" ColumnSpacing="8">

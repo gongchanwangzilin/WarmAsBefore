@@ -62,7 +62,7 @@
             <VerticalStackLayout Spacing="4">
                 <!-- 说话人以前挂的是 AccentWarm：那是一张「面」，压在浅面上只有 1.1:1，等于没写。
                      换成信号墨 —— 整屏唯一的一颗饱和色，正好用来指「此刻是谁在说」。 -->
-                <Label Text="{Binding SpeakerName}" Style="{StaticResource TxtRowTitle}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SpeakerName}" Style="{StaticResource TxtRowTitle}"
                        TextColor="{DynamicResource SignalFg}" />
                 <Label Text="{Binding DialogueText}" Style="{StaticResource TxtBody}"
                        LineBreakMode="WordWrap" />

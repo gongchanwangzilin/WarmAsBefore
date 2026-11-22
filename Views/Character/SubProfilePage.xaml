@@ -149,7 +149,7 @@
                                                        LineBreakMode="WordWrap" />
                                             </VerticalStackLayout>
                                             <!-- 时间是这一行的「值」：排右、弱一档，扫列表时先读到原因 -->
-                                            <Label Grid.Column="1" Text="{Binding Time}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding Time}"
                                                    Style="{StaticResource TxtCaption}"
                                                    HorizontalOptions="End" VerticalOptions="Center" />
                                         </Grid>

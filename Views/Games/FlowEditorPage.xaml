@@ -32,10 +32,10 @@
                     <VerticalStackLayout Spacing="4" Padding="4,10">
                         <Grid RowDefinitions="Auto,Auto,Auto,Auto" ColumnDefinitions="*,Auto" ColumnSpacing="10" RowSpacing="4">
                             <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
-                            <Label Grid.Column="1" Text="{Binding EnabledLabel}" Style="{StaticResource TxtCaption}"
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding EnabledLabel}" Style="{StaticResource TxtCaption}"
                                    VerticalOptions="Center" />
 
-                            <Label Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding TriggerText}"
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding TriggerText}"
                                    Style="{StaticResource TxtCaption}" />
                             <Label Grid.Row="2" Grid.ColumnSpan="2" Text="{Binding WhenText}"
                                    Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap" />

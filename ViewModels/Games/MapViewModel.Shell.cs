@@ -43,7 +43,11 @@ public sealed partial class MapViewModel
     [ObservableProperty] private bool _isLayerPanelOpen;
 
     [RelayCommand]
-    private void ToggleLayerPanel() => IsLayerPanelOpen = !IsLayerPanelOpen;
+    private void ToggleLayerPanel()
+    {
+        IsLayerPanelOpen = !IsLayerPanelOpen;
+        if (IsLayerPanelOpen) RefreshTileDrawer();
+    }
 
     [RelayCommand]
     private void CloseLayerPanel() => IsLayerPanelOpen = false;
@@ -385,7 +389,8 @@ public sealed partial class MapViewModel
     {
         StopFloorAnim();
         StopFly();
-        var target = Math.Clamp(scale, 0.3, 2.5);
+        var (minScale, maxScale) = ScaleRange();
+        var target = Math.Clamp(scale, minScale, maxScale);
         _flyS0 = Drawable.Scale;
         _flyCX0 = (_viewW / 2 - Drawable.OffsetX) / _flyS0;
         _flyCY0 = (_viewH / 2 - Drawable.OffsetY) / _flyS0;
@@ -477,8 +482,14 @@ public sealed partial class MapViewModel
     /// <summary>比例尺：挑一个 1/2/5 档的整数米，让黑条落在 36–160 像素之间。</summary>
     private void RefreshScaleBar()
     {
-        var metersPerPx = Drawable.MetersPerUnit / Math.Max(0.05, Drawable.Scale);
-        var steps = new[] { 1d, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000, 10000 };
+        var metersPerPx = ScaleBarMetersPerPixel();
+        // 底图能拉到 z3（整块大陆），所以档位要一路铺到几千公里：否则条宽被钳到 36px，
+        // 写的却是 10 公里 —— 成了一个错误的比例尺。
+        var steps = new[]
+        {
+            1d, 2, 5, 10, 20, 50, 100, 200, 500, 1000, 2000, 5000,
+            10000, 20000, 50000, 100000, 200000, 500000, 1000000, 2000000, 5000000
+        };
         var target = metersPerPx * 96;
         var pick = steps[^1];
         foreach (var s in steps)
@@ -491,6 +502,7 @@ public sealed partial class MapViewModel
         ScaleBarLabel = pick >= 1000
             ? $"{pick / 1000:0.#} 公里"
             : $"{pick.ToString(CultureInfo.InvariantCulture)} 米";
+        RefreshTileStatus();
     }
 
     // ==================== 区域划分：顶点编辑 ====================

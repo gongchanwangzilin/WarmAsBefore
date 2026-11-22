@@ -51,7 +51,7 @@
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="0" VerticalOptions="Center"
                         Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="{Binding PageTitle}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding PageTitle}"
                        Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
                 <Label Grid.Column="2" Text="{Binding CharacterName}" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
@@ -84,12 +84,12 @@
                 </Grid>
             </Grid>
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-                <Label Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
                 <Button Grid.Column="1" Text="← 上一步" Style="{StaticResource BtnText}"
                         Padding="4,0" FontSize="{DynamicResource WSizeCaption}"
                         VerticalOptions="Center" IsVisible="{Binding CanGoBack}"
                         Command="{Binding PrevStepCommand}" />
-                <Label Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
                        FontFamily="Bahnschrift" VerticalOptions="Center" />
             </Grid>
         </Grid>
@@ -103,7 +103,7 @@
                     <VerticalStackLayout Spacing="6">
                         <Label Text="01 · WORLD" Style="{StaticResource Eyebrow}" IsVisible="{Binding IsOobe}" />
                         <Label Text="这段关系发生在哪个世界" Style="{StaticResource StepTitle}" />
-                        <Label Text="{Binding Subtitle}" Style="{StaticResource StepSub}" />
+                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Subtitle}" Style="{StaticResource StepSub}" />
                     </VerticalStackLayout>
 
                     <VerticalStackLayout Spacing="8">
@@ -198,7 +198,7 @@
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                    <Label Text="TA" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                    <Label Text="TA" Style="{StaticResource TxtCaption}" MinimumWidthRequest="48"
                                            VerticalOptions="Center" />
                                     <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                     <Label Grid.Column="2" Text="这一局的主角" Style="{StaticResource TxtRowDesc}"
@@ -208,11 +208,11 @@
                             <BoxView Style="{StaticResource HSepInset}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                    <Label Text="世界" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                    <Label Text="世界" Style="{StaticResource TxtCaption}" MinimumWidthRequest="48"
                                            VerticalOptions="Center" />
                                     <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                        <Label Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
-                                        <Label Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
                                     </VerticalStackLayout>
                                     <Button Grid.Column="2" Text="改" Style="{StaticResource BtnGhostSm}"
                                             HeightRequest="32" Padding="12,4"
@@ -222,7 +222,7 @@
                             <BoxView Style="{StaticResource HSepInset}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                                    <Label Text="人设" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                    <Label Text="人设" Style="{StaticResource TxtCaption}" MinimumWidthRequest="48"
                                            VerticalOptions="Center" />
                                     <Label Grid.Column="1" Text="{Binding PersonaCount}" Style="{StaticResource TxtRowTitle}" />
                                     <Button Grid.Column="2" Text="去写" Style="{StaticResource BtnGhostSm}"
@@ -249,7 +249,7 @@
                         <VerticalStackLayout Spacing="0">
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                    <Label Text="与谁" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                    <Label Text="与谁" Style="{StaticResource TxtCaption}" MinimumWidthRequest="48"
                                            VerticalOptions="Center" />
                                     <Label Grid.Column="1" Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
                                 </Grid>
@@ -257,18 +257,18 @@
                             <BoxView Style="{StaticResource HSepInset}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                    <Label Text="世界" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                    <Label Text="世界" Style="{StaticResource TxtCaption}" MinimumWidthRequest="48"
                                            VerticalOptions="Center" />
                                     <VerticalStackLayout Grid.Column="1" Spacing="2" VerticalOptions="Center">
-                                        <Label Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
-                                        <Label Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
+                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
                                     </VerticalStackLayout>
                                 </Grid>
                             </Border>
                             <BoxView Style="{StaticResource HSepInset}" />
                             <Border Style="{StaticResource SettingRow}">
                                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
-                                    <Label Text="人设" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                    <Label Text="人设" Style="{StaticResource TxtCaption}" MinimumWidthRequest="48"
                                            VerticalOptions="Start" Margin="0,3,0,0" />
                                     <VerticalStackLayout Grid.Column="1" Spacing="2">
                                         <Label Text="{Binding PersonaText}" Style="{StaticResource TxtBodySm}"
@@ -318,7 +318,7 @@
                     HorizontalOptions="Center" VerticalOptions="Center">
                 <VerticalStackLayout Spacing="12">
                     <Label Text="MEMORY" Style="{StaticResource Eyebrow}" />
-                    <Label Text="{Binding LoadingTitle}" Style="{StaticResource TxtSubhead}" />
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LoadingTitle}" Style="{StaticResource TxtSubhead}" />
                     <Label Text="{Binding LoadingDetail}" Style="{StaticResource TxtMuted}"
                            LineBreakMode="WordWrap" />
                     <Grid x:Name="LoadSegments" HeightRequest="6" Margin="0,6,0,0" ColumnSpacing="3" />

@@ -9,6 +9,7 @@ using WarmAsBefore.Drawables;
 using WarmAsBefore.Models;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -18,7 +19,7 @@ namespace WarmAsBefore.ViewModels;
 /// 页面只在导航进来时构建，离开就退订事件、停掉两只钟；所有展示性读取都各自 try/catch，
 /// 任何一路服务出错都只让那一路空着，不把整页带崩。
 /// </summary>
-public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttributable
+public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttributable, IWorstCaseAware
 {
     private readonly GameEngine _engine;
     private readonly MemoryOverviewService _overview;
@@ -197,6 +198,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private ObservableCollection<OrganRow> _organs = new();
     [ObservableProperty] private ObservableCollection<LayerRow> _memoryLayers = new();
     [ObservableProperty] private ObservableCollection<StatRow> _stats = new();
+
+    /// <summary>右栏三块列表各自有没有内容：没有就把「为什么空」写在标题下面，而不是留一片空白。</summary>
+    public bool HasTimeline => Timeline.Count > 0;
+    public bool HasOrgans => Organs.Count > 0;
+    public bool HasLayers => MemoryLayers.Count > 0;
 
     partial void OnSelectedNodeChanged(NodeDetail? value)
     {
@@ -380,6 +386,15 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         {
             if (string.IsNullOrWhiteSpace(id)) return;
 
+            if (WorstCaseProvider.IsActive)
+            {
+                var worst = WorstCaseFixtures.Monitor.Vectors(WorstCaseProvider.Mode);
+                SetVectorCloud(worst, worst.Count == 0
+                    ? "这个角色还没有可投影的记忆。"
+                    : $"量化模型算出的 {worst.Count} 条记忆向量；三轴是向量三段均值，越亮的点越靠近你。");
+                return;
+            }
+
             var entries = core.Concat(all)
                 .GroupBy(m => m.Id, StringComparer.Ordinal)
                 .Select(g => g.First())
@@ -481,6 +496,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     /// </summary>
     private static void TickSources(string id)
     {
+        if (WorstCaseProvider.IsActive) return;   // 压测档只读 fixture，不让服务 Tick 落盘
         try { OrganSimulationService.Instance.Tick(id); }
         catch (Exception ex) { App.WriteLog("SuperMonitor.OrganTick -> " + ex.Message); }
         try { DailyPlanService.Instance.Tick(id); }
@@ -566,6 +582,9 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     // ==================== 并行加载 ====================
 
+    /// <summary>压测条换了档：整页重新取一次数（fixture 或正式数据，都由取数边界的开关决定）。</summary>
+    public void ReloadWorstCase() => _ = LoadAsync();
+
     [RelayCommand]
     private async Task LoadAsync()
     {
@@ -589,16 +608,21 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
             var organTask = Task.Run(() =>
             {
+                if (WorstCaseProvider.IsActive)
+                    return (IReadOnlyList<OrganState>)WorstCaseFixtures.Monitor.Organs(WorstCaseProvider.Mode);
                 try { return OrganSimulationService.Instance.Observe(id); }
                 catch { return (IReadOnlyList<OrganState>)Array.Empty<OrganState>(); }
             });
             var influenceTask = Task.Run(() =>
             {
+                if (WorstCaseProvider.IsActive)
+                    return (IReadOnlyList<OrganInfluence>)WorstCaseFixtures.Monitor.Influences(WorstCaseProvider.Mode);
                 try { return OrganSimulationService.Instance.Influences(); }
                 catch { return (IReadOnlyList<OrganInfluence>)Array.Empty<OrganInfluence>(); }
             });
             var planTask = Task.Run(async () =>
             {
+                if (WorstCaseProvider.IsActive) return WorstCaseFixtures.Monitor.Plan(WorstCaseProvider.Mode);
                 try
                 {
                     // 先确保今天这份日程已生成（AI 失败也有本地模板兜底），再同步取。
@@ -645,6 +669,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             });
             var coreTask = Task.Run<(List<HumanMemoryEntry> Core, List<HumanMemoryEntry> All)>(async () =>
             {
+                if (WorstCaseProvider.IsActive)
+                {
+                    var all = WorstCaseFixtures.Monitor.Memories(WorstCaseProvider.Mode);
+                    return (all.Where(m => m.IsCore).ToList(), all);
+                }
                 try
                 {
                     var svc = ResolveService<HumanMemoryService>();
@@ -729,7 +758,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 {
                     var time = item.TimeText;
                     timelineRows.Add(new TimelineRow(item.Id, time, item.Done ? "✓" : "○",
-                        item.Title, $"{KindText(item.Kind)} · {item.Detail}", item.Done));
+                        string.IsNullOrWhiteSpace(item.Title) ? "（未命名）" : item.Title,
+                        $"{KindText(item.Kind)} · {item.Detail}", item.Done));
                     Remember($"plan-{item.Id}", item.Title, "日程",
                         item.Done ? "Active" : "Inactive", $"{time} · {item.Detail}", "",
                         new[]
@@ -1023,10 +1053,13 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 l.Name, $"{l.Count} {l.Unit}", l.Detail)));
             Stats = new ObservableCollection<StatRow>(new[]
             {
-                new StatRow("好感", $"{numeric.Affection:0}"),
-                new StatRow("信任", $"{numeric.Trust:0}"),
-                new StatRow("精力", $"{numeric.Energy:0}")
+                new StatRow("好感", $"{numeric.Affection:N0}"),
+                new StatRow("信任", $"{numeric.Trust:N0}"),
+                new StatRow("精力", $"{numeric.Energy:N0}")
             });
+            OnPropertyChanged(nameof(HasTimeline));
+            OnPropertyChanged(nameof(HasOrgans));
+            OnPropertyChanged(nameof(HasLayers));
 
             // 架构骨架：首进页面构造一次五层节点与 Mermaid 拓扑连线。
             EnsureArchitecture();
@@ -1056,12 +1089,14 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     private async Task<List<MemoryOverviewService.LayerStat>> LoadMemoryAsync(string id)
     {
+        if (WorstCaseProvider.IsActive) return WorstCaseFixtures.Monitor.Layers(WorstCaseProvider.Mode);
         try { return await _overview.StatsAsync(id); }
         catch (Exception ex) { App.WriteLog("SuperMonitor.Memory -> " + ex.Message); return new(); }
     }
 
     private (string Name, double Affection, double Trust, double Energy) ReadNumeric(string id)
     {
+        if (WorstCaseProvider.IsActive) return WorstCaseFixtures.Monitor.Numeric(WorstCaseProvider.Mode);
         try
         {
             var ch = _engine.ActiveCharacter;
@@ -1116,7 +1151,20 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         _ => value.ToString() ?? ""
     };
 
-    private static string KindText(object? kind) => string.IsNullOrEmpty(kind?.ToString()) ? "事项" : kind!.ToString()!;
+    private static string KindText(object? kind) => kind?.ToString() switch
+    {
+        "Wear" => "穿衣",
+        "Chat" => "聊天",
+        "Work" => "工作",
+        "Rest" => "休息",
+        "Move" => "出行",
+        "Eat" => "吃饭",
+        "Sleep" => "睡觉",
+        "Mood" => "情绪",
+        "Social" => "社交",
+        "Misc" => "杂事",
+        _ => "事项"
+    };
 
     // ==================== 命令 ====================
 

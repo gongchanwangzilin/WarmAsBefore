@@ -110,7 +110,7 @@
                            LineBreakMode="TailTruncation" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="3" Spacing="8" VerticalOptions="Center">
-                    <Label Text="{Binding DirtyLabel}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DirtyLabel}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center"
                            IsVisible="{Binding IsDirty}" />
                     <Button Text="放弃" Style="{StaticResource BtnGhostSm}"
@@ -186,7 +186,7 @@
                                 <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}" Margin="0,8,0,0" />
                                 <Label Text="{Binding Headline}" FontSize="27" FontAttributes="Bold"
                                        TextColor="{DynamicResource WarmDark}" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding PreviewCaption}" Style="{StaticResource TxtCaption}" />
+                                <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding PreviewCaption}" Style="{StaticResource TxtCaption}" />
                             </VerticalStackLayout>
                             <Border Grid.Column="1" WidthRequest="64" HeightRequest="64"
                                     VerticalOptions="End" Padding="0"
@@ -623,9 +623,9 @@
                                             StrokeShape="{DynamicResource WRadiusWell}"
                                             IsVisible="{Binding HasAiDraft}">
                                         <VerticalStackLayout Spacing="8">
-                                            <Label Text="{Binding AiTarget, StringFormat='AI 写的{0}'}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AiTarget, StringFormat='AI 写的{0}'}"
                                                    Style="{StaticResource TxtCaption}" />
-                                            <Label Text="{Binding AiDraft}" Style="{StaticResource TxtBodySm}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding AiDraft}" Style="{StaticResource TxtBodySm}"
                                                    LineHeight="1.35" />
                                             <FlexLayout Direction="Row" Wrap="Wrap">
                                                 <Button Text="用这一版" Style="{StaticResource BtnPrimarySm}"
@@ -671,7 +671,7 @@
                                                 </DataTemplate>
                                             </BindableLayout.ItemTemplate>
                                         </FlexLayout>
-                                        <Label Text="{Binding WorldbookHint}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding WorldbookHint}" Style="{StaticResource TxtCaption}"
                                                LineHeight="1.3" />
                                     </VerticalStackLayout>
 
@@ -680,7 +680,7 @@
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                         <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                                             <Label Text="角色世界观" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding ActiveWorldviewName, StringFormat='现在启用：{0}'}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ActiveWorldviewName, StringFormat='现在启用：{0}'}"
                                                    Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                         <Button Grid.Column="1" Text="新建一套" Style="{StaticResource BtnGhostSm}"
@@ -786,7 +786,7 @@
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Label}" Style="{StaticResource TxtBodySm}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                        <Label Text="{Binding Help}" Style="{StaticResource TxtCaption}"
+                                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Help}" Style="{StaticResource TxtCaption}"
                                                                LineHeight="1.3" IsVisible="{Binding HasHelp}" />
                                                     </VerticalStackLayout>
                                                     <controls:ViewSwitch Grid.Column="1" VerticalOptions="Center"
@@ -997,7 +997,7 @@
                                                    Placeholder="menstrual / follicular / luteal" />
                                         </VerticalStackLayout>
                                     </Grid>
-                                    <Label Text="{Binding CycleNote}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding CycleNote}" Style="{StaticResource TxtCaption}"
                                            LineHeight="1.3" />
                                 </VerticalStackLayout>
 
@@ -1011,10 +1011,10 @@
                                             Padding="{DynamicResource WPadWell}"
                                             StrokeShape="{DynamicResource WRadiusWell}">
                                         <VerticalStackLayout Spacing="6">
-                                            <Label Text="{Binding SubTone}" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding SubNotes}" Style="{StaticResource TxtCaption}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SubTone}" Style="{StaticResource TxtBodySm}" />
+                                            <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding SubNotes}" Style="{StaticResource TxtCaption}"
                                                    LineHeight="1.3" />
-                                            <Label Text="{Binding SubDiff}" Style="{StaticResource TxtCaption}" />
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SubDiff}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                     </Border>
                                     <FlexLayout Direction="Row" Wrap="Wrap">
@@ -1048,8 +1048,8 @@
                                         <DataTemplate x:DataType="vm:StudioArtRow">
                                             <VerticalStackLayout Spacing="6" Margin="0,0,0,10">
                                                 <Grid ColumnDefinitions="*,Auto">
-                                                    <Label Text="{Binding OutfitName}" Style="{StaticResource TxtBodySm}" />
-                                                    <Label Grid.Column="1" Text="{Binding FillLabel}"
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding OutfitName}" Style="{StaticResource TxtBodySm}" />
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding FillLabel}"
                                                            Style="{StaticResource TxtCaption}" />
                                                 </Grid>
                                                 <FlexLayout Direction="Row" Wrap="Wrap"
@@ -1070,7 +1070,7 @@
                                                                              IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
                                                                     <Image Source="{Binding Image}" Aspect="AspectFill"
                                                                            HeightRequest="78" IsVisible="{Binding HasImage}" />
-                                                                    <Label Text="{Binding CornerLabel}" FontSize="11"
+                                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CornerLabel}" FontSize="11"
                                                                            TextColor="{DynamicResource MutedFg}"
                                                                            HorizontalOptions="End" VerticalOptions="Start" />
                                                                 </Grid>
@@ -1097,7 +1097,7 @@
                                         <ActivityIndicator Grid.Column="1" IsRunning="{Binding Busy}"
                                                            IsVisible="{Binding Busy}" HorizontalOptions="Start" />
                                     </Grid>
-                                    <Label Text="{Binding ArtHint}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding ArtHint}" Style="{StaticResource TxtCaption}"
                                            LineHeight="1.3" />
                                 </VerticalStackLayout>
 
@@ -1147,13 +1147,13 @@
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                         <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                             <Label Text="所有存档共用一份记忆" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding ScopePath}" Style="{StaticResource TxtCaption}" />
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ScopePath}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                         <controls:ViewSwitch x:Name="CrossSwitch" Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding CrossSave, Mode=OneWay}" />
                                     </Grid>
-                                    <Label Text="{Binding ScopeLabel}" Style="{StaticResource TxtBodySm}" />
-                                    <Label Text="{Binding MemoryHint}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ScopeLabel}" Style="{StaticResource TxtBodySm}" />
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding MemoryHint}" Style="{StaticResource TxtCaption}"
                                            LineHeight="1.35" />
                                     <Label Text="这颗开关是全应用的：改了它，所有角色、所有存档一起换档。"
                                            Style="{StaticResource TxtCaption}" />
@@ -1212,7 +1212,7 @@
                                         <controls:ViewSwitch x:Name="VoiceSwitch" Grid.Column="1" VerticalOptions="Center"
                                                 IsToggled="{Binding VoiceEnabled, Mode=OneWay}" />
                                     </Grid>
-                                    <Label Text="{Binding VoiceSummary}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding VoiceSummary}" Style="{StaticResource TxtCaption}"
                                            LineHeight="1.3" />
 
                                     <Label Text="语音引擎" Style="{StaticResource FieldLabel}" />
@@ -1295,7 +1295,7 @@
                                     <!-- 需求 19：模型绑定只给 TA 用，其余角色仍走全局轮换池。
                                          厂商与模型是两级联动：换厂商会把模型重置成那家的默认。 -->
                                     <Label Text="只给 TA 用的模型" Style="{StaticResource TxtBodySm}" />
-                                    <Label Text="{Binding ModelHint}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding ModelHint}" Style="{StaticResource TxtCaption}"
                                            LineHeight="1.3" />
                                     <Label Text="厂商" Style="{StaticResource FieldLabel}" />
                                     <FlexLayout Direction="Row" Wrap="Wrap"
@@ -1381,7 +1381,7 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                         <Label Text="这份存档的可用配角" Style="{StaticResource TxtBodySm}" />
-                                        <Label Text="{Binding AllowedHint}" Style="{StaticResource TxtCaption}"
+                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding AllowedHint}" Style="{StaticResource TxtCaption}"
                                                LineHeight="1.3" />
                                     </VerticalStackLayout>
                                     <controls:ViewSwitch x:Name="AllowedSwitch" Grid.Column="1" VerticalOptions="Center"
@@ -1439,7 +1439,7 @@
                                     <Button Grid.Column="1" Text="刷新" Style="{StaticResource BtnGhostSm}"
                                             Command="{Binding RefreshCgCommand}" />
                                 </Grid>
-                                <Label Text="{Binding CgSummary}" Style="{StaticResource TxtCaption}" />
+                                <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding CgSummary}" Style="{StaticResource TxtCaption}" />
 
                                 <VerticalStackLayout Spacing="8"
                                                      IsVisible="{Binding HasCgItems, Converter={StaticResource InverseBool}}">
@@ -1462,7 +1462,7 @@
                                                     <Grid HeightRequest="112">
                                                         <Image Source="{Binding Thumb}" Aspect="AspectFill"
                                                                IsVisible="{Binding HasThumb}" />
-                                                        <Label Text="{Binding MediaLabel}" Style="{StaticResource TxtCaption}"
+                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding MediaLabel}" Style="{StaticResource TxtCaption}"
                                                                HorizontalOptions="Center" VerticalOptions="Center"
                                                                IsVisible="{Binding HasThumb, Converter={StaticResource InverseBool}}" />
                                                     </Grid>
@@ -1471,16 +1471,16 @@
                                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                             <Label Text="{Binding Title}" Style="{StaticResource TxtRowTitle}"
                                                                    LineBreakMode="TailTruncation" />
-                                                            <Label Grid.Column="1" Text="{Binding UnlockLabel}"
+                                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding UnlockLabel}"
                                                                    Style="{StaticResource TxtCaption}"
                                                                    VerticalOptions="Center" />
                                                         </Grid>
-                                                        <Label Text="{Binding MetaLine}" Style="{StaticResource TxtCaption}" />
+                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding MetaLine}" Style="{StaticResource TxtCaption}" />
                                                         <Label Text="{Binding SceneLine}" Style="{StaticResource TxtCaption}"
                                                                LineBreakMode="TailTruncation" />
-                                                        <Label Text="{Binding ConditionLine}" Style="{StaticResource TxtCaption}"
+                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ConditionLine}" Style="{StaticResource TxtCaption}"
                                                                LineHeight="1.3" />
-                                                        <Label Text="{Binding LockedHint}" Style="{StaticResource TxtCaption}"
+                                                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding LockedHint}" Style="{StaticResource TxtCaption}"
                                                                TextColor="{DynamicResource WarmFaint}"
                                                                IsVisible="{Binding Unlocked, Converter={StaticResource InverseBool}}" />
                                                     </VerticalStackLayout>
@@ -1535,7 +1535,7 @@
                                                         Padding="{DynamicResource WPadWell}" HorizontalOptions="Start"
                                                         MaximumWidthRequest="380" StrokeShape="{DynamicResource WRadiusWell}">
                                                     <VerticalStackLayout Spacing="2">
-                                                        <Label Text="{Binding Who}" Style="{StaticResource TxtCaption}"
+                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Who}" Style="{StaticResource TxtCaption}"
                                                                TextColor="{DynamicResource MutedFg}" />
                                                         <Label Text="{Binding Text}" Style="{StaticResource TxtBodySm}"
                                                                TextColor="{DynamicResource SurfaceFg}" LineBreakMode="WordWrap" />

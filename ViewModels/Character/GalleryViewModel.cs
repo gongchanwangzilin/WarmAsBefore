@@ -8,10 +8,11 @@ using WarmAsBefore.Modules.AiChat;
 using WarmAsBefore.Modules.Automation;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
-public sealed partial class GalleryViewModel : ObservableObject
+public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
 {
     private readonly Modules.AiChat.MemoryVault _memory;
     private readonly GameEngine _engine;
@@ -32,6 +33,9 @@ public sealed partial class GalleryViewModel : ObservableObject
     [ObservableProperty] private ObservableCollection<DialogueMemoryItem> _memoryItems = new();
     [ObservableProperty] private ObservableCollection<DiaryDayItem> _diaryItems = new();
     [ObservableProperty] private ObservableCollection<CgCollectionItem> _cgItems = new();
+    [ObservableProperty] private string _affectionNote = "";
+    [ObservableProperty] private string _memoryNote = "";
+    [ObservableProperty] private string _diaryNote = "";
     [ObservableProperty] private bool _hasAffection;
     [ObservableProperty] private bool _hasMemory;
     [ObservableProperty] private bool _hasDiary;
@@ -68,7 +72,8 @@ public sealed partial class GalleryViewModel : ObservableObject
     private async Task Refresh()
     {
         // 日记是每日自动生成的核心机制：打开回忆录时确保当天总结已存档
-        await _diary.EnsureTodayAsync();
+        // （压测档不写盘：这一句会真的生成并落一篇日记）
+        if (!WorstCaseProvider.IsActive) await _diary.EnsureTodayAsync();
         await ReloadDiaryAsync();
         await ReloadMemoirAsync();
         await ReloadCgAsync();
@@ -111,7 +116,9 @@ public sealed partial class GalleryViewModel : ObservableObject
     private async Task ReloadRememberedAsync()
     {        try
         {
-            var entries = await _human.AllAsync(CharacterId);
+            var entries = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Gallery.HumanMemories(WorstCaseProvider.Mode)
+                : await _human.AllAsync(CharacterId);
             var items = new List<HumanMemoryItem>();
             foreach (var e in entries)
             {
@@ -123,6 +130,9 @@ public sealed partial class GalleryViewModel : ObservableObject
                 }
                 items.Add(new HumanMemoryItem
                 {
+                    Text = string.IsNullOrWhiteSpace(e.Text)
+                        ? (e.Kind == HumanMemoryKind.Image ? "（照片式记忆，没有文字）" : "（这条没有文字）")
+                        : e.Text,
                     Kind = e.Kind switch
                     {
                         HumanMemoryKind.Image => "照片",
@@ -130,7 +140,6 @@ public sealed partial class GalleryViewModel : ObservableObject
                         HumanMemoryKind.Abstraction => "印象",
                         _ => "事件"
                     },
-                    Text = e.Text,
                     Time = e.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm"),
                     RecallText = e.RecallCount > 0 ? $" · 被想起 {e.RecallCount} 次" : "",
                     TagText = e.Tags.Count == 0 ? "" : "#" + string.Join(" #", e.Tags),
@@ -139,13 +148,17 @@ public sealed partial class GalleryViewModel : ObservableObject
             }
             HumanMemoryItems = new ObservableCollection<HumanMemoryItem>(items);
 
-            var tags = await _tags.ListAsync(CharacterId);
+            var tags = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Gallery.Tags(WorstCaseProvider.Mode)
+                : await _tags.ListAsync(CharacterId);
             HasTags = tags.Count > 0;
             TagSummary = HasTags
                 ? string.Join("　", tags.Select(t => $"{t.Name}×{t.Count}"))
                 : "";
 
-            var links = await _network.TopLinksAsync(CharacterId, 8);
+            var links = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Gallery.Links(WorstCaseProvider.Mode)
+                : await _network.TopLinksAsync(CharacterId, 8);
             HasSemantic = links.Count > 0;
             SemanticSummary = HasSemantic
                 ? string.Join("\n", links.Select(l => $"{l.A} ↔ {l.B}（{l.Weight:0}，{SourceText(l.Source)}）"))
@@ -168,7 +181,9 @@ public sealed partial class GalleryViewModel : ObservableObject
     {
         try
         {
-            var stats = await _overview.StatsAsync(CharacterId);
+            var stats = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Gallery.LayerStats(WorstCaseProvider.Mode)
+                : await _overview.StatsAsync(CharacterId);
             LayerStats = new ObservableCollection<MemoryLayerItem>(stats.Select(s => new MemoryLayerItem
             {
                 Name = s.Name,
@@ -202,7 +217,10 @@ public sealed partial class GalleryViewModel : ObservableObject
     private async Task ReloadMemoirAsync()
     {
         var charId = CharacterId;
-        var aff = await _memory.All(charId, "affection");
+        var aff = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Gallery.Affection(WorstCaseProvider.Mode)
+            : await _memory.All(charId, "affection");
+        aff = aff.OrderByDescending(m => m.At).Take(50).ToList();
         AffectionItems = new ObservableCollection<AffectionMemoryItem>(aff.Select(m =>
         {
             ImageSource? img = null;
@@ -213,14 +231,20 @@ public sealed partial class GalleryViewModel : ObservableObject
             return new AffectionMemoryItem
             {
                 Delta = m.Weight > 0 ? $"+{m.Weight}" : m.Weight.ToString(),
-                Reason = m.Keywords ?? "互动",
+                Reason = string.IsNullOrWhiteSpace(m.Keywords) ? "互动" : m.Keywords,
                 Time = m.At.ToLocalTime().ToString("MM-dd HH:mm"),
                 Image = img
             };
         }));
         HasAffection = AffectionItems.Count > 0;
+        var affectionTotal = aff.Count;
+        if (affectionTotal > AffectionItems.Count)
+            AffectionNote = $"共 {affectionTotal} 条，这里只列最新的 {AffectionItems.Count} 条";
+        else AffectionNote = "";
 
-        var all = await _memory.All(charId);
+        var all = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Gallery.Memories(WorstCaseProvider.Mode)
+            : await _memory.All(charId);
         var query = SearchText?.Trim();
         IEnumerable<Models.MemoryEntry> hits = all;
         if (!string.IsNullOrEmpty(query))
@@ -228,18 +252,27 @@ public sealed partial class GalleryViewModel : ObservableObject
             hits = all.Where(m => m.Content.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (m.Keywords is not null && m.Keywords.Contains(query, StringComparison.OrdinalIgnoreCase)));
         }
-        MemoryItems = new ObservableCollection<DialogueMemoryItem>(hits.Take(200).Select(m => new DialogueMemoryItem
+        var hitList = hits.ToList();
+        MemoryItems = new ObservableCollection<DialogueMemoryItem>(hitList.Take(200).Select(m => new DialogueMemoryItem
         {
-            Text = m.Content.Length > 120 ? m.Content[..120] + "…" : m.Content,
+            Text = string.IsNullOrWhiteSpace(m.Content) ? "（这条没有文字）"
+                : m.Content.Length > 120 ? m.Content[..120] + "…" : m.Content,
             Time = m.At.ToLocalTime().ToString("MM-dd HH:mm")
         }));
         HasMemory = MemoryItems.Count > 0;
+        MemoryNote = hitList.Count > MemoryItems.Count
+            ? $"共 {hitList.Count} 条，这里只列前 {MemoryItems.Count} 条"
+            : "";
     }
 
     private async Task ReloadDiaryAsync()
     {
-        var notes = await _memory.Diary(CharacterId);
-        DiaryItems = new ObservableCollection<DiaryDayItem>(notes.OrderByDescending(n => n.Date)
+        var notes = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Gallery.Diary(WorstCaseProvider.Mode)
+            : await _memory.Diary(CharacterId);
+        var diaryTotal = notes.Count;
+        var recent = notes.OrderByDescending(n => n.Date).Take(60).ToList();
+        DiaryItems = new ObservableCollection<DiaryDayItem>(recent
             .Select(n => new DiaryDayItem
             {
                 Date = n.Date.ToLocalTime().ToString("yyyy年M月d日"),
@@ -247,15 +280,20 @@ public sealed partial class GalleryViewModel : ObservableObject
                 Content = n.Content
             }));
         HasDiary = DiaryItems.Count > 0;
+        DiaryNote = diaryTotal > DiaryItems.Count
+            ? $"共 {diaryTotal} 篇，这里只列最近 {DiaryItems.Count} 篇"
+            : "";
     }
 
     private async Task ReloadCgAsync()
     {
-        await _cg.RefreshAsync();
+        List<CgRecord> unlocked;
+        if (WorstCaseProvider.IsActive) unlocked = WorstCaseFixtures.Gallery.Cgs(WorstCaseProvider.Mode);
+        else { await _cg.RefreshAsync(); unlocked = _cg.AllUnlocked(); }
         var items = new List<CgCollectionItem>();
-        foreach (var cg in _cg.AllUnlocked())
+        foreach (var cg in unlocked)
         {
-            var path = _cg.ResolvePath(cg);
+            var path = WorstCaseProvider.IsActive ? "" : _cg.ResolvePath(cg);
             ImageSource? img = null;
             if (!string.IsNullOrEmpty(path) && File.Exists(path))
             {
@@ -272,6 +310,9 @@ public sealed partial class GalleryViewModel : ObservableObject
         CgItems = new ObservableCollection<CgCollectionItem>(items);
         HasCg = CgItems.Count > 0;
     }
+
+    /// <summary>压测条换了档：五个区块一起重读。</summary>
+    public void ReloadWorstCase() => _ = Refresh();
 
     /// <summary>收藏册点开一张 CG：全屏回看（左上角可跳过）。</summary>
     [RelayCommand]
@@ -299,7 +340,7 @@ public sealed class AffectionMemoryItem
     public string Delta { get; init; } = "";
     public string Reason { get; init; } = "";
     public string Time { get; init; } = "";
-    public string Display => $"+{Delta} · {Reason} · {Time}";
+    public string Display => $"{Delta} · {Reason} · {Time}";
     /// <summary>好感提升瞬间截屏，若有则显示。</summary>
     public ImageSource? Image { get; init; }
     public bool HasImage => Image is not null;
@@ -317,7 +358,7 @@ public sealed class DiaryDayItem
     public string Date { get; init; } = "";
     public string Mood { get; init; } = "";
     public string Content { get; init; } = "";
-    public string Header => $"{Date} · {Mood}";
+    public string Header => string.IsNullOrWhiteSpace(Mood) ? Date : $"{Date} · {Mood}";
 }
 
 /// <summary>记忆分层总览里的一层。</summary>

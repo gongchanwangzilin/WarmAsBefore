@@ -103,7 +103,7 @@
                 </Border>
 
                 <VerticalStackLayout Spacing="3">
-                    <Label Text="{Binding DeviceLine}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DeviceLine}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding DeviceLine, Converter={StaticResource StringNotEmpty}}" />
                     <Label Text="把另一台设备上传的存档取回本机；同步覆盖前留下的旧版本，也能从这里恢复。令牌只留在本机。"
                            Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap" />
@@ -121,7 +121,7 @@
                         Padding="{DynamicResource WPadCard}"
                         StrokeShape="{DynamicResource WRadiusWell}">
                     <VerticalStackLayout Spacing="4">
-                        <Label Text="{Binding HintTitle}" Style="{StaticResource TxtSubhead}" />
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding HintTitle}" Style="{StaticResource TxtSubhead}" />
                         <Label Text="{Binding HintText}" Style="{StaticResource TxtMuted}"
                                LineBreakMode="WordWrap" />
                     </VerticalStackLayout>
@@ -130,7 +130,7 @@
                 <!-- 空状态：不是加载中，是真的没有 -->
                 <VerticalStackLayout IsVisible="{Binding ShowEmpty}" Spacing="6"
                                      Padding="0,44,0,20" HorizontalOptions="Center">
-                    <Label Text="{Binding EmptyTitle}" Style="{StaticResource TxtSubhead}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding EmptyTitle}" Style="{StaticResource TxtSubhead}"
                            HorizontalOptions="Center" />
                     <Label Text="{Binding EmptyText}" Style="{StaticResource TxtMuted}"
                            HorizontalTextAlignment="Center" LineBreakMode="WordWrap"

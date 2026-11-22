@@ -98,7 +98,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
     // 长按左键框选（编辑模式）：空白处按下并拖动即进入框选，松开结算。点击（未拖动）= 仅取消选择
 
     public MapViewModel(GameEngine engine, MapService maps, MaterialLibrary materials, AudioController audio,
-        SceneCalibrationService cal, ImageGenerationService images, VisionService vision, TrafficSignalService signals)
+        SceneCalibrationService cal, ImageGenerationService images, VisionService vision, TrafficSignalService signals,
+        TileService tiles, SettingsManager settings)
     {
         _engine = engine;
         _maps = maps;
@@ -109,6 +110,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         _vision = vision;
         _signals = signals;
         _maps.SceneChanged += OnSceneChanged;
+        // 底图瓦片是「铺在纸面底下的一层」：挂在画布上，来源与联网开关都由设置决定。
+        AttachTileLayer(tiles, settings);
         Drawable.AttachBgResolver(node => _maps.ResolveBackground(node.Scene));
         Drawable.AttachLocationThumbResolver(loc =>
         {
@@ -152,6 +155,8 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         StopFloorAnim();
         StopSignalTicker();
         _maps.SceneChanged -= OnSceneChanged;
+        if (_tiles is not null) _tiles.TileArrived -= OnTileArrived;
+        if (_settings is not null) _settings.Applied -= OnSettingsApplied;
     }
 
     /// <summary>

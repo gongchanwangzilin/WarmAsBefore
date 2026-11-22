@@ -11,6 +11,8 @@
                 <ResourceDictionary Source="DesignSystem/Theme/ColorPalette.xaml" />
                 <!-- 社交壳（微信/QQ）品牌配色：静态白+蓝，不随风格世界与明暗切换（style ⊥ palette） -->
                 <ResourceDictionary Source="DesignSystem/Theme/WeChatBrand.xaml" />
+                <!-- 叠加面（取景舞台 / 桌宠小窗 / 光晕）：静态深色，不随世界与明暗切换 -->
+                <ResourceDictionary Source="DesignSystem/Theme/OverlaySkin.xaml" />
                 <ResourceDictionary Source="DesignSystem/Styles/BaseStyles.xaml" />
                 <ResourceDictionary Source="DesignSystem/Styles/ButtonShapes.xaml" />
                 <ResourceDictionary Source="DesignSystem/Styles/CardShapes.xaml" />

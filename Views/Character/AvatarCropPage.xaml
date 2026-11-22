@@ -32,14 +32,14 @@
         </Border>
 
         <!-- 取景舞台：框外压暗，框内是亮的原图 -->
-        <Grid Grid.Row="1" x:Name="Stage" BackgroundColor="#141110" SizeChanged="OnStageSizeChanged">
+        <Grid Grid.Row="1" x:Name="Stage" BackgroundColor="{StaticResource StageBg}" SizeChanged="OnStageSizeChanged">
             <Image Source="{Binding PreviewSource}" Aspect="AspectFill" Opacity="0.2"
                    InputTransparent="True" />
-            <BoxView Color="#A6000000" InputTransparent="True" />
+            <BoxView Color="{StaticResource StageScrim}" InputTransparent="True" />
 
             <Grid x:Name="CropFrame" WidthRequest="300" HeightRequest="300"
                   HorizontalOptions="Center" VerticalOptions="Center"
-                  IsClippedToBounds="True" BackgroundColor="#0B0A09">
+                  IsClippedToBounds="True" BackgroundColor="{StaticResource StageBgDeep}">
                 <!-- 图以 cover 尺寸摆进框心，Scale 只管视觉大小、不重排布局 -->
                 <Image x:Name="CropImage" Source="{Binding PreviewSource}" Aspect="Fill"
                        WidthRequest="{Binding BaseWidth}" HeightRequest="{Binding BaseHeight}"
@@ -51,14 +51,14 @@
                 <!-- 三分法：常显，可在下方关掉 -->
                 <Grid IsVisible="{Binding ShowGrid}" InputTransparent="True"
                       ColumnDefinitions="*,1,*,1,*" RowDefinitions="*,1,*,1,*">
-                    <BoxView Grid.Column="1" Grid.RowSpan="5" Color="#4DFFFFFF" />
-                    <BoxView Grid.Column="3" Grid.RowSpan="5" Color="#4DFFFFFF" />
-                    <BoxView Grid.Row="1" Grid.ColumnSpan="5" Color="#4DFFFFFF" />
-                    <BoxView Grid.Row="3" Grid.ColumnSpan="5" Color="#4DFFFFFF" />
+                    <BoxView Grid.Column="1" Grid.RowSpan="5" Color="{StaticResource StageRule}" />
+                    <BoxView Grid.Column="3" Grid.RowSpan="5" Color="{StaticResource StageRule}" />
+                    <BoxView Grid.Row="1" Grid.ColumnSpan="5" Color="{StaticResource StageRule}" />
+                    <BoxView Grid.Row="3" Grid.ColumnSpan="5" Color="{StaticResource StageRule}" />
                 </Grid>
 
                 <!-- 框线自己画：Border 不设 Background，避免编译模板里 DynamicResource 填充的坑 -->
-                <Border Stroke="#E6FFFFFF" StrokeThickness="1" InputTransparent="True">
+                <Border Stroke="{StaticResource StageFrameEdge}" StrokeThickness="1" InputTransparent="True">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="2" />
                     </Border.StrokeShape>

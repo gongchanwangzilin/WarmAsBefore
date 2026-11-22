@@ -19,12 +19,24 @@ public static class CoordConvert
     /// <summary>第一偏心率平方。</summary>
     private const double Ee = 0.00669342162296594323;
 
-    /// <summary>GCJ-02（高德）→ WGS84（谷歌 / GPS）。</summary>
+    /// <summary>
+    /// GCJ-02（高德）→ WGS84（谷歌 / GPS）。
+    ///
+    /// 这里不用「减一次差分」的近似：差分是拿当前点算的，正反两次落在不同点上，
+    /// 一来一回会留下几米的残差 —— 底图瓦片按它落位时，那就是十几个像素的整体错位。
+    /// 所以按「正向再补齐差值」迭代三轮，收敛到亚厘米级。
+    /// </summary>
     public static (double Lat, double Lon) Gcj02ToWgs84(double lat, double lon)
     {
         if (OutOfChina(lat, lon)) return (lat, lon);
-        var (dLat, dLon) = Delta(lat, lon);
-        return (lat - dLat, lon - dLon);
+        var (wLat, wLon) = (lat, lon);
+        for (var i = 0; i < 3; i++)
+        {
+            var (gLat, gLon) = Wgs84ToGcj02(wLat, wLon);
+            wLat -= gLat - lat;
+            wLon -= gLon - lon;
+        }
+        return (wLat, wLon);
     }
 
     /// <summary>WGS84（谷歌 / GPS）→ GCJ-02（高德）。</summary>

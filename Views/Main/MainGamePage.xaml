@@ -29,7 +29,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                 <Label Text="{Binding Value}" TextColor="{DynamicResource WarmDark}"
                        FontSize="{Binding ValueFontSize}" FontAttributes="Bold"
                        LineBreakMode="TailTruncation" MaximumWidthRequest="150" />
-                <Label Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
                        TextColor="{DynamicResource MutedFg}" FontSize="9" />
             </VerticalStackLayout>
         </DataTemplate>
@@ -40,7 +40,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                 <Label Text="{Binding Title}" TextColor="{DynamicResource MutedFg}" FontSize="10" MaxLines="1" LineBreakMode="TailTruncation" />
                 <Label Text="{Binding Value}" TextColor="{DynamicResource SurfaceFg}"
                        FontSize="{Binding ValueFontSize}" FontAttributes="Bold" LineBreakMode="WordWrap" />
-                <Label Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SubValue}" IsVisible="{Binding SubValue, Converter={StaticResource StringNotEmpty}}"
                        TextColor="{DynamicResource MutedFg}" FontSize="9" />
             </VerticalStackLayout>
         </DataTemplate>
@@ -137,7 +137,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     Stroke="{DynamicResource WBorderBrush}">
                 <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
-                        <Label Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
                                Style="{StaticResource TxtRowTitle}" TextColor="{DynamicResource SignalFg}" />
                         <Label Grid.Column="1"
                                Text="{Binding ReceiptSummary, Source={x:Static core:RepairReportService.Instance}}"
@@ -150,7 +150,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                     Command="{Binding ClearCommand, Source={x:Static core:RepairReportService.Instance}}" />
                         </HorizontalStackLayout>
                     </Grid>
-                    <Label IsVisible="{Binding DetailVisible, Source={x:Static core:RepairReportService.Instance}}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" IsVisible="{Binding DetailVisible, Source={x:Static core:RepairReportService.Instance}}"
                            Text="{Binding DetailText, Source={x:Static core:RepairReportService.Instance}}"
                            Style="{StaticResource TxtCaption}" />
                 </VerticalStackLayout>
@@ -167,7 +167,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                 <VerticalStackLayout Spacing="10" HorizontalOptions="Center">
                     <ActivityIndicator IsRunning="{Binding EntryLoading}" HorizontalOptions="Center"
                                        WidthRequest="22" HeightRequest="22" Color="{DynamicResource AccentWarm}" />
-                    <Label Text="{Binding EntryPhase}" FontSize="13" FontAttributes="Bold"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding EntryPhase}" FontSize="13" FontAttributes="Bold"
                            HorizontalOptions="Center" TextColor="{DynamicResource SurfaceFg}" />
                     <!-- 进度线用 AbsoluteLayout 比例 bounds 的 BoxView（2026-11-15）：
                          原生 ProgressBar 处理器在首次渲染抛 E_NOINTERFACE（实测），
@@ -208,7 +208,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     <Label Text="{Binding CurrentTimeStr}" TextColor="{DynamicResource WarmDark}" FontSize="24" FontAttributes="Bold" VerticalOptions="Center" />
                     <VerticalStackLayout Grid.Column="1" Spacing="0" VerticalOptions="Center">
                         <Label Text="{Binding DateLabel}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
-                        <Label Text="{Binding WeatherDesc}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
+                        <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding WeatherDesc}" TextColor="{DynamicResource MutedFg}" FontSize="10" />
                     </VerticalStackLayout>
                     <Label Grid.Column="2" Text="{Binding LocationLabel}" TextColor="{DynamicResource SurfaceFg}" FontSize="12" VerticalOptions="Center" LineBreakMode="TailTruncation" />
                     <Border Grid.Column="3" BackgroundColor="{DynamicResource AccentWarm}" StrokeThickness="0" Padding="10,4" VerticalOptions="Center">
@@ -275,7 +275,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     <Label Text="信息" TextColor="{DynamicResource SurfaceFg}" FontSize="14" FontAttributes="Bold" />
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">当前位置</Label>
-                        <Label Text="{Binding LocationLabel}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LocationLabel}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" />
                     </VerticalStackLayout>
                     <VerticalStackLayout Spacing="4">
                         <Label TextColor="{DynamicResource MutedFg}" FontSize="11">好感度</Label>
@@ -513,7 +513,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                             <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" TextColor="{DynamicResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
                             <Button Grid.Column="1" Text="文件" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="2,0" HeightRequest="36" WidthRequest="40" Command="{Binding PickAttachmentCommand}" />
                             <Button Grid.Column="2" Text="表情" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="2,0" HeightRequest="36" WidthRequest="40" Command="{Binding SendStickerCommand}" />
-                            <Button Grid.Column="3" Text="🎁" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
+                            <Button Grid.Column="3" Text="礼物" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="12" Padding="2,0" HeightRequest="36" WidthRequest="32" Command="{Binding ToggleGiftPanelCommand}" />
                             <Button Grid.Column="4" Text="语音" TextColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" FontSize="11" Padding="4,0" HeightRequest="36" Command="{Binding VoiceInputCommand}" />
                             <Button Grid.Column="5" Text="发送" BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}" FontSize="12" FontAttributes="Bold" CornerRadius="18" HeightRequest="36" WidthRequest="52" Padding="0" Command="{Binding SendMessageCommand}" />
                         </Grid>
@@ -543,7 +543,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                 TextColor="{DynamicResource AccentWarmFg}" BackgroundColor="{DynamicResource SurfaceBg}"
                                 FontSize="11" Padding="10,4" CornerRadius="12" HeightRequest="28"
                                 Command="{Binding ToggleGalgameModeCommand}" />
-                        <Label Text="{Binding LastSpeakerName}" TextColor="{DynamicResource MutedFg}" FontSize="11"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LastSpeakerName}" TextColor="{DynamicResource MutedFg}" FontSize="11"
                                VerticalOptions="Center" Margin="8,0,0,0" />
                     </HorizontalStackLayout>
 
@@ -558,7 +558,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     </Border>
 
                     <!-- 沉默提示（开启「允许 AI 沉默」时显示） -->
-                    <Label x:Name="GalSilenceHint" Grid.Row="1" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" x:Name="GalSilenceHint" Grid.Row="1" IsVisible="{Binding SilenceHintText, Converter={StaticResource StringNotEmpty}}"
                            Text="{Binding SilenceHintText}" TextColor="{DynamicResource MutedFg}" FontSize="11"
                            VerticalOptions="Start" Margin="8,4,8,0" />
 
@@ -579,7 +579,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                     BackgroundColor="Transparent" FontSize="11"
                                     Padding="2,0" HeightRequest="36" WidthRequest="40"
                                     Command="{Binding PickAttachmentCommand}" />
-                            <Button Grid.Column="2" Text="🎁" TextColor="{DynamicResource MutedFg}"
+                            <Button Grid.Column="2" Text="礼物" TextColor="{DynamicResource MutedFg}"
                                     BackgroundColor="Transparent" FontSize="13"
                                     Padding="0" HeightRequest="36" WidthRequest="36"
                                     Command="{Binding ToggleGiftPanelCommand}" />
@@ -765,7 +765,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                                 <Border BackgroundColor="{DynamicResource Beige100}" StrokeThickness="0"
                                                         Padding="9,2" HorizontalOptions="End">
                                                     <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                                    <Label Text="{Binding Owned, StringFormat='×{0}'}"
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Owned, StringFormat='×{0}'}"
                                                            TextColor="{DynamicResource MutedFg}" FontSize="10" />
                                                 </Border>
                                                 <!-- 送礼（送礼模式下可见） -->
@@ -815,13 +815,13 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                     <Label Text="这张背景还没有标定" FontSize="19" FontAttributes="Bold"
                            TextColor="{DynamicResource WarmDark}"
                            HorizontalOptions="Center" />
-                    <Label Text="{Binding CalibrationHint}" FontSize="13"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding CalibrationHint}" FontSize="13"
                            TextColor="{DynamicResource MutedFg}" />
                     <Label Text="标定确定两件事：角色能站在哪里（落脚点），以及近处远处该怎么缩放（缩放标定）。"
                            FontSize="12" TextColor="{DynamicResource MutedFg}" />
                     <!-- 这两个钮走共享样式，颜色交给世界：写死「淡面 + 白字」会在深色档里
                          让淡面令牌变浅、白字随之糊掉。 -->
-                    <Button Text="✓ 现在去标定" Style="{StaticResource BtnNeumorphAccent}"
+                    <Button Text="现在去标定" Style="{StaticResource BtnNeumorphAccent}"
                             Command="{Binding GoCalibrateCommand}" />
                     <Button Text="移除这张背景（改用纯色）" Style="{StaticResource BtnDangerSm}"
                             Command="{Binding RemoveSceneBackgroundCommand}" />
@@ -836,7 +836,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
         <Border IsVisible="{Binding IsUncalibrated}" BackgroundColor="{DynamicResource DangerBanner}"
                 StrokeThickness="0" Padding="14,8" Margin="12" VerticalOptions="Start" HorizontalOptions="Center">
             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-            <Label Text="{Binding UncalibratedHint}" TextColor="White" FontSize="12">
+            <Label Text="{Binding UncalibratedHint}" TextColor="White" FontSize="12" MaxLines="2" LineBreakMode="WordWrap">
                 <Label.GestureRecognizers>
                     <TapGestureRecognizer Command="{Binding GoCalibrateCommand}" />
                 </Label.GestureRecognizers>

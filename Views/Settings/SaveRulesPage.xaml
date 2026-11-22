@@ -22,7 +22,7 @@
         <ScrollView Grid.Row="1" Padding="24,16,24,28">
             <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
                 <VerticalStackLayout Spacing="4">
-                    <Label Text="{Binding SaveLabel}" Style="{StaticResource TxtSubhead}" />
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SaveLabel}" Style="{StaticResource TxtSubhead}" />
                     <Label Text="这些白名单只属于这一份存档：换档就换一套。插件与工具被关掉时不会执行；角色白名单决定 AI 能在这份存档里让谁出场。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
@@ -75,7 +75,7 @@
                                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                        <Label Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
+                                                        <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding Hint}" Style="{StaticResource TxtRowDesc}"
                                                                IsVisible="{Binding HasHint}" />
                                                     </VerticalStackLayout>
                                                     <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding Allowed}"
@@ -305,7 +305,7 @@
                     </Border>
                 </VerticalStackLayout>
 
-                <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                        TextColor="{DynamicResource AccentWarmFg}" />
                 <Button Text="保存这份存档的规则" Style="{StaticResource BtnPrimary}"
                         Padding="16,7" HorizontalOptions="Start" Command="{Binding SaveCommand}" />

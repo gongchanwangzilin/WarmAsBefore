@@ -77,7 +77,7 @@
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
                                                 <Label Text="{Binding Label}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                <Label Text="{Binding Sub}" Style="{StaticResource TxtRowDesc}"
+                                                <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding Sub}" Style="{StaticResource TxtRowDesc}"
                                                        IsVisible="{Binding Sub, Converter={StaticResource StringNotEmpty}}" />
                                             </VerticalStackLayout>
                                             <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">

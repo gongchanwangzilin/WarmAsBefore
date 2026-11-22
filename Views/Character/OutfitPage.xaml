@@ -33,7 +33,7 @@
                                    IsVisible="{Binding HasCurrentImage}"
                                    HorizontalOptions="Fill" VerticalOptions="Fill" />
                         </Border>
-                        <Label Text="{Binding CurrentOutfit, StringFormat='当前：{0}'}"
+                        <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding CurrentOutfit, StringFormat='当前：{0}'}"
                                Style="{StaticResource TxtRowDesc}" />
                     </VerticalStackLayout>
                 </Border>
@@ -66,7 +66,7 @@
                                                     <Label Grid.Column="1" Text="{Binding Name}"
                                                            Style="{StaticResource TxtRowTitle}" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
-                                                        <Label Text="{Binding CurrentLabel}" Style="{StaticResource TxtCaption}"
+                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CurrentLabel}" Style="{StaticResource TxtCaption}"
                                                                TextColor="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
                                                         <Button Text="穿上" Style="{StaticResource BtnNeumorphSm}"
                                                                 Padding="12,4"

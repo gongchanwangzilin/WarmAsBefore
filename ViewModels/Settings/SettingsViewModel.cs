@@ -36,6 +36,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private readonly SaveRuntimeService _runtime;
     private readonly Modules.DataPack.SmartImporter _smart;
     private readonly BackgroundService _bg;
+    private readonly TileService _tiles;
 
     public SettingsViewModel(SettingsManager settings, DesignSystem.Theme.ThemeManager theme,
         Modules.RealChat.OfficialChatBridge bridge, Modules.Mcp.McpOrchestrator mcp,
@@ -47,7 +48,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         Modules.RealWorld.LocationService cities, Modules.RealWorld.WeatherProvider weather,
         Services.CloudSync.CloudSyncService cloud, Services.GenderLibrary genders,
         Modules.Market.ShopService shop, SaveRuntimeService runtime,
-        Modules.DataPack.SmartImporter smart, BackgroundService bg)
+        Modules.DataPack.SmartImporter smart, BackgroundService bg, TileService tiles)
     {
         _settings = settings;
         _theme = theme;
@@ -72,6 +73,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _runtime = runtime;
         _smart = smart;
         _bg = bg;
+        _tiles = tiles;
         _ = shop.InitializeAsync();
         _cloudStatus = cloud.Status;
         _showcaseUnlocked = settings.Current.DeveloperShowcaseUnlocked;
@@ -95,6 +97,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
         _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
+        _mapTileOnline = s.MapTileOnline;
+        RefreshTileCacheText();
         _experimentalSceneFxEnabled = s.ExperimentalSceneFxEnabled;
         _weatherSceneOverlayEnabled = s.WeatherSceneOverlayEnabled;
         _sceneLightEnabled = s.SceneLightEnabled;
@@ -383,6 +387,38 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
     [ObservableProperty] private string _backgroundImagePath = "";
     [ObservableProperty] private string _backgroundPaletteDisplay = "经典";
+    /// <summary>地图底图的联网总闸（地图页图层抽屉里也有同一个开关，两处写的是同一项设置）。</summary>
+    [ObservableProperty] private bool _mapTileOnline = true;
+
+    partial void OnMapTileOnlineChanged(bool value) => PersistSettings();
+
+    /// <summary>瓦片缓存现在占多少 —— 给「清空瓦片缓存」那一行一句交代。</summary>
+    [ObservableProperty] private string _tileCacheText = "";
+
+    [RelayCommand]
+    private async Task ClearTileCacheAsync()
+    {
+        try
+        {
+            await _tiles.ClearAsync();
+            RefreshTileCacheText();
+            Toast.Info("瓦片缓存已清空。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SettingsViewModel.ClearTileCache -> " + ex);
+            Toast.Error("清缓存没成功：" + ex.Message);
+        }
+    }
+
+    private void RefreshTileCacheText()
+    {
+        var mb = _tiles.DiskBytes / 1024.0 / 1024.0;
+        TileCacheText = mb <= 0
+            ? "本地还没有缓存瓦片。"
+            : $"本地缓存约 {mb:0.#}MB。清空后离线包要看的地方得重新联网走一遍。";
+    }
+
     [ObservableProperty] private bool _experimentalSceneFxEnabled;
     [ObservableProperty] private bool _weatherSceneOverlayEnabled = true;
     /// <summary>天气场景光照开关，关闭后主界面即时关掉光柱/折射。</summary>
@@ -1458,6 +1494,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     BackgroundMode = BackgroundMode,
     BackgroundImagePath = BackgroundImagePath,
     BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
+    MapTileOnline = MapTileOnline,
     WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
                     ExperimentalSceneFxEnabled = ExperimentalSceneFxEnabled,
     SceneLightEnabled = SceneLightEnabled,

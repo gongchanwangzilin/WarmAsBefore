@@ -20,9 +20,9 @@
 
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                        <Label Text="{Binding SceneName, StringFormat='标定背景：{0}'}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SceneName, StringFormat='标定背景：{0}'}"
                                Style="{StaticResource TxtTitle}" />
-                        <Label Text="{Binding ImageInfo}" TextColor="{DynamicResource MutedFg}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ImageInfo}" TextColor="{DynamicResource MutedFg}"
                                FontSize="{DynamicResource WSizeCaption}" />
                         <Label Text="{Binding StatusText}" TextColor="{DynamicResource SurfaceFg}"
                                FontSize="{DynamicResource WSizeCaption}"
@@ -84,13 +84,13 @@
         <!-- ===== 底部：强制输出 + 完成（CardSolid 把缝发到画刷上；BorderLine 是 Color，喂不了 Border.Stroke） ===== -->
         <Border Grid.Row="2" Style="{StaticResource CardSolid}" Margin="12,8,12,12">
             <VerticalStackLayout Spacing="10">
-                <Label Text="{Binding SummaryText}" Style="{StaticResource TxtBodySm}" />
-                <Label Text="{Binding MissingText}" IsVisible="{Binding HasMissing}"
+                <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding SummaryText}" Style="{StaticResource TxtBodySm}" />
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding MissingText}" IsVisible="{Binding HasMissing}"
                        Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource DangerInk}" />
                 <HorizontalStackLayout Spacing="8" HorizontalOptions="End">
                     <Button Text="清空重标" Style="{StaticResource BtnGhostSm}"
                             HeightRequest="36" Command="{Binding ClearAllCommand}" />
-                    <Button Text="✓ 完成标定" Style="{StaticResource BtnPrimarySm}"
+                    <Button Text="完成标定" Style="{StaticResource BtnPrimarySm}"
                             HeightRequest="36"
                             IsEnabled="{Binding CanComplete}" Clicked="OnCompleteClicked" />
                 </HorizontalStackLayout>

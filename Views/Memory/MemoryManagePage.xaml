@@ -124,7 +124,7 @@
                                 <Border Style="{StaticResource SettingRow}">
                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="14">
                                         <VerticalStackLayout Grid.Column="0" Spacing="6" VerticalOptions="Center">
-                                            <Label Text="{Binding Kind}" Style="{StaticResource TxtRowTitle}" />
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Kind}" Style="{StaticResource TxtRowTitle}" />
                                             <VerticalStackLayout Spacing="4" BindableLayout.ItemsSource="{Binding Lines}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="helpers:MemoryHighlight+Line">
@@ -135,13 +135,13 @@
                                                                     Command="{Binding Source={RelativeSource AncestorType={x:Type vm:MemoryManageViewModel}}, Path=TagLineCommand}"
                                                                     CommandParameter="{Binding .}" />
                                                             </Border.GestureRecognizers>
-                                                            <Label FormattedText="{Binding Text}" />
+                                                            <Label MaxLines="1" LineBreakMode="TailTruncation" FormattedText="{Binding Text}" />
                                                         </Border>
                                                     </DataTemplate>
                                                 </BindableLayout.ItemTemplate>
                                             </VerticalStackLayout>
-                                            <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
-                                            <Label Text="{Binding CoreLabel}" Style="{StaticResource TxtCaption}"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Meta}" Style="{StaticResource TxtCaption}" />
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CoreLabel}" Style="{StaticResource TxtCaption}"
                                                    IsVisible="{Binding HasCoreLabel}" TextColor="{DynamicResource AccentWarmFg}"
                                                    FontAttributes="Bold" />
                                             <Label Text="{Binding TraumaLabel}" Style="{StaticResource TxtCaption}"

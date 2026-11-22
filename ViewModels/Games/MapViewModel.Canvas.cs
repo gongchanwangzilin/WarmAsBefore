@@ -442,7 +442,9 @@ public sealed partial class MapViewModel : ObservableObject, IDisposable
         }
         var oldScale = Drawable.Scale;
         var factor = delta > 0 ? 1.15 : 1 / 1.15;
-        var newScale = Math.Clamp(oldScale * factor, 0.3, 2.5);
+        // 底图在用时按瓦片档 3–19 收放（看得到全省也看得到门牌），手工绘制仍是原来的尺度。
+        var (minScale, maxScale) = ScaleRange();
+        var newScale = Math.Clamp(oldScale * factor, minScale, maxScale);
         if (Math.Abs(newScale - oldScale) < 0.001) return;
         // 保持鼠标指向的世界点不动
         var wx = (screen.X - Drawable.OffsetX) / oldScale;

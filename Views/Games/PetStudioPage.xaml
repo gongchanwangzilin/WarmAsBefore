@@ -152,7 +152,7 @@
                                                 <Border Grid.Column="2" VerticalOptions="Center"
                                                         Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                                         Padding="10,5" StrokeShape="{DynamicResource WRadiusPill}">
-                                                    <Label Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
+                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Meta}" Style="{StaticResource TxtCaption}"
                                                            TextColor="{DynamicResource WarmDark}" />
                                                 </Border>
                                             </Grid>

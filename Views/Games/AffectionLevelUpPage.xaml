@@ -44,7 +44,7 @@
                        FontSize="30"
                        FontAttributes="Bold"
                        HorizontalOptions="Center" />
-                <Label Text="{Binding TitleLine}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding TitleLine}"
                        TextColor="{DynamicResource AffectionInkSoft}"
                        FontSize="17"
                        HorizontalOptions="Center" />
@@ -61,7 +61,7 @@
                 <Border.StrokeShape><RoundRectangle CornerRadius="32" /></Border.StrokeShape>
                 <VerticalStackLayout Spacing="4" HorizontalOptions="Center">
                     <Image Source="ic_heart_contrast.png" WidthRequest="52" HeightRequest="52" HorizontalOptions="Center" />
-                    <Label Text="{Binding LevelText}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding LevelText}"
                            TextColor="White"
                            FontSize="44"
                            FontAttributes="Bold"

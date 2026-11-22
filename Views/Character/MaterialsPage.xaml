@@ -137,7 +137,7 @@
                             </Border>
                             <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"
                                    LineBreakMode="TailTruncation" HorizontalTextAlignment="Center" />
-                            <Label Text="{Binding Meta}" Style="{StaticResource TxtMuted}"
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Meta}" Style="{StaticResource TxtMuted}"
                                    HorizontalTextAlignment="Center" />
                         </VerticalStackLayout>
                         <Border.GestureRecognizers>
@@ -184,7 +184,7 @@
                             </Border>
                             <Label Text="{Binding Name}" Style="{StaticResource TxtCaption}"
                                    LineBreakMode="TailTruncation" HorizontalTextAlignment="Center" />
-                            <Label Text="{Binding Meta}" Style="{StaticResource TxtMuted}"
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Meta}" Style="{StaticResource TxtMuted}"
                                    HorizontalTextAlignment="Center" />
                         </VerticalStackLayout>
                         <Border.GestureRecognizers>

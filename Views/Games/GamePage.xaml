@@ -18,7 +18,7 @@
                 <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
                         Padding="8,0"
                         Command="{Binding GoBackCommand}" />
-                <Label Grid.Column="1" Text="{Binding GameTitle}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding GameTitle}"
                        Style="{StaticResource TxtSubhead}"
                        VerticalOptions="Center" />
                 <Label Grid.Column="2" Text="小雨"
@@ -45,7 +45,7 @@
             <ScrollView Grid.Column="0" HorizontalOptions="Start" VerticalOptions="Center"
                         Padding="8,0,0,0">
                 <VerticalStackLayout>
-                    <Label Text="{Binding BoardDisplay}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding BoardDisplay}"
                            Style="{StaticResource TxtCaption}"
                            HorizontalOptions="Center" Margin="0,0,0,6" />
                     <GraphicsView x:Name="BoardView"
@@ -164,7 +164,7 @@
                             HeightRequest="34" Padding="10,0"
                             VerticalOptions="Center"
                             StrokeShape="{DynamicResource WRadiusWell}">
-                        <Label Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
                                VerticalOptions="Center" />
                     </Border>
                 </HorizontalStackLayout>
@@ -180,7 +180,7 @@
                             HeightRequest="34" Padding="10,0"
                             VerticalOptions="Center"
                             StrokeShape="{DynamicResource WRadiusWell}">
-                        <Label Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding BoardDisplay}" Style="{StaticResource TxtCaption}"
                                VerticalOptions="Center" />
                     </Border>
                 </HorizontalStackLayout>

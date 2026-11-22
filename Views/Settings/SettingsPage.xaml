@@ -54,7 +54,7 @@
                 <VerticalStackLayout Spacing="2">
                     <Label Text="{Binding Filter.MatchCount, StringFormat='匹配到 {0} 个设置项（进子页后只显示这些）'}" Style="{StaticResource TxtCaption}"
                            IsVisible="{Binding Filter.IsSearching}" />
-                    <Label Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Filter.EmptyHint}" Style="{StaticResource TxtCaption}"
                            TextColor="{DynamicResource AccentWarmFg}" />
                 </VerticalStackLayout>
 

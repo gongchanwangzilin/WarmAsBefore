@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.GalleryPage"
              x:DataType="vm:GalleryViewModel"
              Title="回忆录"
@@ -59,6 +60,7 @@
         </Style>
     </ContentPage.Resources>
 
+    <Grid>
     <ScrollView>
         <VerticalStackLayout Padding="{DynamicResource WPadCard}"
                              Spacing="{DynamicResource WGapSection}">
@@ -83,8 +85,11 @@
                                         <Grid ColumnDefinitions="*,Auto">
                                             <VerticalStackLayout Grid.Column="0" Spacing="2">
                                                 <Label Text="{Binding Name}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                <Label Text="{Binding Describe}" Style="{StaticResource TxtRowDesc}" />
-                                                <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}" />
+                                                <Label Text="{Binding Describe}" Style="{StaticResource TxtRowDesc}"
+                                                       LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding Detail}" Style="{StaticResource TxtRowDesc}"
+                                                       MaxLines="2" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding Detail}" />
                                             </VerticalStackLayout>
                                             <Label Grid.Column="1" Text="{Binding CountText}"
                                                    Style="{StaticResource TxtBody}" VerticalOptions="Center" />
@@ -189,8 +194,9 @@
                         <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasTags}">
                             <VerticalStackLayout Spacing="2">
                                 <Label Text="TA 给你的标签" Style="{StaticResource TxtRowTitle}" />
-                                <Label Text="{Binding TagSummary}" Style="{StaticResource TxtRowDesc}"
-                                       LineBreakMode="WordWrap" />
+                                    <Label Text="{Binding TagSummary}" Style="{StaticResource TxtRowDesc}"
+                                       MaxLines="2" LineBreakMode="TailTruncation"
+                                       ToolTipProperties.Text="{Binding TagSummary}" />
                             </VerticalStackLayout>
                         </Border>
                         <VerticalStackLayout Spacing="0" IsVisible="{Binding HasSemantic}">
@@ -199,7 +205,8 @@
                                 <VerticalStackLayout Spacing="2">
                                     <Label Text="关系网（联系最紧的几个）" Style="{StaticResource TxtRowTitle}" />
                                     <Label Text="{Binding SemanticSummary}" Style="{StaticResource TxtRowDesc}"
-                                           LineBreakMode="WordWrap" />
+                                           MaxLines="3" LineBreakMode="TailTruncation"
+                                           ToolTipProperties.Text="{Binding SemanticSummary}" />
                                 </VerticalStackLayout>
                             </Border>
                         </VerticalStackLayout>
@@ -218,6 +225,8 @@
                                             <Label Text="{Binding Text}" Style="{StaticResource TxtBody}"
                                                    LineBreakMode="WordWrap" />
                                             <Label Text="{Binding TagText}" Style="{StaticResource TxtRowDesc}"
+                                                   MaxLines="2" LineBreakMode="TailTruncation"
+                                                   ToolTipProperties.Text="{Binding TagText}"
                                                    IsVisible="{Binding HasTags}" />
                                             <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
                                                    Aspect="AspectFill" HeightRequest="140"
@@ -253,6 +262,11 @@
                                 IsVisible="{Binding HasAffection, Converter={StaticResource InverseBool}}">
                             <Label Text="还没有好感时刻，去和 TA 互动吧~" Style="{StaticResource TxtRowDesc}" />
                         </Border>
+                        <Border Style="{StaticResource SettingRow}"
+                                IsVisible="{Binding AffectionNote, Converter={StaticResource StringNotEmpty}}">
+                            <Label Text="{Binding AffectionNote}" Style="{StaticResource TxtRowDesc}"
+                                   LineBreakMode="WordWrap" />
+                        </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AffectionItems}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:AffectionMemoryItem">
@@ -283,6 +297,11 @@
                                 IsVisible="{Binding HasMemory, Converter={StaticResource InverseBool}}">
                             <Label Text="还没有对话回忆" Style="{StaticResource TxtRowDesc}" />
                         </Border>
+                        <Border Style="{StaticResource SettingRow}"
+                                IsVisible="{Binding MemoryNote, Converter={StaticResource StringNotEmpty}}">
+                            <Label Text="{Binding MemoryNote}" Style="{StaticResource TxtRowDesc}"
+                                   LineBreakMode="WordWrap" />
+                        </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding MemoryItems}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DialogueMemoryItem">
@@ -309,6 +328,11 @@
                             <Label Text="还没有日记，今天多陪陪 TA，明天早上就会有一篇总结啦~"
                                    Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
                         </Border>
+                        <Border Style="{StaticResource SettingRow}"
+                                IsVisible="{Binding DiaryNote, Converter={StaticResource StringNotEmpty}}">
+                            <Label Text="{Binding DiaryNote}" Style="{StaticResource TxtRowDesc}"
+                                   LineBreakMode="WordWrap" />
+                        </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding DiaryItems}">
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:DiaryDayItem">
@@ -317,7 +341,8 @@
                                         <Border Style="{StaticResource SettingRow}">
                                             <Grid ColumnDefinitions="*,Auto">
                                                 <VerticalStackLayout Grid.Column="0" Spacing="4">
-                                                    <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}" />
+                                                    <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}"
+                                                           MaxLines="1" LineBreakMode="TailTruncation" />
                                                     <Label Text="{Binding Content}" Style="{StaticResource TxtBody}"
                                                            LineBreakMode="WordWrap" />
                                                 </VerticalStackLayout>
@@ -348,10 +373,15 @@
                                 </Border.GestureRecognizers>
                                 <VerticalStackLayout Spacing="0">
                                     <!-- 收藏册的图是来看的，不裁：AspectFill 会把立绘的头或脚切掉 -->
-                                    <Image Source="{Binding Image}" HeightRequest="210" Aspect="AspectFit" />
+                                    <Image Source="{Binding Image}" HeightRequest="210" Aspect="AspectFit"
+                                           IsVisible="{Binding HasImage}" />
+                                    <Label Text="这张图没找到" Style="{StaticResource TxtCaption}"
+                                           Padding="{DynamicResource WPadWell}" HorizontalTextAlignment="Center"
+                                           IsVisible="{Binding HasImage, Converter={StaticResource InverseBool}}" />
                                     <Label Text="{Binding Title}" Style="{StaticResource TxtCaption}"
                                            Padding="{DynamicResource WPadWell}"
-                                           HorizontalTextAlignment="Center" MaxLines="1" LineBreakMode="TailTruncation" />
+                                           HorizontalTextAlignment="Center" MaxLines="1" LineBreakMode="TailTruncation"
+                                           ToolTipProperties.Text="{Binding Title}" />
                                 </VerticalStackLayout>
                             </Border>
                         </DataTemplate>
@@ -361,4 +391,8 @@
 
         </VerticalStackLayout>
     </ScrollView>
+
+        <!-- dev 压测条：带 worst 启动参数时才出现 -->
+        <dev:WorstCaseBar />
+    </Grid>
 </ContentPage>

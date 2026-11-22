@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:motion="clr-namespace:WarmAsBefore.Helpers"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.MapPage"
@@ -188,6 +189,49 @@
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
                     </VerticalStackLayout>
+
+                    <!-- 地图来源（底图）：手工绘制是现状，其余几种是真瓦片 -->
+                    <Label Text="地图来源" Style="{StaticResource TxtMuted}" />
+                    <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Start"
+                                BindableLayout.ItemsSource="{Binding TileSourceChips}">
+                        <BindableLayout.ItemTemplate>
+                            <DataTemplate x:DataType="vm:MapSourceChip">
+                                <Border BackgroundColor="{DynamicResource WellBg}" StrokeThickness="0"
+                                        Padding="10,7" Margin="0,0,8,8"
+                                        StrokeShape="{DynamicResource WRadiusWell}">
+                                    <Border.GestureRecognizers>
+                                        <TapGestureRecognizer Command="{Binding TapCommand}" />
+                                    </Border.GestureRecognizers>
+                                    <Label Text="{Binding Label}" FontSize="13"
+                                           TextColor="{DynamicResource SurfaceFg}">
+                                        <Label.Triggers>
+                                            <DataTrigger TargetType="Label" Binding="{Binding IsCurrent}" Value="True">
+                                                <Setter Property="FontAttributes" Value="Bold" />
+                                            </DataTrigger>
+                                        </Label.Triggers>
+                                    </Label>
+                                    <Border.Triggers>
+                                        <DataTrigger TargetType="Border" Binding="{Binding IsCurrent}" Value="True">
+                                            <Setter Property="BackgroundColor" Value="{DynamicResource PrimaryAction}" />
+                                        </DataTrigger>
+                                    </Border.Triggers>
+                                </Border>
+                            </DataTemplate>
+                        </BindableLayout.ItemTemplate>
+                    </FlexLayout>
+                    <Label Text="{Binding TileSourceNote}" Style="{StaticResource TxtMuted}"
+                           FontSize="{DynamicResource WSizeCaption}" />
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10" Padding="0,2">
+                        <VerticalStackLayout Spacing="1">
+                            <Label Text="允许联网取瓦片" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding TileAnchorText}" Style="{StaticResource TxtMuted}"
+                                   FontSize="{DynamicResource WSizeCaption}" LineBreakMode="WordWrap" MaxLines="2" />
+                        </VerticalStackLayout>
+                        <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding IsOnlineTilesEnabled}"
+                                             VerticalOptions="Center" />
+                    </Grid>
+                    <Label Text="{Binding TileStatusText}" Style="{StaticResource TxtMuted}"
+                           FontSize="{DynamicResource WSizeCaption}" />
 
                     <!-- 编辑 -->
                     <Label Text="编辑" Style="{StaticResource TxtMuted}" />

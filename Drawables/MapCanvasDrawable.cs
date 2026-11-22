@@ -33,6 +33,12 @@ public sealed class MapCanvasDrawable : IDrawable
     public IReadOnlyList<MapRegion>? Regions { get; set; }
 
     /// <summary>
+    /// 底图瓦片层：铺在地表最底下，叠加层照旧压在上面。
+    /// 为 null 或来源是「手工绘制」时这一层完全不画 —— 现状那套画布一个像素都不变。
+    /// </summary>
+    public TileLayerDrawable? Tiles { get; set; }
+
+    /// <summary>
     /// 实时路况判出来的灯色（连线 Id → 灯色）。只有开了「红绿灯看高德路况」才有这一份；
     /// 没开着、或这条路还没问到（路没名、断了）就留空，那颗灯照每盏灯自己的本地周期画。
     /// </summary>
@@ -233,6 +239,14 @@ public sealed class MapCanvasDrawable : IDrawable
         _viewHv = dirtyRect.Height;
         SyncPalette();
         DrawGround(canvas, dirtyRect);
+
+        // 底图（在线 / 离线瓦片）压在地表上、地块与路网下：缺图时露出的就是上面那层纸面。
+        if (Tiles is { } tiles)
+        {
+            tiles.MetersPerUnit = MetersPerUnit;
+            tiles.AttributionColor = _palMuted;
+            tiles.Draw(canvas, dirtyRect, Scale, OffsetX, OffsetY);
+        }
 
         // 地表在最底下：先铺地块（一片公园、一条河、一块校区），再往上长路、楼与字。
         if (Regions is not null) foreach (var r in Regions) DrawRegion(canvas, r, dirtyRect);

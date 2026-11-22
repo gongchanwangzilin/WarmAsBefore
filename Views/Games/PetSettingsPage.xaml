@@ -84,16 +84,17 @@
                     <!-- 角色区：光晕 + 立绘（呼吸动画由代码按帧率推）+ 悬停按钮排 -->
                     <Grid Grid.Row="1">
                         <!-- 外发光：一团暖色径向光，强度/大小跟着 PetGlow 与体型走。
-                             三档 stop 的色相先保留手写（发光是氛围层）；收进 Tint 令牌记在愿望单。 -->
+                             三档 stop 走 StageGlow* 令牌（见 OverlaySkin.xaml）：发光是氛围层，
+                             不跟世界与明暗走，但三档只该有 alpha 差别，色相留在一个地方改。 -->
                         <Border x:Name="GlowBlob" StrokeThickness="0" BackgroundColor="Transparent"
                                 HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,18"
                                 WidthRequest="{Binding PreviewGlowSize}" HeightRequest="{Binding PreviewGlowSize}"
                                 Opacity="{Binding StageGlowOpacity}">
                             <Border.Background>
                                 <RadialGradientBrush Center="0.5,0.5" Radius="0.5">
-                                    <GradientStop Color="#B0E8B27A" Offset="0" />
-                                    <GradientStop Color="#58E8B27A" Offset="0.55" />
-                                    <GradientStop Color="#00E8B27A" Offset="1" />
+                                    <GradientStop Color="{StaticResource StageGlowNear}" Offset="0" />
+                                    <GradientStop Color="{StaticResource StageGlowMid}" Offset="0.55" />
+                                    <GradientStop Color="{StaticResource StageGlowFar}" Offset="1" />
                                 </RadialGradientBrush>
                             </Border.Background>
                         </Border>
@@ -107,7 +108,7 @@
                                 IsVisible="{Binding ShowPreviewFallback}"
                                 WidthRequest="{Binding PreviewBodyHeight}" HeightRequest="{Binding PreviewBodyHeight}">
                             <Border.StrokeShape><RoundRectangle CornerRadius="90" /></Border.StrokeShape>
-                            <Label Text="{Binding PreviewFace}" FontSize="15" TextColor="{DynamicResource WarmDark}"
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding PreviewFace}" FontSize="15" TextColor="{DynamicResource WarmDark}"
                                    HorizontalOptions="Center" VerticalOptions="Center" />
                         </Border>
 
@@ -146,7 +147,7 @@
             <ScrollView x:Name="SettingsScroll" Grid.Column="1">
                 <VerticalStackLayout x:Name="GroupsHost" Spacing="16" Padding="0,0,4,24">
 
-                    <Label x:Name="HintLabel" Text="{Binding HoverHint}" IsVisible="False"
+                    <Label MaxLines="3" LineBreakMode="WordWrap" x:Name="HintLabel" Text="{Binding HoverHint}" IsVisible="False"
                            Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}" />
 
                     <!-- ── Hero：AI 制作桌宠（Q 版化逐状态出帧）── 路由到工作室的唯一大入口 -->
@@ -206,7 +207,7 @@
                                 </VerticalStackLayout>
                                 <controls:ViewSlider Grid.Column="1" Minimum="10" Maximum="22" Value="{Binding PetFontSize}"
                                         VerticalOptions="Center" />
-                                <Label Grid.Column="2" Text="{Binding StageFontText}" Style="{StaticResource TxtCaption}"
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding StageFontText}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                             </Grid>
                             <BoxView Style="{StaticResource HSepBleed}" IsVisible="{Binding IsDesktop}" />
@@ -365,7 +366,7 @@
                                     <Label Text="点她一下、按悬停按钮时的那一声" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
                                 <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TapLevel}" VerticalOptions="Center" />
-                                <Label Grid.Column="2" Text="{Binding TapLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding TapLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                                 <Button Grid.Column="3" Text="试听" Padding="6,2" HeightRequest="26"
                                         Style="{StaticResource BtnGhost}" VerticalOptions="Center"
@@ -378,7 +379,7 @@
                                     <Label Text="气泡逐字浮现时那串小键盘声；开关在「气泡」段里" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
                                 <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding TypingLevel}" VerticalOptions="Center" />
-                                <Label Grid.Column="2" Text="{Binding TypingLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding TypingLevel, StringFormat='{0:0%}'}" Style="{StaticResource TxtCaption}"
                                        VerticalOptions="Center" HorizontalOptions="End" />
                                 <Button Grid.Column="3" Text="试听" Padding="6,2" HeightRequest="26"
                                         Style="{StaticResource BtnGhost}" VerticalOptions="Center"

@@ -148,7 +148,7 @@
 
         <!-- 底部：当前生效状态（解释「AI 为什么切不动」）+ 用法提示，直接落在地上 -->
         <VerticalStackLayout Grid.Row="2" Padding="{DynamicResource WPadCard}" Spacing="4">
-            <Label Style="{StaticResource TxtBodySm}" Text="{Binding StateText}" />
+            <Label MaxLines="1" LineBreakMode="TailTruncation" Style="{StaticResource TxtBodySm}" Text="{Binding StateText}" />
             <Label Style="{StaticResource TxtMuted}" LineBreakMode="WordWrap"
                    Text="点条目或模式右侧的「应用」即可立刻切换当前场景（点击式，无需拖拽）；切换结果与此刻可用性会显示在上方状态栏。时间到点自动切换，AI 只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。" />
         </VerticalStackLayout>

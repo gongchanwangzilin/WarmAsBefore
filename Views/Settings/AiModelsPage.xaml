@@ -61,7 +61,7 @@
                                                                 <VerticalStackLayout Spacing="2">
                                                                     <Label Text="{Binding DisplayName}"
                                                                            Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                                    <Label Text="{Binding CapabilityText}" Style="{StaticResource TxtCaption}" />
+                                                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CapabilityText}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
                                                                 <Switch Grid.Column="1" IsToggled="{Binding Enabled}"
                                                                         VerticalOptions="Center" />
@@ -257,7 +257,7 @@
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                 <Slider Grid.Column="0" Minimum="0" Maximum="20" VerticalOptions="Center"
                                         Value="{Binding SelectedModel.Priority}" />
-                                <Label Grid.Column="1" Text="{Binding SelectedModel.PriorityText}"
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding SelectedModel.PriorityText}"
                                        Style="{StaticResource TxtBody}" MinimumWidthRequest="28" HorizontalTextAlignment="Center" />
                             </Grid>
                             <Label Text="数值小的优先被路由选中；0 = 按列表顺序。上移/下移按钮调整列表顺序。"
@@ -302,7 +302,7 @@
                     HorizontalOptions="Fill"
                     MaximumWidthRequest="{DynamicResource WCardWidth}"
                     Margin="{DynamicResource WPadCard}">
-                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" />
             </Border>
         </Grid>
     </Grid>

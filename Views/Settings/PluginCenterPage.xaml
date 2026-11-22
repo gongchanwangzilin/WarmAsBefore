@@ -79,7 +79,7 @@
                                         <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"
                                                 StrokeThickness="0" Padding="10,4" VerticalOptions="Start">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                                            <Label Text="{Binding StateLabel}" FontSize="12"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StateLabel}" FontSize="12"
                                                    TextColor="{DynamicResource WarmDark}" />
                                         </Border>
                                     </Grid>
@@ -95,9 +95,9 @@
                                             </FormattedString>
                                         </Label.FormattedText>
                                     </Label>
-                                    <Label Text="{Binding DependenciesLabel}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DependenciesLabel}" Style="{StaticResource TxtCaption}"
                                            IsVisible="{Binding HasMissing}" TextColor="{DynamicResource AccentWarmFg}" />
-                                    <Label Text="{Binding Issue}" Style="{StaticResource TxtCaption}"
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Issue}" Style="{StaticResource TxtCaption}"
                                            IsVisible="{Binding HasIssue}" TextColor="{DynamicResource AccentWarmFg}" />
                                     <Label Text="{Binding PagesLabel}" Style="{StaticResource TxtCaption}"
                                            IsVisible="{Binding HasPages}" LineBreakMode="WordWrap" />
@@ -256,7 +256,7 @@
                                                            IsVisible="{Binding Url, Converter={StaticResource StringNotEmpty}}"
                                                            LineBreakMode="WordWrap" />
                                                 </VerticalStackLayout>
-                                                <Label Grid.Column="1" Text="{Binding ToolsLabel}" Style="{StaticResource TxtCaption}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding ToolsLabel}" Style="{StaticResource TxtCaption}"
                                                        VerticalOptions="Center" />
                                                 <Button Grid.Column="2" Text="删除" Style="{StaticResource BtnGhost}"
                                                         Command="{Binding BindingContext.DeleteMcpServerCommand, Source={x:Reference Page}}"
@@ -272,9 +272,9 @@
                                                                     <HorizontalStackLayout Spacing="6">
                                                                         <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}"
                                                                                FontAttributes="Bold" VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
-                                                                        <Label Text="{Binding KindLabel}" Style="{StaticResource TxtCaption}"
+                                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding KindLabel}" Style="{StaticResource TxtCaption}"
                                                                                VerticalOptions="Center" />
-                                                                        <Label Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
+                                                                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StateLabel}" Style="{StaticResource TxtCaption}"
                                                                                TextColor="{DynamicResource AccentWarmFg}" VerticalOptions="Center" />
                                                                     </HorizontalStackLayout>
                                                                     <Button Grid.Column="1" Text="试跑" Style="{StaticResource BtnNeumorphSm}"

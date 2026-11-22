@@ -34,6 +34,12 @@ public sealed partial class ChatItem : ObservableObject
     public bool IsToolDetailVisible => IsToolCall && ToolExpanded;
 
     public bool IsText => !HasImage && !IsVideo && !IsFile && !IsToolCall;
+
+    /// <summary>
+    /// 气泡里真正显示的字。空字符串的消息（表情包撤回、只带换行的粘贴）以前会画成一只空泡泡，
+    /// 看着像界面坏了；现在给它一句「（空消息）」，至少能认出这是一条真的空消息。
+    /// </summary>
+    public string BubbleText => string.IsNullOrWhiteSpace(DisplayText) ? "（空消息）" : DisplayText;
     public string Sender => IsUser ? "我" : (string.IsNullOrEmpty(SenderName) ? "小雨" : SenderName);
 
     partial void OnImageSourceChanged(ImageSource? value) => OnPropertyChanged(nameof(HasImage));

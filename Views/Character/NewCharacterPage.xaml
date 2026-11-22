@@ -85,7 +85,7 @@
                     <Label Text="// NEW SUBJECT" Style="{StaticResource Eyebrow}" />
                     <Label Text="新建角色" Style="{StaticResource TxtTitle}" />
                 </VerticalStackLayout>
-                <Label Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
                        FontFamily="Bahnschrift" VerticalOptions="Center" />
             </Grid>
         </Border>
@@ -115,7 +115,7 @@
                 </Grid>
             </Grid>
             <Grid Grid.Row="1" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                <Label Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StepLabel}" Style="{StaticResource Eyebrow}" />
                 <Label Grid.Column="1" Text="随时可以回上一步" Style="{StaticResource TxtCaption}" />
             </Grid>
         </Grid>
@@ -133,7 +133,7 @@
                     <VerticalStackLayout Spacing="12">
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="// PREVIEW" Style="{StaticResource Eyebrow}" />
-                            <Label Grid.Column="1" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding StepEyebrow}" Style="{StaticResource TxtCaption}"
                                    FontFamily="Bahnschrift" />
                         </Grid>
 
@@ -207,7 +207,7 @@
                                 <Label Text="名字" Style="{StaticResource FieldLabel}" />
                                 <Entry Style="{StaticResource Field}" Text="{Binding Name, Mode=TwoWay}"
                                        Placeholder="比如：林晚" ReturnType="Next" />
-                                <Label Text="{Binding NameError}" Style="{StaticResource ErrorText}"
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding NameError}" Style="{StaticResource ErrorText}"
                                        IsVisible="{Binding HasNameError}" />
                             </VerticalStackLayout>
 
@@ -232,7 +232,7 @@
                                         </DataTemplate>
                                     </BindableLayout.ItemTemplate>
                                 </FlexLayout>
-                                <Label Text="{Binding GenderError}" Style="{StaticResource ErrorText}"
+                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding GenderError}" Style="{StaticResource ErrorText}"
                                        IsVisible="{Binding HasGenderError}" />
                                 <Label Text="候选来自本机性别库；想要别的，去设置 → 性别库加一个。"
                                        Style="{StaticResource TxtCaption}" Margin="2,4,0,0" />
@@ -450,7 +450,7 @@
                         Padding="6,2" FontSize="{DynamicResource WSizeCaption}"
                         VerticalOptions="Center" IsVisible="{Binding CanGoBack}"
                         Command="{Binding PrevCommand}" />
-                <Label Grid.Column="1" Text="{Binding StepLabel}" Style="{StaticResource TxtCaption}"
+                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding StepLabel}" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" HorizontalTextAlignment="Center" />
                 <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
                     <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"

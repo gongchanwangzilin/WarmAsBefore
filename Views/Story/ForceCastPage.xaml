@@ -56,7 +56,7 @@
                                                 Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                                 VerticalOptions="Center" StrokeShape="{DynamicResource WRadiusWell}">
                                             <Grid>
-                                                <Label Text="{Binding Initial}" Style="{StaticResource TxtRowTitle}"
+                                                <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Initial}" Style="{StaticResource TxtRowTitle}"
                                                        HorizontalOptions="Center" VerticalOptions="Center"
                                                        IsVisible="{Binding HasAvatar, Converter={StaticResource InverseBool}}" />
                                                 <Image Source="{Binding Avatar}" Aspect="AspectFill"
@@ -66,7 +66,7 @@
                                         <!-- 名字：行标题 + 行说明，垂直居中 -->
                                         <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
                                             <Label Text="{Binding CharacterName}" Style="{StaticResource TxtRowTitle}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding SceneName, StringFormat='初始位置 · {0}'}"
+                                            <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding SceneName, StringFormat='初始位置 · {0}'}"
                                                    Style="{StaticResource TxtRowDesc}" />
                                         </VerticalStackLayout>
                                         <!-- 场景选择：这一行的「值」，排右 -->

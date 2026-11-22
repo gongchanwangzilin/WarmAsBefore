@@ -21,10 +21,10 @@
         <ScrollView Grid.Row="1" Padding="24,16,24,28">
             <VerticalStackLayout Spacing="16" MaximumWidthRequest="900" HorizontalOptions="Fill">
                 <VerticalStackLayout Spacing="4">
-                    <Label Text="{Binding CharacterLabel, StringFormat='{0} · 心理状况'}" Style="{StaticResource TxtTitle}" />
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CharacterLabel, StringFormat='{0} · 心理状况'}" Style="{StaticResource TxtTitle}" />
                     <Label Text="这不是诊断，也不会把病名写进对话：只决定 TA 怎么感受、怎么应对。安慰与陪伴会提高稳定度；时间几乎不起作用。涉及自伤、自杀、伤人的条目有硬边界——可以写痛苦与冲动，不写方法、不美化，始终引向现实求助。"
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-                    <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Status}" Style="{StaticResource TxtCaption}"
                            TextColor="{DynamicResource AccentWarmFg}" />
                 </VerticalStackLayout>
 
@@ -37,17 +37,17 @@
                                     <Grid ColumnDefinitions="*,Auto">
                                         <VerticalStackLayout Spacing="2">
                                             <Label Text="{Binding Name}" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
-                                            <Label Text="{Binding Category, StringFormat='{0} · 目录条目'}" Style="{StaticResource TxtCaption}" />
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding Category, StringFormat='{0} · 目录条目'}" Style="{StaticResource TxtCaption}" />
                                         </VerticalStackLayout>
                                         <Border Grid.Column="1" BackgroundColor="{DynamicResource BeigeAccent50}"
                                                 StrokeThickness="0" Padding="10,4" VerticalOptions="Start">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
-                                            <Label Text="{Binding SeverityText}" FontSize="12"
+                                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SeverityText}" FontSize="12"
                                                    TextColor="{DynamicResource WarmDark}" />
                                         </Border>
                                     </Grid>
-                                    <Label Text="{Binding StabilityText}" Style="{StaticResource TxtCaption}" />
-                                    <Label Text="{Binding Note}" Style="{StaticResource TxtCaption}" IsVisible="{Binding Note, Converter={StaticResource StringNotEmpty}}" />
+                                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding StabilityText}" Style="{StaticResource TxtCaption}" />
+                                    <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Note}" Style="{StaticResource TxtCaption}" IsVisible="{Binding Note, Converter={StaticResource StringNotEmpty}}" />
                                     <Label Text="这条有安全边界：不提供做法、不美化，只做陪伴与转向求助。"
                                            Style="{StaticResource TxtCaption}" TextColor="{DynamicResource AccentWarmFg}"
                                            IsVisible="{Binding Safety}" />

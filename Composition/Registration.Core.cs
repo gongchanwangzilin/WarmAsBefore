@@ -77,6 +77,8 @@ public static class CoreRegistration
         // AI 制作桌宠：Q 版化 + 逐状态出帧 + 按步频算走动循环
         services.AddSingleton<PetStudioService>();
         services.AddSingleton<MapService>();
+        // 底图瓦片：在线（高德 / OSM）+ 本地 LRU 缓存 + 离线包，联网总闸在设置里
+        services.AddSingleton<TileService>();
         // 真实城市地图：检索（高德/OSM）→ Overpass 拉道路与建筑 → 拼成游戏里的地图
         services.AddSingleton<MapImportService>();
         // 地图背景：大地图底图 + 缺背景的场景逐张补
