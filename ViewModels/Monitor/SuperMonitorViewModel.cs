@@ -57,6 +57,9 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private string _vector3DNote = "";
     [ObservableProperty] private bool _hasVector3DNote;
 
+    /// <summary>这一版只有 2D 流程图：3D 层在 Windows 上会原生崩溃，开关先藏起来。</summary>
+    [ObservableProperty] private bool _has3D;
+
     /// <summary>点进选中模块自己的页面：图上只给一眼，细节在那页里看（含多档等级与时间线）。</summary>
     [RelayCommand]
     private async Task OpenInspector()

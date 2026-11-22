@@ -67,11 +67,12 @@ public partial class SuperMonitorPage : ContentPage
         Loaded -= OnPageLoadedInitVector3D;
         try
         {
-            // 给这一页一次干净的重试机会：进程级的放弃标记会让监测页的 3D 永远起不来。
-            Controls.EvergineWeatherViewHandler.ResetGiveUpForNewPage();
-            _vectorApp = new WarmAsBefore.Weather3D.MonitorVectorApplication();
-            Vector3DView.Application = _vectorApp;
-            _vectorReady = true;
+            // 监测页的 3D 层会把进程直接带走：原生崩溃，bugs.log 里连托管异常都没有，
+            // 日志就停在打开开关那一刻。Evergine + DX11 + DComp 这条路径失败时停不到托管侧，
+            // 所以在能验证它之前，监测页只用 2D 流程图，开关也藏起来。
+            _vectorReady = false;
+            Vector3DView.IsVisible = false;
+            _vm.Vector3DNote = "3D 向量层已停用：打开会触发原生崩溃（DX11/DComp），当前版本只提供 2D 流程图。";
         }
         catch (Exception ex)
         {

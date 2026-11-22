@@ -30,8 +30,10 @@
                     <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
-                    <Label Text="3D 向量" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
-                    <controls:ViewSwitch IsToggled="{Binding Show3D, Mode=TwoWay}" VerticalOptions="Center" />
+                    <Label Text="3D 向量" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                           IsVisible="{Binding Has3D}" />
+                    <controls:ViewSwitch IsToggled="{Binding Show3D, Mode=TwoWay}" VerticalOptions="Center"
+                                         IsVisible="{Binding Has3D}" />
                 </HorizontalStackLayout>
                 <Button Grid.Column="3" Text="刷新" Style="{StaticResource BtnGhostSm}"
                         VerticalOptions="Center" Command="{Binding LoadCommand}" />
