@@ -17,22 +17,10 @@
     -->
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceTight}">
-                <Grid Grid.Row="0" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                    <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
-                            Style="{StaticResource BtnText}" Padding="0" VerticalOptions="Center"
-                            Command="{Binding BackCommand}"/>
-                    <Label Grid.Column="1" Text="取景与导入" Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                </Grid>
-                <Label Grid.Row="1" Text="{Binding SessionTitle}" TextColor="{DynamicResource MutedFg}"
-                       FontSize="{DynamicResource WSizeCaption}"
-                       MaxLines="1" LineBreakMode="TailTruncation"
-                       ToolTipProperties.Text="{Binding SessionTitle}" />
-            </Grid>
-        </Border>
+        <!-- 返回文案走本地化词典；第二行（当前会话）现在由组件的 Subtitle 承担 -->
+        <controls:PageHeader Grid.Row="0" Title="取景与导入" Subtitle="{Binding SessionTitle}"
+                             BackText="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
+                             BackCommand="{Binding BackCommand}" />
 
         <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
             <VerticalStackLayout Spacing="{DynamicResource WGapItem}" MaximumWidthRequest="720"
