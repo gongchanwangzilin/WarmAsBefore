@@ -16,6 +16,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
     [ObservableProperty] private bool _background = true;
     [ObservableProperty] private bool _sandbox = true;
     [ObservableProperty] private bool _interface = true;
+    [ObservableProperty] private bool _map = true;
     [ObservableProperty] private bool _saveRuntime = true;
     [ObservableProperty] private bool _minigame = true;
     [ObservableProperty] private bool _chess = true;
@@ -47,6 +48,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
         ("Background", new[] { "背景", "背景图", "页面背景", "主题色" }),
         ("Sandbox", new[] { "工具安全", "沙箱", "信任", "权限", "安全", "sandbox" }),
         ("Interface", new[] { "界面", "布局", "方向", "横屏", "竖屏", "聊天风格", "气泡", "galgame" }),
+        ("Map", new[] { "地图", "底图", "瓦片", "离线包", "mbtiles", "tile", "路网", "卫星", "osm" }),
         ("SaveRuntime", new[] { "存档运行时", "后台", "角色在线", "自己生活", "自己玩", "打游戏", "下棋", "主动消息", "深夜安静" }),
         ("Minigame", new[] { "小游戏", "难度", "棋" }),
         ("Chess", new[] { "棋力", "棋力脑", "下棋", "围棋", "国际象棋" }),
@@ -120,6 +122,7 @@ public sealed partial class SettingsCardFilter : ObservableObject
             case "Background": Background = value; break;
             case "Sandbox": Sandbox = value; break;
             case "Interface": Interface = value; break;
+            case "Map": Map = value; break;
             case "SaveRuntime": SaveRuntime = value; break;
             case "Minigame": Minigame = value; break;
             case "Chess": Chess = value; break;

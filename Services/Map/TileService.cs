@@ -44,6 +44,13 @@ public sealed class TileService : IDisposable
 
     private readonly SettingsManager _settings;
     private readonly string _root;
+    private readonly string _offlineRoot;
+
+    // ---- MBTiles 离线包：单例连接 + 64 块字节缓存都在 MbTilesSource 里，这里只管换包与统计 ----
+    private readonly object _mbGate = new();
+    private MbTilesSource? _mbTiles;
+    private string _mbTilesPath = "";
+    private MbTilesStatus _mbStatus = MbTilesStatus.Unset;
 
     // ---- 内存缓存（含 LRU 顺序） ----
     private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage> _images = new();
@@ -71,11 +78,17 @@ public sealed class TileService : IDisposable
     {
         _settings = settings;
         _root = Path.Combine(store.Root, "Cache", "tiles");
+        _offlineRoot = Path.Combine(store.Root, "Offline");
         try { Directory.CreateDirectory(_root); }
         catch (Exception ex) { App.WriteLog("TileService.Root -> " + ex.Message); }
+        // 上次选的离线包：开机就接着用，不必等人再进设置页点一次。
+        ConfigureMbTiles(settings.Current.MapTileMbTilesPath);
     }
 
     public string Root => _root;
+
+    /// <summary>导入的 .mbtiles 都放这里：手机上的 FilePicker 只给缓存副本，重启后可能就没了。</summary>
+    public string OfflineRoot => _offlineRoot;
 
     /// <summary>设置里的联网总闸；关掉后这个服务只读缓存。</summary>
     public bool OnlineEnabled => _settings.Current.MapTileOnline;
@@ -84,6 +97,170 @@ public sealed class TileService : IDisposable
     public int MemoryCount
     {
         get { lock (_imageGate) return _images.Count; }
+    }
+
+    // ==================== MBTiles 离线包 ====================
+
+    /// <summary>当前离线包的状态（没选 / 文件不在 / 读不出 / 就绪），设置页与状态条都读它。</summary>
+    public MbTilesStatus OfflinePackage
+    {
+        get
+        {
+            lock (_mbGate)
+                return _mbTiles?.Snapshot() ?? _mbStatus;
+        }
+    }
+
+    public string MbTilesPath
+    {
+        get { lock (_mbGate) return _mbTilesPath; }
+    }
+
+    /// <summary>换离线包（空串 = 取消）。同步返回只是「开始换」，打开结果看 <see cref="MbTilesStatus"/>。</summary>
+    public void ConfigureMbTiles(string? path) => _ = ConfigureMbTilesAsync(path);
+
+    /// <summary>
+    /// 换包：旧连接先关，旧图片缓存（mbtiles/ 前缀）一起清掉 —— 否则同一个 z/x/y 会画出上一个包的地图。
+    /// 打开过程异步，UI 线程只负责把状态行刷新一次。
+    /// </summary>
+    public async Task<MbTilesStatus> ConfigureMbTilesAsync(string? path)
+    {
+        var next = (path ?? "").Trim();
+        MbTilesSource? previous;
+        lock (_mbGate)
+        {
+            if (string.Equals(next, _mbTilesPath, StringComparison.Ordinal) && (_mbTiles is not null || next.Length == 0))
+                return _mbTiles?.Snapshot() ?? _mbStatus;
+            previous = _mbTiles;
+            _mbTiles = null;
+            _mbTilesPath = next;
+            _mbStatus = next.Length == 0
+                ? MbTilesStatus.Unset
+                : new MbTilesStatus(MbTilesState.NotConfigured, "正在打开离线包…", next, null, 0, 0, 0, 0);
+        }
+
+        previous?.Dispose();
+        DropImages(MapTiles.MbTilesId + "/");
+        lock (_flightGate)
+        {
+            foreach (var key in new List<string>(_backoff.Keys))
+                if (key.StartsWith(MapTiles.MbTilesId + "/", StringComparison.Ordinal)) _backoff.Remove(key);
+        }
+
+        if (next.Length == 0)
+        {
+            TileArrived?.Invoke();
+            return OfflinePackage;
+        }
+
+        var source = new MbTilesSource(next);
+        var status = await source.OpenAsync(_cts.Token).ConfigureAwait(false);
+        var current = false;
+        lock (_mbGate)
+        {
+            if (string.Equals(_mbTilesPath, next, StringComparison.Ordinal))
+            {
+                _mbTiles = source;
+                _mbStatus = status;
+                current = true;
+            }
+        }
+        if (!current) source.Dispose();
+        TileArrived?.Invoke();
+        return status;
+    }
+
+    /// <summary>
+    /// 从文件选择器拿到的路径：先验一遍，再复制进应用自己的 Offline 目录（已在里面就不复制），
+    /// 最后切换并等它打开。返回的 Status 就是设置页要显示的那一行。
+    /// </summary>
+    public async Task<MbTilesStatus> ImportMbTilesAsync(string pickedPath)
+    {
+        var picked = (pickedPath ?? "").Trim();
+        var (state, message) = MbTilesInfo.CheckPath(picked, picked.Length > 0 && File.Exists(picked));
+        if (state != MbTilesPathState.Ok)
+        {
+            var failed = new MbTilesStatus(
+                state == MbTilesPathState.Missing ? MbTilesState.Missing : MbTilesState.Unreadable,
+                message, picked, null, 0, 0, 0, 0);
+            lock (_mbGate) _mbStatus = failed;
+            TileArrived?.Invoke();
+            return failed;
+        }
+
+        try
+        {
+            Directory.CreateDirectory(_offlineRoot);
+            var name = SanitizeSource(Path.GetFileNameWithoutExtension(picked)) + MbTilesInfo.Extension;
+            var target = Path.Combine(_offlineRoot, name);
+            var same = string.Equals(Path.GetFullPath(picked), Path.GetFullPath(target), StringComparison.OrdinalIgnoreCase);
+            if (!same)
+                await Task.Run(() => File.Copy(picked, target, overwrite: true), _cts.Token).ConfigureAwait(false);
+            return await ConfigureMbTilesAsync(target).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException)
+        {
+            return OfflinePackage;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("TileService.ImportMbTiles -> " + ex.Message);
+            var failed = new MbTilesStatus(
+                MbTilesState.Unreadable, $"离线包导入失败：{ex.Message}", picked, null, 0, 0, 0, 0);
+            lock (_mbGate) _mbStatus = failed;
+            TileArrived?.Invoke();
+            return failed;
+        }
+    }
+
+    /// <summary>换包时把上一个包的解码图整批扔掉（键前缀匹配，只动 mbtiles/ 那一撮）。</summary>
+    private void DropImages(string prefix)
+    {
+        lock (_imageGate)
+        {
+            var victims = new List<string>();
+            foreach (var key in _images.Keys)
+                if (key.StartsWith(prefix, StringComparison.Ordinal)) victims.Add(key);
+            foreach (var key in victims)
+            {
+                if (_images.Remove(key, out var img)) (img as IDisposable)?.Dispose();
+                _order.Remove(key);
+            }
+        }
+    }
+
+    /// <summary>失败数：还在退避里的块数；状态行读它。</summary>
+    public int FailureCount
+    {
+        get
+        {
+            var now = DateTime.UtcNow;
+            lock (_flightGate)
+            {
+                var n = 0;
+                foreach (var v in _backoff.Values) if (v.NextTry > now) n++;
+                return n;
+            }
+        }
+    }
+
+    /// <summary>最长还要退避几秒：状态行读它，0 = 没有在等的块。</summary>
+    public int BackoffSeconds
+    {
+        get
+        {
+            var now = DateTime.UtcNow;
+            lock (_flightGate)
+            {
+                var max = TimeSpan.Zero;
+                foreach (var v in _backoff.Values)
+                {
+                    var left = v.NextTry - now;
+                    if (left > max) max = left;
+                }
+                return (int)Math.Ceiling(Math.Max(0, max.TotalSeconds));
+            }
+        }
     }
 
     // ==================== 读 ====================
@@ -113,6 +290,14 @@ public sealed class TileService : IDisposable
         _order.Add(key);
     }
 
+    /// <summary>
+    /// 只查内存、不动 LRU：预取每帧要问几十上百块，不该让「问一下」把整个缓存排一遍序。
+    /// </summary>
+    public bool Cached(MapTileSource source, int z, int x, int y)
+    {
+        lock (_imageGate) return _images.ContainsKey(KeyOf(source.Id, z, x, y));
+    }
+
     /// <summary>要一块瓦片：内存/磁盘/网络按顺序找。重复请求与退避期内的请求直接忽略。</summary>
     public void Request(MapTileSource source, int z, int x, int y)
     {
@@ -131,22 +316,39 @@ public sealed class TileService : IDisposable
         byte[]? bytes = null;
         try
         {
-            bytes = await ReadDiskAsync(source.Id, z, x, y);
-            if (bytes is null)
+            if (source.IsMbTiles)
             {
-                if (!OnlineEnabled || !source.IsOnline)
-                {
-                    // 离线：这次没有就是没有。记 30 秒退避，免得画布每帧都去 stat 一次文件。
-                    lock (_flightGate) _backoff[key] = (1, DateTime.UtcNow.AddSeconds(30));
-                    return;
-                }
-                bytes = await FetchAsync(source, z, x, y);
+                // 离线包不走磁盘缓存目录、也不发请求：文件本身已经是完整的一份。
+                MbTilesSource? pack;
+                lock (_mbGate) pack = _mbTiles;
+                // 包外的档位直接当「没有」，不必去查一张注定空的表。
+                if (pack is { } p && (p.Snapshot().Meta?.Covers(z) ?? true))
+                    bytes = await p.GetTileAsync(z, x, y, _cts.Token).ConfigureAwait(false);
                 if (bytes is null)
                 {
                     lock (_flightGate) _backoff[key] = NextBackoff(key);
                     return;
                 }
-                await WriteDiskAsync(source.Id, z, x, y, bytes);
+            }
+            else
+            {
+                bytes = await ReadDiskAsync(source.Id, z, x, y);
+                if (bytes is null)
+                {
+                    if (!OnlineEnabled || !source.IsOnline)
+                    {
+                        // 离线：这次没有就是没有。记 30 秒退避，免得画布每帧都去 stat 一次文件。
+                        lock (_flightGate) _backoff[key] = (1, DateTime.UtcNow.AddSeconds(30));
+                        return;
+                    }
+                    bytes = await FetchAsync(source, z, x, y);
+                    if (bytes is null)
+                    {
+                        lock (_flightGate) _backoff[key] = NextBackoff(key);
+                        return;
+                    }
+                    await WriteDiskAsync(source.Id, z, x, y, bytes);
+                }
             }
 
             var img = await DecodeAsync(bytes);
@@ -451,6 +653,9 @@ public sealed class TileService : IDisposable
     public void Dispose()
     {
         try { _cts.Cancel(); } catch { }
+        MbTilesSource? pack;
+        lock (_mbGate) { pack = _mbTiles; _mbTiles = null; }
+        pack?.Dispose();
         lock (_imageGate)
         {
             foreach (var img in _images.Values) (img as IDisposable)?.Dispose();

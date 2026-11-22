@@ -88,6 +88,8 @@
     <PackageReference Include="Microsoft.Maui.Controls" Version="9.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.*" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <!-- MBTiles 离线包：只读打开 .mbtiles（SQLite）--> 
+    <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
     <!-- 自定义性别逻辑 / 插件钩子：嵌入式 JS，不依赖 WebView 与 Chrome 内核 -->
     <PackageReference Include="Jint" Version="4.0.3" />
   </ItemGroup>

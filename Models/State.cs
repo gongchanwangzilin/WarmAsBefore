@@ -402,6 +402,12 @@ public sealed record UserSettings
     /// </summary>
     public bool MapTileOnline { get; init; } = true;
 
+    /// <summary>
+    /// MBTiles 离线包（.mbtiles）的路径。空串 = 还没选。
+    /// 选包时会复制进应用的 Offline 目录，所以这里存的是应用内的一份稳定路径。
+    /// </summary>
+    public string MapTileMbTilesPath { get; init; } = "";
+
     // 多角色单场景对话
     /// <summary>聊天显示风格：bubble=气泡式（消息直接成对话气泡流），galgame=剧本式（底部面板 + 立绘）。</summary>
     public string ChatStyle { get; init; } = "galgame";

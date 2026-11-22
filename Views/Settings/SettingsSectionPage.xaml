@@ -2520,6 +2520,58 @@
                 </Border>
             </VerticalStackLayout>
         </DataTemplate>
+        <!-- 卡片 40：地图底图与 MBTiles 离线包 -->
+        <DataTemplate x:Key="Card40">
+            <VerticalStackLayout Spacing="16">
+                <Border Style="{StaticResource CardSolid}" IsVisible="{Binding Filter.Map}">
+                    <VerticalStackLayout Spacing="0">
+                        <Label Text="地图底图与离线包" Style="{StaticResource TxtSubhead}" />
+                        <Label Text="地图页的底图：高德 / OSM 需要联网；离线包是一个 .mbtiles 文件，整个地区打包在本地，没网也能看。"
+                               Style="{StaticResource TxtCaption}" Margin="0,6,0,0" LineBreakMode="WordWrap" />
+
+                        <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                            <VerticalStackLayout>
+                                <Label Text="允许联网取瓦片" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="关掉后一个请求都不发，只读本地缓存与离线包。" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding MapTileOnline}" />
+                        </Grid>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+
+                        <VerticalStackLayout Spacing="6" Padding="0,13">
+                            <Label Text="MBTiles 离线包" Style="{StaticResource TxtBodySm}" />
+                            <Label Text="{Binding MbTilesStatusText}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                            <Label Text="{Binding MapTileMbTilesPath}" Style="{StaticResource TxtCaption}" Opacity="0.7"
+                                   LineBreakMode="MiddleTruncation" MaxLines="1"
+                                   IsVisible="{Binding HasMbTiles}" />
+                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                                <Button Text="选择 .mbtiles 文件" Style="{StaticResource BtnPrimary}" Padding="14,6"
+                                        Command="{Binding PickMbTilesCommand}"
+                                        IsEnabled="{Binding MbTilesBusy, Converter={StaticResource InverseBool}}" />
+                                <Button Grid.Column="1" Text="取消离线包" Style="{StaticResource BtnGhost}" Padding="14,6"
+                                        Command="{Binding ClearMbTilesCommand}"
+                                        IsVisible="{Binding HasMbTiles}"
+                                        IsEnabled="{Binding MbTilesBusy, Converter={StaticResource InverseBool}}" />
+                            </Grid>
+                            <ActivityIndicator IsRunning="{Binding MbTilesBusy}" IsVisible="{Binding MbTilesBusy}"
+                                               HorizontalOptions="Start" HeightRequest="18" />
+                            <Label Text="选中的文件会复制进应用目录，原文件可以删。包里没有的档位或区域会在画面上用父级瓦片顶着，不会一直空白。"
+                                   Style="{StaticResource TxtCaption}" Opacity="0.75" LineBreakMode="WordWrap" />
+                        </VerticalStackLayout>
+                        <BoxView Style="{StaticResource HSepBleed}" />
+
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" Padding="0,13">
+                            <VerticalStackLayout>
+                                <Label Text="瓦片缓存" Style="{StaticResource TxtBodySm}" />
+                                <Label Text="{Binding TileCacheText}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="清空瓦片缓存" Style="{StaticResource BtnNeumorphSm}"
+                                    Command="{Binding ClearTileCacheCommand}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </DataTemplate>
     </ContentPage.Resources>
 
 <Grid RowDefinitions="Auto,*" Padding="0">
