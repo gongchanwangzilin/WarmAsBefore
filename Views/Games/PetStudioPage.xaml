@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.PetStudioPage"
              x:Name="Page"
              x:DataType="vm:PetStudioViewModel"
@@ -10,24 +11,16 @@
 
     <Grid RowDefinitions="Auto,*">
         <!-- 眉栏：一块「地」而不是一张卡，底下用发丝线收住（与素材库同一处理） -->
-        <VerticalStackLayout Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                            FontSize="{DynamicResource WSizeSmall}" Padding="0"
-                            Command="{Binding BackCommand}" />
-                    <Label Grid.Column="1" Text="AI 制作桌宠" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                    <Border Grid.Column="2" Background="{DynamicResource WWellBrush}" StrokeThickness="0"
-                            Padding="10,5" StrokeShape="{DynamicResource WRadiusPill}">
-                        <Label Text="{Binding WalkCadenceText}" Style="{StaticResource TxtBodySm}"
-                               TextColor="{DynamicResource WarmDark}" MaxLines="1"
-                               LineBreakMode="TailTruncation" />
-                    </Border>
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+        <ctl:PageHeader Grid.Row="0" Title="AI 制作桌宠" BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
+                        Padding="10,5" StrokeShape="{DynamicResource WRadiusPill}">
+                    <Label Text="{Binding WalkCadenceText}" Style="{StaticResource TxtBodySm}"
+                           TextColor="{DynamicResource WarmDark}" MaxLines="1"
+                           LineBreakMode="TailTruncation" />
+                </Border>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <ScrollView Grid.Row="1" Padding="{DynamicResource WPadCard}">
             <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="1000" HorizontalOptions="Fill">
