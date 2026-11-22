@@ -261,7 +261,6 @@ public partial class CharacterStudioPanel : ContentView
         var stagger = (uint)MotionTokens.StaggerMs;
 
         _ = HeadBand.TranslateTo(0, 0, rise, new Easing(MotionTokens.OutCubic));
-        _ = HeadSep.ScaleTo(1, settle, new Easing(MotionTokens.Mech));
         await Task.Delay((int)stagger);
         _ = Stage.TranslateTo(0, 0, rise, new Easing(MotionTokens.OutCubic));
         _ = Portrait.TranslateTo(0, 0, settle, new Easing(MotionTokens.OutCubic));
@@ -281,7 +280,6 @@ public partial class CharacterStudioPanel : ContentView
         if (MotionTokens.Disabled) return;
         Shell.TranslationX = 0;
         HeadBand.TranslationY = -8;
-        HeadSep.ScaleX = 0;
         Portrait.TranslationX = -18;
         Stage.TranslationY = 14;
         PaneCard.TranslationY = 18;
@@ -313,7 +311,6 @@ public partial class CharacterStudioPanel : ContentView
     {
         Shell.TranslationX = 0;
         HeadBand.TranslationY = 0;
-        HeadSep.ScaleX = 1;
         Portrait.TranslationX = 0;
         Stage.TranslationY = 0;
         PaneCard.TranslationY = 0;

@@ -87,47 +87,34 @@
     <Border x:Name="Shell" BackgroundColor="Transparent" StrokeThickness="0"
             Padding="{OnIdiom Desktop='0,0,0,16', Tablet='0,0,0,16', Phone='0,0,0,10'}"
             HorizontalOptions="Fill" VerticalOptions="Fill">
-        <!-- 抬头 / 分线 / 主体 / 回话条各占一行。分线单独占一行：
-             否则 HeightRequest=1 的 BoxView 掉进 * 行会被拉成整块底色板，
-             五栏全藏时读起来就是一片空。 -->
-        <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="0">
+        <!-- 抬头 / 主体 / 回话条各占一行。抬头的发丝线由 PageHeader 自己带，
+             不再单独占一行 —— 一条 HeightRequest=1 的 BoxView 掉进 * 行会被拉成整块底色板。 -->
+        <Grid RowDefinitions="Auto,*,Auto" RowSpacing="0">
 
             <!-- ── 抬头：从档案柜里翻出来的那一格 ─────────────────────────── -->
-            <Grid x:Name="HeadBand" Background="{DynamicResource WBarBrush}"
-                  Padding="{OnIdiom Desktop='20,14,20,10', Tablet='20,14,20,10', Phone='12,10,12,8'}"
-                  ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" VerticalOptions="Center"
-                        Command="{Binding CloseCommand}" />
-                <!-- 定位条：一屏只有一次，就放在这一屏的开始。三格里只有一格是强调色，另两格是墨与缝。 -->
-                <BoxView Grid.Column="1" WidthRequest="14" VerticalOptions="Fill" Margin="0,2"
-                         Color="{DynamicResource Signal}" InputTransparent="True" />
-                <VerticalStackLayout Grid.Column="2" Spacing="2" VerticalOptions="Center">
-                    <!-- 眉标是宽体大写拉丁，压在粗体中文名上：这一对说的是「这一页是什么」，不是装饰字。 -->
-                    <Label Text="// SUBJECT STUDIO" Style="{StaticResource Eyebrow}" />
-                    <Label Text="{Binding Headline}" Style="{StaticResource TxtTitle}"
-                           LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding MetaLine}" Style="{StaticResource TxtCaption}"
-                           LineBreakMode="TailTruncation" />
-                </VerticalStackLayout>
-                <HorizontalStackLayout Grid.Column="3" Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
-                    <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DirtyLabel}" Style="{StaticResource TxtCaption}"
-                           VerticalOptions="Center"
-                           IsVisible="{Binding IsDirty}" />
-                    <Button Text="放弃" Style="{StaticResource BtnGhostSm}"
-                            Command="{Binding RevertCommand}" IsVisible="{Binding IsDirty}" />
-                    <Button Text="{Binding SaveLabel}" Style="{StaticResource BtnPrimarySm}"
-                            Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
-                </HorizontalStackLayout>
-            </Grid>
-            <BoxView Grid.Row="1" x:Name="HeadSep" Style="{StaticResource HSep}"
-                     ScaleX="1" AnchorX="0" />
+            <!-- x:Name 留着给 code-behind 的进场位移用（HeadBand.TranslationY）。 -->
+            <ctl:PageHeader Grid.Row="0" x:Name="HeadBand" Eyebrow="// SUBJECT STUDIO"
+                            Title="{Binding Headline}" Subtitle="{Binding MetaLine}"
+                            BackCommand="{Binding CloseCommand}">
+                <ctl:PageHeader.Actions>
+                    <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
+                        <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DirtyLabel}" Style="{StaticResource TxtCaption}"
+                               VerticalOptions="Center"
+                               IsVisible="{Binding IsDirty}" />
+                        <Button Text="放弃" Style="{StaticResource BtnGhostSm}"
+                                Command="{Binding RevertCommand}" IsVisible="{Binding IsDirty}" />
+                        <Button Text="{Binding SaveLabel}" Style="{StaticResource BtnPrimarySm}"
+                                Command="{Binding SaveCommand}" IsEnabled="{Binding CanSave}" />
+                    </HorizontalStackLayout>
+                </ctl:PageHeader.Actions>
+            </ctl:PageHeader>
 
             <!-- ── 主体：桌面左右两栏，手机上下两段 ───────────────────────
                  Grid 而不是 FlexLayout：FlexLayout 量 Row 方向的孩子时用「无限宽」，
                  右栏那些长句会把它的基准宽度撑到远超窗口；舞台虽然写了 352，也会被 Shrink
                  挤成半宽。用户截图里左栏滑出窗外、右栏压在立绘上的正是这一条。
                  Grid 的 352 列是硬的，右栏拿 * 列 —— 横向上再没有互相挤压的余地。 -->
-            <Grid Grid.Row="2" x:Name="BodyGrid" ColumnDefinitions="352,*" RowDefinitions="*"
+            <Grid Grid.Row="1" x:Name="BodyGrid" ColumnDefinitions="352,*" RowDefinitions="*"
                   Padding="{DynamicResource WPadCard}" ColumnSpacing="{DynamicResource WSpaceLoose}" RowSpacing="{DynamicResource WSpaceLoose}"
                   IsClippedToBounds="True">
 
@@ -1603,7 +1590,7 @@
             </Grid>
 
             <!-- ── 底部：任何操作都要有一句回话 ─────────────────────────── -->
-            <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+            <Border Grid.Row="2" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                     Padding="{DynamicResource WPadRow}">
                 <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <ActivityIndicator IsRunning="{Binding Busy}" IsVisible="{Binding Busy}"
