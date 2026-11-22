@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.GamePage"
              x:DataType="vm:GameViewModel"
              Title=""
@@ -12,31 +13,23 @@
 
         <!-- ========== Header ========== -->
         <!-- 顶栏与底部控制条用同一块 bar 面：玻璃档那圈描边在浅底上会被读成一条不属于地面的框 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="8,6,12,6">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        Padding="8,0"
-                        Command="{Binding GoBackCommand}" />
-                <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding GameTitle}"
-                       Style="{StaticResource TxtSubhead}"
-                       VerticalOptions="Center" />
-                <Label Grid.Column="2" Text="小雨"
-                       Style="{StaticResource TxtCaption}"
-                       VerticalOptions="Center" />
-                <!-- 热度块是一块饱和填充，字只能取最深那档墨（写死 White 在浅底世界会糊成一团） -->
-                <Border Grid.Column="3"
-                        BackgroundColor="{Binding Affection, Converter={StaticResource AffectionTint}}"
-                        StrokeThickness="0"
-                        WidthRequest="32" HeightRequest="20"
-                        VerticalOptions="Center"
-                        StrokeShape="{DynamicResource WRadiusWell}">
-                    <Label Text="{Binding Affection, StringFormat='{0}'}"
-                           TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeCaption}"
-                           HorizontalOptions="Center" VerticalOptions="Center" />
-                </Border>
-            </Grid>
-        </Border>
+        <ctl:PageHeader Grid.Row="0" Title="{Binding GameTitle}" BackCommand="{Binding GoBackCommand}">
+            <ctl:PageHeader.Actions>
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
+                    <Label Text="小雨" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                    <!-- 热度块是一块饱和填充，字只能取最深那档墨（写死 White 在浅底世界会糊成一团） -->
+                    <Border BackgroundColor="{Binding Affection, Converter={StaticResource AffectionTint}}"
+                            StrokeThickness="0"
+                            WidthRequest="32" HeightRequest="20"
+                            VerticalOptions="Center"
+                            StrokeShape="{DynamicResource WRadiusWell}">
+                        <Label Text="{Binding Affection, StringFormat='{0}'}"
+                               TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeCaption}"
+                               HorizontalOptions="Center" VerticalOptions="Center" />
+                    </Border>
+                </HorizontalStackLayout>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- ========== Board (left) + Chat (right) ========== -->
         <Grid Grid.Row="1" ColumnDefinitions="Auto,*" Padding="0">

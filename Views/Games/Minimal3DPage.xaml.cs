@@ -1,3 +1,4 @@
+using System.Windows.Input;
 using WarmAsBefore.Drawables;
 using WarmAsBefore.Services;
 
@@ -23,6 +24,9 @@ public partial class Minimal3DPage : ContentPage
     public double EntryY { get; set; } = double.NaN;
     public double EntryYaw { get; set; }
 
+    /// <summary>页头的返回槽只认命令：包一层，落到原来那颗按钮的处理器上。</summary>
+    public ICommand BackCommand { get; }
+
     /// <summary>陀螺仪是否可用（支持姿态传感器的设备；手机为主）。</summary>
     public bool GyroAvailable { get; } =
         Microsoft.Maui.Devices.Sensors.OrientationSensor.Default.IsSupported;
@@ -33,6 +37,7 @@ public partial class Minimal3DPage : ContentPage
 
     public Minimal3DPage(MapService maps)
     {
+        BackCommand = new Command(() => OnBackNav(null, EventArgs.Empty));
         InitializeComponent();
         _maps = maps;
         BindingContext = this;

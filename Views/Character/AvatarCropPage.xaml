@@ -3,6 +3,7 @@
              
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              x:Class="WarmAsBefore.Views.AvatarCropPage"
              x:Name="Page"
@@ -17,19 +18,13 @@
     -->
     <Grid RowDefinitions="Auto,*,Auto,Auto">
 
-        <!-- 顶栏 -->
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                    <Label Text="{Binding Title}" Style="{StaticResource TxtTitle}" LineBreakMode="TailTruncation" />
-                    <Label Text="{Binding SourceInfo}" Style="{StaticResource TxtCaption}"
-                           LineBreakMode="TailTruncation" />
-                </VerticalStackLayout>
-                <Button Grid.Column="1" Text="↺ 重置" Style="{StaticResource BtnGhostSm}"
+        <!-- 顶栏：这一页没有「返回」（取消在底部），所以只有标题、原图信息与重置 -->
+        <ctl:PageHeader Grid.Row="0" Title="{Binding Title}" Subtitle="{Binding SourceInfo}">
+            <ctl:PageHeader.Actions>
+                <Button Text="↺ 重置" Style="{StaticResource BtnGhostSm}"
                         VerticalOptions="Center" Command="{Binding ResetViewCommand}" />
-            </Grid>
-        </Border>
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 取景舞台：框外压暗，框内是亮的原图 -->
         <Grid Grid.Row="1" x:Name="Stage" BackgroundColor="{StaticResource StageBg}" SizeChanged="OnStageSizeChanged">

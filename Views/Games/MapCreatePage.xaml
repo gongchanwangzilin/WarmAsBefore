@@ -35,26 +35,19 @@
 
     <Grid RowDefinitions="Auto,*">
 
-        <!-- 顶栏：标题 + 这一句现在正在发生什么；忙的时候只多一颗「取消」 -->
-        <VerticalStackLayout Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                    <Button Text="&lt; 返回" Style="{StaticResource BtnText}" FontSize="{DynamicResource WSizeSmall}"
-                            Padding="0" VerticalOptions="Center" Command="{Binding GoBackCommand}" />
-                    <VerticalStackLayout Grid.Column="1" VerticalOptions="Center" Spacing="2">
-                        <Label Text="创建地图" Style="{StaticResource TxtTitle}" />
-                        <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
-                               LineBreakMode="WordWrap" MaxLines="2" />
-                    </VerticalStackLayout>
-                    <ActivityIndicator Grid.Column="2" IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
+        <!-- 顶栏：标题 + 这一句现在正在发生什么（Status 进 Subtitle）；忙的时候只多一颗「取消」 -->
+        <controls:PageHeader Grid.Row="0" Title="创建地图" Subtitle="{Binding Status}"
+                             BackCommand="{Binding GoBackCommand}">
+            <controls:PageHeader.Actions>
+                <HorizontalStackLayout Spacing="{DynamicResource WSpaceRegular}" VerticalOptions="Center">
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" IsVisible="{Binding IsBusy}"
                                        Color="{DynamicResource BeigeAccent300}" WidthRequest="20" HeightRequest="20"
                                        VerticalOptions="Center" />
-                    <Button Grid.Column="3" Text="取消" Style="{StaticResource BtnDangerSm}"
+                    <Button Text="取消" Style="{StaticResource BtnDangerSm}"
                             IsVisible="{Binding IsBusy}" Command="{Binding CancelCommand}" />
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+                </HorizontalStackLayout>
+            </controls:PageHeader.Actions>
+        </controls:PageHeader>
 
         <ScrollView Grid.Row="1">
             <VerticalStackLayout Spacing="{DynamicResource WGapSection}" Padding="{DynamicResource WPadCard}"
