@@ -56,9 +56,24 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     /// <summary>由共享 partial 的 MapApplication 调用；未 Loaded 前直接跳过，Loaded 后会再触发一次。</summary>
     internal void UpdateApplication(EvergineWeatherView view, string displayName)
     {
-        if (!this.isViewLoaded) return;
-        if (view.Application is null) return;
-        if (_evergineGivenUp) return;
+        // 时序日志：这三条早退是「3D 起不来」的全部入口，写清楚是哪一条拦下的，
+        // 免得再靠猜（同步落盘，进程被原生崩溃带走也留得下）。
+        if (!this.isViewLoaded)
+        {
+            App.WriteLogNow("Evergine.UpdateApplication 跳过: 面板尚未 Loaded");
+            return;
+        }
+        if (view.Application is null)
+        {
+            App.WriteLogNow("Evergine.UpdateApplication 跳过: Application 为 null");
+            return;
+        }
+        if (_evergineGivenUp)
+        {
+            App.WriteLogNow("Evergine.UpdateApplication 跳过: 已放弃（" + LastFailure + "）");
+            return;
+        }
+        App.WriteLogNow("Evergine.UpdateApplication 进入: " + displayName);
 
         // 整段兜底：Evergine + DX11 + DComp 这一路任何失败都只让 3D 层消失，
         // 绝不以未处理 UI 异常的形式冒到 WinUI 上（那会弹 bug 窗，还把整页画布带成空白）。
@@ -86,6 +101,14 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
     }
 
     private void UpdateApplicationCore(EvergineWeatherView view, string displayName)
+        => UpdateApplicationCore(view, displayName, allowDefer: true);
+
+    /// <summary>
+    /// allowDefer 只在第一次进来时为 true：它把建链排到下一轮低优先级派发，
+    /// 排到队后的那一轮用 false 进来真正建链。两轮共用同一个入口，但只有一轮会真正动手，
+    /// 否则会在「排队 → 执行 → 再排队」之间空转（第一版就是这么空转的，日志刷了 1.6 万行）。
+    /// </summary>
+    private void UpdateApplicationCore(EvergineWeatherView view, string displayName, bool allowDefer)
     {
         // 一次机会制：每个面板只尝试建一次链。尺寸还没就绪（0 宽高）时
         // CreateSwapChainForComposition 会返回 DXGI_ERROR_INVALID_CALL，那就直接放弃这一层并写明原因，
@@ -114,20 +137,28 @@ public partial class EvergineWeatherViewHandler : ViewHandler<EvergineWeatherVie
         // 事件日志实证 0xc000027b / CoreMessagingXP.dll，WER 里是 combase 的 E_POINTER —— 这种崩
         // 托管 catch 兜不住（进程直接消失，bugs.log 一条都没有）。推迟到下一轮低优先级派发，
         // 那时布局已经落定，面板的 native peer 才是稳定的。
-        if (!this._createScheduled)
+        if (allowDefer && !this._createScheduled)
         {
             var queue = this.swapChainPanel.DispatcherQueue;
-            if (queue is null) return;
+            if (queue is null)
+            {
+                App.WriteLogNow("Evergine.推迟建链失败: 面板还没有 DispatcherQueue（不在可视树里）");
+                return;
+            }
             this._createScheduled = true;
             var queued = queue.TryEnqueue(Microsoft.UI.Dispatching.DispatcherQueuePriority.Low, () =>
             {
                 this._createScheduled = false;
-                this.UpdateApplicationCore(view, displayName);
+                App.WriteLogNow("Evergine.推迟建链: 下一轮派发开始建链");
+                this.UpdateApplicationCore(view, displayName, allowDefer: false);
             });
-            if (!queued) this._createScheduled = false;
+            if (!queued)
+            {
+                this._createScheduled = false;
+                App.WriteLogNow("Evergine.推迟建链失败: 排队被拒");
+            }
             return;
         }
-        this._createScheduled = false;
         this._creatingSwapChain = true;
 
         this.windowsSystem ??= new WinUIWindowsSystem();

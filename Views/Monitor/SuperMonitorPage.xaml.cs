@@ -24,10 +24,6 @@ public partial class SuperMonitorPage : ContentPage
     private readonly SuperMonitorViewModel _vm;
     private bool? _sideBySide;
 
-#if ANDROID || WINDOWS
-    private bool _vectorReady;
-    private WarmAsBefore.Weather3D.MonitorVectorApplication? _vectorApp;
-#endif
 
     public SuperMonitorPage(SuperMonitorViewModel vm)
     {
@@ -51,55 +47,29 @@ public partial class SuperMonitorPage : ContentPage
         vm.AttachInvalidate(() => ArchCanvas.Invalidate());
         ArchCanvas.SizeChanged += (_, _) => vm.SetViewport(ArchCanvas.Width, ArchCanvas.Height);
 
+        // 向量空间也是纯 2D 画布：自己算投影、自己画点，没有原生 3D 层可以崩。
+        VectorCanvas.Drawable = Helpers.SafeDrawable.Wrap(vm.VectorDrawable, "MonitorVectors");
+        vm.AttachVectorInvalidate(() => VectorCanvas.Invalidate());
+
         SizeChanged += (_, _) => ApplyResponsiveLayout(Width);
 
 #if ANDROID || WINDOWS
         // 3D 这一层要等页面真的上屏再建：构造期就创建设备/交换链会在测量阶段把
         // 原生合成拖进异常（COMException 0x80004005 那一路），而那时页面还没 Loaded，
         // 3D 层本来也不会显示。
-        Loaded += OnPageLoadedInitVector3D;
 #endif
     }
 
-#if ANDROID || WINDOWS
-    private void OnPageLoadedInitVector3D(object? sender, EventArgs e)
-    {
-        Loaded -= OnPageLoadedInitVector3D;
-        try
-        {
-            // 这里不建 3D：面板此刻是 Collapsed（尺寸 0），在布局没落定时碰 SwapChainPanel
-            // 正是 0xc000027b 那条崩溃路径。Application 推迟到第一次打开开关时创建，
-            // handler 的建链再被推迟到下一轮派发（见 EvergineWeatherViewHandler._createScheduled）。
-            _vectorReady = false;
-            _vm.Vector3DNote = string.Empty;
-        }
-        catch (Exception ex)
-        {
-            // 3D 初始化失败：视图保持隐藏，2D 流程图不受影响。
-            _vectorReady = false;
-            try { Vector3DView.IsVisible = false; } catch { }
-            App.WriteLog("SuperMonitor.InitVector3D -> " + ex.Message);
-            _vm.Vector3DNote = "3D 层没能初始化：" + ex.Message;
-        }
-    }
-#endif
 
     protected override void OnNavigatedTo(NavigatedToEventArgs args)
     {
         base.OnNavigatedTo(args);
         ApplyResponsiveLayout(Width);
         _vm.StartClock();
-#if ANDROID || WINDOWS
-        SuperMonitorViewModel.VectorOverlayChanged = OnVectorOverlayChanged;
-#endif
     }
 
     protected override void OnNavigatedFrom(NavigatedFromEventArgs args)
     {
-#if ANDROID || WINDOWS
-        // 钩子是静态的，离页必须置空，避免残留到下一次导航。
-        SuperMonitorViewModel.VectorOverlayChanged = null;
-#endif
         _vm.StopClock();
         base.OnNavigatedFrom(args);
     }
@@ -148,48 +118,6 @@ public partial class SuperMonitorPage : ContentPage
     /// <summary>
     /// VM 的 3D 开关回调：只管显隐与数据推送，任何 3D 失败都吞掉，绝不回头影响 2D 监测页。
     /// </summary>
-    private void OnVectorOverlayChanged(bool show, string charId)
-    {
-        try
-        {
-            if (Vector3DView is null) return;
-
-            if (!show)
-            {
-                Vector3DView.IsVisible = false;
-                return;
-            }
-
-            // 第一次打开才建 Application：此时面板已经可见，尺寸事件与建链都在下一轮落定。
-            if (_vectorApp is null)
-            {
-                Controls.EvergineWeatherViewHandler.ResetGiveUpForNewPage();
-                _vectorApp = new WarmAsBefore.Weather3D.MonitorVectorApplication();
-                Vector3DView.Application = _vectorApp;
-                _vectorReady = true;
-                _vm.Vector3DNote = "3D 向量：器官状态球已开启（DX11）";
-                App.WriteLogNow("SuperMonitor.VectorOverlay: 首次开启，已建 Application");
-            }
-            Vector3DView.IsVisible = true;
-
-            // Application.Initialize 还没跑完时 Scene 为 null：跳过这一轮，下一次刷新再来。
-            var scene = _vectorApp?.Scene;
-            if (scene is null) return;
-
-            // id 约定见 MonitorVectorScene：organ-0..organ-7 对应 OrganKind 的整数值。
-            var states = OrganSimulationService.Instance.Observe(charId);
-            var nodes = new List<(string id, double value, bool lit)>(states.Count);
-            foreach (var state in states)
-                nodes.Add(($"organ-{(int)state.Kind}", state.Value, state.IsLit));
-
-            scene.ApplyNodes(nodes);
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("SuperMonitor.VectorOverlay -> " + ex.Message);
-            try { Vector3DView.IsVisible = false; } catch { /* 装饰层失败不影响 2D */ }
-        }
-    }
 #endif
 
     private void OnCanvasEnd(object? sender, TouchEventArgs e)

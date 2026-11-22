@@ -57,8 +57,16 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private string _vector3DNote = "";
     [ObservableProperty] private bool _hasVector3DNote;
 
-    /// <summary>3D 向量层是否可用：建链已经改成「延后一轮派发」，所以开关重新放出来。</summary>
-    [ObservableProperty] private bool _has3D = true;
+    /// <summary>向量空间是 2D 投影画的，没有原生 3D 层要开关，恒为 true 只为了让旧绑定不炸。</summary>
+    [ObservableProperty] private bool _has3D;
+
+    // ---- 向量空间：把记忆的数值向量投影到三维坐标系上，坐标与词语并排读 ----
+    public Drawables.VectorCloudDrawable VectorDrawable { get; } = new();
+    public ObservableCollection<VectorCloudRow> VectorRows { get; } = new();
+    [ObservableProperty] private string _vectorNote = "向量空间还没读出来。";
+
+    private Action? _vectorInvalidate;
+    public void AttachVectorInvalidate(Action invalidate) => _vectorInvalidate = invalidate;
 
     // ---- 整页状态灯：专注 / 神游 / 即将失效，是三盏灯而不是某一格的属性 ----
     [ObservableProperty] private string _ambientTitle = "神游";
@@ -325,7 +333,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             _ambientSkip = (_ambientSkip + 1) % 4;
             var beat = _ambientSkip == 0;
             if (beat) RefreshAmbient();
-            if (beat || FlowTracer.LitNodes().Count > 0) Redraw();
+            if (beat)
+            {
+                Redraw();
+                try { _vectorInvalidate?.Invoke(); } catch { }
+            }
+            else if (FlowTracer.LitNodes().Count > 0) Redraw();
         }
         catch { /* 装饰性刷新失败不打扰主流程 */ }
     }
@@ -358,6 +371,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             // 神游压暗、专注全亮：一眼就能看出她是在认真想还是在飘。
             ArchDrawable.AmbientOpacity = focused ? 1.0 : 0.84 - 0.10 * Math.Clamp(patho, 0, 1);
 
+            VectorDrawable.Phase = ArchDrawable.AmbientPhase;
             var blinkOn = ArchDrawable.AmbientPhase < 0.5;
             AmbientTitle = alarm ? "专注即将失效" : focused ? "专注" : "神游";
             AmbientDetail = focused
@@ -373,6 +387,106 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             AlarmLampColor = alarm ? (blinkOn ? LampAlarm : LampAlarmDim) : LampOff;
         }
         catch (Exception ex) { App.WriteLog("SuperMonitor.Ambient -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// 把记忆条目的数值向量投到三维坐标系上：一条记忆一个点，坐标是它向量的分块均值，
+    /// 词就是它自己那句话。没有量化模型时不编坐标 —— 只把「为什么空着」写清楚。
+    /// </summary>
+    private async Task LoadVectorCloudAsync(
+        string id, List<HumanMemoryEntry> core, List<HumanMemoryEntry> all)
+    {
+        try
+        {
+            if (string.IsNullOrWhiteSpace(id)) return;
+
+            var entries = core.Concat(all)
+                .GroupBy(m => m.Id, StringComparer.Ordinal)
+                .Select(g => g.First())
+                .Where(m => !string.IsNullOrWhiteSpace(m.Text))
+                .Take(60)
+                .ToList();
+
+            if (entries.Count == 0)
+            {
+                SetVectorCloud(Array.Empty<VectorPoint>(), "这个角色还没有可投影的记忆。");
+                return;
+            }
+
+            var embed = ResolveService<EmbeddingService>();
+            if (embed is null)
+            {
+                SetVectorCloud(Array.Empty<VectorPoint>(), "取不到量化服务，不显示推测坐标。");
+                return;
+            }
+
+            var vectors = await embed.MemoryVectorsAsync(id, entries);
+            if (vectors.Count == 0)
+            {
+                SetVectorCloud(Array.Empty<VectorPoint>(),
+                    "还没有向量：先配一个 OpenAI 兼容的 embedding 模型，这里才有真坐标可算。");
+                return;
+            }
+
+            var points = new List<VectorPoint>(vectors.Count);
+            foreach (var entry in entries)
+            {
+                if (!vectors.TryGetValue(entry.Id, out var v) || v.Length < 3) continue;
+                // 分块均值：把向量均分成三段各取平均，得到三个能算、能复算的坐标。
+                // 这不是「语义主成分」，所以界面上就照实叫「分块 Ⅰ/Ⅱ/Ⅲ」。
+                var (x, y, z) = BlockMeans(v);
+                var weight = Math.Clamp(0.30 + 0.55 * entry.Importance
+                    + 0.10 * Math.Min(1.0, entry.RecallCount / 5.0), 0, 1);
+                points.Add(new VectorPoint(entry.Id, Clip(entry.Text, 14), x, y, z, weight));
+            }
+
+            if (points.Count == 0)
+            {
+                SetVectorCloud(Array.Empty<VectorPoint>(), "有向量但维度不足三维，跳过了。");
+                return;
+            }
+            SetVectorCloud(points, $"量化模型算出的 {points.Count} 条记忆向量；三轴是向量三段均值，越亮的点越靠近你。");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SuperMonitor.VectorCloud -> " + ex.Message);
+        }
+    }
+
+    /// <summary>向量均分成三段取均值，再按全体绝对值归一到 -1..1，保证点在轴内。</summary>
+    private static (double X, double Y, double Z) BlockMeans(float[] v)
+    {
+        var third = Math.Max(1, v.Length / 3);
+        double Mean(int from, int to)
+        {
+            var sum = 0.0;
+            var n = 0;
+            for (var i = from; i < Math.Min(to, v.Length); i++) { sum += v[i]; n++; }
+            return n == 0 ? 0 : sum / n;
+        }
+        var x = Mean(0, third);
+        var y = Mean(third, third * 2);
+        var z = Mean(third * 2, v.Length);
+        var m = Math.Max(1e-6, Math.Max(Math.Abs(x), Math.Max(Math.Abs(y), Math.Abs(z))));
+        return (Math.Clamp(x / m, -1, 1), Math.Clamp(y / m, -1, 1), Math.Clamp(z / m, -1, 1));
+    }
+
+    private static string Clip(string text, int max)
+    {
+        var t = (text ?? string.Empty).Replace((char)13, ' ').Replace((char)10, ' ').Trim();
+        return t.Length <= max ? t : t[..max] + "…";
+    }
+
+    private void SetVectorCloud(IReadOnlyList<VectorPoint> points, string note)
+    {
+        VectorDrawable.Points = points;
+        VectorNote = note;
+
+        VectorRows.Clear();
+        foreach (var p in points.OrderByDescending(p => p.Weight).Take(24))
+            VectorRows.Add(new VectorCloudRow(p.Label, p.X, p.Y, p.Z));
+
+        try { _vectorInvalidate?.Invoke(); } catch { /* 画布不在时忽略 */ }
     }
 
     /// <summary>
@@ -605,6 +719,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             }
 
             RefreshAmbient();
+            _ = LoadVectorCloudAsync(id, coreMemories, allMemories);
 
             // 被强制切断的路径：不是「没走」，是被顶掉了——所以图上断开并打叉。
             _severed.Clear();
@@ -1415,4 +1530,10 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     public sealed record NodeDetail(string Id, string Title, string Group, string Status, string Detail, string Influence);
     /// <summary>详情区的一行：标签 + 值。值可以很长，交给 XAML 换行显示。</summary>
     public sealed record DetailLine(string Label, string Value);
+}
+
+/// <summary>右侧列表的一行：词语 + 它的三个坐标，读的时候不用去图上量。</summary>
+public sealed record VectorCloudRow(string Word, double X, double Y, double Z)
+{
+    public string Coords => $"({X:0.00}, {Y:0.00}, {Z:0.00})";
 }

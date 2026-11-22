@@ -29,12 +29,6 @@
                            MaxLines="1" LineBreakMode="TailTruncation" />
                     <Label Text="{Binding DateText}" Style="{StaticResource TxtCaption}" MaxLines="1" />
                 </VerticalStackLayout>
-                <HorizontalStackLayout Grid.Column="2" Spacing="8" VerticalOptions="Center">
-                    <Label Text="3D 向量" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
-                           IsVisible="{Binding Has3D}" />
-                    <controls:ViewSwitch IsToggled="{Binding Show3D, Mode=TwoWay}" VerticalOptions="Center"
-                                         IsVisible="{Binding Has3D}" />
-                </HorizontalStackLayout>
                 <Button Grid.Column="3" Text="刷新" Style="{StaticResource BtnGhostSm}"
                         VerticalOptions="Center" Command="{Binding LoadCommand}" />
             </Grid>
@@ -50,7 +44,7 @@
 
             <!-- 左：架构活流程图（+ 可选 3D 向量覆盖层） -->
             <Grid x:Name="CanvasHost" Grid.Row="0" Grid.Column="0"
-                  RowDefinitions="Auto,*,Auto" RowSpacing="8">
+                  RowDefinitions="Auto,*,Auto,Auto" RowSpacing="8">
                 <!-- 标题 + 三盏状态灯：专注（暖）/ 神游（冷）/ 神游介入（红，会闪）。
                      这是整页的状态，不是某一格的属性，所以放在画布顶上。 -->
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="14">
@@ -103,19 +97,42 @@
                                           HeightRequest="{Binding CanvasHeight}"
                                           BackgroundColor="Transparent" />
                         </ScrollView>
-                        <!-- 3D 向量显示：默认隐藏，开关打开时盖在流程图之上；
-                             InputTransparent 让点击仍落到 2D 画布。 -->
-                        <controls:EvergineWeatherView x:Name="Vector3DView"
-                                                      IsVisible="False"
-                                                      InputTransparent="True"
-                                                      HorizontalOptions="Fill"
-                                                      VerticalOptions="Fill"
-                                                      BackgroundColor="Transparent"
-                                                      DisplayName="MonitorVectors" />
                     </Grid>
                 </Border>
 
-                <VerticalStackLayout Grid.Row="2" Spacing="2">
+                <!-- 向量空间：三维坐标系由 2D 投影画出来（不走原生 3D，见 VectorCloudDrawable），
+                     右边并排列出每个点的坐标与它对应的那句话。 -->
+                <Border Grid.Row="2" Style="{StaticResource CardSolid}" Padding="8">
+                    <Grid ColumnDefinitions="*,236" ColumnSpacing="8" RowDefinitions="Auto,*">
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
+                            <Label Text="向量空间" Style="{StaticResource TxtSection}" />
+                            <Label Text="一条记忆一个点，坐标是它向量三段均值；亮的点更靠近你"
+                                   Style="{StaticResource TxtCaption}" MaxLines="2" />
+                        </VerticalStackLayout>
+                        <Label Grid.Row="0" Grid.Column="1" Text="坐标 · 词语" Style="{StaticResource TxtCaption}"
+                               VerticalOptions="End" HorizontalOptions="End" />
+                        <GraphicsView Grid.Row="1" Grid.Column="0" x:Name="VectorCanvas"
+                                      HeightRequest="300" BackgroundColor="Transparent" />
+                        <CollectionView Grid.Row="1" Grid.Column="1" ItemsSource="{Binding VectorRows}"
+                                        HeightRequest="300" VerticalScrollBarVisibility="Always">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="vm:VectorCloudRow">
+                                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Padding="0,3">
+                                        <Label Grid.Column="0" Text="{Binding Word}"
+                                               Style="{StaticResource TxtCaption}" MaxLines="1"
+                                               LineBreakMode="TailTruncation" />
+                                        <Label Grid.Column="1" Text="{Binding Coords}"
+                                               Style="{StaticResource TxtCaption}"
+                                               FontFamily="Consolas" HorizontalOptions="End" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Grid>
+                </Border>
+
+                <VerticalStackLayout Grid.Row="3" Spacing="2">
+                    <Label Text="{Binding VectorNote}" Style="{StaticResource TxtCaption}" MaxLines="3" />
                     <Label Text="{Binding Vector3DNote}" IsVisible="{Binding HasVector3DNote}"
                            Style="{StaticResource TxtCaption}" MaxLines="3" />
                     <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
