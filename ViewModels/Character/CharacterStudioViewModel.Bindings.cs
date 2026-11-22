@@ -182,7 +182,7 @@ public sealed partial class CharacterStudioViewModel
         var size = cg.SizeBytes;
         if (size <= 0 && !string.IsNullOrWhiteSpace(path))
         {
-            try { size = new FileInfo(path).Length; } catch { }
+            try { size = new FileInfo(path).Length; } catch { /* 故意忽略：CG 大小只用于展示，读不到按 0 */ }
         }
 
         var thumb = ThumbOf(path);

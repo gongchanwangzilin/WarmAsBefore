@@ -456,7 +456,7 @@ public sealed class GenderLibrary
             var error = await p.StandardError.ReadToEndAsync();
             if (!p.WaitForExit(4000))
             {
-                try { p.Kill(true); } catch { }
+                try { p.Kill(true); } catch { /* 故意忽略：脚本进程超时后杀不掉，也只能按失败返回 */ }
                 return null;
             }
             if (p.ExitCode != 0)
@@ -468,7 +468,7 @@ public sealed class GenderLibrary
         }
         finally
         {
-            try { File.Delete(path); } catch { }
+            try { File.Delete(path); } catch { /* 故意忽略：删临时脚本，删不掉只是残留 */ }
         }
     }
 }

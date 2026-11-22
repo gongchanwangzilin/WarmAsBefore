@@ -223,7 +223,7 @@ public sealed class MiniGameEngine
                 return GeneralsFaceEachOther();
             }
         }
-        catch { }
+        catch { /* 故意忽略：将军判断失败按「没被将军」走，只影响话术 */ }
         return false;
     }
 
@@ -1746,7 +1746,7 @@ public sealed class MiniGameEngine
                 power = ai > me ? "小雨子力占优" : me > ai ? "你的子力占优" : "双方子力相当";
             }
         }
-        catch { }
+        catch { /* 故意忽略：局势摘要取不到就留空，不阻塞对话 */ }
         return $"（{GameName(_currentGame)}：{stage}，{power}。最近：{moves}。）";
     }
 

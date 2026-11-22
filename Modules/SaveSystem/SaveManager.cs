@@ -19,7 +19,7 @@ public sealed class SaveManager
     {
         // CPU 并行读档多段解析的饥饿防护：5 段 Task.Run 并行，保证线程池有足够工作线程，
         // 避免读档线程被其它任务挤到排队而拖慢「读取」进度（也避免并行退化成串行）。
-        try { System.Threading.ThreadPool.SetMinThreads(8, 8); } catch { }
+        try { System.Threading.ThreadPool.SetMinThreads(8, 8); } catch { /* 故意忽略：线程池参数是并行读档的饥饿防护，设不上仍能读档 */ }
     }
 
     public SaveManager(StorageProvider store, GameEngine engine, CharacterLibrary library, MemoryScope scope,
@@ -1169,7 +1169,7 @@ public sealed class SaveManager
         }
         finally
         {
-            try { Directory.Delete(tmp, true); } catch { }
+            try { Directory.Delete(tmp, true); } catch { /* 故意忽略：清理导入临时目录，删不掉只是残留 */ }
         }
     }
 

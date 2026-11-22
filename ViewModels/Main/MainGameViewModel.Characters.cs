@@ -466,7 +466,7 @@ public sealed partial class MainGameViewModel
         _walkMotionCts = null;
         if (cts is not null)
         {
-            try { cts.Cancel(); } catch { }
+            try { cts.Cancel(); } catch { /* 故意忽略：停走路动画，令牌可能已释放 */ }
             cts.Dispose();
         }
         _walkFrameIndex = -1;
@@ -554,7 +554,7 @@ public sealed partial class MainGameViewModel
                 await Task.Delay(33, ct).ConfigureAwait(false);
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* 故意忽略：走路动画被取消属正常 */ }
         catch (Exception ex)
         {
             App.WriteLog("MainGameVM.AnimateWalk -> " + ex);

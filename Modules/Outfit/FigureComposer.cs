@@ -329,7 +329,7 @@ public sealed class FigureComposer
         {
             if (tmp is not null)
             {
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* 故意忽略：清理中间文件，删不掉只是残留 */ }
             }
         }
     }

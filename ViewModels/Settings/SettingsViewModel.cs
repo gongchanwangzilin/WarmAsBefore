@@ -1359,7 +1359,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>摄像头人脸识别总开关：同步到独立配置供 FaceAnalysisService 与开场询问读取。</summary>
     partial void OnCameraFaceEnabledChanged(bool value)
     {
-        try { new FaceAnalysisService().CameraEnabled = value; } catch { }
+        try { new FaceAnalysisService().CameraEnabled = value; } catch (Exception ex) { App.WriteLog("Settings.CameraFaceEnabled -> " + ex.Message); }
         PersistSettings();
     }
     partial void OnVoiceApiUrlChanged(string value) => PersistSettings();

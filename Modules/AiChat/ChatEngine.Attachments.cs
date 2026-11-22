@@ -123,7 +123,7 @@ public sealed partial class ChatEngine
         var kind = GuessAttachmentKind(name);
         long size = 0;
         try { if (System.IO.File.Exists(path)) size = new System.IO.FileInfo(path).Length; }
-        catch { }
+        catch { /* 故意忽略：附件大小只用于展示，取不到按 0 算 */ }
         string? text = null;
         var truncated = false;
         if (kind == "text" && !string.IsNullOrEmpty(path))

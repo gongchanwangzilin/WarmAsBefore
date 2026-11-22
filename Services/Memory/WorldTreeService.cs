@@ -205,7 +205,10 @@ public sealed class WorldTreeService
                         if (legacy is null || string.IsNullOrWhiteSpace(legacy.Id) || !known.Add(legacy.Id)) continue;
                         list.Add(legacy);
                     }
-                    catch { }
+                    catch (Exception ex)
+                    {
+                        App.WriteLog("WorldTree 跳过 " + Path.GetFileName(file) + " -> " + ex.Message);
+                    }
                 }
             }
         }

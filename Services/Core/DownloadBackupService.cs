@@ -34,7 +34,7 @@ public static class DownloadBackupService
                 App.WriteLog("DownloadBackupService: 启动备份成功 -> 下载/WarmAsBefore_backup.zip");
             else
                 App.WriteLog("DownloadBackupService: 启动备份未写入下载目录（桌面 no-op 或失败）");
-            try { if (File.Exists(tmpZip)) File.Delete(tmpZip); } catch { }
+            try { if (File.Exists(tmpZip)) File.Delete(tmpZip); } catch { /* 故意忽略：删临时 zip，删不掉只是残留 */ }
         }
         catch (Exception ex)
         {

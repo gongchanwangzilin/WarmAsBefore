@@ -51,7 +51,7 @@ public static class UiStallMonitor
 
     public static void Stop()
     {
-        try { _timer?.Stop(); } catch { }
+        try { _timer?.Stop(); } catch { /* 故意忽略：停止计时器，可能已释放 */ }
         _timer = null;
         _started = false;
     }

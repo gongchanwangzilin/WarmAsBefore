@@ -72,8 +72,8 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
     public Task StopAsync()
     {
         _cts?.Cancel();
-        try { _listener?.Stop(); } catch { }
-        try { _listener?.Close(); } catch { }
+        try { _listener?.Stop(); } catch { /* 故意忽略：停止监听时 listener 可能已关，逐个吞掉继续 */ }
+        try { _listener?.Close(); } catch { /* 故意忽略：同上 */ }
         _listener = null;
         _cts = null;
         _status = "已停止";
@@ -103,11 +103,11 @@ public sealed class WeChatOfficialChannel : IOfficialChannel
                 _status = $"监听异常：{ex.Message}";
                 App.WriteLog("WeChatOfficialChannel.Listen -> " + ex);
             }
-            try { _listener?.Stop(); } catch { }
+            try { _listener?.Stop(); } catch { /* 故意忽略：重建前关旧 listener，关不掉不影响新建 */ }
             _listener = null;
             if (!ct.IsCancellationRequested)
             {
-                try { await Task.Delay(TimeSpan.FromSeconds(5), ct); } catch { }
+                try { await Task.Delay(TimeSpan.FromSeconds(5), ct); } catch { /* 故意忽略：等待被取消即退出循环 */ }
             }
         }
     }

@@ -302,7 +302,7 @@ public sealed class RuntimeProbe
                     if (key?.GetValue("pv") is string pv && pv.Length > 0 && pv != "0.0.0.0")
                         return "WebView2 " + pv;
                 }
-                catch { }
+                catch { /* 故意忽略：注册表探测 WebView2 版本，读不到就当没装 */ }
             }
         }
 #endif
@@ -319,7 +319,7 @@ public sealed class RuntimeProbe
             if (http?.GetValue(null) is string cmd && cmd.Length > 0)
                 return "已登记：" + ShortCommand(cmd);
         }
-        catch { }
+        catch { /* 故意忽略：注册表探测默认浏览器，读不到继续走 UserChoice */ }
         try
         {
             // Win10/11 默认程序记在 User Choice 里，ClassesRoot 那份可能是历史值。
@@ -328,14 +328,14 @@ public sealed class RuntimeProbe
             if (app?.GetValue("ProgId") is string id && id.Length > 0)
                 return "已登记：" + id;
         }
-        catch { }
+        catch { /* 故意忽略：同上 */ }
 #else
         try
         {
             // 非 Windows 不查注册表：能起一个 http(s) 的浏览器就按存在处理。
             if (OperatingSystem.IsAndroid()) return "由系统接管";
         }
-        catch { }
+        catch { /* 故意忽略：非 Windows 上不做这项探测 */ }
 #endif
         return null;
     }

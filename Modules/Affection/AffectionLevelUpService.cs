@@ -45,7 +45,7 @@ public static class SpritePathResolver
         if (string.IsNullOrWhiteSpace(rel)) return null;
         foreach (var c in Candidates(rel, storeRoot))
         {
-            try { if (File.Exists(c)) return c; } catch { }
+            try { if (File.Exists(c)) return c; } catch { /* 故意忽略：逐个候选路径探测，读不到就当这个候选不存在 */ }
         }
         return null;
     }

@@ -201,16 +201,16 @@ public sealed class PluginHost
                 Directory.Delete(dir, true);
                 return true;
             }
-            catch (IOException) { }
-            catch (UnauthorizedAccessException) { }
+            catch (IOException) { /* 故意忽略：插件目录被占用时重试，先让 GC 收一遍 */ }
+            catch (UnauthorizedAccessException) { /* 故意忽略：同上：权限不足也重试 */ }
             try
             {
                 foreach (var f in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
                 {
-                    try { File.SetAttributes(f, FileAttributes.Normal); } catch { }
+                    try { File.SetAttributes(f, FileAttributes.Normal); } catch { /* 故意忽略：清只读属性失败，下一轮重试再清 */ }
                 }
             }
-            catch { }
+            catch { /* 故意忽略：列文件失败就跳过这一轮清理 */ }
             GC.Collect();
             GC.WaitForPendingFinalizers();
             await Task.Delay(80 * (attempt + 1));
@@ -365,7 +365,7 @@ public sealed class PluginHost
                         if (!Directory.EnumerateFileSystemEntries(dir, "*", SearchOption.AllDirectories).Any())
                             Directory.Delete(dir, false);
                     }
-                    catch { }
+                    catch { /* 故意忽略：收掉空插件目录，里面还有残留就不动它 */ }
                     continue;
                 }
                 try
@@ -514,7 +514,7 @@ public sealed class PluginHost
             finally
             {
                 if (tempSource is not null)
-                    try { Directory.Delete(tempSource, true); } catch { }
+                    try { Directory.Delete(tempSource, true); } catch { /* 故意忽略：删临时源目录，删不掉只是残留 */ }
             }
             if (keptSettings is not null)
                 File.WriteAllText(Path.Combine(dest, "settings.json"), keptSettings);
@@ -563,7 +563,7 @@ public sealed class PluginHost
         }
         finally
         {
-            try { Directory.Delete(tmp, true); } catch { }
+            try { Directory.Delete(tmp, true); } catch { /* 故意忽略：删解包临时目录，删不掉只是残留 */ }
         }
     }
 
@@ -648,7 +648,12 @@ public sealed class PluginHost
                 return null;
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // 权限检查本身出错时按「未放行」处理：宁可这个钩子不跑，也不能越过存档授权。
+            App.WriteLog("PluginHost.RunHook 权限检查失败，已跳过插件 " + entry.Manifest.Id + " -> " + ex.Message);
+            return null;
+        }
         if (!entry.Manifest.Hooks.TryGetValue(hook, out var rel) || string.IsNullOrWhiteSpace(rel)) return null;
         var path = Path.Combine(entry.Dir, rel);
         if (!File.Exists(path))
@@ -840,7 +845,7 @@ public sealed class PluginHost
                 && c.ValueKind == JsonValueKind.String)
                 return c.GetString() ?? "";
         }
-        catch { }
+        catch { /* 故意忽略：取 charId 只为日志标注，解析失败留空 */ }
         return "";
     }
 
@@ -1884,7 +1889,7 @@ public sealed class PluginHost
         {
             if (_callbackServers.TryGetValue(id, out var listener))
             {
-                try { listener.Stop(); } catch { }
+                try { listener.Stop(); } catch { /* 故意忽略：停回调服务，端口随后释放 */ }
                 _callbackServers.Remove(id);
                 _callbackPorts.Remove(id);
                 // token 一起丢：端口会被下一个插件的回调复用，留着旧凭据等于旧页面还能写新插件的设置。
@@ -1931,7 +1936,7 @@ public sealed class PluginHost
             var path = Path.Combine(LogsDir, id + ".log");
             if (File.Exists(path)) File.Delete(path);
         }
-        catch { }
+        catch { /* 故意忽略：清崩溃日志，删不掉下次覆盖 */ }
     }
 
     /// <summary>插件设置字段的当前值（native 表单初始化用）。</summary>

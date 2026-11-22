@@ -425,7 +425,7 @@ public static class DataPackageService
         {
             if (Directory.Exists(unpackedDir)) Directory.Delete(unpackedDir, true);
         }
-        catch { }
+        catch { /* 故意忽略：清理临时解压目录，失败则下次导入重建 */ }
     }
 
     /// <summary>格式化文件大小（用于 UI 展示）。</summary>

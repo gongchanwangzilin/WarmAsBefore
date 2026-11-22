@@ -370,7 +370,7 @@ public sealed class OutfitAssetPipeline
         finally
         {
             process?.Dispose();
-            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { }
+            try { if (Directory.Exists(tempDir)) Directory.Delete(tempDir, true); } catch { /* 故意忽略：清理抽帧临时目录，删不掉只是残留 */ }
         }
     }
 
@@ -702,7 +702,7 @@ public sealed class OutfitAssetPipeline
         {
             if (tmp is not null)
             {
-                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+                try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* 故意忽略：清理临时 figure.json，删不掉只是残留 */ }
             }
         }
     }
@@ -773,7 +773,7 @@ public sealed class OutfitAssetPipeline
         {
             if (process is { HasExited: false }) process.Kill(entireProcessTree: true);
         }
-        catch { }
+        catch { /* 故意忽略：杀抽帧进程失败时它自己也会退出 */ }
     }
 
     private static bool SamePath(string a, string b)
@@ -805,7 +805,7 @@ public sealed class OutfitAssetPipeline
             var local = Path.Combine(App.RootDirectory, "tools", exeName);
             if (File.Exists(local)) return local;
         }
-        catch { }
+        catch { /* 故意忽略：找 ffmpeg 的候选路径探测，读不到就试下一个 */ }
 
         try
         {
@@ -817,10 +817,10 @@ public sealed class OutfitAssetPipeline
                     var candidate = Path.Combine(dir.Trim(), exeName);
                     if (File.Exists(candidate)) return candidate;
                 }
-                catch { }
+                catch { /* 故意忽略：同上：跳过这个 PATH 项 */ }
             }
         }
-        catch { }
+        catch { /* 故意忽略：同上：整段 PATH 读不到就按没装处理 */ }
 
         return null;
     }

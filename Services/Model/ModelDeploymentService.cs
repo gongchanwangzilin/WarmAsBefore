@@ -132,7 +132,7 @@ public sealed class ModelDeploymentService
             AddedAt = DateTime.UtcNow
         };
         await UpsertAsync(installed);
-        try { Directory.Delete(work, recursive: true); } catch { }
+        try { Directory.Delete(work, recursive: true); } catch { /* 故意忽略：安装完清理解包目录，删不掉只是残留 */ }
         return new(spec.Id, true, "已装到 " + spec.InstallPath);
     }
 
@@ -206,7 +206,7 @@ public sealed class ModelDeploymentService
     {
         var cores = Math.Max(1, Environment.ProcessorCount);
         long mem = 0;
-        try { mem = (long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes; } catch { }
+        try { mem = (long)GC.GetGCMemoryInfo().TotalAvailableMemoryBytes; } catch { /* 故意忽略：取不到内存信息就按 0 估档 */ }
         var ramGb = mem > 0 ? mem / 1_073_741_824d : 0;
         var tier = cores >= 8 && ramGb >= 16 ? "高" : cores >= 4 ? "中" : "低";
         return new()

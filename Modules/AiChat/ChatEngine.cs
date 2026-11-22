@@ -800,7 +800,7 @@ public sealed partial class ChatEngine
         finally
         {
             // 第十四项：无论本轮成功/失败/离线，思考条都停在这一刻。
-            try { ThinkTierState?.SetDeepThinking(false); } catch { }
+            try { ThinkTierState?.SetDeepThinking(false); } catch { /* 故意忽略：思考条收尾属界面状态，失败不影响本轮结果 */ }
         }
     }
 
@@ -917,7 +917,7 @@ public sealed partial class ChatEngine
                 if (sm is not null && sm.Current.AiPlanFlowEnabled)
                     return Math.Clamp(sm.Current.PlanMaxSteps, 1, 32);
             }
-            catch { }
+            catch { /* 故意忽略：设置读不到就用默认步数，不影响本轮 */ }
             return MaxToolRounds;
         }
     }

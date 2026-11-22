@@ -509,7 +509,7 @@ public sealed class TileService : IDisposable
             }
             MaybePrune();
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* 故意忽略：写盘被取消，这一块缓存不写即不写 */ }
         catch (Exception ex)
         {
             App.WriteLog($"TileService.WriteDisk({path}) -> {ex.Message}");
@@ -551,7 +551,7 @@ public sealed class TileService : IDisposable
                 {
                     foreach (var f in EnumerateTiles())
                     {
-                        try { total += new FileInfo(f).Length; } catch { }
+                        try { total += new FileInfo(f).Length; } catch { /* 故意忽略：统计缓存大小时单个文件读不到就少算 */ }
                     }
                 }
                 catch (Exception ex) { App.WriteLog("TileService.DiskBytes -> " + ex.Message); }
@@ -607,7 +607,7 @@ public sealed class TileService : IDisposable
                 files.Add((f, info.Length, info.LastAccessTimeUtc));
                 total += info.Length;
             }
-            catch { }
+            catch { /* 故意忽略：同上：列缓存文件时跳过坏项 */ }
         }
         lock (_bytesGate) _bytes = total;
         if (total <= CacheBudgetBytes) return;
@@ -622,7 +622,7 @@ public sealed class TileService : IDisposable
                 File.Delete(f.Path);
                 total -= f.Size;
             }
-            catch { }
+            catch { /* 故意忽略：清理缓存文件，删不掉下次再试 */ }
         }
         lock (_bytesGate) _bytes = total;
         App.WriteLog($"TileService.Prune -> 缓存收到 {total / 1024 / 1024}MB");
@@ -652,7 +652,7 @@ public sealed class TileService : IDisposable
 
     public void Dispose()
     {
-        try { _cts.Cancel(); } catch { }
+        try { _cts.Cancel(); } catch { /* 故意忽略：释放时取消后台任务，令牌可能已释放 */ }
         MbTilesSource? pack;
         lock (_mbGate) { pack = _mbTiles; _mbTiles = null; }
         pack?.Dispose();

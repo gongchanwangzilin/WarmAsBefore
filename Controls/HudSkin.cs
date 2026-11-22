@@ -34,7 +34,7 @@ public static class HudSkin
                 if (Application.Current?.Resources.TryGetValue("Signal", out var v) == true && v is Color c)
                     return c;
             }
-            catch { }
+            catch { /* 故意忽略：资源字典尚未就绪，用兜底色属正常启动顺序 */ }
             return Color.FromArgb("#FAD41F");
         }
     }

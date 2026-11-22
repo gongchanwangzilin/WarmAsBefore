@@ -131,7 +131,7 @@ public partial class ModelDeploymentViewModel : ObservableObject
             if (Directory.Exists(row.InstallPath))
                 System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(row.InstallPath) { UseShellExecute = true });
         }
-        catch { }
+        catch { /* 故意忽略：打开安装目录失败只是没弹资源管理器 */ }
     }
 }
 

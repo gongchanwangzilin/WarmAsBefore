@@ -477,7 +477,7 @@ public sealed class PetStudioService
         }
         finally
         {
-            if (tmp is not null) { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { } }
+            if (tmp is not null) { try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* 故意忽略：清理临时素材包，删不掉只是残留 */ } }
         }
     }
 

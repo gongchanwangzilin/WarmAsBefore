@@ -3040,7 +3040,7 @@ public sealed partial class MaidBridgeService : IDisposable
         // MaidSession.DisposeAsync 内部全部 try/catch 包裹，重复调用安全。
         // 同步等是安全的：DisposeAsync 目前整段是同步的（关 Writer/Reader/Client，返回 ValueTask.CompletedTask），
         // 没有任何 await 续延，所以不存在在 UI 线程上等异步的死锁。真加了 await 就要把它改成 async 调用方。
-        try { session.DisposeAsync().GetAwaiter().GetResult(); } catch { }
+        try { session.DisposeAsync().GetAwaiter().GetResult(); } catch { /* 故意忽略：DisposeAsync 内部已全包裹，重复调用安全 */ }
     }
 
     internal string ResolveCharacter(MaidSession session, string maidId)

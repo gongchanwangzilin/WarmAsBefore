@@ -152,7 +152,7 @@ public sealed class StickerLibrary
         }
         if (gone is not null)
         {
-            try { if (File.Exists(gone.Path)) File.Delete(gone.Path); } catch { }
+            try { if (File.Exists(gone.Path)) File.Delete(gone.Path); } catch { /* 故意忽略：删已移除的表情图文件，删不掉只是残留 */ }
             await _store.Save("stickers", _items);
             Changed?.Invoke();
         }

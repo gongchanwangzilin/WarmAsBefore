@@ -305,7 +305,7 @@ public sealed partial class PetStudioViewModel : ObservableObject
     [RelayCommand(CanExecute = nameof(CanCancelRunning))]
     private void Cancel()
     {
-        try { _cts?.Cancel(); } catch { }
+        try { _cts?.Cancel(); } catch { /* 故意忽略：取消生成，令牌可能已释放 */ }
         Status = "正在取消…（会把手上这一帧画完再停）";
     }
 
@@ -315,7 +315,7 @@ public sealed partial class PetStudioViewModel : ObservableObject
     /// <summary>页面消失/切走时确保取消在跑的生成，不留后台任务。</summary>
     public void Stop()
     {
-        try { _cts?.Cancel(); } catch { }
+        try { _cts?.Cancel(); } catch { /* 故意忽略：同上（页面切走时） */ }
     }
 }
 

@@ -87,7 +87,7 @@ public sealed class DailyPlanStore
             var p = Provider.PathOf(KeyFor(charId));
             if (!string.IsNullOrWhiteSpace(p)) return p;
         }
-        catch { }
+        catch { /* 故意忽略：取不到存储根就退回应用根目录 */ }
         return System.IO.Path.Combine(App.RootDirectory, KeyFor(charId) + ".json");
     }
 

@@ -320,7 +320,10 @@ public class ThemeManager
                     App.WriteLog("ThemeManager: 找不到嵌入主题资源 " + logical);
                 }
             }
-            catch { }
+            catch (Exception ex)
+            {
+                App.WriteLog("ThemeManager.ApplyThemeResources(" + name + ") -> " + ex.Message);
+            }
         }
         catch (Exception ex)
         {
@@ -385,7 +388,7 @@ public class ThemeManager
                     if (Color.TryParse(colorStr, out var color))
                         dict[key] = color;
                 }
-                catch { }
+                catch { /* 故意忽略：颜色文本解析失败就跳过这一项，其余照常 */ }
             }
         }
     }

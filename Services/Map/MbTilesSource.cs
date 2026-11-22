@@ -305,7 +305,7 @@ public sealed class MbTilesSource : IDisposable
 
     public void Dispose()
     {
-        try { _conn?.Dispose(); } catch { }
+        try { _conn?.Dispose(); } catch { /* 故意忽略：释放 SQLite 连接，可能已释放 */ }
         _conn = null;
         lock (_cacheGate)
         {

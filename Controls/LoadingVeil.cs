@@ -98,7 +98,7 @@ public sealed class LoadingVeil : Border
     {
         if (_dismissed) return;
         _dismissed = true;
-        try { _timeout?.Cancel(); } catch { }
+        try { _timeout?.Cancel(); } catch { /* 故意忽略：超时计时器可能已自释放，取消失败无影响 */ }
         _timeout = null;
         if (_hooked is not null) _hooked.PropertyChanged -= OnSourceChanged;
         foreach (var c in _collections) c.CollectionChanged -= OnCollectionChanged;
@@ -164,7 +164,7 @@ public sealed class LoadingVeil : Border
         {
             object? value = null;
             try { value = source.GetType().GetProperty(name, BindingFlags.Public | BindingFlags.Instance)?.GetValue(source); }
-            catch { }
+            catch { /* 故意忽略：反射取不到该属性就当没有这个信号 */ }
             if (value is INotifyCollectionChanged inc && !_collections.Contains(inc))
             {
                 _collections.Add(inc);

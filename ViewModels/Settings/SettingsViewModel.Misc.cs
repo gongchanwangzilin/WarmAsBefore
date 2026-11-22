@@ -348,7 +348,7 @@ public sealed partial class SettingsViewModel
         {
             IsDataBusy = false;
             ExportProgress = 0;
-            try { if (tmp is not null && File.Exists(tmp)) File.Delete(tmp); } catch { }
+            try { if (tmp is not null && File.Exists(tmp)) File.Delete(tmp); } catch { /* 故意忽略：删导出临时文件，删不掉只是残留 */ }
         }
     }
 
@@ -432,7 +432,7 @@ public sealed partial class SettingsViewModel
             IsDataBusy = false;
             DataImportProgress = 0;
             if (tempDir is not null) DataPackageService.CleanupImport(tempDir);
-            try { if (picked is not null && File.Exists(picked)) File.Delete(picked); } catch { }
+            try { if (picked is not null && File.Exists(picked)) File.Delete(picked); } catch { /* 故意忽略：删导入用的副本，删不掉只是残留 */ }
         }
     }
 

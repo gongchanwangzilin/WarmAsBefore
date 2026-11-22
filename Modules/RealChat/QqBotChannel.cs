@@ -66,7 +66,7 @@ public sealed class QqBotChannel : IOfficialChannel
     public Task StopAsync()
     {
         _cts?.Cancel();
-        try { _ws?.Dispose(); } catch { }
+        try { _ws?.Dispose(); } catch { /* 故意忽略：停止时套接字可能已断，释放失败无影响 */ }
         _ws = null;
         _cts = null;
         _status = "已停止";
@@ -107,7 +107,7 @@ public sealed class QqBotChannel : IOfficialChannel
                 _status = $"连接异常：{ex.Message}";
                 App.WriteLog($"QqBotChannel: {ex}");
             }
-            try { _ws = null; } catch { }
+            try { _ws = null; } catch { /* 故意忽略：仅清空字段引用，不会失败 */ }
             if (!ct.IsCancellationRequested) await Delay(backoff, ct);
             backoff = TimeSpan.FromSeconds(Math.Min(backoff.TotalSeconds * 1.7, 60));
         }
@@ -291,7 +291,7 @@ public sealed class QqBotChannel : IOfficialChannel
             result = await ws.ReceiveAsync(new ArraySegment<byte>(buffer), ct);
             if (result.MessageType == WebSocketMessageType.Close)
             {
-                try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", ct); } catch { }
+                try { await ws.CloseAsync(WebSocketCloseStatus.NormalClosure, "", ct); } catch { /* 故意忽略：对端已关，回关闭帧失败无影响 */ }
                 return null;
             }
             ms.Write(buffer, 0, result.Count);
@@ -319,6 +319,6 @@ public sealed class QqBotChannel : IOfficialChannel
 
     private static async Task Delay(TimeSpan d, CancellationToken ct)
     {
-        try { await Task.Delay(d, ct); } catch { }
+        try { await Task.Delay(d, ct); } catch { /* 故意忽略：退避等待被取消即退出循环 */ }
     }
 }

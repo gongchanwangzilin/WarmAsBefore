@@ -460,7 +460,7 @@ public static class PluginDoctor
             if (Uri.TryCreate(url.Trim(), UriKind.Absolute, out var u) && !string.IsNullOrEmpty(u.IdnHost))
                 return u.IdnHost.ToLowerInvariant();
         }
-        catch { }
+        catch { /* 故意忽略：URL 解析失败就当没有主机名 */ }
         return "";
     }
 

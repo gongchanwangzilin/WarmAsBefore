@@ -19,7 +19,7 @@ public partial class App : Application
             AppDomain.CurrentDomain.UnhandledException += (_, e) =>
             {
                 WriteLog("APPDOMAIN UNHANDLED: " + e.ExceptionObject);
-                try { BugReporter.Report(e.ExceptionObject as Exception, "AppDomain", "未处理的域异常"); } catch { }
+                try { BugReporter.Report(e.ExceptionObject as Exception, "AppDomain", "未处理的域异常"); } catch { /* 故意忽略：报告器自己失败时无处再报，日志已在上一行写过 */ }
                 // 域级异常若 IsTerminating=true 进程仍会退出，这里尽力再弹一次指路日志的提示。
                 TryNotifyCrash("温暖如初遇到问题",
                     "程序即将退出。启动日志已写入：Documents\\warm_startup.log，可把这份文件发给开发者定位问题。");
@@ -27,9 +27,9 @@ public partial class App : Application
             TaskScheduler.UnobservedTaskException += (_, e) =>
             {
                 WriteLog("UNOBSERVED TASK: " + e.Exception);
-                try { e.SetObserved(); } catch { }
+                try { e.SetObserved(); } catch { /* 故意忽略：SetObserved 不抛异常；真出错也没有补救手段 */ }
                 // 未观察任务异常默认不会崩进程，但也要归口到 BugReporter，避免被静默吞掉。
-                try { BugReporter.Report(e.Exception, "Task", "未观察的任务异常"); } catch { }
+                try { BugReporter.Report(e.Exception, "Task", "未观察的任务异常"); } catch { /* 故意忽略：同上一行：BugReporter 的失败不再上报 */ }
             };
             InitializeComponent();
             // 首帧之前必须把世界令牌摆好：样式字典引用的是 W* / Glass* 这些计算出来的键，
@@ -81,7 +81,7 @@ public partial class App : Application
                         });
                     }
                     FlushLog();
-                    try { BugReporter.Report(e.Exception, "WinUI", "未处理的 UI 异常"); } catch { }
+                    try { BugReporter.Report(e.Exception, "WinUI", "未处理的 UI 异常"); } catch { /* 故意忽略：同上：崩溃上报的失败无人可接 */ }
                 };
 
 #endif
@@ -489,7 +489,7 @@ public partial class App : Application
                     return a[flag.Length..];
             }
         }
-        catch { }
+        catch { /* 故意忽略：读启动参数只为诊断，取不到就当没传 */ }
         return null;
     }
 
@@ -606,7 +606,7 @@ public partial class App : Application
                         Microsoft.Maui.ApplicationModel.MainThread.BeginInvokeOnMainThread(() =>
                             Controls.Toast.Warn("还没配置任何模型：去「AI 模型管理 → 模型部署向导」下载并安装（名字、来源、位置都由你定）。"));
                     }
-                    catch { }
+                    catch { /* 故意忽略：提示条弹不出来不影响后续启动流程 */ }
                 });
             }
 
@@ -617,7 +617,7 @@ public partial class App : Application
                 _ = System.Threading.Tasks.Task.Run(async () =>
                 {
                     await System.Threading.Tasks.Task.Delay(4000);
-                    try { await advisor.MaybeRunAsync(); } catch { }
+                    try { await advisor.MaybeRunAsync(); } catch (Exception ex) { App.WriteLog("设置建议 AI 自检 -> " + ex.Message); }
                 });
             }
 
@@ -664,7 +664,7 @@ public partial class App : Application
             while (LogQueue.TryDequeue(out var line))
             {
                 try { File.AppendAllText(LogPath, line); }
-                catch { }
+                catch { /* 故意忽略：日志落盘失败即丢一行，不能反过来吵醒主流程 */ }
             }
             await Task.Delay(500);
         }
@@ -677,7 +677,7 @@ public partial class App : Application
             LogQueue.Enqueue($"[{DateTime.Now.ToString("HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}");
             _ = LogDrain.Value;
         }
-        catch { }
+        catch { /* 故意忽略：日志入队失败只能丢这一行，不能抛回调用方 */ }
     }
 
     /// <summary>
@@ -717,7 +717,7 @@ public partial class App : Application
     /// 走 WriteLogNow 同步落盘（含数据根双写），崩溃前也能留下现场。</summary>
     public static void TraceStep(string tag)
     {
-        try { WriteLogNow("[trace] " + tag); } catch { }
+        try { WriteLogNow("[trace] " + tag); } catch { /* 故意忽略：trace 只用于事后定位，写不进去也不影响存档 */ }
     }
 
     // ============ 读档会话标记（P1，2026-11-14）============
@@ -757,6 +757,6 @@ public partial class App : Application
         {
             while (LogQueue.TryDequeue(out var line)) File.AppendAllText(LogPath, line);
         }
-        catch { }
+        catch { /* 故意忽略：崩溃前尽力冲一次，失败也无处再报 */ }
     }
 }
