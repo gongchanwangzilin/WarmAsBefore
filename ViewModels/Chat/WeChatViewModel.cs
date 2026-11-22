@@ -57,6 +57,18 @@ public sealed partial class WeChatViewModel : ObservableObject
 
     private List<WeChatContactItem> _allContacts = new();
 
+    /// <summary>列表右上角的时间：今天只给时分，昨天给「昨天」，更早给月-日。</summary>
+    private static string RelativeTime(DateTime at)
+    {
+        if (at == default) return "";
+        var local = at.ToLocalTime();
+        var today = DateTime.Today;
+        if (local.Date == today) return local.ToString("HH:mm");
+        if (local.Date == today.AddDays(-1)) return "昨天";
+        if (local.Year == today.Year) return local.ToString("M月d日");
+        return local.ToString("yyyy/M/d");
+    }
+
     private void ApplyContactFilter()
     {
         var q = (ContactSearch ?? "").Trim();
@@ -810,8 +822,11 @@ public sealed partial class WeChatViewModel : ObservableObject
                         CharacterId = c.CharacterId,
                         Name = ch.Profile.Name,
                         Avatar = avatarPath,
-                        LastMessage = c.LastMessage,
-                        Unread = c.Unread
+                        // 没有最后一条时给一句话，而不是留一片空白（QQ 列表里每行都有副标题）。
+                        LastMessage = string.IsNullOrWhiteSpace(c.LastMessage) ? "还没有聊过" : c.LastMessage,
+                        Unread = c.Unread,
+                        TimeLabel = RelativeTime(c.LastMessageAt),
+                        UnreadLabel = ""   // 只有 bool 没有计数：红点就是红点，不编数字
                     });
                 }
             }

@@ -129,13 +129,11 @@
                                       VerticalOptions="Center" HorizontalOptions="End">
                                     <Label Text="{Binding TimeLabel}" TextColor="{StaticResource WcFaint}"
                                            FontSize="11" HorizontalOptions="End" />
+                                    <!-- 只有未读/已读两态，没有计数：画一个红点，不编一个数字出来。 -->
                                     <Border Grid.Row="1" IsVisible="{Binding Unread}"
-                                            BackgroundColor="{StaticResource WcAccent}"
-                                            StrokeThickness="0" Padding="5,1" HorizontalOptions="End">
-                                        <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
-                                        <Label Text="{Binding UnreadLabel}" TextColor="{StaticResource WcPageBg}"
-                                               FontSize="10" FontAttributes="Bold" />
-                                    </Border>
+                                            BackgroundColor="{StaticResource WcAccent}" WidthRequest="8" HeightRequest="8"
+                                            StrokeThickness="0" Padding="0" HorizontalOptions="End"
+                                            StrokeShape="RoundRectangle 4" />
                                 </Grid>
                                 <Grid.GestureRecognizers>
                                     <TapGestureRecognizer
