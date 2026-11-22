@@ -28,7 +28,10 @@ public sealed partial class SettingsViewModel
     {
         get
         {
-            try { return _cost.PricesAsync().GetAwaiter().GetResult(); }
+            // 同步属性（BuildSettings 是同步的），但取单价要先装载磁盘上的 model_prices.json。
+            // 直接 GetAwaiter().GetResult() 会在 UI 线程上等续延 → WinUI 同步上下文死锁；
+            // Task.Run 把等待挪到线程池，代价只有首次那一次小文件读取。
+            try { return Task.Run(() => _cost.PricesAsync()).GetAwaiter().GetResult(); }
             catch { return new List<ModelPrice>(); }
         }
     }

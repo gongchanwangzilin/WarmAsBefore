@@ -23,14 +23,24 @@ public sealed class IsNotNull : IValueConverter
 
 public sealed class AffectionTint : IValueConverter
 {
-    public object Convert(object? v, Type t, object? p, CultureInfo c) => v switch
-    {
-        int a when a < 20 => Color.FromArgb("#EF9A9A"),
-        int a when a < 50 => Color.FromArgb("#FFD54F"),
-        int a when a < 80 => Color.FromArgb("#A5D6A7"),
-        int => Color.FromArgb("#FFCA28"),
-        _ => Color.FromArgb("#FFD54F")
-    };
+    /// <summary>
+    /// 好感现在是 0–1000 的绝对点数（100 点一级，共 10 级），所以分档必须按**等级**算，
+    /// 不能再按 0–100 的旧刻度切 20/50/80——那样任何存档都会落到最高档，颜色失去意义。
+    /// </summary>
+    public object Convert(object? v, Type t, object? p, CultureInfo c) =>
+        v switch
+        {
+            int points => Level(points) switch
+            {
+                <= 2 => Color.FromArgb("#EF9A9A"),
+                <= 4 => Color.FromArgb("#FFD54F"),
+                <= 7 => Color.FromArgb("#A5D6A7"),
+                _ => Color.FromArgb("#FFCA28")
+            },
+            _ => Color.FromArgb("#FFD54F")
+        };
+
+    private static int Level(int points) => Helpers.AffectionScale.LevelOf(points);
     public object ConvertBack(object? v, Type t, object? p, CultureInfo c) => throw null!;
 }
 

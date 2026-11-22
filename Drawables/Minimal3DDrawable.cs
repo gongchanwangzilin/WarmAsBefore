@@ -114,6 +114,9 @@ public sealed class Minimal3DDrawable : IDrawable
     // 帧（在 Draw 开始时刷新）
     private double _f, _cx, _cy, _cosP, _sinP, _cosY, _sinY, _camH;
     private int _quads;
+    // 绘制顺序的缓冲：每帧重建一份新 List（建筑多的城一次上万条）只是给 GC 添活，复用一份就够。
+    private readonly List<MiniField> _fieldBuf = new();
+    private readonly List<MiniBuilding> _buildingBuf = new();
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
     {
@@ -144,7 +147,9 @@ public sealed class Minimal3DDrawable : IDrawable
         canvas.FillRectangle(0f, gy, w, h - gy);
 
         // 地块：绿地/水面/广场铺一层地表灰，航道画成带子；都贴在地面上，先画让路盖在顶上。
-        var fields = new List<MiniField>(scene.Fields);
+        var fields = _fieldBuf;
+        fields.Clear();
+        fields.AddRange(scene.Fields);
         fields.Sort((a, b) => DepthAt(b.BaseX, b.BaseY).CompareTo(DepthAt(a.BaseX, a.BaseY)));
         foreach (var f in fields)
         {
@@ -155,7 +160,9 @@ public sealed class Minimal3DDrawable : IDrawable
         foreach (var r in scene.Roads) DrawRoad(canvas, r);
 
         // 建筑：远→近 Painter's order，楼顶随各自最后画。
-        var order = new List<MiniBuilding>(scene.Buildings);
+        var order = _buildingBuf;
+        order.Clear();
+        order.AddRange(scene.Buildings);
         order.Sort((a, b) => DepthAt(b.BaseX, b.BaseY).CompareTo(DepthAt(a.BaseX, a.BaseY)));
         foreach (var b in order)
         {

@@ -209,6 +209,10 @@ public sealed class MemoryGraphDrawable : IDrawable
     private readonly Dictionary<string, Microsoft.Maui.Graphics.IImage?> _thumbCache = new(StringComparer.Ordinal);
     private readonly List<string> _thumbOrder = new();
 
+    // 虚线段长是常量：以前每条藤、每条橡皮筋都在每一帧新开一个 float[]。
+    private static readonly float[] DashVine = { 4, 4 };
+    private static readonly float[] DashLink = { 5, 4 };
+
     // ==================== 一帧 ====================
 
     // 这一帧看得见的范围（世界坐标）。屏幕外的点既不画也不算 —— 一张几百点的网，
@@ -605,7 +609,7 @@ public sealed class MemoryGraphDrawable : IDrawable
         var baseW = (float)((e.Kind == RelationKind.Equivalent ? 2.1 : 1.1) + 1.6 * grip) * Math.Max(0.5, Scale);
 
         canvas.StrokeColor = tint.WithAlpha(baseAlpha);
-        canvas.StrokeDashPattern = e.Kind is RelationKind.Contrasts or RelationKind.Temporal ? new float[] { 4, 4 } : null;
+        canvas.StrokeDashPattern = e.Kind is RelationKind.Contrasts or RelationKind.Temporal ? DashVine : null;
 
         var prev = p0;
         const int segments = 10;
@@ -652,7 +656,7 @@ public sealed class MemoryGraphDrawable : IDrawable
         var p0 = Screen(from);
         canvas.StrokeColor = _ink.WithAlpha(0.5f);
         canvas.StrokeSize = 1.6f;
-        canvas.StrokeDashPattern = new float[] { 5, 4 };
+        canvas.StrokeDashPattern = DashLink;
         canvas.DrawLine(p0.X, p0.Y, to.X, to.Y);
         canvas.StrokeDashPattern = null;
     }

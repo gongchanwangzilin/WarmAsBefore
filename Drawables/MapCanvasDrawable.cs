@@ -24,6 +24,12 @@ public sealed class MapCanvasDrawable : IDrawable
     public const double TransitSize = 26;
     public const double NoteW = 150;
 
+    // 虚线段长是常量：以前每块地、每条路、每段预览都在每一帧新开一个 float[]，
+    // 拖动时一帧就是几百上千个立刻变垃圾的短数组。共用静态数组，颜色与段长都不再每帧分配。
+    private static readonly float[] DashShort = { 6f, 4f };
+    private static readonly float[] DashRoad = { 7f, 5f };
+    private static readonly float[] DashFrame = { 8f, 6f };
+
     // ---- 数据（VM 填充）----
     public IReadOnlyList<MapCanvasNode>? Nodes { get; set; }
     public IReadOnlyList<MapTransitNode>? Transits { get; set; }
@@ -363,7 +369,7 @@ public sealed class MapCanvasDrawable : IDrawable
         var family = ToneColor(style.Tone);
         var ink = selected ? InkStrong : Mix(family, InkStrong, 0.55);
         var w = Math.Max(0.8, style.Width * Scale);
-        if (style.Dash) canvas.StrokeDashPattern = new[] { 6f, 4f };
+        if (style.Dash) canvas.StrokeDashPattern = DashShort;
 
         if (linear)
         {
@@ -526,19 +532,60 @@ public sealed class MapCanvasDrawable : IDrawable
         }
     }
 
+    // ---- 画框的顺序与「哪些地点有卡片」 ----
+    // 这两样只随「有哪些地点、谁是谁的父、哪个地点有卡片」变，跟坐标无关。
+    // 原来每帧现场建一张 depth 字典、OrderBy 一遍，再对每个框扫一遍全部卡片问「有没有卡片」：
+    // 几百个地点的城区图上，一帧就是几十万次比较外加三份临时分配。这里按结构指纹锁住。
+    private List<MapLocation>? _orderedLocations;
+    private HashSet<string>? _filledLocations;
+    private long _structureHash = -1;
+
+    private void EnsureLocationOrder()
+    {
+        if (Locations is null) { _orderedLocations = null; _filledLocations = null; return; }
+        var hash = ComputeStructureHash();
+        if (_orderedLocations is not null && hash == _structureHash) return;
+        _structureHash = hash;
+
+        // 父框先画（在底层）、子框后画；同层保持原顺序，免得兄弟之间抢层次。
+        var depth = new Dictionary<string, int>(StringComparer.Ordinal);
+        foreach (var l in Locations)
+            depth[l.Id] = string.IsNullOrEmpty(l.ParentId) ? 0
+                : (depth.TryGetValue(l.ParentId, out var p) ? p + 1 : 999);
+        var order = new List<(int Depth, int Index, MapLocation Loc)>(Locations.Count);
+        for (var i = 0; i < Locations.Count; i++)
+            order.Add((depth.GetValueOrDefault(Locations[i].Id, 999), i, Locations[i]));
+        order.Sort((a, b) => a.Depth != b.Depth ? a.Depth.CompareTo(b.Depth) : a.Index.CompareTo(b.Index));
+        var ordered = new List<MapLocation>(order.Count);
+        foreach (var o in order) ordered.Add(o.Loc);
+        _orderedLocations = ordered;
+
+        var filled = new HashSet<string>(StringComparer.Ordinal);
+        if (Nodes is not null) foreach (var n in Nodes) filled.Add(n.Location.Id);
+        _filledLocations = filled;
+    }
+
+    /// <summary>结构指纹：地点 Id / 父子关系 / 哪张卡片挂在哪。与坐标无关，所以拖动卡片不会让它失效。</summary>
+    private long ComputeStructureHash()
+    {
+        unchecked
+        {
+            long h = 13;
+            if (Locations is not null)
+                foreach (var l in Locations) h = h * 31 + l.Id.GetHashCode() + (l.ParentId?.GetHashCode() ?? 0) * 7;
+            if (Nodes is not null)
+                foreach (var n in Nodes) h = h * 31 + n.Location.Id.GetHashCode();
+            return h;
+        }
+    }
+
     /// <summary>地点标记框：淡色底 + 色描边 + 地点名标题。框只做分组标记，不参与连线。</summary>
     private void DrawLocationFrames(ICanvas canvas, RectF dirty)
     {
         if (Nodes is null || Locations is null) return;
+        EnsureLocationOrder();
         // 父框先画（在底层），子框后画（压在父框内层上），逐层嵌套
-        var depth = new Dictionary<string, int>();
-        foreach (var l in Locations)
-        {
-            var d = string.IsNullOrEmpty(l.ParentId) ? 0 : (depth.TryGetValue(l.ParentId, out var p) ? p + 1 : 999);
-            depth[l.Id] = d;
-        }
-        var ordered = Locations.OrderBy(l => depth.GetValueOrDefault(l.Id, 999)).ToList();
-        foreach (var loc in ordered)
+        foreach (var loc in _orderedLocations!)
         {
             var frame = LocationFrame(loc);
             if (frame is null) continue;
@@ -555,7 +602,7 @@ public sealed class MapCanvasDrawable : IDrawable
             canvas.FillRoundedRectangle(sp, (float)(10 * Scale));
 
             // 描边（虚线柔和）；框选命中 = 实线加粗
-            canvas.StrokeDashPattern = isMarquee ? null : new[] { 8f, 6f };
+            canvas.StrokeDashPattern = isMarquee ? null : DashFrame;
             canvas.StrokeSize = (float)((isMarquee ? 3.0 : 1.6) * Scale);
             canvas.StrokeColor = GroupColor(loc.Id).WithAlpha(isMarquee ? 1f : 0.75f);
             canvas.DrawRoundedRectangle(sp, (float)(10 * Scale));
@@ -614,8 +661,7 @@ public sealed class MapCanvasDrawable : IDrawable
             }
 
             // 空地点提示
-            var hasCard = Nodes.Any(n => n.Location.Id == loc.Id);
-            if (!hasCard)
+            if (!_filledLocations!.Contains(loc.Id))
             {
                 canvas.FontColor = FarMassFont;
                 canvas.FontSize = (float)Math.Max(9, 11 * Scale);
@@ -642,30 +688,49 @@ public sealed class MapCanvasDrawable : IDrawable
 
     // ==================== 连线 ====================
 
-    /// <summary>把边展开成路径点序列（世界坐标，端点 + 折点）。</summary>
-    public List<Point> EdgePoints(MapEdge e)
+    /// <summary>把边展开成路径点序列（世界坐标，端点 + 折点）。返回缓存里那一份：调用方只读。</summary>
+    public List<Point> EdgePoints(MapEdge e) => GeometryOf(e).Vertices;
+
+    // ---- Id → 锚点表 ----
+    // 每条边一帧要取两次端点，画一支箭头、一条长度文案又各来一次；几百张卡的城市图上，
+    // 逐次线性扫全表就是每秒数百万次比较。这里按点位指纹建一次表，取点是常数时间。
+    // 返回的是缓存里那一份：调用方只读。
+    private Dictionary<string, Point>? _points;
+    private long _pointsHash = -1;
+
+    private Dictionary<string, Point> Points()
     {
-        var pts = new List<Point> { PointOf(e.A) };
-        foreach (var w in e.Waypoints) pts.Add(new Point(w.X, w.Y));
-        pts.Add(PointOf(e.B));
-        return pts;
+        var hash = ComputePointHash();
+        if (_points is not null && hash == _pointsHash) return _points;
+        _pointsHash = hash;
+        var map = new Dictionary<string, Point>((Nodes?.Count ?? 0) + (Transits?.Count ?? 0), StringComparer.Ordinal);
+        if (Nodes is not null) foreach (var n in Nodes) map[n.Id] = new Point(n.X + CardW / 2, n.Y + CardH / 2);
+        if (Transits is not null) foreach (var t in Transits) map.TryAdd(t.Id, new Point(t.X, t.Y));
+        _points = map;
+        return map;
     }
 
-    public Point PointOf(string id)
+    /// <summary>点位指纹：卡片或临时节点动一下就重算，纯数值比较，零分配。</summary>
+    private long ComputePointHash()
     {
-        if (Nodes is not null)
-            foreach (var n in Nodes)
-                if (n.Id == id) return new Point(n.X + CardW / 2, n.Y + CardH / 2);
-        if (Transits is not null)
-            foreach (var t in Transits)
-                if (t.Id == id) return new Point(t.X, t.Y);
-        return default;
+        unchecked
+        {
+            long h = 7;
+            if (Nodes is not null)
+                foreach (var n in Nodes) h = h * 31 + n.Id.GetHashCode() + n.X.GetHashCode() * 7 + n.Y.GetHashCode() * 13;
+            if (Transits is not null)
+                foreach (var t in Transits) h = h * 31 + t.Id.GetHashCode() + t.X.GetHashCode() * 7 + t.Y.GetHashCode() * 13;
+            return h;
+        }
     }
 
-    /// <summary>采样路径点（曲线按 Catmull-Rom 平滑过所有点，细分 16 段/对）。</summary>
-    public List<Point> SampleEdge(MapEdge e)
+    public Point PointOf(string id) => Points().TryGetValue(id, out var p) ? p : default;
+
+    /// <summary>采样路径点（曲线按 Catmull-Rom 平滑过所有点，细分 16 段/对）。返回缓存里那一份：调用方只读。</summary>
+    public List<Point> SampleEdge(MapEdge e) => GeometryOf(e).Sampled;
+
+    private static List<Point> SampleVertices(MapEdge e, List<Point> pts)
     {
-        var pts = EdgePoints(e);
         if (e.Kind != "curve" || pts.Count < 3)
         {
             var flat = new List<Point>();
@@ -741,10 +806,100 @@ public sealed class MapCanvasDrawable : IDrawable
             ? kind
             : SignalClock.Now(e, true).Kind;
 
-    /// <summary>这条路的可见包围盒（端点 + 折点），用来把屏外的路整条跳过。</summary>
-    private RectF EdgeBounds(MapEdge e)
+    // ---- 每条路的几何：端点+折点、采样后的折线、包围盒 ----
+    // 一帧里一条路要被问三四次几何（裁切包围盒、画路面、量长度、挂备注），
+    // 以前每次都从头重算、重新分配两个 List。现在按「端点/折点/形态」的指纹缓存，
+    // 没被拖动过的路在下一帧直接复用。
+    private sealed class EdgeGeom
     {
-        var pts = EdgePoints(e);
+        public long Hash;
+        public List<Point> Vertices = new();
+        public List<Point> Sampled = new();
+        public RectF Bounds;
+        public List<string> SegmentLabels = new();
+        public string? TotalLabel;
+    }
+
+    private readonly Dictionary<string, EdgeGeom> _edgeGeom = new(StringComparer.Ordinal);
+
+    private EdgeGeom GeometryOf(MapEdge e)
+    {
+        var hash = ComputeEdgeHash(e);
+        if (_edgeGeom.TryGetValue(e.Id, out var cached) && cached.Hash == hash) return cached;
+
+        var vertices = new List<Point> { PointOf(e.A) };
+        foreach (var w in e.Waypoints) vertices.Add(new Point(w.X, w.Y));
+        vertices.Add(PointOf(e.B));
+
+        var geom = new EdgeGeom
+        {
+            Hash = hash,
+            Vertices = vertices,
+            Sampled = SampleVertices(e, vertices),
+            Bounds = BoundsOf(vertices),
+        };
+        BuildLengthLabels(e, geom);
+        if (_edgeGeom.Count >= 4096) _edgeGeom.Clear();
+        _edgeGeom[e.Id] = geom;
+        return geom;
+    }
+
+    /// <summary>长度文案：直线/折线逐段分摊，曲线/单段取总长。只随路长与比例尺变，跟着几何一起缓存。</summary>
+    private void BuildLengthLabels(MapEdge e, EdgeGeom geom)
+    {
+        if (e.Length == 0) return;   // 未丈量：虚线，无长度
+        var pts = geom.Vertices;
+        if (e.Kind == "line" && !e.TotalLabel && pts.Count >= 2)
+        {
+            double totalPx = 0;
+            for (var i = 0; i + 1 < pts.Count; i++) totalPx += SegPx(pts[i], pts[i + 1]);
+            for (var i = 0; i + 1 < pts.Count; i++)
+            {
+                var segPx = SegPx(pts[i], pts[i + 1]);
+                geom.SegmentLabels.Add(e.Length > 0
+                    ? $"{(int)Math.Round(totalPx > 1e-9 ? e.Length * segPx / totalPx : e.Length / (pts.Count - 1))}m"
+                    : $"~{(int)Math.Round(segPx * MetersPerUnit)}m");
+            }
+            return;
+        }
+        var sampled = geom.Sampled;
+        double total = 0;
+        for (var i = 0; i + 1 < sampled.Count; i++) total += SegPx(sampled[i], sampled[i + 1]);
+        geom.TotalLabel = e.Length < 0
+            ? $"~{(int)Math.Round(total * MetersPerUnit)}m"
+            : $"{e.Length:0}m";
+    }
+
+    private static double SegPx(Point a, Point b)
+    {
+        var dx = b.X - a.X;
+        var dy = b.Y - a.Y;
+        return Math.Sqrt(dx * dx + dy * dy);
+    }
+
+    /// <summary>几何指纹：端点落在哪儿、折点、形态、路长与比例尺（文案跟着最后两个走）——动了哪样就重算。</summary>
+    private long ComputeEdgeHash(MapEdge e)
+    {
+        unchecked
+        {
+            var a = PointOf(e.A);
+            var b = PointOf(e.B);
+            long h = 17;
+            h = h * 31 + a.X.GetHashCode() + a.Y.GetHashCode() * 3;
+            h = h * 31 + b.X.GetHashCode() + b.Y.GetHashCode() * 3;
+            h = h * 31 + e.Waypoints.Count;
+            foreach (var w in e.Waypoints) h = h * 31 + w.X.GetHashCode() + w.Y.GetHashCode() * 3;
+            h = h * 31 + (e.Kind?.GetHashCode() ?? 0);
+            h = h * 31 + e.Length.GetHashCode();
+            h = h * 31 + (e.TotalLabel ? 1 : 0);
+            h = h * 31 + MetersPerUnit.GetHashCode();
+            return h;
+        }
+    }
+
+    private static RectF BoundsOf(List<Point> pts)
+    {
+        if (pts.Count == 0) return new RectF(0, 0, 0, 0);
         float minX = float.MaxValue, minY = float.MaxValue, maxX = float.MinValue, maxY = float.MinValue;
         foreach (var p in pts)
         {
@@ -753,19 +908,22 @@ public sealed class MapCanvasDrawable : IDrawable
             maxX = Math.Max(maxX, (float)p.X);
             maxY = Math.Max(maxY, (float)p.Y);
         }
-        if (pts.Count == 0) return new RectF(0, 0, 0, 0);
         return new RectF(minX, minY, maxX - minX, maxY - minY);
     }
+
+    /// <summary>这条路的可见包围盒（端点 + 折点），用来把屏外的路整条跳过。</summary>
+    private RectF EdgeBounds(MapEdge e) => GeometryOf(e).Bounds;
 
     private void DrawEdge(ICanvas canvas, MapEdge e, RectF dirty)
     {
         var style = RoadStyle(e.Road);
         var selected = SelectedEdgeId == e.Id;
         if (Scale < style.MinScale && !selected) return;                      // 这一级路在这个缩放还不该露面
-        var bounds = EdgeBounds(e);
+        var geom = GeometryOf(e);
+        var bounds = geom.Bounds;
         if (!InView(bounds.X, bounds.Y, bounds.Width, bounds.Height, dirty, 120)) return;
 
-        var pts = SampleEdge(e);
+        var pts = geom.Sampled;
         if (pts.Count < 2) return;
 
         var path = new PathF();
@@ -774,7 +932,7 @@ public sealed class MapCanvasDrawable : IDrawable
 
         var w = Math.Max(0.8, style.Width * Scale);
         var dashed = e.Length == 0 || style.Dash;
-        if (dashed) canvas.StrokeDashPattern = new[] { 7f, 5f };
+        if (dashed) canvas.StrokeDashPattern = DashRoad;
 
         var surface = Mix(_palPaper, ToneColor(style.Tone), style.Mix);
         var casing = Mix(surface, _palInk, 0.72);
@@ -894,7 +1052,7 @@ public sealed class MapCanvasDrawable : IDrawable
         if (Mouse is { } m) pts.Add(ScreenToWorld(m));
 
         canvas.StrokeSize = 2;
-        canvas.StrokeDashPattern = new[] { 6f, 4f };
+        canvas.StrokeDashPattern = DashShort;
         canvas.StrokeColor = Gold;
         var path = new PathF();
         path.MoveTo(ScreenPt(pts[0]));
@@ -919,7 +1077,7 @@ public sealed class MapCanvasDrawable : IDrawable
         if (pts.Count >= 3) pts.Add(pts[0]);                       // 首尾接上才看得出这是个圈
 
         canvas.StrokeSize = 2;
-        canvas.StrokeDashPattern = new[] { 6f, 4f };
+        canvas.StrokeDashPattern = DashShort;
         canvas.StrokeColor = ink;
         var path = new PathF();
         path.MoveTo(ScreenPt(pts[0]));
@@ -1220,52 +1378,27 @@ public sealed class MapCanvasDrawable : IDrawable
         {
             if (e.Length == 0) continue;   // 未丈量：虚线，无长度
             if (Detail == Lod.Far && e.Id != SelectedEdgeId) continue;
-            var bounds = EdgeBounds(e);
+            // 文案跟的是「路长 + 比例尺」，不是这一帧的视口：随几何一起缓存，
+            // 否则拖地图时每帧都要为每条路重新拼一串字符串。
+            var geom = GeometryOf(e);
+            var bounds = geom.Bounds;
             if (!InView(bounds.X, bounds.Y, bounds.Width, bounds.Height, _dirty)) continue;
-            var vertexPts = EdgePoints(e); // 端点 + 折点（逐端点分段测量）
-            if (e.Kind == "line" && !e.TotalLabel && vertexPts.Count >= 2)
+
+            // 直线/折线：每一对相邻端点测一次长度（文案已在几何里算好）
+            if (geom.SegmentLabels.Count > 0)
             {
-                // 直线/折线：每一对相邻端点测一次长度
-                var segPxArr = new double[vertexPts.Count - 1];
-                double totalPx = 0;
-                for (var i = 0; i + 1 < vertexPts.Count; i++)
-                {
-                    segPxArr[i] = Math.Sqrt(Math.Pow(vertexPts[i + 1].X - vertexPts[i].X, 2)
-                                          + Math.Pow(vertexPts[i + 1].Y - vertexPts[i].Y, 2));
-                    totalPx += segPxArr[i];
-                }
-                for (var i = 0; i + 1 < vertexPts.Count; i++)
-                {
-                    var a = vertexPts[i];
-                    var b = vertexPts[i + 1];
-                    string text;
-                    if (e.Length > 0)
-                    {
-                        // 手动总长：按像素比例分摊到每一段
-                        var share = totalPx > 1e-9
-                            ? e.Length * segPxArr[i] / totalPx
-                            : e.Length / segPxArr.Length;
-                        text = $"{(int)Math.Round(share)}m";
-                    }
-                    else
-                    {
-                        // 自动：按几何像素 × 比例尺估算每段
-                        text = $"~{(int)Math.Round(segPxArr[i] * MetersPerUnit)}m";
-                    }
-                    DrawLengthChip(canvas, new Point((a.X + b.X) / 2, (a.Y + b.Y) / 2), text);
-                }
+                var vertexPts = geom.Vertices;
+                for (var i = 0; i < geom.SegmentLabels.Count && i + 1 < vertexPts.Count; i++)
+                    DrawLengthChip(canvas,
+                        new Point((vertexPts[i].X + vertexPts[i + 1].X) / 2, (vertexPts[i].Y + vertexPts[i + 1].Y) / 2),
+                        geom.SegmentLabels[i]);
                 continue;
             }
 
             // 曲线/单段直线：总长显示在中点
-            var pts = SampleEdge(e);
+            var pts = geom.Sampled;
             if (pts.Count == 0) continue;
-            var mid = pts[pts.Count / 2];
-            var auto = e.Length < 0;
-            var text2 = auto
-                ? $"~{(int)Math.Round(EdgeLengthPixelsLocal(e) * MetersPerUnit)}m"
-                : $"{e.Length:0}m";
-            DrawLengthChip(canvas, mid, text2);
+            DrawLengthChip(canvas, pts[pts.Count / 2], geom.TotalLabel ?? "");
         }
     }
 
@@ -1285,15 +1418,6 @@ public sealed class MapCanvasDrawable : IDrawable
         canvas.DrawRoundedRectangle(rect, 5);
         canvas.FontColor = _palInk;
         canvas.DrawString(text, rect.X, rect.Y, tw, th, HorizontalAlignment.Center, VerticalAlignment.Center);
-    }
-
-    private double EdgeLengthPixelsLocal(MapEdge e)
-    {
-        var pts = SampleEdge(e);
-        double px = 0;
-        for (var i = 0; i + 1 < pts.Count; i++)
-            px += Math.Sqrt(Math.Pow(pts[i + 1].X - pts[i].X, 2) + Math.Pow(pts[i + 1].Y - pts[i].Y, 2));
-        return px;
     }
 
     // ==================== 右键菜单 ====================

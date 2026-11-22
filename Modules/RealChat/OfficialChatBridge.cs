@@ -349,6 +349,9 @@ public sealed class OfficialChatBridge
         if (string.IsNullOrWhiteSpace(name)) return $"想{verb}什么呀？告诉我商品名，比如「{verb} 珍珠奶茶」～";
         var item = _gifts.FindOwnedByName(name);
         if (item is null) return $"还没有「{name}」这件已购商品～去美了么商店买一件吧";
+        // 同步等：TryHandleCommand 要给 OnMessage 立刻一个回应字符串，指令执行（改库存、落盘）必须发生在返回之前。
+        // 安全前提是这条链跑在通道派发线程上（QqBotChannel 的 websocket 循环 / WeChatOfficialChannel 的 HttpListener 线程），
+        // 那里没有同步上下文。别把 Incoming/Replied 的订阅方搬到 UI 线程上调用，否则这里会死锁。
         return action(item).GetAwaiter().GetResult();
     }
 

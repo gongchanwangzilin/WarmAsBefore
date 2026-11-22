@@ -887,6 +887,8 @@ public static class McpProtocol
             catch (Exception ex) { App.WriteLog("[MCP] 等子进程退出时出错：" + ex.Message); }
             try { _stdin.Dispose(); }
             catch (Exception ex) { App.WriteLog("[MCP] 关闭 stdin 出错：" + ex.Message); }
+            // 收尾等待，有上限（子进程已被 Abort 杀掉，stderr 抽取线程此时只差读完缓冲区就退出）：
+            // Dispose 是同步接口，这里最多阻塞 1 秒，不会因为这条管道卡住整个关闭流程。
             try { _stderrTask.Wait(TimeSpan.FromSeconds(1)); }
             catch (Exception ex) { App.WriteLog("[MCP] 等 stderr 抽取收尾时出错：" + ex.Message); }
             try { _proc.Dispose(); }

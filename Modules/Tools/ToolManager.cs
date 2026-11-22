@@ -487,7 +487,10 @@ public sealed partial class ToolManager : IDisposable
             var skillsDir = SkillLibrary.SkillsDir;
             if (_skills is not null && Directory.Exists(skillsDir))
             {
-                var enabled = _skills.EnabledAsync().GetAwaiter().GetResult();
+                // 这里必须同步拿到启用状态：构造函数没法 await，RescanExternalTools 也是同步接口（设置页导入/启停技能后立刻调用）。
+                // 但绝不能直接 GetAwaiter().GetResult()——那会在 UI 线程上等磁盘续延，WinUI 同步上下文下直接死锁（窗口卡死）。
+                // 用 Task.Run 明确切到线程池：等待方只是短暂阻塞，续延不会回到 UI 上下文。本方法本来就在同步读每个 tool.json，代价同一量级。
+                var enabled = Task.Run(() => _skills.EnabledAsync()).GetAwaiter().GetResult();
                 foreach (var skill in enabled.Where(s => s.HasExecutable))
                 {
                     var manifestPath = Path.Combine(skill.Dir, "tool.json");

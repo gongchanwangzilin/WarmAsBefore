@@ -14,6 +14,11 @@ namespace WarmAsBefore.Modules.Sandbox;
 public sealed class TrustStore
 {
     private readonly string _file;
+    /// <summary>
+    /// 串行化 trust.jsonl 的读改写。两个方法都是同步接口，锁内只有同步文件写、没有 await——
+    /// SemaphoreSlim.Wait 在同步方法里是对的；别为了「看着像异步」换成 WaitAsync，那会让锁跨 await，
+    /// 争用窗口从几十毫秒的写盘变成整段异步链。
+    /// </summary>
     private readonly SemaphoreSlim _lock = new(1, 1);
     private byte[] _integrityHash = Array.Empty<byte>();
 

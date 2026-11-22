@@ -290,6 +290,11 @@ public sealed class ArchitectureFlowDrawable : IDrawable
         ContentSizeChanged?.Invoke(w, h);
     }
 
+    // 虚线段长是常量：这些数组以前每帧、每个块/每条链路都新开一次。
+    private static readonly float[] DashShort = { 5f, 4f };
+    private static readonly float[] DashHub = { 8f, 5f };
+    private static readonly float[] DashGroup = { 6f, 5f };
+
     // ==================== 绘制 ====================
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
@@ -403,7 +408,7 @@ public sealed class ArchitectureFlowDrawable : IDrawable
             canvas.FillRoundedRectangle(r.X, r.Y, r.Width, r.Height, 18);
             canvas.StrokeColor = tint.WithAlpha(isHub ? 0.42f : 0.22f);
             canvas.StrokeSize = isHub ? 1.6f : 1f;
-            canvas.StrokeDashPattern = isHub ? new[] { 8f, 5f } : new[] { 6f, 5f };
+            canvas.StrokeDashPattern = isHub ? DashHub : DashGroup;
             canvas.DrawRoundedRectangle(r.X, r.Y, r.Width, r.Height, 18);
             canvas.StrokeDashPattern = null;
 
@@ -433,10 +438,11 @@ public sealed class ArchitectureFlowDrawable : IDrawable
         if (links is null || links.Count == 0) return;
 
         // 调控线最底，数据流其次，双向与反馈压在最上面；被切断的最后画，一眼能看见断口。
-        foreach (var e in links.Where(e => e.Kind == LinkKind.Control)) DrawLink(canvas, e);
-        foreach (var e in links.Where(e => e.Kind == LinkKind.Normal)) DrawLink(canvas, e);
-        foreach (var e in links.Where(e => e.Kind is LinkKind.Bidirectional or LinkKind.Feedback)) DrawLink(canvas, e);
-        foreach (var e in links.Where(e => SeveredProvider?.Invoke(e) == true)) DrawLink(canvas, e);
+        // 四趟都写成直循环：Where 每趟开一个迭代器加一个闭包，一帧四份，白给的分配不留给 60fps。
+        foreach (var e in links) if (e.Kind == LinkKind.Control) DrawLink(canvas, e);
+        foreach (var e in links) if (e.Kind == LinkKind.Normal) DrawLink(canvas, e);
+        foreach (var e in links) if (e.Kind is LinkKind.Bidirectional or LinkKind.Feedback) DrawLink(canvas, e);
+        foreach (var e in links) if (SeveredProvider?.Invoke(e) == true) DrawLink(canvas, e);
     }
 
     private void DrawLink(ICanvas canvas, ArchLink e)
@@ -644,7 +650,7 @@ public sealed class ArchitectureFlowDrawable : IDrawable
         canvas.StrokeSize = (selected ? 1.8f : 1f) + glow * 2.2f;
         if (isMode)
         {
-            canvas.StrokeDashPattern = new[] { 5f, 4f };
+            canvas.StrokeDashPattern = DashShort;
             canvas.DrawRoundedRectangle(r.X, r.Y, r.Width, r.Height, radius);
             canvas.StrokeDashPattern = null;
         }

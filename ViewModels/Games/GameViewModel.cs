@@ -28,7 +28,12 @@ public sealed partial class GameViewModel : ObservableObject
     [ObservableProperty] private string _boardDisplay = "";
     [ObservableProperty] private bool _inGame;
     [ObservableProperty] private bool _isListening;
-    [ObservableProperty] private int _affection = 50;
+    [ObservableProperty] private int _affection = 500;
+
+    /// <summary>顶栏那颗热度块只放得下等级，点数在详情里看；随点数变化一起通知。</summary>
+    public string AffectionLevelText => $"Lv.{Helpers.AffectionScale.LevelOf(_affection)}";
+
+    partial void OnAffectionChanged(int value) => OnPropertyChanged(nameof(AffectionLevelText));
     [ObservableProperty] private int _boardRows;
     [ObservableProperty] private int _boardCols;
     [ObservableProperty] private double _cellSize = 36;

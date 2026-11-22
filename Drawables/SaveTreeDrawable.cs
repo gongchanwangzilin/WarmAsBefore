@@ -319,6 +319,9 @@ public sealed class SaveTreeDrawable : IDrawable
         return c != 0 ? c : string.CompareOrdinal(a.Id, b.Id);
     }
 
+    // 分叉线的虚线段长是常量：以前每一帧、每一条分叉都新开一个 float[]。
+    private static readonly float[] DashFork = { 5f, 4f };
+
     // ==================== 绘制 ====================
 
     public void Draw(ICanvas canvas, RectF dirtyRect)
@@ -397,7 +400,7 @@ public sealed class SaveTreeDrawable : IDrawable
 
             canvas.StrokeColor = e.Fork ? fork : trunk;
             canvas.StrokeSize = e.Fork ? 1.6f : 1.2f;
-            canvas.StrokeDashPattern = e.Fork ? new float[] { 5f, 4f } : null;
+            canvas.StrokeDashPattern = e.Fork ? DashFork : null;
 
             const int segments = 12;
             for (var i = 0; i < segments; i++)
