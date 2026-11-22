@@ -41,6 +41,27 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
     [ObservableProperty] private bool _hasDiary;
     [ObservableProperty] private bool _hasCg;
 
+    // ==================== 分页：四张长列表一次只铺 50 行 ====================
+
+    /// <summary>一页多少行。这一页是 ScrollView + 卡片流，列表跟说明、搜索框、页签共用同一条滚动流，
+    /// 换成 CollectionView 要么掉进「滚动套滚动」的老坑、要么把页面骨架整个推翻；
+    /// 所以按页铺：一次只测 50 行，1000 条回忆录也只花 50 行的布局。</summary>
+    private const int PageSize = 50;
+
+    /// <summary>四个列表的全量（内存里），界面上的 ObservableCollection 只装已经铺出来的那一截。</summary>
+    private List<Models.MemoryEntry> _affectionAll = new();
+    private List<Models.MemoryEntry> _memoryAll = new();
+    private List<DiaryNote> _diaryAll = new();
+    private List<HumanMemoryEntry> _humanAll = new();
+
+    [ObservableProperty] private bool _hasMoreAffection;
+    [ObservableProperty] private bool _hasMoreMemory;
+    [ObservableProperty] private bool _hasMoreDiary;
+    [ObservableProperty] private bool _hasMoreHuman;
+    [ObservableProperty] private string _humanNote = "";
+    [ObservableProperty] private bool _hasHumanMemory;
+    [ObservableProperty] private ObservableCollection<HumanMemoryItem> _humanMemoryItems = new();
+
     public GalleryViewModel(Modules.AiChat.MemoryVault memory, GameEngine engine,
         Modules.Automation.DailyDiaryWriter diary, Modules.Cg.CgStore cg,
         Modules.Cg.CgViewPayload cgView, Services.MemoryOverviewService overview,
@@ -89,7 +110,6 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
     // ===== 「记得的事」（C）：人类记忆层 + 标签 + 关系网 =====
 
     [ObservableProperty] private bool _isRememberedSelected;
-    [ObservableProperty] private ObservableCollection<HumanMemoryItem> _humanMemoryItems = new();
     [ObservableProperty] private string _tagSummary = "";
     [ObservableProperty] private bool _hasTags;
     [ObservableProperty] private string _semanticSummary = "";
@@ -116,37 +136,12 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
     private async Task ReloadRememberedAsync()
     {        try
         {
-            var entries = WorstCaseProvider.IsActive
+            _humanAll = WorstCaseProvider.IsActive
                 ? WorstCaseFixtures.Gallery.HumanMemories(WorstCaseProvider.Mode)
                 : await _human.AllAsync(CharacterId);
-            var items = new List<HumanMemoryItem>();
-            foreach (var e in entries)
-            {
-                ImageSource? img = null;
-                if (!string.IsNullOrEmpty(e.ImagePath))
-                {
-                    var abs = Path.IsPathRooted(e.ImagePath) ? e.ImagePath : Path.Combine(App.RootDirectory, e.ImagePath);
-                    if (File.Exists(abs)) img = ImageSource.FromFile(abs);
-                }
-                items.Add(new HumanMemoryItem
-                {
-                    Text = string.IsNullOrWhiteSpace(e.Text)
-                        ? (e.Kind == HumanMemoryKind.Image ? "（照片式记忆，没有文字）" : "（这条没有文字）")
-                        : e.Text,
-                    Kind = e.Kind switch
-                    {
-                        HumanMemoryKind.Image => "照片",
-                        HumanMemoryKind.Important => "重要时刻",
-                        HumanMemoryKind.Abstraction => "印象",
-                        _ => "事件"
-                    },
-                    Time = e.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm"),
-                    RecallText = e.RecallCount > 0 ? $" · 被想起 {e.RecallCount} 次" : "",
-                    TagText = e.Tags.Count == 0 ? "" : "#" + string.Join(" #", e.Tags),
-                    Image = img
-                });
-            }
-            HumanMemoryItems = new ObservableCollection<HumanMemoryItem>(items);
+            HumanMemoryItems = new ObservableCollection<HumanMemoryItem>(
+                _humanAll.Take(PageSize).Select(HumanMemoryOf));
+            UpdateHumanPage();
 
             var tags = WorstCaseProvider.IsActive
                 ? WorstCaseFixtures.Gallery.Tags(WorstCaseProvider.Mode)
@@ -214,33 +209,132 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
     [RelayCommand]
     private void ClearSearch() => SearchText = "";
 
+    // ==================== 分页：先铺 50 行，翻到底再续 50 行 ====================
+
+    [RelayCommand]
+    private void LoadMoreAffection() => AppendPage(AffectionItems, _affectionAll, AffectionItem, UpdateAffectionPage);
+
+    [RelayCommand]
+    private void LoadMoreMemory() => AppendPage(MemoryItems, _memoryAll, DialogueItem, UpdateMemoryPage);
+
+    [RelayCommand]
+    private void LoadMoreDiary() => AppendPage(DiaryItems, _diaryAll, DiaryItem, UpdateDiaryPage);
+
+    [RelayCommand]
+    private void LoadMoreHuman() => AppendPage(HumanMemoryItems, _humanAll, HumanMemoryOf, UpdateHumanPage);
+
+    /// <summary>续一页：只造接下来这 50 行的视图模型 —— 图、截断这类活都留到真要显示时才做。</summary>
+    private static void AppendPage<TSource, TRow>(ObservableCollection<TRow> shown, List<TSource> all,
+        Func<TSource, TRow> build, Action onChanged)
+    {
+        var start = shown.Count;
+        foreach (var item in all.Skip(start).Take(PageSize)) shown.Add(build(item));
+        onChanged();
+    }
+
+    private void UpdateAffectionPage()
+    {
+        HasAffection = AffectionItems.Count > 0;
+        HasMoreAffection = AffectionItems.Count < _affectionAll.Count;
+        AffectionNote = HasMoreAffection
+            ? $"共 {_affectionAll.Count} 条，这里只列最新的 {AffectionItems.Count} 条"
+            : "";
+    }
+
+    private void UpdateMemoryPage()
+    {
+        HasMemory = MemoryItems.Count > 0;
+        HasMoreMemory = MemoryItems.Count < _memoryAll.Count;
+        MemoryNote = HasMoreMemory
+            ? $"共 {_memoryAll.Count} 条，这里只列前 {MemoryItems.Count} 条"
+            : "";
+    }
+
+    private void UpdateDiaryPage()
+    {
+        HasDiary = DiaryItems.Count > 0;
+        HasMoreDiary = DiaryItems.Count < _diaryAll.Count;
+        DiaryNote = HasMoreDiary
+            ? $"共 {_diaryAll.Count} 篇，这里只列最近 {DiaryItems.Count} 篇"
+            : "";
+    }
+
+    private void UpdateHumanPage()
+    {
+        HasHumanMemory = HumanMemoryItems.Count > 0;
+        HasMoreHuman = HumanMemoryItems.Count < _humanAll.Count;
+        HumanNote = HasMoreHuman
+            ? $"共 {_humanAll.Count} 件，这里只列前 {HumanMemoryItems.Count} 件"
+            : "";
+    }
+
+    private static AffectionMemoryItem AffectionItem(Models.MemoryEntry m)
+    {
+        ImageSource? img = null;
+        if (!string.IsNullOrEmpty(m.ImagePath) && File.Exists(m.ImagePath))
+        {
+            try { img = ImageSource.FromFile(m.ImagePath); } catch { img = null; }
+        }
+        return new AffectionMemoryItem
+        {
+            Delta = m.Weight > 0 ? $"+{m.Weight}" : m.Weight.ToString(),
+            Reason = string.IsNullOrWhiteSpace(m.Keywords) ? "互动" : m.Keywords,
+            Time = m.At.ToLocalTime().ToString("MM-dd HH:mm"),
+            Image = img
+        };
+    }
+
+    private static DialogueMemoryItem DialogueItem(Models.MemoryEntry m) => new()
+    {
+        Text = string.IsNullOrWhiteSpace(m.Content) ? "（这条没有文字）"
+            : m.Content.Length > 120 ? m.Content[..120] + "…" : m.Content,
+        Time = m.At.ToLocalTime().ToString("MM-dd HH:mm")
+    };
+
+    private static DiaryDayItem DiaryItem(DiaryNote n) => new()
+    {
+        Date = n.Date.ToLocalTime().ToString("yyyy年M月d日"),
+        Mood = n.Mood,
+        Content = n.Content
+    };
+
+    private static HumanMemoryItem HumanMemoryOf(HumanMemoryEntry e)
+    {
+        ImageSource? img = null;
+        if (!string.IsNullOrEmpty(e.ImagePath))
+        {
+            var abs = Path.IsPathRooted(e.ImagePath) ? e.ImagePath : Path.Combine(App.RootDirectory, e.ImagePath);
+            if (File.Exists(abs)) img = ImageSource.FromFile(abs);
+        }
+        return new HumanMemoryItem
+        {
+            Text = string.IsNullOrWhiteSpace(e.Text)
+                ? (e.Kind == HumanMemoryKind.Image ? "（照片式记忆，没有文字）" : "（这条没有文字）")
+                : e.Text,
+            Kind = e.Kind switch
+            {
+                HumanMemoryKind.Image => "照片",
+                HumanMemoryKind.Important => "重要时刻",
+                HumanMemoryKind.Abstraction => "印象",
+                _ => "事件"
+            },
+            Time = e.CreatedAt.ToLocalTime().ToString("MM-dd HH:mm"),
+            RecallText = e.RecallCount > 0 ? $" · 被想起 {e.RecallCount} 次" : "",
+            TagText = e.Tags.Count == 0 ? "" : "#" + string.Join(" #", e.Tags),
+            Image = img
+        };
+    }
+
     private async Task ReloadMemoirAsync()
     {
         var charId = CharacterId;
         var aff = WorstCaseProvider.IsActive
             ? WorstCaseFixtures.Gallery.Affection(WorstCaseProvider.Mode)
             : await _memory.All(charId, "affection");
-        aff = aff.OrderByDescending(m => m.At).Take(50).ToList();
-        AffectionItems = new ObservableCollection<AffectionMemoryItem>(aff.Select(m =>
-        {
-            ImageSource? img = null;
-            if (!string.IsNullOrEmpty(m.ImagePath) && File.Exists(m.ImagePath))
-            {
-                try { img = ImageSource.FromFile(m.ImagePath); } catch { img = null; }
-            }
-            return new AffectionMemoryItem
-            {
-                Delta = m.Weight > 0 ? $"+{m.Weight}" : m.Weight.ToString(),
-                Reason = string.IsNullOrWhiteSpace(m.Keywords) ? "互动" : m.Keywords,
-                Time = m.At.ToLocalTime().ToString("MM-dd HH:mm"),
-                Image = img
-            };
-        }));
-        HasAffection = AffectionItems.Count > 0;
-        var affectionTotal = aff.Count;
-        if (affectionTotal > AffectionItems.Count)
-            AffectionNote = $"共 {affectionTotal} 条，这里只列最新的 {AffectionItems.Count} 条";
-        else AffectionNote = "";
+        _affectionAll = aff.OrderByDescending(m => m.At).ToList();
+        AffectionItems = new ObservableCollection<AffectionMemoryItem>(
+            _affectionAll.Take(PageSize).Select(AffectionItem));
+        UpdateAffectionPage();
 
         var all = WorstCaseProvider.IsActive
             ? WorstCaseFixtures.Gallery.Memories(WorstCaseProvider.Mode)
@@ -252,37 +346,21 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
             hits = all.Where(m => m.Content.Contains(query, StringComparison.OrdinalIgnoreCase)
                 || (m.Keywords is not null && m.Keywords.Contains(query, StringComparison.OrdinalIgnoreCase)));
         }
-        var hitList = hits.ToList();
-        MemoryItems = new ObservableCollection<DialogueMemoryItem>(hitList.Take(200).Select(m => new DialogueMemoryItem
-        {
-            Text = string.IsNullOrWhiteSpace(m.Content) ? "（这条没有文字）"
-                : m.Content.Length > 120 ? m.Content[..120] + "…" : m.Content,
-            Time = m.At.ToLocalTime().ToString("MM-dd HH:mm")
-        }));
-        HasMemory = MemoryItems.Count > 0;
-        MemoryNote = hitList.Count > MemoryItems.Count
-            ? $"共 {hitList.Count} 条，这里只列前 {MemoryItems.Count} 条"
-            : "";
+        _memoryAll = hits.ToList();
+        MemoryItems = new ObservableCollection<DialogueMemoryItem>(
+            _memoryAll.Take(PageSize).Select(DialogueItem));
+        UpdateMemoryPage();
     }
 
     private async Task ReloadDiaryAsync()
     {
-        var notes = WorstCaseProvider.IsActive
-            ? WorstCaseFixtures.Gallery.Diary(WorstCaseProvider.Mode)
-            : await _memory.Diary(CharacterId);
-        var diaryTotal = notes.Count;
-        var recent = notes.OrderByDescending(n => n.Date).Take(60).ToList();
-        DiaryItems = new ObservableCollection<DiaryDayItem>(recent
-            .Select(n => new DiaryDayItem
-            {
-                Date = n.Date.ToLocalTime().ToString("yyyy年M月d日"),
-                Mood = n.Mood,
-                Content = n.Content
-            }));
-        HasDiary = DiaryItems.Count > 0;
-        DiaryNote = diaryTotal > DiaryItems.Count
-            ? $"共 {diaryTotal} 篇，这里只列最近 {DiaryItems.Count} 篇"
-            : "";
+        _diaryAll = (WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Gallery.Diary(WorstCaseProvider.Mode)
+                : await _memory.Diary(CharacterId))
+            .OrderByDescending(n => n.Date)
+            .ToList();
+        DiaryItems = new ObservableCollection<DiaryDayItem>(_diaryAll.Take(PageSize).Select(DiaryItem));
+        UpdateDiaryPage();
     }
 
     private async Task ReloadCgAsync()

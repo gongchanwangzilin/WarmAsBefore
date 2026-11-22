@@ -213,31 +213,48 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- 「记得的事」也用 BindableLayout 分页：原来这里是一个 CollectionView 直接摊在页面
+                     的 ScrollView 里 —— 滚动容器里套虚拟化列表的无界测量正是 LayoutCycleException 的老坑。
+                     现在一次只铺 50 行，翻到底再续。 -->
                 <Border Style="{StaticResource CardGroup}">
-                    <CollectionView ItemsSource="{Binding HumanMemoryItems}"
-                                    EmptyView="还没有记得的事——多聊几句，重要的会被记下来。">
-                        <CollectionView.ItemTemplate>
-                            <DataTemplate x:DataType="vm:HumanMemoryItem">
-                                <VerticalStackLayout Spacing="0">
-                                    <Border Style="{StaticResource SettingRow}">
-                                        <VerticalStackLayout Spacing="4">
-                                            <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}" />
-                                            <Label Text="{Binding Text}" Style="{StaticResource TxtBody}"
-                                                   LineBreakMode="WordWrap" />
-                                            <Label Text="{Binding TagText}" Style="{StaticResource TxtRowDesc}"
-                                                   MaxLines="2" LineBreakMode="TailTruncation"
-                                                   ToolTipProperties.Text="{Binding TagText}"
-                                                   IsVisible="{Binding HasTags}" />
-                                            <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
-                                                   Aspect="AspectFill" HeightRequest="140"
-                                                   HorizontalOptions="Start" />
-                                        </VerticalStackLayout>
-                                    </Border>
-                                    <BoxView Style="{StaticResource HSep}" />
-                                </VerticalStackLayout>
-                            </DataTemplate>
-                        </CollectionView.ItemTemplate>
-                    </CollectionView>
+                    <VerticalStackLayout Spacing="0">
+                        <Border Style="{StaticResource SettingRow}"
+                                IsVisible="{Binding HasHumanMemory, Converter={StaticResource InverseBool}}">
+                            <Label Text="还没有记得的事——多聊几句，重要的会被记下来。"
+                                   Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
+                        </Border>
+                        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding HumanMemoryItems}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:HumanMemoryItem">
+                                    <VerticalStackLayout Spacing="0">
+                                        <Border Style="{StaticResource SettingRow}">
+                                            <VerticalStackLayout Spacing="4">
+                                                <Label Text="{Binding Header}" Style="{StaticResource TxtRowTitle}" />
+                                                <Label Text="{Binding Text}" Style="{StaticResource TxtBody}"
+                                                       LineBreakMode="WordWrap" />
+                                                <Label Text="{Binding TagText}" Style="{StaticResource TxtRowDesc}"
+                                                       MaxLines="2" LineBreakMode="TailTruncation"
+                                                       ToolTipProperties.Text="{Binding TagText}"
+                                                       IsVisible="{Binding HasTags}" />
+                                                <Image Source="{Binding Image}" IsVisible="{Binding HasImage}"
+                                                       Aspect="AspectFill" HeightRequest="140"
+                                                       HorizontalOptions="Start" />
+                                            </VerticalStackLayout>
+                                        </Border>
+                                        <BoxView Style="{StaticResource HSep}" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                        <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreHuman}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding HumanNote}" Style="{StaticResource TxtRowDesc}"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
+                                        Command="{Binding LoadMoreHumanCommand}" />
+                            </Grid>
+                        </Border>
+                    </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
 
@@ -256,16 +273,13 @@
                 </Border>
 
                 <Label Text="好感时刻（全部）" Style="{StaticResource TxtSection}" Margin="4,0,0,0" />
+                <!-- 好感时刻 / 对话回忆：跟搜索框、跟彼此共用一条滚动流，换 CollectionView 就是滚动套滚动，
+                     所以分页 —— 一次 50 行，「再加载」续 50 行，脚上写清共多少条。 -->
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="0">
                         <Border Style="{StaticResource SettingRow}"
                                 IsVisible="{Binding HasAffection, Converter={StaticResource InverseBool}}">
                             <Label Text="还没有好感时刻，去和 TA 互动吧~" Style="{StaticResource TxtRowDesc}" />
-                        </Border>
-                        <Border Style="{StaticResource SettingRow}"
-                                IsVisible="{Binding AffectionNote, Converter={StaticResource StringNotEmpty}}">
-                            <Label Text="{Binding AffectionNote}" Style="{StaticResource TxtRowDesc}"
-                                   LineBreakMode="WordWrap" />
                         </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding AffectionItems}">
                             <BindableLayout.ItemTemplate>
@@ -287,6 +301,14 @@
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
+                        <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreAffection}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding AffectionNote}" Style="{StaticResource TxtRowDesc}"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
+                                        Command="{Binding LoadMoreAffectionCommand}" />
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
 
@@ -296,11 +318,6 @@
                         <Border Style="{StaticResource SettingRow}"
                                 IsVisible="{Binding HasMemory, Converter={StaticResource InverseBool}}">
                             <Label Text="还没有对话回忆" Style="{StaticResource TxtRowDesc}" />
-                        </Border>
-                        <Border Style="{StaticResource SettingRow}"
-                                IsVisible="{Binding MemoryNote, Converter={StaticResource StringNotEmpty}}">
-                            <Label Text="{Binding MemoryNote}" Style="{StaticResource TxtRowDesc}"
-                                   LineBreakMode="WordWrap" />
                         </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding MemoryItems}">
                             <BindableLayout.ItemTemplate>
@@ -315,6 +332,14 @@
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
+                        <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreMemory}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding MemoryNote}" Style="{StaticResource TxtRowDesc}"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
+                                        Command="{Binding LoadMoreMemoryCommand}" />
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>
@@ -327,11 +352,6 @@
                                 IsVisible="{Binding HasDiary, Converter={StaticResource InverseBool}}">
                             <Label Text="还没有日记，今天多陪陪 TA，明天早上就会有一篇总结啦~"
                                    Style="{StaticResource TxtRowDesc}" LineBreakMode="WordWrap" />
-                        </Border>
-                        <Border Style="{StaticResource SettingRow}"
-                                IsVisible="{Binding DiaryNote, Converter={StaticResource StringNotEmpty}}">
-                            <Label Text="{Binding DiaryNote}" Style="{StaticResource TxtRowDesc}"
-                                   LineBreakMode="WordWrap" />
                         </Border>
                         <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding DiaryItems}">
                             <BindableLayout.ItemTemplate>
@@ -352,6 +372,14 @@
                                 </DataTemplate>
                             </BindableLayout.ItemTemplate>
                         </VerticalStackLayout>
+                        <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasMoreDiary}">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <Label Text="{Binding DiaryNote}" Style="{StaticResource TxtRowDesc}"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
+                                        Command="{Binding LoadMoreDiaryCommand}" />
+                            </Grid>
+                        </Border>
                     </VerticalStackLayout>
                 </Border>
             </VerticalStackLayout>

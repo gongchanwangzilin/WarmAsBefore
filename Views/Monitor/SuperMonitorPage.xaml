@@ -183,9 +183,10 @@
                     <ScrollView Padding="{DynamicResource WPadCard}">
                         <VerticalStackLayout Spacing="0">
 
-                            <!-- 今日日程：用 BindableLayout 而不是 CollectionView。
-                                 一个列表塞在滚动栏里，CollectionView 的无界测量会跟外层滚动打架
-                                 （LayoutCycleException 的经典来源）；日程本来只有几条，不需要虚拟化。 -->
+                            <!-- 今日日程：这一栏是一条滚动流同时装四块（日程 / 器官 / 记忆分层 / 数值），
+                                 所以日程既不换 CollectionView（滚动套滚动 = LayoutCycleException 的老坑，
+                                 给它单开一个星号行又要把下面三块挤没），而是分页：先铺 50 条，
+                                 「再加载」续 50 条 —— 一次只测 50 行，日程攒到上千条也不卡。 -->
                             <Label Text="今日日程" Style="{StaticResource TxtSection}" />
                             <Label Text="今天还没有日程：她还没排，或者这一档刚开局"
                                    Style="{StaticResource TxtRowDesc}" Margin="0,2,0,4" LineBreakMode="WordWrap"
@@ -212,6 +213,13 @@
                                     </DataTemplate>
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8" Margin="0,6,0,0"
+                                  IsVisible="{Binding HasMoreTimeline}">
+                                <Label Text="{Binding TimelineNote}" Style="{StaticResource TxtRowDesc}"
+                                       VerticalOptions="Center" LineBreakMode="WordWrap" />
+                                <Button Grid.Column="1" Text="再加载 50 条" Style="{StaticResource BtnGhostSm}"
+                                        Command="{Binding LoadMoreTimelineCommand}" />
+                            </Grid>
                             <BoxView Style="{StaticResource HSep}" Margin="0,10" />
 
                             <!-- 器官：名字 + 状态 + 当前值（点画布上的器官节点看连锁影响） -->

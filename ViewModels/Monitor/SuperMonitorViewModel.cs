@@ -204,6 +204,34 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     public bool HasOrgans => Organs.Count > 0;
     public bool HasLayers => MemoryLayers.Count > 0;
 
+    // ==================== 今日日程：分页铺（右栏是一条共用滚动栏，里面没有虚拟化） ====================
+
+    /// <summary>日程一次铺几行。右栏是一条滚动栏承载四块（日程 / 器官 / 记忆分层 / 数值）：
+    /// 日程单独开一个星号行会把下面三块挤没，塞 CollectionView 又会掉进滚动套滚动那个坑，
+    /// 所以这里翻页 —— 一次只测 50 行，剩下的按「再加载」续。</summary>
+    private const int TimelinePageSize = 50;
+
+    /// <summary>日程全量（已按时间排好，只在内存里）；<see cref="Timeline"/> 只装已经铺到界面的那一截。</summary>
+    private List<TimelineRow> _timelineAll = new();
+    [ObservableProperty] private bool _hasMoreTimeline;
+    [ObservableProperty] private string _timelineNote = "";
+
+    /// <summary>再铺 50 条日程。</summary>
+    [RelayCommand]
+    private void LoadMoreTimeline()
+    {
+        var start = Timeline.Count;
+        var take = Math.Min(TimelinePageSize, _timelineAll.Count - start);
+        for (var i = 0; i < take; i++) Timeline.Add(_timelineAll[start + i]);
+        UpdateTimelinePage();
+    }
+
+    private void UpdateTimelinePage()
+    {
+        HasMoreTimeline = Timeline.Count < _timelineAll.Count;
+        TimelineNote = HasMoreTimeline ? $"共 {_timelineAll.Count} 条，已列 {Timeline.Count} 条" : "";
+    }
+
     partial void OnSelectedNodeChanged(NodeDetail? value)
     {
         HasSelection = value is not null;
@@ -1045,7 +1073,9 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     $"{i.From} → {i.To}：{i.Effect}（{i.DelayMinutes} 分钟）"));
             }
 
-            Timeline = new ObservableCollection<TimelineRow>(timelineRows);
+            _timelineAll = timelineRows;
+            Timeline = new ObservableCollection<TimelineRow>(_timelineAll.Take(TimelinePageSize));
+            UpdateTimelinePage();
             Organs = new ObservableCollection<OrganRow>(organs.Select(o => new OrganRow(
                 o.Name, o.StatusText, $"{o.Value:0.##}",
                 Text(o.Symptoms), Text(o.Influences), $"{o.UpdatedAt:HH:mm}")));
@@ -1244,7 +1274,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         else if (id.StartsWith("in.", StringComparison.Ordinal) || id.StartsWith("plan", StringComparison.Ordinal))
         {
-            result.Add(new DetailLine("今日日程", $"{Timeline.Count} 项"));
+            result.Add(new DetailLine("今日日程", $"{_timelineAll.Count} 项"));
             foreach (var t in Timeline.Take(3))
                 result.Add(new DetailLine($"{t.Time} {t.Title}", t.Detail));
         }
