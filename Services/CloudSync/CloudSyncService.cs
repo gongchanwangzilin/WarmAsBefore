@@ -87,7 +87,7 @@ public sealed class CloudSyncService : IDisposable
     {
         if (_startTask is { } task)
         {
-            try { await task; } catch { }
+            try { await task; } catch (Exception ex) { App.WriteLog("CloudSync 等待本地状态就绪 -> " + ex.Message); }
         }
     }
 
@@ -151,7 +151,7 @@ public sealed class CloudSyncService : IDisposable
             _debounce ??= new System.Threading.Timer(_ => _ = PushPendingAsync(), null,
                 Timeout.Infinite, Timeout.Infinite);
         }
-        try { _debounce?.Change(delayMs, Timeout.Infinite); } catch { }
+        try { _debounce?.Change(delayMs, Timeout.Infinite); } catch { /* 故意忽略：去抖计时器可能已释放，失败无影响 */ }
     }
 
     private async Task PushPendingAsync()
@@ -718,10 +718,10 @@ public sealed class CloudSyncService : IDisposable
                 var name = Path.GetFileNameWithoutExtension(file.Name);
                 var targetKey = ResolveConflictTarget(name, localKeys);
                 var label = "";
-                try { label = SaveLabelOf(await File.ReadAllTextAsync(file.FullName)); } catch { }
+                try { label = SaveLabelOf(await File.ReadAllTextAsync(file.FullName)); } catch (Exception ex) { App.WriteLog("CloudSync 读冲突标签 " + file.Name + " -> " + ex.Message); }
                 if (label.Length == 0 && targetKey.Length > 0)
                 {
-                    try { label = SaveLabelOf(await _store.LoadRawAsync(targetKey)); } catch { }
+                    try { label = SaveLabelOf(await _store.LoadRawAsync(targetKey)); } catch (Exception ex) { App.WriteLog("CloudSync 读本地标签 " + targetKey + " -> " + ex.Message); }
                 }
 
                 var at = ConflictTimeOf(name);
@@ -834,7 +834,7 @@ public sealed class CloudSyncService : IDisposable
                 && meta.TryGetProperty("Label", out var label))
                 return (label.GetString() ?? "").Trim();
         }
-        catch { }
+        catch { /* 故意忽略：存档标签解析失败就显示空标签 */ }
         return "";
     }
 
@@ -845,7 +845,7 @@ public sealed class CloudSyncService : IDisposable
         {
             if (!IsSaveKey(key)) continue;
             var label = "";
-            try { label = SaveLabelOf(await _store.LoadRawAsync(key)); } catch { }
+            try { label = SaveLabelOf(await _store.LoadRawAsync(key)); } catch (Exception ex) { App.WriteLog("CloudSync 读存档标签 " + key + " -> " + ex.Message); }
             list.Add((key, label));
         }
         return list;
@@ -1047,7 +1047,7 @@ public sealed class CloudSyncService : IDisposable
                 && at.TryGetDateTime(out var stamp))
                 return stamp.Kind == DateTimeKind.Utc ? stamp : stamp.ToUniversalTime();
         }
-        catch { }
+        catch { /* 故意忽略：时间戳解析失败就当没有时间 */ }
         return null;
     }
 
@@ -1114,10 +1114,10 @@ public sealed class CloudSyncService : IDisposable
             var files = new DirectoryInfo(dir).GetFiles("*.json").OrderByDescending(f => f.LastWriteTimeUtc).ToList();
             foreach (var f in files.Skip(MaxConflictFiles))
             {
-                try { f.Delete(); } catch { }
+                try { f.Delete(); } catch { /* 故意忽略：清理超出上限的冲突文件，删不掉下次再试 */ }
             }
         }
-        catch { }
+        catch { /* 故意忽略：同上：整批清理失败不影响同步 */ }
     }
 
     private static string Sanitize(string? s)
@@ -1429,7 +1429,7 @@ public sealed class CloudSyncService : IDisposable
             if (doc.RootElement.TryGetProperty("message", out var m))
                 return $"{(int)resp.StatusCode} {m.GetString()}";
         }
-        catch { }
+        catch { /* 故意忽略：错误体不是 JSON 时退回状态原因短语 */ }
         return $"{(int)resp.StatusCode} {resp.ReasonPhrase}";
     }
 
@@ -1549,7 +1549,7 @@ public sealed class CloudSyncService : IDisposable
     private string SetStatus(string text)
     {
         Status = text;
-        try { StatusChanged?.Invoke(text); } catch { }
+        try { StatusChanged?.Invoke(text); } catch { /* 故意忽略：界面回调失败不影响状态值本身 */ }
         return text;
     }
 
@@ -1579,7 +1579,7 @@ public sealed class CloudSyncService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        try { _store.Changed -= OnLocalChanged; } catch { }
+        try { _store.Changed -= OnLocalChanged; } catch { /* 故意忽略：解绑事件失败随对象回收 */ }
         _debounce?.Dispose();
         _periodicPull?.Dispose();
         _http.Dispose();

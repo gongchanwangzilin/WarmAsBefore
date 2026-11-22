@@ -406,7 +406,10 @@ public sealed partial class ToolManager : IDisposable
                 var parsed = JsonNode.Parse(schemaJson);
                 if (parsed is not null) return parsed;
             }
-            catch { }
+            catch (Exception ex)
+            {
+                App.WriteLog("ToolManager.ParseSchemaNode -> " + ex.Message);
+            }
         }
         if (parameters is not null && parameters.Count > 0)
         {
@@ -1595,6 +1598,7 @@ public sealed partial class ToolManager : IDisposable
         }
         catch (OperationCanceledException)
         {
+            // 故意忽略：harness 循环本就靠取消退出，属正常收尾。
         }
         catch (Exception ex)
         {

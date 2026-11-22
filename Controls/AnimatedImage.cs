@@ -402,7 +402,7 @@ public sealed class AnimatedImage : ContentView
                 });
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* 故意忽略：切页/换源时帧循环被取消属正常 */ }
         catch (Exception ex)
         {
             App.WriteLog("AnimatedImage.RunFrames -> " + ex.Message);
@@ -524,7 +524,7 @@ public sealed class AnimatedImage : ContentView
             {
                 if (frame is null) continue;
                 try { (frame as IDisposable)?.Dispose(); }
-                catch { }
+                catch { /* 故意忽略：帧即将丢弃，Dispose 失败随回收 */ }
             }
             Array.Clear(Frames);
         }
@@ -818,7 +818,7 @@ public sealed class CharacterBackdropPresenter
 
     public void Pause()
     {
-        try { _video?.Pause(); } catch { }
+        try { _video?.Pause(); } catch { /* 故意忽略：播放器可能已释放，暂停失败无影响 */ }
     }
 
     public void Resume()
@@ -829,7 +829,7 @@ public sealed class CharacterBackdropPresenter
             _video.IsVisible = true;
             _video.Play();
         }
-        catch { }
+        catch { /* 故意忽略：视频未就绪时不播，下次 Resume 再来 */ }
     }
 
     private async Task ClearAsync(int generation, bool instant)
@@ -947,7 +947,7 @@ public sealed class CharacterBackdropPresenter
     private void SetVideoSource(string path, string fit, Aspect aspect)
     {
         var video = EnsureVideo();
-        try { video.Pause(); } catch { }
+        try { video.Pause(); } catch { /* 故意忽略：换源前停顿失败不影响下一次 Play */ }
         video.Aspect = aspect;
         video.Source = MediaSource.FromFile(path);
         _videoFit = fit;
@@ -968,7 +968,7 @@ public sealed class CharacterBackdropPresenter
     private void StopVideo()
     {
         if (_video is null) return;
-        try { _video.Pause(); } catch { }
+        try { _video.Pause(); } catch { /* 故意忽略：停视频是清理动作，失败即跳过 */ }
         _video.IsVisible = false;
         _video.Opacity = 0;
         _video.Source = null;

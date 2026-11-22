@@ -60,7 +60,7 @@ public static class CharacterBackgroundService
         // 换格式时旧文件一并删掉，否则角色目录里会留下再也用不到的背景。
         foreach (var old in Directory.EnumerateFiles(dir, "background.*"))
         {
-            try { File.Delete(old); } catch { }
+            try { File.Delete(old); } catch { /* 故意忽略：删旧格式背景，删不掉只留一个用不上的文件 */ }
         }
         var target = Path.Combine(dir, "background" + ext);
         await using (var src = File.OpenRead(sourcePath))

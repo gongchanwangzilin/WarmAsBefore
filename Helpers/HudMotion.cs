@@ -67,7 +67,7 @@ public static class HudMotion
             await title.TranslateTo(2, 0, 50, Easing.Linear);
             await title.TranslateTo(0, 0, 70, MechEase);
         }
-        catch { }
+        catch { /* 故意忽略：动画被顶掉时收尾在 finally 里做 */ }
         finally
         {
             title.ScaleX = 1;
@@ -90,7 +90,7 @@ public static class HudMotion
             layer.ScaleX = 0;
             await layer.ScaleTo(1, 180, MechEase);
         }
-        catch { }
+        catch { /* 故意忽略：同上：finally 会恢复 ScaleX */ }
         finally { layer.ScaleX = 1; }
     }
 
@@ -114,7 +114,7 @@ public static class HudMotion
                 await Task.Delay(60);
             }
         }
-        catch { }
+        catch { /* 故意忽略：同上：finally 会把四角透明度补回 1 */ }
         finally
         {
             foreach (var c in corners) if (c is not null) c.Opacity = 1;
@@ -130,7 +130,7 @@ public static class HudMotion
             bar.ScaleY = 0.6;
             await bar.ScaleTo(1, 130, MechEase);
         }
-        catch { }
+        catch { /* 故意忽略：同上：finally 会恢复 ScaleY */ }
         finally { bar.ScaleY = 1; }
     }
 }

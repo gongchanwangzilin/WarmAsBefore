@@ -296,8 +296,8 @@ public sealed class SpeechService
         public ApiCompletionHandler(string tmp) => _tmp = tmp;
         public void OnCompletion(Android.Media.MediaPlayer mp)
         {
-            try { mp.Release(); } catch { }
-            try { System.IO.File.Delete(_tmp); } catch { }
+            try { mp.Release(); } catch { /* 故意忽略：识别结束释放播放器，可能已释放 */ }
+            try { System.IO.File.Delete(_tmp); } catch { /* 故意忽略：删临时音频，删不掉只是残留 */ }
         }
     }
 
@@ -388,7 +388,7 @@ public sealed class SpeechService
             {
                 await fs.WriteAsync(buf.AsMemory(0, n));
                 got += n;
-                try { onProgress?.Invoke(total > 0 ? (int)(got * 100 / total) : 0); } catch { }
+                try { onProgress?.Invoke(total > 0 ? (int)(got * 100 / total) : 0); } catch { /* 故意忽略：进度回调是外部给的，异常不能打断下载 */ }
             }
             fs.Close();
             if (System.IO.File.Exists(dest)) System.IO.File.Delete(dest);
@@ -446,8 +446,8 @@ public sealed class SpeechService
             {
                 await Task.Delay(TimeSpan.FromSeconds(8), _listenCts?.Token ?? CancellationToken.None);
             }
-            catch (OperationCanceledException) { }
-            try { recorder.Stop(); } catch { }
+            catch (OperationCanceledException) { /* 故意忽略：录音固定 8 秒，被取消就是提前停 */ }
+            try { recorder.Stop(); } catch { /* 故意忽略：停止录音器，可能已停 */ }
             recorder.Release();
 
             // 调系统离线识别器（本地模型路径作为参考）
@@ -476,7 +476,7 @@ public sealed class SpeechService
         }
         finally
         {
-            try { if (System.IO.File.Exists(tmp)) System.IO.File.Delete(tmp); } catch { }
+            try { if (System.IO.File.Exists(tmp)) System.IO.File.Delete(tmp); } catch { /* 故意忽略：删临时录音，删不掉只是残留 */ }
         }
 #endif
     }
@@ -732,7 +732,7 @@ public sealed class SpeechService
             player.MediaEnded += (_, _) =>
             {
                 player.Dispose();
-                try { System.IO.File.Delete(tmp); } catch { }
+                try { System.IO.File.Delete(tmp); } catch { /* 故意忽略：播放结束删临时音频，删不掉只是残留 */ }
             };
             player.SetFileSource(sf);
             player.Play();
@@ -764,7 +764,7 @@ public sealed class SpeechService
             {
                 await Task.Delay(TimeSpan.FromSeconds(8), _listenCts?.Token ?? CancellationToken.None);
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { /* 故意忽略：同上：录音被取消就是提前停 */ }
             await mc.StopRecordAsync();
             mc.Dispose();
 
@@ -796,7 +796,7 @@ public sealed class SpeechService
         }
         finally
         {
-            try { System.IO.File.Delete(tmp); } catch { }
+            try { System.IO.File.Delete(tmp); } catch { /* 故意忽略：删临时录音，删不掉只是残留 */ }
         }
     }
 
@@ -836,8 +836,8 @@ public sealed class SpeechService
         }
         finally
         {
-            try { engine?.Dispose(); } catch { }
-            try { System.IO.File.Delete(tmp); } catch { }
+            try { engine?.Dispose(); } catch { /* 故意忽略：识别器用完即弃，释放失败随回收 */ }
+            try { System.IO.File.Delete(tmp); } catch { /* 故意忽略：删临时录音，删不掉只是残留 */ }
         }
     });
 
@@ -892,7 +892,7 @@ public sealed class SpeechService
             engine.RecognizeCompleted += (_, __) => tcs.TrySetResult(true);
             using var cancelRegistration = (_listenCts ??= new CancellationTokenSource()).Token.Register(() =>
             {
-                try { engine.RecognizeAsyncCancel(); } catch { }
+                try { engine.RecognizeAsyncCancel(); } catch { /* 故意忽略：取消识别，识别器可能已停 */ }
                 tcs.TrySetResult(true);
             });
 
@@ -929,7 +929,7 @@ public sealed class SpeechService
         }
         finally
         {
-            try { engine?.Dispose(); } catch { }
+            try { engine?.Dispose(); } catch { /* 故意忽略：同上：释放失败随回收 */ }
         }
     }
 

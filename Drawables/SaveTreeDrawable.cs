@@ -539,7 +539,7 @@ public sealed class SaveTreeDrawable : IDrawable
                 if (x >= r.X && x <= r.Right && y >= r.Y && y <= r.Bottom) return kv.Key;
             }
         }
-        catch { }
+        catch { /* 故意忽略：命中测试失败返回 null，等于没点中 */ }
         return null;
     }
 

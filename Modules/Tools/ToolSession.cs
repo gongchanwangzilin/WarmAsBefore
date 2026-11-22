@@ -160,7 +160,7 @@ public sealed class ToolSession : IDisposable
         var done = await Task.WhenAny(read, timeout);
         if (done == timeout)
         {
-            try { _process.Kill(entireProcessTree: true); } catch { }
+            try { _process.Kill(entireProcessTree: true); } catch { /* 故意忽略：超时要杀掉卡住的工具进程，杀不掉也只能返回超时 */ }
             return JsonSerializer.Serialize(new { error = "工具调用超时（120s）" });
         }
         var text = await read;
@@ -171,8 +171,8 @@ public sealed class ToolSession : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        try { if (IsAlive) _process.Kill(entireProcessTree: true); } catch { }
-        try { _process.Dispose(); } catch { }
+        try { if (IsAlive) _process.Kill(entireProcessTree: true); } catch { /* 故意忽略：销毁时进程可能已退出，杀不掉照样释放 */ }
+        try { _process.Dispose(); } catch { /* 故意忽略：释放失败随进程结束回收 */ }
         _lock.Dispose();
     }
 }

@@ -764,7 +764,7 @@ public sealed class HumanMemoryService
                 if (v.Length > 0 && !list.Contains(v, StringComparer.OrdinalIgnoreCase)) list.Add(v);
             }
         }
-        catch { }
+        catch { /* 故意忽略：关联词抽取是附加信息，正则失败就不抽 */ }
         return list.Distinct(StringComparer.OrdinalIgnoreCase).Take(10).ToList();
     }
 

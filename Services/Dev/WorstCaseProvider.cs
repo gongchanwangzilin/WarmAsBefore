@@ -61,7 +61,7 @@ public static class WorstCaseProvider
     {
         if (!EnabledAtLaunch || _mode == mode) return;
         _mode = mode;
-        try { App.WriteLog("WorstCaseProvider -> " + Name(mode)); } catch { }
+        try { App.WriteLog("WorstCaseProvider -> " + Name(mode)); } catch { /* 故意忽略：压测模式日志，写不进去不影响行为 */ }
         try { MainThread.BeginInvokeOnMainThread(() => ModeChanged?.Invoke()); } catch { ModeChanged?.Invoke(); }
     }
 
@@ -85,7 +85,7 @@ public static class WorstCaseProvider
         var raw = ReadRaw();
         if (string.IsNullOrWhiteSpace(raw)) return (WorstCaseMode.Demo, false);
         var mode = Parse(raw);
-        try { App.WriteLog("WorstCaseProvider: 压测数据 = " + Name(mode) + "（" + raw.Trim() + "）"); } catch { }
+        try { App.WriteLog("WorstCaseProvider: 压测数据 = " + Name(mode) + "（" + raw.Trim() + "）"); } catch { /* 故意忽略：同上 */ }
         return (mode, true);
     }
 

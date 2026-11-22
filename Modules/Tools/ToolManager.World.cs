@@ -401,7 +401,7 @@ public sealed partial class ToolManager
                 }
                 finally
                 {
-                    if (temp is not null) { try { File.Delete(temp); } catch { } }
+                    if (temp is not null) { try { File.Delete(temp); } catch { /* 故意忽略：清理解压临时文件，删不掉只是残留 */ } }
                 }
             });
 

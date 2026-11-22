@@ -228,7 +228,7 @@ public sealed class RuntimeManager
             if (Directory.Exists(full)) return Path.Combine(full, exeName);
             if (File.Exists(full)) return full;
         }
-        catch { }
+        catch { /* 故意忽略：手工填的运行时路径探测，解析失败就当没填 */ }
         return null;
     }
 

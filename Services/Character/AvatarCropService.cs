@@ -126,7 +126,7 @@ public sealed class AvatarCropService
     public void ReleasePreview(string? filePath)
     {
         if (string.IsNullOrWhiteSpace(filePath)) return;
-        try { if (File.Exists(filePath)) File.Delete(filePath); } catch { }
+        try { if (File.Exists(filePath)) File.Delete(filePath); } catch { /* 故意忽略：删临时预览图，删不掉下次覆盖 */ }
     }
 
     // ── 落盘 ────────────────────────────────────────────────────────────────

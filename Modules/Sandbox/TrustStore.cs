@@ -54,15 +54,18 @@ public sealed class TrustStore
         {
             if (!File.Exists(_file))
             {
+                File.WriteAllBytes(_file + ".sha256", Array.Empty<byte>());
                 _integrityHash = Array.Empty<byte>();
-                File.WriteAllBytes(_file + ".sha256", _integrityHash);
                 return;
             }
             var hash = SHA256.HashData(File.ReadAllBytes(_file));
-            _integrityHash = hash;
             File.WriteAllBytes(_file + ".sha256", hash);
+            _integrityHash = hash;
         }
-        catch { }
+        catch (Exception ex)
+        {
+            App.WriteLog("TrustStore.RecomputeIntegrity -> " + ex.Message);
+        }
     }
 
     public List<TrustEntry> All()
@@ -78,7 +81,10 @@ public sealed class TrustStore
                 if (t is not null) list.Add(t);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            App.WriteLog("TrustStore.All -> " + ex.Message);
+        }
         return list;
     }
 

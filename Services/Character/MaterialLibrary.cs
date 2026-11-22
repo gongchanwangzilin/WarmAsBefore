@@ -350,7 +350,7 @@ public sealed class MaterialLibrary
 
     private static void TryDelete(string path)
     {
-        try { if (File.Exists(path)) File.Delete(path); } catch { }
+        try { if (File.Exists(path)) File.Delete(path); } catch { /* 故意忽略：删除素材失败时下次落盘会覆盖 */ }
     }
 
     private void ReadDurationAsync(string absPath, MusicItem item)
@@ -402,14 +402,14 @@ public sealed class MaterialLibrary
                     tcs.TrySetResult(d > TimeSpan.Zero ? (int)d.TotalMilliseconds : 0);
                 }
                 catch { tcs.TrySetResult(0); }
-                try { player.Dispose(); } catch { }
+                try { player.Dispose(); } catch { /* 故意忽略：时长探针的播放器用完即弃，释放失败随回收 */ }
             };
-            player.MediaFailed += (_, _) => { tcs.TrySetResult(0); try { player.Dispose(); } catch { } };
+            player.MediaFailed += (_, _) => { tcs.TrySetResult(0); try { player.Dispose(); } catch { /* 故意忽略：同上（媒体加载失败分支） */ } };
             player.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(absPath));
             return await tcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
         }
         catch { return 0; }
-        finally { try { player.Dispose(); } catch { } }
+        finally { try { player.Dispose(); } catch { /* 故意忽略：同上（finally 兜底） */ } }
     }
 
     private static async Task<string?> ExtractVideoFrameAsync(string absPath)

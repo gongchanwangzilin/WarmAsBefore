@@ -86,7 +86,7 @@ public sealed partial class MaidBridgeService : IDisposable
             File.AppendAllText(DiagPath,
                 $"[{DateTime.Now.ToString("HH:mm:ss.fff", System.Globalization.CultureInfo.InvariantCulture)}] {msg}{Environment.NewLine}");
         }
-        catch { }
+        catch { /* 故意忽略：诊断日志本身失败时无处再报 */ }
     }
 
     private CancellationTokenSource? _cts;
@@ -205,7 +205,7 @@ public sealed partial class MaidBridgeService : IDisposable
                     var text = File.ReadAllText(target);
                     Diag($"settings.json 落盘: {e.ChangeType}, {text.Length} chars, 含force_load={text.Contains("force_load_chunks")}, think_scenes={Snippet(text, "think_scenes")}");
                 }
-                catch { }
+                catch { /* 故意忽略：仅用于诊断，settings.json 正被写入时会撞上 */ }
             };
             watch.Changed += onChange;
             watch.Created += onChange;
@@ -365,16 +365,16 @@ public sealed partial class MaidBridgeService : IDisposable
         _udp = null;
         _tcp = null;
         CloseSession(null, "listeners stopped");
-        try { cts?.Cancel(); } catch { }
-        try { udp?.Close(); } catch { }
-        try { tcp?.Stop(); } catch { }
+        try { cts?.Cancel(); } catch { /* 故意忽略：停监听时令牌/套接字可能已释放，逐个吞掉继续收尾 */ }
+        try { udp?.Close(); } catch { /* 故意忽略：同上：UDP 已关闭 */ }
+        try { tcp?.Stop(); } catch { /* 故意忽略：同上：TCP 已停止 */ }
         var tasks = new[] { _udpTask, _tcpTask }.Where(t => t is not null).Cast<Task>().ToArray();
         _udpTask = null;
         _tcpTask = null;
         if (tasks.Length > 0)
         {
             try { await Task.WhenAll(tasks).WaitAsync(TimeSpan.FromSeconds(2)); }
-            catch { }
+            catch { /* 故意忽略：等监听任务退出有 2 秒上限，超时即继续 */ }
         }
         cts?.Dispose();
         lock (_pendingGate) _pending.Clear();
@@ -744,7 +744,7 @@ public sealed partial class MaidBridgeService : IDisposable
 
             await SessionLoopAsync(session, session.Cts.Token);
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* 故意忽略：客户端循环因取消退出，属正常断开 */ }
         catch (Exception ex) when (IsBenignNetworkException(ex))
         {
             App.WriteLog("MaidBridge.Client(benign) -> " + ex);
@@ -769,9 +769,9 @@ public sealed partial class MaidBridgeService : IDisposable
             }
             else
             {
-                try { writer?.Dispose(); } catch { }
-                try { reader?.Dispose(); } catch { }
-                try { client.Close(); } catch { }
+                try { writer?.Dispose(); } catch { /* 故意忽略：握手失败：逐个释放可能已失效的句柄 */ }
+                try { reader?.Dispose(); } catch { /* 故意忽略：同上 */ }
+                try { client.Close(); } catch { /* 故意忽略：同上 */ }
             }
         }
     }
@@ -2936,7 +2936,7 @@ public sealed partial class MaidBridgeService : IDisposable
                             ["at"] = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds()
                         }, session.Cts.Token);
                     }
-                    catch { }
+                    catch { /* 故意忽略：ping 发不出去交给 35 秒心跳超时统一处理 */ }
                 }
                 // 每 10 秒把 WAB 的好感/信任/心情/精力再推一次：模组拿它画头顶、也拿它把游戏侧好感对齐，
                 // 只靠事件推送的话，AI 判完好感后头顶会停在旧数字上。
@@ -3034,11 +3034,11 @@ public sealed partial class MaidBridgeService : IDisposable
             session.Cts.Cancel();
             session.Client.Close();
         }
-        catch { }
+        catch { /* 故意忽略：关闭会话时各句柄都可能已释放，收尾不能中断 */ }
         // HandleClientAsync 的 finally 也会调 DisposeAsync，但那要等它自己退出；
         // 如果它卡在 HandshakeAsync 里，Reader/Writer 会泄漏。这里先释放一次，
         // MaidSession.DisposeAsync 内部全部 try/catch 包裹，重复调用安全。
-        try { session.DisposeAsync().GetAwaiter().GetResult(); } catch { }
+        try { session.DisposeAsync().GetAwaiter().GetResult(); } catch { /* 故意忽略：DisposeAsync 内部已全包裹，重复调用安全 */ }
     }
 
     internal string ResolveCharacter(MaidSession session, string maidId)
@@ -3639,12 +3639,12 @@ public sealed partial class MaidBridgeService : IDisposable
     {
         if (_disposed) return;
         _disposed = true;
-        try { _cts?.Cancel(); } catch { }
-        try { _listenCts?.Cancel(); } catch { }
+        try { _cts?.Cancel(); } catch { /* 故意忽略：服务销毁：取消令牌可能已释放 */ }
+        try { _listenCts?.Cancel(); } catch { /* 故意忽略：同上 */ }
         CloseSession(null, "service disposed");
-        try { _udp?.Close(); } catch { }
-        try { _tcp?.Stop(); } catch { }
-        try { _settingsWatch?.Dispose(); } catch { }
+        try { _udp?.Close(); } catch { /* 故意忽略：销毁时关闭套接字，失败也无人可报 */ }
+        try { _tcp?.Stop(); } catch { /* 故意忽略：同上：监听已停 */ }
+        try { _settingsWatch?.Dispose(); } catch { /* 故意忽略：文件监视器可能已释放 */ }
         // 不主动 Dispose SemaphoreSlim 和 CancellationTokenSource：
         // 后台任务的 finally 块可能还在 Release()/使用这些对象，Dispose 后再调会抛
         // ObjectDisposedException 级联崩溃。交给 GC 回收即可——SemaphoreSlim 若无
@@ -3656,7 +3656,7 @@ public sealed partial class MaidBridgeService : IDisposable
             var tasks = new[] { _watchdogTask, _watchTask, _backupTask }.Where(t => t is not null).Cast<Task>().ToArray();
             if (tasks.Length > 0) Task.WhenAll(tasks).Wait(TimeSpan.FromSeconds(3));
         }
-        catch { }
+        catch { /* 故意忽略：等后台任务退出有 3 秒上限，超时即返回 */ }
     }
 
     // ==================== 会话 ====================
@@ -3795,17 +3795,17 @@ public sealed partial class MaidBridgeService : IDisposable
 
         public ValueTask DisposeAsync()
         {
-            try { Cts.Cancel(); } catch { }
+            try { Cts.Cancel(); } catch { /* 故意忽略：会话销毁：取消令牌可能已释放 */ }
             foreach (var tcs in Pending.Values)
                 tcs.TrySetException(new IOException("Minecraft 会话已关闭。"));
             Pending.Clear();
             foreach (var tcs in Photos.Values) tcs.TrySetCanceled();
             Photos.Clear();
-            try { Writer.Dispose(); } catch { }
-            try { Reader.Dispose(); } catch { }
-            try { Client.Close(); } catch { }
-            try { Cts.Dispose(); } catch { }
-            try { _writeLock.Dispose(); } catch { }
+            try { Writer.Dispose(); } catch { /* 故意忽略：销毁时逐个释放句柄，各自可能已失效 */ }
+            try { Reader.Dispose(); } catch { /* 故意忽略：同上 */ }
+            try { Client.Close(); } catch { /* 故意忽略：同上 */ }
+            try { Cts.Dispose(); } catch { /* 故意忽略：同上 */ }
+            try { _writeLock.Dispose(); } catch { /* 故意忽略：同上 */ }
             return ValueTask.CompletedTask;
         }
     }

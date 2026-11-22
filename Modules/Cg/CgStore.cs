@@ -114,10 +114,10 @@ public sealed class CgStore
                 Path.Combine(root, "assets", rel)
             })
             {
-                try { if (File.Exists(candidate)) return candidate; } catch { }
+                try { if (File.Exists(candidate)) return candidate; } catch { /* 故意忽略：候选路径探测，读不到就当不存在 */ }
             }
         }
-        try { if (File.Exists(cg.File)) return cg.File; } catch { }
+        try { if (File.Exists(cg.File)) return cg.File; } catch { /* 故意忽略：同上：记录里的路径也可能已失效 */ }
         return null;
     }
 

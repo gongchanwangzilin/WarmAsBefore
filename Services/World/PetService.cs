@@ -1028,7 +1028,7 @@ public sealed class PetService
                 }
             }
         }
-        catch (OperationCanceledException) { }
+        catch (OperationCanceledException) { /* 故意忽略：打字机循环被取消属正常（换角色/退出） */ }
         catch (Exception ex) { App.WriteLog("PetService.Typewriter -> " + ex.Message); }
         finally
         {
@@ -1070,7 +1070,7 @@ public sealed class PetService
 
     private async Task ClearStatusAfterAsync(double seconds)
     {
-        try { await Task.Delay((int)Math.Max(0, seconds) * 1000); } catch { }
+        try { await Task.Delay((int)Math.Max(0, seconds) * 1000); } catch { /* 故意忽略：延迟只为错开清空时刻 */ }
         if (_statusOverride.Length == 0) return;
         _statusOverride = "";
         Platforms.Windows.PetLayeredWindow.SetStatusText(_settings.Current.PetStatusBubble ? CurrentStatusLine() : "");
@@ -1234,8 +1234,8 @@ public sealed class PetService
         try
         {
             var p = new Windows.Media.Playback.MediaPlayer { Volume = Math.Clamp(volume, 0, 1) };
-            p.MediaEnded += (_, _) => { try { p.Dispose(); } catch { } };
-            p.MediaFailed += (_, _) => { try { p.Dispose(); } catch { } };
+            p.MediaEnded += (_, _) => { try { p.Dispose(); } catch { /* 故意忽略：播放结束即释放播放器，失败随回收 */ } };
+            p.MediaFailed += (_, _) => { try { p.Dispose(); } catch { /* 故意忽略：同上 */ } };
             p.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(file));
             p.Play();
         }
@@ -1407,7 +1407,7 @@ public sealed class PetService
         var app = Application.Current;
         if (app is not null && _petWindow is not null && app.Windows.Contains(_petWindow))
         {
-            try { app.CloseWindow(_petWindow); } catch { }
+            try { app.CloseWindow(_petWindow); } catch { /* 故意忽略：关宠物窗失败时窗口随后由框架回收 */ }
         }
         _petWindow = null;
         _page = null;

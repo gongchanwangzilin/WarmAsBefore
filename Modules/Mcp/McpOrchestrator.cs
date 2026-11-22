@@ -659,7 +659,7 @@ public sealed class McpOrchestrator
                     long size = 0;
                     foreach (var f in files)
                     {
-                        try { size += new FileInfo(f).Length; } catch { }
+                        try { size += new FileInfo(f).Length; } catch { /* 故意忽略：单个文件大小读不到就少算它 */ }
                     }
                     var key = Path.GetFileName(dir);
                     var service = LoadServerConfig(key);
@@ -685,10 +685,16 @@ public sealed class McpOrchestrator
                     // 这里只做纯字符串映射与本地判断，不起进程也不联网，所以每次刷新都便宜。
                     items[^1].Advice = McpDoctor.AdviceFor(items[^1].LastError, service);
                 }
-                catch { }
+                catch (Exception ex)
+                {
+                    App.WriteLog("MCP 列表跳过 " + Path.GetFileName(dir) + " -> " + ex.Message);
+                }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            App.WriteLog("MCP 列表 -> " + ex.Message);
+        }
         return items;
     }
 
@@ -966,7 +972,7 @@ public sealed class McpOrchestrator
                 }
                 finally
                 {
-                    try { if (Directory.Exists(staging)) Directory.Delete(staging, true); } catch { }
+                    try { if (Directory.Exists(staging)) Directory.Delete(staging, true); } catch { /* 故意忽略：清理 staging 目录，删不掉下次导入会重建 */ }
                 }
             });
         }

@@ -920,7 +920,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
             }
             finally
             {
-                try { Directory.Delete(temp, true); } catch { }
+                try { Directory.Delete(temp, true); } catch { /* 故意忽略：删安装临时目录，删不掉只是残留 */ }
             }
             await RefreshAsync();
         }

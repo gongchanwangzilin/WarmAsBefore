@@ -718,7 +718,7 @@ public sealed partial class WeChatViewModel : ObservableObject, IWorstCaseAware
             var lib = _stickerLib.Find(name);
             if (lib is not null && File.Exists(lib.Path)) return lib.Path;
         }
-        catch { }
+        catch { /* 故意忽略：表情库查不到就继续按文件名找 */ }
         try
         {
             var noExt = Path.GetFileNameWithoutExtension(name);
@@ -730,7 +730,7 @@ public sealed partial class WeChatViewModel : ObservableObject, IWorstCaseAware
                     return f;
             }
         }
-        catch { }
+        catch { /* 故意忽略：同上：找不到返回 null，消息按缺图处理 */ }
         return null;
     }
 

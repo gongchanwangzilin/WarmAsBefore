@@ -551,7 +551,7 @@ public sealed partial class SaveViewModel : ObservableObject, IWorstCaseAware
         {
             if (Application.Current?.Resources.TryGetValue(key, out var v) == true && v is Color c) return c;
         }
-        catch { }
+        catch { /* 故意忽略：取不到语义色就透明不绘制 */ }
         return Colors.Transparent;
     }
 
@@ -686,7 +686,7 @@ public sealed partial class SaveViewModel : ObservableObject, IWorstCaseAware
         if (!CanCancel) return;
         App.TraceStep("SaveVM.CancelLoad phase=" + StatePhase);
         WarmAsBefore.Services.PerfLog.Note("读档已取消", _pendingLoadId);
-        try { _loadCts?.Cancel(); } catch { }
+        try { _loadCts?.Cancel(); } catch { /* 故意忽略：取消读档，令牌可能已释放 */ }
         ResetState();
     }
 
@@ -705,7 +705,7 @@ public sealed partial class SaveViewModel : ObservableObject, IWorstCaseAware
     private void BackToList()
     {
         App.TraceStep("SaveVM.BackToList");
-        try { _loadCts?.Cancel(); } catch { }
+        try { _loadCts?.Cancel(); } catch { /* 故意忽略：返回列表同样取消在途读档 */ }
         ResetState();
     }
 

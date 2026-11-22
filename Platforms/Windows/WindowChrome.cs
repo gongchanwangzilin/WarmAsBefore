@@ -58,7 +58,7 @@ internal static class WindowChrome
                 return global::Windows.UI.Color.FromArgb(B(c.Alpha), B(c.Red), B(c.Green), B(c.Blue));
             }
         }
-        catch { }
+        catch { /* 故意忽略：取不到主题色就用兜底色 */ }
         return fallback;
     }
 }

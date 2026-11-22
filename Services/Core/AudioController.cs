@@ -93,8 +93,8 @@ public sealed class AudioController
         try
         {
             var p = new Windows.Media.Playback.MediaPlayer { Volume = _sfx };
-            p.MediaEnded += (_, _) => { try { p.Dispose(); } catch { } };
-            p.MediaFailed += (_, _) => { try { p.Dispose(); } catch { } };
+            p.MediaEnded += (_, _) => { try { p.Dispose(); } catch { /* 故意忽略：播放结束即释放播放器，失败随回收 */ } };
+            p.MediaFailed += (_, _) => { try { p.Dispose(); } catch { /* 故意忽略：同上 */ } };
             p.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(filePath));
             p.Play();
         }
@@ -104,7 +104,7 @@ public sealed class AudioController
         {
             lock (_androidAudioLock)
             {
-                try { _androidSfxPlayer?.Stop(); _androidSfxPlayer?.Release(); } catch { }
+                try { _androidSfxPlayer?.Stop(); _androidSfxPlayer?.Release(); } catch { /* 故意忽略：播新音效前释放旧的，旧的可能已释放 */ }
                 var p = new Android.Media.MediaPlayer();
                 var uri = Android.Net.Uri.FromFile(new Java.IO.File(filePath));
                 p.SetDataSource(Platform.AppContext, uri);
@@ -130,7 +130,7 @@ public sealed class AudioController
         public AndroidSfxCompletion(Android.Media.MediaPlayer mp) => _mp = mp;
         public void OnCompletion(Android.Media.MediaPlayer m)
         {
-            try { m.Release(); } catch { }
+            try { m.Release(); } catch { /* 故意忽略：播放结束释放播放器，失败随回收 */ }
         }
     }
 
@@ -142,7 +142,7 @@ public sealed class AudioController
         public AndroidBgmCompletion(AudioController owner) => _owner = owner;
         public void OnCompletion(Android.Media.MediaPlayer m)
         {
-            try { _owner.BgmNext(); } catch { }
+            try { _owner.BgmNext(); } catch { /* 故意忽略：自动下一首失败就停在当前曲 */ }
         }
     }
 #endif
@@ -230,7 +230,7 @@ public sealed class AudioController
 #if WINDOWS
         if (_bgmPlayer is not null) _bgmPlayer.IsMuted = muted;
 #elif ANDROID
-        try { lock (_androidAudioLock) { if (_androidBgmPlayer is not null) { var v = muted ? 0f : (float)_bgm; _androidBgmPlayer.SetVolume(v, v); } } } catch { }
+        try { lock (_androidAudioLock) { if (_androidBgmPlayer is not null) { var v = muted ? 0f : (float)_bgm; _androidBgmPlayer.SetVolume(v, v); } } } catch { /* 故意忽略：BGM 播放器可能已释放，调音量失败无影响 */ }
 #endif
     }
 
@@ -243,7 +243,7 @@ public sealed class AudioController
             _bgmPlayer?.Dispose();
             _bgmPlayer = null;
         }
-        catch { }
+        catch { /* 故意忽略：停 BGM 时播放器可能已坏，失败仍继续置空 */ }
 #elif ANDROID
         try
         {
@@ -254,7 +254,7 @@ public sealed class AudioController
                 _androidBgmPlayer = null;
             }
         }
-        catch { }
+        catch { /* 故意忽略：同上（Android） */ }
 #endif
     }
 
@@ -273,7 +273,7 @@ public sealed class AudioController
                 _androidSfxPlayer = null;
             }
         }
-        catch { }
+        catch { /* 故意忽略：停止全部音效，释放失败仍继续 */ }
 #endif
     }
 
@@ -336,14 +336,14 @@ public sealed class AudioController
                 p.Play();
             }
         }
-        catch { }
+        catch { /* 故意忽略：切下一首失败就停在当前曲 */ }
     }
 #endif
 
     private void ApplyBgmVolume()
     {
         #if WINDOWS
-        try { if (_bgmPlayer is not null) _bgmPlayer.Volume = _bgm; } catch { }
+        try { if (_bgmPlayer is not null) _bgmPlayer.Volume = _bgm; } catch { /* 故意忽略：音量设置失败下次 Apply 会重试 */ }
         #endif
     }
 }

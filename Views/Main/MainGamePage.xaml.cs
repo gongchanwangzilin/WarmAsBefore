@@ -220,7 +220,7 @@ public partial class MainGamePage : ContentPage
                     ChatList.ScrollTo(_vm.Messages[_vm.Messages.Count - 1], null,
                         Microsoft.Maui.Controls.ScrollToPosition.End, false);
             }
-            catch { }
+            catch { /* 故意忽略：滚动到底只是体验，列表未布局好时会失败 */ }
         });
     }
 
@@ -368,7 +368,7 @@ public partial class MainGamePage : ContentPage
                     var p = Math.Clamp(_vm?.EntryProgress ?? 0, 0, 1);
                     AbsoluteLayout.SetLayoutBounds(EntryBarFill, new Microsoft.Maui.Graphics.Rect(0, 0, p, 1));
                 }
-                catch { }
+                catch { /* 故意忽略：进度条刷新失败下一帧会再来 */ }
             });
             return;
         }
@@ -807,7 +807,7 @@ public partial class MainGamePage : ContentPage
             if (SceneVideoDesktop is { Source: not null }) SceneVideoDesktop.Pause();
             _backdrop.Pause();
         }
-        catch { }
+        catch { /* 故意忽略：暂停场景视频，句柄可能已换 */ }
     }
 
     private void ResumeSceneVideo()
@@ -817,6 +817,6 @@ public partial class MainGamePage : ContentPage
             _phone?.Play();
             if (SceneVideoDesktop is { Source: not null, IsVisible: true }) SceneVideoDesktop.Play();
         }
-        catch { }
+        catch { /* 故意忽略：恢复播放，同上 */ }
     }
 }

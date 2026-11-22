@@ -19,7 +19,7 @@ public static class Program
         {
             App.WriteLogNow("UnhandledException -> " + e.ExceptionObject);
             App.FlushLog();
-            try { BugReporter.Report(e.ExceptionObject as Exception, "AppDomain", "未处理的域异常"); } catch { }
+            try { BugReporter.Report(e.ExceptionObject as Exception, "AppDomain", "未处理的域异常"); } catch { /* 故意忽略：报告器自己失败时日志已在上一行写过 */ }
         };
         // 注意：FirstChance 处理器内任何抛出的异常都会再次触发 FirstChance，导致无限递归直至栈溢出(0xc00000fd)。
         // 必须用互斥门闩保证重入时立即返回，处理器本体绝不能做可能抛异常的操作。
@@ -31,14 +31,14 @@ public static class Program
                 or UnauthorizedAccessException or IOException) return;
             if (Interlocked.CompareExchange(ref _firstChanceActive, 1, 0) != 0) return;
             try { App.WriteLog("FirstChance -> " + e.Exception.GetType().Name + ": " + e.Exception.Message); }
-            catch { }
+            catch { /* 故意忽略：写日志失败时无处再报；门闩在 finally 里照常放开 */ }
             finally { Interlocked.Exchange(ref _firstChanceActive, 0); }
         };
         TaskScheduler.UnobservedTaskException += (s, e) =>
         {
             App.WriteLog("UnobservedTask -> " + e.Exception);
-            try { e.SetObserved(); } catch { }
-            try { BugReporter.Report(e.Exception, "Task", "未观察的任务异常"); } catch { }
+            try { e.SetObserved(); } catch { /* 故意忽略：SetObserved 不抛异常 */ }
+            try { BugReporter.Report(e.Exception, "Task", "未观察的任务异常"); } catch { /* 故意忽略：同上：BugReporter 的失败无人可接 */ }
         };
 
         App.WriteLog("Program.Main: start");

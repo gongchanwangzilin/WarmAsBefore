@@ -54,7 +54,7 @@ public partial class MainGamePhoneView : ContentView
                     PhoneChatList.ScrollTo(_vm.Messages[_vm.Messages.Count - 1], null,
                         Microsoft.Maui.Controls.ScrollToPosition.End, false);
             }
-            catch { }
+            catch { /* 故意忽略：滚动到底只是体验，列表未布局好时会失败 */ }
         });
     }
 
@@ -98,14 +98,14 @@ public partial class MainGamePhoneView : ContentView
     public void Pause()
     {
         try { if (SceneVideoPhone is { Source: not null }) SceneVideoPhone.Pause(); }
-        catch { }
+        catch { /* 故意忽略：暂停场景视频，句柄可能已换 */ }
         _backdrop.Pause();
     }
 
     public void Play()
     {
         try { if (SceneVideoPhone is { Source: not null, IsVisible: true }) SceneVideoPhone.Play(); }
-        catch { }
+        catch { /* 故意忽略：恢复播放，同上 */ }
         _backdrop.Resume();
     }
 }

@@ -119,7 +119,7 @@ public sealed class SaveRuntimeService
     {
         if (!_running) return;
         _running = false;
-        try { _cts?.Cancel(); } catch { }
+        try { _cts?.Cancel(); } catch { /* 故意忽略：停运行时取消令牌，可能已释放 */ }
         _cts = null;
         App.WriteLog("SaveRuntime: 已停止");
     }

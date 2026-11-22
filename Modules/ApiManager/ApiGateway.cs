@@ -234,7 +234,7 @@ public sealed class ApiGateway
                 && err.TryGetProperty("message", out var msg))
                 return $"[API错误 {status}]: {msg}";
         }
-        catch { }
+        catch { /* 故意忽略：错误体不是 JSON 时只报状态码 */ }
         return $"[API错误 {status}]";
     }
 
@@ -263,7 +263,7 @@ public sealed class ApiGateway
                         && err.TryGetProperty("message", out var msg))
                         return null; // 返回 null 表示认证或权限错误
                 }
-                catch { }
+                catch { /* 故意忽略：同上：解析不出来按通用错误处理 */ }
                 return null;
             }
 
@@ -444,7 +444,7 @@ public sealed class ApiGateway
                                 && err.TryGetProperty("message", out var msg))
                                 detail = msg.ToString();
                         }
-                        catch { }
+                        catch { /* 故意忽略：同上：拿不到 message 就只报状态码 */ }
                         var text = string.IsNullOrWhiteSpace(detail)
                             ? $"[API错误 {resp.StatusCode}]"
                             : $"[API错误 {resp.StatusCode}]: {detail}";

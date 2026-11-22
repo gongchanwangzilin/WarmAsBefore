@@ -33,7 +33,7 @@ public static class WindowTopmost
             // InvalidOperationException，线程池上的未处理异常会直接把进程带走（0xc000027b）。
             Helpers.Ui.Post(() =>
             {
-                try { SetAll(true); } catch { }
+                try { SetAll(true); } catch { /* 故意忽略：定时重设置顶失败，下一次 tick 再试 */ }
             });
         }, null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(3));
     }

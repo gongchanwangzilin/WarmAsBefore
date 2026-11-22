@@ -305,7 +305,7 @@ public static class HoverFeel
                     is Microsoft.UI.Xaml.Window { Content: Microsoft.UI.Xaml.UIElement content })
                     root = content;
             }
-            catch { }
+            catch { /* 故意忽略：拿不到主窗口就当没有根元素，Load 后再挂 */ }
         }
         try
         {
@@ -325,7 +325,7 @@ public static class HoverFeel
             if (Application.Current?.Windows.FirstOrDefault() is { } window && _hookedWindows.Add(window))
                 window.Deactivated += (_, _) => RestoreAll(null);
         }
-        catch { }
+        catch { /* 故意忽略：挂失焦事件失败只影响悬停残留，不致命 */ }
     }
 
     private static void ReconcilePointer(Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e)
@@ -631,7 +631,7 @@ public static class HoverFeel
             Microsoft.UI.Xaml.Input.PointerEventHandler? handler)
         {
             if (handler is null) return;
-            try { native.RemoveHandler(ev, handler); } catch { }
+            try { native.RemoveHandler(ev, handler); } catch { /* 故意忽略：移除事件处理器失败只影响悬停状态 */ }
         }
 
         private void Detach()

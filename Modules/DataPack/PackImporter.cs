@@ -100,7 +100,7 @@ public sealed class PackImporter
         }
         finally
         {
-            try { if (Directory.Exists(tmp)) Directory.Delete(tmp, recursive: true); } catch { }
+            try { if (Directory.Exists(tmp)) Directory.Delete(tmp, recursive: true); } catch { /* 故意忽略：清理临时解压目录，删不掉只是残留 */ }
         }
     }
 

@@ -61,7 +61,7 @@ public static class MemoryAbstractionRules
 
         // 文件名线索也承认（截图名常常写着内容），但不把路径本身当词汇
         var file = "";
-        try { file = Path.GetFileNameWithoutExtension(imagePath ?? ""); } catch { }
+        try { file = Path.GetFileNameWithoutExtension(imagePath ?? ""); } catch { /* 故意忽略：文件名只是线索，取不到就不加线索 */ }
         foreach (var (word, shape) in ShapeCues)
             if (file.Contains(word, StringComparison.Ordinal) && !shapes.Contains(shape)) shapes.Add(shape);
 

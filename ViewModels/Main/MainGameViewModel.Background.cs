@@ -204,7 +204,7 @@ public sealed partial class MainGameViewModel
                         var sources = new List<ImageSource>();
                         foreach (var f in usable)
                         {
-                            try { sources.Add(ImageSource.FromFile(f)); } catch { }
+                            try { sources.Add(ImageSource.FromFile(f)); } catch { /* 故意忽略：单帧图加载失败就跳过这一帧 */ }
                         }
                         if (sources.Count > 0)
                         {

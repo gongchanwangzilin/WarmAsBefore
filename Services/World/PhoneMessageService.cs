@@ -185,7 +185,7 @@ public sealed class PhoneMessageService
                 if (cts.IsCancellationRequested || !InSave) return;
                 await _save.Commit("微信", "para");
             }
-            catch (OperationCanceledException) { }
+            catch (OperationCanceledException) { /* 故意忽略：落盘去抖被取消即放弃这次写，下次变动再排 */ }
             catch (Exception ex) { App.WriteLog("PhoneMessageService.Persist -> " + ex.Message); }
         });
     }

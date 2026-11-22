@@ -274,7 +274,7 @@ public sealed class StorageProvider
         }
         finally
         {
-            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { }
+            try { if (File.Exists(tmp)) File.Delete(tmp); } catch { /* 故意忽略：清理 .tmp，删不掉下次写入会覆盖 */ }
         }
     }
 

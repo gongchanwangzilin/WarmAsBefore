@@ -377,7 +377,7 @@ public partial class CharacterStudioPanel : ContentView
 
     private void StopBreathing()
     {
-        try { _breathe?.Cancel(); } catch { }
+        try { _breathe?.Cancel(); } catch { /* 故意忽略：停呼吸动画，令牌可能已释放 */ }
         _breathe = null;
         if (Portrait is not null) Portrait.TranslationY = 0;
     }
