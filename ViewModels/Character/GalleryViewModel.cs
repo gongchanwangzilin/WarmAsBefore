@@ -293,7 +293,8 @@ public sealed partial class GalleryViewModel : ObservableObject, IWorstCaseAware
 
     private static DiaryDayItem DiaryItem(DiaryNote n) => new()
     {
-        Date = n.Date.ToLocalTime().ToString("yyyy年M月d日"),
+        // 坏档里缺日期 → DateTime 默认值，直接格式化会排出「1年1月1日」这种没意义的日期。
+        Date = n.Date == default ? "日期缺失" : n.Date.ToLocalTime().ToString("yyyy年M月d日"),
         Mood = n.Mood,
         Content = n.Content
     };

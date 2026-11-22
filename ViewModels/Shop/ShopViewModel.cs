@@ -3,6 +3,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WarmAsBefore.Models;
 using WarmAsBefore.Modules.Market;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -14,13 +15,14 @@ public sealed partial class ShopCategoryTag : ObservableObject
     [ObservableProperty] private bool _isSelected;
 }
 
-public sealed partial class ShopViewModel : ObservableObject
+public sealed partial class ShopViewModel : ObservableObject, IWorstCaseAware
 {
     private const int PageSize = 40;   // 每页条数：BindableLayout 无虚拟化，分批渲染不卡
 
     private readonly ShopService _shop;
     private List<ShopItem> _all = new();   // 当前筛选后的完整列表（内存）
     private int _shown;                     // 已展示条数
+    private List<ShopItem> _worst = new();  // 压测档的货架（只读 fixture，不从服务读）
 
     [ObservableProperty] private string _walletLabel = "";
     [ObservableProperty] private string _recordLabel = "";
@@ -54,6 +56,7 @@ public sealed partial class ShopViewModel : ObservableObject
     {
         try
         {
+            if (WorstCaseProvider.IsActive) { ReloadWorstCase(); return; }   // 压测档只读 fixture，不碰服务
             try
             {
                 // 先给即时反馈：立即用种子目录渲染（不等待任何 IO）
@@ -73,6 +76,7 @@ public sealed partial class ShopViewModel : ObservableObject
 
     private void Reload()
     {
+        if (WorstCaseProvider.IsActive) { ReloadWorstCase(); return; }   // 换档 / 服务事件都走同一条
         WalletLabel = _shop.WalletLabel;
         RecordLabel = _shop.RecordLabel;
         ResultMessage = "";
@@ -83,17 +87,24 @@ public sealed partial class ShopViewModel : ObservableObject
         RefreshItems();
     }
 
+    /// <summary>压测档的数据源：fixture 货架 / 真货架。所有筛选、分类、分页都只看这一个入口。</summary>
+    private IReadOnlyList<ShopItem> Source => WorstCaseProvider.IsActive ? _worst : _shop.Catalog;
+
     private void RefreshBuffs()
     {
-        var buffs = _shop.ActiveBuffs;
+        var buffs = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Shop.Buffs(WorstCaseProvider.Mode)
+            : (IReadOnlyList<CharacterBuff>)_shop.ActiveBuffs;
+        // 一个角色身上可以同时挂几十个标记：全列出来一行放不下，只报前三个 + 总数。
         BuffsLabel = buffs.Count == 0
             ? ""
-            : "小雨的标记：" + string.Join("  ", buffs.Select(b => $"{b.Emoji}{b.Name}×{b.TurnsLeft}"));
+            : "小雨的标记：" + string.Join("  ", buffs.Take(3).Select(b => $"{b.Emoji}{b.Name}×{b.TurnsLeft}"))
+              + (buffs.Count > 3 ? $"  等 {buffs.Count} 个" : "");
     }
 
     private void RefreshCategories()
     {
-        var cats = _shop.Catalog.Select(x => x.Category).Distinct().OrderBy(x => x).ToList();
+        var cats = Source.Select(CategoryKey).Distinct().OrderBy(x => x, StringComparer.OrdinalIgnoreCase).ToList();
         cats.Insert(0, "全部");
         var current = SelectedCategory;
         foreach (var tag in Categories) tag.IsSelected = false;
@@ -108,11 +119,15 @@ public sealed partial class ShopViewModel : ObservableObject
             if (!cats.Contains(Categories[i].Name)) Categories.RemoveAt(i);
     }
 
+    /// <summary>品类留空的同步商品归到「未分类」：空白 chip 既点不明白，也筛不出东西。</summary>
+    private static string CategoryKey(ShopItem item) =>
+        string.IsNullOrWhiteSpace(item.Category) ? "未分类" : item.Category;
+
     private void RefreshItems()
     {
         var q = SearchText?.Trim() ?? "";
-        _all = _shop.Catalog
-            .Where(x => SelectedCategory == "全部" || x.Category == SelectedCategory)
+        _all = Source
+            .Where(x => SelectedCategory == "全部" || CategoryKey(x) == SelectedCategory)
             .Where(x => string.IsNullOrEmpty(q) ||
                         x.Name.Contains(q, StringComparison.OrdinalIgnoreCase) ||
                         x.Desc.Contains(q, StringComparison.OrdinalIgnoreCase))
@@ -146,6 +161,34 @@ public sealed partial class ShopViewModel : ObservableObject
         HasMore = _shown < _all.Count;
     }
 
+    /// <summary>压测档：整个货架换成 fixture，钱包/战绩/标记/仓库也一并换，不写盘、不调模型。</summary>
+    public void ReloadWorstCase()
+    {
+        var mode = WorstCaseProvider.Mode;
+        _worst = WorstCaseFixtures.Shop.Catalog(mode);
+        // 换档后上一档的品类/搜索词可能已经不存在：不重置就会停在一个筛不出东西的空列表上。
+        SearchText = "";
+        SelectedCategory = "全部";
+        WalletLabel = WorstCaseFixtures.Shop.Wallet(mode);
+        RecordLabel = WorstCaseFixtures.Shop.RecordLabel(mode);
+        SyncRepo = WorstCaseFixtures.Shop.SyncRepo(mode);
+        IsSyncing = false;
+        Busy = false;
+        AiStatus = "";
+        ResultMessage = "";
+        RefreshBuffs();
+        RefreshCategories();
+        RefreshItems();
+    }
+
+    /// <summary>压测档挡掉所有会写盘 / 联网 / 调模型的入口，只留一条可读的说明。</summary>
+    private bool BlockedByWorstCase()
+    {
+        if (!WorstCaseProvider.IsActive) return false;
+        ResultMessage = "压测档只读 fixture：不买、不送、不上新、不同步，正式存档一个字节都不会被碰。";
+        return true;
+    }
+
     partial void OnSearchTextChanged(string value) => RefreshItems();
     partial void OnSelectedCategoryChanged(string value) => RefreshItems();
 
@@ -164,6 +207,7 @@ public sealed partial class ShopViewModel : ObservableObject
     [RelayCommand]
     private async Task Buy(ShopItem item)
     {
+        if (BlockedByWorstCase()) return;
         if (_shop.Coins < item.Price)
         {
             ResultMessage = "亲密币不够啦，陪小雨聊天、赢几局游戏赚币吧！";
@@ -178,6 +222,7 @@ public sealed partial class ShopViewModel : ObservableObject
     [RelayCommand]
     private async Task Gift(ShopItem item)
     {
+        if (BlockedByWorstCase()) return;
         if (item is null || Busy) return;
         if (item.Owned <= 0)
         {
@@ -195,6 +240,7 @@ public sealed partial class ShopViewModel : ObservableObject
     [RelayCommand]
     private async Task Use(ShopItem item)
     {
+        if (BlockedByWorstCase()) return;
         if (item is null || Busy) return;
         if (item.Owned <= 0)
         {
@@ -212,7 +258,9 @@ public sealed partial class ShopViewModel : ObservableObject
     [RelayCommand]
     private void OpenBodyStatus()
     {
-        BodyStatusText = _shop.BodyStatusText() ?? "还没有进入游戏，先选择角色开始陪伴吧";
+        BodyStatusText = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Shop.BodyStatus(WorstCaseProvider.Mode)
+            : _shop.BodyStatusText() ?? "还没有进入游戏，先选择角色开始陪伴吧";
         ShowBodyStatus = true;
     }
 
@@ -222,6 +270,7 @@ public sealed partial class ShopViewModel : ObservableObject
     [RelayCommand]
     private async Task AiGenerate()
     {
+        if (BlockedByWorstCase()) return;
         if (Busy) return;
         Busy = true;
         AiStatus = "AI 选品中…";
@@ -237,6 +286,7 @@ public sealed partial class ShopViewModel : ObservableObject
     [RelayCommand]
     private async Task SyncGitHub()
     {
+        if (BlockedByWorstCase()) return;
         if (IsSyncing) return;
         IsSyncing = true;
         SyncStatus = "正在从 GitHub 拉取商品…";

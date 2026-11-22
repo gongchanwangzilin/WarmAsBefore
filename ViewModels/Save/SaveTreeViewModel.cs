@@ -7,6 +7,7 @@ using WarmAsBefore.Models;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -16,7 +17,7 @@ namespace WarmAsBefore.ViewModels;
 /// 读档不在这里实现：点「去这个存档」只是回到 SavePage 并带 focus 参数，复用原有 LoadSlot 门禁。
 /// 所有展示性读取都各自 try/catch，任何一路服务出错只让这一处空着，不把整页带崩。
 /// </summary>
-public sealed partial class SaveTreeViewModel : ObservableObject, IQueryAttributable
+public sealed partial class SaveTreeViewModel : ObservableObject, IQueryAttributable, IWorstCaseAware
 {
     private readonly SaveManager _save;
     private readonly CharacterLibrary _library;
@@ -98,32 +99,46 @@ public sealed partial class SaveTreeViewModel : ObservableObject, IQueryAttribut
         _loading = true;
         try
         {
-            var listTask = _save.List();
-            var rosterTask = _library.ListAsync();
-            await Task.WhenAll(listTask, rosterTask);
-            var list = await listTask;
-            var roster = await rosterTask;
+            // 压测档与正式档的行长得一样：一条存档 + 它的角色名，后面组节点的代码不必分叉。
+            List<(SaveSlot Slot, string CharacterName)> rows;
+            if (WorstCaseProvider.IsActive)
+            {
+                rows = WorstCaseFixtures.Archive.Slots(WorstCaseProvider.Mode);
+            }
+            else
+            {
+                var listTask = _save.List();
+                var rosterTask = _library.ListAsync();
+                await Task.WhenAll(listTask, rosterTask);
+                var list = await listTask;
+                var roster = await rosterTask;
+                rows = list.Select(s => (s,
+                    roster.FirstOrDefault(c => c.Profile.Id == s.Character)?.Profile.Name ?? "未知角色")).ToList();
+            }
 
             _slots.Clear();
-            foreach (var slot in list)
+            foreach (var (slot, _) in rows)
                 _slots[slot.Id] = slot;
 
             var ids = new HashSet<string>(_slots.Keys, StringComparer.Ordinal);
-            var nodes = new List<SaveTreeNode>(list.Count);
-            foreach (var slot in list)
+            var nodes = new List<SaveTreeNode>(rows.Count);
+            foreach (var (slot, charName) in rows)
             {
                 // 父档不存在 = 根节点（契约「数据」节：ParentId 空/指向不存在的档）。
                 var parent = string.IsNullOrWhiteSpace(slot.ParentId) || !ids.Contains(slot.ParentId!)
                     ? null : slot.ParentId;
                 var branch = string.IsNullOrWhiteSpace(slot.BranchName) ? null : slot.BranchName;
                 var label = string.IsNullOrWhiteSpace(slot.Label) ? "未命名存档" : slot.Label;
-                var charName = roster.FirstOrDefault(c => c.Profile.Id == slot.Character)?.Profile.Name ?? "未知角色";
                 nodes.Add(new SaveTreeNode(slot.Id, label, branch, slot.SavedAt, parent, charName));
             }
 
             Drawable.Nodes = nodes;
-            try { Drawable.CurrentSlotId = _engine.CurrentSaveId; }
-            catch (Exception ex) { App.WriteLog("SaveTree.CurrentSlot -> " + ex.Message); }
+            if (WorstCaseProvider.IsActive) { Drawable.CurrentSlotId = null; }
+            else
+            {
+                try { Drawable.CurrentSlotId = _engine.CurrentSaveId; }
+                catch (Exception ex) { App.WriteLog("SaveTree.CurrentSlot -> " + ex.Message); }
+            }
 
             var roots = nodes.Count(n => n.ParentId is null);
             StatusText = nodes.Count == 0
@@ -143,6 +158,9 @@ public sealed partial class SaveTreeViewModel : ObservableObject, IQueryAttribut
         }
         finally { _loading = false; }
     }
+
+    /// <summary>压测条换了档：整棵树重读。</summary>
+    public void ReloadWorstCase() => _ = RefreshAsync();
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
     {
@@ -205,6 +223,11 @@ public sealed partial class SaveTreeViewModel : ObservableObject, IQueryAttribut
     private async Task OpenSlot()
     {
         if (string.IsNullOrEmpty(_selectedId)) return;
+        if (WorstCaseProvider.IsActive)
+        {
+            StatusText = "压测档只读 fixture：不跳存档页、不读真实档。";
+            return;
+        }
         try { await Shell.Current.GoToAsync($"save?focus={Uri.EscapeDataString(_selectedId)}"); }
         catch (Exception ex) { App.WriteLog("SaveTree.OpenSlot -> " + ex.Message); }
     }

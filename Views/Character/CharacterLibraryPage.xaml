@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:dev="clr-namespace:WarmAsBefore.Services.Dev"
              x:Class="WarmAsBefore.Views.CharacterLibraryPage"
              x:Name="Page"
              x:DataType="vm:CharacterLibraryViewModel"
@@ -221,8 +222,9 @@
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
                                 <VerticalStackLayout Spacing="0">
                                     <Label Text="// SUBJECT" Style="{StaticResource Eyebrow}" />
+                                    <!-- 详情位是唯一能读到全名的地方：长名字给两行，不再一行截断 -->
                                     <Label Text="{Binding PreviewName}" Style="{StaticResource TxtDisplay}"
-                                           CharacterSpacing="-1.5" LineBreakMode="TailTruncation" />
+                                           CharacterSpacing="-1.5" LineBreakMode="TailTruncation" MaxLines="2" />
                                 </VerticalStackLayout>
                                 <Border Grid.Column="1" Background="{DynamicResource WWellBrush}"
                                         StrokeThickness="0" Padding="8,3" VerticalOptions="Start"
@@ -232,9 +234,9 @@
                             </Grid>
 
                             <Label Text="{Binding PreviewPersonality}" Style="{StaticResource TxtBody}"
-                                   LineBreakMode="TailTruncation" MaxLines="1" />
+                                   LineBreakMode="TailTruncation" MaxLines="2" />
                             <Label Text="{Binding PreviewDescription}" Style="{StaticResource TxtCaption}"
-                                   LineHeight="1.35" LineBreakMode="TailTruncation" MaxLines="2" />
+                                   LineHeight="1.35" LineBreakMode="TailTruncation" MaxLines="3" />
 
                             <!-- 需求 5：单角色背景在这里设。换人时上面那块会交叉淡入，
                                  适配五档跟着窗口尺寸走，游戏内与工作室读同一份。 -->
@@ -328,6 +330,9 @@
                 </Grid>
             </Border>
         </FlexLayout>
+
+        <!-- dev 压测条：带 worst 启动参数时才出现 -->
+        <dev:WorstCaseBar Grid.RowSpan="3" />
 
         <!-- 档案室大气层（2.7）：细颗粒 + 暖光 + 暗角，铺在内容之上（InputTransparent） -->
         <ctl:WorldAtmosphere Grid.RowSpan="3" />

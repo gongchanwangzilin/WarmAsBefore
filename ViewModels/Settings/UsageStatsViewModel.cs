@@ -4,6 +4,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using WarmAsBefore.Controls;
 using WarmAsBefore.Services;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -11,7 +12,7 @@ namespace WarmAsBefore.ViewModels;
 /// 用量统计页的模型：总览 / 成本构成 / Token 活跃度 / 时间序列 / 分组明细 / 模型价格设定。
 /// 数据全在本地盘上，进页即真数；图表由页面用 BoxView + Grid 自绘，这里只喂几何与文案。
 /// </summary>
-public sealed partial class UsageStatsViewModel : ObservableObject
+public sealed partial class UsageStatsViewModel : ObservableObject, IWorstCaseAware
 {
     private readonly CostEstimatorService _cost;
 
@@ -177,6 +178,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
     [RelayCommand]
     private async Task ExportCsv()
     {
+        if (BlockedByWorstCase()) { Toast.Info("压测档不导出 CSV。"); return; }
         try
         {
             var path = await _cost.ExportCsvAsync();
@@ -211,14 +213,14 @@ public sealed partial class UsageStatsViewModel : ObservableObject
     [RelayCommand]
     private async Task SavePriceRow(PriceRow? row)
     {
-        if (row is null) return;
+        if (row is null || BlockedByWorstCase()) return;
         await ApplyPriceAsync(row.Model, row.InputText, row.OutputText, row.CachedInputText, row.CachedOutputText);
     }
 
     [RelayCommand]
     private async Task RemovePriceRow(PriceRow? row)
     {
-        if (row is null) return;
+        if (row is null || BlockedByWorstCase()) return;
         try
         {
             await _cost.RemovePriceAsync(row.Model);
@@ -231,6 +233,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
     [RelayCommand]
     private async Task AddNewPrice()
     {
+        if (BlockedByWorstCase()) return;
         var model = (NewPriceModel ?? "").Trim();
         if (model.Length == 0) { PriceNote = "先填模型名（要和请求里用的模型名一致）。"; return; }
         var ok = await ApplyPriceAsync(model, NewPriceInput, NewPriceOutput, NewPriceCachedInput, NewPriceCachedOutput);
@@ -270,7 +273,9 @@ public sealed partial class UsageStatsViewModel : ObservableObject
     {
         try
         {
-            _characterRows = await _cost.CharacterUsageRowsAsync();
+            _characterRows = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Usage.Characters(WorstCaseProvider.Mode)
+                : await _cost.CharacterUsageRowsAsync();
             if (DetailGroupMode == "character") RebuildDetail();
         }
         catch (Exception ex) { App.WriteLog("UsageStatsVM.CharacterRows -> " + ex.Message); }
@@ -280,14 +285,16 @@ public sealed partial class UsageStatsViewModel : ObservableObject
     {
         try
         {
-            var overview = await _cost.OverviewAsync();
-            _modelRows = await _cost.ModelUsageRowsAsync();
-            var heat = await _cost.HeatmapAsync();
-            _daily = await _cost.DayUsageRowsAsync(TrendDays);
-            if (DetailGroupMode == "character") _characterRows = await _cost.CharacterUsageRowsAsync();
-            var prices = await _cost.PricesAsync();
+            var worst = WorstCaseProvider.IsActive;
+            var mode = WorstCaseProvider.Mode;
+            var overview = worst ? WorstCaseFixtures.Usage.Overview(mode) : await _cost.OverviewAsync();
+            _modelRows = worst ? WorstCaseFixtures.Usage.Models(mode) : await _cost.ModelUsageRowsAsync();
+            var heat = worst ? WorstCaseFixtures.Usage.Heat(mode) : await _cost.HeatmapAsync();
+            _daily = await DaysAsync(TrendDays);
+            if (DetailGroupMode == "character") _characterRows = await CharacterRowsAsync();
+            var prices = worst ? WorstCaseFixtures.Usage.Prices(mode) : await _cost.PricesAsync();
 
-            HasPrices = _cost.HasPrices;
+            HasPrices = worst ? WorstCaseFixtures.Usage.HasPrices(mode) : _cost.HasPrices;
             HasUsage = overview.All.Calls > 0;
             OnPropertyChanged(nameof(HasPrices));
             OnPropertyChanged(nameof(OverviewUnit));
@@ -311,6 +318,29 @@ public sealed partial class UsageStatsViewModel : ObservableObject
         }
     }
 
+    /// <summary>用量序列：压测档给 fixture，正式档记账本。两条分支同形，图表代码不必知道数据从哪来。</summary>
+    private async Task<List<CostEstimatorService.DayUsageRow>> DaysAsync(int days) =>
+        WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Usage.Days(WorstCaseProvider.Mode, days)
+            : await _cost.DayUsageRowsAsync(days);
+
+    private async Task<List<CostEstimatorService.CharacterUsageRow>> CharacterRowsAsync() =>
+        WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Usage.Characters(WorstCaseProvider.Mode)
+            : await _cost.CharacterUsageRowsAsync();
+
+    /// <summary>压测条换了档：整页读数重算。</summary>
+    public void ReloadWorstCase() => _ = ReloadAsync();
+
+    /// <summary>压测档挡掉写盘与导出：价格、CSV 都只属于正式数据。</summary>
+    private bool BlockedByWorstCase()
+    {
+        if (!WorstCaseProvider.IsActive) return false;
+        PriceNote = "压测档只读 fixture：单价不写盘、CSV 不导出。";
+        BusyNote = "压测档只读 fixture：单价不写盘、CSV 不导出。";
+        return true;
+    }
+
     private void FillOverview(CostEstimatorService.UsageOverview o)
     {
         TodayHead = Headline(o.Today.Cost, o.Today.BilledTokens);
@@ -327,7 +357,18 @@ public sealed partial class UsageStatsViewModel : ObservableObject
                        + $"累计输出 {Fmt(o.All.Completion)}（外加思考/缓存 {Fmt(o.All.CachedOutput)}）";
     }
 
-    private string Headline(double cost, long tokens) => HasPrices ? cost.ToString("0.####") : Fmt(tokens);
+    private string Headline(double cost, long tokens) => HasPrices ? Money(cost) : Fmt(tokens);
+
+    /// <summary>
+    /// 金额的显示口径：小数目留四位小数（按 token 算出来的钱本来就很小），上万以后收成整数或 M。
+    /// 三档大数字只有三分之一屏宽，七位数的钱原样铺上去必被截断 —— 那正是压测里先坏的一栏。
+    /// </summary>
+    private static string Money(double v) => v switch
+    {
+        >= 1_000_000 => (v / 1_000_000.0).ToString("0.##") + "M",
+        >= 10_000 => v.ToString("N0"),
+        _ => v.ToString("0.####")
+    };
 
     private static string Sub(int calls, long tokens) => $"{calls} 次调用 · {Fmt(tokens)} tok";
 
@@ -348,7 +389,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
             CostBars.Add(new CostBarRow
             {
                 Model = r.Model,
-                ValueLabel = HasPrices ? v.ToString("0.####") : Fmt((long)v) + " tok",
+                ValueLabel = HasPrices ? Money(v) : Fmt((long)v) + " tok",
                 ShareLabel = share.ToString("P1"),
                 // 20 档列宽：ColumnSpan 取整到 5% 一格，至少占 1 格免得极小份额整条消失
                 FillCols = Math.Clamp((int)Math.Round(share * 20), 1, 20),
@@ -385,7 +426,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
 
     private async Task RebuildTrendAsync()
     {
-        var daily = await _cost.DayUsageRowsAsync(TrendDays);
+        var daily = await DaysAsync(TrendDays);
         _daily = daily;
 
         TrendBars.Clear();
@@ -436,7 +477,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
                     Output = Fmt(r.Completion),
                     CachedInput = Fmt(r.CachedInput),
                     CachedOutput = Fmt(r.CachedOutput),
-                    Cost = HasPrices ? r.Cost.ToString("0.####") : "—"
+                    Cost = HasPrices ? Money(r.Cost) : "—"
                 });
             return;
         }
@@ -451,7 +492,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
                     Output = Fmt(r.Completion),
                     CachedInput = Fmt(r.CachedInput),
                     CachedOutput = Fmt(r.CachedOutput),
-                    Cost = HasPrices ? r.Cost.ToString("0.####") : "—"
+                    Cost = HasPrices ? Money(r.Cost) : "—"
                 });
         }
         else
@@ -465,7 +506,7 @@ public sealed partial class UsageStatsViewModel : ObservableObject
                     Output = Fmt(d.Completion),
                     CachedInput = Fmt(d.CachedInput),
                     CachedOutput = Fmt(d.CachedOutput),
-                    Cost = HasPrices ? d.Cost.ToString("0.####") : "—"
+                    Cost = HasPrices ? Money(d.Cost) : "—"
                 });
         }
     }

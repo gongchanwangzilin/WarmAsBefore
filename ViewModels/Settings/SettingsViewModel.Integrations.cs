@@ -5,6 +5,7 @@ using WarmAsBefore.Services;
 using System.Collections.ObjectModel;
 using WarmAsBefore.Controls;
 using WarmAsBefore.Modules.Mcp;
+using WarmAsBefore.Services.Dev;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -233,15 +234,28 @@ public sealed partial class SettingsViewModel
 
     [ObservableProperty] private string _skillsSummary = "正在读取…";
 
+    /// <summary>压测档只读：能力包的导入 / 启停 / 删除都会写盘，一律挡在入口。</summary>
+    private static bool BlockedByWorstCase()
+    {
+        if (!WorstCaseProvider.IsActive) return false;
+        Toast.Info("压测档只读 fixture：能力包不导入、不改启停、不删除。");
+        return true;
+    }
+
     public async Task RefreshSkillsAsync()
     {
         try
         {
-            var list = await _skills.ListAsync();
+            var list = WorstCaseProvider.IsActive
+                ? WorstCaseFixtures.Settings.Skills(WorstCaseProvider.Mode)
+                : await _skills.ListAsync();
             if (list.Count == 0) { SkillsSummary = "还没有装能力包。"; return; }
             var enabled = list.Count(s => s.Enabled);
-            SkillsSummary = $"已装 {list.Count} 个，启用 {enabled} 个："
-                + string.Join("、", list.Select(s => s.Name + (s.Enabled ? "" : "（已停用）")));
+            // 这一句在卡片里只有三行高：几十个名字全铺上去会被从中间截断，
+            // 先报前几个 + 总数，完整清单留给「管理」。
+            var names = list.Take(4).Select(s => s.Name + (s.Enabled ? "" : "（已停用）")).ToList();
+            SkillsSummary = $"已装 {list.Count} 个，启用 {enabled} 个：{string.Join("、", names)}"
+                + (list.Count > names.Count ? $" 等 {list.Count} 个（点「管理」看全部）" : "");
         }
         catch (Exception ex)
         {
@@ -253,6 +267,7 @@ public sealed partial class SettingsViewModel
     [RelayCommand]
     private async Task ImportSkill()
     {
+        if (BlockedByWorstCase()) return;
         try
         {
             var picked = await FilePicker.PickAsync(new PickOptions
@@ -287,7 +302,9 @@ public sealed partial class SettingsViewModel
     [RelayCommand]
     private async Task ManageSkills()
     {
-        var list = await _skills.ListAsync();
+        var list = WorstCaseProvider.IsActive
+            ? WorstCaseFixtures.Settings.Skills(WorstCaseProvider.Mode)
+            : await _skills.ListAsync();
         if (list.Count == 0)
         {
             Toast.Info("还没有装能力包。用「导入 zip / 目录」装上第一个。");
@@ -304,6 +321,8 @@ public sealed partial class SettingsViewModel
             $"「{skill.Name}」{skill.Description}", "取消", null,
             skill.Enabled ? "停用" : "启用", "查看说明书", "删除");
         if (action is null || action == "取消") return;
+
+        if (action is ("停用" or "启用" or "删除") && BlockedByWorstCase()) return;
 
         switch (action)
         {

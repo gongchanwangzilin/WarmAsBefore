@@ -1,5 +1,6 @@
 using WarmAsBefore.Drawables;
 using WarmAsBefore.Models;
+using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Services.Dev;
 
@@ -441,7 +442,10 @@ public static class WorstCaseFixtures
             {
                 Day(DateTime.Today, "平静", LongChinese),
                 Day(DateTime.Today.AddDays(-1), "", "只写了两个字：还好。"),
-                Day(DateTime.Today.AddDays(-12), "有点难受但说不清", MixedScript)
+                Day(DateTime.Today.AddDays(-12), "有点难受但说不清", MixedScript),
+                // 跨年：日期格式「yyyy年M月d日」要在旧年份上也读得通，而不是只剩月日。
+                Day(new DateTime(DateTime.Today.Year - 1, 12, 31), "跨年", LongChinese),
+                Day(default, "", "")
             };
 
             static DiaryNote Day(DateTime date, string mood, string content) => new()
@@ -552,6 +556,399 @@ public static class WorstCaseFixtures
         {
             if (from == to) return;
             graph.Edges.Add(new RelationEdge { From = from, To = to, Kind = kind, Weight = weight });
+        }
+    }
+
+    // ==================== 商店（美了么） ====================
+
+    /// <summary>
+    /// 货架与钱包。价格取「能录进来的极值」：9999999（AI/仓库商品没有上限）与 -1（坏 JSON / 手改账本），
+    /// 品类留空（老同步商品没有 category）、名字留空、图片指向一个不存在的本地缓存（清缓存后留下的悬空路径）。
+    /// </summary>
+    public static class Shop
+    {
+        private static string MissingImage(string name) => Path.Combine(App.RootDirectory, "ShopImages", name);
+
+        public static string Wallet(WorstCaseMode mode) => mode switch
+        {
+            WorstCaseMode.Empty => "亲密币 0",
+            WorstCaseMode.One => "亲密币 1",
+            WorstCaseMode.Worst => "亲密币 99999999",
+            _ => "亲密币 2147483647"
+        };
+
+        public static string RecordLabel(WorstCaseMode mode) => mode switch
+        {
+            WorstCaseMode.Empty => "小游戏战绩：0 胜 0 负",
+            WorstCaseMode.One => "小游戏战绩：1 胜 0 负",
+            WorstCaseMode.Worst => "小游戏战绩：9999 胜 9998 负",
+            _ => "小游戏战绩：12848 胜 12847 负"
+        };
+
+        public static string SyncRepo(WorstCaseMode mode) => mode switch
+        {
+            WorstCaseMode.Empty => "",
+            WorstCaseMode.Worst => "northwind-industries-holdings/enterprise-onboarding-shop-catalog-mirror",
+            _ => "demo-user/my-shop"
+        };
+
+        public static string BodyStatus(WorstCaseMode mode) => mode switch
+        {
+            WorstCaseMode.Empty => "",
+            WorstCaseMode.Worst => LongChinese + "\n" + LongUrl,
+            _ => "精力 0/100 · 好感 -1 · 胃里有灼烧感，已经持续三小时；皮质醇偏高，睡不深"
+        };
+
+        /// <summary>生效中的 buff 标记：40 条长名字，用来检查「小雨的标记：…」那条单行提示。</summary>
+        public static List<CharacterBuff> Buffs(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new List<CharacterBuff>();
+            if (mode == WorstCaseMode.One)
+                return new List<CharacterBuff> { Buff(0, "喝了奶茶") };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 120).Select(i => Buff(i, $"标记 {i:000}")).ToList();
+            return Enumerable.Range(0, 40)
+                .Select(i => Buff(i, (i % 3) switch
+                {
+                    0 => WideTag,
+                    1 => "喝了" + LongTitle + "同一家的奶茶",
+                    _ => ArabicName + "的护身符"
+                }))
+                .ToList();
+
+            static CharacterBuff Buff(int i, string name) => new()
+            {
+                Id = "buff-" + i,
+                Name = name,
+                Emoji = i % 4 == 0 ? "" : "🧋",
+                Desc = LongChinese,
+                Source = "送礼",
+                TurnsLeft = 9999 - i,
+                AppliedAt = DateTime.Now.AddMinutes(-i)
+            };
+        }
+
+        public static List<ShopItem> Catalog(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new List<ShopItem>();
+            if (mode == WorstCaseMode.One) return new List<ShopItem> { Item("one-1", "白开水", "饮品", "", 1) };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 1000)
+                    .Select(i => Item($"huge-{i}",
+                        i % 9 == 0 ? LongTitle + i : $"集团采购品 {i:0000}",
+                        i % 5 == 0 ? WideTag : "杂货",
+                        i % 7 == 0 ? LongChinese : $"第 {i} 件：店里放的，随手能拿。",
+                        i % 11 == 0 ? 9999999 : 20 + i % 900,
+                        owned: i % 4, ai: i % 13 == 0))
+                    .ToList();
+
+            return new List<ShopItem>
+            {
+                // 一屏能看到的头几行，一行一种坏法。
+                Item("worst-a", LongName, "饮品", LongChinese + "\n" + LongUrl, 9999999,
+                    emoji: "🧋", merchant: LongTitle, image: MissingImage("worst-a.png"), owned: 9999),
+                Item("worst-b", "白开水", "", "", -1, emoji: "", merchant: ""),
+                Item("worst-c", "", "甜品", "只有描述没有名字（同步商品缺 name）", 0, emoji: "🍮"),
+                Item("worst-d", MixedScript, WideTag, MixedScript, 128, emoji: "🍡"),
+                Item("worst-e", OneCharName, "杂货", LongEmail, 66, emoji: "🧦"),
+                Item("worst-f", "游乐园门票（双人 · 周末限定 · 需提前一天预约）", "场景券",
+                    LongChinese, 999, emoji: "🎡", ticket: true, scene: LongTitle, location: LongTitle + "入口"),
+                Item("worst-g", ArabicName, "药", "", 5, emoji: "💊", ai: true),
+                Item("worst-h", new string('长', 60), "节日限定 · 跨年 · 情人节 · 七夕 · 圣诞 · 周年庆",
+                    new string('好', 300), 520, emoji: "🎁", merchant: WideTag),
+                // 远程图（下载中 / 下载前的状态）：HasImage 为真、本地没有文件，必须仍然显示这张图。
+                Item("worst-i", "小雨的旧毛衣", "礼品", "缩水了，但穿着刚好。", 520,
+                    emoji: "🧶", image: "https://raw.githubusercontent.com/x/y/main/shop/old-sweater.png")
+            };
+
+            static ShopItem Item(string id, string name, string category, string desc, int price,
+                string emoji = "🎁", string merchant = "", string image = "", int owned = 0,
+                bool ticket = false, string scene = "", string location = "", bool ai = false) => new()
+            {
+                Id = id,
+                Name = name,
+                Category = category,
+                Desc = desc,
+                Price = price,
+                Emoji = emoji,
+                Merchant = merchant,
+                ImagePath = image,
+                Owned = owned,
+                IsTicket = ticket,
+                TicketScene = scene,
+                TicketLocation = location,
+                AiGenerated = ai,
+                Source = ai ? "ai" : image.Length > 0 ? "github" : "builtin"
+            };
+        }
+    }
+
+    // ==================== 存档管理 / 分支树（档案） ====================
+
+    /// <summary>
+    /// 存档列表与分支树共用同一份种子：名字超长 / 全是长句 / 空名字 / 场景空 / 角色空 / 日期跨年 /
+    /// 父档指向一个已经不存在的档（删档后留下的孤儿分支）。
+    /// </summary>
+    public static class Archive
+    {
+        public static List<(SaveSlot Slot, string CharacterName)> Slots(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new List<(SaveSlot, string)>();
+            if (mode == WorstCaseMode.One) return new List<(SaveSlot, string)> { (Make("one-1", "第一档", "卧室", Now(-1), null), OneCharName) };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 200)
+                    .Select(i => (Make($"huge-{i}",
+                            i % 17 == 0 ? LongTitle + " " + i : $"第 {i:000} 档",
+                            i % 13 == 0 ? LongChinese : "海边栈道",
+                            Now(-i * 9),
+                            i == 0 ? null : $"huge-{i - 1}",
+                            i % 6 == 0 ? "分支 " + i : ""),
+                        i % 7 == 0 ? LongName : "小雨"))
+                    .ToList();
+
+            var worst = new List<(SaveSlot, string)>
+            {
+                (Make("worst-a", LongTitle, MixedScript, Now(-3 * 60 * 24 * 400), null,
+                    "主线 · " + LongTitle), LongName),
+                (Make("worst-b", "", "", Now(-1), "worst-a"), "未知角色"),
+                (Make("worst-c", "再来一次", LongEmail, Now(0), "worst-a", ""), EmojiFirstName),
+                (Make("worst-d", WideTag, LongUrl, Now(-60 * 24 * 500), "gone-save-id", WideTag), ArabicName),
+                (Make("worst-e", new string('存', 80), "", default, null), VietnameseName),
+                (Make("worst-f", "跨年那一档", "旧年的房间", Now(-60 * 24 * 800), null), LongTitle),
+                (Make("worst-g", MixedScript, MixedScript, Now(60 * 24 * 40), null), "未知角色")
+            };
+            return worst;
+
+            static SaveSlot Make(string id, string label, string scene, DateTime at, string? parent, string branch = "") => new()
+            {
+                Id = id,
+                Label = label,
+                Scene = scene,
+                SavedAt = at,
+                Character = "worst",
+                ParentId = parent,
+                BranchName = branch,
+                ForkedAt = parent is null ? null : at
+            };
+
+            static DateTime Now(int minutes) => DateTime.UtcNow.AddMinutes(minutes);
+        }
+    }
+
+    // ==================== 设置 · 用量与单价 ====================
+
+    /// <summary>
+    /// 用量账本的极值：模型名长到铺满一行、带中文、带「（未标记）」、花费七位数、
+    /// 单价一万以下的小数、调用 0 次的模型、跨年 30 天时间序列。
+    /// </summary>
+    public static class Usage
+    {
+        /// <summary>留空的单价档 = 只统计 token；最坏档给「有价」这一路，好让金额分支也被走到。</summary>
+        public static bool HasPrices(WorstCaseMode mode) => mode != WorstCaseMode.Empty;
+
+        public static CostEstimatorService.UsageOverview Overview(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty)
+                return new(new(0, 0, 0, 0, 0, 0), new(0, 0, 0, 0, 0, 0), new(0, 0, 0, 0, 0, 0));
+            if (mode == WorstCaseMode.One)
+                return new(new(1, 12, 340, 0, 0, 0.0001), new(1, 12, 340, 0, 0, 0.0001), new(1, 12, 340, 0, 0, 0.0001));
+            if (mode == WorstCaseMode.Huge)
+                return new(new(99999, 999999999, 999999999, 99999999, 99999999, 99999.9999),
+                    new(999999, 9999999999, 9999999999, 999999999, 999999999, 999999.9999),
+                    new(2147483647, 999999999999, 999999999999, 99999999999, 99999999999, 9999999.9999));
+            return new(
+                new(1284, 9_876_543, 1_234_567, 8_765_432, 234_567, 1234.5678),
+                new(9999, 88_888_888, 9_999_999, 77_777_777, 1_999_999, 9999.9999),
+                new(99999, 999_999_999, 99_999_999, 888_888_888, 19_999_999, 123456.7891));
+        }
+
+        public static List<CostEstimatorService.ModelUsageRow> Models(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new();
+            if (mode == WorstCaseMode.One)
+                return new() { new CostEstimatorService.ModelUsageRow("gpt-4o-mini", 1, 12, 340, 0, 0, 0.0001) };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 60)
+                    .Select(i => new CostEstimatorService.ModelUsageRow($"vendor-{i:00}/model-with-a-long-deployment-suffix-{i}",
+                        1 + i * 37, 1000L * i, 500L * i, 400L * i, 90L * i, i * 13.37))
+                    .ToList();
+            return new()
+            {
+                new CostEstimatorService.ModelUsageRow("openai/gpt-6.2-astra-with-a-very-long-deployment-name-2026-11-22",
+                    12848, 123_456_789, 9_876_543, 111_111_111, 1_234_567, 123456.7891),
+                new CostEstimatorService.ModelUsageRow("（未标记）", 3, 120, 30, 0, 0, 0.0004),
+                new CostEstimatorService.ModelUsageRow("", 1, 4, 1, 0, 0, 0),
+                new CostEstimatorService.ModelUsageRow("deepseek-v4-pro", 99999, 999_999_999, 99_999_999, 888_888_888, 19_999_999, 0.0001),
+                new CostEstimatorService.ModelUsageRow("نموذج-عربي-طويل-الاسم", 42, 1_000, 2_000, 500, 0, 0.5)
+            };
+        }
+
+        public static List<CostEstimatorService.DayUsageRow> Days(WorstCaseMode mode, int days)
+        {
+            var today = DateTime.Now.Date;
+            var rows = new List<CostEstimatorService.DayUsageRow>();
+            for (var i = 0; i < days; i++)
+            {
+                var day = today.AddDays(-i);
+                var calls = mode switch
+                {
+                    WorstCaseMode.Empty => 0,
+                    WorstCaseMode.One => 1,
+                    WorstCaseMode.Huge => 99999,
+                    _ => (i * 137) % 9999
+                };
+                rows.Add(new(day, calls, calls * 1000L, calls * 300L, calls * 900L, calls * 20L, calls * 0.0123));
+            }
+            return rows;
+        }
+
+        public static List<CostEstimatorService.HeatBucket> Heat(WorstCaseMode mode)
+        {
+            var cells = new List<CostEstimatorService.HeatBucket>(168);
+            for (var wd = 0; wd < 7; wd++)
+                for (var h = 0; h < 24; h++)
+                {
+                    var calls = mode switch
+                    {
+                        WorstCaseMode.Empty => 0,
+                        WorstCaseMode.One => wd == 0 && h == 9 ? 1 : 0,
+                        WorstCaseMode.Huge => 99999,
+                        _ => (wd * 31 + h * 7) % 900
+                    };
+                    cells.Add(new(wd, h, calls * 1000L, calls));
+                }
+            return cells;
+        }
+
+        public static List<CostEstimatorService.CharacterUsageRow> Characters(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new();
+            if (mode == WorstCaseMode.One) return new() { new("小雨", "worst", 1, 12, 340, 0, 0, 0.0001) };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 80)
+                    .Select(i => new CostEstimatorService.CharacterUsageRow($"角色 {i:00} · 第三事业部", $"id-{i}", i * 13, i * 1000L, i * 300L, 0, 0, i * 0.7))
+                    .ToList();
+            return new()
+            {
+                new(LongName, "worst", 12848, 123_456_789, 9_876_543, 111_111_111, 1_234_567, 123456.7891),
+                new("（未标记）", "", 12, 1_000, 200, 0, 0, 0.3),
+                new("", "", 1, 4, 1, 0, 0, 0),
+                new(ArabicName, "worst", 99999, 999_999, 9_999, 0, 0, 0.0001),
+                new(LongTitle, "worst", 42, 1_000, 2_000, 500, 0, 0.5)
+            };
+        }
+
+        public static List<ModelPrice> Prices(WorstCaseMode mode)
+        {
+            if (mode is WorstCaseMode.Empty or WorstCaseMode.One)
+                return new() { new ModelPrice { Model = "gpt-4o-mini", InputPerMillion = 0.15, OutputPerMillion = 0.6 } };
+            return new()
+            {
+                new ModelPrice
+                {
+                    Model = "openai/gpt-6.2-astra-with-a-very-long-deployment-name-2026-11-22",
+                    InputPerMillion = 9999999, OutputPerMillion = 0.0001,
+                    CachedInputPerMillion = 1234567.8912, CachedOutputPerMillion = 0
+                },
+                // 只录了名字、四个价全 0：价格列必须显示空格子，而不是「0」
+                new ModelPrice { Model = "只录了名字的模型-" + WideTag }
+            };
+        }
+    }
+
+    // ==================== 设置 · 能力包（Skills） ====================
+
+    public static class Settings
+    {
+        /// <summary>30 个能力包，名字长短差十倍：设置页那条「已装 N 个，启用 M 个：…」会一次性铺满。</summary>
+        public static List<SkillLibrary.SkillInfo> Skills(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new List<SkillLibrary.SkillInfo>();
+            if (mode == WorstCaseMode.One)
+                return new List<SkillLibrary.SkillInfo> { Skill("diary", "写日记", "把一天收成一篇日记。", true) };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 120)
+                    .Select(i => Skill($"skill-{i:000}", $"能力包 {i}", LongChinese, i % 3 != 0))
+                    .ToList();
+            return new List<SkillLibrary.SkillInfo>
+            {
+                Skill("break-ui", "把界面压到最坏", "喂超长名字、空值、极端计数，看哪里先坏。", true),
+                Skill(WideTag, "企业上手引导", LongChinese, true),
+                Skill("diary", "写日记", "把一天收成一篇日记。", false),
+                Skill("一", "只有一个字", "", true),
+                Skill("نموذج-عربي", "阿拉伯语能力包", MixedScript, true),
+                Skill("🦊-fox", "emoji 开头的名字", "emoji 开头的能力包名在列表里是怎样排的。", false),
+                Skill("very-long-category-name-for-a-skill-that-does-something-quite-specific", "长名字",
+                    LongTitle + LongEmail, true),
+                Skill("map", "地图", "离线地图与地点。", true)
+            };
+
+            static SkillLibrary.SkillInfo Skill(string name, string title, string desc, bool enabled) =>
+                new(name, title, desc, Path.Combine(App.RootDirectory, "skills", name), true, name.Length % 2 == 0, enabled);
+        }
+    }
+
+    // ==================== 角色库 ====================
+
+    /// <summary>
+    /// 角色名册：超长名字 / 空名字（CharacterMask 出「？？？」）/ 单字名 / emoji 开头 / 阿拉伯名 /
+    /// 缺头像和立绘 / 超长性格与背景 / 好感越界（9999、-1）/ 一个角色挂在 128 份存档里。
+    /// </summary>
+    public static class Characters
+    {
+        public static List<(CharacterData Data, int SaveCount)> Roster(WorstCaseMode mode)
+        {
+            if (mode == WorstCaseMode.Empty) return new List<(CharacterData, int)>();
+            if (mode == WorstCaseMode.One)
+                return new List<(CharacterData, int)> { (Make("one-1", OneCharName, "话不多。", "", 12, 0, ""), 0) };
+            if (mode == WorstCaseMode.Huge)
+                return Enumerable.Range(0, 60)
+                    .Select(i => (Make($"huge-{i}",
+                        i % 9 == 0 ? LongTitle : $"第 {i:00} 位", i % 4 == 0 ? LongChinese : "温和", LongChinese,
+                        i % 5, i % 7, avatar: i % 3 == 0 ? "" : MissingAvatar($"huge-{i}.png")), i % 4))
+                    .ToList();
+
+            return new List<(CharacterData, int)>
+            {
+                (Make("worst-a", LongName, LongTitle + LongChinese, LongChinese, 9999, 12,
+                    MissingAvatar("worst-a.png")), 128),
+                (Make("worst-b", "", "", "", 0, 0, ""), 0),
+                (Make("worst-c", EmojiFirstName, "话少，但每句都记着。", MixedScript, -1, 3, ""), 1),
+                (Make("worst-d", ArabicName, LongEmail, LongEmail, 100, 1, MissingAvatar("worst-d.png")), 9999),
+                (Make("worst-e", OneCharName, "嗯", "", 50, 0, ""), 0),
+                (Make("worst-f", new string('名', 60), new string('性', 300), new string('背', 400), 72, 240,
+                    MissingAvatar("worst-f.png")), 12),
+                (Make("worst-g", VietnameseName, "Đặng Thị Ngọc Hân", "", 88, 0, ""), 3),
+                (Make("worst-h", LongTitle, "", "", 1, 0, ""), 0)
+            };
+
+            static CharacterData Make(string id, string name, string personality, string description,
+                int affection, int sprites, string avatar)
+            {
+                // 格子数与「有图的格子」一致：路径可以指向不存在的立绘 —— CellCount 数的是条目，不是文件。
+                var map = new Dictionary<string, string>();
+                for (var i = 0; i < sprites; i++)
+                    map[$"sprite_{i}"] = $"assets/characters/{id}/sprite_{i}-standing.png";
+                return new CharacterData
+                {
+                    Introduced = true,
+                    Avatar = avatar,
+                    SpriteMap = map,
+                    Profile = new CharacterProfile
+                    {
+                        Id = id,
+                        Name = name,
+                        Gender = "女",
+                        Personality = personality,
+                        Description = description,
+                        Catchphrase = MixedScript,
+                        UserAddress = "主人"
+                    },
+                    State = new CharacterState { Affection = affection, Trust = 0, Energy = 0 }
+                };
+            }
+
+            static string MissingAvatar(string name) => Path.Combine(App.RootDirectory, "avatars", name);
         }
     }
 }
