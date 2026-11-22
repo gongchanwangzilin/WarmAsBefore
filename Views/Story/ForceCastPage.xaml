@@ -3,6 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:models="clr-namespace:WarmAsBefore.Models"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.ForceCastPage"
              x:Name="Page"
              x:DataType="vm:ForceCastViewModel"
@@ -15,25 +16,18 @@
       现在一个角色 = 一行，全部装进同一张 CardGroup，行间压发丝线。
       上下两条 bar 不再是「贴上去的另一种材质」，而是同色地面 + 一根发丝线。
     -->
-    <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" Padding="0">
+    <Grid RowDefinitions="Auto,*,Auto,Auto" Padding="0">
 
-        <!-- 顶栏：返回 + 标题 + 状态读数 -->
-        <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                <Button Text="&lt; 返回" Style="{StaticResource BtnText}"
-                        Padding="0" VerticalOptions="Center"
-                        Command="{Binding BackCommand}" />
-                <Label Grid.Column="1" Text="点名 · 进入剧情"
-                       Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
-                <Label Grid.Column="2" Text="{Binding StatusText}" Style="{StaticResource TxtCaption}"
+        <!-- 页头：结构、高度、内距、分隔线全走 PageHeader（全站同一份） -->
+        <ctl:PageHeader Title="点名 · 进入剧情" BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}"
                        VerticalOptions="Center" LineBreakMode="TailTruncation" />
-            </Grid>
-        </Border>
-        <BoxView Grid.Row="1" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <!-- 列表 + 空状态 + 忙碌遮罩共用中间这一行 -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="1">
 
             <!-- 一个角色 = 一行；行首有勾选与头像，所以线从左缘缩进（跨过圆片会被读成「上一行的底」） -->
             <Border Style="{StaticResource CardGroup}" Margin="{DynamicResource WPadCard}"
@@ -105,8 +99,8 @@
         </Grid>
 
         <!-- 底部确定：同样只有一条线把它和正文分开 -->
-        <BoxView Grid.Row="3" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
-        <Border Grid.Row="4" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+        <BoxView Grid.Row="2" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill" />
+        <Border Grid.Row="3" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
                 Padding="{DynamicResource WPadWell}">
             <Button Text="确定点名 · 进入剧情" Style="{StaticResource BtnPrimary}"
                     HorizontalOptions="Fill" Command="{Binding ConfirmCommand}" />
