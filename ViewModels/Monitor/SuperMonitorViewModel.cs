@@ -53,12 +53,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     /// <summary>还没进存档：监测页只给一句提示，不去取任何数据（没存档就没人可监测）。</summary>
     [ObservableProperty] private bool _noSave;
-    /// <summary>3D 层不可用时的原因（拿不到就留空，页面不显示这行）。</summary>
-    [ObservableProperty] private string _vector3DNote = "";
-    [ObservableProperty] private bool _hasVector3DNote;
-
-    /// <summary>向量空间是 2D 投影画的，没有原生 3D 层要开关，恒为 true 只为了让旧绑定不炸。</summary>
-    [ObservableProperty] private bool _has3D;
 
     // ---- 向量空间：把记忆的数值向量投影到三维坐标系上，坐标与词语并排读 ----
     public Drawables.VectorCloudDrawable VectorDrawable { get; } = new();
@@ -67,6 +61,9 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
 
     private Action? _vectorInvalidate;
     public void AttachVectorInvalidate(Action invalidate) => _vectorInvalidate = invalidate;
+
+    /// <summary>回 UI 线程重画：MemoryVectorsAsync 的续体不保证在 UI 线程上，直接 Invalidate 会静默失效。</summary>
+    private void InvalidateVectors() => Helpers.Ui.Post(() => _vectorInvalidate?.Invoke());
 
     // ---- 整页状态灯：专注 / 神游 / 即将失效，是三盏灯而不是某一格的属性 ----
     [ObservableProperty] private string _ambientTitle = "神游";
@@ -96,8 +93,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         catch (Exception ex) { App.WriteLog("SuperMonitor.OpenInspector -> " + ex.Message); }
     }
-
-    partial void OnVector3DNoteChanged(string value) => HasVector3DNote = !string.IsNullOrWhiteSpace(value);
 
     public SuperMonitorViewModel(GameEngine engine, MemoryOverviewService overview)
     {
@@ -189,18 +184,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         catch (Exception ex) { App.WriteLog("SuperMonitor.Navigate -> " + ex.Message); }
     });
 
-    /// <summary>
-    /// 3D 向量显示的预留口：主 Agent 接 Evergine 时把一个 (可见, charId) -> void 的回调挂到这里，
-    /// 开关一拨就会通知场景显隐；不挂也不会崩，只是纯 2D 流程图照常工作。
-    /// </summary>
-    public static Action<bool, string>? VectorOverlayChanged;
-
     // ==================== 页面状态 ====================
 
     [ObservableProperty] private string _characterName = "";
     [ObservableProperty] private string _dateText = "";
     [ObservableProperty] private string _statusText = "";
-    [ObservableProperty] private bool _show3D;
     [ObservableProperty] private bool _hasSelection;
     [ObservableProperty] private NodeDetail? _selectedNode;
     /// <summary>选中节点的逐字段详情（标签,值），供 XAML BindableLayout 逐行展示，能「仔细看」。</summary>
@@ -215,14 +203,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         HasSelection = value is not null;
         // 取消选中（如定时重载）时把详情清空，避免残留上一个节点的字段。
         if (value is null) DetailLines = new ObservableCollection<DetailLine>();
-    }
-
-    /// <summary>3D 开关只改状态 + 通知外部桥；显隐由页面 IsVisible 负责，不做任何循环动画。</summary>
-    partial void OnShow3DChanged(bool value)
-    {
-        try { VectorOverlayChanged?.Invoke(value, CharId); }
-        catch (Exception ex) { App.WriteLog("SuperMonitor.VectorOverlay -> " + ex.Message); }
-        Redraw();
     }
 
     public void ApplyQueryAttributes(IDictionary<string, object> query)
@@ -336,7 +316,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             if (beat)
             {
                 Redraw();
-                try { _vectorInvalidate?.Invoke(); } catch { }
+                InvalidateVectors();
             }
             else if (FlowTracer.LitNodes().Count > 0) Redraw();
         }
@@ -420,6 +400,11 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 return;
             }
 
+            // 第一次算向量要真去问一次模型（AiTimeoutSeconds × 最多 4 枚密钥），这期间图上不会有任何点；
+            // 先把这句话写出来，免得用户对着一个空坐标系等。已经有点的重复刷新不再写，免得多余闪烁。
+            if (VectorDrawable.Points.Count == 0)
+                SetVectorCloud(Array.Empty<VectorPoint>(), "正在算向量，第一次可能要几十秒。");
+
             var vectors = await embed.MemoryVectorsAsync(id, entries);
             if (vectors.Count == 0)
             {
@@ -480,13 +465,14 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     private void SetVectorCloud(IReadOnlyList<VectorPoint> points, string note)
     {
         VectorDrawable.Points = points;
+        VectorDrawable.EmptyText = note;
         VectorNote = note;
 
         VectorRows.Clear();
         foreach (var p in points.OrderByDescending(p => p.Weight).Take(24))
             VectorRows.Add(new VectorCloudRow(p.Label, p.X, p.Y, p.Z));
 
-        try { _vectorInvalidate?.Invoke(); } catch { /* 画布不在时忽略 */ }
+        InvalidateVectors();
     }
 
     /// <summary>
@@ -1232,9 +1218,6 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         catch (Exception ex) { App.WriteLog("SuperMonitor.MarkDone -> " + ex.Message); }
     }
-
-    [RelayCommand]
-    private void Toggle3D() => Show3D = !Show3D;
 
     [RelayCommand]
     private async Task Back() => await Shell.Current.GoToAsync("..");

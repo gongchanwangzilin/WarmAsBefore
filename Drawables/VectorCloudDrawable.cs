@@ -20,8 +20,11 @@ public sealed class VectorCloudDrawable : IDrawable
 {
     private const float Pad = 46f;
 
-    /// <summary>点集。为空时只画坐标系和一句「还没有可投影的向量」。</summary>
+    /// <summary>点集。为空时只画坐标系和一句「为什么空着」—— 那句话由 VM 给，drawable 不自己编。</summary>
     public IReadOnlyList<VectorPoint> Points { get; set; } = Array.Empty<VectorPoint>();
+
+    /// <summary>空态说明（没配模型 / 没记忆 / 维度不足）。VM 每次数据到手都会一并写进来。</summary>
+    public string EmptyText { get; set; } = "还没有可投影的向量。";
 
     /// <summary>三根轴的名字：它们是向量分块均值，不是人工指定的语义，所以名字必须照实写。</summary>
     public string AxisX { get; set; } = "分块 Ⅰ";
@@ -88,8 +91,8 @@ public sealed class VectorCloudDrawable : IDrawable
             canvas.Font = Microsoft.Maui.Graphics.Font.Default;
             canvas.FontSize = 11.5f;
             canvas.FontColor = ink.WithAlpha(0.55f);
-            canvas.DrawString("还没有可投影的向量。", Pad, h - Pad + 10, w - Pad * 2, 20,
-                HorizontalAlignment.Left, VerticalAlignment.Center);
+            canvas.DrawString(EmptyText, Pad, h - Pad - 6, w - Pad * 2, 40,
+                HorizontalAlignment.Left, VerticalAlignment.Top);
             return;
         }
 

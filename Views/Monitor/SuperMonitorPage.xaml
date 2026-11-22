@@ -106,8 +106,10 @@
                     <Grid ColumnDefinitions="*,236" ColumnSpacing="8" RowDefinitions="Auto,*">
                         <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="2">
                             <Label Text="向量空间" Style="{StaticResource TxtSection}" />
-                            <Label Text="一条记忆一个点，坐标是它向量三段均值；亮的点更靠近你"
-                                   Style="{StaticResource TxtCaption}" MaxLines="2" />
+                            <!-- 副标题就是状态：有点时是「量化模型算出的 N 条…」，没点时是原因，
+                                 不再写一句永远成立不了的承诺。 -->
+                            <Label Text="{Binding VectorNote}"
+                                   Style="{StaticResource TxtCaption}" MaxLines="3" />
                         </VerticalStackLayout>
                         <Label Grid.Row="0" Grid.Column="1" Text="坐标 · 词语" Style="{StaticResource TxtCaption}"
                                VerticalOptions="End" HorizontalOptions="End" />
@@ -132,9 +134,6 @@
                 </Border>
 
                 <VerticalStackLayout Grid.Row="3" Spacing="2">
-                    <Label Text="{Binding VectorNote}" Style="{StaticResource TxtCaption}" MaxLines="3" />
-                    <Label Text="{Binding Vector3DNote}" IsVisible="{Binding HasVector3DNote}"
-                           Style="{StaticResource TxtCaption}" MaxLines="3" />
                     <Label Text="{Binding StatusText}" Style="{StaticResource TxtCaption}" MaxLines="2" />
                     <Label Text="{Binding InfluenceNote}" Style="{StaticResource TxtCaption}" MaxLines="2"
                            IsVisible="{Binding HasSelection}" />

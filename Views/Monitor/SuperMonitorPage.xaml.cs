@@ -1,9 +1,5 @@
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.ViewModels;
-#if ANDROID || WINDOWS
-using System.Collections.Generic;
-using WarmAsBefore.Services;
-#endif
 
 namespace WarmAsBefore.Views;
 
@@ -52,12 +48,6 @@ public partial class SuperMonitorPage : ContentPage
         vm.AttachVectorInvalidate(() => VectorCanvas.Invalidate());
 
         SizeChanged += (_, _) => ApplyResponsiveLayout(Width);
-
-#if ANDROID || WINDOWS
-        // 3D 这一层要等页面真的上屏再建：构造期就创建设备/交换链会在测量阶段把
-        // 原生合成拖进异常（COMException 0x80004005 那一路），而那时页面还没 Loaded，
-        // 3D 层本来也不会显示。
-#endif
     }
 
 
@@ -100,25 +90,23 @@ public partial class SuperMonitorPage : ContentPage
             Grid.SetRow(RailHost, 0); Grid.SetColumn(RailHost, 1);
             CanvasHost.HeightRequest = -1;
             CanvasHost.WidthRequest = -1;
+            CanvasHost.RowDefinitions[1].Height = GridLength.Star;   // 宽窗：流程图吃剩余高度
         }
         else
         {
             BodyGrid.ColumnDefinitions.Add(new ColumnDefinition(GridLength.Star));
-            BodyGrid.RowDefinitions.Add(new RowDefinition(new GridLength(StackedCanvasHeight)));
+            // 窄窗不能再把整块 CanvasHost 钉死在 320：它里面有流程图 + 向量卡（300）+ 注释，
+            // 钉死会把流程图压成 0、把向量卡挤出可视区。改成「整块按内容量高，流程图自己定 320」。
+            BodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
             BodyGrid.RowDefinitions.Add(new RowDefinition(GridLength.Star));
             BodyGrid.ColumnSpacing = 0;
             BodyGrid.RowSpacing = 12;
 
             Grid.SetRow(CanvasHost, 0); Grid.SetColumn(CanvasHost, 0);
             Grid.SetRow(RailHost, 1); Grid.SetColumn(RailHost, 0);
+            CanvasHost.RowDefinitions[1].Height = new GridLength(StackedCanvasHeight);
         }
     }
-
-#if ANDROID || WINDOWS
-    /// <summary>
-    /// VM 的 3D 开关回调：只管显隐与数据推送，任何 3D 失败都吞掉，绝不回头影响 2D 监测页。
-    /// </summary>
-#endif
 
     private void OnCanvasEnd(object? sender, TouchEventArgs e)
     {
