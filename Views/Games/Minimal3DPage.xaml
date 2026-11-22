@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:controls="clr-namespace:WarmAsBefore.Controls"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.Minimal3DPage"
              Title="3D 灰度视图"
              Shell.NavBarIsVisible="False"
@@ -13,18 +14,13 @@
     -->
     <Grid RowDefinitions="Auto,*,Auto">
 
-        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                Padding="{DynamicResource WPadWell}">
-            <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                <Button Grid.Column="0" Text="返回" Style="{StaticResource BtnText}"
-                        Padding="0" VerticalOptions="Center" Clicked="OnBackNav" />
-                <Label Grid.Column="1" Text="{Binding SceneTitle}" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
-                <Button Grid.Column="2" Text="回鸟瞰" Style="{StaticResource BtnNeumorphSm}"
-                        Clicked="OnOverview" />
-            </Grid>
-        </Border>
+        <!-- 顶栏：返回走组件的返回槽（这一页的处理器是 code-behind 的，包成 BackCommand 传进去） -->
+        <ctl:PageHeader Grid.Row="0" Title="{Binding SceneTitle}" BackText="返回"
+                        BackCommand="{Binding BackCommand}">
+            <ctl:PageHeader.Actions>
+                <Button Text="回鸟瞰" Style="{StaticResource BtnNeumorphSm}" Clicked="OnOverview" />
+            </ctl:PageHeader.Actions>
+        </ctl:PageHeader>
 
         <controls:Minimal3DView Grid.Row="1" x:Name="View3D" />
 
