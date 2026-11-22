@@ -32,11 +32,20 @@ public sealed class SaveManager
         _plugins = plugins;
     }
 
+    /// <summary>当前档的 Id（空 = 还没进任何档）。微信一类「只在存档内成立」的东西靠它判断。当前档</summary>
+    public string CurrentSaveId => _engine.CurrentSaveId;
+
     /// <summary>换档后刷新桌宠形象。由 RuntimeConfigurator 注入（替代原先的 PetService 静态调用）。</summary>
     public Func<Task>? RefreshPetForActiveSave { get; set; }
 
     /// <summary>当前会话的聊天记录：随每次保存写入存档，读档后恢复聊天界面。</summary>
     public List<ChatRecord> ChatLog { get; } = new();
+
+    /// <summary>
+    /// 假微信的消息，按角色分池，随存档落盘（键 wechat）。
+    /// 微信在存档内使用：同一角色在两个档里是两份不同的聊天记录，删档/换档都不会串。
+    /// </summary>
+    public Dictionary<string, List<PhoneMessage>> WeChatLog { get; } = new(StringComparer.Ordinal);
 
     /// <summary>
     /// 上一次 List() 时发现读不出来的存档文件（审计 U4）。
@@ -60,6 +69,7 @@ public sealed class SaveManager
     {
         _engine.CurrentSaveId = Guid.NewGuid().ToString("N")[..12];
         ChatLog.Clear();
+        WeChatLog.Clear();
         _scope.Raise();      // 新的一局 = 新的一份记忆，不能接着写上一个存档的记忆
         return _engine.CurrentSaveId;
     }
@@ -102,7 +112,11 @@ public sealed class SaveManager
                 // 副设定同理：每档一份「此刻之我」，不再区分共享与否。
                 ["sub_profiles"] = _engine.Roster.Values
                     .ToDictionary(c => c.Profile.Id, c => c.SubProfile),
-                ["chat"] = ChatLog.TakeLast(60).ToList()
+                ["chat"] = ChatLog.TakeLast(60).ToList(),
+                // 微信：每个角色各自一池，只留最近 200 条，别让存档无限长。
+                ["wechat"] = WeChatLog
+                    .Where(kv => kv.Value.Count > 0)
+                    .ToDictionary(kv => kv.Key, kv => kv.Value.TakeLast(200).ToList())
             };
             await _store.Save($"saves/{slot.Id}", data);
             // 刚写完这一档：把 meta 直接记进列表缓存。自动存档会反复重写同一个文件，
@@ -362,14 +376,16 @@ public sealed class SaveManager
                 var pCharStates = ParseSegment<Dictionary<string, CharacterState>>(doc, "char_states");
                 var pSubProfiles = ParseSegment<Dictionary<string, CharacterSubProfile>>(doc, "sub_profiles");
                 var pChat = ParseSegment<List<ChatRecord>>(doc, "chat");
+                var pWeChat = ParseSegment<Dictionary<string, List<PhoneMessage>>>(doc, "wechat");
                 var v = doc.RootElement.TryGetProperty("version", out var vv) && vv.TryGetInt32(out var ver) ? ver : 0;
-                return (pState, pCharState, pCharStates, pSubProfiles, pChat, v);
+                return (pState, pCharState, pCharStates, pSubProfiles, pChat, pWeChat, v);
             });
             var sState = parsed.pState;
             var sCharState = parsed.pCharState;
             var sCharStates = parsed.pCharStates;
             var sSubProfiles = parsed.pSubProfiles;
             var sChat = parsed.pChat;
+            var sWeChat = parsed.pWeChat;
             LoadDetailHook?.Invoke("五段解析完成，等待角色库…");
 
             // 分段失败只降级自己那一段（用默认值），其余段照常恢复；记录「段名 + 原因」。
@@ -440,6 +456,13 @@ public sealed class SaveManager
 
             ChatLog.Clear();
             if (sChat.Value is not null) ChatLog.AddRange(sChat.Value);
+
+            WeChatLog.Clear();
+            if (sWeChat.Value is not null)
+            {
+                foreach (var (cid, list) in sWeChat.Value)
+                    if (!string.IsNullOrEmpty(cid) && list is not null) WeChatLog[cid] = list;
+            }
 
             version = doc.RootElement.TryGetProperty("version", out var v) && v.TryGetInt32(out var ver) ? ver : 0;
         }

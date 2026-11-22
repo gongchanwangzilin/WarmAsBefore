@@ -41,6 +41,39 @@ public sealed partial class WeChatViewModel : ObservableObject
     [ObservableProperty] private bool _isStickerPanelVisible;
     // ============ 联系人列表（角色"假微信"：谁加过好友） ============
     [ObservableProperty] private bool _isContactListVisible = true;
+
+    /// <summary>会话列表的搜索词（按名字和最后一条过滤，纯本地）。</summary>
+    [ObservableProperty] private string _contactSearch = "";
+
+    /// <summary>竖栏「消息」那一格下面的数字：所有会话的未读之和。</summary>
+    public string UnreadTotalLabel => ContactList.Count(c => c.Unread) is var n && n > 0 ? n.ToString() : "消息";
+
+    partial void OnContactSearchChanged(string value) => ApplyContactFilter();
+
+    // 全屏对话时左栏与中栏要真的收成 0 宽：IsVisible=false 只是不画，列宽还占着，
+    // 于是「全屏」左边永远留着一条空白。宽度由 VM 说话，收起时是 0，展开时是 64/300。
+    public GridLength RailWidth => IsFullScreen ? new GridLength(0) : new GridLength(64);
+    public GridLength ListWidth => IsFullScreen ? new GridLength(0) : new GridLength(300);
+
+    private List<WeChatContactItem> _allContacts = new();
+
+    private void ApplyContactFilter()
+    {
+        var q = (ContactSearch ?? "").Trim();
+        var rows = string.IsNullOrEmpty(q)
+            ? _allContacts
+            : _allContacts.Where(c => (c.Name ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)
+                                  || (c.LastMessage ?? "").Contains(q, StringComparison.OrdinalIgnoreCase)).ToList();
+        MainThread.BeginInvokeOnMainThread(() =>
+        {
+            ContactList.ReplaceRange(rows);
+            HasContacts = ContactList.Count > 0;
+            OnPropertyChanged(nameof(UnreadTotalLabel));
+        });
+    }
+
+    [RelayCommand]
+    private async Task RefreshContacts() => await LoadContactsAsync();
     [ObservableProperty] private bool _hasContacts;
     /// <summary>微信联系人列表（来自 WeChatService：已经加过微信的常驻角色）。</summary>
     /// <remarks>
@@ -114,7 +147,12 @@ public sealed partial class WeChatViewModel : ObservableObject
     /// <summary>F22：全屏时联系人列表强制让位，退出全屏自动恢复。</summary>
     public bool ContactLayerVisible => IsContactListVisible && !IsFullScreen;
 
-    partial void OnIsFullScreenChanged(bool value) => OnPropertyChanged(nameof(ContactLayerVisible));
+    partial void OnIsFullScreenChanged(bool value)
+    {
+        OnPropertyChanged(nameof(ContactLayerVisible));
+        OnPropertyChanged(nameof(RailWidth));
+        OnPropertyChanged(nameof(ListWidth));
+    }
 
     private void OnSettingsApplied()
     {
@@ -748,8 +786,17 @@ public sealed partial class WeChatViewModel : ObservableObject
             var items = new List<WeChatContactItem>();
             using (PerfLog.Measure("页 · 微信 · 构造联系人"))
             {
+                // 存档内的每个角色都在好友列表里——微信是「这一档里的人和你的聊天」：
+                // 显式加过好友的（contacts）在前，本档其余角色补在后面。
+                var ids = new List<string>();
                 foreach (var c in contacts)
+                    if (!ids.Contains(c.CharacterId)) ids.Add(c.CharacterId);
+                foreach (var c in _engine.Roster.Keys)
+                    if (!ids.Contains(c)) ids.Add(c);
+
+                foreach (var id in ids)
                 {
+                    var c = contacts.FirstOrDefault(x => x.CharacterId == id) ?? new WeChatContact { CharacterId = id };
                     var ch = chars.FirstOrDefault(x => x.Profile.Id == c.CharacterId);
                     if (ch is null) continue;
                     var avatarPath = "";
@@ -768,12 +815,14 @@ public sealed partial class WeChatViewModel : ObservableObject
                     });
                 }
             }
+            _allContacts = items;
             MainThread.BeginInvokeOnMainThread(() =>
             {
                 // 一次 Reset 装完整张名册：原来 Clear + 逐条 Add 每条都要重排列表。
                 using (PerfLog.Measure("页 · 微信 · 填充联系人"))
                     ContactList.ReplaceRange(items);
                 HasContacts = ContactList.Count > 0;
+                OnPropertyChanged(nameof(UnreadTotalLabel));
             });
         }
         catch (Exception ex)
@@ -823,6 +872,10 @@ public sealed class WeChatContactItem
     public string Avatar { get; init; } = "";
     public string LastMessage { get; init; } = "";
     public bool Unread { get; init; }
+    /// <summary>QQ 那种右上角时间：有最后一条就显示相对时间，没有就空着。</summary>
+    public string TimeLabel { get; init; } = "";
+    /// <summary>未读小红点里的数字，超 99 显示 99+。</summary>
+    public string UnreadLabel { get; init; } = "1";
     public bool HasAvatar => !string.IsNullOrEmpty(Avatar);
     public string Initial => string.IsNullOrEmpty(Name) ? "?" : Name[..1];
 }

@@ -30,12 +30,21 @@ public sealed class PhoneMessageService
     private const int MaxPerCharacter = 120;
 
     private readonly StorageProvider _store;
+    private readonly Modules.SaveSystem.SaveManager _save;
     private readonly SemaphoreSlim _lock = new(1, 1);
+    private CancellationTokenSource? _persistCts;
     // 微信/QQ 页的 ViewModel 是 transient，页面关掉就没用了。用弱引用订阅，
     // 免得每个开过页面的 VM 都被单例服务强引用住、永远回收不掉。
     private readonly List<WeakReference<Action<PhoneMessage>>> _subs = new();
 
-    public PhoneMessageService(StorageProvider store) => _store = store;
+    public PhoneMessageService(StorageProvider store, Modules.SaveSystem.SaveManager save)
+    {
+        _store = store;
+        _save = save;
+    }
+
+    /// <summary>现在是否活在一份存档里。微信只在存档内成立，没有存档时才退回老的全局列表。</summary>
+    private bool InSave => !string.IsNullOrEmpty(_save.CurrentSaveId);
 
     /// <summary>订阅新消息。调用方要自己持有这个委托（存成字段），否则会被 GC 收走。</summary>
     public void Subscribe(Action<PhoneMessage> handler)
@@ -66,6 +75,40 @@ public sealed class PhoneMessageService
     public async Task<IReadOnlyList<PhoneMessage>> ForAsync(string characterId)
     {
         if (string.IsNullOrEmpty(characterId)) return Array.Empty<PhoneMessage>();
+        if (InSave)
+        {
+            // 存档内的分角色池：这一档里这个角色的全部消息。
+            if (_save.WeChatLog.TryGetValue(characterId, out var mine) && mine.Count > 0)
+                return WithoutFailures(mine).OrderBy(m => m.At).ToList();
+
+            // 老数据（全局 phone_messages）只在第一次遇到这一档时搬进来一次，之后不再读它，
+            // 否则同一个角色在两个档里会看到同一份历史。
+            var legacy = WithoutFailures(await LegacyForAsync(characterId)).ToList();
+            if (legacy.Count > 0)
+            {
+                _save.WeChatLog[characterId] = legacy.TakeLast(MaxPerCharacter).ToList();
+                SchedulePersist();
+            }
+            return legacy;
+        }
+        // 没有档时（首页/角色库）读的是老的全局列表，同样要滤掉失败回显。
+        return WithoutFailures(await LegacyForAsync(characterId)).ToList();
+    }
+
+    /// <summary>
+    /// 老数据里混着一批「[API错误 …]」「[请求超时 …]」的失败回显——它们被当成了聊天内容存下来，
+    /// 于是刚进微信页就看到三条报错，像是没说话她就在调接口。这一类不是对话，读的时候滤掉。
+    /// </summary>
+    private static IEnumerable<PhoneMessage> WithoutFailures(IEnumerable<PhoneMessage> src) =>
+        src.Where(m =>
+        {
+            var t = (m.Text ?? "").TrimStart();
+            return !(t.StartsWith("[API错误", StringComparison.Ordinal)
+                  || t.StartsWith("[请求超时", StringComparison.Ordinal));
+        });
+
+    private async Task<List<PhoneMessage>> LegacyForAsync(string characterId)
+    {
         try
         {
             var data = await _store.Load<PhoneMessageStore>(StoreKey) ?? new PhoneMessageStore();
@@ -75,7 +118,7 @@ public sealed class PhoneMessageService
         catch (Exception ex)
         {
             App.WriteLog("PhoneMessageService.For -> " + ex.Message);
-            return Array.Empty<PhoneMessage>();
+            return new List<PhoneMessage>();
         }
     }
 
@@ -95,13 +138,25 @@ public sealed class PhoneMessageService
         await _lock.WaitAsync();
         try
         {
-            var data = await _store.Load<PhoneMessageStore>(StoreKey) ?? new PhoneMessageStore();
-            data.Items.Add(msg);
-            // 每个角色只留最近若干条，别让这个文件无限长。
-            data.Items = data.Items.GroupBy(m => m.CharacterId)
-                .SelectMany(g => g.OrderBy(m => m.At).TakeLast(MaxPerCharacter))
-                .OrderBy(m => m.At).ToList();
-            await _store.Save(StoreKey, data);
+            if (InSave)
+            {
+                if (!_save.WeChatLog.TryGetValue(msg.CharacterId, out var list))
+                    _save.WeChatLog[msg.CharacterId] = list = new List<PhoneMessage>();
+                list.Add(msg);
+                if (list.Count > MaxPerCharacter)
+                    _save.WeChatLog[msg.CharacterId] = list.OrderBy(m => m.At).TakeLast(MaxPerCharacter).ToList();
+                SchedulePersist();
+            }
+            else
+            {
+                var data = await _store.Load<PhoneMessageStore>(StoreKey) ?? new PhoneMessageStore();
+                data.Items.Add(msg);
+                // 每个角色只留最近若干条，别让这个文件无限长。
+                data.Items = data.Items.GroupBy(m => m.CharacterId)
+                    .SelectMany(g => g.OrderBy(m => m.At).TakeLast(MaxPerCharacter))
+                    .OrderBy(m => m.At).ToList();
+                await _store.Save(StoreKey, data);
+            }
         }
         catch (Exception ex)
         {
@@ -111,5 +166,36 @@ public sealed class PhoneMessageService
 
         Raise(msg);
         return msg;
+    }
+
+    /// <summary>
+    /// 攒 1.8 秒再写盘：连发几条消息时不会每条都整档重写一次。
+    /// 写的是「当前档」——换档之前必须已经落盘，否则消息跟着上一档走了。
+    /// </summary>
+    private void SchedulePersist()
+    {
+        _persistCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        _persistCts = cts;
+        _ = Task.Run(async () =>
+        {
+            try
+            {
+                await Task.Delay(1800, cts.Token);
+                if (cts.IsCancellationRequested || !InSave) return;
+                await _save.Commit("微信", "para");
+            }
+            catch (OperationCanceledException) { }
+            catch (Exception ex) { App.WriteLog("PhoneMessageService.Persist -> " + ex.Message); }
+        });
+    }
+
+    /// <summary>换档/退出前把还没落盘的微信消息写进去。</summary>
+    public async Task FlushAsync()
+    {
+        _persistCts?.Cancel();
+        if (!InSave) return;
+        try { await _save.Commit("微信", "para"); }
+        catch (Exception ex) { App.WriteLog("PhoneMessageService.Flush -> " + ex.Message); }
     }
 }

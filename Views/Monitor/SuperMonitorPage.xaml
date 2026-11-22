@@ -49,7 +49,7 @@
                      这是整页的状态，不是某一格的属性，所以放在画布顶上。 -->
                 <Grid Grid.Row="0" ColumnDefinitions="*,Auto" ColumnSpacing="14">
                     <VerticalStackLayout Spacing="2" VerticalOptions="Center">
-                        <Label Text="架构活流程图" Style="{StaticResource TxtSection}" />
+                        <Label Text="架构活动流程图" Style="{StaticResource TxtSection}" />
                         <Label Text="对话执行时，流经的节点会亮起；点任意节点看它的读数与影响"
                                Style="{StaticResource TxtCaption}" MaxLines="2" />
                     </VerticalStackLayout>
