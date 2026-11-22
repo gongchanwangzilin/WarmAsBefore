@@ -4,26 +4,18 @@
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:models="clr-namespace:WarmAsBefore.Models"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.ShowcaseListPage"
              Title="开发者展示模式"
              Shell.NavBarIsVisible="False"
              Background="{DynamicResource PageBgBrush}">
 
     <Grid RowDefinitions="Auto,*">
-        <!-- 顶栏跟地面同档、不是一张卡，也不带发光边：内容区靠下面那条发丝线开始。 -->
-        <VerticalStackLayout Grid.Row="0" Spacing="0">
-            <Border Background="{DynamicResource WBarBrush}" StrokeThickness="0"
-                    Padding="{DynamicResource WPadRow}">
-                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                    <Button Grid.Column="0" Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
-                            Style="{StaticResource BtnText}" Padding="0" VerticalOptions="Center"
-                            Command="{Binding BackCommand}" />
-                    <Label Grid.Column="1" Text="开发者展示模式" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                </Grid>
-            </Border>
-            <BoxView Style="{StaticResource HSep}" />
-        </VerticalStackLayout>
+        <!-- 页头跟地面同档、不是一张卡：结构、高度、内距与那条发丝线走 PageHeader（全站同一份）。
+             返回钮的文案仍走本地化，不从组件默认值里再写一遍中文。 -->
+        <ctl:PageHeader Grid.Row="0" Title="开发者展示模式"
+                        BackText="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}"
+                        BackCommand="{Binding BackCommand}" />
 
         <Grid Grid.Row="1" RowDefinitions="*,Auto" RowSpacing="{DynamicResource WGapSection}"
               Padding="{DynamicResource WPadCard}">
