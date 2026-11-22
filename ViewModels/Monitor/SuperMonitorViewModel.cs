@@ -843,7 +843,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                     });
             }
 
-            Remember("stat-affection", $"好感 {numeric.Affection:0}", "数值", "Active",
+            Remember("stat-affection", $"好感 {Helpers.AffectionScale.TextOf((int)Math.Round(numeric.Affection))}", "数值", "Active",
                 "关系亲近程度", "好感越高，越愿意主动靠近你",
                 new[]
                 {
@@ -1083,7 +1083,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
                 l.Name, $"{l.Count} {l.Unit}", l.Detail)));
             Stats = new ObservableCollection<StatRow>(new[]
             {
-                new StatRow("好感", $"{numeric.Affection:N0}"),
+                new StatRow("好感", Helpers.AffectionScale.TextOf((int)Math.Round(numeric.Affection))),
                 new StatRow("信任", $"{numeric.Trust:N0}"),
                 new StatRow("精力", $"{numeric.Energy:N0}")
             });
