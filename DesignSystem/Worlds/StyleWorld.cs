@@ -325,6 +325,37 @@ public static class StyleWorldTokens
                 res["WEdgeWidth"] = width;
         }
         if (res.TryGetValue("GlassBarBg", out var bar) == true && bar is Brush barBrush) res["WBarBrush"] = barBrush;
+
+        // 墨阶跟着**实际合成出来的面**走（自动反色）：面亮就给深墨，面暗就给浅墨。
+        // 这是构造性的 —— 不管色板、壁纸、透明度怎么调，正文永远落在对比达标的那一侧。
+        if (res.TryGetValue(Theme.GlassTokens.PanelColor, out var pv) == true && pv is Color panel)
+            RelockInk(res, panel);
+    }
+
+    /// <summary>
+    /// 按合成面重算墨阶。目标对比比与 <see cref="Publish"/> 里那套一字不差
+    /// （显示 9/11、正文 7.6/8.4、标签 6.4/7.0、说明 5.0/5.4、极淡 3.1/3.4），
+    /// 所以换不换玻璃档，字的层数关系不变 —— 变的只有明暗方向，而方向由面自己的明度决定。
+    ///
+    /// 阈值取 0.42 而不是 0.5：这是 Lab 那条明度曲线的弯处，再往上「浅面」就开始被读成中调，
+    /// 而中调面上的白字本来就是最糟的一种。
+    /// </summary>
+    private static void RelockInk(ResourceDictionary res, Color panel)
+    {
+        var dark = Lum(panel) < 0.42;
+        var inkDisplay = Lock(SinkOrLift(panel, dark, 0.86, 0.94), panel, dark ? 9.0 : 11.0);
+        var inkBody = Lock(SinkOrLift(panel, dark, 0.74, 0.88), panel, dark ? 7.6 : 8.4);
+        var inkLabel = Lock(SinkOrLift(panel, dark, 0.62, 0.80), panel, dark ? 6.4 : 7.0);
+        var inkMuted = Lock(SinkOrLift(panel, dark, 0.46, 0.66), panel, dark ? 5.0 : 5.4);
+        var inkFaint = Lock(SinkOrLift(panel, dark, 0.28, 0.44), panel, dark ? 3.1 : 3.4);
+
+        res["WarmDark"] = inkDisplay;
+        res["SurfaceFg"] = inkBody;
+        res["WarmBody"] = inkLabel;
+        res["MutedFg"] = inkMuted;
+        res["WarmMuted"] = inkMuted;
+        res["WarmFaint"] = inkFaint;
+        res["PrimaryFg"] = inkBody;
     }
 
     /// <summary>

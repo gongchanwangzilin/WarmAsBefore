@@ -39,6 +39,12 @@ public sealed class GlassSwitch : ContentView
     /// <summary>液柱与玻璃边之间留的那一线：液柱在玻璃**腔里**，不是盖在边上。</summary>
     private const double Inset = 1.5;
     private const double FillH = TrackH - 2 * Inset;
+    /// <summary>
+    /// 液柱宽度的最小值。**不能写 0**：MAUI 的 WidthRequest 没有「设成 0」这回事，
+    /// 0 就是默认值（= 未设置），Border 于是按父布局撑满整条轨道 —— 关态会看到一条铺满的
+    /// 强调色实心块，把整块玻璃盖死（用户反馈「开关还是没有玻璃效果」就是这个）。
+    /// </summary>
+    private const double FillMin = 0.01;
     private const int TravelMs = 210;
     private const int FillMs = 190;
 
@@ -98,7 +104,7 @@ public sealed class GlassSwitch : ContentView
         _fill = new Border
         {
             HeightRequest = FillH,
-            WidthRequest = 0,
+            WidthRequest = FillMin,
             HorizontalOptions = LayoutOptions.Start,
             VerticalOptions = LayoutOptions.Center,
             StrokeThickness = 0,
@@ -182,7 +188,7 @@ public sealed class GlassSwitch : ContentView
             _knob.AbortAnimation("TranslateTo");
             this.AbortAnimation("FillWidth");
             _knob.TranslationX = knobX;
-            _fill.WidthRequest = fillW;
+            _fill.WidthRequest = fillW < 0.5 ? FillMin : fillW;
             _knob.Scale = 1;
             return;
         }
@@ -191,7 +197,7 @@ public sealed class GlassSwitch : ContentView
         _ = _knob.TranslateTo(knobX, 0, (uint)ms, spring);
 
         // 液柱宽度：灌满/退回都走同一条弹簧，末段那点过冲正好是液体「涌过头再落平」的样子。
-        new Animation(v => _fill.WidthRequest = v, _fill.WidthRequest, fillW)
+        new Animation(v => _fill.WidthRequest = v, _fill.WidthRequest, Math.Max(FillMin, fillW))
             .Commit(this, "FillWidth", 16, (uint)MotionTokens.Ms(FillMs), spring);
 
         // 圆钮被推的那一下涨一点：过冲只给 7%，再多就成了橡皮球。

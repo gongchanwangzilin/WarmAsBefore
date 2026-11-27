@@ -19,12 +19,10 @@
             <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
                     Padding="0" VerticalOptions="Center"
                     Command="{Binding GoBackCommand}" />
-            <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                <Image Source="titlelogo.png" WidthRequest="28" HeightRequest="28" Aspect="AspectFill"
-                       VerticalOptions="Center" />
-                <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
-                       VerticalOptions="Center" />
-            </Grid>
+            <!-- 页名不再带图标（2026-11-27）：左边那颗 titlelogo 是「另一个 App 的图标」的读法，
+                 页名本身就是这一页的标识。改成单列，横距也就不用留图标那一份。 -->
+            <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                   Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
         </Grid>
 
         <Border Grid.Row="1" Background="{DynamicResource WRule}" HeightRequest="1" StrokeThickness="0" />

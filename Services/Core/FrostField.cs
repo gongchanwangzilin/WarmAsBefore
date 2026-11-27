@@ -38,9 +38,20 @@ public static class FrostField
     private static bool _loading;
     private static bool _hooked;
     private static int _version;
+    private static SKColor _mean = SKColors.Transparent;
 
     /// <summary>取样内容变一次就加一。玻璃缓存键里必须带它。</summary>
     public static int Version { get { lock (Gate) return _version; } }
+
+    /// <summary>
+    /// 这张糊底的平均色（解码时按 32×32 网格采出来）。
+    ///
+    /// 谁要它：墨阶。玻璃档下正文压在**合成出来的面**上，而不是压在世界下发的那颗 SurfaceBg 上 ——
+    /// 一张浅色壁纸背后的玻璃是浅的，这时若还按深色 SurfaceBg 发白字，字就直接没了
+    /// （实测就是这样：设置页整屏白字压在浅灰玻璃上，几乎读不出来）。
+    /// 所以「面到底有多亮」必须从真实糊底的平均色算，不能从色板猜。
+    /// </summary>
+    public static SKColor Mean { get { lock (Gate) return _mean; } }
 
     /// <summary>解好码的糊底（只读共享，调用方**不许** Dispose）。没有糊底时返回 null。</summary>
     public static SKBitmap? Bitmap { get { lock (Gate) return _bitmap; } }
@@ -114,10 +125,33 @@ public static class FrostField
                 _bitmap = bmp;
                 _path = path;
                 _version++;
+                _mean = Average(bmp);
                 old?.Dispose();
             }
             try { Changed?.Invoke(); }
             catch (Exception ex) { App.WriteLog("FrostField.Changed -> " + ex.Message); }
         });
+    }
+
+    /// <summary>
+    /// 平均色：32×32 网格取点求均值。糊底本来就是一张大幅度模糊过的图，几千个采样点足够，
+    /// 也不值得为它遍历几百万像素（这张图在换壁纸时会被重新算，不差这一下，但不必浪费）。
+    /// </summary>
+    private static SKColor Average(SKBitmap bmp)
+    {
+        const int Steps = 32;
+        double r = 0, g = 0, b = 0, n = 0;
+        for (var i = 0; i < Steps; i++)
+        {
+            var y = (int)((i + 0.5) / Steps * bmp.Height);
+            for (var j = 0; j < Steps; j++)
+            {
+                var x = (int)((j + 0.5) / Steps * bmp.Width);
+                var c = bmp.GetPixel(x, y);
+                r += c.Red; g += c.Green; b += c.Blue; n++;
+            }
+        }
+        if (n < 1) return SKColors.Transparent;
+        return new SKColor((byte)Math.Round(r / n), (byte)Math.Round(g / n), (byte)Math.Round(b / n));
     }
 }

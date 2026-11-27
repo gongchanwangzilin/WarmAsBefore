@@ -160,6 +160,7 @@ internal static class GlassFace
             if (live) DrawRefraction(canvas, frost!, map, p, w, h, density);
             if (!p.Hollow)
             {
+                if (live) DrawBevel(canvas, frost!, map, p, w, h, density);
                 DrawFace(canvas, p, w, h);
                 DrawTint(canvas, p, w, h);
             }
@@ -251,6 +252,75 @@ internal static class GlassFace
             DrawFrost(canvas, frost, map, p, w, h, weight, RefractGain);
             canvas.Restore();
         }
+    }
+
+    /// <summary>
+    /// 上下两条**柱面**：玻璃是一块有厚度的板，板的上下两条边被磨圆了 ——
+    /// 一条亮棱、一道暗槽，中间那一带的内容是顺着弧面滚下来的。
+    ///
+    /// 为什么它是「厚度」而 <see cref="DrawInnerShadow"/> 不是：内影只说明「这里有边」，
+    /// 柱面说明「边是绕着一条轴线弯的」—— 那条压缩过的糊底（竖直压到 0.55 倍）
+    /// 会跟着背后的内容一起动，眼睛读到的是材料而不是描边。用户要的「物理一样的厚玻璃」
+    /// 和「按键像从两个柱面里伸出来」，缺的就是这一层。
+    ///
+    /// 深度随厚度走（2.6~10 dp），按下时收掉四分之一：材料被压进去，柱面就矮一档。
+    /// </summary>
+    private static void DrawBevel(SKCanvas canvas, SKBitmap frost, in FrostMap map, in GlassFaceParams p,
+        int w, int h, double density)
+    {
+        var thick = Math.Clamp(p.Thickness, 0, 1.4) / 1.15;
+        if (p.Pressed) thick *= 0.75;
+        var depth = (float)Math.Min(h * 0.24, (2.6 + 7.4 * thick) * density);
+        if (depth < 2f) return;
+
+        BevelEdge(canvas, frost, map, p, w, h, depth, thick, top: true);
+        BevelEdge(canvas, frost, map, p, w, h, depth, thick, top: false);
+    }
+
+    private static void BevelEdge(SKCanvas canvas, SKBitmap frost, in FrostMap map, in GlassFaceParams p,
+        int w, int h, float depth, double thick, bool top)
+    {
+        var rect = top ? new SKRect(0, 0, w, depth) : new SKRect(0, h - depth, w, h);
+
+        canvas.Save();
+        using (var clip = new SKPath())
+        {
+            clip.AddRect(rect);
+            canvas.ClipPath(clip, SKClipOperation.Intersect, true);
+        }
+
+        // ① 柱面里的内容：糊底沿竖直方向压到 0.55 倍再铺一次。
+        //    压缩会把「远处的内容」拉进这条带里 —— 这就是光绕过一个圆柱面时看到的东西。
+        canvas.Save();
+        if (top) canvas.Scale(1f, 0.55f);
+        else
+        {
+            canvas.Translate(0, h);
+            canvas.Scale(1f, 0.55f);
+            canvas.Translate(0, -h);
+        }
+        DrawFrost(canvas, frost, map, p, w, h, 0.88f, 1f);
+        canvas.Restore();
+
+        // ② 柱面自己的明暗：外缘压一道暗（切线处最暗）、内缘提一道亮（正对光的那条棱），
+        //    最里面淡出，接回面上的 tint。三笔的顺序就是「转角 → 棱 → 面」。
+        var outer = top ? rect.Top : rect.Bottom;
+        var inner = top ? rect.Bottom : rect.Top;
+        using var shader = SKShader.CreateLinearGradient(
+            new SKPoint(0, outer), new SKPoint(0, inner),
+            new[]
+            {
+                new SKColor(0, 0, 0, A(0.20)),
+                new SKColor(0, 0, 0, A(0.05)),
+                SKColors.White.WithAlpha(A(0.30 + 0.26 * thick)),
+                SKColors.White.WithAlpha(0)
+            },
+            new[] { 0f, 0.36f, 0.74f, 1f },
+            SKShaderTileMode.Clamp);
+        using var paint = new SKPaint { IsAntialias = true, Shader = shader };
+        canvas.DrawRect(rect, paint);
+
+        canvas.Restore();
     }
 
     /// <summary>

@@ -398,7 +398,9 @@ public partial class App : Application
             WriteLog("CreateWindow: building AppShell");
             var win = new Window(new AppShell())
             {
-                Title = "温暖如初 · Warm As Before",
+                // 窗框上只留作品名（2026-11-27）：原来的「· Warm As Before」是一串没人读的
+                // 主题英文名，压在标题栏里跟界面语言对不上。任务栏与 Alt+Tab 仍然认得出这是谁。
+                Title = "温暖如初",
                 Width = 1280,
                 Height = 800
             };

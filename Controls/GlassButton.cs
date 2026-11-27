@@ -235,7 +235,10 @@ public sealed class GlassButton : ContentView
             TranslationY = on ? MotionTokens.Press : 0;
             return;
         }
-        var ease = new Easing(MotionTokens.Spring);
+        // 按下走「快说到位」的 CubicOut，松手才走弹簧（Spring 的四条常量 = 末段 1.30 的过冲）。
+        // 按下也用弹簧的话，前 70ms 里那块玻璃会先往上抬一下再被压下去 —— 手感是黏的，
+        // 而用户要的是「按下去、松手弹回来」这一条单向的力道。
+        var ease = on ? Easing.CubicOut : new Easing(MotionTokens.Spring);
         _ = this.ScaleTo(on ? MotionTokens.PressScale : 1.0, (uint)ms, ease);
         _ = this.TranslateTo(0, on ? MotionTokens.Press : 0, (uint)ms, ease);
     }

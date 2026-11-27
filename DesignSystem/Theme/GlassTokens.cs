@@ -1,4 +1,4 @@
-namespace WarmAsBefore.DesignSystem.Theme;
+﻿namespace WarmAsBefore.DesignSystem.Theme;
 
 /// <summary>一次玻璃下发所需的全部参数。</summary>
 public readonly record struct GlassParams(
@@ -88,6 +88,12 @@ public static class GlassTokens
 
     /// <summary>页面里那条「1px 发丝线」的数值版：页面 XAML 不再自带描边数值。</summary>
     public const string HairlineKey = "GlassHairline";
+
+    /// <summary>
+    /// 玻璃档下**卡片面合成出来的实际颜色**。只有墨阶读它（见 <see cref="Worlds.StyleWorld.ApplyFace"/>）：
+    /// 正文压在这块面上，「面有多亮」决定字该往黑走还是往白走。
+    /// </summary>
+    public const string PanelColor = "GlassPanelColor";
 
     // ── 规则常量 ────────────────────────────────────────────────────────
 
@@ -241,7 +247,10 @@ public static class GlassTokens
             if (p.Reduced) return new Color(c.Red, c.Green, c.Blue, 1f);
             // 磨砂越重，面越奶一档（alpha 略升）：磨砂不是变模糊（那是底层的事），是变奶
             var milk = 1 + 0.30 * f;
-            var a1 = a * (0.80 + 0.30 * t) * milk;
+            // 透明度滑杆的行程（2026-11-27 放开的）：原来只有 0.80~1.10，推到 1 也只薄一档，
+            // 用户实测「调到最后还是不透」。现在是 0.26~1.42 —— 低端是近乎实心的板，
+            // 高端比上一版最透的那一档再薄三成，中间才有真正可调的路。
+            var a1 = a * (0.26 + 1.16 * t) * milk;
             var alpha = FrostedBackdrop
                 ? Math.Clamp(a1, 0, FaceCeiling)
                 : Math.Clamp(0.80 + a1 * 0.22, 0, OpaqueAlpha + 0.02);
@@ -384,6 +393,22 @@ public static class GlassTokens
         // 低配机器或排查卡顿时可用它换流畅。
         res[CardShadow] = noShadow || flat ? null : ShadowOf(GlassKind.Card, card);
 
+        // ── 合成面的实际颜色（墨阶的唯一依据）──────────────────────────────
+        // 玻璃档下正文压在**这块面**上，而不是压在世界下发的那颗 SurfaceBg 上。
+        // 一张浅色壁纸/浅色纯色底背后的玻璃是浅的，这时若还按深色 SurfaceBg 发白字，
+        // 字就直接没了（实测：设置页整屏白字压在浅灰玻璃上，几乎读不出来）。
+        // 所以这里把「糊底平均色 → 卡面的 tint → 面上那层受光」叠一遍，交出它的平均值，
+        // 由 StyleWorld 拿它重算墨阶 —— 「面有多亮，字就有多黑/多白」从此是一条构造出来的规则。
+        var backdrop = surface;
+        if (FrostedBackdrop && Services.FrostField.Mean.Alpha > 0)
+        {
+            var m = Services.FrostField.Mean;
+            backdrop = Color.FromRgb(m.Red / 255.0, m.Green / 255.0, m.Blue / 255.0);
+        }
+        var panel = Mix(backdrop, tint.Mid, Face(tint.Mid, card.FaceBody).Alpha);
+        panel = Mix(panel, tint.Top, 0.07);   // DrawFace 那条受光渐变的平均浓度
+        res[PanelColor] = panel;
+
         // ── 按钮：透明玻璃（2026-11-27，照 iOS 26 液态玻璃）──────────────────
         // 面几乎不画实色：白 7%~15%，按钮之所以还站得住，全靠外面那一圈亮环 + 一圈外发光。
         // 这里刻意**不走** Face() 那条「没有糊底就补到七成实」的兜底 —— 按钮从来不直接压在
@@ -391,7 +416,7 @@ public static class GlassTokens
         Color Clear(Color c, double a)
         {
             if (p.Reduced) return new Color(c.Red, c.Green, c.Blue, 0.92f);
-            return new Color(c.Red, c.Green, c.Blue, (float)Clamp01(a * (0.55 + 0.55 * t)));
+            return new Color(c.Red, c.Green, c.Blue, (float)Clamp01(a * (0.28 + 1.12 * t)));
         }
 
         // 面：左上那颗镜面 → 顶面 → 主体 → 侧壁。五段里只有前两段是「白」，后两段是板的暗面 ——
