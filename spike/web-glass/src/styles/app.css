@@ -1,0 +1,420 @@
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-ui);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+.world {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  background: #0b0c0e;
+  color: var(--ink-body, #e7e1d3);
+  font-size: var(--size-body);
+  line-height: 1.45;
+}
+
+/* 地面：不是纯色。有明暗，玻璃才透得出东西。 */
+.ground {
+  position: absolute;
+  inset: 0;
+  background-repeat: no-repeat;
+}
+
+.ground::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(120% 90% at 50% 30%, rgba(0, 0, 0, 0) 40%, rgba(0, 0, 0, 0.45) 100%);
+}
+
+.ground__light {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 1100px;
+  height: 900px;
+  margin: -450px 0 0 -550px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 214, 120, 0.18), rgba(255, 214, 120, 0));
+  transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0);
+  opacity: var(--gi, 0.5);
+  will-change: transform, opacity;
+}
+
+.world[data-lightweight='1'] .ground__light {
+  opacity: 0;
+}
+
+.page {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+
+/* ── 顶栏 ─────────────────────────────────────────────── */
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  border-radius: 0;
+  box-shadow: inset 0 -1px 0 var(--hairline);
+}
+
+.topbar .glass__content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  height: var(--header-h);
+  padding: 0 var(--pad-card);
+  width: min(794px, 100%);
+  margin: 0 auto;
+}
+
+.topbar__back {
+  appearance: none;
+  border: 0;
+  background: none;
+  padding: 4px 2px;
+  margin: 0;
+  font: inherit;
+  font-size: var(--size-small);
+  color: var(--ink-label);
+  cursor: pointer;
+  border-radius: var(--r-well);
+}
+
+.topbar__title {
+  margin: 0;
+  font-size: var(--size-title);
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  color: var(--ink-display);
+}
+
+.topbar__back:focus-visible,
+.signal:focus-visible,
+.switch:focus-visible,
+.slider:focus-visible {
+  outline: 2px solid var(--edge);
+  outline-offset: 3px;
+}
+
+/* ── 内容列 ───────────────────────────────────────────── */
+
+.content {
+  width: min(794px, calc(100% - var(--pad-page) * 2));
+  margin: var(--space-4) auto 0;
+  padding-bottom: 40px;
+}
+
+.card {
+  padding: var(--pad-card);
+}
+
+.card__title {
+  margin: 0;
+  font-size: var(--size-subhead);
+  font-weight: 700;
+  color: var(--ink-display);
+}
+
+.rows {
+  margin-top: var(--space-3);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: var(--row-h);
+}
+
+.row + .row {
+  border-top: 1px solid var(--hairline);
+}
+
+.row__label {
+  font-size: var(--size-body);
+  color: var(--ink-body);
+}
+
+.row__control {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.row__value {
+  width: 38px;
+  text-align: right;
+  font-family: var(--font-num);
+  font-size: var(--size-small);
+  color: var(--ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.card__note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--size-caption);
+  line-height: 1.55;
+  color: var(--ink-muted);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: var(--space-3);
+}
+
+/* ── 主按钮（Signal 档） ──────────────────────────────── */
+
+.signal {
+  appearance: none;
+  border: 0;
+  height: 42px;
+  padding: 0 30px;
+  border-radius: var(--r-button);
+  font-family: var(--font-ui);
+  font-size: var(--size-body);
+  font-weight: 600;
+  letter-spacing: 0.01em;
+  color: var(--ink-on-signal, #16120a);
+  cursor: pointer;
+}
+
+.signal__label {
+  display: inline-block;
+  transform: translateY(calc(var(--press, 0) * 0.5px));
+}
+
+/* ── 开关 ─────────────────────────────────────────────── */
+
+.switch {
+  position: relative;
+  display: block;
+  appearance: none;
+  -webkit-appearance: none;
+  width: 46px;
+  height: 27px;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  flex: none;
+}
+
+.switch__track {
+  position: absolute;
+  inset: 0;
+  border-radius: 13.5px;
+}
+
+.switch__liquid {
+  position: absolute;
+  left: 1.5px;
+  top: 1.5px;
+  width: 43px;
+  height: 24px;
+  border-radius: 12px;
+  background: linear-gradient(180deg, var(--signal-hi), #e7b41d);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.6),
+    inset 0 -1px 0 rgba(120, 82, 0, 0.35),
+    0 0 12px rgba(250, 212, 31, 0.35);
+  transform-origin: 0 50%;
+  transform: scaleX(var(--on, 0));
+  opacity: calc(0.25 + 0.75 * var(--on, 0));
+  transition:
+    transform var(--dur-state) var(--ease-settle),
+    opacity var(--dur-state) var(--ease-out);
+}
+
+.switch__knob {
+  position: absolute;
+  left: 3px;
+  top: 3px;
+  width: 21px;
+  height: 21px;
+  border-radius: 10.5px;
+  /* 位移走状态 180ms，缩走按压时钟 120ms，两条互不等待 */
+  translate: calc(var(--on, 0) * 19px);
+  scale: calc(1 + var(--press, 0) * 0.07);
+  transition:
+    translate var(--dur-state) var(--ease-settle),
+    scale var(--dur-press) var(--ease-out);
+}
+
+/* ── 滑杆 ─────────────────────────────────────────────── */
+
+.slider {
+  position: relative;
+  height: 32px;
+  width: 220px;
+  flex: none;
+  touch-action: none;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.slider__track {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 10px;
+  height: 12px;
+  border-radius: 6px;
+}
+
+.slider__fill {
+  position: absolute;
+  left: 0;
+  top: 10px;
+  height: 12px;
+  width: calc(var(--p, 0) * (100% - 28px) + 14px);
+  border-radius: 6px;
+  background: linear-gradient(180deg, rgba(250, 213, 66, 0.95), rgba(226, 178, 20, 0.6));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.45),
+    0 0 14px rgba(250, 212, 31, 0.22);
+  pointer-events: none;
+}
+
+.slider__bump {
+  position: absolute;
+  top: 8px;
+  left: calc(var(--p, 0) * (100% - 28px) - 2px);
+  width: 32px;
+  height: 16px;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgba(255, 240, 180, 0.3), rgba(255, 240, 180, 0));
+  pointer-events: none;
+}
+
+.slider__tension {
+  position: absolute;
+  top: 10px;
+  left: calc(var(--p, 0) * (100% - 28px) + 13px);
+  width: 2px;
+  height: 12px;
+  border-radius: 1px;
+  background: rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
+
+.slider__thumb {
+  position: absolute;
+  top: 2px;
+  left: calc(var(--p, 0) * (100% - 28px));
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  border: 2.4px solid rgba(255, 255, 255, 0.74);
+  /* --press 已由时钟插值，这里不再加一层 transition，免得晚半拍 */
+  scale: calc(1 + var(--press, 0) * 0.07);
+}
+
+/* ── 入场：只位移，不淡入（SPEC §6.4），320ms ─────────── */
+
+@keyframes enter {
+  from {
+    transform: translate3d(0, 8px, 0);
+  }
+  to {
+    transform: none;
+  }
+}
+
+.card__title,
+.rows,
+.card__note,
+.actions {
+  animation: enter var(--dur-page) var(--ease-out) both;
+}
+
+.rows {
+  animation-delay: 45ms;
+}
+
+.card__note {
+  animation-delay: 90ms;
+}
+
+.actions {
+  animation-delay: 135ms;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card__title,
+  .rows,
+  .card__note,
+  .actions {
+    animation: none;
+  }
+}
+
+/* ── 375 宽的堆叠 ─────────────────────────────────────── */
+
+@media (max-width: 560px) {
+  :root {
+    --pad-page: 14px;
+    --pad-card: 14px;
+  }
+
+  .topbar .glass__content {
+    gap: var(--space-3);
+    padding: 0 var(--pad-card);
+  }
+
+  .topbar__title {
+    font-size: 18px;
+  }
+
+  .content {
+    margin-top: 12px;
+  }
+
+  .row--slider {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 2px;
+    padding: 9px 0;
+    min-height: 0;
+  }
+
+  .row__control {
+    gap: 10px;
+  }
+
+  .slider {
+    width: auto;
+    flex: 1;
+  }
+
+  .row__value {
+    width: 34px;
+  }
+
+  .actions .signal {
+    width: 100%;
+  }
+}

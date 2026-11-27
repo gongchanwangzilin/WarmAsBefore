@@ -1,0 +1,65 @@
+:root {
+  --font-ui:
+    'Segoe UI Variable Text', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei UI', 'Noto Sans SC',
+    system-ui, sans-serif;
+  --font-num:
+    'Segoe UI Variable Display', 'Segoe UI', 'PingFang SC', 'Microsoft YaHei UI', system-ui,
+    sans-serif;
+
+  /* SPEC 与 DESIGN_SYSTEM §3.1：六个正式字阶 */
+  --size-display: 30px;
+  --size-title: 20px;
+  --size-subhead: 15.5px;
+  --size-body: 14.5px;
+  --size-small: 13px;
+  --size-caption: 11.5px;
+
+  /* §4.2 间距四档 + 容器内距 */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 14px;
+  --space-4: 18px;
+  --pad-card: 16px;
+  --pad-page: 24px;
+  --row-h: 41px;
+  --header-h: 45px;
+
+  /* §5.1 圆角阶梯 */
+  --r-well: 4px;
+  --r-card: 12px;
+  --r-button: 8px;
+
+  --accent: #fad41f;
+  --signal: #fad542;
+  --signal-hi: #ffe071;
+  --hairline: rgba(255, 255, 255, 0.1);
+  --edge: rgba(255, 255, 255, 0.62);
+
+  /* 时长（本页要求：按压 120 / 状态 180 / 过场 320） */
+  --dur-press: 120ms;
+  --dur-state: 180ms;
+  --dur-page: 320ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-settle: cubic-bezier(0.34, 1.3, 0.64, 1);
+
+  /* 材质输入：三个滑杆只改这三个数，其余全部由它们推导 */
+  --alpha: 0.85;
+  --frost: 0.5;
+  --liquid: 0.4;
+}
+
+/* 推导值必须声明在拿得到滑杆值的那一层（.world 上由 React 写入 --alpha/--frost/--liquid），
+   否则 :root 会先把它们算死，再继承下去，滑杆就推不动材质了。 */
+.world {
+  --face-k: calc(1.3 - var(--alpha) * 0.55);
+  --frost-blur: calc(6px + var(--frost) * 24px); /* 默认 18px */
+  --wall-k: calc(0.62 + var(--liquid) * 0.82);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --dur-press: 1ms;
+    --dur-state: 1ms;
+    --dur-page: 1ms;
+  }
+}

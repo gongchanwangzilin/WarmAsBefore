@@ -1,0 +1,278 @@
+/* ─────────────────────────────────────────────────────────────
+   一块玻璃，六层，顺序按 SPEC §1 固定：
+   1 糊底（元素自身 backdrop-filter）
+   2 边缘折射 .glass__refract
+   3 侧壁     .glass__wall
+   4 柱面     .glass__cyl
+   5 面渐变   .glass__face
+   6 材料柔光 .glass__soft
+   指针光是一层独立的高光 .glass__sheen，不进材质。
+   ───────────────────────────────────────────────────────────── */
+
+.glass {
+  position: relative;
+  border-radius: var(--r, 8px);
+  background: var(--tint, rgba(255, 255, 255, 0.03));
+  /* 1 · 糊底：背后真实内容，默认参数下正好 18px */
+  backdrop-filter: blur(var(--frost-blur)) saturate(140%);
+  -webkit-backdrop-filter: blur(var(--frost-blur)) saturate(140%);
+  box-shadow: var(--glow, none);
+  color: inherit;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 四档厚度：bar .78 / button .88 / card .95 / dialog 1.15，这里 0~1.15 */
+.glass--bar {
+  --tier: 0.78;
+  --refract-w: 4px;
+  --wall-w: 2px;
+  --cyl-h: 5px;
+  --tint: rgba(255, 255, 255, 0.035);
+}
+.glass--card {
+  --tier: 0.95;
+  --refract-w: 7px;
+  --wall-w: 3px;
+  /* 「液态高度」直接改上下两条柱面带的高度：4 → 11px */
+  --cyl-h: calc(4px + var(--liquid) * 7px);
+  --tint: rgba(255, 255, 255, 0.03);
+  box-shadow:
+    0 calc(2px * var(--wall-k)) calc(10px * var(--wall-k)) rgba(0, 0, 0, 0.28),
+    0 18px 44px rgba(0, 0, 0, 0.4);
+}
+.glass--button {
+  --tier: 0.88;
+  --refract-w: 5px;
+  --wall-w: 3px;
+  --cyl-h: 6px;
+  --tint: rgba(255, 255, 255, 0.05);
+  box-shadow: 0 8px 22px rgba(0, 0, 0, 0.34);
+}
+.glass--signal {
+  --tier: 0.88;
+  --refract-w: 5px;
+  --wall-w: 3px;
+  --cyl-h: 6px;
+  /* Signal 档是强调色的那块玻璃：底色必须是强调色，不然「一屏唯一响」就没了 */
+  --tint: rgba(250, 213, 66, 0.9);
+  box-shadow:
+    0 0 0 1px rgba(255, 234, 140, 0.5),
+    0 10px 30px rgba(250, 212, 31, 0.24),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.glass--signal .glass__face {
+  opacity: 0.6;
+}
+.glass--track {
+  --tier: 0.55;
+  --refract-w: 3px;
+  --wall-w: 2px;
+  --cyl-h: 3px;
+  --tint: rgba(255, 255, 255, 0.07);
+  /* 轨道是「井」：一点内影，免得在卡面上读不出边界 */
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.glass--knob {
+  --tier: 1;
+  --refract-w: 3px;
+  --wall-w: 2px;
+  --cyl-h: 3px;
+  --tint: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+.glass--thumb {
+  --tier: 0.9;
+  --refract-w: 3px;
+  --wall-w: 2px;
+  --cyl-h: 0px;
+  --tint: rgba(255, 255, 255, 0.06);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.35);
+}
+
+.glass__layers {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+/* 2 · 边缘折射：一圈 2~8px 的环带里，把背后的内容放大并二次模糊，模拟透镜挤压 */
+.glass__refract {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--refract-w, 6px);
+  overflow: hidden;
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.glass__refract > i {
+  position: absolute;
+  inset: -12%;
+  display: block;
+  background: rgba(255, 255, 255, 0.02);
+  backdrop-filter: blur(calc(var(--frost-blur) * 0.55)) saturate(150%) brightness(1.04);
+  -webkit-backdrop-filter: blur(calc(var(--frost-blur) * 0.55)) saturate(150%) brightness(1.04);
+  transform: scale(1.06);
+}
+
+/* 3 · 侧壁：贴边 2~4px，迎光侧内壁亮、背光侧内壁暗 */
+.glass__wall {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: var(--wall-w, 3px);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  background:
+    radial-gradient(
+      150% 150% at var(--lx, 25%) var(--ly, 12%),
+      rgba(255, 255, 255, calc(0.62 * var(--li, 1))) 0%,
+      rgba(255, 255, 255, calc(0.2 * var(--li, 1))) 22%,
+      rgba(255, 255, 255, 0.02) 46%,
+      rgba(0, 0, 0, 0.26) 88%
+    );
+  opacity: calc(0.55 + 0.45 * var(--wall-k));
+}
+
+/* 4 · 柱面：上下两条带，把糊底竖向压到 0.6 倍 */
+.glass__cyl {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: var(--cyl-h, 7px);
+  overflow: hidden;
+}
+.glass__cyl--top {
+  top: 0;
+  border-radius: var(--r, 8px) var(--r, 8px) 0 0;
+}
+.glass__cyl--bottom {
+  bottom: 0;
+  border-radius: 0 0 var(--r, 8px) var(--r, 8px);
+}
+.glass__cyl > i {
+  position: absolute;
+  left: -2%;
+  right: -2%;
+  top: -160%;
+  height: 420%;
+  display: block;
+  backdrop-filter: blur(calc(var(--frost-blur) * 0.85)) saturate(160%) contrast(1.06);
+  -webkit-backdrop-filter: blur(calc(var(--frost-blur) * 0.85)) saturate(160%) contrast(1.06);
+  transform: scaleY(0.6);
+}
+.glass__cyl--top::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, calc(0.22 * var(--tier))),
+    rgba(255, 255, 255, 0)
+  );
+  pointer-events: none;
+}
+.glass__cyl--bottom::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    0deg,
+    rgba(0, 0, 0, calc(0.32 * var(--tier))),
+    rgba(0, 0, 0, 0)
+  );
+  pointer-events: none;
+}
+
+/* 5 · 面：左上亮 → 中段 → 底沿暗，0.26 → 0.045 */
+.glass__face {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    163deg,
+    rgba(255, 255, 255, calc(0.26 * var(--face-k) * var(--tier))) 0%,
+    rgba(255, 255, 255, calc(0.12 * var(--face-k) * var(--tier))) 34%,
+    rgba(255, 255, 255, calc(0.045 * var(--face-k) * var(--tier))) 76%,
+    rgba(255, 255, 255, calc(0.045 * var(--face-k) * var(--tier))) 100%
+  );
+}
+
+/* 6 · 材料柔光：左上偏内一枚无边界径向光（不被指针驱动，属于材质） */
+.glass__soft {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    52% 42% at 24% 14%,
+    rgba(255, 255, 255, calc(0.1 * var(--tier))),
+    rgba(255, 255, 255, 0) 72%
+  );
+  mix-blend-mode: screen;
+}
+
+/* 指针即光源：只改 transform 与 opacity，渐变本身烘一次不再重画 */
+.glass__sheen {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 760px;
+  height: 760px;
+  margin: -380px 0 0 -380px;
+  border-radius: 50%;
+  background: radial-gradient(
+    closest-side,
+    rgba(255, 249, 232, 0.5),
+    rgba(255, 243, 208, 0.16) 38%,
+    rgba(255, 255, 255, 0) 74%
+  );
+  transform: translate3d(var(--lx, 24%), var(--ly, 14%), 0);
+  /* 面上这层只给一点柔光：真正会亮起来的是侧壁（.glass__wall 跟着 --lx/--ly 走） */
+  opacity: calc(var(--li, 0.5) * 0.2);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+.glass__content {
+  position: relative;
+  z-index: 2;
+}
+
+/* 轻量模式：撤掉指针光与背景响应，只留材质本身 */
+.world[data-lightweight='1'] .glass__sheen {
+  opacity: 0;
+}
+
+/* 侧壁也回到固定的左上光，不再跟着指针重画（省掉每帧的环带重绘） */
+.world[data-lightweight='1'] .glass__wall {
+  background: radial-gradient(
+    150% 150% at 25% 12%,
+    rgba(255, 255, 255, 0.62) 0%,
+    rgba(255, 255, 255, 0.2) 22%,
+    rgba(255, 255, 255, 0.02) 46%,
+    rgba(0, 0, 0, 0.26) 88%
+  );
+}
+
+/* 按压：位置只走 transform，反馈 120ms 由时钟推进 */
+.glass--signal,
+.glass--button {
+  transform: translate3d(0, calc(var(--press, 0) * 2px), 0)
+    scale(calc(1 - var(--press, 0) * 0.04));
+}
