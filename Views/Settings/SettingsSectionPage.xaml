@@ -2600,12 +2600,10 @@
                 <Button Text="{Binding [Common_Back], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource BtnText}"
                         Padding="0"
                         Command="{Binding GoBackCommand}" />
-                <Grid Grid.Column="1" ColumnDefinitions="Auto,*" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                    <Image Source="titlelogo.png" WidthRequest="30" HeightRequest="30" Aspect="AspectFill"
-                           VerticalOptions="Center" />
-                    <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtTitle}"
-                           VerticalOptions="Center" />
-                </Grid>
+                <!-- 页名只留文字（2026-11-27）：那颗 30×30 的位图图标压在标题左边，
+                     缩放后糊、跟界面语言也不是一回事，用户点名要删。 -->
+                <Label Grid.Column="1" Text="{Binding [Settings_Title], Source={x:Static i18n:LocalizationService.Current}}"
+                       Style="{StaticResource TxtTitle}" VerticalOptions="Center" />
             </Grid>
         </Border>
 

@@ -235,12 +235,25 @@ public sealed class GlassButton : ContentView
             TranslationY = on ? MotionTokens.Press : 0;
             return;
         }
-        // 按下走「快说到位」的 CubicOut，松手才走弹簧（Spring 的四条常量 = 末段 1.30 的过冲）。
-        // 按下也用弹簧的话，前 70ms 里那块玻璃会先往上抬一下再被压下去 —— 手感是黏的，
-        // 而用户要的是「按下去、松手弹回来」这一条单向的力道。
-        var ease = on ? Easing.CubicOut : new Easing(MotionTokens.Spring);
-        _ = this.ScaleTo(on ? MotionTokens.PressScale : 1.0, (uint)ms, ease);
-        _ = this.TranslateTo(0, on ? MotionTokens.Press : 0, (uint)ms, ease);
+        // 按压不再各起各的时钟：走 Scene 的全局按压通道，与背景的呼吸**同一拍**推进。
+        // 按下用「快说到位」的曲线（QuadOut，前段快、后段收），松手才走弹簧（末段过冲）；
+        // 按下也用弹簧的话，前 70ms 里那块玻璃会先往上抬一下再被压下去 —— 手感是黏的。
+        // 截停也在这里：连点两下时第二次从**当前位移**接着算，不会先回零再压下去。
+        if (on)
+            Scene.Play(Scene.Press, ms, ApplyPress, ease: MotionTokens.OutCubic);
+        else
+            Scene.Release(Scene.Press, ms, ApplyPress, ease: MotionTokens.Settle);
+    }
+
+    /// <summary>
+    /// 按压进度 → 这一颗的位移与缩放。往右下压 2px、缩 4%：位移方向跟着页面流程走，
+    /// 与背景一起被推进，所以「按下去」读成材料被推了一下，而不是按钮自己在抖。
+    /// </summary>
+    private void ApplyPress(double p)
+    {
+        TranslationX = 3.0 * p;
+        TranslationY = MotionTokens.Press * p;
+        Scale = 1.0 + (MotionTokens.PressScale - 1.0) * p;
     }
 
     private void SetHover(bool on) => _plate.Hover = on && IsEnabled;
@@ -249,10 +262,9 @@ public sealed class GlassButton : ContentView
     private void Settle()
     {
         _pressed = false;
-        this.AbortAnimation("ScaleTo");
-        this.AbortAnimation("TranslateTo");
         if (Scale != 1) Scale = 1;
         if (TranslationY != 0) TranslationY = 0;
+        if (TranslationX != 0) TranslationX = 0;
         _plate.Pressed = false;
         _plate.Hover = false;
     }

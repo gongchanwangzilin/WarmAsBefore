@@ -50,6 +50,29 @@ public static class AppBackgroundService
     private static bool _frostPainted;   // 窗口层已经铺了自家糊底
     private static bool _backdropLive;   // 系统 backdrop 生效
     private static bool _legacyAcrylic;  // 老的 composition 亚克力生效
+
+    /// <summary>窗口层那张糊底画刷（ImageBrush 或纯色）。按压时按它自己的 Opacity 压暗一档 ——
+    /// 不重排、不重合成，只是让背景跟着材料一起「被按下去」。</summary>
+    private static object? _platformBrush;
+
+    /// <summary>按压：0→1 压暗 12%（材料被按进去，背后的光同时退一点）。</summary>
+    private static void OnPressTick(double p) => SetGroundLevel(1 - 0.12 * p);
+
+    /// <summary>进页面：从暗 18% 归位到 1，与整页入场共用 <c>PageSweepMs</c> 那条钟。</summary>
+    private static void OnEnterTick(double p) => SetGroundLevel(1 - 0.18 * (1 - p));
+
+    private static void SetGroundLevel(double level)
+    {
+#if WINDOWS
+        try
+        {
+            if (_platformBrush is Microsoft.UI.Xaml.Media.Brush b) b.Opacity = Math.Clamp(level, 0.5, 1);
+        }
+        catch { /* 画刷已经被换掉/释放：这一帧就算了，下一帧会重新挂上 */ }
+#else
+        _ = level;
+#endif
+    }
     private static bool _hooked;
     private static int _retries;         // 窗口还没建好时的重试计数（首帧前下发设置会走到这条）
 
@@ -84,6 +107,11 @@ public static class AppBackgroundService
         {
             _hooked = true;
             FrostImageService.Ready += OnFrostReady;
+            // 背景跟着交互一起呼吸：按压与进页面各订阅一条 Scene 通道，
+            // 与按钮/开关**同一个钟**推进（见 Helpers/Scene.cs）——
+            // 这就是「按一下，按钮往右走的同时背景也在变」里背景的那一半。
+            Helpers.Scene.Listen(Helpers.Scene.Press, OnPressTick);
+            Helpers.Scene.Listen(Helpers.Scene.Enter, OnEnterTick);
         }
 
         _pageBg = pageBg;
@@ -231,6 +259,7 @@ public static class AppBackgroundService
                     _frostPainted = false;
                     _legacyAcrylic = false;
                     if (root is not null) root.Background = null;
+                    _platformBrush = null;
                     WindowBackdrop.SetTransparent(false);   // 撤掉老的 composition 亚克力，别两层
                     return true;
                 }
@@ -242,6 +271,7 @@ public static class AppBackgroundService
                 {
                     _frostPainted = false;
                     if (root is not null) root.Background = null;
+                    _platformBrush = null;
                     return true;
                 }
                 // 两条系统路径都不通：落到下面铺自家合成的糊底，至少不是压在裸桌面上
@@ -260,21 +290,25 @@ public static class AppBackgroundService
             if (!string.IsNullOrEmpty(frost) && File.Exists(frost))
             {
                 // 糊底是「已经糊过的位图」：这里只是在铺图，主线程不解码大图
-                root.Background = new Microsoft.UI.Xaml.Media.ImageBrush
+                var frostBrush = new Microsoft.UI.Xaml.Media.ImageBrush
                 {
                     ImageSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(frost)),
                     Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill
                 };
+                root.Background = frostBrush;
+                _platformBrush = frostBrush;
                 _frostPainted = true;
             }
             else if (_image)
             {
                 // 糊底还在算：先把原图铺上（就是今天的行为），算好之后无缝换成糊底
-                root.Background = new Microsoft.UI.Xaml.Media.ImageBrush
+                var rawBrush = new Microsoft.UI.Xaml.Media.ImageBrush
                 {
                     ImageSource = new Microsoft.UI.Xaml.Media.Imaging.BitmapImage(new Uri(_imagePath)),
                     Stretch = Microsoft.UI.Xaml.Media.Stretch.UniformToFill
                 };
+                root.Background = rawBrush;
+                _platformBrush = rawBrush;
                 _frostPainted = false;
             }
             else

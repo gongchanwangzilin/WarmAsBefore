@@ -62,6 +62,11 @@ public partial class AppShell : Shell
             _firstNav = false;
             if (!back && CurrentPage is Views.TitlePage) return;
         }
+        // 页面位移与背景归位**同一条钟**：整页从侧面滑回来的时候，窗口层那块糊底
+        // 也从暗 18% 一起收回到 1。两条动画各走各的定时器时，眼睛读到的永远是两下。
+        Helpers.Scene.Play(Helpers.Scene.Enter,
+            back ? DesignSystem.Theme.MotionTokens.PageBackMs : DesignSystem.Theme.MotionTokens.PageSweepMs,
+            _ => { });
         _ = Helpers.Motion.PageIn(CurrentPage, back);
     }
 

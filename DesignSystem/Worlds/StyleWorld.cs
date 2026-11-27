@@ -343,11 +343,12 @@ public static class StyleWorldTokens
     private static void RelockInk(ResourceDictionary res, Color panel)
     {
         var dark = Lum(panel) < 0.42;
-        var inkDisplay = Lock(SinkOrLift(panel, dark, 0.86, 0.94), panel, dark ? 9.0 : 11.0);
-        var inkBody = Lock(SinkOrLift(panel, dark, 0.74, 0.88), panel, dark ? 7.6 : 8.4);
-        var inkLabel = Lock(SinkOrLift(panel, dark, 0.62, 0.80), panel, dark ? 6.4 : 7.0);
-        var inkMuted = Lock(SinkOrLift(panel, dark, 0.46, 0.66), panel, dark ? 5.0 : 5.4);
-        var inkFaint = Lock(SinkOrLift(panel, dark, 0.28, 0.44), panel, dark ? 3.1 : 3.4);
+        var (tD, tB, tL, tM, tF) = Ladder(panel, dark);
+        var inkDisplay = Lock(SinkOrLift(panel, dark, 0.86, 0.94), panel, tD);
+        var inkBody = Lock(SinkOrLift(panel, dark, 0.74, 0.88), panel, tB);
+        var inkLabel = Lock(SinkOrLift(panel, dark, 0.62, 0.80), panel, tL);
+        var inkMuted = Lock(SinkOrLift(panel, dark, 0.46, 0.66), panel, tM);
+        var inkFaint = Lock(SinkOrLift(panel, dark, 0.28, 0.44), panel, tF);
 
         res["WarmDark"] = inkDisplay;
         res["SurfaceFg"] = inkBody;
@@ -415,11 +416,14 @@ public static class StyleWorldTokens
         _well = well;
 
         // 墨阶：起点用页面色（已经带上这个世界的色偏），目标对比比一律由 Lock 锁死。
-        var inkDisplay = Lock(SinkOrLift(page, dark, 0.86, 0.94), surface, dark ? 9.0 : 11.0);
-        var inkBody = Lock(SinkOrLift(page, dark, 0.74, 0.88), surface, dark ? 7.6 : 8.4);
-        var inkLabel = Lock(SinkOrLift(page, dark, 0.62, 0.80), surface, dark ? 6.4 : 7.0);
-        var inkMuted = Lock(SinkOrLift(page, dark, 0.46, 0.66), surface, dark ? 5.0 : 5.4);
-        var inkFaint = Lock(SinkOrLift(page, dark, 0.28, 0.44), surface, dark ? 3.1 : 3.4);
+        // 目标比先过一遍 Ladder：地面上拿不到的比（深色档的卡面 L≈0.18，天花板只有 4.6:1）
+        // 会让 Lock 把五档墨一路推到同一极 —— 对比达标了，标题与说明却变成同一个纯白。
+        var (tD, tB, tL, tM, tF) = Ladder(surface, dark);
+        var inkDisplay = Lock(SinkOrLift(page, dark, 0.86, 0.94), surface, tD);
+        var inkBody = Lock(SinkOrLift(page, dark, 0.74, 0.88), surface, tB);
+        var inkLabel = Lock(SinkOrLift(page, dark, 0.62, 0.80), surface, tL);
+        var inkMuted = Lock(SinkOrLift(page, dark, 0.46, 0.66), surface, tM);
+        var inkFaint = Lock(SinkOrLift(page, dark, 0.28, 0.44), surface, tF);
 
         // 边：浅色档靠「比卡面沉一档」，深色档靠「比卡面浮一档」——
         // 暗底上画一条更暗的线等于没画，这是深色模式最容易犯的错。
@@ -994,6 +998,25 @@ public static class StyleWorldTokens
             else lo = mid;
         }
         return Mix(fg, toward, hi);
+    }
+
+    /// <summary>
+    /// 五档墨的目标对比比，按地面能拿到的天花板等比缩。
+    ///
+    /// 为什么必须有这一层：深色档的卡面 L≈0.18，白字压上去的**理论极限**只有 4.6:1，
+    /// 而五档的目标是 9 / 7.6 / 6.4 / 5 / 3.1 —— 全都不可达。Lock 遇到不可达目标会一路推向同一极，
+    /// 于是标题、正文、小标题、说明同时变成纯白：对比看起来「达标」，层次没了，界面像蒙了一层白灰。
+    /// 达标优先于分层，但两者都拿不到时，先保证分层 —— 字与字的差是读得出来的，9:1 与 4.3:1 的差不是。
+    /// </summary>
+    private static (double Display, double Body, double Label, double Muted, double Faint) Ladder(
+        Color ground, bool dark)
+    {
+        var baseT = dark ? (D: 9.0, B: 7.6, L: 6.4, M: 5.0, F: 3.1)
+                         : (D: 11.0, B: 8.4, L: 7.0, M: 5.4, F: 3.4);
+        var best = Math.Max(Ratio(Colors.White, ground), Ratio(Colors.Black, ground));
+        if (best >= baseT.D) return baseT;
+        var k = best / baseT.D * 0.96;
+        return (baseT.D * k, baseT.B * k, baseT.L * k, baseT.M * k, baseT.F * k);
     }
 
     private static (double H, double S, double L) RgbToHsl(Color c)

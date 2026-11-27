@@ -160,8 +160,10 @@ internal static class GlassFace
             if (live) DrawRefraction(canvas, frost!, map, p, w, h, density);
             if (!p.Hollow)
             {
+                DrawWall(canvas, p, w, h, radius, density);
                 if (live) DrawBevel(canvas, frost!, map, p, w, h, density);
                 DrawFace(canvas, p, w, h);
+                DrawSheen(canvas, p, w, h);
                 DrawTint(canvas, p, w, h);
             }
             DrawInnerShadow(canvas, p, w, h, radius, density);
@@ -255,6 +257,52 @@ internal static class GlassFace
     }
 
     /// <summary>
+    /// 侧壁：贴边 2~4px 的一圈，把板厚画在**面里面**。
+    ///
+    /// 为什么它是「层数不够」的关键：糊底是纯色背景时，边缘折射弯的是一模一样的颜色——
+    /// 弯了也看不出弯。这时唯一能表达厚度的东西是**材料自己**：
+    /// 迎光那一侧的内壁亮（光穿进去被反射回来一次），背光那一侧的内壁暗（光要穿更长的路）。
+    /// 三遍由外到内、由窄到宽，四边都有，所以它读起来是「一圈弧面」而不是「一条描边」。
+    /// </summary>
+    private static void DrawWall(SKCanvas canvas, in GlassFaceParams p, int w, int h, float radius, double density)
+    {
+        var thick = Math.Clamp(p.Thickness, 0, 1.4) / 1.15;
+        var lit = (p.Pressed ? 1.25 : p.Hover ? 1.10 : 1.0) * (0.55 + 0.75 * thick);
+
+        var passes = new (float Inset, float Width, float Alpha)[]
+        {
+            ((float)(0.6 * density), (float)(3.6 * density), 0.16f),
+            ((float)(1.9 * density), (float)(2.2 * density), 0.13f),
+            ((float)(3.2 * density), (float)(1.2 * density), 0.10f)
+        };
+        foreach (var (inset, width, alpha) in passes)
+        {
+            if (w - 2 * inset < 2 || h - 2 * inset < 2) continue;
+            using var path = Rounded(inset, inset, w - 2 * inset, h - 2 * inset,
+                Math.Max(1f, radius - inset));
+            using var shader = SKShader.CreateLinearGradient(
+                new SKPoint(0, 0), new SKPoint(w * 0.75f, h),
+                new[]
+                {
+                    SKColors.White.WithAlpha(A(alpha * 1.7 * lit)),
+                    SKColors.White.WithAlpha(A(alpha * 0.35 * lit)),
+                    new SKColor(0, 0, 0, A(alpha * 0.15)),
+                    new SKColor(0, 0, 0, A(alpha * 1.5 * lit))
+                },
+                new[] { 0f, 0.30f, 0.62f, 1f },
+                SKShaderTileMode.Clamp);
+            using var paint = new SKPaint
+            {
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = width,
+                Shader = shader
+            };
+            canvas.DrawPath(path, paint);
+        }
+    }
+
+    /// <summary>
     /// 上下两条**柱面**：玻璃是一块有厚度的板，板的上下两条边被磨圆了 ——
     /// 一条亮棱、一道暗槽，中间那一带的内容是顺着弧面滚下来的。
     ///
@@ -343,13 +391,41 @@ internal static class GlassFace
             new SKPoint(0, 0), new SKPoint(w * 0.45f, h),
             new[]
             {
+                // 面不再是「一层薄纱」：顶面受光、中段主体、底沿侧壁三段拉开，
+                // 明暗差从原来的 0.15→0.06 拉到 0.26→0.045 —— 一块圆角板之所以像板，
+                // 靠的就是上亮下暗这条落差（用户说的「层数不够」第一层）。
+                hi.WithAlpha(A(0.26 * face * topLight)),
                 hi.WithAlpha(A(0.15 * face * topLight)),
-                hi.WithAlpha(A(0.10 * face * topLight)),
-                mid.WithAlpha(A(0.065 * face)),
-                mid.WithAlpha(A(0.06 * face)),
-                low.WithAlpha(A(0.11 * face))
+                mid.WithAlpha(A(0.075 * face)),
+                mid.WithAlpha(A(0.045 * face)),
+                low.WithAlpha(A(0.17 * face))
             },
-            new[] { 0f, 0.12f, 0.42f, 0.76f, 1f },
+            new[] { 0f, 0.16f, 0.46f, 0.78f, 1f },
+            SKShaderTileMode.Clamp);
+        using var paint = new SKPaint { IsAntialias = true, Shader = shader };
+        canvas.DrawRect(0, 0, w, h, paint);
+    }
+
+    /// <summary>
+    /// 材料里那团光：左上偏内的一枚大椭圆柔光（径向渐变，无静态边缘）。
+    ///
+    /// 它不是高光：高光是**棱上**那一条（<see cref="DrawSpecular"/>），这团光是**穿过材料**落到面上的，
+    /// 所以它没有边界、中心最亮、到边缘化开。液态玻璃之所以不像塑料片，差别就在这一层 ——
+    /// 塑料的高光贴在最外面，玻璃的光在材料里面。
+    /// </summary>
+    private static void DrawSheen(SKCanvas canvas, in GlassFaceParams p, int w, int h)
+    {
+        var k = p.Pressed ? 0.82 : p.Hover ? 1.15 : 1.0;
+        var reach = Math.Max(w, h) * 0.70f;
+        using var shader = SKShader.CreateRadialGradient(
+            new SKPoint(w * 0.32f, h * 0.10f), reach,
+            new[]
+            {
+                SKColors.White.WithAlpha(A(0.17 * k)),
+                SKColors.White.WithAlpha(A(0.06 * k)),
+                SKColors.White.WithAlpha(0)
+            },
+            new[] { 0f, 0.52f, 1f },
             SKShaderTileMode.Clamp);
         using var paint = new SKPaint { IsAntialias = true, Shader = shader };
         canvas.DrawRect(0, 0, w, h, paint);
