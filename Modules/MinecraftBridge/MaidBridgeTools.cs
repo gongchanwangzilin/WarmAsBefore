@@ -52,10 +52,18 @@ internal static class MaidBridgeTools
 
         tools.RegisterBuiltin("maid_act",
             "让女仆做一个具体动作：attack 攻击目标，use 使用或右键方块与实体，"
-            + "gesture 主动做预设动作（如 hug 抱抱、wave 招手），say 说一句她自己的台词，"
+            + "gesture 主动做预设动作（如 wave 招手），hug 走过去抱你（先寻路到身边、面对面才抱，不会瞬移；路被挡或你在战斗时会放弃并说明原因），say 说一句她自己的台词，"
             + "sit/stand/sleep 坐下/站起/睡觉，look 看向目标，interact_addon 触发附属模组里本由玩家发起的行为。",
             args => bridge.RunToolAsync("act", args),
             ActSchema);
+
+        tools.RegisterBuiltin("maid_hug",
+            "抱抱（既是功能也是动作）：她会先走到你身边、面对面再抱，不瞬移；路被挡、你在战斗或睡觉、她正忙着，都会放弃并说明原因。"
+            + "action=request 求抱（她按好感与安全感决定答应、勉强答应还是拒绝），hug_back 回抱（她正抱着你时延长并回应），"
+            + "refuse 明确拒绝她的求抱，status 查她现在愿不愿意、在不在抱。"
+            + "想主动抱她时先看 status；被拒绝过就隔一阵再试，别连着求。",
+            args => bridge.RunToolAsync("hug", args),
+            HugSchema);
 
         tools.RegisterBuiltin("maid_plan",
             "读写女仆的长期日程与自发行为。action=set 用 steps 设置一天的计划（at 为游戏内 HH:mm，do 为动作，"
@@ -311,11 +319,18 @@ internal static class MaidBridgeTools
 
     private static readonly string ActSchema =
         """{"type":"object","properties":{""" + MaidProperty + """
-        ,"action":{"type":"string","enum":["attack","use","gesture","say","sit","stand","sleep","look","interact_addon"],"description":"动作类型"},
+        ,"action":{"type":"string","enum":["attack","use","gesture","say","sit","stand","sleep","look","hug","interact_addon"],"description":"动作类型"},
         "target":{"type":"string","description":"目标玩家/生物/方块/角色"},
         "text":{"type":"string","description":"say 时的台词"},
-        "arg":{"type":"string","maxLength":64,"description":"gesture 的动作名（如 hug、wave）；interact_addon 的行为 id"},
+        "arg":{"type":"string","maxLength":64,"description":"gesture 的动作名（如 wave）；interact_addon 的行为 id"},
         "duration":{"type":"number","description":"持续时间（秒）"}
+        },"required":["action"],"additionalProperties":false}
+        """;
+
+    private static readonly string HugSchema =
+        """{"type":"object","properties":{""" + MaidProperty + """
+        ,"action":{"type":"string","enum":["request","hug_back","refuse","status"],"description":"request 求抱 / hug_back 回抱 / refuse 拒绝 / status 查看"},
+        "text":{"type":"string","description":"同时想说的话（可选）"}
         },"required":["action"],"additionalProperties":false}
         """;
 

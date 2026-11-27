@@ -6,7 +6,7 @@ namespace WarmAsBefore.Services.Core;
 public static class ConfigCatalog
 {
     public const string Version = "wab-next-1";
-    public const int RowCount = 143;
+    public const int RowCount = 153;
 
     public sealed record Entry(string Name, string Type, string Default, string Scope,
                               string AiTag, bool Conflict, string ConflictTarget, string PromptText);
@@ -157,6 +157,16 @@ public static class ConfigCatalog
             ["collect_water_enabled"] = new Entry("16. todo：打水/放水/收水", "switch", "false", "模组", "纯代码", false, "", ""),
             ["collect_board_enabled"] = new Entry("17. todo：上船/上马", "switch", "false", "模组", "纯代码", false, "", ""),
             ["self_eat_hungry_threshold"] = new Entry("18. 自吃饥饿阈值", "number", "14", "模组", "纯代码", false, "", ""),
+            ["hug_enabled"] = new Entry("1. 抱抱（双向）总开关", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["hug_ai_request_enabled"] = new Entry("2. 允许 AI 主动求抱", "switch", "false", "模组", "可选AI", false, "", ""),
+            ["hug_game_side_enabled"] = new Entry("3. 游戏侧按规则求抱", "switch", "false", "模组", "纯代码", false, "", ""),
+            ["hug_request_probability"] = new Entry("4. 求抱概率（每次评估）", "number", "0.05", "模组", "纯代码", false, "", ""),
+            ["hug_cooldown_seconds"] = new Entry("5. 抱抱冷却（秒）", "number", "300", "模组", "纯代码", false, "", ""),
+            ["hug_max_distance"] = new Entry("6. 主动求抱最远距离（格）", "number", "16", "模组", "纯代码", false, "", ""),
+            ["hug_duration_seconds"] = new Entry("7. 抱抱时长（秒）", "number", "4", "模组", "纯代码", false, "", ""),
+            ["hug_closeness_min"] = new Entry("8. 主人求抱时的接受阈值", "number", "0.4", "模组", "纯代码", false, "", ""),
+            ["hug_player_refuse_enabled"] = new Entry("9. 允许主人拒绝抱抱", "switch", "true", "模组", "纯代码", false, "", ""),
+            ["hug_sad_on_refuse"] = new Entry("10. 被拒绝后伤心", "switch", "true", "模组", "纯代码", false, "", ""),
         };
 
     /// <summary>默认值的唯一入口；未知键返回空串，由调用方显式处理。</summary>

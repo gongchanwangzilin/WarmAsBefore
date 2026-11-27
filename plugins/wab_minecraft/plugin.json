@@ -171,7 +171,17 @@
       {"key": "collect_milk_enabled", "label": "15. todo：接牛奶", "type": "switch", "default": "false", "help": "F11：maid_collect 的 milk 子动作（对牛用桶）", "group": "十九", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
       {"key": "collect_water_enabled", "label": "16. todo：打水/放水/收水", "type": "switch", "default": "false", "help": "F11：maid_collect 的 water 子动作", "group": "十九", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
       {"key": "collect_board_enabled", "label": "17. todo：上船/上马", "type": "switch", "default": "false", "help": "F11：maid_collect 的 board 子动作", "group": "十九", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
-      {"key": "self_eat_hungry_threshold", "label": "18. 自吃饥饿阈值", "type": "number", "default": "14", "help": "F10：饥饿值高于此（越高越饿）才触发自吃", "group": "十九", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false}
+      {"key": "self_eat_hungry_threshold", "label": "18. 自吃饥饿阈值", "type": "number", "default": "14", "help": "F10：饥饿值高于此（越高越饿）才触发自吃", "group": "十九", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_enabled", "label": "1. 抱抱（双向）总开关", "type": "switch", "default": "false", "help": "女仆可以主动走过来抱主人，主人也能抱她、回抱；两边都要先走过去、面对面才抱。默认关。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_ai_request_enabled", "label": "2. 允许 AI 主动求抱", "type": "switch", "default": "false", "help": "AI 按人设和当下情境决定要不要过来抱；关掉只剩主人发起。", "group": "二十", "scope": "模组", "ai_tag": "可选AI", "conflict_flag": false},
+      {"key": "hug_game_side_enabled", "label": "3. 游戏侧按规则求抱", "type": "switch", "default": "false", "help": "不靠 AI：按好感、安全感、心情和主人位置自己判断要不要来抱；心情低时更黏人。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_request_probability", "label": "4. 求抱概率（每次评估）", "type": "number", "default": "0.05", "help": "每次评估掷一次骰子；安全感或心情偏低时按规则上浮，最多 3 倍。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_cooldown_seconds", "label": "5. 抱抱冷却（秒）", "type": "number", "default": "300", "help": "两次求抱之间的最小间隔，避开刷屏；被拒绝后也按这个时长退让。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_max_distance", "label": "6. 主动求抱最远距离（格）", "type": "number", "default": "16", "help": "主人超过这个距离她就不主动过去抱了；太远只冒个气泡，不会追。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_duration_seconds", "label": "7. 抱抱时长（秒）", "type": "number", "default": "4", "help": "抱住之后保持多久；主人移动、受伤，或她被打断都会立刻结束。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_closeness_min", "label": "8. 主人求抱时的接受阈值", "type": "number", "default": "0.4", "help": "好感（0~1）低于这个值她会拒绝；安全感越高越容易答应。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_player_refuse_enabled", "label": "9. 允许主人拒绝抱抱", "type": "switch", "default": "true", "help": "主人可以拒绝她的求抱；被拒绝后一段时间内她不会再来。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false},
+      {"key": "hug_sad_on_refuse", "label": "10. 被拒绝后伤心", "type": "switch", "default": "true", "help": "纯表现：拒绝后露伤心表情、冒一句话，不改世界。", "group": "二十", "scope": "模组", "ai_tag": "纯代码", "conflict_flag": false}
     ]
   },
   "character_profile": {"fields": [{"key": "trait_fear_dark", "label": "特质：怕黑", "type": "switch", "default": "false", "help": "开启后她怕黑：天黑会往有光/人多的地方跑；主人在旁边会缩着求摸摸、要抱抱、说话带颤抖。"}, {"key": "favorite_foods", "label": "喜爱的食物（逗号分隔）", "type": "text", "default": "", "help": "这个角色爱吃的，如 minecraft:cake, minecraft:sweet_berries。连桥时下发到游戏口味表。"}, {"key": "picky_foods", "label": "挑食的食物（逗号分隔）", "type": "text", "default": "", "help": "这个角色不吃的，如 minecraft:rotten_flesh, #forge:candy。"}], "actions": []},
