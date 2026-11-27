@@ -99,7 +99,8 @@ sequenceDiagram
 ```json
 {"magic":"WAB-MAID","v":1,"type":"beacon","nonce":"9f2c…","instance":"a1b2c3",
  "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1-wab.1",
- "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.6.0"}
+ "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.6.1",
+ "capabilities":{"protocol":1,"methods":["status","go","act",/* … */,"hug"],"features":["hug","headpat","plan"]}}
 ```
 
 beacon 只带「谁在这儿」这一件事：`world` / `player` / `maids` 都挪到 TCP 的 `hello` 里发，
@@ -126,7 +127,7 @@ TCP，NDJSON：一行一条 JSON，UTF-8，单行上限 4 MiB（备份 NBT 会�
 ```json
 {"v":1,"type":"hello","nonce":"9f2c…","token":"b7e1…","instance":"a1b2c3",
  "mod":"touhou_little_maid","modVersion":"1.5.3-forge+mc1.20.1-wab.1",
- "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.6.0",
+ "mc":"1.20.1","loader":"forge","loaderVersion":"47.2.0","bridge":"1.6.1",
  "world":"MyWorld","player":"Steve","maids":[…],
  "config":{"enabled":true,"discoveryPort":27321,"lanDiscovery":false,"beaconIntervalSeconds":3,
            "chatRange":8,"showHud":true,"autonomyEnabled":true,"playerCanSleepInMaidBed":false,
@@ -510,3 +511,6 @@ src/main/java/com/github/tartaricacid/touhoulittlemaid/compat/wab/
 - WAB 与模组版本不要求一致，握手只检查 `v`。
 - 桥构建号 `bridge`：`1.6.0`（2026-11-06）起 `hello`/`state` 带 `config`、`welcome`/`settings` 带 `fields`、
   新增上行 `config_set` 与 `error/code=config_rejected`。协议仍是 `v1`，老宿主与老 jar 混着跑只是看不见对方那一份设置，不会连不上。
+- `1.6.1`（2026-11）起 `hello` 多一块 `capabilities`：`{protocol, methods[], features[]}`，`methods` 是这一版
+  dispatch 实际放行的方法名，`features` 是面向功能的开关（`hug`/`headpat`/`plan`）。**只增字段**：老宿主不认识就忽略，
+  老 jar 不发这块时宿主一律按「不支持」处理（例如抱抱工具不出现在提示词里），不会把 `unknown_method` 丢给模型。

@@ -45,24 +45,31 @@
 
         <BoxView Style="{StaticResource HSep}" Margin="0,4" />
 
-        <!-- ============ 二、图像流 · 实时预览（相机可用时才出现） ============ -->
-        <VerticalStackLayout Spacing="1" IsVisible="{Binding LivePreview}">
-            <Label Text="实时预览" Style="{StaticResource TxtSection}" />
-            <Label Text="每两秒在这幅画面上抓一帧识别；画面只在内存里，离开这一页相机立刻关掉。"
-                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
-        </VerticalStackLayout>
+        <!-- ============ 二、图像流 · 实时预览（要你自己打开开关） ============ -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                <Label Text="实时预览" Style="{StaticResource TxtSection}" />
+                <Label Text="打开后每两秒在这幅画面上抓一帧识别；画面只在内存里，离开这一页相机立刻关掉。"
+                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+            </VerticalStackLayout>
+            <Switch Grid.Column="1" VerticalOptions="Center" IsToggled="{Binding PreviewRequested}" />
+        </Grid>
 
-        <Border Style="{StaticResource CardSolid}" Padding="0" IsVisible="{Binding LivePreview}">
+        <Border Style="{StaticResource CardSolid}" Padding="0" IsVisible="{Binding PreviewRunning}">
             <cam:CameraView x:Name="Preview" HeightRequest="180"
                             HorizontalOptions="Fill" VerticalOptions="Fill" />
         </Border>
 
         <Label Text="{Binding LiveResultText}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap"
-               IsVisible="{Binding LivePreview}" />
+               IsVisible="{Binding PreviewRunning}" />
 
         <!-- ============ 三、图像流 · 回落：最近一帧（内存） · 抓一帧 ============ -->
+        <!-- 回落原因先说，画面在后：这句话里提到「下面显示的是最近一帧」，顺序得对得上。 -->
+        <Label Text="{Binding LivePreviewNote}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap"
+               IsVisible="{Binding LivePreviewNote, Converter={StaticResource StringNotEmpty}}" />
+
         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}"
-              IsVisible="{Binding LivePreview, Converter={StaticResource InverseBool}}">
+              IsVisible="{Binding PreviewRunning, Converter={StaticResource InverseBool}}">
             <VerticalStackLayout Spacing="1" VerticalOptions="Center">
                 <Label Text="最近一帧" Style="{StaticResource TxtSection}" />
                 <Label Text="{Binding FrameNote}" Style="{StaticResource TxtCaption}"
@@ -78,10 +85,6 @@
             <Image Source="{Binding FrameSource}" Aspect="AspectFit" HeightRequest="180"
                    HorizontalOptions="Fill" VerticalOptions="Fill" />
         </Border>
-
-        <!-- 回落原因：预览没开时先说明白，再往下才是最近一帧或空态 -->
-        <Label Text="{Binding LivePreviewNote}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap"
-               IsVisible="{Binding LivePreviewNote, Converter={StaticResource StringNotEmpty}}" />
 
         <ctl:EmptyState IsVisible="{Binding ShowEmptyState}"
                         Title="{Binding EmptyTitle}" Reason="{Binding EmptyReason}" Hint="{Binding EmptyHint}" />

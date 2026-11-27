@@ -73,7 +73,7 @@ public partial class AppShell : Shell
     // 硬规矩与 LoadingVeil 一致：
     //  · 靠增删子节点控制显隐，绝不写 Opacity；
     //  · 不铺全屏压暗 scrim（scrim 是布局死循环的帮凶），只放一张居中小卡；
-    //  · 面/边/圆角全取既有令牌（SurfaceBg / WBorderBrush / WRadiusCard / AccentWarm / MutedFg），零新增色；
+    //  · 面/边/圆角全取既有令牌（SurfaceBg / WEdgeBrush / WRadiusCard / AccentWarm / MutedFg），零新增色；
     //  · InputTransparent=true：是提示不是模态锁，不吞点击、不锁窗（锁窗曾直接崩进程）；
     //  · 跨线程回 UI 一律走 Helpers.Ui.Post，绝不用 MainThread.*（线程池上取不到 DispatcherQueue 即崩进程）。
     private Grid? _navBusyOverlay;

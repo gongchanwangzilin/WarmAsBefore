@@ -12,6 +12,12 @@ namespace WarmAsBefore.Controls;
 /// 什么时候该开、该关由 VM 决定——<see cref="FacePanelViewModel.LivePreview"/> 为真才起预览，
 /// 变假或控件卸载立刻停；抓帧的节拍也不在这里，VM 的 2 秒拉帧表通过
 /// <see cref="FacePanelViewModel.SampleRequested"/> 递过来，这里只管按一下快门。
+///
+/// 起停的三条硬规则（曾经踩过的坑，别改回去）：
+///   · 停预览**无条件**调用平台接口，不以「我记录的状态是开着」为门——启动还挂在 half-way 时
+///     页面就会走停，那时 _previewing 还是 false，用状态当门就等于把相机留在没人管的地方；
+///   · 启动拿一个自己的 CancellationTokenSource，停的时候连它一起取消，不让后台任务继续跑；
+///   · await 返回后先确认「VM 还要预览 + 控件还挂着」，不成立就当场停掉，绝不把 _previewing 置真。
 /// </summary>
 public partial class FaceMonitorPane : ContentView
 {
@@ -21,6 +27,8 @@ public partial class FaceMonitorPane : ContentView
     private FacePanelViewModel? _vm;
     private bool _previewing;
     private bool _starting;
+    private CancellationTokenSource? _previewCts;
+    private Window? _window;
 
     public FaceMonitorPane()
     {
@@ -29,9 +37,14 @@ public partial class FaceMonitorPane : ContentView
         Preview.MediaCaptureFailed += OnMediaCaptureFailed;
         Loaded += (_, _) =>
         {
+            HookWindow();
             if (_vm?.LivePreview == true) _ = StartPreviewAsync();
         };
-        Unloaded += (_, _) => StopPreview();
+        Unloaded += (_, _) =>
+        {
+            UnhookWindow();
+            StopPreview();
+        };
     }
 
     protected override void OnBindingContextChanged()
@@ -50,6 +63,37 @@ public partial class FaceMonitorPane : ContentView
         if (_vm.LivePreview && IsLoaded) _ = StartPreviewAsync();
     }
 
+    /// <summary>
+    /// 窗口失焦/最小化时也要停预览：MAUI 的页面生命周期不会因为最小化触发，
+    /// 不挂这一层的话相机指示灯会在最小化之后一直亮着（仓库里 HoverFeel 已有同样的先例）。
+    /// </summary>
+    private void HookWindow()
+    {
+        try
+        {
+            var w = Application.Current?.Windows.Count > 0 ? Application.Current.Windows[0] : null;
+            if (w is null || ReferenceEquals(w, _window)) return;
+            _window = w;
+            w.Deactivated += OnWindowDeactivated;
+            w.Stopped += OnWindowDeactivated;
+        }
+        catch (Exception ex) { App.WriteLog("FacePane.window.hook -> " + ex.GetType().Name); }
+    }
+
+    private void UnhookWindow()
+    {
+        if (_window is null) return;
+        try
+        {
+            _window.Deactivated -= OnWindowDeactivated;
+            _window.Stopped -= OnWindowDeactivated;
+        }
+        catch { /* 故意忽略：窗口已经没了，退订失败不影响任何行为 */ }
+        _window = null;
+    }
+
+    private void OnWindowDeactivated(object? sender, EventArgs e) => StopPreview();
+
     private void OnViewModelPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(FacePanelViewModel.LivePreview)) return;
@@ -64,29 +108,58 @@ public partial class FaceMonitorPane : ContentView
     {
         if (_previewing || _starting) return;
         _starting = true;
+        var cts = new CancellationTokenSource();
+        _previewCts = cts;
         try
         {
             // 让 IsVisible 的那次变化先落到平台层：CameraView 复用了刚显示出来的预览表面。
             await Task.Yield();
             // 相机被占用 / 桌面应用没被系统放行时，这一步会抛或者一直不回话，所以压一个上限。
-            await Preview.StartCameraPreview(CancellationToken.None).WaitAsync(TimeSpan.FromSeconds(10));
+            await Preview.StartCameraPreview(cts.Token).WaitAsync(TimeSpan.FromSeconds(10), cts.Token);
+
+            // 回来后先看还要不要：这十秒里可能已经离页、或者用户把开关关了。
+            if (_vm?.LivePreview != true || !IsLoaded || cts.IsCancellationRequested)
+            {
+                SafeStop();
+                return;
+            }
             _previewing = true;
+            _vm.ReportPreviewRunning(true);
         }
         catch (Exception ex)
         {
+            // 超时/失败时底层可能其实已经起来了（只是回话慢）：这里必须再停一次，否则相机就没人关了。
+            SafeStop();
             App.WriteLog("FacePane.preview.start -> " + ex.GetType().Name);
-            _vm?.ReportPreviewUnavailable(ex is TimeoutException
-                ? "相机十秒没有回话（可能被别的应用占着）"
-                : "相机没打开（" + ex.GetType().Name + "）");
+            _vm?.ReportPreviewUnavailable(ex is OperationCanceledException
+                ? "预览被关掉了"
+                : ex is TimeoutException
+                    ? "相机十秒没有回话（可能被别的应用占着）"
+                    : "相机没打开（" + ex.GetType().Name + "）");
         }
-        finally { _starting = false; }
+        finally
+        {
+            _starting = false;
+            if (_previewCts == cts) _previewCts = null;
+            cts.Dispose();
+        }
     }
 
-    /// <summary>停预览：页面离开、面板卸载、或 VM 关门时都会走到这里，重复调用安全。</summary>
+    /// <summary>
+    /// 停预览：页面离开、面板卸载、或 VM 关门时都会走到这里，重复调用安全。
+    /// 不看 _previewing——启动还在路上时也要能把那颗取消令牌掐掉、并把平台侧叫停。
+    /// </summary>
     private void StopPreview()
     {
-        if (!_previewing) return;
+        var was = _previewing;
         _previewing = false;
+        try { _previewCts?.Cancel(); } catch { /* 故意忽略：取消令牌本身失败不影响下面的停 */ }
+        SafeStop();
+        if (was) _vm?.ReportPreviewRunning(false);
+    }
+
+    private void SafeStop()
+    {
         try { Preview.StopCameraPreview(); }
         catch (Exception ex) { App.WriteLog("FacePane.preview.stop -> " + ex.GetType().Name); }
     }
@@ -102,19 +175,27 @@ public partial class FaceMonitorPane : ContentView
     private void OnMediaCaptured(object? sender, MediaCapturedEventArgs e)
     {
         var vm = _vm;
-        if (vm is null || e.Media is null) return;
-        _ = ReadAndAnalyzeAsync(vm, e.Media);
+        var media = e.Media;
+        if (vm is null || media is null) return;
+        _ = ReadAndAnalyzeAsync(vm, media);
     }
 
-    /// <summary>把这一帧读成字节交给 VM 识别；读不出来或尺寸离谱就丢，不写日志里的任何路径。</summary>
+    /// <summary>
+    /// 把这一帧读成字节交给 VM 识别；读不出来或尺寸离谱就丢，不写日志里的任何路径。
+    /// 流的释放和大小判定都在这里：先按 Length 粗筛，再读，读完一定 dispose。
+    /// </summary>
     private static async Task ReadAndAnalyzeAsync(FacePanelViewModel vm, Stream media)
     {
         try
         {
-            using var buffer = new MemoryStream();
-            await media.CopyToAsync(buffer);
-            if (buffer.Length == 0 || buffer.Length > MaxPreviewFrameBytes) return;
-            await vm.AnalyzePreviewFrameAsync(buffer.ToArray());
+            using (media)
+            {
+                if (media.CanSeek && media.Length > MaxPreviewFrameBytes) return;
+                using var buffer = new MemoryStream();
+                await media.CopyToAsync(buffer);
+                if (buffer.Length == 0 || buffer.Length > MaxPreviewFrameBytes) return;
+                await vm.AnalyzePreviewFrameAsync(buffer.ToArray());
+            }
         }
         catch (Exception ex) { App.WriteLog("FacePane.preview.read -> " + ex.GetType().Name); }
     }

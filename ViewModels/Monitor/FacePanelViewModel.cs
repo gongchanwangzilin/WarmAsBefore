@@ -55,17 +55,36 @@ public sealed partial class FacePanelViewModel : ObservableObject
     /// </summary>
     [ObservableProperty] private bool _livePreview;
 
+    /// <summary>
+    /// 用户在这一页里明确打开「实时预览」：默认关，每次进页都要重新表态。
+    /// 相机不是默认背景音——进页面就自己开镜头和仓库「不会偷偷把镜头打开」的承诺冲突。
+    /// </summary>
+    [ObservableProperty] private bool _previewRequested;
+
+    /// <summary>
+    /// 预览**真的起来了**（平台侧确认出画）：只有它决定画面区画相机还是画回落。
+    /// 用 LivePreview 当显隐会在启动那 0~10 秒里留一块空白，连「抓一帧」都不见了。
+    /// </summary>
+    [ObservableProperty] private bool _previewRunning;
+
     /// <summary>预览这一帧的识别结果（情绪 / 年龄），每两秒刷一次。</summary>
     [ObservableProperty] private string _liveResultText = "";
 
     /// <summary>预览起不来时的一句话（相机打不开 / 没有可用相机）；链条本身的断点在空态里说，这里不重复。</summary>
     [ObservableProperty] private string _livePreviewNote = "";
 
-    /// <summary>预览开着时画面已经在 CameraView 里：静止帧与空态都不画，免得两处抢同一块位置。</summary>
-    public bool ShowStillFrame => HasFrame && !LivePreview;
+    /// <summary>预览真起来了，画面就在 CameraView 里：静止帧与空态都不画，免得两处抢同一块位置。</summary>
+    public bool ShowStillFrame => HasFrame && !PreviewRunning;
 
     /// <summary>没有画面、也没有预览时才画空态。</summary>
-    public bool ShowEmptyState => !HasFrame && !LivePreview;
+    public bool ShowEmptyState => !HasFrame && !PreviewRunning;
+
+    /// <summary>预览端回话：画面出来了 / 已经关掉。</summary>
+    public void ReportPreviewRunning(bool running)
+    {
+        PreviewRunning = running;
+        if (running) LivePreviewNote = "";
+    }
 
     /// <summary>到点请预览端抓一帧（由监测页现有的 2 秒拉帧表触发，见 <see cref="PullLatestFrame"/>）。</summary>
     public event Action? SampleRequested;
@@ -77,11 +96,13 @@ public sealed partial class FacePanelViewModel : ObservableObject
     /// <summary>状态行上次刷新的时间：预览每两秒一帧，但列表不必跟着每两秒重建。</summary>
     private DateTime _lastStatusAt = DateTime.MinValue;
 
-    partial void OnLivePreviewChanged(bool value)
+    partial void OnPreviewRunningChanged(bool value)
     {
         OnPropertyChanged(nameof(ShowStillFrame));
         OnPropertyChanged(nameof(ShowEmptyState));
     }
+
+    partial void OnPreviewRequestedChanged(bool value) => _ = LoadAsync();
 
     partial void OnHasFrameChanged(bool value)
     {
@@ -109,6 +130,8 @@ public sealed partial class FacePanelViewModel : ObservableObject
         _livePreviewBlocked = false;
         _livePreviewBlockReason = "";
         LivePreviewNote = "";
+        PreviewRequested = false;
+        PreviewRunning = false;
         FacePresenceService.Instance.BeginMonitor();
         PullLatestFrame();
     }
@@ -116,6 +139,8 @@ public sealed partial class FacePanelViewModel : ObservableObject
     /// <summary>页面离开：先关预览、再关门，此后没有任何人在拉帧，相机也已经关掉。</summary>
     public void EndMonitor()
     {
+        PreviewRequested = false;
+        PreviewRunning = false;
         LivePreview = false;
         LiveResultText = "";
         FacePresenceService.Instance.EndMonitor();
@@ -130,8 +155,9 @@ public sealed partial class FacePanelViewModel : ObservableObject
         _livePreviewBlocked = true;
         _livePreviewBlockReason = reason;
         LivePreview = false;
+        PreviewRunning = false;
         LiveResultText = "";
-        LivePreviewNote = $"{reason}，已回落到最近一帧。";
+        LivePreviewNote = $"{reason}，已回落到最近一帧（画面在下方）。";
     }
 
     /// <summary>
@@ -269,7 +295,9 @@ public sealed partial class FacePanelViewModel : ObservableObject
             return;
         }
 
-        EmptyReason = "这一局还没取过帧：相机只在你按下快门时取帧，不会自己打开。";
+        EmptyReason = PreviewRequested
+            ? "实时预览还没出画：相机可能正被别的应用占着。"
+            : "还没有画面：可以按「抓一帧」，或者打开上面的「实时预览」。";
         EmptyHint = "点「抓一帧」，或者让 AI 请求「看一眼现在」。";
     }
 
@@ -288,14 +316,23 @@ public sealed partial class FacePanelViewModel : ObservableObject
         if (_livePreviewBlocked)
         {
             LivePreview = false;
-            LivePreviewNote = $"{_livePreviewBlockReason}，已回落到最近一帧。";
+            PreviewRunning = false;
+            LivePreviewNote = $"{_livePreviewBlockReason}，已回落到最近一帧（画面在下方）。";
             return;
         }
 
-        var ready = status.CameraSwitchOn
+        var ready = PreviewRequested
+                    && status.CameraSwitchOn
                     && status.Authorized
                     && status.CameraPermission == Microsoft.Maui.ApplicationModel.PermissionStatus.Granted;
         LivePreview = ready;
+        if (!ready && !PreviewRequested)
+        {
+            PreviewRunning = false;
+            LivePreviewNote = "打开「实时预览」才会用相机取景；下面显示的是最近一帧。";
+            return;
+        }
+        if (!ready) PreviewRunning = false;
         LivePreviewNote = ready
             ? ""
             : blocked.Length > 0 ? $"实时预览没开。{blocked}下面显示的是最近一帧。" : "";

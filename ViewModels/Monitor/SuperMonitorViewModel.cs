@@ -320,7 +320,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         else Redraw();
 
         // 人脸识别图像流：只在这一页可见时拉（2s 一次，序号没变就什么都不做）。
-        // 离开页面由 StopClock 关门并停表，相机从不会因为这一页开着而自己被打开。
+        // 离开页面由 StopClock 关门并停表；相机只在人脸面板里显式打开「实时预览」后才会取景，
+        // 进页面本身不会开镜头。
         try
         {
             Face.BeginMonitor();

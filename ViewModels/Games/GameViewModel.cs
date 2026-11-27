@@ -28,7 +28,6 @@ public sealed partial class GameViewModel : ObservableObject
     [ObservableProperty] private string _boardDisplay = "";
     [ObservableProperty] private bool _inGame;
     [ObservableProperty] private bool _isListening;
-    [ObservableProperty] private int _affection = 500;
     [ObservableProperty] private int _boardRows;
     [ObservableProperty] private int _boardCols;
     [ObservableProperty] private double _cellSize = 36;

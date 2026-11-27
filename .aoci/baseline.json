@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-27T09:27:48Z",
+  "updated_at": "2026-11-27T10:26:03Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -59,9 +59,9 @@
     },
     "App.xaml": {
       "role": "index",
-      "sha256": "85f929633e848db87d3ca001b94def13e5b3698804ea2c5615fae9228cb72df6",
-      "size": 3416,
-      "normalized_sha256": "ab054208fc2c2d8bb3cdd99453288e667969a61af93a3cda2e8a6ab17b3de388"
+      "sha256": "512ed304a75621752b94996ac223ab7e2493de555ec3ff7fa566107af1e3b667",
+      "size": 3358,
+      "normalized_sha256": "a8b55062b8f825a1592bf94c2c129d2685ed08a59a54f5d774ab108c621088b5"
     },
     "App.xaml.cs": {
       "role": "index",
@@ -161,15 +161,15 @@
     },
     "Controls/FaceMonitorPane.xaml": {
       "role": "index",
-      "sha256": "1183baab4e222143c6e09d0afc8d75266bf4f560b7c0678e6255101237f5adb3",
-      "size": 4419,
-      "normalized_sha256": "19e6b55a6b1418dbd701f6f91c066e8b18787841ab1f751e261bc4c2233a252e"
+      "sha256": "07861856e655d211ba964f8fc8e6c7c3e1eae5e3830b156a342940334d6160c1",
+      "size": 6072,
+      "normalized_sha256": "f7d1561176b6465a3b0c46da41332dd86f184866431e7a01eb55057845e3779a"
     },
     "Controls/FaceMonitorPane.xaml.cs": {
       "role": "index",
-      "sha256": "62df2bf52fd4202b8b1e9e1058f8785a276933e38575b4c9b22edeae490e0949",
-      "size": 497,
-      "normalized_sha256": "ae1866409b7cb65ab861a6bf66ae77a3e9815cd0151e5d63ac83ddb3e4a2d677"
+      "sha256": "a5327fc0f980138f1d4383319f8cedcde69b1acda24f955d2eab581ce90a3fc1",
+      "size": 5507,
+      "normalized_sha256": "6769ba9efab19995eab238e0fac63ca816c00a9854c3b889407736c888f2196a"
     },
     "Controls/ForegroundRainView.cs": {
       "role": "index",
@@ -269,9 +269,9 @@
     },
     "Converters/Converters.cs": {
       "role": "index",
-      "sha256": "1ef8d80e7135d671c6b688537240b914aec5ed02ac984d5b93708409457d84e4",
-      "size": 9339,
-      "normalized_sha256": "2ecd14216df2c1f9ef0c5fcc138afcd0aae36385834ae3c09405fd2ff7f65912"
+      "sha256": "284989d6222703d2a7cd6f33d5987b3bbd861a12010600a149fdc282e8ec2ece",
+      "size": 8373,
+      "normalized_sha256": "9666e627bfe27cc2bfbf9c79bf6d321d258bf080614c5e8c0e2d20db63423500"
     },
     "Converters/SpritePathToImageSourceConverter.cs": {
       "role": "index",
@@ -641,9 +641,9 @@
     },
     "MauiProgram.cs": {
       "role": "index",
-      "sha256": "05eb02a7c714341f7691a8979f645bc26276e971a071c855df91457a849d66f2",
-      "size": 2648,
-      "normalized_sha256": "937e8e004d861a37a99ee2bbcc6178d197a3070b0f7c2c7d6f922ca209e569da"
+      "sha256": "ea6c448d9352a0b9091c920923039939f7ab1e98adbd2316d84b4b9ff0aee48d",
+      "size": 2827,
+      "normalized_sha256": "73ae9205a1afeaa196a6e46561ef928b6f51fc6f70ddfbb01b47415e4d758050"
     },
     "Models/AudioAssets.cs": {
       "role": "index",
@@ -1007,9 +1007,9 @@
     },
     "Modules/MinecraftBridge/MaidBridgeModels.cs": {
       "role": "index",
-      "sha256": "4477eebe95acbefb95c66f8e72b17fb7dc79321ea468a09fdd902a9cc0a9b7bf",
-      "size": 18216,
-      "normalized_sha256": "a72e0608e50d4f8b7668b191d7fea052e4ef16c02452479940509e3bd4541c4f"
+      "sha256": "13d9aaa194ef00b573d508982b737f46e2c49d9da2b8cddc72d358a0885a4e7a",
+      "size": 21422,
+      "normalized_sha256": "f610837205d4f94e5f9e07dcc47ff7afda4f5b693c8d4f507a0da59487ff882c"
     },
     "Modules/MinecraftBridge/MaidBridgeService.Bindings.cs": {
       "role": "index",
@@ -1037,15 +1037,15 @@
     },
     "Modules/MinecraftBridge/MaidBridgeService.cs": {
       "role": "index",
-      "sha256": "dd6b947af16fb40e611a3e9dac3ec48d91e78f4bbe80ff1d39907011326d9c0c",
-      "size": 174643,
-      "normalized_sha256": "b3550c8f0a7fb44488c14c947e5ae739ad0f6842fe7011c0c7864ed256182f20"
+      "sha256": "a7f13862ac486b350553dbad0f6892a056cde43b425564f596535a31c92cab5d",
+      "size": 179044,
+      "normalized_sha256": "c33a961882ae73ea3652bc5c2eb55fdfd9d363de9f0afd4299c1a83771b85a5a"
     },
     "Modules/MinecraftBridge/MaidBridgeTools.cs": {
       "role": "index",
-      "sha256": "8f29e09bcb048c36fa6ef1e821c46171573ad3d8b4bf6f3c99c6538c0d2ea8b4",
-      "size": 33691,
-      "normalized_sha256": "4da35972502b1a147dc584d48abe6109da436a8ddbbeae3299d92b6745a852f4"
+      "sha256": "2520380f96d289af92d34f16fe26b5699bb7d827400bf9c932b8142a1494c7c9",
+      "size": 35090,
+      "normalized_sha256": "d416e3501db2a46517d22c42444b3a635f365774e05ccbcbd4379018cc563eec"
     },
     "Modules/NovelImport/NovelAnalyzer.cs": {
       "role": "index",
@@ -1325,9 +1325,9 @@
     },
     "Platforms/Android/AndroidManifest.xml": {
       "role": "index",
-      "sha256": "1b85bba0d11086eb2c30d214f97d25c5c00fe271c3ebac0dc8c83789687b4a88",
-      "size": 1104,
-      "normalized_sha256": "6dd0a7a5eb479afe32fb99df8b1291c92b9ffbe53f2e17f72185ba304dd37172"
+      "sha256": "32e5cd22c3b2771a3083057e40c3f9cd4837bb3b3ffa5eb2c540282d7fd0f0a7",
+      "size": 1340,
+      "normalized_sha256": "6fe68bfc3f29e8222961ad6c1119b88554e06139b509dadc6dc7596dd28b6a8c"
     },
     "Platforms/Android/BridgeKeepAliveService.cs": {
       "role": "index",
@@ -1904,9 +1904,9 @@
     },
     "Services/Core/RuntimeConfigurator.cs": {
       "role": "index",
-      "sha256": "ce3f5c3c7dfb4e9f04a4cbcf6ce38edad0076784e8e29f83daa50ef3b01dcc21",
-      "size": 62689,
-      "normalized_sha256": "9a980a984343129881bbca53ba2468ac8cca21d4c2903c87cdd31a698984bfbd"
+      "sha256": "359f939e53ba1094af1bfaf8380cea6637dc6efadd0c4e4d00ca2604d916c63d",
+      "size": 63055,
+      "normalized_sha256": "9765d87711ff3e21538e93756639176140ef2c20518a95f79fd764a850d774a0"
     },
     "Services/Core/SafeZip.cs": {
       "role": "index",
@@ -2066,9 +2066,9 @@
     },
     "Services/Media/FacePresenceService.cs": {
       "role": "index",
-      "sha256": "74965360a70fedc61b8ecffb228518d4fbd2cd1e225106a073ff675ab7003f5e",
-      "size": 17609,
-      "normalized_sha256": "3fa62a6ff092afbd76b795c638b2d1762eeeaa68d677095378385cd55d2c759a"
+      "sha256": "5278e11351a73cf88d6ee316123340e6bd50c6bf09f5c295d2d549c7564be248",
+      "size": 19224,
+      "normalized_sha256": "4bef29ce46e2e587bbea5f5f8776aa7db20bd2faee98fe37d73b443c5347ebe6"
     },
     "Services/Media/ImageGenerationService.cs": {
       "role": "index",
@@ -2444,9 +2444,9 @@
     },
     "ViewModels/Games/GameViewModel.cs": {
       "role": "index",
-      "sha256": "35a5e46545738299d7e583b31d891db44e33fcff113c5965d901ab6f68f0afb7",
-      "size": 24639,
-      "normalized_sha256": "96dba1233593001dbd8f5d606c2a246d17e64ebd8f55abc816f416b785905d13"
+      "sha256": "1805c6dadefe3b135154712d6b1f350148152f5734cf52e04864c8d652f8fe09",
+      "size": 24319,
+      "normalized_sha256": "44aa867340b8f1857ed9042bd1ed87d2cadf3750b4520f367e88d89b8782311c"
     },
     "ViewModels/Games/MapCanvasNode.cs": {
       "role": "index",
@@ -2660,15 +2660,15 @@
     },
     "ViewModels/Monitor/FacePanelViewModel.cs": {
       "role": "index",
-      "sha256": "7eb1fe1e9ccc79aaade223b663ce235a2356d9af77108862ef1c125b7f62552e",
-      "size": 9862,
-      "normalized_sha256": "7aa9f92f5750f45e74fab3ae2e3067b1cd1158d33bb6400a54daad1d0f7b5c92"
+      "sha256": "02ad965ea37c72f5f067162cf30fc9839369ae3b6529e75390b671d4a5716800",
+      "size": 15663,
+      "normalized_sha256": "29ffdefc42aa773217f48cafa46e3fcf966ae42e69ed077f0397ec829b450ce6"
     },
     "ViewModels/Monitor/ModuleInspectorViewModel.cs": {
       "role": "index",
-      "sha256": "2e73739d66904f102eefc2e628293468a8ad0390d5bd2b61df5c8cf5efc8a2c8",
-      "size": 66903,
-      "normalized_sha256": "bf7a50f70ce4ee8d9a3d2e61e84c0ab36275d963418ba1696d76efd9b1a4f5b2"
+      "sha256": "e841ea2398f89b3c48d4448a9d35b60b85c1c041c6fdf935d97df2f928c0d905",
+      "size": 67054,
+      "normalized_sha256": "3c152e57b9610f36508b006be5c2825e828ac8fd755dc82fe011d9a1e485040a"
     },
     "ViewModels/Monitor/SuperMonitorViewModel.cs": {
       "role": "index",
@@ -2924,9 +2924,9 @@
     },
     "Views/Character/CharacterStudioPanel.xaml": {
       "role": "index",
-      "sha256": "aecb4502a6a9d67dd5fd41deb1927fe6fe20e230ad6355ada31f0aeb277840db",
-      "size": 140168,
-      "normalized_sha256": "2d14c35c68d9c4ca733d0841008f0ff5da33975f37ed1d673becc1a7e66a83d4"
+      "sha256": "0fd78b00a769737567edbdb9082610e149964263c572951e433876dd4db6b128",
+      "size": 140170,
+      "normalized_sha256": "3087b541cad00ef9eebd17f893a4fca1d50497a6ed43436e3a6379de1b0c66e7"
     },
     "Views/Character/CharacterStudioPanel.xaml.cs": {
       "role": "index",
@@ -3116,9 +3116,9 @@
     },
     "Views/Games/GamePage.xaml": {
       "role": "index",
-      "sha256": "d77307e28eafd0e3bc85e5baf3a4fcfaa29e8ebcf79537171f01fa203302859d",
-      "size": 13205,
-      "normalized_sha256": "9ac1dfb3ded9374309166112273b8ba66b91ab8ff1c63cc14a8dcf8b88c2e9cb"
+      "sha256": "d7b7146a1ebc4aa10aa5b0bc7a318ac514db5a0cd73e2178d4161ccaeeb4fc23",
+      "size": 12414,
+      "normalized_sha256": "df298beb8e2a494129058f3bebf93690e1915cf3a364d1cd64a9a50e61e3aac7"
     },
     "Views/Games/GamePage.xaml.cs": {
       "role": "index",
@@ -3236,9 +3236,9 @@
     },
     "Views/Main/MainGamePage.xaml": {
       "role": "index",
-      "sha256": "818268592254d2bde04ab1f4bbb446a93cc1a8ce6b7596b2673ee1d0c66a28aa",
-      "size": 77496,
-      "normalized_sha256": "42076b076672722ed3ae34489c77420a4d4d1bb61bb0afe42c5c50a8e929056b"
+      "sha256": "c54298085b613c01b900415969bd8476dca744aa26fb26d9fa8fa1eab3a26061",
+      "size": 77494,
+      "normalized_sha256": "741b6e004d092693d258570d77056019f249832a204fad76435a60cd7e27b880"
     },
     "Views/Main/MainGamePage.xaml.cs": {
       "role": "index",
@@ -3686,9 +3686,9 @@
     },
     "WarmAsBefore.csproj": {
       "role": "index",
-      "sha256": "9d86e06845de9636656d907a402a385cfcf00b02e0953240e7ffa99245909483",
-      "size": 11582,
-      "normalized_sha256": "e9f3ba9293e6d92600cedfe323c4013fae0d272830589be51dced3102b192df1"
+      "sha256": "37fcb2b68e6a2d9520770ec68be754f153c23819da5415ba2aee7770eeca1d42",
+      "size": 12094,
+      "normalized_sha256": "4ace49fc17bb7d970147d8fc93e331331ee5a79183d46452d1da5791d7e911f8"
     },
     "Weather3D/MonitorVectorApplication.cs": {
       "role": "index",
@@ -3728,9 +3728,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "26cb5c95076e103618403ec0342ac846863d6863c32e9e01d70314c90a28aa4d",
-      "size": 222707,
-      "normalized_sha256": "26cb5c95076e103618403ec0342ac846863d6863c32e9e01d70314c90a28aa4d"
+      "sha256": "f6d2ce9fbc637545a1689b0da03c13cd06034b613a92debf1495beced338470b",
+      "size": 223748,
+      "normalized_sha256": "f6d2ce9fbc637545a1689b0da03c13cd06034b613a92debf1495beced338470b"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3834,9 +3834,9 @@
     },
     "plugins/wab_minecraft/plugin.json": {
       "role": "index",
-      "sha256": "cc569930b4342a4a3fe53d8bf4ab61bab34371271ee833e0450516b1e460f936",
-      "size": 55881,
-      "normalized_sha256": "cc569930b4342a4a3fe53d8bf4ab61bab34371271ee833e0450516b1e460f936"
+      "sha256": "91c8f4427b38c18442670afbe4c5be166b50fc62ff892d3d215afd9f4ef453d0",
+      "size": 56089,
+      "normalized_sha256": "5642f1738d2985519926a1f86f55557a39ac6f37f94cf1c29f0e29e40411393e"
     },
     "publish_android.sh": {
       "role": "index",
