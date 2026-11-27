@@ -49,12 +49,12 @@ public static class Toast
     {
         try
         {
+            var page = CurrentPage();
+            if (page is null) return;   // 没有页面就没有条，别先响一声什么也不出
+
             // 出条的同时给一声：提示用柔和的「叮」，警告/错误走下行音（听见就知道不是好消息）。
             if (kind is ToastKind.Warning or ToastKind.Error) UiSounds.Back();
             else UiSounds.Notice();
-
-            var page = CurrentPage();
-            if (page is null) return;
             Ensure(page).Show(title, body, code, glyph, kind, Settings());
         }
         catch (Exception ex) { App.WriteLog("Toast -> " + ex.Message); }

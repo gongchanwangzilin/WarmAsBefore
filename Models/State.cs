@@ -239,6 +239,12 @@ public sealed record SaveSlot
     public string BranchName { get; init; } = "";
     /// <summary>分叉时间（UTC）；null = 这不是分支档。</summary>
     public DateTime? ForkedAt { get; init; }
+
+    /// <summary>
+    /// 这一局从导入的聊天记录起步时的摘要（「从 N 条记录起步 · M 天」）；空 = 普通开局。
+    /// 存快照而不是存 seed 对象：存档列表只需要一行字，读档路径不该为了显示去反序列化一遍。
+    /// </summary>
+    public string HistoryNote { get; init; } = "";
 }
 
 /// <summary>会话中的一条聊天记录：随存档一起持久化，读档后恢复聊天界面。</summary>

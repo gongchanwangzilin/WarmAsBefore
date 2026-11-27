@@ -96,6 +96,9 @@
                                                 </FormattedString>
                                             </Label.FormattedText>
                                         </Label>
+                                        <Label Text="{Binding HistoryNote}" Style="{StaticResource TxtRowDesc}"
+                                               IsVisible="{Binding HasHistoryNote}" MaxLines="1"
+                                               LineBreakMode="TailTruncation" />
                                     </VerticalStackLayout>
 
                                     <Button Grid.Row="0" Grid.RowSpan="2" Grid.Column="2" Text="读取"

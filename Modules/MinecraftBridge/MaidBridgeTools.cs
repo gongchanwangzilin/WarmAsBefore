@@ -61,7 +61,8 @@ internal static class MaidBridgeTools
             "抱抱（既是功能也是动作）：她会先走到你身边、面对面再抱，不瞬移；路被挡、你在战斗或睡觉、她正忙着，都会放弃并说明原因。"
             + "action=request 求抱（她按好感与安全感决定答应、勉强答应还是拒绝），hug_back 回抱（她正抱着你时延长并回应），"
             + "refuse 明确拒绝她的求抱，status 查她现在愿不愿意、在不在抱。"
-            + "想主动抱她时先看 status；被拒绝过就隔一阵再试，别连着求。",
+            + "想主动抱她时先看 status；被拒绝过就隔一阵再试，别连着求。"
+            + "如果返回 unknown_method，说明对方模组这一版还没有抱抱功能：直接告诉玩家去更新模组，不要重试。",
             args => bridge.RunToolAsync("hug", args),
             HugSchema);
 

@@ -230,7 +230,7 @@ public static class GlassTokens
         var dialog = Of(GlassKind.Dialog);
 
         var hairline = flat ? 0.0 : Hairline;
-        res[HairlineKey] = Hairline;
+        res[HairlineKey] = hairline;
 
         res[BarBg] = flat ? Solid(Sink(surface, 0.03)) : Slab(bar, 0, 1, 1, 1);
         res[BarStroke] = flat ? Solid(Colors.Transparent) : EdgeOf(bar);

@@ -81,7 +81,10 @@ public sealed class UiSoundService
         var now = Environment.TickCount64;
         lock (_gate)
         {
-            if (now - _lastAnyTicks < 8) return;
+            // 8ms 的「任意音」闸只为按掉连点抖出来的重音；确认/返回/提示是跟着一次明确操作来的语义音，
+            // 被它吃掉就等于这两个精心挑的声音永远听不见——它们只受下面 30ms 同族闸约束。
+            var semantic = kind is UiSoundKind.Confirm or UiSoundKind.Back or UiSoundKind.Notice;
+            if (!semantic && now - _lastAnyTicks < 8) return;
             if (kind == _lastKind && now - _lastSameTicks < 30) return;
             if (_queue.Count >= MaxQueued) return;
             _lastAnyTicks = now;

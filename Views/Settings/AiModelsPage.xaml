@@ -277,17 +277,14 @@
                             </Grid>
                             <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding ShowDisplaySwitches}">
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" RowSpacing="{DynamicResource WSpaceTight}">
-                                    <Label Grid.Row="0" Grid.Column="0" Text="热度条" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowHeatSlider}" VerticalOptions="Center" />
+                                    <Label Grid.Row="0" Grid.Column="0" Text="思考等级条" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkTierBar}" VerticalOptions="Center" />
 
-                                    <Label Grid.Row="1" Grid.Column="0" Text="思考等级条" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkTierBar}" VerticalOptions="Center" />
+                                    <Label Grid.Row="1" Grid.Column="0" Text="思考开关" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkToggle}" VerticalOptions="Center" />
 
-                                    <Label Grid.Row="2" Grid.Column="0" Text="思考开关" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkToggle}" VerticalOptions="Center" />
-
-                                    <Label Grid.Row="3" Grid.Column="0" Text="快速按钮组" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="3" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowQuickButtons}" VerticalOptions="Center" />
+                                    <Label Grid.Row="2" Grid.Column="0" Text="快速按钮组" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
+                                    <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowQuickButtons}" VerticalOptions="Center" />
                                 </Grid>
                             </VerticalStackLayout>
                         </VerticalStackLayout>

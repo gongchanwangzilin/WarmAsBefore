@@ -164,11 +164,11 @@ public static class SecurityScale
     /// 例：security=0 → ×0.6，=500 → ×0.8，=1000 → ×1.0。
     /// </summary>
     public static double AffectionGainFactor(int security)
-        => 0.6 + 0.4 * (Clamp(security) / (double)MaxPoints);
+        => 0.6 + 0.4 * (Migrate(security) / (double)MaxPoints);
 
     /// <summary>好感衰减倍率：安全感高时掉得更慢（1.25 → 0.75），安全感低时更容易掉。</summary>
     public static double AffectionDecayFactor(int security)
-        => 1.25 - 0.5 * (Clamp(security) / (double)MaxPoints);
+        => 1.25 - 0.5 * (Migrate(security) / (double)MaxPoints);
 
     /// <summary>好感增量按安全感打折/减速（正增量走增益折扣，负增量走衰减倍率）。</summary>
     public static int ScaleAffection(int delta, int security)
@@ -180,7 +180,7 @@ public static class SecurityScale
     /// </summary>
     public static double AvoidanceBias(int security, bool deficitTrait = false)
     {
-        var bias = Math.Clamp((500 - Clamp(security)) / 500.0, 0, 1);
+        var bias = Math.Clamp((500 - Migrate(security)) / 500.0, 0, 1);
         return deficitTrait ? Math.Min(1, bias + 0.15) : bias;
     }
 

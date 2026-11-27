@@ -177,7 +177,6 @@ public sealed partial class AiModelRow : ObservableObject
             if (SupportsVision) parts.Add("识图");
             if (SupportsTools) parts.Add("工具");
             if (SupportsJson) parts.Add("JSON");
-            if (ShowHeatSlider) parts.Add("热度条");
             if (ShowThinkTierBar) parts.Add("思考条");
             if (ShowThinkToggle) parts.Add("思考开关");
             if (ShowQuickButtons) parts.Add("快速钮");

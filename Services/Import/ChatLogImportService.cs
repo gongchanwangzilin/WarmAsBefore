@@ -200,7 +200,11 @@ public sealed class ChatLogImportService
         {
             if (_staged is null) return null;
             if (!string.IsNullOrEmpty(characterId) &&
-                !string.Equals(_staged.CharacterId, characterId, StringComparison.Ordinal)) return null;
+                !string.Equals(_staged.CharacterId, characterId, StringComparison.Ordinal))
+            {
+                _staged = null;   // 换了角色开局：这份暂存已不属于任何一局，不能悄悄留到下一次
+                return null;
+            }
             var taken = _staged;
             _staged = null;
             return taken;

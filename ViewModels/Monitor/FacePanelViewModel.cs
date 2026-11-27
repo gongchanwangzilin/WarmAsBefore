@@ -50,7 +50,7 @@ public sealed partial class FacePanelViewModel : ObservableObject
     /// <summary>上次画上去的帧序号：序号没变就不重建 ImageSource，免得每次都换一个。</summary>
     private long _shownSerial = -1;
 
-    /// <summary>当前存档 id：人脸识别按存档授权，空串就是还没进局。</summary>
+    /// <summary>当前角色 id：人脸识别的授权是按角色记账的（同一角色换档不再重问），空串就是还没进局。</summary>
     private static string SaveId()
     {
         try

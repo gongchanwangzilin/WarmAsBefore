@@ -23,7 +23,6 @@ public sealed record ModelCapabilitySet
         get
         {
             var parts = new List<string>();
-            if (HeatSlider) parts.Add("热度条");
             if (ThinkTierBar) parts.Add("思考条");
             if (ThinkToggle) parts.Add("思考开关");
             if (QuickButtons) parts.Add("快速钮");

@@ -200,7 +200,7 @@ Console.WriteLine("== 10. 安全感 → 好感增益折扣与衰减 ==");
 Near(SecurityScale.AffectionGainFactor(0), 0.6, "安全感 0 → 好感增益 ×0.6");
 Near(SecurityScale.AffectionGainFactor(500), 0.8, "安全感 500 → ×0.8");
 Near(SecurityScale.AffectionGainFactor(1000), 1.0, "安全感 1000 → ×1.0（全速）");
-Near(SecurityScale.AffectionGainFactor(-50), 0.6, "越界安全感按 0 算");
+Near(SecurityScale.AffectionGainFactor(-50), 0.84, "负数=未写入的哨兵，按默认 600 算（×0.84），不当成 0");
 Near(SecurityScale.AffectionGainFactor(5000), 1.0, "越界安全感按满值算");
 Near(SecurityScale.AffectionDecayFactor(0), 1.25, "安全感 0 → 好感掉得更快 ×1.25");
 Near(SecurityScale.AffectionDecayFactor(1000), 0.75, "安全感满 → 好感掉得更慢 ×0.75");

@@ -74,6 +74,8 @@ public sealed class SaveManager
     public string NewRun()
     {
         _engine.CurrentSaveId = Guid.NewGuid().ToString("N")[..12];
+        // 上一局带回来的聊天记录与安全感不能跟着新档走：新的角色要从干净的起点开始。
+        _engine.State.HistorySeed = null;
         ChatLog.Clear();
         WeChatLog.Clear();
         _scope.Raise();      // 新的一局 = 新的一份记忆，不能接着写上一个存档的记忆
@@ -102,7 +104,10 @@ public sealed class SaveManager
                 WorldName = _engine.State.WorldName,
                 ParentId = prev?.ParentId,
                 BranchName = prev?.BranchName ?? "",
-                ForkedAt = prev?.ForkedAt
+                ForkedAt = prev?.ForkedAt,
+                HistoryNote = _engine.State.HistorySeed is { Messages: > 0 } seed
+                    ? $"从 {seed.Messages} 条聊天记录起步 · {Math.Max(1, seed.SpanDays)} 天"
+                    : ""
             };
             var data = new Dictionary<string, object>
             {

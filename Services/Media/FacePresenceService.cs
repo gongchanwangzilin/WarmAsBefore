@@ -289,12 +289,21 @@ public sealed class FacePresenceService
             }
 
             held = false;   // 交棒给后台任务，由它在 finally 里释放
-            _ = Task.Run(async () =>
+            try
             {
-                try { await ObserveCoreAsync(saveId).ConfigureAwait(false); }
-                catch (Exception ex) { SafeLog("face.observe -> " + ex.GetType().Name); }
-                finally { _gate.Release(); }
-            });
+                _ = Task.Run(async () =>
+                {
+                    try { await ObserveCoreAsync(saveId).ConfigureAwait(false); }
+                    catch (Exception ex) { SafeLog("face.observe -> " + ex.GetType().Name); }
+                    finally { _gate.Release(); }
+                });
+            }
+            catch (Exception ex)
+            {
+                // 关停瞬间线程池拒收：闸这时候只剩自己拿着，必须当场放掉，否则本次运行内人脸观察永久失效。
+                _gate.Release();
+                SafeLog("face.observe.schedule -> " + ex.GetType().Name);
+            }
         }
         catch (Exception ex) { SafeLog("face.observe.begin -> " + ex.GetType().Name); }
         finally { if (held) _gate.Release(); }

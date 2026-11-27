@@ -742,4 +742,6 @@ public sealed class SaveSlotItem
     public string Label => Slot.Label;
     public string Scene => Slot.Scene;
     public DateTime SavedAt => Slot.SavedAt;
+    public string HistoryNote => Slot.HistoryNote;
+    public bool HasHistoryNote => !string.IsNullOrEmpty(Slot.HistoryNote);
 }
