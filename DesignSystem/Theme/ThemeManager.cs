@@ -453,6 +453,10 @@ public class ThemeManager
                     GlassTranslucency * tBias, GlassFrost * fBias, GlassHeight * hBias,
                     GlassLightX, GlassLightY, GlassLightZ, GlassLightWidth, ReducedTransparency));
                 StyleWorldTokens.ApplyFace();   // 玻璃档把算好的面接回世界的名字上（顺序不能颠倒）
+#if WINDOWS
+                // 下拉框/菜单浮层是 WinUI 模板画的，不读我们的墨阶；每次重发之后同步一次。
+                Platforms.Windows.ControlTheme.Apply();
+#endif
                 if (Application.Current?.Resources.TryGetValue("PageBg", out var pb) == true && pb is Color pageBg)
                     Services.AppBackgroundService.Recolor(pageBg);   // 纯色背景要跟世界一起换档
                 Services.AppBackgroundService.Publish();   // 换主题别把自定义背景冲掉

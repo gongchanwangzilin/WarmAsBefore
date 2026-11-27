@@ -348,39 +348,58 @@ internal static class GlassFace
         var thick = Math.Clamp(p.Thickness, 0, 1.4) / 1.15;
         var lit = (p.Pressed ? 1.25 : p.Hover ? 1.10 : 1.0) * (0.55 + 0.75 * thick);
 
-        // 圈数由预算给（3~14）。每一圈都是独立的描边，越往里越窄越淡，
-        // 圈多了读成「一段连续的弧面」，圈少了就是三条线 —— 这就是层数的差别。
-        var count = GlassLayers.WallPasses;
-        for (var i = 0; i < count; i++)
+        // 一条连续的侧壁：同一条圆角路径描一圈，渐变上有多少色标就是多少层。
+        // 前一版是「画 N 圈不同宽度不同 alpha 的描边」—— 用户一眼看出是叠出来的：
+        // 每圈都是一条独立的边，圈与圈之间的台阶就是那个「不像真的」。同一条路径只画一次，
+        // 明暗交给渐变，层数就变成了过渡的平滑度，而不是可见的环。
+        var stops = Math.Clamp(GlassLayers.WallPasses, 3, 14);
+        var inset = (float)(1.2 * density);
+        var width = (float)((2.2 + 1.4 * thick) * density);
+        using var path = Rounded(inset, inset, w - 2 * inset, h - 2 * inset, Math.Max(1f, radius - inset));
+
+        var colors = new SKColor[stops];
+        var at = new float[stops];
+        for (var i = 0; i < stops; i++)
         {
-            var u = count == 1 ? 0 : i / (double)(count - 1);
-            var inset = (float)((0.6 + u * 3.2) * density);
-            var width = (float)((3.6 - u * 2.4) * density / Math.Sqrt(count) * 1.2);
-            var alpha = (float)(0.16 - u * 0.06) * (count <= 3 ? 1f : 0.72f);
-            if (width < 0.6f) width = (float)(0.8 * density);
-            if (w - 2 * inset < 2 || h - 2 * inset < 2) continue;
-            using var path = Rounded(inset, inset, w - 2 * inset, h - 2 * inset,
-                Math.Max(1f, radius - inset));
-            using var shader = SKShader.CreateLinearGradient(
-                new SKPoint(0, 0), new SKPoint(w * 0.75f, h),
-                new[]
-                {
-                    SKColors.White.WithAlpha(A(alpha * 1.7 * lit)),
-                    SKColors.White.WithAlpha(A(alpha * 0.35 * lit)),
-                    new SKColor(0, 0, 0, A(alpha * 0.15)),
-                    new SKColor(0, 0, 0, A(alpha * 1.5 * lit))
-                },
-                new[] { 0f, 0.30f, 0.62f, 1f },
-                SKShaderTileMode.Clamp);
-            using var paint = new SKPaint
+            var t = i / (double)(stops - 1);
+            // 迎光端（左上）白、中段回落、背光端（右下）墨。每段之间插值，所以看不出接缝。
+            double a;
+            SKColor c;
+            if (t < 0.30)
             {
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = width,
-                Shader = shader
-            };
-            canvas.DrawPath(path, paint);
+                var k = t / 0.30;
+                a = (0.30 + 0.05 * Math.Sin(k * Math.PI)) * lit;
+                c = SKColors.White.WithAlpha(A(a));
+            }
+            else if (t < 0.62)
+            {
+                var k = (t - 0.30) / 0.32;
+                a = (0.30 - 0.24 * k) * lit;
+                c = SKColors.White.WithAlpha(A(a));
+            }
+            else
+            {
+                var k = (t - 0.62) / 0.38;
+                a = (0.06 + 0.22 * k) * lit;
+                c = new SKColor(0, 0, 0, A(a));
+            }
+            colors[i] = c;
+            at[i] = (float)t;
         }
+
+        using var shader = SKShader.CreateLinearGradient(
+            new SKPoint(0, 0), new SKPoint(w * 0.75f, h), colors, at, SKShaderTileMode.Clamp);
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = width,
+            Shader = shader
+        };
+        // 柔化：描边自己带一点模糊，边界就不会是一条硬线。模糊半径随预算走。
+        var sigma = (float)Math.Max(0.6, 0.55 * density);
+        paint.MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, sigma);
+        canvas.DrawPath(path, paint);
     }
 
     /// <summary>
@@ -418,53 +437,53 @@ internal static class GlassFace
             canvas.ClipPath(clip, SKClipOperation.Intersect, true);
         }
 
-        // ① 柱面里的内容：糊底沿竖直方向压到 0.55 倍再铺一次。
-        //    压缩会把「远处的内容」拉进这条带里 —— 这就是光绕过一个圆柱面时看到的东西。
-        //    切片数由预算给（1~6）：多片时每片压得更狠一点、贴得更靠外一点，
-        //    于是整条带读成一段渐变的弧，而不是一条被压扁的横条。
-        var slices = GlassLayers.BevelSlices;
-        for (var i = 0; i < slices; i++)
+        // ① 柱面里的内容：糊底沿竖直方向压一次，整条带一起压 —— 不分切片。
+        //    切片会画出「一条条横道」，那正是用户说的「一层一层叠出来的」。压缩本身是连续的，
+        //    所以这里只需要一次绘制 + 一条带模糊的渐变盖在上面。
+        using (var slice = new SKPath())
         {
-            var u = slices == 1 ? 0 : i / (double)(slices - 1);
-            var squeeze = (float)(0.55 - 0.20 * u);
-            var sliceH = depth / slices;
-            var rectSlice = top
-                ? new SKRect(0, i * sliceH, w, (i + 1) * sliceH + 0.5f)
-                : new SKRect(0, h - (i + 1) * sliceH - 0.5f, w, h - i * sliceH);
-
-            canvas.Save();
-            using (var slice = new SKPath())
-            {
-                slice.AddRect(rectSlice);
-                canvas.ClipPath(slice, SKClipOperation.Intersect, true);
-            }
-            if (top) canvas.Scale(1f, squeeze);
-            else
-            {
-                canvas.Translate(0, h);
-                canvas.Scale(1f, squeeze);
-                canvas.Translate(0, -h);
-            }
-            DrawFrost(canvas, frost, map, p, w, h, (float)(0.88 / Math.Sqrt(slices) * 1.2), 1f);
-            canvas.Restore();
+            slice.AddRect(rect);
+            canvas.ClipPath(slice, SKClipOperation.Intersect, true);
         }
+        var squeeze = (float)(0.62 - 0.10 * thick);
+        canvas.Save();
+        if (top) canvas.Scale(1f, squeeze);
+        else
+        {
+            canvas.Translate(0, h);
+            canvas.Scale(1f, squeeze);
+            canvas.Translate(0, -h);
+        }
+        DrawFrost(canvas, frost, map, p, w, h, 0.55f, 1f);
+        canvas.Restore();
 
-        // ② 柱面自己的明暗：外缘压一道暗（切线处最暗）、内缘提一道亮（正对光的那条棱），
-        //    最里面淡出，接回面上的 tint。三笔的顺序就是「转角 → 棱 → 面」。
+        // ② 柱面自己的明暗：一条**连续的**竖向渐变 —— 外缘一道暗（切线）、内缘一道亮棱、
+        //    再向面淡出。色标数由预算给（3~10），层数因此只换来更顺的过渡，不产生台阶。
         var outer = top ? rect.Top : rect.Bottom;
         var inner = top ? rect.Bottom : rect.Top;
-        using var shader = SKShader.CreateLinearGradient(
-            new SKPoint(0, outer), new SKPoint(0, inner),
-            new[]
+        var stops = Math.Clamp(GlassLayers.BevelSlices * 2, 3, 10);
+        var colors = new SKColor[stops];
+        var at = new float[stops];
+        for (var i = 0; i < stops; i++)
+        {
+            var t = i / (double)(stops - 1);
+            colors[i] = t switch
             {
-                new SKColor(0, 0, 0, A(0.20)),
-                new SKColor(0, 0, 0, A(0.05)),
-                SKColors.White.WithAlpha(A(0.30 + 0.26 * thick)),
-                SKColors.White.WithAlpha(0)
-            },
-            new[] { 0f, 0.36f, 0.74f, 1f },
-            SKShaderTileMode.Clamp);
-        using var paint = new SKPaint { IsAntialias = true, Shader = shader };
+                < 0.30 => new SKColor(0, 0, 0, A(0.16 * (1 - t / 0.30))),
+                < 0.66 => SKColors.White.WithAlpha(A((0.10 + 0.30 * thick) * ((t - 0.30) / 0.36))),
+                _ => SKColors.White.WithAlpha(A((0.10 + 0.30 * thick) * (1 - (t - 0.66) / 0.34) * 0.8))
+            };
+            at[i] = (float)t;
+        }
+        using var shader = SKShader.CreateLinearGradient(
+            new SKPoint(0, outer), new SKPoint(0, inner), colors, at, SKShaderTileMode.Clamp);
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Shader = shader,
+            MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal,
+                (float)Math.Max(0.8, 0.35 * Math.Max(1f, w / 60f)))
+        };
         canvas.DrawRect(rect, paint);
 
         canvas.Restore();
@@ -515,25 +534,32 @@ internal static class GlassFace
     private static void DrawSheen(SKCanvas canvas, in GlassFaceParams p, int w, int h)
     {
         var k = p.Pressed ? 0.82 : p.Hover ? 1.15 : 1.0;
-        // 同心圈数由预算给（1~8）：单圈也能看，多圈时那条「从中心化开」的过渡才真的没有台阶。
-        var rings = GlassLayers.SheenRings;
-        for (var i = 0; i < rings; i++)
+        // 一条径向渐变 + 一条极宽的低 alpha 径向「雾」。两层就够：径向渐变自己就是连续的，
+        // 再叠同心圈只会在半径上留下可见的环 —— 用户看到的「叠出来的」有一半来自这里。
+        var reach = Math.Max(w, h) * 0.72f;
+        using (var shader = SKShader.CreateRadialGradient(
+                   new SKPoint(w * 0.32f, h * 0.10f), reach,
+                   new[]
+                   {
+                       SKColors.White.WithAlpha(A(0.20 * k)),
+                       SKColors.White.WithAlpha(A(0.10 * k)),
+                       SKColors.White.WithAlpha(A(0.03 * k)),
+                       SKColors.White.WithAlpha(0)
+                   },
+                   new[] { 0f, 0.34f, 0.66f, 1f },
+                   SKShaderTileMode.Clamp))
+        using (var paint = new SKPaint { IsAntialias = true, Shader = shader })
         {
-            var u = rings == 1 ? 0 : i / (double)(rings - 1);
-            var reach = (float)(Math.Max(w, h) * (0.40 + 0.34 * u));
-            var alpha = 0.17 * k / Math.Sqrt(rings) * 1.15 * (1 - 0.55 * u);
-            using var shader = SKShader.CreateRadialGradient(
-                new SKPoint(w * 0.32f, h * 0.10f), reach,
-                new[]
-                {
-                    SKColors.White.WithAlpha(A(alpha)),
-                    SKColors.White.WithAlpha(A(alpha * 0.35)),
-                    SKColors.White.WithAlpha(0)
-                },
-                new[] { 0f, 0.52f, 1f },
-                SKShaderTileMode.Clamp);
-            using var paint = new SKPaint { IsAntialias = true, Shader = shader };
             canvas.DrawRect(0, 0, w, h, paint);
+        }
+
+        using (var haze = SKShader.CreateRadialGradient(
+                   new SKPoint(w * 0.28f, h * -0.15f), Math.Max(w, h) * 1.15f,
+                   new[] { SKColors.White.WithAlpha(A(0.10 * k)), SKColors.White.WithAlpha(0) },
+                   new[] { 0f, 1f }, SKShaderTileMode.Clamp))
+        using (var hazePaint = new SKPaint { IsAntialias = true, Shader = haze })
+        {
+            canvas.DrawRect(0, 0, w, h, hazePaint);
         }
     }
 
@@ -572,35 +598,31 @@ internal static class GlassFace
         var ink = new SKColor(0, 0, 0, A(0.18 * strength));
 
         using var path = Rounded(0, 0, w, h, radius);
-        // 遍数由预算给（3~12）。三遍时是「三层由宽到窄」，十二遍时是一条连续的衰减 ——
-        // 影子从贴边到化开的过渡因此没有肉眼能看见的台阶。
-        var count = GlassLayers.ShadowPasses;
-        for (var i = 0; i < count; i++)
-        {
-            var u = count == 1 ? 0 : i / (double)(count - 1);
-            var width = (float)((9.0 + 17.0 * u) * density);
-            var alpha = (float)(0.50 + 0.50 * u) / (count <= 3 ? 1f : 1.35f);
-            using var shader = SKShader.CreateLinearGradient(
-                new SKPoint(w, h), new SKPoint(w * 0.30f, h * 0.10f),
-                new[]
-                {
-                    ink.WithAlpha((byte)(ink.Alpha * alpha)),
-                    ink.WithAlpha((byte)(ink.Alpha * alpha * 0.45)),
-                    ink.WithAlpha(0)
-                },
-                new[] { 0f, 0.45f, 0.80f },
-                SKShaderTileMode.Clamp);
-            using var paint = new SKPaint
+        // 一条模糊描边，不是 N 遍不同宽度的硬描边：模糊本身就是连续的衰减，
+        // 叠出来的每一遍都会在肉眼可见的半径上留下一条环 —— 那正是「一层一层」的来源。
+        // 宽度与模糊半径由厚度给：板越厚，贴边那圈越宽越深。
+        var width = (float)((10.0 + 18.0 * Math.Clamp(p.Thickness, 0, 1.4)) * density);
+        var sigma = (float)((3.0 + 5.0 * Math.Clamp(p.Thickness, 0, 1.4)) * density);
+        using var shader = SKShader.CreateLinearGradient(
+            new SKPoint(w, h), new SKPoint(w * 0.30f, h * 0.10f),
+            new[]
             {
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = width,
-                Shader = shader
-            };
-            canvas.DrawPath(path, paint);
-        }
+                ink,
+                ink.WithAlpha((byte)(ink.Alpha * 0.55)),
+                ink.WithAlpha(0)
+            },
+            new[] { 0f, 0.55f, 1f },
+            SKShaderTileMode.Clamp);
+        using var paint = new SKPaint
+        {
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = width,
+            Shader = shader,
+            MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(1f, sigma))
+        };
+        canvas.DrawPath(path, paint);
     }
-
 
     /// <summary>
     /// 镜面弧：从左腰绕左上角到顶边的一条 2px 弧。它的颜色沿同一条路径衰减（左上白 0.8 → 右下 0），
@@ -659,27 +681,24 @@ internal static class GlassFace
         };
         canvas.DrawPath(path, paint);
 
-        // 辉光遍数由预算给（1~6）：一遍是「一圈柔光」，多遍时每一遍更宽更淡，
-        // 叠出来的是连续的衰减 —— 那道弧才像被一盏灯照出来的，而不是描了一条白线。
-        var glows = GlassLayers.SpecularPasses;
-        for (var i = 0; i < glows; i++)
+        // 辉光只画一遍，靠模糊把边缘化开 —— 多遍叠加每遍都会留下一个可见的半径，
+        // 那才是「看得出一层一层」的根源。模糊半径按厚度给：厚玻璃的光铺得更开。
+        var glowAlpha = 0.14 * live * k;
+        var blur = (float)((2.2 + 3.0 * Math.Clamp(p.Thickness, 0, 1.4)) * density);
+        using var fade = SKShader.CreateLinearGradient(
+            new SKPoint(inside, h * 0.55f), new SKPoint(w * 0.72f, inside),
+            new[] { SKColors.White.WithAlpha(A(glowAlpha)), SKColors.White.WithAlpha(0) },
+            new[] { 0f, 1f }, SKShaderTileMode.Clamp);
+        using var glow = new SKPaint
         {
-            var u = glows == 1 ? 0 : i / (double)(glows - 1);
-            var glowAlpha = 0.13 * live * k / Math.Sqrt(glows) * 1.1 * (1 - 0.5 * u);
-            using var fade = SKShader.CreateLinearGradient(
-                new SKPoint(inside, h * 0.55f), new SKPoint(w * 0.72f, inside),
-                new[] { SKColors.White.WithAlpha(A(glowAlpha)), SKColors.White.WithAlpha(0) },
-                new[] { 0f, 1f }, SKShaderTileMode.Clamp);
-            using var glow = new SKPaint
-            {
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = width * (4.5f + 2.5f * (float)u),
-                StrokeCap = SKStrokeCap.Round,
-                Shader = fade
-            };
-            canvas.DrawPath(path, glow);
-        }
+            IsAntialias = true,
+            Style = SKPaintStyle.Stroke,
+            StrokeWidth = width * 5.5f,
+            StrokeCap = SKStrokeCap.Round,
+            Shader = fade,
+            MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, Math.Max(1f, blur))
+        };
+        canvas.DrawPath(path, glow);
     }
 
     private static void DrawRim(SKCanvas canvas, in GlassFaceParams p, int w, int h, float radius, double density)
