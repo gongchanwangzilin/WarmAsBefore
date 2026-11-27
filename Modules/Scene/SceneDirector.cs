@@ -959,7 +959,7 @@ public sealed class SceneDirector : IDisposable
 
         var sb = new StringBuilder();
         sb.AppendLine("【场景选项】你有一个场景库。想切换场景/氛围时，必须先看这份「此刻可用选项」再选：");
-        sb.AppendLine("用【场景:条目名/模式名】标记（会被自动执行），或调用 set_scene_option 工具（会返回是否真的看得出变化）。");
+        sb.AppendLine("用【场景:条目名/模式名】标记（会被自动执行），或先 scene_list 拿编号再 scene_set(number)（会返回是否真的看得出变化）。");
         sb.AppendLine($"当前生效：{(_active is null ? "（无）" : DescribeOption(_active, _activeMode))}"
             + $"；来源：{SourceLabel(_source)}；当前时间 {now:HH:mm}，亮度遮罩 {_activeDim:0.00}。");
 

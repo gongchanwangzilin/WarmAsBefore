@@ -229,7 +229,8 @@ public sealed partial class ToolManager
         RegisterBuiltin("generate_image",
             "生成一张画面并落到世界里。kind=background（当前/指定场景背景）、scene（新场景+背景并接进地图）、"
             + "outfit（当前角色的新装扮立绘）、avatar（当前角色头像）、character（用给定资料创建角色，可带头像）。"
-            + "prompt 写清画面内容；风格遵循角色与场景设定。未开启画面生成或没配密钥时会明确失败。",
+            + "prompt 写清画面内容；风格遵循角色与场景设定。未开启画面生成或没配密钥时会明确失败。"
+            + "换一套已经画好的装扮不归本工具管：先用 outfit_list 拿编号，再 outfit_set(number)。",
             async args => await GenerateImageAsync(args));
 
         RegisterBuiltin("save_admin",

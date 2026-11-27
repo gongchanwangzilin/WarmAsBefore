@@ -50,6 +50,12 @@ public sealed record ToolDefinition
     public string Description { get; init; } = "";
     public ToolLanguage Language { get; init; } = ToolLanguage.Builtin;
 
+    /// <summary>
+    /// 兼容旧名字的转发工具：照样能被调用（旧提示词/插件不会一句话就挂），
+    /// 但不进模型的工具清单 —— 每个工具描述都要随请求付 token，旧名字不该继续占位。
+    /// </summary>
+    public bool Hidden { get; init; }
+
     /// <summary>外部工具的入口文件名（Python 脚本 或 Java JAR）。</summary>
     public string Entry { get; init; } = "";
 
