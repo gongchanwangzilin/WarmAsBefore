@@ -89,6 +89,13 @@
                     </VerticalStackLayout>
                 </Border>
 
+                <!-- 人脸识别（只在「摄像头人脸」这个节点出现）：组件状态 + 图像流。
+                     页面可见期间才拉帧，离开页面由 code-behind 关门。 -->
+                <Border Style="{StaticResource CardSolid}" Padding="{DynamicResource WPadCard}"
+                        IsVisible="{Binding HasFacePane}">
+                    <ctl:FaceMonitorPane BindingContext="{Binding Face}" />
+                </Border>
+
                 <!-- 下部：它最近怎么变的 -->
                 <Border Style="{StaticResource CardSolid}" Padding="{DynamicResource WPadCard}">
                     <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">

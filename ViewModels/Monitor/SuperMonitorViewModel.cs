@@ -30,6 +30,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     private bool _refreshPending;
     private IDispatcherTimer? _clock;      // 30s 数据刷新（保留原行为）
     private IDispatcherTimer? _glowClock;  // 120ms 余辉渐隐刷新，只在页面可见时运行
+    private IDispatcherTimer? _faceClock;  // 2s 人脸图像流拉帧，只在页面可见时运行
     private bool _flowHooked;
 
     private readonly Dictionary<string, NodeDetail> _details = new(StringComparer.Ordinal);
@@ -199,6 +200,12 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
     [ObservableProperty] private ObservableCollection<LayerRow> _memoryLayers = new();
     [ObservableProperty] private ObservableCollection<StatRow> _stats = new();
 
+    /// <summary>
+    /// 人脸识别面板（组件状态 + 图像流）。两页共用同一份 VM，措辞与降级原因只有一个出处；
+    /// 它只在页面可见时拉帧（见 <see cref="StartClock"/>/<see cref="StopClock"/>）。
+    /// </summary>
+    public FacePanelViewModel Face { get; } = new();
+
     /// <summary>右栏三块列表各自有没有内容：没有就把「为什么空」写在标题下面，而不是留一片空白。</summary>
     public bool HasTimeline => Timeline.Count > 0;
     public bool HasOrgans => Organs.Count > 0;
@@ -311,6 +318,25 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
         }
         if (Timeline.Count == 0 && Organs.Count == 0) _ = LoadAsync();
         else Redraw();
+
+        // 人脸识别图像流：只在这一页可见时拉（2s 一次，序号没变就什么都不做）。
+        // 离开页面由 StopClock 关门并停表，相机从不会因为这一页开着而自己被打开。
+        try
+        {
+            Face.BeginMonitor();
+            _ = Face.LoadAsync();
+            if (_faceClock is null)
+            {
+                _faceClock = Application.Current?.Dispatcher.CreateTimer();
+                if (_faceClock is not null)
+                {
+                    _faceClock.Interval = TimeSpan.FromSeconds(2);
+                    _faceClock.Tick += OnFaceTick;
+                    _faceClock.Start();
+                }
+            }
+        }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.StartFace -> " + ex.Message); }
     }
 
     /// <summary>离开页面：退订事件、停钟、不再重画。下次导航进来重新构建。</summary>
@@ -327,8 +353,21 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             if (_glowClock is not null) { _glowClock.Stop(); _glowClock.Tick -= OnGlowTick; _glowClock = null; }
         }
         catch (Exception ex) { App.WriteLog("SuperMonitor.StopGlow -> " + ex.Message); }
+        // 图像流跟着页面一起停：停表 + 交还拉帧资格。
+        try
+        {
+            if (_faceClock is not null) { _faceClock.Stop(); _faceClock.Tick -= OnFaceTick; _faceClock = null; }
+        }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.StopFace -> " + ex.Message); }
+        try { Face.EndMonitor(); }
+        catch (Exception ex) { App.WriteLog("SuperMonitor.EndFace -> " + ex.Message); }
         UnhookSourceEvents();
         UnhookFlow();
+    }
+
+    private void OnFaceTick(object? sender, EventArgs e)
+    {
+        if (_pageVisible) Face.PullLatestFrame();
     }
 
     private void OnClockTick(object? sender, EventArgs e)
@@ -1257,6 +1296,14 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             result.AddRange(exact);
             return result;
         }
+        if (string.Equals(id, "in.face", StringComparison.Ordinal))
+        {
+            // 已读到的那份状态直接摆出来：点这个节点就是想看「它现在到底能不能看」。
+            foreach (var row in Face.StatusRows)
+                result.Add(new DetailLine(row.Label, row.Value));
+            if (result.Count == 0) result.Add(new DetailLine("组件状态", "还在读：稍等一下再点，或用监测页那一栏的「刷新状态」。"));
+            return result;
+        }
         if (id.StartsWith("soma.", StringComparison.Ordinal))
         {
             foreach (var o in Organs.Take(8))
@@ -1325,6 +1372,8 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             // ---- 层 1 感知与输入抽象层（13）----
             N("in.text", "文字输入", "1", "ChatEngine.SendCore", "Send 入口记录用户文本，整条执行链的起点");
             N("in.image", "图像输入", "1", "ChatEngine.SendCore", "附件图片入口，交给视觉特征提取");
+            // 摄像头人脸：只读的一路。它不往心智里塞决定，只把「看到了什么」摆出来。
+            N("in.face", "摄像头人脸", "1", "FacePresenceService", "看一眼的情绪 / 年龄 / 是否在场：只读，不参与任何决策");
             N("in.voice", "语音输入", "1", "ChatEngine.SendCore", "语音转写文本入口，交给声学分析");
             N("in.fusion", "多模态融合", "1", "ChatEngine.SendCore", "文字/图像/语音特征融合后进入具身锚定");
             N("in.semantic", "语义解析", "1", "ChatEngine.SendCore", "文本 → 语义特征");
@@ -1420,6 +1469,7 @@ public sealed partial class SuperMonitorViewModel : ObservableObject, IQueryAttr
             // ---- 层 1 层内主干 ----
             L("in.text", "in.semantic");
             L("in.image", "in.visual");
+            L("in.face", "in.visual");
             L("in.voice", "in.audio");
             L("in.fusion", "in.embodied");
             L("in.semantic", "in.imagery");

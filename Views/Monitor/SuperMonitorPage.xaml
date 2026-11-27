@@ -293,6 +293,12 @@
                                 </BindableLayout.ItemTemplate>
                             </VerticalStackLayout>
 
+                            <BoxView Style="{StaticResource HSep}" Margin="0,10" />
+
+                            <!-- 人脸识别：组件状态 + 图像流。只在这页可见时拉帧（见 VM.StartClock/StopClock），
+                                 离开页面就停。面板与模块详情页共用 FaceMonitorPane，两处措辞一致。 -->
+                            <ctl:FaceMonitorPane BindingContext="{Binding Face}" />
+
                         </VerticalStackLayout>
                     </ScrollView>
                 </Border>
