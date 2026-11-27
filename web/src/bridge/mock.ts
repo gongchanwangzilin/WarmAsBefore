@@ -31,9 +31,10 @@ const mockFaults: MockFaults = { latency: 0, failure: 'none', empty: false };
 
 const KNOWN_ROUTES = new Set(['/', '/settings', '/settings/appearance']);
 
+/** 假后端没有存档表：标题页那张「上次的存档」卡只摆时间与时长，角色与场景留空。 */
 const SAMPLE_SAVE: SaveSummary = {
-  character: '沈砚',
-  scene: '第三章 · 灯下补书',
+  character: '',
+  scene: '',
   savedAt: '2026-11-26T22:41:00+08:00',
   minutes: 147,
 };

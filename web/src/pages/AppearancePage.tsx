@@ -1,4 +1,5 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import type { Bridge } from '../bridge/client';
 import type { Appearance } from '../bridge/protocol';
 import { Glass } from '../components/Glass';
 import { GlassSlider } from '../components/GlassSlider';
@@ -23,6 +24,7 @@ const SECTION_TITLE = '外观与主题';
 const SECTION_DESC = '玻璃效果、光源方向、页面背景与天气叠加';
 
 type Props = {
+  bridge: Bridge;
   store: AppearanceStore;
   onBack: () => void;
 };
@@ -31,7 +33,27 @@ type Props = {
  * 「外观与主题」分类页：SettingsSectionPage.xaml 的 Card02（玻璃效果）+ Card03（背景）。
  * 每张卡的标题、每一行的主标题与说明都逐字取自源码；控件顺序一致。
  */
-export function AppearancePage({ store, onBack }: Props) {
+/** 色板只有一处定义：区间色板来自 DesignSystem 的 XAML（palette.swatches），取不到才用自带的十颗。 */
+function useSwatches(bridge: Bridge | undefined) {
+  const [swatches, setSwatches] = useState(SOLID_SWATCHES as unknown as { hex: string; name: string }[]);
+  useEffect(() => {
+    if (!bridge) return;
+    let dropped = false;
+    void bridge
+      .request('palette.swatches', {})
+      .then(({ swatches: rows }) => {
+        if (!dropped && rows.length > 0) setSwatches(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      dropped = true;
+    };
+  }, [bridge]);
+  return swatches;
+}
+
+export function AppearancePage({ bridge, store, onBack }: Props) {
+  const swatches = useSwatches(bridge);
   const { value } = store;
   const set = (patch: Partial<Appearance>) => store.update({ ...value, ...patch });
   const glassActive = value.alpha > 0.01;
@@ -145,7 +167,7 @@ export function AppearancePage({ store, onBack }: Props) {
                 />
               </SettingCard>
 
-              <BackgroundCard store={store} />
+              <BackgroundCard store={store} swatches={swatches} />
 
               {store.save === 'error' ? (
                 <p className="cap cap--warn">
@@ -163,7 +185,13 @@ export function AppearancePage({ store, onBack }: Props) {
   );
 }
 
-function BackgroundCard({ store }: { store: AppearanceStore }) {
+function BackgroundCard({
+  store,
+  swatches,
+}: {
+  store: AppearanceStore;
+  swatches: { hex: string; name: string }[];
+}) {
   const { value } = store;
   const bg = value.background;
   const scene = value.scene;
@@ -212,7 +240,7 @@ function BackgroundCard({ store }: { store: AppearanceStore }) {
             玻璃背后那张糊底会按新色重新合成，不用重启。想要这十颗以外的颜色，点「选个颜色…」。
           </p>
           <div className="swatches">
-            {SOLID_SWATCHES.map((swatch) => {
+            {swatches.map((swatch) => {
               const selected = swatch.hex.toLowerCase() === bg.solidHex.toLowerCase();
               return (
                 <button

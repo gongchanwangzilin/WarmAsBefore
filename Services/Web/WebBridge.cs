@@ -35,18 +35,36 @@ public sealed class WebBridge
 
     private readonly SettingsManager _settings;
     private readonly SaveManager _saves;
+    private readonly CharacterLibrary _characters;
+    private readonly PageWindowService _windows;
 
     /// <summary>串行闸：settings.set 是「读→改→落盘」，两条消息挤在一起会互相覆盖。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public WebBridge(SettingsManager settings, SaveManager saves)
+    public WebBridge(SettingsManager settings, SaveManager saves, CharacterLibrary characters, PageWindowService windows)
     {
         _settings = settings;
         _saves = saves;
+        _characters = characters;
+        _windows = windows;
     }
 
     /// <summary>宿主 → 前端的发送通道；页面拿到 WebView 后挂上（见 WebShellPage）。</summary>
-    public Func<string, Task>? ToWeb { get; set; }
+    /// <summary>
+    /// 发往前端的通道。一扇窗挂一条 —— 手机那扇独立窗与主窗是两个 WebView，
+    /// 只有一个 ToWeb 时后挂的会把先挂的顶掉，于是「主窗改设置、手机窗不变」。
+    /// </summary>
+    private readonly List<Func<string, Task>> _sinks = new();
+
+    public void AttachSink(Func<string, Task> sink)
+    {
+        lock (_sinks) if (!_sinks.Contains(sink)) _sinks.Add(sink);
+    }
+
+    public void DetachSink(Func<string, Task> sink)
+    {
+        lock (_sinks) _sinks.Remove(sink);
+    }
 
     /// <summary>
     /// 前端已经接管宿主的显示（<c>host.ready</c> 发出之后）。由 <c>WebShellPage</c> 在导航成功时置真，
@@ -130,10 +148,18 @@ public sealed class WebBridge
         "ui.tokens" => TokensPayload(),
         "settings.get" => await SettingsGetAsync(),
         "settings.set" => await SettingsSetAsync(p),
+        "settings.patch" => await SettingsPatchAsync(p),
+        "appearance.get" => AppearanceGet(),
+        "appearance.set" => await AppearanceSetAsync(p),
         "palette.get" => PaletteGet(),
+        "palette.swatches" => PaletteSwatches(),
         "palette.set" => await PaletteSetAsync(p),
         "nav.open" => NavOpen(p),
         "nav.back" => NavBack(p),
+        "window.open" => WindowOpen(p),
+        "window.close" => WindowClose(),
+        "saves.list" => await SavesListAsync(),
+        "characters.list" => await CharactersListAsync(),
         "app.info" => AppInfoPayload(),
         _ => throw new WebBridgeException("E_UNKNOWN_METHOD", "unknown method"),
     };
@@ -185,10 +211,14 @@ public sealed class WebBridge
 
     private async Task SendAsync(string json)
     {
-        var sink = ToWeb;
-        if (sink is null) { App.WriteLog("WebBridge.SendAsync -> 没有挂发送通道，丢掉一条消息"); return; }
-        try { await sink(json); }
-        catch (Exception ex) { App.WriteLog("WebBridge.SendAsync -> " + ex.Message); }
+        Func<string, Task>[] sinks;
+        lock (_sinks) sinks = _sinks.ToArray();
+        if (sinks.Length == 0) { App.WriteLog("WebBridge.SendAsync -> 没有挂发送通道，丢掉一条消息"); return; }
+        foreach (var sink in sinks)
+        {
+            try { await sink(json); }
+            catch (Exception ex) { App.WriteLog("WebBridge.SendAsync -> " + ex.Message); }
+        }
     }
 
     // ==================== settings ====================
@@ -204,13 +234,46 @@ public sealed class WebBridge
     private object SettingsValues()
     {
         var s = _settings.Current;
+        var providers = s.AiProviders.Count(p => p.Enabled);
         return new
         {
-            glass = GlassPalette(),
+            appearance = new
+            {
+                liquid = s.LiquidEnabled,
+                glass = s.GlassEnabled,
+                frost = s.FrostEnabled,
+                theme = string.IsNullOrWhiteSpace(s.ThemeName) ? "endfield" : s.ThemeName,
+            },
+            sound = new { bgm = s.BgmLevel, sfx = s.SfxLevel },
             text = new { scale = s.TextSpeed },
-            sound = new { enabled = s.UiSoundEnabled },
             story = new { autoSave = s.AutoSaveEnabled },
             language = new { locale = LocaleOf(s.Lang) },
+            ai = new
+            {
+                providers,
+                smartSaving = s.SmartSavingEnabled,
+                timeoutSeconds = s.AiTimeoutSeconds,
+            },
+            memory = new
+            {
+                windowDays = s.MemoryWindowDays,
+                contextLimit = s.ContextTokenLimit >= 1024 ? $"{s.ContextTokenLimit / 1024}K" : s.ContextTokenLimit.ToString(),
+            },
+            ui = new
+            {
+                orientation = s.ScreenOrientation,
+                chatStyle = s.ChatStyle,
+                difficulty = s.GameDifficulty,
+            },
+            platform = new { petIdleMinutes = s.PetIdleMinutes, preferDiscreteGpu = s.PreferDiscreteGpu },
+            integrations = new { qq = s.QqBotEnabled, wechat = s.WechatEnabled, mcp = s.McpEnabled },
+            life = new
+            {
+                notifications = s.NotificationsEnabled,
+                weatherCity = s.WeatherCity,
+                customWeatherSource = string.Equals(s.WeatherSource, "custom", StringComparison.OrdinalIgnoreCase),
+            },
+            data = new { skillsInstalled = Directory.Exists(Path.Combine(AppContext.BaseDirectory, "skills")) },
         };
     }
 
@@ -298,6 +361,381 @@ public sealed class WebBridge
 
     private static string LocaleOf(string? lang)
         => string.Equals(lang, "en-US", StringComparison.OrdinalIgnoreCase) ? "en-US" : "zh-CN";
+
+    /// <summary>素材 URL：存储根挂在 wab.assets 上，相对路径直接拼过来。空路径 = 没有素材。</summary>
+    private static string AssetUrl(string? rel)
+    {
+        if (string.IsNullOrWhiteSpace(rel)) return "";
+        var clean = rel.Replace('\\', '/').TrimStart('/');
+        return $"https://{Views.Web.WebShellPage.AssetHostName}/{clean}";
+    }
+
+    /// <summary>当前该显示哪张立绘：先按「当前服装 + 当前情绪」，退到同服装任一张，再退到任意一张。</summary>
+    private static string CurrentSprite(CharacterData c)
+    {
+        if (c.SpriteMap.Count == 0) return "";
+        var outfit = c.State.CurrentOutfit;
+        var emotion = c.State.CurrentEmotion;
+        if (c.SpriteMap.TryGetValue($"{outfit}/{emotion}", out var exact) && !string.IsNullOrWhiteSpace(exact)) return exact;
+        var sameOutfit = c.SpriteMap.FirstOrDefault(kv => kv.Key.StartsWith(outfit + "/", StringComparison.Ordinal));
+        if (!string.IsNullOrWhiteSpace(sameOutfit.Value)) return sameOutfit.Value;
+        return c.SpriteMap.Values.FirstOrDefault(v => !string.IsNullOrWhiteSpace(v)) ?? "";
+    }
+
+    // ==================== 独立窗口 ====================
+
+    /// <summary>
+    /// <c>window.open</c>：把某个路由搬进自己的窗口（手机、关系网这类「旁边摊一扇」的页）。
+    /// 窗里装的是同一份前端、同一座桥 —— 所以主窗改设置，那扇窗立刻跟着变（事件是广播的）。
+    /// 手机上开不了窗时回 <c>opened=false</c>，前端自己退回页内导航，不会点了没反应。
+    /// </summary>
+    private object WindowOpen(JsonElement p)
+    {
+        var route = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("route", out var r) && r.ValueKind == JsonValueKind.String
+            ? r.GetString() ?? ""
+            : "";
+        if (string.IsNullOrWhiteSpace(route))
+            throw new WebBridgeException("E_BAD_PARAMS", "window.open 需要 {route}。");
+
+        var title = p.TryGetProperty("title", out var t) && t.ValueKind == JsonValueKind.String
+            ? t.GetString() ?? "温暖如初"
+            : "温暖如初";
+        var width = p.TryGetProperty("width", out var w) ? Number(w, "width") : 420;
+        var height = p.TryGetProperty("height", out var h) ? Number(h, "height") : 820;
+
+        if (!PageWindowService.Supported) return new { opened = false, reason = "这台设备不支持多窗口" };
+
+        try
+        {
+            var services = Application.Current?.Handler?.MauiContext?.Services;
+            if (services?.GetService(typeof(Views.Web.WebShellPage)) is not Views.Web.WebShellPage page)
+                return new { opened = false, reason = "WebShellPage 没有注册到 DI" };
+            page.StartAt(route!);
+            var opened = _windows.OpenPage("web:" + route, title!, page, width, height);
+            return new { opened, route };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.WindowOpen -> " + ex.Message);
+            return new { opened = false, reason = ex.Message };
+        }
+    }
+
+    /// <summary><c>window.close</c>：窗里的页面自己要收起时用（手机页的「返回」）。主窗不关。</summary>
+    private object WindowClose()
+    {
+        try
+        {
+            var window = Application.Current?.Windows.FirstOrDefault(x => x.Page is Views.Web.WebShellPage p && p.IsDetachedWindow);
+            if (window is not null) Application.Current!.CloseWindow(window);
+        }
+        catch (Exception ex) { App.WriteLog("WebBridge.WindowClose -> " + ex.Message); }
+        return new { closed = true };
+    }
+
+    // ==================== 真实数据：存档 / 角色 ====================
+
+    /// <summary><c>saves.list</c>：真的存档表（按保存时间倒序），前端存档页与标题页都用这一份。</summary>
+    private async Task<object?> SavesListAsync()
+    {
+        try
+        {
+            var slots = await _saves.List();
+            return new
+            {
+                slots = slots
+                    .OrderByDescending(s => s.SavedAt)
+                    .Select(s => new
+                    {
+                        id = s.Id,
+                        label = s.Label,
+                        character = s.Character,
+                        scene = s.Scene,
+                        savedAt = s.SavedAt.ToUniversalTime().ToString("o"),
+                        minutes = s.PlayMinutes,
+                        world = s.WorldName.Length > 0 ? s.WorldName : s.World,
+                        parentId = s.ParentId,
+                        branch = s.BranchName,
+                        historyNote = s.HistoryNote,
+                    })
+                    .ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.SavesList -> " + ex.Message);
+            return new { slots = Array.Empty<object>() };
+        }
+    }
+
+    /// <summary><c>characters.list</c>：角色库真表。桥不搬密钥与文件路径以外的私密字段。</summary>
+    private async Task<object?> CharactersListAsync()
+    {
+        try
+        {
+            var all = await _characters.ListAsync();
+            return new
+            {
+                characters = all.Select(c => new
+                {
+                    id = c.Profile.Id,
+                    name = c.Profile.Name,
+                    nickname = c.Profile.Nickname,
+                    gender = c.Profile.Gender,
+                    age = c.Profile.Age,
+                    catchphrase = c.Profile.Catchphrase,
+                    avatar = c.Avatar,
+                    avatarUrl = AssetUrl(c.Avatar),
+                    spriteCount = c.SpriteMap.Count,
+                    outfits = c.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList(),
+                    currentSpriteUrl = AssetUrl(CurrentSprite(c)),
+                    affection = c.State.Affection,
+                    trust = c.State.Trust,
+                    energy = c.State.Energy,
+                    mood = c.State.CurrentEmotion,
+                }).ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.CharactersList -> " + ex.Message);
+            return new { characters = Array.Empty<object>() };
+        }
+    }
+
+    /// <summary>
+    /// <c>palette.swatches</c>：纯色底那十颗色板，直接取 <c>DesignSystem/Theme/ColorPaletteEndfield.xaml</c>
+    /// 里已经有的色阶（Cream/OffWhite/Beige/BeigeAccent…）。前端不再自带一份十六进制 ——
+    /// 色板只有一处定义，改 XAML 前端自动跟着变。
+    /// </summary>
+    private static object PaletteSwatches()
+    {
+        var picks = new (string Key, string Name)[]
+        {
+            ("Cream50", "奶油纸"), ("OffWhite100", "素灰"), ("BlueSoft", "晨雾蓝"), ("GreenSoft", "青瓷"),
+            ("Beige100", "暖砂"), ("RedSoft", "樱雾"), ("WarmDark", "石墨"), ("ShadowLight", "幽蓝"),
+            ("Beige250", "赭石"), ("BeigeAccent300", "墨绿"),
+        };
+
+        var list = new List<object>(picks.Length);
+        foreach (var (key, name) in picks)
+        {
+            var hex = ResourceHex(key);
+            if (hex is not null) list.Add(new { hex, name });
+        }
+        return new { swatches = list };
+    }
+
+    /// <summary>把资源里的颜色读成 #RRGGBB（Color / SolidColorBrush / 字符串三种都认）。</summary>
+    private static string? ResourceHex(string key)
+    {
+        try
+        {
+            if (Application.Current?.Resources.TryGetValue(key, out var value) != true) return null;
+            var color = value switch
+            {
+                Color c => c,
+                SolidColorBrush b => b.Color,
+                string s when s.StartsWith('#') => Color.FromArgb(s),
+                _ => Colors.Transparent,
+            };
+            if (color == Colors.Transparent && value is not string) return null;
+            return $"#{color.Red * 255:0}{color.Green * 255:0}{color.Blue * 255:0}";
+        }
+        catch { return null; }
+    }
+
+    // ==================== appearance（整屏材质 + 背景）====================
+
+    /// <summary>
+    /// <c>appearance.get</c>：前端那份 <c>Appearance</c>（见 web/src/bridge/protocol.ts）。
+    /// 一个字段都不新造 —— 每一项都是 <see cref="UserSettings"/> 里已经很有的东西，
+    /// 所以「网页里调外观」与「原生设置页里调外观」改的是同一份存档，不会两套观感。
+    /// </summary>
+    private object AppearanceGet() => AppearanceOf(_settings.Current);
+
+    private static object AppearanceOf(UserSettings s) => new
+    {
+        alpha = Math.Clamp(s.GlassTranslucency, 0, 1),
+        frost = Math.Clamp(s.GlassFrost, 0, 1),
+        liquid = Math.Clamp(s.GlassHeight, 0, 1),
+        lightweight = s.PerformanceMode,
+        reducedTransparency = s.GlassReducedTransparency,
+        background = new
+        {
+            mode = BackgroundModeOf(s.BackgroundMode),
+            solidHex = s.BackgroundSolidHex,
+            pageTintHex = s.PageTintHex,
+            imageLabel = string.IsNullOrWhiteSpace(s.BackgroundImagePath)
+                ? "尚未选择图片"
+                : System.IO.Path.GetFileName(s.BackgroundImagePath),
+        },
+        scene = new
+        {
+            experimental = s.ExperimentalSceneFxEnabled,
+            weather = s.WeatherSceneOverlayEnabled,
+            light = s.SceneLightEnabled,
+            audio = s.WeatherSceneAudioEnabled,
+            audioLevel = Math.Clamp(s.WeatherSceneAudioLevel, 0, 1),
+        },
+    };
+
+    /// <summary>存档里存的是 none/image/clear（纯色/图片/透视），前端叫 solid/image/clear。</summary>
+    private static string BackgroundModeOf(string? mode) => mode switch
+    {
+        "image" => "image",
+        "clear" => "clear",
+        _ => "solid",
+    };
+
+    private static string StoredBackgroundMode(string? mode) => mode switch
+    {
+        "image" => "image",
+        "clear" => "clear",
+        _ => "none",
+    };
+
+    /// <summary>params 是 <c>{ appearance }</c>；写回走与 settings.set 同一条「下发 → 落盘」。</summary>
+    private async Task<object?> AppearanceSetAsync(JsonElement p)
+    {
+        if (p.ValueKind != JsonValueKind.Object
+            || !p.TryGetProperty("appearance", out var a) || a.ValueKind != JsonValueKind.Object)
+            throw new WebBridgeException("E_BAD_PARAMS", "appearance.set 需要 {appearance}。");
+
+        var s = _settings.Current;
+
+        if (a.TryGetProperty("alpha", out var alpha)) s = s with { GlassTranslucency = Math.Clamp(Number(alpha, "alpha"), 0, 1) };
+        if (a.TryGetProperty("frost", out var frost)) s = s with { GlassFrost = Math.Clamp(Number(frost, "frost"), 0, 1) };
+        if (a.TryGetProperty("liquid", out var liquid)) s = s with { GlassHeight = Math.Clamp(Number(liquid, "liquid"), 0, 1) };
+        if (a.TryGetProperty("lightweight", out var lightweight)) s = s with { PerformanceMode = Boolean(lightweight, "lightweight") };
+        if (a.TryGetProperty("reducedTransparency", out var reduced))
+            s = s with { GlassReducedTransparency = Boolean(reduced, "reducedTransparency") };
+
+        if (a.TryGetProperty("background", out var bg) && bg.ValueKind == JsonValueKind.Object)
+        {
+            if (bg.TryGetProperty("mode", out var mode) && mode.ValueKind == JsonValueKind.String)
+                s = s with { BackgroundMode = StoredBackgroundMode(mode.GetString()) };
+            if (bg.TryGetProperty("solidHex", out var solid) && solid.ValueKind == JsonValueKind.String)
+                s = s with { BackgroundSolidHex = Hex(solid.GetString()) };
+            if (bg.TryGetProperty("pageTintHex", out var tint) && tint.ValueKind == JsonValueKind.String)
+                s = s with { PageTintHex = Hex(tint.GetString()) };
+        }
+
+        if (a.TryGetProperty("scene", out var scene) && scene.ValueKind == JsonValueKind.Object)
+        {
+            if (scene.TryGetProperty("experimental", out var experimental))
+                s = s with { ExperimentalSceneFxEnabled = Boolean(experimental, "scene.experimental") };
+            if (scene.TryGetProperty("weather", out var weather))
+                s = s with { WeatherSceneOverlayEnabled = Boolean(weather, "scene.weather") };
+            if (scene.TryGetProperty("light", out var light))
+                s = s with { SceneLightEnabled = Boolean(light, "scene.light") };
+            if (scene.TryGetProperty("audio", out var audio))
+                s = s with { WeatherSceneAudioEnabled = Boolean(audio, "scene.audio") };
+            if (scene.TryGetProperty("audioLevel", out var level))
+                s = s with { WeatherSceneAudioLevel = Math.Clamp(Number(level, "scene.audioLevel"), 0, 1) };
+        }
+
+        await _gate.WaitAsync();
+        try
+        {
+            _settings.Apply(s);
+            await _settings.Persist();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        var appearance = AppearanceOf(_settings.Current);
+        Emit("appearance.changed", new { appearance });
+        return new { appearance };
+    }
+
+    /// <summary>颜色只收 #RRGGBB / #AARRGGBB，别的原样退回空串（不让任意字符串进存档）。</summary>
+    private static string Hex(string? value)
+    {
+        var text = (value ?? "").Trim();
+        if (text.Length is 7 or 9 && text[0] == '#' && text.Skip(1).All(Uri.IsHexDigit)) return text.ToUpperInvariant();
+        return "";
+    }
+
+    /// <summary>
+    /// <c>settings.patch</c>：一次改多组设置（{patch:{ "sound.bgm":0.6, "ui.chatStyle":"bubble" }}）。
+    ///
+    /// 设置页有很多行是就地改的；每行各开一个方法会让桥表长到没法读，
+    /// 所以这里是**同一条路**：路径白名单 → 改写 UserSettings → Apply + Persist → 广播 settings.changed。
+    /// 白名单之外的键一律 E_BAD_PARAMS，不猜、不写。
+    /// </summary>
+    private async Task<object?> SettingsPatchAsync(JsonElement p)
+    {
+        if (p.ValueKind != JsonValueKind.Object
+            || !p.TryGetProperty("patch", out var patch) || patch.ValueKind != JsonValueKind.Object)
+            throw new WebBridgeException("E_BAD_PARAMS", "settings.patch 需要 {patch:{...}}。");
+
+        var s = _settings.Current;
+        var langChanged = false;
+
+        foreach (var kv in patch.EnumerateObject())
+        {
+            var path = kv.Name;
+            var value = kv.Value;
+            switch (path)
+            {
+                case "sound.bgm": s = s with { BgmLevel = Math.Clamp(Number(value, path), 0, 1) }; break;
+                case "sound.sfx": s = s with { SfxLevel = Math.Clamp(Number(value, path), 0, 1) }; break;
+                case "text.scale": s = s with { TextSpeed = Math.Clamp(Number(value, path), 0.5, 2) }; break;
+                case "story.autoSave": s = s with { AutoSaveEnabled = Boolean(value, path) }; break;
+                case "ui.orientation": s = s with { ScreenOrientation = Text(value, path) }; break;
+                case "ui.chatStyle": s = s with { ChatStyle = Text(value, path) }; break;
+                case "ui.difficulty": s = s with { GameDifficulty = Text(value, path) }; break;
+                case "platform.petIdleMinutes": s = s with { PetIdleMinutes = Math.Clamp((int)Number(value, path), 0, 240) }; break;
+                case "platform.preferDiscreteGpu": s = s with { PreferDiscreteGpu = Boolean(value, path) }; break;
+                case "integrations.qq": s = s with { QqBotEnabled = Boolean(value, path) }; break;
+                case "integrations.wechat": s = s with { WechatEnabled = Boolean(value, path) }; break;
+                case "integrations.mcp": s = s with { McpEnabled = Boolean(value, path) }; break;
+                case "life.notifications": s = s with { NotificationsEnabled = Boolean(value, path) }; break;
+                case "life.weatherCity": s = s with { WeatherCity = Text(value, path) }; break;
+                case "memory.windowDays": s = s with { MemoryWindowDays = Math.Clamp(Number(value, path), 0, 3650) }; break;
+                case "ai.smartSaving": s = s with { SmartSavingEnabled = Boolean(value, path) }; break;
+                case "ai.timeoutSeconds": s = s with { AiTimeoutSeconds = Math.Clamp((int)Number(value, path), 3, 600) }; break;
+                case "appearance.liquid": s = s with { LiquidEnabled = Boolean(value, path) }; break;
+                case "appearance.glass": s = s with { GlassEnabled = Boolean(value, path) }; break;
+                case "appearance.frost": s = s with { FrostEnabled = Boolean(value, path) }; break;
+                case "language.locale":
+                {
+                    var locale = Text(value, path);
+                    if (locale is not ("zh-CN" or "en-US"))
+                        throw new WebBridgeException("E_BAD_PARAMS", "language.locale 只支持 zh-CN / en-US。");
+                    langChanged = !string.Equals(locale, s.Lang, StringComparison.Ordinal);
+                    s = s with { Lang = locale };
+                    break;
+                }
+                default:
+                    throw new WebBridgeException("E_BAD_PARAMS", "unknown setting path: " + path);
+            }
+        }
+
+        await _gate.WaitAsync();
+        try
+        {
+            _settings.Apply(s);
+            if (langChanged) LocalizationService.Current.SetCulture(s.Lang);
+            await _settings.Persist();
+        }
+        finally
+        {
+            _gate.Release();
+        }
+
+        var values = SettingsValues();
+        Emit("settings.changed", new { values });
+        return new { values };
+    }
+
+    private static string Text(JsonElement value, string path)
+        => value.ValueKind == JsonValueKind.String
+            ? value.GetString() ?? ""
+            : throw new WebBridgeException("E_BAD_PARAMS", path + " 需要一个字符串。");
 
     // ==================== palette（玻璃三档 + 轻量）====================
 

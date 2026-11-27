@@ -21,7 +21,10 @@ function measure(sample: Sample) {
   sample.rect = { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
-export function registerGlass(el: HTMLElement) {
+export function registerGlass(el: HTMLElement, lit = true) {
+  // 控件（开关、滑杆、小按钮）不挂指针光：一块玻璃一次 reflow×3 个变量，几百个控件每动一下鼠标就是几百次样式写入。
+  // 光要落在「面」上才看得出材质，落在每一颗开关上是纯开销。
+  if (!lit) return () => undefined;
   const sample: Sample = {
     el,
     rect: { left: 0, top: 0, width: 0, height: 0 },
@@ -90,6 +93,9 @@ export function startLighting() {
   if (started) return;
   started = true;
 
+  // 指针移动只记坐标，真正写样式合并到下一帧：一次 pointermove 里画几百块玻璃，
+  // 输入事件就被样式写入淹了 —— 这就是「卡」的主要来源之一。
+  let queued = 0;
   const onMove = (event: PointerEvent) => {
     pointer.tx = event.clientX;
     pointer.ty = event.clientY;
@@ -98,7 +104,11 @@ export function startLighting() {
       pointer.y = event.clientY;
       pointer.known = true;
     }
-    paint(event.clientX, event.clientY);
+    if (queued) return;
+    queued = requestAnimationFrame(() => {
+      queued = 0;
+      paint(pointer.tx, pointer.ty);
+    });
     kick();
   };
 

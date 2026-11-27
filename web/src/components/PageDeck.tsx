@@ -2,6 +2,9 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNo
 import type { Direction, Route } from '../lib/router';
 import { ENTER_X, EXIT_X, bindLayerMotion, type LayerMotion } from '../lib/transition';
 
+/** 同一页换了查询串（/settingssection?key=ai → ?key=sound）也算换页。 */
+const keyOf = (route: Route) => route.path + '?' + route.query.toString();
+
 type Frame = {
   id: number;
   route: Route;
@@ -32,10 +35,10 @@ export function PageDeck({ route, direction, render }: Props) {
   useEffect(() => {
     setFrames((prev) => {
       const current = prev.find((frame) => !frame.leaving);
-      if (current && current.route.id === route.id) return prev;
+      if (current && keyOf(current.route) === keyOf(route)) return prev;
 
       const sign: 1 | -1 = direction === 'back' ? -1 : 1;
-      const revived = prev.find((frame) => frame.leaving && frame.route.id === route.id);
+      const revived = prev.find((frame) => frame.leaving && keyOf(frame.route) === keyOf(route));
       const marked = prev.map((frame) => (frame.leaving ? frame : { ...frame, leaving: true }));
 
       if (revived) {

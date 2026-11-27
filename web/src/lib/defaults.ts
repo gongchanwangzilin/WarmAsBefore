@@ -25,3 +25,22 @@ export const DEFAULT_SETTINGS: SettingsValues = {
   life: { notifications: true, weatherCity: '杭州', customWeatherSource: false },
   data: { skillsInstalled: false },
 };
+
+
+/**
+ * 把后端回的那份设置补齐成完整形状。
+ *
+ * 之前设置页直接读 values.appearance.liquid：宿主少回一组就抛异常，整页被卸载、窗口只剩空底。
+ * 数据形状不一致是宿主的问题，但空白屏不该是用户看到的结果 —— 缺的组一律落回出厂值。
+ */
+export function fillSettings(values: Partial<SettingsValues> | null): SettingsValues | null {
+  if (!values) return null;
+  const merged = { ...DEFAULT_SETTINGS } as SettingsValues;
+  for (const key of Object.keys(DEFAULT_SETTINGS) as (keyof SettingsValues)[]) {
+    const incoming = values[key];
+    if (incoming && typeof incoming === 'object') {
+      merged[key] = { ...(DEFAULT_SETTINGS[key] as object), ...(incoming as object) } as never;
+    }
+  }
+  return merged;
+}

@@ -40,6 +40,7 @@
 - [在界面上看这套机制](#在界面上看这套机制)
 - [功能地图](#功能地图)
 - [快速开始](#快速开始)
+- [前端：Web（React + WebView2）](#前端webreact--webview2)
 - [项目结构](#项目结构)
 - [数据位置](#数据位置)
 - [插件与 MCP](#插件与-mcp)
@@ -361,6 +362,43 @@ dotnet build WarmAsBefore.csproj -c Debug -f net10.0-android
 - 页面 XAML 的填充优先用 `BackgroundColor` 或内层 `BoxView.Color`；`Border.Background="{DynamicResource ...}"` 会触发 `XC0009`。
 - 如果 XAML 编译器锁住 `obj/.../intermediatexaml/WarmAsBefore.dll`，关闭 `Microsoft.UI.Xaml.Markup.Compiler` 编译器服务器后重新构建。
 - `LICENSE.txt` 是 proot 组件的 GPLv2 文本，不是应用本身的协议。
+
+---
+
+## 前端：Web（React + WebView2）
+
+界面现在是一份 Web 前端，装在应用窗口里的 WebView2 里跑；C# 仍然是唯一后端，前端不直连任何网络。
+
+```text
+web/                        ← 前端（Vite + React + 原生 CSS，零 UI 库）
+├── src/lib/routes.ts       # 路由表：地址就是 AppShell 里注册的名字（/save、/settingssection?key=ai）
+├── src/screens/            # 61 个页面，按 Main / Character / Settings / Story / Games / Memory / Save / Chat 分组
+├── src/components/kit.tsx  # 通用件：页头、卡片、行、空态、双栏、输入、下拉、回退键
+├── src/bridge/             # 与 C# 的唯一契约（protocol.ts）；mock 只用于浏览器里空跑
+└── src/styles/             # 六层玻璃、世界底光、令牌与通用件样式
+```
+
+### 怎么跑
+
+| 场景 | 做法 |
+|---|---|
+| **正常开发 / 验收** | `cd web && npm install && npm run build`，然后正常启动应用 —— **默认入口就是 Web 前端** |
+| 前端热更新（可选） | `cd web && npm run dev`，再以 `WARM_WEB_URL=http://127.0.0.1:5189` 启动应用；默认**不**连 dev server |
+| 回到原生界面 | `WARM_NATIVE_SHELL=1` 启动应用 |
+
+找不到 `web/dist` 时不会开出空窗：宿主会在窗口里写明「没有找到 web/dist，先跑 npm run build」，并自动回落到原生界面。
+
+### 不对外开放任何网页端口
+
+前端**不是**由本机 HTTP 服务提供的，所以外部浏览器访问不到它的页面：
+
+- 构建产物通过 WebView2 的虚拟主机映射加载：`https://wab.local/index.html` → 磁盘上的 `web/dist`（`SetVirtualHostNameToFolderMapping`），只在应用进程内部可解析；
+- 立绘/头像/背景走第二个虚拟主机 `https://wab.assets/<相对路径>` → 存储根目录，同样不经过任何 TCP 端口；
+- 页面缩放被按死（`IsZoomControlEnabled=false`、`IsPinchZoomEnabled=false`、`user-scalable=no`），版式只随窗口与屏幕变化；
+- 浏览器快捷键（`AreBrowserAcceleratorKeysEnabled=false`）、右键菜单、拖放外部文件默认全部关闭。
+
+宿主与前端之间只有一条 `postMessage` 通道，方法走白名单（`Services/Web/WebBridge.cs` 的 `DispatchAsync`），
+未知方法直接 `E_UNKNOWN_METHOD`，异常不会越过桥。
 
 ---
 

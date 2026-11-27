@@ -81,8 +81,19 @@ const SETTINGS_CATALOG: CatalogSection[] = [
 ];
 
 /** 分类在 Web 端已经有页的，走这里。 */
+/** 分类 → 子页地址。地址就是 AppShell 里注册的名字，查询串带分类键。 */
 const SECTION_ROUTES: Record<string, string> = {
-  appearance: '/settings/appearance',
+  appearance: '/settingssection?key=appearance',
+  sound: '/settingssection?key=sound',
+  ai: '/settingssection?key=ai',
+  memory: '/settingssection?key=memory',
+  persona: '/settingssection?key=persona',
+  interface: '/settingssection?key=interface',
+  platform: '/settingssection?key=platform',
+  integrations: '/settingssection?key=integrations',
+  life: '/settingssection?key=life',
+  data: '/settingssection?key=data',
+  advanced: '/settingssection?key=advanced',
 };
 
 const THEME_DISPLAY: Record<ThemeName, string> = {
@@ -163,7 +174,7 @@ const PET_ROW: SettingsSectionRow = {
   title: '桌宠设置',
   desc: '桌面上陪你的那一位',
   summary: '体型 · 动作 · 气泡 · 语音 · 位置',
-  to: null,
+  to: '/petsettings',
 };
 
 const USAGE_ROW: SettingsSectionRow = {
@@ -171,7 +182,7 @@ const USAGE_ROW: SettingsSectionRow = {
   title: '用量统计',
   desc: 'Token 用量与花费的本地账本',
   summary: '今日 · 近 7 天 · 成本构成 · 热力图',
-  to: null,
+  to: '/usagestats',
 };
 
 /** 常驻 + 全部设置两组，顺序与 SettingsPage.xaml.cs 的 RebuildList 一致。 */

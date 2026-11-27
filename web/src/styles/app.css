@@ -1129,3 +1129,100 @@ ol {
     transition: none;
   }
 }
+
+/* 页面不跟着手势/滚轮缩放：窗口大小变化才是唯一改变版式的原因。
+   触控双击、双指捏合、Ctrl+滚轮三种入口都要按死，只留滚动。 */
+html,
+body {
+  touch-action: pan-y;
+  overscroll-behavior: none;
+  -ms-content-zooming: none;
+}
+body {
+  text-size-adjust: 100%;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* ───────── 设计基线（按 Apple HIG 那套翻译过来的四条） ─────────
+   1. 字的疏密：大字号收一点、小字号放一点，视觉字号才等宽；
+   2. 浮层靠「渐变收边」而不是一条硬线；
+   3. 按压在按下那一刻就有反馈，不等抬起；
+   4. 键盘焦点始终看得见。 */
+
+.ph__title {
+  letter-spacing: -0.012em;
+  line-height: 1.15;
+}
+.ph__sub {
+  letter-spacing: 0.004em;
+}
+.k-card__title,
+.k-stat__value {
+  letter-spacing: -0.008em;
+}
+.k-group {
+  letter-spacing: 0.12em;
+}
+
+/* 页头下面不再是 1px 硬线，而是一条 10px 的渐隐——内容从它下面滑过。 */
+.ph--bar::after {
+  height: 10px;
+  background: linear-gradient(to bottom, var(--w-hairline), transparent);
+  opacity: 0.9;
+}
+.ph--ground::after {
+  display: none;
+}
+
+/* 按下即反馈（不等 click）。 */
+.k-row--tap:active,
+.k-textbtn:active,
+.backchip__btn:active {
+  transform: translateY(0.5px);
+  transition: transform 90ms ease-out;
+}
+.k-row--tap,
+.k-textbtn,
+.backchip__btn {
+  transition: color 140ms ease-out, transform 90ms ease-out;
+}
+
+/* 键盘焦点：一个环，不用颜色变化去猜。 */
+:focus-visible {
+  outline: 2px solid var(--w-focus-ring);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
+
+/* 滚动条只在真的滚的时候占地方，颜色跟着墨阶。 */
+.page {
+  scrollbar-width: thin;
+  scrollbar-color: var(--w-edge) transparent;
+}
+
+/* 触屏上不给 300ms 点击延迟，也不要蓝色高亮块。 */
+button,
+a {
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+/* 气氛层：在底光之上、页面之下。pointer-events 全关，纯视觉。 */
+.sky {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.world[data-lightweight='1'] .sky {
+  opacity: 0;
+}
+
+/* 长页面里的卡片交给浏览器跳过屏外绘制：设置子页一屏几十张卡时最省。 */
+.k-card,
+.s-card {
+  content-visibility: auto;
+  contain-intrinsic-size: 220px;
+}

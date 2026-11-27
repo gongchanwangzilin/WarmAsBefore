@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Bridge } from '../bridge/client';
 import type { SettingsValues } from '../bridge/protocol';
 import { Glass } from '../components/Glass';
@@ -9,6 +9,7 @@ import { StateBlock } from '../components/states/StateBlock';
 import { homeGroups, matchesQuery, type SettingsSectionRow } from '../lib/settingsHome';
 import { useIsWide } from '../lib/useIsWide';
 import { useResource } from '../lib/useResource';
+import { DEFAULT_SETTINGS, fillSettings } from '../lib/defaults';
 
 type Props = {
   bridge: Bridge;
@@ -22,6 +23,9 @@ type Props = {
  */
 export function SettingsPage({ bridge, onBack, onNavigate }: Props) {
   const { state, reload } = useResource(() => bridge.request('settings.get', {}), [bridge]);
+
+  // 宿主改了设置（别的窗口、原生设置页）就重读：主窗与手机窗看到的是同一份。
+  useEffect(() => bridge.onEvent('settings.changed', () => reload()), [bridge, reload]);
   const [query, setQuery] = useState('');
 
   return (
@@ -83,7 +87,7 @@ export function SettingsPage({ bridge, onBack, onNavigate }: Props) {
           ) : null}
 
           {state.status === 'ready' && state.data.values ? (
-            <Groups values={state.data.values} query={query} onOpen={onNavigate} />
+            <Groups values={(fillSettings(state.data.values) ?? DEFAULT_SETTINGS) as SettingsValues} query={query} onOpen={onNavigate} />
           ) : null}
         </div>
       </main>

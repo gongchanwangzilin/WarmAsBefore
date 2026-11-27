@@ -57,6 +57,31 @@ public sealed class PageWindowService
         return true;
     }
 
+    /// <summary>
+    /// 开一扇窗，装调用方**自己造好的**页面实例（Web 宿主就是这一种：它要带一个初始路由，
+    /// 而 DI 只会造一个默认页）。其余行为与 <see cref="Open"/> 一致：同 key 只一扇。
+    /// </summary>
+    public bool OpenPage(string key, string title, Page page, double width = 980, double height = 700)
+    {
+        if (Application.Current is not { } app) return false;
+        if (Exists(key))
+        {
+            BringToFront(_open[key]);
+            return true;
+        }
+        var win = new ToolWindow(page)
+        {
+            Title = title,
+            Width = Math.Max(320, width),
+            Height = Math.Max(320, height),
+        };
+        win.Destroying += (_, _) => _open.Remove(key);
+        app.OpenWindow(win);
+        _open[key] = win;
+        App.WriteLog($"PageWindow: 打开 {title}（{page.GetType().Name}）");
+        return true;
+    }
+
     private bool Exists(string key)
         => _open.TryGetValue(key, out var w) && Application.Current?.Windows.Contains(w) == true;
 

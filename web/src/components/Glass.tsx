@@ -40,8 +40,8 @@ export function Glass({
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
-    return registerGlass(el);
-  }, [ref]);
+    return registerGlass(el, tone === 'card' || tone === 'bar' || tone === 'signal');
+  }, [ref, tone]);
 
   return createElement(
     as,

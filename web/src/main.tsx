@@ -8,6 +8,7 @@ import { prefersReducedMotion } from './lib/motion';
 import { applyTokens, dampingTokens } from './lib/tokens';
 import './styles/glass.css';
 import './styles/app.css';
+import './styles/kit.css';
 
 /**
  * 令牌先到、页面后画：颜色与字阶都在 :root 上，避免第一帧用默认黑字闪一下。

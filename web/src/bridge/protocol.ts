@@ -109,6 +109,11 @@ export type Requests = {
     params: SettingEdit;
     result: { values: SettingsValues };
   };
+  /** 一次改多组设置；键是白名单里的路径（sound.bgm / ui.chatStyle / life.notifications …）。 */
+  'settings.patch': {
+    params: { patch: Record<string, string | number | boolean> };
+    result: { values: SettingsValues };
+  };
   'appearance.get': {
     params: Record<string, never>;
     /** appearance 为 null = 这套设备还没有下发外观（空状态） */
@@ -126,6 +131,69 @@ export type Requests = {
     params: { from: string };
     result: { accepted: boolean };
   };
+  /** 把一页搬进自己的窗口（手机、关系网这类「旁边摊一扇」的页）。开不了窗时 opened=false。 */
+  'window.open': {
+    params: { route: string; title?: string; width?: number; height?: number };
+    result: { opened: boolean; route?: string; reason?: string };
+  };
+  /** 关掉自己那扇窗（窗里的「←」）。主窗不关。 */
+  'window.close': {
+    params: Record<string, never>;
+    result: { closed: boolean };
+  };
+  /** 真的存档表，按保存时间倒序。 */
+  'saves.list': {
+    params: Record<string, never>;
+    result: { slots: SaveRow[] };
+  };
+  /** 纯色底那十颗色板：直接来自 DesignSystem 的调色板 XAML，前端不再自带一份。 */
+  'palette.swatches': {
+    params: Record<string, never>;
+    result: { swatches: { hex: string; name: string }[] };
+  };
+  /** 角色库真表。 */
+  'characters.list': {
+    params: Record<string, never>;
+    result: { characters: CharacterRow[] };
+  };
+};
+
+/** 存档一行（saves.list）。 */
+export type SaveRow = {
+  id: string;
+  label: string;
+  character: string;
+  scene: string;
+  /** ISO-8601 */
+  savedAt: string;
+  minutes: number;
+  world: string;
+  parentId?: string | null;
+  branch: string;
+  historyNote: string;
+};
+
+/** 角色一行（characters.list）。 */
+export type CharacterRow = {
+  id: string;
+  name: string;
+  nickname: string;
+  gender: string;
+  age: number | null;
+  catchphrase: string;
+  avatar: string;
+  /** 可直接放进 <img src> 的素材地址（宿主把存储根挂在 wab.assets 上）；空 = 没有素材 */
+  avatarUrl: string;
+  /** 立绘总数（SpriteMap 的条目数） */
+  spriteCount: number;
+  /** 有哪些服装 */
+  outfits: string[];
+  /** 当前该显示的那张立绘；空 = 这个角色还没有立绘 */
+  currentSpriteUrl: string;
+  affection: number;
+  trust: number;
+  energy: number;
+  mood: string;
 };
 
 export type Method = keyof Requests;
@@ -163,6 +231,8 @@ export type ServerEvents = {
   'nav.request': { route: string };
   'appearance.changed': { appearance: Appearance };
   'settings.changed': { values: SettingsValues };
+  /** 有存档/角色写盘时宿主推一条，页面据此重读（跨窗口联动靠它）。 */
+  'data.changed': { what: 'saves' | 'characters' };
   'theme.tokens': { tokens: TokenMap };
 };
 

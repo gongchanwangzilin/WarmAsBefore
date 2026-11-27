@@ -14,11 +14,11 @@ type Props = {
   onNavigate: (path: string) => void;
 };
 
-/** 四个次要入口（TitlePage.xaml 的 01~04）。Web 端只有「设置」有页。 */
+/** 四个次要入口（TitlePage.xaml 的 01~04）。地址就是 AppShell 里注册的名字。 */
 const MENU: ReadonlyArray<{ index: string; label: string; to: string | null }> = [
-  { index: '01', label: '存档管理', to: null },
-  { index: '02', label: '平行宇宙', to: null },
-  { index: '03', label: '角色库', to: null },
+  { index: '01', label: '存档管理', to: '/save' },
+  { index: '02', label: '平行宇宙', to: '/novelselect' },
+  { index: '03', label: '角色库', to: '/roster' },
   { index: '04', label: '设置', to: '/settings' },
 ];
 
@@ -31,9 +31,7 @@ const THEME_LEGEND = { color: '终末地', effect: '档案室' };
 export function TitlePage({ bridge, onNavigate }: Props) {
   const { state, reload } = useResource(() => bridge.request('settings.get', {}), [bridge]);
 
-  const start = useCallback(() => {
-    void bridge.request('nav.open', { route: '/play' }).catch(() => undefined);
-  }, [bridge]);
+  const start = useCallback(() => onNavigate('/main'), [onNavigate]);
 
   const save = state.status === 'ready' ? state.data.save : null;
 

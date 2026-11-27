@@ -30,14 +30,32 @@ namespace WarmAsBefore.Views.Web;
 public partial class WebShellPage : ContentPage
 {
     /// <summary>
-    /// 入口开关：<c>WARM_WEB_SHELL=1</c> 时 <see cref="App.CreateWindow"/> 把整窗换成这页。
-    /// 默认不换 —— 迁移是渐进的，原生界面仍是默认入口。
+    /// 入口：**默认就是 Web 宿主**（迁移动完成了，前端是正式界面）。
+    /// <c>WARM_NATIVE_SHELL=1</c> 退回原生 Shell（对照、排障用）；
+    /// <c>WARM_WEB_SHELL=1</c> 仍然有效，等于默认值。
+    /// 找不到 web/dist 时 <see cref="App.CreateWindow"/> 会自动落回原生界面，所以默认开不会开出一个空窗。
     /// </summary>
     public static bool ShellRequested
-        => string.Equals(Environment.GetEnvironmentVariable("WARM_WEB_SHELL")?.Trim(), "1", StringComparison.Ordinal);
+        => !string.Equals(Environment.GetEnvironmentVariable("WARM_NATIVE_SHELL")?.Trim(), "1", StringComparison.Ordinal);
 
     /// <summary>虚拟主机名：WebView2 只把它映射到磁盘目录，不联网。</summary>
     private const string AssetHost = "wab.local";
+
+    /// <summary>素材主机：存储根（立绘、头像、背景…）。前端用 https://wab.assets/&lt;相对路径&gt; 取。</summary>
+    public const string AssetHostName = "wab.assets";
+
+    /// <summary>素材根目录 = StorageProvider.Root；取不到就是 null（那就只不挂素材，页面照旧）。</summary>
+    public static string? AssetsRoot()
+    {
+        try
+        {
+            return Application.Current?.Handler?.MauiContext?.Services?
+                .GetService(typeof(WarmAsBefore.Services.StorageProvider)) is WarmAsBefore.Services.StorageProvider store
+                ? store.Root
+                : null;
+        }
+        catch { return null; }
+    }
 
     /// <summary>发布/构建产物目录名（Vite 的 <c>npm run build</c> 输出）。</summary>
     private const string BundleDir = "dist";
@@ -51,11 +69,27 @@ public partial class WebShellPage : ContentPage
     {
         InitializeComponent();
         _bridge = bridge;
-        _bridge.ToWeb = SendAsync;
+        _bridge.AttachSink(SendAsync);
         _source = ResolveSource();
         App.WriteLogNow($"WebShellPage: 加载 {(_source.Kind == WebSourceKind.Missing ? "(无)" : _source.Url)}"
             + $"（来源={_source.Kind.ToString().ToLowerInvariant()}"
             + (_source.Folder is null ? "" : $"，目录={_source.Folder}") + "）");
+    }
+
+    /// <summary>这一页是不是装在自己那扇窗口里（手机页那种）。窗里的「←」应该关窗，不是翻主窗的栈。</summary>
+    public bool IsDetachedWindow => _startRoute is not null;
+
+    private string? _startRoute;
+
+    /// <summary>
+    /// 让**这一扇**窗口从某个路由开始（<c>/phone</c> 这类）。
+    /// 主机方（<see cref="WebBridge"/>）在开窗之前调用；主窗不调，走默认入口。
+    /// </summary>
+    public void StartAt(string route)
+    {
+        _startRoute = route;
+        _source = ResolveSource(route);
+        App.WriteLogNow($"WebShellPage: 独立窗加载 {_source.Url}");
     }
 
     protected override void OnHandlerChanged()
@@ -89,18 +123,25 @@ public partial class WebShellPage : ContentPage
     public readonly record struct WebSource(WebSourceKind Kind, string Url, string? Folder, string Detail);
 
     /// <summary>按文档注释里的四级顺序解析；默认（没有任何环境变量）是构建产物。</summary>
-    public static WebSource ResolveSource()
+    public static WebSource ResolveSource(string? forcedRoute = null)
     {
         if (string.Equals(Environment.GetEnvironmentVariable("WARM_WEB_PROBE")?.Trim(), "1", StringComparison.Ordinal))
             return new WebSource(WebSourceKind.Probe, "about:blank", null, "WARM_WEB_PROBE=1");
 
         var devUrl = Environment.GetEnvironmentVariable("WARM_WEB_URL")?.Trim();
-        if (!string.IsNullOrWhiteSpace(devUrl))
-            return new WebSource(WebSourceKind.Dev, devUrl!, null, "WARM_WEB_URL");
+        var source = !string.IsNullOrWhiteSpace(devUrl)
+            ? new WebSource(WebSourceKind.Dev, devUrl!, null, "WARM_WEB_URL")
+            : FindBundle() is { } bundle
+                ? new WebSource(WebSourceKind.Bundle, $"https://{AssetHost}/index.html", bundle, "web/" + BundleDir)
+                : new WebSource(WebSourceKind.Missing, "", null, string.Join("\n", BundleCandidates()));
 
-        return FindBundle() is { } bundle
-            ? new WebSource(WebSourceKind.Bundle, $"https://{AssetHost}/index.html", bundle, "web/" + BundleDir)
-            : new WebSource(WebSourceKind.Missing, "", null, string.Join("\n", BundleCandidates()));
+        // 显式指定的路由（独立窗的 /phone）优先；验收用的 WARM_WEB_ROUTE 次之。
+        var route = string.IsNullOrWhiteSpace(forcedRoute)
+            ? Environment.GetEnvironmentVariable("WARM_WEB_ROUTE")?.Trim()
+            : forcedRoute;
+        if (string.IsNullOrWhiteSpace(route) || source.Kind == WebSourceKind.Missing) return source;
+        var hash = route!.StartsWith('#') ? route : "#" + (route.StartsWith('/') ? route : "/" + route);
+        return source with { Url = source.Url + hash };
     }
 
     /// <summary>
@@ -180,6 +221,20 @@ public partial class WebShellPage : ContentPage
             }
 
             core.Settings.IsWebMessageEnabled = true;
+
+            // 页面不缩放：版式只随窗口/屏幕变。Ctrl+滚轮、捏合、双击三种入口一起关掉。
+            core.Settings.IsZoomControlEnabled = false;
+            core.Settings.IsPinchZoomEnabled = false;
+            core.Settings.AreBrowserAcceleratorKeysEnabled = false;
+
+            // 素材（立绘/头像/背景）走第二个虚拟主机：同一台机器上的文件目录，
+            // 不联网、不走环回端口，`https://wab.assets/<相对路径>` 直接解析到存储根。
+            if (AssetsRoot() is { } root && Directory.Exists(root))
+            {
+                core.SetVirtualHostNameToFolderMapping(
+                    AssetHostName, root, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            }
+
             core.WebMessageReceived += OnWebMessageReceived;
             core.NavigationCompleted += OnNavigationCompleted;
 
@@ -267,6 +322,28 @@ public partial class WebShellPage : ContentPage
             await SampleDomAsync(core, "t0");
             await Task.Delay(1200);
             await SampleDomAsync(core, "t1");
+
+            // 验收钩子：WARM_WEB_EVAL 里放一段 JS，跑完把结果写进日志。
+            // 它只在显式设置时执行，用来在真窗口里点按钮、读 DOM（这台机器没有桌面，点击只能这样发生）。
+            var script = Environment.GetEnvironmentVariable("WARM_WEB_EVAL")?.Trim();
+            if (!string.IsNullOrWhiteSpace(script))
+            {
+                // 脚本是 async 的，ExecuteScriptAsync 只会把 Promise 序列化成 {}；
+                // 所以先把结果落到 window.__evalResult，再轮询取回来。
+                var wrapped =
+                    "window.__evalResult=null;(async()=>{try{window.__evalResult=String(await (" + script + "));}"
+                    + "catch(e){window.__evalResult='EVAL_ERROR '+e.message;}})();";
+                await core.ExecuteScriptAsync(wrapped);
+                string? result = null;
+                for (var i = 0; i < 60 && result is null; i++)
+                {
+                    await Task.Delay(500);
+                    var raw = await core.ExecuteScriptAsync("window.__evalResult");
+                    if (raw is null or "null") continue;
+                    result = raw;
+                }
+                App.WriteLogNow("WebShellPage: EVAL -> " + (result is null ? "(timeout)" : result.Length > 6000 ? result[..6000] + "…" : result));
+            }
         }
         catch (Exception ex)
         {

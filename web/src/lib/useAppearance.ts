@@ -22,6 +22,16 @@ export type AppearanceStore = {
 const SAVE_DEBOUNCE_MS = 300;
 
 /**
+ * 同一页里可能有不止一个外观 store（分类子页自己起一个），
+ * 广播一下让它们同步：外观改的是整屏材质，不能只改发起那一份。
+ */
+const SYNC_EVENT = 'wab:appearance';
+
+function announce(next: Appearance) {
+  window.dispatchEvent(new CustomEvent<Appearance>(SYNC_EVENT, { detail: next }));
+}
+
+/**
  * 外观是全局状态：它在后端、却被每一个玻璃块用着（透明度改的是整屏材质）。
  * 所以加载一次放在 App 上，分类页只负责改它、显示它的四种状态。
  */
@@ -85,6 +95,7 @@ export function useAppearance(bridge: Bridge): AppearanceStore {
     (next: Appearance) => {
       latest.current = next;
       setValue(next);
+      announce(next);
       setSave('saving');
       if (timer.current) window.clearTimeout(timer.current);
       timer.current = window.setTimeout(() => persist(latest.current), SAVE_DEBOUNCE_MS);
@@ -96,6 +107,17 @@ export function useAppearance(bridge: Bridge): AppearanceStore {
     latest.current = next;
     setValue(next);
     setStatus('ready');
+  }, []);
+
+  useEffect(() => {
+    const onSync = (event: Event) => {
+      const next = (event as CustomEvent<Appearance>).detail;
+      if (!next || next === latest.current) return;
+      latest.current = next;
+      setValue(next);
+    };
+    window.addEventListener(SYNC_EVENT, onSync);
+    return () => window.removeEventListener(SYNC_EVENT, onSync);
   }, []);
 
   const retrySave = useCallback(() => persist(latest.current), [persist]);

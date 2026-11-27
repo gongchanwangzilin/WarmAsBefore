@@ -288,3 +288,11 @@
 .world[data-reduced='1'] .glass__sheen {
   opacity: 0;
 }
+
+/* 大面要显得比小片厚：卡片给一层很浅的落影，条形与按钮不加。 */
+.world:not([data-lightweight]) .glass--card {
+  box-shadow: 0 24px 56px -40px rgba(0, 0, 0, 0.62), 0 2px 6px -3px rgba(0, 0, 0, 0.28);
+}
+.world[data-lightweight] .glass--card {
+  box-shadow: none;
+}
