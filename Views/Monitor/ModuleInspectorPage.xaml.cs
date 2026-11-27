@@ -32,7 +32,19 @@ public partial class ModuleInspectorPage : ContentPage
         base.OnAppearing();
         // OnAppearing 只能是 async void，异常没有调用方能接住，统一交给 UiGuard：
         // 记日志、给一句能懂的话，页面继续可用（query 参数可能比上屏晚到，这里再取一次数）。
-        Helpers.UiGuard.Run(_vm.LoadAsync, "ModuleInspector.Load", "这个模块的读数没读上来");
+        // 人脸面板的拉帧表放在取数之后起：只有「摄像头人脸」这一页才需要它。
+        Helpers.UiGuard.Run(async () =>
+        {
+            await _vm.LoadAsync();
+            _vm.BeginFaceMonitor();
+        }, "ModuleInspector.Load", "这个模块的读数没读上来");
+    }
+
+    /// <summary>离开页面：人脸图像流跟着停（停表 + 交还拉帧资格），不在后台留着空转。</summary>
+    protected override void OnDisappearing()
+    {
+        _vm.EndFaceMonitor();
+        base.OnDisappearing();
     }
 
     /// <summary>构建失败时的兜底页：一句话说明 + 一条返回的路（R7 空态：标题 + 说明 + 行动）。</summary>

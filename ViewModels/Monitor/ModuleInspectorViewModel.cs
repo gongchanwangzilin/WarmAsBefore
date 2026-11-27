@@ -3,6 +3,7 @@ using System.Globalization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Maui.Dispatching;
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Models;
@@ -54,6 +55,17 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
     [ObservableProperty] private ObservableCollection<TimelineEvent> _timeline = new();
     [ObservableProperty] private bool _hasTimeline;
 
+    /// <summary>
+    /// 人脸识别面板（只看「摄像头人脸」这个节点时出现）：组件状态 + 图像流。
+    /// 与超级监测页共用同一份 VM，所以两处说话一致；只在页面可见期间拉帧。
+    /// </summary>
+    public FacePanelViewModel Face { get; } = new();
+
+    /// <summary>这一页是不是「摄像头人脸」节点：是才显示人脸面板。</summary>
+    [ObservableProperty] private bool _hasFacePane;
+
+    private IDispatcherTimer? _faceClock;
+
     /// <summary>当前角色 id：query 里带了就用 query 的，没带就退到当前存档的角色。</summary>
     private string CharId
     {
@@ -83,8 +95,48 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
         _ = LoadAsync();
     }
 
-    // ==================== 命令 ====================
+    // ==================== 页面生命周期：人脸图像流只在可见时拉 ====================
 
+    /// <summary>页面可见：开门并起一支 2s 拉帧表（只有「摄像头人脸」这一页用得上）。</summary>
+    public void BeginFaceMonitor()
+    {
+        if (!HasFacePane) return;
+        try
+        {
+            Face.BeginMonitor();
+            Face.PullLatestFrame();
+            if (_faceClock is null)
+            {
+                _faceClock = Application.Current?.Dispatcher.CreateTimer();
+                if (_faceClock is not null)
+                {
+                    _faceClock.Interval = TimeSpan.FromSeconds(2);
+                    _faceClock.Tick += OnFaceTick;
+                    _faceClock.Start();
+                }
+            }
+        }
+        catch (Exception ex) { App.WriteLog("ModuleInspector.BeginFace -> " + ex.Message); }
+    }
+
+    /// <summary>页面离开：停表并交还拉帧资格，此后没有任何人在拉帧。</summary>
+    public void EndFaceMonitor()
+    {
+        try
+        {
+            if (_faceClock is not null) { _faceClock.Stop(); _faceClock.Tick -= OnFaceTick; _faceClock = null; }
+        }
+        catch (Exception ex) { App.WriteLog("ModuleInspector.EndFace -> " + ex.Message); }
+        try { Face.EndMonitor(); }
+        catch (Exception ex) { App.WriteLog("ModuleInspector.EndFaceClose -> " + ex.Message); }
+    }
+
+    private void OnFaceTick(object? sender, EventArgs e)
+    {
+        if (HasFacePane) Face.PullLatestFrame();
+    }
+
+    // ==================== 命令 ====================
     [RelayCommand]
     private async Task RefreshAsync() => await LoadAsync();
 
@@ -111,6 +163,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
                 Readings = new ObservableCollection<InspectorRow>(new[] { Row("模块 id", null) });
                 Timeline = new ObservableCollection<TimelineEvent>();
                 HasTimeline = false;
+                HasFacePane = false;
                 SetLamp(Tone.Dim);
                 StatusText = "缺少节点 id";
                 return;
@@ -124,6 +177,14 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
 
             var charId = CharId;
             var report = await BuildAsync(info, charId);
+
+            HasFacePane = info.Family == Family.Face;
+            if (HasFacePane)
+            {
+                Face.BeginMonitor();
+                await Face.LoadAsync();
+                Face.PullLatestFrame();
+            }
 
             Readings = new ObservableCollection<InspectorRow>(report.Rows);
             var events = report.Events
@@ -155,6 +216,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
         Family.Soma => LoadSomaAsync(info.Id, charId),
         Family.Cognition => LoadCognitionAsync(info.Id, charId),
         Family.Flow => LoadFlowAsync(info.Id, charId),
+        Family.Face => LoadFaceAsync(info.Id, charId),
         _ => LoadUnknownAsync(info.Id, charId)
     };
 
@@ -854,6 +916,44 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
     private Task<Report> LoadUnknownAsync(string id, string charId) =>
         LoadFlowAsync(id, charId);
 
+    // ---------- 摄像头人脸：只读的一路，状态全部来自 FacePresenceService ----------
+
+    /// <summary>
+    /// 「摄像头人脸」节点的读数：这一路做什么、上次识别到什么、这次为什么判断不了。
+    /// 一行数值都不造：没跑通就说没跑通，模型没装就说没装。
+    /// </summary>
+    private async Task<Report> LoadFaceAsync(string id, string charId)
+    {
+        var rows = new List<InspectorRow>
+        {
+            new("这一路做什么", "看一眼：情绪 / 年龄 / 是否在场。只返回信息，不改数值、不推剧情、不触发动作"),
+        };
+        var events = new List<InspectorEntry>();
+
+        FaceComponentStatus? status = null;
+        try { status = await FacePresenceService.Instance.StatusAsync(charId); }
+        catch (Exception ex) { App.WriteLog("ModuleInspector.Face -> " + ex.Message); }
+
+        if (status is null)
+        {
+            rows.Add(new InspectorRow("组件状态", NoReading));
+            return new Report(Tone.Dim, rows, events);
+        }
+
+        var blocked = FacePresenceService.DisabledReason(status);
+        rows.Add(new InspectorRow("上次识别", status.LastAt is DateTime at
+            ? $"{Clock(at)} · {status.LastSummary}"
+            : status.LastSummary));
+        rows.Add(new InspectorRow("降级原因", blocked.Length > 0
+            ? blocked
+            : status.DegradationReason.Length > 0 ? status.DegradationReason : "没有降级：识别跑通了"));
+
+        if (status.LastAt is DateTime seen)
+            events.Add(new InspectorEntry(seen, "人脸识别", $"只读结论：{status.LastSummary}"));
+
+        return new Report(status.LastAt is not null && blocked.Length == 0 ? Tone.Lit : Tone.Dim, rows, events);
+    }
+
     // ==================== 取数小工具 ====================
 
     /// <summary>最近回想：给没有独立时间戳的模块当「最近变化」用，只取真的被回想过的条目。</summary>
@@ -979,7 +1079,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
 
     // ==================== 模块目录：id → 名字 / 系统 / 一句话说明 ====================
 
-    private enum Family { Input, Memory, Emotion, Cognition, Mind, Soma, Drive, Hormone, Flow, Unknown }
+    private enum Family { Input, Memory, Emotion, Cognition, Mind, Soma, Drive, Hormone, Flow, Face, Unknown }
 
     private sealed record ModuleInfo(string Id, string Name, string System, string Layer, string Summary, Family Family);
 
@@ -997,6 +1097,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
 
     private static Family FamilyOf(string id) => id switch
     {
+        "in.face" => Family.Face,
         var s when s.StartsWith("in.", StringComparison.Ordinal) => Family.Input,
         var s when s.StartsWith("mem.", StringComparison.Ordinal) => Family.Memory,
         var s when s.StartsWith("emo.", StringComparison.Ordinal) => Family.Emotion,
@@ -1042,6 +1143,7 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
         {
             ["in.text"] = ("文字输入", "1", "Send 入口记录用户文本，整条执行链的起点"),
             ["in.image"] = ("图像输入", "1", "附件图片入口，交给视觉特征提取"),
+            ["in.face"] = ("摄像头人脸", "1", "看一眼的情绪 / 年龄 / 是否在场：只读，不参与任何决策"),
             ["in.voice"] = ("语音输入", "1", "语音转写文本入口，交给声学分析"),
             ["in.fusion"] = ("多模态融合", "1", "文字 / 图像 / 语音特征融合后进入具身锚定"),
             ["in.semantic"] = ("语义解析", "1", "文本 → 语义特征"),

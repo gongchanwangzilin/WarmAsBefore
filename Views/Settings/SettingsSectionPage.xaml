@@ -829,7 +829,11 @@
                                         <!-- v1.60：摄像头本地人脸识别总开关（按存档授权在进游戏时另问一次） -->
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="摄像头人脸识别" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="允许本地人脸模型分析情绪与年龄，数据只在本机处理" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <Label Text="允许本地人脸模型分析情绪与年龄，数据只在本机处理" Style="{StaticResource TxtCaption}" />
+                                            <!-- 只读声明：人脸这一路不参与任何决策，别指望它改数值或推剧情 -->
+                                            <Label Text="只读：只产出情绪 / 年龄 / 是否在场这类信息，不改任何数值、不推剧情、不触发动作；图像只在本机，不上传、不常驻保存。AI 想「看一眼」时必须经你按下快门，对话开始时也只在有足够新的画面时才判断一次。"
+                                                   Style="{StaticResource TxtCaption}" TextColor="{DynamicResource MutedFg}"
+                                                   LineBreakMode="WordWrap" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding CameraFaceEnabled}" /></Grid>
                                         <!-- 本地识别模型：识别引擎选 local 时显示 -->
                                         <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" IsVisible="{Binding SttEngine, Converter={StaticResource SttEngineIsLocal}}" Margin="0,13,0,0">

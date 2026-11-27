@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<!--
+  人脸识别面板：组件状态 + 图像流，超级监测页与模块详情页共用（BindingContext = FacePanelViewModel）。
+  两页共用同一份控件，是为了让「为什么判断不了」这句话只有一个出处：
+  状态链（总开关 → 存档授权 → 相机权限 → 推理编译 → 模型文件）在哪一环断，就显示那一环。
+  图像流只显示内存里的最近一帧；没有帧就空态说清原因与出路，不画占位图。
+-->
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
+             x:Class="WarmAsBefore.Controls.FaceMonitorPane"
+             x:DataType="vm:FacePanelViewModel">
+
+    <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
+
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
+            <Label Text="人脸识别 · 只读" Style="{StaticResource TxtSection}" VerticalOptions="Center" />
+            <Button Grid.Column="1" Text="刷新状态" Style="{StaticResource BtnGhostSm}"
+                    Command="{Binding RefreshCommand}" VerticalOptions="Center" />
+        </Grid>
+        <Label Text="{Binding ReadOnlyNote}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+
+        <!-- ============ 一、组件状态：模型 / 推理 / 授权 / 相机 / 上次结果 ============ -->
+        <VerticalStackLayout Spacing="0" BindableLayout.ItemsSource="{Binding StatusRows}">
+            <BindableLayout.ItemTemplate>
+                <DataTemplate x:DataType="vm:FacePanelViewModel+FaceRow">
+                    <Grid ColumnDefinitions="88,*" ColumnSpacing="{DynamicResource WSpaceTight}" Padding="0,3">
+                        <Label Text="{Binding Label}" Style="{StaticResource TxtCaption}"
+                               VerticalOptions="Center" MaxLines="1" LineBreakMode="TailTruncation" />
+                        <Label Grid.Column="1" Text="{Binding Value}" Style="{StaticResource TxtBodySm}"
+                               LineBreakMode="WordWrap" VerticalOptions="Center" />
+                    </Grid>
+                </DataTemplate>
+            </BindableLayout.ItemTemplate>
+        </VerticalStackLayout>
+
+        <VerticalStackLayout Spacing="1">
+            <Label Text="本次降级原因" Style="{StaticResource TxtCaption}" MaxLines="1" />
+            <Label Text="{Binding DegradationText}" Style="{StaticResource TxtBodySm}" LineBreakMode="WordWrap" />
+        </VerticalStackLayout>
+
+        <BoxView Style="{StaticResource HSep}" Margin="0,4" />
+
+        <!-- ============ 二、图像流：最近一帧（内存） · 抓一帧 ============ -->
+        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
+            <VerticalStackLayout Spacing="1" VerticalOptions="Center">
+                <Label Text="最近一帧" Style="{StaticResource TxtSection}" />
+                <Label Text="{Binding FrameNote}" Style="{StaticResource TxtCaption}"
+                       IsVisible="{Binding HasFrame}" MaxLines="1" LineBreakMode="TailTruncation" />
+            </VerticalStackLayout>
+            <Button Grid.Column="1" Text="抓一帧" Style="{StaticResource BtnGhostSm}"
+                    Command="{Binding CaptureCommand}"
+                    IsEnabled="{Binding Busy, Converter={StaticResource InverseBool}}"
+                    VerticalOptions="Center" />
+        </Grid>
+
+        <Border Style="{StaticResource CardSolid}" Padding="0" IsVisible="{Binding HasFrame}">
+            <Image Source="{Binding FrameSource}" Aspect="AspectFit" HeightRequest="180"
+                   HorizontalOptions="Fill" VerticalOptions="Fill" />
+        </Border>
+
+        <ctl:EmptyState IsVisible="{Binding HasFrame, Converter={StaticResource InverseBool}}"
+                        Title="{Binding EmptyTitle}" Reason="{Binding EmptyReason}" Hint="{Binding EmptyHint}" />
+
+        <Label Text="{Binding ActionText}" Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap"
+               IsVisible="{Binding ActionText, Converter={StaticResource StringNotEmpty}}" />
+    </VerticalStackLayout>
+</ContentView>

@@ -69,6 +69,11 @@ public sealed class FaceAnalysisResult
 /// <b>按存档授权：</b>摄像头/人脸分析须逐存档授权，状态落在独立 JSON
 /// <c>App.RootDirectory/wab_vision_settings.json</c>，不碰 UserSettings，默认未授权。
 /// </para>
+/// <para>
+/// <b>只读声明：</b>本服务只返回信息——情绪分布、年龄估计、这一帧有没有跑出结果；
+/// 它不改任何数值、不推进剧情、不触发任何动作，也不参与任何决策。上层拿到结果只许展示或转述，
+/// 不许据此改动存档里的任何状态。图像只在内存与本机临时文件里，不上传，也不写进日志。
+/// </para>
 /// </summary>
 public sealed class FaceAnalysisService
 {
@@ -91,6 +96,58 @@ public sealed class FaceAnalysisService
 
     /// <summary>可选年龄模型约定路径：{App.RootDirectory}/Models/face_age.onnx。</summary>
     public static string AgeModelPath => Path.Combine(App.RootDirectory, "Models", "face_age.onnx");
+
+    /// <summary>
+    /// 编译期是否启用了本地 ONNX 推理。未定义 <c>WAB_ONNX</c> 时恒为 false，
+    /// 这时所有 Analyze* 都只走到「模型未安装（未启用本地 ONNX 推理）」这一步，
+    /// 监测页据此如实显示降级原因，不假装能跑。
+    /// </summary>
+    public static bool InferenceCompiled =>
+#if WAB_ONNX
+        true;
+#else
+        false;
+#endif
+
+    /// <summary>情绪模型文件是否在位（只看文件，不加载）。</summary>
+    public static bool ModelInstalled => SafeFileExists(ModelPath);
+
+    /// <summary>可选年龄模型文件是否在位（只看文件，不加载）。</summary>
+    public static bool AgeModelInstalled => SafeFileExists(AgeModelPath);
+
+    private static bool SafeFileExists(string path)
+    {
+        try { return File.Exists(path); } catch { return false; }
+    }
+
+    /// <summary>情绪名 → 中文。未知名字原样返回，不丢信息。</summary>
+    public static string EmotionName(string? emotion) => (emotion ?? "").Trim().ToLowerInvariant() switch
+    {
+        "neutral" => "平静",
+        "happy" => "开心",
+        "sad" => "难过",
+        "angry" => "生气",
+        "fearful" => "害怕",
+        "disgusted" => "厌恶",
+        "surprised" => "惊讶",
+        var other => other,
+    };
+
+    /// <summary>
+    /// 把一次结果翻成一句人话（工具与监测页共用）。只描述这次看到了什么，
+    /// 不推断剧情、不给建议、不下结论——这就是「只返回信息」的出口。
+    /// </summary>
+    public static string Describe(FaceAnalysisResult? result)
+    {
+        if (result is null) return "还没识别过";
+        if (!result.Success) return "这次没识别出来：" + (string.IsNullOrWhiteSpace(result.Status) ? "原因不明" : result.Status);
+        if (string.IsNullOrWhiteSpace(result.DominantEmotion)) return "模型跑通了，但没有给出可读的情绪分布";
+
+        var confidence = result.Emotions.TryGetValue(result.DominantEmotion, out var p) ? p : 0;
+        var text = $"主导情绪 {EmotionName(result.DominantEmotion)}（{confidence:0.00}）";
+        if (result.AgeEstimate is double age && double.IsFinite(age)) text += $"，估计年龄 {age:0} 岁";
+        return text;
+    }
 
     #region 授权状态（独立 JSON，默认未授权）
 

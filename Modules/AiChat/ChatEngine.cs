@@ -611,6 +611,10 @@ public sealed partial class ChatEngine
         // 大脑预判：本地结算本轮期待差与惊喜卡（无网络），供下面的动态上下文注入与好感结算用
         try { Brain?.PrepareTurn(charId, text); }
         catch (Exception ex) { App.WriteLog("ChatEngine.PrepareTurn -> " + ex.Message); }
+        // 人脸这一路只在「对话开始」看一眼：立即返回、30s 节流、失败只记账。
+        // 它产出的只是信息（情绪 / 年龄 / 是否在场），不参与任何决策，也不阻塞这一轮对话。
+        try { FacePresenceService.Instance.ObserveOnConversationStart(charId); }
+        catch (Exception ex) { App.WriteLog("ChatEngine.FaceObserve -> " + ex.Message); }
         Services.Core.FlowTracer.Trace("mind.anticipation", charId);
         // 专注 / 神游双系统：本地状态机（零模型调用）。多巴胺高 + 本轮深度思考 → 进入专注；
         // 专注每轮扣专属精力，快撑不住时神游会往脑海随机塞旧记忆（下面 ctx 段处理）。
