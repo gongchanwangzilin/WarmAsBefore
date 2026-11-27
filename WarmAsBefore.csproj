@@ -93,6 +93,9 @@
     <PackageReference Include="Microsoft.Maui.Controls" Version="9.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.*" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
+    <!-- 直接用 SKCanvasView 画玻璃：省掉「SKImage → PNG → MAUI IImage → 再解码」这条路。
+         实测一块 75×34 的玻璃在那个往返里要 126ms，而真正画它的三十来笔渐变不到 1ms。 -->
+    <PackageReference Include="SkiaSharp.Views.Maui.Controls" Version="2.88.9" />
     <!-- MBTiles 离线包：只读打开 .mbtiles（SQLite）--> 
     <PackageReference Include="Microsoft.Data.Sqlite" Version="11.0.0" />
     <!-- 自定义性别逻辑 / 插件钩子：嵌入式 JS，不依赖 WebView 与 Chrome 内核 -->

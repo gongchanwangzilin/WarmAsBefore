@@ -82,7 +82,7 @@ internal static class GlassFace
     private const double TintReference = 0.07;
 
     private static readonly object Gate = new();
-    private static readonly Dictionary<string, Microsoft.Maui.Graphics.IImage> Cache = new();
+    private static readonly Dictionary<string, SKImage> Cache = new();
     private static readonly Queue<string> Order = new();
 
     /// <summary>
@@ -93,7 +93,7 @@ internal static class GlassFace
     /// 按机器给）。放在 Draw 里同步做，滚动或切页时几十块连续 miss，UI 线程就掉帧 —— 用户说的
     /// 「一卡一卡的」有一半来自这里。挪到后台之后，UI 线程每帧只剩一次 DrawImage。
     /// </summary>
-    public static Microsoft.Maui.Graphics.IImage? Get(in GlassFaceParams p, Action? ready = null)
+    public static SKImage? Get(in GlassFaceParams p, Action? ready = null)
     {
         if (!(p.Width > 0.5) || !(p.Height > 0.5)) return null;
         // 键里要读应用资源（色调指纹），必须在 UI 线程算好。
@@ -114,13 +114,16 @@ internal static class GlassFace
         var face = p;
         _ = Task.Run(() =>
         {
-            Microsoft.Maui.Graphics.IImage? image = null;
+            SKImage? image = null;
             try
             {
                 var watch = System.Diagnostics.Stopwatch.StartNew();
                 image = Compose(face, tint);
                 watch.Stop();
                 GlassLayers.Report(watch.Elapsed.TotalMilliseconds);
+                // 打点：这块玻璃多大、烘了多久、当时预算多少层。慢的时候要能指着数字说话。
+                App.WriteLog($"Glass {Math.Round(face.Width)}x{Math.Round(face.Height)} " +
+                             $"{watch.Elapsed.TotalMilliseconds:F1}ms layers={GlassLayers.Budget}");
             }
             catch (Exception ex)
             {
@@ -203,14 +206,14 @@ internal static class GlassFace
 
     // ── 合成 ────────────────────────────────────────────────────────────
 
-    private static Microsoft.Maui.Graphics.IImage? Compose(in GlassFaceParams p, in Tint tint)
+    private static SKImage? Compose(in GlassFaceParams p, in Tint tint)
     {
         _live = tint;
         try { return ComposeCore(p); }
         finally { _live = null; }
     }
 
-    private static Microsoft.Maui.Graphics.IImage? ComposeCore(in GlassFaceParams p)
+    private static SKImage? ComposeCore(in GlassFaceParams p)
     {
         var density = p.Density is > 0.1 and < 8 ? p.Density : 1.0;
         var w = Math.Max(4, (int)Math.Round(p.Width * density));
@@ -251,9 +254,10 @@ internal static class GlassFace
             DrawSpecular(canvas, p, w, h, radius, density, p.Hollow ? (float)(1.6 * density) : 0f);
         }
 
-        using var image = SKImage.FromBitmap(bmp);
-        using var data = image.Encode(SKEncodedImageFormat.Png, 100);
-        return PlatformImage.FromStream(new MemoryStream(data.ToArray()));
+        // 直接交 SKImage：调用方（SKCanvasView）会把它原样画到画布上。
+        // 原来这里 encode 成 PNG、再让 MAUI 解码回 IImage —— 一次 75×34 的玻璃要走 126ms，
+        // 几乎全花在这趟往返上（实测，见日志）。位图本来就在显存友好的格式里，没有理由再压一遍。
+        return SKImage.FromBitmap(bmp);
     }
 
     /// <summary>

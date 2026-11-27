@@ -1,3 +1,4 @@
+using SkiaSharp.Views.Maui.Controls.Hosting;
 using CommunityToolkit.Maui;
 using WarmAsBefore.Composition;
 using WarmAsBefore.Controls;
@@ -19,6 +20,8 @@ public static class MauiProgram
             .UseMauiCommunityToolkitMediaElement()
             // 相机实时预览（人脸监测页的 CameraView）；包自带的分析器要求它挂在 UseMauiApp 的链上。
             .UseMauiCommunityToolkitCamera()
+            // 玻璃面用 SKCanvasView 直画（见 GlassPlate）：需要它的 handler 注册。
+            .UseSkiaSharp()
             // v1.61 3D 天气大气场：注册 Evergine 承载视图的平台 handler
             // （Android: AndroidSurfaceView+Vulkan / Windows: SwapChainPanel+DX11）。
             .ConfigureMauiHandlers(h => h.AddHandler<EvergineWeatherView, EvergineWeatherViewHandler>());

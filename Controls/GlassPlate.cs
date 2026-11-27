@@ -19,7 +19,7 @@ namespace WarmAsBefore.Controls;
 /// </summary>
 public class GlassPlate : ContentView
 {
-    private readonly GraphicsView _canvas;
+    private readonly SkiaSharp.Views.Maui.Controls.SKCanvasView _canvas;
     private readonly Grid _root;
     private View? _slot;
 
@@ -133,8 +133,8 @@ public class GlassPlate : ContentView
 
     public GlassPlate()
     {
-        _canvas = new GraphicsView { InputTransparent = true };
-        _canvas.Drawable = SafeDrawable.Wrap(new PlateDrawable(this), "GlassPlate");
+        _canvas = new SkiaSharp.Views.Maui.Controls.SKCanvasView { InputTransparent = true };
+        _canvas.PaintSurface += (_, e) => Paint(e.Surface.Canvas, e.Info);
 
         _root = new Grid();
         _root.Add(_canvas);
@@ -183,7 +183,7 @@ public class GlassPlate : ContentView
         // 页面切走、控件隐藏时停画：不可见的玻璃没有理由继续合成位图。
         if (!IsVisible || Width <= 0.5 || Height <= 0.5) return;
         _lastPaint = Environment.TickCount64;
-        _canvas.Invalidate();
+        _canvas.InvalidateSurface();
     }
 
     private void OnLoaded()
@@ -309,7 +309,7 @@ public class GlassPlate : ContentView
     ///
     /// 尺寸变了（窗口缩放）就不再复用旧的：拉伸一张旧尺寸的位图会把折射与棱拉歪。
     /// </summary>
-    internal Microsoft.Maui.Graphics.IImage? Face()
+    internal SkiaSharp.SKImage? Face()
     {
         var image = GlassFace.Get(CurrentParams(), RequestRepaint);
         if (image is not null)
@@ -322,7 +322,7 @@ public class GlassPlate : ContentView
         return Math.Abs(_lastW - Width) < 2 && Math.Abs(_lastH - Height) < 2 ? _last : null;
     }
 
-    private Microsoft.Maui.Graphics.IImage? _last;
+    private SkiaSharp.SKImage? _last;
     private double _lastW, _lastH;
     private bool _repaintQueued;
 
@@ -334,57 +334,81 @@ public class GlassPlate : ContentView
         Dispatcher.Dispatch(() =>
         {
             _repaintQueued = false;
-            if (IsLoaded) _canvas.Invalidate();
+            if (IsLoaded) _canvas.InvalidateSurface();
         });
     }
 
     /// <summary>
     /// <summary>
-    /// 实时绘制的那盏光：以指针在块内的位置为圆心的一枚径向高光，强度按距离衰减。
+    /// 一帧的全部工作：把缓存好的材质位图**直接**画到 SKCanvas 上，再叠一层实时光。
     ///
-    /// 为什么它必须**画在合成之外**：把光烘进位图意味着指针每动一下就要重算整块玻璃
-    /// （糊底裁剪 + 几十上百层渐变）。用户一句话把这层窗户纸捅破了 ——「我跑 3A 都不卡，
-    /// 为什么跑这个伪 3D 反而卡」。游戏里光是真的在每一帧算的，只是每帧的代价很小；
-    /// 这里照做：材质（位图）只在几何/配色变时烘一次，光是每帧几笔渐变。
-    /// 于是光照频率可以拉到每帧，而 CPU 只多花一次画渐变的时间。
+    /// 这一层替换了原来的 GraphicsView + MAUI IImage：那条路每烘一块玻璃都要
+    /// 「SKBitmap → PNG 编码 → MAUI 解码 → Win2D 位图」，实测一块 75×34 的小玻璃要 126ms。
+    /// SKCanvas 上同一块是 DrawImage 一次，微秒级 —— 这也是「光能跟到 120fps」的前提。
     /// </summary>
-    internal void DrawLight(ICanvas canvas, RectF rect)
+    private void Paint(SkiaSharp.SKCanvas canvas, SkiaSharp.SKImageInfo info)
+    {
+        if (info.Width <= 0 || info.Height <= 0) return;
+        canvas.Clear(SkiaSharp.SKColors.Transparent);
+
+        var image = Face();
+        if (image is null)
+        {
+            // 连位图都没烘出来（尺寸异常）：一块极淡的白，至少读得出「这里有个控件」。
+            using var fallback = new SkiaSharp.SKPaint
+            {
+                IsAntialias = true,
+                Color = new SkiaSharp.SKColor(255, 255, 255, 28)
+            };
+            var r = (float)(CornerRadius * Density);
+            canvas.DrawRoundRect(new SkiaSharp.SKRect(0, 0, info.Width, info.Height),
+                Math.Min(r, Math.Min(info.Width, info.Height) * 0.5f),
+                Math.Min(r, Math.Min(info.Width, info.Height) * 0.5f), fallback);
+            return;
+        }
+
+        using var paint = new SkiaSharp.SKPaint { FilterQuality = SkiaSharp.SKFilterQuality.Low };
+        canvas.DrawImage(image, new SkiaSharp.SKRect(0, 0, info.Width, info.Height), paint);
+
+        DrawLight(canvas, info);
+    }
+
+    /// <summary>
+    /// 实时的那盏光：以指针在块内的位置为圆心的一枚径向高光，强度按距离衰减。
+    ///
+    /// 它每帧现画，不进材质缓存 —— 材质只在尺寸/配色/按下状态变时烘一次。
+    /// 用户一句话把这层窗户纸捅破了：「我跑 3A 都不卡，为什么跑这个伪 3D 反而卡」。
+    /// 游戏里光确实是每帧算的，只是每帧的代价小；这里照做：一次径向渐变，和画一盏灯的 halo 同级。
+    /// </summary>
+    private void DrawLight(SkiaSharp.SKCanvas canvas, SkiaSharp.SKImageInfo info)
     {
         if (_lightAmount <= 0.02) return;
 
-        var cx = rect.X + (float)(_lightX * rect.Width);
-        var cy = rect.Y + (float)(_lightY * rect.Height);
-        var reach = (float)(Math.Max(rect.Width, rect.Height) * (0.55 + 0.35 * _lightAmount));
+        var w = info.Width;
+        var h = info.Height;
+        var cx = (float)(_lightX * w);
+        var cy = (float)(_lightY * h);
+        var reach = (float)(Math.Max(w, h) * (0.55 + 0.35 * _lightAmount));
 
-        canvas.SaveState();
+        canvas.Save();
         var radius = (float)(CornerRadius * Density);
-        canvas.ClipPath(RoundedRectPath(rect, radius));
+        using var clip = new SkiaSharp.SKPath();
+        clip.AddRoundRect(new SkiaSharp.SKRect(0, 0, w, h), radius, radius);
+        canvas.ClipPath(clip, SkiaSharp.SKClipOperation.Intersect, true);
 
-        var paint = new Microsoft.Maui.Graphics.RadialGradientPaint
-        {
-            StartColor = Color.FromRgba(255f, 255f, 255f, (float)(0.30 * _lightAmount)),
-            EndColor = Color.FromRgba(255f, 255f, 255f, 0f),
-            Center = new Point(cx, cy),
-            Radius = reach
-        };
-        paint.GradientStops = new[]
-        {
-            new PaintGradientStop(0f, Color.FromRgba(255f, 255f, 255f, (float)(0.30 * _lightAmount))),
-            new PaintGradientStop(0.45f, Color.FromRgba(255f, 255f, 255f, (float)(0.10 * _lightAmount))),
-            new PaintGradientStop(1f, Color.FromRgba(255f, 255f, 255f, 0f))
-        };
-
-        canvas.SetFillPaint(paint, rect);
-        canvas.FillRectangle(rect);
-        canvas.RestoreState();
-    }
-
-    private static PathF RoundedRectPath(RectF r, float radius)
-    {
-        var path = new PathF();
-        var rad = Math.Min(radius, Math.Min(r.Width, r.Height) * 0.5f);
-        path.AppendRoundedRectangle(r, rad);
-        return path;
+        using var shader = SkiaSharp.SKShader.CreateRadialGradient(
+            new SkiaSharp.SKPoint(cx, cy), reach,
+            new[]
+            {
+                new SkiaSharp.SKColor(255, 255, 255, (byte)Math.Clamp(0.34 * _lightAmount * 255, 0, 255)),
+                new SkiaSharp.SKColor(255, 255, 255, (byte)Math.Clamp(0.12 * _lightAmount * 255, 0, 255)),
+                SkiaSharp.SKColors.Transparent
+            },
+            new[] { 0f, 0.45f, 1f },
+            SkiaSharp.SKShaderTileMode.Clamp);
+        using var paint = new SkiaSharp.SKPaint { IsAntialias = true, Shader = shader };
+        canvas.DrawRect(0, 0, w, h, paint);
+        canvas.Restore();
     }
 
     // ── 鼠标 = 点光源 ────────────────────────────────────────────────────
@@ -432,7 +456,7 @@ public class GlassPlate : ContentView
         // 1 → 0 的衰减，前段慢、末段快（近处的差别看得出来，远处快速归零）。
         var amount = dist >= LightReach ? 0 : Math.Pow(1 - dist / LightReach, 1.35);
 
-        // 不量化、不重合成：光是一层**实时绘制的覆盖层**（见 PlateDrawable），
+        // 不量化、不重合成：光是一层**实时绘制的覆盖层**（见 Paint / DrawLight），
         // 每帧只是几条径向渐变，代价和游戏里画一盏灯的 halo 一样。
         // 所以它可以跟到每一帧（PointerLight 也在 8ms 档），而不是等一张位图重新烘好。
         if (Math.Abs(ux - _lightX) < 0.002 && Math.Abs(uy - _lightY) < 0.002
@@ -440,7 +464,7 @@ public class GlassPlate : ContentView
         _lightX = ux;
         _lightY = uy;
         _lightAmount = amount;
-        _canvas.Invalidate();
+        _canvas.InvalidateSurface();
     }
 
     /// <summary>这块玻璃在窗口坐标里的左上角。取平台元素到根的可视变换，窗口缩放/滚动都对得上。</summary>
@@ -465,26 +489,4 @@ public class GlassPlate : ContentView
     /// <summary>GraphicsView 的画笔：只做一次 DrawImage。每帧向 <see cref="GlassFace"/> 要位图 ——
     /// 它内部按参数键缓存，命中时只是一次字典查找；参数真的变了才会重新合成。
     /// </summary>
-    private sealed class PlateDrawable : IDrawable
-    {
-        private readonly GlassPlate _owner;
-
-        public PlateDrawable(GlassPlate owner) => _owner = owner;
-
-        public void Draw(ICanvas canvas, RectF dirtyRect)
-        {
-            var image = _owner.Face();
-            if (image is null)
-            {
-                // 连位图都没画出来（尺寸异常或合成失败）：一块极淡的白，至少读得出「这里有个控件」。
-                var radius = (float)(_owner.CornerRadius * _owner.Density);
-                canvas.FillColor = Color.FromRgba(255, 255, 255, 28);
-                canvas.FillRoundedRectangle(dirtyRect.X, dirtyRect.Y, dirtyRect.Width, dirtyRect.Height,
-                    Math.Min(radius, Math.Min(dirtyRect.Width, dirtyRect.Height) * 0.5f));
-                return;
-            }
-            canvas.DrawImage(image, dirtyRect.X, dirtyRect.Y, dirtyRect.Width, dirtyRect.Height);
-            _owner.DrawLight(canvas, dirtyRect);
-        }
-    }
 }
