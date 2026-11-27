@@ -350,7 +350,7 @@
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">
                         <Border WidthRequest="13" HeightRequest="9" BackgroundColor="{x:Static draw:GraphPalette.MemoryCard}" Stroke="{DynamicResource BorderLine}"
-                                StrokeThickness="1" StrokeShape="{RoundRectangle CornerRadius=2}" VerticalOptions="Center" />
+                                StrokeThickness="{DynamicResource GlassHairline}" StrokeShape="{RoundRectangle CornerRadius=2}" VerticalOptions="Center" />
                         <Label Text="记得的事" Style="{StaticResource TxtCaption}" />
                     </HorizontalStackLayout>
                     <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}">

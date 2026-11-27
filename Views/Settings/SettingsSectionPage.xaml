@@ -90,44 +90,9 @@
                                                     IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
                                         </Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
-                                        <!-- 光源方向属于微调：默认收起，需要时再展开（用户反馈：一排近似滑杆太占地方） -->
-                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
-                                            <Label Text="光源方向（高级）" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="决定高光落在哪条边、影子投往哪边" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding ShowLightAdvanced}" /></Grid>
-                                        <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding ShowLightAdvanced}">
-                                        <Label Text="光源" Style="{StaticResource TxtSubhead}" />
-                                        <Label Text="决定高光落在哪条边、影子投往哪边；光越高越柔。"
-                                               Style="{StaticResource TxtCaption}" />
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                                            <VerticalStackLayout>
-                                                <Label Text="光源 · 水平" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="-1 = 光从左边来 · 1 = 从右边来" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <controls:ViewSlider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightX}"
-                                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
-                                        </Grid>
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                                            <VerticalStackLayout>
-                                                <Label Text="光源 · 垂直" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="-1 = 光从上方来 · 1 = 从下方来" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <controls:ViewSlider Grid.Column="1" Minimum="-1" Maximum="1" Value="{Binding GlassLightY}"
-                                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
-                                        </Grid>
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                                            <VerticalStackLayout>
-                                                <Label Text="光源 · 高度" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="0 = 贴着表面（锐利）· 1 = 高高在上（柔和、影子散）" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightZ}"
-                                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
-                                        </Grid>
-                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
-                                            <VerticalStackLayout>
-                                                <Label Text="光宽" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="0 = 一道锐利反光 · 1 = 整片漫射" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <controls:ViewSlider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding GlassLightWidth}"
-                                                    IsEnabled="{Binding GlassActive}" WidthRequest="120" VerticalOptions="Center" />
-                                        </Grid>
-                                        </VerticalStackLayout>
+                                        <!-- 光照控制已停用：光源恒为「左上 · 宽 0.5 · 高 0.35」（见 GlassTokens.FixedLight*）。
+                                             四个滑杆原来在每台机器上调出四个不同的光，同一套材质显得不像一套；
+                                             实测也只有一个答案是对的，所以它不再是一个设置项，而是材质的一部分。 -->
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="减弱透明降级（无障碍）" Style="{StaticResource TxtBodySm}" />
                                             <Label Text="开启后玻璃切不透明磨砂层，保证正文 4.5:1 对比" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
@@ -591,7 +556,7 @@
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:AiProviderRow">
                                                     <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}"
-                                                            StrokeThickness="0.8" Padding="10,8" Margin="0,4">
+                                                            StrokeThickness="{DynamicResource WSepWidth}" Padding="10,8" Margin="0,4">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                                         <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                                             <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">
@@ -620,7 +585,7 @@
                                                             <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding Models}">
                                                                 <BindableLayout.ItemTemplate>
                                                                     <DataTemplate x:DataType="vm:AiModelRow">
-                                                                        <Border StrokeThickness="1" Padding="6,3"
+                                                                        <Border StrokeThickness="{DynamicResource GlassHairline}" Padding="6,3"
                                                                                 Stroke="{DynamicResource WSepBrush}"
                                                                                 BackgroundColor="{Binding Enabled, Converter={StaticResource SelectedBg}}">
                                                                             <Border.StrokeShape><RoundRectangle CornerRadius="9" /></Border.StrokeShape>
@@ -730,7 +695,7 @@
 
                                         <!-- 条形图 / 折线图：自绘，跟着主题色走 -->
                                         <Border BackgroundColor="{DynamicResource InputBg}" Stroke="{DynamicResource WSepBrush}"
-                                                StrokeThickness="1" Padding="6" HeightRequest="190">
+                                                StrokeThickness="{DynamicResource GlassHairline}" Padding="6" HeightRequest="190">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                             <GraphicsView x:Name="CostChartView" HeightRequest="178" />
                                         </Border>
@@ -1341,7 +1306,7 @@
                                             <BindableLayout.ItemTemplate>
                                                 <DataTemplate x:DataType="mcp:McpServerItem">
                                                     <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}"
-                                                            StrokeThickness="0.8" Padding="10,8" Margin="0,4">
+                                                            StrokeThickness="{DynamicResource WSepWidth}" Padding="10,8" Margin="0,4">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                                         <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                                                             <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
@@ -2267,7 +2232,7 @@
                             <BindableLayout.ItemTemplate>
                                 <DataTemplate x:DataType="vm:PluginRow">
                                     <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}"
-                                            StrokeThickness="0.8" Padding="10,8" Margin="0,4">
+                                            StrokeThickness="{DynamicResource WSepWidth}" Padding="10,8" Margin="0,4">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="8" /></Border.StrokeShape>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                             <VerticalStackLayout Spacing="3">

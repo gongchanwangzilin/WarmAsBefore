@@ -22,7 +22,7 @@
             </VerticalStackLayout>
 
             <!-- 预览：与游戏同一套换算（含背景 AspectFill 与落脚点），所见即所得 -->
-            <Border BackgroundColor="Black" Stroke="{DynamicResource WEdgeStrongBrush}" StrokeThickness="1"
+            <Border BackgroundColor="Black" Stroke="{DynamicResource WEdgeStrongBrush}" StrokeThickness="{DynamicResource GlassHairline}"
                     HorizontalOptions="Center" Padding="0" WidthRequest="270" HeightRequest="480"
                     StrokeShape="{DynamicResource WRadiusWell}">
                 <Grid>

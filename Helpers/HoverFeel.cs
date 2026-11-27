@@ -151,6 +151,17 @@ public static class HoverFeel
     public static void SetHoverFill(VisualElement element, Color? value) => element.SetValue(HoverFillProperty, value);
 
     /// <summary>
+    /// 液态玻璃面：悬停时不再「整块压深一档」，而是**把高光带往下滑一格、整块向光提半档**。
+    /// 胶质的第一反应是光在材料里移动，不是颜色变深 —— 只压深的话，一颗玻璃按钮悬停起来
+    /// 和一颗纸按钮没有分别。面还是那条渐变（几何原样克隆），所以换世界/换档位照旧跟着走。
+    /// </summary>
+    public static readonly BindableProperty LiquidFaceProperty = BindableProperty.CreateAttached(
+        "LiquidFace", typeof(bool), typeof(HoverFeel), false);
+
+    public static bool GetLiquidFace(VisualElement element) => (bool)element.GetValue(LiquidFaceProperty);
+    public static void SetLiquidFace(VisualElement element, bool value) => element.SetValue(LiquidFaceProperty, value);
+
+    /// <summary>
     /// 悬停时把 <see cref="HoverFillProperty"/> 从左擦进来，而不是整块换色。
     /// 这是「终末地」那套操作感里唯一被搬进悬停的动作：一块硬边的底扫过去，
     /// 眼睛读到的不是「亮度变了 16%」，而是「这块被指到了」。只给一屏一颗的主行动，不给每一颗钮。
@@ -691,7 +702,7 @@ public static class HoverFeel
                 case Microsoft.UI.Xaml.Media.LinearGradientBrush gradient when gradient.GradientStops.Count > 0:
                     _face = ToMaui(gradient.GradientStops
                         .OrderByDescending(s => s.Color.A).First().Color);
-                    _faceHover = StepGradient(gradient);
+                    _faceHover = GetLiquidFace(_e) ? SlideGradient(gradient) : StepGradient(gradient);
                     break;
                 default:
                     // 贴图 / 径向渐变：没有一种「压一档」能不改它的底纹，宁可不接。
@@ -780,6 +791,50 @@ public static class HoverFeel
 
         private static Color ToMaui(Windows.UI.Color c) =>
             new(c.R / 255f, c.G / 255f, c.B / 255f, c.A / 255f);
+
+        /// <summary>
+        /// 液态面的悬停版本：首尾两档钉住（面的上边界与下边界不动），中间的高光带整体下滑一格，
+        /// 每一档再向光提半档。几何（起点/终点/映射/透明度）原样克隆 ——
+        /// 换的是「光在材料里的位置」，不是「这块面本身的形状」，所以悬停时读起来是材料在动。
+        /// </summary>
+        private static Microsoft.UI.Xaml.Media.Brush SlideGradient(
+            Microsoft.UI.Xaml.Media.LinearGradientBrush source)
+        {
+            var clone = new Microsoft.UI.Xaml.Media.LinearGradientBrush
+            {
+                StartPoint = source.StartPoint,
+                EndPoint = source.EndPoint,
+                MappingMode = source.MappingMode,
+                Opacity = source.Opacity,
+                Transform = source.Transform,
+                RelativeTransform = source.RelativeTransform,
+            };
+            var stops = source.GradientStops.OrderBy(s => s.Offset).ToList();
+            var last = stops.Count - 1;
+            double previous = -1;
+            for (var i = 0; i <= last; i++)
+            {
+                var stop = stops[i];
+                double offset = i == 0 || i == last ? stop.Offset : stop.Offset + 0.06;
+                // 挡位必须严格递增：两颗同 offset 在 WinUI 上是一条硬边，那条硬边会正好落在高光带上。
+                if (i > 0) offset = Math.Max(offset, previous + 0.001);
+                offset = Math.Min(offset, 1);
+                previous = offset;
+                clone.GradientStops.Add(new Microsoft.UI.Xaml.Media.GradientStop
+                {
+                    Offset = offset,
+                    Color = ToNative(Lift(ToMaui(stop.Color), 0.05f)),
+                });
+            }
+            return clone;
+        }
+
+        /// <summary>向白混一点：悬停的那半档亮度。只动 RGB，alpha 原样（玻璃还是玻璃）。</summary>
+        private static Color Lift(Color c, float k) => new(
+            c.Red + (1 - c.Red) * k,
+            c.Green + (1 - c.Green) * k,
+            c.Blue + (1 - c.Blue) * k,
+            c.Alpha);
 
         private static byte ToByte(float v) => (byte)Math.Clamp(v * 255f + 0.5f, 0f, 255f);
 
@@ -1073,7 +1128,9 @@ public static class HoverFeel
                     // 整块渐变变深（BtnSignal 走这条）：从这块面自己的静止色插值到世界给的悬停色，
                     // 不再从左擦到右。进/出共用 _wipeP，指针在收回去的半路又滑回来时，
                     // 就从当前那一段接着往满格推，不会从零重来。
-                    var k = MotionTokens.Mech(_wipeP);
+                    // 整块换色走弹簧（末段那点过冲让颜色「落到」目标而不是「停在」目标）；
+                    // 硬边擦入仍是 Mech —— 弹簧在擦边上会先冲过头再退回来，读起来是一次抖动。
+                    var k = Math.Min(1.0, MotionTokens.Spring(_wipeP));
                     _painted = _wipeP >= 1
                         ? Solid(a)
                         : Solid(Blend(_face.Alpha > 0.02f ? _face : Colors.Transparent, a, k));

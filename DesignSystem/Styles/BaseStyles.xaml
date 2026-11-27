@@ -6,6 +6,15 @@
     <!-- 语义色由 StyleWorld 每次换档时写进应用级顶层字典，色板（Theme/ColorPalette*.xaml）只提供色相种子；
          这里因此只可能引用名字，任何写死的颜色都会在换世界/换明暗时留下一半不属于当前档的界面。 -->
 
+    <!--
+      数值令牌的静态兜底。GlassTokens 在每次主题下发时会覆盖它们，但页面可能**先于第一次下发**建好：
+      缺键的 {DynamicResource} 不会报错，只会让 StrokeThickness 落回 0 —— 界面上直接少一圈边，
+      而且只有冷启动那一屏才看得出来。这里给一个和令牌同值的初始档，谁先谁后都成立。
+    -->
+    <x:Double x:Key="GlassHairline">1</x:Double>
+    <x:Double x:Key="WFocusRingWidth">2</x:Double>
+    <x:Double x:Key="WDecorRingWidth">4</x:Double>
+
     <!-- Page Defaults -->
     <Style TargetType="Page" ApplyToDerivedTypes="True">
         <Setter Property="BackgroundColor" Value="{DynamicResource PageBg}" />

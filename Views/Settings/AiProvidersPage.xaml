@@ -29,7 +29,7 @@
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:AiProviderRow">
                             <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8"
+                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource WSepWidth}"
                                     Padding="12,10">
                                 <Border.StrokeShape>
                                     <RoundRectangle CornerRadius="12" />
@@ -69,7 +69,7 @@
 
                 <!-- 新增 -->
                 <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="12,10">
+                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource WSepWidth}" Padding="12,10">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="12" />
                     </Border.StrokeShape>

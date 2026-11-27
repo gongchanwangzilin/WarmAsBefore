@@ -11,12 +11,13 @@ namespace WarmAsBefore.Helpers;
 /// XAML 里写 Pressed 把透明度掉到 0.7，效果是啪一下跳变，既不像被按住，也像按钮在消失。
 /// 所以分工是：**样式负责每个状态长什么样（颜色、描边），本类负责状态之间怎么走**。
 ///
-/// 只动 TranslationY，而且终点永远是 0。三条都是踩出来的：
-///   · 不用 Scale——WinUI 下按压缩放会触发重新布局，快速连点时按钮会卡住。
+/// 位移（TranslationY）与缩放（Scale）都由驱动逐帧赋值，终点永远是基值。三条都是踩出来的：
+///   · **复制到 VisualState 的 Setter 里的 Scale 会卡住**：带导航的按钮按下即切页，抬起收不到，
+///     0.97 就长在按钮脸上了。放在驱动里就没这个问题——换页、卸载、禁用都会主动归位。
 ///   · 不碰 Opacity——透明度还被进场动画与禁用态写着，多处同时赋值必然互相顶掉：
 ///     元素会停在某个半程值上，看起来就是「按键莫名其妙消失了」。
 ///     颜色也不在这里动：按下不换色，只下沉（用户要的是「变深归悬停、下沉归按下」）。
-///   · 不记基准值——按下就是 0→SinkPx、抬起回 0。曾经读过的「进来时的 TranslationY / Opacity」
+///   · 不记基准值——按下就是 0→SinkPx、1→PressScale，抬起回基准。曾经读过的「进来时的值」
 ///     很可能正是别处的动画中途值，把它当静止基准就等于把一次性抖动永久化。
 ///
 /// 换页与卸载时要主动落回 0：按下那一刻页面就切走的话，抬起事件不再送达，
@@ -27,7 +28,13 @@ namespace WarmAsBefore.Helpers;
 /// PointerEntered/Exited 也不回调（把本类整个去掉再测，按钮照样纹丝不动）。挂上去换不来一个像素，
 /// 代价却是每个按钮多一套输入处理器——鼠标每动一下都要过一遍，正是「不华丽却越用越钝」的来源。
 ///
-/// 用法：在按钮样式里加一行 &lt;Setter Property="motion:PressFeel.Enabled" Value="True" /&gt;。
+/// <see cref="LiquidProperty"/> 是给「液态玻璃」那一档按钮用的：除了下沉，还缩到 0.97、
+/// 并把面换成按下那一面（高光收窄、接触阴影压紧）—— 胶质被压陷的整个过程由三个量同时说，
+/// 只沉几个像素读起来是「轻微下移」，不是「材料被压住」。松手沿 <see cref="MotionTokens.Spring"/>
+/// 弹回，曲线自带约 5% 过冲，所以回弹是「弹回来」而不是「滑回来」。
+///
+/// 用法：在按钮样式里加一行 &lt;Setter Property="motion:PressFeel.Enabled" Value="True" /&gt;，
+/// 要胶质按压的再加 &lt;Setter Property="motion:PressFeel.Liquid" Value="True" /&gt;。
 /// </summary>
 public static class PressFeel
 {
@@ -36,6 +43,18 @@ public static class PressFeel
 
     public static bool GetEnabled(VisualElement element) => (bool)element.GetValue(EnabledProperty);
     public static void SetEnabled(VisualElement element, bool value) => element.SetValue(EnabledProperty, value);
+
+    /// <summary>
+    /// 胶质按压：true 时按下缩到 <see cref="MotionTokens.PressScale"/>，并且**换面** ——
+    /// 面从 GlassButtonBg 换成 GlassButtonBgPressed（高光带收窄、底部接触阴影压紧）。
+    /// 只有面本来就是玻璃按钮那一档的元素才会换面：卡片、文字钮、强调钮的底各有各的出处，
+    /// 一律替换会在按下那一秒把卡片也涂成一颗按钮。
+    /// </summary>
+    public static readonly BindableProperty LiquidProperty = BindableProperty.CreateAttached(
+        "Liquid", typeof(bool), typeof(PressFeel), false);
+
+    public static bool GetLiquid(VisualElement element) => (bool)element.GetValue(LiquidProperty);
+    public static void SetLiquid(VisualElement element, bool value) => element.SetValue(LiquidProperty, value);
 
     private static readonly ConditionalWeakTable<View, Driver> Drivers = new();
 
@@ -84,6 +103,8 @@ public static class PressFeel
     {
         private readonly View _e;
         private bool _pressed;
+        /// <summary>这一次按下的面是不是我们换掉的：卸载时只复原这一种。</summary>
+        private bool _faceSwapped;
         private bool _sawPress;
         private bool _tapsHooked;
 
@@ -150,9 +171,47 @@ public static class PressFeel
         {
             if (_pressed == on) return;
             _pressed = on;
-            Move(on ? MotionTokens.Press : 0,
-                on ? MotionTokens.Ms(MotionTokens.TapMs) : MotionTokens.Ms(MotionTokens.SettleMs),
-                on ? MotionTokens.OutCubic : MotionTokens.Settle);
+            // 按下与松手都走同一条弹簧：进得快（TapMs），出来慢一档（SettleMs）。
+            // 曲线自带过冲，所以松手那一下会微微弹过去再落回 —— 这是「材料回弹」，
+            // 不是「过渡」；线性与 ease-in-out 都没有这一段，它们读起来是滑，不是弹。
+            var ms = on ? MotionTokens.Ms(MotionTokens.TapMs) : MotionTokens.Ms(MotionTokens.SettleMs);
+            Move(on ? MotionTokens.Press : 0, ms, MotionTokens.Spring);
+            if (!GetLiquid(_e)) return;
+            ScaleTo(on ? MotionTokens.PressScale : 1.0, ms);
+            PressFace(on);
+        }
+
+        /// <summary>
+        /// 换面：静止/悬停的面 → 按下那一面。只在「此刻挂的是玻璃按钮那一档」时动手 ——
+        /// 认的是画刷实例（令牌每次下发都是新实例，而 DynamicResource 会把同一个实例发给所有引用者）。
+        /// 走 SetDynamicResource 而不是直接赋画刷：直接赋值会把 DynamicResource 这条链断开，
+        /// 之后换主题这颗钮就永久停在旧色上（HoverFeel 的注释里记着同一个坑）。
+        /// </summary>
+        private void PressFace(bool on)
+        {
+            var res = Application.Current?.Resources;
+            if (res is null) return;
+            var face = _e.Background;
+            if (face is null) return;
+            if (!res.TryGetValue(GlassTokens.ButtonBg, out var rest) || rest is not Brush) return;
+            if (!res.TryGetValue(GlassTokens.ButtonBgPressed, out var pressed) || pressed is not Brush) return;
+            var hover = res.TryGetValue(GlassTokens.ButtonBgHover, out var hv) ? hv : null;
+            if (!ReferenceEquals(face, rest) && !ReferenceEquals(face, hover)) return;
+            _e.SetDynamicResource(VisualElement.BackgroundProperty,
+                on ? GlassTokens.ButtonBgPressed : GlassTokens.ButtonBg);
+            _faceSwapped = true;
+        }
+
+        /// <summary>
+        /// 缩放交回 MAUI 自己的动画时钟（和位移同一个），带同名抢占：
+        /// 快速连点时新的一笔从当前值接手，不会排成队追着手指抖。
+        /// 这里必须走驱动而不是 VisualState 的 Setter —— 后者在按下后立刻导航时收不到抬起，
+        /// 会把按钮永久留在 0.97 上（颜色那一档踩过同样的坑，见 ButtonShapes 顶部）。
+        /// </summary>
+        private void ScaleTo(double scale, int ms)
+        {
+            if (ms <= 0) { _e.Scale = scale; return; }
+            _ = _e.ScaleTo(scale, (uint)ms, new Easing(MotionTokens.Spring));
         }
 
         /// <summary>
@@ -175,6 +234,16 @@ public static class PressFeel
             _sawPress = false;
             _e.AbortAnimation("TranslateTo");
             if (_e.TranslationY != 0) _e.TranslationY = 0;
+            if (_e.Scale != 1)
+            {
+                _e.AbortAnimation("ScaleTo");
+                _e.Scale = 1;
+            }
+            if (_faceSwapped)
+            {
+                _faceSwapped = false;
+                _e.SetDynamicResource(VisualElement.BackgroundProperty, GlassTokens.ButtonBg);
+            }
         }
 
         /// <summary>没有按下事件可用时的兜底：一次「沉-起」，回弹交给上一步的 Task 完成后再走。</summary>
@@ -183,10 +252,10 @@ public static class PressFeel
             if (_pressed) return;
             _pressed = true;
             UiSounds.Tap();
-            await Move(MotionTokens.Press, MotionTokens.Ms(MotionTokens.TapMs), MotionTokens.OutCubic);
+            await Move(MotionTokens.Press, MotionTokens.Ms(MotionTokens.TapMs), MotionTokens.Spring);
             if (!_pressed) return;              // 中途被真正的抬起事件接走，别抢它的回弹
             _pressed = false;
-            await Move(0, MotionTokens.Ms(MotionTokens.SettleMs), MotionTokens.Settle);
+            await Move(0, MotionTokens.Ms(MotionTokens.SettleMs), MotionTokens.Spring);
         }
 
         /// <summary>

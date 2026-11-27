@@ -53,7 +53,7 @@
                 </Grid>
 
                 <!-- 框线自己画：Border 不设 Background，避免编译模板里 DynamicResource 填充的坑 -->
-                <Border Stroke="{StaticResource StageFrameEdge}" StrokeThickness="1" InputTransparent="True">
+                <Border Stroke="{StaticResource StageFrameEdge}" StrokeThickness="{DynamicResource GlassHairline}" InputTransparent="True">
                     <Border.StrokeShape>
                         <RoundRectangle CornerRadius="2" />
                     </Border.StrokeShape>

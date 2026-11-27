@@ -178,7 +178,7 @@
                             <Border Grid.Column="1" WidthRequest="64" HeightRequest="64"
                                     VerticalOptions="End" Padding="0"
                                     Background="{DynamicResource WWelBrush}"
-                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                                    Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}"
                                     StrokeShape="{DynamicResource WRadiusWell}"
                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
                                 <Border.GestureRecognizers>
@@ -1547,7 +1547,7 @@
                                      以前它是一个系统输入框下面挂两颗按钮：放在信息栏旁边读起来
                                      像另一个软件的控件，用户的原话是「信息栏满足了风格，输入栏没有」。 -->
                                 <Border Background="{DynamicResource WWellBrush}"
-                                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="1"
+                                        Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}"
                                         StrokeShape="{DynamicResource WRadiusWell}" Padding="0">
                                     <Grid ColumnDefinitions="2,*" RowDefinitions="Auto,Auto,Auto">
                                         <BoxView Grid.RowSpan="3" WidthRequest="2" Color="{DynamicResource WAccentInk}"

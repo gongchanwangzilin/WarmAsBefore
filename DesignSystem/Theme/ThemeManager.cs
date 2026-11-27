@@ -160,61 +160,39 @@ public class ThemeManager
     }
     private double _glassHeight = 0.5;
 
-    /// <summary>光源 X：屏幕平面内左右（-1 左 · 1 右）。</summary>
+    // ── 光照控制（已从 UI 移除，值钉死）──────────────────────────────
+    // 光源滑杆原来是四个可调项，实测只有一个答案是对的：光从左上来、宽半档、高度 0.35。
+    // 留着它们是给旧存档与设置页的绑定用的 —— setter 收下值但**不生效**，
+    // 老配置反序列化照样不崩，而界面上的光不会再被任何一次滑杆拖动改走。
+    // 真要调光，改 GlassTokens.FixedLight* 那几个常量，一处生效、全站一致。
+
+    /// <summary>光源 X：屏幕平面内左右（固定：左）。</summary>
     public double GlassLightX
     {
-        get => _lx;
-        set
-        {
-            var v = Math.Clamp(value, -1, 1);
-            if (Math.Abs(_lx - v) < 1e-6) return;
-            _lx = v;
-            OnChange();
-        }
+        get => GlassTokens.FixedLightX;
+        set { }
     }
-    private double _lx = -0.7;
 
-    /// <summary>光源 Y：屏幕平面内上下（-1 上 · 1 下）。</summary>
+    /// <summary>光源 Y：屏幕平面内上下（固定：上）。</summary>
     public double GlassLightY
     {
-        get => _ly;
-        set
-        {
-            var v = Math.Clamp(value, -1, 1);
-            if (Math.Abs(_ly - v) < 1e-6) return;
-            _ly = v;
-            OnChange();
-        }
+        get => GlassTokens.FixedLightY;
+        set { }
     }
-    private double _ly = -0.7;
 
-    /// <summary>光源 Z：离表面的高度 0-1 —— 越高高光越柔、影子越散。</summary>
+    /// <summary>光源 Z：离表面的高度（固定 0.35）。</summary>
     public double GlassLightZ
     {
-        get => _lz;
-        set
-        {
-            var v = Math.Clamp(value, 0, 1);
-            if (Math.Abs(_lz - v) < 1e-6) return;
-            _lz = v;
-            OnChange();
-        }
+        get => GlassTokens.FixedLightZ;
+        set { }
     }
-    private double _lz = 0.3;
 
-    /// <summary>光宽 0-1：窄=一道锐利反光，宽=整片漫射。</summary>
+    /// <summary>光宽 0-1（固定 0.5）。</summary>
     public double GlassLightWidth
     {
-        get => _lw;
-        set
-        {
-            var v = Math.Clamp(value, 0, 1);
-            if (Math.Abs(_lw - v) < 1e-6) return;
-            _lw = v;
-            OnChange();
-        }
+        get => GlassTokens.FixedLightWidth;
+        set { }
     }
-    private double _lw = 0.4;
 
     public string ActiveEffect =>
         (_liquid, _glass, _frost) switch

@@ -7,10 +7,14 @@ namespace WarmAsBefore.DesignSystem.Theme;
 /// 按下与抬起故意用不同时长：手指碰到屏幕时人要的是「确认按到了」，80ms 内必须有变化，
 /// 所以进得短；抬起后的回弹是材料的余韵，慢一点才显得软。反过来（进慢出快）就会像隔着棉絮点按钮。
 ///
-/// 按压反馈只用位移，刻意不碰两样东西：
-///   · 缩放——WinUI 下按压缩放会触发布局重算，快速连点时按钮会「卡住」，这个坑在 ButtonShapes.xaml 的历史注释里记着。
-///   · 不透明度——它同时是进场动画、禁用态和卡片显隐的输出量，驱动再乘一层就会跟它们抢，
+/// 全站的缓动只有这一组：<see cref="Spring"/> 是按压/悬停/过场的共同曲线，
+/// <see cref="Settle"/> 是余韵、<see cref="Snap"/> 是元素就位、<see cref="Mech"/> 是机器动作的擦入。
+/// 页面里不许再出现自己的时长或曲线数字 —— 它们都从这里取。
+///
+/// 按压反馈只用位移与缩放，刻意不碰不透明度：
+///   · 不透明度同时是进场动画、禁用态和卡片显隐的输出量，驱动再乘一层就会跟它们抢，
 ///     抢输的那次赋值能把按钮留在半透明上，看起来像「莫名其妙消失」。压暗交给背景的色阶去做。
+///   · 缩放只走驱动、不进 VisualState：后者在「按下即导航」时收不到抬起，会把按钮永久留在 0.97 上。
 /// </summary>
 public static class MotionTokens
 {
@@ -47,6 +51,21 @@ public static class MotionTokens
     public const double PageSweepRisePx = 6;
     /// <summary>帧驱动的节奏，约 60fps。</summary>
     public const int FrameMs = 16;
+
+    /// <summary>
+    /// 标准弹簧：cubic-bezier(0.34, 1.3, 0.64, 1)。速度前快后慢、末段过冲约 5% 再落回 1，
+    /// 这就是「软材料回弹」在曲线上的样子 —— 线性与 ease-in-out 没有过冲，读起来是滑，不是弹。
+    /// 悬停、按下、松手、转场全部引用这一条，谁都不许再自带曲线或时长。
+    /// 合成层动画（<see cref="Helpers.Motion"/> 的整页过场）直接取这四个数字建 bezier，
+    /// 免得「界面里是弹簧、过场是别的曲线」。
+    /// </summary>
+    public const double SpringX1 = 0.34;
+    public const double SpringY1 = 1.30;
+    public const double SpringX2 = 0.64;
+    public const double SpringY2 = 1.00;
+
+    /// <summary>按下时缩到哪一档。0.97 是「胶质被压陷」的下限：再小就读成按钮掉进洞里了。</summary>
+    public const double PressScale = 0.97;
 
     /// <summary>
     /// 按下时下沉的像素。原来 1.6px 只在颜色上加深，用户在 125% 缩放下看不到「按动」——
@@ -100,6 +119,46 @@ public static class MotionTokens
     {
         var u = 1 - Clamp01(t);
         return 1 - u * u * u;
+    }
+
+    /// <summary>
+    /// 标准弹簧（<see cref="SpringX1"/> 四条常量所定义的那条 bezier）。
+    /// 按下、松手、悬停换面、整页过场都用它 —— 弹簧的过冲是这些动作的共同语言。
+    /// 实现是真的解 cubic-bezier 的 x(t)，不是拿多项式凑近似的形状：
+    /// 近似曲线的手臂会慢半拍，压下去那一帧就得不到「立刻有回应」。
+    /// </summary>
+    public static double Spring(double t) => Bezier(Clamp01(t), SpringX1, SpringY1, SpringX2, SpringY2);
+
+    /// <summary>
+    /// cubic-bezier(x1,y1,x2,y2) 求值：先按牛顿法解出参数 s 使 x(s)=t，再算 y(s)。
+    /// 求不出来（近水平段导数太小）就退回二分，保证每一帧都有值、不会抛。
+    /// </summary>
+    private static double Bezier(double t, double x1, double y1, double x2, double y2)
+    {
+        if (t <= 0) return 0;
+        if (t >= 1) return 1;
+        double X(double s) => 3 * (1 - s) * (1 - s) * s * x1 + 3 * (1 - s) * s * s * x2 + s * s * s;
+        double Y(double s) => 3 * (1 - s) * (1 - s) * s * y1 + 3 * (1 - s) * s * s * y2 + s * s * s;
+
+        var s = t;
+        for (var i = 0; i < 6; i++)
+        {
+            var f = X(s) - t;
+            if (Math.Abs(f) < 1e-4) return Y(s);
+            // dx/ds
+            var d = 3 * (1 - s) * (1 - s) * x1
+                    + 6 * (1 - s) * s * (x2 - x1)
+                    + 3 * s * s * (1 - x2);
+            if (Math.Abs(d) < 1e-6) break;
+            s = Math.Clamp(s - f / d, 0, 1);
+        }
+        double lo = 0, hi = 1;
+        for (var i = 0; i < 24; i++)
+        {
+            var mid = (lo + hi) * 0.5;
+            if (X(mid) < t) lo = mid; else hi = mid;
+        }
+        return Y((lo + hi) * 0.5);
     }
 
     /// <summary>

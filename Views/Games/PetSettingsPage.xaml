@@ -60,7 +60,7 @@
                                    TextColor="{DynamicResource SurfaceFg}" FontSize="{Binding PetFontSize}"
                                    LineBreakMode="WordWrap" />
                         </Border>
-                        <Border BackgroundColor="{DynamicResource InputBg}" Stroke="{DynamicResource WSep}" StrokeThickness="1" Padding="8,5"
+                        <Border BackgroundColor="{DynamicResource InputBg}" Stroke="{DynamicResource WSep}" StrokeThickness="{DynamicResource GlassHairline}" Padding="8,5"
                                 HorizontalOptions="Center" WidthRequest="260"
                                 IsVisible="{Binding PetInputBubble}">
                             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>

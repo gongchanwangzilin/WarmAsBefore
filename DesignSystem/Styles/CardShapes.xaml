@@ -51,15 +51,17 @@
     <!-- 弹窗 / 对话框表面（免责声明、确认框等）：对话框在任何世界都该有影子，
          它必须盖住整页，靠边线站不住。 -->
     <Style x:Key="CardDialog" TargetType="Border">
-        <Setter Property="Background" Value="{DynamicResource WSurfaceRaised}" />
-        <Setter Property="Stroke" Value="{DynamicResource WEdgeStrongBrush}" />
-        <Setter Property="StrokeThickness" Value="{DynamicResource WEdgeWidth}" />
+        <!-- 弹窗是三档里最厚的那一档：面最实、边最亮、影最大 —— 它盖住整页，得压得住下面的光。 -->
+        <Setter Property="Background" Value="{DynamicResource GlassDialogBg}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassDialogStroke}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassDialogStrokeThickness}" />
         <Setter Property="Padding" Value="24" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusDialog}" />
         <!-- Shadow 对象内联、只有 Brush 跟世界走：换整个 Shadow 对象 = 重建合成层，
-             症状是「导航回来元素位置还在、不再绘制」。不要影子时世界把颜色发到全透明。 -->
+             症状是「导航回来元素位置还在、不再绘制」。不要影子时世界把颜色发到全透明。
+             偏移与半径固定在阴影规则的高度上限：弹窗永远是浮得最高的那一块。 -->
         <Setter Property="Shadow">
-            <Shadow Brush="{DynamicResource WShadowDialogBrush}" Offset="0,10" Radius="26" Opacity="1" />
+            <Shadow Brush="{DynamicResource GlassDialogShadow}" Offset="0,16" Radius="38" Opacity="1" />
         </Setter>
     </Style>
 
