@@ -85,6 +85,11 @@
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.*" />
     <PackageReference Include="CommunityToolkit.Maui" Version="9.*" />
     <PackageReference Include="CommunityToolkit.Maui.MediaElement" Version="4.1.2" />
+    <!-- 相机实时预览（人脸监测页）。版本不是最新的 8.0.0：8.0.0 只出 net11.0 资产并要求
+         Microsoft.Maui.Controls 11；5.0.0–7.0.0 要求 MAUI 10。4.0.0 是最后一个对准本仓库
+         现有栈（MAUI 9.0.120 + CommunityToolkit.Maui 9.1.1）的版本，区间上限也是 [9.0.90, 10.0.0)
+         之外的唯一选择。升级 MAUI 主版本时这里要跟着一起升。 -->
+    <PackageReference Include="CommunityToolkit.Maui.Camera" Version="4.0.0" />
     <PackageReference Include="Microsoft.Maui.Controls" Version="9.*" />
     <PackageReference Include="Microsoft.Extensions.Logging.Debug" Version="9.*" />
     <PackageReference Include="SkiaSharp" Version="2.88.9" />
