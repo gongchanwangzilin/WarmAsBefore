@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-27T10:41:36Z",
+  "updated_at": "2026-11-27T10:57:23Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -1037,9 +1037,9 @@
     },
     "Modules/MinecraftBridge/MaidBridgeService.cs": {
       "role": "index",
-      "sha256": "79a963af6365fc718ee0e9c245d5c1e834bcdabb63cbddfb930472617d7b26f1",
-      "size": 180053,
-      "normalized_sha256": "dd1acfab7a1aafeb9fe6d96ef93ab6938dd4f6a28d9cee7cc5bb2b9319e42cb3"
+      "sha256": "8c9a3606bdd97d171df897f9c4fe7cdd7aab83dec4d0af3a221dd3c1f50d1462",
+      "size": 176862,
+      "normalized_sha256": "8c9a3606bdd97d171df897f9c4fe7cdd7aab83dec4d0af3a221dd3c1f50d1462"
     },
     "Modules/MinecraftBridge/MaidBridgeTools.cs": {
       "role": "index",
@@ -2202,6 +2202,12 @@
       "size": 7621,
       "normalized_sha256": "1fa7a2663423ee2c163928e526fc321761e6ec1c8970dc19579a3f1eb62c6ba2"
     },
+    "Services/Plugins/PluginCapabilities.cs": {
+      "role": "index",
+      "sha256": "6570cfe956d1fd63e4d45781fa5f9cae3967aa4cc72035ea5c3a29cf376c8121",
+      "size": 4547,
+      "normalized_sha256": "6570cfe956d1fd63e4d45781fa5f9cae3967aa4cc72035ea5c3a29cf376c8121"
+    },
     "Services/Plugins/PluginDoctor.cs": {
       "role": "index",
       "sha256": "618c857163ff7ad231ca8c1e22d9de1e357a810df033c5764459d5c229ff5437",
@@ -2210,9 +2216,9 @@
     },
     "Services/Plugins/PluginHost.cs": {
       "role": "index",
-      "sha256": "cb1b51fc929d61bc4d85726d5ed0b249b4441fd3fe36e978c10b95caf1b6d6ef",
-      "size": 96256,
-      "normalized_sha256": "ba194084ac855b8fb2613e5aacc242fac334ed0c1dbcf8fc5b44b28747ff91d6"
+      "sha256": "2790cb2eb1a458b88fa6f2ba1007a78bd93a777533755349176faa6a720f76ad",
+      "size": 96728,
+      "normalized_sha256": "13bcb82b071b978d0bdcc6f2890b56c17e5577ded616056a098de6d550008e41"
     },
     "Services/Plugins/PluginPermissions.cs": {
       "role": "index",
@@ -2720,9 +2726,9 @@
     },
     "ViewModels/Settings/PluginCenterViewModel.cs": {
       "role": "index",
-      "sha256": "5fd35a4813074c4d92ee95aa0893a54ff1756ce7da5b2b793919ad084b963e91",
-      "size": 52147,
-      "normalized_sha256": "f1c95c12c4914419beb883531e17c7a11c6b39c4793b2195562f59057ccb1619"
+      "sha256": "db2f0672dc35eaf30d89904c653bf4cc9bbcb6eefcddb32d5e3b8c332f2987ec",
+      "size": 52007,
+      "normalized_sha256": "db2f0672dc35eaf30d89904c653bf4cc9bbcb6eefcddb32d5e3b8c332f2987ec"
     },
     "ViewModels/Settings/PluginPermissionsViewModel.cs": {
       "role": "index",
@@ -3464,9 +3470,9 @@
     },
     "Views/Settings/PluginCenterPage.xaml": {
       "role": "index",
-      "sha256": "60c41d3485a8f5220838826f0a7e2158a93ff4cfba59065b1efea22e56d0fee7",
-      "size": 30081,
-      "normalized_sha256": "fd98a9d5a96e1e66e2f341a0afc594cdaec92a1e1258b0378e7d34dd4a02d449"
+      "sha256": "3fbf94a52eff3198b372fe433b2e43b7e05e1c7a20eb8df6566c96cac6526d96",
+      "size": 30315,
+      "normalized_sha256": "3ea4d3fed1784d66094569ad82ff23ded03d18a6bff76c64a37eda45ea3ed17c"
     },
     "Views/Settings/PluginCenterPage.xaml.cs": {
       "role": "index",
@@ -3734,9 +3740,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "23e53e5ef7ce2b64330b0036856ac62bd941ebab7b4ca2f59c3c53e6be34435c",
-      "size": 225477,
-      "normalized_sha256": "23e53e5ef7ce2b64330b0036856ac62bd941ebab7b4ca2f59c3c53e6be34435c"
+      "sha256": "518e99e66151e17e201d9485b6d1b39ad09afb4417fc063f96832ab6df3199f7",
+      "size": 227138,
+      "normalized_sha256": "518e99e66151e17e201d9485b6d1b39ad09afb4417fc063f96832ab6df3199f7"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3746,9 +3752,9 @@
     },
     "aoci.txt": {
       "role": "index",
-      "sha256": "0b5d82be57e1ab7d98f4949cca153022c92fe8cd32eb931ef8a8e906fa38e6f3",
-      "size": 301,
-      "normalized_sha256": "0b5d82be57e1ab7d98f4949cca153022c92fe8cd32eb931ef8a8e906fa38e6f3"
+      "sha256": "ee350269f872fa37471a8c8d47a1b71b4252706a31b6b31c241b665a8347f7ad",
+      "size": 1808,
+      "normalized_sha256": "ee350269f872fa37471a8c8d47a1b71b4252706a31b6b31c241b665a8347f7ad"
     },
     "build-proot-static.sh": {
       "role": "index",

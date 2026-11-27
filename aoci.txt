@@ -1,7 +1,7 @@
 #AOCI-ROOT-MANIFEST: 1
 #Format-Version: cognition-volumes/v1
 #Locale: zh-CN
-#Project: warmasbefore
-#Global-Invariants: -
+#Project: 温暖如初（WarmAsBefore）：.NET 10 / MAUI 的 Windows 与 Android 双端、本地优先「数字生命」陪伴与写作应用，面向中文长期陪伴与世界观写作用户。由设计系统（世界×色板×令牌）、MVVM 页面层、按心理/记忆/媒体/插件/世界分层的服务层、Modules 下的对话与游戏桥、随包插件与独立 Forge/NeoForge 模组仓库组成；状态全在本机 JSON。
+#Global-Invariants: 1. 配置键唯一真相源是 tools/wab_config/config_catalog.json：宿主 ConfigCatalog.cs、plugin.json 字段表与模组双线 5 份 Java 必须与它字节一致，业务代码不写默认值字面量，改键后重跑生成器，否则 CI 门禁拦下。2. 本地优先：无云端后端、无遥测，状态全在本机 JSON；模型请求只走 ApiGateway 的端点×密钥轮换，密钥绝不进共享 HttpClient 默认头，签名材料只在 CI Secrets。3. 回 UI 线程必须 Helpers.Ui.Post（WinUI 上直接 MainThread.* 会带走进程），画布绘制一律经 SafeDrawable 兜底。4. 颜色、间距、字阶、动效只引用 DesignSystem 令牌，写死会在换世界或换色板时留下半旧界面。5. 验证只靠构建、tools/*_selftest 控制台断言与 CI 门禁；这些工程只 link 零依赖纯函数，被 link 的文件不得引用 MAUI。6. 插件放行只认清单的 permissions 声明加用户逐项授权（按能力+参数记），capabilities 只是展示声明、不参与门禁；运行时上报优先于声明，未上报按不支持处理。
 #Volume: id=meta kind=meta path=aoci.meta.txt format=meta-v1 depends=- state=enabled
 #Volume: id=code kind=code path=aoci.code.txt format=object-fras-v2 depends=meta state=enabled
