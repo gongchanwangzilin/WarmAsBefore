@@ -31,6 +31,7 @@ public static class ViewModelRegistration
         services.AddTransient<UsageStatsViewModel>();
         services.AddTransient<WorldbookViewModel>();
         services.AddTransient<NewRunViewModel>();
+        services.AddTransient<ChatImportViewModel>();
         services.AddTransient<ForceCastViewModel>();
         services.AddTransient<SceneCalibrationViewModel>();
         services.AddTransient<NewCharacterViewModel>();

@@ -52,6 +52,12 @@ public sealed record GameState
     /// <summary>人设已整理入记忆：false 时下一次进游戏要补一次「人格记忆初始化」。</summary>
     public bool PersonaMemoryReady { get; set; }
 
+    /// <summary>
+    /// 开局时导入过聊天记录：留下当时算出的初始关系摘要（条数、主动比例、初值、最近一次）。
+    /// null = 这一档是普通新开局，用户没带过去。老档没有这个字段，读档照旧。
+    /// </summary>
+    public ChatHistorySeed? HistorySeed { get; set; }
+
     // ===== 角色世界观（#16） =====
 
     /// <summary>本存档选用的角色世界观 id；空=用角色自己的默认（CharacterData.ActiveWorldviewId）。</summary>
@@ -328,6 +334,10 @@ public sealed record UserSettings
     public double TextSpeed { get; init; } = 1.0;
     public double BgmLevel { get; init; } = 0.7;
     public double SfxLevel { get; init; } = 0.8;
+    /// <summary>界面小音效总开关（按钮按下、弹窗、导入完成这些几十毫秒的动静）。</summary>
+    public bool UiSoundEnabled { get; init; } = true;
+    /// <summary>界面小音效音量 0~1；与背景音乐/音效分开，用户可以把提示音调小而不影响素材音。</summary>
+    public double UiSoundLevel { get; init; } = 0.5;
     public bool ComplexPlot { get; init; }
     public bool NovelTestingEnabled { get; init; }   // 小说功能为测试：默认关闭，仅在设置中打开后才显示入口
     public bool ShowAllAffection { get; init; }

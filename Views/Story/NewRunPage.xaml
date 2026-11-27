@@ -180,6 +180,24 @@
                            Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
                 </VerticalStackLayout>
 
+                <!-- 聊天记录导入：入口收在开局引导里。它只影响这一局，不带也能正常开始。 -->
+                <Border Style="{StaticResource CardGroup}" IsVisible="{Binding CanImport}">
+                    <VerticalStackLayout Spacing="10" Padding="{DynamicResource WPadCard}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="从聊天记录开始" Style="{StaticResource TxtSubhead}" />
+                                <Label Text="{Binding ImportHint}" Style="{StaticResource TxtCaption}"
+                                       LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="导入…" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding OpenImportCommand}" VerticalOptions="Center" />
+                        </Grid>
+                        <Button Text="不带这份记录" Style="{StaticResource BtnGhostSm}"
+                                HorizontalOptions="Start" IsVisible="{Binding HasImport}"
+                                Command="{Binding ClearImportCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- ③ 细则：现有 VM 只有世界与人设两项可控，这里只把它们摆清楚，不凭空造开关 -->
                 <VerticalStackLayout x:Name="StepRules" Spacing="{DynamicResource WSpaceLoose}" IsVisible="{Binding ShowRulesBlock}">
                     <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
@@ -258,6 +276,15 @@
                                         <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SelectedWorldDisplay}" Style="{StaticResource TxtRowTitle}" />
                                         <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding MapHint}" Style="{StaticResource TxtRowDesc}" />
                                     </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" IsVisible="{Binding HasImport}" />
+                            <Border Style="{StaticResource SettingRow}" IsVisible="{Binding HasImport}">
+                                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="12">
+                                    <Label Text="过去" Style="{StaticResource TxtCaption}" WidthRequest="48"
+                                           VerticalOptions="Center" />
+                                    <Label Grid.Column="1" Text="{Binding ImportSummary}" Style="{StaticResource TxtRowDesc}"
+                                           LineBreakMode="WordWrap" VerticalOptions="Center" />
                                 </Grid>
                             </Border>
                             <BoxView Style="{StaticResource HSepInset}" />

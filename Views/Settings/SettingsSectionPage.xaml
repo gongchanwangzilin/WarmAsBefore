@@ -30,6 +30,18 @@
                                             <Label Text="{Binding [Settings_Sfx], Source={x:Static i18n:LocalizationService.Current}}" VerticalOptions="Center" />
                                             <controls:ViewSlider Grid.Column="1" Value="{Binding SfxLevel}" Minimum="0" Maximum="1" />
                                         </Grid>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <!-- 界面提示音：按钮/弹窗/导入完成这些几十毫秒的小动静，与素材音效分开调 -->
+                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13">
+                                            <VerticalStackLayout>
+                                                <Label Text="界面提示音" Style="{StaticResource TxtBodySm}" />
+                                                <Label Text="按钮按下、选择确认、导入完成时的轻响。关掉不影响背景音乐与素材音效。" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
+                                            <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding UiSoundOn}" />
+                                        </Grid>
+                                        <Grid ColumnDefinitions="80,*" Padding="0,13" IsVisible="{Binding UiSoundOn}">
+                                            <Label Text="提示音音量" VerticalOptions="Center" />
+                                            <controls:ViewSlider Grid.Column="1" Value="{Binding UiSoundLevel}" Minimum="0" Maximum="1" />
+                                        </Grid>
                                     </VerticalStackLayout>
                                 </Border>
             </VerticalStackLayout>

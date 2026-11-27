@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using WarmAsBefore.DesignSystem.Theme;
+using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Helpers;
 
@@ -108,7 +109,13 @@ public static class PressFeel
             {
                 // 按下在指针接触那一刻就触发，比 Clicked（松手才来）早整整一次点击的时长——
                 // 「响应快」的感受大部分来自这里，不是来自缩短动画。
-                button.Pressed += (_, _) => { _sawPress = true; SetPressed(true); };
+                button.Pressed += (_, _) =>
+                {
+                    _sawPress = true;
+                    SetPressed(true);
+                    // 按下就响：与下沉同时发生，读者听到的「按到了」和看到的位移是同一件事。
+                    UiSounds.Tap();
+                };
                 button.Released += (_, _) => SetPressed(false);
                 // 兜底只补「没收到 Pressed」的平台；正常点击先收起自己的下沉。
                 // 带导航的按钮按下时页面就切走，抬起事件可能整条丢失，
@@ -175,6 +182,7 @@ public static class PressFeel
         {
             if (_pressed) return;
             _pressed = true;
+            UiSounds.Tap();
             await Move(MotionTokens.Press, MotionTokens.Ms(MotionTokens.TapMs), MotionTokens.OutCubic);
             if (!_pressed) return;              // 中途被真正的抬起事件接走，别抢它的回弹
             _pressed = false;

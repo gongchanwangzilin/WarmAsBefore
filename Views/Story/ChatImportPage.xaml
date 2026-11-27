@@ -1,0 +1,197 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.ChatImportPage"
+             x:Name="Page"
+             x:DataType="vm:ChatImportViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      存档开始时的聊天记录导入。和「新建角色 / 新开一局」同属引导流程，所以沿用它们的骨架：
+      一条顶栏、一条底栏、中间一列卡片、一次只做一件事。
+      这一页不写存档：它只把文件读成消息、把消息算成关系，最后「带回本局」，
+      真正落盘由「开始这一局」在那条已有的提交路径里完成 —— 失败就整档不落，旧档不受影响。
+    -->
+    <ContentPage.Resources>
+        <Style x:Key="StepTitle" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeDisplay}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
+        <Style x:Key="StepSub" TargetType="Label">
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+            <Setter Property="TextColor" Value="{DynamicResource WarmMuted}" />
+            <Setter Property="LineBreakMode" Value="WordWrap" />
+        </Style>
+        <Style x:Key="FieldMulti" TargetType="Editor">
+            <Setter Property="BackgroundColor" Value="{DynamicResource InputBg}" />
+            <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
+            <Setter Property="PlaceholderColor" Value="{DynamicResource MutedFg}" />
+            <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
+        </Style>
+    </ContentPage.Resources>
+
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <!-- 顶栏 -->
+        <Border Grid.Row="0" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
+                <Button Text="&lt; 返回" Style="{StaticResource BtnText}" Padding="0"
+                        VerticalOptions="Center" Command="{Binding BackCommand}" />
+                <Label Grid.Column="1" Text="导入聊天记录" Style="{StaticResource TxtTitle}"
+                       VerticalOptions="Center" />
+                <Label Grid.Column="2" Text="{Binding CharacterDisplay}" Style="{StaticResource TxtCaption}"
+                       VerticalOptions="Center" LineBreakMode="TailTruncation" />
+            </Grid>
+        </Border>
+
+        <ScrollView Grid.Row="1" Padding="24,18,24,28">
+            <VerticalStackLayout Spacing="20" MaximumWidthRequest="880" HorizontalOptions="Fill">
+
+                <VerticalStackLayout Spacing="6">
+                    <Label Text="01 · PAST" Style="{StaticResource Eyebrow}" />
+                    <Label Text="把你们的以前带进来" Style="{StaticResource StepTitle}" />
+                    <Label Text="可一次选多个文件，也可以直接粘一大段。格式靠内容认，不靠扩展名：微信/QQ 导出的 txt/mht、通用 txt、md、json、csv 都行。"
+                           Style="{StaticResource StepSub}" />
+                </VerticalStackLayout>
+
+                <!-- 选文件 -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="10" Padding="{DynamicResource WPadCard}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="从文件导入" Style="{StaticResource TxtSubhead}" />
+                                <Label Text=".txt / .mht / .md / .json / .csv，可多选；读不出的文件会单独说原因，不影响别的文件。"
+                                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="选择文件…" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding PickFilesCommand}" VerticalOptions="Center" />
+                        </Grid>
+                        <VerticalStackLayout Spacing="6" BindableLayout.ItemsSource="{Binding Sources}">
+                            <BindableLayout.ItemTemplate>
+                                <DataTemplate x:DataType="vm:ChatImportSourceRow">
+                                    <VerticalStackLayout Spacing="1">
+                                        <Label Text="{Binding Name}" Style="{StaticResource TxtBodySm}" />
+                                        <Label Text="{Binding Detail}" Style="{StaticResource TxtCaption}"
+                                               LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </DataTemplate>
+                            </BindableLayout.ItemTemplate>
+                        </VerticalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- 粘贴 -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="10" Padding="{DynamicResource WPadCard}">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="或者直接粘贴" Style="{StaticResource TxtSubhead}" />
+                                <Label Text="一整段聊天记录贴进来就行，几十万字也能读。" Style="{StaticResource TxtCaption}" />
+                            </VerticalStackLayout>
+                            <Label Grid.Column="1" Text="{Binding PasteCount}" Style="{StaticResource TxtCaption}"
+                                   VerticalOptions="Center" />
+                        </Grid>
+                        <Editor Style="{StaticResource FieldMulti}" Text="{Binding PastedText}"
+                                HeightRequest="150" AutoSize="Disabled"
+                                Placeholder="2024-05-01 20:14:00 晚晚&#10;今天下雨了，你带伞了吗" />
+                        <HorizontalStackLayout Spacing="8">
+                            <Button Text="解析粘贴的内容" Style="{StaticResource BtnPrimary}" Padding="16,7"
+                                    Command="{Binding ParsePasteCommand}" />
+                            <Button Text="清空" Style="{StaticResource BtnGhostSm}"
+                                    Command="{Binding ClearPasteCommand}" />
+                        </HorizontalStackLayout>
+                    </VerticalStackLayout>
+                </Border>
+
+                <Label Text="{Binding Error}" Style="{StaticResource TxtBodySm}"
+                       TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
+                       IsVisible="{Binding HasError}" />
+
+                <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}"
+                       LineBreakMode="WordWrap" IsVisible="{Binding HasResult}" />
+
+                <!-- 结果 -->
+                <VerticalStackLayout Spacing="14" IsVisible="{Binding HasResult}">
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="02 · READ" Style="{StaticResource Eyebrow}" />
+                        <Label Text="读出来的样子" Style="{StaticResource StepTitle}" />
+                    </VerticalStackLayout>
+
+                    <Border Style="{StaticResource CardGroup}">
+                        <VerticalStackLayout Spacing="0">
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="72,*" ColumnSpacing="12">
+                                    <Label Text="对话" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                        <Label Text="{Binding Summary}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="{Binding Range}" Style="{StaticResource TxtRowDesc}" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" />
+                            <Border Style="{StaticResource SettingRow}">
+                                <Grid ColumnDefinitions="72,*" ColumnSpacing="12">
+                                    <Label Text="初始关系" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                    <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                        <Label Text="{Binding Initial}" Style="{StaticResource TxtRowTitle}" />
+                                        <Label Text="{Binding Explain}" Style="{StaticResource TxtRowDesc}"
+                                               LineBreakMode="WordWrap" />
+                                    </VerticalStackLayout>
+                                </Grid>
+                            </Border>
+                            <BoxView Style="{StaticResource HSepInset}" IsVisible="{Binding ShowSpeakerPicker}" />
+                            <Border Style="{StaticResource SettingRow}" IsVisible="{Binding ShowSpeakerPicker}">
+                                <Grid ColumnDefinitions="72,*" ColumnSpacing="12">
+                                    <Label Text="谁是 TA" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
+                                    <Picker Grid.Column="1" ItemsSource="{Binding Speakers}"
+                                            ItemDisplayBinding="{Binding Label}"
+                                            SelectedItem="{Binding SelectedSpeaker}"
+                                            TextColor="{DynamicResource SurfaceFg}"
+                                            TitleColor="{DynamicResource MutedFg}" />
+                                </Grid>
+                            </Border>
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Label Text="{Binding Warnings}" Style="{StaticResource TxtCaption}"
+                           TextColor="{DynamicResource AccentWarmFg}" LineBreakMode="WordWrap"
+                           IsVisible="{Binding HasWarnings}" />
+
+                    <Label Text="确认后点右下角「带回这一局」；真正写进存档是在点了「开始这一局」之后，中途退出不会留下半份记录。"
+                           Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- 底部动作 -->
+        <BoxView Grid.Row="2" Color="{DynamicResource WRule}" HeightRequest="1" HorizontalOptions="Fill"
+                 VerticalOptions="Start" InputTransparent="True" />
+        <Border Grid.Row="2" Background="{DynamicResource WBarBrush}" StrokeThickness="0"
+                Padding="{DynamicResource WPadWell}" VerticalOptions="End">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"
+                  Margin="{OnPlatform WinUI='0', Default='0,0,0,12'}">
+                <Label Text="{Binding Status}" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                       LineBreakMode="TailTruncation" />
+                <Button Grid.Column="1" Text="带回这一局" Style="{StaticResource BtnPrimary}" Padding="18,7"
+                        Command="{Binding BringBackCommand}" IsVisible="{Binding HasResult}" />
+            </Grid>
+        </Border>
+
+        <!-- 读取/解析遮罩：真实进度文字，不做循环假动画 -->
+        <Grid Grid.RowSpan="3" IsVisible="{Binding IsBusy}" BackgroundColor="{DynamicResource OverlayDim}" ZIndex="20">
+            <Border Style="{StaticResource CardGroup}" MaximumWidthRequest="420" Margin="28" Padding="24,22"
+                    HorizontalOptions="Center" VerticalOptions="Center">
+                <VerticalStackLayout Spacing="12">
+                    <Label Text="IMPORT" Style="{StaticResource Eyebrow}" />
+                    <Label Text="{Binding BusyText}" Style="{StaticResource TxtSubhead}" LineBreakMode="WordWrap" />
+                    <ActivityIndicator IsRunning="{Binding IsBusy}" Color="{DynamicResource Signal}"
+                                       HorizontalOptions="Start" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>
