@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <RootNamespace>WabChatImportSelfTest</RootNamespace>
+    <AssemblyName>ChatImportSelfTest</AssemblyName>
+  </PropertyGroup>
+  <ItemGroup>
+    <!-- 只编译零 MAUI 依赖的解析/分析层：格式嗅探、归一化、初始关系计算 -->
+    <Compile Include="Program.cs" />
+    <Compile Include="../../Services/Import/ChatLogParser.cs" Link="ChatLogParser.cs" />
+    <Compile Include="../../Services/Import/ChatLogDigest.cs" Link="ChatLogDigest.cs" />
+    <Compile Include="../../Helpers/AffectionScale.cs" Link="AffectionScale.cs" />
+  </ItemGroup>
+</Project>

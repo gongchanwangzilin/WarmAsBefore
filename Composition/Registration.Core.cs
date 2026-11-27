@@ -17,6 +17,8 @@ public static class CoreRegistration
         services.AddSingleton<StorageProvider>();
         services.AddSingleton<NotificationService>();
         services.AddSingleton<AudioController>();
+        // 界面小音效：自己合成的四种轻响，与素材音效分开关/分音量
+        services.AddSingleton<UiSoundService>();
         // 统一背景系统：后台调度 + 天气音频联动（WeatherAudioService 依赖 AudioController，故紧随其后）
         services.AddSingleton<BackgroundService>();
         services.AddSingleton<WeatherAudioService>();

@@ -56,6 +56,7 @@ public partial class NewRunPage : ContentPage
         else if (!_vm.IsBusy)
         {
             _ = _vm.LoadAsync("", _vm.IsEditMode);
+            _vm.RefreshStagedImport();   // 从导入页回来：入口那一行要显示「带回了多少条」
         }
         Motion.ArrivePage(this);
     }

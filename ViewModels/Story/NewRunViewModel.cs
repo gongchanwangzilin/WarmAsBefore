@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using WarmAsBefore.Controls;
 using WarmAsBefore.Modules.SaveSystem;
 using WarmAsBefore.Services;
 
@@ -32,6 +33,7 @@ public sealed partial class NewRunViewModel : ObservableObject
     private readonly WorldTreeService _worlds;
     private readonly PersonaMemoryService _persona;
     private readonly SettingsManager _settings;
+    private readonly ChatLogImportService _import;
 
     private string _characterId = "";
     private bool _loaded;
@@ -68,6 +70,12 @@ public sealed partial class NewRunViewModel : ObservableObject
     [ObservableProperty] private string _stepLabel = "世界";
     [ObservableProperty] private bool _reached1 = true, _reached2, _reached3, _reached4;
 
+    /// <summary>这一局是否要从聊天记录开始：入口在人设那一步，结果在回顾里也看得到。</summary>
+    [ObservableProperty] private string _importHint = "可选。把微信/QQ 导出的聊天记录带进来，这一局的关系会从你们的过去开始。";
+    [ObservableProperty] private string _importSummary = "";
+    [ObservableProperty] private bool _hasImport;
+    public bool CanImport => !IsEditMode;
+
     [ObservableProperty] private bool _isBusy;
     [ObservableProperty] private string _loadingTitle = "人格记忆初始化中";
     [ObservableProperty] private string _loadingDetail = "正在准备…";
@@ -75,7 +83,8 @@ public sealed partial class NewRunViewModel : ObservableObject
     [ObservableProperty] private string _loadingPercent = "0%";
 
     public NewRunViewModel(GameEngine engine, CharacterLibrary chars, SaveManager save,
-        WorldTreeService worlds, PersonaMemoryService persona, SettingsManager settings)
+        WorldTreeService worlds, PersonaMemoryService persona, SettingsManager settings,
+        ChatLogImportService import)
     {
         _engine = engine;
         _chars = chars;
@@ -83,6 +92,7 @@ public sealed partial class NewRunViewModel : ObservableObject
         _worlds = worlds;
         _persona = persona;
         _settings = settings;
+        _import = import;
         // 构造时就定下来，切页不闪一下「分步」再退回单页
         _isOobe = settings.Current.SaveCreationOobe;
     }
@@ -144,6 +154,7 @@ public sealed partial class NewRunViewModel : ObservableObject
             SelectedWorldName = _engine.State.WorldName;
         }
         await LoadWorldsAsync();
+        RefreshStagedImport();
     }
 
     private async Task LoadWorldsAsync()
@@ -212,6 +223,8 @@ public sealed partial class NewRunViewModel : ObservableObject
     private async Task Back()
     {
         if (IsBusy) return;
+        UiSounds.Back();
+        if (!IsEditMode) _import.Clear();   // 离开新建流程：暂存的聊天记录不跟着下一次开局走
         if (Embedded)
         {
             EmbedResult?.Invoke(false);
@@ -262,6 +275,34 @@ public sealed partial class NewRunViewModel : ObservableObject
     }
 
     partial void OnIsOobeChanged(bool value) => NotifyStepState();
+
+    partial void OnIsEditModeChanged(bool value) => OnPropertyChanged(nameof(CanImport));
+
+    /// <summary>从导入页回来：把「带回了多少条」显示在入口那一行。没带就恢复原句。</summary>
+    public void RefreshStagedImport()
+    {
+        var staged = _import.Peek(_characterId);
+        HasImport = staged is not null && staged.Messages > 0;
+        ImportSummary = HasImport
+            ? $"已带回 {staged!.Messages} 条对话：开始这一局时写入记忆，并作为初始关系（{WarmAsBefore.Helpers.AffectionScale.TextOf(staged.Digest.Affection)} / 信任 {staged.Digest.Trust}）。"
+            : "可选。把微信/QQ 导出的聊天记录带进来，这一局的关系会从你们的过去开始。";
+        ImportHint = ImportSummary;
+    }
+
+    [RelayCommand]
+    private async Task OpenImport()
+    {
+        if (!CanImport || string.IsNullOrEmpty(_characterId)) return;
+        await Shell.Current.GoToAsync(
+            $"chatimport?character={Uri.EscapeDataString(_characterId)}");
+    }
+
+    [RelayCommand]
+    private void ClearImport()
+    {
+        _import.Clear();
+        RefreshStagedImport();
+    }
 
     partial void OnSelectedWorldIdChanged(string value)
     {
@@ -347,6 +388,16 @@ public sealed partial class NewRunViewModel : ObservableObject
             _engine.State.UserPersona = persona;
             _save.NewRun();
 
+            // 聊天记录导入：新档号已经分配、记忆作用域已切换，这时写才是写进这一档。
+            // 抛错会让整次 Begin 停在原地、不 Commit —— 旧档一点没动，新档也不会留半份。
+            if (_import.Take(_characterId) is { } staged && _engine.ActiveCharacter is { } active)
+            {
+                progress.Report("正在把聊天记录整理成记忆…");
+                var outcome = await _import.ApplyAsync(staged, _engine.State, active, progress);
+                App.WriteLog("NewRun.Import -> " + outcome.Summary);
+                Toast.Info("已从聊天记录开始：" + outcome.Summary);
+            }
+
             await _persona.InitializeAsync(_engine.State, _characterId, progress);
             progress.Report("正在落盘这一局…");
             // Commit 把异常吞成 false。不检查就等于「档没写进去也照样宣布开始」，
@@ -376,6 +427,7 @@ public sealed partial class NewRunViewModel : ObservableObject
             LoadingPercent = "100%";
             LoadingDetail = "记忆已就位";
             await Task.Delay(260);
+            UiSounds.Confirm();
 
             if (_editMode)
             {

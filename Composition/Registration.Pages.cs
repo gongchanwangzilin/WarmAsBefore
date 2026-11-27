@@ -37,6 +37,7 @@ public static class PageRegistration
         services.AddTransient<MapCreatePage>();
         services.AddTransient<UsageStatsPage>();
         services.AddTransient<NovelSelectPage>();
+        services.AddTransient<ChatImportPage>();
         services.AddTransient<NovelWorldPage>();
         services.AddTransient<WorldbookPage>();
         services.AddTransient<NewRunPage>();

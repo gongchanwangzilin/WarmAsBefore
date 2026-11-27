@@ -44,6 +44,8 @@ public static class ModuleRegistration
         services.AddSingleton<Modules.DataPack.PackImporter>();
         services.AddSingleton<Modules.DataPack.SmartImporter>();
         services.AddSingleton<Modules.SaveSystem.SaveManager>();
+        // 存档开始时的聊天记录导入：解析是纯函数，这个服务只负责暂存与一次性写入新档
+        services.AddSingleton<ChatLogImportService>();
         services.AddSingleton<Modules.MinecraftBridge.MaidBridgeService>();
         services.AddSingleton<Modules.NovelImport.NovelAnalyzer>();
         services.AddSingleton<Modules.GameModule.MiniGameEngine>();

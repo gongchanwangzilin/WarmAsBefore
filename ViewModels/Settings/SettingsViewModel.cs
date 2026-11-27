@@ -83,6 +83,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         var s = settings.Current;
         _bgmLevel = s.BgmLevel;
         _sfxLevel = s.SfxLevel;
+        _uiSoundOn = s.UiSoundEnabled;
+        _uiSoundLevel = Math.Clamp(s.UiSoundLevel, 0, 1);
         _frostOn = s.FrostEnabled;
         _glassOn = s.GlassEnabled;
         _liquidOn = s.LiquidEnabled;
@@ -357,6 +359,9 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private double _bgmLevel = 0.7;
     [ObservableProperty] private double _sfxLevel = 0.8;
+    /// <summary>界面小音效：与素材音效分开的开关与音量，默认 0.5。</summary>
+    [ObservableProperty] private bool _uiSoundOn = true;
+    [ObservableProperty] private double _uiSoundLevel = 0.5;
     // 风格世界：三个互相牵制的玻璃开关合并为一个选择。
     // 世界已收敛为唯一档「档案室」（2.7）：风格下拉与五档选项表退役，只剩玻璃项微调。
     [ObservableProperty] private WarmAsBefore.DesignSystem.Worlds.StyleWorld _selectedWorld
@@ -1169,6 +1174,13 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     partial void OnBgmLevelChanged(double value) => PersistSettings();
     partial void OnSfxLevelChanged(double value) => PersistSettings();
+    partial void OnUiSoundOnChanged(bool value) => PersistSettings();
+    partial void OnUiSoundLevelChanged(double value)
+    {
+        PersistSettings();
+        // 拖音量时当场试听一记轻击：调音量的人要立刻听到自己刚设的那一档。
+        if (UiSoundOn) Services.UiSounds.Preview(Services.UiSoundKind.Tap, value);
+    }
     partial void OnGlassOnChanged(bool value)
     {
         if (value && !FrostOn) FrostOn = true;
@@ -1515,6 +1527,8 @@ public sealed partial class SettingsViewModel : ObservableObject
                 {
                     BgmLevel = BgmLevel,
                     SfxLevel = SfxLevel,
+                    UiSoundEnabled = UiSoundOn,
+                    UiSoundLevel = Math.Clamp(UiSoundLevel, 0, 1),
                     ComplexPlot = ComplexPlot,
                     NovelTestingEnabled = NovelTesting,
                     ShowAllAffection = ShowAffection,

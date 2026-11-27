@@ -270,6 +270,7 @@ public partial class AppShell : Shell
         Routing.RegisterRoute("worldbook", typeof(Views.WorldbookPage));
         // 新开一局 / 本局设定：世界树绑定 + 用户人设 + 人格记忆初始化
         Routing.RegisterRoute("newrun", typeof(Views.NewRunPage));
+        Routing.RegisterRoute("chatimport", typeof(Views.ChatImportPage));
         Routing.RegisterRoute("roster", typeof(Views.CharacterLibraryPage));
         // 超级监测：独立整页，charId 经查询参数传入（入口在存档页 / 角色库右上角）
         Routing.RegisterRoute("superMonitor", typeof(Views.SuperMonitorPage));
