@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-27T10:35:17Z",
+  "updated_at": "2026-11-27T10:41:36Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -1037,15 +1037,21 @@
     },
     "Modules/MinecraftBridge/MaidBridgeService.cs": {
       "role": "index",
-      "sha256": "a7f13862ac486b350553dbad0f6892a056cde43b425564f596535a31c92cab5d",
-      "size": 179044,
-      "normalized_sha256": "c33a961882ae73ea3652bc5c2eb55fdfd9d363de9f0afd4299c1a83771b85a5a"
+      "sha256": "79a963af6365fc718ee0e9c245d5c1e834bcdabb63cbddfb930472617d7b26f1",
+      "size": 180053,
+      "normalized_sha256": "dd1acfab7a1aafeb9fe6d96ef93ab6938dd4f6a28d9cee7cc5bb2b9319e42cb3"
     },
     "Modules/MinecraftBridge/MaidBridgeTools.cs": {
       "role": "index",
       "sha256": "2520380f96d289af92d34f16fe26b5699bb7d827400bf9c932b8142a1494c7c9",
       "size": 35090,
       "normalized_sha256": "d416e3501db2a46517d22c42444b3a635f365774e05ccbcbd4379018cc563eec"
+    },
+    "Modules/MinecraftBridge/MaidToolMethods.cs": {
+      "role": "index",
+      "sha256": "21a1ac3682b9cb3ef0814f701697a46d7132f32e919381bda7b1aa8164b3d97e",
+      "size": 2446,
+      "normalized_sha256": "21a1ac3682b9cb3ef0814f701697a46d7132f32e919381bda7b1aa8164b3d97e"
     },
     "Modules/NovelImport/NovelAnalyzer.cs": {
       "role": "index",
@@ -1904,9 +1910,9 @@
     },
     "Services/Core/RuntimeConfigurator.cs": {
       "role": "index",
-      "sha256": "359f939e53ba1094af1bfaf8380cea6637dc6efadd0c4e4d00ca2604d916c63d",
-      "size": 63055,
-      "normalized_sha256": "9765d87711ff3e21538e93756639176140ef2c20518a95f79fd764a850d774a0"
+      "sha256": "53d87902aea20aacf136269fd73f072382f7d3783f798c4878e0733b5dfb3a4d",
+      "size": 63070,
+      "normalized_sha256": "3b418f9f1d02799a3251820204ba4445d2d1139500b60a0a065d85139a4817be"
     },
     "Services/Core/SafeZip.cs": {
       "role": "index",
@@ -2066,9 +2072,9 @@
     },
     "Services/Media/FacePresenceService.cs": {
       "role": "index",
-      "sha256": "5278e11351a73cf88d6ee316123340e6bd50c6bf09f5c295d2d549c7564be248",
-      "size": 19224,
-      "normalized_sha256": "4bef29ce46e2e587bbea5f5f8776aa7db20bd2faee98fe37d73b443c5347ebe6"
+      "sha256": "00921a01c155fa3620dc0dda7194567574f3c2363c293d5c360529bb2d1d302e",
+      "size": 21100,
+      "normalized_sha256": "2f500d025cf236bd461b20c6aae8a2540b67486eccfa06433f61f14c847c9550"
     },
     "Services/Media/ImageGenerationService.cs": {
       "role": "index",
@@ -3728,9 +3734,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "f36b3ffc0e86c2a5baf0496bed14e4c1afb7e438708e5ae50b65c460ac487dd6",
-      "size": 224736,
-      "normalized_sha256": "f36b3ffc0e86c2a5baf0496bed14e4c1afb7e438708e5ae50b65c460ac487dd6"
+      "sha256": "23e53e5ef7ce2b64330b0036856ac62bd941ebab7b4ca2f59c3c53e6be34435c",
+      "size": 225477,
+      "normalized_sha256": "23e53e5ef7ce2b64330b0036856ac62bd941ebab7b4ca2f59c3c53e6be34435c"
     },
     "aoci.meta.txt": {
       "role": "index",
