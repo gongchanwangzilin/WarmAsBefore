@@ -11,6 +11,7 @@ using WarmAsBefore.Modules.Screen;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO.Compression;
+using System.Windows.Input;
 
 namespace WarmAsBefore.ViewModels;
 
@@ -99,7 +100,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
         _backgroundSolidHex = NormalizeSolidHex(s.BackgroundSolidHex);
-        _backgroundSolidDraft = _backgroundSolidHex;
+        SolidSwatches = SolidPalette
+            .Select(t => new SolidSwatch(t.Hex, t.Name) { PickCommand = PickSolidColorCommand })
+            .ToArray();
         SyncSolidSwatches();
         _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
         _mapTileOnline = s.MapTileOnline;
@@ -527,20 +530,21 @@ public sealed partial class SettingsViewModel : ObservableObject
     /// <summary>
     /// 纯色档的十颗底色：四颗中性、两颗冷、两颗暖、两颗深。
     /// 它们不是装饰色 —— 纯色档的糊底就是从这颗色合成的，所以换色等于换整间屋子的光。
-    /// 选完之后仍可手输十六进制（自定义），色板只是「十种不用想也知道不会难看」的起点。
+    /// 想要色板外的颜色走「选个颜色…」进调色页；这十颗只是「不用想也知道不会难看」的起点。
+    ///
+    /// 命令挂在数据项自己身上（<see cref="SolidSwatch.PickCommand"/>），模板里不再写
+    /// RelativeSource 祖先查找：卡片是 BindableLayout 现场建的模板，那一层祖先查找是
+    /// 「点了没反应」可能的两个断点之一（另一个是 Border 上的 TapGestureRecognizer），
+    /// 都换掉之后点击只剩「数据项自己的命令」这一条路。
     /// </summary>
-    public IReadOnlyList<SolidSwatch> SolidSwatches { get; } = new[]
+    public IReadOnlyList<SolidSwatch> SolidSwatches { get; }
+
+    /// <summary>十颗底色的原始表；命令在构造时统一挂上（init-only，只能在建立时给）。</summary>
+    private static readonly (string Hex, string Name)[] SolidPalette =
     {
-        new SolidSwatch("#FDF8F0", "奶油纸"),
-        new SolidSwatch("#E8E6E1", "素灰"),
-        new SolidSwatch("#DDE6F0", "晨雾蓝"),
-        new SolidSwatch("#CBDCD8", "青瓷"),
-        new SolidSwatch("#F3E3CF", "暖砂"),
-        new SolidSwatch("#F6E1E6", "樱雾"),
-        new SolidSwatch("#3A3D42", "石墨"),
-        new SolidSwatch("#2C3A4E", "幽蓝"),
-        new SolidSwatch("#4A3527", "赭石"),
-        new SolidSwatch("#22322A", "墨绿"),
+        ("#FDF8F0", "奶油纸"), ("#E8E6E1", "素灰"), ("#DDE6F0", "晨雾蓝"), ("#CBDCD8", "青瓷"),
+        ("#F3E3CF", "暖砂"), ("#F6E1E6", "樱雾"), ("#3A3D42", "石墨"), ("#2C3A4E", "幽蓝"),
+        ("#4A3527", "赭石"), ("#22322A", "墨绿"),
     };
     public string BackgroundImageLabel => string.IsNullOrWhiteSpace(BackgroundImagePath)
         ? "尚未选择图片" : System.IO.Path.GetFileName(BackgroundImagePath);
@@ -573,9 +577,7 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>选中的底色（空串 = 跟主题走）。改它就换整层背景，并且落盘。</summary>
     [ObservableProperty] private string _backgroundSolidHex = "";
-    /// <summary>输入框里的草稿：只有点「应用」才写进 <see cref="BackgroundSolidHex"/>，边打字边重绘会闪。</summary>
-    [ObservableProperty] private string _backgroundSolidDraft = "";
-    /// <summary>自定义色那行的回执：输错了要说清楚，不能默默回到主题色。</summary>
+    /// <summary>色板那行的回执：换色成功后说清现在是什么色，跟主题时也明说。</summary>
     [ObservableProperty] private string _backgroundSolidHint = "";
 
     partial void OnBackgroundSolidHexChanged(string value)
@@ -587,7 +589,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             SetProperty(ref _backgroundSolidHex, hex, nameof(BackgroundSolidHex));
             return;
         }
-        BackgroundSolidDraft = hex;
         SyncSolidSwatches();
         ApplySolidNow();
         PersistSettings();
@@ -599,22 +600,24 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         if (swatch is null) return;
         BackgroundSolidHex = swatch.Hex;
-        BackgroundSolidHint = $"背景：{swatch.Name}";
+        BackgroundSolidHint = $"背景：{swatch.Name} {swatch.Hex}";
     }
 
-    /// <summary>手输十六进制。接受 #RRGGBB / #AARRGGBB / 不带井号；认不出来就说清楚，不改现状。</summary>
+    /// <summary>开调色页。颜色走 <see cref="ColorPickerHandoff"/> 回传，不走 Shell 查询串（转义容易出错）。</summary>
     [RelayCommand]
-    private void ApplySolidHex()
+    private async Task OpenColorPicker() => await Shell.Current.GoToAsync("colorpicker");
+
+    /// <summary>
+    /// 调色页回来：把结果接到与色板同一条链路上（当场换底 + 刷新选中态 + 落盘）。
+    /// 空串 = 用户在那儿回到了「跟主题走」，也照办。
+    /// </summary>
+    public void ApplyPickedSolid(string hex)
     {
-        var raw = (BackgroundSolidDraft ?? "").Trim();
-        if (raw.Length == 0) { FollowTheme(); return; }
-        if (!Color.TryParse(raw.StartsWith('#') ? raw : "#" + raw, out var c))
-        {
-            BackgroundSolidHint = "认不出这个颜色，写成 #FDF8F0 这样六位就行。";
-            return;
-        }
-        BackgroundSolidHex = HexOf(c);
-        BackgroundSolidHint = $"背景：{BackgroundSolidHex}";
+        if (string.IsNullOrWhiteSpace(hex)) { FollowTheme(); return; }
+        var norm = NormalizeSolidHex(hex);
+        if (norm.Length == 0) return;
+        BackgroundSolidHex = norm;
+        BackgroundSolidHint = $"背景：{norm}";
     }
 
     /// <summary>回到跟主题走（PageBg）。</summary>
@@ -1950,11 +1953,16 @@ public sealed partial class SettingsViewModel : ObservableObject
 }
 
 /// <summary>
-/// 纯色档的一颗色板：一颗底色 + 「它是不是当前选中的那一颗」。
+/// 纯色档的一颗色板：一颗底色 + 「它是不是当前选中的那一颗」+ 点它的那条命令。
 ///
 /// 选中态不用转换器、也不在代码里算画刷：外面一圈强调色的描边由 XAML 的
 /// <c>IsVisible="{Binding Selected}"</c> 控制（选中 = 多套一圈 2px 的高光环），
 /// 这样换主题时那一圈仍然跟着 DynamicResource 走，不会钉死在旧色上。
+///
+/// <see cref="PickCommand"/> 由 <see cref="SettingsViewModel"/> 在构造色板时挂进来：
+/// 绑定走 <c>{Binding PickCommand}</c> 就是读这一项自己的属性，不经过祖先查找。
+/// 上一版写成 <c>RelativeSource AncestorType=SettingsViewModel</c> —— 同一种写法在本页
+/// 其它卡片里能用，唯独色板点了没反应，所以这一处干脆不依赖「模板能不能找到祖先」。
 /// </summary>
 public sealed partial class SolidSwatch : ObservableObject
 {
@@ -1973,6 +1981,9 @@ public sealed partial class SolidSwatch : ObservableObject
 
     /// <summary>色块本身的颜色。</summary>
     public Color Fill { get; }
+
+    /// <summary>点这颗色的命令：参数就是这一项自己（<c>CommandParameter="{Binding .}"</c>）。</summary>
+    public ICommand? PickCommand { get; init; }
 
     [ObservableProperty] private bool _selected;
 }

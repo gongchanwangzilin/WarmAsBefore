@@ -14,6 +14,8 @@ public static class PageRegistration
         services.AddTransient<CharacterSelectPage>();
         services.AddTransient<SettingsPage>();
         services.AddTransient<SettingsSectionPage>();
+        // 调色页：SV 方块 + 色相条，颜色经握手服务回传设置页
+        services.AddTransient<Views.ColorPickerPage>();
         // AI 厂商与模型管理：两页都能独立打开，也互相跳转
         services.AddTransient<AiProvidersPage>();
         services.AddTransient<AiModelsPage>();

@@ -125,47 +125,43 @@
                                              十颗是「不用想也知道不会难看」的起点，下面那行十六进制是出口。 -->
                                         <VerticalStackLayout Spacing="6" Padding="0,13" IsVisible="{Binding BackgroundSolidVisible}">
                                             <Label Text="纯色底" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="十颗挑好的底色：冷/暖/中性、浅/深都有。选中立刻生效 —— 玻璃背后那张糊底会按新色重新合成，不用重启。"
+                                            <Label Text="十颗挑好的底色：冷/暖/中性、浅/深都有。选中立刻生效 —— 玻璃背后那张糊底会按新色重新合成，不用重启。想要这十颗以外的颜色，点「选个颜色…」。"
                                                    Style="{StaticResource TxtCaption}" />
                                             <FlexLayout Wrap="Wrap" Direction="Row" JustifyContent="Start" AlignItems="Center"
                                                         Margin="0,4"
                                                         BindableLayout.ItemsSource="{Binding SolidSwatches}">
                                                 <BindableLayout.ItemTemplate>
                                                     <DataTemplate x:DataType="vm:SolidSwatch">
-                                                        <!-- 外圈：透明的点击台，按下时整颗色块下沉（PressFeel），
-                                                             选中时套一圈 2px 的强调色高光（里层的第二个 Border）。 -->
-                                                        <Border Margin="0,4,10,4" WidthRequest="34" HeightRequest="34" Padding="0"
-                                                                BackgroundColor="Transparent" StrokeThickness="0"
-                                                                StrokeShape="RoundRectangle 11"
-                                                                SemanticProperties.Description="{Binding Name}"
-                                                                motion:PressFeel.Enabled="True">
-                                                            <Border.GestureRecognizers>
-                                                                <TapGestureRecognizer
-                                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:SettingsViewModel}}, Path=PickSolidColorCommand}"
-                                                                    CommandParameter="{Binding .}" />
-                                                            </Border.GestureRecognizers>
-                                                            <Grid>
-                                                                <Border BackgroundColor="{Binding Fill}" Stroke="{DynamicResource BorderLine}"
-                                                                        StrokeThickness="1" StrokeShape="RoundRectangle 8" Margin="2"
-                                                                        motion:HoverFeel.Enabled="True" />
-                                                                <Border IsVisible="{Binding Selected}" BackgroundColor="Transparent"
-                                                                        Stroke="{DynamicResource AccentWarm}" StrokeThickness="2"
-                                                                        StrokeShape="RoundRectangle 10" />
-                                                            </Grid>
-                                                        </Border>
+                                                        <!-- 一颗色：底 = 色块，选中 = 多套一圈强调色高光，面上压一颗透明按钮当点击台。
+                                                             点击台用 Button 而不是 Border + TapGestureRecognizer，命令挂在数据项
+                                                             自己身上（{Binding PickCommand}）：上一版这两个都靠「模板里能拿到
+                                                             祖先 / 透明 Border 能收到点击」，点了没有任何效果，现在两条都不用了。 -->
+                                                        <Grid Margin="0,4,10,4" WidthRequest="34" HeightRequest="34">
+                                                            <Border BackgroundColor="{Binding Fill}" Stroke="{DynamicResource BorderLine}"
+                                                                    StrokeThickness="1" StrokeShape="RoundRectangle 8" Margin="2"
+                                                                    motion:HoverFeel.Enabled="True" />
+                                                            <Border IsVisible="{Binding Selected}" BackgroundColor="Transparent"
+                                                                    Stroke="{DynamicResource AccentWarm}" StrokeThickness="2"
+                                                                    StrokeShape="RoundRectangle 10" />
+                                                            <Button Style="{StaticResource BtnText}" Padding="0"
+                                                                    BackgroundColor="Transparent" CornerRadius="11"
+                                                                    SemanticProperties.Description="{Binding Name}"
+                                                                    Command="{Binding PickCommand}" CommandParameter="{Binding .}" />
+                                                        </Grid>
                                                     </DataTemplate>
                                                 </BindableLayout.ItemTemplate>
                                             </FlexLayout>
-                                            <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
-                                                <Entry Grid.Column="0" Placeholder="#FDF8F0" Text="{Binding BackgroundSolidDraft}"
-                                                       FontSize="13" ReturnCommand="{Binding ApplySolidHexCommand}" />
-                                                <Button Grid.Column="1" Text="应用" Style="{StaticResource BtnGhost}" Padding="14,6"
-                                                        Command="{Binding ApplySolidHexCommand}" />
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8">
+                                                <Button Grid.Column="0" Text="选个颜色…" Style="{StaticResource BtnGhost}" Padding="14,6"
+                                                        Command="{Binding OpenColorPickerCommand}" />
+                                                <Label Grid.Column="1" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                                       Text="{Binding BackgroundSolidHex, StringFormat='当前 {0}'}"
+                                                       IsVisible="{Binding BackgroundSolidHex, Converter={StaticResource StringNotEmpty}}" />
                                                 <Button Grid.Column="2" Text="跟主题" Style="{StaticResource BtnText}" Padding="10,6"
                                                         Command="{Binding FollowThemeCommand}" />
                                             </Grid>
                                             <Label Text="{Binding BackgroundSolidHint}" Style="{StaticResource TxtCaption}"
-                                                   IsVisible="{Binding BackgroundSolidHint, Converter={StaticResource IsNotNull}}" />
+                                                   IsVisible="{Binding BackgroundSolidHint, Converter={StaticResource StringNotEmpty}}" />
                                         </VerticalStackLayout>
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding BackgroundImageVisible}">
                                             <VerticalStackLayout>

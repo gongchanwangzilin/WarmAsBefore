@@ -13,6 +13,8 @@ public static class ViewModelRegistration
         services.AddTransient<MainGameViewModel>();
         services.AddTransient<CharacterSelectViewModel>();
         services.AddTransient<SettingsViewModel>();
+        // 调色页：设置 → 背景 → 选个颜色…（确认后经 ColorPickerHandoff 回传）
+        services.AddTransient<ColorPickerViewModel>();
         services.AddTransient<PhoneViewModel>();
         services.AddTransient<WeChatViewModel>();
         services.AddTransient<QqForumViewModel>();

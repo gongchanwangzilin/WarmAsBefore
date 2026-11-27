@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
+             xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             x:Class="WarmAsBefore.Views.ColorPickerPage"
+             x:Name="Page"
+             x:DataType="vm:ColorPickerViewModel"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      调色页：不是「输入一个十六进制」，是指着挑。
+        上：实时预览 —— 这块色当**背景**时的样子（糊底光斑 + 一张半透明卡面），不是一块色纸；
+        中：饱和度 / 明度方块（SV 方）+ 色相条，两块都可拖，也可点落；
+        下：取消 / 用这个颜色。
+
+      两块画布都交给 GraphicsView 自绘（Drawables/ColorFieldDrawable、HueBarDrawable），
+      手势挂在上层的透明 Grid 上而不是画布本身：画布是 InputTransparent 的，
+      指针事件就不会被 Win2D 的 CanvasControl 吃掉，拖动位置按控件内坐标归一化后再交给 VM。
+    -->
+    <Grid RowDefinitions="Auto,*,Auto">
+
+        <ctl:PageHeader Grid.Row="0" Title="选个颜色"
+                        Subtitle="方块里挑饱和度与明度，色相条上拉色相"
+                        BackText="&lt; 取消" BackCommand="{Binding CancelCommand}" />
+
+        <ScrollView Grid.Row="1" Padding="24,16,24,24">
+            <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" MaximumWidthRequest="760" HorizontalOptions="Fill">
+
+                <!-- ===== 预览 ===== -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                        <Label Text="预览" Style="{StaticResource TxtRowTitle}" />
+                        <Label Text="你看到的是这块色当地面时的样子：底下那层是它，上面压的是一张半透明的卡面。玻璃透出来的颜色由它决定。"
+                               Style="{StaticResource TxtRowDesc}" />
+                        <GraphicsView x:Name="PreviewCanvas" HeightRequest="140" InputTransparent="True" />
+                        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
+                            <!-- 只读回显：点一下复制。用按钮而不是 Label，点击在各平台都稳 -->
+                            <Button Text="{Binding Hex}" Style="{StaticResource BtnText}" Padding="0"
+                                    FontFamily="Bahnschrift" FontSize="{DynamicResource WSizeSubhead}"
+                                    Command="{Binding CopyHexCommand}"
+                                    SemanticProperties.Hint="点击复制这串颜色" />
+                            <Label Grid.Column="1" Text="{Binding CopyHint}" Style="{StaticResource TxtCaption}"
+                                   VerticalOptions="Center" HorizontalOptions="End" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
+                <!-- ===== 挑选 ===== -->
+                <Border Style="{StaticResource CardGroup}">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                        <Label Text="饱和度 · 明度" Style="{StaticResource TxtRowTitle}" />
+                        <Grid HeightRequest="220">
+                            <GraphicsView x:Name="FieldCanvas" InputTransparent="True" />
+                            <Grid x:Name="FieldTouch" BackgroundColor="Transparent">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnFieldTapped" />
+                                    <PanGestureRecognizer PanUpdated="OnFieldPan" />
+                                </Grid.GestureRecognizers>
+                            </Grid>
+                        </Grid>
+
+                        <Label Text="色相" Style="{StaticResource TxtRowTitle}" Margin="0,4,0,0" />
+                        <Grid HeightRequest="26">
+                            <GraphicsView x:Name="HueCanvas" InputTransparent="True" />
+                            <Grid x:Name="HueTouch" BackgroundColor="Transparent">
+                                <Grid.GestureRecognizers>
+                                    <TapGestureRecognizer Tapped="OnHueTapped" />
+                                    <PanGestureRecognizer PanUpdated="OnHuePan" />
+                                </Grid.GestureRecognizers>
+                            </Grid>
+                        </Grid>
+
+                        <Label Text="左→右是饱和度，上→下是明度；方块里可以直接点，也可以按住拖。色相条上的游标同样能点能拖。"
+                               Style="{StaticResource TxtCaption}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- ===== 底部动作 ===== -->
+        <Border Grid.Row="2" Background="{DynamicResource WBarBrush}" StrokeThickness="0" Padding="16,10,16,14">
+            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceLoose}">
+                <Button Text="取消" Style="{StaticResource BtnText}" Command="{Binding CancelCommand}"
+                        VerticalOptions="Center" />
+                <Label Grid.Column="1" Text="{Binding Hex}" Style="{StaticResource TxtCaption}"
+                       FontFamily="Bahnschrift" VerticalOptions="Center" HorizontalOptions="Center" />
+                <Button Grid.Column="2" Text="用这个颜色" Style="{StaticResource BtnPrimary}"
+                        FontSize="13" Padding="20,7" Command="{Binding ConfirmCommand}" />
+            </Grid>
+        </Border>
+    </Grid>
+</ContentPage>

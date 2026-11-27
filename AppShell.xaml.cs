@@ -299,6 +299,8 @@ public partial class AppShell : Shell
         Routing.RegisterRoute(Services.PageWindowKeys.Search, typeof(Views.MemorySearchPage));
         // 设置分类子页（首页 → 分类）
         Routing.RegisterRoute("settingssection", typeof(Views.SettingsSectionPage));
+        // 调色页：纯色档「选个颜色…」进，确认后经 ColorPickerHandoff 回传，不走查询串
+        Routing.RegisterRoute("colorpicker", typeof(Views.ColorPickerPage));
         Routing.RegisterRoute("scenelibrary", typeof(Views.SceneLibraryPage));
         Routing.RegisterRoute(nameof(Views.SceneCalibrationPage), typeof(Views.SceneCalibrationPage));
         Routing.RegisterRoute("forcecast", typeof(Views.ForceCastPage));
