@@ -54,7 +54,7 @@
         <!-- 中央爱心徽章 -->
         <Grid HorizontalOptions="Center" VerticalOptions="Center" Margin="0,-60,0,0">
             <Border BackgroundColor="{DynamicResource AffectionRose}"
-                    StrokeThickness="4"
+                    StrokeThickness="{DynamicResource WDecorRingWidth}"
                     Stroke="White"
                     Padding="30,24"
                     HorizontalOptions="Center">

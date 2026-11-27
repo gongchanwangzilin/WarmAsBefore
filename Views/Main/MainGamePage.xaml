@@ -133,7 +133,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
               VerticalOptions="Start" HorizontalOptions="Fill"
               Padding="{DynamicResource WPadCard}">
             <Border Style="{StaticResource CardSolid}"
-                    StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="1"
+                    StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="{DynamicResource GlassHairline}"
                     Stroke="{DynamicResource WBorderBrush}">
                 <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
@@ -384,14 +384,14 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                            Scale="{Binding SpriteScale}"
                            ScaleX="{Binding SpriteFlipScaleX}" />
                 </AbsoluteLayout>
-                <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource WSepBrush}" StrokeThickness="1" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
+                <Border BackgroundColor="{DynamicResource SurfaceBg}" Opacity="0.7" Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}" WidthRequest="280" HeightRequest="360" HorizontalOptions="Center" VerticalOptions="Center" IsVisible="{Binding NoSpriteVisible}">
                     <Border.StrokeShape><RoundRectangle CornerRadius="20" /></Border.StrokeShape>
                     <VerticalStackLayout HorizontalOptions="Center" VerticalOptions="Center" Spacing="12">
                         <Image Source="ic_masks.png" WidthRequest="64" HeightRequest="64" HorizontalOptions="Center" />
                         <Label Text="{Binding CharacterName}" TextColor="{DynamicResource MutedFg}" FontSize="24" HorizontalOptions="Center" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                     </VerticalStackLayout>
                 </Border>
-                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="{DynamicResource PanelGlass}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
+                <Border IsVisible="{Binding SpriteVisible}" BackgroundColor="{DynamicResource PanelGlass}" StrokeThickness="{DynamicResource GlassHairline}" Stroke="{DynamicResource WSepBrush}" Padding="18,6" HorizontalOptions="Center" VerticalOptions="End" Margin="0,0,0,16">
                     <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                     <Label Text="{Binding CharacterName}" TextColor="{DynamicResource SurfaceFg}" FontSize="16" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                 </Border>
@@ -496,7 +496,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,4,14" /></Border.StrokeShape>
                                         <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
-                                    <Border IsVisible="{Binding ShowBubbleTheirs}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="1" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
+                                    <Border IsVisible="{Binding ShowBubbleTheirs}" BackgroundColor="{DynamicResource BubbleTheirs}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}" Padding="12,8" HorizontalOptions="Start" MaximumWidthRequest="250">
                                         <Border.StrokeShape><RoundRectangle CornerRadius="14,14,14,4" /></Border.StrokeShape>
                                         <Label Text="{Binding Text}" TextColor="{DynamicResource SurfaceFg}" FontSize="13" LineBreakMode="WordWrap" />
                                     </Border>
@@ -509,7 +509,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                             </DataTemplate>
                         </CollectionView.ItemTemplate>
                     </CollectionView>
-                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}" Padding="10,0" Margin="0,4,0,0">
+                    <Border Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="{DynamicResource GlassHairline}" Stroke="{DynamicResource WSepBrush}" Padding="10,0" Margin="0,4,0,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="6">
                             <Entry Text="{Binding InputText}" Placeholder="输入..." PlaceholderColor="{DynamicResource MutedFg}" BackgroundColor="Transparent" TextColor="{DynamicResource SurfaceFg}" FontSize="13" ReturnCommand="{Binding SendMessageCommand}" HeightRequest="36" />
@@ -527,7 +527,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
             <Border Grid.Row="1" Grid.Column="1" x:Name="GalgamePanel"
                     IsVisible="{Binding IsGalgamePanelVisible}"
                     BackgroundColor="{DynamicResource PanelGlassSoft}"
-                    Padding="16,12" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
+                    Padding="16,12" StrokeThickness="{DynamicResource GlassHairline}" Stroke="{DynamicResource WSepBrush}"
                     VerticalOptions="End" Margin="0,0,0,12"
                     HorizontalOptions="Fill"
                     HeightRequest="180">
@@ -565,7 +565,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                            VerticalOptions="Start" Margin="8,4,8,0" />
 
                     <!-- 输入栏 -->
-                    <Border x:Name="GalInputRow" Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1"
+                    <Border x:Name="GalInputRow" Grid.Row="2" BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="{DynamicResource GlassHairline}"
                             Stroke="{DynamicResource WSepBrush}" Padding="10,0">
                         <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
                         <Grid ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6">
@@ -610,7 +610,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
                 </BoxView.GestureRecognizers>
             </BoxView>
             <Border BackgroundColor="{DynamicResource SurfaceBg}"
-                    StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
+                    StrokeThickness="{DynamicResource GlassHairline}" Stroke="{DynamicResource WSepBrush}"
                     Margin="20" Padding="20,16" VerticalOptions="Center" HorizontalOptions="Center"
                     MaximumWidthRequest="820" MaximumHeightRequest="640">
                 <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
@@ -673,7 +673,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
              功能入口一律走手机桌面，这里不再重复一遍——同一个功能有两个入口，
              就等于没有入口：用户记不住哪个是正的，我们也改不动另一份。 -->
         <Grid IsVisible="{Binding ShowMenu}" BackgroundColor="{DynamicResource OverlayDim}">
-            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="1" Stroke="{DynamicResource WSepBrush}"
+            <Border BackgroundColor="{DynamicResource SurfaceBg}" StrokeThickness="{DynamicResource GlassHairline}" Stroke="{DynamicResource WSepBrush}"
                     Padding="24,20" Margin="40" VerticalOptions="Center"
                     MaximumWidthRequest="360">
                 <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>

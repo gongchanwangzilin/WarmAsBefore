@@ -14,7 +14,7 @@
                 WidthRequest="60" HeightRequest="60" Padding="0"
                 HorizontalOptions="End" VerticalOptions="Start"
                 BackgroundColor="{DynamicResource PanelGlass}"
-                Stroke="{DynamicResource WSepBrush}" StrokeThickness="1">
+                Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}">
             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
             <Border.GestureRecognizers>
                 <TapGestureRecognizer Command="{Binding ExpandCommand}" />
@@ -28,7 +28,7 @@
                 WidthRequest="236" Padding="10,8"
                 HorizontalOptions="End" VerticalOptions="Start"
                 BackgroundColor="{DynamicResource PanelGlass}"
-                Stroke="{DynamicResource WSepBrush}" StrokeThickness="1">
+                Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}">
             <Border.StrokeShape><RoundRectangle CornerRadius="16" /></Border.StrokeShape>
             <VerticalStackLayout Spacing="7">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceTight}">

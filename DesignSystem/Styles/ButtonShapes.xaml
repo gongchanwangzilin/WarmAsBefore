@@ -50,21 +50,22 @@
         <Setter Property="WidthRequest" Value="56" />
         <Setter Property="HeightRequest" Value="56" />
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
-        <Setter Property="Stroke" Value="{DynamicResource GlassCardStroke}" />
-        <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
+        <Setter Property="Stroke" Value="{DynamicResource GlassButtonStroke}" />
+        <Setter Property="StrokeThickness" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusPill}" />
+        <!-- Liquid：按下去是「压陷」，不是「再深一档」—— 缩放 + 下沉 + 换成按下那一面玻璃
+             （高光收窄、接触阴影压紧），松手沿弹簧曲线带过冲弹回。见 Helpers/PressFeel。 -->
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
-                    <VisualState Name="Pressed">
-                        <VisualState.Setters>
-                            <Setter Property="StrokeThickness" Value="1.5" />
-                        </VisualState.Setters>
-                    </VisualState>
+                    <!-- 按下不再加粗描边：1px 是这套材质的定数，压陷由 PressFeel 的缩放 + 换面说。 -->
+                    <VisualState Name="Pressed" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
                             <Setter Property="Opacity" Value="0.4" />
@@ -77,7 +78,7 @@
 
     <!-- Neumorphic：抬起的奶油面（主按钮尺寸）。键名是历史包袱，页面里几百处按名字引用，留名换材质。 -->
     <Style x:Key="BtnNeumorphic" TargetType="Button">
-        <Setter Property="Background" Value="{DynamicResource WSurfaceBrush}" />
+        <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
@@ -85,10 +86,12 @@
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
-        <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
-        <Setter Property="BorderColor" Value="{DynamicResource WControlEdge}" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
@@ -122,6 +125,7 @@
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -162,6 +166,7 @@
         <Setter Property="Padding" Value="30,0" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <!-- 悬停是「整块渐变到更深的信号色」：这颗钮是整屏唯一的饱和物，
              按面算出来的那一档提亮在深色底上读不出方向，所以颜色由世界发（SignalHover）。
@@ -204,8 +209,10 @@
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
-        <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
@@ -297,9 +304,10 @@
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Padding" Value="18,0" />
-        <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="BorderColor" Value="{DynamicResource RedSoft}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>

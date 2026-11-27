@@ -28,9 +28,13 @@
                 Margin="{DynamicResource WPageMargin}"
                 StrokeShape="{x:Static controls:HudSkin.PanelCardShape}"
                 HorizontalOptions="Fill" VerticalOptions="Fill">
-            <!-- 拟态：一整页的玻璃面板浮在「房间」上，软阴影把四周压下去（2.7） -->
+            <!-- 拟态：一整页的玻璃面板浮在「房间」上，软阴影把四周压下去（2.7）。
+                 几何走令牌：页面里不写距离与扩散，站点级阴影规则改了这里跟着改。 -->
             <Border.Shadow>
-                <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,14" Radius="34" Opacity="0.9" />
+                <Shadow Brush="{DynamicResource WShadowCardBrush}"
+                        Offset="{DynamicResource WShadowPanelOffset}"
+                        Radius="{DynamicResource WShadowPanelRadius}"
+                        Opacity="1" />
             </Border.Shadow>
             <Grid>
                 <!-- 卡面砂纸纹理（2.7）：铺在面板表面、内容之下 —— 纸本温馨质感落在卡上，
@@ -252,7 +256,7 @@
              方角而不是本世界的圆角：这一颗要读成操作台上的光标，不是读成一张卡。 -->
         <Border x:Name="FocusRing" IsVisible="False" InputTransparent="True"
                 HorizontalOptions="Start" VerticalOptions="Start"
-                BackgroundColor="Transparent" StrokeThickness="2"
+                BackgroundColor="Transparent" StrokeThickness="{DynamicResource WFocusRingWidth}"
                 Stroke="{DynamicResource WEdgeStrongBrush}"
                 StrokeShape="RoundRectangle 0" />
 

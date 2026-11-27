@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls.Shapes;
+using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.DesignSystem.Worlds;
 
 namespace WarmAsBefore.Controls;
@@ -14,15 +15,15 @@ namespace WarmAsBefore.Controls;
 /// </summary>
 public static class HudSkin
 {
-    /// <summary>当前是不是 HUD 世界（每次现算：换世界后新建的元素立刻用对形状）。</summary>
-    public static bool IsActive
-    {
-        get
-        {
-            try { return StyleWorldTokens.World == StyleWorld.Endfield; }
-            catch { return false; }
-        }
-    }
+    /// <summary>
+    /// HUD 装饰（切角面板、角标括号、斜纹带、扫描线）是否启用。
+    ///
+    /// 2026-11 统一视觉系统之后恒为 false：这套界面只剩 Windows 11 一种材质，
+    /// 而 Win11 的几何是**圆角阶梯**（4/8/12），不是切角。切角留着会让每一张卡
+    /// 在同一个界面里跟圆角控件并列，读起来是两套材质拼在一起 —— 正是本轮要收掉的东西。
+    /// 属性本身保留：页面里用 x:Static 绑着它的可见性，删掉会编译不过。
+    /// </summary>
+    public static bool IsActive => false;
 
     /// <summary>强调色（角标、斜纹、状态线都用它）：从当前资源取 Signal，取不到用终末地黄。</summary>
     public static Color Accent
@@ -40,15 +41,18 @@ public static class HudSkin
     }
 
     // ── 三种面板形状（页面里直接绑到 StrokeShape）─────────────────────────
+    // 三个形状现在都只是圆角阶梯上的一档：8 卡面 / 4 井面 / 12 弹窗。
+    // 走 GlassTokens 的常量而不是字面量，是因为页面里这三个形状是**一次性**取走的，
+    // 改阶梯时只改令牌，不会留下一半旧圆角。
 
-    /// <summary>卡面：HUD 世界右上/左下各切一刀；其它世界是 8px 圆角。</summary>
-    public static IShape PanelCardShape => Path_Shape(14, 8);
+    /// <summary>卡面：阶梯中档 8。</summary>
+    public static IShape PanelCardShape => Path_Shape(0, GlassTokens.RadiusMedium);
 
-    /// <summary>井面：切角更小，读起来是「内嵌的槽」。其它世界 8px 圆角。</summary>
-    public static IShape PanelWellShape => Path_Shape(9, 6);
+    /// <summary>井面：阶梯小档 4（内嵌的槽，圆角比卡小一档）。</summary>
+    public static IShape PanelWellShape => Path_Shape(0, GlassTokens.RadiusSmall);
 
-    /// <summary>对话/弹窗：切角更大，主按钮与对话框共用一个「被削过」的感觉。</summary>
-    public static IShape PanelDialogShape => Path_Shape(18, 8);
+    /// <summary>对话/弹窗：阶梯最大档 12。</summary>
+    public static IShape PanelDialogShape => Path_Shape(0, GlassTokens.RadiusDialog);
 
     /// <summary>
     /// 切角面板：切角用**绝对像素**（大卡上一刀 14px 才读得成模具，按比例切在大屏上会切掉一整角）。

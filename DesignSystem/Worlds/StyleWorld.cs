@@ -221,18 +221,20 @@ public static class StyleWorldTokens
         bool Seam, bool Shadow, bool FillGradient, string GlassTier)
     {
         public static Recipe Of(StyleWorld w) => new(
-            // 档案室（融合唯一配方）——各源的贡献：
-            //   Depth 0.62          终末地：台阶定性但不过「雾里看块」
-            //   圆角 8/6/8/6        终末地近直角放宽到 6–8（档案柜的圆铁角，比 2–4 多一点温度）
-            //   EdgeWidth 1.2       终末地细描边（玻璃面的发光边由 GlassTokens 接管时会盖过这条，不冲突）
-            //   Pad 16/10           终末地的紧身内距（仪表盘的行距，不学杂志）
-            //   字阶 30/20/15.5/14.5/13/11.5  终末地收紧的字阶（HUD 的信息密度）
-            //   Seam true           轻质感的那道缝保留（纸本分层的根）
-            //   Shadow true         拟态：软阴影发到真实档（浮卡有影、按下去有沉）
-            //   FillGradient true   玻璃面：面是一档浅渐变（Face() 的受光渐变主要分支）
+            // 唯一配方（Win11 玻璃）——各源的贡献：
+            //   Depth 0.62          台阶定性但不过「雾里看块」
+            //   圆角 4/8/12         玻璃令牌的圆角阶梯（GlassTokens.Radius*），不再按世界各写一套
+            //   EdgeWidth 1         1px 发丝边：这套材质的所有边都只有一根（见 GlassTokens.Hairline）
+            //   Pad 16/10           紧身内距（仪表盘的行距，不学杂志）
+            //   字阶 30/20/15.5/14.5/13/11.5  Win11 的字阶密度
+            //   Seam true           分层的那道缝保留（纸本分层的根）
+            //   Shadow true         软阴影发到真实档（浮卡有影、按下去有沉）
+            //   FillGradient true   玻璃面：面是一档浅渐变（Slab 的受光渐变）
             //   GlassTier "glass"   GlassTokens 接管卡面：透出背景、发光边、可磨砂
-            Depth: 0.62, RadiusCard: 8, RadiusWell: 6, RadiusDialog: 8, RadiusButton: 6,
-            EdgeWidth: 1.2, PadCard: 16, PadWell: 10,
+            Depth: 0.62,
+            RadiusCard: Theme.GlassTokens.RadiusMedium, RadiusWell: Theme.GlassTokens.RadiusSmall,
+            RadiusDialog: Theme.GlassTokens.RadiusDialog, RadiusButton: Theme.GlassTokens.RadiusMedium,
+            EdgeWidth: Theme.GlassTokens.Hairline, PadCard: 16, PadWell: 10,
             SizeDisplay: 30, SizeTitle: 20, SizeSubhead: 15.5, SizeBody: 14.5, SizeSmall: 13, SizeCaption: 11.5,
             Seam: true, Shadow: true, FillGradient: true, GlassTier: "glass");
     }
@@ -244,10 +246,8 @@ public static class StyleWorldTokens
     /// </summary>
     private static Recipe Scaled(Recipe r, double k) => k == 1.0 ? r : r with
     {
-        RadiusCard = r.RadiusCard * k,
-        RadiusWell = r.RadiusWell * k,
-        RadiusDialog = r.RadiusDialog * k,
-        RadiusButton = r.RadiusButton * k,
+        // 圆角不乘尺度：4/8/12 是一套阶梯，缩放成 3.4/9.3/11.6 就不再是阶梯了。
+        // 窗口变大变小改的是内距、字号与行高，圆角由 Shape() 吸附到最近的一档。
         PadCard = r.PadCard * k,
         PadWell = r.PadWell * k,
         SizeDisplay = r.SizeDisplay * k,
@@ -584,14 +584,18 @@ public static class StyleWorldTokens
         res["WControlEdge"] = seam;
         res["WControlEdgeBrush"] = new SolidColorBrush(seam);
         res["WControlEdgeWidth"] = r.EdgeWidth > 0 ? r.EdgeWidth : 1.0;
+        // 光标环与装饰环的粗细：它们是**线**，不是玻璃的边，所以不进 GlassTokens 的 1px 规则；
+        // 但页面里也不许自带数值 —— 两档各一个名字，改粗细只改这里。
+        res["WFocusRingWidth"] = 2.0;
+        res["WDecorRingWidth"] = 4.0;
         // 眉栏下的那条线（方向契约里的「缝，不是影」）：比缝重一档，比边轻一档。
         res["WRule"] = SinkOrLift(surface, dark, 0.15, 0.13);
         res["WRuleBrush"] = new SolidColorBrush(SinkOrLift(surface, dark, 0.15, 0.13));
         res["WRuleWidth"] = dark ? 0.7 : 0.9;
 
         res["WRadiusCard"] = Shape(r.RadiusCard);
-        // 浮档比平档大一圈：圆角本身就是「离读者更近」的线索，光靠影子说不服人。
-        res["WRadiusRaised"] = Shape(r.RadiusCard + 4);
+        // 浮档取阶梯上限 12：圆角本身就是「离读者更近」的线索，光靠影子说不服人。
+        res["WRadiusRaised"] = Shape(Theme.GlassTokens.RadiusLarge);
         res["WRadiusWell"] = Shape(r.RadiusWell);
         res["WRadiusDialog"] = Shape(r.RadiusDialog);
         res["WRadiusPill"] = Shape(9999);
@@ -614,6 +618,10 @@ public static class StyleWorldTokens
         // 实测症状就是「改完设置回来，按钮位置还在、一个像素不画」（这条在 HEAD 的注释里记过，
         // 我在令牌化时把它违反了，所以按钮又消失了一次）。不要影子的世界把颜色发到全透明，对象不动。
         res["WShadowCardBrush"] = ShadowInk(dark, r.Shadow && !FlatShadows ? 0.30 : 0);
+        // 页面级大面板的影（标题页那一块整屏卡）：几何也必须有名有姓 ——
+        // 页面里内联的 0,14 / 34 曾经是全站唯一一处自己写影子数字的地方。
+        res["WShadowPanelOffset"] = new Point(0, 14);
+        res["WShadowPanelRadius"] = 34.0;
         res["WShadowDialogBrush"] = ShadowInk(dark, FlatShadows ? 0 : 0.34);
 
         res["WSizeDisplay"] = r.SizeDisplay;
@@ -679,6 +687,40 @@ public static class StyleWorldTokens
         res["AffectionInkSoft"] = Color.FromArgb("#FFE3F0");
         res["AffectionScrim"] = Color.FromArgb("#55331F66");
 
+        // 「永远在暗底上演」的第二组：桌面宠物的对话小窗、头像裁剪台。
+        // 这两块不跟着明暗档翻转（它们要压在桌面上/照片上），但色值必须有名字 ——
+        // 无名的手写色是换主题时全应用唯一不动的那一块，也是页面 XAML 里最后一批裸 hex。
+        res["StageBg"] = Color.FromArgb("#4A3D2C");
+        res["StageBgDeep"] = Color.FromArgb("#1E1712");
+        res["StagePanel"] = Color.FromArgb("#E64A3D2C");
+        res["StagePanelSoft"] = Color.FromArgb("#CC4A3D2C");
+        res["StageChip"] = Color.FromArgb("#7A4A3D2C");
+        res["StageField"] = Color.FromArgb("#22FFFFFF");
+        res["StageFieldStrong"] = Color.FromArgb("#33FFFFFF");
+        res["StageInk"] = Color.FromArgb("#FFFFFF");
+        res["StageInkDim"] = Color.FromArgb("#CCFFFFFF");
+        res["StageInkFaint"] = Color.FromArgb("#AAFFFFFF");
+
+        // 头像裁剪台：舞台比舞台更暗，剪刀框比框更亮 —— 三档都在同一根灰阶上。
+        res["PhotoStage"] = Color.FromArgb("#141110");
+        res["PhotoStageWell"] = Color.FromArgb("#0B0A09");
+        res["PhotoScrim"] = Color.FromArgb("#A6000000");
+        res["PhotoGuide"] = Color.FromArgb("#4DFFFFFF");
+        res["PhotoCropEdge"] = Color.FromArgb("#E6FFFFFF");
+
+        // 记忆图谱的节点色：图例与自绘画布共用一套（画布那侧按 Pick 现读）。
+        res["MemNodeEvent"] = Color.FromArgb("#E8B87A");
+        res["MemNodeEventEdge"] = Color.FromArgb("#8A6A48");
+        res["MemNodePlace"] = Color.FromArgb("#AFCFEA");
+        res["MemNodeThing"] = Color.FromArgb("#EFB0AE");
+        res["MemNodeMood"] = Color.FromArgb("#F2C4D6");
+        res["MemNodeAi"] = Color.FromArgb("#8FA8C8");
+
+        // 宠物页的三档强调光晕：同色相、三个透明度，末档全透明才能做出「往外散开」的渐变。
+        res["PetGlowStrong"] = Color.FromArgb("#B0E8B27A");
+        res["PetGlowMid"] = Color.FromArgb("#58E8B27A");
+        res["PetGlowNone"] = Color.FromArgb("#00E8B27A");
+
         // 玻璃档的三个色标：GlassTokens 原来把 #FDF8F0 / #FFFFFF / #8B7D6B 这些奶油系的值
         // 直接写死在画刷里，换到晨雾蓝灰或深色档时，玻璃卡片会变成一块不属于这个世界的奶油。
         // 现在它只保留「哪一档多透、边多亮」这套材质算法，颜色一律由世界给。
@@ -712,7 +754,21 @@ public static class StyleWorldTokens
         res["WMarkSize"] = 12.0;
     }
 
-    private static RoundRectangle Shape(double radius) => new() { CornerRadius = new CornerRadius(radius) };
+    /// <summary>
+    /// 圆角形状：吸附到 4 / 8 / 12 这三档。旧配方里的 6、14 这类中间值不再存在 ——
+    /// Win11 的圆角就是阶梯，不是连续量；差 1px 的圆角相邻两块并排放会读成「没对齐」。
+    /// </summary>
+    private static RoundRectangle Shape(double radius) => new() { CornerRadius = new CornerRadius(SnapRadius(radius)) };
+
+    private static double SnapRadius(double radius)
+    {
+        if (radius >= 999) return radius;                     // 胶囊：9999 交给平台夹到短边一半
+        var ladder = new[] { Theme.GlassTokens.RadiusSmall, Theme.GlassTokens.RadiusMedium, Theme.GlassTokens.RadiusLarge };
+        var best = ladder[0];
+        foreach (var step in ladder)
+            if (Math.Abs(step - radius) < Math.Abs(best - radius)) best = step;
+        return best;
+    }
 
     /// <summary>
     /// 影子的颜色：黑 + alpha。alpha 为 0 即「这个世界没有影子」，但 Shadow 对象照样存在、不换，

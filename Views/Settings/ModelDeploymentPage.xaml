@@ -22,7 +22,7 @@
             <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}">
 
                 <!-- 添加部署表单 -->
-                <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="12,10">
+                <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource WSepWidth}" Padding="12,10">
                     <Border.StrokeShape><RoundRectangle CornerRadius="12" /></Border.StrokeShape>
                     <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="添加部署" FontSize="14" FontAttributes="Bold" TextColor="{DynamicResource SurfaceFg}" />
@@ -72,7 +72,7 @@
                             <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" BindableLayout.ItemsSource="{Binding Suggestions}">
                                 <BindableLayout.ItemTemplate>
                                     <DataTemplate x:DataType="models:ModelSuggestion">
-                                        <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}" StrokeThickness="0.8" Padding="10,8">
+                                        <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource BorderLine}" StrokeThickness="{DynamicResource WSepWidth}" Padding="10,8">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                                 <VerticalStackLayout Grid.Column="0" Spacing="1">
@@ -97,7 +97,7 @@
                 <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}" BindableLayout.ItemsSource="{Binding Models}">
                     <BindableLayout.ItemTemplate>
                         <DataTemplate x:DataType="vm:DeployedModelRow">
-                            <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="0.8" Padding="10,8">
+                            <Border BackgroundColor="{DynamicResource SurfaceBg}" Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource WSepWidth}" Padding="10,8">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="10" /></Border.StrokeShape>
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                                     <VerticalStackLayout Grid.Column="0" Spacing="1">

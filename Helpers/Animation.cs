@@ -175,9 +175,11 @@ public static class Motion
             fe.Translation = System.Numerics.Vector3.Zero;
             fe.Opacity = 1;
 
+            // 整页过场与按压共用同一条弹簧（MotionTokens.Spring*）：前段极快、后段长收，
+            // 末段那点过冲让页面「落到这里」而不是「停在这里」。曲线数字只在令牌里，这里一个都不写。
             var ease = comp.CreateCubicBezierEasingFunction(
-                new System.Numerics.Vector2(0.16f, 1f),    // 前段极快
-                new System.Numerics.Vector2(0.30f, 1f));   // 后段长收，不起回弹
+                new System.Numerics.Vector2((float)MotionTokens.SpringX1, (float)MotionTokens.SpringY1),
+                new System.Numerics.Vector2((float)MotionTokens.SpringX2, (float)MotionTokens.SpringY2));
 
             var move = comp.CreateVector3KeyFrameAnimation();
             move.InsertKeyFrame(0f, new System.Numerics.Vector3(dx, dy, 0f));

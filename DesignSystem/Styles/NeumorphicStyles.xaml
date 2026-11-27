@@ -22,8 +22,11 @@
         <Setter Property="StrokeThickness" Value="{DynamicResource GlassCardStrokeThickness}" />
         <Setter Property="Padding" Value="{DynamicResource WPadCard}" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusRaised}" />
+        <!-- Shadow 对象内联、只有 Brush 跟世界走：换整个 Shadow 对象 = 重建合成层，
+             症状是「导航回来元素位置还在、不再绘制」。几何钉在阴影规则的高度上限
+             （浮档是最高的一档卡）：对象不能换，所以距离/扩散是常量，跟着液态高度变的是颜色那一侧。 -->
         <Setter Property="Shadow">
-            <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,5" Radius="14" Opacity="1" />
+            <Shadow Brush="{DynamicResource WShadowCardBrush}" Offset="0,10" Radius="30" Opacity="1" />
         </Setter>
     </Style>
 
@@ -39,7 +42,7 @@
 
     <!-- 通用按钮：本档 46，另有 Sm 34 / Lg 56（与 ButtonShapes 的高度梯度对齐）。 -->
     <Style x:Key="BtnNeumorph" TargetType="Button">
-        <Setter Property="Background" Value="{DynamicResource WSurfaceBrush}" />
+        <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
@@ -47,8 +50,10 @@
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
-        <Setter Property="BorderWidth" Value="{DynamicResource WControlEdgeWidth}" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
+        <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <!-- 按钮不再挂影子：可点击性来自面与底的台阶 + 那一圈缝，不来自浮起。
              而且这是全站数量最多的元素，每个一个合成层，换页时最贵的一笔开销就省下了。 -->
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
