@@ -2,6 +2,7 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              x:Class="WarmAsBefore.Views.AiModelsPage"
              x:Name="Page"
              x:DataType="vm:AiModelsViewModel"
@@ -255,8 +256,8 @@
                         <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}">
                             <Label Text="使用顺序（Priority）" Style="{StaticResource TxtSubhead}" />
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                                <Slider Grid.Column="0" Minimum="0" Maximum="20" VerticalOptions="Center"
-                                        Value="{Binding SelectedModel.Priority}" />
+                                <controls:ViewSlider Grid.Column="0" Minimum="0" Maximum="20" VerticalOptions="Center"
+                                                     Value="{Binding SelectedModel.Priority}" />
                                 <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="1" Text="{Binding SelectedModel.PriorityText}"
                                        Style="{StaticResource TxtBody}" MinimumWidthRequest="28" HorizontalTextAlignment="Center" />
                             </Grid>

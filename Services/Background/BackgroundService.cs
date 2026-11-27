@@ -152,10 +152,12 @@ public sealed class BackgroundService
             ? "PageBg"
             : BackgroundConfig.Default.SolidColorToken;
 
-        // themeName 必须是目录里存在的调色板 id，否则回退到 classic。
+        // themeName 必须是目录里存在的调色板 id。色板轴锁定终末地之后，认不出来的旧值
+        // （classic / sakura / bamboo / mist，或任何手工改过的存档）一律落回终末地，
+        // 而不是落回 classic —— 那会让一屏终末地界面的背景悄悄换成奶油色。
         var paletteId = themeName is not null && BackgroundCatalog.Palettes.ContainsKey(themeName)
             ? themeName
-            : "classic";
+            : DesignSystem.Theme.ThemeManager.LockedPalette;
 
         var scene = BackgroundCatalog.Resolve(weatherDescription);
 

@@ -5,47 +5,45 @@
                     x:Class="WarmAsBefore.DesignSystem.Styles.ButtonShapes">
 
     <!--
-    按钮体系：面、缝、角、影、字阶全部来自 StyleWorld 下发的令牌，这里不再写死任何材质值。
-    换世界只改令牌、字典本身不动；{DynamicResource} 解析的是应用级顶层字典，
-    所以已经渲染出来的页面会跟着一起换档，不需要重建 Shell。
+    液态玻璃按钮（2026-11-27，照 iOS 26 的参考图重做）。
+    面、环、光、字色全部来自 StyleWorld / GlassTokens 下发的令牌，这里不再写死任何材质值；
+    {DynamicResource} 解析的是应用级顶层字典，所以已经渲染出来的页面会跟着一起换档。
+
+    一颗按钮由三样东西成立，缺一个就退回「一块平塑料板」：
+      1. 面  GlassButtonBg —— 几乎不画实色（白 7%~15%），只留一道从左上斜落的高光。
+             参考图里按钮之所以「亮到发光」而不「白」，就是因为它本身几乎没有填充。
+      2. 环  GlassButtonRing（Color）+ GlassButtonStrokeThickness（3px）。
+             MAUI 的 Button 只有一个 BorderColor，吃不下渐变 Brush（Button 上没有 BorderBrush，
+             Border 才有 Stroke）—— 所以环在**按钮上**是单色，方向光由面那道斜高光和下面的外发光补上；
+             圆形图标钮是 Border，那边走的是真正的渐变环 GlassButtonStroke（左上 0.92 → 右下 0.05）。
+      3. 光  GlassButtonGlow —— 一颗 Offset 0,0 / Radius 22 的白 Shadow。这是参考图里最显眼的特征，
+             也是「玻璃有高度」的全部来源：面越淡，这圈光越像玻璃边缘在发亮。
+             Shadow **只在静止态声明一次**：WinUI 换 Shadow 等于重建合成层
+             （实测「点过的按钮返回后整块空白」，见下面第 2 条），所以悬停与按下都不碰它。
 
     按钮的颜色与位移是两条互不重叠的通道（用户的原话：「变深效果和按下效果要分开：
     移到那里变深，按下的时候再往下有按动」）：
       1. 悬停变深：HoverFeel 直接压原生画刷，离开时按原路收回。这是全站唯一的悬停色作者。
-      2. 按下下沉：PressFeel 补 2.4px 的位移（TapMs 70 / SettleMs 170），颜色不动。
-         视觉状态里**不再**写任何悬停/按下颜色：视觉状态的 Setter 是瞬时的，写进去只有两级跳变；
-         更要命的是带导航的按钮——按下时指针还压在按钮上，页面就切走了，抬起事件不再送达，
-         MAUI 的 VisualStateManager 会一直停在 Pressed，那一档颜色就长在按钮脸上。
-         用户报的「点过一次就变深、再也不还原」（续情缘、角色页顶栏的返回/保存）正是这一条。
-         现在 PointerOver / Pressed 留空壳：空壳不是占位，Normal 是 MAUI 收回上一档 Setter 的落点。
+         面是渐变时它走 LiquidFace，把那条高光**沿光照方向滑 6%** —— 读者看到的是「光在玻璃里流动」。
+      2. 按下下沉：PressFeel 补 2.4px 的位移 + 缩到 0.96 + 换成按下那一面玻璃（高光收窄、侧壁压紧）
+         + 把环换成 GlassButtonRing（更亮那一档）。松手沿 MotionTokens.Spring 带过冲弹回。
+         这些都由驱动逐帧赋值、换页/卸载时主动归位，**不写进视觉状态**：
+         视觉状态的 Setter 是瞬时的，写进去只有两级跳变；更要命的是带导航的按钮——
+         按下时指针还压在按钮上，页面就切走了，抬起事件不再送达，MAUI 的 VisualStateManager
+         会一直停在 Pressed，那一档颜色就长在按钮脸上（用户报的「点过一次就变深、再也不还原」）。
+         所以 PointerOver / Pressed 留空壳：空壳不是占位，Normal 是 MAUI 收回上一档 Setter 的落点。
       3. 键盘焦点：系统在控件外沿画一条，不自绘第二圈。
       4. 禁用：只留这一档，压暗到 0.4。
-      5. 悬停要读得出「可按」：HoverFeel 的压深量按面自己的颜色算（Step/Wash），
-         所以同一颗按钮站在页底、卡面或图上都不会变成「没变化」。
+      5. 圆头：CornerRadius 取 WRadiusPillPx（9999），平台夹到短边一半 —— 四档高度都成了真正的胶囊。
 
-    影子只在静止态声明一次，状态之间不再换它。听起来最该有影子收拢的就是按下，但代价太大：
-    WinUI 换 Shadow 等于重建一次合成层，实测「点过的按钮返回后整块空白」—— 布局位还在、
-    像素一个不画、连 UIA 树里都没有了（去掉状态里的 Shadow 后同一操作 3/3 正常）。
-    所以按钮一律不挂 Shadow：可点击性来自面与底的台阶 + 那一圈缝，不来自浮起。
-    需要影子的只有卡与对话框，它们的样式里写的是**内联 Shadow 对象 +  DynamicResource 的 Brush**，
-    对象身份不变、只换颜色，合成层不会被重建。
-
-    分工：样式只管静止档与禁用档；悬停色由 HoverFeel 现算现还，按下位移由 PressFeel 走。
-    约束：状态里绝不用 Scale（WinUI 下按压缩放触发重新布局，快速连点会卡住），
-          也不换 Shadow（理由见上一段）；
-          Pressed/PointerOver 里别写 TranslationY —— 那是驱动的输出量，写了会跟它抢。
-          透明度反过来：它归状态（禁用态的 0.4 就靠它），驱动一律不碰。
-          画刷令牌只进 Background / Stroke，颜色令牌只进 BackgroundColor / BorderColor / TextColor，
-          同一个控件的两条属性不能混着写 —— 状态里改一条，另一条会把它顶回去。
-
-    留在字面量里的只有高度档 34 / 40 / 46 / 56（世界不下发按钮高度，44 是命中区下限），
-    与之配平的水平内距 12,0 / 18,0 / 20,0 / 24,0，焦点环那 2px（比静止缝重一档就够，
-    再粗会开始啃标签文字），以及圆形图标钮取边长一半的那个半径 —— 它必须跟着按钮尺寸走，
-    写成一个固定令牌反而会把它压成方角。
+    留在字面量里的只有高度档 34 / 40 / 46 / 56（世界不下发按钮高度，44 是命中区下限）、
+    与之配平的水平内距 12,0 / 18,0 / 20,0 / 24,0、外发光那颗 Shadow 的几何（0,0 / 22：
+    几何换了就是重建合成层，所以它钉死；变的是 Brush 的颜色），以及圆形图标钮取边长一半的半径。
     -->
 
-    <!-- 圆形液态玻璃图标钮（主游戏互动按钮：摸/抱/吻/存）。
-         角取 WRadiusPill：9999 比任何边长都大，平台会夹到短边一半，所以四档世界里它始终是圆的。 -->
+    <!-- 圆形液态玻璃图标钮（主游戏互动按钮：摸/抱/吻/存）。这是 Border，所以它有**真正的渐变环**：
+         左上最亮（白 0.92）、右下几乎消失（0.05），环的厚度由渐变里的明度台阶说。
+         WRadiusPill：9999 比任何边长都大，平台会夹到短边一半，所以它始终是圆的。 -->
     <Style x:Key="BtnLiquidGlassIcon" TargetType="Border">
         <Setter Property="WidthRequest" Value="56" />
         <Setter Property="HeightRequest" Value="56" />
@@ -53,10 +51,13 @@
         <Setter Property="Stroke" Value="{DynamicResource GlassButtonStroke}" />
         <Setter Property="StrokeThickness" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusPill}" />
-        <!-- Liquid：按下去是「压陷」，不是「再深一档」—— 缩放 + 下沉 + 换成按下那一面玻璃
-             （高光收窄、接触阴影压紧），松手沿弹簧曲线带过冲弹回。见 Helpers/PressFeel。 -->
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="22" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -64,7 +65,6 @@
                 <VisualStateGroup Name="CommonStates">
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
-                    <!-- 按下不再加粗描边：1px 是这套材质的定数，压陷由 PressFeel 的缩放 + 换面说。 -->
                     <VisualState Name="Pressed" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
@@ -76,20 +76,24 @@
         </Setter>
     </Style>
 
-    <!-- Neumorphic：抬起的奶油面（主按钮尺寸）。键名是历史包袱，页面里几百处按名字引用，留名换材质。 -->
+    <!-- Neumorphic 是历史键名（页面里几百处按名字引用）：留名，材质与 BtnGlass 同一套液态玻璃。 -->
     <Style x:Key="BtnNeumorphic" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
-        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="22" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -111,30 +115,33 @@
         </Setter>
     </Style>
 
-    <!-- Primary：暖金主按钮，一个界面里只该有一个这样的声音。
-         这组只动 BackgroundColor（颜色属性）：世界没有下发「强调色的悬停画刷」，
-         静止态写 Background(画刷)、状态写 BackgroundColor(颜色) 会互相顶，按下去颜色就没了。 -->
+    <!-- Primary：一屏只该有一个这样的声音。面与 BtnGlass 同一档透明玻璃，
+         区别只在字色（终末地强调色，按地面锁过 4.8:1）与更亮的那圈环。 -->
     <Style x:Key="BtnPrimary" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{DynamicResource AccentWarm}" />
-        <Setter Property="TextColor" Value="{DynamicResource AccentWarmFg}" />
+        <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
+        <Setter Property="TextColor" Value="{DynamicResource SignalFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
-        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="22" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
-                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed" />
-                    <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
@@ -147,35 +154,30 @@
     </Style>
 
     <!-- 信号色主行动：首页那颗唯一的 CTA。和 BtnPrimary 的分工是「一屏只许有一个响的」——
-         Primary 吃暖金品牌色，用在卡片内部的小确认；这一档吃 Signal（世界算出来的唯一饱和色），
-         它一出现，同屏其余东西都必须已经退成灰阶。所以别在已经有 BtnPrimary 的卡里再放一颗。
-         胶囊角（WRadiusPill）而不是 WRadiusButton：一排方角里只有它是圆的，形状因此不必靠颜色
-         就能被读成「这是主行动」，色盲与高对比模式下也一样成立。 -->
+         它是整屏唯一的饱和物，所以外发光吃强调色（GlassButtonGlowAccent）、字吃 SignalFg，
+         一出现，同屏其余东西都必须已经退成灰阶。 -->
     <Style x:Key="BtnSignal" TargetType="Button">
-        <Setter Property="BackgroundColor" Value="{DynamicResource Signal}" />
-        <Setter Property="TextColor" Value="{DynamicResource SignalInk}" />
+        <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
+        <Setter Property="TextColor" Value="{DynamicResource SignalFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <!-- 高度与胶囊角成对下发（WPillHeight / WPillRadius = 它的一半），不能各写一个字面量：
-             尺度档一变，只改高度就会掉回方角。也不能用 WRadiusPill —— 那个令牌是
-             RoundRectangle（给 Border.StrokeShape 用的），套到 Button.CornerRadius 上运行时
-             静默失败，钮会退回平台默认的方角，主行动一下就从「胶囊」掉回「又一个方框」。 -->
-        <Setter Property="CornerRadius" Value="{DynamicResource WPillRadius}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="HeightRequest" Value="{DynamicResource WPillHeight}" />
         <Setter Property="MinimumHeightRequest" Value="{DynamicResource WPillHeight}" />
         <Setter Property="Padding" Value="30,0" />
-        <Setter Property="BorderWidth" Value="0" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlowAccent}" Offset="0,0" Radius="24" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
-        <!-- 悬停是「整块渐变到更深的信号色」：这颗钮是整屏唯一的饱和物，
-             按面算出来的那一档提亮在深色底上读不出方向，所以颜色由世界发（SignalHover）。
-             动效由 HoverFeel 的 TintMs 走整块插值——不从左擦到右（用户的原话是「渐变黑」）。 -->
-        <Setter Property="motion:HoverFeel.HoverFill" Value="{DynamicResource SignalHover}" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
-                    <!-- 续情缘就是这一档：按下那一下不再换色，只下沉，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed" />
@@ -190,38 +192,42 @@
         </Setter>
     </Style>
 
-    <!-- 紧凑档的主按钮：卡片里的小步确认（不是页面级 CTA，所以不再单独发明第四种尺寸） -->
+    <!-- 紧凑档的主按钮：卡片里的小步确认（不是页面级 CTA，所以不再单独发明第四种尺寸）。
+         环收到 2.5px：同样的 3px 压在一颗 34 高的钮上会把标签挤扁。 -->
     <Style x:Key="BtnPrimarySm" TargetType="Button" BasedOn="{StaticResource BtnPrimary}">
         <Setter Property="HeightRequest" Value="34" />
         <Setter Property="MinimumHeightRequest" Value="34" />
         <Setter Property="Padding" Value="12,0" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonRingWidthSm}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
     </Style>
 
-    <!-- Glass：跟随设置页玻璃档位的按钮。底与描边来自 GlassTokens；
-         悬停压深由 HoverFeel 按当前档位算，不在这里另挂一份写死的悬停画刷。 -->
+    <!-- Glass：跟随设置页玻璃档位的按钮。底、环、光来自 GlassTokens；
+         悬停压深由 HoverFeel 按当前面算，不在这里另挂一份写死的悬停画刷。 -->
     <Style x:Key="BtnGlass" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
-        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />
         <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="22" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
-                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed" />
-                    <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
@@ -233,7 +239,7 @@
         </Setter>
     </Style>
 
-    <!-- 柔和次要按钮：卡面 + 一道缝（中档高度） -->
+    <!-- 柔和次要按钮：与 Glass 同一套玻璃，只是矮一档（中档高度） -->
     <Style x:Key="BtnGhost" TargetType="Button" BasedOn="{StaticResource BtnGlass}">
         <Setter Property="Padding" Value="18,0" />
         <Setter Property="HeightRequest" Value="40" />
@@ -241,39 +247,33 @@
         <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
     </Style>
 
-    <!-- 紧凑档（34）：设置行、列表行里的动作钮。以前这些地方是拿常规档再内联覆写
-         FontSize/Padding 凑出来的，凑出来的高度仍停在 40/46，一行里大小按钮混着。
-         要小就用这一档；窄列里放不下两个汉字时，把内距再收一点比换字号稳。 -->
+    <!-- 紧凑档（34）：设置行、列表行里的动作钮 -->
     <Style x:Key="BtnGhostSm" TargetType="Button" BasedOn="{StaticResource BtnGhost}">
         <Setter Property="HeightRequest" Value="34" />
         <Setter Property="MinimumHeightRequest" Value="34" />
         <Setter Property="Padding" Value="12,0" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonRingWidthSm}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
     </Style>
 
     <!-- Text-only（ghost 文字钮）：透明底，只靠颜色与位移说话。
-         透明面的悬停染色由 HoverFeel 的 Wash 算（它认得「没有自己的面」这一档），
-         不再写 BeigeAccent50/100 —— 那两个令牌是晨雾主题的固定填充，换世界就不跟地走了。 -->
+         这一档**刻意**没有玻璃面、环与光：它常出现在卡片内的小动作里，一旦有环就会被读成
+         一颗实心按钮，一行三四个动作立刻变成一排钮。圆头仍与其余按钮一致。 -->
     <Style x:Key="BtnText" TargetType="Button">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="Padding" Value="12,6" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
-                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。
-                         文字钮以前在这里挂暖沙色作悬停底，点完不还原就留成一块色斑；
-                         而且字色也归这里管，鼠标一过字就换一档墨，读起来像被禁用了。 -->
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed" />
-                    <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
@@ -289,36 +289,33 @@
     <Style x:Key="BtnTextSm" TargetType="Button" BasedOn="{StaticResource BtnText}">
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
         <Setter Property="Padding" Value="8,4" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
     </Style>
 
-    <!-- 危险操作（删除/移除）。不再自己涂一块实心红：RedSoft 是淡红「填充」档，
-         上面摆白字（原来写死的 #FFFFFF）在浅色档只有 2.1:1，换成深色档又反了向，
-         没有一个墨色能同时压住两地。所以面留普通卡面，危险只由 DangerInk 的字
-         和 RedSoft 的缝来说 —— 两个都是世界按当前地面锁过对比的。 -->
+    <!-- 危险操作（删除/移除）。面仍是透明玻璃，危险只由 DangerInk 的字与 RedSoft 的环说 ——
+         两块都是世界按当前地面锁过对比的，不需要再自己涂一块实心红。 -->
     <Style x:Key="BtnDanger" TargetType="Button">
-        <Setter Property="Background" Value="{DynamicResource WSurfaceBrush}" />
+        <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource DangerInk}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Padding" Value="18,0" />
         <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="BorderColor" Value="{DynamicResource RedSoft}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="22" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
+        <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
-                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。
-                         删除钮的「凹进去」以前写在 Pressed 里，同样会在导航后卡住；
-                         现在按下只有下沉，危险感由 DangerInk 的字和 RedSoft 的缝来说。 -->
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed" />
-                    <!-- 焦点框由系统画（WinUI 在控件外沿一条），这里不再自绘第二圈 -->
                     <VisualState Name="Focused" />
                     <VisualState Name="Disabled">
                         <VisualState.Setters>
@@ -335,11 +332,13 @@
         <Setter Property="HeightRequest" Value="34" />
         <Setter Property="MinimumHeightRequest" Value="34" />
         <Setter Property="Padding" Value="12,0" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonRingWidthSm}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
     </Style>
 
-    <!-- 导航图标钮。半径 = 边长一半，圆形靠按钮尺寸成立，所以这一处留在字面量里。 -->
+    <!-- 导航图标钮：圆靠按钮尺寸成立，半径取边长一半 —— 这一处留在字面量里。
+         ImageButton 的 BackgroundColor 吃不了渐变，所以它没有面上那道高光，但有环和光：
+         在深色顶栏上「一圈亮环 + 一圈外发光」比一块半透明底更读得出「这里能点」。 -->
     <Style x:Key="BtnIcon" TargetType="ImageButton">
         <Setter Property="BackgroundColor" Value="Transparent" />
         <Setter Property="CornerRadius" Value="22" />
@@ -347,12 +346,17 @@
         <Setter Property="WidthRequest" Value="44" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="10" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonRingWidthSm}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="16" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
             <VisualStateGroupList>
                 <VisualStateGroup Name="CommonStates">
-                    <!-- 颜色归 HoverFeel、位移归 PressFeel，见文件顶部第 1/2 条。 -->
                     <VisualState Name="Normal" />
                     <VisualState Name="PointerOver" />
                     <VisualState Name="Pressed" />

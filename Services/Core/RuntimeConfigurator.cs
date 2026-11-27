@@ -1043,22 +1043,20 @@ public sealed class RuntimeConfigurator
             _theme.Liquid = s.LiquidEnabled;
             _theme.GlassTranslucency = s.GlassTranslucency;
             _theme.ReducedTransparency = s.GlassReducedTransparency;
-            _theme.ThemeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
+            // 色板轴锁定终末地：旧存档里的 classic / sakura / bamboo / mist 一律按终末地渲染。
+            _theme.ThemeName = WarmAsBefore.DesignSystem.Theme.ThemeManager.LockedPalette;
             // 材质由世界决定，三个玻璃布尔只留下「这一档该多透」的调制量。
             _theme.World = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromName(s.StyleWorldName);
-            // 终末地配色是「暗色 HUD」：强制暗色令牌（原生标题栏/控件也跟着走），
-            // 其它配色恢复跟随系统。强制的是界面明暗，不改系统设置；离开终末地自动还原。
+            // 终末地配色是「暗色 HUD」：强制暗色令牌（原生标题栏/控件也跟着走）。
+            // 色板锁死之后这条一直成立（不再有「离开终末地」的分支）；强制的是界面明暗，不改系统设置。
             try
             {
-                var endfield = string.Equals(s.ThemeName, "endfield", StringComparison.OrdinalIgnoreCase);
                 if (Application.Current is { } app)
                 {
-                    var wantTheme = endfield ? AppTheme.Dark : AppTheme.Unspecified;
-                    if (app.UserAppTheme != wantTheme) app.UserAppTheme = wantTheme;
+                    if (app.UserAppTheme != AppTheme.Dark) app.UserAppTheme = AppTheme.Dark;
                     // 部分平台上 UserAppTheme 的变更不一定同步到 ThemeManager.Dark：这里显式对齐一次，
                     // 保证 StyleWorld 用暗色地面/墨阶重算，而不是等下一次系统主题事件。
-                    var effectiveDark = endfield || app.RequestedTheme == AppTheme.Dark;
-                    if (_theme.Dark != effectiveDark) _theme.Dark = effectiveDark;
+                    if (!_theme.Dark) _theme.Dark = true;
                 }
             }
             catch (Exception ex) { App.WriteLog("RuntimeConfigurator.EndfieldDark -> " + ex.Message); }

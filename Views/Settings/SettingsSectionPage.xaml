@@ -190,14 +190,6 @@
                                             <Label Text="光的方向随一天变化、强度随能见度变化；关掉只保留云与底色" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding SceneLightEnabled}"
                                                                  OnColor="{DynamicResource AccentWarm}" /></Grid>
-                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13">
-                                            <VerticalStackLayout>
-                                                <Label Text="语义调色板" Style="{StaticResource TxtBodySm}" />
-                                                <Label Text="覆盖按钮、文字、面板、背景的关键色" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Picker Grid.Column="1" WidthRequest="190"
-                                                    ItemsSource="{Binding BackgroundPaletteChoices}"
-                                                    SelectedItem="{Binding BackgroundPaletteDisplay}" />
-                                        </Grid>
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding WeatherSceneOverlayEnabled}">
                                             <VerticalStackLayout>
                                                 <Label Text="场景音效" Style="{StaticResource TxtBodySm}" />
@@ -293,12 +285,9 @@
                                         <Label Text="{Binding [Settings_Interface], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_Theme], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="{Binding [Settings_ThemeHint], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
-                                            <Picker Grid.Column="1" Title="{Binding [Settings_Theme], Source={x:Static i18n:LocalizationService.Current}}" WidthRequest="130"
-                                                    ItemsSource="{Binding ThemeChoices}" SelectedItem="{Binding ThemeDisplay}"
-                                                    FontSize="13" /></Grid>
-                                        <Label Text="「终末地」是新增的深灰工业色板：黄色强调 + 冷灰面板。再配合上面「风格」里的「终末地 HUD」，就是完整的终末地界面；手机与窄窗按屏宽自动排，材质与圆角不会挡住内容。"
-                                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                                            <Label Text="色板已锁定终末地（黄色强调 + 冷灰面板）：按钮、文字、面板、背景都从这一套取色。想要别的地面色，去上面「纯色底」里那颗「选个颜色…」—— 那是背景，不是色板。"
+                                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" /></VerticalStackLayout>
+                                            <Label Grid.Column="1" Text="终末地" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" /></Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_MenuRight], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />

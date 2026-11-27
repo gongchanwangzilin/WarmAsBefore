@@ -54,14 +54,15 @@ public sealed partial class SetupViewModel : ObservableObject
     /// <summary>走没走过首次配置。和免责声明一样只认 Preferences：settings.json 是整份快照覆盖写。</summary>
     public const string DonePrefKey = "setup_done";
 
-    private const int StepLang = 0, StepStyle = 1, StepReside = 2, StepAi = 3, StepDone = 4;
+    // 色板那一步已退役（2026-11-27）：色板轴锁定「终末地」，向导不再提供切换入口。
+    private const int StepLang = 0, StepReside = 2, StepAi = 3, StepDone = 4;
 
     private readonly SettingsManager _settings;
     private readonly ThemeManager _theme;
     private readonly int[] _steps;
 
     [ObservableProperty] private int _position;
-    [ObservableProperty] private bool _atLang = true, _atStyle, _atReside, _atAi, _atDone;
+    [ObservableProperty] private bool _atLang = true, _atReside, _atAi, _atDone;
     [ObservableProperty] private bool _canBack;
     [ObservableProperty] private string _stepEyebrow = "";
     [ObservableProperty] private string _nextLabel = "";
@@ -71,7 +72,6 @@ public sealed partial class SetupViewModel : ObservableObject
     [ObservableProperty] private string _aiModel = "";
 
     public ObservableCollection<SetupOption> LangOptions { get; } = new();
-    public ObservableCollection<SetupOption> PaletteOptions { get; } = new();
     public ObservableCollection<SetupOption> PetOptions { get; } = new();
 
     /// <summary>置顶和桌宠是 Win32 的事，在安卓上这一步整屏不存在（不是禁用，是不出现）。</summary>
@@ -84,8 +84,8 @@ public sealed partial class SetupViewModel : ObservableObject
         _hasResideStep = DeviceInfo.Platform == DevicePlatform.WinUI;
 
         _steps = _hasResideStep
-            ? new[] { StepLang, StepStyle, StepReside, StepAi, StepDone }
-            : new[] { StepLang, StepStyle, StepAi, StepDone };
+            ? new[] { StepLang, StepReside, StepAi, StepDone }
+            : new[] { StepLang, StepAi, StepDone };
 
         BuildOptions();
         ApplyCulture();
@@ -102,20 +102,8 @@ public sealed partial class SetupViewModel : ObservableObject
         Add(LangOptions, "en-US", "English", PickLangCommand);
         Add(LangOptions, "ja-JP", "日本語", PickLangCommand);
 
-        // 世界选项已退役（2.7）：唯一档「档案室」，向导只剩选色板。
-        // 色板色值取自各 ColorPalette*.xaml：底 / 面 / 暖强调 / 主行动，四色一条。
-        Add(PaletteOptions, "classic", "", PickPaletteCommand,
-            swatches: new[] { "#F5F0E8", "#FDF8F0", "#F5D8B8", "#DCC7A0" });
-        Add(PaletteOptions, "sakura", "", PickPaletteCommand,
-            swatches: new[] { "#FBF1F3", "#FEF8F9", "#F6DCC6", "#ECA9BB" });
-        Add(PaletteOptions, "bamboo", "", PickPaletteCommand,
-            swatches: new[] { "#F0F5EC", "#F8FBF6", "#EDE0C8", "#BAD99F" });
-        Add(PaletteOptions, "mist", "", PickPaletteCommand,
-            swatches: new[] { "#EFF2F5", "#F7F9FB", "#E8E0D2", "#A9BDCE" });
-        // 终末地：底 / 面 / 强调黄 / HUD 信息蓝（取自 ColorPaletteEndfield 与 EndfieldHUD 参考配色）。
-        Add(PaletteOptions, "endfield", "", PickPaletteCommand,
-            swatches: new[] { "#131313", "#1C1E20", "#FAD41F", "#22A6F2" });
-
+        // 世界与色板两组选项都已退役（2.7 / 2026-11-27）：材质是唯一档「档案室」，
+        // 色板锁定终末地，向导不再提供切换入口。
         Add(PetOptions, "0", "", PickPetCommand);
         Add(PetOptions, "5", "", PickPetCommand);
         Add(PetOptions, "15", "", PickPetCommand);
@@ -137,25 +125,20 @@ public sealed partial class SetupViewModel : ObservableObject
         list.Add(opt);
     }
 
-    /// <summary>四组选项的显示文字都从语言表取；换语言时整批重写一遍。</summary>
+    /// <summary>各组选项的显示文字都从语言表取；换语言时整批重写一遍。</summary>
     private void ApplyCulture()
     {
         var i18n = LocalizationService.Current;
-        for (var i = 0; i < PaletteOptions.Count; i++)
-            PaletteOptions[i].Label = i18n["Setup_Pal_" + WordCap(PaletteOptions[i].Value)];
         PetOptions[0].Label = i18n["Setup_Pet_Off"];
         for (var i = 1; i < PetOptions.Count; i++)
             PetOptions[i].Label = i18n["Setup_Pet_Min"].Replace("{0}", PetOptions[i].Value);
     }
-
-    private static string WordCap(string key) => key.Length == 0 ? key : char.ToUpper(key[0]) + key[1..];
 
     /// <summary>把界面拧到磁盘上已有的值 —— 中途退出过一次的人，回来看到的应该是自己上次选的。</summary>
     private void SyncFromSettings()
     {
         var s = _settings.Current;
         Select(LangOptions, s.Lang);
-        Select(PaletteOptions, s.ThemeName);
         Select(PetOptions, s.PetIdleMinutes.ToString());
         AiUrl = s.AiUrl;
         AiKey = s.AiKey;
@@ -176,7 +159,6 @@ public sealed partial class SetupViewModel : ObservableObject
     {
         var id = _steps[Math.Clamp(value, 0, _steps.Length - 1)];
         AtLang = id == StepLang;
-        AtStyle = id == StepStyle;
         AtReside = id == StepReside;
         AtAi = id == StepAi;
         AtDone = id == StepDone;
@@ -198,16 +180,7 @@ public sealed partial class SetupViewModel : ObservableObject
         _ = Save(s => s with { Lang = code });
     }
 
-    // 世界选项退役前是 PickWorld 命令；世界收敛后向导不再选材质，命令一并删除。
-
-    [RelayCommand]
-    private void PickPalette(int index)
-    {
-        var key = PaletteOptions[index].Value;
-        Select(PaletteOptions, key);
-        _theme.ThemeName = key;                     // 色板也当场换
-        _ = Save(s => s with { ThemeName = key });
-    }
+    // 世界与色板两步都已退役（2.7 / 2026-11-27）：材质唯一、色板锁定终末地，向导不再选材质也不选色板。
 
     [RelayCommand]
     private void PickPet(int index)

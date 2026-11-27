@@ -505,6 +505,49 @@ public static class StyleWorldTokens
         res["WSepBrush"] = new SolidColorBrush(line);
         res["WSepWidth"] = dark ? 0.8 : 1.0;
 
+        // ── 液柱滑杆（2026-11-27，照 iOS 26 液态玻璃）──────────────────────
+        // 轨道：一根玻璃管。深档靠「提亮一档 + 管口内阴影」，浅档只能靠「比地面沉一档」的灰 ——
+        // 近白的地面上再叠一层白等于没画，这是这套材质在两种地面上都成立的那条分水岭。
+        var tubeHi = dark ? Lift(surface, 0.11) : Sink(surface, 0.04);
+        var tubeLo = dark ? Sink(surface, 0.03) : Sink(surface, 0.11);
+        var tube = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
+        tube.GradientStops.Add(new GradientStop { Color = Sink(tubeHi, 0.18), Offset = 0f });   // 管口上沿的内阴影
+        tube.GradientStops.Add(new GradientStop { Color = tubeHi, Offset = 0.34f });
+        tube.GradientStops.Add(new GradientStop { Color = tubeLo, Offset = 1f });
+        res["WSliderTrackBrush"] = tube;
+        res["WSliderTrackEdge"] = line;
+
+        // 已填充段：一条液柱。左端沉一档、右端（贴滑钮那头）提亮 —— 液面在那里被滑钮挤高了一档。
+        var column = new LinearGradientBrush { StartPoint = new Point(0, 0.5), EndPoint = new Point(1, 0.5) };
+        column.GradientStops.Add(new GradientStop { Color = SinkOrLift(accent, dark, 0.12, 0.10), Offset = 0f });
+        column.GradientStops.Add(new GradientStop { Color = accent, Offset = 0.60f });
+        column.GradientStops.Add(new GradientStop { Color = Lift(accent, dark ? 0.34 : 0.24), Offset = 1f });
+        res["WSliderFillBrush"] = column;
+
+        // 滑钮底下的液体鼓包：径向渐变，中心亮、四周化开到全透明 —— 轨道在滑钮处被顶起来的那一小块。
+        var bulge = new RadialGradientBrush { Center = new Point(0.5, 0.5), Radius = 0.85 };
+        bulge.GradientStops.Add(new GradientStop { Color = Lift(accent, dark ? 0.55 : 0.40), Offset = 0f });
+        bulge.GradientStops.Add(new GradientStop { Color = Lift(accent, 0.18), Offset = 0.55f });
+        bulge.GradientStops.Add(new GradientStop { Color = Alpha(Lift(accent, 0.04), 0x00), Offset = 1f });
+        res["WSliderBulgeBrush"] = bulge;
+
+        // 玻璃环：亮端 0.94 → 中段收进去 → 暗端 0.10。环心是透的（Border 底透明），
+        // 所以滑过轨道时能看见液柱从环里穿过去 —— 这是参考图里那颗滑钮的全部意思。
+        // 亮、暗两端都按地面自己算：浅档的暗端必须是灰（白环在近白地面上不存在）。
+        var ringHi = dark ? Lift(surface, 0.75) : Colors.White;
+        var ringLo = dark ? Lift(surface, 0.22) : Sink(surface, 0.34);
+        Color Ink(Color c, double a) => new(c.Red, c.Green, c.Blue, (float)Math.Clamp(a, 0, 1));
+        var ring = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(1, 1) };
+        ring.GradientStops.Add(new GradientStop { Color = Ink(ringHi, 0.94), Offset = 0f });
+        ring.GradientStops.Add(new GradientStop { Color = Ink(ringHi, 0.42), Offset = 0.38f });
+        ring.GradientStops.Add(new GradientStop { Color = Ink(ringLo, 0.10), Offset = 1f });
+        res["WSliderRingBrush"] = ring;
+        res["WSliderRingWidth"] = 2.8;
+        // 表面张力高光：液柱顶端那一道 1.5px 的白 —— 液面和玻璃环「贴住了」的唯一证据。
+        res["WSliderTension"] = Ink(ringHi, 0.80);
+        res["WSliderGlowBrush"] = new SolidColorBrush(
+            FlatShadows ? Colors.Transparent : Ink(ringHi, dark ? 0.32 : 0.24));
+
         // 状态淡底（徽章、提示条的填充色）：色板里原来是四个写死的奶油淡彩，
         // 换到深色档就变成挂在暗面上的几片浅纸。现在跟地面走：浅档提白、深档沉下去。
         Color Tinted(double hue, double chroma) =>
@@ -599,6 +642,9 @@ public static class StyleWorldTokens
         res["WRadiusWell"] = Shape(r.RadiusWell);
         res["WRadiusDialog"] = Shape(r.RadiusDialog);
         res["WRadiusPill"] = Shape(9999);
+        // 胶囊的**数值**版：Button.CornerRadius 是 double，塞不进 RoundRectangle。
+        // 9999 交给平台夹到短边一半，所以四档高度的按钮都成了真正的圆头（52 的子类也一样）。
+        res["WRadiusPillPx"] = 9999;
         res["WRadiusButton"] = (int)Math.Round(r.RadiusButton);
         res["WPadCard"] = new Thickness(r.PadCard);
         res["WPadWell"] = new Thickness(r.PadWell, r.PadWell * 0.55, r.PadWell, r.PadWell * 0.55);

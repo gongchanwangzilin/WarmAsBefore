@@ -70,7 +70,16 @@ public static class GlassTokens
     public const string ButtonBgHover = "GlassButtonBgHover";
     public const string ButtonBgPressed = "GlassButtonBgPressed";
     public const string ButtonStroke = "GlassButtonStroke";
+    public const string ButtonStrokeHot = "GlassButtonStrokeHot";
     public const string ButtonStrokeThickness = "GlassButtonStrokeThickness";
+    public const string ButtonRingWidthSm = "GlassButtonRingWidthSm";
+    /// <summary>Button.BorderColor 只能吃 Color（不吃 Brush）：方向光在这里退化成一颗中间色。</summary>
+    public const string ButtonRingColor = "GlassButtonRing";
+    public const string ButtonRingColorHot = "GlassButtonRingHot";
+    /// <summary>外发光：Shadow.Brush，白色低不透明度。轻量/降级模式发全透明（Shadow 对象不动）。</summary>
+    public const string ButtonGlow = "GlassButtonGlow";
+    /// <summary>强调色外发光：信号钮用它，让「唯一响的那颗」在透明玻璃上仍然最亮。</summary>
+    public const string ButtonGlowAccent = "GlassButtonGlowAccent";
 
     public const string DialogBg = "GlassDialogBg";
     public const string DialogStroke = "GlassDialogStroke";
@@ -84,6 +93,14 @@ public static class GlassTokens
 
     /// <summary>发丝线的定数：栏与分隔线永远是 1px，粗一分就变成盒子。</summary>
     public const double Hairline = 1.0;
+
+    /// <summary>
+    /// 按钮亮环的宽度（液态玻璃，2026-11-27）：2.5~3.5 之间取 3。
+    /// 环是这套材质立身之本 —— 面几乎全透，按钮之所以还看得见，全靠这一圈和它的外发光。
+    /// 小号按钮（34 高）用 <see cref="RingWidthSm"/>：同样的 3px 压在一颗矮钮上会把标签挤扁。
+    /// </summary>
+    public const double RingWidth = 3.0;
+    public const double RingWidthSm = 2.5;
 
     /// <summary>Win11 圆角阶梯。窗口尺度变化时圆角在这一组里取最近的一档，不做连续缩放。</summary>
     public const double RadiusSmall = 4.0;
@@ -346,7 +363,7 @@ public static class GlassTokens
         // ── 落笔：薄 / 中 / 厚 / 弹窗 ──────────────────────────────────────
         var bar = Of(GlassKind.Bar);
         var card = Of(GlassKind.Card);
-        var button = Of(GlassKind.Button);
+        // 按钮不再走 Spec 那套「厚板」配方：它的面是透明的，见下面的 ClearFace / ButtonRing。
         var dialog = Of(GlassKind.Dialog);
 
         var hairline = flat ? 0.0 : Hairline;
@@ -367,15 +384,74 @@ public static class GlassTokens
         // 低配机器或排查卡顿时可用它换流畅。
         res[CardShadow] = noShadow || flat ? null : ShadowOf(GlassKind.Card, card);
 
-        // 按钮：三个面 —— 静止 / 悬停（镜面下滑、边提亮）/ 按下（高光带收窄到 45%、接触阴影压紧）。
-        // 这三个面就是「液体」的全部状态：胶质的厚度来自面上那一颗窄镜面，按下时它收窄，
-        // 松手沿 MotionTokens.Spring 带过冲弹回（PressFeel 换的是这三张面，不是再加一层颜色）。
-        res[ButtonBg] = flat ? Solid(Sink(surface, 0.55)) : Slab(GlassKind.Button, button, 0, 1, 1, 1);
-        res[ButtonBgHover] = flat ? Solid(Sink(surface, 0.80)) : Slab(GlassKind.Button, button, 0.06, 1.20, 1.04, 0.82);
-        res[ButtonBgPressed] = flat ? Solid(Sink(surface, 1.00)) : Slab(GlassKind.Button, button, -0.04, 0.45, 0.90, 1.55);
-        // 描边取主题的 BorderLine 平档；玻璃档用的是同一根渐变光边。
-        res[ButtonStroke] = flat ? ReadColor(res, "BorderLine", "#D8CFC0") : EdgeOf(GlassKind.Button, button, 0.025);
-        res[ButtonStrokeThickness] = flat ? Hairline : RingOf(button, h);
+        // ── 按钮：透明玻璃（2026-11-27，照 iOS 26 液态玻璃）──────────────────
+        // 面几乎不画实色：白 7%~15%，按钮之所以还站得住，全靠外面那一圈亮环 + 一圈外发光。
+        // 这里刻意**不走** Face() 那条「没有糊底就补到七成实」的兜底 —— 按钮从来不直接压在
+        // 桌面上，它站在卡片或面板上，背后永远有东西可透；把它做实反而是上一版「一块白塑料板」的病根。
+        Color Clear(Color c, double a)
+        {
+            if (p.Reduced) return new Color(c.Red, c.Green, c.Blue, 0.92f);
+            return new Color(c.Red, c.Green, c.Blue, (float)Clamp01(a * (0.55 + 0.55 * t)));
+        }
+
+        // 面：左上那颗镜面 → 顶面 → 主体 → 侧壁。五段里只有前两段是「白」，后两段是板的暗面 ——
+        // 「几乎看不到实色填充」指的是主体：它在 8% 上下，能读出「这里有一块玻璃」，看不出「这里有一块色块」。
+        Brush ClearFace(double topA, double bodyA, double lowA, double hiAt, double band)
+        {
+            var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0.45, 1) };
+            brush.GradientStops.Add(new GradientStop { Color = Clear(tint.EdgeHi, topA * 1.20), Offset = 0f });
+            brush.GradientStops.Add(new GradientStop { Color = Clear(tint.EdgeHi, topA), Offset = (float)Clamp01(hiAt) });
+            brush.GradientStops.Add(new GradientStop
+            {
+                Color = Clear(tint.Mid, bodyA),
+                Offset = (float)Clamp01(hiAt + band)
+            });
+            brush.GradientStops.Add(new GradientStop { Color = Clear(tint.Mid, bodyA), Offset = 0.74f });
+            brush.GradientStops.Add(new GradientStop { Color = Clear(Shade(tint.Low, 0.20), lowA), Offset = 1f });
+            return brush;
+        }
+
+        // 亮环：同一根描边上的四段渐变，沿光照方向走 —— 左上最亮（白 0.92），右下几乎消失（0.05）。
+        // 第二段是「环的厚度」：亮端往里收一档，环内侧比外侧暗，读起来是一根被打磨过的棱，不是一条线。
+        Brush ButtonRing(double litA, double darkA)
+        {
+            var start = new Point(0.5 + dx * 0.5, 0.5 + dy * 0.5);
+            var end = new Point(0.5 - dx * 0.5, 0.5 - dy * 0.5);
+            var brush = new LinearGradientBrush { StartPoint = start, EndPoint = end };
+            brush.GradientStops.Add(new GradientStop { Color = RingInk(tint.EdgeHi, litA), Offset = 0f });
+            brush.GradientStops.Add(new GradientStop { Color = RingInk(tint.EdgeHi, litA * 0.62), Offset = 0.32f });
+            brush.GradientStops.Add(new GradientStop { Color = RingInk(tint.EdgeMid, litA * 0.16), Offset = 0.66f });
+            brush.GradientStops.Add(new GradientStop { Color = RingInk(tint.EdgeLo, darkA), Offset = 1f });
+            return brush;
+        }
+
+        // 环上的透明度：只按光高收一点点，不按 Reduced 做实 —— 一条实心暗环读起来是黑框，不是玻璃边。
+        Color RingInk(Color c, double a) =>
+            new(c.Red, c.Green, c.Blue, (float)Clamp01(a * (1 - 0.20 * z)));
+
+        // Button.BorderColor 只吃一颗 Color（MAUI 的 Button 没有 BorderBrush）：方向光在这里退化成
+        // 亮端与暗端的中间色。它在浅色地面上是一条浅灰棱、在深色地面上是一条发亮的棱 —— 两头都看得见。
+        Color RingFlat(double a) => RingInk(Mix(tint.EdgeHi, tint.EdgeLo, 0.42), a);
+
+        // 外发光：Shadow 的 Brush。白色低不透明度 + 样式里那颗大半径 Shadow 就是参考图里最显眼的那层光。
+        Brush Glow(Color c, double a) => noShadow || flat
+            ? new SolidColorBrush(Colors.Transparent)
+            : new SolidColorBrush(new Color(c.Red, c.Green, c.Blue, (float)Clamp01(a)));
+
+        var accent = ReadColor(res, "AccentWarm", "#FAD41F");
+
+        res[ButtonBg] = flat ? Solid(Sink(surface, 0.55)) : ClearFace(0.14, 0.075, 0.13, 0.06, 0.34);
+        res[ButtonBgHover] = flat ? Solid(Sink(surface, 0.80)) : ClearFace(0.19, 0.095, 0.16, 0.11, 0.30);
+        res[ButtonBgPressed] = flat ? Solid(Sink(surface, 1.00)) : ClearFace(0.26, 0.12, 0.21, 0.02, 0.22);
+        res[ButtonStroke] = flat ? Solid(ReadColor(res, "BorderLine", "#D8CFC0")) : ButtonRing(0.92, 0.05);
+        res[ButtonStrokeHot] = flat ? Solid(ReadColor(res, "BorderLine", "#D8CFC0")) : ButtonRing(1.00, 0.16);
+        // 环宽 3px（34 高的紧凑档 2.5px）：这是按钮在透明面上的唯一轮廓，1px 那档在这个材质里等于没有边。
+        res[ButtonStrokeThickness] = flat ? 0.0 : RingWidth;
+        res[ButtonRingWidthSm] = flat ? 0.0 : RingWidthSm;
+        res[ButtonRingColor] = RingFlat(0.80);
+        res[ButtonRingColorHot] = RingFlat(0.96);
+        res[ButtonGlow] = Glow(tint.EdgeHi, 0.50);
+        res[ButtonGlowAccent] = Glow(accent, 0.42);
 
         res[DialogBg] = flat ? Solid(Sink(surface, -0.04)) : Slab(GlassKind.Dialog, dialog, 0, 1, 1, 1);
         res[DialogStroke] = flat ? Solid(ReadColor(res, "EdgeStrong", "#DAC49E")) : EdgeOf(GlassKind.Dialog, dialog, 0.020);
@@ -438,6 +514,17 @@ public static class GlassTokens
     }
 
     private static SolidColorBrush Solid(Color c) => new(c);
+
+    /// <summary>两色按比例混（只混 RGB）：环的单色版要把亮端与暗端对半折中，才在明暗两种地面上都看得见。</summary>
+    private static Color Mix(Color a, Color b, double k)
+    {
+        var m = (float)Clamp01(k);
+        return new Color(
+            Math.Clamp(a.Red + (b.Red - a.Red) * m, 0f, 1f),
+            Math.Clamp(a.Green + (b.Green - a.Green) * m, 0f, 1f),
+            Math.Clamp(a.Blue + (b.Blue - a.Blue) * m, 0f, 1f),
+            Math.Max(a.Alpha, b.Alpha));
+    }
 
     private static Color ReadColor(ResourceDictionary res, string key, string fallback)
         => res.TryGetValue(key, out var v) && v is Color c ? c : Color.FromArgb(fallback);

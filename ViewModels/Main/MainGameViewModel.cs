@@ -381,7 +381,7 @@ public sealed partial class MainGameViewModel : ObservableObject
         {
             var s = _settings.Current;
             var cfg = Services.Background.BackgroundService.ConfigFromSettings(
-                s.BackgroundMode, s.BackgroundImagePath, s.ThemeName, WeatherDesc,
+                s.BackgroundMode, s.BackgroundImagePath, DesignSystem.Theme.ThemeManager.LockedPalette, WeatherDesc,
                 s.WeatherSceneAudioEnabled, s.WeatherSceneAudioLevel, s.SceneLightEnabled, s.ExperimentalSceneFxEnabled);
             // v1.63：天气设置项已删除，场景完全由存档/实时天气自动反推（_weatherSceneFollowsRealWeather
             // 默认 true）。不再读旧设置里的 WeatherSceneName 覆盖，否则会把自动天气钉死成手动旧值。

@@ -56,6 +56,18 @@ public static class PressFeel
     public static bool GetLiquid(VisualElement element) => (bool)element.GetValue(LiquidProperty);
     public static void SetLiquid(VisualElement element, bool value) => element.SetValue(LiquidProperty, value);
 
+    /// <summary>
+    /// 按下时把「亮环」提亮一档：Button / ImageButton 换 BorderColor，Border 换 Stroke。
+    /// 只换颜色、不动宽度 —— 宽度的每一次变化都是一次 WinUI 布局重算，
+    /// 而「环变宽」的观感在缩放 0.96 里已经由几何自己给出来了。
+    /// 环的颜色同样由驱动归位（换页/卸载时收回），不进视觉状态：理由见文件顶部。
+    /// </summary>
+    public static readonly BindableProperty RingProperty = BindableProperty.CreateAttached(
+        "Ring", typeof(bool), typeof(PressFeel), false);
+
+    public static bool GetRing(VisualElement element) => (bool)element.GetValue(RingProperty);
+    public static void SetRing(VisualElement element, bool value) => element.SetValue(RingProperty, value);
+
     private static readonly ConditionalWeakTable<View, Driver> Drivers = new();
 
     /// <summary>
@@ -105,6 +117,8 @@ public static class PressFeel
         private bool _pressed;
         /// <summary>这一次按下的面是不是我们换掉的：卸载时只复原这一种。</summary>
         private bool _faceSwapped;
+        /// <summary>这一次按下的环是不是我们提亮的：卸载时只复原这一种。</summary>
+        private bool _ringSwapped;
         private bool _sawPress;
         private bool _tapsHooked;
 
@@ -176,6 +190,7 @@ public static class PressFeel
             // 不是「过渡」；线性与 ease-in-out 都没有这一段，它们读起来是滑，不是弹。
             var ms = on ? MotionTokens.Ms(MotionTokens.TapMs) : MotionTokens.Ms(MotionTokens.SettleMs);
             Move(on ? MotionTokens.Press : 0, ms, MotionTokens.Spring);
+            PressRing(on);
             if (!GetLiquid(_e)) return;
             ScaleTo(on ? MotionTokens.PressScale : 1.0, ms);
             PressFace(on);
@@ -200,6 +215,40 @@ public static class PressFeel
             _e.SetDynamicResource(VisualElement.BackgroundProperty,
                 on ? GlassTokens.ButtonBgPressed : GlassTokens.ButtonBg);
             _faceSwapped = true;
+        }
+
+        /// <summary>
+        /// 环：按下换成更亮的那一档，松手换回来。三种控件的「环」不是同一个属性 ——
+        /// Button / ImageButton 只有 BorderColor（吃 Color），Border 才有 Stroke（吃 Brush）。
+        /// 走 SetDynamicResource 而不是直接赋值：直接赋值会断掉 DynamicResource 这条链，
+        /// 之后换主题这颗钮的环就永久停在旧色上。
+        /// </summary>
+        private void PressRing(bool on)
+        {
+            if (!GetRing(_e)) return;
+            var res = Application.Current?.Resources;
+            if (res is null) return;
+            if (_e is Button b)
+            {
+                if (!res.ContainsKey(GlassTokens.ButtonRingColorHot)) return;
+                b.SetDynamicResource(Button.BorderColorProperty,
+                    on ? GlassTokens.ButtonRingColorHot : GlassTokens.ButtonRingColor);
+                _ringSwapped = true;
+            }
+            else if (_e is ImageButton ib)
+            {
+                if (!res.ContainsKey(GlassTokens.ButtonRingColorHot)) return;
+                ib.SetDynamicResource(ImageButton.BorderColorProperty,
+                    on ? GlassTokens.ButtonRingColorHot : GlassTokens.ButtonRingColor);
+                _ringSwapped = true;
+            }
+            else if (_e is Border bd)
+            {
+                if (!res.ContainsKey(GlassTokens.ButtonStrokeHot)) return;
+                bd.SetDynamicResource(Border.StrokeProperty,
+                    on ? GlassTokens.ButtonStrokeHot : GlassTokens.ButtonStroke);
+                _ringSwapped = true;
+            }
         }
 
         /// <summary>
@@ -243,6 +292,11 @@ public static class PressFeel
             {
                 _faceSwapped = false;
                 _e.SetDynamicResource(VisualElement.BackgroundProperty, GlassTokens.ButtonBg);
+            }
+            if (_ringSwapped)
+            {
+                _ringSwapped = false;
+                PressRing(false);
             }
         }
 

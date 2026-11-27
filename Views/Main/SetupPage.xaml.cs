@@ -55,7 +55,6 @@ public partial class SetupPage : ContentPage
         VisualElement? step = e.PropertyName switch
         {
             nameof(SetupViewModel.AtLang) => _vm.AtLang ? StepLang : null,
-            nameof(SetupViewModel.AtStyle) => _vm.AtStyle ? StepStyle : null,
             nameof(SetupViewModel.AtReside) => _vm.AtReside ? StepReside : null,
             nameof(SetupViewModel.AtAi) => _vm.AtAi ? StepAi : null,
             nameof(SetupViewModel.AtDone) => _vm.AtDone ? StepDone : null,

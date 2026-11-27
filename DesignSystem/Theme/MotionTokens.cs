@@ -64,8 +64,11 @@ public static class MotionTokens
     public const double SpringX2 = 0.64;
     public const double SpringY2 = 1.00;
 
-    /// <summary>按下时缩到哪一档。0.97 是「胶质被压陷」的下限：再小就读成按钮掉进洞里了。</summary>
-    public const double PressScale = 0.97;
+    /// <summary>
+    /// 按下时缩到哪一档。0.96 是「胶质被压陷」的位置：透明玻璃上没有颜色可压深，
+    /// 压陷只能由几何说 —— 0.97 那颗钮在 46 高上只有 1.4px 的收边，读不出「被按住了」。
+    /// </summary>
+    public const double PressScale = 0.96;
 
     /// <summary>
     /// 按下时下沉的像素。原来 1.6px 只在颜色上加深，用户在 125% 缩放下看不到「按动」——

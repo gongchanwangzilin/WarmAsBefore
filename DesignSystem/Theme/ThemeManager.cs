@@ -7,7 +7,7 @@ public class ThemeManager
     private bool _glass;
     private bool _frost;
     private bool _liquid;
-    private string _themeName = "classic";
+    private string _themeName = LockedPalette;
     private StyleWorld _world = StyleWorld.Endfield;
     private bool _dark;
 
@@ -203,20 +203,36 @@ public class ThemeManager
             _ => "none"
         };
 
-    /// <summary>界面配色主题：classic（经典）/ sakura（樱花粉）/ bamboo（翠竹绿）/ mist（晨雾蓝灰）/ endfield（终末地）。</summary>
+    /// <summary>
+    /// 界面配色主题：classic（经典）/ sakura（樱花粉）/ bamboo（翠竹绿）/ mist（晨雾蓝灰）/ endfield（终末地）。
+    /// 轴本身保留（ColorPalette*.xaml 仍靠它取色），但**只吃得了 <see cref="LockedPalette"/>**：
+    /// 写别的值一律改写成终末地 —— 旧存档反序列化、旧设置页、别的插件都从这一个口进来。
+    /// </summary>
     public string ThemeName
     {
         get => _themeName;
         set
         {
-            if (_themeName == value) return;
-            _themeName = value;
-            lock (_applyLock) _pendingTheme = value;
+            var wanted = string.IsNullOrEmpty(value) ? LockedPalette : value;
+            if (_themeName == wanted) return;
+            _themeName = wanted;
+            lock (_applyLock) _pendingTheme = wanted;
             ScheduleApply();
         }
     }
 
     public static string[] ThemeNames { get; } = { "classic", "sakura", "bamboo", "mist", "endfield" };
+
+    /// <summary>
+    /// 色板轴锁定的唯一档（2026-11-27）：终末地 —— 黄色强调 + 冷灰面板。
+    ///
+    /// 色板（palette）与材质（style/StyleWorld）是两条正交的轴：这一次只锁色板，
+    /// 材质仍由「风格」那一步决定。旧存档里存过 classic/sakura/bamboo/mist 的值照旧读得进来，
+    /// 但读进来之后一律按这一个渲染 —— 界面上不再有切换入口（设置页的「语义调色板」「配色主题」、
+    /// 首次配置的色板一步都已退役）。ThemeName 这条轴本身保留：ColorPalette*.xaml 与
+    /// ApplyThemeResources 还靠它取色，只是外面再也写不进第二个值。
+    /// </summary>
+    public const string LockedPalette = "endfield";
 
     public static string ThemeDisplay(string name) => name switch
     {

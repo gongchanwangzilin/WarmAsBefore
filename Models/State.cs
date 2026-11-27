@@ -443,8 +443,9 @@ public sealed record UserSettings
     /// 它只改「背后透出来的是什么」，不动主题令牌 —— 卡片、文字、强调色仍是当前世界的。
     /// </summary>
     public string BackgroundSolidHex { get; init; } = "";
-    /// <summary>统一背景调色板 id：classic/sakura/bamboo/mist/endfield。</summary>
-    public string BackgroundPaletteId { get; init; } = "classic";
+    /// <summary>统一背景调色板 id。色板轴已锁定终末地（2026-11-27）：旧存档里的其它值读得进来，
+    /// 但界面一律按 endfield 渲染，落盘也会被改写成它。</summary>
+    public string BackgroundPaletteId { get; init; } = DesignSystem.Theme.ThemeManager.LockedPalette;
     /// <summary>统一天气场景：sunny/cloudy/drizzle/lightrain/heavyrain（存枚举名）。</summary>
     public string WeatherSceneName { get; init; } = "Sunny";
     /// <summary>背景场景音效开关（雨声/风声/闪电）。</summary>
@@ -457,7 +458,8 @@ public sealed record UserSettings
     public bool SceneLightEnabled { get; init; } = true;
     /// <summary>测试版场景特效总开关：实体云/近景雨/光柱与光向/真天气驱动。默认关闭，仅在测试计划里手动开启；关闭时背景回退纯色/图片。</summary>
     public bool ExperimentalSceneFxEnabled { get; init; }
-    public string ThemeName { get; init; } = "classic"; // 配色主题：classic/sakura/bamboo/mist/endfield
+    // 配色主题：色板轴锁定终末地（2026-11-27），旧存档里的 classic/sakura/bamboo/mist 会被改写。
+    public string ThemeName { get; init; } = DesignSystem.Theme.ThemeManager.LockedPalette;
     public string KeySfx { get; init; } = "default";
     public string MenuSide { get; init; } = "left";
     public bool AutoSaveEnabled { get; init; } = true;

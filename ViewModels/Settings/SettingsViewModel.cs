@@ -104,7 +104,6 @@ public sealed partial class SettingsViewModel : ObservableObject
             .Select(t => new SolidSwatch(t.Hex, t.Name) { PickCommand = PickSolidColorCommand })
             .ToArray();
         SyncSolidSwatches();
-        _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
         _mapTileOnline = s.MapTileOnline;
         _mapTileMbTilesPath = s.MapTileMbTilesPath;
         RefreshTileCacheText();
@@ -118,7 +117,10 @@ public sealed partial class SettingsViewModel : ObservableObject
         _glassLightY = s.GlassLightY;
         _glassLightZ = s.GlassLightZ;
         _glassLightWidth = s.GlassLightWidth;
-        _themeName = string.IsNullOrEmpty(s.ThemeName) ? "classic" : s.ThemeName;
+        // 色板轴锁定终末地：旧存档里存过 classic/sakura/bamboo/mist 的人，打开也是终末地。
+        // 材质（StyleWorld）是另一条轴，不在这里动 —— 它仍由「风格」那一步决定。
+        _themeName = DesignSystem.Theme.ThemeManager.LockedPalette;
+        _theme.ThemeName = _themeName;
         _themeDisplay = DesignSystem.Theme.ThemeManager.ThemeDisplay(_themeName);
         _complexPlot = s.ComplexPlot;
         _novelTesting = s.NovelTestingEnabled;
@@ -399,7 +401,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _backgroundMode = "none";
     [ObservableProperty] private string _backgroundModeDisplay = "纯色（默认）";
     [ObservableProperty] private string _backgroundImagePath = "";
-    [ObservableProperty] private string _backgroundPaletteDisplay = "经典";
     /// <summary>地图底图的联网总闸（地图页图层抽屉里也有同一个开关，两处写的是同一项设置）。</summary>
     [ObservableProperty] private bool _mapTileOnline = true;
 
@@ -520,7 +521,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _sceneLightEnabled = true;
     [ObservableProperty] private bool _weatherSceneAudioEnabled = true;
     [ObservableProperty] private double _weatherSceneAudioLevel = 0.6;
-    public IReadOnlyList<string> BackgroundPaletteChoices { get; } = new[] { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰", "终末地" };
     public List<string> BackgroundModeChoices { get; } = new() { "纯色（默认）", "自定义图片", "窗口透视（看穿到桌面）" };
     public bool BackgroundImageVisible => BackgroundMode == "image";
 
@@ -665,7 +665,6 @@ public sealed partial class SettingsViewModel : ObservableObject
         return a >= 255 ? $"#{r:X2}{g:X2}{b:X2}" : $"#{a:X2}{r:X2}{g:X2}{b:X2}";
     }
 
-    partial void OnBackgroundPaletteDisplayChanged(string value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnExperimentalSceneFxEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnWeatherSceneOverlayEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
     partial void OnSceneLightEnabledChanged(bool value) { PersistSettings(); PushBackgroundConfig(); }
@@ -676,7 +675,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     private void PushBackgroundConfig()
     {
         var cfg = BackgroundService.ConfigFromSettings(
-            BackgroundMode, BackgroundImagePath, ThemeKeyOf(ThemeDisplay),
+            BackgroundMode, BackgroundImagePath, DesignSystem.Theme.ThemeManager.LockedPalette,
             null, WeatherSceneAudioEnabled, WeatherSceneAudioLevel, SceneLightEnabled, ExperimentalSceneFxEnabled);
         // 天气叠加开启 → 强制天气模式；关闭 → 若用户选了图片则用图片，否则纯色
         var mode = WeatherSceneOverlayEnabled
@@ -687,7 +686,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         cfg = cfg with
         {
             Mode = mode,
-            PaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
+            PaletteId = DesignSystem.Theme.ThemeManager.LockedPalette,
             // 天气场景由天气数据自动推导（BackgroundService.ApplyWeatherDescription），
             // 这里只沿用当前生效的场景，不再用设置页的手动覆盖把它打回某个固定值。
             Scene = _bg.Current.Scene,
@@ -718,14 +717,14 @@ public sealed partial class SettingsViewModel : ObservableObject
         }
         catch (Exception ex) { App.WriteLog("PickBackgroundImage -> " + ex.Message); }
     }
-    [ObservableProperty] private string _themeName = "classic";
-    [ObservableProperty] private string _themeDisplay = "经典";
+    /// <summary>色板轴（锁定的终末地）：ThemeName 仍是持久化字段，旧存档读进来也会被改写成它。</summary>
+    [ObservableProperty] private string _themeName = DesignSystem.Theme.ThemeManager.LockedPalette;
+    [ObservableProperty] private string _themeDisplay = "终末地";
 
     // 工具沙箱
     [ObservableProperty] private ObservableCollection<Modules.Sandbox.TrustEntry> _trustedTools = new();
     [ObservableProperty] private string _sandboxHint = "";
 
-    public List<string> ThemeChoices { get; } = new() { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰", "终末地" };
     public List<string> ChatStyleChoices { get; } = new() { "剧本式", "气泡式" };
 
     private readonly Modules.Sandbox.SandboxPolicy _sandbox;
@@ -1341,7 +1340,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnGlassLightYChanged(double value) { _theme.GlassLightY = value; PersistSettings(); }
     partial void OnGlassLightZChanged(double value) { _theme.GlassLightZ = value; PersistSettings(); }
     partial void OnGlassLightWidthChanged(double value) { _theme.GlassLightWidth = value; PersistSettings(); }
-    partial void OnThemeDisplayChanged(string value) { ThemeName = ThemeKeyOf(value); _theme.ThemeName = ThemeName; PersistSettings(); }
     partial void OnComplexPlotChanged(bool value) => PersistSettings();
     partial void OnNovelTestingChanged(bool value) => PersistSettings();
     partial void OnShowAffectionChanged(bool value) => PersistSettings();
@@ -1559,33 +1557,6 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnMcpEnabledChanged(bool value) { _mcp.Enabled = value; PersistSettings(); }
     partial void OnMcpAutoApproveChanged(bool value) { _mcp.AutoApprove = value; PersistSettings(); }
 
-    private static string ThemeKeyOf(string display) => display switch
-    {
-        "樱花粉" => "sakura",
-        "翠竹绿" => "bamboo",
-        "晨雾蓝灰" => "mist",
-        "终末地" => "endfield",
-        _ => "classic"
-    };
-
-    private static string PaletteKeyOf(string display) => display switch
-    {
-        "樱花粉" => "sakura",
-        "翠竹绿" => "bamboo",
-        "晨雾蓝灰" => "mist",
-        "终末地" => "endfield",
-        _ => "classic"
-    };
-
-    private static string PaletteDisplayOf(string key) => key switch
-    {
-        "sakura" => "樱花粉",
-        "bamboo" => "翠竹绿",
-        "mist" => "晨雾蓝灰",
-        "endfield" => "终末地",
-        _ => "经典"
-    };
-
     private static string ChatStyleDisplayOf(string key) => key switch
     {
         "bubble" => "气泡式",
@@ -1712,7 +1683,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     BackgroundMode = BackgroundMode,
     BackgroundImagePath = BackgroundImagePath,
     BackgroundSolidHex = BackgroundSolidHex,
-    BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
+    BackgroundPaletteId = DesignSystem.Theme.ThemeManager.LockedPalette,
     MapTileOnline = MapTileOnline,
                     MapTileMbTilesPath = MapTileMbTilesPath,
     WeatherSceneOverlayEnabled = WeatherSceneOverlayEnabled,
@@ -1724,7 +1695,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     GlassLightY = GlassLightY,
     GlassLightZ = GlassLightZ,
     GlassLightWidth = GlassLightWidth,
-                    ThemeName = ThemeKeyOf(ThemeDisplay),
+                    ThemeName = DesignSystem.Theme.ThemeManager.LockedPalette,
                     MenuSide = MenuRight ? "right" : "left",
                     Lang = Lang,
                     TextSpeed = TextSpeed,

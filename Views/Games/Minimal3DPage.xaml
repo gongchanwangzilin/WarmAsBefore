@@ -37,8 +37,8 @@
                 <Grid Grid.Row="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
                     <Label Grid.Column="0" Text="全景" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center" />
-                    <Slider Grid.Column="1" x:Name="PanKnob" Minimum="0" Maximum="360"
-                            ValueChanged="OnPanKnobChanged" VerticalOptions="Center" />
+                    <controls:ViewSlider Grid.Column="1" x:Name="PanKnob" Minimum="0" Maximum="360"
+                                         ValueChanged="OnPanKnobChanged" VerticalOptions="Center" />
                     <Label MaxLines="1" LineBreakMode="TailTruncation" Grid.Column="2" Text="{Binding Heading}" Style="{StaticResource TxtCaption}"
                            VerticalOptions="Center" WidthRequest="34" HorizontalTextAlignment="Center" />
                 </Grid>

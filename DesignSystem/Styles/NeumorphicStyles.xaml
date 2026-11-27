@@ -40,22 +40,27 @@
         <Setter Property="StrokeShape" Value="{DynamicResource WRadiusWell}" />
     </Style>
 
-    <!-- 通用按钮：本档 46，另有 Sm 34 / Lg 56（与 ButtonShapes 的高度梯度对齐）。 -->
+    <!-- 通用按钮：本档 46，另有 Sm 34 / Lg 56（与 ButtonShapes 的高度梯度对齐）。
+         材质与 ButtonShapes 的 BtnGlass 同一套液态玻璃：透明面 + 3px 亮环 + 外发光。 -->
     <Style x:Key="BtnNeumorph" TargetType="Button">
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
         <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
-        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonStroke}" />
+        <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />
         <Setter Property="motion:PressFeel.Liquid" Value="True" />
+        <Setter Property="motion:PressFeel.Ring" Value="True" />
         <Setter Property="motion:HoverFeel.LiquidFace" Value="True" />
-        <!-- 按钮不再挂影子：可点击性来自面与底的台阶 + 那一圈缝，不来自浮起。
-             而且这是全站数量最多的元素，每个一个合成层，换页时最贵的一笔开销就省下了。 -->
+        <!-- 外发光只在静止态声明一次（Brush 跟世界走，Shadow 对象不换）：
+             按下/悬停去换它等于重建合成层，实测「点过的按钮返回后整块空白」。 -->
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlow}" Offset="0,0" Radius="22" Opacity="1" />
+        </Setter>
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -81,10 +86,11 @@
         </Setter>
     </Style>
 
-    <!-- 紧凑档：替代表单里内联覆写字号/内距的写法 -->
+    <!-- 紧凑档：替代表单里内联覆写字号/内距的写法。环收一档到 2.5px。 -->
     <Style x:Key="BtnNeumorphSm" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
         <Setter Property="HeightRequest" Value="34" />
         <Setter Property="MinimumHeightRequest" Value="34" />
+        <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonRingWidthSm}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeCaption}" />
         <Setter Property="Padding" Value="12,0" />
     </Style>
@@ -96,11 +102,14 @@
         <Setter Property="Padding" Value="24,0" />
     </Style>
 
-    <!-- 强调按钮：胶囊底 + 钉在上面的字（AccentWarmFg 是按 AccentWarm 算出来的对比墨） -->
+    <!-- 强调按钮：与 BtnNeumorph 同一片透明玻璃，只有外发光吃强调色 ——
+         「唯一响的那颗」由光说，不再由一整块实心色说（实心色压在透明材质旁边是两块不同的东西）。
+         字色仍取 WAccentInk：它按强调色的明度反算，浅档是深墨、暗档是浅墨，压在玻璃上都读得出来。 -->
     <Style x:Key="BtnNeumorphAccent" TargetType="Button" BasedOn="{StaticResource BtnNeumorph}">
-        <Setter Property="Background" Value="{DynamicResource WAccentBrush}" />
-        <Setter Property="TextColor" Value="{DynamicResource WAccentInk}" />
-        <Setter Property="BorderColor" Value="Transparent" />
+        <Setter Property="TextColor" Value="{DynamicResource SignalFg}" />
+        <Setter Property="Shadow">
+            <Shadow Brush="{DynamicResource GlassButtonGlowAccent}" Offset="0,0" Radius="24" Opacity="1" />
+        </Setter>
     </Style>
 
     <!-- 液态玻璃卡：材质完全交给 GlassTokens —— 它按当前世界算色标，

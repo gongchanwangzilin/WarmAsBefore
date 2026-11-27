@@ -99,22 +99,7 @@
                                              BindableLayout.ItemTemplate="{StaticResource OptionRow}" />
                     </VerticalStackLayout>
 
-                    <!-- 2 · 材质与色板：选一颗，整页当场换 -->
-                    <VerticalStackLayout x:Name="StepStyle" Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding AtStyle}">
-                        <Label Text="{Binding [Setup_Style_Title], Source={x:Static i18n:LocalizationService.Current}}"
-                               FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
-                        <Label Text="{Binding [Setup_Style_Sub], Source={x:Static i18n:LocalizationService.Current}}"
-                               Style="{StaticResource TxtBodySm}" TextColor="{DynamicResource WarmMuted}"
-                               Margin="0,0,0,10" />
-                        <!-- 世界选项已退役（2.7）：唯一档「档案室」，这一步只剩选色板 -->
-                        <Label Text="{Binding [Setup_Style_Palette], Source={x:Static i18n:LocalizationService.Current}}"
-                               Style="{StaticResource TxtCaption}" TextColor="{DynamicResource WarmFaint}" />
-                        <VerticalStackLayout Spacing="2"
-                                             BindableLayout.ItemsSource="{Binding PaletteOptions}"
-                                             BindableLayout.ItemTemplate="{StaticResource OptionRow}" />
-                    </VerticalStackLayout>
-
-                    <!-- 3 · 常驻与桌宠（只有 Windows 走这一步） -->
+                    <!-- 2 · 常驻与桌宠（只有 Windows 走这一步） -->
                     <VerticalStackLayout x:Name="StepReside" Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding AtReside}">
                         <Label Text="{Binding [Setup_Reside_Title], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}" />
