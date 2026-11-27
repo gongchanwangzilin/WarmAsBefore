@@ -77,6 +77,7 @@ public sealed partial class ToolManager : IDisposable
         RegisterStateTools();
         RegisterFlowTools();
         RegisterLookTools();
+        RegisterFaceImageTools();   // 人脸取图（只读）：实现在 Modules/Tools/FaceImageTool.cs
         ScanExternalTools();
 #if ANDROID
         // Android APK 没有宿主 stdin，Harness JSON-RPC 循环只在桌面端监听
