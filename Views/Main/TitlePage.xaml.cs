@@ -160,25 +160,24 @@ public partial class TitlePage : ContentPage
         // 保持宽屏的 2/3 不动 —— 两套布局共用同一个无重叠的行方案（与 EnterWide 一致）。
         // 注意：结构（读数角、行位）只跟「是不是档案室世界」走；「动效开关」只管机关动作。
         // 旧版把两者绑在一起，用户一关动效，右上角时钟就整块消失 —— 结构不该依赖动画。
-        if (!WarmAsBefore.Controls.HudSkin.IsActive)
-        {
-            Grid.SetRow(ThemeLegend, 0);
-            Grid.SetRow(HeroBand, 2);
-            Grid.SetRow(RecentCard, 3);
-            return;
-        }
-
+        // 结构（右上角读数角 + 行位）不再跟着 HudSkin 走：HudSkin 统一玻璃几何之后恒为 false，
+        // 曾经把这一块连同时钟一起关掉了 —— 用户看不见时间是很具体的损失。
+        // 现在结构恒定：读数角占第 0 行、配色小字第 1 行；只有下面的动画机关看世界与动效开关。
         Grid.SetRow(ThemeLegend, 1);
         Grid.SetRow(HeroBand, 2);
         Grid.SetRow(RecentCard, 3);
-        if (HudCornerReadout is not null)
+        // 右上角读数角与时钟：只跟「这一屏有没有这块结构」走，不跟动画、也不跟 HudSkin。
+        if (HudCornerReadout is not null && HudCornerTime is not null)
         {
             HudCornerReadout.IsVisible = true;
             HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
-            _hudClock ??= Dispatcher.CreateTimer();
-            _hudClock.Interval = TimeSpan.FromSeconds(1);
-            _hudClock.Tick += (_, _) => HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
-            _hudClock.Start();
+            if (_hudClock is null)
+            {
+                _hudClock = Dispatcher.CreateTimer();
+                _hudClock.Interval = TimeSpan.FromSeconds(1);
+                _hudClock.Tick += (_, _) => HudCornerTime.Text = DateTime.Now.ToString("HH:mm:ss");
+            }
+            if (!_hudClock.IsRunning) _hudClock.Start();
         }
 
         if (!Helpers.HudMotion.IsHud) return;
