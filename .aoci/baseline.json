@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-27T10:26:03Z",
+  "updated_at": "2026-11-27T10:35:17Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -77,9 +77,9 @@
     },
     "AppShell.xaml.cs": {
       "role": "index",
-      "sha256": "4ade35ef28650e9020d7fd08882457f82b0c8923c7579bfc2ffe386c079dfbad",
-      "size": 19465,
-      "normalized_sha256": "81b2df3c9e94f4378401adafb5d043ff3b58b70f31d44bb13d7e1ff64f79fbc3"
+      "sha256": "c0b21646d5393720effc7a54794778c1abf14bbc32e8f34c8223415651c5cff3",
+      "size": 19463,
+      "normalized_sha256": "4d72a0c4eba9075cfcc7280919adb8694c15c532996085f5b28740bd7cda3d9a"
     },
     "BUILD_GUIDE.md": {
       "role": "index",
@@ -161,15 +161,15 @@
     },
     "Controls/FaceMonitorPane.xaml": {
       "role": "index",
-      "sha256": "07861856e655d211ba964f8fc8e6c7c3e1eae5e3830b156a342940334d6160c1",
-      "size": 6072,
-      "normalized_sha256": "f7d1561176b6465a3b0c46da41332dd86f184866431e7a01eb55057845e3779a"
+      "sha256": "83e2e20c950d813b9c3887720025fba700f127a20b936d1eb8cce9054d9f26cd",
+      "size": 6346,
+      "normalized_sha256": "a3eb0996917eb23681927dc2df20ba5dff7c4dd99b7de9cde9139ebc29ac80a2"
     },
     "Controls/FaceMonitorPane.xaml.cs": {
       "role": "index",
-      "sha256": "a5327fc0f980138f1d4383319f8cedcde69b1acda24f955d2eab581ce90a3fc1",
-      "size": 5507,
-      "normalized_sha256": "6769ba9efab19995eab238e0fac63ca816c00a9854c3b889407736c888f2196a"
+      "sha256": "3af5d625a1fba500380e4a837f1a001f9244fa9bcf0cbc9bb0f987881877871d",
+      "size": 8724,
+      "normalized_sha256": "3af5d625a1fba500380e4a837f1a001f9244fa9bcf0cbc9bb0f987881877871d"
     },
     "Controls/ForegroundRainView.cs": {
       "role": "index",
@@ -2444,9 +2444,9 @@
     },
     "ViewModels/Games/GameViewModel.cs": {
       "role": "index",
-      "sha256": "1805c6dadefe3b135154712d6b1f350148152f5734cf52e04864c8d652f8fe09",
-      "size": 24319,
-      "normalized_sha256": "44aa867340b8f1857ed9042bd1ed87d2cadf3750b4520f367e88d89b8782311c"
+      "sha256": "a888c54d1af66cb1e4b187f9403df6b9df8bb40d25f272232aba0c67db092184",
+      "size": 24263,
+      "normalized_sha256": "9438923b800d664681868fae4a47ff120dd7cff4acc0bcc726cc623b69f2f5fe"
     },
     "ViewModels/Games/MapCanvasNode.cs": {
       "role": "index",
@@ -2660,9 +2660,9 @@
     },
     "ViewModels/Monitor/FacePanelViewModel.cs": {
       "role": "index",
-      "sha256": "02ad965ea37c72f5f067162cf30fc9839369ae3b6529e75390b671d4a5716800",
-      "size": 15663,
-      "normalized_sha256": "29ffdefc42aa773217f48cafa46e3fcf966ae42e69ed077f0397ec829b450ce6"
+      "sha256": "14ae03004c76c03c279496cbd86a43e6ca7e1e511998191210e797bb8fd8ade8",
+      "size": 16963,
+      "normalized_sha256": "14ae03004c76c03c279496cbd86a43e6ca7e1e511998191210e797bb8fd8ade8"
     },
     "ViewModels/Monitor/ModuleInspectorViewModel.cs": {
       "role": "index",
@@ -2672,9 +2672,9 @@
     },
     "ViewModels/Monitor/SuperMonitorViewModel.cs": {
       "role": "index",
-      "sha256": "44cf260daebf29014e3a0ba490cb9549ffa39246fd014ebf18ed03748c77503d",
-      "size": 90468,
-      "normalized_sha256": "e9b26c375b395552e348517a7ac2ae12f2b7f5c4d6efcedaf62c9747d1db5213"
+      "sha256": "d6a52251c2931e57e4d18cab6951b49ccb8a961c2620f18d38de0046a6913e1f",
+      "size": 90532,
+      "normalized_sha256": "8f0f56017e47ee46f2386e37b20d78ad902150ed228f43814cb815547b8d548e"
     },
     "ViewModels/Save/CloudSavesViewModel.cs": {
       "role": "index",
@@ -3728,9 +3728,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "f6d2ce9fbc637545a1689b0da03c13cd06034b613a92debf1495beced338470b",
-      "size": 223748,
-      "normalized_sha256": "f6d2ce9fbc637545a1689b0da03c13cd06034b613a92debf1495beced338470b"
+      "sha256": "f36b3ffc0e86c2a5baf0496bed14e4c1afb7e438708e5ae50b65c460ac487dd6",
+      "size": 224736,
+      "normalized_sha256": "f36b3ffc0e86c2a5baf0496bed14e4c1afb7e438708e5ae50b65c460ac487dd6"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -3806,9 +3806,9 @@
     },
     "docs/minecraft-maid-bridge.md": {
       "role": "index",
-      "sha256": "7b6da48301b130341a342baeab16f77f7c247c5caaa7e0074f47fbeea06ab24f",
-      "size": 36107,
-      "normalized_sha256": "97336723a4a68b4196a5f88b5a1cc699106c6af7e7782508e8320768a5f282a6"
+      "sha256": "289b9be2860f4b7f252b4bdef4699377a0ffe423180b8f2ce0c0109d3372f6ba",
+      "size": 36658,
+      "normalized_sha256": "558b6efbf39f2bd1f7e4339baba67b385b2313a753e061abf81779b4ed9f80e9"
     },
     "docs/requirements-2026-10-16.md": {
       "role": "index",
