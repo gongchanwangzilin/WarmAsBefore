@@ -82,7 +82,7 @@
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
@@ -122,7 +122,7 @@
         <Setter Property="TextColor" Value="{DynamicResource SignalFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
@@ -161,7 +161,7 @@
         <Setter Property="TextColor" Value="{DynamicResource SignalFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="{DynamicResource WPillHeight}" />
         <Setter Property="MinimumHeightRequest" Value="{DynamicResource WPillHeight}" />
         <Setter Property="Padding" Value="30,0" />
@@ -208,7 +208,7 @@
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource WarmDark}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
@@ -265,7 +265,7 @@
         <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
         <Setter Property="BorderWidth" Value="0" />
         <Setter Property="Padding" Value="12,6" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="motion:PressFeel.Enabled" Value="True" />
         <Setter Property="motion:HoverFeel.Enabled" Value="True" />
         <Setter Property="VisualStateManager.VisualStateGroups">
@@ -297,7 +297,7 @@
         <Setter Property="Background" Value="{DynamicResource GlassButtonBg}" />
         <Setter Property="TextColor" Value="{DynamicResource DangerInk}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeSmall}" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="40" />
         <Setter Property="MinimumHeightRequest" Value="40" />
         <Setter Property="Padding" Value="18,0" />

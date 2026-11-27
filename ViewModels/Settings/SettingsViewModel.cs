@@ -721,6 +721,14 @@ public sealed partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _themeName = DesignSystem.Theme.ThemeManager.LockedPalette;
     [ObservableProperty] private string _themeDisplay = "终末地";
 
+    /// <summary>
+    /// 调色板只剩终末地一档：UI 仍然保留原来那条下拉（长条）的形状，只是选项唯一——
+    /// 用户要的是「调色板锁终末地」，不是「把这一行删掉换成一行字」。
+    /// </summary>
+    public IReadOnlyList<string> PaletteChoices { get; } = new[] { "终末地" };
+
+    public string PaletteDisplay => DesignSystem.Theme.ThemeManager.ThemeDisplay(DesignSystem.Theme.ThemeManager.LockedPalette);
+
     // 工具沙箱
     [ObservableProperty] private ObservableCollection<Modules.Sandbox.TrustEntry> _trustedTools = new();
     [ObservableProperty] private string _sandboxHint = "";

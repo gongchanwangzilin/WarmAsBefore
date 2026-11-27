@@ -283,11 +283,15 @@
                                         IsVisible="{Binding Filter.Interface}">
                                     <VerticalStackLayout Spacing="0">
                                         <Label Text="{Binding [Settings_Interface], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtSubhead}" />
-                                        <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
-                                            <Label Text="{Binding [Settings_Theme], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />
-                                            <Label Text="色板已锁定终末地（黄色强调 + 冷灰面板）：按钮、文字、面板、背景都从这一套取色。想要别的地面色，去上面「纯色底」里那颗「选个颜色…」—— 那是背景，不是色板。"
-                                                   Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" /></VerticalStackLayout>
-                                            <Label Grid.Column="1" Text="终末地" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" /></Grid>
+                                                                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
+                                                <VerticalStackLayout Grid.Column="0" Spacing="2">
+                                                    <Label Text="语义调色板" Style="{StaticResource TxtBodySm}" />
+                                                    <Label Text="覆盖按钮、文字、面板、背景的关键色（只保留终末地；地面色在「纯色底」里选）" Style="{StaticResource TxtCaption}" />
+                                                </VerticalStackLayout>
+                                                <Picker Grid.Column="2" WidthRequest="190"
+                                                        ItemsSource="{Binding PaletteChoices}"
+                                                        SelectedItem="{Binding PaletteDisplay}" />
+                                            </Grid>
                                         <BoxView Style="{StaticResource HSepBleed}" />
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13"><VerticalStackLayout>
                                             <Label Text="{Binding [Settings_MenuRight], Source={x:Static i18n:LocalizationService.Current}}" Style="{StaticResource TxtBodySm}" />

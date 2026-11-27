@@ -47,7 +47,7 @@
         <Setter Property="TextColor" Value="{DynamicResource SurfaceFg}" />
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusPillPx}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
         <Setter Property="HeightRequest" Value="46" />
         <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="20,0" />
