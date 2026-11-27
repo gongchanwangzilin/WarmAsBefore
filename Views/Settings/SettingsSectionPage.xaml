@@ -163,6 +163,25 @@
                                             <Label Text="{Binding BackgroundSolidHint}" Style="{StaticResource TxtCaption}"
                                                    IsVisible="{Binding BackgroundSolidHint, Converter={StaticResource StringNotEmpty}}" />
                                         </VerticalStackLayout>
+                                        <BoxView Style="{StaticResource HSepBleed}" />
+                                        <!-- 页面色：与纯色底分开的一条轴。它只换 PageBg / SurfaceBg / WellBg 的色相种子，
+                                             所以放在纯色档的 IsVisible 之外 —— 图片背景、窗口透视下也照样能调。 -->
+                                        <VerticalStackLayout Spacing="6" Padding="0,13">
+                                            <Label Text="页面色（卡片与页面的底色）" Style="{StaticResource TxtBodySm}" />
+                                            <Label Text="页面色只决定卡片与页面的底色；背景色决定玻璃背后透出什么。两者互不覆盖，可以各挑各的。"
+                                                   Style="{StaticResource TxtCaption}" />
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8" Margin="0,4,0,0">
+                                                <Button Grid.Column="0" Text="选个颜色…" Style="{StaticResource BtnGhost}" Padding="14,6"
+                                                        Command="{Binding OpenPageTintPickerCommand}" />
+                                                <Label Grid.Column="1" Style="{StaticResource TxtCaption}" VerticalOptions="Center"
+                                                       Text="{Binding PageTintHex, StringFormat='当前 {0}'}"
+                                                       IsVisible="{Binding PageTintHex, Converter={StaticResource StringNotEmpty}}" />
+                                                <Button Grid.Column="2" Text="跟主题" Style="{StaticResource BtnText}" Padding="10,6"
+                                                        Command="{Binding FollowPageThemeCommand}" />
+                                            </Grid>
+                                            <Label Text="{Binding PageTintHint}" Style="{StaticResource TxtCaption}"
+                                                   IsVisible="{Binding PageTintHint, Converter={StaticResource StringNotEmpty}}" />
+                                        </VerticalStackLayout>
                                         <Grid ColumnDefinitions="*,Auto" Padding="0,13" IsVisible="{Binding BackgroundImageVisible}">
                                             <VerticalStackLayout>
                                                 <Label Text="背景图片" Style="{StaticResource TxtBodySm}" />

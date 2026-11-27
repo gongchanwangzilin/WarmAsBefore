@@ -100,6 +100,7 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
         _backgroundSolidHex = NormalizeSolidHex(s.BackgroundSolidHex);
+        _pageTintHex = NormalizeSolidHex(s.PageTintHex);
         SolidSwatches = SolidPalette
             .Select(t => new SolidSwatch(t.Hex, t.Name) { PickCommand = PickSolidColorCommand })
             .ToArray();
@@ -605,7 +606,11 @@ public sealed partial class SettingsViewModel : ObservableObject
 
     /// <summary>开调色页。颜色走 <see cref="ColorPickerHandoff"/> 回传，不走 Shell 查询串（转义容易出错）。</summary>
     [RelayCommand]
-    private async Task OpenColorPicker() => await Shell.Current.GoToAsync("colorpicker");
+    private async Task OpenColorPicker()
+    {
+        ColorPickerHandoff.Begin(ColorPickerHandoff.Target.Background);
+        await Shell.Current.GoToAsync("colorpicker");
+    }
 
     /// <summary>
     /// 调色页回来：把结果接到与色板同一条链路上（当场换底 + 刷新选中态 + 落盘）。
@@ -626,6 +631,58 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         BackgroundSolidHex = "";
         BackgroundSolidHint = "背景跟着主题走";
+    }
+
+    /// <summary>
+    /// 页面色（空串 = 跟色板走）：页面底、卡面、井三档地的色相出处。
+    /// 与 <see cref="BackgroundSolidHex"/> 分开存、分开下发 —— 两条线互不覆盖。
+    /// </summary>
+    [ObservableProperty] private string _pageTintHex = "";
+    /// <summary>页面色那行的回执：说清现在是什么色，跟色板时也明说。</summary>
+    [ObservableProperty] private string _pageTintHint = "";
+
+    partial void OnPageTintHexChanged(string value)
+    {
+        var hex = NormalizeSolidHex(value);
+        if (!string.Equals(hex, value, StringComparison.Ordinal))
+        {
+            // 规范化会再进来一次，这里直接写字段断掉递归。
+            SetProperty(ref _pageTintHex, hex, nameof(PageTintHex));
+            return;
+        }
+        PersistSettings();
+    }
+
+    /// <summary>
+    /// 开调色页给页面挑色。同一个页面、同一条握手，靠 <see cref="ColorPickerHandoff.Begin"/> 的标记
+    /// 区分这次回来该写进 PageTintHex 还是 BackgroundSolidHex。
+    /// </summary>
+    [RelayCommand]
+    private async Task OpenPageTintPicker()
+    {
+        ColorPickerHandoff.Begin(ColorPickerHandoff.Target.Page);
+        await Shell.Current.GoToAsync("colorpicker");
+    }
+
+    /// <summary>
+    /// 调色页回来（页面色那条线）：存进 PageTintHex，落盘后由 RuntimeConfigurator 走重发令牌的路径，
+    /// 三档地与卡面在原地重算，不必重启。空串 = 用户在那儿回到了「跟色板走」。
+    /// </summary>
+    public void ApplyPickedPage(string hex)
+    {
+        if (string.IsNullOrWhiteSpace(hex)) { FollowPageTheme(); return; }
+        var norm = NormalizeSolidHex(hex);
+        if (norm.Length == 0) return;
+        PageTintHex = norm;
+        PageTintHint = $"页面：{norm}";
+    }
+
+    /// <summary>页面色回到跟色板走：三档地重新由色相种子推导。</summary>
+    [RelayCommand]
+    private void FollowPageTheme()
+    {
+        PageTintHex = "";
+        PageTintHint = "页面跟着色板走";
     }
 
     /// <summary>把选中的那颗色标出来。色板只有十颗，直接扫一遍比维护一份索引更省事。</summary>
@@ -1691,6 +1748,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     BackgroundMode = BackgroundMode,
     BackgroundImagePath = BackgroundImagePath,
     BackgroundSolidHex = BackgroundSolidHex,
+    PageTintHex = PageTintHex,
     BackgroundPaletteId = DesignSystem.Theme.ThemeManager.LockedPalette,
     MapTileOnline = MapTileOnline,
                     MapTileMbTilesPath = MapTileMbTilesPath,

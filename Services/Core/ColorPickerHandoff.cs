@@ -7,25 +7,49 @@ namespace WarmAsBefore.Services;
 /// 回来时再解一次；六位色的井号在 URI 里是片段起点，少转一次就只剩空串，
 /// 用户看到的是「选完色回来什么都没变」。一次放进一取，没有字符串编码这一层。
 ///
+/// 两条线：背景色（玻璃背后透出什么）与页面色（卡片与页面自己的底色）共用这一页。
+/// 进页面之前由设置页 <see cref="Begin"/> 声明这次是给谁的，结果连同标记一起取回 ——
+/// 否则两个入口先后进来，回来的颜色只能靠猜该写进哪个设置项。
+///
 /// 取走即清空：<see cref="Take"/> 之后再看就是空的，设置页重进一次不会把上次的颜色再套一遍。
-/// 只存一个字符串，没有线程问题（写入与读取都在 UI 线程：确认按钮与页面出现事件）。
+/// 只存一个标记与一个字符串，没有线程问题（写入与读取都在 UI 线程：确认按钮与页面出现事件）。
 /// </summary>
 public static class ColorPickerHandoff
 {
+    /// <summary>这次调色是给谁的。</summary>
+    public enum Target
+    {
+        /// <summary>背景：玻璃背后透出来的是什么（<c>UserSettings.BackgroundSolidHex</c>）。</summary>
+        Background,
+
+        /// <summary>页面：卡片与页面自己的底色（<c>UserSettings.PageTintHex</c>）。</summary>
+        Page
+    }
+
+    /// <summary>当前这条线（由 <see cref="Begin"/> 写，调色页读它决定取色起点）。</summary>
+    public static Target Current { get; private set; } = Target.Background;
+
     /// <summary>确认的颜色（#RRGGBB）；空串 = 用户选了「跟主题走」。</summary>
     public static string? Result { get; private set; }
 
     /// <summary>有没有待取的结果。设置页只在有结果时才动当前设置。</summary>
     public static bool HasResult => Result is not null;
 
-    /// <summary>调色页确认时调用。</summary>
+    /// <summary>设置页在跳转前声明这次给谁挑色。顺手清掉上一轮残留的结果，免得上一条线吃了一记。</summary>
+    public static void Begin(Target target)
+    {
+        Current = target;
+        Result = null;
+    }
+
+    /// <summary>调色页确认时调用。标记不变，所以回来的颜色知道该进哪个设置项。</summary>
     public static void Post(string hex) => Result = (hex ?? "").Trim();
 
     /// <summary>取走结果并清空；没有结果时返回 null（与「取到空串」区分得开）。</summary>
-    public static string? Take()
+    public static (Target Target, string Hex)? Take()
     {
-        var r = Result;
+        if (Result is not { } hex) return null;
         Result = null;
-        return r;
+        return (Current, hex);
     }
 }

@@ -32,7 +32,7 @@
                 <Border Style="{StaticResource CardGroup}">
                     <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="预览" Style="{StaticResource TxtRowTitle}" />
-                        <Label Text="你看到的是这块色当地面时的样子：底下那层是它，上面压的是一张半透明的卡面。玻璃透出来的颜色由它决定。"
+                        <Label Text="{Binding PreviewHint}"
                                Style="{StaticResource TxtRowDesc}" />
                         <GraphicsView x:Name="PreviewCanvas" HeightRequest="140" InputTransparent="True" />
                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">

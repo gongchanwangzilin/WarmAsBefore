@@ -404,13 +404,28 @@ public static class StyleWorldTokens
         // 深色档染色要更重：同量彩度差压在暗底上几乎读不出来（明度低了 tint 的相对可见度掉得很快）。
         var tint = _seed.GroundC * (dark ? 1.7 : 1.0);
 
+        // 页面色（设置 → 背景 → 页面色）：只借它的色相与彩度差，明度台阶仍由明暗与 Depth 算出 ——
+        // 用户挑的是「一块什么颜色的纸」，不是「一块亮度随意的纸」。
+        // 空串（跟色板走）与手输的错字都退回色板种子，这条轴永远有兜底。
+        var customPage = Color.TryParse((PageTintHex ?? "").Trim(), out var pickedPage);
+        if (customPage)
+        {
+            hue = RgbToHsl(pickedPage).H;
+            tint = Chroma(pickedPage) * (dark ? 1.7 : 1.0);
+        }
+
         // 三档地：页面 / 卡面 / 井。台阶宽度由 Depth 决定，方向由明暗决定。
         // 浅档的页面钉在 0.968：参考窗实测地面 #F3F3F3（L 0.953）、卡纯白。
         // 地面一旦沉到 0.90，白卡就变成「灰纸上贴一块糖」，整屏开始发脏 —— 这是「丑」的主因之一。
         // 卡面给到近纯白并把彩度压到最低（白卡带黄会读成旧纸），井单独沉一档。
         var d = r.Depth - 0.55;
+        var surfaceL = dark ? 0.175 + 0.020 * d : 0.995;
+        // 自选页面色时给卡面明度加一道护栏：深档卡面沉过 0.12 就落到页面地（≈0.113）下面，
+        // 卡与页面再也分不出层次；浅档亮过 0.99 则和 0.966 的页面地融成一整块白。
+        // 夹在两端之内，三档地才还读得出高低，五档墨也才挂得住。
+        if (customPage) surfaceL = Math.Clamp(surfaceL, 0.12, 0.99);
         var page = Tint(hue, tint, dark ? 0.115 - 0.030 * d : 0.968 - 0.032 * d);
-        var surface = Tint(hue, tint * 0.55, dark ? 0.175 + 0.020 * d : 0.995);
+        var surface = Tint(hue, tint * 0.55, surfaceL);
         var well = Tint(hue, tint * 1.3, dark ? 0.082 - 0.015 * d : 0.930 - 0.028 * d);
         _surface = surface;
         _well = well;
@@ -848,6 +863,17 @@ public static class StyleWorldTokens
 
     /// <summary>轻量模式（设置里可开）与诊断开关：一律不发影子，省掉每个元素一层合成层。</summary>
     public static bool FlatShadows { get; set; } = ForceFlatShadows;
+
+    /// <summary>
+    /// 页面色（设置里的 <c>PageTintHex</c>，<c>#RRGGBB</c>）：用户自选的页面 / 卡面底色。
+    /// 由 RuntimeConfigurator 在下发设置时写进来，<see cref="Publish"/> 只读不写。
+    /// 空串或解析不出来 = 跟色板走 —— 绝不因为一个错字把地面涂成别的颜色。
+    ///
+    /// 为什么不并进 <see cref="_seed"/> 的缓存：那个缓存按 themeKey 命中（色板不变就不重读，
+    /// 免得读到世界自己上一轮的输出），而页面色可以在同一套色板下连改十几次，
+    /// 每次都必须在同一个 themeKey 下重算一遍三档地。
+    /// </summary>
+    public static string PageTintHex { get; set; } = "";
 
     // ── 色算 ────────────────────────────────────────────────────────────
     private static Color FromHex(string hex) => Color.FromArgb(hex);

@@ -34,8 +34,13 @@ public partial class SettingsSectionPage : ContentPage
     {
         base.OnAppearing();
         ApplyResponsiveWidth();
-        // 从调色页回来：颜色走握手服务回传，不由 Shell 查询串带（转义容易出错）
-        if (ColorPickerHandoff.Take() is { } picked) _vm.ApplyPickedSolid(picked);
+        // 从调色页回来：颜色走握手服务回传，不由 Shell 查询串带（转义容易出错）。
+        // 同一条握手跑两条线：标记说这次是给背景还是给页面，各回各的设置项。
+        if (ColorPickerHandoff.Take() is { } picked)
+        {
+            if (picked.Target == ColorPickerHandoff.Target.Page) _vm.ApplyPickedPage(picked.Hex);
+            else _vm.ApplyPickedSolid(picked.Hex);
+        }
         // 从「厂商/模型管理页」回来时，把卡片上的模型摘要重读一遍（管理页是另一份数据，不会自动回传）
         _vm.ReloadAiProviders();
         _ = BuildSectionAsync();
