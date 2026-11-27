@@ -300,7 +300,7 @@ public class GlassPlate : ContentView
         var sizeK = Math.Clamp(Math.Sqrt(Math.Max(1.0, Width) * Math.Max(1.0, Height)) / 260.0, 0.75, 1.6);
         return new GlassFaceParams(
             Width, Height, Density, CornerRadius, Thickness * sizeK, _pressed, _hover, Signal, Hollow,
-            x, y, pw, ph, TintAmount, _lightX, _lightY, _lightAmount);
+            x, y, pw, ph, TintAmount);
     }
 
     /// <summary>
@@ -339,6 +339,54 @@ public class GlassPlate : ContentView
     }
 
     /// <summary>
+    /// <summary>
+    /// 实时绘制的那盏光：以指针在块内的位置为圆心的一枚径向高光，强度按距离衰减。
+    ///
+    /// 为什么它必须**画在合成之外**：把光烘进位图意味着指针每动一下就要重算整块玻璃
+    /// （糊底裁剪 + 几十上百层渐变）。用户一句话把这层窗户纸捅破了 ——「我跑 3A 都不卡，
+    /// 为什么跑这个伪 3D 反而卡」。游戏里光是真的在每一帧算的，只是每帧的代价很小；
+    /// 这里照做：材质（位图）只在几何/配色变时烘一次，光是每帧几笔渐变。
+    /// 于是光照频率可以拉到每帧，而 CPU 只多花一次画渐变的时间。
+    /// </summary>
+    internal void DrawLight(ICanvas canvas, RectF rect)
+    {
+        if (_lightAmount <= 0.02) return;
+
+        var cx = rect.X + (float)(_lightX * rect.Width);
+        var cy = rect.Y + (float)(_lightY * rect.Height);
+        var reach = (float)(Math.Max(rect.Width, rect.Height) * (0.55 + 0.35 * _lightAmount));
+
+        canvas.SaveState();
+        var radius = (float)(CornerRadius * Density);
+        canvas.ClipPath(RoundedRectPath(rect, radius));
+
+        var paint = new Microsoft.Maui.Graphics.RadialGradientPaint
+        {
+            StartColor = Color.FromRgba(255f, 255f, 255f, (float)(0.30 * _lightAmount)),
+            EndColor = Color.FromRgba(255f, 255f, 255f, 0f),
+            Center = new Point(cx, cy),
+            Radius = reach
+        };
+        paint.GradientStops = new[]
+        {
+            new PaintGradientStop(0f, Color.FromRgba(255f, 255f, 255f, (float)(0.30 * _lightAmount))),
+            new PaintGradientStop(0.45f, Color.FromRgba(255f, 255f, 255f, (float)(0.10 * _lightAmount))),
+            new PaintGradientStop(1f, Color.FromRgba(255f, 255f, 255f, 0f))
+        };
+
+        canvas.SetFillPaint(paint, rect);
+        canvas.FillRectangle(rect);
+        canvas.RestoreState();
+    }
+
+    private static PathF RoundedRectPath(RectF r, float radius)
+    {
+        var path = new PathF();
+        var rad = Math.Min(radius, Math.Min(r.Width, r.Height) * 0.5f);
+        path.AppendRoundedRectangle(r, rad);
+        return path;
+    }
+
     // ── 鼠标 = 点光源 ────────────────────────────────────────────────────
 
     /// <summary>
@@ -384,15 +432,15 @@ public class GlassPlate : ContentView
         // 1 → 0 的衰减，前段慢、末段快（近处的差别看得出来，远处快速归零）。
         var amount = dist >= LightReach ? 0 : Math.Pow(1 - dist / LightReach, 1.35);
 
-        var qx = Math.Round(ux * 8) / 8;
-        var qy = Math.Round(uy * 8) / 8;
-        var qa = Math.Round(amount * 10) / 10;
-
-        if (Math.Abs(qx - _lightX) < 1e-6 && Math.Abs(qy - _lightY) < 1e-6 && Math.Abs(qa - _lightAmount) < 1e-6) return;
-        _lightX = qx;
-        _lightY = qy;
-        _lightAmount = qa;
-        Repaint();
+        // 不量化、不重合成：光是一层**实时绘制的覆盖层**（见 PlateDrawable），
+        // 每帧只是几条径向渐变，代价和游戏里画一盏灯的 halo 一样。
+        // 所以它可以跟到每一帧（PointerLight 也在 8ms 档），而不是等一张位图重新烘好。
+        if (Math.Abs(ux - _lightX) < 0.002 && Math.Abs(uy - _lightY) < 0.002
+            && Math.Abs(amount - _lightAmount) < 0.004) return;
+        _lightX = ux;
+        _lightY = uy;
+        _lightAmount = amount;
+        _canvas.Invalidate();
     }
 
     /// <summary>这块玻璃在窗口坐标里的左上角。取平台元素到根的可视变换，窗口缩放/滚动都对得上。</summary>
@@ -436,6 +484,7 @@ public class GlassPlate : ContentView
                 return;
             }
             canvas.DrawImage(image, dirtyRect.X, dirtyRect.Y, dirtyRect.Width, dirtyRect.Height);
+            _owner.DrawLight(canvas, dirtyRect);
         }
     }
 }

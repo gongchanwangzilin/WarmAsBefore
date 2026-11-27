@@ -23,12 +23,7 @@ public readonly record struct GlassFaceParams(
     double PageY,
     double PageW,
     double PageH,
-    double TintAmount,
-    /// <summary>鼠标作为点光源：光在块内的归一化位置（0~1）。-1 表示没有指针（回到固定的左上光）。</summary>
-    double LightX,
-    double LightY,
-    /// <summary>这盏光此刻照到这块玻璃上有几分（0~1）。按指针到这块玻璃的距离衰减。</summary>
-    double LightAmount);
+    double TintAmount);
 
 /// <summary>
 /// 真·液态玻璃的绘制核心：**用 Skia 自己画一块玻璃**，而不是往控件上叠一层半透明白。
@@ -204,8 +199,7 @@ internal static class GlassFace
         Math.Round(p.Radius, 1), Math.Round(p.Thickness, 2),
         p.Pressed ? 'P' : p.Hover ? 'H' : 'N', p.Signal ? 'S' : '-', p.Hollow ? 'O' : '*',
         Math.Round(p.PageX), Math.Round(p.PageY), Math.Round(p.PageW), Math.Round(p.PageH),
-        Math.Round(p.TintAmount, 2), StyleWorldTokens.Dark ? 'd' : 'l', FrostField.Version, TintSignature(),
-        Math.Round(p.LightX, 2), Math.Round(p.LightY, 2), Math.Round(p.LightAmount, 1));
+        Math.Round(p.TintAmount, 2), StyleWorldTokens.Dark ? 'd' : 'l', FrostField.Version, TintSignature());
 
     // ── 合成 ────────────────────────────────────────────────────────────
 
@@ -547,15 +541,14 @@ internal static class GlassFace
         // 为什么换成点光源比「悬停变亮」对：变亮只是把整块面整体抬一档，眼睛读成「这里被选中了」；
         // 跟着指针走的高光读成「光在你手边」，玻璃才有位置与厚度。指针位置在
         // <see cref="GlassPlate"/> 里被量化到 1/8 网格，所以每块玻璃只为此多合成有限几张。
-        var lit = p.LightX >= 0 && p.LightY >= 0;
-        var cx = lit ? (float)(p.LightX * w) : w * 0.32f;
-        var cy = lit ? (float)(p.LightY * h) : h * 0.10f;
-        var reach = (float)((lit ? 0.58 : 0.72) * Math.Max(w, h));
+        var cx = w * 0.32f;
+        var cy = h * 0.10f;
+        var reach = (float)(0.72 * Math.Max(w, h));
         using (var shader = SKShader.CreateRadialGradient(
                    new SKPoint(cx, cy), reach,
                    new[]
                    {
-                       SKColors.White.WithAlpha(A((lit ? 0.26 + 0.20 * p.LightAmount : 0.20) * k)),
+                       SKColors.White.WithAlpha(A(0.20 * k)),
                        SKColors.White.WithAlpha(A(0.10 * k)),
                        SKColors.White.WithAlpha(A(0.03 * k)),
                        SKColors.White.WithAlpha(0)
@@ -568,7 +561,7 @@ internal static class GlassFace
         }
 
         using (var haze = SKShader.CreateRadialGradient(
-                   new SKPoint(lit ? cx : w * 0.28f, lit ? cy : h * -0.15f), Math.Max(w, h) * 1.15f,
+                   new SKPoint(w * 0.28f, h * -0.15f), Math.Max(w, h) * 1.15f,
                    new[] { SKColors.White.WithAlpha(A(0.10 * k)), SKColors.White.WithAlpha(0) },
                    new[] { 0f, 1f }, SKShaderTileMode.Clamp))
         using (var hazePaint = new SKPaint { IsAntialias = true, Shader = haze })
@@ -659,34 +652,6 @@ internal static class GlassFace
         var live = p.Pressed ? 1.15 : p.Hover ? 1.08 : 1.0;
         var inside = inset > 0 ? inset : (float)(0.7 * density);
 
-        // 指针在块内时，先按「点光源照亮最近的棱」加一笔：同一条轮廓，用径向渐变当颜色源，
-        // 触点处最亮、离开 55% 就归零。它让光真的从手指/鼠标那一侧打到边上，
-        // 而不是永远固定照着左上角。
-        if (p.LightX >= 0 && p.LightY >= 0 && !p.Hollow)
-        {
-            using var rimPath = Rounded(inside, inside, w - 2 * inside, h - 2 * inside, Math.Max(1f, radius - inside));
-            using var rimShader = SKShader.CreateRadialGradient(
-                new SKPoint((float)(p.LightX * w), (float)(p.LightY * h)),
-                (float)(Math.Max(w, h) * 0.62),
-                new[]
-                {
-                    SKColors.White.WithAlpha(A(0.60 * live * (0.35 + 0.65 * p.LightAmount))),
-                    SKColors.White.WithAlpha(A(0.22 * live * (0.35 + 0.65 * p.LightAmount))),
-                    SKColors.White.WithAlpha(0)
-                },
-                new[] { 0f, 0.30f, 1f },
-                SKShaderTileMode.Clamp);
-            using var rimPaint = new SKPaint
-            {
-                IsAntialias = true,
-                Style = SKPaintStyle.Stroke,
-                StrokeWidth = (float)(2.2 * density),
-                StrokeCap = SKStrokeCap.Round,
-                Shader = rimShader,
-                MaskFilter = SKMaskFilter.CreateBlur(SKBlurStyle.Normal, (float)Math.Max(0.8, 0.9 * density))
-            };
-            canvas.DrawPath(rimPath, rimPaint);
-        }
         var width = (float)((p.Pressed ? 1.4 : 2.0) * density);
 
         // 高光的峰值由世界按明暗下发：暗底 0.98（一束光真的打上去了），亮底 0.80

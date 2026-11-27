@@ -10,8 +10,8 @@ namespace WarmAsBefore.Helpers;
 /// 不是每块玻璃自己有一盏。所以这里在窗口层收一次指针，广播给所有订阅的玻璃，
 /// 由每块玻璃自己算「我在它的哪个方向、多远、照到我还有几分」。
 ///
-/// 节流：16ms 一次（约 60fps）。一块玻璃只在「照到它的强度或光位真的变了」时重画，
-/// 而且光位量化到 1/8 网格 —— 否则鼠标划过整个窗口会让每块玻璃重新合成几百张位图。
+/// 节流：8ms（约 120fps）。光不再是「烘进位图」的东西，而是每块玻璃在绘制回调里现画的一层，
+/// 所以它能跟到高刷新率 —— 代价只是一次径向渐变，和游戏里画一盏灯的 halo 同级。
 /// </summary>
 public static class PointerLight
 {
@@ -92,16 +92,16 @@ public static class PointerLight
         lock (Gate)
         {
             // 位置没动就不广播（WinUI 每帧都会报同一个点）。
-            if (Math.Abs(x - _x) < 0.5 && Math.Abs(y - _y) < 0.5) return;
+            if (Math.Abs(x - _x) < 0.25 && Math.Abs(y - _y) < 0.25) return;
             _x = x;
             _y = y;
-            if (now - _lastTick < 16)
+            if (now - _lastTick < 8)
             {
                 // 这一帧还在冷却里：记下「稍后补一帧」，免得快速划过时丢掉最后一个位置。
                 if (_pendingFlush) return;
                 _pendingFlush = true;
                 var dispatcher = Microsoft.Maui.Controls.Application.Current?.Dispatcher;
-                dispatcher?.DispatchDelayed(TimeSpan.FromMilliseconds(18), () =>
+                dispatcher?.DispatchDelayed(TimeSpan.FromMilliseconds(9), () =>
                 {
                     lock (Gate) _pendingFlush = false;
                     Flush();
