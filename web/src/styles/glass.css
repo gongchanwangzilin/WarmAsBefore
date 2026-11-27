@@ -277,3 +277,14 @@
   transform: translate3d(0, calc(var(--press, 0) * 2px), 0)
     scale(calc(1 - var(--press, 0) * 0.04));
 }
+
+/* 减弱透明降级（无障碍）：玻璃切成一档不透明的磨砂层 —— 糊得更厚、压暗一档，
+   正文因此落在实面上，指针光也不再被算进对比（Sheen 层撤掉）。 */
+.world[data-reduced='1'] .glass {
+  backdrop-filter: blur(26px) saturate(110%) brightness(0.9);
+  -webkit-backdrop-filter: blur(26px) saturate(110%) brightness(0.9);
+}
+
+.world[data-reduced='1'] .glass__sheen {
+  opacity: 0;
+}

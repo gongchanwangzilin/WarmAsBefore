@@ -1,37 +1,37 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { toErrorBody, type Bridge } from '../bridge/client';
-import type { ErrorBody, GlassPalette } from '../bridge/protocol';
-import { DEFAULT_PALETTE } from './defaults';
+import type { Appearance, ErrorBody } from '../bridge/protocol';
+import { DEFAULT_APPEARANCE } from './defaults';
 
-export type PaletteStatus = 'loading' | 'ready' | 'empty' | 'error';
+export type AppearanceStatus = 'loading' | 'ready' | 'empty' | 'error';
 export type SaveStatus = 'idle' | 'saving' | 'error';
 
-export type PaletteStore = {
-  value: GlassPalette;
-  status: PaletteStatus;
+export type AppearanceStore = {
+  value: Appearance;
+  status: AppearanceStatus;
   error: ErrorBody | null;
   save: SaveStatus;
   reload: () => void;
   /** 本地立刻生效，300ms 合并一次写回后端 */
-  update: (next: GlassPalette) => void;
+  update: (next: Appearance) => void;
   /** 后端推来的权威值，不写回 */
-  replace: (next: GlassPalette) => void;
+  replace: (next: Appearance) => void;
   retrySave: () => void;
 };
 
 const SAVE_DEBOUNCE_MS = 300;
 
 /**
- * 光谱是全局状态：它在后端、却被每一个玻璃块用着（透明度改的是整屏材质）。
- * 所以加载一次放在 App 上，玻璃页只负责改它、显示它的四种状态。
+ * 外观是全局状态：它在后端、却被每一个玻璃块用着（透明度改的是整屏材质）。
+ * 所以加载一次放在 App 上，分类页只负责改它、显示它的四种状态。
  */
-export function usePalette(bridge: Bridge): PaletteStore {
-  const [value, setValue] = useState<GlassPalette>(DEFAULT_PALETTE);
-  const [status, setStatus] = useState<PaletteStatus>('loading');
+export function useAppearance(bridge: Bridge): AppearanceStore {
+  const [value, setValue] = useState<Appearance>(DEFAULT_APPEARANCE);
+  const [status, setStatus] = useState<AppearanceStatus>('loading');
   const [error, setError] = useState<ErrorBody | null>(null);
   const [save, setSave] = useState<SaveStatus>('idle');
 
-  const latest = useRef<GlassPalette>(DEFAULT_PALETTE);
+  const latest = useRef<Appearance>(DEFAULT_APPEARANCE);
   const timer = useRef<number | null>(null);
 
   useEffect(
@@ -44,14 +44,14 @@ export function usePalette(bridge: Bridge): PaletteStore {
   const reload = useCallback(() => {
     setStatus('loading');
     setError(null);
-    bridge.request('palette.get', {}).then(
-      ({ palette }) => {
-        if (!palette) {
+    bridge.request('appearance.get', {}).then(
+      ({ appearance }) => {
+        if (!appearance) {
           setStatus('empty');
           return;
         }
-        latest.current = palette;
-        setValue(palette);
+        latest.current = appearance;
+        setValue(appearance);
         setStatus('ready');
       },
       (cause: unknown) => {
@@ -66,12 +66,12 @@ export function usePalette(bridge: Bridge): PaletteStore {
   }, [reload]);
 
   const persist = useCallback(
-    (palette: GlassPalette) => {
+    (next: Appearance) => {
       setSave('saving');
-      bridge.request('palette.set', { palette }).then(
-        ({ palette: saved }) => {
-          latest.current = saved;
-          setValue(saved);
+      bridge.request('appearance.set', { appearance: next }).then(
+        ({ appearance }) => {
+          latest.current = appearance;
+          setValue(appearance);
           setStatus('ready');
           setSave('idle');
         },
@@ -82,7 +82,7 @@ export function usePalette(bridge: Bridge): PaletteStore {
   );
 
   const update = useCallback(
-    (next: GlassPalette) => {
+    (next: Appearance) => {
       latest.current = next;
       setValue(next);
       setSave('saving');
@@ -92,7 +92,7 @@ export function usePalette(bridge: Bridge): PaletteStore {
     [persist],
   );
 
-  const replace = useCallback((next: GlassPalette) => {
+  const replace = useCallback((next: Appearance) => {
     latest.current = next;
     setValue(next);
     setStatus('ready');

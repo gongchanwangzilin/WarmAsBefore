@@ -8,7 +8,7 @@ import type {
   Params,
   Result,
 } from './protocol';
-import { mockFaults, mockHandle, setMockFaults, type MockFaults } from './mock';
+import { mockHandle } from './mock';
 
 export type BridgeMode = 'webview2' | 'wab' | 'mock';
 
@@ -181,15 +181,6 @@ export class Bridge {
     return () => {
       this.listeners.delete(wrapped);
     };
-  }
-
-  /** 仅 mock 有；真机返回 null，界面据此隐藏演示开关。 */
-  get faults(): MockFaults | null {
-    return this.mode === 'mock' ? { ...mockFaults } : null;
-  }
-
-  setFaults(patch: Partial<MockFaults>): void {
-    if (this.mode === 'mock') setMockFaults(patch);
   }
 
   private receive(raw: unknown): void {

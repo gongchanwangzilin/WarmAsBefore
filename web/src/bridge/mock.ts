@@ -1,8 +1,8 @@
-import { DEFAULT_PALETTE, DEFAULT_SETTINGS } from '../lib/defaults';
+import { DEFAULT_APPEARANCE, DEFAULT_SETTINGS } from '../lib/defaults';
 import { MOCK_TOKENS } from './tokens';
 import type {
+  Appearance,
   ErrorBody,
-  GlassPalette,
   Params,
   RequestEnvelope,
   ResponseEnvelope,
@@ -14,7 +14,7 @@ import type {
  * 内存里的假后端。浏览器没有 WebView2 也没有 Android 注入时，
  * client 会回落到这里，于是同一份前端能在 Chrome 里独立跑。
  *
- * 故障开关只影响「页面级」请求（settings.get / palette.get / *.set），
+ * 故障开关只影响「页面级」请求（settings.get / appearance.get / *.set），
  * ui.tokens 永远成功 —— 令牌拿不到的话整个页面连颜色都没有，那是启动失败，不是页面状态。
  */
 
@@ -23,17 +23,13 @@ export type MockFailure = 'none' | 'load' | 'write';
 export type MockFaults = {
   latency: MockLatency;
   failure: MockFailure;
-  /** 让后端「什么都没注册」：values/palette 返回 null，页面走空状态 */
+  /** 让后端「什么都没注册」：values/appearance 返回 null，页面走空状态 */
   empty: boolean;
 };
 
-export const mockFaults: MockFaults = { latency: 0, failure: 'none', empty: false };
+const mockFaults: MockFaults = { latency: 0, failure: 'none', empty: false };
 
-export function setMockFaults(patch: Partial<MockFaults>): void {
-  Object.assign(mockFaults, patch);
-}
-
-const KNOWN_ROUTES = new Set(['/', '/settings', '/settings/glass']);
+const KNOWN_ROUTES = new Set(['/', '/settings', '/settings/appearance']);
 
 const SAMPLE_SAVE: SaveSummary = {
   character: '沈砚',
@@ -42,8 +38,8 @@ const SAMPLE_SAVE: SaveSummary = {
   minutes: 147,
 };
 
-const store: { palette: GlassPalette; values: SettingsValues; save: SaveSummary } = {
-  palette: { ...DEFAULT_PALETTE },
+const store: { appearance: Appearance; values: SettingsValues; save: SaveSummary } = {
+  appearance: structuredClone(DEFAULT_APPEARANCE),
   values: structuredClone(DEFAULT_SETTINGS),
   save: SAMPLE_SAVE,
 };
@@ -55,15 +51,8 @@ const fail = (id: number, error: ErrorBody): ResponseEnvelope => ({ id, ok: fals
 
 function editSettings(edit: Params<'settings.set'>): void {
   switch (edit.key) {
-    case 'glass':
-      store.values.glass = { ...edit.value };
-      store.palette = { ...edit.value };
-      break;
     case 'text.scale':
       store.values.text = { scale: edit.value };
-      break;
-    case 'sound.enabled':
-      store.values.sound = { enabled: edit.value };
       break;
     case 'story.autoSave':
       store.values.story = { autoSave: edit.value };
@@ -84,14 +73,13 @@ const handlers = {
     editSettings(params);
     return { values: store.values };
   },
-  'palette.get': () => ({ palette: mockFaults.empty ? null : store.palette }),
-  'palette.set': (params: Params<'palette.set'>) => {
-    if (!Number.isFinite(params.palette.alpha)) {
+  'appearance.get': () => ({ appearance: mockFaults.empty ? null : store.appearance }),
+  'appearance.set': (params: Params<'appearance.set'>) => {
+    if (!Number.isFinite(params.appearance.alpha)) {
       throw { code: 'E_BAD_PARAMS', message: '玻璃透明度不是数字。' } satisfies ErrorBody;
     }
-    store.palette = { ...params.palette };
-    store.values.glass = { ...params.palette };
-    return { palette: store.palette };
+    store.appearance = structuredClone(params.appearance);
+    return { appearance: store.appearance };
   },
   'nav.open': (params: Params<'nav.open'>) => ({ accepted: KNOWN_ROUTES.has(params.route) }),
   'nav.back': () => ({ accepted: true }),
@@ -109,8 +97,8 @@ export async function mockHandle(raw: string): Promise<string> {
 
   await sleep(mockFaults.latency + 140);
 
-  const isLoad = req.method === 'settings.get' || req.method === 'palette.get';
-  const isWrite = req.method === 'settings.set' || req.method === 'palette.set';
+  const isLoad = req.method === 'settings.get' || req.method === 'appearance.get';
+  const isWrite = req.method === 'settings.set' || req.method === 'appearance.set';
 
   if (mockFaults.failure === 'load' && isLoad) {
     return JSON.stringify(

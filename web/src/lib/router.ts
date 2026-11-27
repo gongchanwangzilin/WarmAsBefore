@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-export type RouteId = 'title' | 'settings' | 'glass';
+export type RouteId = 'title' | 'settings' | 'appearance';
 
 export type Route = {
   id: RouteId;
@@ -14,7 +14,13 @@ export type Route = {
 export const ROUTES: Record<RouteId, Route> = {
   title: { id: 'title', path: '/', depth: 0, title: '温暖如初', parent: null },
   settings: { id: 'settings', path: '/settings', depth: 1, title: '设置', parent: 'title' },
-  glass: { id: 'glass', path: '/settings/glass', depth: 2, title: '玻璃效果', parent: 'settings' },
+  appearance: {
+    id: 'appearance',
+    path: '/settings/appearance',
+    depth: 2,
+    title: '设置',
+    parent: 'settings',
+  },
 };
 
 export type Direction = 'forward' | 'back';

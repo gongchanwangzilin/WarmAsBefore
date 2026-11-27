@@ -6,8 +6,8 @@ import { averageGround, groundCss, groundLayers } from './lib/ground';
 import { computeInk } from './lib/ink';
 import { registerGround, startLighting } from './lib/light';
 import { useRouter } from './lib/router';
-import { usePalette } from './lib/usePalette';
-import { GlassPage } from './pages/GlassPage';
+import { useAppearance } from './lib/useAppearance';
+import { AppearancePage } from './pages/AppearancePage';
 import { SettingsPage } from './pages/SettingsPage';
 import { TitlePage } from './pages/TitlePage';
 
@@ -18,14 +18,14 @@ type Props = {
 
 export function App({ bridge, tokens }: Props) {
   const { route, direction, navigate, back } = useRouter();
-  const palette = usePalette(bridge);
+  const appearance = useAppearance(bridge);
   const groundRef = useRef<HTMLDivElement | null>(null);
 
   const layers = useMemo(() => groundLayers(tokens), [tokens]);
   const groundAverage = useMemo(() => averageGround(layers), [layers]);
   const ink = useMemo(
-    () => computeInk({ alpha: palette.value.alpha, ground: groundAverage, tokens }),
-    [palette.value.alpha, groundAverage, tokens],
+    () => computeInk({ alpha: appearance.value.alpha, ground: groundAverage, tokens }),
+    [appearance.value.alpha, groundAverage, tokens],
   );
 
   useEffect(() => {
@@ -43,10 +43,10 @@ export function App({ bridge, tokens }: Props) {
     [bridge, navigate],
   );
 
-  const replacePalette = palette.replace;
+  const replaceAppearance = appearance.replace;
   useEffect(
-    () => bridge.onEvent('palette.changed', ({ palette: next }) => replacePalette(next)),
-    [bridge, replacePalette],
+    () => bridge.onEvent('appearance.changed', ({ appearance: next }) => replaceAppearance(next)),
+    [bridge, replaceAppearance],
   );
 
   const goBack = useCallback(() => {
@@ -55,9 +55,9 @@ export function App({ bridge, tokens }: Props) {
   }, [bridge, route.path, back]);
 
   const worldVars = {
-    '--w-alpha': palette.value.alpha,
-    '--w-frost': palette.value.frost,
-    '--w-liquid': palette.value.liquid,
+    '--w-alpha': appearance.value.alpha,
+    '--w-frost': appearance.value.frost,
+    '--w-liquid': appearance.value.liquid,
     '--w-ink-display': ink.colors.display,
     '--w-ink-body': ink.colors.body,
     '--w-ink-label': ink.colors.label,
@@ -69,7 +69,8 @@ export function App({ bridge, tokens }: Props) {
   return (
     <div
       className="world"
-      data-lightweight={palette.value.lightweight ? '1' : undefined}
+      data-lightweight={appearance.value.lightweight ? '1' : undefined}
+      data-reduced={appearance.value.reducedTransparency ? '1' : undefined}
       style={worldVars}
     >
       <div className="ground" ref={groundRef} style={{ backgroundImage: groundCss(layers) }}>
@@ -84,16 +85,9 @@ export function App({ bridge, tokens }: Props) {
             return <TitlePage bridge={bridge} onNavigate={navigate} />;
           }
           if (frameRoute.id === 'settings') {
-            return (
-              <SettingsPage
-                bridge={bridge}
-                onBack={goBack}
-                onNavigate={navigate}
-                onFaultsChanged={palette.reload}
-              />
-            );
+            return <SettingsPage bridge={bridge} onBack={goBack} onNavigate={navigate} />;
           }
-          return <GlassPage store={palette} onBack={goBack} />;
+          return <AppearancePage store={appearance} onBack={goBack} />;
         }}
       />
 

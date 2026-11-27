@@ -12,7 +12,15 @@
 /** 服务端下发的令牌：全部是 CSS 自定义属性的文本值。 */
 export type TokenMap = Record<`--w-${string}`, string>;
 
-export type GlassPalette = {
+/** 背景模式的三个档（对应 BackgroundMode 的 none / image / clear）。 */
+export type BackgroundMode = 'solid' | 'image' | 'clear';
+
+/**
+ * 「外观与主题」这一页的全部可调项。
+ * 玻璃三项 + 轻量模式驱动整屏材质（App 把它们写进 --w-alpha / --w-frost / --w-liquid），
+ * 背景与场景特效只决定玻璃背后透出什么。
+ */
+export type Appearance = {
   /** 玻璃透明度 0..1，驱动 --w-face-k */
   alpha: number;
   /** 磨砂程度 0..1，驱动 backdrop blur */
@@ -21,6 +29,29 @@ export type GlassPalette = {
   liquid: number;
   /** 轻量模式：撤掉指针光与背景响应 */
   lightweight: boolean;
+  /** 减弱透明降级（无障碍）：玻璃切不透明磨砂层 */
+  reducedTransparency: boolean;
+  background: {
+    mode: BackgroundMode;
+    /** 纯色底；空串 = 跟主题走 */
+    solidHex: string;
+    /** 页面色；空串 = 跟色板走 */
+    pageTintHex: string;
+    /** 背景图片的文件名；没有图片时是「尚未选择图片」 */
+    imageLabel: string;
+  };
+  scene: {
+    /** 测试版场景特效：总闸，关掉时下面四项不生效 */
+    experimental: boolean;
+    /** 天气场景叠加 */
+    weather: boolean;
+    /** 场景光照与光柱 */
+    light: boolean;
+    /** 场景音效 */
+    audio: boolean;
+    /** 场景音量 0..1 */
+    audioLevel: number;
+  };
 };
 
 /** 标题页「上次的存档」卡。 */
@@ -32,19 +63,34 @@ export type SaveSummary = {
   minutes: number;
 };
 
+export type ThemeName = 'classic' | 'sakura' | 'bamboo' | 'mist' | 'endfield';
+
+/**
+ * 设置首页每一行的右侧摘要就是这几个数拼出来的（对应 SettingsViewModel.RefreshSectionSummaries）。
+ * 拼法在 lib/settingsHome.ts，这里只放后端给的原值。
+ */
 export type SettingsValues = {
-  glass: GlassPalette;
+  appearance: { liquid: boolean; glass: boolean; frost: boolean; theme: ThemeName };
+  sound: { bgm: number; sfx: number };
   text: { scale: number };
-  sound: { enabled: boolean };
   story: { autoSave: boolean };
   language: { locale: 'zh-CN' | 'en-US' };
+  ai: { providers: number; smartSaving: boolean; timeoutSeconds: number };
+  memory: { windowDays: number; contextLimit: string };
+  ui: {
+    orientation: 'auto' | 'landscape' | 'portrait';
+    chatStyle: 'bubble' | 'galgame';
+    difficulty: 'easy' | 'normal' | 'hard';
+  };
+  platform: { petIdleMinutes: number; preferDiscreteGpu: boolean };
+  integrations: { qq: boolean; wechat: boolean; mcp: boolean };
+  life: { notifications: boolean; weatherCity: string; customWeatherSource: boolean };
+  data: { skillsInstalled: boolean };
 };
 
 /** settings.set 的载荷按 key 收窄，写错类型在编译期就报。 */
 export type SettingEdit =
-  | { key: 'glass'; value: GlassPalette }
   | { key: 'text.scale'; value: number }
-  | { key: 'sound.enabled'; value: boolean }
   | { key: 'story.autoSave'; value: boolean }
   | { key: 'language.locale'; value: SettingsValues['language']['locale'] };
 
@@ -63,14 +109,14 @@ export type Requests = {
     params: SettingEdit;
     result: { values: SettingsValues };
   };
-  'palette.get': {
+  'appearance.get': {
     params: Record<string, never>;
-    /** palette 为 null = 这套设备还没有下发光谱（空状态） */
-    result: { palette: GlassPalette | null };
+    /** appearance 为 null = 这套设备还没有下发外观（空状态） */
+    result: { appearance: Appearance | null };
   };
-  'palette.set': {
-    params: { palette: GlassPalette };
-    result: { palette: GlassPalette };
+  'appearance.set': {
+    params: { appearance: Appearance };
+    result: { appearance: Appearance };
   };
   'nav.open': {
     params: { route: string };
@@ -115,7 +161,7 @@ export type ResponseEnvelope<M extends Method = Method> =
 /** 后端主动推给前端的消息。 */
 export type ServerEvents = {
   'nav.request': { route: string };
-  'palette.changed': { palette: GlassPalette };
+  'appearance.changed': { appearance: Appearance };
   'settings.changed': { values: SettingsValues };
   'theme.tokens': { tokens: TokenMap };
 };
