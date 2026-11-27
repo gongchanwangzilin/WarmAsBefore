@@ -51,38 +51,58 @@ public static class WindowBackdrop
     private const int ACCENT_ENABLE_ACRYLICBLURBEHIND = 4;
 #endif
 
-    /// <summary>开启/关闭窗口透视。失败只记日志，不会把窗口搞黑。</summary>
-    public static void SetTransparent(bool on)
+    /// <summary>
+    /// 开启/关闭窗口透视。失败只记日志，不会把窗口搞黑。
+    /// 返回「此刻窗口背后真的有一层模糊」—— 调用方（AppBackgroundService）要靠它决定
+    /// 页面是铺不透明地面、还是只补一层薄纱：以为亚克力生效了而实际没有，页面就会压在看不清的桌面上。
+    ///
+    /// 在主线程上直接做完再返回（调用方自己就在主线程），否则投递过去、只能乐观地返回 false。
+    /// </summary>
+    public static bool SetTransparent(bool on)
     {
-        if (_transparent == on) return;
+        if (!MainThread.IsMainThread)
+        {
+            MainThread.BeginInvokeOnMainThread(() => SetTransparent(on));
+            return false;
+        }
+
+        if (_transparent == on) return _applied;
         _transparent = on;
 
 #if WINDOWS
-        MainThread.BeginInvokeOnMainThread(() =>
+        try
         {
-            try
-            {
-                var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow);
-                if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window w) return;
+            var win = Application.Current?.Windows.FirstOrDefault(w => w.Handler is not null && w is not WarmAsBefore.Views.ToolWindow);
+            if (win?.Handler?.PlatformView is not Microsoft.UI.Xaml.Window w) return _applied = false;
 
-                var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(w);
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(w);
 
-                // 1) 整块客户区参与 DWM 合成
-                var m = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
-                DwmExtendFrameIntoClientArea(hwnd, ref m);
+            // 1) 整块客户区参与 DWM 合成
+            var m = new MARGINS { Left = -1, Right = -1, Top = -1, Bottom = -1 };
+            DwmExtendFrameIntoClientArea(hwnd, ref m);
 
-                // 2) 合成成「亚克力」= 桌面模糊透上来；关闭时回到不透明
-                ApplyAccent(hwnd, on);
+            // 2) 合成成「亚克力」= 桌面模糊透上来；关闭时回到不透明
+            ApplyAccent(hwnd, on);
 
-                App.WriteLog($"WindowBackdrop: transparent={on}");
-            }
-            catch (Exception ex)
-            {
-                App.WriteLog("WindowBackdrop.SetTransparent -> " + ex.Message);
-            }
-        });
+            _applied = on;
+            App.WriteLog($"WindowBackdrop: transparent={on}");
+            return _applied;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WindowBackdrop.SetTransparent -> " + ex.Message);
+            return _applied = false;
+        }
+#else
+        _applied = false;
+        return false;
 #endif
     }
+
+    /// <summary>窗口背后是否已有一层模糊（老的 composition 亚克力）。</summary>
+    public static bool IsApplied => _applied;
+
+    private static bool _applied;
 
 #if WINDOWS
     private static void ApplyAccent(IntPtr hwnd, bool on)

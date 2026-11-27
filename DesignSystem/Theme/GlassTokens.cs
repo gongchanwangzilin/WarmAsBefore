@@ -31,14 +31,21 @@ public enum GlassKind
 /// 把「材质档 + 各调制量」换算成画刷/阴影资源，写进 Application.Resources。
 /// 组件样式（卡片 / 按钮 / 上下栏 / 弹窗）用 {DynamicResource ...} 引用这些键。
 ///
-/// 这一版把原来的多风格玻璃收成了一套 Win11 玻璃，只保留四条规则：
-///   1. 一条描边规则：**1px，迎光边亮、背光边暗**。光钉死在左上，所以读起来就是「上沿亮、下沿暗」。
-///   2. 一条阴影规则：随「液态高度」变化（越高越远越散），档位只当倍率用，不再各写一条曲线。
+/// 这一版是**液态玻璃**：面只有三成到四成不透明，因为背后第一次真的有东西在透 ——
+/// <see cref="Services.FrostImageService"/> 把壁纸（或合成的地面）先降到 320px、高斯模糊、
+/// 归一化亮度，再铺到窗口层（见 <see cref="Services.AppBackgroundService"/>）。
+/// 面要透，透出来的才是「磨砂」；面要是七成实，透出来的只是一块白板 —— 这就是上一版的病根。
+///
+/// 四条规则不变，只是取值按「有真糊底」重标定：
+///   1. 一条描边规则：迎光边亮、背光边暗，中段几乎透明 —— 那条 1~2px 的环就是玻璃的**折射环**
+///      （两端的 2% 品红 / 青是极淡的色散，刻意做到测得出、看不出）。
+///   2. 一条阴影规则：随「液态高度」变化（越高越远越散），档位只当倍率用。
 ///   3. 一套圆角阶梯：4（小控件）/ 8（卡片、按钮）/ 12（栏、弹窗）。
 ///   4. 三档厚度 + 弹窗：面越厚，alpha 越高、高光越强、边越亮、影越大。
 ///
-/// 光照方向/光宽/光高原来由设置里的滑杆调，现在从 UI 移除、钉在常量上（见 FixedLight*）。
-/// 参数入参仍按旧的 GlassParams 收，旧配置里的任意值进来只会让描边渐变转个角度，不会崩。
+/// 镜面高光是面上第一颗色标（offset 0），落在左上一角：这是 iOS 26 那种「一块被光照到的玻璃」
+/// 的唯一几何线索 —— 一条从左上斜落的高光带，悬停时它沿面的轴向滑 6%（由 HoverFeel 的
+/// LiquidFace 克隆渐变做，见 Helpers/HoverFeel.SlideGradient）。
 /// </summary>
 public static class GlassTokens
 {
@@ -70,7 +77,7 @@ public static class GlassTokens
 
     // ── 规则常量 ────────────────────────────────────────────────────────
 
-    /// <summary>描边永远是 1px：粗一分就变成盒子，细一分在 100% 缩放下会被抹平。</summary>
+    /// <summary>发丝线的定数：栏与分隔线永远是 1px，粗一分就变成盒子。</summary>
     public const double Hairline = 1.0;
 
     /// <summary>Win11 圆角阶梯。窗口尺度变化时圆角在这一组里取最近的一档，不做连续缩放。</summary>
@@ -91,8 +98,19 @@ public static class GlassTokens
     /// <summary>轻量模式：不发布阴影。由 RuntimeConfigurator 按用户设置下发。</summary>
     public static bool LightMode { get; set; }
 
+    /// <summary>
+    /// 背后是否真的有一层被模糊过的背景（<see cref="Services.FrostImageService"/> 已就绪，
+    /// 或系统 acrylic backdrop 已生效）。false 时面自动做实：没有东西可透的时候，
+    /// 半透明只是一层脏纱，正文会直接压在照片上 —— 宁可丑，也不能让字读不出来。
+    /// 由 <see cref="Services.AppBackgroundService"/> 在糊底就绪后置位，并请求重发令牌。
+    /// </summary>
+    public static bool FrostedBackdrop { get; set; }
+
     /// <summary>关闭玻璃时的「面」：比页面底近白一档，保证按钮和卡还站得出来。</summary>
     private const double OpaqueAlpha = 0.94;
+
+    /// <summary>面 alpha 的上限：再实就不叫玻璃了，再透正文就开始被背景吃掉。</summary>
+    private const double FaceCeiling = 0.62;
 
     /// <summary>
     /// 玻璃的三个色标 + 边的三个色标，全部来自 StyleWorldTokens。
@@ -102,21 +120,32 @@ public static class GlassTokens
     private readonly record struct Tints(Color Top, Color Mid, Color Low, Color EdgeHi, Color EdgeMid, Color EdgeLo);
 
     /// <summary>
-    /// 一档材质的配方。前三个是面从上到下的 alpha 基准，Highlight 是顶部高光带的强度，
-    /// EdgeLit/EdgeShade 是描边的迎光端与背光端，Contact 是底部接触阴影的浓度，
-    /// HighlightAt 是高光带落在面的哪个高度，ShadowWeight 是阴影规则在这一档上的倍率。
+    /// 一档材质的配方。
+    ///   FaceTop/Body/Low  面从上到下的 alpha 基准（**有糊底时**的真实不透明度）
+    ///   Specular          左上一角那颗镜面白（6~22%）
+    ///   EdgeLit/EdgeShade 描边迎光端 / 背光端
+    ///   Contact           底部接触阴影的浓度
+    ///   SpecularAt        镜面停在面的哪个高度
+    ///   Band              高光带宽（面的百分比），按下时按倍率收窄
+    ///   Stroke            这一档的环宽（1~2px）
+    ///   ShadowWeight      阴影规则在这一档上的倍率
     /// 这些数是「谁多厚」，不是「浮多高」——体积由 GlassHeight 统一给。
     /// </summary>
     private readonly record struct Spec(
-        double FaceTop, double FaceBody, double FaceLow, double Highlight,
-        double EdgeLit, double EdgeShade, double Contact, double HighlightAt, double ShadowWeight);
+        double FaceTop, double FaceBody, double FaceLow, double Specular,
+        double EdgeLit, double EdgeShade, double Contact, double SpecularAt, double Band,
+        double Stroke, double ShadowWeight);
 
     private static Spec Of(GlassKind kind) => kind switch
     {
-        GlassKind.Bar => new(0.55, 0.42, 0.30, 0.10, 0.55, 0.10, 0.05, 0.06, 0.55),
-        GlassKind.Card => new(0.74, 0.60, 0.46, 0.16, 0.82, 0.16, 0.10, 0.10, 1.00),
-        GlassKind.Button => new(0.88, 0.72, 0.54, 0.34, 0.97, 0.30, 0.18, 0.14, 1.30),
-        _ => new(0.96, 0.88, 0.74, 0.26, 1.00, 0.22, 0.13, 0.08, 1.80)
+        // 栏最薄：它只是页脚/页头的一块薄玻璃，透出糊底就够了
+        GlassKind.Bar => new(0.30, 0.24, 0.17, 0.06, 0.40, 0.07, 0.05, 0.03, 0.22, 1.0, 0.55),
+        // 卡片：0.44 → 0.28，中段落在 0.36 —— 用户的验收标准「卡片底下是模糊背景在流」全靠这一档
+        GlassKind.Card => new(0.44, 0.36, 0.27, 0.10, 0.55, 0.10, 0.09, 0.05, 0.24, 2.0, 1.00),
+        // 按钮最胶质：镜面最亮、环最亮、接触阴影最深
+        GlassKind.Button => new(0.54, 0.44, 0.35, 0.22, 0.70, 0.16, 0.14, 0.07, 0.20, 1.5, 1.30),
+        // 弹窗最厚：它是模态的，得压得住下面所有的光
+        GlassKind.Dialog => new(0.60, 0.52, 0.43, 0.13, 0.72, 0.13, 0.12, 0.04, 0.26, 2.0, 1.80)
     };
 
     public static void Publish(GlassParams p)
@@ -143,61 +172,85 @@ public static class GlassTokens
 
         var (dx, dy) = Direction(p.LightX, p.LightY);
 
-        // 面：磨砂（MAUI 拿不到真模糊）用「向奶白混合」代表 blur 剂量，再按这一档的厚度算 alpha。
+        // 面：只有背后真有糊底时才敢薄。没有糊底时（Android、糊底还在算、系统 backdrop 不可用）
+        // 一律回到七成到九成实 —— 这不是保守，是「玻璃必须有东西可透」的唯一诚实做法。
         Color Face(Color c, double a)
         {
-            var r = (float)(c.Red + (1 - c.Red) * f * 0.85);
-            var g = (float)(c.Green + (1 - c.Green) * f * 0.85);
-            var b = (float)(c.Blue + (1 - c.Blue) * f * 0.85);
-            if (p.Reduced) return new Color(r, g, b, 1f);
-            return new Color(r, g, b, (float)Clamp01(a * t + OpaqueAlpha * (1 - t)));
+            if (p.Reduced) return new Color(c.Red, c.Green, c.Blue, 1f);
+            // 磨砂越重，面越奶一档（alpha 略升）：磨砂不是变模糊（那是底层的事），是变奶
+            var milk = 1 + 0.30 * f;
+            var a1 = a * (0.80 + 0.30 * t) * milk;
+            var alpha = FrostedBackdrop
+                ? Math.Clamp(a1, 0, FaceCeiling)
+                : Math.Clamp(0.80 + a1 * 0.22, 0, OpaqueAlpha + 0.02);
+            return new Color(c.Red, c.Green, c.Blue, (float)Clamp01(alpha));
         }
+
+        // 描边：同一根 1px 线上的渐变。起点压在迎光那一侧（左上），终点在背光那一侧（右下），
+        // 所以「上沿亮、下沿暗」不是靠写两条边画出来的，而是光方向自己算出来的。
+        // 中段压到几乎透明 = 折射环：眼睛读到的是「玻璃的边折了一下光」，不是「一个盒子」。
+        Brush EdgeOf(Spec s, double dispersion)
+        {
+            var start = new Point(0.5 + dx * 0.5, 0.5 + dy * 0.5);
+            var end = new Point(0.5 - dx * 0.5, 0.5 - dy * 0.5);
+            var brush = new LinearGradientBrush { StartPoint = start, EndPoint = end };
+            // 迎光端：白 + 2% 品红（色散只给 2%，多一档就变成霓虹边）
+            brush.GradientStops.Add(new GradientStop
+            {
+                Color = Edge(ColorBurn(tint.EdgeHi, 0xFF2E9A, dispersion), s.EdgeLit),
+                Offset = 0f
+            });
+            // 光宽：窄光是一道锐利反光（高光提前结束），宽光是整片漫射
+            brush.GradientStops.Add(new GradientStop
+            {
+                Color = Edge(tint.EdgeMid, s.EdgeLit * 0.10),
+                Offset = (float)Clamp01(0.12 + w * 0.42)
+            });
+            // 背光端：黑 + 2.5% 青
+            brush.GradientStops.Add(new GradientStop
+            {
+                Color = Edge(ColorBurn(Colors.Black, 0x22D3EE, dispersion), s.EdgeShade),
+                Offset = 1f
+            });
+            return brush;
+        }
+
         Color Edge(Color c, double a)
         {
             if (p.Reduced) return new Color(c.Red, c.Green, c.Blue, 1f);
             return new Color(c.Red, c.Green, c.Blue, (float)Clamp01(a * (1 - 0.32 * z)));
         }
 
-        // ── 面：一条竖直渐变就够。四段是「顶面受光 → 高光带 → 主体 → 底部接触阴影」，
+        // ── 面：一条左上到右下的斜渐变。五段是「镜面高光 → 顶面受光 → 主体 → 主体 → 底部接触阴影」，
         //    这就是玻璃被读成「有厚度的一块」的全部几何线索。
-        //    hiShift 让高光带上下移动（悬停往下滑一点、按下往上收窄），bandK 控高光带宽窄。
-        Brush Slab(Spec s, double hiShift, double bandK, double bodyK, double contactK)
+        //    specShift 让镜面上下移动（悬停留给 HoverFeel 做 6% 滑动），bandK 控高光带宽窄，
+        //    bodyK/contactK 是按下与悬停时的压暗/压紧。
+        Brush Slab(Spec s, double specShift, double bandK, double bodyK, double contactK)
         {
-            var hiAt = Clamp01(s.HighlightAt + hiShift);
-            // 液态高度越高，高光越散（同一束光在更高的地方铺得更开）
-            var band = (0.10 - 0.03 * h) * bandK;
-            var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0, 1) };
-            brush.GradientStops.Add(new GradientStop { Color = Face(tint.Top, s.FaceTop), Offset = 0f });
-            brush.GradientStops.Add(new GradientStop { Color = Face(tint.EdgeHi, s.Highlight), Offset = (float)hiAt });
+            var hiAt = Clamp01(s.SpecularAt + specShift);
+            // 液态高度越高，光在高处铺得越开（同一束光在更高的地方漫射得更宽）
+            var band = s.Band * bandK * (1.06 - 0.12 * h);
+            var brush = new LinearGradientBrush
+            {
+                // 斜轴：左上角起、右下角收。镜面那颗色标因此只落在左上那一块，而不是横贯整条顶边
+                StartPoint = new Point(0, 0),
+                EndPoint = new Point(0.55, 1)
+            };
+            // 面做实的时候镜面也要收：不透明面上压一颗 10% 的白会在左上一角糊出一团白雾
+            var specular = Face(tint.EdgeHi, s.Specular * (FrostedBackdrop ? 1.0 : 0.55));
+            brush.GradientStops.Add(new GradientStop { Color = specular, Offset = 0f });
+            brush.GradientStops.Add(new GradientStop { Color = Face(tint.Top, s.FaceTop), Offset = (float)hiAt });
             brush.GradientStops.Add(new GradientStop
             {
                 Color = Face(tint.Mid, s.FaceBody * bodyK),
                 Offset = (float)Clamp01(hiAt + band)
             });
-            brush.GradientStops.Add(new GradientStop { Color = Face(tint.Mid, s.FaceBody * bodyK), Offset = 0.70f });
+            brush.GradientStops.Add(new GradientStop { Color = Face(tint.Mid, s.FaceBody * bodyK), Offset = 0.72f });
             brush.GradientStops.Add(new GradientStop
             {
-                Color = Shade(Face(tint.Low, s.FaceLow), s.Contact * contactK),
+                Color = Shade(Face(tint.Low, s.FaceLow * (0.9 + 0.1 * bodyK)), s.Contact * contactK),
                 Offset = 1f
             });
-            return brush;
-        }
-
-        // ── 描边：同一根 1px 线上的渐变。起点压在迎光那一侧（左上），终点在背光那一侧（右下），
-        //    所以「上沿亮、下沿暗」不是靠写两条边画出来的，而是光方向自己算出来的。
-        Brush EdgeOf(Spec s)
-        {
-            var start = new Point(0.5 + dx * 0.5, 0.5 + dy * 0.5);
-            var end = new Point(0.5 - dx * 0.5, 0.5 - dy * 0.5);
-            var brush = new LinearGradientBrush { StartPoint = start, EndPoint = end };
-            brush.GradientStops.Add(new GradientStop { Color = Edge(tint.EdgeHi, s.EdgeLit), Offset = 0f });
-            // 光宽：窄光是一道锐利反光（高光提前结束），宽光是整片漫射
-            brush.GradientStops.Add(new GradientStop
-            {
-                Color = Edge(tint.EdgeMid, s.EdgeLit * 0.12),
-                Offset = (float)Clamp01(0.12 + w * 0.42)
-            });
-            brush.GradientStops.Add(new GradientStop { Color = Edge(tint.EdgeLo, s.EdgeShade), Offset = 1f });
             return brush;
         }
 
@@ -232,32 +285,33 @@ public static class GlassTokens
         var hairline = flat ? 0.0 : Hairline;
         res[HairlineKey] = hairline;
 
+        // 环宽：栏 1px（它只是条），卡片与弹窗 2px（折射环要有厚度才折得出来），按钮 1.5px。
         res[BarBg] = flat ? Solid(Sink(surface, 0.03)) : Slab(bar, 0, 1, 1, 1);
-        res[BarStroke] = flat ? Solid(Colors.Transparent) : EdgeOf(bar);
-        res[BarStrokeThickness] = hairline;
+        res[BarStroke] = flat ? Solid(Colors.Transparent) : EdgeOf(bar, 0.020);
+        res[BarStrokeThickness] = flat ? 0.0 : bar.Stroke;
         res[BarShadow] = noShadow || flat ? null : ShadowOf(bar);
 
         res[CardBg] = flat ? Solid(surface) : Slab(card, 0, 1, 1, 1);
-        res[CardStroke] = flat ? Solid(Colors.Transparent) : EdgeOf(card);
-        res[CardStrokeThickness] = hairline;
+        res[CardStroke] = flat ? Solid(Colors.Transparent) : EdgeOf(card, 0.020);
+        res[CardStrokeThickness] = flat ? 0.0 : card.Stroke;
         // 诊断/降级开关：WARM_NO_SHADOW=1 时不发布卡片阴影。
         // 阴影在 WinUI 上是每个元素一个合成层，卡片多时既是首屏成本也是重排成本；
         // 低配机器或排查卡顿时可用它换流畅。
         res[CardShadow] = noShadow || flat ? null : ShadowOf(card);
 
-        // 按钮：三个面 —— 静止 / 悬停（高光下滑、边提亮）/ 按下（高光收窄、接触阴影压紧）。
-        // 这三个面就是「液体」的全部状态：胶质的厚度来自面上那一条窄高光，按下时它变窄，
-        // 弹回时它铺开，读起来是同一块东西在被压。
+        // 按钮：三个面 —— 静止 / 悬停（镜面下滑、边提亮）/ 按下（高光带收窄到 45%、接触阴影压紧）。
+        // 这三个面就是「液体」的全部状态：胶质的厚度来自面上那一颗窄镜面，按下时它收窄，
+        // 松手沿 MotionTokens.Spring 带过冲弹回（PressFeel 换的是这三张面，不是再加一层颜色）。
         res[ButtonBg] = flat ? Solid(Sink(surface, 0.55)) : Slab(button, 0, 1, 1, 1);
-        res[ButtonBgHover] = flat ? Solid(Sink(surface, 0.80)) : Slab(button, 0.05, 1.25, 1.04, 0.85);
-        res[ButtonBgPressed] = flat ? Solid(Sink(surface, 1.00)) : Slab(button, -0.05, 0.45, 0.92, 1.45);
-        // 描边取主题的 BorderLine 平档；玻璃档用的是同一根 1px 的渐变光边。
-        res[ButtonStroke] = flat ? ReadColor(res, "BorderLine", "#D8CFC0") : EdgeOf(button);
-        res[ButtonStrokeThickness] = Hairline;
+        res[ButtonBgHover] = flat ? Solid(Sink(surface, 0.80)) : Slab(button, 0.06, 1.20, 1.04, 0.82);
+        res[ButtonBgPressed] = flat ? Solid(Sink(surface, 1.00)) : Slab(button, -0.04, 0.45, 0.90, 1.55);
+        // 描边取主题的 BorderLine 平档；玻璃档用的是同一根渐变光边。
+        res[ButtonStroke] = flat ? ReadColor(res, "BorderLine", "#D8CFC0") : EdgeOf(button, 0.025);
+        res[ButtonStrokeThickness] = flat ? Hairline : button.Stroke;
 
         res[DialogBg] = flat ? Solid(Sink(surface, -0.04)) : Slab(dialog, 0, 1, 1, 1);
-        res[DialogStroke] = flat ? Solid(ReadColor(res, "EdgeStrong", "#DAC49E")) : EdgeOf(dialog);
-        res[DialogStrokeThickness] = Hairline;
+        res[DialogStroke] = flat ? Solid(ReadColor(res, "EdgeStrong", "#DAC49E")) : EdgeOf(dialog, 0.020);
+        res[DialogStrokeThickness] = flat ? Hairline : dialog.Stroke;
         // 弹窗的影走同一规则的高度上限：Offset/Radius 固定在样式里（换 Shadow 对象=重建合成层），
         // 这里只发颜色，高度/明暗变了是颜色变，不是几何变。
         res[DialogShadow] = ShadowInk(dialog);
@@ -274,6 +328,21 @@ public static class GlassTokens
     }
 
     private static double Clamp01(double v) => double.IsFinite(v) ? Math.Clamp(v, 0, 1) : 0;
+
+    /// <summary>
+    /// 极淡色散：把一颗颜色向另一个色相拉一点点。2% 是刻意的上限 ——
+    /// 玻璃边上的色散在真实世界里就是「看得出有，量不出多少」，再多就成了霓虹管。
+    /// </summary>
+    private static Color ColorBurn(Color c, uint hex, double amount)
+    {
+        var k = (float)Clamp01(amount);
+        var tint = Color.FromArgb("#" + hex.ToString("X6"));
+        return new Color(
+            Math.Clamp(c.Red + (tint.Red - c.Red) * k, 0f, 1f),
+            Math.Clamp(c.Green + (tint.Green - c.Green) * k, 0f, 1f),
+            Math.Clamp(c.Blue + (tint.Blue - c.Blue) * k, 0f, 1f),
+            c.Alpha);
+    }
 
     /// <summary>只压暗、不动透明度：接触阴影要读成「同一块材料的背光面」，不是一层灰纱。</summary>
     private static Color Shade(Color c, double amount)
