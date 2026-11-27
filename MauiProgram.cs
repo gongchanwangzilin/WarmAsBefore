@@ -44,7 +44,10 @@ public static class MauiProgram
             .AddCharacterServices()
             .AddPluginServices()
             .AddViewModels()
-            .AddPages();
+            .AddPages()
+            // Web 前端宿主（渐进迁移）：桥是单例（持设置与背景服务），页面每次导航新建。
+            .AddSingleton<WarmAsBefore.Services.Web.WebBridge>()
+            .AddTransient<WarmAsBefore.Views.Web.WebShellPage>();
 
         App.WriteLog("CreateMauiApp: building");
         return builder.Build();

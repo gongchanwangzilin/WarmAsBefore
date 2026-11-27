@@ -395,6 +395,16 @@ public partial class App : Application
 
             var swStartup = System.Diagnostics.Stopwatch.StartNew();
             Services.PerfLog.SetPhase("启动 · 构建 AppShell+Window");
+
+            // 入口开关（渐进迁移）：WARM_WEB_SHELL=1 时整窗换成 Web 前端宿主，
+            // 默认（未设置）仍是现有原生界面。注：Web 宿主不是 Shell，桥的 nav.* 在它下面不可用。
+            if (Views.Web.WebShellPage.ShellRequested && TryCreateWebShellWindow() is { } webWin)
+            {
+                Services.PerfLog.Note("启动 · 构建 WebShell+Window", "WARM_WEB_SHELL=1");
+                _ = AfterWindowStartedAsync();
+                return webWin;
+            }
+
             WriteLog("CreateWindow: building AppShell");
             var win = new Window(new AppShell())
             {
@@ -472,6 +482,45 @@ public partial class App : Application
         {
             WriteLog("CreateWindow: " + ex);
             throw;
+        }
+    }
+
+    /// <summary>
+    /// 入口开关的另一半：<c>WARM_WEB_SHELL=1</c> 时建一个「页面就是 Web 宿主」的窗口。
+    /// 拿不到 DI 里的页面（极少见：MauiContext 还没就绪）时返回 null，调用方回落到原生界面 ——
+    /// 开关失灵应该表现为「还是老界面」，而不是启动即崩。
+    /// </summary>
+    private static Window? TryCreateWebShellWindow()
+    {
+        try
+        {
+            var page = Microsoft.Maui.IPlatformApplication.Current?.Services
+                ?.GetService(typeof(Views.Web.WebShellPage)) as Views.Web.WebShellPage;
+            if (page is null)
+            {
+                WriteLog("CreateWindow: WARM_WEB_SHELL=1 但取不到 WebShellPage，回落到原生界面");
+                return null;
+            }
+            WriteLog("CreateWindow: 入口 = WebShellPage（WARM_WEB_SHELL=1）");
+            var win = new Window(page)
+            {
+                Title = "温暖如初",
+                Width = 1280,
+                Height = 800
+            };
+            Services.WindowTaskbarFocus.Attach(win);
+            win.Destroying += (_, _) =>
+            {
+                Services.UiStallMonitor.Stop();
+                ShutdownPetAsync();
+                _ = AutoSaveOnExitAsync();
+            };
+            return win;
+        }
+        catch (Exception ex)
+        {
+            WriteLog("CreateWindow.WebShell: " + ex);
+            return null;
         }
     }
 
