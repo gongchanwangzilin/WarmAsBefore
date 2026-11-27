@@ -2,6 +2,7 @@ using System.Windows.Input;
 using WarmAsBefore.Controls;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
+using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -121,6 +122,7 @@ public partial class PhonePage : ContentPage
     private void SetPage(int index, bool animate, double velocity = 0)
     {
         if (_vm is null || _screenWidth <= 0) return;
+        var from = _vm.PageIndex;
         index = Math.Clamp(index, 0, _vm.PageCount - 1);
         _vm.PageIndex = index;
         // 页码点只改浓淡，不改尺寸：底下的桌面不能因为换页跟着挪一下。
@@ -134,6 +136,9 @@ public partial class PhonePage : ContentPage
             PagerTrack.TranslationX = target;
             return;
         }
+        // 一屏是被另一屏擦过去的：只在真的换了页时响一声卡片的摩擦。
+        // 点页码点回原页、到头再拖这类「没换」的动作不响 —— 那不是摩擦，那是手抖。
+        if (index != from) UiSounds.Friction(GlassKind.Card);
         _ = SlidePageAsync(target, velocity);
     }
 

@@ -98,6 +98,9 @@ public sealed partial class SettingsViewModel : ObservableObject
         _backgroundMode = string.IsNullOrEmpty(s.BackgroundMode) ? "none" : s.BackgroundMode;
         _backgroundModeDisplay = BackgroundModeDisplayOf(_backgroundMode);
         _backgroundImagePath = s.BackgroundImagePath ?? "";
+        _backgroundSolidHex = NormalizeSolidHex(s.BackgroundSolidHex);
+        _backgroundSolidDraft = _backgroundSolidHex;
+        SyncSolidSwatches();
         _backgroundPaletteDisplay = PaletteDisplayOf(string.IsNullOrEmpty(s.BackgroundPaletteId) ? "classic" : s.BackgroundPaletteId);
         _mapTileOnline = s.MapTileOnline;
         _mapTileMbTilesPath = s.MapTileMbTilesPath;
@@ -517,6 +520,28 @@ public sealed partial class SettingsViewModel : ObservableObject
     public IReadOnlyList<string> BackgroundPaletteChoices { get; } = new[] { "经典", "樱花粉", "翠竹绿", "晨雾蓝灰", "终末地" };
     public List<string> BackgroundModeChoices { get; } = new() { "纯色（默认）", "自定义图片", "窗口透视（看穿到桌面）" };
     public bool BackgroundImageVisible => BackgroundMode == "image";
+
+    /// <summary>纯色档自选底色的可见性：图片档与透视档背后不是这块地面，色板在那儿没有意义。</summary>
+    public bool BackgroundSolidVisible => BackgroundMode is not ("image" or "clear");
+
+    /// <summary>
+    /// 纯色档的十颗底色：四颗中性、两颗冷、两颗暖、两颗深。
+    /// 它们不是装饰色 —— 纯色档的糊底就是从这颗色合成的，所以换色等于换整间屋子的光。
+    /// 选完之后仍可手输十六进制（自定义），色板只是「十种不用想也知道不会难看」的起点。
+    /// </summary>
+    public IReadOnlyList<SolidSwatch> SolidSwatches { get; } = new[]
+    {
+        new SolidSwatch("#FDF8F0", "奶油纸"),
+        new SolidSwatch("#E8E6E1", "素灰"),
+        new SolidSwatch("#DDE6F0", "晨雾蓝"),
+        new SolidSwatch("#CBDCD8", "青瓷"),
+        new SolidSwatch("#F3E3CF", "暖砂"),
+        new SolidSwatch("#F6E1E6", "樱雾"),
+        new SolidSwatch("#3A3D42", "石墨"),
+        new SolidSwatch("#2C3A4E", "幽蓝"),
+        new SolidSwatch("#4A3527", "赭石"),
+        new SolidSwatch("#22322A", "墨绿"),
+    };
     public string BackgroundImageLabel => string.IsNullOrWhiteSpace(BackgroundImagePath)
         ? "尚未选择图片" : System.IO.Path.GetFileName(BackgroundImagePath);
 
@@ -536,6 +561,7 @@ public sealed partial class SettingsViewModel : ObservableObject
             _ => "none"
         };
         OnPropertyChanged(nameof(BackgroundImageVisible));
+        OnPropertyChanged(nameof(BackgroundSolidVisible));
         PersistSettings();
     }
 
@@ -543,6 +569,97 @@ public sealed partial class SettingsViewModel : ObservableObject
     {
         OnPropertyChanged(nameof(BackgroundImageLabel));
         PersistSettings();
+    }
+
+    /// <summary>选中的底色（空串 = 跟主题走）。改它就换整层背景，并且落盘。</summary>
+    [ObservableProperty] private string _backgroundSolidHex = "";
+    /// <summary>输入框里的草稿：只有点「应用」才写进 <see cref="BackgroundSolidHex"/>，边打字边重绘会闪。</summary>
+    [ObservableProperty] private string _backgroundSolidDraft = "";
+    /// <summary>自定义色那行的回执：输错了要说清楚，不能默默回到主题色。</summary>
+    [ObservableProperty] private string _backgroundSolidHint = "";
+
+    partial void OnBackgroundSolidHexChanged(string value)
+    {
+        var hex = NormalizeSolidHex(value);
+        if (!string.Equals(hex, value, StringComparison.Ordinal))
+        {
+            // 规范化会再进来一次，这里直接写字段断掉递归。
+            SetProperty(ref _backgroundSolidHex, hex, nameof(BackgroundSolidHex));
+            return;
+        }
+        BackgroundSolidDraft = hex;
+        SyncSolidSwatches();
+        ApplySolidNow();
+        PersistSettings();
+    }
+
+    /// <summary>点色板：立即生效（不等 300ms 的落盘防抖），再落盘。</summary>
+    [RelayCommand]
+    private void PickSolidColor(SolidSwatch? swatch)
+    {
+        if (swatch is null) return;
+        BackgroundSolidHex = swatch.Hex;
+        BackgroundSolidHint = $"背景：{swatch.Name}";
+    }
+
+    /// <summary>手输十六进制。接受 #RRGGBB / #AARRGGBB / 不带井号；认不出来就说清楚，不改现状。</summary>
+    [RelayCommand]
+    private void ApplySolidHex()
+    {
+        var raw = (BackgroundSolidDraft ?? "").Trim();
+        if (raw.Length == 0) { FollowTheme(); return; }
+        if (!Color.TryParse(raw.StartsWith('#') ? raw : "#" + raw, out var c))
+        {
+            BackgroundSolidHint = "认不出这个颜色，写成 #FDF8F0 这样六位就行。";
+            return;
+        }
+        BackgroundSolidHex = HexOf(c);
+        BackgroundSolidHint = $"背景：{BackgroundSolidHex}";
+    }
+
+    /// <summary>回到跟主题走（PageBg）。</summary>
+    [RelayCommand]
+    private void FollowTheme()
+    {
+        BackgroundSolidHex = "";
+        BackgroundSolidHint = "背景跟着主题走";
+    }
+
+    /// <summary>把选中的那颗色标出来。色板只有十颗，直接扫一遍比维护一份索引更省事。</summary>
+    private void SyncSolidSwatches()
+    {
+        foreach (var sw in SolidSwatches)
+            sw.Selected = string.Equals(sw.Hex, BackgroundSolidHex, StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// 当场换背景：薄纱同步换色，窗口层那块糊底在后台按新色重合成（key 里含色值）。
+    /// 走 <see cref="AppBackgroundService"/> 而不是等设置下发 —— 用户点一下要看到那一下的变化。
+    /// </summary>
+    private void ApplySolidNow()
+    {
+        try
+        {
+            AppBackgroundService.SetSolidTint(Color.TryParse(BackgroundSolidHex, out var c) ? c : null);
+        }
+        catch (Exception ex) { App.WriteLog("Settings.ApplySolidNow -> " + ex.Message); }
+    }
+
+    /// <summary>规范成空串（跟主题走）或 #RRGGBB / #AARRGGBB；认不出来的当没选过。</summary>
+    private static string NormalizeSolidHex(string? hex)
+    {
+        var raw = (hex ?? "").Trim();
+        if (raw.Length == 0) return "";
+        return Color.TryParse(raw.StartsWith('#') ? raw : "#" + raw, out var c) ? HexOf(c) : "";
+    }
+
+    private static string HexOf(Color c)
+    {
+        var r = (int)Math.Round(c.Red * 255);
+        var g = (int)Math.Round(c.Green * 255);
+        var b = (int)Math.Round(c.Blue * 255);
+        var a = (int)Math.Round(c.Alpha * 255);
+        return a >= 255 ? $"#{r:X2}{g:X2}{b:X2}" : $"#{a:X2}{r:X2}{g:X2}{b:X2}";
     }
 
     partial void OnBackgroundPaletteDisplayChanged(string value) { PersistSettings(); PushBackgroundConfig(); }
@@ -1591,6 +1708,7 @@ public sealed partial class SettingsViewModel : ObservableObject
     GlassHeight = GlassHeight,
     BackgroundMode = BackgroundMode,
     BackgroundImagePath = BackgroundImagePath,
+    BackgroundSolidHex = BackgroundSolidHex,
     BackgroundPaletteId = PaletteKeyOf(BackgroundPaletteDisplay),
     MapTileOnline = MapTileOnline,
                     MapTileMbTilesPath = MapTileMbTilesPath,
@@ -1829,4 +1947,32 @@ public sealed partial class SettingsViewModel : ObservableObject
             App.WriteLog("SettingsViewModel.TestConnection -> " + ex);
         }
     }
+}
+
+/// <summary>
+/// 纯色档的一颗色板：一颗底色 + 「它是不是当前选中的那一颗」。
+///
+/// 选中态不用转换器、也不在代码里算画刷：外面一圈强调色的描边由 XAML 的
+/// <c>IsVisible="{Binding Selected}"</c> 控制（选中 = 多套一圈 2px 的高光环），
+/// 这样换主题时那一圈仍然跟着 DynamicResource 走，不会钉死在旧色上。
+/// </summary>
+public sealed partial class SolidSwatch : ObservableObject
+{
+    public SolidSwatch(string hex, string name)
+    {
+        Hex = hex;
+        Name = name;
+        Fill = Color.FromArgb(hex);
+    }
+
+    /// <summary>#RRGGBB。设置里存的就是这个字符串。</summary>
+    public string Hex { get; }
+
+    /// <summary>中文名（色板里给读屏和回执用）。</summary>
+    public string Name { get; }
+
+    /// <summary>色块本身的颜色。</summary>
+    public Color Fill { get; }
+
+    [ObservableProperty] private bool _selected;
 }

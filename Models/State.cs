@@ -437,6 +437,12 @@ public sealed record UserSettings
     public double GlassLightWidth { get; init; } = 0.4;
     public string BackgroundMode { get; init; } = "none";
     public string BackgroundImagePath { get; init; } = "";
+    /// <summary>
+    /// 纯色档的自选底色（<c>#RRGGBB</c> 或 <c>#AARRGGBB</c>）。空串 = 跟主题走（PageBg）。
+    /// 存的是颜色本身而不是色板 id：自定义色没有 id，色板里那十个也只是十颗常量。
+    /// 它只改「背后透出来的是什么」，不动主题令牌 —— 卡片、文字、强调色仍是当前世界的。
+    /// </summary>
+    public string BackgroundSolidHex { get; init; } = "";
     /// <summary>统一背景调色板 id：classic/sakura/bamboo/mist/endfield。</summary>
     public string BackgroundPaletteId { get; init; } = "classic";
     /// <summary>统一天气场景：sunny/cloudy/drizzle/lightrain/heavyrain（存枚举名）。</summary>

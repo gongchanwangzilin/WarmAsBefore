@@ -1084,10 +1084,14 @@ public sealed class RuntimeConfigurator
         // 背景：纯色 / 自定义图片 / 窗口透视 —— 玻璃需要有东西可透
         var bgChanged = prev is null
             || !string.Equals(prev.BackgroundMode, s.BackgroundMode, StringComparison.Ordinal)
-            || !string.Equals(prev.BackgroundImagePath, s.BackgroundImagePath, StringComparison.Ordinal);
+            || !string.Equals(prev.BackgroundImagePath, s.BackgroundImagePath, StringComparison.Ordinal)
+            || !string.Equals(prev.BackgroundSolidHex, s.BackgroundSolidHex, StringComparison.OrdinalIgnoreCase);
         if (bgChanged)
         {
             using var _bgScope = PerfLog.Measure("  · 背景下发");
+            // 纯色档的自选色先落地：它只改「透出来的是什么」，主题令牌仍是当前世界的。
+            // 解析不出来（旧档里的空串、用户手输的错字）就回到跟主题走 —— 绝不把窗口涂黑。
+            AppBackgroundService.SetSolidTint(Color.TryParse(s.BackgroundSolidHex?.Trim(), out var picked) ? picked : null);
             AppBackgroundService.Apply(s.BackgroundMode, s.BackgroundImagePath,
                 Application.Current?.Resources.TryGetValue("PageBg", out var pv) == true && pv is Color pc
                     ? pc : Colors.White);

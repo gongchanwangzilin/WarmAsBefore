@@ -1,10 +1,11 @@
 using System.Collections.Concurrent;
+using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Models;
 
 namespace WarmAsBefore.Services;
 
 /// <summary>
-/// 界面小音效：按下 / 确认 / 返回 / 提示。
+/// 界面小音效：按下 / 确认 / 返回 / 提示 / 摩擦。
 ///
 /// 三条硬要求，也决定了它为什么不是「每次 new 一个 Player」：
 /// 1. **不占 UI 线程**：<see cref="Play"/> 只做两次判断与一次入队，合成、写盘、播放全在后台队列里跑。
@@ -23,7 +24,7 @@ public sealed class UiSoundService
     private const int MaxQueued = 6;
 
     private readonly SettingsManager? _settings;
-    private readonly ConcurrentQueue<(UiSoundKind Kind, float Volume)> _queue = new();
+    private readonly ConcurrentQueue<Item> _queue = new();
     private readonly object _gate = new();
 
     private int _workerRunning;
@@ -31,6 +32,9 @@ public sealed class UiSoundService
     private long _lastSameTicks;
     private UiSoundKind _lastKind;
     private volatile bool _broken;
+
+    /// <summary>排队中的一声：档位只为摩擦音准备 —— 同一个 <see cref="UiSoundKind.Friction"/> 要按厚度分成四种声音。</summary>
+    private readonly record struct Item(UiSoundKind Kind, float Volume, GlassKind Tier);
 
     public UiSoundService(SettingsManager? settings = null) => _settings = settings;
 
@@ -65,12 +69,19 @@ public sealed class UiSoundService
     public void Play(UiSoundKind kind) => Play(kind, null);
 
     /// <summary>
+    /// 玻璃摩擦：两块板擦过去的一下。厚度由 <see cref="GlassTokens.ThicknessOf"/> 按档位现读 ——
+    /// 卡片拖动、整排入场、弹窗上浮都用同一个入口，谁都不许抄一份厚度表。
+    /// 它不算语义音：和 Tap 一样受 8ms / 30ms 两道闸，快速拖动不会连成一串沙沙声。
+    /// </summary>
+    public void PlayFriction(GlassKind kind) => Play(UiSoundKind.Friction, null, kind);
+
+    /// <summary>
     /// 试听：用给定的音量响一次，不经过已保存设置 —— 拖音量滑杆时设置还没落盘，
     /// 读旧值就会「拖到 20% 还是按 50% 响」。
     /// </summary>
     public void Preview(UiSoundKind kind, double volume) => Play(kind, Math.Clamp(volume, 0, 1));
 
-    private void Play(UiSoundKind kind, double? overrideVolume)
+    private void Play(UiSoundKind kind, double? overrideVolume, GlassKind tier = GlassKind.Card)
     {
         if (_broken) return;
         var s = _settings?.Current;
@@ -83,6 +94,7 @@ public sealed class UiSoundService
         {
             // 8ms 的「任意音」闸只为按掉连点抖出来的重音；确认/返回/提示是跟着一次明确操作来的语义音，
             // 被它吃掉就等于这两个精心挑的声音永远听不见——它们只受下面 30ms 同族闸约束。
+            // 摩擦音不算语义音：它是跟着手指走的，闸太松就会在拖动里连成一串。
             var semantic = kind is UiSoundKind.Confirm or UiSoundKind.Back or UiSoundKind.Notice;
             if (!semantic && now - _lastAnyTicks < 8) return;
             if (kind == _lastKind && now - _lastSameTicks < 30) return;
@@ -91,7 +103,7 @@ public sealed class UiSoundService
             _lastSameTicks = now;
             _lastKind = kind;
         }
-        _queue.Enqueue((kind, volume));
+        _queue.Enqueue(new Item(kind, volume, tier));
         if (Interlocked.Exchange(ref _workerRunning, 1) == 0)
             _ = Task.Run(DrainAsync);
     }
@@ -102,7 +114,7 @@ public sealed class UiSoundService
         {
             while (_queue.TryDequeue(out var item))
             {
-                try { await PlayOnceAsync(item.Kind, item.Volume); }
+                try { await PlayOnceAsync(item); }
                 catch (Exception ex)
                 {
                     App.WriteLog("UiSound.Play -> " + ex.Message);
@@ -118,30 +130,32 @@ public sealed class UiSoundService
         }
     }
 
-    private async Task PlayOnceAsync(UiSoundKind kind, float volume)
+    private async Task PlayOnceAsync(Item item)
     {
-        var path = await EnsureWavAsync(kind);
+        var friction = item.Kind == UiSoundKind.Friction;
+        var name = friction ? UiSoundSynth.FrictionFileName(item.Tier) : UiSoundSynth.FileNameOf(item.Kind);
+        var path = await EnsureWavAsync(name, friction ? () => UiSoundSynth.FrictionWav(item.Tier) : () => UiSoundSynth.Wav(item.Kind));
         if (path is null) return;
 #if WINDOWS
-        PlayWindows(kind, path, volume);
+        PlayWindows(item.Kind, path, item.Volume);
 #elif ANDROID
-        PlayAndroid(kind, path, volume);
+        PlayAndroid(path, item.Volume);
 #else
         await Task.CompletedTask;
 #endif
     }
 
     /// <summary>第一次用到时合成并写盘；之后只 stat 一下文件。目录不可写就自己降级为「合成但不缓存」。</summary>
-    private static async Task<string?> EnsureWavAsync(UiSoundKind kind)
+    private static async Task<string?> EnsureWavAsync(string fileName, Func<byte[]> synth)
     {
         try
         {
             var dir = Path.Combine(FileSystem.Current.AppDataDirectory, "UiSounds");
-            var path = Path.Combine(dir, UiSoundSynth.FileNameOf(kind));
+            var path = Path.Combine(dir, fileName);
             if (File.Exists(path) && new FileInfo(path).Length > 44) return path;
 
             Directory.CreateDirectory(dir);
-            var bytes = UiSoundSynth.Wav(kind);
+            var bytes = synth();
             var tmp = path + ".tmp";
             await File.WriteAllBytesAsync(tmp, bytes);
             File.Move(tmp, path, overwrite: true);
@@ -155,20 +169,21 @@ public sealed class UiSoundService
     }
 
 #if WINDOWS
-    private readonly Dictionary<UiSoundKind, Windows.Media.Playback.MediaPlayer> _players = new();
-
     /// <summary>
-    /// 每种音效一个 MediaPlayer，来源只设一次；重放只拨回起点，不新建实例。
+    /// 每种音效一个 MediaPlayer（按 wav 路径分，摩擦音因此每档各有一个），来源只设一次；
+    /// 重放只拨回起点，不新建实例。
     /// 播放动作投回主线程：MediaPlayer/WinRT 与窗口同一个 COM 单元（工作线程里首次创建偶发 COMException），
     /// 而这里只是「设音量 + Play」两行非阻塞调用，排队一次的开销远小于几十毫秒的音效本身。
     /// </summary>
+    private readonly Dictionary<string, Windows.Media.Playback.MediaPlayer> _players = new();
+
     private void PlayWindows(UiSoundKind kind, string path, float volume)
     {
         MainThread.BeginInvokeOnMainThread(() =>
         {
             try
             {
-                if (!_players.TryGetValue(kind, out var player) || player is null)
+                if (!_players.TryGetValue(path, out var player) || player is null)
                 {
                     player = new Windows.Media.Playback.MediaPlayer
                     {
@@ -176,7 +191,7 @@ public sealed class UiSoundService
                         IsLoopingEnabled = false
                     };
                     player.Source = Windows.Media.Core.MediaSource.CreateFromUri(new Uri(path));
-                    _players[kind] = player;
+                    _players[path] = player;
                 }
                 player.Volume = volume;
                 try { player.PlaybackSession.Position = TimeSpan.Zero; } catch { }
@@ -193,11 +208,11 @@ public sealed class UiSoundService
 
 #if ANDROID
     private Android.Media.SoundPool? _pool;
-    private readonly Dictionary<UiSoundKind, int> _soundIds = new();
+    private readonly Dictionary<string, int> _soundIds = new();
     private readonly HashSet<int> _loaded = new();
 
     /// <summary>SoundPool 就是为这种几十毫秒的短音准备的：加载一次、反复 Play，不占主线程。</summary>
-    private void PlayAndroid(UiSoundKind kind, string path, float volume)
+    private void PlayAndroid(string path, float volume)
     {
         if (_pool is null)
         {
@@ -212,10 +227,10 @@ public sealed class UiSoundService
             _pool.SetOnLoadCompleteListener(new LoadListener(this));
         }
 
-        if (!_soundIds.TryGetValue(kind, out var id))
+        if (!_soundIds.TryGetValue(path, out var id))
         {
             id = _pool.Load(path, 1);
-            _soundIds[kind] = id;
+            _soundIds[path] = id;
             return;      // 第一次只负责加载；这一声留白，后续点击就有了
         }
         lock (_gate)
@@ -272,6 +287,16 @@ public static class UiSounds
     public static void Confirm() => Play(UiSoundKind.Confirm);
     public static void Back() => Play(UiSoundKind.Back);
     public static void Notice() => Play(UiSoundKind.Notice);
+
+    /// <summary>
+    /// 玻璃摩擦：按档位现读厚度（<see cref="GlassTokens.ThicknessOf"/>），不另写一张厚度表。
+    /// 只在「一整排东西被摆上来 / 被拖过去 / 一块板被抬起」时用，别挂在 hover 或滚动 tick 上。
+    /// </summary>
+    public static void Friction(GlassKind kind)
+    {
+        try { Service.PlayFriction(kind); }
+        catch (Exception ex) { App.WriteLog("UiSounds.Friction -> " + ex.Message); }
+    }
 
     public static void Play(UiSoundKind kind)
     {

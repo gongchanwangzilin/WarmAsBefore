@@ -1,6 +1,8 @@
 namespace WarmAsBefore.Services;
 
-/// <summary>界面小动静的四种。语义只有一句：按下、确认、返回、提示。</summary>
+using WarmAsBefore.DesignSystem.Theme;
+
+/// <summary>界面小动静的五种。语义只有一句：按下、确认、返回、提示，外加一声摩擦。</summary>
 public enum UiSoundKind
 {
     /// <summary>玻璃轻击：手指/鼠标落到可点的东西上。</summary>
@@ -10,7 +12,12 @@ public enum UiSoundKind
     /// <summary>返回/取消：下行一音。</summary>
     Back = 2,
     /// <summary>提示：柔和的一声「叮」。</summary>
-    Notice = 3
+    Notice = 3,
+    /// <summary>
+    /// 玻璃摩擦：两块板擦过去的一下。**厚度不同，声音不同** ——
+    /// 薄（上下栏）偏高偏短，厚（弹窗）偏低、尾巴长一点（见 <see cref="UiSoundSynth.Friction"/>）。
+    /// </summary>
+    Friction = 4
 }
 
 /// <summary>
@@ -24,17 +31,24 @@ public enum UiSoundKind
 /// · 每一条都带 2~12ms 的起音与指数衰减，避免「啪」一下的爆音（爆音比没有声音更难听）。
 /// · 玻璃轻击用两个高频正弦（≈2.4k / 3.1k）叠出「叮——」的金属余味，
 ///   不是单频正弦那种电子表提示音。
+///
+/// 摩擦音是这一版新加的一族（<see cref="Friction"/>）：带通噪声 + 一点点低频撞击。
+/// 它不是一个固定的声音，而是**按厚度生成**的 —— 音高、时长、尾巴都跟着
+/// <see cref="GlassTokens.ThicknessOf"/> 走，所以「厚的那块板擦过去，声音更沉更长」这件事
+/// 和卡片上那道更宽的倒角是同一个数的两个投影，不是两张表。
+/// 同一个档位、同一个厚度永远合成出同一段噪声（种子由档位与厚度算出来，不是随机）。
 /// </summary>
 public static class UiSoundSynth
 {
     public const int SampleRate = 44100;
 
-    /// <summary>这个音效对应的 wav 文件名（缓存键）。</summary>
+    /// <summary>这个音效对应的 wav 文件名（缓存键）。摩擦音按厚度分档，见 <see cref="FrictionFileName"/>。</summary>
     public static string FileNameOf(UiSoundKind kind) => kind switch
     {
         UiSoundKind.Tap => "ui-tap.wav",
         UiSoundKind.Confirm => "ui-confirm.wav",
         UiSoundKind.Back => "ui-back.wav",
+        UiSoundKind.Friction => "ui-friction-card-56.wav",
         _ => "ui-notice.wav"
     };
 
@@ -46,8 +60,81 @@ public static class UiSoundSynth
         UiSoundKind.Tap => Tap(),
         UiSoundKind.Confirm => Confirm(),
         UiSoundKind.Back => Back(),
+        UiSoundKind.Friction => Friction(GlassKind.Card),
         _ => Notice()
     };
+
+    /// <summary>
+    /// 玻璃摩擦音的 wav 缓存名。厚度量化到 1% 进文件名 ——
+    /// 高度一改就换一颗文件，缓存里不会留下「旧的薄声音配新的厚板」。
+    /// </summary>
+    public static string FrictionFileName(GlassKind kind)
+        => $"ui-friction-{kind.ToString().ToLowerInvariant()}-{Bucket(GlassTokens.ThicknessOf(kind)):D2}.wav";
+
+    /// <summary>玻璃摩擦音的可播字节（与 <see cref="FrictionFileName"/> 一一对应）。</summary>
+    public static byte[] FrictionWav(GlassKind kind) => ToWav(Friction(kind));
+
+    /// <summary>
+    /// 玻璃摩擦：短促的带通噪声（22~38ms），尾巴上带一点点低频撞击。
+    ///
+    /// 厚度 → 声音，四条都只读同一个厚度值：
+    ///   音高   带通中心 3100Hz（薄）→ 1600Hz（厚）
+    ///   时长   22ms（薄）→ 38ms（厚）
+    ///   衰减   快（薄，一下就没了）→ 慢（厚，尾巴多留一点）
+    ///   撞击   低频 118Hz（薄）→ 92Hz（厚），幅度也跟着厚度长
+    /// 幅度最后归一化到同一个峰值：厚薄是音色差别，不该变成音量差别。
+    /// </summary>
+    public static float[] Friction(GlassKind kind)
+    {
+        var thick = (float)GlassTokens.ThicknessOf(kind);
+        var n = SamplesFor(22 + (int)Math.Round(16 * thick));
+        var buf = new float[n];
+
+        var center = 3100 - 1500 * thick;              // 带通中心：薄的高、厚的低
+        var w0 = 2 * Math.PI * center / SampleRate;
+        var q = 1.6 + 1.4 * thick;                     // 越厚带越窄（更干、更像「一擦」）
+        var alpha = Math.Sin(w0) / (2 * q);
+        var a0 = 1 + alpha;
+        var b0 = alpha / a0;
+        var b2 = -alpha / a0;
+        var a1 = -2 * Math.Cos(w0) / a0;
+        var a2 = (1 - alpha) / a0;
+
+        var decay = 150 - 70 * thick;                  // 每秒衰减率：薄的一下就收，厚的留尾巴
+        var thump = 118 - 26 * thick;                  // 低频撞击：厚板更沉
+        var attack = 0.0015 + 0.0010 * thick;
+
+        // 固定种子：档位 + 厚度决定这一段噪声，同一块板永远是同一声摩擦
+        var rnd = new Random(20261127 + ((int)kind + 1) * 977 + Bucket(thick));
+        double x1 = 0, x2 = 0, y1 = 0, y2 = 0;
+        var peak = 0.0;
+        for (var i = 0; i < n; i++)
+        {
+            var t = i / (double)SampleRate;
+            var x0 = rnd.NextDouble() * 2 - 1;
+            var y0 = b0 * x0 + b2 * x2 - a1 * y1 - a2 * y2;
+            x2 = x1; x1 = x0; y2 = y1; y1 = y0;
+
+            var env = AttackDecay(t, attack, decay);
+            var hit = Math.Sin(2 * Math.PI * thump * t) * Math.Exp(-t * 95) * (0.10 + 0.12 * thick);
+            var v = y0 * env + hit;
+            buf[i] = (float)v;
+            peak = Math.Max(peak, Math.Abs(v));
+        }
+
+        // 归一化：厚度只改音色，不改音量（音量归 UiSoundLevel）。
+        // 带通出来的噪声峰值随中心频率与 Q 漂，不归一化的话「薄的一档比厚的一档响一倍」。
+        if (peak > 0.0001)
+        {
+            var k = (float)(0.30 / peak);
+            for (var i = 0; i < n; i++) buf[i] *= k;
+        }
+        FadeOut(buf, 0.004);
+        return buf;
+    }
+
+    /// <summary>厚度量化到百分位：文件名的缓存键与噪声种子都取它，两者永远对得上。</summary>
+    private static int Bucket(double thickness) => (int)Math.Round(Math.Clamp(thickness, 0, 1) * 100);
 
     private static float[] Tap()
     {

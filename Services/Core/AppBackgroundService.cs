@@ -41,7 +41,10 @@ public static class AppBackgroundService
 
     private static Brush? _current;
     private static string _imagePath = "";
+    /// <summary>世界给的地面（PageBg）。换主题时由 ThemeManager 重新下发。</summary>
     private static Color _pageBg = Colors.WhiteSmoke;
+    /// <summary>纯色档的自选底色；null = 跟主题走。只影响纯色档，图片与透视档不看它。</summary>
+    private static Color? _solid;
     private static bool _image;          // 自定义图片档
     private static bool _clear;          // 窗口透视档
     private static bool _frostPainted;   // 窗口层已经铺了自家糊底
@@ -49,6 +52,30 @@ public static class AppBackgroundService
     private static bool _legacyAcrylic;  // 老的 composition 亚克力生效
     private static bool _hooked;
     private static int _retries;         // 窗口还没建好时的重试计数（首帧前下发设置会走到这条）
+
+    /// <summary>
+    /// 真正铺在页面下面的那层地面：纯色档用自选色，其余档用世界的地面。
+    /// 糊底、薄纱、无糊底时的实心底都只读这一个值 —— 少了这一处间接，
+    /// 「换颜色」就要在四个地方各判一次模式。
+    /// </summary>
+    private static Color Ground => !_image && !_clear && _solid is { } c ? c : _pageBg;
+
+    /// <summary>
+    /// 纯色档的自选底色（null = 跟主题走）。设置页选色板时立即调用：
+    /// 页面薄纱当场换色，窗口层那块糊底在后台重合成（key 里含色值，所以是新的一张）。
+    /// 图片档/透视档不重新算 —— 它们背后不是这层地面。
+    /// </summary>
+    public static void SetSolidTint(Color? color)
+    {
+        if (_solid == color) return;
+        _solid = color;
+        // 首帧之前 Apply 还没跑过：这会儿连地面色都还是兜底值，
+        // 现在合成一张糊底等于白算一张（真正那张由紧接着的 Apply 发起）。
+        if (_current is null || _image || _clear) return;
+        RequestFrost();
+        _current = BuildPageBrush();
+        Publish();
+    }
 
     /// <summary>由 RuntimeConfigurator 在设置下发时调用。</summary>
     public static void Apply(string mode, string imagePath, Color pageBg)
@@ -152,7 +179,7 @@ public static class AppBackgroundService
             // 背后没有真糊的东西可透：图片档让窗口层先顶上来（糊底算好会自己升级），
             // 纯色档与其它情况照旧铺一层不透明地面。
             if (_image || _clear) return new SolidColorBrush(Colors.Transparent);
-            return StyleWorldTokens.GroundBrush(_pageBg);
+            return StyleWorldTokens.GroundBrush(Ground);
         }
 
         return Veil(_backdropLive && !_frostPainted ? VeilOnBackdrop : VeilOnFrost);
@@ -162,9 +189,10 @@ public static class AppBackgroundService
     private static Brush Veil(double alpha)
     {
         var a = (float)Math.Clamp(alpha, 0, 1);
+        var ground = Ground;
         var brush = new LinearGradientBrush { StartPoint = new Point(0, 0), EndPoint = new Point(0.35, 1) };
-        brush.GradientStops.Add(new GradientStop { Color = _pageBg.WithAlpha(a), Offset = 0f });
-        brush.GradientStops.Add(new GradientStop { Color = _pageBg.WithAlpha(a * 0.55f), Offset = 1f });
+        brush.GradientStops.Add(new GradientStop { Color = ground.WithAlpha(a), Offset = 0f });
+        brush.GradientStops.Add(new GradientStop { Color = ground.WithAlpha(a * 0.55f), Offset = 1f });
         return brush;
     }
 
@@ -173,9 +201,10 @@ public static class AppBackgroundService
     {
 #if WINDOWS
         var res = Application.Current?.Resources;
-        var well = res is not null && res.TryGetValue("WellBg", out var wv) && wv is Color wc ? wc : _pageBg;
+        var ground = Ground;
+        var well = res is not null && res.TryGetValue("WellBg", out var wv) && wv is Color wc ? wc : ground;
         var dark = Application.Current?.RequestedTheme == AppTheme.Dark;
-        FrostImageService.Request(_imagePath, _pageBg, well, dark);
+        FrostImageService.Request(_imagePath, ground, well, dark);
 #endif
     }
 

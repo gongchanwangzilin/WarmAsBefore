@@ -2,7 +2,9 @@ using System.ComponentModel;
 using System.Linq;
 using Microsoft.Maui.Graphics;
 using WarmAsBefore.Controls;
+using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
+using WarmAsBefore.Services;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -103,6 +105,8 @@ public partial class MapPage : ContentPage
                 var collapse = _sheetDrag > 56;
                 _sheetDrag = 0;
                 _ = Sheet.TranslateTo(0, 0, 140, Easing.CubicOut);
+                // 一块板被拖下去收起来：一声弹窗那一档的摩擦（收起与上浮共用同一种材质的手感）。
+                if (collapse) UiSounds.Friction(GlassKind.Dialog);
                 if (collapse && BindingContext is MapViewModel vm) vm.CloseSheetCommand.Execute(null);
                 break;
             }

@@ -1,4 +1,5 @@
 using WarmAsBefore.DesignSystem.Theme;
+using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Helpers;
 
@@ -59,13 +60,15 @@ public static class Motion
         await e.TranslateTo(o, 0, step, Easing.CubicOut);
     }
 
-    /// <summary>底部弹出/展开。</summary>
+    /// <summary>底部弹出/展开（弹窗、抽屉这类一块板被抬起来的时候）。</summary>
     public static async Task SlideUp(VisualElement e, uint d = 0)
     {
         var ms = d > 0 ? d : (uint)MotionTokens.Ms(MotionTokens.EnterMs);
         // 这里以前还会把 Opacity 归 0 再淡入。删掉了：Opacity 是禁用态/卡片显隐/进场共用的输出量，
         // 动画回调一旦丢（页面被顶掉、同名抢占），元素就永久停在看不见那一头（「再续情缘」按钮消失的成因）。
         // 现在只位移——最坏低 18px，内容不会消失。
+        // 一块最厚的玻璃被抬起来：这一声跟着起手响，用的是弹窗那一档的厚度。
+        UiSounds.Friction(GlassKind.Dialog);
         if (ms == 0) { e.TranslationY = 0; return; }
         e.TranslationY = MotionTokens.EnterRisePx * 3;
         await e.TranslateTo(0, 0, ms, SnapEase);
@@ -294,6 +297,9 @@ public static class Motion
             _ = Enter(b, StaggerDelay(n));
             n++;
         }
+        // 整排卡片被摆上来：一声卡片的摩擦，跟着第一张的起手响。
+        // 只在「真的有东西被摆上来」时响一次（n > 0）—— 回到已经在了的页面不该再响。
+        if (n > 0) UiSounds.Friction(GlassKind.Card);
     }
 
     /// <summary>
@@ -312,6 +318,7 @@ public static class Motion
             _ = Enter(b, StaggerDelay(n), durationMs);
             n++;
         }
+        if (n > 0) UiSounds.Friction(GlassKind.Card);
     }
 
     /// <summary>
