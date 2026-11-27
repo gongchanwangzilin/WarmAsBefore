@@ -7,7 +7,7 @@ AGENTS.md[SG6T]: F:给协作 Agent 的仓库规则，主体是 AOCI 认知层的
 App.xaml[FU6T]: F:应用级资源装配：合并设计系统样式字典与品牌/叠加面配色，并登记全部全局转换器键（布尔、双向文本、计数与状态文字）。 | R:code:DesignSystem/Styles/CardShapes.xaml, code:Converters/Converters.cs, code:Converters/BidiConverters.cs | A:BidiFlow, SoftWrap, CountNumber, CountText, StatusLabel | S:合并的色板与样式字典文件名必须保持 ASCII——XamlC 在编译期解析不了中文文件名。
 App.xaml.cs[EG9L]: F:进程入口：装域级、WinUI 级与未观察任务三道异常兜底并做布局环取证，管日志队列与崩溃时同步落盘、窗口构建与视口尺度下发、桌面拖放导入、读档会话标记与退出前自动存档。 | R:code:Program.cs, code:Services/Core/BugReporter.cs, code:DesignSystem/Theme/ThemeManager.cs, code:Modules/SaveSystem/SaveManager.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:App, WriteLog, WriteLogNow, ApplyViewport, WriteLoadMarker, CreateWindow | S:常规日志入队列交后台落盘，只有崩溃与布局回调路径用 WriteLogNow 同步双写（MyDocuments 被 OneDrive 重定向时那份日志根本不出现，所以要再落到数据根）；视口下发必须挡掉 NaN/∞/0 并加重入闸——在布局回调里写 Application.Resources 顶层键会触发 LayoutCycle，原生层直接带走进程。
 AppShell.xaml[EU6T]: F:Shell 顶层结构：三个根路由 title / worldbook / pet，禁用 Flyout 与导航栏。 | R:code:Views/Main/TitlePage.xaml, code:Views/Story/WorldbookPage.xaml, code:Views/Games/PetPage.xaml | A:- | S:-
-AppShell.xaml.cs[EU7M]: F:Shell 路由表与导航编排：注册全部页面路由、补页面转场动效、导航忙碌卡的显示与撤除、阶段文字与详细步骤，并对导航耗时打点。 | R:code:App.xaml.cs, code:Helpers/Ui.cs, code:Services/Core/PerfLog.cs, code:Controls/Toast.cs | A:RegisterRoutes, ShowNavBusy, HideNavBusy, SetBusyText, SetBusyDetail, ShowBusyNow | S:忙碌层只增删子节点控制显隐，不写 Opacity、不铺全屏 scrim；跨线程回 UI 走 Helpers.Ui.Post，改用 MainThread.* 会崩进程。
+AppShell.xaml.cs[EU7M]: F:Shell 路由表与导航编排：注册全部页面路由、补前进/返回的方向过场、前进导航的忙碌卡（阶段文字+详细步骤+2.5s 保险丝）与导航耗时打点。 | R:code:App.xaml.cs, code:Helpers/Ui.cs, code:Helpers/Animation.cs, code:Services/Core/PerfLog.cs, code:Controls/Toast.cs | A:RegisterRoutes, ShowNavBusy, HideNavBusy, ShowBusyNow, SetBusyText, SetBusyDetail | S:忙碌层只在前进导航（非 Pop/PopToRoot）上盖，靠 root.Children 增删子节点显隐，不写 Opacity、不铺 scrim；回 UI 走 Helpers.Ui.Post，用 MainThread.* 会崩进程。
 BUILD_GUIDE.md[SV5M]: F:从装 .NET SDK 到跑起来的构建说明，覆盖 Windows 与 Android 两条路径。 | R:code:publish_windows.sh, code:publish_android.sh | A:- | S:-
 DEVELOPMENT.md[SV5L]: F:面向维护者的开发说明：如何扩展、排查问题，以及指向架构/组件/插件三份文档的入口。 | R:code:docs/ARCHITECTURE.md, code:docs/COMPONENTS.md, code:docs/PLUGINS.md, code:README.md | A:- | S:-
 LICENSE.txt[SG2L]: F:项目许可证正文。 | R:- | A:- | S:-
@@ -36,10 +36,10 @@ views-maingamepage-xaml.md[SU4T]: F:主聊天界面的设计简报：四套材�
 
 ===/<repository>/Composition/===
 Registration.Character.cs[AB6T]: F:角色工作流注册：角色包、头像裁剪、形象包与装扮素材服务。 | R:code:MauiProgram.cs | A:AddCharacterServices | S:-
-Registration.Core.cs[AG8S]: F:基础设施注册：存储、设置、运行时、窗口、世界观与地图、记忆与心智、素材与角色等跨模块服务，含需要服务定位器的静态单例工厂。 | R:code:MauiProgram.cs, code:Services/Core/GameEngine.cs, code:Services/Core/SettingsManager.cs | A:AddCoreServices | S:有状态服务一律 Singleton——注册成 Transient 会建出两份互相覆盖的实例；InnerDriveService 与 SomatizationService 依赖 InnerLifeService 的内分泌池，注册顺序必须排在其后。
+Registration.Core.cs[AG8S]: F:基础设施注册：存储、设置、运行时、窗口、平台适配、世界观与地图、记忆与心智、安全感、素材与角色等跨模块服务，含需要服务定位器的静态单例工厂。 | R:code:MauiProgram.cs, code:Services/Core/GameEngine.cs, code:Services/Core/SettingsManager.cs, code:Services/Character/SecurityService.cs | A:AddCoreServices | S:有状态服务一律 Singleton——注册成 Transient 会建出两份互相覆盖的实例；InnerDriveService、SomatizationService 依赖 InnerLifeService 的内分泌池，SecurityService 依赖心理层与人类记忆层，注册顺序要排在其后。
 Registration.DesignSystem.cs[AG5T]: F:设计系统注册：主题管理器与它的中文别名包装，两个入口共用同一份状态。 | R:code:DesignSystem/Theme/ColorPalette.xaml | A:AddDesignSystemServices | S:-
-Registration.Modules.cs[AG7M]: F:业务模块注册：对话、记忆、商店、存档、场景、MCP、小游戏与真实世界感知。 | R:code:MauiProgram.cs | A:AddModuleServices | S:-
-Registration.Pages.cs[AU6T]: F:页面注册，全部 Transient：页面关闭即释放。 | R:code:AppShell.xaml.cs | A:AddPages | S:页面刻意注册为 Transient；改成单例会跨次打开保留上一次的页面数据与事件订阅。
+Registration.Modules.cs[AG7T]: F:业务模块注册：真实世界感知、外部 API 与云存档、对话与记忆、存档/数据包/聊天记录导入、MCP、小游戏、场景与更新服务。 | R:code:Composition/Registration.Core.cs, code:MauiProgram.cs, code:Services/Import/ChatLogImportService.cs | A:AddModuleServices | S:更新器 CurrentVersion 固定取 csproj 的 ApplicationDisplayVersion；ChatLogImportService 只负责暂存与一次性写入新档，解析是纯函数。
+Registration.Pages.cs[AU6T]: F:页面注册，全部 Transient：页面关闭即释放；需要独立窗口的页面也在这里登记。 | R:code:AppShell.xaml.cs, code:Composition/Registration.ViewModels.cs | A:AddPages | S:页面刻意注册为 Transient；改成单例会跨次打开保留上一次的页面数据与事件订阅。
 Registration.Plugins.cs[AE7T]: F:插件与工具链注册：权限表、插件宿主与能力包库。 | R:code:Services/Plugins/PluginPermissions.cs | A:AddPluginServices | S:权限表必须先于插件宿主注册，宿主函数才拿得到同一份授权状态。
 Registration.ViewModels.cs[AU6T]: F:页面模型注册，全部 Transient，与页面同生命周期。 | R:code:Composition/Registration.Pages.cs | A:AddViewModels | S:-
 
@@ -49,15 +49,17 @@ EmptyState.xaml[FU6T]: F:空态骨架：标题说这里空、原因说为什么�
 EmptyState.xaml.cs[CU4T]: F:空态控件的三个绑定属性：标题、原因与出路，标题默认「还没有内容」。 | R:code:Controls/EmptyState.xaml | A:Title, Reason, Hint | S:-
 EvergineWeatherView.cs[IU6T]: F:Evergine 3D 天气大气场的 MAUI 承载视图，共享层，平台渲染交给两端 partial handler。 | R:code:Controls/EvergineWeatherViewHandler.cs | A:- | S:-
 EvergineWeatherViewHandler.cs[IU6T]: F:承载视图的共享 handler：mapper、构造与平台无关的映射入口。 | R:code:Controls/EvergineWeatherView.cs, code:Platforms/Windows/EvergineWeatherViewHandler.Windows.cs | A:UpdateApplication | S:平台类型（AndroidSurfaceView、WinUIGrid）只能出现在各平台 partial 里，写进共享层直接编译失败。
+FaceMonitorPane.xaml[FU6T]: F:人脸识别面板的结构：组件状态链（总开关→存档授权→相机权限→推理编译→模型文件）逐环显示、本次降级原因，以及最近一帧与空态。 | R:code:Controls/FaceMonitorPane.xaml.cs, code:ViewModels/Monitor/FacePanelViewModel.cs, code:Controls/EmptyState.xaml | A:FaceMonitorPane | S:绑定对象由宿主页给（BindingContext = FacePanelViewModel），面板自身不持有页面状态；无帧时只出空态的原因与出路，不画占位图。
+FaceMonitorPane.xaml.cs[FU2T]: F:人脸面板的代码后置，仅承担 XAML 编译挂接，行为全部在 FacePanelViewModel。 | R:code:Controls/FaceMonitorPane.xaml | A:FaceMonitorPane | S:这里不持有页面状态、也不取帧——取帧只在用户按「抓一帧」或 AI 主动请求时由视图模型发起。
 ForegroundRainView.cs[CU6M]: F:全屏透明、输入透传的前景天气层：雨滴落在控件表面凝结、停留并沿边缘滑落。 | R:code:Controls/EvergineWeatherView.cs | A:SetScene, SetStageRect, RefreshGeometry, Start, Stop | S:几何快照上限 120 与 90ms 相位泵是性能护栏；提高刷新率或去掉上限会让 GPU 表面与主线程争抢。
 HudReadout.cs[CU5S]: F:终末地 HUD 的方框读数：小字标签 + 大号数值 + 可选进度线。 | R:code:Controls/HudSkin.cs | A:Horizontal, Framed, Compose | S:-
-HudSkin.cs[CU5S]: F:终末地 HUD 的外观原子：切角面板、四角括号与 45° 斜纹带，非 HUD 世界退回圆角矩形或隐藏，强调色从当前 Signal 资源取。 | R:code:Helpers/SafeDrawable.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:HudSkin, HudPanelShape, CornerBracketDrawable, HudHatchDrawable | S:切角必须按控件实际边界现画（实现 IShape 而不是 Shape）；拿固定 0–100 单位的 Path 当 StrokeShape，Border 会把它当固有尺寸，整块卡塌成 100px 小方块。
+HudSkin.cs[CU5S]: F:终末地 HUD 的外观原子：三档面板形状（8/4/12）、四角括号与 45° 斜纹带；2026-11 起装饰恒关，三个形状退回 Win11 圆角阶梯。 | R:code:Helpers/SafeDrawable.cs, code:DesignSystem/Theme/GlassTokens.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:HudSkin, IsActive, PanelCardShape, HudPanelShape, CornerBracketDrawable, HudHatchDrawable | S:IsActive 恒为 false 但属性不能删——页面用 x:Static 绑着它的可见性；三个形状走 GlassTokens 常量而不是字面量，改阶梯时一次性生效。
 LoadingVeil.cs[CU6M]: F:全站唯一的「数据还没到」骨架屏，兼作启动遮罩：封面占位加一组骨架条，按 ViewModel 上的就绪信号自动收起，并有兜底超时。 | R:code:Helpers/Ui.cs, code:Services/LocalizationService.cs | A:LoadingVeil, Show, Attach, Dismiss, IsReady | S:显隐只切 IsVisible，永远不写 Opacity——透明度被进场动画、禁用态与卡片显隐共用，谁都写就会有人把它留在 0 上；默认 1800ms 无条件收起，空库时信号永远不就绪。
 Minimal3DView.cs[CU5S]: F:灰度 3D 视图容器：GraphicsView 加单指拖拽环视，水平偏航、竖直俯仰。 | R:code:Controls/MinimapView.cs | A:SetScene, YawBy, YawTo, PitchBy, WalkForward | S:这里只管「看」；前进、街面进入与全景旋钮由页面组合相机 API，交互状态不要搬进本类。
 MinimapView.cs[CU5S]: F:右上角小地图：自绘画布加点按命中，向页面抛出 POI 命中事件。 | R:code:Controls/Minimal3DView.cs | A:PoiTapped, Drawable, Refresh | S:-
 PageHeader.xaml[FU7T]: F:全站唯一页头骨架：返回、眉标与世界印记、标题、副标题、右侧动作，Bar 与 Ground 两档，分隔线由组件自带。 | R:code:Controls/PageHeader.xaml.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:Bar, Rule, Right, Badge | S:高度、内距、横距只走 WHeaderHeight/WHeaderPad/WHeaderGap 与 WSize 字阶令牌；写死高度与字号会让页头在窗口尺度换档时脱节。
 PageHeader.xaml.cs[CU7S]: F:页头行为：Bar/Ground 形态切换、返回钮只在有命令且未显式关闭时出现、页面动作挂进右列、压测徽标常驻第一位。 | R:code:Controls/PageHeader.xaml, code:Controls/WorstCaseBadge.cs | A:PageHeader, PageHeaderVariant, ApplyVariant, ApplyBack, ApplyActions | S:Bar 档的底、最小高与内距要用 SetDynamicResource 重设，不能读成一次性值，否则窗口换档后整页留在旧尺度；Ground 档要把底与发丝线一起摘掉。
-Toast.cs[CU6M]: F:轻量通知条：贴当前页最上层，从边缘滑入、停留数秒再滑回，分 Info/Success/Warning/Error 四kind。 | R:code:Controls/LoadingVeil.cs | A:Toast.Info, Toast.Success, Toast.Error, ShowOnUi | S:刻意不用 DisplayAlert——它必须点一下才消失且挡在正中，会吃掉用户正在点的位置；提示失败时内部吞掉异常，不能再往外抛。
+Toast.cs[CU6M]: F:轻量通知条：贴当前页最上层滑入、停留数秒再滑回；已是成就横幅形态（徽章+类别码+标题+一句话），位置与时长取「浮动通知」设置。 | R:code:Controls/LoadingVeil.cs, code:Helpers/Ui.cs, code:Services/Core/SettingsManager.cs | A:Toast.Info, Toast.Success, Toast.Warn, Toast.Error, Toast.Show, ToastHost | S:刻意不用 DisplayAlert——它必须点一下才消失且挡在正中，会吃掉用户正在点的位置；出条失败一律内部吞异常，不能再往外抛。
 ViewSlider.cs[CU4S]: F:iOS 风滑杆：圆角轨道 + 主色填充 + 圆拇指，支持点按跳位与拖动。 | R:code:Controls/ViewSwitch.cs | A:Minimum, Maximum, Value | S:属性名与原生 Slider 完全同名，是为了让 XAML 与绑定可以直接替换；改名等于把所有调用点一起改。
 ViewSwitch.cs[CU4S]: F:iOS 风开关：胶囊轨道加圆拇指，点按切换，IsToggled 双向绑定。 | R:code:Controls/ViewSlider.cs | A:IsToggled, IsEnabled | S:对外属性刻意与原生 Switch 同名，替换控件时调用方无需改动。
 WeatherSceneView.cs[CU5M]: F:天气场景背景视图：自绘场景叠加静态可读性遮罩，整层输入透传。 | R:code:Controls/ForegroundRainView.cs | A:SetScene | S:-
@@ -72,13 +74,13 @@ SpritePathToImageSourceConverter.cs[CU4T]: F:把立绘路径字符串转成 Imag
 StringConverters.cs[CU4T]: F:字符串非空判断转换器，用于把文本有无直接映射成 IsVisible。 | R:code:Converters/Converters.cs | A:- | S:-
 
 ===/<repository>/DesignSystem/Styles/===
-BaseStyles.xaml[FU5T]: F:基础样式字典：页面底色、分隔线、通用文字与容器样式。 | R:code:DesignSystem/Theme/ColorPalette.xaml | A:- | S:-
+BaseStyles.xaml[FU6T]: F:基础样式字典：页面与 Shell 底色、原生三件套（Switch/Slider/Picker）的暖皮、活动指示与进度色，并为数值令牌给静态兜底。 | R:code:DesignSystem/Theme/ColorPalette.xaml, code:DesignSystem/Theme/GlassTokens.cs | A:- | S:这里只能引用语义色名——写死颜色会在换世界/换明暗时留下半旧界面；数值令牌必须给静态兜底，缺键时 DynamicResource 把 StrokeThickness 落回 0。
 BaseStyles.xaml.cs[FU2T]: F:XAML 编译挂接的代码后置，无逻辑。 | R:code:DesignSystem/Styles/BaseStyles.xaml | A:- | S:-
-ButtonShapes.xaml[FU6M]: F:按钮形态样式：主次按钮、幽灵按钮的形状与按下反馈。 | R:code:DesignSystem/Styles/CardShapes.xaml, code:Helpers/PressFeel.cs | A:- | S:按下反馈依赖 Helpers 里的手势辅助类，样式里只声明视觉状态，不要在 XAML 里重复实现按压逻辑。
+ButtonShapes.xaml[FU6M]: F:按钮形态样式：主/次/幽灵/危险/圆形玻璃图标钮的静止档与禁用档，颜色路由 HoverFeel、位移路由 PressFeel，不含任何写死的材质值。 | R:code:DesignSystem/Styles/CardShapes.xaml, code:Helpers/PressFeel.cs, code:Helpers/HoverFeel.cs, code:DesignSystem/Theme/GlassTokens.cs | A:BtnLiquidGlassIcon, BtnPrimary, BtnGhost, BtnDanger, BtnDangerSm, BtnIcon | S:视觉状态里不写悬停/按下颜色、位移、Scale 与 Shadow——颜色归 HoverFeel、位移归 PressFeel；带导航的按钮收不到抬起事件，写进 Pressed 的 Setter 会永久留在按钮上。
 ButtonShapes.xaml.cs[FU2T]: F:XAML 编译挂接的代码后置，无逻辑。 | R:code:DesignSystem/Styles/ButtonShapes.xaml | A:- | S:-
-CardShapes.xaml[FU6M]: F:卡片与列表的形态样式：实底/通透/弹窗三档深度、成组卡与可点行、三种发丝线，以及卡内五个部位（头、标题、说明、脚注、首字垫）。 | R:code:DesignSystem/Worlds/StyleWorld.cs, code:DesignSystem/Theme/GlassTokens.cs | A:CardSolid, CardFrost, CardDialog, SettingRow, TappableRow, HSep | S:样式里不写具体颜色、圆角、内距与影子，全部引世界令牌；Shadow 对象内联、只让 Brush 跟世界走——整个 Shadow 换掉会重建合成层，表现为元素不再绘制。
+CardShapes.xaml[FU6M]: F:卡片与列表形态：凹/平/浮三档深度、成组卡与可点行、三种发丝线，以及卡内五个部位（头、标题、说明、脚注、首字垫）与读数小标题。 | R:code:DesignSystem/Worlds/StyleWorld.cs, code:DesignSystem/Theme/GlassTokens.cs, code:DesignSystem/Styles/NeumorphicStyles.xaml | A:CardSolid, CardFrost, CardDialog, CardGroup, SettingRow, CardTitle | S:样式里不写颜色、圆角、内距与影子，全部引世界令牌；Shadow 对象内联、只让 Brush 跟世界走——整个 Shadow 换掉会重建合成层，表现为元素不再绘制。
 CardShapes.xaml.cs[FU2T]: F:XAML 编译挂接的代码后置，无逻辑。 | R:code:DesignSystem/Styles/CardShapes.xaml | A:- | S:-
-NeumorphicStyles.xaml[FU6S]: F:新拟态样式：双向阴影的凸起/凹陷卡片与控件外观。 | R:code:DesignSystem/Styles/CardShapes.xaml | A:- | S:-
+NeumorphicStyles.xaml[FU6S]: F:浮档/凹档卡片与通用按钮：键名保留 Neumorph 历史名，材质已换成世界令牌下发的玻璃三档——浮档内联 Shadow，凹档只靠底色台阶与上沿线。 | R:code:DesignSystem/Styles/CardShapes.xaml, code:Helpers/PressFeel.cs | A:CardNeumorph, CardNeumorphInset, BtnNeumorph, CardLiquidGlass, PressableCard, TagChip | S:键名里的 Neumorph 是历史包袱但页面有几百处按名引用，不能改名；状态组里永远不换 Shadow、不写 TranslationY——换影会重建合成层，位移归 PressFeel。
 NeumorphicStyles.xaml.cs[FU2T]: F:XAML 编译挂接的代码后置，无逻辑。 | R:code:DesignSystem/Styles/NeumorphicStyles.xaml | A:- | S:-
 TextTypography.xaml[FU6T]: F:文字排版样式：标题、正文、说明与等宽数字的字号字重层级。 | R:code:DesignSystem/Styles/BaseStyles.xaml | A:- | S:-
 TextTypography.xaml.cs[FU2T]: F:XAML 编译挂接的代码后置，无逻辑。 | R:code:DesignSystem/Styles/TextTypography.xaml | A:- | S:-
@@ -89,19 +91,19 @@ ColorPaletteBamboo.xaml[FU6T]: F:翠竹绿配色方案，键集与默认色板�
 ColorPaletteEndfield.xaml[FU6T]: F:终末地配色方案，键集与默认色板一一对应。 | R:code:DesignSystem/Theme/ColorPalette.xaml | A:- | S:键集必须与 ColorPalette.xaml 完全一致。
 ColorPaletteMist.xaml[FU6T]: F:晨雾蓝灰配色方案，键集与默认色板一一对应。 | R:code:DesignSystem/Theme/ColorPalette.xaml | A:- | S:键集必须与 ColorPalette.xaml 完全一致。
 ColorPaletteSakura.xaml[FU6T]: F:樱花粉配色方案，键集与默认色板一一对应。 | R:code:DesignSystem/Theme/ColorPalette.xaml | A:- | S:键集必须与 ColorPalette.xaml 完全一致。
-GlassTokens.cs[CU6M]: F:一次玻璃下发所需的全部参数与环境探测：档位、模糊、透明度与降级判断。 | R:code:DesignSystem/Styles/CardShapes.xaml, code:DesignSystem/Theme/ThemeManager.cs | A:GlassParams, GlassTokens | S:低端机与减少动画模式下会降级为实底，调用方不能假设拿到的一定是真模糊。
+GlassTokens.cs[CU6M]: F:全站唯一厚度阶梯：Bar/Card/Button/Dialog 四档，把档位与调制量换算成面、1px 迎光描边、随液态高度变化的阴影写进应用资源，圆角取 4/8/12。 | R:code:DesignSystem/Styles/CardShapes.xaml, code:DesignSystem/Theme/ThemeManager.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:GlassParams, GlassKind, Publish, RadiusMedium, RadiusDialog, FixedLightX | S:颜色一律由世界的 Tints 给，这里只管透明度/边亮/影远；档位是 none 或 Translucency≤0.001 时走实心，不发布阴影。
 MotionPrefs.cs[CU5T]: F:探测系统的「减少动画」偏好，并落到 MotionTokens.Disabled。 | R:code:DesignSystem/Theme/MotionTokens.cs | A:MotionPrefs | S:-
-MotionTokens.cs[CU6S]: F:全站动效令牌：时长、曲线与位移量的唯一来源，纯数值不引用 MAUI 类型。 | R:code:DesignSystem/Theme/MotionPrefs.cs | A:MotionTokens, Disabled | S:刻意不引用 MAUI 类型，才能被离线规则自检直接编译校验；加一个 MAUI 引用就会让那条自检编译不过。
+MotionTokens.cs[CU6S]: F:全站动效令牌：时长、曲线与位移的唯一出处——按压 70/170ms、过场 440/340ms、弹簧 bezier 求值，以及系统「减少动画」与性能模式两条独立开关。 | R:code:DesignSystem/Theme/MotionPrefs.cs, code:Helpers/PressFeel.cs, code:Helpers/Animation.cs | A:TapMs, SettleMs, PageSweepMs, Spring, Settle, Ms | S:刻意不引用 MAUI 类型，离线自检要能直接编译它；SystemDisabled 与 PerformanceMode 分开存——合成一个布尔后，关掉性能模式会把系统偏好一起清掉。
 OverlaySkin.xaml[FU6T]: F:叠加面配色：取景舞台、舞台光晕与桌宠小窗的静态色值，Stage* 给取景、Pet* 给桌宠，*Ink 是字、*Bg 是面。 | R:code:DesignSystem/Theme/ColorPalette.xaml, code:App.xaml | A:StageBg, StageScrim, StageGlowNear, PetWindowBgWin, PetShadeClear | S:静态色，刻意不随风格世界与明暗切换——跟着翻深浅，压暗层会在浅底消失、白线会在深底糊成一片；不要并进色板或主题重算。
 ThemeManager.Chinese.cs[CC5T]: F:主题管理器的中文别名包装，把同一实例暴露成中文标识符。 | R:code:DesignSystem/Theme/ThemeManager.cs | A:主题管理器 | S:只是转发同一份状态，不要在这里缓存主题或另存设置，否则两个入口会各说各话。
-ThemeManager.cs[CC8L]: F:主题中枢：材质世界与配色两块独立轴的切换、玻璃/毛玻璃/液态玻璃参数下发、系统明暗跟随，以及资源字典的热替换与防抖重发。 | R:code:DesignSystem/Worlds/StyleWorld.cs, code:DesignSystem/Theme/GlassTokens.cs, code:Services/AppBackgroundService.cs | A:ThemeManager, World, Dark, ThemeName, Republish, FollowSystemTheme | S:深色档属于世界而不是色板；开毛玻璃会自动开磨砂、关磨砂会连带关毛玻璃；所有下发共用一个防抖窗口并在 Ui.Post 里执行，顺序是先换调色板、再算世界、最后下发画刷；刻意不给整页做淡入过场，那会把设置页留在全透明。
+ThemeManager.cs[CC8L]: F:主题中枢：材质世界与配色两块正交轴的切换、系统明暗跟随、玻璃参数下发，以及调色板热替换与共用一个防抖窗口的全量重发。 | R:code:DesignSystem/Worlds/StyleWorld.cs, code:DesignSystem/Theme/GlassTokens.cs, code:Services/AppBackgroundService.cs | A:ThemeManager, World, ThemeName, Glass, Republish, FollowSystemTheme | S:深色档属于世界不是色板；开毛玻璃自动开磨砂、关磨砂连带关毛玻璃；Flush 顺序固定——先换调色板、再算世界、最后下发画刷并 ApplyFace；颜色必须写顶层字典，替换 MergedDictionaries 不触发 DynamicResource 重解析；刻意不给整页做淡入，那会把设置页留在全透明。
 WeChatBrand.xaml[FU5T]: F:社交壳（微信/QQ）品牌配色：静态白加蓝，不随材质世界与明暗切换。 | R:code:DesignSystem/Theme/ColorPalette.xaml, code:App.xaml | A:- | S:这份品牌色刻意独立于色板与明暗轴（style ⊥ palette），把它并进主题换色会让社交界面的品牌识别在深色下失真。
 
 ===/<repository>/DesignSystem/Tokens/===
 DesignTokens.cs[CU5T]: F:间距与尺寸令牌（Spacing、Sizing），全站布局数值的唯一出处。 | R:code:DesignSystem/Theme/MotionTokens.cs | A:Spacing, Sizing | S:-
 
 ===/<repository>/DesignSystem/Worlds/===
-StyleWorld.cs[CU8L]: F:世界令牌的唯一计算与下发：五世界收编为「档案室」单档，按明暗与色板种子算颜色台阶、字阶、圆角、间距四档与页头令牌，并按窗口尺度重新发布。 | R:code:DesignSystem/Theme/ThemeManager.cs, code:DesignSystem/Tokens/DesignTokens.cs | A:StyleWorldTokens, Publish, SetViewport, CardWidth, ApplyFace | S:令牌必须写进 Application.Resources 顶层字典——替换 MergedDictionaries 不触发 ValuesChanged，已渲染页面不会跟着换档；视口入参先挡 NaN/∞/≤0，NaN 写进 WidthRequest 或 FontSize 会让 WinUI 原生崩溃。
+StyleWorld.cs[CU8L]: F:世界令牌的唯一计算与下发：五世界收编为「档案室」单档，按明暗与色板种子算颜色台阶、字阶、圆角、间距与页头令牌，并按窗口尺度重发。 | R:code:DesignSystem/Theme/ThemeManager.cs, code:DesignSystem/Theme/GlassTokens.cs, code:DesignSystem/Tokens/DesignTokens.cs | A:StyleWorldTokens, Publish, SetViewport, CardWidth, ApplyFace, GlassBias | S:令牌必须写进顶层字典——替换 MergedDictionaries 不触发 ValuesChanged；视口入参先挡 NaN/∞/≤0，NaN 写进 WidthRequest 会让 WinUI 原生崩溃；圆角与描边不乘尺度；色板种子只在 themeKey 变时重读，否则连切几次颜色会漂灰。
 
 ===/<repository>/Drawables/===
 ArchitectureFlowDrawable.cs[CU7L]: F:架构图绘制层：节点按身份排格子布局、四种语义箭头与流动光点、层色与病理呼吸环、断链打叉，并提供命中测试回查节点。 | R:code:DesignSystem/Worlds/StyleWorld.cs, code:Controls/HudSkin.cs | A:ArchitectureFlowDrawable, ArchNode, ArchLink, LinkKind, HitTest | S:布局由 ViewModel 决定谁挨着谁，drawable 只负责摆位与绘制；虚线段长这类数组要共用静态实例，每帧每个块每条链路各新开一份就是给 GC 添活；连线要两端都排好位才画。
@@ -124,15 +126,19 @@ README.txt[SV2T]: F:Evergine 3D 内容目录的占位说明。 | R:code:Controls
 
 ===/<repository>/Helpers/===
 AffectionScale.cs[CU8T]: F:好感刻度的唯一实现：0–1000 绝对点数、每 100 点一级共 10 级，给等级、本级进度与「Lv.3 · 240/1000」文案，并把旧 0–100 刻度与读档迁移折成点数。 | R:code:Models/Character.cs, code:Modules/Affection/AffectionLevel.cs | A:AffectionScale, LevelOf, ProgressInLevel, TextOf, FromLegacy, Migrate | S:正好 100 点仍算 1 级且本级满格，101 点才进 2 级，边界这样取值才是连续的；换算与越界只在这里做，别处不许再写一套除法。
-Animation.cs[CU6M]: F:进场与强调动效：时长与曲线一律取自 MotionTokens。 | R:code:DesignSystem/Theme/MotionTokens.cs | A:Motion | S:所有时长都必须走 MotionTokens；写死数字会绕过「减少动画」开关。
+Animation.cs[CU6M]: F:进场与强调动效：上浮、次第浮起、呼吸、抖动、底部滑入，以及整页过场（Windows 走合成层，其余走位移动画）。 | R:code:DesignSystem/Theme/MotionTokens.cs, code:Helpers/PressFeel.cs | A:Motion, Rise, Enter, SlideUp, PageIn, StaggerDelay | S:全程只动 TranslationX/Y，不碰 Opacity——透明度是禁用态、卡片显隐与进场共用的输出量，动画回调一旦丢失元素会永久停在看不见那一头；时长与曲线只能取 MotionTokens。
 BidiText.cs[CU5S]: F:显示层双向文本纯函数：按首个强方向字符判定整段方向，给无空格长串在分隔符后插零宽断点。 | R:code:Converters/BidiConverters.cs, code:tools/text_selftest/Program.cs | A:BidiText, BidiDirection, DetectDirection, IsRtl, SoftWrap | S:只处理超过 24 字符的无空格段，单条最多插 40 个且不在末尾重复插；数字、标点、emoji 都是弱字符，一律跳过。
 CountText.cs[CU4T]: F:显示层计数格式化：负数给破折号、徽标超 999 显示 999+、带量词时量词随数字一起消失。 | R:code:tools/text_selftest/Program.cs | A:CountText, Format, FormatCompact, FormatWithUnit | S:负数是数据坏了，不是「欠一条」——只给破折号，且量词必须一起消失，别留下「— 条」这种半截话。
-HoverFeel.cs[CU6L]: F:桌面端悬停反馈：在平台原生元素上用 AddHandler(handledEventsToo) 接指针进出，直接改原生画刷压深一档，另有强调底从左侧擦入与可点卡片上浮。 | R:code:Helpers/PressFeel.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:HoverFeel, LitProperty, LiftProperty, AccentProperty, SweepProperty | S:必须用 AddHandler(handledEventsToo: true)，MAUI 输入栈在冒泡途中就把事件标成已处理，+= 订阅收不到；改的是原生画刷而非 Background 属性，本地值压上去会让 DynamicResource 链接接不回来。
+EdgeBackGesture.cs[CU6S]: F:左缘右滑返回：18dp 感应条上跟手 1:1 位移，拖过三成屏宽或甩速够快才返回，否则按当前速度弹簧归位。 | R:code:Helpers/IosMotion.cs, code:Helpers/Animation.cs | A:EdgeBack, Attach, ZoneWidth, CommitRatio, FlingVelocity | S:感应带必须是 XAML 里真实存在的窄条——PanGestureRecognizer 只给累计位移、不给按下坐标，在根节点上判断不了起手位置；纵向位移压过横向 1.4 倍即取消，否则滚列表会被读成返回。
+HoverFeel.cs[CU6L]: F:桌面端悬停反馈：在平台原生元素上接指针进出，把原生画刷压深一档并在离开时交还现算的静止值；另有强调底从左擦入、可点卡片上浮。 | R:code:Helpers/PressFeel.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:HoverFeel, EnabledProperty, LiftProperty, AccentProperty, LiquidFaceProperty, SweepProperty | S:必须用 AddHandler(handledEventsToo: true)——MAUI 冒泡中已把事件标成处理过；改原生画刷而非 Background，本地值会切断 DynamicResource；交还色要从 Forms 侧现读，否则 WinUI 视觉状态会卡住旧色。
 HudMotion.cs[CU5S]: F:终末地 HUD 的专属动效：扫描线扫过、标题上电、选中行擦出一刀、四角括号逐角亮起与能量条咔哒，只在 HUD 世界且未关闭动效时播。 | R:code:DesignSystem/Theme/MotionTokens.cs, code:Controls/HudSkin.cs, code:DesignSystem/Worlds/StyleWorld.cs | A:HudMotion, ScanAsync, PowerOnAsync, WipeInAsync, BracketsInAsync, TickAsync | S:只动合成层属性（位移、缩放、透明度），绝不碰布局，否则会一帧一帧重排；模型值先落终态，动画只是叠在上面的过渡；关闭动效时直接返回、状态照常切换。
 ImageCache.cs[CP6T]: F:自绘画布共用的位图缓存，只保留最近用到的 N 张。 | R:code:Drawables/MapCanvasDrawable.cs, code:Drawables/MemoryGraphDrawable.cs | A:ImageCache | S:容量刻意有上限，超额的缓存会被清掉；调用方不能假设拿到的位图长期有效。
 IntroCard.cs[CU5S]: F:启动卡动效：名牌逐字写出、缩格、再引出本地语言的名字。 | R:code:DesignSystem/Theme/MotionTokens.cs | A:IntroCard, Parts | S:-
+IosCellFeedback.cs[CU6S]: F:列表行的按下手感（照 iOS cell）：按下当帧缩到 0.975，高亮延迟 80ms 才亮，手指移动超 10dp 取消高亮，抬手弹簧回位。 | R:code:Helpers/IosMotion.cs, code:Helpers/HoverFeel.cs, code:DesignSystem/Theme/MotionTokens.cs | A:IosCellFeedback, EnabledProperty, ScaleProperty, HighlightProperty, HighlightDelayMs, MoveSlop | S:高亮画在覆盖层 BoxView 上而不是改 BackgroundColor——写本地值会切断 DynamicResource，换世界时整行钉死在旧色；平台事件只观察、不写 Handled，滚动与点击照旧。
+IosMotion.cs[CU6S]: F:手机端弹簧动效：四个预设（Standard/Sheet/Press/Back）用阻尼振子解析解采样，位移收敛带上松手速度，另含 DragVelocity 速度估计。 | R:code:DesignSystem/Theme/MotionTokens.cs, code:Helpers/EdgeBackGesture.cs | A:IosSpring, IosMotion, SlideToX, SlideToY, ScaleTo, DragVelocity | S:时长走 MotionTokens.Disabled 与 Scale——关掉动效直接落终值、返回 0ms；DragVelocity.Resolve 在停顿超 110ms 时归零，停住再松手不该翻页。
 MemoryHighlight.cs[CU5S]: F:记忆列表的句级高亮：把「第几句贴了什么标签」翻译成带底色、可点的行。 | R:code:Models/MemoryTag.cs | A:MemoryHighlight, Line | S:-
-PressFeel.cs[CU6M]: F:按钮的真正按压反馈：按下沉、抬起回弹，跨平台补上 MAUI 缺失的手感。 | R:code:Helpers/HoverFeel.cs | A:PressFeel | S:-
+PressFeel.cs[CU6M]: F:按钮的真正按压反馈：按下沉 2.4px（液态档再缩到 0.97 并换按下那一面），抬起沿弹簧回位；换页与卸载时主动落回基值。 | R:code:Helpers/HoverFeel.cs, code:DesignSystem/Theme/MotionTokens.cs | A:PressFeel, EnabledProperty, LiquidProperty, SetEnabled | S:不碰 Opacity——它同时被进场动画与禁用态写着，互顶会让按钮停在半程值；不记忆进入时的基准值（那可能是别处的动画中途值）；换页收不到抬起事件，必须由导航与 Unloaded 主动归零。
+SafeArea.cs[CU6S]: F:安全区留白：把系统 inset 换成宿主 Layout 的 Padding 并叠加在原值上，只在页面真的铺满窗口时才补，避免重复留白。 | R:code:App.xaml.cs, code:Platforms/Android/MainActivity.cs | A:SafeArea, Attach, Insets, EdgeToEdgeSlop | S:必须先用「页高 ≈ 窗高（差 8dp 内）」判断是否 edge-to-edge，否则 RootWindowInsets 非零会多加一条底部空白；Padding 只在基值上叠加，别处写死的留白不能被抹掉。
 SafeDrawable.cs[CR5T]: F:给 IDrawable 加绘制兜底：绘图异常就地吞掉，画布只少画一块而不是整页崩。 | R:code:Drawables/MapCanvasDrawable.cs, code:App.xaml.cs | A:SafeDrawable | S:吞异常是刻意的，但必须留日志——否则画面缺块时无从定位。
 StatusText.cs[CU6T]: F:状态文字的唯一映射表：把状态标识符翻成人话，认不出的折成破折号，界面不再出现裸枚举名。 | R:code:Converters/Converters.cs | A:StatusText, Format | S:认不出的纯标识符给「—」而不是原样露出英文；含空格或已是中文的文字原样保留，那些是描述不是标识符。
 Ui.cs[CG5T]: F:从任意线程把工作送回 UI 线程的统一入口。 | R:code:App.xaml.cs | A:Ui | S:-
@@ -141,9 +147,10 @@ UiGuard.cs[CR6T]: F:事件处理器的异常兜底：async void 处理器把异�
 ===/<repository>/Models/===
 AudioAssets.cs[DD5T]: F:音频资源模型：背景音乐与背景音条目。 | R:code:Services/Core/AudioController.cs | A:MusicItem, BackgroundItem | S:-
 BoardCell.cs[DB4T]: F:棋盘格子模型，含阵营标记。 | R:code:Modules/GameModule/MiniGameEngine.cs | A:BoardCell, IsRed | S:-
-Character.cs[DB8M]: F:角色档案与状态：主设定档案、运行期状态（好感点数、精力与 AI 修正、大脑预判）、副设定漂移与留影，以及语音/模型/世界观/背景覆写。 | R:code:Models/CharacterOverrides.cs, code:Helpers/AffectionScale.cs, code:Services/Character/MentalHealthService.cs | A:CharacterProfile, CharacterState, CharacterData, CharacterSubProfile, CharacterVoice | S:State.Affection 是 0–1000 绝对点数，旧的 AffectionPoints 已删除，显示与判定只走 AffectionScale；Id 同时是周期规则的键，必须稳定唯一。
+Character.cs[DB8M]: F:角色档案与状态：主设定档案、运行期状态（好感、安全感与事件账本、精力与 AI 修正、大脑预判）、副设定漂移与留影，以及语音/模型/世界观/背景覆写。 | R:code:Models/CharacterOverrides.cs, code:Helpers/AffectionScale.cs, code:Modules/Affection/SecurityScale.cs, code:Services/Character/MentalHealthService.cs | A:CharacterProfile, CharacterState, CharacterData, CharacterSubProfile | S:Affection 与 Security 都是 0–1000 绝对点数，显示与判定只走各自的 Scale；Security 的 -1 是「未写过」哨兵，读档补 600；Id 同时是周期规则的键，必须稳定唯一。
 CharacterOverrides.cs[DC5T]: F:角色级设置覆写，所有字段可空，null 表示沿用全局设置。 | R:code:Models/Character.cs, code:Services/SettingsManager.cs | A:CharacterOverrides | S:null 是「沿用全局」的语义，不能用空字符串或零值表达同一意思。
 Chat.cs[DB7S]: F:聊天消息与附件模型，含模型发起的工具调用字段。 | R:code:Models/ChatMessage.cs, code:Modules/AiChat/ChatEngine.cs | A:ChatMessage, ChatAttachment | S:工具调用只可能出现在 assistant 消息上；为 null 才是「这条没有工具调用」的合法表示。
+ChatHistorySeed.cs[DB6T]: F:一局新档的「过去」摘要：从导入聊天记录算出的条数、主动比例、覆盖天数、初始好感与信任、最近一段与情绪事件，随存档落盘。 | R:code:Services/Import/ChatLogImportService.cs, code:Models/State.cs, code:Helpers/AffectionScale.cs | A:ChatHistorySeed, UserInitiatedRatio, Affection, Trust, RecentSummary, Notables | S:只留摘要，聊天正文一条都不进档（全部折成记忆条目）；Affection 走 0–1000 好感刻度、Trust 是 0–100，两者刻度不同不能混用。
 ChatMessage.cs[DB6T]: F:聊天气泡绑定模型：文本/图片/视频/文件/工具调用五种形态的可见性判定，发送者名与空消息兜底。 | R:code:Models/Chat.cs | A:ChatItem, BubbleText, Sender, IsText, IsToolCall, ToolExpanded | S:派生属性靠 partial OnXChanged 手动转发通知——新增可观察属性时漏掉转发，界面上就不会刷新。
 CognitionMode.cs[DB7S]: F:双系统大脑的两个档位定义，以及专注训练的会话状态。 | R:code:Services/Character/EnergyRules.cs | A:CognitionMode, FocusTraining | S:档位语义由契约固定（专注 / 神游），改枚举名等于改对外契约，读取侧的历史数据会失配。
 DailyPlan.cs[DB6T]: F:日程模型：条目种类与具体计划项。 | R:code:Services/World/DailyScheduleService.cs | A:PlanKind, PlanItem | S:AI 只输出这里枚举的英文名（Wear/Chat/…），新增种类必须同时改模型与提示词侧白名单。
@@ -174,7 +181,7 @@ SceneLibrary.cs[DD5T]: F:场景库：独立于地图的结构化「场景 + 模�
 ScenePlacement.cs[DD6M]: F:场景标定：落脚点种类与缩放依据的常量集合。 | R:code:Drawables/SceneCalibrationDrawable.cs | A:LandingKinds, ScaleMethods | S:-
 ShopItem.cs[DB5S]: F:商店模型：商品条目与展示兜底（占位层、首字、价格异常）、一局小游戏战绩，以及挂在角色身上的 buff 标记。 | R:code:Modules/Market/ShopService.cs | A:ShopItem, GameRecord, CharacterBuff | S:能立刻画出像素才算 HasLocalImage，远程 URL 在下载完成前必须由占位层顶着；负价是坏数据要显示「价格异常」，不是负数金额。
 Showcase.cs[DB5T]: F:开发者展示案：一段可完整回放的 AI 与用户对话脚本。 | R:code:Views/Story/ShowcasePlayPage.xaml | A:ShowcaseScript, ShowcaseStep | S:-
-State.cs[DB9L]: F:持久化模型全集：存档主状态与角色在场、存档级权限、身体感受、好感流水、槽位与聊天记录、AI 厂商端点与单价、地图瓦片设置与全局设置字段表。 | R:code:Modules/SaveSystem/SaveManager.cs, code:Models/Character.cs, code:Services/Core/SettingsManager.cs, code:Models/ModelPricing.cs | A:GameState, CharacterPresence, SavePermissions, PhysiologyState, SaveSlot, UserSettings | S:角色白名单非空时 AI 只能在白名单内选人，新增角色必须同时进白名单；权限与白名单都是「空表 + AllowAll 才不限」；好感是 0–1000 绝对点数，旧档 0–100 值读档时 ×10。
+State.cs[DB9L]: F:持久化模型全集：存档主状态与角色在场、存档级权限、身体感受、好感流水、安全感事件账本、开局聊天摘要、槽位与全局设置字段表。 | R:code:Modules/SaveSystem/SaveManager.cs, code:Models/Character.cs, code:Services/Core/SettingsManager.cs, code:Models/ChatHistorySeed.cs | A:GameState, SecurityJournal, SavePermissions, SaveSlot, UserSettings, CharacterPresence | S:角色白名单非空时 AI 只能在白名单内选人，新增角色必须同时进白名单；权限与白名单都是「空表 + AllowAll 才不限」；好感是 0–1000 绝对点数，旧档 0–100 值读档时 ×10；HistorySeed 为 null 表示普通新开局，老档缺这个字段照旧。
 WeChatContact.cs[DD4T]: F:微信联系人：一个已加上好友的角色。 | R:code:Services/CloudSync/CloudSyncService.cs | A:WeChatContact | S:-
 WorldbookData.cs[DD5T]: F:世界志条目与角色模型。 | R:code:Services/World/WorldbookService.cs | A:WorldbookEntry, WorldbookCharacter | S:-
 
@@ -184,10 +191,11 @@ BackgroundModels.cs[DD7M]: F:统一背景系统的工作模式与天气场景种
 ===/<repository>/Modules/Affection/===
 AffectionLevel.cs[DB5T]: F:好感等级的称号与阈值转发：10 级制的中文称号、下一级阈值与还差多少点，刻度计算全部转发 AffectionScale。 | R:code:Helpers/AffectionScale.cs | A:AffectionLevel, LevelOf, NextLevelThreshold, PointsToNext, TitleOf | S:这里只留称号与转发，不再自带第二套刻度——两套刻度并存必然各算各的。
 AffectionLevelUpService.cs[DB5T]: F:好感升级动画的载荷与立绘路径解析：升级前由主界面写入等级、点数、称号、立绘与背景，动画页构造时读取；同一份相对路径在这里被解析成盘上真有的绝对路径。 | R:code:Modules/Affection/AffectionLevel.cs, code:Models/Character.cs | A:AffectionLevelUpService, SpritePathResolver, ResolveFile, Candidates | S:载荷要在导航发起前写入，目标页构造时就取走；立绘必须按存档根、程序目录、当前目录与 assets 前缀逐个候选探测，只试一条就会出现「游戏里有、工作室空」。
+SecurityScale.cs[DB8S]: F:安全感刻度：与好感同刻度（0–1000、100 点一级），事件表、特质倍率、信任与经历权重、冷却与日上限、时间漂移全部做成可自测的纯函数。 | R:code:Helpers/AffectionScale.cs, code:Services/Character/SecurityService.cs, code:Services/Character/MentalHealthService.cs | A:SecurityScale, Events, DeltaOf, Migrate, ClampAiStep, ClampAiSuggestion | S:小模型永远不能直接改安全感——归纳经历最多 ±20、漂移复核最多挪 60 且夹在系统值附近；Unset 是 -1 哨兵，旧档按 600 补而不是满值；零依赖纯函数，不碰 IO/时间/MAUI 才能被自测工程直接编译。
 
 ===/<repository>/Modules/AiChat/===
 ChatEngine.Attachments.cs[DB6S]: F:ChatEngine 的附件分支：把附件清单渲染成给模型看的文本块、把音频转成 OpenAI 兼容的 input_audio 内容块、从磁盘路径登记附件并按扩展名判类型；只做转换，不碰会话与端点。 | R:code:Modules/AiChat/ChatEngine.cs, code:Modules/ApiManager/ApiGateway.cs, code:Models/ChatMessage.cs | A:BuildAttachmentBlock, TryBuildInputAudioObject, BuildAttachmentFromPath, GuessAttachmentKind | S:音频内容块必须挂在最终构造的 ChatMessage 实例上——Content 是 init-only，之后的 with 复制会换实例、丢掉挂载；base64 超过 200 万字符就退回文字描述，否则一份音频吃光上下文。
-ChatEngine.cs[DB9L]: F:对话引擎（部分类）：按角色串行编排一轮——心智各层预判、人类式记忆回想、上下文与附件拼装、小模型升级链、工具调用循环与整回合墙钟预算，错误走独立通道不进气泡。 | R:code:Modules/AiChat/ChatEngine.Attachments.cs, code:Modules/ApiManager/ApiGateway.cs, code:Modules/Tools/ToolManager.cs, code:Modules/AiChat/MemoryVault.cs, code:Services/Character/InnerDriveService.cs | A:ChatEngine, ToolTrace, Send, SendCore, RunTurnAsync, TrimAsync | S:同一角色一轮一把闸，等锁超预算直接放弃本轮，否则自动请求会在这把锁上无限堆积；工具必须在线程池执行，插件在 UI 线程上的同步阻塞会把窗口焊死；端点拒过 tools 后本会话不再发送，assistant 的 tool_calls 与每条 tool 结果必须成对追加；空串是「沉默」要原样保留，null 才回落提示语；错误不进会话历史。
+ChatEngine.cs[DB9L]: F:对话引擎（部分类）：按角色串行编排一轮——心智各层预判、人类式记忆回想、上下文与附件拼装、小模型升级链、工具调用循环与整回合墙钟预算，错误走独立通道不进气泡。 | R:code:Modules/AiChat/ChatEngine.Attachments.cs, code:Modules/ApiManager/ApiGateway.cs, code:Modules/Tools/ToolManager.cs, code:Modules/AiChat/MemoryVault.cs, code:Services/Character/InnerDriveService.cs | A:ChatEngine, ToolTrace, Send, SendCore, RunTurnAsync, TrimAsync | S:同一角色一轮一把闸，等锁超预算直接放弃本轮，否则自动请求会在这把锁上无限堆积；工具必须在线程池执行，插件在 UI 线程同步阻塞会把窗口焊死；端点拒过 tools 后本会话不再发送，assistant 的 tool_calls 与每条 tool 结果必须成对追加；空串是「沉默」要原样保留，null 才回落提示语；错误不进会话历史。
 MemoryVault.cs[DP7S]: F:记忆落盘闸门：用信号量串行化写入，避免并发写坏记忆文件。 | R:code:Services/Memory/MemoryService.cs | A:MemoryVault | S:写入必须走这里的 SemaphoreSlim；绕过它直接写文件会与主流程竞争同一份 JSON。
 
 ===/<repository>/Modules/ApiManager/===
@@ -225,7 +233,7 @@ MaidBridgeService.Phone.cs[DI6M]: F:手机交互：把手机端的消息、指�
 MaidBridgeService.Think.cs[DA6S]: F:场景触发思考：被摸、被打、同伴倒下、天气变化等事件驱动的反应。 | R:code:Modules/MinecraftBridge/MaidBridgeService.cs | A:- | S:-
 MaidBridgeService.World.cs[DI5T]: F:世界书与角色的关系：把她在 Minecraft 里看到的东西映射成认知。 | R:code:Services/World/WorldbookService.cs | A:- | S:-
 MaidBridgeService.cs[DI8L]: F:WAB 与《东方小女仆》Forge 模组的桥：UDP 发现加 TCP NDJSON 会话、握手与按世界绑角色、世界状态与事件分发、手机与语音转发、工具调用与备份。 | R:code:Modules/MinecraftBridge/MaidBridgeModels.cs, code:Modules/MinecraftBridge/MaidBridgeTools.cs, code:Modules/AiChat/ChatEngine.cs | A:MaidBridgeService, RunToolAsync, HandshakeAsync, OnStateAsync, OnChatAsync | S:发现走 UDP 27321、会话走 TCP NDJSON 27322；token 一次性且 30 秒过期，非 Lan 模式只认回环地址；两端都可能先起后连，所有同步入口都要容忍另一端未连上；工具结果按 8000 字截断，一帧 scan 能带整张地图；世界动作、动作与拍照各有独立开关。
-MaidBridgeTools.cs[DI7M]: F:把桥的能力暴露成聊天工具，工具名与模组指令一一对应。 | R:code:Modules/MinecraftBridge/MaidBridgeService.cs, code:Modules/Tools/ToolManager.cs | A:MaidBridgeTools | S:工具名必须与模组指令保持一一对应；改名等于让模型手里的工具失效。
+MaidBridgeTools.cs[DI7M]: F:把桥的能力暴露成聊天工具：状态、扫描、看一眼、移动、采集、抱持、动作、说话、抱抱与规划等，工具名与模组指令一一对应。 | R:code:Modules/MinecraftBridge/MaidBridgeService.cs, code:Modules/Tools/ToolManager.cs | A:MaidBridgeTools, Register, StatusSchema, ActSchema, HugSchema | S:工具名必须与模组指令保持一一对应，改名等于让模型手里的工具失效；返回 unknown_method 说明对方模组版本没有该功能，只能让玩家更新，不要重试。
 
 ===/<repository>/Modules/NovelImport/===
 NovelAnalyzer.cs[DA6M]: F:小说到平行宇宙世界的导入分析器：切分文本并抽取角色与场景。 | R:code:Modules/DataPack/SmartImporter.cs | A:NovelAnalyzer | S:-
@@ -261,11 +269,11 @@ SandboxPolicy.cs[CS8S]: F:沙箱策略门面：把敏感词过滤、信任名单
 TrustStore.cs[CS7S]: F:信任名单：控制哪些外部工具可以读取模型相关数据，条目写在 .sandbox/trust.jsonl，并配一份 SHA-256 侧车文件判断是否被篡改。 | R:code:Modules/Sandbox/SandboxPolicy.cs | A:TrustStore, TrustEntry, IsTrusted, IsTampered, Add | S:读改写串行用同步 SemaphoreSlim.Wait——方法本身没有 await，换成 WaitAsync 会让锁跨 await；哈希不匹配时调用方必须清空信任；路径比较前统一成正斜杠的完整路径。
 
 ===/<repository>/Modules/SaveSystem/===
-SaveManager.cs[PD9L]: F:存档系统：多存档提交与列表索引、按段解析与单段降级、坏档备份隔离与结构化修复报告、Git 式分支、导出导入与备份，以及结构版本 3 的好感刻度迁移与按角色分池的微信记录。 | R:code:Services/Core/StorageProvider.cs, code:Modules/SaveSystem/SaveRepairReport.cs, code:Helpers/AffectionScale.cs, code:Models/State.cs | A:SaveManager, Commit, Load, RepairAsync, BranchAsync, SchemaVersion | S:落盘只走 StorageProvider 的临时文件加替换；任一段解析失败就严禁整档回写，只做内存态修复；结构版本低于 3 的档读进内存时按 AffectionScale.Migrate ×10，回写即抬到 3；空档或语法坏档备份后隔离，绝不捏造空档覆盖原件。
+SaveManager.cs[PD9L]: F:存档系统：多存档提交与列表索引、按段解析与单段降级、坏档备份隔离与结构化修复报告、Git 式分支、导出导入与备份，以及结构版本 4 的好感与安全感迁移。 | R:code:Services/Core/StorageProvider.cs, code:Modules/SaveSystem/SaveRepairReport.cs, code:Helpers/AffectionScale.cs, code:Modules/Affection/SecurityScale.cs | A:SaveManager, Commit, Load, RepairAsync, BranchAsync, SchemaVersion | S:落盘只走 StorageProvider 的临时文件加替换；任一段解析失败就严禁整档回写，只做内存态修复；低于 4 的档读进内存时好感 ×10、安全感 -1 补 600，回写即抬到 4；空档或语法坏档备份后隔离，绝不捏造空档覆盖原件。
 SaveRepairReport.cs[PR6T]: F:一次读档的结构化修复结果，用于告诉用户哪些数据被补救。 | R:code:Modules/SaveSystem/SaveManager.cs | A:SaveRepairReport | S:-
 
 ===/<repository>/Modules/Scene/===
-SceneDirector.cs[AW8L]: F:场景调度中枢：裁决当前该显示哪个场景，区分主动切换与被动触发。 | R:code:Models/SceneLibrary.cs, code:ViewModels/Games/MapCanvasViewModel.cs | A:SceneDirector, SceneApplySource | S:主动与被动来源必须分开记——被动触发不能覆盖用户刚手动选的场景，否则用户会觉得界面在自己乱跳。
+SceneDirector.cs[AW8L]: F:场景调度中枢：裁决当前该显示哪个场景，区分主动切换与被动触发，并把可用场景整理成带编号的表供 scene_list / scene_set 使用。 | R:code:Models/SceneLibrary.cs, code:ViewModels/Games/MapCanvasViewModel.cs, code:Modules/Tools/ToolManager.cs | A:SceneDirector, SceneApplySource, ApplySpecAsync | S:主动与被动来源必须分开记——被动触发不能覆盖用户刚手动选的场景，否则界面看起来在自己乱跳；scene_set 收编号而不是中文名，并返回这次是否真的看得出变化。
 
 ===/<repository>/Modules/Screen/===
 DeviceInfoService.cs[CH4T]: F:设备与屏幕形态判定，基于 MAUI 原生 DeviceInfo.Idiom。 | R:- | A:DeviceInfoService | S:-
@@ -275,14 +283,16 @@ ScreenOrientationService.cs[CH4S]: F:屏幕方向控制：Android 实际锁屏�
 ShowcaseStore.cs[PD5S]: F:展示案存储：脚本列表持久化到 showcase/scripts.json。 | R:code:Models/Showcase.cs | A:ShowcaseStore | S:-
 
 ===/<repository>/Modules/Tools/===
+FaceImageTool.cs[DE6S]: F:人脸取图工具 face_look：拍一帧、本机识别，返回一句结论、情绪与年龄估计、以及该帧的文件路径；取帧前先过存档授权、总开关与相机权限。 | R:code:Services/Media/FacePresenceService.cs, code:Services/Media/FaceAnalysisService.cs, code:Modules/Tools/ToolManager.cs | A:ToolManager, RegisterFaceImageTools, face_look | S:严格只读——结论不许拿去改数值、推剧情或触发动作；图像与识别都不出本机；任一前置条件不满足就快速失败并说清去哪儿开，绝不把这一轮对话吊住。
 RuntimeManager.cs[IR6L]: F:运行时管理：探测本机 Java/Python，找不到就把便携版下载解压到 runtimes/，并为工具层解析出解释器与启动参数；Android 上改走 proot 沙箱。 | R:code:Modules/Tools/ToolSession.cs, code:Modules/Tools/Sandbox/SandboxNativeHelper.cs | A:RuntimeManager, RuntimeStatus, DetectAsync, ResolveRuntimeAsync, DownloadPythonAsync | S:便携版下载后要确认可执行文件真的存在才写回设置；Adoptium 的 zip 里带版本号子目录，必须摊平到 runtimes/java，否则 bin/java.exe 找不到；py 启动器要额外带 -3。
-ToolDefinition.cs[DE7T]: F:工具定义模型：名称、语言、参数表与来源。 | R:code:Modules/Tools/ToolManager.cs | A:ToolLanguage | S:-
+ToolDefinition.cs[DE7T]: F:统一工具定义：内置与外部 Python/Java 工具共用一份契约（名称、语言、入口、工作目录、参数与 JSON Schema），并带一个隐藏的旧名转发位。 | R:code:Modules/Tools/ToolManager.cs | A:ToolDefinition, ToolParameter, ToolLanguage, FlexibleSchemaConverter | S:schema 字段两种写法都认（JSON 字符串或直接写对象）；Hidden 的旧名转发工具照样能被调用但不进模型清单——每多一条描述都要随请求付 token。
 ToolManager.Age.cs[DB6S]: F:年龄与生日工具：AI 能读出角色几岁、生日哪天、还有几天。 | R:code:Modules/Tools/ToolManager.cs | A:- | S:-
 ToolManager.Amap.cs[IN6M]: F:高德地图工具：路线规划、地点检索与距离估算。 | R:code:Modules/Tools/ToolManager.World.cs | A:- | S:依赖外部 Key，缺 Key 时工具必须整体不可用而不是执行到一半失败。
 ToolManager.Flow.cs[DW6M]: F:流程图工具：把「天黑了就把门口那盏灯打开」这类规则落成可执行的流程图。 | R:code:Models/FlowData.cs | A:- | S:-
+ToolManager.Look.cs[DE7S]: F:立绘工具：装扮与表情一律「先查编号、再报编号」——outfit_list/outfit_set 与 expression_list/expression_set 之间只交换整数。 | R:code:Modules/Tools/ToolManager.cs, code:Services/Character/CharacterLibrary.cs, code:Modules/Outfit/FigurePackService.cs | A:ToolManager, RegisterLookTools, outfit_list, expression_list, LookEntry | S:编号按 default/normal 固定在前、其余按 key 排序，同一份数据算几次都一样；但换装扮或换角色后表情轴会变，set 前必须重新 list；查询与选择刻意拆成两个工具，set 的参数只剩一个整数。
 ToolManager.State.cs[DD6S]: F:自定义状态工具：读写用户定义的开关量（灯开着没、门锁没）。 | R:code:Models/FlowData.cs | A:- | S:-
-ToolManager.World.cs[DB7L]: F:世界向工具：身体感受、钱包、心理状态、记忆链与核心记忆、画面生成、存档白名单管理、角色创建、插件安装与 MCP 调用，每条都先解析各自需要的服务。 | R:code:Modules/Tools/ToolManager.cs, code:Services/Character/PhysiologyService.cs | A:RegisterWorldTools, GenerateImageAsync, character_create, mcp_call | S:这些工具不进系统工具区，因为每条都要解析自己的服务；服务取不到要回 ok=false 而不是抛；改当前档的白名单时必须同步回 engine.State，否则下次保存会把旧名单写回去。
-ToolManager.cs[AE9L]: F:工具总装配：内置工具注册、外部工具清单扫描与完整性校验、JSON-RPC 子进程复用、存档级工具白名单、沙箱网关（敏感词、信任名单、脱敏）与插件 onToolResult 广播。 | R:code:Modules/Tools/ToolManager.World.cs, code:Modules/Tools/RuntimeManager.cs, code:Modules/Tools/ToolSession.cs, code:Modules/Sandbox/SandboxPolicy.cs | A:ToolManager, ExecuteAsync, BuildChatTools, VerifyIntegrity, ServicesHelper | S:白名单 provider 为 null 视为不限制；外部工具先过沙箱闸再做参数脱敏，输出也要过闸；onToolResult 只放行最外层，否则插件里再调工具会无限套下去，结果截到 8000 字。
+ToolManager.World.cs[DE8M]: F:世界向工具：身体感受、钱包、心理目录与状态、记忆链与创伤、画面生成、存档管理、角色创建、插件安装与 MCP 列表/调用。 | R:code:Modules/Tools/ToolManager.cs, code:Services/Character/MentalHealthService.cs, code:Services/Character/PhysiologyService.cs | A:RegisterWorldTools, body_state, mental_state, character_create, generate_image, save_admin | S:这些工具每条都要先解析各自的服务，不要塞进 RegisterSystemTools；只把感受写成动作与语气，不要向用户报数值。
+ToolManager.cs[AE9L]: F:工具总装配：内置工具注册（系统/世界/年龄/地图/状态/流程/立绘/人脸）、外部工具清单扫描与完整性校验、JSON-RPC 子进程复用、存档级白名单、沙箱网关与插件 onToolResult 广播。 | R:code:Modules/Tools/ToolManager.World.cs, code:Modules/Tools/ToolManager.Look.cs, code:Modules/Tools/RuntimeManager.cs, code:Modules/Sandbox/SandboxPolicy.cs | A:ToolManager, ExecuteAsync, BuildChatTools, VerifyIntegrity, ServicesHelper | S:白名单 provider 为 null 视为不限制；外部工具先过沙箱闸再做参数脱敏，输出也要过闸；onToolResult 只放行最外层，否则插件里再调工具会无限套下去，结果截到 8000 字。
 ToolSession.cs[RW6S]: F:工具子进程会话：把 Python/Java 工具作为长驻进程拉起，用 stdin/stdout 的 JSON-RPC 2.0 换行分帧通信，同一会话的调用串行。 | R:code:Modules/Tools/RuntimeManager.cs, code:Modules/Tools/ToolManager.cs | A:ToolSession, Start, CallAsync, IsAlive | S:一次调用 120 秒无响应就杀掉整棵进程树；沙箱模式下工具目录在 guest 侧是 /tools/<name>，把宿主路径直接交给解释器会找不到脚本；写进 stdin 的是单行 UTF-8 JSON。
 
 ===/<repository>/Modules/Tools/Sandbox/===
@@ -325,11 +335,11 @@ WeatherAudioService.cs[AU5S]: F:天气场景与音效的联动。 | R:code:Modul
 
 ===/<repository>/Services/Character/===
 AvatarCropService.cs[DU6M]: F:头像裁剪：源图先按 cover 铺满正方形取景框再乘 zoom、按归一化偏移平移，裁成方形头像原子落盘；另出已降采样并转正的临时预览。 | R:code:Services/Character/PortraitNormalizer.cs, code:Services/Character/CharacterLibrary.cs | A:AvatarCropService, AvatarCropRequest, OpenAsync, CreatePreviewAsync, CropAsync | S:视图端与落盘端只通过归一化偏移和 zoom 对话，否则预览与成品会错位；解码前按原始长边降采样，8K 整张解码要吃几百 MB；EXIF 方向必须在解码后立刻摆正，否则预览正、成品躺。
-BrainAnticipationService.cs[DA7M]: F:大脑预判：按文本粗估「你这次有多热」做期待差与多巴胺结算，偶尔用惊喜卡制造意外，可选免费小模型每 N 轮补一次预判。 | R:code:Services/Character/SomatizationService.cs, code:Models/Character.cs | A:PrepareTurn, ApplyChatGain, BuildContext, StatusText | S:默认路径不调用模型——预判只作为一行指令搭进本来就要跑的那轮，新增逻辑要守住这点，否则每轮多一次付费请求；好感锚点按点数除以 MaxPoints 归一，不能把 0–1000 当百分比用。
+BrainAnticipationService.cs[DA7M]: F:大脑预判：按文本粗估「你这次有多热」做期待差与多巴胺结算，偶尔用惊喜卡制造意外，并在回合末把用户原话与回复交给安全感结算。 | R:code:Services/Character/SomatizationService.cs, code:Services/Character/SecurityService.cs, code:Models/Character.cs | A:BrainAnticipationService, PrepareTurn, ApplyChatGain, BuildContext, StatusText | S:默认路径不调用模型——预判只作为一行指令搭进本来就要跑的那轮，否则每轮多一次付费请求；好感锚点按点数除以 MaxPoints 归一，不能把 0–1000 当百分比；安全感挂在回合末回调上，不受预判开关影响。
 CharacterAgeService.cs[DB5S]: F:角色年龄与生日：只做计算与表达，不改记录。 | R:code:Models/Character.cs | A:- | S:-
 CharacterBackgroundService.cs[DB5T]: F:角色背景的统一取法：解析盘上真有背景的绝对路径，按 BackgroundFit 归一适配方式，给图片、GIF 与视频分类型，并把导入的背景存成 assets/characters/<id>/background<ext>。 | R:code:Modules/Affection/AffectionLevelUpService.cs, code:Models/Character.cs | A:CharacterBackgroundService, Resolve, NormalizeFit, ImportAsync | S:换格式导入要先删同目录的旧 background.*，否则留下再也用不到的背景；游戏内取背景时 BackgroundInGame 关掉就直接返回 null，由调用方回退场景背景。
 CharacterLibrary.MemoryClone.cs[DB7M]: F:复制角色时把记忆一起复制：记忆散落在多个文件，需要逐层搬运。 | R:code:Services/Character/CharacterLibrary.cs, code:Services/Memory/MemoryService.cs | A:- | S:记忆分布在多处，漏搬一层会得到一个「记得开头忘了后续」的角色，且不会报错。
-CharacterLibrary.cs[DB9L]: F:角色库：新建、导入与持久化，是角色数据的权威入口。 | R:code:Models/Character.cs, code:Services/Character/CharacterLibrary.MemoryClone.cs | A:CharacterLibrary | S:角色档案与记忆是两套文件，新建与删除必须两边同时处理，只删一边会留下孤儿记忆。
+CharacterLibrary.cs[DB9L]: F:角色库：新建、导入与持久化，是角色数据的权威入口；落盘前把没写过的安全感补成默认值并配好事件账本。 | R:code:Models/Character.cs, code:Services/Character/CharacterLibrary.MemoryClone.cs, code:Modules/Affection/SecurityScale.cs | A:CharacterLibrary, NormalizeSecurity | S:角色档案与记忆是两套文件，新建与删除必须两边同时处理，只删一边会留下孤儿记忆；安全感 -1 在落盘前补 600，SecurityLog 不能留 null。
 CharacterMask.cs[DB5T]: F:未自我介绍的角色不该先有名字——遮名规则的实现。 | R:code:Models/Character.cs | A:- | S:-
 CharacterPackService.cs[DB6M]: F:角色包导出：把角色与素材打成可分发的 zip。 | R:code:Modules/DataPack/PackImporter.cs | A:CharacterPackResult | S:导出格式与 PackImporter 的读入格式必须对齐，改一侧就要同时改另一侧。
 CharacterSettingsResolver.cs[DC6S]: F:「全局设置到角色覆写」的解析链。 | R:code:Models/CharacterOverrides.cs, code:Services/SettingsManager.cs | A:- | S:覆写为空即沿用全局；resolver 是唯一裁决点，页面里不要再自己写一遍 null 判断。
@@ -347,12 +357,13 @@ InnerLifeService.cs[DA8L]: F:内心生活：内分泌化学池与执念池的演
 LibidoService.cs[DB5T]: F:性欲系统，只对用户在存档里点名的角色生效。 | R:code:Models/Character.cs | A:- | S:只对被点名的角色生效，全量开启会让所有角色都出现不该有的状态。
 LingshuImporter.cs[DI5S]: F:灵枢 AI 导入：把导出的记忆 JSON 注入角色世界志与记忆。 | R:code:Models/LingshuImport.cs | A:- | S:导入是外部格式，字段缺失要容忍，不能直接反序列化到非空字段。
 MaterialLibrary.cs[DD6L]: F:素材库：扫 assets/audio 与 assets/backgrounds 建条目，支持导入、重命名、删除、试听与视频首帧缩略图，按内容 SHA1 去重，另存左键/右键/按键/背景音的分配。 | R:code:Models/AudioAssets.cs, code:Services/Core/StorageProvider.cs | A:MaterialLibrary, SyncWithDisk, ImportMusicAsync, ImportBackgroundAsync, ThumbnailAbsAsync | S:装载要扫目录、算哈希、同步读 JSON，必须整体放后台线程，在 UI 线程同步等 async 会卡死或死锁；扫描时按现有文件补条目并删掉已消失的条目，磁盘才是真相源。
-MentalHealthService.cs[DA8L]: F:心理健康：115 种状况、14 类，判定与描述。 | R:code:Services/Character/SomatizationService.cs | A:MentalCondition | S:目录是固定表，新增状况要同时补分类与判定条件，只加名字会出现永远判不出来的条目。
+MentalHealthService.cs[DA8L]: F:心理健康：115 种状况、14 类，判定、描述与特质；另把安全感读成一档提示词倾向（有底 / 悬着 / 慢慢放下戒心 / 安心）。 | R:code:Services/Character/SomatizationService.cs, code:Services/Character/SecurityService.cs | A:MentalCondition, SecurityProvider, SecurityLine | S:目录是固定表，新增状况要同时补分类与判定条件，只加名字会出现永远判不出来的条目；安全感是独立的一行，不挂在任何状况上，提示词只说倾向不报数字。
 OrganSimulationService.cs[DA7L]: F:抽象器官模拟层：不新增权威数值，只把躯体化与生理结果映射到器官状态。 | R:code:Models/Organ.cs, code:Services/Character/SomatizationService.cs | A:- | S:这一层刻意不产生新的权威数值；在这里算个新指标等于凭空造出一份与主模拟不一致的状态。
 PhysiologyService.cs[DB6S]: F:身体感受：冷热渴饿与想念，输出的是感受而不是数值。 | R:code:Services/Character/SomatizationService.cs | A:- | S:-
 PortraitCalibrationService.cs[PD6S]: F:立绘标定的存取与判定。 | R:code:Models/PortraitCalibration.cs | A:- | S:-
 PortraitNormalizer.cs[DD6S]: F:立绘规范化：把非标准尺寸素材落成逻辑画布规格。 | R:code:Models/PortraitCalibration.cs | A:- | S:-
 SceneCalibrationService.cs[DD6S]: F:强制标定的统一入口。 | R:code:Models/ScenePlacement.cs | A:- | S:-
+SecurityService.cs[DA8S]: F:安全感服务：每轮从用户原话与回复里认事件（被安慰/倾听/忽视/拒绝触碰/目睹亲密/被辱骂），按事件表给分再过特质与信任权重，由冷却与日上限闸住，时间本身也计入漂移。 | R:code:Modules/Affection/SecurityScale.cs, code:Services/Character/MentalHealthService.cs, code:Services/Memory/HumanMemoryService.cs, code:Modules/ApiManager/ApiGateway.cs | A:SecurityService, AfterTurn | S:小模型只在「归纳经历」与「漂移复核」两个时机被调用，结论一律过 SecurityScale 夹取；事件账本必须落进存档，重启不能洗掉日上限与冷却；开关关掉后只剩系统规则。
 SomatizationService.cs[DA7M]: F:躯体化：把情绪落到身体与器官的具体状态上。 | R:code:Services/Character/MentalHealthService.cs | A:- | S:-
 
 ===/<repository>/Services/CloudSync/===
@@ -368,7 +379,7 @@ CatchphraseService.cs[DB5T]: F:角色级口头禅：玩家可改、AI 可改可�
 CenterBoundary.cs[DA8S]: F:F29 中枢分层边界：把心智分成可以互相引用但不许反向依赖的两层。 | R:code:Services/Character/EnergyRules.cs | A:- | S:这里是编译期边界，反向引用会直接让离线自检编译失败——它存在的意义就是拦住那种依赖。
 ChatIdempotencyGuard.cs[CR7T]: F:聊天轮幂等：同一句在上下文只留一次，同一回合只执行一次。 | R:code:Modules/AiChat/ChatEngine.cs | A:- | S:重连、重试与切后台回来都会重复投递同一轮；去掉这层会出现同一句话说两遍、同一工具调两次。
 ChessEmotionService.cs[DB4T]: F:棋局情绪反应：输赢时角色的表情与台词。 | R:code:Modules/GameModule/MiniGameEngine.cs | A:ChessReaction | S:-
-ConfigCatalog.cs[FC8S]: F:配置真相源：唯一允许声明配置键名与默认值的地方。 | R:code:tools/wab_config/gen_config_sources.py, code:.github/workflows/wab-config-verify.yml | A:ConfigCatalog | S:配置键只能在这里声明，生成物由 CI 校验；在别处写键名会让门禁与运行时各认一套，改这里必须同步重跑生成器。
+ConfigCatalog.cs[FC8S]: F:配置真相源：由 tools/wab_config/config_catalog.json 生成的 153 条配置键（名称、类型、默认值、作用域、AI 归属与冲突提示）。 | R:code:tools/wab_config/gen_config_sources.py, code:.github/workflows/wab-config-verify.yml | A:ConfigCatalog, Entry, Version, RowCount | S:文件由生成器产出、禁止手改；配置键只能在这里声明，CI 用校验挡住漂移——改这里必须同步重跑生成器，否则门禁与运行时各认一套。
 ConfigSyncService.cs[CC6T]: F:配置生效值同步：把真相源与用户覆盖值合成当前生效值。 | R:code:Services/Core/ConfigCatalog.cs | A:EffectiveValue | S:-
 DownloadBackupService.cs[PR5S]: F:自动备份数据包到「下载」目录：应用启动时打一份 zip，导出成功后同步一份；Android 10+ 走 MediaStore，旧版落应用专属外部目录，桌面是 no-op。 | R:code:Services/World/DataPackageService.cs | A:DownloadBackupService, OnAppStartAsync, AfterExport | S:启动备份只跑一次（同一把锁挡重复）；桌面返回 false 是正常 no-op；导出不带敏感数据，临时 zip 用完即删。
 ExternalRuntimes.cs[IR6M]: F:外部运行时台账：每种运行时的探测命令、安装地址、安装提示与自带替代路线，并给出一键探测结果——在不在、看到的版本或路径、缺了怎么办。 | R:code:Modules/Tools/RuntimeManager.cs, code:Services/Core/StorageProvider.cs | A:RuntimeSpec, RuntimeState, ProbeAsync, ProbeOneAsync, LocateOnPath | S:探测结果有缓存，环境变了要显式 Invalidate；命令名先归一化再比对，带路径的按文件名认，否则同一个运行时会被当成两个。
@@ -377,7 +388,7 @@ GameEngine.cs[DB7T]: F:游戏引擎核心：角色花名册与状态推进。 | 
 GpuPreferenceService.cs[RV5S]: F:显卡偏好：给本程序在 Windows 图形设置里登记高性能选项。 | R:code:Platforms/Windows/MainWindow.cs | A:- | S:-
 LocalSecretProtector.cs[CS8M]: F:本机密钥与敏感文件的统一保护器。 | R:code:Services/Core/StorageProvider.cs, code:Modules/Sandbox/CryptoStore.cs | A:- | S:密钥只在本机加密存放、不进仓库也不进云同步；把密文当明文读会得到一堆乱码而不是空值。
 LocalizationService.cs[CL6T]: F:运行时本地化：切语言时立即刷新所有绑定文案。 | R:code:Resources/Strings/AppResources.resx | A:- | S:-
-ModelCapabilities.cs[DA6T]: F:F25 模型能力位：描述一个模型可选使用的界面能力。 | R:code:Models/ModelDeployment.cs | A:- | S:-
+ModelCapabilities.cs[DA6T]: F:F25 模型能力位：按当前主对话模型名从模型库解析热条、思考条、思考开关与快速钮四个界面能力的显隐。 | R:code:Models/ModelDeployment.cs | A:ModelCapabilitySet, ModelCapabilities, Resolve | S:模型名为空或不在模型库里（用户手填）时一律返回全开——默认全 true 是为了旧存档与手填模型不会突然少控件。
 ModelPackagePresets.cs[FC5T]: F:模型服务商预设：端点、协议与常用模型清单。 | R:code:Services/Core/ModelCapabilities.cs | A:ModelPackage | S:-
 NotificationService.cs[CU4T]: F:系统通知的轻量封装。 | R:- | A:- | S:-
 PageWindowService.cs[AU6S]: F:把一页搬进独立窗口：关系网、搜索等可以单独开一扇窗。 | R:code:AppShell.xaml.cs | A:- | S:-
@@ -400,11 +411,14 @@ WindowTaskbarFocus.cs[IU4T]: F:焦点在时压在任务栏之上，失焦让位�
 WindowTopmost.cs[IU4S]: F:Windows 桌面端窗口置顶：常驻置顶策略（3 秒重断言）与一次性抬前台是两件事，前者跟随设置开关，后者不改策略。 | R:code:Helpers/Ui.cs, code:App.xaml.cs | A:WindowTopmost, Force, Release, BringToFront | S:定时器回调在线程池上，必须经 Ui.Post 回主线程，直接调 MainThread 会带走进程。
 
 ===/<repository>/Services/Media/===
-FaceAnalysisService.cs[DA6L]: F:本地人脸分析：情绪概率、主导情绪与年龄估计。 | R:code:Services/Media/VisionService.cs | A:- | S:分析只在本机做、结果不上传；开启前先问用户并记住已询问状态，不能每次启动都弹。
+FaceAnalysisService.cs[DA6L]: F:本地人脸分析：情绪概率、主导情绪与年龄估计；未定义 WAB_ONNX 或未装 OnnxRuntime 时整段推理被编译剔除，只返回降级状态。 | R:code:Services/Media/VisionService.cs, code:Services/Media/FacePresenceService.cs, code:Modules/Tools/FaceImageTool.cs | A:FaceAnalysisService, FaceAnalysisResult, EmotionName | S:分析只在本机做、结果不上传；Success=false 时 Status 说明降级原因，业务方要给用户人话提示而不是编造结论；ONNX 依赖必须藏在 WAB_ONNX 后面，否则默认构建直接失败。
+FacePresenceService.cs[IH7M]: F:人脸取帧与在场：抓一帧交给 FaceAnalysisService 识别，留一句人话结论与帧路径；另提供组件状态快照与「页面可见才拉帧」的开关。 | R:code:Services/Media/FaceAnalysisService.cs, code:Modules/Tools/FaceImageTool.cs, code:Controls/FaceMonitorPane.xaml | A:FacePresenceService, StatusAsync, LookNowAsync, BeginMonitor, EndMonitor, PullLatestFrame | S:图像只在本机内存与一张临时图里，不上传、不写日志；取帧只在用户按快门或 AI 主动请一次时发生，页面不在就没有谁在拉帧；失败不抛给调用方，只返回结论。
 ImageGenerationService.cs[IA6S]: F:画面生成：接 OpenAI 兼容的 images/generations 接口。 | R:code:Modules/ApiManager/ApiGateway.cs | A:- | S:-
 ImageProbe.cs[CU5T]: F:探测图片原始像素尺寸，供标定与角色缩放换算。 | R:code:Services/Character/PortraitNormalizer.cs | A:- | S:-
 SpeechService.cs[DU7L]: F:语音合成与识别：按角色声线走系统、OpenAI 兼容或 GPT-SoVITS 三条合成路线并串行排队朗读，另含系统/API 识别与本地识别模型下载。 | R:code:Modules/ApiManager/ApiGateway.cs, code:Models/Character.cs | A:SpeechService, Speak, SynthesizeClipAsync, TranscribeAsync, ResolveCapabilityEndpoint | S:朗读持一把串行闸，否则两段语音会互相打断；角色专属 API 的地址与密钥成对判定，只填一半整体回退全局，免出新地址配旧密钥；桥用的合成统一出 WAV。
 StickerLibrary.cs[PU5M]: F:表情包库：导入图片复制进应用数据目录、管描述，从文本里抽 [表情:名字] 标记，并在不支持发图的通道把标记降级成文字。 | R:code:Services/Core/StorageProvider.cs, code:Modules/RealChat/OfficialChatBridge.cs | A:StickerLibrary, ImportAsync, SplitMarkers, ToPlainFallback, BuildContextForAi | S:导入是把文件复制进应用目录而不是记外部路径，记外部路径会在用户移动原图后失效；库本身不区分使用处，主对话、假微信与官方通道取同一份。
+UiSoundService.cs[IU6M]: F:界面小音效：按下/确认/返回/提示四种，合成结果首次写成 wav 缓存后只读文件；播放全在后台队列，不占 UI 线程。 | R:code:Services/Media/UiSoundSynth.cs, code:Services/Core/SettingsManager.cs, code:Controls/Toast.cs | A:UiSoundService, Play, Preview, UiSounds, Enabled, Volume | S:主线程只做两次判断与一次入队，合成/写盘/播放全在后台；同一颗 30ms 内连点只响一次，但确认/返回/提示这类语义音不被「任意音」闸吃掉；拿不到音频设备就静默停用，绝不抛给调用方。
+UiSoundSynth.cs[KU6S]: F:界面音效合成器：Tap/Confirm/Back/Notice 四种，纯正弦叠加加起音与指数衰减，直接产出可写盘的 wav 字节。 | R:code:Services/Media/UiSoundService.cs | A:UiSoundSynth, UiSoundKind, Wav, Samples, FileNameOf | S:纯函数、无 IO，才能被自测直接编译校验；每条都带 2~12ms 起音与收尾淡出——爆音比没有声音更难听；采样固定 44.1kHz 单声道 16bit，手机与桌面都认。
 VisionService.cs[IA6M]: F:识图服务：用独立配置的识图模型看图说话。 | R:code:Modules/ApiManager/ApiGateway.cs | A:- | S:识图模型是独立配置，缺配置时必须整体不可用，不能悄悄回落到主对话模型乱猜。
 VoiceProsodyService.cs[DA6M]: F:语音韵律分析：响度、基频与节奏特征。 | R:code:Services/Media/SpeechService.cs | A:- | S:-
 
@@ -458,7 +472,7 @@ README.md[SV4T]: F:签名材料的说明：密钥只存本机、不进仓库。 
 ===/<repository>/ViewModels/Character/===
 AvatarCropViewModel.cs[AU5M]: F:头像裁剪页模型：取景框为正方形，图按 cover 铺满后再裁。 | R:code:Services/Character/AvatarCropService.cs | A:- | S:-
 CharacterLibraryViewModel.cs[AU6L]: F:角色库页模型：左列有谁、右区 TA 是谁（立绘、好感读数、存档数），点行进工作室，并接住压测档位。 | R:code:Services/Character/CharacterLibrary.cs, code:Modules/SaveSystem/SaveManager.cs, code:ViewModels/Character/CharacterStudioViewModel.cs | A:CharacterLibraryViewModel, CharacterLibraryItem, BackgroundFitItem, ReloadWorstCase | S:这一页只回答「这里有哪些人」，不做编辑——所有修改都在工作室；好感读数用 AffectionScale 的 LevelTextOf 与 Clamp/MaxPoints 两处取值，别自己算级数。
-CharacterSelectModels.cs[DU5M]: F:角色选择页的卡片与列表模型。 | R:code:Models/Character.cs | A:CharacterCardItem | S:-
+CharacterSelectModels.cs[AU6S]: F:角色选择页与设置页共用的展示模型：角色卡、AI 角色工坊草稿与场景、表情包行、厂商与模型行。 | R:code:ViewModels/Main/CharacterSelectViewModel.cs, code:ViewModels/Settings/SettingsViewModel.cs, code:Models/Character.cs | A:CharacterCardItem, CharacterWorkshopDraft, StickerRow, AiProviderRow | S:这些只是表单与列表的搬运对象，落盘一律走 CharacterLibrary 与 SettingsManager；厂商行按「一家厂商 + 多款模型」组织，轮换池由 RuntimeConfigurator 展开，别在行里自己展开。
 CharacterStudioViewModel.Bindings.cs[AU7L]: F:角色工作室第二层：共享与非共享数值、CG 收藏、世界树与角色世界观绑定，以及按角色的语音引擎与模型厂商。 | R:code:ViewModels/Character/CharacterStudioViewModel.cs, code:Services/Character/CharacterLibrary.cs | A:StudioWorldviewItem, CharacterStudioViewModel | S:离散的选择即时写盘，成段文字仍走页头保存——一行没打完就落盘会让改到一半的那句话变成正式版本；两条路都要用 Toast 反馈成功或失败。
 CharacterStudioViewModel.cs[AU8L]: F:角色工作室：把一个角色的一切收在同一屏编辑，左侧立绘舞台（服装×表情×朝向）与右侧分段表单，按写入时机分即时写与延迟写。 | R:code:Services/Character/CharacterLibrary.cs, code:ViewModels/Character/CharacterStudioViewModel.Bindings.cs | A:CharacterStudioViewModel | S:文本/状态/覆写走延迟写（按保存才落盘，因为角色记录不可变），立绘生成、素材与灵枢导入、复制、主角标记、白名单走即时写；跨存档共用记忆是全局开关，做成每角色一个会让界面答、盘上不答。
 FigurePackViewModel.cs[AU6L]: F:形象包管理：列出 assets/figures 下的包、导入、编辑与删除。 | R:code:Modules/Outfit/FigurePackService.cs | A:- | S:-
@@ -507,7 +521,7 @@ MainGameViewModel.Flows.cs[AU4T]: F:流程图在主界面侧的接线：规则�
 MainGameViewModel.Movement.cs[AU7M]: F:位置行进：左右切换地点、AI 单独出行与用户跟上等移动剧情推进，以及标定闸门与关闭 Galgame 的开关。 | R:code:ViewModels/Main/MainGameViewModel.cs, code:Services/World/MapService.cs, code:Services/World/SceneCalibrationService.cs | A:- | S:行进会同时改「当前地点」与「角色站位」两份状态，必须在同一次调用里都改完；只改一半会让角色站在新地点而地图仍指向旧格子。
 MainGameViewModel.States.cs[AU5T]: F:主界面自定义状态按钮组：由状态定义生成。 | R:code:Services/World/StateService.cs | A:- | S:-
 MainGameViewModel.Widgets.cs[AU6M]: F:主界面小组件模式：顶栏与左栏显示什么、怎么排序。 | R:code:Services/Core/WidgetRegistry.cs | A:- | S:-
-MainGameViewModel.cs[AU8L]: F:主聊天界面的总视图模型：持有引擎、对话、记忆、存档、天气、角色与商店等服务，对话流与面板编排分散在同名 partial 文件里；好感读数与升级判定统一走 AffectionScale。 | R:code:ViewModels/Main/MainGameViewModel.Chat.cs, code:ViewModels/Main/MainGameViewModel.Characters.cs, code:ViewModels/Main/MainGameViewModel.Background.cs, code:Helpers/AffectionScale.cs | A:AffectionLevel, AffectionText, AffectionLevelLabel | S:这是全应用最大的单点编排类，任何阻塞调用都会让整屏失去响应；好感增量用 FromLegacy 折成点数、等级用 LevelOf 判，别在这里再写一遍 0–100 的除法。
+MainGameViewModel.cs[AU8L]: F:主聊天界面的总视图模型：持有引擎、对话、记忆、存档、天气、角色与商店等服务，对话流与面板编排分散在同名 partial 里；好感增益按当前安全感打折。 | R:code:ViewModels/Main/MainGameViewModel.Chat.cs, code:ViewModels/Main/MainGameViewModel.Characters.cs, code:ViewModels/Main/MainGameViewModel.Movement.cs, code:Modules/Affection/SecurityScale.cs | A:MainGameViewModel, Refresh | S:好感读数与升级判定统一走 AffectionScale，不要在页面里另写一套阈值；安全感对好感增益的折扣是 SecurityScale 的纯函数（低时 ×0.6~1.0、高时衰减更慢），数值本身由 SecurityService 维护。
 MapSceneOption.cs[AU5T]: F:地图浮层里的一行场景（x:DataType 绑定的行模型），标出当前所在场景。 | R:code:ViewModels/Main/MainGameViewModel.cs | A:MapSceneOption | S:属性都是 init-only，浮层靠重建整份列表刷新；改属性值不会通知界面，要让它随场景变化必须重新生成列表。
 MinimapViewModel.cs[AU5S]: F:小地图的界面模型：换场景重取一份数据。 | R:code:Services/World/MinimapService.cs | A:- | S:-
 PhoneViewModel.Home.cs[AU4T]: F:手机页首页布局的接线，与 PhoneViewModel 同一分部类。 | R:code:ViewModels/Main/PhoneViewModel.cs | A:- | S:-
@@ -521,17 +535,18 @@ MemoryManageViewModel.cs[AU6M]: F:记忆管理：按层分区集中关系网入�
 MemorySearchViewModel.cs[AU6M]: F:搜事件：按人怎么找回一件记忆的方式检索。 | R:code:Services/Memory/EmbeddingService.cs | A:- | S:-
 
 ===/<repository>/ViewModels/Monitor/===
-ModuleInspectorViewModel.cs[AU7L]: F:模块详情页：从监测图点节点进来，展示「这是谁」「此刻的值（每行标来源）」与「最近 12 条变化」，按 id 前缀挑服务取数。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Services/Character/InnerLifeService.cs, code:Services/Character/InnerDriveService.cs, code:Services/Memory/HumanMemoryService.cs | A:ModuleInspectorViewModel, InspectorRow, TimelineEvent, NoReading | S:取数只按 id 前缀挑服务，宁可写「该模块暂无独立读数」也不许编数；每段取数各自 try/catch，一路失败只让那一路空着。
-SuperMonitorViewModel.cs[AU8L]: F:超级监测页模型：论文五层架构的活流程图与日程/器官/记忆/数值现状汇总，FlowTracer 点亮当前节点并按余辉渐隐重绘。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:Services/Dev/WorstCaseProvider.cs | A:SuperMonitorViewModel, LoadAsync, SelectNode, ReloadWorstCase | S:30 秒数据钟与 120 毫秒余辉钟都必须在离开页面时停掉并退订 FlowTracer，否则后台持续重绘拖慢整个应用；每一路展示性读取各自 try/catch，出错只让那一路空着。
+FacePanelViewModel.cs[AU7S]: F:人脸识别面板模型：组件状态链与降级原因、最近一帧的拉取与空态文案、抓一帧命令；超级监测页与模块详情页共用同一份。 | R:code:Controls/FaceMonitorPane.xaml, code:Services/Media/FacePresenceService.cs, code:ViewModels/Monitor/SuperMonitorViewModel.cs | A:FacePanelViewModel, FaceRow, BeginMonitor, EndMonitor, PullLatestFrame, LoadAsync | S:只读：不写设置、不改存档；图像流是「拉」出来的——页面可见才 BeginMonitor、离开必须 EndMonitor，相机从不由这里打开；序号没变就不重建 ImageSource。
+ModuleInspectorViewModel.cs[AU7L]: F:模块详情页：从监测图点节点进来，展示「这是谁」「此刻的值（每行标来源）」与「最近 12 条变化」，按 id 前缀挑服务取数；「摄像头人脸」节点另挂人脸面板。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:ViewModels/Monitor/FacePanelViewModel.cs, code:Services/Character/InnerLifeService.cs | A:ModuleInspectorViewModel, BeginFaceMonitor, EndFaceMonitor, Face | S:人脸图像流只在页面可见时拉（2s 一支表），离开必须停表并关门；面板只在「摄像头人脸」节点上出现，其它节点不要顺手带出来。
+SuperMonitorViewModel.cs[AU8L]: F:超级监测页模型：五层架构的活流程图与日程/器官/记忆/数值现状汇总，FlowTracer 点亮当前节点并按余辉渐隐重绘；另挂 2s 拉帧的人脸面板。 | R:code:Drawables/ArchitectureFlowDrawable.cs, code:ViewModels/Monitor/FacePanelViewModel.cs |  A:SuperMonitorViewModel, LoadAsync, SelectNode, Face | S:30 秒数据钟与 120 毫秒余辉钟都必须随页面消失停掉，否则离开后仍在重绘；人脸图像流只在可见时拉，序号没变就什么都不做。
 
 ===/<repository>/ViewModels/Save/===
 CloudSavesViewModel.cs[AU6M]: F:云存档浏览器：只做查看与取回，合并交给后台服务。 | R:code:Services/CloudSync/CloudSyncService.cs | A:- | S:这里刻意不提供合并操作，合并只能走 MemoryReconcileService；在此处直接覆盖会丢数据。
 SaveTreeViewModel.cs[AU5M]: F:分支树页模型：把存档血缘（ParentId/BranchName/SavedAt）与角色名组装成节点树交给 drawable，按根档切换视图，页面只管命中与详情条。 | R:code:Drawables/SaveTreeDrawable.cs, code:Modules/SaveSystem/SaveManager.cs, code:Services/Character/CharacterLibrary.cs | A:SaveTreeViewModel, RefreshAsync, CanvasTap, TreeDetail, ReloadWorstCase | S:读档不在这里实现——「去这个存档」只回 SavePage 带 focus 参数，复用原有 LoadSlot 门禁；每棵树的节点表按根档缓存，展示性读取各自 try/catch。
-SaveViewModel.cs[AU7L]: F:存档页模型：列表与读档、另存/覆盖/删除、云存档与分支树入口、读档修复报告，以及小说与角色导入。 | R:code:Modules/SaveSystem/SaveManager.cs, code:Services/CloudSync/CloudSyncService.cs, code:Drawables/SaveTreeDrawable.cs | A:SaveViewModel, ReloadWorstCase, Refresh | S:读档失败要把修复报告抬给用户，不能静默把这份档从列表里抹掉；换档前要先让上一条落盘链路收尾。
+SaveViewModel.cs[AU7L]: F:存档页模型：列表与读档、另存/覆盖/删除、云存档与分支树入口、读档修复报告，以及数据包与小说导入。 | R:code:Modules/SaveSystem/SaveManager.cs, code:Services/CloudSync/CloudSyncService.cs |  A:SaveViewModel, ReloadWorstCase, Refresh | S:读档失败要把修复报告抬给用户，不能静默吞掉；导入过聊天记录的档要在存档卡上显示开局摘要，否则用户答不上「这一局为什么一上来就这么熟」。
 
 ===/<repository>/ViewModels/Settings/===
 AiModelsViewModel.cs[AU6L]: F:模型管理：给一款模型一键批量设置上下文窗口与能力位。 | R:code:Services/Core/ModelCapabilities.cs | A:- | S:-
-MentalHealthViewModel.cs[AU5S]: F:心理健康页模型：状况列表与说明。 | R:code:Services/Character/MentalHealthService.cs | A:- | S:-
+MentalHealthViewModel.cs[AU7S]: F:心理状况页模型：只编辑当前存档的主角的状况（目录 + 严重度 + 稳定度），并显示安全感读数与「小模型整理」开关。 | R:code:Services/Character/MentalHealthService.cs, code:Services/Character/SecurityService.cs, code:Models/State.cs | A:MentalHealthViewModel, MentalRow, SecurityText, SecurityAiEnabled | S:目录里的病名不当作标签写进对话；没有进入存档时整页只说明「进一局后才能设置」，不要凭空补一个角色。
 ModelDeploymentViewModel.cs[AU4S]: F:模型部署向导页模型：收集名字、类型、来源、安装位置与校验和，把表单交给部署服务并按住进度与取消，最后列出已部署模型。 | R:code:Services/Model/ModelDeploymentService.cs, code:Models/ModelDeployment.cs | A:ModelDeploymentViewModel, DeployedModelRow | S:所有输入都由界面收集、全来自用户，不给来源与安装位置预填空壳；部署要能取消。
 PluginCenterViewModel.cs[AU7L]: F:插件中心：装、停、删、依赖与设置入口、崩溃日志，以及「说一句话让 AI 写个插件」的工坊。 | R:code:Services/Plugins/PluginHost.cs, code:Services/Plugins/PluginDoctor.cs | A:PluginCenterViewModel, RefreshAsync, InstallZip, InstallFolder, Toggle | S:工坊不直接往 plugins 目录丢文件：先生成到临时目录，再走与手动安装同一条 InstallFromFolderAsync，工坊产物与手动装的插件才没有两样。
 PluginPermissionsViewModel.cs[AU6M]: F:插件权限页：逐项授权与撤销。 | R:code:Services/Plugins/PluginPermissions.cs | A:- | S:-
@@ -545,15 +560,16 @@ SettingsViewModel.Integrations.cs[AU8L]: F:外部集成与扩展：工具完整�
 SettingsViewModel.Life.cs[AU6M]: F:生活相关设置：定位与城市数据源、按性别区分的周期设置、金钱余额的增减。 | R:code:Modules/RealWorld/LocationService.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:城市有两个来源（手选与定位），同时存在时以手选为准；只刷新定位不会覆盖用户已经选定的城市。
 SettingsViewModel.Misc.cs[AU5L]: F:零散设置：自动更新与测试版通道、桌宠思考、自定义性别的增删与导入、数据包导出导入与下载备份。 | R:code:Modules/Update/UpdateService.cs, code:Services/World/DataPackageService.cs | A:CheckUpdate, BetaChannel, UpdateStatus | S:检查更新要有独立忙碌标记，重复点不叠请求；导出完成后要顺手同步一份到下载目录。
 SettingsViewModel.Providers.cs[AU8L]: F:模型厂商与端点配置：多端点轮换（厂商 × 模型）、API 预设、识图模型与量化模型的选择。 | R:code:Services/Core/SettingsManager.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:轮换表里每个「厂商 × 模型」组合都要单独带凭据；换厂商时必须一并清掉上一家的模型名与地址，否则会拿 A 家的 key 打 B 家的域名。
-SettingsViewModel.cs[AU9L]: F:设置页总模型：持有设置、主题、桥接、MCP、插件、运行时、记忆与背景各域，负责表单回写、主题与背景下发，以及离线瓦片包与缓存管理。 | R:code:Services/Core/SettingsManager.cs, code:DesignSystem/Theme/ThemeManager.cs, code:Services/World/BackgroundService.cs | A:SettingsViewModel, PushBackgroundConfig, PickMbTilesAsync, ClearTileCacheAsync | S:背景模式枚举与本类同名 string 属性冲突，必须用别名区分；任意一次回写都会触发主题下发，别在回写路径里再写 Opacity 或改布局。
+SettingsViewModel.cs[AU9L]: F:设置页总模型：持有设置、主题、桥接、MCP、插件、运行时、记忆与背景各域，负责表单回写、主题与背景下发，以及界面音效、摄像头人脸开关的镜像与缓存管理。 | R:code:Services/Core/SettingsManager.cs, code:DesignSystem/Theme/ThemeManager.cs, code:Services/Media/UiSoundService.cs | A:SettingsViewModel, PushBackgroundConfig, UiSoundOn, UiSoundLevel, CameraFaceEnabled | S:摄像头总开关以独立配置为权威（FaceAnalysisService 也会写它），设置页只做镜像；音效试听要用滑杆当前值而不是已落盘值，否则拖到 20% 还是按旧音量响。
 UsageStatsViewModel.cs[AU6L]: F:用量统计页模型：总览、成本构成、Token 活跃度、时间序列、分组明细与模型单价设定，图表的几何与文案都由它喂。 | R:code:Services/Memory/CostEstimatorService.cs, code:ViewModels/Settings/SettingsViewModel.cs | A:UsageStatsViewModel, ReloadWorstCase | S:数据全在本地盘上、进页即真数，不拉网络；颜色令牌进页取一次，换世界后要重进本页才跟上。
 
 ===/<repository>/ViewModels/Shop/===
 ShopViewModel.cs[AU5M]: F:商店页模型：商品列表与分类筛选、搜索与分页铺格、余额与购买、战绩、AI 生成商品与仓库同步。 | R:code:Modules/Market/ShopService.cs, code:Models/ShopItem.cs | A:ShopViewModel, ShopCategoryTag, ReloadWorstCase | S:每页 40 条——BindableLayout 没有虚拟化，整表一次铺开会卡；购买不可重入，扣款成功后才写库存。
 
 ===/<repository>/ViewModels/Story/===
+ChatImportViewModel.cs[AU7S]: F:聊天记录导入页模型：多选文件或粘贴一大段、嗅探格式、确认「TA 在这个记录里叫」、看结果与警告，最后把结果带回本局。 | R:code:Services/Import/ChatLogImportService.cs, code:ViewModels/Story/NewRunViewModel.cs, code:Views/Story/ChatImportPage.xaml | A:ChatImportViewModel, ChatImportSourceRow, ChatImportSpeaker, LoadAsync | S:这一页只做读进来、算出来、看一眼——真正写档在 NewRunViewModel 的「开始这一局」，新档号没分配前写记忆会写错档；发言者归属选错比丢一条更糟，必须让用户确认。
 ForceCastViewModel.cs[AU5S]: F:点名页：指定角色及其初始位置。 | R:code:Models/ForceCastEntry.cs | A:- | S:-
-NewRunViewModel.cs[AU6L]: F:新剧本页：世界设定、开局角色与初始状态。 | R:code:Models/State.cs | A:- | S:-
+NewRunViewModel.cs[AU6L]: F:新剧本页：世界设定、开局角色与初始状态，以及「带过去的聊天记录」的摘要与入口；开始这一局时把暂存导入一次性写入新档。 | R:code:Models/State.cs, code:Services/Import/ChatLogImportService.cs, code:ViewModels/Story/ChatImportViewModel.cs | A:NewRunViewModel, OpenImport, RefreshStagedImport, HasImport | S:编辑既有存档时不能再带导入（CanImport 只在新档为真）；暂存导入按新档身份隔离，绝不能串到另一档。
 NovelSelectViewModel.cs[AU5S]: F:小说选择页。 | R:code:Services/World/NovelLibrary.cs | A:- | S:-
 NovelWorldViewModel.cs[AU5S]: F:小说世界页：把选中小说生成的世界设定展示出来。 | R:code:Modules/NovelImport/NovelAnalyzer.cs | A:- | S:-
 SceneCalibrationViewModel.cs[AU6L]: F:场景标定页模型：落脚点与缩放依据的可视化编辑。 | R:code:Services/Character/SceneCalibrationService.cs | A:- | S:-
@@ -572,13 +588,13 @@ BindWizardPage.xaml.cs[AU5M]: F:绑定向导页逻辑：按存档把世界与角
 Probe3DPage.cs[XO5S]: F:3D 建链探针页：只在启动参数带 --probe3d 时出现，按 page/hide/show 三种时序建链，把每一步 breadcrumb 打在页面上。 | R:code:Controls/EvergineWeatherViewHandler.cs, code:App.xaml.cs | A:Probe3DPage, Trace | S:必须跑在独立进程里——3D 初始化失败可能在原生侧直接带走进程（combase 0x80004003），托管 catch 兜不住，崩了只死探针。
 
 ===/<repository>/Views/Character/===
-AvatarCropPage.xaml[FU4S]: F:头像裁剪页：正方形取景框压暗框外、框内点亮，页头给原图信息与重置，底部走取消/保存。 | R:code:Views/Character/AvatarCropPage.xaml.cs, code:Services/Character/AvatarCropService.cs | A:Stage, CropFrame, CropImage | S:这一页没有「返回」，取消只在底部——页头别再补返回钮；框外是同一张图铺满压暗而不是死黑，拖动时要能认出框内外是同一张脸。
+AvatarCropPage.xaml[FU4S]: F:头像裁剪页：正方形取景框压暗框外、框内点亮，页头给原图信息与重置，底部走取消/保存。 | R:code:Views/Character/AvatarCropPage.xaml.cs, code:Services/Character/AvatarCropService.cs | A:Stage, CropFrame, CropImage | S:这一页没有「返回」，取消只在底部——页头别再补返回钮；框外是同一张图铺满压暗而不是第二张图，否则拖动时两层会错位。
 AvatarCropPage.xaml.cs[AU5S]: F:头像裁剪页；路由带角色 Id 参数，确认与取消都转交视图模型命令。 | R:code:ViewModels/Character/AvatarCropViewModel.cs | A:- | S:角色 Id 来自路由参数，缺失时必须安全退出而不是裁到一个不存在的角色上；处理器统一走兜底入口，异常只提示不崩页。
 CharacterLibraryPage.xaml[FU5M]: F:角色库界面：PageHeader 页头（// ROSTER 眉标与返回）、左列名册、右区预览与超级监测入口，并带背景适配选项块与空态。 | R:code:Views/Character/CharacterLibraryPage.xaml.cs, code:ViewModels/Character/CharacterLibraryViewModel.cs, code:Controls/PageHeader.xaml | A:- | S:背景适配的选项块样式必须放在页内 Resources——BindableLayout 在页面装载后才按模板建子项，模板里的 StaticResource 只往页面这一层找，不会回头解析 App 级。
 CharacterLibraryPage.xaml.cs[AU5T]: F:角色库页逻辑与背景应用。 | R:code:ViewModels/Character/CharacterLibraryViewModel.cs | A:- | S:页面出现时只刷新视图模型命令，不直接改数据；应用背景失败要记录并保持原背景，不能留下半套样式。
 CharacterStudioPage.xaml[FU4T]: F:角色工作室入口页的薄壳。 | R:code:Views/Character/CharacterStudioPanel.xaml | A:- | S:-
 CharacterStudioPage.xaml.cs[AU5S]: F:角色工作室页逻辑：从列表行进入，加载失败或角色不存在时退回上一页。 | R:code:ViewModels/Character/CharacterStudioViewModel.cs | A:- | S:进入前要先判断这次是「新建草稿」还是打开既有角色；打开失败必须退回上一页，否则会停在一张空白编辑页上并可能覆盖存档。
-CharacterStudioPanel.xaml[FU7L]: F:角色工作室主体：PageHeader 抬头、左侧立绘舞台（服装/表情/朝向与角色专属背景）、右侧六段资料，底部一行回话条。 | R:code:ViewModels/Character/CharacterStudioViewModel.Bindings.cs, code:Views/Character/CharacterStudioPanel.xaml.cs | A:- | S:这是全仓库最大的 XAML，层级深：新增区块要放进既有 ScrollView 并复用 Chip/Field 两档样式，否则长页面明显卡顿；抬头的发丝线由 PageHeader 自带，页面不要再自己写一行。
+CharacterStudioPanel.xaml[FU7L]: F:角色工作室主体：页头抬头、左侧立绘舞台（服装/表情/朝向与角色专属背景）、右侧六段资料，底部一行回话条；材质全部走玻璃令牌。 | R:code:ViewModels/Character/CharacterStudioViewModel.Bindings.cs, code:Views/Character/CharacterStudioPanel.xaml.cs, code:DesignSystem/Theme/GlassTokens.cs | A:- | S:这是全仓库最大的 XAML、层级很深：新增区块要放进既有 ScrollView 结构里，不要在根上再套一层滚动容器；样式只引令牌，写死颜色会在换世界时留下半旧界面。
 CharacterStudioPanel.xaml.cs[AU6M]: F:角色工作室面板逻辑：立绘舞台与编辑器联动、六段资料切换、进场横向抽出与逐段转场，并手动接管跨存档等开关的双向同步。 | R:code:ViewModels/Character/CharacterStudioViewModel.Bindings.cs, code:Helpers/Ui.cs | A:CharacterStudioPanel, OpenAsync, PrepareEntrance, SetNarrow, SyncSwitches | S:开关不绑 IsToggled 而走命令——那两个开关背后要写全局设置并丢记忆缓存、要改存档白名单，绑 IsToggled 会拨过去却什么都不做；回写要用标记挡住自身触发的那一次 Toggled。
 FigurePackPage.xaml[FU5M]: F:形象包页：填包 id 与生成提示词，绑定后主界面与工作室一起换新版着装，页内补齐输入行样式。 | R:code:ViewModels/Character/FigurePackViewModel.cs, code:Controls/PageHeader.xaml | A:FieldLabel, Field, FieldMulti | S:输入行样式是页内的 Field/FieldMulti 两档，与工作室同档；模板里的 StaticResource 只在页内找，别指向 App 级不存在的键。
 FigurePackPage.xaml.cs[AU5T]: F:形象包页逻辑：挑选与加载角色形象包。 | R:code:ViewModels/Character/FigurePackViewModel.cs | A:- | S:形象包加载失败要留在本页并提示，不能带着空的形象包继续进入舞台；页面级异步处理器已自行捕获异常并记录，不再向上冒泡。
@@ -590,7 +606,7 @@ NewCharacterPage.xaml[FU5L]: F:新建角色：基本→人设→形象→世界�
 NewCharacterPage.xaml.cs[AU5S]: F:新建角色页逻辑：窗口尺寸变化时的预览切换。 | R:code:ViewModels/Character/NewCharacterViewModel.cs | A:- | S:-
 OutfitPage.xaml[FU4S]: F:换装页：PageHeader 页头，当前立绘一张图加一行说明，下面列出已有装扮。 | R:code:ViewModels/Character/OutfitViewModel.cs, code:Controls/PageHeader.xaml | A:CurrentImage, HasCurrentImage | S:当前立绘做成一张图而不是一排缩略图——缩略图那排每张都要解码，而且认不出哪张是穿在身上的。
 OutfitPage.xaml.cs[AU4T]: F:换装页逻辑。 | R:code:ViewModels/Character/OutfitViewModel.cs | A:- | S:-
-PortraitCalibrationPage.xaml[FU5S]: F:立绘标定页：黑底预览与脚底基准线，缩放/位移/朝向按「一张卡装一组行」排。 | R:code:ViewModels/Character/PortraitCalibrationViewModel.cs | A:PreviewW, PreviewH, PreviewScaleX, PreviewRotation | S:画布留在黑底上是测量条件而不是装饰，别换成主题面；预览必须与游戏同一套换算（含背景 AspectFill 与落脚点），否则标出来的位置进游戏就偏。
+PortraitCalibrationPage.xaml[FU5S]: F:立绘标定页：黑底预览与脚底基准线，缩放/位移/朝向按「一张卡装一组行」排。 | R:code:ViewModels/Character/PortraitCalibrationViewModel.cs, code:Services/Character/PortraitCalibrationService.cs | A:PreviewW, PreviewH, PreviewScaleX, PreviewRotation | S:画布留在黑底上是测量条件而不是装饰，别换成主题面；预览必须与游戏同一套换算（含背景 Aspect），否则标出来的值进游戏就偏。
 PortraitCalibrationPage.xaml.cs[AU4T]: F:立绘标定页逻辑。 | R:code:ViewModels/Character/PortraitCalibrationViewModel.cs | A:- | S:-
 SubProfilePage.xaml[FU5S]: F:主设定×副设定对比页：两栏分行卡并排、左主设定右副设定，顶部一行漂移摘要。 | R:code:ViewModels/Character/SubProfileViewModel.cs, code:Services/Character/CharacterSubProfileService.cs | A:MainPersonality, DriftSummary | S:主设定是内核，界面刻意不给编辑入口——改它等于改角色身份；卡自己不叠 Margin，组与组之间只留一档组距。
 SubProfilePage.xaml.cs[AU4T]: F:副设定页逻辑。 | R:code:ViewModels/Character/SubProfileViewModel.cs | A:- | S:-
@@ -598,18 +614,18 @@ SubProfilePage.xaml.cs[AU4T]: F:副设定页逻辑。 | R:code:ViewModels/Charac
 ===/<repository>/Views/Chat/===
 QqForumPage.xaml[FU5S]: F:QQ 壳论坛页：话题 chips、置顶种子帖加自己发的帖、纯本地发帖条，用 Qq* 青蓝皮。 | R:code:ViewModels/Chat/QqForumViewModel.cs, code:DesignSystem/Theme/WeChatBrand.xaml | A:- | S:根节点不声明 x:DataType：本页在 XamlC 编译绑定下会让编译器空引用，绑定回落到运行时解析；此页纯本地数据，不走 AI 也不涉支付。
 QqForumPage.xaml.cs[AU4T]: F:QQ 论坛页逻辑。 | R:code:ViewModels/Chat/QqForumViewModel.cs | A:- | S:-
-QqPage.xaml[FU6M]: F:QQ 壳单聊：联系人浮层、顶栏头像/名字/论坛入口、文字与表情包/视频/文件气泡，复用微信壳的 VM 只换皮。 | R:code:Views/Chat/QqPage.xaml.cs, code:Services/World/WeChatService.cs, code:ViewModels/Chat/WeChatViewModel.cs | A:- | S:与微信壳同构但品牌不同：没有礼物/送礼面板，多一个论坛入口；同一条 WeChatViewModel 靠 SetShell("qq") 换皮，别另建第二个 VM。
-QqPage.xaml.cs[AU5T]: F:QQ 壳页逻辑：壳内导航与状态同步。 | R:code:Views/Chat/QqPage.xaml | A:- | S:-
-ThinkBarView.xaml[FU4T]: F:思考条：显示当前思考档位与进度的小控件。 | R:code:Services/Core/ThinkTierRuntime.cs | A:- | S:-
+QqPage.xaml[FU6M]: F:QQ 壳单聊：联系人浮层、顶栏头像/名字/论坛入口、文字与表情包/视频/文件气泡；复用微信壳的 VM 只换皮，并带安全区与左缘返回感应条。 | R:code:Views/Chat/QqPage.xaml.cs, code:Services/World/WeChatService.cs, code:ViewModels/Chat/WeChatViewModel.cs | A:- | S:与微信壳同构但品牌不同：没有礼物/送礼面板，多一个论坛入口；同一条 WeChatViewModel 靠 SetShell("qq") 换皮，别另建第二个 VM；品牌色只走 Qq* 令牌。
+QqPage.xaml.cs[AU5T]: F:QQ 壳页逻辑：壳内导航与状态同步、安全区留白，以及左缘右滑返回（走顶栏返回键的同一条命令）。 | R:code:Views/Chat/QqPage.xaml, code:Helpers/EdgeBackGesture.cs | A:GoBackAsync | S:返回手势只是返回键的第二个入口——先试 VM 的 BackCommand，没有才回退到 Shell 导航。
+ThinkBarView.xaml[FU4T]: F:思考条：显示当前思考档位与思考中进度，并挂快速档位按钮；原「热度」滑条已整条移除。 | R:code:Services/Core/ThinkTierRuntime.cs, code:Views/Chat/ThinkBarView.xaml.cs | A:- | S:热度滑条移除后不留空 Grid、不留 0 高占位，间距由 VerticalStackLayout 自己收回；热度改由情绪系统综合评定，单值滑条留着只会说错话。
 ThinkBarView.xaml.cs[FU3T]: F:思考条的代码后置，仅 XAML 挂接。 | R:code:Views/Chat/ThinkBarView.xaml | A:- | S:-
-WeChatPage.xaml[FU5L]: F:微信壳单聊会话：品牌色一律 WeChatBrand 的静态白+蓝，窄竖栏/列表/会话三栏在全屏对话时收成满窗，消息来自按角色分池的存档记录。 | R:code:ViewModels/Chat/WeChatViewModel.cs, code:DesignSystem/Theme/WeChatBrand.xaml | A:RailWidth, ListWidth, IsFullScreen | S:品牌色只走 Wc* 令牌，静态、不随风格世界与明暗档走；微信消息随存档落盘并按角色分池，别在这个页面里另攒一份会话内存。
-WeChatPage.xaml.cs[AU5T]: F:微信壳页逻辑：壳内导航与消息刷新。 | R:code:ViewModels/Chat/WeChatViewModel.cs | A:- | S:-
+WeChatPage.xaml[FU5L]: F:微信壳单聊会话：品牌色一律静态白+蓝；宽屏三栏（竖栏/列表/聊天），窄于 620dp 时两栏归 0、会话列表变浮层抽屉，顶栏多一枚抽屉键。 | R:code:ViewModels/Chat/WeChatViewModel.cs, code:Views/Chat/WeChatPage.xaml.cs, code:DesignSystem/Theme/WeChatBrand.xaml | A:DrawerButton, Scrim, EdgeBackZone | S:品牌色只走 Wc* 令牌，静态、不随风格世界与明暗档走；微信消息随存档落盘并按角色分池，别在这个页面里另攒一份会话内存。
+WeChatPage.xaml.cs[AU6M]: F:微信壳页逻辑：按页宽在「三栏」与「两栏 + 抽屉」之间切换、抽屉与遮罩的开合（走手机弹簧）、安全区留白，以及左缘右滑返回。 | R:code:Views/Chat/WeChatPage.xaml, code:ViewModels/Chat/WeChatViewModel.cs, code:Helpers/EdgeBackGesture.cs | A:ApplyChrome, ToggleDrawerAsync, GoBackAsync, CompactBreakpoint | S:620dp 是收栏阈值（64 竖栏 + 300 列表在 360~430dp 手机上放不下）；窄屏抽屉必须落在聊天区那一 * 列上——放回宽度为 0 的原列会被排成 0 宽、永远看不见；抽屉开着时返回手势要让路。
 
 ===/<repository>/Views/Common/===
 ToolWindow.cs[AU4T]: F:工具类页面的公共窗口基类/辅助。 | R:code:Services/Core/PageWindowService.cs | A:- | S:-
 
 ===/<repository>/Views/Games/===
-AffectionLevelUpPage.xaml[FU4S]: F:好感升级全屏动画页：场景背景、粉色纱幕、顶部丝带与爱心徽章、立绘与飘散爱心层，点击关闭。 | R:code:ViewModels/Games/AffectionLevelUpViewModel.cs, code:Views/Games/AffectionLevelUpPage.xaml.cs | A:- | S:立绘宽度不写死：手机屏宽约 360，写死 420 会把脸裁掉一半；爱心层由代码动态填充，不铺几十个静态图元。
+AffectionLevelUpPage.xaml[FU4S]: F:好感升级全屏动画页：场景背景、粉色纱幕、顶部丝带与爱心徽章、立绘与飘散爱心层，点击关闭。 | R:code:ViewModels/Games/AffectionLevelUpViewModel.cs, code:Views/Games/AffectionLevelUpPage.xaml.cs | A:- | S:立绘宽度不写死：手机屏宽约 360，写死 420 会把脸裁掉一半；爱心层由代码动态填充，不铺几十个静态图元；整页是可点遮罩，页面底必须透明。
 AffectionLevelUpPage.xaml.cs[AU4T]: F:好感升级页逻辑：进场播入场与爱心动画，写完载荷后由用户轻触关闭并退回上一页。 | R:code:ViewModels/Games/AffectionLevelUpViewModel.cs, code:Modules/Affection/AffectionLevelUpService.cs | A:PlayLevelUp | S:没有载荷就直接退回上一页，绝不留在空白全屏；动画页是导航链的一环，无论动画成功与否都要能返回。
 CgViewPage.xaml[FU3T]: F:CG 全屏查看页：黑底、AspectFit 大图、底部标题与左上角跳过按钮。 | R:code:ViewModels/Games/CgViewViewModel.cs | A:- | S:只做看图一件事：黑底加 AspectFit、标题单行截断，别在这页加交互。
 CgViewPage.xaml.cs[AU3T]: F:CG 查看页逻辑。 | R:code:Modules/Cg/CgStore.cs | A:- | S:-
@@ -622,13 +638,13 @@ MapCapturePage.xaml[FU4S]: F:取景与导入页：PageHeader 顶栏（返回文�
 MapCapturePage.xaml.cs[AU4T]: F:取景页逻辑。 | R:code:Views/Games/MapCapturePage.xaml | A:- | S:-
 MapCreatePage.xaml[FU6M]: F:创建地图页：PageHeader 顶栏（副标给状态），找地方、取多大一片、预览与导入、生成背景四步，忙时只多一颗取消。 | R:code:ViewModels/Games/MapCreateViewModel.cs, code:Services/World/MapImportService.cs | A:Chip, Field, FieldLabel | S:截断与「这一片太稀」都用信号色，因为它们是要改下一步决定的话；背景进度只在真的一张张出图时才出现。
 MapCreatePage.xaml.cs[AU4T]: F:地图创建页逻辑。 | R:code:ViewModels/Games/MapCreateViewModel.cs | A:- | S:-
-MapPage.xaml[FU6L]: F:地图页：高德式全屏画布加浮层（搜索胶囊与状态条、搜索下拉、图层抽屉、缩放定位与比例尺），没有顶栏。 | R:code:Views/Games/MapPage.xaml.cs, code:ViewModels/Games/MapCanvasViewModel.cs, code:ViewModels/Games/MapViewModel.Shell.cs, code:Drawables/MapCanvasDrawable.cs | A:- | S:地图铺满整页、所有控件浮在图上；画布手势只转发给 VM 的 Start/Drag/End Interaction，别在页面里另算一套坐标。
+MapPage.xaml[FU6L]: F:地图页：全屏画布加浮层（搜索胶囊与状态条、搜索下拉、图层抽屉、缩放定位与比例尺），没有顶栏；描边走 GlassHairline、浮层影走 WShadowChip 令牌。 | R:code:Views/Games/MapPage.xaml.cs, code:ViewModels/Games/MapCanvasViewModel.cs, code:Drawables/MapCanvasDrawable.cs | A:- | S:地图铺满整页、所有控件浮在图上；画布手势只转发给 VM 的 Start/Drag/End Interaction，别在页面里另算一套坐标。
 MapPage.xaml.cs[AU5M]: F:地图页逻辑：把 Drawable 包进 SafeDrawable 挂上画布、尺寸交给 VM、图层抽屉与底部抽屉的滑入滑出与拖拽、定位与搜索胶囊，以及 WinUI 指针钩子。 | R:code:ViewModels/Games/MapCanvasViewModel.cs, code:Helpers/SafeDrawable.cs, code:Views/Games/MapPage.xaml | A:MapPage, FocusSceneId, OnCanvasStart, HookWinUI | S:画布手势只做转发——Start/Drag/End 原样交给 VM，页面里不算坐标；WinUI 的滚轮与指针钩子必须按 Loaded/Unloaded 成对挂，重复挂会让一次拖动走两遍。
 Minimal3DPage.xaml[FU4T]: F:灰度 3D 视图页：PageHeader 顶栏（返回与「回鸟瞰」动作）加一块 3D 画布，把同一张地图换成站在街上看的读法，建筑按层高挤出。 | R:code:Controls/Minimal3DView.cs, code:Views/Games/Minimal3DPage.xaml.cs | A:- | S:它不改 2D 编辑器，只是同一张图的另一种读法；灰度是刻意留给空间感的，别把颜色塞回来；空图时由 EmptyHint 说话，画布不许画假几何。
 Minimal3DPage.xaml.cs[AU6M]: F:3D 浏览页逻辑：街面进入参数（x/y/yaw）或鸟瞰、拖拽环视与全景旋钮、方向键与可选陀螺仪、场景前进。 | R:code:Controls/Minimal3DView.cs, code:Drawables/Minimal3DDrawable.cs | A:EntryX, EntryY, EntryYaw, OnOverview | S:不带参数就是鸟瞰、带参数即街面机位，两条入口走同一份场景装配，别各写一套机位初始化。
 PetPage.xaml[FU5T]: F:桌宠头顶小窗：输入条与回复气泡共用一个纵向栈，气泡出现时小窗长高而输入行不动；立绘区只在移动端出现。 | R:code:Views/Games/PetPage.xaml.cs, code:DesignSystem/Theme/OverlaySkin.xaml | A:- | S:这扇窗只能矩形且必须极小，立绘不在 XAML 里——透明立绘走 Win32 分层窗口按像素 alpha 贴桌面；语音识别结果只填进输入框，不自动发送。
 PetPage.xaml.cs[AU7L]: F:桌宠小窗逻辑：输入、气泡与舞台联动。 | R:code:Services/World/PetService.cs | A:- | S:小窗与主舞台共享同一份角色状态，任一侧的改动都要回到服务里再广播，直接改本地控件会让两边显示不一致；事件入口统一走兜底，异常只提示不崩页。
-PetSettingsPage.xaml[FU6L]: F:桌宠设置页：PageHeader 顶栏（眉标与使用统计入口）、左边实时预览（桌面一角、气泡与立绘、悬停按钮排）、右边七段标签设置。 | R:code:ViewModels/Games/PetSettingsViewModel.cs, code:DesignSystem/Theme/OverlaySkin.xaml | A:- | S:预览不是贴图摆件：字号、发光、气泡节奏与悬停按钮都要跟右边改动即时走；七段标签下的设置键原样保留，只重排空间与归组。
+PetSettingsPage.xaml[FU6L]: F:桌宠设置页：页头顶栏（眉标与使用统计入口）、左边实时预览（桌面一角、气泡与立绘、悬停按钮排）、右边七段标签设置；面板材质走玻璃令牌。 | R:code:ViewModels/Games/PetSettingsViewModel.cs, code:DesignSystem/Theme/OverlaySkin.xaml | A:- | S:预览不是贴图摆件：字号、发光、气泡节奏与悬停按钮都要跟右边改动即时走；七段标签下的设置键原样保留，只重排空间与归组。
 PetSettingsPage.xaml.cs[AU6M]: F:桌宠设置页逻辑。 | R:code:Services/World/PetService.cs | A:- | S:-
 PetStudioPage.xaml[FU5S]: F:AI 制作桌宠页：PageHeader 顶栏（右列挂步频）、选角色、一键生成的真实进度与逐帧回报、逐状态出图的缩略图井。 | R:code:ViewModels/Games/PetStudioViewModel.cs, code:Controls/PageHeader.xaml | A:- | S:进度条只在真生成时出现，状态那一句写装载/生成中/结果——不放假进度；缩略图出好帧就放图，否则留井底占位。
 PetStudioPage.xaml.cs[AU4T]: F:桌宠工作室页逻辑。 | R:code:Services/World/PetStudioService.cs | A:- | S:-
@@ -640,19 +656,19 @@ CharacterSelectPage.xaml[FU5S]: F:微信壳联系人/会话列表：白底顶条
 CharacterSelectPage.xaml.cs[AU4T]: F:角色选择页逻辑。 | R:code:Views/Main/CharacterSelectPage.xaml | A:- | S:-
 MainGamePage.xaml[FU9L]: F:主聊天界面：多层舞台（3D 天气底、天气氛围、角色与立绘）、对话流、顶栏与侧栏小组件、各面板宿主与玻璃材质。 | R:code:Views/Main/MainGamePage.xaml.cs, code:Views/Main/MainGamePhoneView.xaml, code:VirtualViews/CharacterBackdropPresenter.cs | A:- | S:这一页是布局事故高发区——嵌套 Grid 的行分割一旦撑爆，整屏内容会被挤没，改动后必须在两种窗口尺寸下目视确认；3D 天气层留在最底层，不碰角色背景图与场景图。
 MainGamePage.xaml.cs[AU8L]: F:主聊天页逻辑：面板与两侧栏装配、背景与立绘同步、启动流程、小地图与顶栏侧栏、3D 天气层初始化，以及布局环诊断开关。 | R:code:ViewModels/Main/MainGameViewModel.Characters.cs, code:Services/World/BackgroundService.cs, code:Views/Main/MainGamePhoneView.xaml.cs | A:MainGamePage, CharacterBackdropPresenter | S:WAB_DIAG 是实机二分定位布局环的临时开关，定位完成后整段移除；布局回调里既要挡掉非法尺寸，也要避免写顶层资源引发重排环。
-MainGamePhoneView.xaml[FU6L]: F:主界面里的手机版布局：状态栏、小组件顶栏、角色舞台与左右滑动换地点、右上收成的方片小地图。 | R:code:Views/Main/MainGamePhoneView.xaml.cs, code:Views/Main/MinimapHostView.xaml | A:- | S:顶栏只放「正在玩」时会碰的东西（存档/菜单/手机/地图/换 AI），工坊与世界书从手机桌面进——入口混在一起就没有主次了。
-MainGamePhoneView.xaml.cs[AU5S]: F:手机壳视图逻辑：跟随 ViewModel 切换联系人背景与舞台尺寸，并处理聊天列表变化时的滚动与页面暂停恢复。 | R:code:Views/Main/PhonePage.xaml, code:ViewModels/Chat/WeChatViewModel.cs | A:MainGamePhoneView, Pause, Play, ApplyCharacterBackdropAsync | S:背景切换走双图交替，切图不能停掉正在播的那一张；页面消失要 Pause、回来要 Play。
+MainGamePhoneView.xaml[FU6L]: F:主界面里的手机版布局：状态栏、小组件顶栏、角色舞台与左右滑动换地点、右上收成的方片小地图，整块挂安全区。 | R:code:Views/Main/MainGamePhoneView.xaml.cs, code:Views/Main/MinimapHostView.xaml | A:- | S:顶栏只放「正在玩」时会碰的东西（存档/菜单/手机/地图/换 AI），工坊与世界书从手机桌面进——入口混在一起就没有主次了。
+MainGamePhoneView.xaml.cs[AU5S]: F:手机壳视图逻辑：安全区留白、跟随 ViewModel 切换联系人背景与舞台尺寸，并处理聊天列表变化时的滚动与页面暂停恢复。 | R:code:Views/Main/PhonePage.xaml, code:ViewModels/Chat/WeChatViewModel.cs, code:Helpers/SafeArea.cs | A:MainGamePhoneView, Pause, Play, ApplyCharacterBackdropAsync | S:背景切换走双图交替，切图不能停掉正在播的那一张；页面消失要 Pause、回来要 Play；留白加在整块三段布局上，舞台与列表自己吃满剩余高度。
 MinimapHostView.xaml[FU4T]: F:右上角小地图的壳：一枚 60 的方片或一张摊开的面板，两种形态共用同一块地与同一份 VM。 | R:code:Controls/MinimapView.cs, code:ViewModels/Main/MinimapViewModel.cs | A:- | S:画布本身 InputTransparent——GraphicsView 在 Windows 上是原生视图会吞掉父级点按，点击必须归外面那颗 Border。
 MinimapHostView.xaml.cs[AU4T]: F:小地图宿主逻辑：展开收起。 | R:code:ViewModels/Main/MinimapViewModel.cs | A:- | S:-
-PhonePage.xaml[FU7L]: F:手机页：宽屏摆一台真机（机身、圆角屏幕、接地影），窄屏撤掉机身直接铺满；状态栏、两页桌面与各应用入口。 | R:code:Views/Main/PhonePage.xaml.cs, code:ViewModels/Main/PhoneViewModel.cs | A:- | S:真机上再套一层假壳只会更假——窄屏必须把机身整个撤掉；桌面翻页只改整条的 TranslationX，别重建页面。
-PhonePage.xaml.cs[AU6M]: F:手机页逻辑：应用切换与独立窗口模式。 | R:code:ViewModels/Main/PhoneViewModel.cs | A:- | S:独立窗口模式下页面可能被重复创建，切换应用必须按当前实例取视图模型；事件入口统一走兜底，异常只提示不崩页。
+PhonePage.xaml[FU7L]: F:手机页：宽屏摆一台真机（机身、圆角屏幕、接地影），窄屏撤掉机身直接铺满；状态栏、两页桌面与各应用入口，屏幕根节点挂安全区。 | R:code:Views/Main/PhonePage.xaml.cs, code:ViewModels/Main/PhoneViewModel.cs | A:- | S:真机上再套一层假壳只会更假——窄屏必须把机身整个撤掉；桌面翻页只改整条的 TranslationX，别重建页面。
+PhonePage.xaml.cs[AU6M]: F:手机页逻辑：应用切换与独立窗口模式、安全区内边（假机身时留的是屏幕的内边）、桌面翻页的拖拽与弹簧，以及左缘右滑退出这扇手机。 | R:code:ViewModels/Main/PhoneViewModel.cs, code:Helpers/IosMotion.cs, code:Helpers/EdgeBackGesture.cs | A:ApplyFrame, SetPage, SlidePageAsync, GoBackAsync | S:独立窗口模式下页面可能被重复创建，切换应用必须按当前实例取视图模型；拖拽翻页只接 Windows 鼠标——触屏上这条 Pan 会和页内竖向滚动抢手势；翻页判定与返回手势同一套（35% 或甩速），松手速度带进弹簧。
 SetupPage.xaml[FU6M]: F:首次配置向导：一屏只做一件事（语言、材质与色板、常驻与桌宠等），选项行整行可点、选中时浮一层圆角底。 | R:code:Views/Main/SetupPage.xaml.cs, code:ViewModels/Main/SetupViewModel.cs | A:- | S:根节点不声明 x:DataType：本页在 XamlC 编译绑定下会让编译器空引用；底色与样卡用 BoxView.Color，模板里 Border.Background 接 DynamicResource 会顶住 XamlC。
 SetupPage.xaml.cs[AU5T]: F:首次配置页逻辑。 | R:code:ViewModels/Main/SetupViewModel.cs | A:- | S:-
-TitlePage.xaml[FU6M]: F:标题页：铺满窗口的拟态玻璃面板（左导航带 + 右主行动区）、HUD 四角括号与扫描线，窄屏收成单栏。 | R:code:Views/Main/TitlePage.xaml.cs, code:ViewModels/Main/TitleViewModel.cs | A:- | S:页面底由 AppBackgroundService 按当前世界下发，这里只引用 PageBgBrush；窄屏不能套两栏——侧栏与主行动区会落进同一格互相压住。
+TitlePage.xaml[FU6M]: F:标题页：铺满窗口的拟态玻璃面板（左导航带 + 右主行动区）、HUD 四角括号与扫描线，窄屏收成单栏。 | R:code:Views/Main/TitlePage.xaml.cs, code:ViewModels/Main/TitleViewModel.cs | A:- | S:页面底由 AppBackgroundService 按当前世界下发，这里只引用 PageBgBrush；窄屏不能套两栏——侧栏与主行动区会落进同一格互相压住；材质只引玻璃令牌，别写死颜色。
 TitlePage.xaml.cs[AU7L]: F:标题页逻辑：启动卡播放、继续与新建流程。 | R:code:ViewModels/Main/TitleViewModel.cs | A:- | S:启动卡只放一次，重进标题页时必须跳过——状态要跟着进程走而不是跟着页面走；事件入口统一走兜底，异常只提示不崩页。
 
 ===/<repository>/Views/Memory/===
-MemoryGraphPage.xaml[FU6L]: F:关系网界面：PageHeader 顶栏（// NETWORK 眉标、这一片副标、九个动作在窄窗折行）、画布与浮层、左下缩放说明，以及右侧固定宽度的详情与调节栏。 | R:code:ViewModels/Memory/MemoryGraphViewModel.cs, code:Drawables/MemoryGraphDrawable.cs | A:- | S:九个动作放 FlexLayout(Wrap)——单条横排栈在 900 宽时会把最后几颗推出屏幕；右侧那条栏与选中的面板同宽同列，不许互相盖住。
+MemoryGraphPage.xaml[FU6L]: F:关系网界面：页头顶栏（// NETWORK 眉标、这一片副标、九个动作在窄窗折行）、画布与浮层、左下缩放说明，以及右侧固定宽度的详情与调节栏。 | R:code:ViewModels/Memory/MemoryGraphViewModel.cs, code:Drawables/MemoryGraphDrawable.cs | A:- | S:九个动作放 FlexLayout(Wrap)——单条横排栈在 900 宽时会把最后几颗推出屏幕；右侧那条栏与选中的面板同宽同列，不许互相盖住。
 MemoryGraphPage.xaml.cs[AU5S]: F:关系网页逻辑：画布初始化、布局与点选。 | R:code:ViewModels/Memory/MemoryGraphViewModel.cs | A:- | S:-
 MemoryManagePage.xaml[FU5S]: F:记忆管理界面：落在地上的一页头（标题与刷新）、入口组、人类记忆分区与条目行、标签与副设定入口，长列表分页续列。 | R:code:ViewModels/Memory/MemoryManageViewModel.cs | A:- | S:「刷新」整页只此一处、摆在页头；一页 50 条，还有就写清共多少、已列多少再续一页；「忘掉」是行右侧的次要动作，不做成实心强调钮。
 MemoryManagePage.xaml.cs[AU4T]: F:记忆管理页逻辑。 | R:code:ViewModels/Memory/MemoryManageViewModel.cs | A:- | S:-
@@ -660,13 +676,13 @@ MemorySearchPage.xaml[FU5S]: F:搜事件界面：搜索条、链式条件（字�
 MemorySearchPage.xaml.cs[AU4T]: F:记忆检索页逻辑。 | R:code:ViewModels/Memory/MemorySearchViewModel.cs | A:- | S:-
 
 ===/<repository>/Views/Monitor/===
-ModuleInspectorPage.xaml[FU5S]: F:模块详情界面：PageHeader 顶栏（// MODULE INSPECTOR 眉标、返回、模块名与所属系统、刷新）与三张竖排的卡——这是谁、此刻是多少、最近怎么变，窄屏一列到底。 | R:code:ViewModels/Monitor/ModuleInspectorViewModel.cs, code:Views/Monitor/ModuleInspectorPage.xaml.cs | A:- | S:三态状态灯的颜色由 VM 给、文字跟在旁边，色觉不同也读得出；取不到的读数写「该模块暂无独立读数」，这一页永不显示猜出来的数。
-ModuleInspectorPage.xaml.cs[AU4T]: F:模块详情页的装配：绑定 VM，XAML 构建失败时画出兜底页并记日志，不在页面上留白。 | R:code:ViewModels/Monitor/ModuleInspectorViewModel.cs, code:Services/Core/BugReporter.cs | A:ModuleInspectorPage, BuildFallbackPage | S:XAML 构建失败必须走兜底页——空白页会被当成「功能没做」；错误本体只进日志，不弹窗。
-SuperMonitorPage.xaml[FU6M]: F:超级监测界面：PageHeader 顶栏（// VITALS 眉标、角色与日期、3D 开关与刷新）、左侧架构活流程图与可选 3D 向量覆盖层、右侧读数栏（节点详情/日程/器官/记忆层/数值）。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Drawables/ArchitectureFlowDrawable.cs, code:Drawables/VectorCloudDrawable.cs | A:- | S:只有两个容器：一块画布加一条右栏，栏内用 HSep 分组而不是卡套卡；画布请求宽高绑 CanvasWidth/CanvasHeight，给固定高度会把图等比压小；3D 覆盖层留在 ScrollView 外。
+ModuleInspectorPage.xaml[FU5S]: F:模块详情界面：页头顶栏（眉标、返回、模块名与所属系统、刷新）与三张竖排卡——这是谁、此刻是多少、最近怎么变；「摄像头人脸」节点另挂人脸面板。 | R:code:ViewModels/Monitor/ModuleInspectorViewModel.cs, code:Views/Monitor/ModuleInspectorPage.xaml.cs, code:Controls/FaceMonitorPane.xaml | A:HasFacePane | S:三态状态灯的颜色由 VM 给、文字跟在旁边，色觉不同也读得出；取不到的读数写「该模块暂无独立读数」，这一页永不显示猜出来的数；人脸面板只在对应节点上出现。
+ModuleInspectorPage.xaml.cs[AU4T]: F:模块详情页的装配：绑定 VM，页面出现/离开时开合人脸拉帧，XAML 构建失败时画出兜底页并记日志。 | R:code:ViewModels/Monitor/ModuleInspectorViewModel.cs, code:Services/Core/BugReporter.cs | A:ModuleInspectorPage, BuildFallbackPage | S:XAML 构建失败必须走兜底页——空白页会被当成「功能没做」；页面离开必须关门停表，否则 2s 拉帧时钟继续跑。
+SuperMonitorPage.xaml[FU6M]: F:超级监测界面：页头顶栏（// VITALS 眉标、角色与日期、3D 开关与刷新）、左侧架构活流程图与可选 3D 覆盖层、右侧读数栏（节点详情/日程/器官/记忆层/数值），以及底部共用的人脸面板。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Drawables/ArchitectureFlowDrawable.cs, code:Controls/FaceMonitorPane.xaml | A:- | S:只有两个顶层容器：一块画布加一条右栏，栏内用 HSep 分组而不是卡套卡；画布请求宽高绑 CanvasWidth/CanvasHeight，给固定高度会把图等比压小；3D 覆盖层留在 ScrollView 外；人脸面板与模块详情页共用同一控件，措辞只一处。
 SuperMonitorPage.xaml.cs[AU6M]: F:超级监测页逻辑：从 VM 取 Drawable 挂画布、按窗口宽在左右并排与单列之间切换、画布命中、3D 失败回写与构建失败兜底。 | R:code:ViewModels/Monitor/SuperMonitorViewModel.cs, code:Controls/EvergineWeatherViewHandler.cs | A:SuperMonitorPage, ApplyResponsiveLayout, BuildFallbackPage | S:定时刷新必须在离开页面时停掉，否则后台持续重绘拖慢整个应用；3D 失败要写清原因到页面，不许静默——静默失败会被当成「功能没做」。
 
 ===/<repository>/Views/Save/===
-SavePage.xaml[FU6M]: F:存档界面：PageHeader 页头（监测与分支树入口挂右列）、云存档真行、装在同一张 CardGroup 里的存档行、发丝线与头像井、空态走 EmptyState。 | R:code:ViewModels/Save/SaveViewModel.cs, code:Views/Save/SavePage.xaml.cs, code:Controls/EmptyState.xaml | A:- | S:存档列表显式用线性布局加 MeasureFirstItem——ItemTemplate 有五层嵌套，默认布局会反复测量；云存档入口要给一条真行，不能只藏在设置里。
+SavePage.xaml[FU6M]: F:存档界面：页头（监测与分支树入口挂右列）、云存档真行、装在同一张 CardGroup 里的存档行、发丝线与头像井、空态；导入过聊天记录的档多一行「开局摘要」。 | R:code:ViewModels/Save/SaveViewModel.cs, code:Views/Save/SavePage.xaml.cs, code:Controls/EmptyState.xaml | A:HistoryNote, HasHistoryNote | S:存档列表显式用线性布局加 MeasureFirstItem——ItemTemplate 有五层嵌套，默认布局会反复测量；云存档入口要给一条真行，不能只藏在设置里；没有开局摘要时那一行必须整行收起，不留空白高度。
 SavePage.xaml.cs[AU4T]: F:存档页逻辑：列出存档并进入所选存档。 | R:code:Modules/SaveSystem/SaveManager.cs | A:- | S:读档会替换全局状态，必须在真正加载成功后才离开本页；事件入口统一走兜底，异常只提示不崩页。
 SaveTreePage.xaml[FU5T]: F:分支树界面：PageHeader 顶栏（右列放根档选择、去这个存档与压测条）、由 code-behind 注入 Drawable 的双向可滚画布、选中后才出现的两行详情条。 | R:code:Drawables/SaveTreeDrawable.cs, code:Views/Save/SaveTreePage.xaml.cs | A:- | S:卡片里只放得下 8 个字，全名必须在详情条里读得到；画布高度按泳道数用 Drawable.ContentHeight 撑开；根档选择必须和标题同一行、随时能换，别藏进菜单。
 SaveTreePage.xaml.cs[AU5S]: F:分支树页逻辑：挂 Drawable 与 Invalidate、按内容高度同步画布高度、画布命中与 XAML 构建失败兜底。 | R:code:ViewModels/Save/SaveTreeViewModel.cs, code:Drawables/SaveTreeDrawable.cs | A:SaveTreePage, SyncCanvasHeight, BuildFallbackPage | S:画布尺寸来自页面布局，挂接完成前不要算缩放，否则首帧会按零尺寸画出空白树；绘制异常只用 SafeDrawable 包一层让这一帧空着，不升级成 WinUI 原生异常。
@@ -674,11 +690,11 @@ SaveTreePage.xaml.cs[AU5S]: F:分支树页逻辑：挂 Drawable 与 Invalidate�
 ===/<repository>/Views/Settings/===
 AiModelsPage.xaml[FU6M]: F:模型管理界面：列表与详情同页切换——厂商下的模型清单、能力位与上下文窗口编辑、厂商级操作。 | R:code:ViewModels/Settings/AiModelsViewModel.cs | A:- | S:列表与详情在同一页里切，别拆成两页导航——厂商级操作在列表、模型级编辑在详情，后端只该有一份当前厂商/当前模型状态。
 AiModelsPage.xaml.cs[AU4T]: F:模型管理页逻辑。 | R:code:Views/Settings/AiModelsPage.xaml | A:- | S:-
-AiProvidersPage.xaml[FU5S]: F:AI 厂商管理界面：厂商列表与新增，端点、密钥、超时与排序。 | R:code:Views/Settings/AiProvidersPage.xaml.cs | A:- | S:这一页只编辑厂商（端点/密钥/超时/排序），模型清单与单价在 AI 模型页改，两页互相跳。
+AiProvidersPage.xaml[FU5S]: F:AI 厂商管理界面：厂商列表与新增，端点、密钥、超时与排序。 | R:code:Views/Settings/AiProvidersPage.xaml.cs, code:ViewModels/Settings/AiModelsViewModel.cs | A:- | S:这一页只编辑厂商（端点/密钥/超时/排序），模型清单与单价在 AI 模型页改，两页互相跳。
 AiProvidersPage.xaml.cs[AU6M]: F:厂商管理页逻辑：增删改与即时落盘。 | R:code:ViewModels/Settings/AiModelsViewModel.cs, code:Helpers/UiGuard.cs | A:- | S:所有事件处理器都经 UiGuard 兜底；新增处理器也要走它，不能直接写 async void 裸调 save。
 CloudSavesPage.xaml[FU5S]: F:云存档浏览器：PageHeader 顶栏（标题、上次同步、刷新）、行模板（名字主语句、设备/时间/体积次行、右侧单一动作）与当前设备/远端分区。 | R:code:ViewModels/Save/CloudSavesViewModel.cs, code:Controls/PageHeader.xaml | A:- | S:云存档只写进自己的私人仓库——公开仓库会让存档跟着公开；没配/没登录/断网给一句原因加下一步去处而不弹窗；空状态说的是「真的没有」而不是加载中。
 CloudSavesPage.xaml.cs[AU4T]: F:云存档页逻辑。 | R:code:ViewModels/Save/CloudSavesViewModel.cs | A:- | S:云操作都可能因网络失败，失败必须保留本地列表不清空；处理器异常自行捕获记录，不再向上冒泡。
-MentalHealthPage.xaml[FU4T]: F:心理状况设置页：顶栏、当前生效的状况列表与「添加一条」。 | R:code:ViewModels/Settings/MentalHealthViewModel.cs | A:- | S:按当前角色设置轻重与稳定度——条目挂在角色身上，别写到全局设置里。
+MentalHealthPage.xaml[FU5S]: F:心理状况设置页：顶栏、安全感一行（当前读数 + 小模型整理开关）、当前生效的状况列表与「添加一条」。 | R:code:ViewModels/Settings/MentalHealthViewModel.cs, code:Services/Character/SecurityService.cs | A:SecurityText, SecurityAiEnabled | S:按当前角色设置轻重与稳定度——条目挂在角色身上，别写到全局设置里；安全感是独立的一行，不挂在任何状况上，页面也不显示分类目录里的病名当作标签。
 MentalHealthPage.xaml.cs[AU4T]: F:心理健康页逻辑。 | R:code:Services/Character/MentalHealthService.cs | A:- | S:-
 ModelDeploymentPage.xaml[FU5S]: F:模型部署向导：添加表单（模型名、来源链接或本机文件、安装位置、校验和）、推荐示例预填与已部署列表。 | R:code:ViewModels/Settings/ModelDeploymentViewModel.cs, code:Services/Model/ModelDeploymentService.cs | A:- | S:点「用这条」只把示例预填进表单、用户可改任意字段——不内置任何模型名或默认路径。
 ModelDeploymentPage.xaml.cs[AU4T]: F:模型部署页逻辑。 | R:code:Services/Model/ModelDeploymentService.cs | A:- | S:部署是长任务，页面退出后回调不得再碰控件；事件入口统一走兜底，异常只提示不崩页。
@@ -694,16 +710,18 @@ SaveRulesPage.xaml[FU5M]: F:存档高级设置：总开关，插件/工具/角�
 SaveRulesPage.xaml.cs[AU4T]: F:存档规则页逻辑。 | R:code:Modules/SaveSystem/SaveManager.cs | A:- | S:-
 SettingsPage.xaml[FU6T]: F:设置首页：大标题、搜索条与分组 inset 列表——常驻三项加按目录排列的全部分类，每行右侧带当前值摘要。 | R:code:Views/Settings/SettingsPage.xaml.cs, code:ViewModels/Settings/SettingsCatalog.cs | A:- | S:匹配计数与空结果提示挂在卡外，避免搜索时卡片高度反复跳；分组顺序就是 SettingsCatalog.All 的顺序，不在这里另排一遍；返回与标题文案绑 LocalizationService.Current。
 SettingsPage.xaml.cs[AU6M]: F:设置总页逻辑：分组导航与卡片过滤。 | R:code:ViewModels/Settings/SettingsViewModel.cs | A:- | S:-
-SettingsSectionPage.xaml[FU8L]: F:设置分类子页：按分类只建三到四张卡（Card01… 各一个 DataTemplate），每张卡外面套 Filter 里的可见性开关。 | R:code:Views/Settings/SettingsSectionPage.xaml.cs, code:ViewModels/Settings/SettingsViewModel.cs, code:ViewModels/Settings/SettingsCardFilter.cs | A:Card01, Card02, Filter | S:大文件按卡片分段，新增项按既有卡片插入并复用样式；每张卡外面必须套 IsVisible={Binding Filter.Xxx}，漏掉这层搜索时它不会收起；行间用 HSepBleed 让线通到卡边。
+SettingsSectionPage.xaml[FU8L]: F:设置分类子页：按分类只建三到四张卡（Card01… 各一个 DataTemplate），每张卡外面套 Filter 里的可见性开关；光源四个滑杆已移除。 | R:code:Views/Settings/SettingsSectionPage.xaml.cs, code:ViewModels/Settings/SettingsViewModel.cs, code:ViewModels/Settings/SettingsCardFilter.cs | A:Card01, Card02, Filter | S:大文件按卡片分段，新增项按既有卡片插入并复用样式；每张卡外面必须套 IsVisible={Binding Filter.Xxx}，漏掉这层搜索时它不会收起；行间用 HSepBleed 让线通到卡边；光源已钉成 GlassTokens 常量，别再把它加回设置页。
 SettingsSectionPage.xaml.cs[AU6S]: F:设置分类页逻辑：按 key 只构建该分类的卡片、按窗口宽切单双列，卡片就绪后补种数据并给每段耗时打点。 | R:code:ViewModels/Settings/SettingsViewModel.cs, code:ViewModels/Settings/SettingsCatalog.cs | A:SettingsSectionPage, SectionKey, BuildSectionAsync, ApplyResponsiveWidth | S:拆两级页面的理由就是性能：24 张卡同页要 2.6 秒且 UI 线程既不出帧也不响应输入，所以按 key 只建本分类那 3~4 张，别再退回单页。
 UsageStatsPage.xaml[FU5M]: F:用量统计界面：PageHeader 的 Ground 档页头（// USAGE 眉标）、左列总览/成本构成/时间序列/分组明细，图表全用 BoxView 与 Grid 自绘。 | R:code:ViewModels/Settings/UsageStatsViewModel.cs, code:Controls/PageHeader.xaml | A:- | S:宽屏两列、窄屏单列由代码按实际宽度切；内容列上限走双栏令牌（WCardWidthWide），别让卡片顶满全宽。
 UsageStatsPage.xaml.cs[AU4T]: F:用量统计页逻辑。 | R:code:Services/Memory/CostEstimatorService.cs | A:- | S:统计数据是只读派生量，页面不得回写账本；事件入口统一走兜底，异常只提示不崩页。
 
 ===/<repository>/Views/Story/===
+ChatImportPage.xaml[FU5S]: F:聊天记录导入页：一条顶栏、一条底栏、中间一列卡片——读文件或粘贴、结果与警告、带回本局，一次只做一件事。 | R:code:Views/Story/ChatImportPage.xaml.cs, code:ViewModels/Story/ChatImportViewModel.cs | A:- | S:这一页不写存档：只把文件读成消息、把消息算成关系，落盘由「开始这一局」在同一条提交路径完成——失败就整档不落，旧档不受影响。
+ChatImportPage.xaml.cs[FU4T]: F:聊天记录导入页的装配：从路由取角色 id、首次出现时加载并播一次提示音与进场动画。 | R:code:ViewModels/Story/ChatImportViewModel.cs, code:Helpers/Animation.cs | A:ChatImportPage, Character | S:路由参数里的角色 id 必须先 Uri 解码再用；加载只做一次——重复 OnAppearing 不能重跑解析。
 ForceCastPage.xaml[FU5S]: F:点名页：PageHeader 页头（右列为状态文字）、一个角色一行的勾选列表装进同一张 CardGroup，列表、空状态与忙碌遮罩共用中间一行。 | R:code:ViewModels/Story/ForceCastViewModel.cs | A:- | S:一个角色一行、行间压发丝线——别退回「每个角色一张描边圆角牌」，卡间距会把分组关系冲散；行首有头像与勾选，所以线要从左缘缩进。
 ForceCastPage.xaml.cs[AU4T]: F:点名页逻辑。 | R:code:Models/ForceCastEntry.cs | A:- | S:-
-NewRunPage.xaml[FU6M]: F:新开一局 / 本局设定：PageHeader 页头、世界树绑定与人设放在同一屏，四段进度条；单页模式下四块依次排开、不出现进度。 | R:code:ViewModels/Story/NewRunViewModel.cs, code:Views/Story/NewRunPage.xaml.cs | A:- | S:世界树与人设放同一屏，因为它们是同一件事的两面；不绑定世界树也能开始，但地图会锁上——这条要写在「普通酒馆」那一行里，不藏进帮助文档。
-NewRunPage.xaml.cs[AU5S]: F:新剧本页逻辑：分步收集与创建存档。 | R:code:Modules/SaveSystem/SaveManager.cs | A:- | S:-
+NewRunPage.xaml[FU6M]: F:新开一局 / 本局设定：页头、世界树绑定与人设放在同一屏，四段进度条；开局引导里带「导入聊天记录」入口，它只影响这一局。 | R:code:ViewModels/Story/NewRunViewModel.cs, code:Views/Story/NewRunPage.xaml.cs | A:- | S:世界树与人设放同一屏，因为它们是同一件事的两面；不绑定世界树也能开始，但地图会锁上——这条要写在「普通酒馆」那一行里；导入入口不带也能正常开局。
+NewRunPage.xaml.cs[AU5S]: F:新剧本页逻辑：进场与分步切换的方向感、分段进度条按真实进度点亮，路由取角色/编辑/向导三态，从世界树页返回只刷新列表。 | R:code:ViewModels/Story/NewRunViewModel.cs, code:Helpers/Animation.cs | A:NewRunPage, Character, Edit, Wizard | S:分段条按真实进度点亮、不是循环动画；进场只演一次，返回只刷新列表不重置已选；换步时长压在 200ms，隐藏只切 IsVisible、不销毁控件，所以回头一步字还在。
 NovelSelectPage.xaml[FU4T]: F:小说选择页：PageHeader 顶栏、一部小说一行的 CardGroup 列表与空态、底部主行动。 | R:code:ViewModels/Story/NovelSelectViewModel.cs, code:Views/Story/NovelSelectPage.xaml.cs | A:- | S:一部小说一行装同一张卡——一行一张卡时卡间距比行内还大，一组宇宙会被读成「一摞牌子」；删除是文字动作，卡里再摆实心钮会抢掉「进入」的位置。
 NovelSelectPage.xaml.cs[AU4T]: F:小说选择页逻辑。 | R:code:Services/World/NovelLibrary.cs | A:- | S:-
 NovelWorldPage.xaml[FU4T]: F:小说世界对话页：PageHeader 页头（标题、世界标签、思考中的指示器）加一段气泡流与底部输入。 | R:code:ViewModels/Story/NovelWorldViewModel.cs | A:- | S:气泡的底与字由 BubbleMine/BubbleTheirs 两档令牌给出，视图模型只标「谁说的」；上下两条不再用 GlassBar 整宽描边条，那是贴上去的另一种材质。
@@ -743,7 +761,7 @@ requirements-2026-10-16.md[SV4M]: F:某一轮需求记录。 | R:code:docs/ARCHI
 ui-style.md[SU5T]: F:界面风格速查。 | R:code:docs/UI-STANDARD.md | A:- | S:-
 
 ===/<repository>/plugins/wab_minecraft/===
-plugin.json[FE7S]: F:Minecraft 插件的清单，声明工具、命令与配置字段表。 | R:code:Services/Core/ConfigCatalog.cs, code:docs/PLUGINS.md | A:- | S:这份字段表被 CI 门禁与配置生成器读取，也是模组侧下发字段的唯一真相源；字段名改动必须同时更新 config_catalog.json。
+plugin.json[FE7S]: F:Minecraft 插件清单：工具/命令声明与 153 键设置字段表（含「二十」组的抱抱五项），权限只申请 settings、prompt.write、page 与三个工具。 | R:code:Services/Core/ConfigCatalog.cs, code:docs/PLUGINS.md, code:Modules/MinecraftBridge/MaidBridgeTools.cs | A:- | S:这份字段表被 CI 门禁与配置生成器读取，是模组侧下发字段的唯一真相源；字段名改动必须同时更新 config_catalog.json，三仓生成物字节一致。
 
 ===/<repository>/scripts/===
 publish-android.sh[OV5T]: F:Android 发布的脚本副本。 | R:code:publish_android.sh | A:- | S:-
@@ -754,8 +772,8 @@ Program.cs[TQ6S]: F:规则层离线自检入口：对纯函数规则跑断言。
 RulesSelfTest.csproj[FQ5T]: F:自检工程的独立项目定义，只引用规则层源文件。 | R:code:tools/rules_selftest/Program.cs | A:- | S:刻意不引用主工程，才能在没有 Windows runner 的环境里跑。
 
 ===/<repository>/tools/wab_config/===
-README.md[SQ5T]: F:配置真相源生成器的使用说明。 | R:code:tools/wab_config/gen_config_sources.py | A:- | S:-
-config_catalog.json[FC8L]: F:配置目录的机器可读真相源：键名、类型与默认值。 | R:code:Services/Core/ConfigCatalog.cs, code:tools/wab_config/gen_config_sources.py | A:- | S:这份 JSON 是生成器的输入而不是产物；手改 C# 侧的键而不改这里，CI 校验会直接拦下。
+README.md[SQ5T]: F:配置目录生成器的使用说明：唯一真相源的位置、三个仓库各自的生成物清单，以及改键之后要跑什么。 | R:code:tools/wab_config/gen_config_sources.py, code:tools/wab_config/verify_config_catalog.py | A:- | S:三仓各一份、内容必须字节一致；正文里写的键数会随目录增长而过期，条目数以 config_catalog.json 为准。
+config_catalog.json[FC8L]: F:配置目录的机器可读真相源：153 个键的名称、类型、默认值、作用端、AI 标注、冲突标记与中文提示，含「二十」组的抱抱五项。 | R:code:Services/Core/ConfigCatalog.cs, code:tools/wab_config/gen_config_sources.py, code:plugins/wab_minecraft/plugin.json | A:- | S:这份 JSON 是生成器的输入而不是产物；手改 C# 侧的键而不改这里，CI 校验会直接拦下；三仓的生成物必须与它字节一致。
 gen_config_sources.py[XQ7M]: F:从配置目录 JSON 生成 C# 侧常量与字段表。 | R:code:tools/wab_config/config_catalog.json | A:- | S:生成物不要手改——下一次运行会被覆盖，改动请落在 JSON 或生成器里。
 verify_config_catalog.py[TQ7M]: F:配置目录校验器：比对 JSON、生成物与插件字段表是否一致。 | R:code:tools/wab_config/config_catalog.json, code:.github/workflows/wab-config-verify.yml | A:- | S:这是 CI 门禁的执行体，放宽比较规则等于放行配置漂移。
 
@@ -780,5 +798,14 @@ Program.cs[TQ5S]: F:显示层文本自测：方向判定、软换行与计数格
 text_selftest.csproj[FQ4T]: F:文本自测工程定义：net10.0 控制台，显式关闭默认编译项，只 link BidiText 与 CountText。 | R:code:tools/text_selftest/Program.cs | A:- | S:与 map_selftest 同一套写法：关掉默认编译项、逐个 link——零 MAUI 引用是这个自测能跑的前提。
 
 ===/<repository>/tools/affection_selftest/===
-AffectionSelfTest.csproj[TQ5T]: F:好感刻度的零依赖自测工程：只编译 AffectionScale 一个纯函数文件，不引用整个 MAUI 工程。 | R:code:tools/affection_selftest/Program.cs, code:Helpers/AffectionScale.cs | A:AffectionSelfTest | S:EnableDefaultCompileItems=false，只显式 Include Program.cs 与链接进来的 Helpers/AffectionScale.cs——多链一个带 MAUI 依赖的文件，这个自测就得整工程才能编译。
-Program.cs[TQ5S]: F:好感刻度自测：按边界值把 0–1000 点数、10 级制、本级进度与旧档 ×10 迁移逐条对一遍（0/99/100/101/999/1000/越界/负数）。 | R:code:Helpers/AffectionScale.cs, code:tools/affection_selftest/AffectionSelfTest.csproj | A:Check, Eq, Near, Text | S:重点是 100 与 101 这条边界：100 仍属 Lv.1 且本级 100%，101 才换级；失败要打印实际/期望并返回非零退出码，别做成只 print 不 fail。
+AffectionSelfTest.csproj[TQ5T]: F:好感与安全感刻度的零依赖自测工程：只编译 AffectionScale 与 SecurityScale 两个纯函数文件，不引用整个 MAUI 工程。 | R:code:tools/affection_selftest/Program.cs, code:Helpers/AffectionScale.cs, code:Modules/Affection/SecurityScale.cs | A:AffectionSelfTest | S:EnableDefaultCompileItems=false，只显式 Include Program.cs 与链接进来的两个纯函数文件——多链一个带 MAUI 依赖的文件，CI 的 ubuntu runner 上就编不过。
+Program.cs[TQ5S]: F:好感与安全感刻度自测：0–1000 点数、10 级制、本级进度与旧档 ×10 迁移，以及安全感的事件基础分、特质倍率、哨兵补值与 AI 夹取逐条对边界。 | R:code:Helpers/AffectionScale.cs, code:Modules/Affection/SecurityScale.cs, code:tools/affection_selftest/AffectionSelfTest.csproj | A:Check, Eq, Near, Text | S:重点是 100 与 101 这条边界：100 仍属 Lv.1 且本级 100%，101 才换级；断言失败即非零退出，不能改成只打印。
+
+===/<repository>/Services/Import/===
+ChatLogDigest.cs[DA7M]: F:聊天记录摘要：把消息切成「一段聊天」（隔 30 分钟另起一段），算段数、主动比例、情绪事件、覆盖天数与最近一段，供初始关系与记忆使用。 | R:code:Services/Import/ChatLogParser.cs, code:Models/ChatHistorySeed.cs | A:ChatLogDigest, ChatTurn, ChatEpisode | S:段切分按 30 分钟间隔，与人记「那一次聊天」的颗粒度一致；摘要只留成句与摘句，正文不回灌进存档。
+ChatLogImportService.cs[DA8M]: F:聊天记录导入：解析多个文件、归一化去重、算出摘要，再在「开始这一局」时一次性写入新档。 | R:code:Services/Import/ChatLogParser.cs, code:Services/Import/ChatLogDigest.cs, code:Models/ChatHistorySeed.cs, code:Models/State.cs | A:ChatLogImportService, ChatImportPreview, ChatImportSource, ApplySeed | S:暂存只属于新档，写档前不落盘，否则会串档；正文不进存档，只留摘要与折成的记忆条目；解析是纯函数，解析阶段不许碰 IO 与服务。
+ChatLogParser.cs[DA8M]: F:聊天记录解析：嗅探 plaintext/微信/QQ 文本与 mht/Markdown/JSON/CSV 等格式，逐条认出时间、发言者与正文，并判到「你 / TA / 其他人」三种归属。 | R:code:Services/Import/ChatLogDigest.cs, code:Services/Import/ChatLogImportService.cs | A:ChatLogParser, ChatLogFormat, ChatSpeakerRole, ImportedMessage | S:归属只有三种——归错比丢一条更糟；时间可以缺失（很多导出只留日期），发言者与正文必须有；嗅探结果只用于给人看和选解析器，不决定能不能导入。
+
+===/<repository>/tools/chatimport_selftest/===
+ChatImportSelfTest.csproj[TQ5T]: F:聊天记录导入的零依赖自测工程：只编译 ChatLogParser、ChatLogDigest 与 AffectionScale，跑嗅探、解析、归一化、归属与初始关系。 | R:code:tools/chatimport_selftest/Program.cs, code:Services/Import/ChatLogParser.cs, code:Services/Import/ChatLogDigest.cs | A:ChatImportSelfTest | S:只链零 MAUI 依赖的解析层——多链一个带 MAUI 引用或 IO 的文件，CI 的 ubuntu runner 上就编不过。
+Program.cs[TQ5T]: F:聊天记录导入自测：微信/QQ 文本、mht、CSV、JSON、Markdown 与冒号对白的嗅探与解析、引号内逗号不被切开、发言者归属，以及由摘要算出的初始好感与信任。 | R:code:Services/Import/ChatLogParser.cs, code:Services/Import/ChatLogDigest.cs, code:tools/chatimport_selftest/ChatImportSelfTest.csproj | A:Check, Eq, Text | S:断言失败即非零退出（与 tools/rules_selftest 同一约定）；「认不出」的散文必须报错并列出支持的格式，不能悄悄返回空结果当成功。
