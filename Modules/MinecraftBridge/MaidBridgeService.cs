@@ -99,6 +99,8 @@ public sealed partial class MaidBridgeService : IDisposable
     private Task? _watchTask;
     private Task? _backupTask;
     private MaidSession? _session;
+    /// <summary>工具表：连上/断开要按能力握手重注册 maid_act 的可见枚举，见 RefreshCapabilityTools。</summary>
+    private readonly Modules.Tools.ToolManager _tools;
     private MaidBridgeSettings _config = new() { Enabled = false };
     private string _configSignature = "";
     private string _behaviorSignature = "";
@@ -142,10 +144,27 @@ public sealed partial class MaidBridgeService : IDisposable
         _official = official;
         _wechat = wechat;
         _pageWindows = pageWindows;
+        _tools = tools;
         MaidBridgeTools.Register(this, tools);
     }
 
     public bool IsConnected => CurrentSession is not null;
+
+    /// <summary>
+    /// 这一版模组认不认某个能力/方法。握手没完成（没有会话）、或旧模组没报能力表时一律 false：
+    /// 宁可少给模型一个工具，也不给一个必然回 unknown_method 的工具。
+    /// </summary>
+    public bool Supports(string featureOrMethod) => CurrentSession?.Capabilities.Supports(featureOrMethod) ?? false;
+
+    /// <summary>
+    /// 能力握手变了（新会话连上、旧会话断开）就同步一次 maid_act 的可见枚举：
+    /// 抱抱是 act 的一个 action，也是独立工具，两处都由 Supports("hug") 决定。
+    /// </summary>
+    private void RefreshCapabilityTools()
+    {
+        try { MaidBridgeTools.RefreshHugAvailability(this, _tools, Supports("hug")); }
+        catch (Exception ex) { App.WriteLog("MaidBridge.CapabilityTools -> " + ex.Message); }
+    }
 
     public string ConnectionSummary
     {
@@ -711,12 +730,20 @@ public sealed partial class MaidBridgeService : IDisposable
                     Loader = BridgeJson.Str(hello, "loader"),
                     LoaderVersion = BridgeJson.Str(hello, "loaderVersion"),
                     BridgeBuild = BridgeJson.Str(hello, "bridge"),
+                    Capabilities = MaidCapabilities.From(hello["capabilities"]),
                     ReadCarry = carry,
                     Cts = CancellationTokenSource.CreateLinkedTokenSource(ct)
                 };
                 session.WorldKey = MakeWorldKey(session.WorldName, session.Instance, session.Player);
                 lock (_sessionGate) _session = session;
+                // 能力表一到手就把工具清单对齐：等 HandshakeAsync 走完才刷新会让模型在一小段窗口里看见抱抱。
+                RefreshCapabilityTools();
                 App.WriteLog($"MaidBridge: 会话 {session.Id} 已建立（{remoteText}）MC {session.GameVersion}/{session.Loader} {session.ModVersion}");
+                if (session.Capabilities.Reported)
+                    App.WriteLog($"MaidBridge: 能力握手 protocol={session.Capabilities.Protocol} "
+                        + $"methods={session.Capabilities.Methods.Count} features=[{string.Join(",", session.Capabilities.Features)}]");
+                else
+                    App.WriteLog("MaidBridge: 对端没报能力集合（旧模组），认不出的能力一律按不支持处理");
 
                 try { await HandshakeAsync(session, hello); }
                 catch (Exception hex)
@@ -764,6 +791,8 @@ public sealed partial class MaidBridgeService : IDisposable
                 {
                     if (ReferenceEquals(_session, session)) _session = null;
                 }
+                // 读循环自己结束（游戏关服、网络断）不会走 CloseSession，这里同样要把能力表收掉。
+                RefreshCapabilityTools();
                 ForgetWorldbookCache();
                 await session.DisposeAsync();
             }
@@ -1141,6 +1170,28 @@ public sealed partial class MaidBridgeService : IDisposable
         ["format"] = "wav"
     };
 
+    /// <summary>
+    /// 模组自报的能力集合，给插件设置页与排障用：hug=false 就是「这台游戏还没更新到带抱抱的模组」，
+    /// 页面可以照实写一句，不用猜。没连上时整块为空但字段齐全，前端不必判空。
+    /// </summary>
+    private static JsonObject BuildCapabilitiesJson(MaidSession? session)
+    {
+        var caps = session?.Capabilities ?? MaidCapabilities.None;
+        var methods = new JsonArray();
+        foreach (var name in caps.Methods) methods.Add(name);
+        var features = new JsonArray();
+        foreach (var name in caps.Features) features.Add(name);
+        return new JsonObject
+        {
+            ["reported"] = caps.Reported,
+            ["protocol"] = caps.Protocol,
+            ["bridge"] = session?.BridgeBuild ?? "",
+            ["methods"] = methods,
+            ["features"] = features,
+            ["hug"] = caps.Supports("hug")
+        };
+    }
+
     private JsonObject BuildSettingsJson() => new()
     {
         // 游戏里真会照 these 办事的闸门。
@@ -1455,6 +1506,9 @@ public sealed partial class MaidBridgeService : IDisposable
             ["fields"] = await BuildPluginConfigJson(),
             ["settings"] = BuildSettingsJson(),
             ["voice"] = BuildVoiceJson(),
+            // 能力握手：设置页用这块解释「抱抱要模组哪一版」。没连上或旧模组不上报时 reported=false，
+            // 页面据此把入口标成「需要更新模组」，而不是装作能用。
+            ["capabilities"] = BuildCapabilitiesJson(session),
             ["feedRules"] = FeedRulesRuntimeJson()
         };
         if (session is null) root["mod"] = null;
@@ -3028,6 +3082,8 @@ public sealed partial class MaidBridgeService : IDisposable
             if (expected is not null && !ReferenceEquals(session, expected)) return;
             _session = null;
         }
+        // 会话没了，能力表跟着作废：下一次拼提示词时 maid_hug 必须已经消失。
+        RefreshCapabilityTools();
         try
         {
             App.WriteLog($"MaidBridge: 关闭会话 {session.Id}（{reason}）");
@@ -3078,8 +3134,13 @@ public sealed partial class MaidBridgeService : IDisposable
 
             if (method is "gather" or "hold" or "container" or "craft" or "build" or "ride" or "fight" or "crew"
                 or "item" or "farm" or "escape" or "sneak_eat" or "mode_switch" or "plan_flow" or "backup_copy" or "headpat"
+                or "hug"
                 && !_config.AllowWorldActions)
                 return ErrorJson("当前不允许改动 Minecraft 世界（插件设置里关闭了世界动作）。", "world_actions_disabled");
+            // 能力握手：旧模组不认 hug，模组侧只会回 unknown_method。工具已经从提示词里收掉了，
+            // 这里再拦一次是为了「刚好在断线前后调过来」的那一次调用也拿到一句人话，而不是一个协议错误码。
+            if (method == "hug" && !Supports("hug"))
+                return ErrorJson("这一版模组还没有抱抱功能，需要更新到带抱抱的模组版本。不要换个写法重试。", "unsupported");
             if (method == "act")
             {
                 var action = BridgeJson.Str(args, "action").ToLowerInvariant();
@@ -3088,6 +3149,8 @@ public sealed partial class MaidBridgeService : IDisposable
                     return ErrorJson("当前不允许主动做动作或说话（插件设置里关闭了动作）。", "gestures_disabled");
                 if (action is "attack" or "use" or "interact_addon" && !_config.AllowWorldActions)
                     return ErrorJson("当前不允许与世界互动（插件设置里关闭了世界动作）。", "world_actions_disabled");
+                if (action == "hug" && !Supports("hug"))
+                    return ErrorJson("这一版模组还没有抱抱功能，需要更新到带抱抱的模组版本。不要换个写法重试。", "unsupported");
             }
 
             var parameters = (JsonObject)args.DeepClone();
@@ -3700,6 +3763,8 @@ public sealed partial class MaidBridgeService : IDisposable
         public string LoaderVersion { get; init; } = "";
         /// <summary>桥自己的构建号：jar 顶替上游，modVersion 跟上游同号，看不出用户装的桥是哪一版，只能靠这个。</summary>
         public string BridgeBuild { get; init; } = "";
+        /// <summary>模组在 hello 里自报的能力集合；旧模组不发就是 None，宿主据此收起用不了的工具。</summary>
+        public MaidCapabilities Capabilities { get; init; } = MaidCapabilities.None;
         public string WorldKey { get; set; } = "";
         public string Dimension { get; set; } = "";
         public string Weather { get; set; } = "";

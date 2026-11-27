@@ -328,6 +328,73 @@ public sealed class MaidBridgeMaidBinding
     public DateTime LastBackup { get; set; }
 }
 
+/// <summary>
+/// 模组在 hello 里自报的能力集合：这一版桥真的认得哪些线上方法、哪些玩法特性。
+/// 宿主据此决定把哪些 maid_* 工具放进提示词——不给模型一个必然回 unknown_method 的工具。
+/// 旧模组（桥构建 1.6.0 及更早）整块字段都不发，解析结果是 <see cref="None"/>，
+/// 一律按「不支持」处理；断线重连时随新会话重算，不跨会话留旧能力。
+/// </summary>
+public sealed class MaidCapabilities
+{
+    public static readonly MaidCapabilities None = new();
+
+    /// <summary>能力表自己的版本号（模组侧 WabCapabilities.PROTOCOL），与线上帧协议分开走。</summary>
+    public int Protocol { get; private init; }
+
+    /// <summary>当前放行的方法名，与模组 WabDispatcher 的路由表一一对应。</summary>
+    public IReadOnlyCollection<string> Methods { get; private init; } = Array.Empty<string>();
+
+    /// <summary>跨方法的能力名（hug / headpat / plan 之类），宿主按名字问「这一版支不支持」。</summary>
+    public IReadOnlyCollection<string> Features { get; private init; } = Array.Empty<string>();
+
+    /// <summary>有没有拿到能力表。false = 旧模组，或握手还没走到解析这一步。</summary>
+    public bool Reported => Methods.Count > 0 || Features.Count > 0;
+
+    public bool Supports(string featureOrMethod)
+    {
+        if (!Reported || string.IsNullOrWhiteSpace(featureOrMethod)) return false;
+        return Contains(Methods, featureOrMethod) || Contains(Features, featureOrMethod);
+    }
+
+    private static bool Contains(IReadOnlyCollection<string> names, string name)
+        => names.Contains(name.Trim(), StringComparer.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// 读 hello["capabilities"]。形状不对（不是对象、数组里混了非字符串）只丢坏元素，不整帧报错：
+    /// 能力表是增强信息，读不懂就当它没报。
+    /// </summary>
+    public static MaidCapabilities From(JsonNode? node)
+    {
+        if (node is not JsonObject caps) return None;
+        var methods = ReadNames(caps["methods"]);
+        var features = ReadNames(caps["features"]);
+        if (methods.Count == 0 && features.Count == 0) return None;
+        return new MaidCapabilities
+        {
+            Protocol = BridgeJson.Int(caps, "protocol", 0),
+            Methods = methods,
+            Features = features
+        };
+    }
+
+    /// <summary>名字最长 64 字符、最多 256 条：对端是外部进程，数组长度不该由它决定。</summary>
+    private static HashSet<string> ReadNames(JsonNode? node)
+    {
+        var set = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        if (node is not JsonArray array) return set;
+        foreach (var item in array)
+        {
+            if (set.Count >= 256) break;
+            if (item is JsonValue value && value.TryGetValue<string>(out var name))
+            {
+                var trimmed = (name ?? "").Trim();
+                if (trimmed.Length is > 0 and <= 64) set.Add(trimmed);
+            }
+        }
+        return set;
+    }
+}
+
 /// <summary>轻量 JSON 读取：协议字段可能是数字/字符串/对象，任何类型不符都退回默认值，不让一条坏字段打断整帧。</summary>
 internal static class BridgeJson
 {
