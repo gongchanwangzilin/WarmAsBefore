@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8" ?>
 <ContentPage xmlns:motion="clr-namespace:WarmAsBefore.Helpers" xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:controls="clr-namespace:WarmAsBefore.Controls"
              xmlns:vm="clr-namespace:WarmAsBefore.ViewModels"
              xmlns:conv="clr-namespace:WarmAsBefore.Converters"
              xmlns:i18n="clr-namespace:WarmAsBefore.Services"
@@ -74,8 +75,8 @@
                 HorizontalOptions="Center" VerticalOptions="Center">
             <VerticalStackLayout Spacing="{DynamicResource WSpaceLoose}" HorizontalOptions="Center">
                 <Label Text="播放结束" Style="{StaticResource TxtTitle}" HorizontalOptions="Center" />
-                <Button Text="返回列表" Style="{StaticResource BtnNeumorphSm}" HorizontalOptions="Center"
-                        Command="{Binding BackCommand}" />
+                <controls:GlassButton Text="返回列表" HeightRequest="34" FontSize="11.5" Padding="14,0"
+                        HorizontalOptions="Center" Command="{Binding BackCommand}" />
             </VerticalStackLayout>
         </Border>
     </Grid>

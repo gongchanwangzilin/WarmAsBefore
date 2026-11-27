@@ -1,24 +1,30 @@
 using Microsoft.Maui.Controls.Shapes;
+using WarmAsBefore.DesignSystem.Theme;
 
 namespace WarmAsBefore.Controls;
 
 /// <summary>
-/// iOS 26 液态玻璃滑杆：一根 12 高的玻璃管 + 一条液柱 + 一颗 28 的玻璃环滑钮（2026-11-27 重写）。
+/// iOS 26 液态玻璃滑杆：一根 12 高的玻璃管 + 一条液柱 + 一颗 28 的玻璃环滑钮。
 ///
 /// 几何（全部是本类里的常量，页面不覆写）：
-///   轨道   高 12，两端半圆（胶囊）；
+///   轨道   高 12，两端半圆（胶囊）；**玻璃是真的在画**（<see cref="GlassPlate"/>）：
+///          背后那一块糊底被裁着铺进来，边缘有透镜折射，左上一条镜面弧，下沿有贴边内影；
 ///   液柱   已填充段，横向渐变：左端沉一档、贴滑钮那头提亮 —— 液面被滑钮挤高了一档；
-///   滑钮   直径 28 的玻璃环，环宽 2.8，环心透明（Border 底透明，液柱从环里穿过去看得见）；
+///   滑钮   直径 28 的**空心玻璃环**：只画环带（折射 + 环 + 镜面 + 内影），环心是透的，
+///          液柱从环里穿过去看得见；
 ///   鼓包   环底下一团 32×16 的径向亮斑，轨道在滑钮处被顶起来的那一小块；
 ///   张力   环心那道 2px 的白线 —— 液面与玻璃「贴住了」的唯一证据。
 ///
-/// 颜色全部取令牌（WSliderTrackBrush / WSliderFillBrush / WSliderBulgeBrush /
-/// WSliderRingBrush / WSliderTension / WSliderGlowBrush），所以换世界/明暗时滑杆跟着走，
-/// 这里不出现任何裸色值；页面若显式写了 MinimumTrackColor / MaximumTrackColor / ThumbColor，
-/// 就按页面给的实色画（旧的兼容口，AvatarCropPage 与 MapCreatePage 还在用）。
+/// 为什么轨道与滑钮也要走 GlassPlate：上一版它们是 Border + 渐变画刷，读起来是「一根涂了色的管子」。
+/// 玻璃与涂色的差别不在颜色，在**边缘的内容是错的**（被折射挤过）以及那条会走的高光。
+/// 这两样只有真画才给得出来，所以滑杆和按钮现在共用同一套绘制（GlassFace）。
 ///
-/// 为什么自己画：原生 Slider 的拇指在 WinUI 上是系统灰，两种明暗档下都和纸白地面黏在一起，
-/// 而且它画不出「环心透明 + 液体鼓包 + 外发光」这三层。
+/// 兼容口与以前一字不差：Value / Minimum / Maximum / ValueChanged / MinimumTrackColor /
+/// MaximumTrackColor / ThumbColor。显式给了 MaximumTrackColor 或 ThumbColor 的页面
+/// （AvatarCropPage、MapCreatePage）会自动退回原来那条实色轨道 / 实色环 —— 它们要的是「这一颗钮是红的」，
+/// 不是玻璃。
+///
+/// 为什么自己画：原生 Slider 的拇指在 WinUI 上是系统灰，两种明暗档下都和纸白地面黏在一起。
 /// </summary>
 public sealed class ViewSlider : ContentView
 {
@@ -30,10 +36,12 @@ public sealed class ViewSlider : ContentView
     private const double RowH = 32;
 
     private readonly Border _track;
+    private readonly GlassPlate _trackGlass;
     private readonly Border _fill;
     private readonly Border _bulge;
     private readonly BoxView _tension;
     private readonly Border _thumb;
+    private readonly GlassPlate _thumbGlass;
     private bool _dragging;
     /// <summary>按下那一刻的进度（0..1）。拖动按「从这里起算的差量」走 —— 见 OnPanUpdated。</summary>
     private double _dragFrom;
@@ -93,8 +101,18 @@ public sealed class ViewSlider : ContentView
         propertyChanged: (b, _, n) =>
         {
             var s = (ViewSlider)b;
-            if (n is Color c) s._track.Background = new SolidColorBrush(c);
-            else s._track.SetDynamicResource(VisualElement.BackgroundProperty, "WSliderTrackBrush");
+            if (n is Color c)
+            {
+                s._track.Background = new SolidColorBrush(c);
+                s._track.IsVisible = true;
+                s._trackGlass.IsVisible = false;
+            }
+            else
+            {
+                s._track.SetDynamicResource(VisualElement.BackgroundProperty, "WSliderTrackBrush");
+                s._track.IsVisible = false;
+                s._trackGlass.IsVisible = true;
+            }
         });
 
     public static readonly BindableProperty ThumbColorProperty = BindableProperty.Create(
@@ -102,8 +120,19 @@ public sealed class ViewSlider : ContentView
         propertyChanged: (b, _, n) =>
         {
             var s = (ViewSlider)b;
-            if (n is Color c) s._thumb.Stroke = new SolidColorBrush(c);
-            else s._thumb.SetDynamicResource(Border.StrokeProperty, "WSliderRingBrush");
+            if (n is Color c)
+            {
+                s._thumb.Stroke = new SolidColorBrush(c);
+                s._thumb.StrokeThickness = 2.8;
+                s._thumb.IsVisible = true;
+                s._thumbGlass.IsVisible = false;
+            }
+            else
+            {
+                s._thumb.SetDynamicResource(Border.StrokeProperty, "WSliderRingBrush");
+                s._thumb.IsVisible = false;
+                s._thumbGlass.IsVisible = true;
+            }
         });
 
     public Color? MinimumTrackColor
@@ -130,7 +159,20 @@ public sealed class ViewSlider : ContentView
         HorizontalOptions = LayoutOptions.Fill;
         VerticalOptions = LayoutOptions.Center;
 
+        // 玻璃管：真画出来的那一根。只在页面显式给了 MaximumTrackColor 时让位给实色轨道。
+        _trackGlass = new GlassPlate
+        {
+            HeightRequest = TrackH,
+            CornerRadius = TrackH / 2,
+            Thickness = 0.55,
+            TintAmount = 0.05,
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Fill
+        };
+
+        // 实色轨道：兼容口（MaximumTrackColor）以及没有糊底时的退路，默认不显示。
         _track = Rounded(TrackH);
+        _track.IsVisible = false;
         _track.HorizontalOptions = LayoutOptions.Fill;
         _track.SetDynamicResource(VisualElement.BackgroundProperty, "WSliderTrackBrush");
 
@@ -154,6 +196,22 @@ public sealed class ViewSlider : ContentView
         };
         _tension.SetDynamicResource(BoxView.ColorProperty, "WSliderTension");
 
+        // 玻璃环滑钮：空心（只画环带），环心的液柱从它里面穿过去。
+        _thumbGlass = new GlassPlate
+        {
+            WidthRequest = ThumbD,
+            HeightRequest = ThumbD,
+            CornerRadius = ThumbD / 2,
+            Hollow = true,
+            Thickness = 0.9,
+            VerticalOptions = LayoutOptions.Center,
+            HorizontalOptions = LayoutOptions.Start
+        };
+        var glow = new Shadow { Offset = new Point(0, 0), Radius = 12, Opacity = 1 };
+        glow.SetDynamicResource(Shadow.BrushProperty, "WSliderGlowBrush");
+        _thumbGlass.Shadow = glow;
+
+        // 实色环：兼容口（ThumbColor），默认不显示。
         _thumb = new Border
         {
             WidthRequest = ThumbD,
@@ -163,19 +221,18 @@ public sealed class ViewSlider : ContentView
             StrokeShape = new RoundRectangle { CornerRadius = ThumbD / 2 },
             BackgroundColor = Colors.Transparent,
             InputTransparent = true,
+            IsVisible = false
         };
         _thumb.SetDynamicResource(Border.StrokeProperty, "WSliderRingBrush");
-        // 环宽也走令牌（WSliderRingWidth = 2.8）：粗细是材质的一部分，不是这一颗控件的私事。
         _thumb.SetDynamicResource(Border.StrokeThicknessProperty, "WSliderRingWidth");
-        var glow = new Shadow { Offset = new Point(0, 0), Radius = 12, Opacity = 1 };
-        glow.SetDynamicResource(Shadow.BrushProperty, "WSliderGlowBrush");
-        _thumb.Shadow = glow;
 
         var root = new Grid { HeightRequest = RowH };
+        root.Add(_trackGlass);
         root.Add(_track);
         root.Add(_fill);
         root.Add(_bulge);
         root.Add(_tension);
+        root.Add(_thumbGlass);
         root.Add(_thumb);
         Content = root;
 
@@ -193,6 +250,7 @@ public sealed class ViewSlider : ContentView
                     // SetFromX，于是每次按下滑钮都会先跳到最小值（用户报的「一碰就归零」）。
                     _dragging = true;
                     _dragFrom = RatioOf(Value);
+                    _thumbGlass.Pressed = true;
                     break;
                 case GestureStatus.Running:
                     if (!_dragging) break;
@@ -201,6 +259,7 @@ public sealed class ViewSlider : ContentView
                 case GestureStatus.Completed:
                 case GestureStatus.Canceled:
                     _dragging = false;
+                    _thumbGlass.Pressed = false;
                     SyncThumb();
                     break;
             }
@@ -250,11 +309,15 @@ public sealed class ViewSlider : ContentView
         if (Width <= 0) return;
         var x = RatioOf(Value) * UsableWidth;
         var usable = Math.Max(0, Width);
-        _thumb.TranslationX = Math.Min(x, Math.Max(0, usable - ThumbD));
+        var thumbX = Math.Min(x, Math.Max(0, usable - ThumbD));
+        _thumb.TranslationX = thumbX;
+        _thumbGlass.TranslationX = thumbX;
         // 液柱到滑钮中心为止：环心是透的，液面正好停在环里，像被那颗环盛住。
         _fill.WidthRequest = Math.Min(usable, x + ThumbD / 2);
         // 鼓包比滑钮宽一圈（32 vs 28），两端要夹回轨道内：否则在 0 与满值时会有 2px 探出控件外。
         _bulge.TranslationX = Math.Clamp(x + (ThumbD - BulgeW) / 2, 0, Math.Max(0, usable - BulgeW));
         _tension.TranslationX = Math.Min(usable - TensionW, x + ThumbD / 2 - TensionW / 2);
+        // 滑钮挪了位置 = 它背后的糊底换了：让玻璃重新取一次样（内部有节流，拖动时约 30fps）。
+        _thumbGlass.Repaint();
     }
 }

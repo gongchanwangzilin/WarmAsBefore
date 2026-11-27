@@ -167,12 +167,12 @@
                              给它一颗真的次要钮，它才读得出是「可以按，但不重要」。
                              现在再垫一颗「桌宠设置」：同住体验这一带的第三条路，手机上没有桌宠可以不显。 -->
                         <HorizontalStackLayout Grid.Row="1" Spacing="{DynamicResource WSpaceRegular}">
-                            <Button Text="桌宠设置" Style="{StaticResource BtnGhostSm}"
+                            <controls:GlassButton Text="桌宠设置" HeightRequest="34" FontSize="11.5" Padding="12,0"
                                     IsVisible="{OnIdiom Desktop=True, Tablet=False, Phone=False}"
                                     Clicked="OnPetSettingsTapped" />
-                            <Button x:Name="ExitButton" Grid.Row="1"
+                            <controls:GlassButton x:Name="ExitButton" Grid.Row="1"
                                     Text="{Binding [Title_Exit], Source={x:Static i18n:LocalizationService.Current}}"
-                                    Style="{StaticResource BtnGhostSm}" HorizontalOptions="Start"
+                                    HeightRequest="34" FontSize="11.5" Padding="12,0" HorizontalOptions="Start"
                                     Command="{Binding ExitGameCommand}" />
                         </HorizontalStackLayout>
                     </Grid>
@@ -219,8 +219,10 @@
                         <Label x:Name="HeroTagline" Text="{Binding [Title_Tagline], Source={x:Static i18n:LocalizationService.Current}}"
                                FontSize="{DynamicResource WSizeDisplay}" TextColor="{DynamicResource WarmDark}"
                                HorizontalOptions="Start" LineBreakMode="WordWrap" />
-                        <Button x:Name="EnterButton" Text="{Binding StartLabel}"
-                                Style="{StaticResource BtnSignal}"
+                        <!-- 主行动：真·液态玻璃胶囊。Signal 档把世界强调色混进玻璃本身，
+                             再靠那条镜面弧说「光打在这里」—— 一屏只有它带色。 -->
+                        <controls:GlassButton x:Name="EnterButton" Text="{Binding StartLabel}" Signal="True"
+                                CornerRadius="9999" HeightRequest="{DynamicResource WPillHeight}" Padding="30,0"
                                 HorizontalOptions="Start" MinimumWidthRequest="200"
                                 Command="{Binding StartGameCommand}" />
                     </VerticalStackLayout>
@@ -239,7 +241,8 @@
                                        MaxLines="1" LineBreakMode="TailTruncation" />
                                 <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding RecentMeta}" Style="{StaticResource TxtCaption}" />
                             </VerticalStackLayout>
-                            <Button Grid.Column="1" Text="继续" Style="{StaticResource BtnGhost}"
+                            <controls:GlassButton Grid.Column="1" Text="继续" HeightRequest="40"
+                                    FontSize="13" Padding="18,0"
                                     VerticalOptions="Center" Command="{Binding StartGameCommand}" />
                         </Grid>
                     </Border>
@@ -281,12 +284,12 @@
                     </ScrollView>
                     <FlexLayout Grid.Row="2" Direction="Row" Wrap="Wrap" JustifyContent="Center"
                                 HorizontalOptions="Fill" AlignItems="Center">
-                        <Button Text="不同意并退出" Style="{StaticResource BtnPrimary}"
-                                WidthRequest="170" MinimumHeightRequest="48" Margin="6,4"
-                                BackgroundColor="{DynamicResource SurfaceFg}" TextColor="{DynamicResource WarmDark}"
+                        <controls:GlassButton Text="不同意并退出"
+                                WidthRequest="170" HeightRequest="48" Margin="6,4"
+                                TextColor="{DynamicResource WarmDark}"
                                 Command="{Binding DeclineDisclaimerCommand}" />
-                        <Button Text="同意并继续" Style="{StaticResource BtnPrimary}"
-                                WidthRequest="170" MinimumHeightRequest="48" Margin="6,4"
+                        <controls:GlassButton Text="同意并继续" Signal="True"
+                                WidthRequest="170" HeightRequest="48" Margin="6,4"
                                 Command="{Binding AcknowledgeDisclaimerCommand}" />
                     </FlexLayout>
                 </Grid>

@@ -1702,8 +1702,8 @@
                                             <Label Text="开启后 *-beta 测试版 tag 也会提示更新" Style="{StaticResource TxtCaption}" /></VerticalStackLayout>
                                             <controls:ViewSwitch Grid.Column="1" IsToggled="{Binding BetaChannel}" /></Grid>
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                                            <Button Text="检查更新" Style="{StaticResource BtnPrimary}"
-                                                    Padding="14,6" Command="{Binding CheckUpdateCommand}"
+                                            <controls:GlassButton Text="检查更新" HeightRequest="46"
+                                                    Padding="16,0" Command="{Binding CheckUpdateCommand}"
                                                     IsEnabled="{Binding IsCheckingUpdate, Converter={StaticResource InverseBool}}" />
                                             <Button Grid.Column="1" Text="下载" Style="{StaticResource BtnGhost}"
                                                     Padding="14,6" Command="{Binding DownloadUpdateCommand}"
