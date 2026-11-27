@@ -1,6 +1,7 @@
 using System.Collections.Specialized;
 using System.ComponentModel;
 using WarmAsBefore.Controls;
+using WarmAsBefore.Helpers;
 using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
@@ -15,6 +16,9 @@ public partial class MainGamePhoneView : ContentView
         InitializeComponent();
         _backdrop = new CharacterBackdropPresenter(PhoneCharacterBgA, PhoneCharacterBgB, PhoneCharacterBgHost);
         BindingContextChanged += OnBindingContextChangedInternal;
+        // 手机布局是三段（顶栏 / 舞台 / 输入区）：刘海与手势条的留白加在整块上，
+        // 舞台与聊天列表自己吃满剩下的高度，滚动内容仍能延伸到安全区边缘。
+        SafeArea.Attach(PhoneRoot);
     }
 
     private void OnBindingContextChangedInternal(object? sender, EventArgs e)

@@ -19,6 +19,23 @@ public partial class QqPage : ContentPage
         vm.SetShell("qq");
         BindingContext = vm;
         LoadingVeil.Attach(this, vm, "ContactList", "Messages");
+        SafeArea.Attach(RootGrid);
+        EdgeBack.Attach(this, EdgeBackZone, () => true, GoBackAsync);
+    }
+
+    /// <summary>左缘右滑返回：走的还是顶栏那颗返回键的同一条命令，手势只是它的第二个入口。</summary>
+    private async Task GoBackAsync()
+    {
+        try
+        {
+            if (BindingContext is WeChatViewModel vm && vm.BackCommand.CanExecute(null))
+            {
+                vm.BackCommand.Execute(null);
+                return;
+            }
+            await Shell.Current.GoToAsync("..");
+        }
+        catch (Exception ex) { App.WriteLog("QqPage.GoBack -> " + ex.Message); }
     }
 
     protected override void OnAppearing()

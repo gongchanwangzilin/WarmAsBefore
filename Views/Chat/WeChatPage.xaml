@@ -20,7 +20,7 @@
       品牌色一律 Wc*（WeChatBrand.xaml），静态、不随风格世界与明暗档走。
       所有命令/绑定保持原样，只换皮。
     -->
-<Grid RowDefinitions="56,*" Padding="0">
+<Grid x:Name="RootGrid" RowDefinitions="56,*" Padding="0">
         <Grid.ColumnDefinitions>
             <!-- 全屏对话时两栏真的收成 0 宽，右栏才铺满整窗。 -->
             <ColumnDefinition Width="{Binding RailWidth}" />
@@ -92,8 +92,11 @@
                          Color="{StaticResource WcSep}" />
             </Grid>
 
-        <!-- 中栏：会话列表（搜索 + 新建 + 每行：头像 / 名字 / 最后一条 / 时间 / 未读红点） -->
-        <Grid Grid.Column="1" Grid.Row="1" RowDefinitions="*" BackgroundColor="{StaticResource WcPageBg}"
+        <!-- 中栏：会话列表（搜索 + 新建 + 每行：头像 / 名字 / 最后一条 / 时间 / 未读红点）。
+             竖屏窄屏时这一栏不再占一列，而是从左边推出来的抽屉：列宽归 0，由 code-behind
+             给它 WidthRequest 与 TranslationX，ZIndex 抬到聊天区之上（见 ApplyChrome）。 -->
+        <Grid x:Name="ListHost" Grid.Column="1" Grid.Row="1" RowDefinitions="*" BackgroundColor="{StaticResource WcPageBg}"
+              ZIndex="10"
               IsVisible="{Binding IsFullScreen, Converter={StaticResource InverseBool}}">
 
             <CollectionView Grid.Row="0" ItemsSource="{Binding ContactList}"
@@ -115,6 +118,7 @@
                     <DataTemplate x:DataType="vm:WeChatContactItem">
                         <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Spacing="0">
                             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" Padding="10,9"
+                                  motion:IosCellFeedback.Enabled="True"
                                   BackgroundColor="{StaticResource WcRow}">
                                 <Grid Grid.Column="0" WidthRequest="40" HeightRequest="40">
                                     <BoxView WidthRequest="40" HeightRequest="40" CornerRadius="20"
@@ -162,16 +166,24 @@
             </CollectionView>
         </Grid>
 
-        <!-- Header: 返回 + 头像 + 名字 + 「微信」徽标 -->
+        <!-- Header: 抽屉 + 返回 + 头像 + 名字 + 「微信」徽标 -->
         <Border Grid.Column="2" Grid.Row="0" BackgroundColor="{StaticResource WcHeaderChat}" StrokeThickness="0"
                 Padding="12,0,14,0" >
             <Border.StrokeShape><RoundRectangle CornerRadius="0" /></Border.StrokeShape>
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto" RowDefinitions="Auto,Auto"
+            <Grid ColumnDefinitions="Auto,Auto,Auto,*,Auto" RowDefinitions="Auto,Auto"
                   ColumnSpacing="10" RowSpacing="1">
-                <Button Grid.RowSpan="2" Text="&lt;" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
+                <!-- 抽屉键：只有窄屏（列表收成抽屉）才出现，宽屏上那一栏本来就在左边。 -->
+                <Button x:Name="DrawerButton" Grid.RowSpan="2" IsVisible="False"
+                        Text="&#xE700;" FontFamily="Segoe MDL2 Assets"
+                        Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
+                        FontSize="16" Padding="0" WidthRequest="28" VerticalOptions="Center"
+                        Clicked="OnDrawerButtonClicked" />
+                <!-- 返回：与左缘右滑同一条路（全屏时先退全屏，否则离开微信页）。
+                     不再绑 VM 的 BackCommand —— 那条命令在三栏版里只翻一个不决定显隐的布尔。 -->
+                <Button Grid.RowSpan="2" Grid.Column="1" Text="&lt;" Style="{StaticResource BtnText}" TextColor="{StaticResource WcInk}"
                         FontSize="18" Padding="0" WidthRequest="26" VerticalOptions="Center"
-                        Command="{Binding Source={x:Reference Page}, Path=BindingContext.BackCommand}" />
-                <Grid Grid.RowSpan="2" Grid.Column="1" WidthRequest="36" HeightRequest="36" VerticalOptions="Center">
+                        Clicked="OnBackClicked" />
+                <Grid Grid.RowSpan="2" Grid.Column="2" WidthRequest="36" HeightRequest="36" VerticalOptions="Center">
                     <BoxView WidthRequest="36" HeightRequest="36" CornerRadius="18"
                              Color="{StaticResource WcAvatar}" InputTransparent="True" />
                     <Image Source="{Binding PartnerAvatar}" Aspect="AspectFill"
@@ -182,17 +194,19 @@
                            HorizontalOptions="Center" VerticalOptions="Center" FontAttributes="Bold"
                            IsVisible="{Binding HasPartnerAvatar, Converter={StaticResource InverseBool}}" MaxLines="1" LineBreakMode="TailTruncation" />
                 </Grid>
-                <!-- 名字与副标题各占一行：原来塞进同一个 VerticalStackLayout，两行字紧贴在一起就是「上侧重合」。 -->
-                <Label Grid.Row="0" Grid.Column="2" Text="{Binding PartnerName}"
+                <!-- 名字与副标题各占一行：原来塞进同一个 VerticalStackLayout，两行字紧贴在一起就是「上侧重合」。
+                     名字列是星号列 + 单行截断：再长的名字也不会把右边的全屏键挤出屏幕。 -->
+                <Label Grid.Row="0" Grid.Column="3" Text="{Binding PartnerName}"
                        TextColor="{StaticResource WcInk}" FontSize="15" FontAttributes="Bold"
                        LineBreakMode="TailTruncation" MaxLines="1" VerticalOptions="End"
+                       MinimumWidthRequest="0"
                        FlowDirection="{Binding PartnerName, Converter={StaticResource BidiFlow}}"
                        HorizontalTextAlignment="{Binding PartnerName, Converter={StaticResource BidiAlign}}"
                        ToolTipProperties.Text="{Binding PartnerName}" />
-                <Label Grid.Row="1" Grid.Column="2" Text="{Binding ModeLabel}"
+                <Label Grid.Row="1" Grid.Column="3" Text="{Binding ModeLabel}"
                        TextColor="{StaticResource WcSub}" FontSize="11"
                        LineBreakMode="TailTruncation" MaxLines="1" Margin="0,2,0,0" VerticalOptions="Start" />
-                <HorizontalStackLayout Grid.RowSpan="2" Grid.Column="3" Spacing="6" VerticalOptions="Center">
+                <HorizontalStackLayout Grid.RowSpan="2" Grid.Column="4" Spacing="6" VerticalOptions="Center">
                     <!-- 压测档徽标：与全站同一个组件，压测档没开时宽高为 0 -->
                     <ctl:WorstCaseBadge VerticalOptions="Center" />
                     <!-- F22：全屏对话按钮（进入/退出同一个键，随时可返回） -->
@@ -213,7 +227,7 @@
                         <Label Text="微信" FontSize="11" TextColor="{StaticResource WcAccent}" />
                     </Border>
                 </HorizontalStackLayout>
-                <BoxView Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="4"
+                <BoxView Grid.RowSpan="2" Grid.Column="0" Grid.ColumnSpan="5"
                          VerticalOptions="End" HeightRequest="1" Color="{StaticResource WcSep}" />
             </Grid>
         </Border>
@@ -445,7 +459,7 @@
         </Border>
 
         <!-- 送礼 / 使用面板 -->
-        <Grid Grid.RowSpan="5" IsVisible="{Binding IsGiftPanelVisible}"
+        <Grid Grid.RowSpan="5" ZIndex="30" IsVisible="{Binding IsGiftPanelVisible}"
               BackgroundColor="{DynamicResource OverlayDim}">
             <Border BackgroundColor="{StaticResource WcPageBg}" StrokeThickness="0"
                     Padding="0" Margin="30" VerticalOptions="Center"
@@ -541,5 +555,18 @@
             </Border>
         </Grid>
         </Grid>
+
+        <!-- 抽屉背后的压暗层：只有窄屏抽屉拉开时才出现，点一下关抽屉 -->
+        <BoxView x:Name="DrawerScrim" Grid.ColumnSpan="3" Grid.RowSpan="2" ZIndex="9"
+                 BackgroundColor="#66000000" Opacity="0" IsVisible="False">
+            <BoxView.GestureRecognizers>
+                <TapGestureRecognizer Tapped="OnScrimTapped" />
+            </BoxView.GestureRecognizers>
+        </BoxView>
+
+        <!-- 左缘右滑返回的感应带：18dp，贴屏幕最左边（抽屉与弹层在它之上，所以开着的时候它不起作用） -->
+        <BoxView x:Name="EdgeBackZone" Grid.ColumnSpan="3" Grid.RowSpan="2" ZIndex="5"
+                 WidthRequest="18" HorizontalOptions="Start" VerticalOptions="Fill"
+                 BackgroundColor="#01000000" />
     </Grid>
 </ContentPage>

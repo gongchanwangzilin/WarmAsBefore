@@ -19,7 +19,7 @@
         - 「视频号」入口与微信壳共用「设置 → 外部接入 → 视频号链接」。
       复用同一个 WeChatViewModel（构造后 SetShell("qq")），只换皮与功能开关。
     -->
-    <Grid RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
+    <Grid x:Name="RootGrid" RowDefinitions="Auto,*,Auto,Auto,Auto" Padding="0">
         <!-- 联系人列表层：白底浮在会话之上，点联系人进入单聊 -->
         <Grid Grid.RowSpan="5" IsVisible="{Binding IsContactListVisible}"
               BackgroundColor="{StaticResource QqPageBg}" ZIndex="10">
@@ -60,7 +60,8 @@
                         <DataTemplate x:DataType="vm:WeChatContactItem">
                             <VerticalStackLayout motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" Spacing="0">
                                 <Border BackgroundColor="{StaticResource QqRow}" Padding="14,12">
-                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14">
+                                    <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="14"
+                                          motion:IosCellFeedback.Enabled="True">
                                         <Grid Grid.Column="0" WidthRequest="48" HeightRequest="48">
                                             <BoxView WidthRequest="48" HeightRequest="48" CornerRadius="24"
                                                      Color="{StaticResource QqAvatar}" InputTransparent="True" />
@@ -326,5 +327,9 @@
                         Command="{Binding SendCommand}" />
             </Grid>
         </Border>
+        <!-- 左缘右滑返回的感应带：18dp，贴屏幕最左边；联系人层（ZIndex 10）在它之上 -->
+        <BoxView x:Name="EdgeBackZone" Grid.RowSpan="5" ZIndex="5"
+                 WidthRequest="18" HorizontalOptions="Start" VerticalOptions="Fill"
+                 BackgroundColor="#01000000" />
     </Grid>
 </ContentPage>

@@ -7,7 +7,7 @@
              xmlns:ctl="clr-namespace:WarmAsBefore.Controls"
              xmlns:views="clr-namespace:WarmAsBefore.Views"
              x:Class="WarmAsBefore.Views.MainGamePhoneView">
-        <Grid IsVisible="{Binding IsPhoneLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
+        <Grid x:Name="PhoneRoot" IsVisible="{Binding IsPhoneLayout}" RowDefinitions="Auto,*,Auto,Auto,Auto">
             <!-- Status bar - 旧版固定顶栏：小组件模式关闭时保持原样 -->
             <Border BackgroundColor="#E8F5F0E8" StrokeThickness="0"
                     Padding="16,8" IsVisible="{Binding LegacyPanelsVisible}">
@@ -243,12 +243,15 @@
                         CornerRadius="14" HorizontalOptions="End" VerticalOptions="Center"
                         Margin="0,0,6,0" />
 
-                <!-- #9 用户可选跟上：AI 单独出行后出现（AI 不带用户走时）。 -->
+                <!-- #9 用户可选跟上：AI 单独出行后出现（AI 不带用户走时）。
+                     地点名可能很长（「旧城区 · 第三街区地下通道」）：单行截断 + 限宽，
+                     否则这颗键会把舞台右上角的「跟上」挤出屏幕。 -->
                 <Button Text="{Binding PendingFollowSceneName, StringFormat='跟上到 {0}'}"
                         Command="{Binding FollowAiCommand}"
                         IsVisible="{Binding CanFollowAi}"
                         BackgroundColor="{DynamicResource AccentWarm}" TextColor="{DynamicResource AccentWarmFg}"
                         FontSize="12" Padding="12,4" CornerRadius="16" HeightRequest="32"
+                        MaximumWidthRequest="220" LineBreakMode="TailTruncation"
                         HorizontalOptions="End" VerticalOptions="Start" Margin="0,12,12,0" />
             </Grid>
 

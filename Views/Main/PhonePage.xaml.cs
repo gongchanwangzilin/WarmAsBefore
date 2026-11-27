@@ -20,6 +20,7 @@ public partial class PhonePage : ContentPage
     private readonly Brush? _bodyStroke;
     private double _screenWidth;
     private double _panStartX;
+    private readonly DragVelocity _pagerVelocity = new();
 
     public PhonePage(PhoneViewModel vm)
     {
@@ -32,6 +33,10 @@ public partial class PhonePage : ContentPage
         // 状态栏/时钟要等 OnAppearing 才落值：TimeLabel 初始为空，正好当就绪信号。
         LoadingVeil.Attach(this, vm, "TimeLabel");
         SizeChanged += (_, _) => ApplyFrame();
+        // 安全区：假机身时留的是「屏幕」的内边（刘海与手势条落在机身内），窄屏时就是真机的内边。
+        SafeArea.Attach(ScreenRoot);
+        // 左缘右滑 = 退出这扇手机（与状态栏那颗「‹ 游戏」同一个命令）。
+        EdgeBack.Attach(this, EdgeBackZone, () => true, GoBackAsync);
         if (DeviceInfo.Platform == DevicePlatform.WinUI)
         {
             // 鼠标拖不动 SwipeGestureRecognizer：桌面单独补一条拖拽。
@@ -113,7 +118,7 @@ public partial class PhonePage : ContentPage
         catch (Exception ex) { App.WriteLog("PhonePage.ApplyFrame -> " + ex.Message); }
     }
 
-    private void SetPage(int index, bool animate)
+    private void SetPage(int index, bool animate, double velocity = 0)
     {
         if (_vm is null || _screenWidth <= 0) return;
         index = Math.Clamp(index, 0, _vm.PageCount - 1);
@@ -123,21 +128,22 @@ public partial class PhonePage : ContentPage
         DotTwo.Opacity = index == 1 ? 1 : 0.26;
 
         var target = -index * _screenWidth;
-        if (!animate || MotionTokens.Disabled)
+        if (!animate)
         {
             PagerTrack.AbortAnimation("TranslateTo");
             PagerTrack.TranslationX = target;
             return;
         }
-        _ = SlidePageAsync(target);
+        _ = SlidePageAsync(target, velocity);
     }
 
-    private async Task SlidePageAsync(double target)
+    /// <summary>
+    /// 翻页走手机端同一组弹簧（<see cref="IosMotion.Sheet"/>），并且把松手时的速度带进去：
+    /// 轻轻一拨就到位，慢拖过半屏也是「被推过去」，不是一段匀速的补间。
+    /// </summary>
+    private async Task SlidePageAsync(double target, double velocity = 0)
     {
-        try
-        {
-            await PagerTrack.TranslateTo(target, 0, (uint)MotionTokens.Ms(200), new Easing(MotionTokens.Settle));
-        }
+        try { await IosMotion.SlideToX(PagerTrack, target, velocity, IosMotion.Sheet); }
         catch (Exception ex) { App.WriteLog("PhonePage.SlidePage -> " + ex.Message); }
         finally { PagerTrack.TranslationX = target; }
     }
@@ -152,8 +158,9 @@ public partial class PhonePage : ContentPage
     }
 
     /// <summary>
-    /// 桌面上的拖拽翻页（只接了 Windows 鼠标）。拖过四成屏宽才翻页，
-    /// 指尖抖一下不该把桌面甩到下一页。
+    /// 桌面上的拖拽翻页（只接了 Windows 鼠标：触屏上这条 Pan 会和页内竖向滚动抢手势）。
+    /// 判定与返回手势同一套：拖过 35% 屏宽、或者甩速够快才翻页 ——
+    /// 指尖抖一下不该把桌面甩到下一页，而「快甩一小段」在 iOS 上本来就是翻页的手势。
     /// </summary>
     private void OnPagerPan(object? sender, PanUpdatedEventArgs e)
     {
@@ -166,52 +173,63 @@ public partial class PhonePage : ContentPage
                 case GestureStatus.Started:
                     _panStartX = -index * _screenWidth;
                     PagerTrack.AbortAnimation("TranslateTo");
+                    _pagerVelocity.Reset(PagerTrack.TranslationX);
                     break;
                 case GestureStatus.Running:
                     var x = _panStartX + e.TotalX;
                     // 到头再拖只给一点阻尼：读起来是「到头了」，不是「卡住了」。
                     var over = x > 0 ? x : x < -_screenWidth ? x + _screenWidth : 0;
-                    PagerTrack.TranslationX = Math.Clamp(x, -_screenWidth, 0) + over * 0.28;
+                    var pos = Math.Clamp(x, -_screenWidth, 0) + over * 0.28;
+                    PagerTrack.TranslationX = pos;
+                    _pagerVelocity.Push(pos);
                     break;
                 default:
+                    var v = _pagerVelocity.Resolve();
                     var dx = PagerTrack.TranslationX - _panStartX;
                     var next = index;
-                    if (dx < -_screenWidth * 0.4) next = index + 1;
-                    else if (dx > _screenWidth * 0.4) next = index - 1;
-                    SetPage(next, true);
+                    if (dx < -_screenWidth * 0.35 || v < -PagerFling) next = index + 1;
+                    else if (dx > _screenWidth * 0.35 || v > PagerFling) next = index - 1;
+                    SetPage(next, true, v);
                     break;
             }
         }
         catch (Exception ex) { App.WriteLog("PhonePage.OnPagerPan -> " + ex.Message); }
     }
 
-    /// <summary>
-    /// 点图标：先让图标缩一下再弹回（140ms 以内），然后执行对应命令。
-    /// 命令不挂在手势的 Command 上而是走 CommandParameter —— 否则手势会在 Tapped 之前就执行，
-    /// 动画只能演给已经翻走的那一页看。小游戏的 kind 放 StyleId：参数位被命令本身占住了。
-    /// </summary>
-    private async Task OnAppTappedAsync(object? sender, TappedEventArgs e)
-    {
-        if (sender is not View host || e.Parameter is not ICommand command) return;
-        try
-        {
-            if (!MotionTokens.Disabled)
-            {
-                host.AbortAnimation("ScaleTo");
-                await host.ScaleTo(0.93, 55, Easing.CubicOut);
-                await host.ScaleTo(1, 85, new Easing(MotionTokens.Settle));
-            }
-        }
-        catch { /* 动画被打断也要导航 */ }
-        finally { host.Scale = 1; }
+    /// <summary>翻页的甩速阈值（dp/s）。一根手指横扫桌面大约是 1500~2500。</summary>
+    private const double PagerFling = 700;
 
+    /// <summary>
+    /// 点图标：按下时的缩放由 IosCellFeedback 在指针接触那一刻**直接落值**（不等动画），
+    /// 这里只负责立即执行命令 —— 以前先演 140ms 再导航，读起来是「点了没反应」。
+    /// 命令不挂在手势的 Command 上而是走 CommandParameter：小游戏的 kind 放 StyleId，参数位被命令本身占住了。
+    /// </summary>
+    private Task OnAppTappedCore(object? sender, TappedEventArgs e)
+    {
+        if (sender is not View host || e.Parameter is not ICommand command) return Task.CompletedTask;
         try
         {
             var kind = host.StyleId;
             if (command.CanExecute(kind)) command.Execute(kind);
         }
         catch (Exception ex) { App.WriteLog("PhonePage.OnAppTapped -> " + ex.Message); }
+        return Task.CompletedTask;
     }
+    /// <summary>左缘右滑返回：走状态栏那颗「‹ 游戏」的同一条命令。</summary>
+    private async Task GoBackAsync()
+    {
+        try
+        {
+            if (_vm is { } vm && vm.BackCommand.CanExecute(null))
+            {
+                vm.BackCommand.Execute(null);
+                return;
+            }
+            await Shell.Current.GoToAsync("..");
+        }
+        catch (Exception ex) { App.WriteLog("PhonePage.GoBack -> " + ex.Message); }
+    }
+
     /// <summary>下侧栏「回退」：回到上一屏（桌面分页里往左一页）。</summary>
     private void OnPhoneBackTapped(object? sender, TappedEventArgs e)
     {
@@ -245,7 +263,7 @@ public partial class PhonePage : ContentPage
     }
 
     // 事件入口：Phone 页的处理器都从这里进，异常由 UiGuard 兜住。
-    private void OnAppTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnAppTappedAsync(sender, e), "Phone.OnAppTapped", "操作没成功，已记录日志。请再试一次。");
+    private void OnAppTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnAppTappedCore(sender, e), "Phone.OnAppTapped", "操作没成功，已记录日志。请再试一次。");
     private void OnPhoneSettingsTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnPhoneSettingsTappedAsync(sender, e), "Phone.OnPhoneSettingsTapped", "操作没成功，已记录日志。请再试一次。");
     private void OnTransferToMainTapped(object? sender, TappedEventArgs e) => UiGuard.Run(() => OnTransferToMainTappedAsync(sender, e), "Phone.OnTransferToMainTapped", "操作没成功，已记录日志。请再试一次。");
 }

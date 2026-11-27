@@ -69,7 +69,7 @@
                               Padding="18,10,18,0">
                             <Border BackgroundColor="#26FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1" Padding="7,3"
                                     VerticalOptions="Center"
-                                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                    motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                 <Border.StrokeShape><RoundRectangle CornerRadius="11" /></Border.StrokeShape>
                                 <Border.GestureRecognizers>
                                     <TapGestureRecognizer Command="{Binding BackCommand}" />
@@ -146,7 +146,7 @@
                                             <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 微信 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -172,7 +172,7 @@
 
                                                 <!-- 角色库 -->
                                                 <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -198,7 +198,7 @@
 
                                                 <!-- 地图 -->
                                                 <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -224,7 +224,7 @@
 
                                                 <!-- 换装 -->
                                                 <VerticalStackLayout Grid.Column="3" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -250,7 +250,7 @@
 
                                                 <!-- QQ 壳：青蓝换皮的会话 + 论坛（与微信壳同构，无礼物/支付） -->
                                                 <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -276,7 +276,7 @@
 
                                                 <!-- 回忆录 -->
                                                 <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -305,7 +305,7 @@
                                             <Grid ColumnDefinitions="*,*,*,*" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 素材库 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -331,7 +331,7 @@
 
                                                 <!-- 工坊 -->
                                                 <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -357,7 +357,7 @@
 
                                                 <!-- 世界书 -->
                                                 <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -393,7 +393,7 @@
                                             <Grid ColumnDefinitions="*,*,*,*" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 点名 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -419,7 +419,7 @@
 
                                                 <!-- 商店 -->
                                                 <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -436,7 +436,7 @@
                                                                    HorizontalOptions="Center" VerticalOptions="Center" />
                                                         </Grid>
                                                     </Border>
-                                                    <Label Text="礼物 · 好感" FontSize="9.5" LineBreakMode="NoWrap"
+                                                    <Label Text="礼物 · 道具" FontSize="9.5" LineBreakMode="NoWrap"
                                                            TextColor="{DynamicResource WarmBody}" HorizontalOptions="Center" />
                                                     <VerticalStackLayout.GestureRecognizers>
                                                         <TapGestureRecognizer Tapped="OnAppTapped" CommandParameter="{Binding OpenShopCommand}" />
@@ -449,7 +449,7 @@
                                             <Grid ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto" RowSpacing="{DynamicResource WSpaceLoose}">
                                                 <!-- 五子棋 -->
                                                 <VerticalStackLayout Grid.Column="0" Spacing="7" HorizontalOptions="Center" StyleId="gobang"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -475,7 +475,7 @@
 
                                                 <!-- 斗兽棋 -->
                                                 <VerticalStackLayout Grid.Column="1" Spacing="7" HorizontalOptions="Center" StyleId="animalchess"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -501,7 +501,7 @@
 
                                                 <!-- 飞行棋 -->
                                                 <VerticalStackLayout Grid.Column="2" Spacing="7" HorizontalOptions="Center" StyleId="ludo"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -527,7 +527,7 @@
 
                                                 <!-- 国际象棋 -->
                                                 <VerticalStackLayout Grid.Column="3" Spacing="7" HorizontalOptions="Center" StyleId="chess"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -553,7 +553,7 @@
 
                                                 <!-- 中国象棋 -->
                                                 <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="7" HorizontalOptions="Center" StyleId="chinesechess"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -579,7 +579,7 @@
 
                                                 <!-- 贪吃蛇 -->
                                                 <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="7" HorizontalOptions="Center" StyleId="snake"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -605,7 +605,7 @@
 
                                                 <!-- 围棋 -->
                                                 <VerticalStackLayout Grid.Row="1" Grid.Column="2" Spacing="7" HorizontalOptions="Center" StyleId="go"
-                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                                     <Border WidthRequest="58" HeightRequest="58" Padding="0"
                                                             StrokeThickness="1" Stroke="#33FFFFFF">
                                                         <Border.StrokeShape><RoundRectangle CornerRadius="17" /></Border.StrokeShape>
@@ -664,7 +664,7 @@
                                 <Grid ColumnDefinitions="*,*,*,*">
                                     <!-- Dock · 微信 -->
                                     <VerticalStackLayout Grid.Column="0" HorizontalOptions="Center"
-                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                         <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                                             <Border.Background>
@@ -686,7 +686,7 @@
                                     </VerticalStackLayout>
                                     <!-- Dock · 角色库 -->
                                     <VerticalStackLayout Grid.Column="1" HorizontalOptions="Center"
-                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                         <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                                             <Border.Background>
@@ -708,7 +708,7 @@
                                     </VerticalStackLayout>
                                     <!-- Dock · 回忆录 -->
                                     <VerticalStackLayout Grid.Column="2" HorizontalOptions="Center"
-                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                         <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                                             <Border.Background>
@@ -730,7 +730,7 @@
                                     </VerticalStackLayout>
                                     <!-- Dock · 素材库 -->
                                     <VerticalStackLayout Grid.Column="3" HorizontalOptions="Center"
-                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">
+                                                         motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True" motion:IosCellFeedback.Enabled="True">
                                         <Border WidthRequest="46" HeightRequest="46" Padding="0" StrokeThickness="1" Stroke="#33FFFFFF">
                                             <Border.StrokeShape><RoundRectangle CornerRadius="14" /></Border.StrokeShape>
                                             <Border.Background>
@@ -798,5 +798,11 @@
                 </Grid>
             </Border>
         </Border>
+
+        <!-- 左缘右滑返回：18dp 感应带，盖在整台手机（含假机身）之上。
+             只在从最左边起手时接管，桌面图标、桌面翻页、下侧栏三键都不受影响。 -->
+        <BoxView x:Name="EdgeBackZone" ZIndex="40" WidthRequest="18"
+                 HorizontalOptions="Start" VerticalOptions="Fill"
+                 BackgroundColor="#01000000" />
     </Grid>
 </ContentPage>

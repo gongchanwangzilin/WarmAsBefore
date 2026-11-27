@@ -6,17 +6,12 @@
              x:Name="ThinkBar"
              Padding="0,2,0,2">
     <VerticalStackLayout Spacing="4">
-        <!-- F23/F25：WAB 内部的实时热度条 + 思考开关，按当前模型能力位显示 -->
-        <Grid IsVisible="{Binding ShowHeatSlider}" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="8"
-              VerticalOptions="Center">
-            <Label Grid.Column="0" Text="热度" TextColor="{StaticResource WcFaint}" FontSize="11"
-                   VerticalOptions="Center" />
-            <Slider Grid.Column="1" Minimum="0" Maximum="1" Value="{Binding Heat}"
-                    MinimumTrackColor="{StaticResource WcAccent}" HeightRequest="24"
-                    VerticalOptions="Center" />
-            <Label Grid.Column="2" Text="{Binding Heat, StringFormat='{0:F2}'}"
-                   TextColor="{StaticResource WcFaint}" FontSize="11" VerticalOptions="Center" />
-        </Grid>
+        <!--
+          这里原来有一条「热度」滑条（F23/F25 的实时热度 + 思考档位）。
+          热度已经不再由好感单值决定，改由情绪系统与综合评定给出 —— 单值滑条留着只会说错话，
+          所以整条移除：不留空 Grid、不留 0 高占位，下面几条的间距由 VerticalStackLayout 自己收回去。
+          思考档位、深度思考提示、快速档位按钮都不受影响。
+        -->
 
         <!-- 思考条：显示当前档位 + 思考中进度（仅开关打开时可见） -->
         <Grid IsVisible="{Binding IsBarVisible}"
