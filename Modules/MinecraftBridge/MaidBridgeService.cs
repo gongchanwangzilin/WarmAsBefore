@@ -756,6 +756,15 @@ public sealed partial class MaidBridgeService : IDisposable
                 lock (_sessionGate) _session = session;
                 // 能力表一到手就把工具清单对齐：等 HandshakeAsync 走完才刷新会让模型在一小段窗口里看见抱抱。
                 RefreshCapabilityTools();
+                // 同一份能力同时发布到插件层：插件中心要能看见「这一版模组到底支持什么」，
+                // 而不只是桥内部知道。断开时会 Revoke，不留「沿用上一台游戏」的窗口。
+                PluginCapabilityRegistry.Set(PluginId, new PluginCapabilityReport
+                {
+                    Protocol = session.Capabilities.Protocol,
+                    Methods = session.Capabilities.Methods,
+                    Features = session.Capabilities.Features,
+                    Source = session.BridgeBuild.Length > 0 ? "桥 " + session.BridgeBuild : "运行时",
+                });
                 App.WriteLog($"MaidBridge: 会话 {session.Id} 已建立（{remoteText}）MC {session.GameVersion}/{session.Loader} {session.ModVersion}");
                 if (session.Capabilities.Reported)
                     App.WriteLog($"MaidBridge: 能力握手 protocol={session.Capabilities.Protocol} "
@@ -3101,6 +3110,7 @@ public sealed partial class MaidBridgeService : IDisposable
             _session = null;
         }
         // 会话没了，能力表跟着作废：下一次拼提示词时 maid_hug 必须已经消失。
+        PluginCapabilityRegistry.Revoke(PluginId);
         RefreshCapabilityTools();
         try
         {

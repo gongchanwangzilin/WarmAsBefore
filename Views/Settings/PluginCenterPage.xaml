@@ -95,6 +95,8 @@
                                             </FormattedString>
                                         </Label.FormattedText>
                                     </Label>
+                                    <Label MaxLines="2" LineBreakMode="WordWrap" Text="{Binding CapabilityLabel}" Style="{StaticResource TxtCaption}"
+                                           IsVisible="{Binding HasCapability}" />
                                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding DependenciesLabel}" Style="{StaticResource TxtCaption}"
                                            IsVisible="{Binding HasMissing}" TextColor="{DynamicResource AccentWarmFg}" />
                                     <Label MaxLines="3" LineBreakMode="WordWrap" Text="{Binding Issue}" Style="{StaticResource TxtCaption}"

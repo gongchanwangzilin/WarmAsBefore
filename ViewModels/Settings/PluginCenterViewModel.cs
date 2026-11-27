@@ -43,6 +43,18 @@ public sealed partial class PluginCenterViewModel : ObservableObject
     /// <summary>插件目录。手工拷一份进去也是合法入口，所以把路径亮出来，而不是只给两颗按钮。</summary>
     public string PluginsDirLabel => PluginHost.PluginsDir;
 
+    /// <summary>
+    /// 插件能力的一行话：运行时上报优先（那是这一版对端的事实），没有就用清单声明兜底（作者的意图）。
+    /// 两者都没有就不显示这一行——不编一句「支持全部」出来。
+    /// </summary>
+    private static string CapabilityText(PluginManifest manifest)
+    {
+        var report = WarmAsBefore.Services.PluginCapabilityRegistry.Report(manifest.Id);
+        if (report is not null) return "能力：" + report.Summary();
+        if (manifest.Capabilities.Count > 0) return "能力：" + string.Join(" / ", manifest.Capabilities) + "（声明）";
+        return "";
+    }
+
     public PluginCenterViewModel(PluginHost plugins, ApiGateway api, McpOrchestrator mcp,
         Modules.DataPack.SmartImporter smart)
     {
@@ -109,6 +121,7 @@ public sealed partial class PluginCenterViewModel : ObservableObject
                         },
                         HookLabel = p.Manifest.Hooks.Count == 0 ? "无钩子" : string.Join(" · ", p.Manifest.Hooks.Keys),
                         FirstHook = p.Manifest.Hooks.Keys.FirstOrDefault() ?? "",
+                        CapabilityLabel = CapabilityText(p.Manifest),
                         DependenciesLabel = p.MissingDependencies.Count == 0
                             ? (p.Manifest.Dependencies.Count == 0 ? "" : "依赖已满足")
                             : "缺少依赖：" + string.Join("、", p.MissingDependencies.Select(d => d.Id)),
@@ -1022,6 +1035,9 @@ public sealed partial class PluginRow : ObservableObject
     public string HookLabel { get; init; } = "";
     public string FirstHook { get; init; } = "";
     public string DependenciesLabel { get; init; } = "";
+    /// <summary>这一版插件到底支持什么（运行时上报优先，其次 plugin.json 的声明）。</summary>
+    public string CapabilityLabel { get; init; } = "";
+    public bool HasCapability => CapabilityLabel.Length > 0;
     public List<string> MissingUrls { get; init; } = new();
     public string Issue { get; init; } = "";
 

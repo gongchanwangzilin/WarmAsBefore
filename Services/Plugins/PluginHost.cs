@@ -81,6 +81,14 @@ public sealed class PluginManifest
     public string Author { get; set; } = "";
     /// <summary>可选：插件声明需要哪些能力（只做展示与授权提示，不是安全边界）。</summary>
     public List<string> Permissions { get; set; } = new();
+
+    /// <summary>
+    /// 可选：这个插件声明自己能做什么（例如 wab_minecraft 的 hug / headpat / plan）。
+    /// 有运行时的插件会在连上时上报真实能力，上报优先于声明；没有运行时的插件就靠这一份，
+    /// 让插件中心与工具可见性能说清「装了到底多出了什么」。
+    /// </summary>
+    [JsonPropertyName("capabilities")]
+    public List<string> Capabilities { get; set; } = new();
     public List<PluginDependency> Dependencies { get; set; } = new();
     /// <summary>钩子名 → JS 文件（相对插件目录）。</summary>
     public Dictionary<string, string> Hooks { get; set; } = new(StringComparer.OrdinalIgnoreCase);
