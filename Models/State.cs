@@ -170,6 +170,55 @@ public sealed record AffectionTick
     public DateTime When { get; init; } = DateTime.UtcNow;
 }
 
+/// <summary>
+/// 安全感的一笔原始事件。它只是中间量：给漂移复核看趋势，攒够了一组交给小模型归纳成一条经历。
+/// 不直接展示给玩家——安全感对外只有一个数值。
+/// </summary>
+public sealed record SecurityEventRecord
+{
+    /// <summary>事件类别（<c>SecurityEventRule.Id</c>）。</summary>
+    public string Kind { get; init; } = "";
+    /// <summary>实际生效的增量（已经过特质倍率、信任/经历权重与边界夹取）。</summary>
+    public int Delta { get; init; }
+    public string Note { get; init; } = "";
+    public DateTime At { get; init; } = DateTime.UtcNow;
+}
+
+/// <summary>
+/// 安全感的事件账本：冷却、每日上限、连续同向漂移、待归纳的原始事件。
+/// 它与数值一起放在角色状态里，跟着存档走——重启程序也不能把「今天已经安慰过三次」洗掉。
+/// </summary>
+public sealed record SecurityJournal
+{
+    /// <summary>上次时间结算的时刻：时间漂移按它和现在的差值算。</summary>
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
+    /// <summary>上次说话的时刻：独处过久从它开始计时。</summary>
+    public DateTime LastTurnAt { get; set; }
+    /// <summary>日上限的重置锚点（UTC 日期，yyyy-MM-dd）。</summary>
+    public string Day { get; set; } = "";
+    /// <summary>今天每一类事件已经生效几次。</summary>
+    public Dictionary<string, int> UsedToday { get; init; } = new(StringComparer.Ordinal);
+    /// <summary>每一类事件上次生效的时刻：冷却以真实时间计。</summary>
+    public Dictionary<string, DateTime> LastEventAt { get; init; } = new(StringComparer.Ordinal);
+    /// <summary>连续同向的条数（正=一路往下，负=一路往上）。</summary>
+    public int DriftStreak { get; set; }
+    /// <summary>这段连续同向变化的净点数。</summary>
+    public int DriftNet { get; set; }
+    /// <summary>上次请小模型复核的时刻：复核本身也有冷却。</summary>
+    public DateTime LastReviewAt { get; set; }
+    /// <summary>还没归纳成经历的原始事件（最多留 12 条，多的丢最旧的）。</summary>
+    public List<SecurityEventRecord> Pending { get; init; } = new();
+    /// <summary>已经归纳出的经历条数：压在单次事件上的惯性权重由它决定。</summary>
+    public int Memories { get; set; }
+    public DateTime LastMemoryAt { get; set; }
+    /// <summary>最近一条归纳出的经历（调试与回执用；真正的记忆在人类记忆层）。</summary>
+    public string LastMemory { get; set; } = "";
+    /// <summary>「安全感缺失」是否已经推导过一次：推导只做一次，用户手动移除后不再硬塞回去。</summary>
+    public bool TraitDerived { get; set; }
+    /// <summary>特质从哪来：profile（人物设定里就有缺爱的底色）/ experience（经历把它带出来了）。</summary>
+    public string TraitFrom { get; set; } = "";
+}
+
 public sealed record SaveSlot
 {
     public string Id { get; init; } = Guid.NewGuid().ToString("N")[..12];
@@ -568,6 +617,14 @@ public sealed record UserSettings
     public string BrainAiModel { get; init; } = "";
     /// <summary>免费模型预判的节流：每多少轮问一次。越大越省，默认 8。</summary>
     public int BrainAiEveryTurns { get; init; } = 8;
+
+    // 安全感：数值由系统事件算，小模型只在「归纳经历」与「漂移复核」两个时机被调用。
+    /// <summary>
+    /// 安全感的小模型整理开关（默认开）：关掉后只用系统规则——事件分、特质倍率、冷却与上限照常，
+    /// 但不再把一组事件归纳成经历，也不再做漂移复核（模型给的任何数都要过系统夹取，见 SecurityScale）。
+    /// 端点沿用下面大脑预判的小模型配置：没配模型名就等于没有小模型可用，自动只剩系统规则。
+    /// </summary>
+    public bool SecurityAiEnabled { get; init; } = true;
 
     /// <summary>数值由 AI 控制：好感/信任/精力不再写死，改由 AI 判定增减（回复内联指令为主，未输出时兜底问一次）。
     /// 关闭则回退到旧的固定增量（说一句 +1、动作 +2/+3/+5、精力纯按清醒时长）。</summary>

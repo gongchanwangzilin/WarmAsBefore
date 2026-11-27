@@ -28,6 +28,27 @@
                            TextColor="{DynamicResource AccentWarmFg}" />
                 </VerticalStackLayout>
 
+                <!-- 安全感：与好感同刻度的独立数值，事件驱动；小模型只在两个时机介入 -->
+                <Border Style="{StaticResource CardSolid}">
+                    <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
+                        <VerticalStackLayout Spacing="2">
+                            <Label Text="安全感" Style="{StaticResource TxtSubhead}" MaxLines="1" LineBreakMode="TailTruncation" />
+                            <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding SecurityText}" Style="{StaticResource TxtCaption}"
+                                   TextColor="{DynamicResource AccentWarmFg}" />
+                        </VerticalStackLayout>
+                        <Label Text="被安慰、被倾听会往上走；被忽视、被拒绝触碰、看到你对别人亲密、被辱骂会往下掉；独处过久缓慢下降，一直有人陪缓慢回升。每类事件各有冷却与每日上限，连刷不会连涨。"
+                               Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
+                            <VerticalStackLayout Spacing="2">
+                                <Label Text="小模型整理" Style="{StaticResource TxtBody}" MaxLines="1" LineBreakMode="TailTruncation" />
+                                <Label Text="只在「一串事件归纳成一段经历」和「连续同向漂移的复核」时调用，它给的数值一律经系统夹取。关掉就只剩系统规则。模型沿用大脑预判里配的小模型。"
+                                       Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
+                            </VerticalStackLayout>
+                            <Switch Grid.Column="1" IsToggled="{Binding SecurityAiEnabled}" VerticalOptions="Center" />
+                        </Grid>
+                    </VerticalStackLayout>
+                </Border>
+
                 <!-- 当前生效的状况 -->
                 <VerticalStackLayout BindableLayout.ItemsSource="{Binding Active}" Spacing="{DynamicResource WSpaceRegular}">
                     <BindableLayout.ItemTemplate>
@@ -76,7 +97,7 @@
                     <VerticalStackLayout Spacing="{DynamicResource WSpaceRegular}">
                         <Label Text="添加一条" Style="{StaticResource TxtSubhead}" />
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}">
-                            <Picker Title="选择心理状况（115 条）" ItemsSource="{Binding CatalogNames}"
+                            <Picker Title="选择心理状况（116 条）" ItemsSource="{Binding CatalogNames}"
                                     SelectedItem="{Binding NewCondition}" FontSize="13" />
                             <Picker Grid.Column="1" WidthRequest="100" ItemsSource="{Binding SeverityChoices}"
                                     SelectedItem="{Binding NewSeverity}" FontSize="13" />

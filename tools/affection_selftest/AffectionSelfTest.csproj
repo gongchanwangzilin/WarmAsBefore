@@ -12,5 +12,6 @@
     <!-- 只编译零依赖的好感刻度纯函数，不引用整个 MAUI 工程 -->
     <Compile Include="Program.cs" />
     <Compile Include="../../Helpers/AffectionScale.cs" Link="AffectionScale.cs" />
+    <Compile Include="../../Modules/Affection/SecurityScale.cs" Link="SecurityScale.cs" />
   </ItemGroup>
 </Project>

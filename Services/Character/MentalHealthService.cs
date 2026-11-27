@@ -35,7 +35,7 @@ public sealed class MentalHealthBook
 }
 
 /// <summary>
-/// 心理状态：一个可编辑的目录（115 条，覆盖常见类型、脑与神经相关、创伤与焦虑、
+/// 心理状态：一个可编辑的目录（116 条，覆盖常见类型、脑与神经相关、创伤与焦虑、
 /// 以及「高敏感」这类不算病的特质），加上每个角色身上实际带着的那几条。
 ///
 /// 它只影响「怎么表现」，不替角色做诊断，也不把病名当标签贴在对话里。
@@ -58,6 +58,20 @@ public sealed class MentalHealthService
     }
 
     private string Key => _scope.Key("mental_health");
+
+    /// <summary>
+    /// 安全感数值的只读来源，由 <c>SecurityService</c> 注入（它负责算与存）。
+    /// 心理层只借用它写进提示词，不反向依赖数值层——不然「症状」和「数值」会互相牵着走。
+    /// </summary>
+    public Func<string, int>? SecurityProvider { get; set; }
+
+    /// <summary>某个角色身上是否带着这条特质（按目录 id）。安全感的流失/回复倍率就靠它判定。</summary>
+    public bool HasTrait(string charId, string traitId)
+        => !string.IsNullOrEmpty(traitId) && StatesOf(charId).Any(s => string.Equals(s.Id, traitId, StringComparison.Ordinal));
+
+    /// <summary>某个角色身上那几条的目录 id：导入/经历推导与手动设置都读同一份。</summary>
+    public IReadOnlyList<string> TraitIdsOf(string charId)
+        => StatesOf(charId).Select(s => s.Id).ToList();
 
     private async Task EnsureLoadedAsync()
     {
@@ -191,12 +205,20 @@ public sealed class MentalHealthService
     private static bool ContainsAny(string text, params string[] words)
         => words.Any(w => text.Contains(w, StringComparison.Ordinal));
 
-    /// <summary>人设里的一段：只在真的有状况时出现，不把目录倒给模型。</summary>
+    /// <summary>
+    /// 人设里的一段：只在真的有状况时出现，不把目录倒给模型。
+    /// 安全感是独立的一行（数值由 <see cref="SecurityProvider"/> 提供）：它不挂在任何一条状况上，
+    /// 但正是「此刻有多没底」决定了遇上冷落时是问一句，还是先一步退开。两者都有时并进同一段。
+    /// </summary>
     public string PromptText(string charId)
     {
         var states = StatesOf(charId);
-        if (states.Count == 0) return "";
-        var sb = new System.Text.StringBuilder("【心理状态】这是你正在承受的东西，不是标签，也不要在对话里给自己贴病名。\n");
+        var security = SecurityLine(charId);
+        if (states.Count == 0 && security.Length == 0) return "";
+        var sb = new System.Text.StringBuilder();
+        if (security.Length > 0) sb.Append(security).Append('\n');
+        if (states.Count == 0) return sb.ToString().TrimEnd();
+        sb.Append("【心理状态】这是你正在承受的东西，不是标签，也不要在对话里给自己贴病名。\n");
         foreach (var st in states)
         {
             var c = Find(st.Id);
@@ -215,6 +237,25 @@ public sealed class MentalHealthService
         }
         sb.Append("把它活成细微的反应（停顿、回避、抓紧衣角、忽然沉默），不要每句话都提；被温柔对待时会慢慢放松一点点。");
         return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>
+    /// 安全感的提示词那一行：只说「此刻心里有没有底、会怎么退」，不报数字。
+    /// 低安全感时更倾向回避（少说半句、找借口离开、把伸出去的手收回来），这是特质与数值共同决定的行为倾向。
+    /// </summary>
+    private string SecurityLine(string charId)
+    {
+        if (SecurityProvider?.Invoke(charId) is not { } value || value < 0) return "";
+        var deficit = HasTrait(charId, Modules.Affection.SecurityScale.DeficitTraitId);
+        var bias = Modules.Affection.SecurityScale.AvoidanceBias(value, deficit);
+        var text = bias switch
+        {
+            >= 0.7 => "【安全感】此刻你心里很没底：对方一冷淡，你的第一反应是退开——说话变短、找借口离开、把伸出去的手收回来。不要解释这些，让它从动作里透出来。",
+            >= 0.4 => "【安全感】此刻你心里有些悬：被忽视时会先怪自己，被亲近时又不太敢全信。用停顿和试探代替直说。",
+            >= 0.2 => "【安全感】你还在慢慢放下戒心：被稳定对待时会更放松一点，被冷不丁晾一下会微微绷紧。",
+            _ => "【安全感】你此刻是安心的：不太怕对方会走，遇上冷落也愿意先问一句而不是先退开。"
+        };
+        return deficit ? text + "（你本来就不太相信关系能一直在，这个底色一直在。）" : text;
     }
 
     /// <summary>硬性安全边界：存在自伤/自杀/暴力冲动或重度症状时追加。</summary>
@@ -253,7 +294,7 @@ public sealed class MentalHealthService
     }
 
     /// <summary>
-    /// 115 条目录。严重度只是「常见起点」，实际以角色身上那条为准。
+    /// 116 条目录。严重度只是「常见起点」，实际以角色身上那条为准。
     /// 不作诊断用，只作叙事与共情的素材。
     /// </summary>
     public static readonly IReadOnlyList<MentalCondition> Catalog = new List<MentalCondition>
@@ -386,6 +427,9 @@ public sealed class MentalHealthService
 
         // —— 敏感与轻微特质（不算病，是一种体质） ——
         new("hsp", "高敏感体质", "特质", 1, "对声音、情绪与细节的感受更强烈", "容易被环境和别人的情绪淹没"),
+        new("security_deficit", "安全感缺失", "特质", 1,
+            "不太相信关系会一直在，靠近时先一步退开，被冷落时先怪自己",
+            "被安慰时不敢全信，被忽视时又不敢问；宁可先离开，也不等被丢下。安全感想存起来很难，花掉却很快"),
         new("empathy_overload", "共情过载", "特质", 1, "过度吸收他人的情绪，难以抽离", "听完别人的事，自己缓不过来"),
         new("emotional_sponge", "情绪海绵", "特质", 1, "不自觉地吸收周围人的情绪", "房间里有人不高兴，自己也会沉下去"),
         new("sound_sensitivity", "声音敏感", "特质", 1, "对特定声音难以忍受", "听到咀嚼声就烦躁"),

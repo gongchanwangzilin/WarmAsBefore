@@ -11,6 +11,8 @@ public sealed partial class MentalHealthViewModel : ObservableObject
     private readonly GameEngine _engine;
     private readonly MentalHealthService _mental;
     private readonly CharacterLibrary _chars;
+    private readonly SecurityService _security;
+    private readonly SettingsManager _settings;
 
     public ObservableCollection<MentalRow> Active { get; } = new();
     public List<string> CatalogNames { get; } = MentalHealthService.Catalog.Select(c => c.Name).ToList();
@@ -23,11 +25,20 @@ public sealed partial class MentalHealthViewModel : ObservableObject
     [ObservableProperty] private string _newSeverity = "轻度";
     [ObservableProperty] private string _newNote = "";
 
-    public MentalHealthViewModel(GameEngine engine, MentalHealthService mental, CharacterLibrary chars)
+    /// <summary>安全感的当前读数（级数 + 此刻的回避倾向）；没有角色时为空。</summary>
+    [ObservableProperty] private string _securityText = "";
+    /// <summary>安全感的小模型整理开关：关掉后只剩系统规则（事件分、冷却、日上限照常）。</summary>
+    [ObservableProperty] private bool _securityAiEnabled = true;
+
+    public MentalHealthViewModel(GameEngine engine, MentalHealthService mental, CharacterLibrary chars,
+        SecurityService security, SettingsManager settings)
     {
         _engine = engine;
         _mental = mental;
         _chars = chars;
+        _security = security;
+        _settings = settings;
+        _securityAiEnabled = settings.Current.SecurityAiEnabled;
         _ = LoadAsync();
     }
 
@@ -38,6 +49,7 @@ public sealed partial class MentalHealthViewModel : ObservableObject
             var id = _engine.State.CharacterId;
             HasCharacter = !string.IsNullOrWhiteSpace(id);
             Active.Clear();
+            SecurityText = "";
             if (!HasCharacter)
             {
                 CharacterLabel = "还没有进入存档";
@@ -64,12 +76,22 @@ public sealed partial class MentalHealthViewModel : ObservableObject
             Status = Active.Count == 0
                 ? "还没有设置。目录共 " + MentalHealthService.Catalog.Count + " 条；只写当前角色，换存档不串。"
                 : $"当前生效 {Active.Count} 条；严重度与稳定度会随对话慢慢变化。";
+            SecurityText = _security.Describe(id);
         }
         catch (Exception ex)
         {
             Status = "读取失败：" + ex.Message;
             App.WriteLog("MentalHealthViewModel.Load -> " + ex);
         }
+    }
+
+    /// <summary>小模型整理开关写回设置：关掉后安全感只剩系统规则（数值照算，不再归纳经历/复核漂移）。</summary>
+    partial void OnSecurityAiEnabledChanged(bool value)
+    {
+        if (_settings.Current.SecurityAiEnabled == value) return;
+        _settings.Apply(_settings.Current with { SecurityAiEnabled = value });
+        _ = _settings.Persist();
+        Status = value ? "小模型整理已开启：只在归纳经历与漂移复核时介入，结论仍要过系统夹取。" : "只按系统规则走：事件分、特质倍率、冷却与日上限照常，不再调用模型。";
     }
 
     [RelayCommand]

@@ -626,9 +626,12 @@ public sealed partial class MainGameViewModel : ObservableObject
     private void AwardAffection(int legacyDelta)
     {
         if (_char is null) return;
+        // 安全感整合：安全感低时好感增益打折（×0.6～1.0），安全感高时衰减更慢（×1.25～0.75）。
+        // 折扣是纯函数（Modules.Affection.SecurityScale），数值本身由 SecurityService 按事件维护。
+        var delta = Modules.Affection.SecurityScale.ScaleAffection(legacyDelta, _char.State.Security);
         var levelBefore = Helpers.AffectionScale.LevelOf(_char.State.Affection);
         var after = Helpers.AffectionScale.Clamp(
-            _char.State.Affection + Helpers.AffectionScale.FromLegacy(legacyDelta));
+            _char.State.Affection + Helpers.AffectionScale.FromLegacy(delta));
         _char.State.Affection = after;
         Affection = after;      // 触发 OnAffectionChanged：落回状态 + 重算本级进度与文案
 
