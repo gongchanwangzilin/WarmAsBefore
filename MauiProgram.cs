@@ -23,25 +23,18 @@ public static class MauiProgram
             // （Android: AndroidSurfaceView+Vulkan / Windows: SwapChainPanel+DX11）。
             .ConfigureMauiHandlers(h => h.AddHandler<EvergineWeatherView, EvergineWeatherViewHandler>());
 
-        // Windows 的 Entry/Editor 自带一层系统边框（TextBox 的 BorderThickness + 焦点底色）。
-        // 页面自己画了圆角框时，两层框会一起出现。只对显式标了 StyleId="WabPlainInput" 的输入框剥掉。
+        // Windows 的输入控件自带一层系统皮肤（TextBox/ComboBox 的边框、圆角、焦点矩形、填充色）。
+        // 页面已经用玻璃面与令牌把那一格画好了，系统再压一层就出现「两个框」，而且它落在所有令牌
+        // 之外 —— 这正是用户说的「像另一个图层」。这里**全部**剥掉，不再是按 StyleId 逐个 opting-in：
+        // 一个界面里只要有一个控件还穿着系统皮，整块就散了。
 #if WINDOWS
-        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("WabPlainInput", (handler, view) =>
-        {
-            if (!string.Equals((view as Microsoft.Maui.Controls.Element)?.StyleId, "WabPlainInput", StringComparison.Ordinal)) return;
-            handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
-            handler.PlatformView.Background = null;
-            handler.PlatformView.Padding = new Microsoft.UI.Xaml.Thickness(0);
-            handler.PlatformView.MinHeight = 0;
-            handler.PlatformView.FocusVisualPrimaryThickness = new Microsoft.UI.Xaml.Thickness(0);
-            handler.PlatformView.FocusVisualSecondaryThickness = new Microsoft.UI.Xaml.Thickness(0);
-        });
-        Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping("WabPlainInput", (handler, view) =>
-        {
-            if (!string.Equals((view as Microsoft.Maui.Controls.Element)?.StyleId, "WabPlainInput", StringComparison.Ordinal)) return;
-            handler.PlatformView.BorderThickness = new Microsoft.UI.Xaml.Thickness(0);
-            handler.PlatformView.Background = null;
-        });
+        Microsoft.Maui.Handlers.EntryHandler.Mapper.AppendToMapping("WabSkin", (handler, view) =>
+            WarmAsBefore.Platforms.Windows.InputSkin.Apply(handler.PlatformView));
+        Microsoft.Maui.Handlers.EditorHandler.Mapper.AppendToMapping("WabSkin", (handler, view) =>
+            WarmAsBefore.Platforms.Windows.InputSkin.Apply(handler.PlatformView));
+        Microsoft.Maui.Handlers.PickerHandler.Mapper.AppendToMapping("WabSkin", (handler, view) =>
+            WarmAsBefore.Platforms.Windows.InputSkin.Apply(handler.PlatformView));
+
 #endif
 
         builder.Services
