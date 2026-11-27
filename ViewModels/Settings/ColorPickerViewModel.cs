@@ -115,14 +115,27 @@ public sealed partial class ColorPickerViewModel : ObservableObject
         _invalidate?.Invoke();
     }
 
-    /// <summary>起点：存过的自选色 → 当前地面色 → 兜底暖白。</summary>
+    /// <summary>
+    /// 起点：这条线自己存过的自选色 → 当前地面色 → 兜底暖白。
+    /// 给页面挑色时读 PageTintHex，否则会拿背景色当起点，一确认就把背景色抄进了页面色。
+    /// </summary>
     private Color StartColor()
     {
-        var saved = _settings.Current.BackgroundSolidHex;
+        var saved = ColorPickerHandoff.Current == ColorPickerHandoff.Target.Page
+            ? _settings.Current.PageTintHex
+            : _settings.Current.BackgroundSolidHex;
         if (!string.IsNullOrWhiteSpace(saved) && Color.TryParse(saved.Trim(), out var picked)) return picked;
         if (Application.Current?.Resources.TryGetValue("PageBg", out var res) == true && res is Color pageBg) return pageBg;
         return Color.FromRgb(0.99f, 0.97f, 0.94f);
     }
+
+    /// <summary>
+    /// 预览说明跟着这次的线走：两块色都要看同一张「地 + 半透明卡面」的预览，
+    /// 但用户得先知道自己改的是哪一层 —— 否则挑了蓝色回来发现只是玻璃后面变了，会当成没生效。
+    /// </summary>
+    public string PreviewHint => ColorPickerHandoff.Current == ColorPickerHandoff.Target.Page
+        ? "你看到的是这块色当页面底时的样子：卡片与页面自己的底色由它决定，玻璃背后透出什么另由背景色决定。"
+        : "你看到的是这块色当地面时的样子：底下那层是它，上面压的是一张半透明的卡面。玻璃透出来的颜色由它决定。";
 
     /// <summary>HSV → RGB。不用 HSL：SV 方块的横纵两轴就是 S 与 V，换一套色空间会对不上。</summary>
     private static Color FromHsv(double h, double s, double v)

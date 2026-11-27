@@ -1024,6 +1024,10 @@ public sealed class RuntimeConfigurator
 
         // 玻璃效果：毛玻璃是磨砂的高级版，ThemeManager 内部已保证依赖。
         // 只有相关设置真的变了才下发——主题一变会重算画刷并通知订阅者，整页都要重排。
+        // 页面色是世界的色相种子（不是色板）：它变了也要走这条主题下发，
+        // 因为 Publish 只在这个分支被请求重算。单独先算出来，后面判定「要不要重发」时复用。
+        var pageTintChanged = prev is null
+            || !string.Equals(prev.PageTintHex, s.PageTintHex, StringComparison.OrdinalIgnoreCase);
         var themeChanged = prev is null
             || prev.FrostEnabled != s.FrostEnabled || prev.GlassEnabled != s.GlassEnabled
             || prev.LiquidEnabled != s.LiquidEnabled || Math.Abs(prev.GlassTranslucency - s.GlassTranslucency) > 1e-6
@@ -1033,6 +1037,7 @@ public sealed class RuntimeConfigurator
             || prev.GlassLightZ != s.GlassLightZ || prev.GlassLightWidth != s.GlassLightWidth
             || prev.LightMode != s.LightMode
             || !string.Equals(prev.ThemeName, s.ThemeName, StringComparison.Ordinal)
+            || pageTintChanged
             || !string.Equals(prev.StyleWorldName, s.StyleWorldName, StringComparison.Ordinal);
         if (themeChanged)
         {
@@ -1047,6 +1052,11 @@ public sealed class RuntimeConfigurator
             _theme.ThemeName = WarmAsBefore.DesignSystem.Theme.ThemeManager.LockedPalette;
             // 材质由世界决定，三个玻璃布尔只留下「这一档该多透」的调制量。
             _theme.World = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.FromName(s.StyleWorldName);
+            // 页面色是世界的色相种子，不是 ThemeManager 的属性轴：直接写进世界的读口，
+            // 再请求重发一遍令牌。改的是种子而不是色板，所以必须显式要一次重算 ——
+            // ThemeName 那条路锁死终末地之后不会再变，等不到它的 setter 来触发。
+            WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.PageTintHex = (s.PageTintHex ?? "").Trim();
+            if (pageTintChanged) _theme.Republish();
             // 终末地配色是「暗色 HUD」：强制暗色令牌（原生标题栏/控件也跟着走）。
             // 色板锁死之后这条一直成立（不再有「离开终末地」的分支）；强制的是界面明暗，不改系统设置。
             try

@@ -443,6 +443,13 @@ public sealed record UserSettings
     /// 它只改「背后透出来的是什么」，不动主题令牌 —— 卡片、文字、强调色仍是当前世界的。
     /// </summary>
     public string BackgroundSolidHex { get; init; } = "";
+    /// <summary>
+    /// 页面色（<c>#RRGGBB</c> 或 <c>#AARRGGBB</c>）：页面底、卡面、井这三档地的色相与彩度出处。
+    /// 空串 = 跟色板走（仍由当前色板推导）。
+    /// 与 <see cref="BackgroundSolidHex"/> 是两条独立的轴：它只改界面自己的地色（PageBg / SurfaceBg / WellBg），
+    /// 不动玻璃背后透出什么；明度台阶也仍由明暗与世界的 Depth 决定，它只决定「这是一块什么颜色的纸」。
+    /// </summary>
+    public string PageTintHex { get; init; } = "";
     /// <summary>统一背景调色板 id。色板轴已锁定终末地（2026-11-27）：旧存档里的其它值读得进来，
     /// 但界面一律按 endfield 渲染，落盘也会被改写成它。</summary>
     public string BackgroundPaletteId { get; init; } = DesignSystem.Theme.ThemeManager.LockedPalette;
