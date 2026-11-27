@@ -162,8 +162,10 @@
         <Setter Property="FontSize" Value="{DynamicResource WSizeBody}" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="CornerRadius" Value="{DynamicResource WRadiusButton}" />
-        <Setter Property="HeightRequest" Value="{DynamicResource WPillHeight}" />
-        <Setter Property="MinimumHeightRequest" Value="{DynamicResource WPillHeight}" />
+        <!-- 高度与 BtnPrimary 对齐（46）：原来这一档吃 WPillHeight（≈42），
+             同一屏里两颗主按钮差 4px，眼睛读成「其中一颗没做完」。 -->
+        <Setter Property="HeightRequest" Value="46" />
+        <Setter Property="MinimumHeightRequest" Value="44" />
         <Setter Property="Padding" Value="30,0" />
         <Setter Property="BorderWidth" Value="{DynamicResource GlassButtonStrokeThickness}" />
         <Setter Property="BorderColor" Value="{DynamicResource GlassButtonRing}" />

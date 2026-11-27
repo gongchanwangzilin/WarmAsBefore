@@ -288,8 +288,40 @@ public class GlassPlate : ContentView
             x, y, pw, ph, TintAmount);
     }
 
-    /// <summary>丢弃这一帧的位图并立刻问一次（缓存命中时几乎零成本）。</summary>
-    internal Microsoft.Maui.Graphics.IImage? Face() => GlassFace.Get(CurrentParams());
+    /// <summary>
+    /// 问一次这块玻璃的位图。缓存命中直接拿到；未命中返回**上一次那张**（尺寸没变时照旧画），
+    /// 同时后台开始合成，好了一帧之后再来要。所以玻璃永远不闪白：宁可慢半帧换新衣，也不要一帧空白。
+    ///
+    /// 尺寸变了（窗口缩放）就不再复用旧的：拉伸一张旧尺寸的位图会把折射与棱拉歪。
+    /// </summary>
+    internal Microsoft.Maui.Graphics.IImage? Face()
+    {
+        var image = GlassFace.Get(CurrentParams(), RequestRepaint);
+        if (image is not null)
+        {
+            _last = image;
+            _lastW = Width;
+            _lastH = Height;
+            return image;
+        }
+        return Math.Abs(_lastW - Width) < 2 && Math.Abs(_lastH - Height) < 2 ? _last : null;
+    }
+
+    private Microsoft.Maui.Graphics.IImage? _last;
+    private double _lastW, _lastH;
+    private bool _repaintQueued;
+
+    /// <summary>后台合成完成：合并成一次重画（同一帧里堆十次 Invalidate 等于画十次）。</summary>
+    private void RequestRepaint()
+    {
+        if (_repaintQueued) return;
+        _repaintQueued = true;
+        Dispatcher.Dispatch(() =>
+        {
+            _repaintQueued = false;
+            if (IsLoaded) _canvas.Invalidate();
+        });
+    }
 
     /// <summary>
     /// GraphicsView 的画笔：只做一次 DrawImage。每帧向 <see cref="GlassFace"/> 要位图 ——

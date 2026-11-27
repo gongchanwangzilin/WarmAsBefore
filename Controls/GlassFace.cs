@@ -68,8 +68,8 @@ internal static class GlassFace
     /// </summary>
     private const float RefractGain = 1.08f;
 
-    /// <summary>环带的档数。四档在 7px 上每档不到 2px，肉眼即渐变；再多只是多画一遍。</summary>
-    private const int RefractBands = 4;
+    // 环带档数不再写死：档数就是「层」，由 GlassLayers 按这台机器给（4~32 档）。
+    // 四档是最低档，够读成渐变；三十二档时 7px 上每档 0.2px，边缘那一下弯折连成一条真正的弧。
 
     /// <summary>缓存上限：一屏的玻璃块数远小于它，多了说明页面在不停换尺寸。</summary>
     private const int MaxCached = 64;
@@ -85,42 +85,113 @@ internal static class GlassFace
     private static readonly Dictionary<string, Microsoft.Maui.Graphics.IImage> Cache = new();
     private static readonly Queue<string> Order = new();
 
-    /// <summary>取这块玻璃的位图（合成或命中缓存）。返回 null 表示这次画不出来，调用方画兜底渐变。</summary>
-    public static Microsoft.Maui.Graphics.IImage? Get(in GlassFaceParams p)
+    /// <summary>
+    /// 取这块玻璃的位图。命中缓存时**同步**返回；未命中时返回 null，并把合成排到后台线程 ——
+    /// 合成完在 UI 线程回调 <paramref name="ready"/>，调用方据此重画一次。
+    ///
+    /// 为什么必须异步：一块玻璃的合成是几十到几百次 Skia 绘制（层数由 <see cref="GlassLayers"/>
+    /// 按机器给）。放在 Draw 里同步做，滚动或切页时几十块连续 miss，UI 线程就掉帧 —— 用户说的
+    /// 「一卡一卡的」有一半来自这里。挪到后台之后，UI 线程每帧只剩一次 DrawImage。
+    /// </summary>
+    public static Microsoft.Maui.Graphics.IImage? Get(in GlassFaceParams p, Action? ready = null)
     {
         if (!(p.Width > 0.5) || !(p.Height > 0.5)) return null;
+        // 键里要读应用资源（色调指纹），必须在 UI 线程算好。
         var key = KeyOf(p);
         lock (Gate)
         {
             if (Cache.TryGetValue(key, out var hit)) return hit;
+
+            if (Waiters.TryGetValue(key, out var list)) list.Add(ready);
+            else Waiters[key] = new List<Action> { ready };
+
+            if (!InFlight.Add(key)) return null;   // 同一个键已经在算，等它算完就行
         }
 
-        Microsoft.Maui.Graphics.IImage? image;
-        try
+        // 色调快照：后台线程不许碰 Application.Current.Resources，所以颜色与两个标量在这里取好。
+        // 参数是 in 的（避免每帧拷结构），lambda 里不能捕获 ref/in —— 先落成一份本地值。
+        var tint = SnapshotTint();
+        var face = p;
+        _ = Task.Run(() =>
         {
-            image = Compose(p);
-        }
-        catch (Exception ex)
-        {
-            App.WriteLog("GlassFace.Compose -> " + ex.Message);
-            return null;
-        }
-        if (image is null) return null;
-
-        lock (Gate)
-        {
-            if (Cache.TryAdd(key, image))
+            Microsoft.Maui.Graphics.IImage? image = null;
+            try
             {
-                Order.Enqueue(key);
-                while (Order.Count > MaxCached)
+                var watch = System.Diagnostics.Stopwatch.StartNew();
+                image = Compose(face, tint);
+                watch.Stop();
+                GlassLayers.Report(watch.Elapsed.TotalMilliseconds);
+            }
+            catch (Exception ex)
+            {
+                App.WriteLog("GlassFace.Compose -> " + ex.Message);
+            }
+
+            if (image is not null)
+            {
+                lock (Gate)
                 {
-                    var old = Order.Dequeue();
-                    if (Cache.Remove(old, out var dead)) (dead as IDisposable)?.Dispose();
+                    if (Cache.TryAdd(key, image))
+                    {
+                        Order.Enqueue(key);
+                        while (Order.Count > MaxCached)
+                        {
+                            var old = Order.Dequeue();
+                            // 正在被画着的那张不能立刻释放：只从表里摘掉，交给 GC。
+                            Cache.Remove(old);
+                        }
+                    }
+                    else
+                    {
+                        (image as IDisposable)?.Dispose();
+                    }
                 }
             }
-        }
-        return image;
+
+            lock (Gate) InFlight.Remove(key);
+
+            // 回调必须在 UI 线程：控件那边要 Invalidate。
+            Helpers.Ui.Post(() =>
+            {
+                Action[]? callbacks;
+                lock (Gate)
+                {
+                    if (!Waiters.Remove(key, out var list)) return;
+                    callbacks = list.Where(c => c is not null).ToArray()!;
+                }
+                foreach (var cb in callbacks)
+                {
+                    try { cb(); }
+                    catch (Exception ex) { App.WriteLog("GlassFace.Ready -> " + ex.Message); }
+                }
+            });
+        });
+
+        return null;
     }
+
+    /// <summary>正在合成中的键（去重：同一块玻璃一帧里被问十次也只算一次）。</summary>
+    private static readonly HashSet<string> InFlight = new();
+
+    /// <summary>每个键上等结果的回调（调用方拿到就重画一次）。</summary>
+    private static readonly Dictionary<string, List<Action>> Waiters = new();
+
+    /// <summary>
+    /// 一块玻璃要用的全部颜色与标量，在 UI 线程上取好打包。
+    /// 绘制代码里的 <see cref="Token"/> / <see cref="TintWeight"/> / <see cref="SpecularPeak"/>
+    /// 在后台线程上读的就是这份快照（线程静态），因此绘制的每一行都不用知道自己在哪个线程。
+    /// </summary>
+    internal readonly record struct Tint(
+        SKColor Top, SKColor Mid, SKColor Low,
+        SKColor EdgeHi, SKColor EdgeMid, SKColor EdgeLo,
+        double Weight, double Specular, string Signature);
+
+    [ThreadStatic] private static Tint? _live;
+
+    private static Tint SnapshotTint() => new(
+        Token("GTintTop", "#FEFCF8"), Token("GTintMid", "#FDF8F0"), Token("GTintLow", "#E8DCC8"),
+        Token("GEdgeHi", "#FFFFFF"), Token("GEdgeMid", "#FDF6EE"), Token("GEdgeLo", "#8B7D6B"),
+        TintWeight(), SpecularPeak(), TintSignature());
 
     /// <summary>缓存键：只带「影响像素的」量，浮点全部落到一位小数，避免亚像素抖动把缓存打成碎片。</summary>
     private static string KeyOf(in GlassFaceParams p) => string.Join('|',
@@ -132,7 +203,14 @@ internal static class GlassFace
 
     // ── 合成 ────────────────────────────────────────────────────────────
 
-    private static Microsoft.Maui.Graphics.IImage? Compose(in GlassFaceParams p)
+    private static Microsoft.Maui.Graphics.IImage? Compose(in GlassFaceParams p, in Tint tint)
+    {
+        _live = tint;
+        try { return ComposeCore(p); }
+        finally { _live = null; }
+    }
+
+    private static Microsoft.Maui.Graphics.IImage? ComposeCore(in GlassFaceParams p)
     {
         var density = p.Density is > 0.1 and < 8 ? p.Density : 1.0;
         var w = Math.Max(4, (int)Math.Round(p.Width * density));
@@ -239,13 +317,14 @@ internal static class GlassFace
 
         var radius = (float)Math.Clamp(p.Radius * density, 0, Math.Min(w, h) * 0.5f);
         var boost = p.Pressed ? 1.15 : p.Hover ? 1.08 : 1.0;
+        var bands = GlassLayers.RefractionBands;
 
-        for (var i = 0; i < RefractBands; i++)
+        for (var i = 0; i < bands; i++)
         {
-            var o0 = band * i / RefractBands;
-            var o1 = band * (i + 1) / RefractBands;
+            var o0 = band * i / bands;
+            var o1 = band * (i + 1) / bands;
             using var ring = Ring(0, 0, w, h, radius, o0, o1);
-            var t = (i + 0.5) / RefractBands;
+            var t = (i + 0.5) / bands;
             var weight = (float)(Math.Pow(1 - t, 1.4) * 0.62 * boost);
             if (weight < 0.01f) continue;
 
@@ -269,14 +348,16 @@ internal static class GlassFace
         var thick = Math.Clamp(p.Thickness, 0, 1.4) / 1.15;
         var lit = (p.Pressed ? 1.25 : p.Hover ? 1.10 : 1.0) * (0.55 + 0.75 * thick);
 
-        var passes = new (float Inset, float Width, float Alpha)[]
+        // 圈数由预算给（3~14）。每一圈都是独立的描边，越往里越窄越淡，
+        // 圈多了读成「一段连续的弧面」，圈少了就是三条线 —— 这就是层数的差别。
+        var count = GlassLayers.WallPasses;
+        for (var i = 0; i < count; i++)
         {
-            ((float)(0.6 * density), (float)(3.6 * density), 0.16f),
-            ((float)(1.9 * density), (float)(2.2 * density), 0.13f),
-            ((float)(3.2 * density), (float)(1.2 * density), 0.10f)
-        };
-        foreach (var (inset, width, alpha) in passes)
-        {
+            var u = count == 1 ? 0 : i / (double)(count - 1);
+            var inset = (float)((0.6 + u * 3.2) * density);
+            var width = (float)((3.6 - u * 2.4) * density / Math.Sqrt(count) * 1.2);
+            var alpha = (float)(0.16 - u * 0.06) * (count <= 3 ? 1f : 0.72f);
+            if (width < 0.6f) width = (float)(0.8 * density);
             if (w - 2 * inset < 2 || h - 2 * inset < 2) continue;
             using var path = Rounded(inset, inset, w - 2 * inset, h - 2 * inset,
                 Math.Max(1f, radius - inset));
@@ -339,16 +420,34 @@ internal static class GlassFace
 
         // ① 柱面里的内容：糊底沿竖直方向压到 0.55 倍再铺一次。
         //    压缩会把「远处的内容」拉进这条带里 —— 这就是光绕过一个圆柱面时看到的东西。
-        canvas.Save();
-        if (top) canvas.Scale(1f, 0.55f);
-        else
+        //    切片数由预算给（1~6）：多片时每片压得更狠一点、贴得更靠外一点，
+        //    于是整条带读成一段渐变的弧，而不是一条被压扁的横条。
+        var slices = GlassLayers.BevelSlices;
+        for (var i = 0; i < slices; i++)
         {
-            canvas.Translate(0, h);
-            canvas.Scale(1f, 0.55f);
-            canvas.Translate(0, -h);
+            var u = slices == 1 ? 0 : i / (double)(slices - 1);
+            var squeeze = (float)(0.55 - 0.20 * u);
+            var sliceH = depth / slices;
+            var rectSlice = top
+                ? new SKRect(0, i * sliceH, w, (i + 1) * sliceH + 0.5f)
+                : new SKRect(0, h - (i + 1) * sliceH - 0.5f, w, h - i * sliceH);
+
+            canvas.Save();
+            using (var slice = new SKPath())
+            {
+                slice.AddRect(rectSlice);
+                canvas.ClipPath(slice, SKClipOperation.Intersect, true);
+            }
+            if (top) canvas.Scale(1f, squeeze);
+            else
+            {
+                canvas.Translate(0, h);
+                canvas.Scale(1f, squeeze);
+                canvas.Translate(0, -h);
+            }
+            DrawFrost(canvas, frost, map, p, w, h, (float)(0.88 / Math.Sqrt(slices) * 1.2), 1f);
+            canvas.Restore();
         }
-        DrawFrost(canvas, frost, map, p, w, h, 0.88f, 1f);
-        canvas.Restore();
 
         // ② 柱面自己的明暗：外缘压一道暗（切线处最暗）、内缘提一道亮（正对光的那条棱），
         //    最里面淡出，接回面上的 tint。三笔的顺序就是「转角 → 棱 → 面」。
@@ -416,19 +515,26 @@ internal static class GlassFace
     private static void DrawSheen(SKCanvas canvas, in GlassFaceParams p, int w, int h)
     {
         var k = p.Pressed ? 0.82 : p.Hover ? 1.15 : 1.0;
-        var reach = Math.Max(w, h) * 0.70f;
-        using var shader = SKShader.CreateRadialGradient(
-            new SKPoint(w * 0.32f, h * 0.10f), reach,
-            new[]
-            {
-                SKColors.White.WithAlpha(A(0.17 * k)),
-                SKColors.White.WithAlpha(A(0.06 * k)),
-                SKColors.White.WithAlpha(0)
-            },
-            new[] { 0f, 0.52f, 1f },
-            SKShaderTileMode.Clamp);
-        using var paint = new SKPaint { IsAntialias = true, Shader = shader };
-        canvas.DrawRect(0, 0, w, h, paint);
+        // 同心圈数由预算给（1~8）：单圈也能看，多圈时那条「从中心化开」的过渡才真的没有台阶。
+        var rings = GlassLayers.SheenRings;
+        for (var i = 0; i < rings; i++)
+        {
+            var u = rings == 1 ? 0 : i / (double)(rings - 1);
+            var reach = (float)(Math.Max(w, h) * (0.40 + 0.34 * u));
+            var alpha = 0.17 * k / Math.Sqrt(rings) * 1.15 * (1 - 0.55 * u);
+            using var shader = SKShader.CreateRadialGradient(
+                new SKPoint(w * 0.32f, h * 0.10f), reach,
+                new[]
+                {
+                    SKColors.White.WithAlpha(A(alpha)),
+                    SKColors.White.WithAlpha(A(alpha * 0.35)),
+                    SKColors.White.WithAlpha(0)
+                },
+                new[] { 0f, 0.52f, 1f },
+                SKShaderTileMode.Clamp);
+            using var paint = new SKPaint { IsAntialias = true, Shader = shader };
+            canvas.DrawRect(0, 0, w, h, paint);
+        }
     }
 
     /// <summary>
@@ -466,14 +572,14 @@ internal static class GlassFace
         var ink = new SKColor(0, 0, 0, A(0.18 * strength));
 
         using var path = Rounded(0, 0, w, h, radius);
-        var passes = new (float Width, float Alpha)[]
+        // 遍数由预算给（3~12）。三遍时是「三层由宽到窄」，十二遍时是一条连续的衰减 ——
+        // 影子从贴边到化开的过渡因此没有肉眼能看见的台阶。
+        var count = GlassLayers.ShadowPasses;
+        for (var i = 0; i < count; i++)
         {
-            ((float)(9.0 * density), 0.50f),
-            ((float)(17.0 * density), 0.70f),
-            ((float)(26.0 * density), 1.00f)
-        };
-        foreach (var (width, alpha) in passes)
-        {
+            var u = count == 1 ? 0 : i / (double)(count - 1);
+            var width = (float)((9.0 + 17.0 * u) * density);
+            var alpha = (float)(0.50 + 0.50 * u) / (count <= 3 ? 1f : 1.35f);
             using var shader = SKShader.CreateLinearGradient(
                 new SKPoint(w, h), new SKPoint(w * 0.30f, h * 0.10f),
                 new[]
@@ -553,19 +659,27 @@ internal static class GlassFace
         };
         canvas.DrawPath(path, paint);
 
-        using var fade = SKShader.CreateLinearGradient(
-            new SKPoint(inside, h * 0.55f), new SKPoint(w * 0.72f, inside),
-            new[] { SKColors.White.WithAlpha(A(0.13 * live * k)), SKColors.White.WithAlpha(0) },
-            new[] { 0f, 1f }, SKShaderTileMode.Clamp);
-        using var glow = new SKPaint
+        // 辉光遍数由预算给（1~6）：一遍是「一圈柔光」，多遍时每一遍更宽更淡，
+        // 叠出来的是连续的衰减 —— 那道弧才像被一盏灯照出来的，而不是描了一条白线。
+        var glows = GlassLayers.SpecularPasses;
+        for (var i = 0; i < glows; i++)
         {
-            IsAntialias = true,
-            Style = SKPaintStyle.Stroke,
-            StrokeWidth = width * 4.5f,
-            StrokeCap = SKStrokeCap.Round,
-            Shader = fade
-        };
-        canvas.DrawPath(path, glow);
+            var u = glows == 1 ? 0 : i / (double)(glows - 1);
+            var glowAlpha = 0.13 * live * k / Math.Sqrt(glows) * 1.1 * (1 - 0.5 * u);
+            using var fade = SKShader.CreateLinearGradient(
+                new SKPoint(inside, h * 0.55f), new SKPoint(w * 0.72f, inside),
+                new[] { SKColors.White.WithAlpha(A(glowAlpha)), SKColors.White.WithAlpha(0) },
+                new[] { 0f, 1f }, SKShaderTileMode.Clamp);
+            using var glow = new SKPaint
+            {
+                IsAntialias = true,
+                Style = SKPaintStyle.Stroke,
+                StrokeWidth = width * (4.5f + 2.5f * (float)u),
+                StrokeCap = SKStrokeCap.Round,
+                Shader = fade
+            };
+            canvas.DrawPath(path, glow);
+        }
     }
 
     private static void DrawRim(SKCanvas canvas, in GlassFaceParams p, int w, int h, float radius, double density)
@@ -643,21 +757,48 @@ internal static class GlassFace
 
     private static SKColor Token(string key, string fallback)
     {
+        // 后台线程上读快照，UI 线程上读资源 —— 同一份语义，两个来源。
+        if (_live is { } t)
+        {
+            return key switch
+            {
+                "GTintTop" => t.Top,
+                "GTintMid" => t.Mid,
+                "GTintLow" => t.Low,
+                "GEdgeHi" => t.EdgeHi,
+                "GEdgeMid" => t.EdgeMid,
+                "GEdgeLo" => t.EdgeLo,
+                _ => ToSk(Color.FromArgb(fallback))
+            };
+        }
         var c = StyleWorldTokens.Pick(key, Color.FromArgb(fallback));
-        return new SKColor(
-            (byte)Math.Round(c.Red * 255), (byte)Math.Round(c.Green * 255),
-            (byte)Math.Round(c.Blue * 255), 255);
+        return ToSk(c);
     }
+
+    private static SKColor ToSk(Color c) => new(
+        (byte)Math.Round(c.Red * 255), (byte)Math.Round(c.Green * 255),
+        (byte)Math.Round(c.Blue * 255), 255);
 
     /// <summary>
     /// 世界下发的双精度玻璃参数（<c>GTintAmount</c> / <c>GSpecular</c>）。
     /// 拿不到（App 还没下发令牌、单测里没有 Application）时退回按明暗的合理默认 ——
     /// 宁可少一层色，也不能画成一块没有明暗判断的白板。
     /// </summary>
-    private static double Num(string key, double fallback) =>
-        Application.Current?.Resources.TryGetValue(key, out var v) == true && v is double d
+    private static double Num(string key, double fallback)
+    {
+        if (_live is { } t)
+        {
+            return key switch
+            {
+                "GTintAmount" => t.Weight * TintReference,
+                "GSpecular" => t.Specular,
+                _ => fallback
+            };
+        }
+        return Application.Current?.Resources.TryGetValue(key, out var v) == true && v is double d
             ? d
             : fallback;
+    }
 
     /// <summary>色调相对倍率：控件 TintAmount 乘上它才是真正的 alpha。</summary>
     private static double TintWeight() =>
@@ -673,6 +814,7 @@ internal static class GlassFace
     /// </summary>
     private static string TintSignature()
     {
+        if (_live is { } live) return live.Signature;
         var top = Token("GTintTop", "#FEFCF8");
         var mid = Token("GTintMid", "#FDF8F0");
         var low = Token("GTintLow", "#E8DCC8");

@@ -19,6 +19,13 @@ namespace WarmAsBefore.DesignSystem.Theme;
 public static class MotionTokens
 {
     /// <summary>按下（短、果断）。</summary>
+    /// <summary>
+    /// 禁用态：整件降到 40%。原来按钮 0.40、开关/滑杆 0.45 —— 同一屏里两种「灰」，
+    /// 眼睛读成两种失效程度。取 0.40：样式里那几十个 VSM Disabled 早就用这个值，
+    /// 统一方向应该是自绘控件向样式靠，而不是反过来。
+    /// </summary>
+    public const double DisabledOpacity = 0.40;
+
     public const int TapMs = 70;
     /// <summary>抬起（阻尼回弹收敛）。</summary>
     public const int SettleMs = 170;

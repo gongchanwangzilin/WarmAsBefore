@@ -181,7 +181,7 @@ public sealed class GlassButton : ContentView
 
     private void ApplyEnabled()
     {
-        Opacity = IsEnabled ? 1 : 0.4;
+        Opacity = IsEnabled ? 1 : MotionTokens.DisabledOpacity;
         if (!IsEnabled) Settle();
     }
 

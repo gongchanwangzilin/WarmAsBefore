@@ -144,7 +144,7 @@ public sealed class GlassSwitch : ContentView
         // 禁用态：原生件会灰掉，自绘件用整体透明度补回同样的语义（与 ViewSwitch 同一条规矩）。
         PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : 0.45;
+            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : MotionTokens.DisabledOpacity;
         };
 
         Loaded += (_, _) =>

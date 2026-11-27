@@ -1,5 +1,7 @@
 using Microsoft.Maui.Controls.Shapes;
 
+using WarmAsBefore.DesignSystem.Theme;
+
 namespace WarmAsBefore.Controls;
 
 /// <summary>
@@ -106,7 +108,7 @@ public sealed class ViewSwitch : ContentView
         // 禁用态：原生件会灰掉，自绘件用整体透明度补回同样的语义。
         PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : 0.45;
+            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : MotionTokens.DisabledOpacity;
         };
 
         Apply(IsToggled, animate: false);

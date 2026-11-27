@@ -287,7 +287,7 @@ public sealed class ViewSlider : ContentView
 
         PropertyChanged += (_, e) =>
         {
-            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : 0.45;
+            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : MotionTokens.DisabledOpacity;
         };
     }
 

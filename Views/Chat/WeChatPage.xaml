@@ -466,7 +466,8 @@
                     MaximumWidthRequest="400">
                 <Border.StrokeShape><RoundRectangle CornerRadius="18" /></Border.StrokeShape>
                 <Border.Shadow>
-                    <Shadow Brush="{DynamicResource ShadowDim}" Offset="0,4" Radius="16" Opacity="0.5" />
+                    <!-- 影子的画刷必须是**暗面**（ShadowDeep），不是「缝」那一档（ShadowDim 是世界下发的近地分隔线色，压出来几乎看不见） -->
+                    <Shadow Brush="{DynamicResource ShadowDeep}" Offset="0,4" Radius="16" Opacity="0.5" />
                 </Border.Shadow>
                 <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Padding="18,16" RowSpacing="12">
                     <Label Text="礼物箱 " TextColor="{StaticResource WcInk}" FontSize="16"
