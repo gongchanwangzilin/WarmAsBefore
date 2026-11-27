@@ -23,7 +23,6 @@
             <conv:InverseBool x:Key="InverseBool" />
             <conv:IsNotNull x:Key="IsNotNull" />
             <conv:BoolOpacity x:Key="BoolOpacity" />
-            <conv:AffectionTint x:Key="AffectionTint" />
             <conv:CharInitials x:Key="CharInitials" />
             <conv:YesNoLabel x:Key="YesNoLabel" />
             <conv:BoolToAsterisk x:Key="BoolToAsterisk" />

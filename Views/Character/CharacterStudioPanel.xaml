@@ -132,7 +132,7 @@
                              黑/白两版按世界切换 —— 暗档里黑图记会直接消失。
                              井底（WWellBrush）把「人在相框里」和「名字牌在卡上」分出一档：
                              舞台现在是白卡，立绘再直接压在卡面上，图和卡就糊成一张纸。 -->
-                        <Border Background="{DynamicResource WWelBrush}" StrokeThickness="0"
+                        <Border Background="{DynamicResource WWellBrush}" StrokeThickness="0"
                                 StrokeShape="{DynamicResource WRadiusWell}">
                         <Grid IsClippedToBounds="True">
                             <!-- 角色专属背景：和角色库、游戏内读同一条解析结果，换人时交叉淡入。 -->
@@ -177,7 +177,7 @@
                             </VerticalStackLayout>
                             <Border Grid.Column="1" WidthRequest="64" HeightRequest="64"
                                     VerticalOptions="End" Padding="0"
-                                    Background="{DynamicResource WWelBrush}"
+                                    Background="{DynamicResource WWellBrush}"
                                     Stroke="{DynamicResource WSepBrush}" StrokeThickness="{DynamicResource GlassHairline}"
                                     StrokeShape="{DynamicResource WRadiusWell}"
                                     motion:HoverFeel.Enabled="True" motion:PressFeel.Enabled="True">

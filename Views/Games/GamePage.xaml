@@ -17,16 +17,6 @@
             <ctl:PageHeader.Actions>
                 <HorizontalStackLayout Spacing="{DynamicResource WSpaceTight}" VerticalOptions="Center">
                     <Label Text="小雨" Style="{StaticResource TxtCaption}" VerticalOptions="Center" />
-                    <!-- 热度块是一块饱和填充，字只能取最深那档墨（写死 White 在浅底世界会糊成一团） -->
-                    <Border BackgroundColor="{Binding Affection, Converter={StaticResource AffectionTint}}"
-                            StrokeThickness="0"
-                            WidthRequest="52" HeightRequest="20"
-                            VerticalOptions="Center"
-                            StrokeShape="{DynamicResource WRadiusWell}">
-                        <Label Text="{Binding AffectionLevelText}"
-                               TextColor="{DynamicResource WarmDark}" FontSize="{DynamicResource WSizeCaption}"
-                               HorizontalOptions="Center" VerticalOptions="Center" />
-                    </Border>
                 </HorizontalStackLayout>
             </ctl:PageHeader.Actions>
         </ctl:PageHeader>

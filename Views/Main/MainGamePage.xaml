@@ -134,7 +134,7 @@ xmlns:core="clr-namespace:WarmAsBefore.Services.Core"
               Padding="{DynamicResource WPadCard}">
             <Border Style="{StaticResource CardSolid}"
                     StrokeShape="{DynamicResource WRadiusCard}" StrokeThickness="{DynamicResource GlassHairline}"
-                    Stroke="{DynamicResource WBorderBrush}">
+                    Stroke="{DynamicResource WEdgeBrush}">
                 <VerticalStackLayout Spacing="8" Padding="{DynamicResource WPadWell}">
                     <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10">
                         <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding ReceiptBadge, Source={x:Static core:RepairReportService.Instance}}"
