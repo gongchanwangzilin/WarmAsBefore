@@ -311,7 +311,9 @@ public sealed class FacePresenceService
         if (bytes is null || bytes.Length == 0) return null;
         if (!await _gate.WaitAsync(0, ct).ConfigureAwait(false))
         {
-            RecordNote("实时预览这一帧跳过了：上一次识别还没结束");
+            // 跳帧不是「降级原因」：预览两秒一帧，抢不到闸就是这一拍跳过，下一拍还会来。
+            // 写进 _lastReason 会让监测页的原因栏在两秒之间来回跳，真正的问题反而被盖住。
+            SafeLog("face.preview.skip");
             return null;
         }
 

@@ -2,6 +2,10 @@ using WarmAsBefore.ViewModels;
 
 namespace WarmAsBefore.Views;
 
+/// <summary>
+/// 插件中心的壳：进页拉一次清单，等一帧让 BindableLayout 把卡片挂齐，再统一播入场。
+/// 刷新失败不弹窗——页面顶部那行「状态」自己会说清楚，用弹窗只会在启动时抖一下。
+/// </summary>
 public partial class PluginCenterPage : ContentPage
 {
     private readonly PluginCenterViewModel _vm;
