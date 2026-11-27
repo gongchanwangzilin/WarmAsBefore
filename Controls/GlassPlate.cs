@@ -102,6 +102,7 @@ public class GlassPlate : ContentView
     /// </summary>
     private double _lightX = -1;
     private double _lightY = -1;
+    private double _lightAmount;
 
     /// <summary>按下：镜面更亮更窄、折射更强、内阴影收紧（参数变化 → 重画一次）。</summary>
     public bool Pressed
@@ -299,7 +300,7 @@ public class GlassPlate : ContentView
         var sizeK = Math.Clamp(Math.Sqrt(Math.Max(1.0, Width) * Math.Max(1.0, Height)) / 260.0, 0.75, 1.6);
         return new GlassFaceParams(
             Width, Height, Density, CornerRadius, Thickness * sizeK, _pressed, _hover, Signal, Hollow,
-            x, y, pw, ph, TintAmount, _lightX, _lightY);
+            x, y, pw, ph, TintAmount, _lightX, _lightY, _lightAmount);
     }
 
     /// <summary>
@@ -340,44 +341,77 @@ public class GlassPlate : ContentView
     /// <summary>
     // ── 鼠标 = 点光源 ────────────────────────────────────────────────────
 
-    private object? _lightHost;
-
     /// <summary>
-    /// 挂上平台指针事件：鼠标在这块玻璃上移动时，把光的位置交给材质。
+    /// 订阅窗口级的 <see cref="Helpers.PointerLight"/>：指针在窗口任何位置都会广播，
+    /// 这里算「光从哪个方向、照到这块玻璃上有几分」。
     ///
-    /// MAUI 的 PointerGestureRecognizer 在 WinUI 上不回调 Moved（HoverFeel 实测过），
-    /// 所以只能挂平台元素。位置量化到 1/8 网格再比较，同一格内移动不触发重画 ——
-    /// 否则每一像素都会让这块玻璃重新合成一张位图。
+    /// 三个量：
+    ///   位置   指针在块内的投影（0~1）；指针在块外时落在最近的边上 —— 所以是「光从那一侧打过来」；
+    ///   强度   按指针到这块玻璃矩形的**距离**衰减，超过 reach 就归零（用户要的「远近改变光照强度」）；
+    ///   量化   位置 1/8 网格、强度 0.1 档 —— 位图按参数键缓存，不量化的话鼠标一划就是几百张合成。
     /// </summary>
     private void HookPointerLight()
     {
+        Helpers.PointerLight.Subscribe(OnPointerLight);
+        Helpers.PointerLight.Hook();
+
+        // 离开窗口 = 灯关了：回到固定的左上光。
+        Unloaded += (_, _) => Helpers.PointerLight.Unsubscribe(OnPointerLight);
+    }
+
+    /// <summary>光能照到多远（逻辑单位）。窗口对角线的一半左右：够让邻格的玻璃也有反应，又不会全屏一样亮。</summary>
+    private const double LightReach = 520;
+
+    private void OnPointerLight(double px, double py)
+    {
+        if (!IsLoaded || !IsVisible) return;
+
+        var (left, top) = WindowOrigin();
+        var w = Math.Max(1.0, Width);
+        var h = Math.Max(1.0, Height);
+
+        var lx = px - left;
+        var ly = py - top;
+
+        // 块内的投影：指针在块外时贴到最近的边上，读成「光从那一侧来」。
+        var ux = Math.Clamp(lx / w, 0, 1);
+        var uy = Math.Clamp(ly / h, 0, 1);
+
+        var dx = lx - Math.Clamp(lx, 0, w);
+        var dy = ly - Math.Clamp(ly, 0, h);
+        var dist = Math.Sqrt(dx * dx + dy * dy);
+
+        // 1 → 0 的衰减，前段慢、末段快（近处的差别看得出来，远处快速归零）。
+        var amount = dist >= LightReach ? 0 : Math.Pow(1 - dist / LightReach, 1.35);
+
+        var qx = Math.Round(ux * 8) / 8;
+        var qy = Math.Round(uy * 8) / 8;
+        var qa = Math.Round(amount * 10) / 10;
+
+        if (Math.Abs(qx - _lightX) < 1e-6 && Math.Abs(qy - _lightY) < 1e-6 && Math.Abs(qa - _lightAmount) < 1e-6) return;
+        _lightX = qx;
+        _lightY = qy;
+        _lightAmount = qa;
+        Repaint();
+    }
+
+    /// <summary>这块玻璃在窗口坐标里的左上角。取平台元素到根的可视变换，窗口缩放/滚动都对得上。</summary>
+    private (double X, double Y) WindowOrigin()
+    {
 #if WINDOWS
-        if (Handler?.PlatformView is not Microsoft.UI.Xaml.UIElement el) return;
-        if (ReferenceEquals(_lightHost, el)) return;
-        _lightHost = el;
-        el.PointerMoved += (_, e) =>
+        try
         {
-            var w = Math.Max(1.0, Width);
-            var h = Math.Max(1.0, Height);
-            var pt = e.GetCurrentPoint(el).Position;
-            var nx = Math.Clamp(pt.X / w, 0, 1);
-            var ny = Math.Clamp(pt.Y / h, 0, 1);
-            // 1/8 网格 + 中心吸附：光停在格子中心，免得高光在网格线上跳。
-            var qx = Math.Round(nx * 8) / 8;
-            var qy = Math.Round(ny * 8) / 8;
-            if (Math.Abs(qx - _lightX) < 1e-6 && Math.Abs(qy - _lightY) < 1e-6) return;
-            _lightX = qx;
-            _lightY = qy;
-            Repaint();
-        };
-        el.PointerExited += (_, _) =>
-        {
-            if (_lightX < 0) return;
-            _lightX = -1;
-            _lightY = -1;
-            Repaint();
-        };
+            if (Handler?.PlatformView is Microsoft.UI.Xaml.FrameworkElement fe)
+            {
+                var t = fe.TransformToVisual(null);
+                var p = t.TransformPoint(new global::Windows.Foundation.Point(0, 0));
+                return (p.X, p.Y);
+            }
+        }
+        catch { /* 元素还没挂上树：退回页面坐标，误差只有一个视觉树层级 */ }
 #endif
+        MeasureInPage(out var x, out var y, out _, out _);
+        return (x, y);
     }
 
     /// <summary>GraphicsView 的画笔：只做一次 DrawImage。每帧向 <see cref="GlassFace"/> 要位图 ——

@@ -12,8 +12,18 @@ public partial class AppShell : Shell
         {
             _navWatch = System.Diagnostics.Stopwatch.StartNew();
             _navTarget = e.Target?.Location?.OriginalString ?? "";
+            _navBack = e.Source is ShellNavigationSource.Pop or ShellNavigationSource.PopToRoot;
             // 阶段标记给 UI 卡顿看门狗用：卡在「导航途中」还是「目标页装载」日志里能分开。
             Services.PerfLog.SetPhase("导航 → " + _navTarget);
+
+            // 联动：导航一**开始**就让背景跟着动，不等新页建好（Navigated 常常晚 200~500ms）。
+            // 用户的原话是「背景应该跟按钮一起动、一起改变」—— 按钮按下时按压通道已经在推背景，
+            // 松手触发导航的这一刻接力到「进页面」通道，中间不留空拍。
+            Helpers.Scene.Play(Helpers.Scene.Enter,
+                _navBack ? DesignSystem.Theme.MotionTokens.PageBackMs : DesignSystem.Theme.MotionTokens.PageSweepMs,
+                _ => { });
+            // 打断上一页还在跑的入场：两段动画同时跑读起来就是卡两下。
+            Helpers.Motion.FinishPageIn(CurrentPage);
             // 盖忙碌层：只在「前进」导航（新建/插入/换页）上盖。返回（Pop/PopToRoot）通常
             // 命中已缓存的旧页、瞬时完成，盖层只会闪一下；前进里第一次访问的重页
             // （设置/主界面）才是 300–500ms「建卡」的来源，也是最需要进度反馈的地方。
@@ -45,6 +55,7 @@ public partial class AppShell : Shell
 
     private System.Diagnostics.Stopwatch? _navWatch;
     private string _navTarget = "";
+    private bool _navBack;
     private bool _firstNav = true;
 
     /// <summary>

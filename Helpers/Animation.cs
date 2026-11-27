@@ -117,6 +117,32 @@ public static class Motion
     /// 只滑 32px：这是「方向提示」，不是「整页飞进来」——幅度大了，页面底色与窗口底之间会露出缝。
     /// 大多数页在 ContentPage 上铺了 PageBgBrush，滑出去的那条边看到的是同一块底色，读不出位移的边界。
     /// </summary>
+    /// <summary>
+    /// 打断上一页的入场：把它的位移与透明度落到终值。
+    ///
+    /// 为什么需要：入场是 440ms 的合成动画，用户在这一段里点返回时，旧页还在「滑进来」的路上，
+    /// 新页又叠上来 —— 两段动画同时跑，读起来就是「卡了两下」。合成动画不能「从当前值反向」，
+    /// 但可以让旧页立刻定格：它马上要被换掉，定格比飞完更干净。
+    /// </summary>
+    public static void FinishPageIn(Page? page)
+    {
+#if WINDOWS
+        try
+        {
+            if ((page as ContentPage)?.Content is not VisualElement root) return;
+            if (root.Handler?.PlatformView is not Microsoft.UI.Xaml.FrameworkElement fe) return;
+            var visual = Microsoft.UI.Xaml.Hosting.ElementCompositionPreview.GetElementVisual(fe);
+            visual.StopAnimation("Translation");
+            visual.StopAnimation("Scale");
+            visual.StopAnimation("Opacity");
+            fe.Translation = System.Numerics.Vector3.Zero;
+            fe.Scale = System.Numerics.Vector3.One;
+            fe.Opacity = 1;
+        }
+        catch { /* 平台元素还没建好：没有动画要打断 */ }
+#endif
+    }
+
     public static async Task PageIn(Page page, bool back)
     {
         var root = (page as ContentPage)?.Content;

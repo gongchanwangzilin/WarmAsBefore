@@ -26,7 +26,9 @@ public readonly record struct GlassFaceParams(
     double TintAmount,
     /// <summary>鼠标作为点光源：光在块内的归一化位置（0~1）。-1 表示没有指针（回到固定的左上光）。</summary>
     double LightX,
-    double LightY);
+    double LightY,
+    /// <summary>这盏光此刻照到这块玻璃上有几分（0~1）。按指针到这块玻璃的距离衰减。</summary>
+    double LightAmount);
 
 /// <summary>
 /// 真·液态玻璃的绘制核心：**用 Skia 自己画一块玻璃**，而不是往控件上叠一层半透明白。
@@ -203,7 +205,7 @@ internal static class GlassFace
         p.Pressed ? 'P' : p.Hover ? 'H' : 'N', p.Signal ? 'S' : '-', p.Hollow ? 'O' : '*',
         Math.Round(p.PageX), Math.Round(p.PageY), Math.Round(p.PageW), Math.Round(p.PageH),
         Math.Round(p.TintAmount, 2), StyleWorldTokens.Dark ? 'd' : 'l', FrostField.Version, TintSignature(),
-        Math.Round(p.LightX, 2), Math.Round(p.LightY, 2));
+        Math.Round(p.LightX, 2), Math.Round(p.LightY, 2), Math.Round(p.LightAmount, 1));
 
     // ── 合成 ────────────────────────────────────────────────────────────
 
@@ -553,7 +555,7 @@ internal static class GlassFace
                    new SKPoint(cx, cy), reach,
                    new[]
                    {
-                       SKColors.White.WithAlpha(A((lit ? 0.26 : 0.20) * k)),
+                       SKColors.White.WithAlpha(A((lit ? 0.26 + 0.20 * p.LightAmount : 0.20) * k)),
                        SKColors.White.WithAlpha(A(0.10 * k)),
                        SKColors.White.WithAlpha(A(0.03 * k)),
                        SKColors.White.WithAlpha(0)
@@ -668,8 +670,8 @@ internal static class GlassFace
                 (float)(Math.Max(w, h) * 0.62),
                 new[]
                 {
-                    SKColors.White.WithAlpha(A(0.60 * live)),
-                    SKColors.White.WithAlpha(A(0.22 * live)),
+                    SKColors.White.WithAlpha(A(0.60 * live * (0.35 + 0.65 * p.LightAmount))),
+                    SKColors.White.WithAlpha(A(0.22 * live * (0.35 + 0.65 * p.LightAmount))),
                     SKColors.White.WithAlpha(0)
                 },
                 new[] { 0f, 0.30f, 1f },
