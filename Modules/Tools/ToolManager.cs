@@ -76,6 +76,7 @@ public sealed partial class ToolManager : IDisposable
         RegisterAmapTools();
         RegisterStateTools();
         RegisterFlowTools();
+        RegisterLookTools();
         ScanExternalTools();
 #if ANDROID
         // Android APK 没有宿主 stdin，Harness JSON-RPC 循环只在桌面端监听
@@ -95,31 +96,43 @@ public sealed partial class ToolManager : IDisposable
 
     // ============ 注册 / 发现 ============
 
-    /// <summary>注册内置工具（进程内 C# 实现）。</summary>
-    public void RegisterBuiltin(string name, string description, Func<string, Task<string>> handler, List<ToolParameter>? parameters = null)
+    /// <summary>注册内置工具（进程内 C# 实现）。hidden=兼容旧名字的工具，不进模型清单。</summary>
+    public void RegisterBuiltin(string name, string description, Func<string, Task<string>> handler,
+        List<ToolParameter>? parameters = null, bool hidden = false)
     {
         _tools[name] = new ToolDefinition
         {
             Name = name,
             Description = description,
             Language = ToolLanguage.Builtin,
+            Hidden = hidden,
             Parameters = parameters ?? new List<ToolParameter>()
         };
         _builtins[name] = handler;
     }
 
     /// <summary>注册内置工具，参数直接给 JSON Schema（模型据此生成调用参数）。</summary>
-    public void RegisterBuiltin(string name, string description, Func<string, Task<string>> handler, string parametersSchema)
+    public void RegisterBuiltin(string name, string description, Func<string, Task<string>> handler,
+        string parametersSchema, bool hidden = false)
     {
         _tools[name] = new ToolDefinition
         {
             Name = name,
             Description = description,
             Language = ToolLanguage.Builtin,
+            Hidden = hidden,
             ParametersSchema = parametersSchema
         };
         _builtins[name] = handler;
     }
+
+    /// <summary>
+    /// 注册「旧名字 → 新工具」的转发别名：原名照旧能调（旧提示词、插件、外部驱动都不会一句话就挂），
+    /// 但不进模型清单 —— 旧名字不应该继续随每次请求付 token。
+    /// </summary>
+    public void RegisterAlias(string legacyName, string targetName, string description)
+        => RegisterBuiltin(legacyName, $"【旧名，转发到 {targetName}】{description}",
+            args => ExecuteAsync(targetName, args ?? ""), new List<ToolParameter>(), hidden: true);
 
     /// <summary>
     /// 按运行状态隐藏工具（例如 Minecraft 未连接时的 maid_*）。只影响可见清单，
@@ -129,6 +142,7 @@ public sealed partial class ToolManager : IDisposable
 
     public List<ToolDefinition> ListTools() =>
         _tools.Values
+            .Where(t => !t.Hidden)
             .Where(t => ToolVisibility?.Invoke(t.Name) ?? true)
             .Where(t => ToolAllowed(t.Name))
             .OrderBy(t => t.Name).ToList();
@@ -227,8 +241,12 @@ public sealed partial class ToolManager : IDisposable
         ("send_message", "向角色发送消息"),
         ("set_sprite", "设置立绘位置/透明度"),
         ("animate", "播放立绘动画"),
-        ("get_scene_options", "列出当前可用场景选项"),
-        ("set_scene_option", "应用一个场景选项"),
+        ("scene_list", "列出当前可用场景选项（带编号）"),
+        ("scene_set", "按编号应用一个场景选项"),
+        ("outfit_list", "列出可穿的装扮（带编号）"),
+        ("outfit_set", "按编号换装扮"),
+        ("expression_list", "列出可换的表情（带编号）"),
+        ("expression_set", "按编号换表情"),
         ("add_wechat", "把角色加为微信好友"),
         ("list_wechat_contacts", "列出微信好友"),
         ("search_memory", "在对话记忆库中搜索过去"),
@@ -360,7 +378,9 @@ public sealed partial class ToolManager : IDisposable
     /// </summary>
     private static readonly HashSet<string> RawStringArgTools = new(StringComparer.Ordinal)
     {
-        "set_sprite", "animate", "set_scene_option"
+        "set_sprite", "animate",
+        // 旧名仍在收裸串 spec；新名 scene_set 收 {"number":n}，不在这张表里
+        "set_scene_option"
     };
 
     /// <summary>
@@ -569,12 +589,12 @@ public sealed partial class ToolManager : IDisposable
     ///    纯计算（参数解析、JSON 解析）仍留在线程池，只有赋值/动画那几行回主线程。
     ///
     /// B. 直接读页面控件 / 弹窗 / 改 UI 集合 —— 均由服务层自行 marshal，本轮不改：
-    ///    · set_scene_option → SceneDirector.ApplySpecAsync
+    ///    · scene_set（含旧名 set_scene_option）→ SceneDirector.ApplySpecAsync
     ///    · set_blackout → ScreenBlackoutService.Set
     ///    · add_wechat / list_wechat_contacts → WeChatService（UI 集合由服务内部维护）
     ///    · pull_actor / list_actors → MapActorService
     ///    · send_to_user → OfficialChatBridge.QueueOutbound
-    ///    · get_state / get_scene_options / search_memory / tag_memory / search_by_tags /
+    ///    · get_state / scene_list / search_memory / tag_memory / search_by_tags /
     ///      list_skills / read_skill / wab_set_reasoning —— 只读 CLR 状态或走文件/DB，跨线程读取安全。
     ///
     /// C. 外部/插件工具（卡死根因）：session.CallAsync 的 JSON-RPC、插件钩子的
@@ -833,9 +853,9 @@ public sealed partial class ToolManager : IDisposable
             });
 
         // 场景选项列表：AI 必须先取表再选（选项随场景/时段变化，没选项或看不出变化都会说明）
-        RegisterBuiltin("get_scene_options",
-            "查看当前场景此刻可用的场景/氛围选项（含「能否切换」「切换后画面是否看得出变化」）。"
-            + "切换场景前必须先调用本工具拿到选项名，不要凭想象直接切换。",
+        RegisterBuiltin("scene_list",
+            "列出此刻的场景/氛围选项：number、spec、name、ok（此刻是否在生效时段）、"
+            + "visible（切了看不看得出变化）。切换前先 list 拿编号，不要凭想象直接切。",
             _ =>
             {
                 var director = ResolveSceneDirector();
@@ -844,13 +864,40 @@ public sealed partial class ToolManager : IDisposable
                 return Task.FromResult(JsonSerializer.Serialize(BuildSceneOptionsPayload(director)));
             });
 
-        // 应用场景选项：返回值必须带上「是否真的产生了视觉变化」，否则 AI 会以为自己成功了
+        // 旧名转发：外部驱动与旧提示词还在按名字调它，走同一个 scene_list
+        RegisterAlias("get_scene_options", "scene_list", "列出当前可用场景选项（旧名）。");
+
+        // 按编号应用场景选项：返回值必须带上「是否真的产生了视觉变化」，否则 AI 会以为自己成功了
+        RegisterBuiltin("scene_set",
+            "按编号切换场景/氛围：只给 number（取自 scene_list），先 list 再 set。"
+            + "visible_change=false 表示画面看不出变化（如白天开灯），如实说明，不要反复重试；"
+            + "ok=false 的选项照切，但要把 message 里「不符合当前时段」那句转达给用户。",
+            async args =>
+            {
+                var director = ResolveSceneDirector();
+                if (director is null)
+                    return JsonSerializer.Serialize(new { error = "场景导演不可用" });
+                var number = GetInt(args, "number", 0);
+                if (number <= 0)
+                    return JsonSerializer.Serialize(new { error = "需要 number（场景选项编号，取自 scene_list）" });
+
+                var options = director.BuildOptions();
+                if (number > options.Count)
+                    return JsonSerializer.Serialize(new
+                    {
+                        error = $"没有 {number} 号场景选项（现在共 {options.Count} 个）。先调 scene_list 重新取编号。"
+                    });
+                return await ApplySceneSpecAsync(director, options[number - 1].Spec);
+            },
+            """
+            {"type":"object","properties":{
+              "number":{"type":"integer","description":"场景选项编号，取自 scene_list"}},
+             "required":["number"],"additionalProperties":false}
+            """);
+
+        // 旧名转发（仍收字符串 spec）：裸串契约不变，外部驱动照旧可用；新提示词请用 scene_set(number)
         RegisterBuiltin("set_scene_option",
-            "应用一个场景选项，参数 spec 取自 get_scene_options 的 spec 字段（形如「客厅/夜灯」或「客厅」）。"
-            + "返回 visible_change=false 表示已切换但画面看不出变化（例如白天开灯、或本来就是该状态），"
-            + "此时要如实说明，不要宣称画面已经变了，也不要反复重试。"
-            + "选了一个不在生效时段内的选项（get_scene_options 的 out_of_window）也会照切，"
-            + "但 message 里会注明它不符合当前时段——把这句话转达给用户，不要隐瞒。",
+            "【旧名，转发到 scene_set】应用一个场景选项，参数 spec 取自 scene_list 的 spec 字段。",
             async args =>
             {
                 var director = ResolveSceneDirector();
@@ -858,26 +905,14 @@ public sealed partial class ToolManager : IDisposable
                     return JsonSerializer.Serialize(new { error = "场景导演不可用" });
                 var spec = ExtractSceneSpec(args);
                 if (spec.Length == 0)
-                    return JsonSerializer.Serialize(new { error = "缺少参数 spec（请先调用 get_scene_options 取选项名）" });
-
-                var result = await director.ApplySpecAsync(spec, Modules.Scene.SceneApplySource.Ai);
-                var opt = result.Option;
-                return JsonSerializer.Serialize(new
-                {
-                    status = result.Status,
-                    applied = result.Applied,
-                    visible_change = result.VisibleChange,
-                    spec,
-                    resolved = opt?.Spec,
-                    name = opt?.Title,
-                    message = result.Message,
-                    dim = opt is null ? (double?)null : director.ActiveDim
-                });
+                    return JsonSerializer.Serialize(new { error = "缺少参数 spec（请先调用 scene_list 取编号）" });
+                return await ApplySceneSpecAsync(director, spec);
             },
             new List<ToolParameter>
             {
-                new() { Name = "spec", Description = "选项名，取自 get_scene_options 的 spec 字段", Required = true }
-            });
+                new() { Name = "spec", Description = "选项名，取自 scene_list 的 spec 字段", Required = true }
+            },
+            hidden: true);
 
         // 加微信：把剧情里用过的角色库角色变成微信常驻好友（加上后才出现在微信联系人里）
         RegisterBuiltin("add_wechat",
@@ -1511,13 +1546,15 @@ public sealed partial class ToolManager : IDisposable
         return services?.GetService(typeof(Modules.Scene.SceneDirector)) as Modules.Scene.SceneDirector;
     }
 
-    /// <summary>get_scene_options 的返回体：可用选项 + 不可用选项（附理由）+ 当前生效态。</summary>
+    /// <summary>
+    /// scene_list 的返回体：一张带编号的选项表 + 当前生效态。
+    /// 编号就是 BuildOptions 的次序，scene_set 按同一份次序取表，两边不会错位；
+    /// ok=false 不是「不可用」，只是此刻不在它自己的生效时段内（照样能切，结果会说明）。
+    /// </summary>
     private static object BuildSceneOptionsPayload(Modules.Scene.SceneDirector director)
     {
         var now = DateTime.Now;
         var options = director.BuildOptions(now);
-        var available = options.Where(o => o.Available).ToList();
-        var blocked = options.Where(o => !o.Available).ToList();
         var active = director.Active;
         return new
         {
@@ -1529,27 +1566,47 @@ public sealed partial class ToolManager : IDisposable
                 source = director.Source.ToString(),
                 dim = Math.Round(director.ActiveDim, 2)
             },
-            available_count = available.Count,
-            options = available.Select(o => new
+            total = options.Count,
+            options = options.Select((o, i) => new
             {
+                n = i + 1,
                 spec = o.Spec,
                 name = o.Title,
+                ok = o.Available,
                 already_active = o.AlreadyActive,
-                visible_change = o.VisibleChange,
+                visible = o.VisibleChange,
                 change = o.ChangeDetail,
-                condition = o.AvailableReason
+                why = o.Available ? o.AvailableReason : o.UnavailableReason
             }).ToList(),
-            // 这些不是"不可用"，而是"不在它自己的生效时段内"。仍然可以切，
-            // 但结果里的 message 会如实告诉你它此刻通常不该生效。
-            out_of_window = blocked.Select(o => new { spec = o.Spec, reason = o.UnavailableReason }).ToList(),
-            note = available.Count == 0
-                ? "此刻没有任何选项处于自己的生效时段内。若用户明确要求，你仍可挑一个切；结果会说明它不符合当前时段。"
-                : "只能从 options 里挑 spec。visible_change=false 的选项切换后画面不会变（例如白天开灯），如实说明即可。"
+            note = options.Any(o => o.Available)
+                ? "用 scene_set(number) 切。visible=false 的选项切换后画面不会变（例如白天开灯），如实说明即可。"
+                : "此刻没有任何选项处于自己的生效时段内。若用户明确要求，你仍可按编号切一个；结果会说明它不符合当前时段。"
         };
     }
 
     /// <summary>
-    /// 取 set_scene_option 的 spec 参数：既接受 {"spec":"..."} 的 JSON，也接受直接传选项名。
+    /// 应用一个场景 spec：编号（scene_set）与旧名字（set_scene_option）共用这一条路，
+    /// 返回值都带上「真的切了没有 / 看不看得出来」。
+    /// </summary>
+    private static async Task<string> ApplySceneSpecAsync(Modules.Scene.SceneDirector director, string spec)
+    {
+        var result = await director.ApplySpecAsync(spec, Modules.Scene.SceneApplySource.Ai);
+        var opt = result.Option;
+        return JsonSerializer.Serialize(new
+        {
+            status = result.Status,
+            applied = result.Applied,
+            visible_change = result.VisibleChange,
+            spec,
+            resolved = opt?.Spec,
+            name = opt?.Title,
+            message = result.Message,
+            dim = opt is null ? (double?)null : director.ActiveDim
+        });
+    }
+
+    /// <summary>
+    /// 取旧名 set_scene_option 的 spec 参数：既接受 {"spec":"..."} 的 JSON，也接受直接传选项名。
     /// </summary>
     private static string ExtractSceneSpec(string? argsJson)
     {
