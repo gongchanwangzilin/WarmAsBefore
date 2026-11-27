@@ -618,8 +618,13 @@ public static class StyleWorldTokens
         // 实测症状就是「改完设置回来，按钮位置还在、一个像素不画」（这条在 HEAD 的注释里记过，
         // 我在令牌化时把它违反了，所以按钮又消失了一次）。不要影子的世界把颜色发到全透明，对象不动。
         res["WShadowCardBrush"] = ShadowInk(dark, r.Shadow && !FlatShadows ? 0.30 : 0);
-        // 页面级大面板的影（标题页那一块整屏卡）：几何也必须有名有姓 ——
-        // 页面里内联的 0,14 / 34 曾经是全站唯一一处自己写影子数字的地方。
+        // 阴影规则按「浮多高」量化成三档几何：小件（胶囊、悬浮键）/ 弹层（浮窗、气泡）/ 大面板（整屏卡）。
+        // 页面里内联的 0,3 / 0,6 / 0,14 这类数字全部走这里 ——
+        // Shadow 对象不能整颗换（= 重建合成层），所以几何只能以 Point/半径令牌的形式发出去。
+        res["WShadowChipOffset"] = new Point(0, 3);
+        res["WShadowChipRadius"] = 10.0;
+        res["WShadowFloatOffset"] = new Point(0, 6);
+        res["WShadowFloatRadius"] = 18.0;
         res["WShadowPanelOffset"] = new Point(0, 14);
         res["WShadowPanelRadius"] = 34.0;
         res["WShadowDialogBrush"] = ShadowInk(dark, FlatShadows ? 0 : 0.34);
@@ -686,40 +691,6 @@ public static class StyleWorldTokens
         res["AffectionInk"] = Color.FromArgb("#FFF0F6");
         res["AffectionInkSoft"] = Color.FromArgb("#FFE3F0");
         res["AffectionScrim"] = Color.FromArgb("#55331F66");
-
-        // 「永远在暗底上演」的第二组：桌面宠物的对话小窗、头像裁剪台。
-        // 这两块不跟着明暗档翻转（它们要压在桌面上/照片上），但色值必须有名字 ——
-        // 无名的手写色是换主题时全应用唯一不动的那一块，也是页面 XAML 里最后一批裸 hex。
-        res["StageBg"] = Color.FromArgb("#4A3D2C");
-        res["StageBgDeep"] = Color.FromArgb("#1E1712");
-        res["StagePanel"] = Color.FromArgb("#E64A3D2C");
-        res["StagePanelSoft"] = Color.FromArgb("#CC4A3D2C");
-        res["StageChip"] = Color.FromArgb("#7A4A3D2C");
-        res["StageField"] = Color.FromArgb("#22FFFFFF");
-        res["StageFieldStrong"] = Color.FromArgb("#33FFFFFF");
-        res["StageInk"] = Color.FromArgb("#FFFFFF");
-        res["StageInkDim"] = Color.FromArgb("#CCFFFFFF");
-        res["StageInkFaint"] = Color.FromArgb("#AAFFFFFF");
-
-        // 头像裁剪台：舞台比舞台更暗，剪刀框比框更亮 —— 三档都在同一根灰阶上。
-        res["PhotoStage"] = Color.FromArgb("#141110");
-        res["PhotoStageWell"] = Color.FromArgb("#0B0A09");
-        res["PhotoScrim"] = Color.FromArgb("#A6000000");
-        res["PhotoGuide"] = Color.FromArgb("#4DFFFFFF");
-        res["PhotoCropEdge"] = Color.FromArgb("#E6FFFFFF");
-
-        // 记忆图谱的节点色：图例与自绘画布共用一套（画布那侧按 Pick 现读）。
-        res["MemNodeEvent"] = Color.FromArgb("#E8B87A");
-        res["MemNodeEventEdge"] = Color.FromArgb("#8A6A48");
-        res["MemNodePlace"] = Color.FromArgb("#AFCFEA");
-        res["MemNodeThing"] = Color.FromArgb("#EFB0AE");
-        res["MemNodeMood"] = Color.FromArgb("#F2C4D6");
-        res["MemNodeAi"] = Color.FromArgb("#8FA8C8");
-
-        // 宠物页的三档强调光晕：同色相、三个透明度，末档全透明才能做出「往外散开」的渐变。
-        res["PetGlowStrong"] = Color.FromArgb("#B0E8B27A");
-        res["PetGlowMid"] = Color.FromArgb("#58E8B27A");
-        res["PetGlowNone"] = Color.FromArgb("#00E8B27A");
 
         // 玻璃档的三个色标：GlassTokens 原来把 #FDF8F0 / #FFFFFF / #8B7D6B 这些奶油系的值
         // 直接写死在画刷里，换到晨雾蓝灰或深色档时，玻璃卡片会变成一块不属于这个世界的奶油。

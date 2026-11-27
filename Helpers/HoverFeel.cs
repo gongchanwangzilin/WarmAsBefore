@@ -1128,7 +1128,9 @@ public static class HoverFeel
                     // 整块渐变变深（BtnSignal 走这条）：从这块面自己的静止色插值到世界给的悬停色，
                     // 不再从左擦到右。进/出共用 _wipeP，指针在收回去的半路又滑回来时，
                     // 就从当前那一段接着往满格推，不会从零重来。
-                    var k = MotionTokens.Mech(_wipeP);
+                    // 整块换色走弹簧（末段那点过冲让颜色「落到」目标而不是「停在」目标）；
+                    // 硬边擦入仍是 Mech —— 弹簧在擦边上会先冲过头再退回来，读起来是一次抖动。
+                    var k = Math.Min(1.0, MotionTokens.Spring(_wipeP));
                     _painted = _wipeP >= 1
                         ? Solid(a)
                         : Solid(Blend(_face.Alpha > 0.02f ? _face : Colors.Transparent, a, k));
