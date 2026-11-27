@@ -136,13 +136,13 @@ public sealed class RuntimeConfigurator
         // 好感 / 信任 / 精力。走与主流程同一套钳制边界，改动立刻经角色库落盘。
         _plugins.StatAdjuster = AdjustCharacterStatAsync;
         // Minecraft 没连上时不把 maid_* 放进提示词：模型不该看见用不了的工具。
-        // 「连上了」还不够：模组得在握手时自报能力，抱抱才给模型看见——
-        // 旧模组（桥构建 1.6.0 及更早）不报能力表，模型一旦调用只会拿到 unknown_method。
+        // 「连上了」还不够：模组在握手时自报能力表（methods/features），宿主据此逐个判断——
+        // 旧模组（桥 1.6.0 及更早）不报能力表，除抱抱外一律照旧可见（那些方法它本来就有）。
         _tools.ToolVisibility = name =>
         {
             if (!name.StartsWith("maid_", StringComparison.Ordinal)) return true;
             if (!_maidBridge.IsConnected) return false;
-            return name != "maid_hug" || _maidBridge.Supports("hug");
+            return _maidBridge.SupportsTool(name);
         };
     }
 

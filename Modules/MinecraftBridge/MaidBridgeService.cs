@@ -157,6 +157,24 @@ public sealed partial class MaidBridgeService : IDisposable
     public bool Supports(string featureOrMethod) => CurrentSession?.Capabilities.Supports(featureOrMethod) ?? false;
 
     /// <summary>
+    /// 这个 maid_* 工具现在该不该出现在提示词里。
+    ///
+    /// 三条规则，顺序不能换：
+    ///   1. 对端没上报能力表（1.6.0 及更早的模组）→ 除抱抱外一律照旧可见：
+    ///      那些方法老模组本来就有，按方法逐个收会把能用的工具一起收掉；
+    ///   2. 上报过 → 按 <see cref="MaidToolMethods"/> 找到它落到的模组方法，问能力表；
+    ///   3. 表里登记为「不走 command 通道」或没登记 → 放行。
+    /// 抱抱是唯一例外：对端即使没上报也按不支持处理——它只存在于新模组上。
+    /// </summary>
+    public bool SupportsTool(string toolName)
+    {
+        var caps = CurrentSession?.Capabilities;
+        if (caps is null || !caps.Reported) return toolName != "maid_hug";
+        if (!MaidToolMethods.Map.TryGetValue(toolName, out var method) || method is null) return true;
+        return caps.Supports(method);
+    }
+
+    /// <summary>
     /// 能力握手变了（新会话连上、旧会话断开）就同步一次 maid_act 的可见枚举：
     /// 抱抱是 act 的一个 action，也是独立工具，两处都由 Supports("hug") 决定。
     /// </summary>

@@ -111,16 +111,25 @@ public sealed class FacePresenceService
     private DateTime? _lastRun;
     private string _lastSummary = "还没识别过";
     private string _lastReason = "";
-    private volatile bool _monitoring;
+    /// <summary>
+    /// 正在监测的页面数，不是布尔：人脸面板同时挂在「超级监测」和「模块详情」两页上，
+    /// 导航时新页 OnAppearing 完全可能早于旧页 OnDisappearing——用布尔的话旧页一关门
+    /// 就把新页的拉帧资格一起关了，新页会停在回落路径且不会自愈。
+    /// </summary>
+    private int _monitorCount;
 
     /// <summary>监测页是否正在拉帧。开的时候对话开始那条路径不再重复识别。</summary>
-    public bool Monitoring => _monitoring;
+    public bool Monitoring => Volatile.Read(ref _monitorCount) > 0;
 
     /// <summary>监测页出现：允许拉帧。</summary>
-    public void BeginMonitor() => _monitoring = true;
+    public void BeginMonitor() => Interlocked.Increment(ref _monitorCount);
 
     /// <summary>监测页离开：立刻停掉拉帧资格（页面自己也不再取数）。</summary>
-    public void EndMonitor() => _monitoring = false;
+    public void EndMonitor()
+    {
+        // 只在确实有人持有时递减，避免多调一次把计数压到负数、让后面所有 Begin 都失效。
+        if (Interlocked.Decrement(ref _monitorCount) < 0) Interlocked.Exchange(ref _monitorCount, 0);
+    }
 
     /// <summary>拉走最近一帧（序列号变了才需要重画）。</summary>
     public (byte[]? Frame, long Serial, DateTime? At) PullFrame()
@@ -155,7 +164,7 @@ public sealed class FacePresenceService
             LastAt = at,
             LastSummary = summary,
             DegradationReason = reason,
-            Monitoring = _monitoring,
+            Monitoring = Monitoring,
         };
     }
 
@@ -201,6 +210,28 @@ public sealed class FacePresenceService
             }
             if (permission != PermissionStatus.Granted)
                 return Failed("没有相机权限：请让用户到 系统设置 → 应用 → 温暖如初 → 权限 里允许「相机」。");
+
+            // 监测页的实时预览正开着：这时候再拉系统相机只会互相抢（大概率两边都失败）。
+            // 用预览刚抓的那一帧就够——它本来就是同一台相机、同一时刻、同一份只读结论。
+            if (Monitoring)
+            {
+                byte[]? cached;
+                DateTime? cachedAt;
+                lock (_lock) { cached = _frame; cachedAt = _frameAt; }
+                if (cached is not null && cachedAt is DateTime shotAt && now - shotAt <= FreshFrameWindow)
+                {
+                    var reused = await _face.AnalyzeAsync(cached, saveId).ConfigureAwait(false);
+                    RecordFrame(cached, shotAt, reused.Success ? "" : reused.Status, FaceAnalysisService.Describe(reused));
+                    return new FaceLookResult
+                    {
+                        Captured = true,
+                        Conclusion = "（用的是监测页实时预览刚才那一帧，没有另外开相机）" + FaceAnalysisService.Describe(reused),
+                        ImagePath = null,
+                        Analysis = reused,
+                        At = shotAt,
+                    };
+                }
+            }
 
             FileResult? shot;
             try
@@ -309,7 +340,7 @@ public sealed class FacePresenceService
         var held = false;
         try
         {
-            if (_monitoring) return;
+            if (Monitoring) return;
             if (!_gate.Wait(0)) return;
             held = true;
 
