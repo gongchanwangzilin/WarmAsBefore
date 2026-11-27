@@ -95,6 +95,14 @@ public class GlassPlate : ContentView
         set => SetValue(InteractiveProperty, value);
     }
 
+    /// <summary>
+    /// 鼠标作为点光源时，光在块内的归一化位置（0~1）。-1 = 指针不在这块玻璃上，
+    /// 材质回到固定的左上光。位置被量化到 1/8 网格：玻璃的位图按参数键缓存，
+    /// 不量化的话每一次像素级移动都要重新合成一张（等于白干），量化后一块玻璃最多 81 张。
+    /// </summary>
+    private double _lightX = -1;
+    private double _lightY = -1;
+
     /// <summary>按下：镜面更亮更窄、折射更强、内阴影收紧（参数变化 → 重画一次）。</summary>
     public bool Pressed
     {
@@ -134,6 +142,7 @@ public class GlassPlate : ContentView
         // 尺寸一变就得重画（折射的环带宽度、圆角、取样区域全部依赖它）。
         SizeChanged += (_, _) => Repaint();
         Loaded += (_, _) => OnLoaded();
+        HandlerChanged += (_, _) => HookPointerLight();
         Unloaded += (_, _) => OnUnloaded();
 
         // 触点密度：糊底色值是按物理像素画的，1:1 才能既清晰又不重采样。
@@ -186,6 +195,7 @@ public class GlassPlate : ContentView
             : 1.0;
         HookScrollers();
         HookTheme();
+        HookPointerLight();
         Repaint();
     }
 
@@ -283,9 +293,13 @@ public class GlassPlate : ContentView
     internal GlassFaceParams CurrentParams()
     {
         MeasureInPage(out var x, out var y, out var pw, out var ph);
+        // 大的面读起来更厚（Apple 的材质重量规则）：同一档厚度，桌面级的大卡片要比赛道级的小圆点
+        // 更厚一档，否则小控件的边看起来比整张卡还沉，眼睛立刻觉得假。
+        // 尺度按面积开方算，夹在 0.75~1.6 倍之间，只影响内影、柱面、侧壁与镜面辉光的铺开范围。
+        var sizeK = Math.Clamp(Math.Sqrt(Math.Max(1.0, Width) * Math.Max(1.0, Height)) / 260.0, 0.75, 1.6);
         return new GlassFaceParams(
-            Width, Height, Density, CornerRadius, Thickness, _pressed, _hover, Signal, Hollow,
-            x, y, pw, ph, TintAmount);
+            Width, Height, Density, CornerRadius, Thickness * sizeK, _pressed, _hover, Signal, Hollow,
+            x, y, pw, ph, TintAmount, _lightX, _lightY);
     }
 
     /// <summary>
@@ -324,7 +338,49 @@ public class GlassPlate : ContentView
     }
 
     /// <summary>
-    /// GraphicsView 的画笔：只做一次 DrawImage。每帧向 <see cref="GlassFace"/> 要位图 ——
+    // ── 鼠标 = 点光源 ────────────────────────────────────────────────────
+
+    private object? _lightHost;
+
+    /// <summary>
+    /// 挂上平台指针事件：鼠标在这块玻璃上移动时，把光的位置交给材质。
+    ///
+    /// MAUI 的 PointerGestureRecognizer 在 WinUI 上不回调 Moved（HoverFeel 实测过），
+    /// 所以只能挂平台元素。位置量化到 1/8 网格再比较，同一格内移动不触发重画 ——
+    /// 否则每一像素都会让这块玻璃重新合成一张位图。
+    /// </summary>
+    private void HookPointerLight()
+    {
+#if WINDOWS
+        if (Handler?.PlatformView is not Microsoft.UI.Xaml.UIElement el) return;
+        if (ReferenceEquals(_lightHost, el)) return;
+        _lightHost = el;
+        el.PointerMoved += (_, e) =>
+        {
+            var w = Math.Max(1.0, Width);
+            var h = Math.Max(1.0, Height);
+            var pt = e.GetCurrentPoint(el).Position;
+            var nx = Math.Clamp(pt.X / w, 0, 1);
+            var ny = Math.Clamp(pt.Y / h, 0, 1);
+            // 1/8 网格 + 中心吸附：光停在格子中心，免得高光在网格线上跳。
+            var qx = Math.Round(nx * 8) / 8;
+            var qy = Math.Round(ny * 8) / 8;
+            if (Math.Abs(qx - _lightX) < 1e-6 && Math.Abs(qy - _lightY) < 1e-6) return;
+            _lightX = qx;
+            _lightY = qy;
+            Repaint();
+        };
+        el.PointerExited += (_, _) =>
+        {
+            if (_lightX < 0) return;
+            _lightX = -1;
+            _lightY = -1;
+            Repaint();
+        };
+#endif
+    }
+
+    /// <summary>GraphicsView 的画笔：只做一次 DrawImage。每帧向 <see cref="GlassFace"/> 要位图 ——
     /// 它内部按参数键缓存，命中时只是一次字典查找；参数真的变了才会重新合成。
     /// </summary>
     private sealed class PlateDrawable : IDrawable

@@ -650,6 +650,13 @@ public sealed partial class SettingsViewModel : ObservableObject
             SetProperty(ref _pageTintHex, hex, nameof(PageTintHex));
             return;
         }
+
+        // 当场生效，不靠「落盘 → RuntimeConfigurator 比对 → 重发」那条异步链。
+        // 那条链要靠 prev/new 两次设置快照在线程池上比对，实测改完色要等一拍甚至不生效
+        // （用户看到的「颜色选择未生效」）。颜色是用户手指刚离开控件就该变的东西，
+        // 所以这里与背景色那条线一样：写进世界的读口，立刻要一次重算。
+        DesignSystem.Worlds.StyleWorldTokens.PageTintHex = hex ?? "";
+        DesignSystem.Theme.ThemeManager.Current?.Republish();
         PersistSettings();
     }
 
