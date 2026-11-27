@@ -41,6 +41,9 @@ public static class CoreRegistration
         services.AddSingleton<GenderLibrary>();
         // 心理状态：目录 + 每个角色身上那几条（严重度/稳定度）
         services.AddSingleton<MentalHealthService>();
+        // 安全感：与好感同刻度的 0–1000，事件驱动（系统算），小模型只在归纳经历/漂移复核时介入。
+        // 依赖上面的心理层（特质倍率与提示词）与人类记忆层（归纳出的经历），注册顺序不影响单例解析。
+        services.AddSingleton<SecurityService>();
         // 身体感受：冷热饥渴想念，跟真实时间与天气缓慢变化
         services.AddSingleton<PhysiologyService>();
         // 内心生活：内分泌化学池 + 执念池，事件与对话改变心绪，惦记的事到点自己想

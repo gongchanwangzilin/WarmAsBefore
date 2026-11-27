@@ -16,6 +16,7 @@ public sealed class BrainAnticipationService
     private readonly SettingsManager _settings;
     private readonly GameEngine _engine;
     private readonly ApiGateway _api;
+    private readonly SecurityService _security;
 
     /// <summary>每角色「本轮」结算倍率（PrepareTurn 写，ApplyChatGain 消费）。</summary>
     private readonly Dictionary<string, double> _pendingMultiplier = new(StringComparer.Ordinal);
@@ -23,11 +24,12 @@ public sealed class BrainAnticipationService
     private readonly Dictionary<string, string> _pendingCard = new(StringComparer.Ordinal);
     private readonly object _gate = new();
 
-    public BrainAnticipationService(SettingsManager settings, GameEngine engine, ApiGateway api)
+    public BrainAnticipationService(SettingsManager settings, GameEngine engine, ApiGateway api, SecurityService security)
     {
         _settings = settings;
         _engine = engine;
         _api = api;
+        _security = security;
     }
 
     private bool MasterEnabled => _settings.Current.BrainEnabled;
@@ -268,6 +270,11 @@ public sealed class BrainAnticipationService
     /// <summary>回合结束后调用（异步、非阻塞）：到点才问一次免费模型，结果写进 Brain.Hint / HintWarmth 供后续几轮复用。</summary>
     public async Task AfterTurnAsync(string charId, string userText, string reply)
     {
+        // 安全感搭在这条回合末回调上：它是宿主里唯一同时拿到「用户原话 + 回复」、且不受大脑预判开关影响的地方
+        // （下面几行才看 BrainEnabled）。安全感自己的开关与节流在 SecurityService 内部判定。
+        try { await _security.AfterTurnAsync(charId, userText, reply); }
+        catch (Exception ex) { App.WriteLog("Brain.SecurityAfterTurn -> " + ex.Message); }
+
         var s = _settings.Current;
         if (!MasterEnabled || !s.BrainAiAssistEnabled) return;
         if (string.IsNullOrWhiteSpace(s.BrainAiModel)) return;

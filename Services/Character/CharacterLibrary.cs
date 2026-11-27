@@ -182,6 +182,7 @@ public sealed partial class CharacterLibrary
         try
         {
             await LoadAsync();
+            NormalizeSecurity(ch);
             _engine.Register(ch);
             return await SaveRosterAsync();
         }
@@ -229,6 +230,7 @@ public sealed partial class CharacterLibrary
         try
         {
             await LoadAsync();
+            NormalizeSecurity(updated);
             _engine.Register(updated);
             return await SaveRosterAsync();
         }
@@ -237,6 +239,17 @@ public sealed partial class CharacterLibrary
             App.WriteLog("CharacterLibrary.Update -> " + ex);
             return false;
         }
+    }
+
+    /// <summary>
+    /// 新建/导入的角色都还没写过安全感（-1）：落盘前补成旧档同一套默认值 600，
+    /// 免得「角色库里是 -1、进游戏才变 600」这种半截状态被写进 characters.json。
+    /// </summary>
+    private static void NormalizeSecurity(CharacterData ch)
+    {
+        if (ch.State is not { } st) return;
+        st.Security = Modules.Affection.SecurityScale.Migrate(st.Security);
+        st.SecurityLog ??= new Models.SecurityJournal();
     }
 
     /// <summary>写入某角色的参数覆写（字段为 null 表示沿用全局设置），立即落盘。</summary>

@@ -52,6 +52,18 @@ public sealed record CharacterState
     /// </summary>
     public int Affection { get; set; }
 
+    /// <summary>
+    /// 安全感绝对点数（0–1000，与好感同刻度，等级换算同走 <see cref="Helpers.AffectionScale"/>）。
+    /// 由确定性事件推进（安慰/倾听/忽视/被拒/目睹亲密/辱骂/独处/陪伴），见
+    /// <c>Modules/Affection/SecurityScale.cs</c> 与 <c>SecurityService</c>。
+    /// -1 = 这份存档还没写过这一格（旧档，结构版本 &lt; 4）：读档补 600（初始信任、未经相处验证），
+    /// 不补满值，否则旧档一进来就没有「建立信任」这回事了。
+    /// </summary>
+    public int Security { get; set; } = Modules.Affection.SecurityScale.Unset;
+
+    /// <summary>安全感的事件账本（冷却、日上限、漂移、待归纳的事件）。</summary>
+    public SecurityJournal SecurityLog { get; set; } = new();
+
     public int Trust { get; set; }
     public int Energy { get; set; } = 100;
     /// <summary>精力 AI 修正（有界）：叠加在时间基线之上。精力 = clamp(基线 + 修正, 0, 100)；
@@ -205,6 +217,8 @@ public sealed record CharacterInitialStats
 {
     /// <summary>建档初始好感：仍是旧 0–100 百分比刻度（工作室的滑杆就是这个），播种进存档时 ×10 折成点数。</summary>
     public int Affection { get; init; }
+    /// <summary>建档初始安全感（0–1000）。-1 = 未设置，按旧档默认 600 播种。</summary>
+    public int Security { get; init; } = Modules.Affection.SecurityScale.Unset;
     public int Trust { get; init; }
     public int Energy { get; init; } = 100;
     public int Libido { get; init; } = 20;
