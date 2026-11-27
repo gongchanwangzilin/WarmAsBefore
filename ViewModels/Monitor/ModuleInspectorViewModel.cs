@@ -105,6 +105,8 @@ public sealed partial class ModuleInspectorViewModel : ObservableObject, IQueryA
         {
             Face.BeginMonitor();
             Face.PullLatestFrame();
+            // 预览闸门要用状态快照（开关 / 授权 / 相机权限），所以这里补一次读数。
+            _ = Face.LoadAsync();
             if (_faceClock is null)
             {
                 _faceClock = Application.Current?.Dispatcher.CreateTimer();

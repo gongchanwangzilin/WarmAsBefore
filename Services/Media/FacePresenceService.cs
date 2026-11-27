@@ -63,9 +63,11 @@ public sealed class FaceLookResult
 /// 不参与任何决策——不改数值、不推剧情、不触发动作。上层只许展示或转述。
 /// </para>
 /// <para>
-/// <b>取帧方式：</b>本仓库没有常开相机预览（没有相机组件包），取帧只走系统相机
-/// <see cref="MediaPicker.CapturePhotoAsync"/>——也就是「你在快门上看一眼」，
-/// 不会偷偷把镜头打开。所以这里的「图像流」是逐帧拉取：最近一帧留在内存里供监测页拉走。
+/// <b>取帧方式：</b>两条路。①监测页里有相机实时预览（CommunityToolkit.Maui.Camera 的 CameraView），
+/// 页面可见时每两秒抓一帧交给 <see cref="AnalyzePreviewFrameAsync"/>；②除此之外（AI 主动「看一眼」、
+/// 对话开始时的静默观察）仍然只走系统相机 <see cref="MediaPicker.CapturePhotoAsync"/> 的那一帧，
+/// 也就是「你在快门上看一眼」。CameraView 只能在屏幕上连好 handler 时取帧，没有可用的
+/// 无界面抓帧接口，所以静默那条路不改成预览，也不会偷偷把镜头打开。
 /// </para>
 /// <para>
 /// <b>节流与降级：</b>对话开始时只观察一次，最小间隔 <see cref="MinIntervalSeconds"/> 秒；
@@ -264,6 +266,35 @@ public sealed class FacePresenceService
         {
             SafeLog("face.look -> " + ex.GetType().Name);
             return Failed("取图时出了点岔子，这次先不看了。");
+        }
+        finally { _gate.Release(); }
+    }
+
+    /// <summary>
+    /// 监测页实时预览抓到的一帧：识别，并把结果写成「最近一帧 / 上次识别」。
+    /// 与 <see cref="LookNowAsync"/> 共用同一道单飞闸，但抢不到闸就直接跳过这一帧（两秒后还有下一帧），
+    /// 不排队、不堆积；任何失败只记账，不抛给界面。
+    /// </summary>
+    public async Task<FaceAnalysisResult?> AnalyzePreviewFrameAsync(byte[]? bytes, string? saveId, CancellationToken ct = default)
+    {
+        if (bytes is null || bytes.Length == 0) return null;
+        if (!await _gate.WaitAsync(0, ct).ConfigureAwait(false))
+        {
+            RecordNote("实时预览这一帧跳过了：上一次识别还没结束");
+            return null;
+        }
+
+        try
+        {
+            var analysis = await _face.AnalyzeAsync(bytes, saveId).ConfigureAwait(false);
+            RecordFrame(bytes, DateTime.Now, analysis.Success ? "" : analysis.Status, FaceAnalysisService.Describe(analysis));
+            SafeLog($"face.preview ok bytes={bytes.Length} status={(analysis.Success ? "ok" : "degraded")}");
+            return analysis;
+        }
+        catch (Exception ex)
+        {
+            SafeLog("face.preview -> " + ex.GetType().Name);
+            return null;
         }
         finally { _gate.Release(); }
     }
