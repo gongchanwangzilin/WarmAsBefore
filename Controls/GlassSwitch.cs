@@ -30,7 +30,7 @@ namespace WarmAsBefore.Controls;
 /// 同名同义，页面改一个标签名就能换过来；AutomationProperties.Name 挂在控件上即被读屏读到
 /// （Windows 上还会同步给原生元素的 UIA 名），点击（含键盘 Space/Enter，Windows）即可切换。
 /// </summary>
-public sealed class GlassSwitch : ContentView
+public class GlassSwitch : ContentView
 {
     private const double TrackW = 46;
     private const double TrackH = 27;

@@ -1,128 +1,40 @@
-using Microsoft.Maui.Controls.Shapes;
-
 using WarmAsBefore.DesignSystem.Theme;
 
 namespace WarmAsBefore.Controls;
 
 /// <summary>
-/// iOS 风开关：51×31 胶囊轨道 + 27 圆拇指。点按切换，IsToggled 双向绑定，
-/// 用法与原生 Switch 完全一致（IsToggled / IsEnabled / VerticalOptions 同名），
-/// 换掉原生灰皮是为了让设置行在两种明暗档里都读得出来——原生件的默认配色在深色档下会发灰。
-/// 不含阴影：每个合成层在 WinUI 上都要单独算，设置页一次几十个开关，省下来的正是首屏时间。
+/// 开关的统一入口：现在它就是 <see cref="GlassSwitch"/> —— 玻璃胶囊 + 玻璃球。
+///
+/// 为什么保留了这个名字：全仓有 125 处 <c>controls:ViewSwitch</c>（设置、角色工作室、地图、聊天……），
+/// 它们原来指向的是「一条纯色胶囊 + 一颗纯色圆球」，跟按钮、滑杆放在同一行里，
+/// 一眼就能看出「这个控件不是这套材质」。用户的原话是「凭什么开关就不是玻璃，只有按键拖动是玻璃」。
+///
+/// 做法是把这一层变成继承而不是逐页替换：改一处，125 处一起换成玻璃，
+/// 页面 XAML 一个字都不用动（绑定路径、Toggled 事件、IsToggled 全部同名同义）。
+///
+/// <see cref="OnColor"/> / <see cref="ThumbColor"/> 是原生 Switch 时代的兼容属性：
+/// 12 处页面写了它们。玻璃开关的颜色由世界与强调色决定，所以这两个值**接受但不生效** ——
+/// 保留是为了不打断那 12 处页面，而不是为了真的去染一颗玻璃球。
 /// </summary>
-public sealed class ViewSwitch : ContentView
+public sealed class ViewSwitch : GlassSwitch
 {
-    private const double TrackW = 51;
-    private const double TrackH = 31;
-    private const double ThumbD = 27;
-    private const double Pad = 2;
-
-    private readonly Border _track;
-    private readonly Border _thumb;
-
-    public static readonly BindableProperty IsToggledProperty = BindableProperty.Create(
-        nameof(IsToggled), typeof(bool), typeof(ViewSwitch), false, BindingMode.TwoWay,
-        propertyChanged: (b, o, n) =>
-        {
-            var s = (ViewSwitch)b;
-            s.Apply((bool)n, animate: o is bool old && old != (bool)n);
-            // 与原生 Switch.Toggled 同签名：老代码里挂的事件不用改。
-            if (o is bool prev && prev != (bool)n)
-            {
-                s.Toggled?.Invoke(s, new ToggledEventArgs((bool)n));
-            }
-        });
-
-    /// <summary>与原生 Switch 同名同签名（事件值即新状态）。</summary>
-    public event EventHandler<ToggledEventArgs>? Toggled;
-
-    /// <summary>兼容原生 Switch 的显式着色属性（页面里写了就用页面的，否则走语义资源）。</summary>
     public static readonly BindableProperty OnColorProperty = BindableProperty.Create(
-        nameof(OnColor), typeof(Color), typeof(ViewSwitch), null,
-        propertyChanged: (b, _, _) => ((ViewSwitch)b).Apply(((ViewSwitch)b).IsToggled, animate: false));
+        nameof(OnColor), typeof(Color), typeof(ViewSwitch), null);
 
     public static readonly BindableProperty ThumbColorProperty = BindableProperty.Create(
-        nameof(ThumbColor), typeof(Color), typeof(ViewSwitch), null,
-        propertyChanged: (b, _, n) =>
-        {
-            var s = (ViewSwitch)b;
-            if (n is Color c) s._thumb.BackgroundColor = c;
-            else s._thumb.SetDynamicResource(BackgroundColorProperty, "PageBg");
-        });
+        nameof(ThumbColor), typeof(Color), typeof(ViewSwitch), null);
 
+    /// <summary>开态颜色（兼容原生 Switch 签名；玻璃开关由世界着色，此值不参与绘制）。</summary>
     public Color? OnColor
     {
         get => (Color?)GetValue(OnColorProperty);
         set => SetValue(OnColorProperty, value);
     }
 
+    /// <summary>拇指颜色（同上，兼容用）。</summary>
     public Color? ThumbColor
     {
         get => (Color?)GetValue(ThumbColorProperty);
         set => SetValue(ThumbColorProperty, value);
-    }
-
-    public bool IsToggled
-    {
-        get => (bool)GetValue(IsToggledProperty);
-        set => SetValue(IsToggledProperty, value);
-    }
-
-    public ViewSwitch()
-    {
-        HorizontalOptions = LayoutOptions.Start;
-        VerticalOptions = LayoutOptions.Center;
-        WidthRequest = TrackW;
-        HeightRequest = TrackH;
-
-        _track = new Border
-        {
-            WidthRequest = TrackW,
-            HeightRequest = TrackH,
-            StrokeThickness = 0,
-            StrokeShape = new RoundRectangle { CornerRadius = TrackH / 2 },
-        };
-
-        _thumb = new Border
-        {
-            WidthRequest = ThumbD,
-            HeightRequest = ThumbD,
-            StrokeThickness = 0,
-            HorizontalOptions = LayoutOptions.Start,
-            VerticalOptions = LayoutOptions.Center,
-            StrokeShape = new RoundRectangle { CornerRadius = ThumbD / 2 },
-            TranslationX = Pad,
-        };
-        // 拇指用亮色：深色档里它必须是「白点」，不能被世界压成灰。
-        _thumb.SetDynamicResource(BackgroundColorProperty, "PageBg");
-
-        var root = new Grid { WidthRequest = TrackW, HeightRequest = TrackH };
-        root.Add(_track);
-        root.Add(_thumb);
-        Content = root;
-
-        var tap = new TapGestureRecognizer();
-        tap.Tapped += (_, _) => IsToggled = !IsToggled;
-        GestureRecognizers.Add(tap);
-
-        // 禁用态：原生件会灰掉，自绘件用整体透明度补回同样的语义。
-        PropertyChanged += (_, e) =>
-        {
-            if (e.PropertyName == nameof(IsEnabled)) Opacity = IsEnabled ? 1 : MotionTokens.DisabledOpacity;
-        };
-
-        Apply(IsToggled, animate: false);
-    }
-
-    private void Apply(bool on, bool animate)
-    {
-        // 本地值与动态资源要互斥：不清掉上一次写的本地值，下次 SetDynamicResource 会被它压住，
-        // 关闭时轨道就不回退（只剩拇指位移）。每次切换先清空，再按当前状态写一种。
-        _track.ClearValue(BackgroundColorProperty);
-        if (on && OnColor is Color onColor) _track.BackgroundColor = onColor;
-        else _track.SetDynamicResource(BackgroundColorProperty, on ? "PrimaryAction" : "WSep");
-        var x = on ? TrackW - ThumbD - Pad : Pad;
-        if (!animate) { _thumb.TranslationX = x; return; }
-        _ = _thumb.TranslateTo(x, 0, 160, Easing.CubicOut);
     }
 }
