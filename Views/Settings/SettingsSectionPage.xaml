@@ -2173,11 +2173,11 @@
                                Style="{StaticResource TxtCaption}" />
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="显示思考条（正在思考 / 深度思考中）" VerticalOptions="Center" FontSize="13" />
-                            <Switch Grid.Column="1" IsToggled="{Binding ThinkBarEnabled}" />
+                            <controls:GlassSwitch Grid.Column="1" IsToggled="{Binding ThinkBarEnabled}" />
                         </Grid>
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="显示快速按钮（切换思考档位）" VerticalOptions="Center" FontSize="13" />
-                            <Switch Grid.Column="1" IsToggled="{Binding QuickButtonsEnabled}" />
+                            <controls:GlassSwitch Grid.Column="1" IsToggled="{Binding QuickButtonsEnabled}" />
                         </Grid>
                         <Grid ColumnDefinitions="160,*">
                             <Label Text="思考档位数（1~5）" VerticalOptions="Center" FontSize="13" />

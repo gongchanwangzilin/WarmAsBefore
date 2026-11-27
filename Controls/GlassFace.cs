@@ -74,6 +74,13 @@ internal static class GlassFace
     /// <summary>缓存上限：一屏的玻璃块数远小于它，多了说明页面在不停换尺寸。</summary>
     private const int MaxCached = 64;
 
+    /// <summary>
+    /// 色调量的参照值：<see cref="GlassPlate.TintAmount"/> 的默认档（0.07）对上世界下发的
+    /// <c>GTintAmount</c>。控件自己的 TintAmount 从此是「相对倍率」（滑杆轨道 0.05、按钮 0.07、
+    /// 信号钮 0.11），绝对的浓淡归世界按明暗算 —— 一份规则，两块玻璃两种用途。
+    /// </summary>
+    private const double TintReference = 0.07;
+
     private static readonly object Gate = new();
     private static readonly Dictionary<string, Microsoft.Maui.Graphics.IImage> Cache = new();
     private static readonly Queue<string> Order = new();
@@ -121,7 +128,7 @@ internal static class GlassFace
         Math.Round(p.Radius, 1), Math.Round(p.Thickness, 2),
         p.Pressed ? 'P' : p.Hover ? 'H' : 'N', p.Signal ? 'S' : '-', p.Hollow ? 'O' : '*',
         Math.Round(p.PageX), Math.Round(p.PageY), Math.Round(p.PageW), Math.Round(p.PageH),
-        Math.Round(p.TintAmount, 2), StyleWorldTokens.Dark ? 'd' : 'l', FrostField.Version);
+        Math.Round(p.TintAmount, 2), StyleWorldTokens.Dark ? 'd' : 'l', FrostField.Version, TintSignature());
 
     // ── 合成 ────────────────────────────────────────────────────────────
 
@@ -253,18 +260,21 @@ internal static class GlassFace
     /// </summary>
     private static void DrawFace(SKCanvas canvas, in GlassFaceParams p, int w, int h)
     {
-        var hi = Token("GEdgeHi", "#FFFFFF");
+        // 顶面那道亮：浅档是暖白（GTintTop），深档是面板色相提亮的一档 —— 不再是纯白。
+        var hi = Token("GTintTop", "#FEFCF8");
         var mid = Token("GTintMid", "#FDF8F0");
         var low = Token("GTintLow", "#E8DCC8");
         var face = p.Pressed ? 0.86 : p.Hover ? 1.14 : 1.0;
         var dark = StyleWorldTokens.Dark;
+        // 深档把面上那层受光压薄一档：暗底上 0.15 的近白叠两遍，读起来就是一层灰蓝的纱。
+        var topLight = dark ? 0.55 : 1.0;
 
         using var shader = SKShader.CreateLinearGradient(
             new SKPoint(0, 0), new SKPoint(w * 0.45f, h),
             new[]
             {
-                hi.WithAlpha(A(0.15 * face * (dark ? 0.7 : 1))),
-                hi.WithAlpha(A(0.10 * face * (dark ? 0.7 : 1))),
+                hi.WithAlpha(A(0.15 * face * topLight)),
+                hi.WithAlpha(A(0.10 * face * topLight)),
                 mid.WithAlpha(A(0.065 * face)),
                 mid.WithAlpha(A(0.06 * face)),
                 low.WithAlpha(A(0.11 * face))
@@ -281,7 +291,9 @@ internal static class GlassFace
     /// </summary>
     private static void DrawTint(SKCanvas canvas, in GlassFaceParams p, int w, int h)
     {
-        var amount = p.TintAmount * (p.Hover ? 1.1 : 1.0);
+        // 绝对浓淡由世界按明暗下发（GTintAmount：浅 6~10%、深 8~12%），
+        // 控件自己的 TintAmount 只是相对倍率 —— 按钮 0.07、滑杆 0.05、信号钮 0.11。
+        var amount = p.TintAmount * TintWeight() * (p.Hover ? 1.1 : 1.0);
         if (amount <= 0.001) return;
         var color = p.Signal ? Token("AccentWarm", "#F5D8B8") : Token("GTintMid", "#FDF8F0");
         if (p.Signal) amount = Math.Min(0.34, amount * 2.4);
@@ -360,6 +372,11 @@ internal static class GlassFace
         var inside = inset > 0 ? inset : (float)(0.7 * density);
         var width = (float)((p.Pressed ? 1.4 : 2.0) * density);
 
+        // 高光的峰值由世界按明暗下发：暗底 0.98（一束光真的打上去了），亮底 0.80
+        // （亮底上一条近纯白的弧只会显脏，这是用户「白高光在浅面上发灰」的另一半）。
+        var peak = SpecularPeak();
+        var k = peak / 0.98;
+
         using var path = new SKPath();
         var r = Math.Max(1f, radius - inside);
         var left = inside;
@@ -372,9 +389,9 @@ internal static class GlassFace
             new SKPoint(inside, h * 0.55f), new SKPoint(w * 0.72f, inside),
             new[]
             {
-                SKColors.White.WithAlpha(A(0.30 * live)),
-                SKColors.White.WithAlpha(A(0.98 * live)),
-                SKColors.White.WithAlpha(A(0.42 * live)),
+                SKColors.White.WithAlpha(A(0.30 * live * k)),
+                SKColors.White.WithAlpha(A(peak * live)),
+                SKColors.White.WithAlpha(A(0.42 * live * k)),
                 SKColors.White.WithAlpha(0)
             },
             new[] { 0f, 0.18f, 0.55f, 1f },
@@ -392,7 +409,7 @@ internal static class GlassFace
 
         using var fade = SKShader.CreateLinearGradient(
             new SKPoint(inside, h * 0.55f), new SKPoint(w * 0.72f, inside),
-            new[] { SKColors.White.WithAlpha(A(0.13 * live)), SKColors.White.WithAlpha(0) },
+            new[] { SKColors.White.WithAlpha(A(0.13 * live * k)), SKColors.White.WithAlpha(0) },
             new[] { 0f, 1f }, SKShaderTileMode.Clamp);
         using var glow = new SKPaint
         {
@@ -435,7 +452,7 @@ internal static class GlassFace
     /// </summary>
     private static void DrawFallbackBase(SKCanvas canvas, int w, int h)
     {
-        var hi = Token("GEdgeHi", "#FFFFFF");
+        var hi = Token("GTintTop", "#FEFCF8");
         var mid = Token("GTintMid", "#FDF8F0");
         var low = Token("GTintLow", "#E8DCC8");
         using var shader = SKShader.CreateLinearGradient(
@@ -484,5 +501,36 @@ internal static class GlassFace
         return new SKColor(
             (byte)Math.Round(c.Red * 255), (byte)Math.Round(c.Green * 255),
             (byte)Math.Round(c.Blue * 255), 255);
+    }
+
+    /// <summary>
+    /// 世界下发的双精度玻璃参数（<c>GTintAmount</c> / <c>GSpecular</c>）。
+    /// 拿不到（App 还没下发令牌、单测里没有 Application）时退回按明暗的合理默认 ——
+    /// 宁可少一层色，也不能画成一块没有明暗判断的白板。
+    /// </summary>
+    private static double Num(string key, double fallback) =>
+        Application.Current?.Resources.TryGetValue(key, out var v) == true && v is double d
+            ? d
+            : fallback;
+
+    /// <summary>色调相对倍率：控件 TintAmount 乘上它才是真正的 alpha。</summary>
+    private static double TintWeight() =>
+        Num("GTintAmount", StyleWorldTokens.Dark ? 0.11 : 0.06) / TintReference;
+
+    /// <summary>镜面高光的峰值 alpha：暗底 0.98、亮底 0.80（规则见 StyleWorldTokens.GlassTintOf）。</summary>
+    private static double SpecularPeak() => Num("GSpecular", StyleWorldTokens.Dark ? 0.98 : 0.80);
+
+    /// <summary>
+    /// 缓存键里的色调指纹。换色板/换明暗时玻璃的颜色全变了，但尺寸与糊底版本可能一个字都没动 ——
+    /// 不把这三个色标和两个标量写进键里，换主题后已经合成过的玻璃会停在旧色上
+    /// （糊底那条有 <see cref="FrostField.Version"/> 兜着，色标没有）。
+    /// </summary>
+    private static string TintSignature()
+    {
+        var top = Token("GTintTop", "#FEFCF8");
+        var mid = Token("GTintMid", "#FDF8F0");
+        var low = Token("GTintLow", "#E8DCC8");
+        return string.Join('.', top.GetHashCode(), mid.GetHashCode(), low.GetHashCode(),
+            Math.Round(TintWeight(), 2), Math.Round(SpecularPeak(), 2));
     }
 }

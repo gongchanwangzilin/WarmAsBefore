@@ -1,5 +1,6 @@
 using Microsoft.Maui.Controls.Shapes;
 using WarmAsBefore.DesignSystem.Theme;
+using WarmAsBefore.Services;
 
 namespace WarmAsBefore.Controls;
 
@@ -45,6 +46,18 @@ public sealed class ViewSlider : ContentView
     private bool _dragging;
     /// <summary>按下那一刻的进度（0..1）。拖动按「从这里起算的差量」走 —— 见 OnPanUpdated。</summary>
     private double _dragFrom;
+
+    /// <summary>摩擦音：上一次响时手指的位移（dp）。每滑满 <see cref="FrictionStep"/> 才响一次。</summary>
+    private double _frictionAt;
+    /// <summary>上两帧之间手指的位移符号，用来抓「反向」那一下。</summary>
+    private double _frictionPrev;
+    private int _frictionDir;
+
+    /// <summary>
+    /// 每滑多少 dp 响一次（dt）。24 是「拇指滑过一个滑钮身位」的距离：再密就成了沙沙声，
+    /// 再疏就听不出声音在跟着手走。台阶按**位移**而不是按 tick，所以慢拖和快甩的疏密一致。
+    /// </summary>
+    private const double FrictionStep = 24;
 
     public static readonly BindableProperty MinimumProperty = BindableProperty.Create(
         nameof(Minimum), typeof(double), typeof(ViewSlider), 0d,
@@ -251,10 +264,14 @@ public sealed class ViewSlider : ContentView
                     _dragging = true;
                     _dragFrom = RatioOf(Value);
                     _thumbGlass.Pressed = true;
+                    _frictionAt = 0;
+                    _frictionPrev = 0;
+                    _frictionDir = 0;
                     break;
                 case GestureStatus.Running:
                     if (!_dragging) break;
                     SetRatio(_dragFrom + e.TotalX / UsableWidth);
+                    Friction(e.TotalX);
                     break;
                 case GestureStatus.Completed:
                 case GestureStatus.Canceled:
@@ -285,6 +302,31 @@ public sealed class ViewSlider : ContentView
     };
 
     private double UsableWidth => Math.Max(1, Width - ThumbD);
+
+    /// <summary>
+    /// 拖动时的玻璃摩擦音。两个触发条件（用户要求「按位移阈值，每滑约 24dp 一次；方向反转也响一次」）：
+    ///   · 里程：手指相对上一次出声的位置走满 <see cref="FrictionStep"/> dp；
+    ///   · 反向：位移方向与上一次出声时的方向相反 —— 换手的瞬间最该有声音，且里程表从那里重新起算。
+    /// 声音本身**不在 UI 线程合成**：<see cref="UiSounds.Friction"/> 只是判断 + 入队，
+    /// 合成/写盘/播放全在 <see cref="UiSoundService"/> 的后台队列里，播放器每种音效只建一次。
+    /// 服务内部还有 8ms / 30ms 两道闸，所以哪怕将来阈值被别人调小，也不会连成机关枪。
+    /// </summary>
+    private void Friction(double x)
+    {
+        var dir = Math.Sign(x - _frictionPrev);
+        _frictionPrev = x;
+        if (dir != 0 && _frictionDir != 0 && dir != _frictionDir)
+        {
+            UiSounds.Friction(GlassKind.Card);
+            _frictionAt = x;
+            _frictionDir = dir;
+            return;
+        }
+        if (dir != 0) _frictionDir = dir;
+        if (Math.Abs(x - _frictionAt) < FrictionStep) return;
+        UiSounds.Friction(GlassKind.Card);
+        _frictionAt = x;
+    }
 
     private double RatioOf(double value)
     {

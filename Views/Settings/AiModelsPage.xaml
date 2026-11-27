@@ -48,7 +48,7 @@
                                                        LineBreakMode="TailTruncation" />
                                                 <Label Text="{Binding ModelCountText}" Style="{StaticResource TxtCaption}" />
                                             </VerticalStackLayout>
-                                            <Switch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
+                                            <controls:GlassSwitch Grid.Column="1" IsToggled="{Binding Enabled}" VerticalOptions="Center" />
                                         </Grid>
 
                                         <!-- 该厂商下的模型 -->
@@ -64,7 +64,7 @@
                                                                            Style="{StaticResource TxtBodySm}" FontAttributes="Bold" MaxLines="1" LineBreakMode="TailTruncation" />
                                                                     <Label MaxLines="1" LineBreakMode="TailTruncation" Text="{Binding CapabilityText}" Style="{StaticResource TxtCaption}" />
                                                                 </VerticalStackLayout>
-                                                                <Switch Grid.Column="1" IsToggled="{Binding Enabled}"
+                                                                <controls:GlassSwitch Grid.Column="1" IsToggled="{Binding Enabled}"
                                                                         VerticalOptions="Center" />
                                                             </Grid>
                                                             <FlexLayout Direction="Row" Wrap="Wrap" AlignItems="Center">
@@ -203,13 +203,13 @@
                             <Label Text="文本与工具" Style="{StaticResource TxtSubhead}" />
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" RowSpacing="{DynamicResource WSpaceTight}">
                                 <Label Grid.Row="0" Grid.Column="0" Text="工具（function calling）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsTools}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsTools}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="1" Grid.Column="0" Text="JSON 结构化输出" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsJson}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsJson}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="2" Grid.Column="0" Text="深度思考（推理强度）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsReasoning}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsReasoning}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -220,13 +220,13 @@
                             <Label Text="图像" Style="{StaticResource TxtSubhead}" />
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" RowSpacing="{DynamicResource WSpaceTight}">
                                 <Label Grid.Row="0" Grid.Column="0" Text="识图（看图理解）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVision}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVision}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="1" Grid.Column="0" Text="生图（生成图片）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsImageGen}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsImageGen}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="2" Grid.Column="0" Text="OCR（自带文字识别）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsOcr}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsOcr}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -237,16 +237,16 @@
                             <Label Text="音频与视频" Style="{StaticResource TxtSubhead}" />
                             <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" RowSpacing="{DynamicResource WSpaceTight}">
                                 <Label Grid.Row="0" Grid.Column="0" Text="听音频（输入音频）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsAudioInput}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsAudioInput}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="1" Grid.Column="0" Text="出音频（语音合成）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsAudioOutput}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsAudioOutput}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="2" Grid.Column="0" Text="看视频（视频理解）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVideoInput}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVideoInput}" VerticalOptions="Center" />
 
                                 <Label Grid.Row="3" Grid.Column="0" Text="出视频（视频生成）" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                <Switch Grid.Row="3" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVideoOutput}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Row="3" Grid.Column="1" IsToggled="{Binding SelectedModel.SupportsVideoOutput}" VerticalOptions="Center" />
                             </Grid>
                         </VerticalStackLayout>
                     </Border>
@@ -274,18 +274,18 @@
                                     <Label Text="对话页控件显示" Style="{StaticResource TxtSubhead}" />
                                     <Label Text="按这款模型决定对话页显示哪些控件。" Style="{StaticResource TxtCaption}" />
                                 </VerticalStackLayout>
-                                <Switch Grid.Column="1" IsToggled="{Binding ShowDisplaySwitches}" VerticalOptions="Center" />
+                                <controls:GlassSwitch Grid.Column="1" IsToggled="{Binding ShowDisplaySwitches}" VerticalOptions="Center" />
                             </Grid>
                             <VerticalStackLayout Spacing="{DynamicResource WSpaceTight}" IsVisible="{Binding ShowDisplaySwitches}">
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto,Auto" ColumnSpacing="{DynamicResource WSpaceRegular}" RowSpacing="{DynamicResource WSpaceTight}">
                                     <Label Grid.Row="0" Grid.Column="0" Text="思考等级条" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkTierBar}" VerticalOptions="Center" />
+                                    <controls:GlassSwitch Grid.Row="0" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkTierBar}" VerticalOptions="Center" />
 
                                     <Label Grid.Row="1" Grid.Column="0" Text="思考开关" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkToggle}" VerticalOptions="Center" />
+                                    <controls:GlassSwitch Grid.Row="1" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowThinkToggle}" VerticalOptions="Center" />
 
                                     <Label Grid.Row="2" Grid.Column="0" Text="快速按钮组" Style="{StaticResource TxtBodySm}" VerticalOptions="Center" />
-                                    <Switch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowQuickButtons}" VerticalOptions="Center" />
+                                    <controls:GlassSwitch Grid.Row="2" Grid.Column="1" IsToggled="{Binding SelectedModel.ShowQuickButtons}" VerticalOptions="Center" />
                                 </Grid>
                             </VerticalStackLayout>
                         </VerticalStackLayout>

@@ -741,9 +741,18 @@ public static class StyleWorldTokens
         // 玻璃档的三个色标：GlassTokens 原来把 #FDF8F0 / #FFFFFF / #8B7D6B 这些奶油系的值
         // 直接写死在画刷里，换到晨雾蓝灰或深色档时，玻璃卡片会变成一块不属于这个世界的奶油。
         // 现在它只保留「哪一档多透、边多亮」这套材质算法，颜色一律由世界给。
-        res["GTintTop"] = Lift(surface, dark ? 0.16 : 0.58);
-        res["GTintMid"] = surface;
-        res["GTintLow"] = Sink(surface, dark ? 0.06 : 0.10);
+        //
+        // 2026-11-27：色标不再直接取 surface，而是走 GlassTintOf 的规则 —— 浅档暖白、深档抄面板色相。
+        // 起因是用户报「玻璃是奶白的，叠在终末地的冷灰深底上发灰蓝」：浅档把 surface（近白）直接
+        // 当 tint 用，在深底上就是一层白纱；深档若也照抄近白 alias，就成了灰蓝。四个值一起发布，
+        // GlassFace（自绘玻璃）与 GlassTokens（卡片/按钮的画刷）读的是同一份，不会出现
+        // 「按钮冷灰、卡片奶白」这种一套界面两种材料。
+        var glassTint = GlassTintOf(surface, dark);
+        res["GTintTop"] = glassTint.Top;
+        res["GTintMid"] = glassTint.Mid;
+        res["GTintLow"] = glassTint.Low;
+        res["GTintAmount"] = glassTint.Amount;
+        res["GSpecular"] = glassTint.Specular;
         // 浮雕边缘的明暗层次：高光沿再提一档、暗边沿再沉一档，中间档略向高光侧收，
         // 让 GlassTokens 的 EdgeBrush 三色标拉开落差（幅度克制，不改变世界性格）。
         res["GEdgeHi"] = dark ? Lift(surface, 0.68) : Colors.White;
@@ -853,6 +862,41 @@ public static class StyleWorldTokens
     {
         var c = Tint(hue, chroma * (dark ? 1.6 : 1.2) + 0.03, dark ? 0.58 : 0.42);
         return Ratio(c, ground) < 3.0 ? Lock(c, ground, 3.2) : c;
+    }
+
+    /// <summary>
+    /// 玻璃面上那层色调的来源（2026-11-27）。一块玻璃的 tint 不是装饰色，是「这块材料属于这个世界」
+    /// 的唯一证据，所以它必须从当前世界的面板色（<c>SurfaceBg</c> / <c>WSurfaceBrush</c> 的基色）长出来，
+    /// 而不是一个写死的奶油值。两条分支：
+    ///   浅色世界 —— 暖白 tint，保住现在那层奶油感。色相取面板自己的（混入 38° 的暖白），
+    ///               量 6~10%：面板越暗（越靠近中灰）越多一点，近白的面板只需要一丝。
+    ///   深色世界 —— **面板自身的色相**做 tint（冷灰就是冷灰，棕底就是棕），明度抬到面板之上 16%，
+    ///               让它读成「面上一层材料」而不是一层灰雾；彩度保底 4%（纯灰世界不许被凭空染上颜色），
+    ///               量 8~12%，底越黑越多。用白色 tint 在深底上叠出来就是用户说的「发灰蓝」。
+    /// 镜面高光的峰值也随明暗换档：暗底要 0.98 才像一束光打上去，亮底收到 0.80 ——
+    /// 亮底上一条接近纯白的弧只会显脏。
+    /// </summary>
+    private static (Color Top, Color Mid, Color Low, double Amount, double Specular) GlassTintOf(Color surface, bool dark)
+    {
+        var (hue, _, lightness) = RgbToHsl(surface);
+        var chroma = Chroma(surface);
+
+        if (dark)
+        {
+            // 只把面板色抬到「面上一层材料」的明度（+9%），不抬到中调：
+            // GlassTokens 的卡片/按钮面是拿 GTintMid 当**主体色**、alpha 0.3 铺满整块的，
+            // 抬得太多卡面就重新变成一层灰白纱 —— 用户报的「奶白」正是这么来的。
+            var mid = Hsl(hue, Math.Clamp(Math.Max(chroma, 0.04) * 1.15, 0.04, 0.55),
+                Math.Clamp(lightness + 0.09, 0.24, 0.42));
+            // 面板明度落在这条带上：0.375（较亮的深面）→ 8%，0.115（近黑的深面）→ 12%。
+            var amount = 0.08 + 0.04 * Math.Clamp((0.375 - lightness) / 0.26, 0, 1);
+            return (Lift(mid, 0.25), mid, Sink(mid, 0.14), amount, 0.98);
+        }
+
+        var warm = Mix(surface, Hsl(38, 0.45, 0.965), 0.75);
+        // 浅面明度 0.995（纯白）→ 6%，0.93（米黄）→ 10%。
+        var lightAmount = 0.06 + 0.04 * Math.Clamp((0.995 - lightness) / 0.065, 0, 1);
+        return (Lift(warm, 0.45), warm, Sink(warm, 0.08), lightAmount, 0.80);
     }
 
     /// <summary>同一个动作的两个方向：浅档向黑沉、深档向白提，参数分别给。</summary>

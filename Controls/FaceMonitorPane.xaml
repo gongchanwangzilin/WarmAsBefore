@@ -52,7 +52,7 @@
                 <Label Text="打开后每两秒在这幅画面上抓一帧识别；画面只在内存里，离开这一页相机立刻关掉。"
                        Style="{StaticResource TxtCaption}" LineBreakMode="WordWrap" />
             </VerticalStackLayout>
-            <Switch Grid.Column="1" VerticalOptions="Center" IsToggled="{Binding PreviewRequested}" />
+            <ctl:GlassSwitch Grid.Column="1" VerticalOptions="Center" IsToggled="{Binding PreviewRequested}" />
         </Grid>
 
         <Border Style="{StaticResource CardSolid}" Padding="0" IsVisible="{Binding PreviewRunning}">

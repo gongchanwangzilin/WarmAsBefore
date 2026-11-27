@@ -115,7 +115,7 @@ public partial class PluginSettingsPage : ContentPage
         var type = (f.Type ?? "text").Trim().ToLowerInvariant();
         if (type == "switch")
         {
-            var sw = new Switch
+            var sw = new GlassSwitch
             {
                 IsToggled = string.Equals(value, "true", StringComparison.OrdinalIgnoreCase) || value == "1",
                 HorizontalOptions = LayoutOptions.Start
