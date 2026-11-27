@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="WarmAsBefore.Views.Web.WebShellPage"
+             Shell.NavBarIsVisible="False"
+             Background="{DynamicResource PageBgBrush}">
+
+    <!--
+      Web 前端宿主：整页就是一块 WebView（Windows 上是 WebView2，Android 上是系统 WebView），
+      不画第二套壳 —— 标题栏、侧栏、卡片全归前端。这里只留一层「加载失败」的说明，
+      免得开发期忘了起 dev server 时窗口一片空白、看起来像程序坏了。
+    -->
+    <Grid>
+        <WebView x:Name="Browser" HorizontalOptions="Fill" VerticalOptions="Fill" />
+
+        <VerticalStackLayout x:Name="Fallback" IsVisible="False" Spacing="{DynamicResource WSpaceRegular}"
+                             Padding="{DynamicResource WPadCard}"
+                             HorizontalOptions="Center" VerticalOptions="Center">
+            <Label x:Name="HintLabel" Style="{StaticResource TxtBody}" HorizontalTextAlignment="Center" />
+            <Label x:Name="HintDetail" Style="{StaticResource TxtCaption}" HorizontalTextAlignment="Center" />
+            <Button Text="重试" Style="{StaticResource BtnTextSm}" HorizontalOptions="Center"
+                    Clicked="OnRetryClicked" />
+        </VerticalStackLayout>
+    </Grid>
+</ContentPage>
