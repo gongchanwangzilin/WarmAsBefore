@@ -21,9 +21,12 @@ export function BackChip({ onBack, routeKey }: { onBack: () => void; routeKey: s
       if (cancelled) return;
       const layer = document.querySelector('.layer:not([data-leaving])');
       const own = layer?.querySelector('[data-back], .ph__back');
+      // 「自己已经有回退」只认两种：明确写着返回的字钮，或带 aria-label/title 说明的。
+      // 舞台上的 ▶ / ◀ 是换场景的箭头，不是返回 —— 之前把它当成回退，主界面就没补那颗键。
       const textual = [...(layer?.querySelectorAll('button') ?? [])].some((b) => {
         const text = (b.textContent ?? '').trim();
-        return text.startsWith('‹') || text.startsWith('◀') || text.startsWith('<') || text === '返回';
+        const name = `${b.getAttribute('aria-label') ?? ''} ${b.getAttribute('title') ?? ''}`;
+        return text === '返回' || name.includes('返回') || (/^[‹<]/.test(text) && text.length <= 6);
       });
       setNeeded(!own && !textual);
     }, 60);
