@@ -51,18 +51,16 @@ internal static class MaidBridgeTools
             HoldSchema);
 
         tools.RegisterBuiltin("maid_act",
-            "让女仆做一个具体动作：attack 攻击目标，use 使用或右键方块与实体，"
-            + "gesture 主动做预设动作（如 wave 招手），hug 走过去抱你（先寻路到身边、面对面才抱，不会瞬移；路被挡或你在战斗时会放弃并说明原因），say 说一句她自己的台词，"
-            + "sit/stand/sleep 坐下/站起/睡觉，look 看向目标，interact_addon 触发附属模组里本由玩家发起的行为。",
+            ActDescription(false),
             args => bridge.RunToolAsync("act", args),
-            ActSchema);
+            ActSchema(false));
 
         tools.RegisterBuiltin("maid_hug",
             "抱抱（既是功能也是动作）：她会先走到你身边、面对面再抱，不瞬移；路被挡、你在战斗或睡觉、她正忙着，都会放弃并说明原因。"
             + "action=request 求抱（她按好感与安全感决定答应、勉强答应还是拒绝），hug_back 回抱（她正抱着你时延长并回应），"
             + "refuse 明确拒绝她的求抱，status 查她现在愿不愿意、在不在抱。"
             + "想主动抱她时先看 status；被拒绝过就隔一阵再试，别连着求。"
-            + "如果返回 unknown_method，说明对方模组这一版还没有抱抱功能：直接告诉玩家去更新模组，不要重试。",
+            + "如果返回 unsupported，说明对方模组这一版还没有抱抱功能：直接告诉玩家去更新模组，不要重试。",
             args => bridge.RunToolAsync("hug", args),
             HugSchema);
 
@@ -318,15 +316,40 @@ internal static class MaidBridgeTools
         },"required":["action"],"additionalProperties":false}
         """;
 
-    private static readonly string ActSchema =
+    /// <summary>
+    /// maid_act 的说明与参数表随能力握手变：抱抱是 action 的一个枚举值，旧模组（不报能力表）上
+    /// 那个值必然回 unknown_action，所以连上时只写它真认的那些。其余工具不会随连接变，注册一次就够。
+    /// </summary>
+    private static string ActDescription(bool hug)
+        => "让女仆做一个具体动作：attack 攻击目标，use 使用或右键方块与实体，"
+           + "gesture 主动做预设动作（如 wave 招手），"
+           + (hug ? "hug 走过去抱你（先寻路到身边、面对面才抱，不会瞬移；路被挡或你在战斗时会放弃并说明原因），" : "")
+           + "say 说一句她自己的台词，"
+           + "sit/stand/sleep 坐下/站起/睡觉，look 看向目标，interact_addon 触发附属模组里本由玩家发起的行为。";
+
+    /// <summary>
+    /// 参数表模板。抱抱的枚举值由一个占位符代着，连上不支持的模组时整段替换掉——
+    /// 直接拼接多行 raw string 会把结束定界符挤到内容同一行，不是合法写法。
+    /// </summary>
+    private static readonly string ActSchemaTemplate =
         """{"type":"object","properties":{""" + MaidProperty + """
-        ,"action":{"type":"string","enum":["attack","use","gesture","say","sit","stand","sleep","look","hug","interact_addon"],"description":"动作类型"},
+        ,"action":{"type":"string","enum":["attack","use","gesture","say","sit","stand","sleep","look","@HUG","interact_addon"],"description":"动作类型"},
         "target":{"type":"string","description":"目标玩家/生物/方块/角色"},
         "text":{"type":"string","description":"say 时的台词"},
         "arg":{"type":"string","maxLength":64,"description":"gesture 的动作名（如 wave）；interact_addon 的行为 id"},
         "duration":{"type":"number","description":"持续时间（秒）"}
         },"required":["action"],"additionalProperties":false}
         """;
+
+    private static string ActSchema(bool hug)
+        => hug ? ActSchemaTemplate.Replace("\"@HUG\",", "\"hug\",") : ActSchemaTemplate.Replace("\"@HUG\",", "");
+
+    /// <summary>
+    /// 能力握手变了就按当前会话重注册 maid_act：注册表是「名字 → 定义」，同名覆盖即可，
+    /// 已注册的处理函数与 schema 一起换掉，模型下一次拿到的工具表就是新形状。
+    /// </summary>
+    internal static void RefreshHugAvailability(MaidBridgeService bridge, ToolManager tools, bool hug)
+        => tools.RegisterBuiltin("maid_act", ActDescription(hug), args => bridge.RunToolAsync("act", args), ActSchema(hug));
 
     private static readonly string HugSchema =
         """{"type":"object","properties":{""" + MaidProperty + """
