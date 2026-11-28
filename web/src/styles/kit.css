@@ -593,3 +593,82 @@ body[data-back-chip='1'] .bar__inner {
 body[data-back-chip='1'] .mg__top {
   padding-left: 92px;
 }
+
+/* ── 提示条 ────────────────────────────────────────────────────────────────
+   原生 Toast 让位给这一层：右上角浮现，玻璃同款，宽度跟着窗口走，不写死像素。 */
+.toasts {
+  position: fixed;
+  top: calc(var(--w-space-4) + 8px);
+  right: calc(var(--w-space-4) + 8px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-space-2);
+  max-width: min(380px, calc(100vw - 32px));
+  z-index: 900;
+  pointer-events: none;
+}
+
+.toast {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--w-space-3);
+  align-items: start;
+  padding: var(--w-space-3) var(--w-space-4);
+  border-radius: var(--w-radius-card);
+  border: 1px solid var(--w-hairline);
+  background: var(--w-surface-glass, var(--w-surface-tint));
+  backdrop-filter: blur(var(--w-blur-glass, 18px));
+  box-shadow: var(--w-shadow-float, 0 12px 32px rgba(0, 0, 0, 0.28));
+  color: var(--w-ink-body);
+  pointer-events: auto;
+  cursor: pointer;
+  animation: toast-in 260ms cubic-bezier(0.2, 0.9, 0.2, 1);
+}
+
+.toast__glyph {
+  font-size: var(--w-size-subhead);
+  line-height: 1.2;
+  color: var(--w-ink-muted);
+}
+
+.toast[data-kind='success'] .toast__glyph { color: var(--w-positive, var(--w-signal)); }
+.toast[data-kind='warn'] .toast__glyph { color: var(--w-warning, var(--w-signal)); }
+.toast[data-kind='error'] .toast__glyph { color: var(--w-negative, var(--w-signal)); }
+
+.toast__text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.toast__code {
+  font-family: var(--w-font-num);
+  font-size: var(--w-size-caption);
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--w-ink-faint);
+}
+
+.toast__title {
+  font-size: var(--w-size-body);
+  font-weight: 600;
+  color: var(--w-ink-display);
+  overflow-wrap: anywhere;
+}
+
+.toast__body {
+  font-size: var(--w-size-small);
+  line-height: 1.55;
+  color: var(--w-ink-muted);
+  overflow-wrap: anywhere;
+}
+
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(-8px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast { animation: none; }
+}

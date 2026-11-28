@@ -46,9 +46,35 @@ public sealed class WebBridge
     /// <summary>串行闸：settings.set 是「读→改→落盘」，两条消息挤在一起会互相覆盖。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 
+    /// <summary>
+    /// 活着的桥（一个 WebView 一条）。提示、数据变更这类「所有窗都该知道」的消息要推给全部，
+    /// 不能只推最后挂上的那扇 —— 否则主窗弹的提示在手机窗里看不见。
+    /// </summary>
+    private static readonly List<WebBridge> Live = new();
+
+    /// <summary>还有 Web 宿主在跑：原生提示控件据此让位，改由前端自己弹。</summary>
+    public static bool AnyLive { get { lock (Live) return Live.Count > 0; } }
+
+    /// <summary>把一条事件推给所有活着的 Web 宿主。</summary>
+    public static void EmitAll(string name, object? payload)
+    {
+        WebBridge[] all;
+        lock (Live) all = Live.ToArray();
+        foreach (var b in all)
+        {
+            try { b.Emit(name, payload); }
+            catch (Exception ex) { App.WriteLog("WebBridge.EmitAll -> " + ex.Message); }
+        }
+    }
+
+    public WebBridge()
+    {
+        lock (Live) Live.Add(this);
+    }
+
     public WebBridge(SettingsManager settings, SaveManager saves, CharacterLibrary characters, PageWindowService windows,
         PluginHost plugins, WorldTreeService worlds, MemoryTagService tags,
-        Modules.Showcase.ShowcaseStore showcases, NovelLibrary novels)
+        Modules.Showcase.ShowcaseStore showcases, NovelLibrary novels) : this()
     {
         _settings = settings;
         _saves = saves;
@@ -173,6 +199,7 @@ public sealed class WebBridge
         "saves.list" => await SavesListAsync(),
         "characters.list" => await CharactersListAsync(),
         "characters.get" => CharactersGet(p),
+        "characters.importAvatar" => await CharactersImportAvatarAsync(p),
         "ai.providers" => AiProviders(),
         "plugins.list" => await PluginsListAsync(),
         "worldbook.list" => await WorldbookListAsync(),
@@ -400,8 +427,8 @@ public sealed class WebBridge
             age = c.Profile.Age,
             catchphrase = c.Profile.Catchphrase,
             avatarUrl = AssetUrl(c.Avatar),
-            outfit = c.State.CurrentOutfit,
-            emotion = c.State.CurrentEmotion,
+            outfit = ResolveLook(c).outfit,
+            emotion = ResolveLook(c).emotion,
             affection = c.State.Affection,
             trust = c.State.Trust,
             energy = c.State.Energy,
@@ -411,6 +438,26 @@ public sealed class WebBridge
                 .Select(parts => new { outfit = parts[0], emotion = parts[1], url = AssetUrl(c.SpriteMap[string.Join('/', parts)]) })
                 .ToList(),
         };
+    }
+
+    /// <summary>
+    /// <c>characters.importAvatar</c>：点头像就是「换一张图」。宿主弹系统的选图框（前端没有文件系统的门），
+    /// 选完拷进角色的 avatar 目录并写回 <c>Avatar</c>，再把新地址回给前端。
+    /// 取消返回 <c>canceled=true</c>，不弹错误 —— 用户点掉了不算失败。
+    /// </summary>
+    private async Task<object?> CharactersImportAvatarAsync(JsonElement p)
+    {
+        var id = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("id", out var el) ? el.GetString() ?? "" : "";
+        if (string.IsNullOrWhiteSpace(id)) throw new WebBridgeException("E_BAD_PARAMS", "characters.importAvatar 需要 {id}。");
+
+        var pick = await MainThread.InvokeOnMainThreadAsync(async () => await FilePicker.Default.PickAsync(
+            new PickOptions { PickerTitle = "选一张图片当头像", FileTypes = FilePickerFileType.Images }));
+        if (pick is null) return new { canceled = true, avatarUrl = "" };
+
+        var rel = await _characters.SetAvatarFromFileAsync(id, pick.FullPath);
+        if (rel is null) throw new WebBridgeException("E_BACKEND", "这张图没能写成头像（角色不存在或格式不支持）。");
+        Emit("data.changed", new { what = "characters" });
+        return new { canceled = false, avatarUrl = AssetUrl(rel) };
     }
 
     /// <summary><c>ai.providers</c>：设置里的厂商与模型（不含任何密钥）。</summary>
@@ -579,12 +626,30 @@ public sealed class WebBridge
         return $"https://{Views.Web.WebShellPage.AssetHostName}/{clean}";
     }
 
-    /// <summary>当前该显示哪张立绘：先按「当前服装 + 当前情绪」，退到同服装任一张，再退到任意一张。</summary>
+    /// <summary>
+    /// 这台角色真正该用的服装/表情。存档里的 CurrentOutfit 可能是 default，
+    /// 而形象包里只有「女仆装/偶像/校园」这类真名 —— 认不出就取第一套当默认装扮。
+    /// 这就是「有的角色看着没立绘」的真因：状态里的名字对不上图，前端按状态去挑就挑空了。
+    /// </summary>
+    private static (string outfit, string emotion) ResolveLook(CharacterData c)
+    {
+        if (c.SpriteMap.Count == 0) return ("", "");
+        var keys = c.SpriteMap.Keys.Select(k => k.Split('/')).Where(parts => parts.Length > 1).ToList();
+        if (keys.Count == 0) return ("", "");
+        var outfit = keys.Any(parts => parts[0] == c.State.CurrentOutfit)
+            ? c.State.CurrentOutfit
+            : keys.Select(parts => parts[0]).FirstOrDefault() ?? "";
+        var emotion = keys.Any(parts => parts[0] == outfit && parts[1] == c.State.CurrentEmotion)
+            ? c.State.CurrentEmotion
+            : keys.Where(parts => parts[0] == outfit).Select(parts => parts[1]).FirstOrDefault() ?? "";
+        return (outfit, emotion);
+    }
+
+    /// <summary>当前该显示哪张立绘：先按「服装 + 情绪」，退到同服装任一张，再退到任意一张。</summary>
     private static string CurrentSprite(CharacterData c)
     {
         if (c.SpriteMap.Count == 0) return "";
-        var outfit = c.State.CurrentOutfit;
-        var emotion = c.State.CurrentEmotion;
+        var (outfit, emotion) = ResolveLook(c);
         if (c.SpriteMap.TryGetValue($"{outfit}/{emotion}", out var exact) && !string.IsNullOrWhiteSpace(exact)) return exact;
         var sameOutfit = c.SpriteMap.FirstOrDefault(kv => kv.Key.StartsWith(outfit + "/", StringComparison.Ordinal));
         if (!string.IsNullOrWhiteSpace(sameOutfit.Value)) return sameOutfit.Value;
@@ -698,6 +763,8 @@ public sealed class WebBridge
                     spriteCount = c.SpriteMap.Count,
                     outfits = c.SpriteMap.Keys.Select(k => k.Split('/')[0]).Distinct().ToList(),
                     currentSpriteUrl = AssetUrl(CurrentSprite(c)),
+                    outfit = ResolveLook(c).outfit,
+                    emotion = ResolveLook(c).emotion,
                     affection = c.State.Affection,
                     trust = c.State.Trust,
                     energy = c.State.Energy,

@@ -5,6 +5,7 @@ import { BackChip } from './components/BackChip';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageHeader } from './components/kit';
 import { PageDeck } from './components/PageDeck';
+import { ToastHost } from './components/ToastHost';
 import { PageShell } from './components/PageShell';
 import { averageGround, groundCss, groundLayers } from './lib/ground';
 import { computeInk } from './lib/ink';
@@ -176,6 +177,8 @@ export function App({ bridge, tokens }: Props) {
           </ErrorBoundary>
         )}
       />
+
+      <ToastHost bridge={bridge} />
 
       <output hidden id="web-error" />
 

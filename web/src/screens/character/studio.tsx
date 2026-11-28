@@ -4,6 +4,7 @@ import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { Field, PageHeader, TextBtn } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
+import { importAvatar } from '../../lib/avatar';
 import type { Result } from '../../bridge/protocol';
 import type { ScreenProps } from '../types';
 import {
@@ -220,6 +221,8 @@ type Ctx = {
   setEmotion: (key: string) => void;
   previewUrl: string;
   avatarUrl: string;
+  /** 点头像/点「换头像」：由宿主弹选图框，选完写回角色。 */
+  changeAvatar: () => void;
   spriteOf: (emotion: string) => string;
 };
 
@@ -412,6 +415,13 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
     setEmotion,
     previewUrl,
     avatarUrl,
+    changeAvatar: () => {
+      void importAvatar(bridge, charId || subject?.id || '').then((url) => {
+        if (!url) return;
+        setSubject((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
+        setStatus('头像换好了。');
+      });
+    },
     spriteOf: (key) => subject?.emotions.find((item) => item.outfit === outfit && item.emotion === key)?.url ?? '',
   };
 
@@ -471,7 +481,7 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
 
 /** 左栏：立绘舞台（立绘 + 名字牌 + 读数条 + 服装/表情 + 共用记忆开关）。 */
 function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption: string }) {
-  const { f, set, navigate, setFacing, facingLeft, outfits, emotions, outfit, emotion, setOutfit, setEmotion, previewUrl, avatarUrl } = ctx;
+  const { f, set, setFacing, facingLeft, outfits, emotions, outfit, emotion, setOutfit, setEmotion, previewUrl, avatarUrl } = ctx;
   return (
     <Glass as="section" tone="card" radius={12} style={{ padding: 'var(--w-pad-card)' }}>
       <Stack gap={2}>
@@ -528,20 +538,21 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
               textAlign: 'center',
             }}
           >
-            <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <button
+              type="button"
+              className="cs-avatar"
+              title={avatarUrl ? '点头像换一张' : '点头像导入头像'}
+              onClick={() => ctx.changeAvatar()}
+            >
               {avatarUrl ? (
-                <img
-                  src={avatarUrl}
-                  alt=""
-                  style={{ width: 62, height: 62, borderRadius: 4, objectFit: 'cover' }}
-                />
+                <img src={avatarUrl} alt="" />
               ) : (
                 <>
                   <span style={{ fontSize: 20, color: 'var(--w-ink-muted)' }}>＋</span>
                   <Caption>头像</Caption>
                 </>
               )}
-            </div>
+            </button>
           </div>
         </div>
 
@@ -586,7 +597,7 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
           </div>
           <Chips>
             <ChipBtn label="↔ 换朝向" onClick={() => setFacing(!facingLeft)} />
-            <ChipBtn label="换头像" onClick={() => navigate('/avatarcrop')} />
+            <ChipBtn label="换头像" onClick={() => ctx.changeAvatar()} />
           </Chips>
 
           <SwitchLine

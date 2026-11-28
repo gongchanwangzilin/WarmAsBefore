@@ -491,6 +491,32 @@ public sealed partial class CharacterLibrary
         }
     }
 
+    /// <summary>
+    /// 把一张现成的图片设成角色头像：拷进 <c>assets/characters/{id}/avatar/</c>，再写回 <c>Avatar</c> 相对路径。
+    /// 返回写进角色的相对路径；角色不存在、文件不是图片、写盘失败都返回 null（调用方据此报错，不假装成功）。
+    /// </summary>
+    public async Task<string?> SetAvatarFromFileAsync(string charId, string sourcePath)
+    {
+        await LoadAsync();
+        if (!_engine.Roster.TryGetValue(charId, out var ch)) return null;
+        if (!File.Exists(sourcePath)) return null;
+        var ext = Path.GetExtension(sourcePath).ToLowerInvariant();
+        if (!ImageExtensions.Contains(ext)) return null;
+
+        var dir = Path.Combine(_store.Root, "assets", "characters", charId, "avatar");
+        Directory.CreateDirectory(dir);
+        var dest = Path.Combine(dir, "avatar" + ext);
+        foreach (var old in Directory.EnumerateFiles(dir, "avatar.*"))
+        {
+            if (string.Equals(old, dest, StringComparison.OrdinalIgnoreCase)) continue;
+            try { File.Delete(old); } catch { }
+        }
+        File.Copy(sourcePath, dest, true);
+
+        var rel = $"assets/characters/{charId}/avatar/avatar{ext}";
+        return await UpdateAsync(ch with { Avatar = rel }) ? rel : null;
+    }
+
     /// <summary>导入角色 zip：支持 character.json / 角色主设定.txt / 数据包 manifest 三种来源。</summary>
     public async Task<(bool ok, string message)> ImportFromZipAsync(string zipPath)
     {

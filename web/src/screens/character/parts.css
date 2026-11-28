@@ -1,0 +1,37 @@
+
+/* 头像框：点头像就是「换一张」。没头像时也点得动 —— 那正是最该点的时刻。 */
+.cr-avatar,
+.cs-avatar {
+  display: grid;
+  place-items: center;
+  gap: 2px;
+  padding: 0;
+  border: 1px solid var(--w-hairline);
+  background: var(--w-surface-tint);
+  color: var(--w-ink-muted);
+  border-radius: 12px;
+  overflow: hidden;
+  cursor: pointer;
+  flex: none;
+  transition: border-color 140ms ease, background-color 140ms ease;
+}
+
+.cr-avatar { width: 56px; height: 56px; }
+.cs-avatar { width: 62px; height: 62px; border-radius: 4px; }
+
+.cr-avatar:hover,
+.cs-avatar:hover {
+  border-color: var(--w-ink-muted);
+  background: var(--w-tint-card);
+}
+
+.cr-avatar img,
+.cs-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.cr-avatar__plus { font-size: var(--w-size-subhead); line-height: 1; }
+.cr-avatar__hint { font-size: var(--w-size-caption); }

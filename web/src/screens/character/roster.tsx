@@ -5,6 +5,7 @@ import { Glass } from '../../components/Glass';
 import { PageShell } from '../../components/PageShell';
 import { Empty, PageHeader, TextBtn } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
+import { importAvatar } from '../../lib/avatar';
 import type { ScreenProps } from '../types';
 import { BodySm, Caption, Eyebrow, Hair, PaneTitle, PrimaryBtn, Stack } from './parts';
 
@@ -239,8 +240,8 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                 <div
                   style={{
                     position: 'relative',
-                    minHeight: 300,
-                    flex: 1,
+                    height: 'clamp(260px, 48vh, 520px)',
+                    flex: 'none',
                     borderRadius: '12px 12px 0 0',
                     background: 'var(--w-surface-tint)',
                     display: 'grid',
@@ -255,7 +256,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                     <img
                       src={selected.spriteUrl}
                       alt={selected.name}
-                      style={{ maxHeight: 'min(100%, 420px)', maxWidth: 'min(100%, 46vw)', objectFit: 'contain', objectPosition: 'bottom center', display: 'block' }}
+                      style={{ height: '92%', width: 'auto', maxWidth: '100%', objectFit: 'contain', objectPosition: 'bottom center', display: 'block' }}
                     />
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)' }}>
@@ -282,20 +283,21 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                         >
                           {selected.name}
                         </h2>
-                        {selected.avatarUrl ? (
-                          <img
-                            src={selected.avatarUrl}
-                            alt={selected.name}
-                            style={{
-                              width: 56,
-                              height: 56,
-                              borderRadius: 12,
-                              objectFit: 'cover',
-                              border: '1px solid var(--w-hairline)',
-                              flex: 'none',
-                            }}
-                          />
-                        ) : null}
+                        <button
+                          type="button"
+                          className="cr-avatar"
+                          title={selected.avatarUrl ? '点头像换一张' : '点头像导入头像'}
+                          onClick={() => void importAvatar(bridge, selected.id)}
+                        >
+                          {selected.avatarUrl ? (
+                            <img src={selected.avatarUrl} alt={selected.name} />
+                          ) : (
+                            <>
+                              <span className="cr-avatar__plus">＋</span>
+                              <span className="cr-avatar__hint">导入头像</span>
+                            </>
+                          )}
+                        </button>
                       </div>
                       <span
                         style={{

@@ -255,6 +255,10 @@ export type Requests = {
     params: Record<string, never>;
     result: { characters: CharacterRow[] };
   };
+  'characters.importAvatar': {
+    params: { id: string };
+    result: { canceled: boolean; avatarUrl: string };
+  };
 };
 
 /** 存档一行（saves.list）。 */
@@ -333,6 +337,8 @@ export type ServerEvents = {
   /** 有存档/角色写盘时宿主推一条，页面据此重读（跨窗口联动靠它）。 */
   'data.changed': { what: 'saves' | 'characters' };
   'theme.tokens': { tokens: TokenMap };
+  /** 原生侧发生的事（导入成功、存档写入、警告）：条的画法归前端，宿主只给内容。 */
+  'ui.toast': { title: string; body: string; code: string; kind: 'info' | 'success' | 'warn' | 'error'; glyph: string };
 };
 
 export type EventName = keyof ServerEvents;
