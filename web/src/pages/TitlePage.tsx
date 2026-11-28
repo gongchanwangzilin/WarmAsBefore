@@ -86,6 +86,7 @@ export function TitlePage({ bridge, onNavigate }: Props) {
                       onClick={() => item.to && onNavigate(item.to)}
                       aria-disabled={item.to ? undefined : true}
                     >
+                      <EntryMark index={item.index} />
                       <span className="menu__num">{item.index}</span>
                       <span className="menu__label">{item.label}</span>
                       <span className="menu__chev" aria-hidden="true">
@@ -163,8 +164,36 @@ export function TitlePage({ bridge, onNavigate }: Props) {
   );
 }
 
-/** RecentMeta = "MM 月 dd 日 HH:mm · N 分钟"（TitleViewModel.RefreshState）。 */
-function recentMeta(save: SaveSummary): string {
+/**
+ * 入口的图形标记（DESIGN-ENTRY 第一节第一层）：16px 的 inline SVG，只用 currentColor 描边。
+ * 四条都是档案式几何记号，不画具体物件，也不借游戏素材。
+ */
+function EntryMark({ index }: { index: string }) {
+  return (
+    <svg className="menu__mark" viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+      {index === '01' ? (
+        <path d="M3 2.5v11M13 2.5v11M3 5h10M3 8h10M3 11h10" />
+      ) : index === '02' ? (
+        <>
+          <path d="M2.5 13.5 13.5 2.5M2.5 2.5l11 11" />
+          <path d="M8 5.5v5M5.5 8h5" />
+        </>
+      ) : index === '03' ? (
+        <>
+          <circle cx="8" cy="5.5" r="2.8" />
+          <path d="M2.8 13.8c1.5-2.4 3.3-3.6 5.2-3.6s3.7 1.2 5.2 3.6" />
+        </>
+      ) : (
+        <>
+          <rect x="2.5" y="2.5" width="11" height="11" />
+          <path d="M5.5 6h5M5.5 8.5h5M5.5 11h2.5" />
+        </>
+      )}
+    </svg>
+  );
+}
+
+/** RecentMeta = "MM 月 dd 日 HH:mm · N 分钟"（TitleViewModel.RefreshState）。 */function recentMeta(save: SaveSummary): string {
   const at = new Date(save.savedAt);
   const pad = (n: number) => String(n).padStart(2, '0');
   return `${pad(at.getMonth() + 1)} 月 ${pad(at.getDate())} 日 ${pad(at.getHours())}:${pad(

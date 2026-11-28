@@ -172,7 +172,7 @@ function GroupCard({
     <Glass as="div" tone="card" radius={12} className={`list${wide ? ' list--wide' : ''}`}>
       <div className="list__col">
         {left.map((row, index) => (
-          <ListRow key={row.key} row={row} first={index === 0} onOpen={onOpen} />
+          <ListRow key={row.key} row={row} first={index === 0} index={index} onOpen={onOpen} />
         ))}
       </div>
       {wide ? (
@@ -180,7 +180,7 @@ function GroupCard({
           <div className="list__vsep" aria-hidden="true" />
           <div className="list__col">
             {right.map((row, index) => (
-              <ListRow key={row.key} row={row} first={index === 0} onOpen={onOpen} />
+              <ListRow key={row.key} row={row} first={index === 0} index={split + index} onOpen={onOpen} />
             ))}
           </div>
         </>
@@ -189,14 +189,19 @@ function GroupCard({
   );
 }
 
-/** 一行 54 高：标题 + 右侧当前值 + ›。首行不带发丝线，其余行顶部一根通到卡边。 */
+/**
+ * 次级入口（DESIGN-ENTRY 第二节）：编号 / 名称 / 一行说明 / ›，52 高，
+ * 首行不带发丝线，其余行顶部一根通到卡边。编号就是这一页里的行序，不是装饰。
+ */
 function ListRow({
   row,
   first,
+  index,
   onOpen,
 }: {
   row: SettingsSectionRow;
   first: boolean;
+  index: number;
   onOpen: (path: string) => void;
 }) {
   return (
@@ -206,6 +211,7 @@ function ListRow({
       onClick={() => row.to && onOpen(row.to)}
       aria-disabled={row.to ? undefined : true}
     >
+      <span className="l-row__num">{String(index + 1).padStart(2, '0')}</span>
       <span className="l-row__title">{row.title}</span>
       <span className="l-row__summary">{row.summary}</span>
       <span className="l-row__chev" aria-hidden="true">

@@ -306,7 +306,8 @@ ol {
 
 /* 宽屏组卡摊成两栏，中间一道竖发丝线（BuildGroupGrid：内距 4,0 + 1px 中柱） */
 .list--wide {
-  padding: 0 4px;
+  /* 不再给 4px 内缩：编号列要和分组头的号在同一根竖线上，多 4px 就断线。 */
+  padding: 0;
 }
 
 .list--wide > .glass__content {
@@ -322,16 +323,18 @@ ol {
   background: var(--w-hairline);
 }
 
-/* 一行：54 高、左右 16 内距、标题 + 当前值 + › */
+/* 一行：52 高，编号 / 标题 / 当前值 / ›。编号列与分组头同一个 2.4ch，
+   所以「01」与上面的组号、下面的行号右对齐成一条竖线（DESIGN-ENTRY 第二节）。 */
 .l-row {
   appearance: none;
+  position: relative;
   display: grid;
-  grid-template-columns: 1fr auto auto;
+  grid-template-columns: 2.4ch minmax(0, 1fr) auto auto;
   align-items: center;
-  gap: var(--w-step-3);
+  gap: var(--w-step-2);
   width: 100%;
   min-height: 52px;
-  padding: var(--w-step-3) var(--w-step-4);
+  padding: var(--w-step-3) var(--w-step-4) var(--w-step-3) 0;
   border: 0;
   border-radius: 0;
   background: none;
@@ -339,6 +342,19 @@ ol {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform 120ms var(--w-ease-out);
+}
+
+/* 位置色条：悬停或聚焦时从顶端落下。 */
+.l-row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--w-signal);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 120ms var(--w-ease-out);
 }
 
 .l-row + .l-row {
@@ -346,11 +362,30 @@ ol {
 }
 
 .l-row:hover:not([aria-disabled='true']) {
-  background: rgba(255, 255, 255, 0.05);
+  background: color-mix(in srgb, var(--w-tint-card) 70%, transparent);
+}
+
+.l-row:hover:not([aria-disabled='true'])::before {
+  transform: none;
+}
+
+.l-row:active:not([aria-disabled='true']) {
+  transform: translateY(1px);
 }
 
 .l-row[aria-disabled='true'] {
   cursor: default;
+  opacity: 0.45;
+}
+
+.l-row__num {
+  font-family: var(--w-font-num);
+  font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--w-ramp-5);
 }
 
 .l-row__title {
@@ -373,15 +408,10 @@ ol {
   white-space: nowrap;
 }
 
-.l-row__chev {
-  font-size: 0;
-  color: transparent;
-}
-
 /* 窄屏让出摘要那一位给标题 */
 @media (max-width: 720px) {
   .l-row {
-    grid-template-columns: 1fr auto;
+    grid-template-columns: 2.4ch minmax(0, 1fr) auto;
   }
 
   .l-row__summary {
@@ -882,12 +912,16 @@ ol {
   flex-direction: column;
 }
 
+/* 主入口（DESIGN-ENTRY 第二节）：标记 20 · 编号 2.4ch · 名称 subhead · chev 四格，
+   64 高，左边界与品牌行同一根线（--w-step-4）。 */
 .menu__row {
   appearance: none;
+  position: relative;
   display: grid;
-  grid-template-columns: 2.4ch 1fr auto;
+  grid-template-columns: 20px 2.4ch minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--w-step-2);
+  gap: var(--w-step-3);
+  min-height: 64px;
   padding: var(--w-step-3) var(--w-step-4);
   border: 0;
   background: none;
@@ -895,14 +929,57 @@ ol {
   color: inherit;
   text-align: left;
   cursor: pointer;
+  transition: transform 120ms var(--w-ease-out);
 }
 
-.menu__row:hover:not([aria-disabled='true']) {
-  background: rgba(255, 255, 255, 0.06);
+/* 位置色条：悬停或聚焦时从顶端落下，压在第一列左边、不占栅格。 */
+.menu__row::before {
+  content: '';
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 3px;
+  background: var(--w-signal);
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 120ms var(--w-ease-out);
+}
+
+.menu__row:is(:hover, :focus-visible):not([aria-disabled='true']) {
+  background: color-mix(in srgb, var(--w-tint-card) 70%, transparent);
+}
+
+.menu__row:is(:hover, :focus-visible):not([aria-disabled='true'])::before {
+  transform: none;
+}
+
+/* 记号之后整体右移 4px：文字层比色条晚 40ms 到，读起来是「先亮位置，再挪内容」。 */
+.menu__mark,
+.menu__num,
+.menu__label,
+.menu__chev {
+  transition: transform 160ms var(--w-ease-out) 40ms;
+}
+
+.menu__row:is(:hover, :focus-visible):not([aria-disabled='true']) :is(.menu__mark, .menu__num, .menu__label, .menu__chev) {
+  transform: translateX(4px);
+}
+
+.menu__row:active:not([aria-disabled='true']) {
+  transform: translateY(1px);
 }
 
 .menu__row[aria-disabled='true'] {
   cursor: default;
+  opacity: 0.45;
+}
+
+.menu__mark {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--w-ink-label);
+  stroke-width: 1.5;
+  stroke-linecap: square;
 }
 
 .menu__num {
@@ -916,15 +993,19 @@ ol {
 }
 
 .menu__label {
-  font-size: var(--w-size-body);
-  line-height: var(--w-lh-body);
+  font-size: var(--w-size-subhead);
+  line-height: var(--w-lh-subhead);
   font-weight: 600;
+  letter-spacing: -0.005em;
   color: var(--w-ramp-1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .menu__chev {
-  font-size: var(--w-size-subhead);
-  line-height: var(--w-lh-subhead);
+  font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
   color: var(--w-ramp-5);
 }
 
@@ -1301,6 +1382,9 @@ ol {
   }
 
   .menu__row,
+  .m-btn,
+  .mg__mrow,
+  .mg__footer-btn,
   .gbtn,
   .textbtn,
   .ghost,
@@ -1478,7 +1562,9 @@ a {
   gap: 0;
 }
 .world .mg__top .mg__w {
-  gap: 2px;
+  /* 两列：编号 2.4ch + 标签/读数。列距用 8，行距 0 —— 标签与读数本来就贴着一行。 */
+  column-gap: var(--w-step-2);
+  row-gap: 0;
   padding: 0 16px;
   border-left: 1px solid var(--w-ramp-6);
 }
@@ -1503,7 +1589,8 @@ a {
   color: var(--w-ramp-1);
 }
 /* 时钟是这条带上唯一的重心：用 title 档，其余读数一律 subhead。 */
-.world .mg__top .mg__w-value--clock {
+.world .mg__top .mg__w-value--clock,
+.world .mg__top .mg__w[data-clock] .mg__w-value {
   font-size: var(--w-size-title);
   line-height: var(--w-lh-title);
   letter-spacing: -0.02em;

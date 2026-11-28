@@ -60,6 +60,19 @@ const TOP_BUTTONS: { id: string; label: string }[] = [
   { id: 'hide', label: '收起' },
 ];
 
+/**
+ * 菜单的入口行（工具入口·条，DESIGN-ENTRY 第二节）：编号就是行序，
+ * 禁用的那一项留在原位，不因为点不动就抽掉。
+ */
+const MENU_ROWS: { id: string; label: string; to?: string; disabled?: boolean; tone?: 'danger' }[] = [
+  { id: 'settings', label: '设置', to: '/settings' },
+  { id: 'phone', label: '手机' },
+  { id: 'session', label: '本局设定', disabled: true },
+  { id: 'save', label: '存档管理', to: '/save' },
+  { id: 'pet', label: '桌宠模式', to: '/pet' },
+  { id: 'title', label: '回标题', to: '/', tone: 'danger' },
+];
+
 /** 后端没有回话时的兜底（源码出厂值）；有真数据时下面那个 hook 会把它换掉。 */
 const FALLBACK_NAME = 'TA';
 const FALLBACK_LOCATION = '还没有进入存档';
@@ -131,30 +144,46 @@ function useLive(bridge: ScreenProps['bridge']): Live {
   return live;
 }
 
+/** 读数的两层：数值与单位分开排，单位小一号（DESIGN-ENTRY 第四节）。 */
+type Readout = { value: string; unit?: string };
+
 /** WidgetItemVm.Value 的取值口径（RefreshWidgetValues）。 */
-function widgetValue(id: string, day: string, clock: string, live: Live): string {
+function widgetValue(id: string, day: string, clock: string, live: Live): Readout {
   switch (id) {
     case 'clock':
-      return clock;
+      return { value: clock };
     case 'date':
-      return day;
+      return { value: day };
     case 'weather':
-      return '晴朗';
+      return { value: '晴朗' };
     case 'location':
-      return live.where;
+      return { value: live.where };
     case 'affection':
-      return `Lv.${Math.min(5, Math.floor(live.affection / 100) + 1)} · ${levelOf(live.affection)}`;
+      return { value: `Lv.${Math.min(5, Math.floor(live.affection / 100) + 1)} · ${levelOf(live.affection)}` };
     case 'trust':
-      return `${live.trust}/100`;
+      return { value: `${live.trust}`, unit: '/100' };
     case 'energy':
-      return `${live.energy}%`;
+      return { value: `${live.energy}`, unit: '%' };
     case 'balance':
-      return '¤ 1000';
+      return { value: '¤ 1000' };
     case 'mood':
-      return live.mood;
+      return { value: live.mood };
     default:
-      return '';
+      return { value: '' };
   }
+}
+
+/** 一个读数：标签在上、数值居中、单位小一号；编号由 .mg__w 的计数器给。 */
+function ReadoutCell({ id, title, parts }: { id: string; title: string; parts: Readout }) {
+  return (
+    <div className="mg__w" data-clock={id === 'clock' ? '' : undefined}>
+      <span className="mg__w-title">{title}</span>
+      <span className="mg__w-value">
+        {parts.value}
+        {parts.unit ? <small className="mg__w-unit">{parts.unit}</small> : null}
+      </span>
+    </div>
+  );
 }
 
 type ChatMsg = { id: string; mine: boolean; text: string };
@@ -295,12 +324,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
         <Glass as="header" tone="bar" radius={0} className="mg__top">
           <div className="mg__top-widgets">
             {topWidgets.map((w) => (
-              <div className="mg__w" key={w.id}>
-                <span className="mg__w-title">{w.title}</span>
-                <span className={`mg__w-value${w.id === 'clock' ? ' mg__w-value--clock' : ''}`}>
-                  {widgetValue(w.id, day, clock, live)}
-                </span>
-              </div>
+              <ReadoutCell key={w.id} id={w.id} title={w.title} parts={widgetValue(w.id, day, clock, live)} />
             ))}
           </div>
           <div className="mg__top-actions">
@@ -354,10 +378,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 </p>
               ) : (
                 leftWidgets.map((w) => (
-                  <div className="mg__w" key={w.id}>
-                    <span className="mg__w-title">{w.title}</span>
-                    <span className="mg__w-value">{widgetValue(w.id, day, clock, live)}</span>
-                  </div>
+                  <ReadoutCell key={w.id} id={w.id} title={w.title} parts={widgetValue(w.id, day, clock, live)} />
                 ))
               )}
             </div>
@@ -616,25 +637,29 @@ export function Main({ bridge, navigate }: ScreenProps) {
         <div className="mg__overlay" onClick={() => setMenuOpen(false)}>
           <Glass as="div" tone="card" radius={16} className="mg__dialog mg__dialog--menu" onClick={(event: MouseEvent) => event.stopPropagation()}>
             <h2 className="mg__menu-title">菜单</h2>
-            <button type="button" className="m-btn m-btn--block" onClick={() => navigate('/settings')}>
-              设置
-            </button>
-            <button type="button" className="m-btn m-btn--block" onClick={openPhone}>
-              手机
-            </button>
-            <button type="button" className="m-btn m-btn--block" disabled>
-              本局设定
-            </button>
-            <button type="button" className="m-btn m-btn--block" onClick={() => navigate('/save')}>
-              存档管理
-            </button>
-            <button type="button" className="m-btn m-btn--block" onClick={() => navigate('/pet')}>
-              桌宠模式
-            </button>
-            <button type="button" className="m-btn m-btn--block m-btn--danger" onClick={() => navigate('/')}>
-              回标题
-            </button>
-            <button type="button" className="m-btn m-btn--block m-btn--ghost" onClick={() => setMenuOpen(false)}>
+            <nav className="mg__menu">
+              {MENU_ROWS.map((row, index) => (
+                <button
+                  key={row.label}
+                  type="button"
+                  className="mg__mrow"
+                  data-tone={row.tone}
+                  disabled={row.disabled}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    if (row.to) navigate(row.to);
+                    if (row.id === 'phone') openPhone();
+                  }}
+                >
+                  <span className="mg__mrow-num">{String(index + 1).padStart(2, '0')}</span>
+                  <span className="mg__mrow-label">{row.label}</span>
+                  <span className="mg__mrow-chev" aria-hidden="true">
+                    ›
+                  </span>
+                </button>
+              ))}
+            </nav>
+            <button type="button" className="mg__mclose" onClick={() => setMenuOpen(false)}>
               关闭
             </button>
           </Glass>

@@ -118,7 +118,6 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
       >
         <span className="pn__icon">
           <span className="pn__tile" data-tone={item.tone} data-locked={locked || undefined}>
-            <i className="pn__gloss" aria-hidden="true" />
             <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
               {item.glyph}
             </span>
