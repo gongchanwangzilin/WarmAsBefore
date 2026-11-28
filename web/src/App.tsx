@@ -49,6 +49,17 @@ export function App({ bridge, tokens }: Props) {
   const skyRef = useRef<HTMLCanvasElement | null>(null);
   const sky = useRef<Atmosphere | null>(null);
 
+  // 外观里的「页面色」过去只染背景，玻璃一点没变，看起来像没生效 —— 现在它驱动玻璃底色。
+  const pageTintHex = appearance.value.background.pageTintHex;
+  useEffect(() => {
+    const root = document.documentElement;
+    if (!pageTintHex) {
+      root.style.removeProperty('--w-tint-page');
+      return;
+    }
+    root.style.setProperty('--w-tint-page', `color-mix(in oklab, ${pageTintHex} 26%, transparent)`);
+  }, [pageTintHex]);
+
   const background = appearance.value.background;
   const layers = useMemo(() => groundLayers(tokens, background), [tokens, background]);
   const groundAverage = useMemo(() => averageGround(layers), [layers]);

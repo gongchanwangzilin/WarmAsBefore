@@ -30,45 +30,48 @@
   --cyl-h: 5px;
   --tint: var(--w-tint-bar);
 }
-/* 卡片：直角 + 一个切角（铜版）。切角尺寸从卡圆角令牌推（12 → 14px），
-   所以它和全站的圆角阶梯是同一个数，窗口缩放时不至于各走各的。
-   clip-path 会把外描边一起裁掉，所以 1px 轮廓走内描边、斜边另补一根 45° 线（::after）。
-   玻璃的六层、模糊、透明度一概不动 —— 这里换的只是形态。 */
+/* 卡片：圆润玻璃块。
+   页面色（外观里的「页面色」）驱动的就是这块玻璃本身的底色 —— 之前它只染了背景，
+   等于用户调了半天没反应。边缘做三件事：上缘受光、下缘压边、外沿一圈极淡的色散。 */
 .glass--card {
   --tier: 0.95;
   --refract-w: 7px;
   --wall-w: 3px;
-  /* 「液态高度」直接改上下两条柱面带的高度：4 → 11px */
-  --cyl-h: calc(4px + var(--w-liquid, 0.4) * 7px);
-  --tint: var(--w-tint-card);
-  --r: 0 !important;
-  --cut: calc(var(--w-radius-card, 12px) + 2px);
-  border-radius: 0;
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--cut)) 0,
-    100% var(--cut),
-    100% 100%,
-    0 100%
-  );
-  /* 轮廓取代落影：一张压了边的纸，不是一块浮起来的糖 */
-  box-shadow: inset 0 0 0 1px var(--w-hairline);
+  /* 上下那两条「柱面带」在卡片上收掉：斜边一撤，它就只是一块后面多出来的浅色板，
+     看着像卡背后有来路不明的光。卡片只留一块圆润的玻璃。 */
+  --cyl-h: 0px;
+  --tint: var(--w-tint-page, var(--w-tint-card));
+  border-radius: var(--w-radius-card, 12px);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--w-tint-page, #ffffff) 62%, transparent),
+    inset 0 -1px 0 color-mix(in srgb, var(--w-ink-display) 12%, transparent),
+    inset 0 0 0 1px var(--w-hairline),
+    0 1px 2px color-mix(in srgb, var(--w-ink-display) 10%, transparent);
+  isolation: isolate;
 }
 
-/* 切边上的那根线：长度 = 切角 × √2，中心压在切角中点 ——
-   两端端点正好接上被 clip-path 裁掉的内描边，轮廓因此是闭合的。 */
-.glass--card::after {
+/* 色散：只有沿边一圈、极淡——玻璃把身后的颜色掰开一点点，不是发光。 */
+.glass--card::before {
   content: '';
   position: absolute;
-  z-index: 1;
-  top: calc(var(--cut) * 0.5 - 0.5px);
-  right: calc(var(--cut) * -0.2071);
-  width: calc(var(--cut) * 1.4142);
-  height: 1px;
-  background: var(--w-hairline);
-  transform: rotate(45deg);
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--w-accent, var(--w-signal)) 14%, transparent),
+    transparent 38%,
+    transparent 62%,
+    color-mix(in srgb, var(--w-ink-display) 10%, transparent)
+  );
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
   pointer-events: none;
+  z-index: 2;
 }
+
 .glass--button {
   --tier: 0.88;
   --refract-w: 5px;
