@@ -344,6 +344,26 @@ public partial class WebShellPage : ContentPage
                 }
                 App.WriteLogNow("WebShellPage: EVAL -> " + (result is null ? "(timeout)" : result.Length > 6000 ? result[..6000] + "…" : result));
             }
+
+            // 截图钩子：WARM_WEB_SHOT=<png 路径>。给验收与设计复盘用 ——
+            // 这台机器没有桌面，像素只能由应用自己抓（CapturePreviewAsync），存成 PNG 谁都能打开看。
+            var shot = Environment.GetEnvironmentVariable("WARM_WEB_SHOT")?.Trim();
+            if (!string.IsNullOrWhiteSpace(shot))
+            {
+                try
+                {
+                    var dir = Path.GetDirectoryName(shot);
+                    if (!string.IsNullOrWhiteSpace(dir)) Directory.CreateDirectory(dir);
+                    await using var file = File.Create(shot!);
+                    await core.CapturePreviewAsync(
+                        Microsoft.Web.WebView2.Core.CoreWebView2CapturePreviewImageFormat.Png, file.AsRandomAccessStream());
+                    App.WriteLogNow($"WebShellPage: SHOT -> {shot}（{new FileInfo(shot!).Length / 1024} KB）");
+                }
+                catch (Exception ex)
+                {
+                    App.WriteLogNow("WebShellPage: SHOT -> " + ex.Message);
+                }
+            }
         }
         catch (Exception ex)
         {

@@ -159,7 +159,13 @@ export function App({ bridge, tokens }: Props) {
 
       <canvas className="sky" ref={skyRef} aria-hidden="true" />
 
-      {route.depth > 0 ? <BackChip routeKey={route.path} onBack={goBack} /> : null}
+      {route.depth > 0 ? (
+        <BackChip
+          routeKey={route.path}
+          onBack={goBack}
+          force={route.id === 'main' || route.id === 'phone' || route.id === 'settings'}
+        />
+      ) : null}
 
       <PageDeck
         route={route}

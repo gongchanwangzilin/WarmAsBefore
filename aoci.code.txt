@@ -830,7 +830,7 @@ ChatImportSelfTest.csproj[TQ5T]: F:聊天记录导入的零依赖自测工程：
 Program.cs[TQ5T]: F:聊天记录导入自测：微信/QQ 文本、mht、CSV、JSON、Markdown 与冒号对白的嗅探与解析、引号内逗号不被切开、发言者归属，以及由摘要算出的初始好感与信任。 | R:code:Services/Import/ChatLogParser.cs, code:Services/Import/ChatLogDigest.cs, code:tools/chatimport_selftest/ChatImportSelfTest.csproj | A:Check, Eq, Text | S:断言失败即非零退出（与 tools/rules_selftest 同一约定）；「认不出」的散文必须报错并列出支持的格式，不能悄悄返回空结果当成功。
 
 ===/<repository>/Services/Web/===
-WebBridge.cs[IU8L]: F:前端↔宿主的消息桥：单一 postMessage 协议，方法白名单（ui.tokens、settings/appearance/palette、nav、window、saves/characters、app.info），补丁按键白名单落到 UserSettings，多窗口事件广播给每条 sink。 | R:code:web/src/bridge/protocol.ts, code:Views/Web/WebShellPage.xaml.cs, code:Services/Core/PageWindowService.cs, code:Services/Core/SettingsManager.cs | A:WebBridge, ReceiveAsync, Emit, Navigate, TokensSnapshot, AttachSink | S:未知方法一律 E_UNKNOWN_METHOD，托管异常折成 E_BACKEND（消息回调在 UI 线程，漏一个就整窗退出）；_gate 串行化读-改-落盘；AttachSink 收多条，主窗与手机窗是两个 WebView，单通道会被后挂的顶掉；不搬密钥字段。
+WebBridge.cs[IU8L]: F:前端↔宿主的消息桥：单一 postMessage 协议，方法白名单（令牌、设置、外观、调色、导航、窗口、存档与角色、AI 厂商、插件、世界书、记忆标签、展示案、小说、app.info），补丁按键白名单落到 UserSettings，事件广播给每条 sink。 | R:code:web/src/bridge/protocol.ts, code:Views/Web/WebShellPage.xaml.cs, code:Services/Core/PageWindowService.cs, code:Services/Core/SettingsManager.cs | A:WebBridge, ReceiveAsync, Emit, TokensSnapshot, AttachSink | S:未知方法一律 E_UNKNOWN_METHOD，托管异常折成 E_BACKEND（消息回调在 UI 线程，漏一个就整窗退出）；_gate 串行化读-改-落盘；AttachSink 收多条，主窗与手机窗是两个 WebView；桥不搬密钥，ai.providers 只给 keyCount。
 
 ===/<repository>/Views/Web/===
 WebShellPage.xaml[IU5T]: F:Web 宿主页版式：整页一块 WebView，另留一层「加载失败」说明与重试按钮，不画第二套壳。 | R:code:Views/Web/WebShellPage.xaml.cs | A:- | S:标题栏与侧栏全归前端，这里只兜底加载失败，免得窗口一片空白像程序坏了。
@@ -886,7 +886,7 @@ main.tsx[CU4T]: F:前端引导：先取 ui.tokens（失败用 mock 兜底）、�
 ===/<repository>/web/src/bridge/===
 client.ts[IN7M]: F:桥客户端：按 WebView2、Android 注入、内存 mock 顺序探测传输，请求应答按 id 配对、8 秒超时，事件分发给订阅者。 | R:code:web/src/bridge/protocol.ts, code:web/src/bridge/mock.ts | A:Bridge, BridgeFailure, BridgeMode | S:超时按 E_TIMEOUT 失败；没有宿主时回落 mock，同一份前端能在浏览器里独立跑。
 mock.ts[IN5S]: F:内存假后端：带延迟、读失败、写失败、空数据四个故障开关，令牌永远成功。 | R:code:web/src/bridge/tokens.ts, code:web/src/bridge/protocol.ts | A:mockHandle, MockFaults | S:ui.tokens 永远成功——令牌拿不到是启动失败，不是页面状态。
-protocol.ts[IN8M]: F:前端与宿主的唯一契约：请求、应答、事件三种形状，方法表及参数与返回类型、外观与设置值、错误码。 | R:code:Services/Web/WebBridge.cs | A:Method, Params, Result, TokenMap, Appearance | S:方法表即类型，新增方法必须两边同时加；令牌键一律 --w-* 的文本值。
+protocol.ts[IN8M]: F:前端与宿主的唯一契约：请求、应答、事件三种形状，方法表及参数与返回类型（含角色详情、AI 厂商、插件、世界书、记忆标签、展示案、小说）、外观与设置值、错误码。 | R:code:Services/Web/WebBridge.cs | A:Method, Params, Result, TokenMap, Appearance | S:方法表即类型，新增方法必须两边同时加；令牌键一律 --w-* 文本值；页面用 Result<'方法名'> 取返回类型，不另抄一份形状。
 tokens.ts[IN4T]: F:mock 下发的令牌表，数值抄自原型 tokens.css；真机由 ui.tokens 从 C# 侧送来。 | R:code:web/src/bridge/protocol.ts | A:MOCK_TOKENS | S:前端不认识任何具体颜色，只认 --w-* 键。
 
 ===/<repository>/web/src/components/===
@@ -939,7 +939,7 @@ gallery.tsx[CU5S]: F:回忆录：记忆分层总览加回忆录、记得的事�
 index.tsx[CU3T]: F:character-media 组的路由注册表，把十一个子页映射到路由名。 | R:- | A:screens | S:子页一个文件，键必须是路由名。
 materials.tsx[CU4S]: F:素材库：背景库与音乐库两页签、三列网格与导入。 | R:code:web/src/components/kit.tsx | A:Materials | S:目录扫描结果来自后端，没有时按两个空态渲染；页签切换是本地状态。
 memoryGraph.tsx[CU6L]: F:关系网图：节点按人、记得的事、标签、地点、物、情绪、词、文分色，边带类型与权重，可调深度与来源。 | R:code:web/src/components/kit.tsx | A:MemoryGraph, GraphNode, GraphEdge | S:节点类型与文案照源码类型表；没有后端时用静态骨架，不编造看起来真实的关系。
-memoryManage.tsx[CU4T]: F:记忆管理：三个入口、人类记忆层说明与记忆条目，分类色名为人、话题、事、地点、物。 | R:code:web/src/components/kit.tsx | A:MemoryManage | S:这些记忆只在这份存档里（开关在设置 → 记忆）。
+memoryManage.tsx[CU4S]: F:记忆管理：三个入口、人类记忆层说明与记忆条目；标签段读第一个角色的记忆标签并按人、话题、事、地点、物分组。 | R:code:web/src/components/kit.tsx | A:MemoryManage | S:记得的事仍走源码空态；没有角色时标签段整段不出现。
 memorySearch.tsx[CU4S]: F:搜事件：搜索条、类型/感觉/数值三排胶囊与结果列表。 | R:code:web/src/components/kit.tsx | A:MemorySearch | S:记得的事在后端，没有时落进「没找着。」那一条空态；链式开关只影响查询。
 moduleInspector.tsx[CU6L]: F:模块详情：单个模块的读数、状态与降级原因，人脸部分复用超级监测页的面板。 | R:code:web/src/screens/character-media/superMonitor.tsx | A:ModuleInspector | S:取不到数时写「该模块暂无独立读数」，说清是没有这一项而不是读取失败。
 outfit.tsx[CU4T]: F:换装页：当前立绘、已有装扮与一句话生成新装扮。 | R:code:web/src/components/kit.tsx | A:Outfit | S:没有角色时按「还没进入角色」空态渲染，并指路去角色选择或设主角。
@@ -951,8 +951,8 @@ superMonitor.tsx[CU8L]: F:超级监测页：把五层论文节点与拓扑连线
 index.tsx[CU3T]: F:character 组的路由注册表：角色库、工作室、新建角色、副设定。 | R:- | A:screens | S:-
 newcharacter.tsx[CU6L]: F:新建角色：基本、人设、形象、世界观四步，宽屏左预览右表单、窄屏上下叠。 | R:code:web/src/screens/character/parts.tsx | A:NewCharacter | S:四步顺序与字段照新建页 XAML 与视图模型；窄屏只重排，不删字段。
 parts.tsx[CU4M]: F:character 组共用件：段号、眉标、区块标题、选项块、滑杆行、开关行与按钮档。 | R:code:web/src/components/kit.tsx | A:Stack, Eyebrow, Chips, SwitchLine, PrimaryBtn | S:只在本组用，不碰共享的 kit 与 css。
-roster.tsx[CU5M]: F:角色库：左边名册只负责选、右边预览负责看，改设定去工作室；好感 0–1000 只露等级。 | R:code:web/src/screens/character/parts.tsx | A:Roster | S:没有头像与立绘时露姓名首字；本页只读，编辑入口跳工作室。
-studio.tsx[CU8L]: F:角色工作室：主设定、副设定、世界与素材的大表单，宽屏双栏、窄屏单列。 | R:code:web/src/screens/character/parts.tsx | A:Studio | S:字段对应角色工作室面板 XAML 那一整套；Web 端没有对应 method 时停在默认值并显空态。
+roster.tsx[CU5M]: F:角色库：名册来自角色列表接口，左边只负责选、右边负责看，改设定去工作室；好感 0–1000 只露等级。 | R:code:web/src/screens/character/parts.tsx | A:Roster | S:没有头像与立绘时露姓名首字；本页只读，编辑入口跳工作室。
+studio.tsx[CU8L]: F:角色工作室：带 id 进来按角色详情接口读真实档案，没有 id 或读不到就从空白草案起步；主设定、副设定、世界与素材大表单，宽屏双栏。 | R:code:web/src/screens/character/parts.tsx | A:Studio, Detail | S:字段对应角色工作室面板 XAML 那一整套；取不到人时从草案起步，不假装盘上有人。
 subProfile.tsx[CU5S]: F:主设定 × 副设定对比：左内核运行时不改、右随经历漂移，下面是心事与漂移留影。 | R:code:web/src/components/kit.tsx | A:SubProfile | S:读不到角色时只写「角色不存在」，其余栏停在字段级空标记。
 
 ===/<repository>/web/src/screens/games/===
@@ -996,14 +996,14 @@ savechat.css[CU6L]: F:save-chat 组样式：存档行、云存档条、聊天壳
 
 ===/<repository>/web/src/screens/section/===
 index.tsx[CU3T]: F:section 组路由注册表，只有设置分类子页一个入口。 | R:- | A:screens | S:-
-settingssection.tsx[CU8L]: F:设置分类子页：按查询串 key 渲染十一个分类，每张卡的标题、行序与开关滑杆逐条照抄 XAML 的四十张卡模板。 | R:code:web/src/lib/useAppearance.ts, code:web/src/components/SettingCard.tsx, code:web/src/lib/defaults.ts | A:SettingsSection | S:标题与说明取自设置目录；外观分类复用 App 上的外观 store，其余开关写回走设置补丁接口。
+settingssection.tsx[CU8L]: F:设置分类子页：按查询串 key 渲染十一个分类，四十张卡的标题与行序照抄 XAML；AI 厂商与插件两段读厂商、插件真表。 | R:code:web/src/lib/useAppearance.ts, code:web/src/components/SettingCard.tsx, code:web/src/lib/defaults.ts | A:SettingsSection | S:标题与说明取自设置目录；外观分类复用 App 上的外观 store，其余开关写回走设置补丁接口；真表读不到就落回源码空态。
 
 ===/<repository>/web/src/screens/settings-ai/===
-aiModels.tsx[CU6L]: F:AI 模型管理：列表与详情同页切换，每款模型单独配上下文窗口与识图、工具、JSON 能力，预设一键批量。 | R:code:web/src/components/kit.tsx | A:AiModels | S:能力开关决定端点实际发什么，关掉后别再带 tools 或图片，否则请求被 400 拒掉。
-aiProviders.tsx[CU5M]: F:AI 厂商管理：一家厂商等于一个端点、一组密钥、多款模型，顺序即优先级。 | R:code:web/src/components/kit.tsx | A:AiProviders | S:列表顺序就是路由优先级，改序即改路由。
+aiModels.tsx[CU5M]: F:AI 模型管理：列表与详情同页切换，数据只读厂商接口里已经存下的模型与能力，每款单独配上下文窗口。 | R:code:web/src/components/kit.tsx | A:AiModels | S:这页不再造模型行；能力开关决定端点实际发什么，关掉后别带 tools 或图片。
+aiProviders.tsx[CU4S]: F:AI 厂商管理：列表来自厂商接口，只读已存厂商与模型，不含密钥本身。 | R:code:web/src/components/kit.tsx | A:AiProviders | S:顺序即优先级，改序即改路由；厂商接口只给密钥条数，绝不回传密钥。
 index.tsx[CU3T]: F:settings-ai 组路由注册表：厂商、模型、部署、插件中心与设置、权限、页面、存档规则。 | R:- | A:screens | S:-
 modelDeployment.tsx[CU4S]: F:模型部署向导：名字、来源与安装位置全部由用户填，工具只负责下载、校验、解压与登记。 | R:code:web/src/components/kit.tsx | A:ModelDeployment | S:四种类型 Embedding、SmallModel、LLM、Vision 各有建议项与示例来源。
-pluginCenter.tsx[CU4S]: F:插件中心：插件列表、工坊与 MCP 数据包入口，保留源码空态。 | R:code:web/src/components/kit.tsx | A:PluginCenter | S:插件目录路径在 Web 端拿不到，只留占位说明，不假装扫到了插件。
+pluginCenter.tsx[CU5M]: F:插件中心：已装插件来自插件列表接口（清单、启停、权限声明与缺依赖），工坊与 MCP 数据包入口保留空态。 | R:code:web/src/components/kit.tsx | A:PluginCenter | S:插件目录路径在 Web 端拿不到，只留占位说明；缺依赖单独列出，不混进权限声明。
 pluginPerms.tsx[CU5M]: F:插件权限台：能力目录、该插件的声明与用户策略三者合看，另列它撞过哪些闸。 | R:code:web/src/components/kit.tsx | A:PluginPerms | S:三档授予（允许、问一次、禁止）与四层能力分类取自插件能力目录。
 pluginSettings.tsx[CU4S]: F:插件设置：表单由 plugin.json 的字段现场生成，示例清单演示 text、switch、number、select、secret 五种控件。 | R:code:web/src/components/kit.tsx | A:PluginSettings | S:不认识的 type 一律当 text，插件写错也不能把页弄崩。
 pluginWeb.tsx[CU3T]: F:插件页面：原生是一整块 WebView，Web 端只画外框，联网加载交给宿主。 | R:code:web/src/components/kit.tsx | A:PluginWeb | S:标题与 url 从查询串取，加载失败只给一句提示。
@@ -1024,14 +1024,14 @@ chatimport.tsx[CU4S]: F:导入聊天记录：过去与读取两段输入，结�
 forcecast.tsx[CU3T]: F:点名进入剧情：勾选角色、指定初始位置后开始。 | R:code:web/src/components/kit.tsx | A:Forcecast | S:角色库与地图都来自后端，拿不到任何角色时停在「角色库还是空的」空态。
 index.tsx[CU3T]: F:剧情组的路由注册表：新开一局、世界书、导入、场景库与标定、点名、展示案与平行宇宙。 | R:- | A:screens | S:键就是路由名。
 newrun.tsx[CU5M]: F:新开一局：世界、人设、细则、开始四步，页脚提示与主行动。 | R:code:web/src/screens/story/parts.tsx | A:Newrun | S:没有后端可问角色库与世界树时，角色名落回「TA」，世界列表只剩「不绑定 · 普通酒馆」那一行。
-novelselect.tsx[CU3T]: F:平行宇宙：小说库列表与导入入口，空库时给空态。 | R:code:web/src/components/kit.tsx | A:NovelSelect | S:小说库要读目录并经 AI 解析，前端没有 method，导入按钮保留文案但停在原地。
-novelworld.tsx[CU3T]: F:平行宇宙对话：页头加一条气泡的对话壳与输入条。 | R:code:web/src/components/kit.tsx | A:Novelworld | S:世界设定与回复来自小说库与网关，没有世界可载时标题停在「平行宇宙」。
+novelselect.tsx[CU4S]: F:平行宇宙：列表读小说接口，一部小说一行，导入时间只取月日，进入世界带走它的 id。 | R:code:web/src/components/kit.tsx | A:NovelSelect | S:空库走源码空态，导入入口保留文案。
+novelworld.tsx[CU4S]: F:平行宇宙对话：按 id 从小说列表找世界，开场白按有无角色两种写法，页头加气泡与输入条。 | R:code:web/src/components/kit.tsx | A:Novelworld | S:欢迎语文案与小说世界视图模型同文；找不到世界时标题停在「平行宇宙」。
 parts.tsx[CU3T]: F:剧情组共用件：纵向叠、步骤开头（眉标加标题加副标题）、说明、页脚条与动作行。 | R:code:web/src/components/Glass.tsx | A:Stack, Lead, Note, FootBar, Actions | S:间距只走令牌档位。
 scenelibrary.tsx[CU4S]: F:场景工坊：条目列表、选中条目的操作区与底部生效说明，条目与模式的增删改名都在页内状态里走得通。 | R:code:web/src/components/kit.tsx | A:Scenelibrary | S:场景导演没有前端 method，「应用」只能停在界面状态。
-showcase-edit.tsx[CU3T]: F:编辑展示案：名称、页内步骤与保存，选角色、插 CG、加立绘保留按钮与空态。 | R:code:web/src/components/kit.tsx | A:ShowcaseEdit | S:展示案数据在宿主存储里，前端只留名称与页内步骤。
-showcase-list.tsx[CU3T]: F:开发者展示模式：展示案列表、新建、删除、编辑与播放入口。 | R:code:web/src/components/kit.tsx | A:ShowcaseList | S:新建与删除只改页内状态，没有案可载入时编辑与播放各自停在空档。
-showcase-play.tsx[CU3T]: F:播放展示案：顶栏进度与案名，下面是空舞台；背景、立绘、CG 与打字机按步推进。 | R:code:web/src/components/Glass.tsx | A:ShowcasePlay | S:没有案可载时只有空舞台加顶栏，对话与结束框都不出现。
-worldbook.tsx[CU5M]: F:世界书：条目列表、选中条目的标题与设定、角色表与纯文字或带立绘两种模式。 | R:code:web/src/components/kit.tsx | A:Worldbook | S:条目摘要取描述、为空时退回灵感，超过 80 字截断加省略号。
+showcase-edit.tsx[CU3T]: F:编辑展示案：从展示案列表取一案回显名称、主角与步骤数，名称改动只留在这一页。 | R:code:web/src/components/kit.tsx | A:ShowcaseEdit | S:这一页没有返回钮，退出靠底部的返回，源码如此。
+showcase-list.tsx[CU4S]: F:开发者展示模式：列表读展示案接口（后端已按更新时间倒序），播放与编辑各自带走这个案的 id。 | R:code:web/src/components/kit.tsx | A:ShowcaseList | S:更新时间只读到日；新建只改页内状态。
+showcase-play.tsx[CU3T]: F:播放展示案：按 id 找案，首帧摆背景与顶栏（退出、进度、名称），下面是空舞台。 | R:code:web/src/components/Glass.tsx | A:ShowcasePlay | S:对话、立绘、CG 与结束框要一步步演，首帧这几层都不出现。
+worldbook.tsx[CU5M]: F:世界书：库读世界树接口，卡片显示模式标签与角色数；新建与编辑保存在页内状态，刷新即失。 | R:code:web/src/components/kit.tsx | A:Worldbook | S:接口的 mode 是枚举名（TextOnly、WithSprites），卡片上换成源码那两张标签；摘要取描述、为空退回灵感，超过 80 字截断。
 
 ===/<repository>/web/src/styles/===
 app.css[CU6L]: F:前端版式：页面壳与滚动、内容列三档宽度、卡片与行、按钮与输入、状态与骨架、过场层的静态版式。 | R:code:web/src/components/kit.tsx | A:- | S:所有颜色字号间距都读 --w-* 令牌；内容列 max 1120、narrow 720、full 铺满。

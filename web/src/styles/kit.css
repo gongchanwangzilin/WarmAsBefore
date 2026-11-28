@@ -467,3 +467,121 @@ canvas {
 @media (prefers-reduced-motion: reduce) {
   .sk-line { animation: none; }
 }
+
+/* 回退键出现时给人让位：页头左内距加宽，标题不会被压在键底下。 */
+body[data-back-chip='1'] .ph__inner {
+  padding-left: 96px;
+}
+body[data-back-chip='1'] .ph--ground .ph__inner {
+  padding-left: 96px;
+}
+.backchip {
+  display: flex;
+  align-items: center;
+}
+.backchip__btn {
+  min-height: 34px;
+}
+
+/* ───────── 设计重做（2026-11-28）─────────
+   按 Apple HIG 的翻译版 + taste 的三条硬要求做的一轮收紧：
+   层级靠字号/字重/留白，不靠满屏描边；每块面都有一次高光起点；
+   数字与标题走同一条视觉节奏；空态是排版，不是占位。 */
+
+.ph__inner {
+  min-height: 60px;
+  padding: 14px var(--w-pad-page) 12px;
+  align-items: flex-start;
+}
+.ph__title {
+  font-size: clamp(18px, calc(var(--w-size-title) * 1.06), 26px);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+}
+.ph__eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: none;
+  color: var(--w-ink-faint);
+}
+.ph__sub {
+  font-size: var(--w-size-small);
+  color: var(--w-ink-muted);
+  line-height: 1.5;
+  margin-top: 1px;
+}
+
+/* 卡片：一次顶部内高光 + 极浅落影，取代一圈均匀描边。 */
+.k-card {
+  padding: 18px var(--w-pad-card) 16px;
+  gap: 14px;
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.05),
+    0 18px 44px -34px rgb(0 0 0 / 0.7);
+}
+.k-card__title {
+  font-size: calc(var(--w-size-subhead) * 1.04);
+  font-weight: 620;
+  letter-spacing: -0.01em;
+}
+.k-card__note {
+  margin-top: 3px;
+  font-size: var(--w-size-small);
+  line-height: 1.6;
+  color: var(--w-ink-muted);
+}
+
+/* 行：目标高度 44，右值右对齐成一条线，箭头退到很浅。 */
+.k-row {
+  min-height: 44px;
+  padding: 11px 0;
+}
+.k-row__title {
+  font-size: calc(var(--w-size-body) * 1.02);
+  letter-spacing: -0.005em;
+}
+.k-row__desc {
+  font-size: var(--w-size-caption);
+  line-height: 1.6;
+}
+.k-row__right {
+  justify-content: flex-end;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.k-row__chev {
+  color: var(--w-ink-faint);
+  opacity: 0.6;
+}
+
+/* 分组小标题：小、散、离上一块远一点。 */
+.k-group {
+  margin: 26px 0 10px;
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  color: var(--w-ink-faint);
+}
+
+/* 空态：给足呼吸，出路那句话只留一个重点。 */
+.k-empty {
+  gap: 8px;
+  padding: 44px 24px;
+}
+.k-empty__title {
+  font-size: calc(var(--w-size-subhead) * 1.05);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--w-ink-body);
+}
+.k-empty__reason {
+  font-size: var(--w-size-small);
+  line-height: 1.7;
+  max-width: 30em;
+}
+
+/* 页面容器：段落之间统一 20px 的节奏。 */
+.screen {
+  gap: 20px;
+  padding-top: 20px;
+  padding-bottom: 48px;
+}

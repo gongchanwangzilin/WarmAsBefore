@@ -1,7 +1,7 @@
 {
   "version": 1,
   "created_at": "2026-11-21T03:46:30Z",
-  "updated_at": "2026-11-27T17:45:24Z",
+  "updated_at": "2026-11-28T00:18:35Z",
   "files": {
     ".gitattributes": {
       "role": "index",
@@ -2330,9 +2330,9 @@
     },
     "Services/Web/WebBridge.cs": {
       "role": "index",
-      "sha256": "e1e78457afc189a24da4dba9519ce21f2c4d18a95f958841a3c0b47f8116f53d",
-      "size": 49889,
-      "normalized_sha256": "c8e8c7df27d1b6e9933fd1e47729c586424daa8f14b8b6dd310c4e181dbbb412"
+      "sha256": "42c889ed0e048637139d9968acefd3b292fffc5ca7076fb649be1a8aabf9d308",
+      "size": 57978,
+      "normalized_sha256": "73d316457bd82c5a99e6d26d46c1202de0bb973c3c3014aa9e4eb31f8a5dee44"
     },
     "Services/World/CoordConvert.cs": {
       "role": "index",
@@ -3872,9 +3872,9 @@
     },
     "aoci.code.txt": {
       "role": "index",
-      "sha256": "c597a943885f139e11058884d48c7ca3bc8531178c31da1eac4f2f863cc6f1f9",
-      "size": 283560,
-      "normalized_sha256": "c597a943885f139e11058884d48c7ca3bc8531178c31da1eac4f2f863cc6f1f9"
+      "sha256": "8c43e431cacfa300089abd287f715bd09b32b2fe4137cb9143b2ac0fa4723c53",
+      "size": 284244,
+      "normalized_sha256": "8c43e431cacfa300089abd287f715bd09b32b2fe4137cb9143b2ac0fa4723c53"
     },
     "aoci.meta.txt": {
       "role": "index",
@@ -4296,9 +4296,9 @@
     },
     "web/src/bridge/protocol.ts": {
       "role": "index",
-      "sha256": "37dc20fe25b505a504292b4eef933fce0dc3a6aa4f5c63dc27cc7cd61c15e739",
-      "size": 8234,
-      "normalized_sha256": "6042dfefd1074d35d9cc112399672888e037052de96adf98c2872007fc1ffbb3"
+      "sha256": "76c0aa4759f9074b7c9a54a0b789306bc986b10a1954ff761f0e8336377b075b",
+      "size": 10812,
+      "normalized_sha256": "e7713dc23d084d8234c02abdfca8cb2c33d59f73095f3b59fca933782910affb"
     },
     "web/src/bridge/tokens.ts": {
       "role": "index",
@@ -4560,9 +4560,9 @@
     },
     "web/src/screens/character-media/memoryManage.tsx": {
       "role": "index",
-      "sha256": "7c0a21b138526d04a190c1653b815836a485317a6c10c74ccba9bcfe03973ffc",
-      "size": 4383,
-      "normalized_sha256": "7c0a21b138526d04a190c1653b815836a485317a6c10c74ccba9bcfe03973ffc"
+      "sha256": "edee40b5bbd4b82c4aaeb862f4c32af2be3f4a09734be444b9154567ca56eed9",
+      "size": 6893,
+      "normalized_sha256": "edee40b5bbd4b82c4aaeb862f4c32af2be3f4a09734be444b9154567ca56eed9"
     },
     "web/src/screens/character-media/memorySearch.tsx": {
       "role": "index",
@@ -4620,15 +4620,15 @@
     },
     "web/src/screens/character/roster.tsx": {
       "role": "index",
-      "sha256": "23158ddbb34f007c366c3c6fb19686c07cabbfbf8ea175ea023e35636f77fc3b",
-      "size": 15845,
-      "normalized_sha256": "d7adfd1ef7d2687f1243516e81535f53e8c98ffedab23c11b43f6a169997ebae"
+      "sha256": "1b3dd4bc0501441f476775fee1f2d7bfc7ce0c828ac88a0214e01f14504b0e2a",
+      "size": 16615,
+      "normalized_sha256": "d0be3930b70f222b558a63328f85715e1e62c7ed8c1c3f61a81b68aac3a66486"
     },
     "web/src/screens/character/studio.tsx": {
       "role": "index",
-      "sha256": "b8e4b0342afb09b56a5d4da12590deaa4ac2de5fc3ea2fb10fe091475472415e",
-      "size": 48892,
-      "normalized_sha256": "b8e4b0342afb09b56a5d4da12590deaa4ac2de5fc3ea2fb10fe091475472415e"
+      "sha256": "2398b65936e4cc03aa627f02d012275615a0c544d9317c9dce406dc75cd3afe8",
+      "size": 53174,
+      "normalized_sha256": "2398b65936e4cc03aa627f02d012275615a0c544d9317c9dce406dc75cd3afe8"
     },
     "web/src/screens/character/subProfile.tsx": {
       "role": "index",
@@ -4824,21 +4824,21 @@
     },
     "web/src/screens/section/settingssection.tsx": {
       "role": "index",
-      "sha256": "084c6035fcc74d8350387ef57726199b87efd0724dafbc6223ea12dfc67744fd",
-      "size": 130001,
-      "normalized_sha256": "424f41d3e1b5bb84ce84ea3de70fc322b65282111633493439d7c73e596f2f07"
+      "sha256": "7768f76d0c5465289bf257204f92d3d332907502b41960e3659b0dc6bfd9a4b3",
+      "size": 134692,
+      "normalized_sha256": "7768f76d0c5465289bf257204f92d3d332907502b41960e3659b0dc6bfd9a4b3"
     },
     "web/src/screens/settings-ai/aiModels.tsx": {
       "role": "index",
-      "sha256": "995f789eef5571fe7d777018bc678825ecda9f40cd6ebfbfb49fb085cf3de8b1",
-      "size": 25041,
-      "normalized_sha256": "995f789eef5571fe7d777018bc678825ecda9f40cd6ebfbfb49fb085cf3de8b1"
+      "sha256": "e65de18ce88e4bb18781e99a2da5ef0a90975b1f303021f1f18e727973c95367",
+      "size": 10241,
+      "normalized_sha256": "e65de18ce88e4bb18781e99a2da5ef0a90975b1f303021f1f18e727973c95367"
     },
     "web/src/screens/settings-ai/aiProviders.tsx": {
       "role": "index",
-      "sha256": "b1cffc86c0809dda5f8f2cfac8f62568477d074988111fe8342466a274d8fd4e",
-      "size": 10719,
-      "normalized_sha256": "b1cffc86c0809dda5f8f2cfac8f62568477d074988111fe8342466a274d8fd4e"
+      "sha256": "d838a8e3e75bdec30fe62622018ee59547ac0f07fa0d5be2f75b053dee6575dc",
+      "size": 6596,
+      "normalized_sha256": "d838a8e3e75bdec30fe62622018ee59547ac0f07fa0d5be2f75b053dee6575dc"
     },
     "web/src/screens/settings-ai/index.tsx": {
       "role": "index",
@@ -4854,9 +4854,9 @@
     },
     "web/src/screens/settings-ai/pluginCenter.tsx": {
       "role": "index",
-      "sha256": "9e482ac3a0541395187306bfd76fce422b7febf5ca2eb9336323b4950d1ecbcf",
-      "size": 7144,
-      "normalized_sha256": "9e482ac3a0541395187306bfd76fce422b7febf5ca2eb9336323b4950d1ecbcf"
+      "sha256": "181213715de1f817db6b39ff1f3461b63605cf8fb094235f92501eb2274aceed",
+      "size": 10941,
+      "normalized_sha256": "181213715de1f817db6b39ff1f3461b63605cf8fb094235f92501eb2274aceed"
     },
     "web/src/screens/settings-ai/pluginPerms.tsx": {
       "role": "index",
@@ -4956,15 +4956,15 @@
     },
     "web/src/screens/story/novelselect.tsx": {
       "role": "index",
-      "sha256": "1afabd23c6992555dea6aa5f55e2fa06e0304f506c708f809834267e54f3f296",
-      "size": 1901,
-      "normalized_sha256": "0e0f7436b34d540e3f7e818f8a89563c045e00289d910328b24063e64495d270"
+      "sha256": "f49910c43692000fa7e7624b96fb78fcd89ad5ab8ec90bc83dc601af64db3c8e",
+      "size": 4223,
+      "normalized_sha256": "f49910c43692000fa7e7624b96fb78fcd89ad5ab8ec90bc83dc601af64db3c8e"
     },
     "web/src/screens/story/novelworld.tsx": {
       "role": "index",
-      "sha256": "1637906e6349050590c2e04d450a7459c974d394441e7cda3ff8ec8b3298bf70",
-      "size": 2867,
-      "normalized_sha256": "1637906e6349050590c2e04d450a7459c974d394441e7cda3ff8ec8b3298bf70"
+      "sha256": "ace5ff4ac81f8ffbe292beafbe9f1a7053c044726092e991c2dea10e822b92b9",
+      "size": 4995,
+      "normalized_sha256": "ace5ff4ac81f8ffbe292beafbe9f1a7053c044726092e991c2dea10e822b92b9"
     },
     "web/src/screens/story/parts.tsx": {
       "role": "index",
@@ -4980,27 +4980,27 @@
     },
     "web/src/screens/story/showcase-edit.tsx": {
       "role": "index",
-      "sha256": "b1143a0e1ce979fa0e6f96de4b18559700f1eac5546903736f321dd29802aa68",
-      "size": 2758,
-      "normalized_sha256": "a5ac5af8373163e76520cb4d9e98537bdab5842b79f7ffe62922ed83bd6ec77e"
+      "sha256": "414c923e43d68a3a2d005b26f079076da66821681aa708d2e805da090e507a0d",
+      "size": 3145,
+      "normalized_sha256": "414c923e43d68a3a2d005b26f079076da66821681aa708d2e805da090e507a0d"
     },
     "web/src/screens/story/showcase-list.tsx": {
       "role": "index",
-      "sha256": "b6d60761f6215fa9972df4dfc04386c753d2322a94975cb9c6de42e09f665d40",
-      "size": 2774,
-      "normalized_sha256": "11b0d2c78de93f539572e5dc529be20085abc82ddb869c22794f52c3812bedec"
+      "sha256": "0326e47d0c07522d850e4f86d8c52b3ca6c5711e4d5c016ff4142f05688137da",
+      "size": 3707,
+      "normalized_sha256": "0326e47d0c07522d850e4f86d8c52b3ca6c5711e4d5c016ff4142f05688137da"
     },
     "web/src/screens/story/showcase-play.tsx": {
       "role": "index",
-      "sha256": "1a5f5fbb15419aa681028e264fa5b9b4924b5c040ef5b0b387b67e4d2ad16add",
-      "size": 1244,
-      "normalized_sha256": "1a5f5fbb15419aa681028e264fa5b9b4924b5c040ef5b0b387b67e4d2ad16add"
+      "sha256": "231c42d003daed81aa2f468ef15a1a527076ae394e9462bfc6a655f45d4b6172",
+      "size": 2427,
+      "normalized_sha256": "231c42d003daed81aa2f468ef15a1a527076ae394e9462bfc6a655f45d4b6172"
     },
     "web/src/screens/story/worldbook.tsx": {
       "role": "index",
-      "sha256": "ddfb87ebcaf168c9455ed23aac92bbb5bdcbd559d99df5ba18a887af5fbf4391",
-      "size": 11143,
-      "normalized_sha256": "9b89c5405e800eb482858d91cb2301c75755a88a57d16707126b4d7032cce013"
+      "sha256": "62cf63d0b43df828b6947037372a11e2a90d755cb38bbc89e6c6aeb2a7b04b56",
+      "size": 12859,
+      "normalized_sha256": "3bd58560685da8f4e8086750f142b1608ceb535dbbfd4b8f1062f166a2299daf"
     },
     "web/src/screens/types.ts": {
       "role": "index",

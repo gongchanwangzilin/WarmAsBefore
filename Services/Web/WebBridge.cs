@@ -761,7 +761,8 @@ public sealed class WebBridge
     /// 一个字段都不新造 —— 每一项都是 <see cref="UserSettings"/> 里已经很有的东西，
     /// 所以「网页里调外观」与「原生设置页里调外观」改的是同一份存档，不会两套观感。
     /// </summary>
-    private object AppearanceGet() => AppearanceOf(_settings.Current);
+    // 前端要的是 { appearance }；直接给裸对象会让它以为后端没下发（走「没有可调的外观」空态）。
+    private object AppearanceGet() => new { appearance = AppearanceOf(_settings.Current) };
 
     private static object AppearanceOf(UserSettings s) => new
     {
