@@ -302,7 +302,6 @@ export function Usagestats({ back }: ScreenProps) {
             <Inert>
               <GlassButton size="sm">导出 CSV</GlassButton>
             </Inert>
-            <TextBtn onClick={back}>返回</TextBtn>
           </>
         }
       />

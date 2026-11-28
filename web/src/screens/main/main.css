@@ -1060,12 +1060,30 @@
    没有读数、没有立绘舞台、没有聊天输入条，也没有回退键 —— 桌面就是这一页的底。
    位图与尺寸都随窗口缩（clamp / 百分比），窄窗（IsCompactScreen）撤掉机身铺满。
    颜色只用 --w-* 令牌：机身与壁纸由 surface-tint / ground-warm / ground-cool 混出来。
-   间距一律 4 的倍数，字号只取六档。 */
+   间距一律 4 的倍数，字号只取六档。
+
+   ── 桌面按「拇指」排，不按「先来后到」排 ──
+   屏幕越往下越容易被手指够到，所以越常用的入口越靠下：Dock（常驻三格）在屏底，
+   横条格（地图 / 换装 / 点名 / 商店）在第二分区，方格工具（素材库 / 工坊 /
+   世界书 / 设置）在屏顶。这条顺序同时就是尺寸与色阶的顺序：
+
+     档    .pn__app[data-size]  方块      填充（铜/玉 与底色混）  用在哪
+     lead  lead                 56×56     88% / 54%                Dock 三格
+     wide  wide                 100%×64   34% / 12%                分区里的横条格
+     tile  tile                 44×44     14% / 5%                 分区里的方格
+
+   色只有两支：铜 = 用户内容，玉 = 工具。层级由「尺寸 + 填充强度」表达，不加边框；
+   右上切角是「可点」的唯一形状语言（DESIGN-ENTRY 第五节）。
+   点按目标一律 ≥44×44：方格 44、横条格 64 高、Dock 56，外面还裹着一整格的按钮。 */
 
 .pn {
   position: relative;
   height: 100%;
   display: grid;
+  /* 行列都定死一格：机身才有确定高度可以去量 100%。
+     不定这一行，grid 的行会跟着内容长高，矮窗里整台手机就被撑出屏幕了。 */
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   overflow: hidden;
   padding: clamp(0px, 1vw, 8px);
@@ -1175,6 +1193,8 @@
   letter-spacing: 0.02em;
 }
 
+/* 电量是装饰：Web 端没有电池接口，读不到真值，所以这里只按「档」画强度，
+   不写百分比、不写数字。档只有 low / mid / full 三个名字，改一个词改一张图。 */
 .pn__battery {
   display: flex;
   align-items: center;
@@ -1193,10 +1213,21 @@
 
 .pn__battery-shell i {
   display: block;
-  width: 62%;
   height: 100%;
   border-radius: 1px;
   background: currentColor;
+}
+
+.pn__battery[data-level='low'] .pn__battery-shell i {
+  width: 24%;
+}
+
+.pn__battery[data-level='mid'] .pn__battery-shell i {
+  width: 52%;
+}
+
+.pn__battery[data-level='full'] .pn__battery-shell i {
+  width: 100%;
 }
 
 .pn__battery-tip {
@@ -1213,6 +1244,7 @@
   z-index: 1;
   min-height: 0;
   overflow: hidden;
+  /* 竖划归页内滚动，横划归翻页：这里只放 pan-y，横向手势留给指针事件自己接。 */
   touch-action: pan-y;
 }
 
@@ -1233,19 +1265,34 @@
   transition: none;
 }
 
+/* 一页 = 一列可滚的分区。矮窗里纵向滚的是这一层（不是整台手机），
+   横向翻页由 .pn__pager 接 —— 两种手势不抢。 */
 .pn__page {
   flex: none;
   width: 50%;
   height: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-step-5);
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: var(--w-step-2) var(--w-step-4) var(--w-step-1);
+  padding: var(--w-step-2) var(--w-step-4) var(--w-step-5);
   scrollbar-width: none;
   counter-reset: pn-sect;
 }
 
 .pn__page::-webkit-scrollbar {
   display: none;
+}
+
+/* 一页里有两三个分区。最后一个分区贴底（屏幕还有余量时）：
+   常去的入口落在拇指区，工具留在屏顶 —— 余量不足时它自然接在上面。 */
+.pn__group {
+  flex: none;
+}
+
+.pn__group:last-child {
+  margin-top: auto;
 }
 
 /* 分区头（DESIGN-ENTRY 第三节）：2.4ch 编号列 + 名称 + 一条到右缘的发丝线，
@@ -1256,7 +1303,7 @@
   grid-template-columns: 2.4ch auto minmax(0, 1fr);
   align-items: center;
   gap: var(--w-step-2);
-  margin: var(--w-step-4) 0 var(--w-step-2);
+  margin: 0 0 var(--w-step-2);
   font-size: var(--w-size-caption);
   line-height: var(--w-lh-caption);
   font-weight: 600;
@@ -1283,49 +1330,90 @@
   background: var(--w-ramp-6);
 }
 
-.pn__sect--top {
-  margin-top: var(--w-step-5);
-}
-
 .pn__grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: var(--w-step-3) var(--w-step-1);
+  /* 横 8 竖 12：竖着留够「方块 + 底下小字」两行的呼吸，横着只留指尖的缝。 */
+  gap: var(--w-step-3) var(--w-step-2);
 }
 
-/* ── 图标方块 ── */
+/* 横条格：两列，格子本身宽，点起来比方格省力。 */
+.pn__grid--wide {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--w-step-2);
+}
+
+/* ── 应用：整格可点（宽度吃满列宽，最小 44×44），方块本身再按档定尺寸 ── */
 .pn__app {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--w-step-1);
-  min-width: 0;
+  width: 100%;
+  min-width: 44px;
+  min-height: 44px;
   padding: 0;
   border: 0;
   background: none;
   color: inherit;
   font: inherit;
   cursor: pointer;
+  -webkit-touch-callout: none;
 }
 
+/* 方块：底色 = 铜/玉 与底材按档位混出来的强度。
+   不描边 —— 层级靠尺寸和填充强度，切角靠 clip-path。 */
 .pn__tile {
+  --pn-hue: var(--w-signal);
+  --pn-top: 14%;
+  --pn-bot: 5%;
   position: relative;
-  width: clamp(44px, 15vw, 58px);
-  aspect-ratio: 1;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   overflow: hidden;
   border-radius: 0;
-  border: 1px solid var(--w-hairline);
+  background: linear-gradient(
+    150deg,
+    color-mix(in srgb, var(--pn-hue) var(--pn-top), var(--w-surface-tint)),
+    color-mix(in srgb, var(--pn-hue) var(--pn-bot), var(--w-bg))
+  );
   /* 切角 = 可点击；复原成直角会让方格与「展示用」的块无从分辨。 */
   clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 7px, 100% 100%, 0 100%);
   transition: transform 140ms var(--w-ease-out);
+}
+
+.pn__tile[data-hue='jade'] {
+  --pn-hue: var(--w-status);
+}
+
+/* 三档：Dock（最实最大）> 横条格 > 方格（最淡最小） */
+.pn__app[data-size='wide'] .pn__tile {
+  width: 100%;
+  height: 64px;
+  --pn-top: 34%;
+  --pn-bot: 12%;
+  clip-path: polygon(0 0, calc(100% - 8px) 0, 100% 8px, 100% 100%, 0 100%);
+}
+
+.pn__app[data-size='lead'] .pn__tile {
+  width: 56px;
+  height: 56px;
+  /* 实底那一档不能把渐变拉太深：字是底上的深墨，最暗那段也要留够 4.5:1。 */
+  --pn-top: 96%;
+  --pn-bot: 84%;
 }
 
 .pn__icon {
   position: relative;
   display: block;
   line-height: 0;
+}
+
+/* 横条格的方块撑满整格：图标框先撑满，方块才能拿到 100% 的宽。 */
+.pn__app[data-size='wide'] .pn__icon {
+  width: 100%;
 }
 
 /* 未读角标：一分红、一行字。只动 transform/opacity —— 角标出现时弹一下，改数字时不跳。 */
@@ -1359,34 +1447,45 @@
   }
 }
 
-.pn__app:hover .pn__tile {
-  transform: translateY(-2px);
+/* 指针是鼠标时抬一格给出悬停感；触摸屏没有悬停，不为此留位置。 */
+@media (hover: hover) {
+  .pn__app:hover .pn__tile {
+    transform: translateY(-2px);
+  }
 }
 
 .pn__app:active .pn__tile {
   transform: scale(0.94);
 }
 
+/* 长按：按住 300ms 只缩到 0.98（轻反馈，不弹菜单）。写在 :active 之后 —— 同权重，后写的赢。 */
+.pn__app[data-held='1'] .pn__tile {
+  transform: scale(0.98);
+}
+
 /* 系在存档上的格子不再灰掉：点进去由那一页自己挂存档闸（QV 的 SaveGate 等），
-   灰着的格子在这台机器上等于「点了没反应」——触摸屏没有 title 可看。 */
+   灰着的格子在这台机器上等于「点了没反应」—— 触摸屏没有 title 可看。 */
 
 .pn__glyph {
   position: relative;
   font-size: var(--w-size-caption);
+  line-height: 1.1;
   font-weight: 700;
   color: var(--w-ink-display);
   letter-spacing: 0.01em;
-  line-height: 1.1;
+  text-align: center;
 }
 
-.pn__glyph[data-len='3'] {
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
-}
-
+/* 四字名（国际象棋 / 中国象棋）在 44 的方块里一行塞不下：折成 2 + 2，不缩字号。 */
 .pn__glyph[data-len='4'] {
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
+  max-width: 3.4ch;
+  line-height: 1.12;
+  word-break: break-all;
+}
+
+/* Dock 那一档是实底：字要用底上的墨。 */
+.pn__app[data-size='lead'] .pn__glyph {
+  color: var(--w-ink-on-signal);
 }
 
 .pn__app-label {
@@ -1400,46 +1499,23 @@
   text-overflow: ellipsis;
 }
 
-/* 每个应用的底色：源码是各家品牌渐变，Web 端按令牌混出六档 */
-.pn__tile[data-tone='warm'] {
-  background: linear-gradient(150deg, var(--w-signal-hi), var(--w-signal-lo));
+/* 横条格的字比方格大一号：它是这一页的主入口，标签该跟着尺寸走。 */
+.pn__app[data-size='wide'] .pn__app-label {
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ink-body);
 }
 
-.pn__tile[data-tone='warm'] .pn__glyph {
-  color: var(--w-ink-on-signal);
-}
-
-.pn__tile[data-tone='sand'] {
-  background: linear-gradient(150deg, color-mix(in srgb, var(--w-signal) 26%, var(--w-surface-tint)), var(--w-surface-tint));
-}
-
-.pn__tile[data-tone='cool'] {
-  background: linear-gradient(150deg, color-mix(in srgb, var(--w-ground-cool) 72%, var(--w-surface-tint)), var(--w-surface-tint));
-}
-
-.pn__tile[data-tone='jade'] {
-  background: linear-gradient(150deg, color-mix(in srgb, var(--w-ground-cool) 34%, var(--w-signal) 12%, var(--w-surface-tint)), var(--w-surface-tint));
-}
-
-.pn__tile[data-tone='rose'] {
-  background: linear-gradient(150deg, color-mix(in srgb, var(--w-ground-warm) 64%, var(--w-surface-tint)), var(--w-surface-tint));
-}
-
-.pn__tile[data-tone='deep'] {
-  background: linear-gradient(150deg, var(--w-surface-tint), var(--w-bg));
-}
-
-/* ── 页码点：跟着翻页一起走，也能点 ── */
+/* ── 页码点：跟着翻页一起走，点哪一页去哪一页。整颗 44×44 是点按区，圆点只是读数。 ── */
 .pn__dots {
   display: flex;
   justify-content: center;
-  gap: var(--w-step-1);
-  padding: var(--w-step-1) 0;
+  padding: 0 var(--w-step-4);
 }
 
 .pn__dot {
-  width: 20px;
-  height: 16px;
+  width: 44px;
+  height: 44px;
   display: grid;
   place-items: center;
   /* 按钮的 UA 默认是 13.33px / 6px 内距：不写这两行，页码点会自己长成第七档字号。 */
@@ -1472,20 +1548,15 @@
   opacity: 0.85;
 }
 
-/* ── Dock：四格钉在底部，比桌面上的小一圈 ── */
+/* ── Dock：只放三格，钉在拇指落点；比桌面上的任何一格都大、都实 ── */
 .pn__dock {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: center;
   margin: 0 var(--w-step-4);
-  padding: var(--w-step-2) var(--w-step-1);
+  padding: var(--w-step-3) var(--w-step-1);
   border-top: 1px solid var(--w-hairline);
   background: var(--w-tint-button);
-}
-
-.pn__app--dock .pn__tile {
-  width: clamp(36px, 11.6vw, 46px);
-  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
 }
 
 .pn__homebar {

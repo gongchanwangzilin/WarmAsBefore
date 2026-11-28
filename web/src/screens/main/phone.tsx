@@ -11,16 +11,30 @@ import './main.css';
  * （分区标题 + 方格应用 + 页码点）→ Dock → 手势条。没有读数、没有立绘舞台、
  * 没有聊天输入条 —— 那些只在主窗里。
  *
+ * 桌面按「手指够得着」排，不按「先来后到」排：
+ *   Dock（屏底，拇指落点）  常驻三格：QV / 角色库 / 回忆录 —— 最大、最实；
+ *   第二分区（半屏以下）    常去的地方：地图 / 换装（横条格）；
+ *   第一分区（屏顶）        工具：素材库 / 工坊 / 世界书 / 设置 —— 最小、最淡；
+ *   第二页                  小游戏（方格）与一起玩（横条格）。
+ * 这条顺序就是尺寸顺序：越常用越靠下、越大、越实（填充强度 88 / 34 / 12%），
+ * 层级由尺寸与色阶表达，不靠加边框。颜色只分两支：铜（用户内容）与玉（工具）。
+ *
  * 手机里没有回退键：桌面就是这一页的底，窗关不关由窗标题栏决定。
  * 格子点开的都是整页（QV、角色库、地图…）：这一页在主窗里时走页内导航，
  * 在手机那扇独立窗里时交给主窗（nav.openMain），手机窗停在桌面 ——
  * 翻页与 Dock 都是本窗自己的状态。
  *
+ * 时间是真时间（对齐到下一分钟刷新，定时器随卸载清掉）。信号与电量是机身装饰：
+ * 只画形状、只给图标强度，不写百分比、不进无障碍树 —— 假数字比空着更骗人。
+ *
  * 每块图标的字都照抄 XAML（底下那行小字是 .xaml 里各自的 Label Text）。
- * 数据只有 PhoneViewModel 的本地档：时间、WeatherText、未读数。
  */
 
-type Tone = 'warm' | 'sand' | 'cool' | 'deep' | 'rose' | 'jade';
+/** 色只有两支：铜 = 用户内容，玉 = 工具。 */
+type Hue = 'copper' | 'jade';
+
+/** 三档尺寸就是三档等级：常驻栏 > 横条格 > 方格。 */
+type Size = 'lead' | 'wide' | 'tile';
 
 type Tile = {
   key: string;
@@ -28,50 +42,50 @@ type Tile = {
   glyph: string;
   /** 方块底下的小字 */
   sub: string;
-  tone: Tone;
+  hue: Hue;
+  size: Size;
   to: string;
-  /** 格子尺寸：Dock 比桌面小一圈 */
-  dock?: boolean;
 };
 
-const PAGE_ONE_HOME: Tile[] = [
-  // 微信与 QQ 合成一个 QV：桌面上只留这一格，点进去是那一个应用。
-  { key: 'qv', glyph: 'QV', sub: '消息 · 好友', tone: 'warm', to: '/qv' },
-  { key: 'roster', glyph: '角色库', sub: '人设 · 改写', tone: 'sand', to: '/roster' },
-  { key: 'map', glyph: '地图', sub: '去处 · 位置', tone: 'sand', to: '/map' },
-  { key: 'outfit', glyph: '换装', sub: '立绘 · 服饰', tone: 'rose', to: '/outfit' },
-  { key: 'gallery', glyph: '回忆录', sub: '相册 · 日记', tone: 'deep', to: '/gallery' },
+const PAGE_ONE_TOOLS: Tile[] = [
+  { key: 'materials', glyph: '素材库', sub: '背景 · 音乐', hue: 'jade', size: 'tile', to: '/materials' },
+  { key: 'workshop', glyph: '工坊', sub: '场景 · 模式', hue: 'jade', size: 'tile', to: '/scenelibrary' },
+  { key: 'worldbook', glyph: '世界书', sub: '设定 · 条目', hue: 'jade', size: 'tile', to: '/worldbook' },
+  // 设置原先挂在下侧栏那颗「≡」上；下侧栏撤了，它回到桌面上当一格工具。
+  { key: 'settings', glyph: '设置', sub: '外观 · 模型', hue: 'jade', size: 'tile', to: '/settings' },
 ];
 
-const PAGE_ONE_SETTING: Tile[] = [
-  { key: 'materials', glyph: '素材库', sub: '背景 · 音乐', tone: 'jade', to: '/materials' },
-  { key: 'workshop', glyph: '工坊', sub: '场景 · 模式', tone: 'jade', to: '/scenelibrary' },
-  { key: 'worldbook', glyph: '世界书', sub: '设定 · 条目', tone: 'cool', to: '/worldbook' },
-  // 设置原先挂在下侧栏那颗「≡」上；下侧栏撤了，它回到桌面上当一格应用。
-  { key: 'settings', glyph: '设置', sub: '外观 · 模型', tone: 'cool', to: '/settings' },
-];
-
-const PAGE_TWO_PLAY: Tile[] = [
-  { key: 'forcecast', glyph: '点名', sub: '强制入戏', tone: 'rose', to: '/forcecast' },
-  { key: 'shop', glyph: '商店', sub: '礼物 · 道具', tone: 'warm', to: '/shop' },
+const PAGE_ONE_PLACES: Tile[] = [
+  { key: 'map', glyph: '地图', sub: '去处 · 位置', hue: 'copper', size: 'wide', to: '/map' },
+  { key: 'outfit', glyph: '换装', sub: '立绘 · 服饰', hue: 'copper', size: 'wide', to: '/outfit' },
 ];
 
 const PAGE_TWO_GAMES: Tile[] = [
-  { key: 'gobang', glyph: '五子棋', sub: '五连', tone: 'sand', to: '/game?kind=gobang' },
-  { key: 'animalchess', glyph: '斗兽棋', sub: '兽棋', tone: 'sand', to: '/game?kind=animalchess' },
-  { key: 'ludo', glyph: '飞行棋', sub: '四人', tone: 'cool', to: '/game?kind=ludo' },
-  { key: 'chess', glyph: '国际象棋', sub: '64 格', tone: 'deep', to: '/game?kind=chess' },
-  { key: 'chinesechess', glyph: '中国象棋', sub: '河界', tone: 'rose', to: '/game?kind=chinesechess' },
-  { key: 'snake', glyph: '贪吃蛇', sub: '越吃越长', tone: 'jade', to: '/game?kind=snake' },
-  { key: 'go', glyph: '围棋', sub: '19 路', tone: 'deep', to: '/game?kind=go' },
+  { key: 'gobang', glyph: '五子棋', sub: '五连', hue: 'copper', size: 'tile', to: '/game?kind=gobang' },
+  { key: 'animalchess', glyph: '斗兽棋', sub: '兽棋', hue: 'copper', size: 'tile', to: '/game?kind=animalchess' },
+  { key: 'ludo', glyph: '飞行棋', sub: '四人', hue: 'copper', size: 'tile', to: '/game?kind=ludo' },
+  { key: 'chess', glyph: '国际象棋', sub: '64 格', hue: 'copper', size: 'tile', to: '/game?kind=chess' },
+  { key: 'chinesechess', glyph: '中国象棋', sub: '河界', hue: 'copper', size: 'tile', to: '/game?kind=chinesechess' },
+  { key: 'snake', glyph: '贪吃蛇', sub: '越吃越长', hue: 'copper', size: 'tile', to: '/game?kind=snake' },
+  { key: 'go', glyph: '围棋', sub: '19 路', hue: 'copper', size: 'tile', to: '/game?kind=go' },
 ];
 
-const DOCK: Tile[] = [
-  { key: 'dock-qv', glyph: 'QV', sub: '', tone: 'warm', to: '/qv', dock: true },
-  { key: 'dock-roster', glyph: '角色库', sub: '', tone: 'sand', to: '/roster', dock: true },
-  { key: 'dock-gallery', glyph: '回忆录', sub: '', tone: 'deep', to: '/gallery', dock: true },
-  { key: 'dock-materials', glyph: '素材库', sub: '', tone: 'jade', to: '/materials', dock: true },
+const PAGE_TWO_PLAY: Tile[] = [
+  { key: 'forcecast', glyph: '点名', sub: '强制入戏', hue: 'copper', size: 'wide', to: '/forcecast' },
+  { key: 'shop', glyph: '商店', sub: '礼物 · 道具', hue: 'copper', size: 'wide', to: '/shop' },
 ];
+
+/** Dock：屏底、拇指落点，只放三格 —— 桌面上的入口不再在别处重复一遍。 */
+const DOCK: Tile[] = [
+  { key: 'dock-qv', glyph: 'QV', sub: '', hue: 'copper', size: 'lead', to: '/qv' },
+  { key: 'dock-roster', glyph: '角色库', sub: '', hue: 'copper', size: 'lead', to: '/roster' },
+  { key: 'dock-gallery', glyph: '回忆录', sub: '', hue: 'copper', size: 'lead', to: '/gallery' },
+];
+
+/** 长按多久算「按住了」：快到不会被当成轻点，慢到不会在滑动时误触。 */
+const HOLD_MS = 300;
+/** 一分钟刷新一次表：对齐到下一分钟的整点，睡过的那一分钟醒来就补上。 */
+const MINUTE = 60_000;
 
 const pad = (value: number) => String(value).padStart(2, '0');
 
@@ -125,14 +139,35 @@ export function Phone({ bridge, navigate }: ScreenProps) {
   const drag = useRef<DragState | null>(null);
   /** 这次松手别当成点击：横滑过 8px 之后，格子不该跟着开。 */
   const blockClick = useRef(false);
+  /** 长按中的那一格（key）：按住 300ms 缩到 0.98，松手/滑走就复原。 */
+  const [held, setHeld] = useState('');
+  const holdTimer = useRef(0);
   const [now, setNow] = useState(() => new Date());
 
   useEffect(() => {
-    const timer = window.setInterval(() => setNow(new Date()), 30_000);
-    return () => window.clearInterval(timer);
+    let timer = window.setTimeout(() => undefined, 0);
+    const tick = () => {
+      const at = new Date();
+      setNow(at);
+      // 睡过的一段时间（后台标签页、盖上屏）醒来立刻补一次，而不是再慢一整分钟。
+      timer = window.setTimeout(tick, MINUTE - ((at.getSeconds() * 1000 + at.getMilliseconds()) % MINUTE) + 24);
+    };
+    tick();
+    return () => window.clearTimeout(timer);
   }, []);
 
   const clock = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+
+  const releaseHold = () => {
+    window.clearTimeout(holdTimer.current);
+    holdTimer.current = 0;
+    setHeld('');
+  };
+
+  const startHold = (key: string) => {
+    window.clearTimeout(holdTimer.current);
+    holdTimer.current = window.setTimeout(() => setHeld(key), HOLD_MS);
+  };
 
   /**
    * 开一整页：先请主窗接手（手机窗里点时，翻的是主窗）；主窗不在就退回页内导航，
@@ -150,16 +185,23 @@ export function Phone({ bridge, navigate }: ScreenProps) {
   };
 
   const tile = (item: Tile) => {
-    const badge = item.key === 'qv' || item.key === 'dock-qv' ? unread.total : 0;
+    const badge = item.key === 'dock-qv' ? unread.total : 0;
     return (
       <button
         key={item.key}
         type="button"
-        className={item.dock ? 'pn__app pn__app--dock' : 'pn__app'}
+        className="pn__app"
+        data-size={item.size}
+        data-held={held === item.key ? '1' : undefined}
         onClick={() => open(item.to)}
+        onPointerDown={() => startHold(item.key)}
+        onPointerUp={releaseHold}
+        onPointerCancel={releaseHold}
+        onPointerLeave={releaseHold}
+        onContextMenu={(event) => event.preventDefault()}
       >
         <span className="pn__icon">
-          <span className="pn__tile" data-tone={item.tone}>
+          <span className="pn__tile" data-hue={item.hue}>
             <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
               {item.glyph}
             </span>
@@ -205,6 +247,8 @@ export function Phone({ bridge, navigate }: ScreenProps) {
       // 捕捉之后即使手指滑出这一块，move/up 也还落在这里。
       event.currentTarget.setPointerCapture(event.pointerId);
       setDragging(true);
+      // 划起来就不算长按了。
+      releaseHold();
     }
     if (state.axis !== 'x') return;
 
@@ -250,6 +294,7 @@ export function Phone({ bridge, navigate }: ScreenProps) {
   };
 
   const onPointerCancel = () => {
+    releaseHold();
     if (!drag.current) return;
     drag.current = null;
     setSettle(SETTLE_BACK_MS);
@@ -265,6 +310,14 @@ export function Phone({ bridge, navigate }: ScreenProps) {
     event.stopPropagation();
   };
 
+  /** 页码点：点哪一页去哪一页，走同一条过渡（不是瞬移）。 */
+  const goPage = (index: number) => {
+    if (index === page) return;
+    setSettle(SLIDE_MS);
+    setPage(index);
+    setOffset(0);
+  };
+
   return (
     <div className="pn">
       <span className="pn__shade" aria-hidden="true" />
@@ -274,15 +327,17 @@ export function Phone({ bridge, navigate }: ScreenProps) {
           <div className="pn__status">
             <span className="pn__time">{clock}</span>
             <span className="pn__gap" />
-            <div className="pn__signals" aria-label="信号 满格，WiFi，电量">
-              <span className="pn__bars" aria-hidden="true">
+            {/* 信号 / WiFi / 电量都是机身装饰（Web 端读不到真值）：只画形状与强度，不写数字，
+                所以也不进无障碍树 —— 念一句「满格」比不念更假。 */}
+            <div className="pn__signals" aria-hidden="true">
+              <span className="pn__bars">
                 <i />
                 <i />
                 <i />
                 <i />
               </span>
               <span className="pn__wifi">WiFi</span>
-              <span className="pn__battery" aria-hidden="true">
+              <span className="pn__battery" data-level="mid">
                 <i className="pn__battery-shell">
                   <i />
                 </i>
@@ -312,32 +367,40 @@ export function Phone({ bridge, navigate }: ScreenProps) {
               }
             >
               <section className="pn__page" aria-hidden={page !== 0} aria-label="第一页">
-                <h3 className="pn__sect">TA 的世界</h3>
-                <div className="pn__grid">{PAGE_ONE_HOME.map(tile)}</div>
+                <div className="pn__group">
+                  <h3 className="pn__sect">工具</h3>
+                  <div className="pn__grid">{PAGE_ONE_TOOLS.map(tile)}</div>
+                </div>
 
-                <h3 className="pn__sect">内容与设定</h3>
-                <div className="pn__grid">{PAGE_ONE_SETTING.map(tile)}</div>
+                <div className="pn__group">
+                  <h3 className="pn__sect">常去的地方</h3>
+                  <div className="pn__grid pn__grid--wide">{PAGE_ONE_PLACES.map(tile)}</div>
+                </div>
               </section>
 
               <section className="pn__page" aria-hidden={page !== 1} aria-label="第二页">
-                <h3 className="pn__sect pn__sect--top">一起玩</h3>
-                <div className="pn__grid">{PAGE_TWO_PLAY.map(tile)}</div>
+                <div className="pn__group">
+                  <h3 className="pn__sect">小游戏</h3>
+                  <div className="pn__grid">{PAGE_TWO_GAMES.map(tile)}</div>
+                </div>
 
-                <h3 className="pn__sect">小游戏</h3>
-                <div className="pn__grid">{PAGE_TWO_GAMES.map(tile)}</div>
+                <div className="pn__group">
+                  <h3 className="pn__sect">一起玩</h3>
+                  <div className="pn__grid pn__grid--wide">{PAGE_TWO_PLAY.map(tile)}</div>
+                </div>
               </section>
             </div>
           </div>
 
           <div className="pn__dots">
-            {[0, 1].map((index) => (
+            {Array.from({ length: PAGES }, (_, index) => (
               <button
                 key={index}
                 type="button"
                 className="pn__dot"
                 aria-current={page === index}
                 aria-label={index === 0 ? '第一页' : '第二页'}
-                onClick={() => setPage(index)}
+                onClick={() => goPage(index)}
               >
                 <i />
               </button>

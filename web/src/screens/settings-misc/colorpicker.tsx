@@ -256,7 +256,7 @@ export function Colorpicker({ query, back }: ScreenProps) {
           gridTemplateColumns: 'auto 1fr auto',
           gap: 'var(--w-space-2)',
           alignItems: 'center',
-          padding: '10px var(--w-pad-page) 14px',
+          padding: 'var(--w-step-3) var(--w-pad-page) var(--w-step-4)',
           background: 'var(--w-tint-bar)',
           borderTop: '1px solid var(--w-hairline)',
         }}

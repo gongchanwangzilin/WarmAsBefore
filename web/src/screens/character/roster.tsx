@@ -136,6 +136,8 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
       <PageHeader
         title="角色库"
         eyebrow="// ROSTER"
+        // 那句提示是说明，不是动作：它跟着标题走，不跟动作簇抢位置。
+        subtitle={wide ? 'AI 也会用到其他角色' : undefined}
         onBack={back}
         right={
           <>
@@ -147,17 +149,6 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
             >
               监测
             </GlassButton>
-            <span
-              className="cap"
-              style={{
-                padding: '6px 10px',
-                borderRadius: 4,
-                background: 'var(--w-surface-tint)',
-                display: wide ? undefined : 'none',
-              }}
-            >
-              AI 也会用到其他角色
-            </span>
             <PrimaryBtn onClick={() => navigate('/newcharacter')}>＋ 新建角色</PrimaryBtn>
           </>
         }
@@ -211,7 +202,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                       reason="名册里还没有任何人"
                       hint="在角色选择页新建或导入角色，新角色会出现在这里"
                     />
-                    <PrimaryBtn onClick={() => navigate('/newcharacter')}>＋ 新建角色</PrimaryBtn>
+                    <GlassButton size="md" onClick={() => navigate('/newcharacter')}>＋ 新建角色</GlassButton>
                   </div>
                 ) : (
                   items.map((item) => {
@@ -459,13 +450,19 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                       <Reading eyebrow="SAVES" value={String(selected.saveCount)} note="个存档" />
                     </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) auto', columnGap: 'var(--w-space-3)', alignItems: 'center' }}>
-                      <PrimaryBtn block onClick={enter}>
-                        进入 TA 的工作室  →
-                      </PrimaryBtn>
-                      <TextBtn onClick={() => remove(selected)} disabled={busyId === selected.id}>
-                        {busyId === selected.id ? '删除中…' : '删除'}
-                      </TextBtn>
+                    {/* 主行动是页头那颗「新建角色」：这里的是这一栏的收尾动作，实底不再重复。
+                        删除是危险动作，单独占一行、靠行尾 —— 不和「进工作室」挤在同一行。 */}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <GlassButton size="md" onClick={enter} title="进入 TA 的工作室">
+                          进入 TA 的工作室  →
+                        </GlassButton>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <TextBtn onClick={() => remove(selected)} disabled={busyId === selected.id}>
+                          {busyId === selected.id ? '删除中…' : '删除'}
+                        </TextBtn>
+                      </div>
                     </div>
                   </Stack>
                 </div>
@@ -487,7 +484,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                 <PaneTitle>还没有人可以站上这块舞台</PaneTitle>
                 <Caption>去角色选择页新建或导入一个角色，回来就能在这里看见 TA。</Caption>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)', marginTop: 'var(--w-space-2)' }}>
-                  <PrimaryBtn onClick={() => navigate('/newcharacter')}>＋ 新建角色</PrimaryBtn>
+                  <GlassButton size="md" onClick={() => navigate('/newcharacter')}>＋ 新建角色</GlassButton>
                   <TextBtn onClick={() => navigate('/select')}>去角色选择</TextBtn>
                 </div>
               </div>

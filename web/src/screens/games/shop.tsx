@@ -72,27 +72,11 @@ export function Shop({ back }: ScreenProps) {
       <PageHeader
         title="美了么"
         onBack={back}
+        // 动作簇里只放能点的：余额是读数，挪到下面那条战绩带里。
         right={
-          <>
-            <button type="button" className="k-textbtn" style={{ fontSize: 'var(--w-size-caption)' }} onClick={() => setBodyOpen(true)}>
-              身体状态
-            </button>
-            <span
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                height: 24,
-                padding: '0 10px',
-                borderRadius: 99,
-                background: 'var(--w-surface-tint)',
-                fontSize: 'var(--w-size-body)',
-                color: 'var(--w-ink-body)',
-                whiteSpace: 'nowrap',
-              }}
-            >
-              亲密币 0
-            </span>
-          </>
+          <GlassButton size="sm" onClick={() => setBodyOpen(true)}>
+            身体状态
+          </GlassButton>
         }
       />
 
@@ -110,7 +94,24 @@ export function Shop({ back }: ScreenProps) {
           <Cap tone="body" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
             小游戏战绩：0 胜 0 负
           </Cap>
-          <Cap style={{ whiteSpace: 'nowrap' }}>胜局 +30 亲密币 · 败局 +10</Cap>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-3)' }}>
+            <Cap style={{ whiteSpace: 'nowrap' }}>胜局 +30 亲密币 · 败局 +10</Cap>
+            <span
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                height: 24,
+                padding: '0 10px',
+                borderRadius: 99,
+                background: 'var(--w-surface-tint)',
+                fontSize: 'var(--w-size-body)',
+                color: 'var(--w-ink-body)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              亲密币 0
+            </span>
+          </div>
         </div>
       </div>
 

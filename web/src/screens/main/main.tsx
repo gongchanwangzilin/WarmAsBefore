@@ -360,7 +360,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
             >
               监测
             </button>
-            <button type="button" className="m-btn m-btn--accent" onClick={() => setWidgetPanel(true)} title="选择顶栏与左栏显示什么">
+            <button type="button" className="m-btn" onClick={() => setWidgetPanel(true)} title="选择顶栏与左栏显示什么">
               组件
             </button>
           </div>

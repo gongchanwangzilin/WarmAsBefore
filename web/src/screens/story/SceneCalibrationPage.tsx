@@ -54,12 +54,7 @@ export function SceneCalibrationPage({ back }: ScreenProps) {
         onBack={back}
         title="标定背景：未命名场景"
         subtitle="原图尺寸未知（视频背景可能如此）"
-        right={
-          <>
-            <span className="cap">{status}</span>
-            <TextBtn onClick={back}>取消</TextBtn>
-          </>
-        }
+        right={<span className="cap">{status}</span>}
       />
 
       <Glass as="div" tone="bar" radius={0}>
