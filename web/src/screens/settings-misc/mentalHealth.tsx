@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useState, type CSSProperties } from 'react';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
@@ -162,11 +162,27 @@ const SEVERITIES = [
   { value: '重度', label: '重度' },
 ];
 
-export function MentalHealth({ back }: ScreenProps) {
+export function MentalHealth({ bridge, back }: ScreenProps) {
   const [securityAi, setSecurityAi] = useState(true);
-  // 安全感是角色身上的一个数值（CharacterState.Security）；characters.list 不带这个字段，
-  // 所以一直按源码的空态写 —— 拿好感去冒充安全感比空着更糟。
-  const [security] = useState<{ who: string; value: number } | null>(null);
+  // 安全感是角色身上的一个数值（CharacterState.Security，0–1000，与好感同刻度）。
+  // 桥已经把这一格送到 characters.list 上，所以这里读真数；还没进存档时按源码空态写。
+  const [security, setSecurity] = useState<{ who: string; value: number } | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    void bridge
+      .request('characters.list', {})
+      .then(({ characters }) => {
+        if (!alive) return;
+        const who = characters.find((c) => typeof c.security === 'number');
+        if (!who) return;
+        setSecurity({ who: who.nickname || who.name, value: Math.round(((who.security ?? 0) / 1000) * 100) });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [bridge]);
   const [condition, setCondition] = useState('');
   const [severity, setSeverity] = useState('轻度');
   const [note, setNote] = useState('');
@@ -189,7 +205,7 @@ export function MentalHealth({ back }: ScreenProps) {
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <span style={subhead}>安全感</span>
               <span style={{ ...caption, ...accent }}>
-                {security ? `安全感 ${security.value} / 100` : '还没有进入存档 · 安全感'}
+                {security ? `${security.who} · 安全感 ${security.value} / 100` : '还没有进入存档 · 安全感'}
               </span>
             </div>
             <p style={caption}>{SECURITY_NOTE}</p>

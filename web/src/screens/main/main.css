@@ -1388,3 +1388,17 @@
     transition-duration: 1ms !important;
   }
 }
+
+/* 舞台上的立绘：铺满舞台的框，图按比例缩到框里、贴底居中。
+   一率用 inset:0 + 100% 而不是百分比高度 —— 舞台在 flex/grid 里高度不总是「确定高度」，
+   百分比会退化成原图像素，一张 1500px 的全身立绘就把界面撑爆了。 */
+.mg__sprite {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: bottom center;
+  pointer-events: none;
+  user-select: none;
+}

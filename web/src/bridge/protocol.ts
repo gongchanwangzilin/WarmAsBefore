@@ -493,6 +493,8 @@ export type CharacterRow = {
   affection: number;
   trust: number;
   energy: number;
+  /** 安全感 0–1000（与好感同刻度）。 */
+  security?: number;
   mood: string;
 };
 

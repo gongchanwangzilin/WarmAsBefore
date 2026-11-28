@@ -276,7 +276,7 @@ public sealed class WebBridge
         "memory.tags" => await MemoryTagsAsync(p),
         "showcases.list" => await ShowcasesListAsync(),
         "novels.list" => await NovelsListAsync(),
-        "app.info" => AppInfoPayload(),
+        "app.info" => AppInfoJson(),
         _ => throw new WebBridgeException("E_UNKNOWN_METHOD", "unknown method"),
     };
 
@@ -510,6 +510,7 @@ public sealed class WebBridge
             affection = c.State.Affection,
             trust = c.State.Trust,
             energy = c.State.Energy,
+            security = SecurityOf(c),
             emotions = c.SpriteMap.Keys
                 .Select(k => k.Split('/'))
                 .Where(parts => parts.Length > 1)
@@ -997,6 +998,13 @@ public sealed class WebBridge
             : keys.Where(parts => parts[0] == outfit).Select(parts => parts[1]).FirstOrDefault() ?? "";
         return (outfit, emotion);
     }
+
+    /// <summary>
+    /// 安全感读数（0–1000，与好感同刻度）。旧档这一格是 -1（没写过）——
+    /// 读档时补 600 是读档逻辑的事，这里只按同一个口径对外，别让前端拿 -1 去画。
+    /// </summary>
+    private static int SecurityOf(CharacterData c)
+        => c.State.Security < 0 ? 600 : c.State.Security;
 
     /// <summary>当前该显示哪张立绘：先按「服装 + 情绪」，退到同服装任一张，再退到任意一张。</summary>
     private static string CurrentSprite(CharacterData c)
@@ -1618,6 +1626,7 @@ public sealed class WebBridge
                     affection = c.State.Affection,
                     trust = c.State.Trust,
                     energy = c.State.Energy,
+                    security = SecurityOf(c),
                     mood = c.State.CurrentEmotion,
                 }).ToList(),
             };
@@ -2167,9 +2176,14 @@ public sealed class WebBridge
     /// <c>app.info</c>（前端协议之外的补充）：它在启动时问「我在哪、我是什么版本、内核是什么」。
     /// WebView2 版本走既有的注册表探测（不启动进程、不联网）；其余平台为空串。
     /// </summary>
-    private static object AppInfoPayload()
+    /// <summary>
+    /// <c>app.info</c>：应用与宿主信息，外加「现在有没有进过存档」。
+    /// 后面这条决定系在存档上的东西（QQ、监测、角色状态）该不该出现在界面上 ——
+    /// 没有存档就没有角色、没有状态，那些入口只是空壳。
+    /// </summary>
+    private object AppInfoJson()
     {
-        var devUrl = Environment.GetEnvironmentVariable("WARM_WEB_URL")?.Trim();
+        var saveId = _engine.CurrentSaveId ?? "";
         return new
         {
             name = AppInfo.Current.Name,
@@ -2184,10 +2198,19 @@ public sealed class WebBridge
                     : "unknown",
                 version = RuntimeProbe.WebView2Present() ?? "",
             },
-            dev = string.IsNullOrEmpty(devUrl) ? DevUrl : devUrl,
+            dev = string.IsNullOrEmpty(Environment.GetEnvironmentVariable("WARM_WEB_URL")?.Trim())
+                ? DevUrl
+                : Environment.GetEnvironmentVariable("WARM_WEB_URL")!.Trim(),
             debug = IsDebugBuild,
+            run = new
+            {
+                active = !string.IsNullOrWhiteSpace(saveId),
+                saveId,
+                character = "",
+            },
         };
     }
+
 
     private static bool IsDebugBuild
     {

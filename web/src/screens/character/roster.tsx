@@ -344,7 +344,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                     <img
                       src={selected.spriteUrl}
                       alt={selected.name}
-                      style={{ height: '92%', width: 'auto', maxWidth: '100%', objectFit: 'contain', objectPosition: 'bottom center', display: 'block' }}
+                      style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', objectFit: 'contain', objectPosition: 'bottom center', display: 'block', padding: 'var(--w-space-3)' }}
                     />
                   ) : (
                     <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)' }}>
