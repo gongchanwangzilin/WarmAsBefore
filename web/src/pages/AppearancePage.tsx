@@ -7,6 +7,7 @@ import { GlassButton } from '../components/GlassButton';
 import { GlassSwitch } from '../components/GlassSwitch';
 import { PageShell } from '../components/PageShell';
 import { SettingBlock, SettingCard, SettingRow, Sep } from '../components/SettingCard';
+import { Select } from '../components/kit';
 import { TopBar } from '../components/TopBar';
 import { Skeleton } from '../components/states/Skeleton';
 import { StateBlock } from '../components/states/StateBlock';
@@ -217,20 +218,12 @@ function BackgroundCard({
         title="背景模式"
         desc="窗口透视会让整个窗口背景透明，直接看穿到桌面"
         control={
-          <select
-            className="picker"
-            aria-label="背景模式"
+          <Select
+            label="背景模式"
             value={bg.mode}
-            onChange={(event) =>
-              setBackground({ mode: event.target.value as Appearance['background']['mode'] })
-            }
-          >
-            {BACKGROUND_MODE_CHOICES.map((choice) => (
-              <option key={choice.mode} value={choice.mode}>
-                {choice.label}
-              </option>
-            ))}
-          </select>
+            onChange={(mode) => setBackground({ mode })}
+            options={BACKGROUND_MODE_CHOICES.map((choice) => ({ value: choice.mode, label: choice.label }))}
+          />
         }
       />
 

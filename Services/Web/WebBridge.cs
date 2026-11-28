@@ -265,6 +265,7 @@ public sealed class WebBridge
         "palette.swatches" => PaletteSwatches(),
         "palette.set" => await PaletteSetAsync(p),
         "nav.open" => NavOpen(p),
+        "nav.openMain" => await NavOpenMainAsync(p),
         "nav.back" => NavBack(p),
         "window.open" => WindowOpen(p),
         "window.close" => WindowClose(),
@@ -1072,7 +1073,8 @@ public sealed class WebBridge
 
     /// <summary>
     /// <c>window.open</c>：把某个路由搬进自己的窗口（手机、关系网这类「旁边摊一扇」的页）。
-    /// 窗里装的是同一份前端、同一座桥 —— 所以主窗改设置，那扇窗立刻跟着变（事件是广播的）。
+    /// 默认是**独立进程**（<see cref="PageWindowService.OpenStandalone"/>）：那扇窗有自己的 UI 线程与生命周期，
+    /// 主窗卡死或崩掉都不牵连它；<c>--wab-window-mode=window</c> 才退回同进程的第二扇窗（共用单例桥，事件广播）。
     /// 手机上开不了窗时回 <c>opened=false</c>，前端自己退回页内导航，不会点了没反应。
     /// </summary>
     private object WindowOpen(JsonElement p)
@@ -1093,12 +1095,20 @@ public sealed class WebBridge
 
         try
         {
+            // 默认走独立进程：那扇窗有自己的消息循环与生命周期，主窗卡死/崩了它照样活着。
+            if (PageWindowService.ProcessMode)
+            {
+                if (_windows.OpenStandalone("web:" + route, title!, route!, width, height))
+                    return new { opened = true, route, mode = "process" };
+                App.WriteLog("WebBridge.window.open -> 独立进程没起来，退回同进程窗口");
+            }
+
             var services = Application.Current?.Handler?.MauiContext?.Services;
             if (services?.GetService(typeof(Views.Web.WebShellPage)) is not Views.Web.WebShellPage page)
                 return new { opened = false, reason = "WebShellPage 没有注册到 DI" };
             page.StartAt(route!);
             var opened = _windows.OpenPage("web:" + route, title!, page, width, height);
-            return new { opened, route };
+            return new { opened, route, mode = "window" };
         }
         catch (Exception ex)
         {
@@ -2527,6 +2537,60 @@ public sealed class WebBridge
         catch (Exception ex) { App.WriteLog("WebBridge.GoToAsync " + route + " -> " + ex.Message); }
     }
 
+    /// <summary>
+    /// <c>nav.openMain { route }</c>：把一条路由交给**主窗口**打开 —— 手机那扇窄窗里点「QV」「角色库」
+    /// 这些格子，该翻的是主窗，不是把手机自己翻走。
+    ///
+    /// 为什么不能用 <see cref="Emit"/>：桥是单例，一扇窗挂一条 sink，广播出去手机窗也会收到
+    /// <c>nav.request</c> 并跟着跳。这里只发主窗那一条 sink，事件名与载荷仍是既有的
+    /// <c>nav.request</c>，前端那条监听一行都不用改。
+    ///
+    /// 主窗不在，或它的前端还没上屏就回 <c>{ok:false, reason}</c>：手机页据此退回页内导航，
+    /// 并在页脚说明原因 —— 点了没反应是最差的一种。
+    /// </summary>
+    private async Task<object?> NavOpenMainAsync(JsonElement p)
+    {
+        if (p.ValueKind != JsonValueKind.Object || !p.TryGetProperty("route", out var routeEl) || routeEl.ValueKind != JsonValueKind.String)
+            throw new WebBridgeException("E_BAD_PARAMS", "nav.openMain 需要 params.route。");
+
+        var route = (routeEl.GetString() ?? "").Trim();
+        if (route.Length == 0) throw new WebBridgeException("E_BAD_PARAMS", "nav.openMain 的 route 不能为空。");
+
+        if (_windows.MainWindow is not { Page: Views.Web.WebShellPage main } window)
+        {
+            // 独立进程里没有主窗：问父进程（管道），由它那一侧的主窗接手。
+            if (PageWindowService.ParentPipeName() is { Length: > 0 } pipe
+                && await PageWindowService.AskParentAsync(pipe, "open " + route))
+            {
+                App.WriteLogNow($"WebBridge.nav.openMain -> 父进程主窗接手 {route}");
+                return new { ok = true, route };
+            }
+            App.WriteLog("WebBridge.nav.openMain -> 没有主窗口，路由退回页内导航 " + route);
+            return new { ok = false, route, reason = "没有找到主窗口" };
+        }
+        if (!main.FrontendReady)
+        {
+            App.WriteLog("WebBridge.nav.openMain -> 主窗口前端还没就绪 " + route);
+            return new { ok = false, route, reason = "主窗口的前端还没加载完" };
+        }
+
+        await EmitToAsync(main.Sink, "nav.request", new { route });
+        PageWindowService.BringToFront(window);
+        App.WriteLogNow($"WebBridge.nav.openMain -> 主窗口接手 {route}");
+        return new { ok = true, route };
+    }
+
+    /// <summary>只发给一扇窗（它自己的 sink），不广播 —— 只用于「这一页归主窗」这种定向指路。</summary>
+    private static async Task EmitToAsync(Func<string, Task> sink, string name, object? payload)
+    {
+        var envelope = new JsonObject
+        {
+            ["event"] = name,
+            ["payload"] = payload is null ? new JsonObject() : JsonSerializer.SerializeToNode(payload),
+        };
+        await sink(envelope.ToJsonString());
+    }
+
     /// <summary>最近一次没地方可跳的路由（宿主既不是 Shell、也没有前端在跑）。留给正式接线时消费。</summary>
     public string? PendingRoute { get; private set; }
 
@@ -2765,6 +2829,14 @@ public sealed class WebBridge
                 ? DevUrl
                 : Environment.GetEnvironmentVariable("WARM_WEB_URL")!.Trim(),
             debug = IsDebugBuild,
+            // 这一扇窗是什么角色：「启动自检」「她发来一条」这类提醒是给用户看的全局消息，
+            // 每扇窗都弹一遍就成了同一个消息刷屏好几次（手机窗一开又弹一条「还没配置模型」）。
+            // 独立进程带 --wab-standalone=<route>，那扇就是 sub，key 是它当初要打开的路由名（phone 这类）。
+            window = new
+            {
+                role = PageWindowService.IsStandalone ? "sub" : "main",
+                key = PageWindowService.StandaloneRoute() ?? "",
+            },
             run = new
             {
                 active = !string.IsNullOrWhiteSpace(saveId),

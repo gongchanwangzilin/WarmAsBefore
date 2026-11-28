@@ -1,21 +1,23 @@
-import { useEffect, useRef, useState, type PointerEvent } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type MouseEvent as ReactMouseEvent, type PointerEvent } from 'react';
 import type { ScreenProps } from '../types';
-import { closeWindow } from '../../lib/windows';
-import { NEED_SAVE, useRun } from '../../lib/run';
+import { openInMain } from '../../lib/windows';
 import { unreadLabel, useUnread } from '../../lib/unread';
 import './main.css';
 
 /**
- * 手机：Views/Main/PhonePage.xaml（808 行）+ PhoneViewModel。
+ * 手机：Views/Main/PhonePage.xaml + PhoneViewModel。
  *
- * 摆在地面上的一台真机：接地影、机身、圆角屏幕、壁纸渐变与两团光斑；
- * 状态栏（退出口袋 ‹ 游戏 / 时间 / 信号 / WiFi / 电池）、两页桌面、页码点、
- * Dock、下侧栏三键与「转到主窗口」。窄窗（真手机、小窗）撤掉机身，屏幕直接铺满 ——
- * 源码的 IsCompactedScreen 就是这个判断。
+ * 一台真机，不是「压窄的主页面」：状态栏（真时间 / 信号 / WiFi / 电量）→ 桌面
+ * （分区标题 + 方格应用 + 页码点）→ Dock → 手势条。没有读数、没有立绘舞台、
+ * 没有聊天输入条 —— 那些只在主窗里。
  *
- * 每块图标的字都照抄 XAML（底下那行小字是 .xaml 里各自的 Label Text）；
- * 机身内是暖色渐变壁纸，源码用的是 Cream/Beige 那几只刷子，Web 端按令牌混出来。
- * 数据只有 PhoneViewModel 的本地档：时间、StatusTime、StatusLine、WeatherText、WeChatLabel。
+ * 手机里没有回退键：桌面就是这一页的底，窗关不关由窗标题栏决定。
+ * 格子点开的都是整页（QV、角色库、地图…）：这一页在主窗里时走页内导航，
+ * 在手机那扇独立窗里时交给主窗（nav.openMain），手机窗停在桌面 ——
+ * 翻页与 Dock 都是本窗自己的状态。
+ *
+ * 每块图标的字都照抄 XAML（底下那行小字是 .xaml 里各自的 Label Text）。
+ * 数据只有 PhoneViewModel 的本地档：时间、WeatherText、未读数。
  */
 
 type Tone = 'warm' | 'sand' | 'cool' | 'deep' | 'rose' | 'jade';
@@ -30,13 +32,11 @@ type Tile = {
   to: string;
   /** 格子尺寸：Dock 比桌面小一圈 */
   dock?: boolean;
-  /** 系在存档上的入口：没进存档时灰掉，不让点进去撞一页空壳 */
-  needsSave?: boolean;
 };
 
 const PAGE_ONE_HOME: Tile[] = [
   // 微信与 QQ 合成一个 QV：桌面上只留这一格，点进去是那一个应用。
-  { key: 'qv', glyph: 'QV', sub: '消息 · 好友', tone: 'warm', to: '/qv', needsSave: true },
+  { key: 'qv', glyph: 'QV', sub: '消息 · 好友', tone: 'warm', to: '/qv' },
   { key: 'roster', glyph: '角色库', sub: '人设 · 改写', tone: 'sand', to: '/roster' },
   { key: 'map', glyph: '地图', sub: '去处 · 位置', tone: 'sand', to: '/map' },
   { key: 'outfit', glyph: '换装', sub: '立绘 · 服饰', tone: 'rose', to: '/outfit' },
@@ -47,6 +47,8 @@ const PAGE_ONE_SETTING: Tile[] = [
   { key: 'materials', glyph: '素材库', sub: '背景 · 音乐', tone: 'jade', to: '/materials' },
   { key: 'workshop', glyph: '工坊', sub: '场景 · 模式', tone: 'jade', to: '/scenelibrary' },
   { key: 'worldbook', glyph: '世界书', sub: '设定 · 条目', tone: 'cool', to: '/worldbook' },
+  // 设置原先挂在下侧栏那颗「≡」上；下侧栏撤了，它回到桌面上当一格应用。
+  { key: 'settings', glyph: '设置', sub: '外观 · 模型', tone: 'cool', to: '/settings' },
 ];
 
 const PAGE_TWO_PLAY: Tile[] = [
@@ -71,30 +73,59 @@ const DOCK: Tile[] = [
   { key: 'dock-materials', glyph: '素材库', sub: '', tone: 'jade', to: '/materials', dock: true },
 ];
 
-/** PhoneViewModel.OnAppearing 的 Period：morning / noon / afternoon / evening / night。 */
-function periodLabel(hour: number): string {
-  if (hour >= 5 && hour < 11) return '上午';
-  if (hour >= 11 && hour < 13) return '中午';
-  if (hour >= 13 && hour < 17) return '下午';
-  if (hour >= 17 && hour < 19) return '傍晚';
-  return '晚上';
-}
-
 const pad = (value: number) => String(value).padStart(2, '0');
 
-export function Phone({ bridge, navigate, back }: ScreenProps) {
-  // 这一页在桌面上是自己那扇窗：窗里的「‹」关窗，窗外的「‹」照旧返回上一页。
-  const leave = () => void closeWindow(bridge, back);
+/** 桌面两页。手势阈值都摆在这里，不散在 JSX 里。 */
+const PAGES = 2;
+/** 拖过页宽的这个比例就算翻页（速度不够时看距离）。 */
+const SWIPE_FRACTION = 0.22;
+/** 甩出去的判定：px/ms。慢拖到一半松手会弹回原位，快甩才翻。 */
+const FLING_SPEED = 0.45;
+/** 边缘回弹：拉出边界后的位移只按这个比例跟手，最多这么远。 */
+const EDGE_GIVE = 0.35;
+const EDGE_MAX = 56;
+/** 松手走完一整页 240ms，原地弹回 180ms。 */
+const SLIDE_MS = 240;
+const SETTLE_BACK_MS = 180;
 
-  const run = useRun(bridge);
-  /** 问到了、而且确实没在存档里，才把存档上的入口灰掉。 */
-  const outsideSave = run.known && !run.active;
+type DragState = {
+  id: number;
+  x0: number;
+  y0: number;
+  lastX: number;
+  lastAt: number;
+  /** 平滑后的横向速度，px/ms */
+  vx: number;
+  /** null = 还没判方向；判成 'y' 就整条交给页内滚动，这一轮不再管 */
+  axis: 'x' | 'y' | null;
+  /** 一块的宽度 = 一页的位移量 */
+  width: number;
+  dx: number;
+};
+
+/** 边缘阻尼：第一页再往右、最后一页再往左，只给一小段回弹，像真的到头了。 */
+function give(dx: number, atStart: boolean, atEnd: boolean): number {
+  if (!((dx > 0 && atStart) || (dx < 0 && atEnd))) return dx;
+  return Math.sign(dx) * Math.min(EDGE_MAX, Math.abs(dx) * EDGE_GIVE);
+}
+
+export function Phone({ bridge, navigate }: ScreenProps) {
   /** QV 那一格与 Dock 上的 QV 共用同一个未读数：她发来一条，桌面上就该看得见。 */
-  const unread = useUnread(bridge, !outsideSave);
+  const unread = useUnread(bridge, true);
+
+  /** 格子交不出去时的一句话：主窗不在、或还没加载完，就在这里说明「已经退回页内导航」。 */
+  const [note, setNote] = useState('');
 
   const [page, setPage] = useState(0);
+  /** 手指的实时位移（px）。松手时归零，剩下的那段由 CSS 过渡走完。 */
+  const [offset, setOffset] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  /** 松手后走完这段用多久：翻页 240ms，原地弹回 180ms（距离不一样，时间也不该一样）。 */
+  const [settle, setSettle] = useState(SLIDE_MS);
+  const drag = useRef<DragState | null>(null);
+  /** 这次松手别当成点击：横滑过 8px 之后，格子不该跟着开。 */
+  const blockClick = useRef(false);
   const [now, setNow] = useState(() => new Date());
-  const drag = useRef<{ x: number; tracking: boolean }>({ x: 0, tracking: false });
 
   useEffect(() => {
     const timer = window.setInterval(() => setNow(new Date()), 30_000);
@@ -102,22 +133,33 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
   }, []);
 
   const clock = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
-  const statusTime = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${periodLabel(now.getHours())}`;
+
+  /**
+   * 开一整页：先请主窗接手（手机窗里点时，翻的是主窗）；主窗不在就退回页内导航，
+   * 并把原因留在页脚 —— 静默失败等于点了没反应。
+   */
+  const open = (to: string) => {
+    void openInMain(bridge, to).then(({ ok, reason }) => {
+      if (ok) {
+        setNote('');
+        return;
+      }
+      setNote(reason ? `已退回页内导航 · ${reason}` : '已退回页内导航');
+      navigate(to);
+    });
+  };
 
   const tile = (item: Tile) => {
-    const locked = item.needsSave === true && outsideSave;
     const badge = item.key === 'qv' || item.key === 'dock-qv' ? unread.total : 0;
     return (
       <button
         key={item.key}
         type="button"
         className={item.dock ? 'pn__app pn__app--dock' : 'pn__app'}
-        onClick={() => navigate(item.to)}
-        disabled={locked}
-        title={locked ? NEED_SAVE : undefined}
+        onClick={() => open(item.to)}
       >
         <span className="pn__icon">
-          <span className="pn__tile" data-tone={item.tone} data-locked={locked || undefined}>
+          <span className="pn__tile" data-tone={item.tone}>
             <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
               {item.glyph}
             </span>
@@ -134,15 +176,93 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
   };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
-    drag.current = { x: event.clientX, tracking: true };
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    blockClick.current = false;
+    drag.current = {
+      id: event.pointerId,
+      x0: event.clientX,
+      y0: event.clientY,
+      lastX: event.clientX,
+      lastAt: performance.now(),
+      vx: 0,
+      axis: null,
+      width: event.currentTarget.clientWidth || 1,
+      dx: 0,
+    };
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const state = drag.current;
+    if (!state || state.id !== event.pointerId) return;
+    const dx = event.clientX - state.x0;
+    const dy = event.clientY - state.y0;
+
+    // 先判方向再接管：竖着划过 6px 就交回页内滚动，横着划才是翻页。
+    if (state.axis === null) {
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) return;
+      state.axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      if (state.axis === 'y') return;
+      // 捕捉之后即使手指滑出这一块，move/up 也还落在这里。
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setDragging(true);
+    }
+    if (state.axis !== 'x') return;
+
+    // 速度用「最近一段位移 / 那一段用时」平滑出来：甩出去的判定靠它，不靠总位移。
+    const at = performance.now();
+    const dt = at - state.lastAt;
+    if (dt > 0) state.vx = state.vx * 0.6 + ((event.clientX - state.lastX) / dt) * 0.4;
+    state.lastX = event.clientX;
+    state.lastAt = at;
+    state.dx = dx;
+    setOffset(give(dx, page === 0, page === PAGES - 1));
   };
 
   const onPointerUp = (event: PointerEvent<HTMLDivElement>) => {
-    if (!drag.current.tracking) return;
-    const dx = event.clientX - drag.current.x;
-    drag.current.tracking = false;
-    if (Math.abs(dx) < 40) return;
-    setPage(dx < 0 ? 1 : 0);
+    const state = drag.current;
+    drag.current = null;
+    if (!state || state.id !== event.pointerId) return;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    if (state.axis !== 'x') return;
+
+    if (Math.abs(state.dx) > 8) {
+      blockClick.current = true;
+      // 拖完如果不跟一次 click（指针已经离开格子），别把下一次真正的点击也吞掉。
+      window.setTimeout(() => {
+        blockClick.current = false;
+      }, 300);
+    }
+
+    // 过页宽 22% 就算翻；没拖够但甩得够快（>0.45px/ms，且朝拖的方向）也翻。
+    const far = Math.abs(state.dx) > state.width * SWIPE_FRACTION;
+    const flung = Math.abs(state.vx) > FLING_SPEED && Math.sign(state.vx) === Math.sign(state.dx);
+    const next = Math.min(
+      PAGES - 1,
+      Math.max(0, page + (state.dx !== 0 && (far || flung) ? (state.dx < 0 ? 1 : -1) : 0)),
+    );
+
+    setSettle(next === page ? SETTLE_BACK_MS : SLIDE_MS);
+    setPage(next);
+    setOffset(0);
+    setDragging(false);
+  };
+
+  const onPointerCancel = () => {
+    if (!drag.current) return;
+    drag.current = null;
+    setSettle(SETTLE_BACK_MS);
+    setOffset(0);
+    setDragging(false);
+  };
+
+  /** 拖完那一下的点击：横滑过了阈值的这一次不算点格子。 */
+  const swallowClick = (event: ReactMouseEvent<HTMLDivElement>) => {
+    if (!blockClick.current) return;
+    blockClick.current = false;
+    event.preventDefault();
+    event.stopPropagation();
   };
 
   return (
@@ -152,10 +272,6 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
       <div className="pn__body">
         <div className="pn__screen">
           <div className="pn__status">
-            <button type="button" className="pn__back" onClick={leave}>
-              <span>‹</span>
-              <span>游戏</span>
-            </button>
             <span className="pn__time">{clock}</span>
             <span className="pn__gap" />
             <div className="pn__signals" aria-label="信号 满格，WiFi，电量">
@@ -178,31 +294,32 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
           <div
             className="pn__pager"
             onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
             onPointerUp={onPointerUp}
-            onPointerCancel={() => {
-              drag.current.tracking = false;
-            }}
+            onPointerCancel={onPointerCancel}
+            onClickCapture={swallowClick}
           >
-            <div className="pn__track" data-page={page}>
-              <section className="pn__page" aria-hidden={page !== 0}>
-                <div className="pn__clock">
-                  <div className="pn__clock-main">
-                    <h2>{clock}</h2>
-                    <span className="pn__clock-sub">{statusTime}</span>
-                    <span className="pn__clock-line">温暖如初 · 手机</span>
-                  </div>
-                  <span className="pn__weather">晴天</span>
-                </div>
-
+            <div
+              className="pn__track"
+              data-page={page}
+              data-drag={dragging ? '1' : undefined}
+              style={
+                {
+                  '--pn-page': String(page),
+                  '--pn-dx': `${offset}px`,
+                  '--pn-dur': `${settle}ms`,
+                } as CSSProperties
+              }
+            >
+              <section className="pn__page" aria-hidden={page !== 0} aria-label="第一页">
                 <h3 className="pn__sect">TA 的世界</h3>
                 <div className="pn__grid">{PAGE_ONE_HOME.map(tile)}</div>
-                {outsideSave ? <p className="pn__gate">{NEED_SAVE}：QV 与论坛系在这一局的存档上。</p> : null}
 
                 <h3 className="pn__sect">内容与设定</h3>
                 <div className="pn__grid">{PAGE_ONE_SETTING.map(tile)}</div>
               </section>
 
-              <section className="pn__page" aria-hidden={page !== 1}>
+              <section className="pn__page" aria-hidden={page !== 1} aria-label="第二页">
                 <h3 className="pn__sect pn__sect--top">一起玩</h3>
                 <div className="pn__grid">{PAGE_TWO_PLAY.map(tile)}</div>
 
@@ -227,22 +344,9 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
             ))}
           </div>
 
-          <div className="pn__dock">{DOCK.map(tile)}</div>
+          {note ? <p className="pn__note">{note}</p> : null}
 
-          <div className="pn__nav">
-            <button type="button" onClick={leave} aria-label="回退">
-              ◁
-            </button>
-            <button type="button" onClick={() => setPage(0)} aria-label="回到桌面">
-              □
-            </button>
-            <button type="button" onClick={() => navigate('/settings')} aria-label="设置">
-              ≡
-            </button>
-            <button type="button" className="pn__nav-tail" onClick={() => navigate('/main')}>
-              转到主窗口
-            </button>
-          </div>
+          <div className="pn__dock">{DOCK.map(tile)}</div>
 
           <span className="pn__homebar" aria-hidden="true" />
         </div>

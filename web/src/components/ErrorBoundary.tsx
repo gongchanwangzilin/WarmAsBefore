@@ -28,9 +28,12 @@ export class ErrorBoundary extends Component<
     return (
       <div className="crash" role="alert">
         <span className="crash__title">这一页没能画出来</span>
-        <span className="crash__body">{this.state.error.message}</span>
+        {/* 页名 + 原话一起写：截图发出去时能直接说清是哪一页、抛的是什么。 */}
+        <span className="crash__body">
+          {this.props.where} · {this.state.error.message}
+        </span>
         <button type="button" className="k-textbtn" onClick={() => this.setState({ error: null })}>
-          再试一次
+          重试
         </button>
       </div>
     );

@@ -22,7 +22,7 @@ export type RunState = {
 
 const UNKNOWN: RunState = { known: false, active: true, saveId: '' };
 
-export function useRun(bridge: Bridge): RunState {
+export function useRun(bridge: Bridge, ticket = 0): RunState {
   const [run, setRun] = useState<RunState>(UNKNOWN);
 
   useEffect(() => {
@@ -43,7 +43,8 @@ export function useRun(bridge: Bridge): RunState {
       dropped = true;
       off();
     };
-  }, [bridge]);
+    // ticket 是「再问一次」：宿主这一拍没答上来时，页面可以让这个作用域重跑一遍。
+  }, [bridge, ticket]);
 
   return run;
 }

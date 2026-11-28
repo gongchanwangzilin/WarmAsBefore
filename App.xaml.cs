@@ -1,4 +1,4 @@
-using System.IO;
+﻿using System.IO;
 using WarmAsBefore.Services;
 using WarmAsBefore.Services.Core;
 
@@ -396,6 +396,20 @@ public partial class App : Application
             var swStartup = System.Diagnostics.Stopwatch.StartNew();
             Services.PerfLog.SetPhase("启动 · 构建 AppShell+Window");
 
+            // 独立进程：父进程用 --wab-standalone=<route> 把自己再拉一遍（见 PageWindowService.OpenStandalone）。
+            // 这里只开那一扇 Web 窗、直接指向该路由，不进主界面，也不跑 AfterWindowStartedAsync ——
+            // 那里面是每进程一份的重活（卡顿看门狗、自动备份、运行时接线里的女仆桥/天气/工具、模型自检、云同步）。
+            // 子进程要的是「一扇窗 + 一份 Web 前端」，不是把整台机器再起一遍。
+            if (Services.PageWindowService.StandaloneRoute() is { Length: > 0 } standaloneRoute)
+            {
+                if (TryCreateStandaloneWindow(standaloneRoute) is { } standaloneWin)
+                {
+                    WriteLog("CreateWindow: 独立进程只开一扇窗 " + standaloneRoute);
+                    return standaloneWin;
+                }
+                WriteLog("CreateWindow: 独立进程取不到 WebShellPage，回落到主界面");
+            }
+
             // 入口开关（渐进迁移）：WARM_WEB_SHELL=1 时整窗换成 Web 前端宿主，
             // 默认（未设置）仍是现有原生界面。注：Web 宿主不是 Shell，桥的 nav.* 在它下面不可用。
             if (Views.Web.WebShellPage.ShellRequested && TryCreateWebShellWindow() is { } webWin)
@@ -469,6 +483,7 @@ public partial class App : Application
             {
                 Services.UiStallMonitor.Stop();
                 ShutdownPetAsync();
+                ShutdownChildWindows();
                 _ = AutoSaveOnExitAsync();
             };
             // 通知置顶由「对话框统一包装器」在真正弹 Alert 时触发（见 App.Dialog.ShowAlert），
@@ -483,6 +498,80 @@ public partial class App : Application
             WriteLog("CreateWindow: " + ex);
             throw;
         }
+    }
+
+    /// <summary>
+    /// 独立进程那扇窗：只装一个 WebShellPage，直接从这个路由开始（<c>phone</c> 这类）。
+    /// 与主窗的差别只有三处，而且都是刻意的：
+    ///  1. 不挂 <see cref="Services.WindowTaskbarFocus"/>：手机窗不该在点它时把任务栏压下去；
+    ///  2. 不跑 <c>AfterWindowStartedAsync</c>：见调用处的说明，后台服务一个都不起；
+    ///  3. 关窗即退出进程 —— 这一扇就是整个进程，父进程那边靠句柄的 Exited 事件记账。
+    /// </summary>
+    private static Window? TryCreateStandaloneWindow(string route)
+    {
+        try
+        {
+            var page = Microsoft.Maui.IPlatformApplication.Current?.Services
+                ?.GetService(typeof(Views.Web.WebShellPage)) as Views.Web.WebShellPage;
+            if (page is null) return null;
+
+            page.StartAt(route);
+            var size = Services.PageWindowService.StandaloneSize();
+            var win = new Window(page)
+            {
+                Title = Services.PageWindowService.StandaloneTitle() is { Length: > 0 } t ? t : "温暖如初",
+                Width = size?.Width ?? 420,
+                Height = size?.Height ?? 820,
+            };
+
+#if WINDOWS
+            // 标题栏跟随主题（与主窗同一套处理；子进程里没有 AfterWindowStarted 那一步，只能在这里补）。
+            var chromeDone = false;
+            win.HandlerChanged += (_, _) =>
+            {
+                if (chromeDone || win.Handler?.PlatformView is not Microsoft.UI.Xaml.Window xw) return;
+                chromeDone = true;
+                try { Platforms.Windows.WindowChrome.ApplyTitleBar(xw); }
+                catch (Exception ex) { WriteLog("StandaloneWindow.TitleBar: " + ex.Message); }
+            };
+#endif
+
+            win.Destroying += (_, _) =>
+            {
+                // 进程里最后一扇窗关了：MAUI 在 Windows 上通常自己就退，这里再点名一次，
+                // 免得某种关法（window.close 走 CloseWindow）留下一个没有窗的进程。
+                _ = Task.Run(async () =>
+                {
+                    await Task.Delay(300);
+                    MainThread.BeginInvokeOnMainThread(() =>
+                    {
+                        try { Application.Current?.Quit(); }
+                        catch (Exception ex) { WriteLog("StandaloneWindow.Quit: " + ex.Message); }
+                    });
+                });
+            };
+            return win;
+        }
+        catch (Exception ex)
+        {
+            WriteLog("CreateWindow.Standalone: " + ex);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// 主窗关掉时把独立进程的子窗一起收掉：它们没有「父窗口」这种系统关系，
+    /// 不主动 Kill 就会留成孤儿（任务管理器里一排 WarmAsBefore）。
+    /// </summary>
+    private static void ShutdownChildWindows()
+    {
+        try
+        {
+            var pw = Application.Current?.Handler?.MauiContext?.Services
+                ?.GetService(typeof(Services.PageWindowService)) as Services.PageWindowService;
+            pw?.ShutdownAll();
+        }
+        catch (Exception ex) { WriteLog("ShutdownChildWindows: " + ex.Message); }
     }
 
     /// <summary>
@@ -513,6 +602,7 @@ public partial class App : Application
             {
                 Services.UiStallMonitor.Stop();
                 ShutdownPetAsync();
+                ShutdownChildWindows();
                 _ = AutoSaveOnExitAsync();
             };
             return win;

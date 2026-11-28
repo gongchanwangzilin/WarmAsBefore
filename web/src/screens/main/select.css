@@ -1,0 +1,226 @@
+/* 选角色（Views/Main/CharacterSelectPage.xaml）。
+ *
+ * 这一页的 .mc__* 之前在 7de2100 重写 main.css 时被整段删掉，页面从那时起就是裸元素叠起来的：
+ * 顶栏没有底色、行没有内距、头像圈没尺寸。样式重新落到独立文件里，跟页面同源，不再依赖 main.css。
+ *
+ * 只走令牌与墨阶；间距只用 4 的倍数；块状可点件切右上角，不用胶囊（4a1cad2）。 */
+
+.mc {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.mc__head {
+  position: relative;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--w-step-3);
+  padding: var(--w-step-3) var(--w-pad-card);
+  background: var(--w-tint-bar);
+}
+
+.mc__back,
+.mc__plus {
+  appearance: none;
+  border: 0;
+  background: none;
+  width: 30px;
+  padding: 0;
+  font: inherit;
+  font-size: var(--w-size-title);
+  line-height: var(--w-lh-title);
+  color: var(--w-ink-display);
+  cursor: pointer;
+}
+
+.mc__back:focus-visible,
+.mc__plus:focus-visible {
+  outline: 2px solid var(--w-focus-ring, var(--w-signal));
+  outline-offset: 2px;
+}
+
+.mc__title {
+  margin: 0;
+  text-align: center;
+  font-size: var(--w-size-title);
+  line-height: var(--w-lh-title);
+  font-weight: 600;
+  color: var(--w-ink-display);
+}
+
+.mc__addmenu {
+  position: absolute;
+  top: 52px;
+  right: var(--w-pad-card);
+  z-index: 12;
+  width: 160px;
+  padding: var(--w-step-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-step-1);
+  border: 1px solid var(--w-hairline);
+  background: var(--w-surface-tint);
+  box-shadow: var(--w-shadow-float, 0 12px 32px rgba(0, 0, 0, 0.28));
+}
+
+.mc__sep {
+  height: 1px;
+  flex: none;
+  background: var(--w-hairline);
+}
+
+.mc__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+}
+
+.mc__row {
+  display: flex;
+  align-items: center;
+  gap: var(--w-step-3);
+  width: 100%;
+  min-height: var(--w-row-h);
+  padding: var(--w-step-2) var(--w-pad-card);
+  border: 0;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.mc__row:hover {
+  background: var(--w-tint-card);
+}
+
+.mc__avatar {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--w-tint-button);
+  font-size: var(--w-size-subhead);
+  line-height: var(--w-lh-subhead);
+  font-weight: 600;
+  color: var(--w-ink-display);
+  overflow: hidden;
+}
+
+.mc__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.mc__row-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--w-step-1);
+}
+
+.mc__row-name,
+.mc__row-sub {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mc__row-name {
+  font-size: var(--w-size-subhead);
+  line-height: var(--w-lh-subhead);
+  font-weight: 600;
+  color: var(--w-ink-display);
+}
+
+.mc__row-sub {
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ink-muted);
+}
+
+.mc__row-saves {
+  flex: none;
+  font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ink-faint);
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.mc__row-sep {
+  height: 1px;
+  margin-left: calc(44px + var(--w-pad-card) + var(--w-step-3));
+  background: var(--w-hairline);
+}
+
+.mc__empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--w-step-3);
+  padding: var(--w-step-6) var(--w-step-4);
+  text-align: center;
+}
+
+.mc__empty-mark {
+  width: 64px;
+  height: 64px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 1px solid var(--w-hairline);
+  background: var(--w-tint-button);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ink-muted);
+}
+
+.mc__empty-title {
+  font-size: var(--w-size-title);
+  line-height: var(--w-lh-title);
+  font-weight: 600;
+  color: var(--w-ink-display);
+}
+
+.mc__empty-hint {
+  max-width: 30em;
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ink-faint);
+}
+
+.mc__foot {
+  flex: none;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--w-step-3);
+  padding: var(--w-step-3) var(--w-pad-card) var(--w-step-4);
+  background: var(--w-tint-bar);
+  border-top: 1px solid var(--w-hairline);
+}
+
+.mc__foot .m-btn {
+  height: 44px;
+  font-size: var(--w-size-body);
+  line-height: var(--w-lh-body);
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .mc__foot {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .mc__row-saves {
+    display: none;
+  }
+}

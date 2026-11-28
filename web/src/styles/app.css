@@ -114,6 +114,9 @@ ol {
   height: 100%;
   overflow-y: auto;
   overflow-x: hidden;
+  /* 页内滚动见底就停：一条列表滚到头不该把整个窗口拖着走。 */
+  overscroll-behavior: contain;
+  touch-action: pan-y;
   scrollbar-width: thin;
   scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
 }
@@ -1418,10 +1421,14 @@ ol {
 }
 
 /* 页面不跟着手势/滚轮缩放：窗口大小变化才是唯一改变版式的原因。
-   触控双击、双指捏合、Ctrl+滚轮三种入口都要按死，只留滚动。 */
+   触控双击、双指捏合、Ctrl+滚轮三种入口都要按死，只留滚动。
+
+   两个方向都放行、唯独不放 pinch-zoom：touch-action 按祖先链取交集，这里写 pan-y
+   会把手感按整棵树连横滑芯片条（savechat 的表格、主界面的横向芯片）一起按死。
+   纵向页与分页器各自再收成 pan-y（见上面 .page 与 main.css 的 .pn__pager）。 */
 html,
 body {
-  touch-action: pan-y;
+  touch-action: pan-x pan-y;
   overscroll-behavior: none;
   -ms-content-zooming: none;
 }
@@ -1518,6 +1525,51 @@ button,
 a {
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
+}
+
+/* ───────── 窗口是应用，不是浏览器 ─────────
+   选中文字、把图片/链接拖出一个跟手的幽灵、长按闪一块蓝，这三样都是「这是网页」的信号。
+   这里按死，放行名单与 main.tsx 里 selectstart 那份一致：能读能写的文字只在
+   输入框、多行框、可编辑区、下拉列表（.k-select__list）和显式标了 data-selectable 的正文里。
+   右键菜单在宿主层（WebView2 的 AreDefaultContextMenusEnabled=false）就关掉了，
+   main.tsx 的 contextmenu 那份是给 Android 与 dev server 兜的。 */
+*,
+*::before,
+*::after {
+  -webkit-user-drag: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+body {
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+input,
+textarea,
+[contenteditable],
+.k-select__list,
+[data-selectable],
+[data-selectable] * {
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+/* 原生 range 滑杆：按住要能一路拖，手指落上去不许被当成滚动或选中。 */
+input[type='range'] {
+  touch-action: none;
+  cursor: pointer;
+}
+
+/* 图片拖不出影子。JS 的 dragstart 已经全拦，这里是不依赖脚本的兜底。 */
+img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+/* 下拉列表自己滚到底也就停在那里。 */
+.k-select__list {
+  overscroll-behavior: contain;
 }
 
 /* 气氛层：在底光之上、页面之下。pointer-events 全关，纯视觉。 */

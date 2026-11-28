@@ -21,6 +21,40 @@ const bridge = new Bridge();
 
 applyTokens(dampingTokens(MOCK_TOKENS, prefersReducedMotion()));
 
+/**
+ * 窗口是应用，不是浏览器：把浏览器留给用户的那几样能力在这里收一次。
+ *
+ * 右键菜单、把图片拖出一个跟手的幽灵、按住划过一段文字、点一下闪一块蓝 ——
+ * 每一样都在告诉用户「这是个网页」。放在模块顶层、第一次渲染之前挂，
+ * 所有页面、所有弹层都逃不掉这一份，不用逐页抄。
+ *
+ * 放行名单只留真正要读写的文字：输入框、多行框、可编辑区、下拉列表、
+ * 以及显式标了 `data-selectable` 的正文（比如要让人复制的一段日志）。
+ * 与 styles/app.css 里那份 user-select 白名单同一条线。
+ */
+const TEXT_SURFACE =
+  'input, textarea, [contenteditable], .k-select__list, [data-selectable]';
+
+function allowsText(target: EventTarget | null): boolean {
+  return target instanceof Element && target.closest(TEXT_SURFACE) !== null;
+}
+
+function lockBrowserSurface(): void {
+  // 右键：菜单沿用不着（Windows 侧宿主已关，这里给 Android 与 dev server 兜）。
+  document.addEventListener('contextmenu', (event) => event.preventDefault());
+
+  // 拖：图与链接一律拖不出幽灵。拖动在这台机器上是应用自己的手势。
+  document.addEventListener('dragstart', (event) => event.preventDefault());
+
+  // 选中：默认不许，白名单放行。拦在 selectstart 是因为它早于浏览器真正开始选中，
+  // 按住划过去时连那一下蓝色的闪都不会有。
+  document.addEventListener('selectstart', (event) => {
+    if (!allowsText(event.target)) event.preventDefault();
+  });
+}
+
+lockBrowserSurface();
+
 /** StrictMode 会把 effect 跑两遍，请求只发一次。 */
 let tokensOnce: Promise<TokenMap | null> | null = null;
 

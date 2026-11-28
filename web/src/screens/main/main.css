@@ -1055,9 +1055,12 @@
 
 
 /* ═══════════════ 手机（PhonePage.xaml） ═══════════════
-   台面上的一台真机：接地影、机身、圆角屏幕、壁纸与两团光斑，里面是状态栏、两页桌面、
-   页码点、Dock、下侧栏三键。位图与尺寸都随窗口缩（clamp / 百分比），窄窗撤掉机身。
-   颜色只用 --w-* 令牌：机身与壁纸由 surface-tint / ground-warm / ground-cool 混出来。 */
+   台面上的一台真机，不是「压窄的主页面」：接地影、机身、圆角屏幕、壁纸，
+   里面是状态栏 → 两页桌面（分区标题 + 方格应用 + 页码点）→ Dock → 手势条。
+   没有读数、没有立绘舞台、没有聊天输入条，也没有回退键 —— 桌面就是这一页的底。
+   位图与尺寸都随窗口缩（clamp / 百分比），窄窗（IsCompactScreen）撤掉机身铺满。
+   颜色只用 --w-* 令牌：机身与壁纸由 surface-tint / ground-warm / ground-cool 混出来。
+   间距一律 4 的倍数，字号只取六档。 */
 
 .pn {
   position: relative;
@@ -1065,7 +1068,7 @@
   display: grid;
   place-items: center;
   overflow: hidden;
-  padding: clamp(0px, 1vw, 10px);
+  padding: clamp(0px, 1vw, 8px);
 }
 
 .pn__shade {
@@ -1085,7 +1088,7 @@
   width: min(392px, 100%);
   height: min(780px, 100%);
   display: flex;
-  padding: clamp(5px, 1.3vh, 9px);
+  padding: clamp(4px, 1.3vh, 8px);
   border-radius: clamp(34px, 9vh, 52px);
   border: 1px solid var(--w-edge);
   background: linear-gradient(150deg, var(--w-surface-tint), var(--w-bg) 46%, var(--w-tint-thumb));
@@ -1097,7 +1100,8 @@
   flex: 1;
   min-width: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
+  /* 状态栏 / 桌面 / 页码点 三行定死，页脚一句、Dock、手势条各占一行 auto */
+  grid-template-rows: auto minmax(0, 1fr) auto;
   border-radius: clamp(28px, 8vh, 44px);
   overflow: hidden;
   /* 屏底只留一条明度台阶：上亮下暗，够读出「这是一块玻璃」。
@@ -1105,44 +1109,14 @@
   background: linear-gradient(160deg, var(--w-surface-tint) 0%, var(--w-bg) 42%, var(--w-tint-bar) 78%, var(--w-bg) 100%);
 }
 
-/* ── 状态栏 ── */
+/* ── 状态栏：真时间在左，信号 / WiFi / 电量在右。手机里没有回退键。 ── */
 .pn__status {
   position: relative;
   z-index: 2;
   display: flex;
   align-items: center;
   gap: var(--w-space-2);
-  padding: clamp(9px, 1.8vh, 15px) clamp(10px, 3.4vw, 18px) 0;
-}
-
-.pn__back {
-  display: flex;
-  align-items: center;
-  gap: var(--w-step-1);
-  padding: 2px var(--w-step-2);
-  border-radius: 0;
-  clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
-  border: 1px solid var(--w-hairline);
-  background: var(--w-tint-button);
-  color: var(--w-ink-body);
-  font: inherit;
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
-  cursor: pointer;
-  transition: transform 120ms var(--w-ease-out);
-}
-
-.pn__back:hover {
-  background: var(--w-tint-track);
-}
-
-.pn__back:active {
-  transform: scale(0.96);
-}
-
-.pn__back span:first-child {
-  font-size: var(--w-size-body);
-  line-height: 1;
+  padding: var(--w-step-3) var(--w-step-4) 0;
 }
 
 .pn__time {
@@ -1160,14 +1134,18 @@
 .pn__signals {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--w-step-1);
   color: var(--w-ink-display);
+  /* 信号格与电池壳是画出来的 <i>：让它们跟着状态栏同一档字号走，
+     免得小方块自己继承到 root 的 13.33px，字号表里多出第七档。 */
+  font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
 }
 
 .pn__bars {
   display: flex;
   align-items: flex-end;
-  gap: 1.5px;
+  gap: 2px;
   height: 10px;
 }
 
@@ -1200,7 +1178,7 @@
 .pn__battery {
   display: flex;
   align-items: center;
-  gap: 1.5px;
+  gap: 2px;
 }
 
 .pn__battery-shell {
@@ -1242,15 +1220,17 @@
   display: flex;
   width: 200%;
   height: 100%;
-  transition: transform 260ms var(--w-ease-out);
+  /* 位移 = 页码 × -50%（轨道 200% 宽，一页正好一半）+ 手指的实时位移。
+     拖动时过渡关掉（跟手），松手后由 --pn-dur 走完剩下一段：
+     翻页 240ms、原地弹回 180ms —— 两段距离不一样，时间也不该一样。 */
+  transform: translate3d(calc(var(--pn-page, 0) * -50% + var(--pn-dx, 0px)), 0, 0);
+  transition: transform var(--pn-dur, 240ms) var(--w-ease-out);
+  will-change: transform;
 }
 
-.pn__track[data-page='0'] {
-  transform: translateX(0);
-}
-
-.pn__track[data-page='1'] {
-  transform: translateX(-50%);
+/* 手指还在页面上：一个像素的滞后都不要。 */
+.pn__track[data-drag='1'] {
+  transition: none;
 }
 
 .pn__page {
@@ -1259,67 +1239,13 @@
   height: 100%;
   overflow-y: auto;
   overscroll-behavior: contain;
-  padding: clamp(4px, 1vh, 10px) clamp(12px, 4.6vw, 22px) 4px;
+  padding: var(--w-step-2) var(--w-step-4) var(--w-step-1);
   scrollbar-width: none;
+  counter-reset: pn-sect;
 }
 
 .pn__page::-webkit-scrollbar {
   display: none;
-}
-
-.pn__clock {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 10px;
-  margin: clamp(2px, 1vh, 8px) 2px clamp(8px, 1.6vh, 14px);
-}
-
-.pn__clock-main {
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-  min-width: 0;
-}
-
-.pn__clock-main h2 {
-  margin: 0;
-  font-size: var(--w-size-display);
-  line-height: 1.05;
-  font-weight: 700;
-  color: var(--w-ink-display);
-  font-variant-numeric: tabular-nums;
-}
-
-.pn__clock-sub {
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
-  color: var(--w-ink-muted);
-}
-
-.pn__clock-line {
-  margin-top: 2px;
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
-  color: var(--w-ink-faint);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.pn__weather {
-  flex: none;
-  padding: 2px var(--w-step-2);
-  border-radius: 0;
-  border: 1px solid var(--w-hairline);
-  background: var(--w-tint-button);
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
-  color: var(--w-ink-body);
-}
-
-.pn__page {
-  counter-reset: pn-sect;
 }
 
 /* 分区头（DESIGN-ENTRY 第三节）：2.4ch 编号列 + 名称 + 一条到右缘的发丝线，
@@ -1330,7 +1256,7 @@
   grid-template-columns: 2.4ch auto minmax(0, 1fr);
   align-items: center;
   gap: var(--w-step-2);
-  margin: clamp(8px, 1.8vh, 16px) 0 clamp(6px, 1.2vh, 10px);
+  margin: var(--w-step-4) 0 var(--w-step-2);
   font-size: var(--w-size-caption);
   line-height: var(--w-lh-caption);
   font-weight: 600;
@@ -1358,7 +1284,7 @@
 }
 
 .pn__sect--top {
-  margin-top: clamp(10px, 2.4vh, 20px);
+  margin-top: var(--w-step-5);
 }
 
 .pn__grid {
@@ -1372,7 +1298,7 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 5px;
+  gap: var(--w-step-1);
   min-width: 0;
   padding: 0;
   border: 0;
@@ -1405,8 +1331,8 @@
 /* 未读角标：一分红、一行字。只动 transform/opacity —— 角标出现时弹一下，改数字时不跳。 */
 .pn__badge {
   position: absolute;
-  top: -5px;
-  right: -7px;
+  top: -4px;
+  right: -4px;
   min-width: 16px;
   height: 16px;
   padding: 0 4px;
@@ -1438,8 +1364,11 @@
 }
 
 .pn__app:active .pn__tile {
-  transform: translateY(1px);
+  transform: scale(0.94);
 }
+
+/* 系在存档上的格子不再灰掉：点进去由那一页自己挂存档闸（QV 的 SaveGate 等），
+   灰着的格子在这台机器上等于「点了没反应」——触摸屏没有 title 可看。 */
 
 .pn__glyph {
   position: relative;
@@ -1500,18 +1429,22 @@
   background: linear-gradient(150deg, var(--w-surface-tint), var(--w-bg));
 }
 
-/* ── 页码点 ── */
+/* ── 页码点：跟着翻页一起走，也能点 ── */
 .pn__dots {
   display: flex;
   justify-content: center;
-  padding: clamp(6px, 1.2vh, 10px) 0 clamp(4px, 1vh, 8px);
+  gap: var(--w-step-1);
+  padding: var(--w-step-1) 0;
 }
 
 .pn__dot {
-  width: 22px;
-  height: 18px;
+  width: 20px;
+  height: 16px;
   display: grid;
   place-items: center;
+  /* 按钮的 UA 默认是 13.33px / 6px 内距：不写这两行，页码点会自己长成第七档字号。 */
+  padding: 0;
+  font: inherit;
   border: 0;
   background: none;
   cursor: pointer;
@@ -1523,7 +1456,15 @@
   border-radius: 3px;
   background: var(--w-ink-display);
   opacity: 0.26;
-  transition: width 200ms var(--w-ease-out), opacity 160ms ease;
+  transition: width 200ms var(--w-ease-out), opacity 160ms ease, transform 120ms var(--w-ease-out);
+}
+
+.pn__dot:hover i {
+  opacity: 0.52;
+}
+
+.pn__dot:active i {
+  transform: scale(0.72);
 }
 
 .pn__dot[aria-current='true'] i {
@@ -1531,13 +1472,13 @@
   opacity: 0.85;
 }
 
-/* ── Dock ── */
+/* ── Dock：四格钉在底部，比桌面上的小一圈 ── */
 .pn__dock {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
   align-items: center;
-  margin: 0 clamp(8px, 3.4vw, 18px);
-  padding: clamp(5px, 1.2vh, 8px) clamp(6px, 2vw, 10px);
+  margin: 0 var(--w-step-4);
+  padding: var(--w-step-2) var(--w-step-1);
   border-top: 1px solid var(--w-hairline);
   background: var(--w-tint-button);
 }
@@ -1547,47 +1488,11 @@
   clip-path: polygon(0 0, calc(100% - 6px) 0, 100% 6px, 100% 100%, 0 100%);
 }
 
-/* ── 下侧栏三键 ── */
-.pn__nav {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
-  align-items: center;
-  gap: var(--w-space-3);
-  height: clamp(28px, 4.4vh, 34px);
-  margin: 2px clamp(8px, 3.4vw, 18px) 0;
-}
-
-.pn__nav button {
-  border: 0;
-  background: none;
-  color: var(--w-ink-display);
-  opacity: 0.72;
-  font: inherit;
-  font-size: var(--w-size-body);
-  line-height: var(--w-lh-body);
-  cursor: pointer;
-  transition: opacity 140ms ease, transform 120ms var(--w-ease-out);
-}
-
-.pn__nav button:hover {
-  opacity: 1;
-}
-
-.pn__nav button:active {
-  transform: scale(0.9);
-}
-
-.pn__nav-tail {
-  justify-self: end;
-  font-size: var(--w-size-caption);
-  line-height: var(--w-lh-caption);
-}
-
 .pn__homebar {
   width: min(108px, 30%);
   height: 4px;
   border-radius: 2px;
-  margin: clamp(6px, 1.2vh, 10px) auto clamp(5px, 1vh, 8px);
+  margin: var(--w-step-2) auto var(--w-step-1);
   background: var(--w-ink-display);
   opacity: 0.24;
 }
@@ -1604,7 +1509,8 @@
   border: 1px solid var(--w-hairline);
 }
 
-/* 真机 / 小窗：机身整个撤掉，屏幕直接铺满（源码的 IsCompactScreen） */
+/* 真机 / 小窗：机身整个撤掉，屏幕直接铺满（源码的 IsCompactScreen）。
+   手势条留着 —— 它是屏幕自己的底，不是机身的一部分。 */
 @media (max-width: 560px), (max-height: 640px) {
   .pn {
     padding: 0;
@@ -1622,8 +1528,7 @@
     border-radius: 0;
   }
   .pn__shade,
-  .pn__speaker,
-  .pn__homebar {
+  .pn__speaker {
     display: none;
   }
 }
@@ -1651,25 +1556,15 @@
   user-select: none;
 }
 
-/* 系在存档上的应用：没进存档时灰着，但还留在原位 ——
-   入口忽然消失会让人以为功能没了，灰着加一句「进一份存档」才是可读的。 */
-.pn__app:disabled {
-  cursor: default;
-}
-.pn__app:disabled .pn__tile {
-  opacity: 0.4;
-  filter: saturate(0.35);
-}
-.pn__app:disabled:hover .pn__tile,
-.pn__app:disabled:active .pn__tile {
-  transform: none;
-  filter: saturate(0.35);
-}
-.pn__gate {
-  margin: var(--w-space-2) 0 0;
+/* 格子交不出去时的页脚一句（主窗不在 / 还没加载完，已退回页内导航）：压在 Dock 上方一行，
+   字号与闸门那句同一档，不抢桌面。 */
+.pn__note {
+  margin: 0 var(--w-step-4);
+  padding: var(--w-step-1) 0;
   font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
   color: var(--w-ink-muted);
-  line-height: 1.5;
+  text-align: center;
 }
 
 /* ── 开局设置（SetupPage）：这一页的 msu__* 之前没有任何样式，整页是裸元素叠起来的 ──

@@ -205,12 +205,9 @@ export function App({ bridge, tokens }: Props) {
 
       <canvas className="sky" ref={skyRef} aria-hidden="true" />
 
-      {route.depth > 0 ? (
-        <BackChip
-          routeKey={route.path}
-          onBack={goBack}
-          force={route.id === 'main' || route.id === 'phone'}
-        />
+      {/* 手机自己就是一台机器：桌面是它的底，窗关不关由窗标题栏决定，页上不再补一颗回退键。 */}
+      {route.depth > 0 && route.id !== 'phone' ? (
+        <BackChip routeKey={route.path} onBack={goBack} force={route.id === 'main'} />
       ) : null}
 
       <PageDeck

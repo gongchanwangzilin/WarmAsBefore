@@ -112,6 +112,8 @@ const handlers = {
   },
   'nav.open': (params: Params<'nav.open'>) => ({ accepted: KNOWN_ROUTES.has(params.route) }),
   'nav.back': () => ({ accepted: true }),
+  // 浏览器里只有一扇窗：手机页的格子本来就只能在页内翻，照实说没有主窗，页脚那句才读得懂。
+  'nav.openMain': (params: Params<'nav.openMain'>) => ({ ok: false, route: params.route, reason: '浏览器里的假后端没有主窗口' }),
   // 假后端没有麦克风也没有朗读引擎：照实说不能听，按钮就停在禁用态，而不是假装录了一段。
   'voice.status': () => ({
     sttEnabled: true,

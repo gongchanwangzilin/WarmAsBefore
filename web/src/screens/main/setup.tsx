@@ -154,7 +154,7 @@ export function Setup({ bridge, navigate }: ScreenProps) {
               </div>
               <button
                 type="button"
-                className="m-btn m-btn--primary msu__jump"
+                className="m-btn m-btn--accent msu__jump"
                 onClick={() => void persist('/settingssection?key=ai')}
                 disabled={busy}
               >
@@ -211,11 +211,11 @@ export function Setup({ bridge, navigate }: ScreenProps) {
             </button>
           ) : null}
           {step === 3 ? (
-            <button type="button" className="m-btn m-btn--primary" onClick={() => void persist('/select')} disabled={busy}>
+            <button type="button" className="m-btn m-btn--accent" onClick={() => void persist('/select')} disabled={busy}>
               {busy ? '正在保存…' : '去创建角色'}
             </button>
           ) : (
-            <button type="button" className="m-btn m-btn--primary" onClick={next} disabled={busy}>
+            <button type="button" className="m-btn m-btn--accent" onClick={next} disabled={busy}>
               下一步
             </button>
           )}

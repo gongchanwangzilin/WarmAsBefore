@@ -123,9 +123,9 @@ export function QqSettings({ onClose, onTheme }: { onClose: () => void; onTheme:
                 <span className="qw-set__rowtext">
                   <b>发送消息</b>
                 </span>
-                <select className="qw-set__select" defaultValue="Enter" disabled title={SELECT_CLOSED} aria-label="发送消息">
-                  <option value="Enter">Enter</option>
-                </select>
+                <span className="qw-set__select" title={SELECT_CLOSED}>
+                  Enter
+                </span>
               </div>
 
               <div className="qw-set__row">
@@ -150,15 +150,9 @@ export function QqSettings({ onClose, onTheme }: { onClose: () => void; onTheme:
                 <span className="qw-set__rowtext">
                   <b>打开新聊天窗口的方式</b>
                 </span>
-                <select
-                  className="qw-set__select"
-                  defaultValue="merge"
-                  disabled
-                  title={SELECT_CLOSED}
-                  aria-label="打开新聊天窗口的方式"
-                >
-                  <option value="merge">自动合并窗口</option>
-                </select>
+                <span className="qw-set__select" title={SELECT_CLOSED}>
+                  自动合并窗口
+                </span>
               </div>
 
               <div className="qw-set__row">

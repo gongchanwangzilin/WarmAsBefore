@@ -221,6 +221,12 @@ export type Requests = {
       webView: { engine: string; version: string };
       dev: string;
       debug: boolean;
+      /**
+       * 这一扇窗是什么角色：`main` 是最初那扇主窗，`sub` 是独立窗（手机这类，`key` 是它的路由名）。
+       * 全局提醒（启动自检、她发来一条）只由 `main` 弹；独立窗只更新角标。
+       * 老宿主没有这个字段 —— 读不到就当 `main`，宁可多弹一次，也不让主窗悄悄少一条。
+       */
+      window?: { role: 'main' | 'sub'; key?: string };
       /** active=false 时 saveId 与 character 都是空串 */
       run: { active: boolean; saveId: string; character: string };
     };
@@ -232,6 +238,14 @@ export type Requests = {
   'nav.back': {
     params: { from: string };
     result: { accepted: boolean };
+  };
+  /**
+   * 把一条路由交给**主窗口**打开（手机那扇窄窗里点「QV」「角色库」这类格子）。
+   * 主窗不在、或它的前端还没加载完时 ok=false，手机页退回页内导航并在页脚说原因。
+   */
+  'nav.openMain': {
+    params: { route: string };
+    result: { ok: boolean; route?: string; reason?: string };
   };
   /** 把一页搬进自己的窗口（手机、关系网这类「旁边摊一扇」的页）。开不了窗时 opened=false。 */
   'window.open': {

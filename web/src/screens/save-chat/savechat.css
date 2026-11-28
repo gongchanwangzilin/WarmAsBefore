@@ -2742,6 +2742,8 @@
 
 .qw-set__select {
   flex: none;
+  /* 只作读数用（桥还没接上时停在原地），所以是 span 不是原生 select；inline-block 才吃得到 min-width。 */
+  display: inline-block;
   min-width: clamp(92px, 9vw, 136px);
   padding: 4px 8px;
   border-radius: 6px;

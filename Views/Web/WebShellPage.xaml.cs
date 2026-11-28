@@ -1,4 +1,4 @@
-using System.Text.Json;
+﻿using System.Text.Json;
 using WarmAsBefore.DesignSystem.Theme;
 using WarmAsBefore.Helpers;
 using WarmAsBefore.Services.Web;
@@ -76,7 +76,8 @@ public partial class WebShellPage : ContentPage
         InitializeComponent();
         _bridge = bridge;
         Enabled = true;
-        _bridge.AttachSink(SendAsync);
+        _sink = SendAsync;
+        _bridge.AttachSink(_sink);
         _source = ResolveSource();
         App.WriteLogNow($"WebShellPage: 加载 {(_source.Kind == WebSourceKind.Missing ? "(无)" : _source.Url)}"
             + $"（来源={_source.Kind.ToString().ToLowerInvariant()}"
@@ -87,6 +88,21 @@ public partial class WebShellPage : ContentPage
     public bool IsDetachedWindow => _startRoute is not null;
 
     private string? _startRoute;
+
+    /// <summary>
+    /// 这**一扇**窗的前端上屏了没有。<see cref="WebBridge.WebFrontendReady"/> 是桥上的一个开关，
+    /// 而桥是单例、几扇窗共用 —— 手机窗先加载完时，主窗那个判断会跟着变真。
+    /// 「这条路由交给主窗」必须按窗判断，所以这份状态放在页上。
+    /// </summary>
+    public bool FrontendReady { get; private set; }
+
+    /// <summary>
+    /// 这一扇窗自己的收件地址。桥的 <c>Emit</c> 是广播（所有窗都挂一条 sink），
+    /// 定向只叫主窗时（<c>nav.openMain</c>）要拿它，不能广播。
+    /// </summary>
+    public Func<string, Task> Sink => _sink;
+
+    private readonly Func<string, Task> _sink;
 
     /// <summary>
     /// 让**这一扇**窗口从某个路由开始（<c>/phone</c> 这类）。
@@ -234,6 +250,29 @@ public partial class WebShellPage : ContentPage
             core.Settings.IsPinchZoomEnabled = false;
             core.Settings.AreBrowserAcceleratorKeysEnabled = false;
 
+            // 这是一扇应用窗口，不是浏览器窗口：WebView2 自带的浏览器暴露面全部关掉。
+            // 右键菜单（返回/刷新/另存为/打印/发送标签页/检查）、开发者工具、左下角悬停的链接地址条、
+            // alert/confirm/prompt 那种脚本对话框、触控板侧滑前进后退、表单自动填充与密码保存。
+            // 页面里没有一处需要它们；关掉之后用户看到的只有应用本身。
+            core.Settings.AreDefaultContextMenusEnabled = false;
+            core.Settings.AreDevToolsEnabled = DevToolsAllowed();
+            core.Settings.IsStatusBarEnabled = false;
+            core.Settings.AreDefaultScriptDialogsEnabled = false;
+            core.Settings.IsSwipeNavigationEnabled = false;
+            core.Settings.IsGeneralAutofillEnabled = false;
+            core.Settings.IsPasswordAutosaveEnabled = false;
+
+            // 验收与排障：这些开关只在每次创建内核时读一次，窗口看起来还是「像浏览器」时先看这一行。
+            App.WriteLogNow(
+                "WebShellPage: 浏览器面 context=" + core.Settings.AreDefaultContextMenusEnabled
+                + " devtools=" + core.Settings.AreDevToolsEnabled
+                + " status=" + core.Settings.IsStatusBarEnabled
+                + " dialogs=" + core.Settings.AreDefaultScriptDialogsEnabled
+                + " swipe=" + core.Settings.IsSwipeNavigationEnabled
+                + " autofill=" + core.Settings.IsGeneralAutofillEnabled + "/" + core.Settings.IsPasswordAutosaveEnabled
+                + " zoom=" + core.Settings.IsZoomControlEnabled + "/" + core.Settings.IsPinchZoomEnabled
+                + " keys=" + core.Settings.AreBrowserAcceleratorKeysEnabled);
+
             // 素材（立绘/头像/背景）走第二个虚拟主机：同一台机器上的文件目录，
             // 不联网、不走环回端口，`https://wab.assets/<相对路径>` 直接解析到存储根。
             if (AssetsRoot() is { } root && Directory.Exists(root))
@@ -253,6 +292,19 @@ public partial class WebShellPage : ContentPage
             if (Browser.Handler?.PlatformView is not Android.Webkit.WebView view) return;
             _attached = true;
             view.Settings.JavaScriptEnabled = true;
+
+            // 与 Windows 那份设置同一件事：Android 的 WebView 也自带一套浏览器能力 ——
+            // 捏合缩放（连缩放按钮一起）、长按弹「保存图片 / 复制链接」的滑出菜单、
+            // 拖到边界时整页跟着晃的回弹。全部收掉，窗口里只剩应用。
+            view.Settings.SetSupportZoom(false);
+            view.Settings.BuiltInZoomControls = false;
+            view.Settings.DisplayZoomControls = false;
+            view.Settings.SetTextZoom(100);
+            view.LongClickable = false;
+            view.HapticFeedbackEnabled = false;
+            view.OverScrollMode = Android.Views.OverScrollMode.Never;
+            view.LongClick += (_, e) => e.Handled = true;
+
             view.AddJavascriptInterface(new AndroidHostInterface(this), "WabBridge");
             view.SetWebViewClient(new AndroidLoadClient(this));
             if (ThemeManager.Current is { } tm) tm.Applied += OnThemeChanged;
@@ -271,6 +323,13 @@ public partial class WebShellPage : ContentPage
             ShowFallback("宿主没起来。", ex.Message);
         }
     }
+
+    /// <summary>
+    /// 开发者工具默认关：它是浏览器的东西，不是应用的。调试期要 F12 / 检查元素，
+    /// 显式给 <c>WARM_WEB_DEVTOOLS=1</c>（与 <c>WARM_WEB_EVAL</c>、<c>WARM_WEB_SHOT</c> 同一族验收开关）。
+    /// </summary>
+    private static bool DevToolsAllowed()
+        => string.Equals(Environment.GetEnvironmentVariable("WARM_WEB_DEVTOOLS")?.Trim(), "1", StringComparison.Ordinal);
 
     // ==================== 收：前端 → 宿主 ====================
 
@@ -301,6 +360,7 @@ public partial class WebShellPage : ContentPage
         {
             // 开发期最常见的两种：dev server 没起、构建产物路径不对。把地址一起写出来，省一轮猜。
             _bridge.WebFrontendReady = false;
+            FrontendReady = false;
             ShowFallback("前端页面没打开。",
                 DateTime.Now.ToString("HH:mm:ss") + " · " + _source.Url + " · " + e.WebErrorStatus);
             App.WriteLogNow($"WebShellPage: 导航失败 {_source.Url} -> {e.WebErrorStatus}");
@@ -309,6 +369,7 @@ public partial class WebShellPage : ContentPage
         HideFallback();
         // 前端上屏即接管路由：此后 nav.open 走 nav.request 事件，而不是 Shell / deferred。
         _bridge.WebFrontendReady = true;
+        FrontendReady = true;
         App.WriteLogNow("WebShellPage: 前端已就绪 " + _source.Url);
         _bridge.Emit("host.ready", new { url = _source.Url, packaged = _source.Kind == WebSourceKind.Bundle });
         _ = LogDomAsync();
@@ -409,6 +470,7 @@ public partial class WebShellPage : ContentPage
         public override void OnPageFinished(Android.Webkit.WebView? view, string? url)
         {
             _page._bridge.WebFrontendReady = true;
+            _page.FrontendReady = true;
             App.WriteLogNow("WebShellPage: 前端已就绪 " + (url ?? _page._source.Url));
             _page._bridge.Emit("host.ready", new { url = url ?? _page._source.Url, packaged = _page._source.Kind == WebSourceKind.Bundle });
         }
@@ -500,6 +562,7 @@ public partial class WebShellPage : ContentPage
     {
         HideFallback();
         _bridge.WebFrontendReady = false;
+        FrontendReady = false;
         _domChecked = false;
         _source = ResolveSource();
         App.WriteLogNow($"WebShellPage: 重试加载 {(_source.Kind == WebSourceKind.Missing ? "(无)" : _source.Url)}（来源={_source.Kind}）");

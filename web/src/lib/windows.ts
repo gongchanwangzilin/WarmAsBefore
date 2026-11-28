@@ -36,3 +36,19 @@ export async function closeWindow(bridge: Bridge, fallback: () => void): Promise
     fallback();
   }
 }
+
+/**
+ * 「这一页回主窗口开」：手机那扇窄窗里的格子（QV、角色库、地图…）点下去，该换的是主窗里的页，
+ * 手机窗自己停在桌面 —— 窄窗里翻整页等于在一部手机里再套一部手机。
+ *
+ * 主窗不在、或宿主还是老版本（没有这个方法）就回 ok=false，调用方退回页内导航：
+ * 点了没反应比多走一步更糟。
+ */
+export async function openInMain(bridge: Bridge, route: string): Promise<{ ok: boolean; reason?: string }> {
+  try {
+    const { ok, reason } = await bridge.request('nav.openMain', { route });
+    return { ok, reason };
+  } catch {
+    return { ok: false };
+  }
+}

@@ -56,7 +56,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--w-space-2);
-  padding: var(--w-space-5) var(--w-pad-card);
+  padding: var(--w-step-5) var(--w-pad-card);
   text-align: center;
 }
 
@@ -69,7 +69,7 @@
 .cv__note-body {
   font-size: var(--w-size-caption);
   color: var(--w-ink-muted);
-  line-height: 1.6;
+  line-height: var(--w-lh-caption);
   max-width: 42ch;
 }
 

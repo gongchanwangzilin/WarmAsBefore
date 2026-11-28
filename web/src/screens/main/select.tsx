@@ -3,6 +3,7 @@ import { useEscape } from '../../lib/keys';
 import type { SaveRow } from '../../bridge/protocol';
 import type { ScreenProps } from '../types';
 import './main.css';
+import './select.css';
 
 /**
  * 选角色：Views/Main/CharacterSelectPage.xaml（107 行）+ CharacterSelectViewModel。
@@ -110,7 +111,7 @@ export function Select({ bridge, navigate, back }: ScreenProps) {
             <span className="mc__empty-mark">微信</span>
             <span className="mc__empty-title">好友列表读不出来</span>
             <span className="mc__empty-hint">{loadError}</span>
-            <button type="button" className="m-btn m-btn--soft" onClick={() => setTicket((n) => n + 1)}>
+            <button type="button" className="m-btn" onClick={() => setTicket((n) => n + 1)}>
               重试
             </button>
           </div>
@@ -145,7 +146,7 @@ export function Select({ bridge, navigate, back }: ScreenProps) {
         <button type="button" className="m-btn m-btn--accent" onClick={() => navigate('/studio?new=1&start=1')}>
           ＋ 新建角色
         </button>
-        <button type="button" className="m-btn m-btn--soft" disabled>
+        <button type="button" className="m-btn" disabled>
           导入角色包
         </button>
       </div>
