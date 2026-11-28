@@ -34,14 +34,39 @@ let seq = 0;
 export function ToastHost({ bridge }: { bridge: Bridge }) {
   const [items, setItems] = useState<Item[]>([]);
 
+  const push = (payload: Omit<Item, 'id'>) => {
+    const id = ++seq;
+    const kind = (payload.kind || 'info') as Kind;
+    setItems((prev) => [...prev.slice(-2), { ...payload, kind, id }]);
+    window.setTimeout(() => setItems((prev) => prev.filter((item) => item.id !== id)), LIFETIME[kind] ?? 4200);
+  };
+
   useEffect(() => {
-    const off = bridge.onEvent('ui.toast', (payload) => {
-      const kind = (payload.kind || 'info') as Kind;
-      const id = ++seq;
-      setItems((prev) => [...prev.slice(-2), { ...payload, kind, id }]);
-      window.setTimeout(() => setItems((prev) => prev.filter((item) => item.id !== id)), LIFETIME[kind] ?? 4200);
-    });
+    const off = bridge.onEvent('ui.toast', (payload) => push(payload));
     return off;
+  }, [bridge]);
+
+  // 启动自检：一个模型都没配时给一次提醒 —— 条件与文案都照 App.xaml.cs 里那一处原文，
+  // 只是这条以前是原生画的，现在由前端自己判断、自己画。
+  useEffect(() => {
+    let alive = true;
+    void bridge
+      .request('ai.providers', {})
+      .then((payload) => {
+        if (!alive) return;
+        if ((payload.providers ?? []).length > 0) return;
+        push({
+          title: '还没配置任何模型：去「AI 模型管理 → 模型部署向导」下载并安装（名字、来源、位置都由你定）。',
+          body: '',
+          code: 'WARN',
+          kind: 'warn',
+          glyph: '✦',
+        });
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
   }, [bridge]);
 
   if (items.length === 0) return null;

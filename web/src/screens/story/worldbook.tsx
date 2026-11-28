@@ -112,14 +112,14 @@ export function Worldbook({ bridge, back }: ScreenProps) {
     });
     setDraft(null);
     setEditStatus('');
-    setStatus('已保存。绑定它的存档会在下一次整理记忆时用上新设定。');
+    setStatus('只改了这一页的列表：宿主还没有保存世界书的方法（worldbook.save），刷新就回到盘上那一版。');
   };
 
   const remove = (entry: WorldEntry) => {
     const text = `「${entry.title}」会从世界书库里删掉。已经绑定它的其它存档将失去世界设定。`;
     if (!window.confirm(text)) return;
     setEntries((list) => list.filter((e) => e.id !== entry.id));
-    setStatus('已删除。');
+    setStatus('只是从这一页的列表里拿掉了：宿主还没有删除世界书的方法（worldbook.remove），盘上那份还在。');
   };
 
   const setChar = (index: number, patch: Partial<WorldCharacter>) => {

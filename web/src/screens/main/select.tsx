@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import type { SaveSummary } from '../../bridge/protocol';
+import type { SaveRow } from '../../bridge/protocol';
 import type { ScreenProps } from '../types';
 import './main.css';
 
@@ -7,8 +7,8 @@ import './main.css';
  * 选角色：Views/Main/CharacterSelectPage.xaml（107 行）+ CharacterSelectViewModel。
  *
  * 微信壳的联系人列表：顶栏（‹ / 微信 / ＋）、白行 + 发丝线、头像左置、行尾存档读数，
- * 底部两颗「新建角色 / 导入角色包」。源码的 Cards 来自角色库；后端还没给角色库接口，
- * 这里只把 settings.get 带回的那份存档摆成一行，读不到就落回源码的空态。
+ * 底部两颗「新建角色 / 导入角色包」。源码的 Cards 来自角色库；这里按 saves.list 的
+ * 存档表把「谁有档」摆成一行（一份档一行），读不到就落回源码的空态。
  */
 
 type Card = { id: string; name: string; subtitle: string; savesLabel: string };
@@ -17,11 +17,11 @@ function pad(value: number): string {
   return String(value).padStart(2, '0');
 }
 
-/** 「已有 1 个存档 · 最近 11-26 22:41」（CharacterSelectViewModel.Refresh 的 label）。 */
-function savesLabel(savedAt: string): string {
+/** 「已有 N 个存档 · 最近 11-26 22:41」（CharacterSelectViewModel.Refresh 的 label）。 */
+function savesLabel(count: number, savedAt: string): string {
   const at = new Date(savedAt);
-  if (Number.isNaN(at.getTime())) return '还没有存档';
-  return `已有 1 个存档 · 最近 ${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
+  if (Number.isNaN(at.getTime())) return `已有 ${count} 个存档`;
+  return `已有 ${count} 个存档 · 最近 ${pad(at.getMonth() + 1)}-${pad(at.getDate())} ${pad(at.getHours())}:${pad(at.getMinutes())}`;
 }
 
 export function Select({ bridge, navigate, back }: ScreenProps) {
@@ -30,19 +30,27 @@ export function Select({ bridge, navigate, back }: ScreenProps) {
 
   useEffect(() => {
     let alive = true;
+    // 一份存档一行：同一角色有几份档就写几个数，最新那份的时间上屏。
     void bridge
-      .request('settings.get', {})
-      .then((result) => {
-        const save: SaveSummary | null = result.save;
-        if (!alive || !save) return;
-        setCards([
-          {
-            id: save.character,
-            name: save.character,
+      .request('saves.list', {})
+      .then(({ slots }: { slots: SaveRow[] }) => {
+        if (!alive) return;
+        const byName = new Map<string, { count: number; latest: string }>();
+        for (const row of slots) {
+          const name = row.character || row.label;
+          if (!name) continue;
+          const seen = byName.get(name);
+          if (!seen) byName.set(name, { count: 1, latest: row.savedAt });
+          else seen.count += 1;
+        }
+        setCards(
+          [...byName.entries()].map(([name, info]) => ({
+            id: name,
+            name,
             subtitle: '点击开始聊天',
-            savesLabel: savesLabel(save.savedAt),
-          },
-        ]);
+            savesLabel: savesLabel(info.count, info.latest),
+          })),
+        );
       })
       .catch(() => undefined);
     return () => {

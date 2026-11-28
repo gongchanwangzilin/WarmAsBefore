@@ -1,5 +1,5 @@
 import { useEffect, useState, type MouseEvent } from 'react';
-import type { CharacterRow, SaveRow } from '../../bridge/protocol';
+import type { CharacterRow, ChatRow, SaveRow } from '../../bridge/protocol';
 import { openInWindow } from '../../lib/windows';
 import { Glass } from '../../components/Glass';
 import { GlassSwitch } from '../../components/GlassSwitch';
@@ -147,7 +147,7 @@ function widgetValue(id: string, day: string, clock: string, live: Live): string
   }
 }
 
-type ChatMsg = { id: number; mine: boolean; text: string };
+type ChatMsg = { id: string; mine: boolean; text: string };
 
 export function Main({ bridge, navigate }: ScreenProps) {
   const live = useLive(bridge);
@@ -173,7 +173,10 @@ export function Main({ bridge, navigate }: ScreenProps) {
   const [calibrationBlocked] = useState(false);
   const [backendMode] = useState(false);
   const [input, setInput] = useState('');
+  // 对话列表 = chat.history 读回来的存档会话记录；送出去的一句由 chat.send 回给这里。
   const [messages, setMessages] = useState<ChatMsg[]>([]);
+  const [sending, setSending] = useState(false);
+  const [sendHint, setSendHint] = useState('');
   // 自定义状态条：按场景 / 楼层由流程规则长出来，这一局没有规则时整排不出现。
   const stateButtons: string[] = [];
 
@@ -182,11 +185,43 @@ export function Main({ bridge, navigate }: ScreenProps) {
   const leftWidgets = widgets.filter((w) => w.slot === 'left' && w.visible && w.id !== 'brain');
   const last = messages.length > 0 ? messages[messages.length - 1] : null;
 
-  const send = () => {
+  // 主界面会话：读存档里的会话记录（最近 80 条一次给完，主界面的记录本来就只留这么多）。
+  useEffect(() => {
+    let dropped = false;
+    void bridge
+      .request('chat.history', { shell: 'main', limit: 80 })
+      .then(({ messages: rows }) => {
+        if (dropped) return;
+        setMessages(rows.map((row: ChatRow) => ({ id: row.id, mine: row.mine, text: row.text })));
+      })
+      .catch((cause: unknown) => {
+        if (dropped) return;
+        setSendHint(cause instanceof Error ? cause.message : '会话记录没有应答。');
+      });
+    return () => {
+      dropped = true;
+    };
+  }, [bridge]);
+
+  // 送真的：进聊天引擎跑一轮，回复与自己的那句一起落回列表；失败就把原因写在输入条下面，不假装发出去了。
+  const send = async () => {
     const text = input.trim();
-    if (!text) return;
-    setMessages((prev) => [...prev, { id: Date.now(), mine: true, text }]);
-    setInput('');
+    if (!text || sending) return;
+    setSending(true);
+    setSendHint('');
+    try {
+      const { user, reply } = await bridge.request('chat.send', { shell: 'main', text });
+      setMessages((prev) => [
+        ...prev,
+        { id: user.id, mine: true, text: user.text },
+        { id: reply.id, mine: false, text: reply.text },
+      ]);
+      setInput('');
+    } catch (cause) {
+      setSendHint(cause instanceof Error ? cause.message : '这句话没有送出去。');
+    } finally {
+      setSending(false);
+    }
   };
 
   const toggleButton = (id: string) => setButtons((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -358,8 +393,9 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 <span className="mg__gal-speaker">{last ? (last.mine ? '你' : live.who) : ''}</span>
               </div>
               <div className={`mg__gal-history${last ? '' : ' mg__gal-history--empty'}`}>
-                {last ? last.text : '这一局还没有说过话。在下面说一句，TA 会在这里回答你。'}
+                {last ? last.text : '这一局还没有说过话。'}
               </div>
+              {sendHint ? <p className="mg__send-hint">{sendHint}</p> : null}
               <div className="mg__input">
                 <input
                   value={input}
@@ -367,7 +403,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
                   aria-label="输入你想说的话"
                   onChange={(event) => setInput(event.target.value)}
                   onKeyDown={(event) => {
-                    if (event.key === 'Enter') send();
+                    if (event.key === 'Enter') void send();
                   }}
                 />
                 <button type="button" className="m-ibtn" disabled>
@@ -379,7 +415,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 <button type="button" className="m-ibtn" disabled>
                   语音
                 </button>
-                <button type="button" className="mg__send" onClick={send}>
+                <button type="button" className="mg__send" onClick={() => void send()} disabled={sending}>
                   发送
                 </button>
               </div>
@@ -433,11 +469,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
             </div>
             <div className="mg__chat-list">
               {messages.length === 0 ? (
-                <p className="mg__chat-empty">
-                  还没有对话。
-                  <br />
-                  在下面说一句，或先点一个快捷动作。
-                </p>
+                <p className="mg__chat-empty">还没有对话。</p>
               ) : (
                 messages.map((m) => (
                   <div className={`mg__bubble mg__bubble--${m.mine ? 'mine' : 'theirs'}`} key={m.id}>
@@ -453,7 +485,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 aria-label="输入消息"
                 onChange={(event) => setInput(event.target.value)}
                 onKeyDown={(event) => {
-                  if (event.key === 'Enter') send();
+                  if (event.key === 'Enter') void send();
                 }}
               />
               <button type="button" className="m-ibtn" disabled>
@@ -468,10 +500,11 @@ export function Main({ bridge, navigate }: ScreenProps) {
               <button type="button" className="m-ibtn" disabled>
                 语音
               </button>
-              <button type="button" className="mg__send" onClick={send}>
+              <button type="button" className="mg__send" onClick={() => void send()} disabled={sending}>
                 发送
               </button>
             </div>
+            {sendHint ? <p className="mg__send-hint">{sendHint}</p> : null}
           </Glass>
         ) : null}
       </div>
@@ -517,7 +550,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
             <div className="mg__dlg-head">
               <div>
                 <h2 className="mg__dlg-title">组件</h2>
-                <p className="mg__dlg-note">想看的留在栏上，暂时不看的收起来；改动即时保存。</p>
+                <p className="mg__dlg-note">想看的留在栏上，暂时不看的收起来；改动只留在这个页面，关掉窗口就回到默认。</p>
               </div>
               <button type="button" className="m-btn m-btn--sm" onClick={() => setWidgetPanel(false)}>
                 关闭

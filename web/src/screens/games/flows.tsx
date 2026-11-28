@@ -3,7 +3,7 @@ import { Glass } from '../../components/Glass';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import type { ScreenProps } from '../types';
-import { Cap } from './parts';
+import { Cap, Inert } from './parts';
 
 /**
  * 流程图：Views/Games/FlowEditorPage.xaml（70 行）+ 同名 code-behind。
@@ -37,7 +37,9 @@ const SEED: Rule[] = [
 
 export function Flows({ back }: ScreenProps) {
   const [rows, setRows] = useState<Rule[]>(SEED);
-  const [status, setStatus] = useState(`共 ${SEED.length} 条规则，改完立刻生效（不用重启）。`);
+  const [status, setStatus] = useState(
+    `共 ${SEED.length} 条规则。宿主还没有读写流程规则的方法（flows.list / flows.save），这里的增删改只留在这个页面。`,
+  );
 
   const refresh = (next: Rule[], message: string) => {
     setRows(next);
@@ -57,7 +59,7 @@ export function Flows({ back }: ScreenProps) {
       when: '当 只要触发',
       then: `那么 说一句：${what.trim()}`,
     };
-    refresh([...rows, rule], `共 ${rows.length + 1} 条规则，改完立刻生效（不用重启）。`);
+    refresh([...rows, rule], `共 ${rows.length + 1} 条规则。只留在这个页面：宿主还没有保存流程规则的方法（flows.save）。`);
   };
 
   const edit = (row: Rule) => {
@@ -148,9 +150,10 @@ export function Flows({ back }: ScreenProps) {
                   {row.then}
                 </span>
                 <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
-                  <GlassButton size="sm" onClick={() => setStatus(`「${row.name}」跑完了。`)}>
-                    试跑
-                  </GlassButton>
+                  {/* 试跑要在宿主里真的执行一遍规则，桥里没有这条方法：停在禁用态，不演一个「跑完了」。 */}
+                  <Inert>
+                    <GlassButton size="sm">试跑</GlassButton>
+                  </Inert>
                   <GlassButton size="sm" onClick={() => edit(row)}>
                     改
                   </GlassButton>

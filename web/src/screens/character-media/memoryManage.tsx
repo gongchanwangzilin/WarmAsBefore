@@ -25,6 +25,7 @@ type MemoryTag = { name: string; subject: string; count: number };
 export function MemoryManage({ bridge, navigate, back }: ScreenProps) {
   const [charName, setCharName] = useState('');
   const [tags, setTags] = useState<MemoryTag[]>([]);
+  const [ticket, setTicket] = useState(0);
 
   useEffect(() => {
     let alive = true;
@@ -44,7 +45,7 @@ export function MemoryManage({ bridge, navigate, back }: ScreenProps) {
     return () => {
       alive = false;
     };
-  }, [bridge]);
+  }, [bridge, ticket]);
 
   const groups = SUBJECTS.map((subject) => ({
     ...subject,
@@ -62,14 +63,14 @@ export function MemoryManage({ bridge, navigate, back }: ScreenProps) {
       <div className="screen" style={{ gap: 'var(--w-space-3)' }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-2)' }}>
           <Cap>这些记忆：只在这份存档里（开关在设置 → 记忆里）</Cap>
-          <TextSm>刷新</TextSm>
+          <TextSm onClick={() => setTicket((n) => n + 1)}>刷新</TextSm>
         </div>
 
         <Card tight>
           <RowLine
             title="副设定（当下之我）"
             desc="主设定不可改；副设定随经历漂移，可以看对比、也可以回正到主设定。"
-            right={<GhostSm>打开主设定 × 副设定对比</GhostSm>}
+            right={<GhostSm disabled>打开主设定 × 副设定对比</GhostSm>}
           />
           <Sep />
           <RowLine
@@ -117,8 +118,8 @@ export function MemoryManage({ bridge, navigate, back }: ScreenProps) {
             }
             right={
               <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)', alignItems: 'flex-end' }}>
-                <GhostSm>加标签</GhostSm>
-                <GhostSm>删标签</GhostSm>
+                <GhostSm disabled>加标签</GhostSm>
+                <GhostSm disabled>删标签</GhostSm>
               </span>
             }
           />
@@ -152,7 +153,7 @@ export function MemoryManage({ bridge, navigate, back }: ScreenProps) {
             ))}
           </div>
 
-          <GhostSm>＋ 手动加一条记忆</GhostSm>
+          <GhostSm disabled>＋ 手动加一条记忆</GhostSm>
         </div>
 
         <Cap>还没有记得的事——多聊几句，重要的会被记下来。</Cap>

@@ -28,7 +28,8 @@ export function Chatimport({ navigate, back }: ScreenProps) {
       setError('先粘贴一段聊天记录，再点解析。');
       return;
     }
-    setError('');
+    // 解析在 ChatLogImportService 里，桥里没有这条方法：别让主按钮点了没动静。
+    setError('宿主还没有解析聊天记录的方法（chatimport.parse）：这段文字读不出角色、事件与关系。');
   };
 
   return (

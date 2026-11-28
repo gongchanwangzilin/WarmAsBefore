@@ -403,7 +403,7 @@ function Divider() {
 
 /* ── 入口 ─────────────────────────────────────────────── */
 
-export function SettingsSection({ bridge, query, back }: ScreenProps) {
+export function SettingsSection({ bridge, query, back, navigate }: ScreenProps) {
   const raw = (query.get('key') ?? '').trim();
   const key = raw === 'window' ? 'platform' : raw === 'voice' ? 'sound' : raw;
   const section = SECTIONS.find((item) => item.key === key);
@@ -416,21 +416,21 @@ export function SettingsSection({ bridge, query, back }: ScreenProps) {
   ) : section.key === 'sound' ? (
     <SoundSection writer={writer} />
   ) : section.key === 'ai' ? (
-    <AiSection writer={writer} bridge={bridge} />
+    <AiSection writer={writer} bridge={bridge} navigate={navigate} />
   ) : section.key === 'memory' ? (
     <MemorySection writer={writer} />
   ) : section.key === 'persona' ? (
-    <PersonaSection />
+    <PersonaSection navigate={navigate} />
   ) : section.key === 'interface' ? (
     <InterfaceSection writer={writer} />
   ) : section.key === 'platform' ? (
-    <PlatformSection writer={writer} />
+    <PlatformSection writer={writer} navigate={navigate} />
   ) : section.key === 'integrations' ? (
-    <IntegrationsSection writer={writer} bridge={bridge} />
+    <IntegrationsSection writer={writer} bridge={bridge} navigate={navigate} />
   ) : section.key === 'life' ? (
     <LifeSection writer={writer} />
   ) : section.key === 'data' ? (
-    <DataSection />
+    <DataSection navigate={navigate} />
   ) : (
     <AdvancedSection />
   );
@@ -837,6 +837,9 @@ function SoundSection({ writer }: { writer: SettingsWriter }) {
       </SettingCard>
 
       <SettingCard title="语音">
+        <p className="cap" style={{ margin: '0 0 var(--w-space-2)', color: 'var(--w-signal)', lineHeight: 1.6 }}>
+          这一张卡只在页内状态里：宿主还没有写回语音设置的方法（voice.save），开关与密钥填了不会落盘。
+        </p>
         <SettingRow
           title="朗读回复"
           desc="收到回复时用语音读出来"
@@ -1109,7 +1112,15 @@ function ProviderList({ bridge }: { bridge: ScreenProps['bridge'] }) {
   );
 }
 
-function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenProps['bridge'] }) {
+function AiSection({
+  writer,
+  bridge,
+  navigate,
+}: {
+  writer: SettingsWriter;
+  bridge: ScreenProps['bridge'];
+  navigate: ScreenProps['navigate'];
+}) {
   const { values, set: write } = writer;
   const [preset, setPreset] = useStr('自定义');
   const [aiUrl, setAiUrl] = useStr('https://api.openai.com/v1/chat/completions');
@@ -1171,7 +1182,13 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
 
   return (
     <>
+      {/* 这一段的端点、密钥与模型只在页内状态里：桥里没有写回厂商/模型的方法（ai.providers.save），
+          所以不画「已保存」，也不让用户以为配完就能说话。 */}
       <SettingCard title="AI 对话">
+        <p className="cap" style={{ margin: '0 0 var(--w-space-2)', color: 'var(--w-signal)', lineHeight: 1.6 }}>
+          这一段的地址、密钥与模型只在页面上：宿主还没有写回厂商与模型的方法（ai.providers.save），填了不会落盘，对话也不会用上。
+          要真的接上，请在桌面端的同名页面里配。
+        </p>
         <PickRow title="API 预设" value={preset} options={AI_PRESETS} onChange={setPreset} width={240} label="API 预设" />
         <FieldRow
           title="API 地址"
@@ -1357,15 +1374,9 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           width={90}
         />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--w-space-2)' }}>
-          <Inert>
-            <Btn>厂商管理页面 →</Btn>
-          </Inert>
-          <Inert>
-            <Btn>AI 模型管理页面 →</Btn>
-          </Inert>
-          <Inert>
-            <Btn>模型部署向导 →</Btn>
-          </Inert>
+          <Btn onClick={() => navigate('/aiProviders')}>厂商管理页面 →</Btn>
+          <Btn onClick={() => navigate('/aiModels')}>AI 模型管理页面 →</Btn>
+          <Btn onClick={() => navigate('/modelDeployment')}>模型部署向导 →</Btn>
         </div>
         <ProviderList bridge={bridge} />
 
@@ -1422,9 +1433,7 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           <Inert>
             <Btn>按当前上限试算</Btn>
           </Inert>
-          <Inert>
-            <Btn>用量统计…</Btn>
-          </Inert>
+          <Btn onClick={() => navigate('/usagestats')}>用量统计…</Btn>
         </BtnRow>
         <div
           style={{
@@ -1465,6 +1474,9 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
       </SettingCard>
 
       <SettingCard title="AI 绘画（装扮 / 背景 / 立绘）">
+        <p className="cap" style={{ margin: '0 0 var(--w-space-2)', color: 'var(--w-signal)', lineHeight: 1.6 }}>
+          这一张卡只在页内状态里：宿主还没有写回画面生成设置的方法（imagegen.save），地址与密钥填了不会落盘。
+        </p>
         <SettingRow
           title="启用图片生成"
           desc="用 OpenAI 兼容的 /images/generations 接口生成装扮、场景背景与角色立绘；生成结果落在本地 generated 目录，可再导入素材库。关闭时不花钱。"
@@ -1676,7 +1688,7 @@ function MemorySection({ writer }: { writer: SettingsWriter }) {
 
 /* ── 身份与心理：Card28 + Card29 + Card34 ─────────────── */
 
-function PersonaSection() {
+function PersonaSection({ navigate }: { navigate: ScreenProps['navigate'] }) {
   const [narrator, setNarrator] = useBool(false);
   const [gender, setGender] = useStr('未设置');
   const [birthday, setBirthday] = useStr('');
@@ -1791,9 +1803,7 @@ function PersonaSection() {
           <span className="s-row__desc">
             打开后可逐角色设定；涉及自伤/自杀/伤人的条目有硬边界：不提供方法、不美化，只做陪伴与转向求助。
           </span>
-          <Inert>
-            <Btn>管理心理状况</Btn>
-          </Inert>
+          <Btn onClick={() => navigate('/mentalHealth')}>管理心理状况</Btn>
         </div>
         <Sep />
         <SettingRow
@@ -2181,7 +2191,7 @@ function InterfaceSection({ writer }: { writer: SettingsWriter }) {
 
 /* ── 平台与运行：Card25 + Card27 + Card14 + Card17 + Card20 ── */
 
-function PlatformSection({ writer }: { writer: SettingsWriter }) {
+function PlatformSection({ writer, navigate }: { writer: SettingsWriter; navigate: ScreenProps['navigate'] }) {
   const { values, set: write } = writer;
   const [phoneWindow, setPhoneWindow] = useBool(true);
   const [closeBehavior, setCloseBehavior] = useStr('每次询问');
@@ -2311,12 +2321,8 @@ function PlatformSection({ writer }: { writer: SettingsWriter }) {
         />
         <Sep />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)' }}>
-          <Inert>
-            <Btn>桌宠设置…</Btn>
-          </Inert>
-          <Inert>
-            <Btn>AI 制作桌宠…</Btn>
-          </Inert>
+          <Btn onClick={() => navigate('/petsettings')}>桌宠设置…</Btn>
+          <Btn onClick={() => navigate('/petstudio')}>AI 制作桌宠…</Btn>
         </div>
       </SettingCard>
 
@@ -2523,7 +2529,15 @@ const pluginState = (plugin: Plugin) =>
         ? '生效中'
         : '已停用';
 
-function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenProps['bridge'] }) {
+function IntegrationsSection({
+  writer,
+  bridge,
+  navigate,
+}: {
+  writer: SettingsWriter;
+  bridge: ScreenProps['bridge'];
+  navigate: ScreenProps['navigate'];
+}) {
   const { values, set: write } = writer;
   const [qqAppId, setQqAppId] = useStr('');
   const [qqAppSecret, setQqAppSecret] = useStr('');
@@ -2795,9 +2809,7 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
           </span>
           <span style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
             <Btn onClick={loadPlugins}>刷新</Btn>
-            <Inert>
-              <Btn>打开插件中心</Btn>
-            </Inert>
+            <Btn onClick={() => navigate('/pluginCenter')}>打开插件中心</Btn>
           </span>
         </div>
         {pluginsLoading ? <p className="cap">正在读取已安装的插件…</p> : null}
@@ -3144,7 +3156,7 @@ function LifeSection({ writer }: { writer: SettingsWriter }) {
 
 /* ── 数据与素材：Card18 + Card26 + Card19 + Card21 + Card22 ── */
 
-function DataSection() {
+function DataSection({ navigate }: { navigate: ScreenProps['navigate'] }) {
   const [includeSecrets, setIncludeSecrets] = useBool(false);
 
   const [cloud, setCloud] = useBool(false);
@@ -3247,9 +3259,7 @@ function DataSection() {
           导入 / 管理背景图与音乐，并把音乐设为左键音、右键音、按键音或背景音轮播
         </p>
         <BtnRow>
-          <Inert>
-            <Btn>进入素材库</Btn>
-          </Inert>
+          <Btn onClick={() => navigate('/materials')}>进入素材库</Btn>
         </BtnRow>
       </SettingCard>
 

@@ -39,21 +39,32 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
   const wide = useIsWide(720);
   const [items, setItems] = useState<RosterItem[]>([]);
   const [selectedId, setSelectedId] = useState('');
+  const [status, setStatus] = useState('');
+  const [busyId, setBusyId] = useState('');
 
   // 真的花名册：CharacterLibrary.ListAsync()。没有角色就留空，走源码的空态。
   useEffect(() => {
     let dropped = false;
     const read = async () => {
       try {
-        const { characters } = await bridge.request('characters.list', {});
+        const [{ characters }, saves] = await Promise.all([
+          bridge.request('characters.list', {}),
+          bridge.request('saves.list', {}).catch(() => null),
+        ]);
         if (dropped) return;
+        // 「在 N 份存档里」按存档表里的角色 id 数（SaveSlot.Character 存的就是 id）：读不到存档表时整格退回「还没进过存档」，不编数。
+        const perId = new Map<string, number>();
+        for (const row of saves?.slots ?? []) {
+          if (!row.character) continue;
+          perId.set(row.character, (perId.get(row.character) ?? 0) + 1);
+        }
         setItems(
           characters.map((c: CharacterRow) => ({
             id: c.id,
             name: c.nickname || c.name,
             personality: c.catchphrase || c.gender || '',
             description: '',
-            saveCount: 0,
+            saveCount: perId.get(c.id) ?? 0,
             cellCount: c.spriteCount ?? 0,
             affection: c.affection,
             avatarUrl: c.avatarUrl || '',
@@ -77,6 +88,42 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
 
   const enter = () => {
     if (selected) navigate(`/studio?id=${encodeURIComponent(selected.id)}`);
+  };
+
+  const failure = (error: unknown) =>
+    error instanceof Error ? error.message : '宿主没有回应，这一步没做完。';
+
+  // 导出：宿主打单角色包，再把包交给系统分享面板。成没成都照宿主那句话上屏，不自己编「已导出」。
+  const exportOne = (item: RosterItem) => {
+    if (busyId) return;
+    setBusyId(item.id);
+    setStatus('');
+    bridge
+      .request('character.export', { id: item.id })
+      .then((result) => setStatus(result.message))
+      .catch((error: unknown) => setStatus(failure(error)))
+      .finally(() => setBusyId(''));
+  };
+
+  // 删除：确认框里把「有 N 份存档把它当主角」说清楚，删除失败就把宿主那句原样上屏。
+  const remove = (item: RosterItem) => {
+    if (busyId) return;
+    const warn =
+      item.saveCount > 0
+        ? `\n\n有 ${item.saveCount} 份存档把它当作主角：删除后那些存档里这个人的设定与立绘都会消失，进度回不来。`
+        : '';
+    if (!window.confirm(`删除「${item.name}」的角色资料与立绘？这个操作不可恢复。${warn}`)) return;
+    setBusyId(item.id);
+    setStatus('');
+    bridge
+      .request('character.delete', { id: item.id })
+      .then((result) => {
+        setStatus(result.message);
+        // 名册靠 data.changed 重读；这里先把选中挪开，免得删完预览还停在刚删掉的那个人身上。
+        setSelectedId('');
+      })
+      .catch((error: unknown) => setStatus(failure(error)))
+      .finally(() => setBusyId(''));
   };
 
   return (
@@ -241,7 +288,9 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-1)' }}>
                             <span onClick={(event) => event.stopPropagation()}>
-                              <TextBtn disabled>导出</TextBtn>
+                              <TextBtn onClick={() => exportOne(item)} disabled={busyId === item.id}>
+                                导出
+                              </TextBtn>
                             </span>
                             <span style={{ color: 'var(--w-ink-faint)', fontSize: 18 }}>›</span>
                           </span>
@@ -255,6 +304,19 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
 
               <div style={{ flex: 'none', background: 'var(--w-surface-tint)', padding: 'var(--w-space-2) var(--w-pad-card)' }}>
                 <Caption>点一行看右边的预览；改设定再进 TA 的工作室。</Caption>
+                {status ? (
+                  <p
+                    style={{
+                      margin: '2px 0 0',
+                      fontSize: 'var(--w-size-caption)',
+                      color: 'var(--w-ink-body)',
+                      lineHeight: 1.5,
+                      wordBreak: 'break-word',
+                    }}
+                  >
+                    {status}
+                  </p>
+                ) : null}
               </div>
             </div>
           </Glass>
@@ -313,7 +375,14 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                           type="button"
                           className="cr-avatar"
                           title={selected.avatarUrl ? '点头像换一张' : '点头像导入头像'}
-                          onClick={() => void importAvatar(bridge, selected.id)}
+                          onClick={() => {
+                            void importAvatar(bridge, selected.id).then((url) => {
+                              if (!url) return;
+                              setItems((list) =>
+                                list.map((item) => (item.id === selected.id ? { ...item, avatarUrl: url } : item)),
+                              );
+                            });
+                          }}
                         >
                           {selected.avatarUrl ? (
                             <img src={selected.avatarUrl} alt={selected.name} />
@@ -369,7 +438,9 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                       <PrimaryBtn block onClick={enter}>
                         进入 TA 的工作室  →
                       </PrimaryBtn>
-                      <TextBtn disabled>删除</TextBtn>
+                      <TextBtn onClick={() => remove(selected)} disabled={busyId === selected.id}>
+                        删除
+                      </TextBtn>
                     </div>
                   </Stack>
                 </div>

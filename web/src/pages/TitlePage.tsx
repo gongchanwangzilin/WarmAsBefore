@@ -1,4 +1,4 @@
-import { Fragment, useCallback } from 'react';
+import { Fragment, useCallback, useState } from 'react';
 import type { Bridge } from '../bridge/client';
 import type { SaveSummary } from '../bridge/protocol';
 import { Glass } from '../components/Glass';
@@ -30,9 +30,35 @@ const MENU: ReadonlyArray<{ index: string; label: string; to: string | null }> =
 export function TitlePage({ bridge, onNavigate }: Props) {
   const { state, reload } = useResource(() => bridge.request('settings.get', {}), [bridge]);
 
-  const start = useCallback(() => onNavigate('/main'), [onNavigate]);
-
   const save = state.status === 'ready' ? state.data.save : null;
+  const [busy, setBusy] = useState(false);
+  const [hint, setHint] = useState('');
+
+  /**
+   * 主行动：有上次的存档就真的把它载进当前局（save.load，和存档页那颗「读取」同一条路），
+   * 载进来了才进主界面；没读出来就把宿主那句话留在这一页上，不跳。
+   */
+  const start = useCallback(async () => {
+    if (busy) return;
+    if (!save?.id) {
+      onNavigate('/main');
+      return;
+    }
+    setBusy(true);
+    setHint('');
+    try {
+      const result = await bridge.request('save.load', { id: save.id });
+      if (!result.loaded) {
+        setHint(result.note || '这份存档的核心状态是重建出来的，先没有进入。');
+        return;
+      }
+      onNavigate('/main');
+    } catch (cause) {
+      setHint(cause instanceof Error ? cause.message : '这份存档没有读出来。');
+    } finally {
+      setBusy(false);
+    }
+  }, [bridge, busy, onNavigate, save?.id]);
 
   return (
     <PageShell>
@@ -106,7 +132,7 @@ export function TitlePage({ bridge, onNavigate }: Props) {
                   <h1 className="hero__tagline" data-page-title tabIndex={-1}>
                     让每一段重逢，都如初见般温暖
                   </h1>
-                  <SignalButton onClick={start}>{save ? '再续情缘' : '创建新欢'}</SignalButton>
+                  <SignalButton onClick={() => void start()}>{save ? '再续情缘' : '创建新欢'}</SignalButton>
                 </div>
 
                 {save ? (
@@ -117,10 +143,16 @@ export function TitlePage({ bridge, onNavigate }: Props) {
                       <span className="recent__scene">{save.scene}</span>
                       <span className="cap">{recentMeta(save)}</span>
                     </div>
-                    <GlassButton size="md" onClick={start}>
+                    <GlassButton size="md" onClick={() => void start()}>
                       继续
                     </GlassButton>
                   </Glass>
+                ) : null}
+
+                {hint ? (
+                  <p style={{ margin: 0, fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)', lineHeight: 1.6 }}>
+                    {hint}
+                  </p>
                 ) : null}
               </>
             ) : null}

@@ -29,7 +29,11 @@ export function Newrun({ query, navigate, back }: ScreenProps) {
   const importHint = '可选。把微信/QQ 导出的聊天记录带进来，这一局的关系会从你们的过去开始。';
 
   const begin = () => {
-    if (!character) setStatus('没有可进入的角色。');
+    setStatus(
+      character
+        ? '宿主还没有建存档的方法（saves.create）：这一局开不起来，选了的世界与人设也落不盘。'
+        : '没有可进入的角色：先回角色库选一个人，再来开新的一局。',
+    );
   };
 
   return (

@@ -27,19 +27,42 @@ export type ChatMessage = {
 type Props = {
   skin: 'wechat' | 'qq';
   contacts: ChatContact[];
+  /** 当前会话对象（由页面持有：切人时要真的去读那一段历史） */
+  activeId: string;
+  onSelectContact: (id: string) => void;
   partner: string;
   modeLabel: string;
   messages: ChatMessage[];
   onBack: () => void;
   onForum?: () => void;
+  /** 真的把这句话送进聊天引擎；不给就是不能发（按钮停在禁用态） */
+  onSend?: (text: string) => Promise<void>;
+  /** 会话记录读失败时宿主给的那一句原话 */
+  loadHint?: string;
+  /** 还有更早的消息（chat.history 的 hasMore） */
+  hasMore?: boolean;
+  onLoadEarlier?: () => Promise<void>;
 };
 
 const TIERS = ['关闭', '档1', '档2', '档3'];
 
-export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack, onForum }: Props) {
+export function ChatShell({
+  skin,
+  contacts,
+  activeId,
+  onSelectContact,
+  partner,
+  modeLabel,
+  messages,
+  onBack,
+  onForum,
+  onSend,
+  loadHint,
+  hasMore,
+  onLoadEarlier,
+}: Props) {
   const wide = useIsWide(900);
   const isWeChat = skin === 'wechat';
-  const [activeId, setActiveId] = useState(contacts[0]?.id ?? '');
   const [full, setFull] = useState(false);
   const [listOpen, setListOpen] = useState(!isWeChat && !wide);
   const [search, setSearch] = useState('');
@@ -49,6 +72,24 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
   const [giftMode, setGiftMode] = useState<'gift' | 'use'>('gift');
   const [thinkOn, setThinkOn] = useState(false);
   const [tier, setTier] = useState(0);
+  const [sending, setSending] = useState(false);
+  const [sendHint, setSendHint] = useState('');
+
+  /** 发送：走页面给的 onSend；失败把宿主给的原因写在输入条上面，不往气泡里塞「已发送」。 */
+  const submit = async () => {
+    const text = input.trim();
+    if (!text || !onSend || sending) return;
+    setSending(true);
+    setSendHint('');
+    try {
+      await onSend(text);
+      setInput('');
+    } catch (cause) {
+      setSendHint(cause instanceof Error ? cause.message : '这句话没有送出去。');
+    } finally {
+      setSending(false);
+    }
+  };
 
   useEffect(() => {
     if (wide) setListOpen(false);
@@ -67,7 +108,7 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
   const showListColumn = wide && !full;
 
   const openContact = (id: string) => {
-    setActiveId(id);
+    onSelectContact(id);
     setListOpen(false);
   };
 
@@ -175,11 +216,16 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
   const body = (
     <div className="sc-body" style={{ gridColumn: chatCol }}>
       <div className="sc-msgs">
+        {hasMore && onLoadEarlier ? (
+          <button type="button" className="sc-pill" style={{ alignSelf: 'center' }} onClick={() => void onLoadEarlier()}>
+            更早的消息
+          </button>
+        ) : null}
         {messages.length === 0 ? (
           isWeChat ? (
             <div className="sc-empty" style={{ margin: 'auto' }}>
-              <span>还没有聊过</span>
-              <small>说点什么，她会在下面回你</small>
+              <span>{loadHint ? '会话记录读不出来' : '还没有聊过'}</span>
+              <small>{loadHint || '说点什么，她会在下面回你'}</small>
             </div>
           ) : null
         ) : (
@@ -201,6 +247,20 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
           </div>
           <p className="sc-stickers__empty">还没有表情，点「导入表情」添加（图片/动图/视频/任意文件均可）</p>
         </div>
+      ) : null}
+
+      {sendHint ? (
+        <p
+          style={{
+            margin: 0,
+            padding: '4px 2px 6px',
+            fontSize: 'var(--w-size-caption)',
+            color: 'var(--w-signal)',
+            lineHeight: 1.5,
+          }}
+        >
+          {sendHint}
+        </p>
       ) : null}
 
       <div className="sc-input">
@@ -255,8 +315,12 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
           <button type="button" className="sc-ibtn" disabled>
             文件
           </button>
-          {/* 会话内容要有后端才送得出去；桥里没有 chat.send，这一颗就停在禁用态。 */}
-          <button type="button" className="sc-send" disabled>
+          <button
+            type="button"
+            className="sc-send"
+            onClick={() => void submit()}
+            disabled={!onSend || sending}
+          >
             发送
           </button>
         </div>

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useId, type ReactNode } from 'react';
 import { Glass } from './Glass';
 
 /**
@@ -6,7 +6,23 @@ import { Glass } from './Glass';
  * 全部只用令牌（--w-*）与墨阶（--w-ink-*），没有任何写死的颜色或字号。
  */
 
-/** 页头：返回 · 眉标/标题/副标题 · 右侧动作，下面一条发丝线（PageHeader.xaml）。 */
+/**
+ * 标签轨：页眉下面那条「编号 + 标签 + 发丝线 + 刻度」。
+ * 编号是层级，不是纸张编号：根页 01、子页 02（给了 index 就用给的）。
+ * 标签吃页面自己的眉标，不新造字。
+ */
+export function Rail({ num, tag }: { num: string; tag?: string }) {
+  return (
+    <div className="ph__rail" aria-hidden="true">
+      <span className="rail__num">{num}</span>
+      <span className="rail__tag">{tag ? tag.replace(/^[/\s]+/, '') : ''}</span>
+      <i className="rail__rule" />
+      <i className="rail__end" />
+    </div>
+  );
+}
+
+/** 页头：返回 · 标题/副标题 · 标签轨 · 右侧动作，下面一条发丝线（PageHeader.xaml）。 */
 export function PageHeader({
   title,
   subtitle,
@@ -15,6 +31,7 @@ export function PageHeader({
   backText = '< 返回',
   right,
   variant = 'bar',
+  index,
 }: {
   title: string;
   subtitle?: string;
@@ -24,6 +41,8 @@ export function PageHeader({
   right?: ReactNode;
   /** bar：整条玻璃页头（多数页）；ground：落在地上、无底无线（信息页用） */
   variant?: 'bar' | 'ground';
+  /** 标签轨上的编号；缺省按层级给（子页 02 / 根页 01） */
+  index?: string;
 }) {
   const inner = (
     <div className="ph__inner">
@@ -35,12 +54,6 @@ export function PageHeader({
         <span />
       )}
       <div className="ph__mid">
-        {eyebrow ? (
-          <span className="ph__eyebrow">
-            <i className="ph__mark" aria-hidden="true" />
-            {eyebrow}
-          </span>
-        ) : null}
         <h1 className="ph__title" data-page-title tabIndex={-1}>
           {title}
         </h1>
@@ -49,6 +62,7 @@ export function PageHeader({
             {subtitle}
           </span>
         ) : null}
+        <Rail num={index ?? (onBack ? '02' : '01')} tag={eyebrow} />
       </div>
       <div className="ph__right">{right}</div>
     </div>
@@ -60,6 +74,7 @@ export function PageHeader({
   return (
     <Glass as="header" tone="bar" radius={0} className="ph ph--bar">
       {inner}
+      <MotifScan className="ph__scan" />
     </Glass>
   );
 }
@@ -145,9 +160,29 @@ export function Sep({ bleed }: { bleed?: boolean }) {
   return <div className={bleed ? 'k-sep k-sep--bleed' : 'k-sep'} role="presentation" />;
 }
 
-/** 段落小标题（「常驻」「全部设置」那一档）。 */
-export function GroupLabel({ children }: { children: ReactNode }) {
-  return <h3 className="k-group">{children}</h3>;
+/**
+ * 段落小标题 = 编号 + 标题 + 说明（「常驻」「全部设置」那一档）。
+ * 编号不用传：CSS 计数器按页面顺序给（01、02…），要指定才传 index。
+ */
+export function GroupLabel({
+  children,
+  index,
+  note,
+}: {
+  children: ReactNode;
+  index?: string;
+  note?: string;
+}) {
+  return (
+    <div className="k-group">
+      <span className="k-group__row">
+        <span className="k-group__num">{index ?? ''}</span>
+        <h3 className="k-group__title">{children}</h3>
+        <i className="k-group__rule" aria-hidden="true" />
+      </span>
+      {note ? <span className="k-group__note">{note}</span> : null}
+    </div>
+  );
 }
 
 /** 只有文字的钮（BtnText）：页头返回、行尾的「清空」「换一个」。 */
@@ -179,11 +214,24 @@ export function Chip({ children, tone = 'quiet' }: { children: ReactNode; tone?:
   return <span className={`k-chip k-chip--${tone}`}>{children}</span>;
 }
 
-/** 读数（StatTile）：上面一个数、下面一行名。 */
-export function Stat({ value, label, hint }: { value: ReactNode; label: string; hint?: string }) {
+/** 读数（StatTile）：上面一个数、下面一行名。unit 比数小一档，不跟着数一起放大。 */
+export function Stat({
+  value,
+  label,
+  hint,
+  unit,
+}: {
+  value: ReactNode;
+  label: string;
+  hint?: string;
+  unit?: string;
+}) {
   return (
     <div className="k-stat">
-      <span className="k-stat__value">{value}</span>
+      <span className="k-stat__value">
+        {value}
+        {unit ? <span className="k-stat__unit">{unit}</span> : null}
+      </span>
       <span className="k-stat__label">{label}</span>
       {hint ? <span className="k-stat__hint">{hint}</span> : null}
     </div>
@@ -277,5 +325,70 @@ export function Select<T extends string>({
       </select>
       <i aria-hidden="true" />
     </span>
+  );
+}
+
+/**
+ * 图形母题：四个 inline SVG，笔画全走 currentColor，容器给 --w-ramp-* 那一档。
+ * 不用图片、不用图标字体、不加依赖 —— 换配色时它们跟着令牌一起换。
+ */
+
+/** 扫描线：3px 周期的三根横线，压在页头或读数带的底边。 */
+export function MotifScan({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={`motif motif--scan ${className}`.trim()}
+      viewBox="0 0 100 6"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <line x1="0" y1="0.5" x2="100" y2="0.5" />
+      <line x1="0" y1="2.5" x2="100" y2="2.5" />
+      <line x1="0" y1="4.5" x2="100" y2="4.5" />
+    </svg>
+  );
+}
+
+/** 栅格：24px 一格的空场，给「这里还没有东西」的面一层蚀刻底纹。 */
+export function MotifGrid({ size = 24, className = '' }: { size?: number; className?: string }) {
+  const id = `motif-grid-${useId().replace(/:/g, '')}`;
+  return (
+    <svg className={`motif motif--grid ${className}`.trim()} aria-hidden="true">
+      <defs>
+        <pattern id={id} width={size} height={size} patternUnits="userSpaceOnUse">
+          <path d={`M ${size} 0 L 0 0 L 0 ${size}`} />
+        </pattern>
+      </defs>
+      <rect width="100%" height="100%" fill={`url(#${id})`} />
+    </svg>
+  );
+}
+
+/** 角标：一个 10px 的 L，四个拼起来就是一个括号。 */
+export function MotifCorner({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={`motif motif--corner ${className}`.trim()}
+      viewBox="0 0 10 10"
+      aria-hidden="true"
+    >
+      <path d="M0.5 10 L0.5 0.5 L10 0.5" />
+    </svg>
+  );
+}
+
+/** 分隔符：一根发丝线，两端各一颗竖刻度。 */
+export function MotifRule({ className = '' }: { className?: string }) {
+  return (
+    <svg
+      className={`motif motif--rule ${className}`.trim()}
+      viewBox="0 0 100 5"
+      preserveAspectRatio="none"
+      aria-hidden="true"
+    >
+      <line x1="0" y1="2.5" x2="100" y2="2.5" />
+      <line x1="0.5" y1="0.5" x2="0.5" y2="4.5" />
+      <line x1="99.5" y1="0.5" x2="99.5" y2="4.5" />
+    </svg>
   );
 }

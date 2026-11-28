@@ -34,19 +34,45 @@
   gap: var(--w-space-1);
   min-width: 0;
 }
-.ph__eyebrow {
-  display: inline-flex;
+/* 标签轨：页眉下面那条「编号 + 标签 + 发丝线 + 刻度」。
+   它是这套语言里唯一的导航性标记 —— 页面在体系里的位置，用一条蚀刻线说出来。
+   编号按层级给（根页 01、子页 02），标签吃页面自己的眉标，不新造字。 */
+.ph__rail {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
   align-items: center;
-  gap: 7px;
-  font-size: var(--w-size-caption);
-  letter-spacing: 0.08em;
-  color: var(--w-ink-muted);
+  gap: 10px;
+  width: 100%;
+  margin-top: 7px;
+  min-height: 10px;
 }
-.ph__mark {
-  width: 7px;
-  height: 7px;
-  border-radius: 2px;
-  background: var(--w-signal);
+.rail__num {
+  font-family: var(--w-font-num);
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.14em;
+  font-variant-numeric: tabular-nums;
+  color: var(--w-ramp-4);
+}
+.rail__tag {
+  font-size: 8px;
+  line-height: 1;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--w-ramp-4);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 46ch;
+}
+.rail__rule {
+  height: 1px;
+  background: var(--w-ramp-6);
+}
+.rail__end {
+  width: 1px;
+  height: 6px;
+  background: var(--w-ramp-4);
 }
 .ph__title {
   margin: 0;
@@ -131,7 +157,7 @@
   cursor: pointer;
 }
 .k-row--tap:hover .k-row__title {
-  color: var(--w-ink-display);
+  color: var(--w-ramp-1);
 }
 .k-row:disabled {
   opacity: 0.5;
@@ -175,13 +201,57 @@
   margin-right: calc(var(--w-pad-card) * -1);
 }
 
+/* 分组标题 = 编号 + 标题 + 说明（三段）。
+   编号由 CSS 计数器按页面自动给（01、02…），标题后面一条发丝线补满整行 ——
+   这一段在旧版里只是一行灰字，读者分不清「上一组到哪儿结束」。 */
 .k-group {
+  counter-increment: k-group;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
   margin: var(--w-space-4) 0 var(--w-space-2);
-  font-size: var(--w-size-caption);
+}
+.k-group__row {
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+}
+.k-group__num {
+  font-family: var(--w-font-num);
+  font-size: 9px;
+  line-height: 1;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  color: var(--w-ramp-4);
+}
+.k-group__num:empty::before {
+  content: counter(k-group, decimal-leading-zero);
+}
+.k-group__title {
+  margin: 0;
+  font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.1em;
-  color: var(--w-ink-muted);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
+  color: var(--w-ramp-3);
+  white-space: nowrap;
+}
+.k-group__rule {
+  height: 1px;
+  background: var(--w-ramp-6);
+}
+.k-group__note {
+  font-size: var(--w-size-caption);
+  line-height: 1.5;
+  color: var(--w-ramp-4);
+}
+/* 计数器的作用域：一页一张序号表，卡片里另起一张 */
+.screen,
+.section__body,
+.home__body,
+.k-card {
+  counter-reset: k-group;
 }
 
 .k-textbtn {
@@ -497,27 +567,20 @@ body[data-back-chip='1'] .ph--ground .ph__inner {
   font-size: clamp(18px, calc(var(--w-size-title) * 1.06), 26px);
   font-weight: 650;
   letter-spacing: -0.02em;
-}
-.ph__eyebrow {
-  font-size: 11px;
-  letter-spacing: 0.16em;
-  text-transform: none;
-  color: var(--w-ink-faint);
+  color: var(--w-ramp-1);
 }
 .ph__sub {
   font-size: var(--w-size-small);
-  color: var(--w-ink-muted);
+  color: var(--w-ramp-4);
   line-height: 1.5;
   margin-top: 1px;
 }
 
-/* 卡片：一次顶部内高光 + 极浅落影，取代一圈均匀描边。 */
+/* 卡片：1px 描边 + 一个切角（两者都在 glass.css 的 .glass--card 上，这里只给内距）。
+   卡的层次由轮廓、墨阶与留白说 —— 影子一叠，玻璃就又开始像塑料。 */
 .k-card {
   padding: 18px var(--w-pad-card) 16px;
   gap: 14px;
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.05),
-    0 18px 44px -34px rgb(0 0 0 / 0.7);
 }
 .k-card__title {
   font-size: calc(var(--w-size-subhead) * 1.04);
@@ -531,7 +594,8 @@ body[data-back-chip='1'] .ph--ground .ph__inner {
   color: var(--w-ink-muted);
 }
 
-/* 行：目标高度 44，右值右对齐成一条线，箭头退到很浅。 */
+/* 行：目标高度 44，右侧统一成「值 + 箭头」——
+   值右对齐、等宽收紧、前面一道竖发丝线；箭头是两根 1px 线拼的 45° 细箭头，不是字符 ›。 */
 .k-row {
   min-height: 44px;
   padding: 11px 0;
@@ -539,27 +603,46 @@ body[data-back-chip='1'] .ph--ground .ph__inner {
 .k-row__title {
   font-size: calc(var(--w-size-body) * 1.02);
   letter-spacing: -0.005em;
+  color: var(--w-ramp-2);
 }
 .k-row__desc {
   font-size: var(--w-size-caption);
   line-height: 1.6;
+  color: var(--w-ramp-4);
 }
 .k-row__right {
+  display: inline-flex;
+  align-items: center;
   justify-content: flex-end;
-  text-align: right;
+  gap: 6px;
+  padding-left: 12px;
+  border-left: 1px solid var(--w-ramp-6);
+  font-family: var(--w-font-num);
+  font-size: var(--w-size-small);
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
+  color: var(--w-ramp-4);
+  text-align: right;
 }
 .k-row__chev {
-  color: var(--w-ink-faint);
-  opacity: 0.6;
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 8px;
+  border-top: 1px solid var(--w-ramp-4);
+  border-right: 1px solid var(--w-ramp-4);
+  font-size: 0;
+  color: transparent;
+  transform: rotate(45deg);
+  transition: transform 140ms var(--w-ease-out);
+}
+.k-row--tap:hover .k-row__chev {
+  transform: translateX(2px) rotate(45deg);
 }
 
-/* 分组小标题：小、散、离上一块远一点。 */
+/* 分组与上一块的距离：比组内任何一条缝都大，读起来才是一段新的开始。 */
 .k-group {
   margin: 26px 0 10px;
-  font-size: 11px;
-  letter-spacing: 0.18em;
-  color: var(--w-ink-faint);
 }
 
 /* 空态：给足呼吸，出路那句话只留一个重点。 */
@@ -671,4 +754,134 @@ body[data-back-chip='1'] .mg__top {
 
 @media (prefers-reduced-motion: reduce) {
   .toast { animation: none; }
+}
+
+/* ───────── 铜版（2026-11-28）─────────
+   这套语言的三个岗位互不相交：
+   结构线 --w-ramp-6 · 印墨 --w-accent* · 信号 --w-status*（只给状态与读数）。
+   一块面让三者串了岗，整页就开始「有颜色但没意思」。 */
+
+/* 数字：一律等宽、字距收紧。等宽不是排版偏好 —— 读数跳动时数字不横移才读得出来。 */
+.k-stat__value,
+.k-row__right,
+.menu__num,
+.eyebrow,
+.toast__code {
+  font-family: var(--w-font-num);
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum' 1;
+}
+.k-stat__value {
+  letter-spacing: -0.03em;
+  color: var(--w-ramp-1);
+}
+.k-stat__label {
+  color: var(--w-ramp-4);
+}
+.k-stat__hint {
+  color: var(--w-ramp-5);
+}
+/* 单位比数小一档：一个读数里只许有一个重心 */
+.k-stat__unit {
+  margin-left: 3px;
+  font-size: 0.78em;
+  letter-spacing: 0;
+  color: var(--w-ramp-4);
+}
+
+/* 信号色只出现在状态与读数上：进度条、状态牌、警告行、空态出路 */
+.k-bar {
+  height: 4px;
+  border-radius: 0;
+  background: var(--w-ramp-6);
+}
+.k-bar > i {
+  border-radius: 0;
+  background: var(--w-status);
+}
+.k-chip--signal {
+  color: var(--w-status);
+  border-color: var(--w-status-edge);
+}
+.k-textbtn--signal {
+  color: var(--w-status);
+}
+.k-empty__hint {
+  color: var(--w-status);
+}
+
+/* 四角括号：八个 1px 渐变段拼出四个 L 形角标，框住「这一块是重点」。
+   没有图片、没有 SVG 资源，只有 --w-ramp-* 那一档线色。
+   舞台、空态、错误态由这条规则直接框住（它们各自的类不能改，选择器就长在这里）；
+   新页面要框一块区域，加 .brackets 即可。 */
+.brackets::before,
+.mg__stage::after,
+.state::after,
+.k-empty::after {
+  content: '';
+  position: absolute;
+  inset: var(--bracket-inset, 12px);
+  z-index: 4;
+  pointer-events: none;
+  --b: var(--bracket, 14px);
+  --ink: var(--w-ramp-4);
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)),
+    linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)),
+    linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)),
+    linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink));
+  background-size:
+    var(--b) 1px, 1px var(--b),
+    var(--b) 1px, 1px var(--b),
+    var(--b) 1px, 1px var(--b),
+    var(--b) 1px, 1px var(--b);
+  background-position:
+    left top, left top,
+    right top, right top,
+    left bottom, left bottom,
+    right bottom, right bottom;
+  opacity: 0.6;
+}
+.mg__stage::after {
+  --bracket: 18px;
+}
+.state::after,
+.k-empty::after {
+  --ink: var(--w-ramp-5);
+  --bracket-inset: 12px;
+}
+
+/* 图形母题：inline SVG，笔画走 currentColor，容器给 --w-ramp-* 那一档 */
+.motif {
+  display: block;
+  color: var(--w-ramp-4);
+  flex: none;
+}
+.motif--scan {
+  width: 100%;
+  height: 6px;
+  color: var(--w-ramp-6);
+}
+.motif--grid {
+  width: 100%;
+  height: 100%;
+  color: var(--w-ramp-6);
+  opacity: 0.5;
+}
+.motif--rule {
+  width: 100%;
+  height: 5px;
+}
+/* 母题的笔画：一律 1px、一律 currentColor、非缩放 —— 缩放窗口时线还是 1px */
+.motif path,
+.motif line {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+.motif--corner {
+  width: 10px;
+  height: 10px;
 }

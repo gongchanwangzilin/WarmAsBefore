@@ -1,4 +1,4 @@
-import { useEffect, useState, type CSSProperties } from 'react';
+import { useState, type CSSProperties } from 'react';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
@@ -162,25 +162,11 @@ const SEVERITIES = [
   { value: '重度', label: '重度' },
 ];
 
-export function MentalHealth({ bridge, back }: ScreenProps) {
+export function MentalHealth({ back }: ScreenProps) {
   const [securityAi, setSecurityAi] = useState(true);
-  // 安全感是角色身上的一个真实数值（CharacterState.Security）；没有角色或还没设过，就按源码的空态写。
-  const [security, setSecurity] = useState<{ who: string; value: number } | null>(null);
-
-  useEffect(() => {
-    let dropped = false;
-    void bridge
-      .request('characters.list', {})
-      .then(({ characters: rows }) => {
-        if (dropped) return;
-        const first = rows[0];
-        setSecurity(first ? { who: first.name, value: first.affection } : null);
-      })
-      .catch(() => undefined);
-    return () => {
-      dropped = true;
-    };
-  }, [bridge]);
+  // 安全感是角色身上的一个数值（CharacterState.Security）；characters.list 不带这个字段，
+  // 所以一直按源码的空态写 —— 拿好感去冒充安全感比空着更糟。
+  const [security] = useState<{ who: string; value: number } | null>(null);
   const [condition, setCondition] = useState('');
   const [severity, setSeverity] = useState('轻度');
   const [note, setNote] = useState('');

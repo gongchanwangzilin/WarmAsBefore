@@ -153,7 +153,7 @@ export function Usagestats({ back }: ScreenProps) {
             最近 {trendDays} 天：0 次 · 0 tok · 缓存命中 0 tok
           </p>
           <p style={{ ...caption, margin: 0, lineHeight: 1.6 }}>
-            深色段 = 当日走缓存价的输入 token；点柱子看当天明细。
+            深色段 = 当日走缓存价的输入 token。当日明细要等账本接上，现在柱子只是占位。
           </p>
         </Card>
       </div>

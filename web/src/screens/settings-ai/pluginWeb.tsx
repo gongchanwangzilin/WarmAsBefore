@@ -20,8 +20,8 @@ export function PluginWeb({ query, back }: ScreenProps) {
         backText="< 返回"
         right={
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)' }}>
-            <TextBtn onClick={() => setHint(url ? `页面地址：${url}` : '这条入口没带页面地址。')}>刷新</TextBtn>
-            <TextBtn onClick={() => setHint(url ? `页面地址：${url}` : '这条入口没带页面地址。')}>
+            <TextBtn onClick={() => setHint('外框这一层没有宿主 WebView，刷新不了页面；地址在下面。')}>刷新</TextBtn>
+            <TextBtn onClick={() => setHint(url ? `宿主没有开浏览器的门，地址留给你手动打开：${url}` : '这条入口没带页面地址。')}>
               用浏览器打开
             </TextBtn>
           </div>

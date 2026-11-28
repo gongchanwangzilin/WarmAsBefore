@@ -104,7 +104,7 @@ export function AiModels({ bridge, navigate, back }: ScreenProps) {
   const header = (
     <PageHeader
       title="AI 模型管理"
-      subtitle="每款模型单独配上下文窗口与能力；预设一键批量设置，改动自动保存。"
+      subtitle="每款模型单独配上下文窗口与能力；这一页只读——改动要到宿主里做。"
       onBack={selected ? () => setSelectedId(null) : back}
       backText={selected ? '返回列表' : '返回'}
       right={

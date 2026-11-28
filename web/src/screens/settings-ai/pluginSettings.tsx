@@ -70,7 +70,7 @@ export function PluginSettings({ query, back }: ScreenProps) {
       return;
     }
     setInitial({ ...values });
-    setStatus('已保存，下一次用到钩子时生效。');
+    setStatus('只改了这一页的表单：宿主还没有保存插件设置的方法（plugins.settings.save），插件读到的仍是原来那份。');
   };
 
   return (

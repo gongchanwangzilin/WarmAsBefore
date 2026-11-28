@@ -405,9 +405,10 @@ public static class StyleWorldTokens
         //
         // 浅色档反过来了（2026-11-27）：原来 ×1.0，结果整屏米黄/奶咖 —— 页面、卡片、滑杆液体全是同一锅
         // 暖色，用户的原话是「整体还是丑，尤其是配色」。专业产品界面的地面是无彩的纸（chroma≈0），
-        // 颜色只出现在**该出声的地方**（主行动、当前选中、状态）。所以浅色档压到 0.28：
-        // 地面与卡片读成中性纸白/浅灰，世界的性格靠强调色与材质说话，而不是给每块面刷一层奶。
-        var tint = _seed.GroundC * (dark ? 1.2 : 0.28);
+        // 颜色只出现在**该出声的地方**（主行动、当前选中、状态）。所以浅色档压到 0.5：
+        // 地面与卡片读成一张有 2% 暖的白纸 —— 读得出是纸，读不出是奶油。
+        // 深档从 1.2 收到 1.0：1.2 是「棕色纸箱」，纸箱不是这套语言里的纸。
+        var tint = _seed.GroundC * (dark ? 1.0 : 0.5);
 
         // 页面色（设置 → 背景 → 页面色）：只借它的色相与彩度差，明度台阶仍由明暗与 Depth 算出 ——
         // 用户挑的是「一块什么颜色的纸」，不是「一块亮度随意的纸」。
@@ -447,30 +448,29 @@ public static class StyleWorldTokens
 
         // 边：浅色档靠「比卡面沉一档」，深色档靠「比卡面浮一档」——
         // 暗底上画一条更暗的线等于没画，这是深色模式最容易犯的错。
-        // 台阶按「发丝线」标定（对照卡面约 1.1 / 1.3 / 1.7）：再重就变成描边盒子，
-        // 卡与卡之间要靠面和影子分层次，不是靠轮廓线。
-        var line = SinkOrLift(surface, dark, 0.055, 0.055);
-        var seam = SinkOrLift(surface, dark, 0.11, 0.10);
+        // 台阶按「发丝线」标定：这根线现在要独自承担「轮廓」的职责（卡片的 1px 描边、
+        // 标签轨、读数带的分隔、扫描线全靠它），所以从 0.055 抬到 0.10 / 0.075 ——
+        // 0.055 在白卡上只有 1.09:1，等于没画；0.10 落在 1.2:1，是能读出来的一条蚀刻线。
+        var line = SinkOrLift(surface, dark, 0.10, 0.075);
+        var seam = SinkOrLift(surface, dark, 0.16, 0.13);
         var edge = SinkOrLift(surface, dark, 0.21, 0.18);
 
-        // 强调色：色相与彩度都跟着色板自己的 AccentWarm（地面只借色相，不抢强调的位置）。
-        // 深档的明度钉在 0.37 而不是更高：这是「白字压在强调面上」能到 5:1 的上限位置——
-        // 再亮一档，纯白也压不住，Lock 会饱和在 4.7。
-        // 强调色在浅档原来钉在 L 0.80 —— 那是一个「奶油」，不是颜色：滑杆液体、选中行、信号块
-        // 全被它染成同一锅泥。改成 0.66 并把彩度提一档：它现在读起来是一个明确的色相，
-        // 而不再是「偏黄的白」。
-        var accent = Tint(_seed.AccentH, _seed.AccentC * (dark ? 1.5 : 1.35), dark ? 0.37 : 0.66);
-        // 强调面上的字：浅档的强调是淡奶油，字必须往黑沉；深档的强调是中调，字往白提。
-        // 方向写反时 Lock 也会把对比补齐，结果就是「白底上的字被推到灰、看着像禁用」，所以方向要自己对。
-        var accentInk = Lock(SinkOrLift(accent, dark, 0.74, 0.72), accent, 5.0);
+        // 印墨（赭）：色相跟着色板自己的 AccentWarm，彩度从它的彩度差推、明度当场钉住。
+        // 它与旧版「强调色」的唯一区别是**职责**：这颗色既当填充（按钮、选中块），也当墨
+        // （小字、图形笔画、当前项），所以它对卡面必须过 4.5 —— 旧版钉在 L 0.66 的浅档只有
+        // 2:1，等于把「警告」「当前」「可点」全写成看不见。浅档沉到 0.44、深档提到 0.60，
+        // 方向永远跟着纸走：亮纸上用深墨，暗纸上用亮墨。
+        var accent = Lock(Hsl(_seed.AccentH, Math.Clamp(_seed.AccentC * (dark ? 1.6 : 1.5), 0.34, 0.58),
+            dark ? 0.60 : 0.44), surface, dark ? 4.8 : 4.95);
+        // 印墨面上的字：方向与纸相反（浅档的赭是深色 → 字提白；深档的赭是亮色 → 字压黑）。
+        // 方向写反时 Lock 会一路饱和到纯白或纯黑，结果就是「看得见但脏」。
+        var accentInk = Lock(dark ? Sink(accent, 0.78) : Lift(accent, 0.90), accent, 5.0);
 
-        // 档案室的信号色：黄铜 / 琥珀（钉死色相 40°）。这间屋子里唯一的饱和物是那盏
-        // 黄铜台灯与桌面的印章 —— 信号色跟着色板换五种，就不叫信号了（沿用旧版钉靛紫的逻辑）。
-        // 端末地色板本来就是黄强调，因此五套色板在这里第一次指向同一个「档案室」性格。
-        var isEndfield = string.Equals(themeKey, "endfield", StringComparison.OrdinalIgnoreCase);
-        var signal = isEndfield
-            ? Lock(Hsl(_seed.AccentH, 0.95, dark ? 0.62 : 0.40), surface, dark ? 5.0 : 4.8)
-            : Lock(Hsl(38, 0.85, dark ? 0.60 : 0.42), surface, dark ? 5.0 : 4.8);
+        // 信号色（铜绿，色相钉死 168°）：与印墨**正交**的那一颗。
+        // 印墨是纸上的字，信号是仪表上的读数 —— 它只出现在状态、进度、HUD 读数与图表活性值上，
+        // 不做装饰、不做卡片底色。全站唯一允许拿来当小字颜色的饱和色，
+        // 所以它对卡面的目标是 4.95 而不是状态色那一档的 3.2：读数是给人读的，不是给人看的。
+        var signal = Lock(Hsl(168, dark ? 0.32 : 0.44, dark ? 0.66 : 0.34), surface, dark ? 4.8 : 4.95);
 
         PublishColors(res, page, surface, well, inkDisplay, inkBody, inkLabel, inkMuted, inkFaint,
             seam, edge, line, accent, accentInk, signal, dark);
@@ -523,6 +523,12 @@ public static class StyleWorldTokens
         res["ShadowDim"] = seam;
         res["ShadowDeep"] = dark ? Sink(surface, 0.55) : Sink(surface, 0.24);
         res["ShadowLight"] = dark ? Lift(surface, 0.10) : Lift(surface, 0.30);
+
+        // 墨阶的**起点**（前端 lib/ink.ts 从这里往两极混出五档对比：9 / 7.6 / 6.4 / 5 / 3.1）。
+        // 起点必须落在中间档：拿 inkDisplay 当起点时它自己已经超过 9:1，五个目标全部在「混 0 步」
+        // 就达标，五档于是落在同一颗色上 —— 六级墨塌成一级，这就是「整页一个重量」的根因。
+        // 取显示墨与发丝线的中点（约 3.5:1），两侧都留出余量。
+        res["InkMid"] = Mix(inkDisplay, line, 0.5);
 
         // 强调与功能色
         res["AccentWarm"] = accent;

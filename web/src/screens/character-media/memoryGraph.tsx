@@ -197,13 +197,13 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
           <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 6, maxWidth: 520 }}>
             <GhostSm onClick={() => { setPan({ x: 0, y: 0 }); setZoom(1); }}>重播生长</GhostSm>
             <GhostSm onClick={() => { setPan({ x: 0, y: 0 }); setZoom(1); }}>铺满屏幕</GhostSm>
-            <GhostSm>跳到一个说法</GhostSm>
+            <GhostSm disabled>跳到一个说法</GhostSm>
             <GhostSm onClick={() => navigate('/memorySearch')}>搜事件</GhostSm>
             <GhostSm onClick={() => togglePanel('params')}>参数模型</GhostSm>
             <GhostSm onClick={() => togglePanel('quant')}>量化模型</GhostSm>
             <GhostSm onClick={() => togglePanel('think')}>思考模型</GhostSm>
             <GhostSm onClick={() => togglePanel('json')}>JSON</GhostSm>
-            <TextSm>重新摊网</TextSm>
+            <TextSm disabled>重新摊网</TextSm>
           </div>
         }
       />
@@ -412,9 +412,9 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
                 {selectedNode.kind === 'memory' ? selectedNode.label : DETAIL_TEXT[selectedNode.kind]}
               </span>
               <div style={{ display: 'flex', gap: 'var(--w-space-1)', marginTop: 2, flexWrap: 'wrap' }}>
-                <GhostSm>钉住它</GhostSm>
-                <GhostSm>和它连…</GhostSm>
-                <GhostSm style={{ color: 'var(--w-signal)' }}>忘掉</GhostSm>
+                <GhostSm disabled>钉住它</GhostSm>
+                <GhostSm disabled>和它连…</GhostSm>
+                <GhostSm disabled style={{ color: 'var(--w-signal)' }}>忘掉</GhostSm>
               </div>
               <div style={{ height: 1, background: 'var(--w-hairline)', margin: '4px 0' }} />
               <Cap>身上的联系（点一条过去看）</Cap>
@@ -445,8 +445,8 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
               </div>
               <Cap>点枝（不是点疙瘩）能选中一条联系，然后调弱或断开。</Cap>
               <div style={{ display: 'flex', gap: 'var(--w-space-1)' }}>
-                <GhostSm>调弱这条</GhostSm>
-                <GhostSm style={{ color: 'var(--w-signal)' }}>断开这条</GhostSm>
+                <GhostSm disabled>调弱这条</GhostSm>
+                <GhostSm disabled style={{ color: 'var(--w-signal)' }}>断开这条</GhostSm>
               </div>
             </div>
           ) : null}
@@ -468,7 +468,7 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
                 {recall || '先在网里点一个点，这里就按当前参数算给它看。'}
               </span>
               <div style={{ display: 'flex', gap: 'var(--w-space-1)' }}>
-                <PrimarySm>存成 TA 的联想方式</PrimarySm>
+                <PrimarySm disabled>存成 TA 的联想方式</PrimarySm>
                 <GhostSm onClick={() => setParams(DEFAULT_PARAMS)}>回到默认</GhostSm>
               </div>
               <Cap>存了之后，聊天时检索记忆也按这套参数走 —— 不只是画面变了。</Cap>
@@ -487,7 +487,7 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
                   ? '数值上没找到像的：这个说法还没攒够语境。多聊几轮再来看。'
                   : '先在网里点一个点（或一段记得的事），这里就列出数值上最接近它的一批说法。'}
               </Cap>
-              <PrimarySm>整张网按数值再织一遍</PrimarySm>
+              <PrimarySm disabled>整张网按数值再织一遍</PrimarySm>
               <Cap>
                 「牵上」= 把这一对按数值落一条线；「再织一遍」= 让模型把所有挨得近又没连上的对子都补一遍（贵，按一次就好）。
               </Cap>
@@ -501,7 +501,7 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
               </Cap>
               <PickerPlaceholder title="选一个模型" />
               <div style={{ display: 'flex', gap: 'var(--w-space-1)', flexWrap: 'wrap' }}>
-                <PrimarySm>读网出建议</PrimarySm>
+                <PrimarySm disabled>读网出建议</PrimarySm>
               </div>
               <Cap>先在设置里填一个对话模型，这里才有得选。</Cap>
             </Panel>

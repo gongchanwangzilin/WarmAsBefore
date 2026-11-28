@@ -108,7 +108,7 @@ export function SceneCalibrationPage({ back }: ScreenProps) {
             </p>
           ) : null}
           <Actions end>
-            <TextBtn onClick={() => setStatus('已清空所有标定几何')}>清空重标</TextBtn>
+            <TextBtn onClick={() => setStatus('画布归宿主画，这里没有可清的几何：标定要等场景标定接上')}>清空重标</TextBtn>
             <SignalButton disabled={missing.length > 0}>完成标定</SignalButton>
           </Actions>
         </Card>

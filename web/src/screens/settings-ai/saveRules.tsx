@@ -1,4 +1,5 @@
-import { useState, type CSSProperties, type ReactNode } from 'react';
+import { useCallback, useEffect, useState, type CSSProperties, type ReactNode } from 'react';
+import type { SaveRules as SaveRulesPayload, SaveRulesEdit } from '../../bridge/protocol';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
@@ -14,33 +15,7 @@ const SECTION_TITLE: CSSProperties = {
 };
 
 type RuleItem = { id: string; name: string; hint?: string; allowed: boolean };
-
-/** 内置工具（ToolManager.RegisterBuiltin 的名字与说明），顺序即注册顺序里最常用的那几条。 */
-const TOOLS: RuleItem[] = [
-  { id: 'get_state', name: 'get_state', hint: '获取当前游戏状态（角色、好感、精力、所在地点）', allowed: true },
-  { id: 'send_message', name: 'send_message', hint: '向游戏里的角色发送一条消息', allowed: true },
-  { id: 'set_sprite', name: 'set_sprite', hint: '设置角色立绘：参数为 "位置[,x,y]" 或 "opacity:0.5" 形式', allowed: true },
-  { id: 'animate', name: 'animate', hint: '播放立绘动画：sink(下沉) / jump(跳跃) / shake(颤抖)', allowed: true },
-  { id: 'scene_list', name: 'scene_list', hint: '列出当前可用场景选项（带编号）', allowed: true },
-  { id: 'scene_set', name: 'scene_set', hint: '按编号应用一个场景选项', allowed: true },
-  {
-    id: 'memory_chain',
-    name: 'memory_chain',
-    hint: '从一条线索沿字词、时间、共同经历扩散，找回一串相关的记忆（默认 5 条，新的/更相似的在前）。',
-    allowed: true,
-  },
-  {
-    id: 'send_to_user',
-    name: 'send_to_user',
-    hint: '给用户真的发一条消息到他的手机上（QQ 私聊），不是游戏里的对话。',
-    allowed: true,
-  },
-];
-
-type Character = { id: string; name: string; libidoHint: string };
-
-/** 这一档里的角色来自 CharacterLibrary.ListAsync()，Web 端读不到，就一个也不列。 */
-const CHARACTERS: Character[] = [];
+type Character = { id: string; name: string; isMain: boolean };
 
 /** 一组白名单的抬头：一行小标题，下面才是 CardGroup。 */
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -55,27 +30,118 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 /**
  * 存档高级设置（Views/Settings/SaveRulesPage.xaml，315 行）+ SaveRulesViewModel.cs。
  * 这一份存档能用哪些插件 / 工具 / 角色、主角是谁、用哪套世界观、性欲系统点名了谁。
- * 存档规则由 SaveManager 读写，Web 端没有对应 method，勾选与开关停在本地状态；
- * 存档标签（SaveLabel）与角色清单也读不到，角色栏就照源码说「角色库里还没有别的角色。」。
+ *
+ * 白名单由 SaveManager.LoadRulesAsync / SaveRulesAsync 读写（save.rules.get / save.rules.set），
+ * 与原生那一页同一份落盘；换档就换一套。世界观与「这一档的主角」还没接桥，只读出当前值，不给点了没动静的钮。
  */
-export function SaveRules({ back }: ScreenProps) {
+export function SaveRules({ bridge, query, back }: ScreenProps) {
+  const saveId = query.get('id') ?? '';
+
+  const [data, setData] = useState<SaveRulesPayload | null>(null);
+  const [loadError, setLoadError] = useState('');
+  const [ticket, setTicket] = useState(0);
   const [allowAllPlugins, setAllowAllPlugins] = useState(true);
   const [allowAllTools, setAllowAllTools] = useState(true);
   const [allowAiInstallPlugins, setAllowAiInstallPlugins] = useState(false);
   const [allowAllCharacters, setAllowAllCharacters] = useState(true);
-  const [worldviewCrossSave, setWorldviewCrossSave] = useState(true);
-  const [tools, setTools] = useState(TOOLS);
-  const [characters, setCharacters] = useState(CHARACTERS.map((item) => ({ ...item, allowed: true, participates: false })));
-  const [status, setStatus] = useState(`插件 0 个 · 工具 ${TOOLS.length} 个 · 角色 ${CHARACTERS.length} 个。`);
+  const [worldviewCrossSave] = useState(true);
+  const [plugins, setPlugins] = useState<RuleItem[]>([]);
+  const [tools, setTools] = useState<RuleItem[]>([]);
+  const [characters, setCharacters] = useState<Character[]>([]);
+  const [characterAllowed, setCharacterAllowed] = useState<Record<string, boolean>>({});
+  const [status, setStatus] = useState('');
+  const [saving, setSaving] = useState(false);
 
+  const read = useCallback(
+    async (id: string) => {
+      try {
+        const payload = await bridge.request('save.rules.get', id ? { id } : {});
+        const rules = payload.rules;
+        setData(payload);
+        setLoadError('');
+        setAllowAllPlugins(rules.allowAllPlugins);
+        setAllowAllTools(rules.allowAllTools);
+        setAllowAiInstallPlugins(rules.allowAiInstallPlugins);
+        setAllowAllCharacters(rules.allowAllCharacters);
+        setPlugins(
+          payload.plugins.map((p) => ({
+            id: p.id,
+            name: p.name,
+            hint: `v${p.version} · ${p.enabled ? '已启用' : '已停用'}`,
+            allowed: rules.allowAllPlugins || (rules.allowedPlugins ?? []).some((x) => x.toLowerCase() === p.id.toLowerCase()),
+          })),
+        );
+        setTools(
+          payload.tools.map((t) => ({
+            id: t.name,
+            name: t.name,
+            hint: t.description,
+            allowed: rules.allowAllTools || (rules.allowedTools ?? []).some((x) => x.toLowerCase() === t.name.toLowerCase()),
+          })),
+        );
+        setCharacters(payload.characters.map((c) => ({ id: c.id, name: c.name, isMain: c.main })));
+        setCharacterAllowed(
+          Object.fromEntries(
+            payload.characters.map((c) => [
+              c.id,
+              rules.allowAllCharacters || rules.allowedCharacters.some((x) => x.toLowerCase() === c.id.toLowerCase()),
+            ]),
+          ),
+        );
+        setStatus(
+          `插件 ${payload.plugins.length} 个 · 工具 ${payload.tools.length} 个 · 角色 ${payload.characters.length} 个。`,
+        );
+      } catch (cause) {
+        setLoadError(cause instanceof Error ? cause.message : '这份存档的规则没有应答。');
+        setData(null);
+      }
+    },
+    [bridge],
+  );
+
+  useEffect(() => {
+    let dropped = false;
+    void read(saveId).then(() => {
+      if (dropped) return;
+    });
+    return () => {
+      dropped = true;
+    };
+  }, [read, saveId, ticket]);
+
+  const togglePlugin = (id: string) =>
+    setPlugins((prev) => prev.map((item) => (item.id === id ? { ...item, allowed: !item.allowed } : item)));
   const toggleTool = (id: string) =>
     setTools((prev) => prev.map((item) => (item.id === id ? { ...item, allowed: !item.allowed } : item)));
   const toggleCharacter = (id: string) =>
-    setCharacters((prev) => prev.map((item) => (item.id === id ? { ...item, allowed: !item.allowed } : item)));
-  const toggleLibido = (id: string) =>
-    setCharacters((prev) => prev.map((item) => (item.id === id ? { ...item, participates: !item.participates } : item)));
+    setCharacterAllowed((prev) => ({ ...prev, [id]: !prev[id] }));
+
+  /** 保存：整份白名单写回这一档；宿主回 false 就不会走到这里（应答直接失败）。 */
+  const save = async () => {
+    if (saving) return;
+    setSaving(true);
+    const allowedCharacters = allowAllCharacters ? [] : characters.filter((c) => characterAllowed[c.id]).map((c) => c.id);
+    const rules: SaveRulesEdit = {
+      allowAllPlugins,
+      allowAllTools,
+      allowAiInstallPlugins,
+      allowAllCharacters,
+      allowedCharacters,
+      allowedPlugins: plugins.filter((p) => p.allowed).map((p) => p.id),
+      allowedTools: tools.filter((t) => t.allowed).map((t) => t.id),
+    };
+    try {
+      await bridge.request('save.rules.set', saveId ? { id: saveId, rules } : { rules });
+      setStatus('已保存。下次进入这个存档时生效；AI 安装插件的开关同样跟着存档走。');
+    } catch (cause) {
+      setStatus('保存失败：' + (cause instanceof Error ? cause.message : '宿主没有应答。'));
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const worldviews = 0;
+  const mainName = characters.find((c) => c.isMain)?.name ?? '';
 
   return (
     <PageShell>
@@ -86,15 +152,31 @@ export function SaveRules({ back }: ScreenProps) {
           <p style={{ ...CAPTION, margin: 0 }}>
             这些白名单只属于这一份存档：换档就换一套。插件与工具被关掉时不会执行；角色白名单决定 AI 能在这份存档里让谁出场。
           </p>
+          {data?.label ? <p style={{ ...CAPTION, margin: 0 }}>{data.label}</p> : null}
         </div>
+
+        {loadError ? (
+          <Card>
+            <div className="sc-empty">
+              <span>存档规则读不出来</span>
+              <small>{loadError}</small>
+              <button
+                type="button"
+                className="k-textbtn"
+                style={{ color: 'var(--w-signal)' }}
+                onClick={() => setTicket((n) => n + 1)}
+              >
+                重试
+              </button>
+            </div>
+          </Card>
+        ) : null}
 
         <Card>
           <Row
             title="允许全部插件"
             desc="关掉后，只有下面勾选的插件能在这份存档里跑"
-            right={
-              <GlassSwitch label="允许全部插件" checked={allowAllPlugins} onChange={setAllowAllPlugins} />
-            }
+            right={<GlassSwitch label="允许全部插件" checked={allowAllPlugins} onChange={setAllowAllPlugins} />}
           />
           <Sep />
           <Row
@@ -118,7 +200,27 @@ export function SaveRules({ back }: ScreenProps) {
 
         <Section title="可以运行的插件">
           <Card>
-            <p style={{ ...CAPTION, margin: 0 }}>还没有装插件。插件中心可以从 zip / 文件夹安装，也可以让工坊写一个。</p>
+            {plugins.length === 0 ? (
+              <p style={{ ...CAPTION, margin: 0 }}>还没有装插件。插件中心可以从 zip / 文件夹安装，也可以让工坊写一个。</p>
+            ) : (
+              plugins.map((plugin, index) => (
+                <div key={plugin.id}>
+                  {index > 0 ? <Sep /> : null}
+                  <Row
+                    title={plugin.name}
+                    desc={plugin.hint}
+                    right={
+                      <GlassSwitch
+                        label={plugin.name}
+                        checked={plugin.allowed}
+                        onChange={() => togglePlugin(plugin.id)}
+                        disabled={allowAllPlugins}
+                      />
+                    }
+                  />
+                </div>
+              ))
+            )}
           </Card>
         </Section>
 
@@ -149,15 +251,12 @@ export function SaveRules({ back }: ScreenProps) {
             <p style={{ ...CAPTION, margin: 0 }}>
               主角只属于这份存档：换个档可以从另一个人开始，角色库本身不记谁是主角。
             </p>
-            {characters.map((character) => (
-              <div key={character.id}>
+            {mainName ? (
+              <>
                 <Sep />
-                <Row
-                  title={character.name}
-                  onClick={() => setStatus(`${character.name} 成了这一档的主角。`)}
-                />
-              </div>
-            ))}
+                <Row title={mainName} desc="这一档的主角" />
+              </>
+            ) : null}
           </Card>
         </Section>
 
@@ -178,7 +277,7 @@ export function SaveRules({ back }: ScreenProps) {
                   right={
                     <GlassSwitch
                       label={character.name}
-                      checked={character.allowed}
+                      checked={Boolean(characterAllowed[character.id])}
                       onChange={() => toggleCharacter(character.id)}
                       disabled={allowAllCharacters}
                     />
@@ -201,7 +300,7 @@ export function SaveRules({ back }: ScreenProps) {
               }
               right={
                 worldviews > 0 ? (
-                  <GlassSwitch label="世界观改动跨存档生效" checked={worldviewCrossSave} onChange={setWorldviewCrossSave} />
+                  <GlassSwitch label="世界观改动跨存档生效" checked={worldviewCrossSave} onChange={() => undefined} />
                 ) : undefined
               }
             />
@@ -228,15 +327,7 @@ export function SaveRules({ back }: ScreenProps) {
                 <Sep />
                 <Row
                   title={character.name}
-                  desc={character.libidoHint}
-                  right={
-                    <GlassSwitch
-                      label={character.name}
-                      checked={character.participates}
-                      onChange={() => toggleLibido(character.id)}
-                      disabled
-                    />
-                  }
+                  right={<GlassSwitch label={character.name} checked={false} onChange={() => undefined} disabled />}
                 />
               </div>
             ))}
@@ -246,13 +337,7 @@ export function SaveRules({ back }: ScreenProps) {
 
         <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)', lineHeight: 1.6 }}>{status}</span>
         <div>
-          <SignalButton
-            onClick={() =>
-              setStatus('已保存。下次进入这个存档时生效；AI 安装插件的开关同样跟着存档走。')
-            }
-          >
-            保存这份存档的规则
-          </SignalButton>
+          <SignalButton onClick={() => void save()}>保存这份存档的规则</SignalButton>
         </div>
       </div>
     </PageShell>

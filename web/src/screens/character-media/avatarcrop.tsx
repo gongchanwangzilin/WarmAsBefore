@@ -57,7 +57,7 @@ export function Avatarcrop({ back }: ScreenProps) {
             {showGrid ? '隐藏网格' : '显示网格'}
           </GhostSm>
           <span style={{ flex: 1, textAlign: 'center', fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)' }}>
-            拖动取景 · 滚轮 / 双指缩放
+            原图由宿主给：这一版还没有取图与缩放通路
           </span>
         </div>
 

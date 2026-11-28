@@ -65,7 +65,7 @@ function editSettings(edit: Params<'settings.set'>): void {
 }
 
 const handlers = {
-  'ui.tokens': () => ({ tokens: MOCK_TOKENS, theme: 'dark' as const }),
+  'ui.tokens': () => ({ tokens: MOCK_TOKENS, theme: 'light' as const }),
   'settings.get': () => ({
     values: mockFaults.empty ? null : store.values,
     save: mockFaults.empty ? null : store.save,

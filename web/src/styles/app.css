@@ -320,11 +320,34 @@ ol {
   color: var(--w-ink-muted);
 }
 
-/* 组标题：小字灰标（「常驻」「全部设置」） */
+/* 组标题 = 编号 + 标题 + 发丝线（「常驻」「全部设置」）：
+   编号由 CSS 计数器自动给，线补满整行 —— 分组在这套语言里是「一条蚀刻刻度」，
+   不是一行飘在卡片上方的灰字。 */
 .group {
-  margin: 10px 0 0 4px;
-  font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  counter-increment: k-group;
+  display: grid;
+  grid-template-columns: auto auto 1fr;
+  align-items: center;
+  gap: 10px;
+  margin: 18px 0 2px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--w-ramp-3);
+}
+.group::before {
+  content: counter(k-group, decimal-leading-zero);
+  font-family: var(--w-font-num);
+  font-size: 9px;
+  letter-spacing: 0.12em;
+  font-variant-numeric: tabular-nums;
+  color: var(--w-ramp-4);
+}
+.group::after {
+  content: '';
+  height: 1px;
+  background: var(--w-ramp-6);
 }
 
 .list {
@@ -1282,11 +1305,12 @@ body {
   letter-spacing: 0.12em;
 }
 
-/* 页头下面不再是 1px 硬线，而是一条 10px 的渐隐——内容从它下面滑过。 */
+/* 页头下沿：一条 1px 发丝线（扫描线在它上面，见 .ph__scan）。
+   旧版那条 10px 的渐隐灰带在深纸上会亮成一条雾，纸上没有这种过渡 —— 这条语言里分区只靠线。 */
 .ph--bar::after {
-  height: 10px;
-  background: linear-gradient(to bottom, var(--w-hairline), transparent);
-  opacity: 0.9;
+  height: 1px;
+  background: var(--w-ramp-6);
+  opacity: 1;
 }
 .ph--ground::after {
   display: none;
@@ -1382,4 +1406,215 @@ a {
   content-visibility: auto;
   /* auto 关键字：量过的高度记住，滚动条不会因为「跳过 → 量到」来回跳 */
   contain-intrinsic-size: auto 220px;
+}
+
+/* ───────── 铜版：视图规则（2026-11-28）─────────
+   四条：主界面舞台顶部一条 HUD 读数带；设置页分组是「编号 + 标题 + 说明」；
+   列表行右侧统一成「值 + 箭头」；关键区域（舞台、空态）用四角括号框住。
+   色只有三个岗位：结构线 --w-ramp-6、印墨 --w-accent*、信号 --w-status*。 */
+
+/* ── 一、HUD 读数带 ──────────────────────────────────────────────
+   .mg__top 从「一排小卡片」改成一条仪表带：单元之间一道竖发丝线，
+   标签 8px 大写、读数等宽收紧，底边一条 3px 周期的扫描线，两端各一个角标。
+   选择器带 .world 前缀：屏幕自己的 main.css 是后加载的，同权重会被它盖掉。 */
+.world .mg__top.glass {
+  border-radius: 0;
+}
+.world .mg__top > .glass__content {
+  height: 58px;
+  gap: 0;
+  padding: 0 var(--w-pad-card);
+}
+.world .mg__top .mg__top-widgets {
+  gap: 0;
+}
+.world .mg__top .mg__w {
+  gap: 2px;
+  padding: 0 16px;
+  border-left: 1px solid var(--w-ramp-6);
+}
+.world .mg__top .mg__w:first-child {
+  padding-left: 2px;
+  border-left: 0;
+}
+.world .mg__top .mg__w-title {
+  font-size: 8px;
+  line-height: 12px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--w-ramp-4);
+}
+.world .mg__top .mg__w-value {
+  font-family: var(--w-font-num);
+  font-size: 15px;
+  line-height: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--w-ramp-1);
+}
+.world .mg__top .mg__w-value--clock {
+  font-size: 21px;
+  line-height: 22px;
+  letter-spacing: -0.03em;
+}
+.world .mg__top-actions {
+  gap: 4px;
+  padding-left: 14px;
+  border-left: 1px solid var(--w-ramp-6);
+}
+/* 读数带底边：扫描线。它替代了旧版那条 16px 的圆角收边，也替掉了一条硬分隔线。 */
+.world .mg__top::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 3;
+  height: 3px;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    to bottom,
+    var(--w-ramp-6) 0 1px,
+    transparent 1px 3px
+  );
+  opacity: 0.9;
+}
+/* 两端角标：读数带的起止，不用圆角去「包围」。 */
+.world .mg__top::before {
+  content: '';
+  position: absolute;
+  inset: 7px var(--w-pad-card);
+  z-index: 3;
+  pointer-events: none;
+  --b: 10px;
+  --ink: var(--w-ramp-4);
+  background-repeat: no-repeat;
+  background-image:
+    linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink)),
+    linear-gradient(var(--ink), var(--ink)), linear-gradient(var(--ink), var(--ink));
+  background-size: var(--b) 1px, 1px var(--b), var(--b) 1px, 1px var(--b);
+  background-position: left top, left top, right top, right top;
+  opacity: 0.55;
+}
+
+/* ── 二、列表行右侧 = 值 + 箭头 ─────────────────────────────── */
+.l-row__summary {
+  font-family: var(--w-font-num);
+  font-size: var(--w-size-caption);
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+  color: var(--w-ramp-4);
+}
+.l-row__chev {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  margin-left: 2px;
+  border-top: 1px solid var(--w-ramp-4);
+  border-right: 1px solid var(--w-ramp-4);
+  font-size: 0;
+  color: transparent;
+  transform: rotate(45deg);
+  transition:
+    transform 140ms var(--w-ease-out),
+    border-color 140ms var(--w-ease-out);
+}
+.l-row:hover .l-row__chev {
+  transform: translateX(2px) rotate(45deg);
+}
+.l-row__title {
+  color: var(--w-ramp-1);
+}
+
+/* ── 状态：信号色只管状态，不做装饰 ─────────────────────────── */
+.s-warn,
+.cap--warn {
+  color: var(--w-status);
+}
+.section__mark {
+  background: var(--w-accent);
+  border-radius: 0;
+}
+.swatch[aria-pressed='true']::after {
+  border-color: var(--w-accent);
+}
+.swatch__fill {
+  border-radius: 0;
+}
+.swatch {
+  border-radius: 0;
+}
+.toast[data-kind='success'] .toast__glyph,
+.toast[data-kind='warn'] .toast__glyph,
+.toast[data-kind='error'] .toast__glyph {
+  color: var(--w-status);
+}
+
+/* ── 页头两档：标题压到一级墨，发丝线只留一根 ───────────────── */
+.bar--plain {
+  padding: 16px var(--w-pad-page) 10px;
+}
+.bar__title {
+  color: var(--w-ramp-1);
+}
+.bar__back {
+  color: var(--w-ramp-4);
+}
+.menu__label {
+  color: var(--w-ramp-1);
+}
+.menu__num {
+  color: var(--w-ramp-5);
+}
+
+/* ── 页头的骨架：标题与标签轨同列 ─────────────────────────────── */
+.bar__body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.ph__scan,
+.bar__scan {
+  margin-top: 6px;
+  height: 4px;
+  opacity: 0.8;
+}
+
+/* ── 六个墨级落到具体文字上 ──────────────────────────────────────
+   --w-ramp-1 标题 / --w-ramp-2 正文 / --w-ramp-3 标签 /
+   --w-ramp-4 说明 / --w-ramp-5 刻度 / --w-ramp-6 线。 */
+.eyebrow,
+.brand__latin {
+  color: var(--w-ramp-5);
+}
+.brand__latin {
+  letter-spacing: 0.28em;
+}
+.brand__name,
+.hero__tagline,
+.recent__name,
+.state__title,
+.s-card__title,
+.section__title,
+.home__title {
+  color: var(--w-ramp-1);
+}
+.foot__name,
+.s-row__title {
+  color: var(--w-ramp-2);
+}
+.foot__desc,
+.recent__scene,
+.s-card__note,
+.section__desc,
+.home__sub,
+.cap {
+  color: var(--w-ramp-4);
+}
+.eyebrow,
+.menu__num,
+.state__detail {
+  font-variant-numeric: tabular-nums;
 }

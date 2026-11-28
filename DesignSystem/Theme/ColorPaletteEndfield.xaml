@@ -2,81 +2,83 @@
 <ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
 
-    <!-- ============ 终末地主题 Endfield ============ -->
-    <!-- 终末地 / Endfield：深灰工业面板 + 终末地黄强调；深/浅档由 StyleWorld 自动推导 -->
-    <!-- 奶油色 / Cream Base -->
-    <Color x:Key="Cream50">#F6F7F4</Color>
-    <Color x:Key="Cream100">#ECEDE8</Color>
-    <Color x:Key="Cream150">#E4E5E0</Color>
-    <Color x:Key="Cream200">#D3D4CF</Color>
-    <Color x:Key="Cream250">#C6C7C2</Color>
-    <Color x:Key="Cream300">#B3B4AF</Color>
+    <!-- ============ 铜版色板 Copperplate ============ -->
+    <!-- 这套色板只提供**种子**：地面的色相与彩度、印墨（赭）的色相、三个状态色的方向。
+         明度台阶、墨阶、强调色、信号色的最终值都由 StyleWorld.Publish 现算并写回同名键，
+         所以这里写成什么样，界面不会直接显示成什么样 —— 它是「这张纸是什么颜色的纸、这层墨是什么颜色的墨」。
+         唯一的例外是深色档的种子：ReadSeed 只读这些值一次，之后色板再被覆盖也不影响。 -->
+    <!-- 性格：中性的纸 + 赭石印墨 + 铜绿读数。纸只留 2% 的暖，暖全部交给主色。 -->
 
-    <!-- 米白色 / Off-White Base -->
-    <Color x:Key="OffWhite50">#FAFBF8</Color>
-    <Color x:Key="OffWhite100">#F4F5F1</Color>
-    <Color x:Key="OffWhite200">#ECEDE8</Color>
-    <Color x:Key="OffWhite300">#E0E1DC</Color>
+    <!-- 纸：暖白，色相 40°、彩度差 0.047（正好够读成「纸」，不够读成「奶油」） -->
+    <Color x:Key="Cream50">#FBF8F3</Color>
+    <Color x:Key="Cream100">#F7F2E9</Color>
+    <Color x:Key="Cream150">#F3EDE2</Color>
+    <Color x:Key="Cream200">#EDE7DB</Color>
+    <Color x:Key="Cream250">#E7DFD1</Color>
+    <Color x:Key="Cream300">#DED5C4</Color>
 
-    <!-- 米黄色 / Beige Base -->
-    <Color x:Key="Beige50">#F6F7F4</Color>
-    <Color x:Key="Beige100">#E7E8E2</Color>
-    <Color x:Key="Beige150">#DEDFDA</Color>
-    <Color x:Key="Beige200">#D3D4CF</Color>
-    <Color x:Key="Beige250">#C6C7C2</Color>
-    <Color x:Key="Beige300">#B3B4AF</Color>
+    <Color x:Key="OffWhite50">#FDFBF7</Color>
+    <Color x:Key="OffWhite100">#F9F6F0</Color>
+    <Color x:Key="OffWhite200">#F4F0E8</Color>
+    <Color x:Key="OffWhite300">#ECE6DB</Color>
 
-    <!-- 暖中性色 / Warm Neutrals -->
-    <Color x:Key="WarmWhite">#F4F4F4</Color>
-    <Color x:Key="WarmDark">#121212</Color>
-    <Color x:Key="WarmBody">#4A4A46</Color>
-    <Color x:Key="WarmMuted">#777777</Color>
-    <Color x:Key="WarmFaint">#A9A9A9</Color>
+    <Color x:Key="Beige50">#FAF7F1</Color>
+    <Color x:Key="Beige100">#F4EFE5</Color>
+    <Color x:Key="Beige150">#EFE8DC</Color>
+    <Color x:Key="Beige200">#E8E0D2</Color>
+    <Color x:Key="Beige250">#DFD5C3</Color>
+    <Color x:Key="Beige300">#D2C7B2</Color>
 
-    <!-- 米色强调色 / Beige Accents -->
-    <Color x:Key="BeigeAccent50">#FFF7C2</Color>
-    <Color x:Key="BeigeAccent100">#FAE45C</Color>
-    <Color x:Key="BeigeAccent200">#FAD41F</Color>
-    <Color x:Key="BeigeAccent300">#D9B414</Color>
+    <!-- 暖中性：墨的起点。真正下发的是算出来的六级墨，这里只给方向 -->
+    <Color x:Key="WarmWhite">#FEFDFA</Color>
+    <Color x:Key="WarmDark">#1E1A15</Color>
+    <Color x:Key="WarmBody">#4A4038</Color>
+    <Color x:Key="WarmMuted">#7C7064</Color>
+    <Color x:Key="WarmFaint">#B5A998</Color>
 
-    <!-- 功能色 / Functional -->
-    <Color x:Key="GreenSoft">#8CE03C</Color>
-    <Color x:Key="RedSoft">#E5383B</Color>
-    <Color x:Key="DangerInk">#C62828</Color>
-    <Color x:Key="BlueSoft">#22A6F2</Color>
+    <!-- 印墨（赭）：色相 24.7°、彩度差 0.486。强调色的明度由 StyleWorld 钉到「对卡面 4.95:1」 -->
+    <Color x:Key="BeigeAccent50">#F6E7D8</Color>
+    <Color x:Key="BeigeAccent100">#E3C4A4</Color>
+    <Color x:Key="BeigeAccent200">#C08A62</Color>
+    <Color x:Key="BeigeAccent300">#A35D2B</Color>
 
-    <!-- 阴影色 / Shadows -->
+    <!-- 状态色：铜绿 / 砖红 / 钢青，彩度差只给方向（Status() 会按地面重新钉明度） -->
+    <Color x:Key="GreenSoft">#3F8E7A</Color>
+    <Color x:Key="RedSoft">#B8543C</Color>
+    <Color x:Key="BlueSoft">#48697C</Color>
+    <!-- 删除 / 回标题这类危险动作的文字色：能读出来的砖红，不是淡色填充 -->
+    <Color x:Key="DangerInk">#9A3B27</Color>
+
     <Color x:Key="ShadowLight">#FFFFFF</Color>
-    <Color x:Key="ShadowDim">#1E1E1E</Color>
-    <Color x:Key="ShadowDeep">#0E0E0E</Color>
+    <Color x:Key="ShadowDim">#E4DED2</Color>
+    <Color x:Key="ShadowDeep">#CFC6B6</Color>
 
-    <!-- 气泡色 / Bubble Colors -->
-    <Color x:Key="BubbleMine">#3A3A3A</Color>
-    <Color x:Key="BubbleTheirs">#262626</Color>
+    <Color x:Key="BubbleMine">#EBDCC7</Color>
+    <Color x:Key="BubbleTheirs">#FBF8F2</Color>
 
-    <!-- ============ Semantic Palette ============ -->
-    <Color x:Key="PageBg">#131313</Color>
-    <Color x:Key="SurfaceBg">#1C1E20</Color>
-    <Color x:Key="SurfaceFg">#F4F4F4</Color>
-    <Color x:Key="PrimaryAction">#FAD41F</Color>
-    <Color x:Key="PrimaryHover">#E9CF12</Color>
-    <Color x:Key="PrimaryFg">#121212</Color>
-    <Color x:Key="SecondaryBg">#262626</Color>
-    <Color x:Key="MutedFg">#A9A9A9</Color>
-    <Color x:Key="BorderLine">#333333</Color>
-    <Color x:Key="InputBg">#1D1D1D</Color>
-    <!-- 深度台阶：凹档底色 / 平档描边（与经典档同一层级关系，只是跟着终末地深灰走） -->
-    <Color x:Key="WellBg">#101010</Color>
-    <Color x:Key="EdgeStrong">#3A3A3A</Color>
-    <Color x:Key="SuccessTint">#8CE03C</Color>
-    <Color x:Key="DangerTint">#E5383B</Color>
-    <Color x:Key="InfoTint">#22A6F2</Color>
-    <Color x:Key="OverlayDim">#C8000000</Color>
-    <Color x:Key="TabActive">#FAD41F</Color>
-    <Color x:Key="TabInactive">#262626</Color>
+    <!-- ============ Semantic Palette（种子值；Publish 会按明暗重算并覆盖） ============ -->
+    <Color x:Key="PageBg">#F6F4F0</Color>
+    <Color x:Key="SurfaceBg">#F6F2EA</Color>
+    <Color x:Key="SurfaceFg">#4A4038</Color>
+    <Color x:Key="PrimaryAction">#A35D2B</Color>
+    <Color x:Key="PrimaryHover">#8E5124</Color>
+    <Color x:Key="PrimaryFg">#4A4038</Color>
+    <Color x:Key="SecondaryBg">#F1ECE3</Color>
+    <Color x:Key="MutedFg">#7C7064</Color>
+    <Color x:Key="BorderLine">#E2DCD0</Color>
+    <Color x:Key="InputBg">#F3EFE7</Color>
+    <!-- 深度台阶：凹档底色 / 平档描边 -->
+    <Color x:Key="WellBg">#EDE7DC</Color>
+    <Color x:Key="EdgeStrong">#CDC4B4</Color>
+    <Color x:Key="SuccessTint">#3F8E7A</Color>
+    <Color x:Key="DangerTint">#B8543C</Color>
+    <Color x:Key="InfoTint">#48697C</Color>
+    <Color x:Key="OverlayDim">#C82B2419</Color>
+    <Color x:Key="TabActive">#A35D2B</Color>
+    <Color x:Key="TabInactive">#F1ECE3</Color>
 
-    <!-- 终末地黄强调色 / Endfield Yellow Accent（发送胶囊、心情等） -->
-    <Color x:Key="AccentWarm">#FAD41F</Color>
-    <Color x:Key="AccentWarmFg">#121212</Color>
+    <!-- 印墨色：赭。压在上面的字是深驼，不是黑 -->
+    <Color x:Key="AccentWarm">#B86F3C</Color>
+    <Color x:Key="AccentWarmFg">#37251A</Color>
 
 </ResourceDictionary>

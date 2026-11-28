@@ -404,7 +404,7 @@ export function FacePane() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
         <span style={SECTION_TITLE}>人脸识别 · 只读</span>
-        <GlassButton size="sm">刷新状态</GlassButton>
+        <span inert aria-disabled="true" style={{ opacity: 0.45 }}><GlassButton size="sm">刷新状态</GlassButton></span>
       </div>
       <p style={{ ...CAPTION, margin: 0 }}>
         只产出情绪 / 年龄 / 是否在场这类信息：不改数值、不推剧情、不触发动作。图像只在本机内存与一张本机临时图里，不上传，也不写进日志。
@@ -443,7 +443,7 @@ export function FacePane() {
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
         <span style={SECTION_TITLE}>最近一帧</span>
-        <GlassButton size="sm">抓一帧</GlassButton>
+        <span inert aria-disabled="true" style={{ opacity: 0.45 }}><GlassButton size="sm">抓一帧</GlassButton></span>
       </div>
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>

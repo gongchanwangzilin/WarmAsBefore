@@ -1,4 +1,4 @@
-import { useState, type CSSProperties } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from 'react';
 import { Glass } from '../../components/Glass';
 import { GlassButton } from '../../components/GlassButton';
 import { GlassSlider } from '../../components/GlassSlider';
@@ -44,6 +44,36 @@ export function Minimal3D({ back }: ScreenProps) {
   const [yaw, setYaw] = useState(0);
   const [walk, setWalk] = useState(0);
   const heading = headingOf(((yaw % 360) + 360) % 360);
+  const drag = useRef<{ x: number; y: number } | null>(null);
+
+  // 键位照源码：← → 转身，↑ ↓ 走动。挂在 window 上，焦点在哪都收得到。
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'ArrowLeft') setYaw((value) => value + 12.857);
+      else if (event.key === 'ArrowRight') setYaw((value) => value - 12.857);
+      else if (event.key === 'ArrowUp') setWalk((value) => value + 16);
+      else if (event.key === 'ArrowDown') setWalk((value) => value - 10);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
+  const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
+    drag.current = { x: event.clientX, y: event.clientY };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  };
+
+  const onPointerMove = (event: PointerEvent<HTMLDivElement>) => {
+    const from = drag.current;
+    if (!from) return;
+    setYaw((value) => value - (event.clientX - from.x) * 0.4);
+    setWalk((value) => value + (event.clientY - from.y) * 0.5);
+    drag.current = { x: event.clientX, y: event.clientY };
+  };
+
+  const onPointerUp = () => {
+    drag.current = null;
+  };
 
   const stage: CSSProperties = {
     position: 'absolute',
@@ -87,8 +117,14 @@ export function Minimal3D({ back }: ScreenProps) {
           minHeight: 'clamp(160px, 38vh, 520px)',
           overflow: 'hidden',
           background: GRAY.sky,
+          touchAction: 'none',
+          cursor: 'grab',
         }}
         aria-label="3D 灰度视图"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerUp}
       >
         <div style={{ position: 'absolute', inset: 0, perspective: '640px', perspectiveOrigin: '50% 48%' }}>
           <div style={stage}>

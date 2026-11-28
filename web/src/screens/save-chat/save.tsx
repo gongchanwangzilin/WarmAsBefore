@@ -33,6 +33,11 @@ type Slot = {
 
 export function Save({ bridge, navigate, back }: ScreenProps) {
   const [slots, setSlots] = useState<Slot[]>([]);
+  const [loadError, setLoadError] = useState('');
+  const [ticket, setTicket] = useState(0);
+  // 读取/改名/删除的实时回话：成功一句、失败一句，都来自宿主，不编。
+  const [busyId, setBusyId] = useState('');
+  const [note, setNote] = useState('');
   // 存档图标：按角色名对上花名册里的头像；没有头像就退回首字方块。
   const [avatars, setAvatars] = useState<Record<string, string>>({});
 
@@ -43,6 +48,7 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
       try {
         const { slots: rows } = await bridge.request('saves.list', {});
         if (dropped) return;
+        setLoadError('');
         setSlots(
           rows.map((row: SaveRow) => ({
             id: row.id,
@@ -53,8 +59,11 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
             historyNote: row.historyNote,
           })),
         );
-      } catch {
-        /* 老宿主没有这个方法：列表留空，走源码的空态 */
+      } catch (cause) {
+        // 读失败不等于「没有存档」：分开说，并给一次重试。
+        if (dropped) return;
+        setLoadError(cause instanceof Error ? cause.message : '存档表没有应答。');
+        setSlots([]);
       }
     };
     void read();
@@ -72,7 +81,50 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
       dropped = true;
       off();
     };
-  }, [bridge]);
+  }, [bridge, ticket]);
+
+  /** 读取：真的载入当前局（SaveManager.Load），载进来了才跳主界面。 */
+  const load = async (id: string) => {
+    if (busyId) return;
+    setBusyId(id);
+    setNote('');
+    try {
+      const result = await bridge.request('save.load', { id });
+      if (result.loaded) {
+        navigate('/main');
+        return;
+      }
+      // 能打开但核心状态整段重建过：停在原地把宿主那句话说完，不替用户决定。
+      setNote(result.note || '这份存档的核心状态是重建出来的，先没有进入。');
+    } catch (cause) {
+      setNote(cause instanceof Error ? cause.message : '这份存档没有读出来。');
+    } finally {
+      setBusyId('');
+    }
+  };
+
+  const rename = async (slot: Slot) => {
+    const label = window.prompt('重命名存档', slot.label);
+    if (label === null || !label.trim()) return;
+    try {
+      await bridge.request('save.rename', { id: slot.id, label: label.trim() });
+      setNote(`已改名：${label.trim()}`);
+      setTicket((n) => n + 1);
+    } catch (cause) {
+      setNote(cause instanceof Error ? cause.message : '改名没有成功。');
+    }
+  };
+
+  const remove = async (slot: Slot) => {
+    if (!window.confirm(`删除「${slot.label}」？删除后不可恢复。`)) return;
+    try {
+      await bridge.request('save.delete', { id: slot.id });
+      setNote(`已删除：${slot.label}`);
+      setTicket((n) => n + 1);
+    } catch (cause) {
+      setNote(cause instanceof Error ? cause.message : '这一档没有删掉。');
+    }
+  };
 
   return (
     <PageShell>
@@ -100,7 +152,15 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
         </Card>
 
         <Card tight>
-          {slots.length === 0 ? (
+          {loadError ? (
+            <div className="sc-empty">
+              <span>存档表读不出来</span>
+              <small>{loadError}</small>
+              <button type="button" className="k-textbtn" style={{ color: 'var(--w-signal)' }} onClick={() => setTicket((n) => n + 1)}>
+                重试
+              </button>
+            </div>
+          ) : slots.length === 0 ? (
             <div className="sc-empty">
               <span>还没有存档</span>
               <small>这台机器上还没有任何一局</small>
@@ -128,15 +188,20 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
                     </span>
                     {slot.historyNote ? <span className="sc-slot__note">{slot.historyNote}</span> : null}
                     <div className="sc-slot__acts">
-                      <TextBtn disabled>重命名</TextBtn>
+                      <TextBtn onClick={() => void rename(slot)}>重命名</TextBtn>
                       <TextBtn disabled>分支</TextBtn>
                       <TextBtn disabled>导出</TextBtn>
-                      <TextBtn disabled>权限</TextBtn>
-                      <TextBtn disabled>删除</TextBtn>
+                      <TextBtn onClick={() => navigate(`/saveRules?id=${encodeURIComponent(slot.id)}`)}>权限</TextBtn>
+                      <TextBtn onClick={() => void remove(slot)}>删除</TextBtn>
                     </div>
                   </div>
-                  <GlassButton size="sm" className="sc-load" onClick={() => navigate('/main')}>
-                    读取
+                  {/* 读取 = 真的把这一档载进当前局；载进来了才跳主界面。 */}
+                  <GlassButton
+                    size="sm"
+                    className="sc-load"
+                    onClick={() => void load(slot.id)}
+                  >
+                    {busyId === slot.id ? '读取中…' : '读取'}
                   </GlassButton>
                 </div>
                 {index < slots.length - 1 ? (
@@ -148,6 +213,10 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
             ))
           )}
         </Card>
+
+        {note ? (
+          <p style={{ margin: 0, fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)', lineHeight: 1.5 }}>{note}</p>
+        ) : null}
 
         <div className="sc-bottom">
           <GlassButton size="lg" className="sc-wide" onClick={() => navigate('/select')}>

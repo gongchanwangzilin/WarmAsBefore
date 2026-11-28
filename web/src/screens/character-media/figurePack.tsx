@@ -184,7 +184,7 @@ export function FigurePack({ back }: ScreenProps) {
         </Card>
 
         <Cap style={{ color: 'var(--w-signal)' }}>
-          还没有形象包。把 zip 拖进来（或点上面的按钮）就能开始用新版着装。
+          还没有形象包。导入 zip 的按钮要等宿主开出选文件的门，现在点不动。
         </Cap>
 
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-3)' }}>

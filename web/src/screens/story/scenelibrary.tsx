@@ -79,8 +79,9 @@ export function Scenelibrary({ back }: ScreenProps) {
     setSelectedModeId(null);
   };
 
-  const modeBtn = (label: string, onClick: () => void) => (
-    <TextBtn onClick={onClick} disabled={!selectedMode}>{label}</TextBtn>
+  /** 没有通路的那几颗（背景 / BGM / 灯光 / 时间区间）一律灰着：点了不改任何东西，就不装成能改。 */
+  const modeBtn = (label: string, onClick?: () => void) => (
+    <TextBtn onClick={onClick} disabled={!onClick || !selectedMode}>{label}</TextBtn>
   );
 
   return (
@@ -101,7 +102,7 @@ export function Scenelibrary({ back }: ScreenProps) {
                   desc={`地图引用：${entry.mapSceneRef}`}
                   right={
                     <TextBtn onClick={() => { setSelectedId(entry.id); setSelectedModeId(entry.modes[0]?.id ?? null); }}>
-                      应用
+                      选中
                     </TextBtn>
                   }
                 />
@@ -132,7 +133,7 @@ export function Scenelibrary({ back }: ScreenProps) {
                     <Row
                       title={mode.name}
                       desc={mode.detail}
-                      right={<TextBtn onClick={() => setSelectedModeId(mode.id)}>应用</TextBtn>}
+                      right={<TextBtn onClick={() => setSelectedModeId(mode.id)}>选中</TextBtn>}
                     />
                     <Sep />
                   </div>
@@ -141,12 +142,12 @@ export function Scenelibrary({ back }: ScreenProps) {
 
               <Actions>
                 {modeBtn('模式名', renameMode)}
-                {modeBtn('背景', () => undefined)}
-                {modeBtn('BGM', () => undefined)}
+                {modeBtn('背景')}
+                {modeBtn('BGM')}
               </Actions>
               <Actions>
-                {modeBtn('灯光', () => undefined)}
-                {modeBtn('时间区间', () => undefined)}
+                {modeBtn('灯光')}
+                {modeBtn('时间区间')}
                 {modeBtn('删除模式', removeMode)}
               </Actions>
             </Card>
@@ -156,8 +157,8 @@ export function Scenelibrary({ back }: ScreenProps) {
         <Stack gap={1} style={{ marginTop: 'var(--w-space-4)' }}>
           <span style={{ fontSize: 'var(--w-size-small)', color: 'var(--w-ink-body)' }}>{stateText}</span>
           <Note>
-            点条目或模式右侧的「应用」即可立刻切换当前场景（点击式，无需拖拽）；切换结果与此刻可用性会显示在上方状态栏。时间到点自动切换，AI
-            只能从「此刻可用选项」里选（无模式=仅条目）。模式写了时间区间时，只有落在区间内才能被 AI 切换。
+            源码里点条目或模式右侧的「应用」就会立刻切换当前场景；Web 端还没有切换场景的方法（scenes.apply），所以右侧那颗叫「选中」——
+            它只把这一条挑出来，不会换掉正在演的场景。条目与模式的增删改名同样只留在这个页面。
           </Note>
         </Stack>
       </div>

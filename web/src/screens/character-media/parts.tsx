@@ -223,12 +223,14 @@ export function TextSm({
   onClick,
   danger,
   bold,
+  disabled,
   style,
 }: {
   children: ReactNode;
   onClick?: () => void;
   danger?: boolean;
   bold?: boolean;
+  disabled?: boolean;
   style?: CSSProperties;
 }) {
   return (
@@ -236,11 +238,13 @@ export function TextSm({
       type="button"
       className="k-textbtn"
       onClick={onClick}
+      disabled={disabled}
       style={{
         fontSize: 'var(--w-size-caption)',
         color: danger ? 'var(--w-signal)' : undefined,
         fontWeight: bold ? 700 : undefined,
         whiteSpace: 'nowrap',
+        ...(disabled ? { cursor: 'default', opacity: 0.45 } : null),
         ...style,
       }}
     >

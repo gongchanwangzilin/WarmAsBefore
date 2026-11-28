@@ -30,6 +30,10 @@
   --cyl-h: 5px;
   --tint: var(--w-tint-bar);
 }
+/* 卡片：直角 + 一个切角（铜版）。切角尺寸从卡圆角令牌推（12 → 14px），
+   所以它和全站的圆角阶梯是同一个数，窗口缩放时不至于各走各的。
+   clip-path 会把外描边一起裁掉，所以 1px 轮廓走内描边、斜边另补一根 45° 线（::after）。
+   玻璃的六层、模糊、透明度一概不动 —— 这里换的只是形态。 */
 .glass--card {
   --tier: 0.95;
   --refract-w: 7px;
@@ -37,9 +41,33 @@
   /* 「液态高度」直接改上下两条柱面带的高度：4 → 11px */
   --cyl-h: calc(4px + var(--w-liquid, 0.4) * 7px);
   --tint: var(--w-tint-card);
-  box-shadow:
-    0 calc(2px * var(--w-wall-k, 1)) calc(10px * var(--w-wall-k, 1)) rgba(0, 0, 0, 0.28),
-    0 18px 44px rgba(0, 0, 0, 0.4);
+  --r: 0 !important;
+  --cut: calc(var(--w-radius-card, 12px) + 2px);
+  border-radius: 0;
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--cut)) 0,
+    100% var(--cut),
+    100% 100%,
+    0 100%
+  );
+  /* 轮廓取代落影：一张压了边的纸，不是一块浮起来的糖 */
+  box-shadow: inset 0 0 0 1px var(--w-hairline);
+}
+
+/* 切边上的那根线：长度 = 切角 × √2，中心压在切角中点 ——
+   两端端点正好接上被 clip-path 裁掉的内描边，轮廓因此是闭合的。 */
+.glass--card::after {
+  content: '';
+  position: absolute;
+  z-index: 1;
+  top: calc(var(--cut) * 0.5 - 0.5px);
+  right: calc(var(--cut) * -0.2071);
+  width: calc(var(--cut) * 1.4142);
+  height: 1px;
+  background: var(--w-hairline);
+  transform: rotate(45deg);
+  pointer-events: none;
 }
 .glass--button {
   --tier: 0.88;
@@ -289,10 +317,8 @@
   opacity: 0;
 }
 
-/* 大面要显得比小片厚：卡片给一层很浅的落影，条形与按钮不加。 */
-.world:not([data-lightweight]) .glass--card {
-  box-shadow: 0 24px 56px -40px rgba(0, 0, 0, 0.62), 0 2px 6px -3px rgba(0, 0, 0, 0.28);
-}
-.world[data-lightweight] .glass--card {
-  box-shadow: none;
+/* 卡的层次由轮廓与墨阶说（铜版）：这里不再给大面加落影 ——
+   影子和六层玻璃叠在一起，读出来是塑料而不是玻璃。 */
+.world .glass--card {
+  box-shadow: inset 0 0 0 1px var(--w-hairline);
 }

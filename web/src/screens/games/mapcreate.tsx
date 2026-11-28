@@ -206,7 +206,11 @@ export function MapCreate({ back }: ScreenProps) {
           <FormRow
             title="导入我自己准备好的地图"
             desc="一份地图 JSON：只有形状与路名，背景同样要实地取材或让 AI 补。"
-            right={<GlassButton size="sm">选文件</GlassButton>}
+            right={
+              <Inert>
+                <GlassButton size="sm">选文件</GlassButton>
+              </Inert>
+            }
           />
           <div className="k-sep" role="presentation" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>

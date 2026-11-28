@@ -239,6 +239,9 @@ export function PluginPerms({ query, back }: ScreenProps) {
           <span style={{ ...CAPTION, lineHeight: 1.6 }}>
             这份清单里没有 permissions 数组：它写于权限目录之前，所以除「出本机」外的能力按默认策略对待（该问的照问、该禁的照禁）。只要它补上任何一条声明，就只认声明过的那几条。
           </span>
+          <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)', lineHeight: 1.6 }}>
+            这份策略只留在这一页：宿主还没有读写插件授权的方法（plugins.perms.get / set），下面的选择不会传到插件那边。
+          </span>
           {status ? (
             <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)' }}>{status}</span>
           ) : null}

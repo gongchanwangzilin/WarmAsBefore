@@ -5,7 +5,7 @@ import { PageShell } from '../../components/PageShell';
 import { Field, PageHeader, TextBtn } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
 import { importAvatar } from '../../lib/avatar';
-import type { Result } from '../../bridge/protocol';
+import type { CharacterFields, Result } from '../../bridge/protocol';
 import type { ScreenProps } from '../types';
 import {
   Actions,
@@ -197,6 +197,55 @@ const DRAFT: Fields = {
   duplicateName: '（副本）',
 };
 
+/**
+ * 工作室表单里真正能写回角色的那些键（character.save 的白名单）。
+ * 页面没从盘上读出来的字段不进 patch：只写改过的，别的字段一个都不动。
+ */
+const SAVE_KEYS = new Set<keyof Fields>([
+  'name',
+  'nickname',
+  'userAddress',
+  'gender',
+  'personality',
+  'description',
+  'greeting',
+  'moral',
+  'life',
+  'biography',
+  'political',
+  'ideology',
+  'deepMemories',
+  'trauma',
+  'age',
+  'birthday',
+  'naturalAging',
+  'romance',
+  'affection',
+  'trust',
+  'energy',
+  'libido',
+  'libidoLocked',
+  'libidoLockValue',
+  'mood',
+  'location',
+  'cycleTracked',
+  'cycleDay',
+  'cyclePhase',
+  'ovMemoryTurns',
+  'ovContextLimit',
+  'ovTemperature',
+  'ovWindowDays',
+  'ovRecall',
+  'voiceEnabled',
+  'voiceEngine',
+  'voiceName',
+  'voiceExtra',
+  'voiceApiUrl',
+  'voiceApiKey',
+  'voiceApiMode',
+  'voiceTtsModel',
+]);
+
 type Ctx = {
   f: Fields;
   set: <K extends keyof Fields>(key: K, value: Fields[K], label: string) => void;
@@ -231,7 +280,8 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
   const [isNew, setIsNew] = useState(true);
   const [f, setT] = useState<Fields>(DRAFT);
   const [saved, setSaved] = useState<Fields>(DRAFT);
-  const [changed, setChanged] = useState<string[]>([]);
+  const [changed, setChanged] = useState<{ key: keyof Fields; label: string }[]>([]);
+  const [busy, setBusy] = useState(false);
   const [status, setStatus] = useState('先填姓名和性别，其余都能之后再补——按「建好角色」才会进名册。');
   const [tab, setTab] = useState<Tab>('set');
   const [advancedOpen, setAdvancedOpen] = useState(false);
@@ -245,6 +295,9 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
   const [emotion, setEmotion] = useState('normal');
 
   const charId = query.get('id')?.trim() ?? '';
+  /** 在「新建」那一档建好之后拿到的 id：之后这颗按钮的执行对象就是它。 */
+  const [createdId, setCreatedId] = useState('');
+  const targetId = createdId || charId;
 
   useEffect(() => {
     if (!charId) return;
@@ -305,9 +358,13 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
 
   const set = <K extends keyof Fields>(key: K, value: Fields[K], label: string) => {
     setT((prev) => ({ ...prev, [key]: value }));
-    setChanged((list) => (list.includes(label) ? list : [...list, label]));
+    setChanged((list) => (list.some((item) => item.key === key) ? list : [...list, { key, label }]));
   };
 
+  /**
+   * 「保存」真的写盘：只把改动过、且桥认得的那几个键送过去（见 SAVE_KEYS），
+   * 整份覆盖会把页面没从盘上读出来的字段冲成空值。写成了才说已保存，失败就把宿主那句话上屏。
+   */
   const save = () => {
     if (!dirty) {
       setStatus('没有要保存的改动。');
@@ -321,15 +378,64 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
       setStatus('性别也挑一颗（想要别的，设置 → 性别库里加一个，这里立刻多一颗）。');
       return;
     }
-    const justCreated = isNew;
-    setIsNew(false);
-    setSaved(f);
-    setChanged([]);
-    setStatus(
-      justCreated
-        ? `「${f.name.trim()}」已经进名册。之后改哪儿，还按这一颗按钮。`
-        : `已保存「${f.name.trim()}」的一切改动。`,
-    );
+    if (busy) return;
+
+    const patch: Record<string, unknown> = {};
+    const skipped: string[] = [];
+    for (const item of changed) {
+      if (SAVE_KEYS.has(item.key)) patch[item.key] = f[item.key];
+      else skipped.push(item.label);
+    }
+    const notWritten = skipped.length ? `这几项不在角色保存里，这一版没写：${skipped.join('、')}。` : '';
+    const failed = (error: unknown) => {
+      setBusy(false);
+      setStatus(error instanceof Error ? error.message : '保存失败：宿主没有回应。');
+    };
+
+    setBusy(true);
+    if (isNew) {
+      const basics = {
+        name: f.name.trim(),
+        gender: f.gender.trim(),
+        personality: f.personality,
+        description: f.description,
+        greeting: f.greeting,
+        userAddress: f.userAddress,
+        nickname: f.nickname,
+        romance: f.romance,
+      };
+      const rest: Record<string, unknown> = {};
+      for (const [key, value] of Object.entries(patch)) if (!(key in basics)) rest[key] = value;
+      bridge
+        .request('character.create', basics)
+        .then(async (created) => {
+          // 建好之后再补这一份表单里多改的那几项（状态、语音、参数）：它们是「改」，不是「出生设定」。
+          if (Object.keys(rest).length) {
+            await bridge.request('character.save', { id: created.id, fields: rest as CharacterFields });
+          }
+          setCreatedId(created.id);
+          setIsNew(false);
+          setSaved(f);
+          setChanged([]);
+          setBusy(false);
+          setStatus(`「${created.name}」已经进名册。` + notWritten);
+        })
+        .catch(failed);
+      return;
+    }
+
+    bridge
+      .request('character.save', {
+        id: targetId,
+        fields: patch as CharacterFields,
+      })
+      .then((result) => {
+        setBusy(false);
+        setSaved(f);
+        setChanged([]);
+        setStatus(`已保存「${result.name}」的改动。` + notWritten);
+      })
+      .catch(failed);
   };
 
   const revert = () => {
@@ -359,7 +465,7 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
       `副设定回正\n\n把「${f.name.trim()}」的副设定退回主设定的副本？这会清空累积的当下心境与心事，主设定不受影响。`,
     );
     if (!yes) return;
-    setStatus('副设定已回正到主设定。');
+    setStatus('回正要写到角色身上：桥里还没有这个方法（characters.subProfile.reset），这次什么也没改。');
   };
 
   const talkSend = () => {
@@ -416,7 +522,7 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
     previewUrl,
     avatarUrl,
     changeAvatar: () => {
-      void importAvatar(bridge, charId || subject?.id || '').then((url) => {
+      void importAvatar(bridge, targetId).then((url) => {
         if (!url) return;
         setSubject((prev) => (prev ? { ...prev, avatarUrl: url } : prev));
         setStatus('头像换好了。');
@@ -438,7 +544,7 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
           <>
             {dirty ? <span className="cap">{`有 ${changed.length} 处没保存`}</span> : null}
             {dirty ? <GlassButton size="sm" onClick={revert}>放弃</GlassButton> : null}
-            <PrimaryBtn onClick={save} disabled={!dirty}>
+            <PrimaryBtn onClick={save} disabled={!dirty || busy}>
               {saveLabel}
             </PrimaryBtn>
           </>
@@ -948,7 +1054,7 @@ function StateTab({ ctx }: { ctx: Ctx }) {
 
       <SliderLine
         label="好感"
-        reading={`${Math.round(f.affection)} / 100`}
+        reading={`${Math.round(f.affection)} / 1000`}
         value={f.affection}
         onChange={(next) => set('affection', next, '好感')}
       />

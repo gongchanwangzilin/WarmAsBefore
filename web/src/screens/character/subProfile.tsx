@@ -29,7 +29,7 @@ export function SubProfile({ back }: ScreenProps) {
   const reset = () => {
     const yes = window.confirm('把副设定退回主设定的副本？会清空累积的心境、心事与留影，主设定不受影响。');
     if (!yes) return;
-    setStatus('已回正到主设定。');
+    setStatus('回正要写到角色身上：桥里还没有这个方法（characters.subProfile.reset），这次什么也没改。');
   };
 
   return (

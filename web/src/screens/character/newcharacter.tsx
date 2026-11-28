@@ -31,7 +31,7 @@ const LAST = STEPS.length - 1;
 /** 出厂性别库（GenderLibrary 的内置四项）。 */
 const GENDERS = ['女', '男', '其他', '保密'];
 
-export function NewCharacter({ back }: ScreenProps) {
+export function NewCharacter({ bridge, navigate, back }: ScreenProps) {
   const wide = useIsWide(860);
   const [step, setStep] = useState(0);
   const [name, setName] = useState('');
@@ -43,6 +43,8 @@ export function NewCharacter({ back }: ScreenProps) {
   const [greeting, setGreeting] = useState('');
   const [nameError, setNameError] = useState('');
   const [genderError, setGenderError] = useState('');
+  const [createHint, setCreateHint] = useState('');
+  const [busy, setBusy] = useState(false);
 
   const isLast = step >= LAST;
   const previewName = name.trim() ? name.trim() : '还没起名';
@@ -73,7 +75,25 @@ export function NewCharacter({ back }: ScreenProps) {
       setStep(0);
       return;
     }
-    back();
+    if (busy) return;
+    setBusy(true);
+    setCreateHint('');
+    bridge
+      .request('character.create', {
+        name: name.trim(),
+        gender: gender.trim(),
+        personality: personality.trim(),
+        description: description.trim(),
+        greeting: greeting.trim(),
+        userAddress: address.trim(),
+        romance,
+      })
+      // 真的落盘了才往工作室走：带着新 id 进去，那一页读的就是盘上这一份。
+      .then((created) => navigate(`/studio?id=${encodeURIComponent(created.id)}`))
+      .catch((error: unknown) => {
+        setCreateHint(error instanceof Error ? error.message : '创建没有成功：宿主没有回应。');
+        setBusy(false);
+      });
   };
 
   return (
@@ -363,12 +383,19 @@ export function NewCharacter({ back }: ScreenProps) {
             </span>
             <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-3)' }}>
               {isLast ? (
-                <PrimaryBtn onClick={create}>创建角色</PrimaryBtn>
+                <PrimaryBtn onClick={create} disabled={busy}>
+                  创建角色
+                </PrimaryBtn>
               ) : (
                 <PrimaryBtn onClick={next}>下一步 →</PrimaryBtn>
               )}
             </div>
           </div>
+          {createHint ? (
+            <p style={{ margin: 0, padding: '0 var(--w-pad-page) var(--w-space-2)', fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)', lineHeight: 1.6 }}>
+              {createHint}
+            </p>
+          ) : null}
         </Glass>
       </div>
     </PageShell>

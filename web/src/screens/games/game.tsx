@@ -87,10 +87,12 @@ export function Game({ back }: ScreenProps) {
     setBlack(!black);
   };
 
+  // 对手的对话要接 AI（GameViewModel 的那条 RelayCommand）才有回话；桥里没有这条路，
+  // 所以把你的话记下来，再补一句实话，而不是让输入看起来送到了。
   const send = () => {
     const text = input.trim();
     if (!text) return;
-    setMessages([...messages, `你: ${text}`]);
+    setMessages([...messages, `你: ${text}`, 'TA: （这里还没有接上 AI，这一句没有回出去。）']);
     setInput('');
   };
 
