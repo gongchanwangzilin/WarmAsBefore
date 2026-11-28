@@ -1018,6 +1018,22 @@
   font-weight: 700;
 }
 
+/* 标题旁的总数：QV 这一枚角标就是「一共有几条没读」，与左栏账号上的数字同源。 */
+.qw-top__count {
+  flex: none;
+  padding: 0 6px;
+  min-width: 18px;
+  height: 18px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: var(--w-signal);
+  color: var(--w-ink-on-signal);
+  font-size: max(8px, calc(var(--w-size-caption) - 2px));
+  font-weight: 700;
+  line-height: 1;
+}
+
 .qw-top__account {
   display: flex;
   align-items: center;
@@ -1482,10 +1498,30 @@
 }
 
 .qw-row__dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
   background: var(--w-signal);
+  color: var(--w-ink-on-signal);
+  font-size: max(8px, calc(var(--w-size-caption) - 3px));
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  animation: qw-badge-in 220ms var(--w-ease-out) both;
+}
+
+@keyframes qw-badge-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .qw-tag {
@@ -1870,9 +1906,100 @@
 
 .qw-bubble__img {
   display: block;
-  max-width: min(220px, 100%);
+  max-width: min(320px, 100%);
   height: auto;
   border-radius: 8px;
+}
+
+/* 图片 / 表情气泡：内边距收掉，图片按气泡宽度缩，点了开大图 */
+.qw-bubble--media {
+  padding: 3px;
+  line-height: 0;
+}
+
+.qw-shot {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+/* 文件气泡：名字 + 大小 + 打开 */
+.qw-bubble--doc {
+  min-width: min(240px, 100%);
+}
+
+.qw-doc {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+
+.qw-doc__text {
+  display: flex;
+  min-width: 0;
+  flex: 1;
+  flex-direction: column;
+}
+
+.qw-doc__name {
+  overflow: hidden;
+  color: var(--w-ink-body);
+  font-weight: 600;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qw-doc__size {
+  color: var(--w-ink-faint);
+  font-size: calc(var(--w-size-caption) - 1px);
+}
+
+.qw-doc__open {
+  flex: none;
+  padding: 2px 10px;
+  border: 1px solid var(--w-signal-edge);
+  border-radius: 8px;
+  background: transparent;
+  color: var(--w-signal);
+  font-size: var(--w-size-caption);
+  cursor: pointer;
+}
+
+.qw-doc__open:hover:enabled {
+  background: var(--w-tint-card);
+}
+
+.qw-doc__open:disabled {
+  border-color: var(--w-hairline);
+  color: var(--w-ink-faint);
+  cursor: default;
+}
+
+/* 全屏大图：整层盖住，Esc / 点背景关掉 */
+.qw-viewer {
+  position: fixed;
+  inset: 0;
+  z-index: 240;
+  display: grid;
+  place-items: center;
+  padding: clamp(16px, 4vw, 48px);
+  border: 0;
+  background: var(--w-vignette);
+  cursor: zoom-out;
+  animation: qw-fade 160ms ease;
+}
+
+.qw-viewer img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: 10px;
+  object-fit: contain;
+  animation: qw-pop 200ms var(--w-ease-out);
 }
 
 /* 输入区：一整行工具图标 + 输入框 + 发送（主色） */

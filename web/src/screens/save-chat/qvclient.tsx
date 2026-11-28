@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { toErrorBody, type Bridge } from '../../bridge/client';
-import type { CharacterRow, ChatContactRow, ChatRow } from '../../bridge/protocol';
+import type { ChatMediaKind, CharacterRow, ChatContactRow, ChatRow } from '../../bridge/protocol';
 import { useIsWide } from '../../lib/useIsWide';
+import { useRun } from '../../lib/run';
+import { setOpenConversation, unreadLabel, useUnread } from '../../lib/unread';
 import { useVoice } from '../../lib/voice';
 import { Icon, type IconName } from './qqicons';
 import { QqSettings } from './qqsettings';
@@ -49,8 +51,16 @@ type Contact = {
   /** 右上角相对时间；没有最后一条就是空串 */
   time: string;
   unread: boolean;
+  /** 未读条数：会话行右侧的数字角标（超过 99 写「99+」） */
+  unreadCount: number;
   /** 这条会话出现在哪几个壳的名册里，第一个就是打开它时用的壳 */
   shells: Source[];
+  /** 加好友时写的备注；空 = 没写 */
+  note: string;
+  /** friend = 好友表里的（能删）；roster = 只是这一档的角色，补在名册后面 */
+  source: 'friend' | 'roster';
+  /** 能不能删：只有好友表里的行能删 */
+  removable: boolean;
 };
 
 /** 两个来源，词都取自源码（ChatShellOf 的 wechat / qq，路由名「微信」「QQ」）。 */
@@ -69,6 +79,13 @@ function mergeContacts(groups: { shell: Source; rows: ChatContactRow[] }[]): Con
       const known = byId.get(row.id);
       if (known) {
         if (!known.shells.includes(group.shell)) known.shells.push(group.shell);
+        // 两个壳指向同一份联系人（同一个计数），取大的那个只为不出少的那份。
+        known.unreadCount = Math.max(known.unreadCount, row.unreadCount ?? 0);
+        known.unread = known.unreadCount > 0;
+        // 只要有一个壳把它当好友表里的人，它就能删；备注取读到的那一份。
+        if (row.removable) known.removable = true;
+        if (row.source === 'friend') known.source = 'friend';
+        if (!known.note && row.note) known.note = row.note;
         continue;
       }
       byId.set(row.id, {
@@ -78,7 +95,11 @@ function mergeContacts(groups: { shell: Source; rows: ChatContactRow[] }[]): Con
         last: row.last,
         time: row.time,
         unread: row.unread,
+        unreadCount: row.unreadCount ?? 0,
         shells: [group.shell],
+        note: row.note ?? '',
+        source: row.source ?? 'roster',
+        removable: row.removable ?? false,
       });
     }
   }
@@ -120,18 +141,24 @@ function previewParts(text: string) {
   });
 }
 
-/** 消息流里的一行：日期分隔 / 系统提示 / 一条聊天。 */
+/** 消息流里的一行：日期分隔 / 系统提示 / 一条聊天（文字、图片、表情、文件）。 */
 type ChatLine =
   | { id: string; kind: 'day'; text: string }
   | { id: string; kind: 'system'; text: string }
   | {
       id: string;
-      kind: 'text';
+      kind: ChatMediaKind;
       mine: boolean;
       name: string;
       level: number;
       time: string;
       text: string;
+      /** 媒体文件的素材地址；文字消息是空串 */
+      mediaUrl: string;
+      /** 气泡里先加载的这一张（宿主没生成缩略图时就是原图） */
+      thumbUrl: string;
+      fileName: string;
+      size: number;
       avatarUrl: string;
     };
 
@@ -181,12 +208,16 @@ function toLines(rows: ChatRow[], roster: Person[]): ChatLine[] {
     const person = roster.find((item) => item.name === row.sender || item.id === row.sender);
     lines.push({
       id: row.id,
-      kind: 'text',
+      kind: row.kind ?? 'text',
       mine: row.mine,
       name: row.sender,
       level: person?.level ?? 0,
       time: clockOf(row.at),
       text: row.text,
+      mediaUrl: row.mediaUrl ?? '',
+      thumbUrl: row.thumbUrl ?? '',
+      fileName: row.fileName ?? '',
+      size: row.size ?? 0,
       avatarUrl: person?.avatarUrl ?? '',
     });
   }
@@ -202,14 +233,23 @@ const CHAT_TOOLS: { icon: IconName; label: string; reason: string }[] = [
   { icon: 'more', label: '更多', reason: '更多菜单还没有桥' },
 ];
 
-const INPUT_TOOLS: { icon: IconName; label: string; reason: string }[] = [
+/** 输入条那排键：kind 有值的走 chat.attach（弹宿主的选图/选文件框），其余的仍停在「还没有桥」。 */
+const INPUT_TOOLS: { icon: IconName; label: string; reason: string; kind?: 'image' | 'file' }[] = [
   { icon: 'smile', label: '表情', reason: '表情面板要读表情库' },
   { icon: 'scissors', label: '截图', reason: '截图要接真机的截屏通道' },
-  { icon: 'folder', label: '文件', reason: '发文件要接存储桥' },
-  { icon: 'image', label: '图片', reason: 'chat.history 的行里只有文字，没有图片字段' },
+  { icon: 'folder', label: '文件', reason: '发文件', kind: 'file' },
+  { icon: 'image', label: '图片', reason: '发图片', kind: 'image' },
   { icon: 'gift', label: '礼物', reason: 'QQ 壳没有礼物面板（QqPage.xaml 注释）' },
   { icon: 'clock', label: '定时消息', reason: '定时消息还没有桥' },
 ];
+
+/** 文件卡片上那个大小：字节不到 1 KB 给整数，其余按 KB / MB 一位小数。 */
+function sizeOf(bytes: number): string {
+  if (!bytes || bytes <= 0) return '';
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${Math.max(1, Math.round(bytes / 1024))} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const MENU_ITEMS: { icon: IconName; label: string; ready?: boolean }[] = [
   { icon: 'chat', label: '聊天记录管理' },
@@ -246,6 +286,9 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
   const [historyTicket, setHistoryTicket] = useState(0);
   const [sendError, setSendError] = useState('');
   const [sending, setSending] = useState(false);
+  const [attaching, setAttaching] = useState(false);
+  /** 点开的大图地址；空 = 没有那层全屏覆盖 */
+  const [viewer, setViewer] = useState('');
 
   const [tab, setTab] = useState<'chat' | 'people'>('chat');
   const [activeId, setActiveId] = useState('');
@@ -257,9 +300,25 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
   const [noticeOpen, setNoticeOpen] = useState(false);
   const [memberQuery, setMemberQuery] = useState('');
   const [memberSearch, setMemberSearch] = useState(false);
+  // 加好友：名字 + 备注，回车提交；重复名与角色库里没有的人，宿主原话就地摆在面板里。
+  const [friendOpen, setFriendOpen] = useState(false);
+  const [friendName, setFriendName] = useState('');
+  const [friendNote, setFriendNote] = useState('');
+  const [friendError, setFriendError] = useState('');
+  const [friendBusy, setFriendBusy] = useState(false);
+  // 删好友：先确认再动手（不可撤销）。
+  const [removing, setRemoving] = useState<Contact | null>(null);
+  const [removeError, setRemoveError] = useState('');
+  const [removeBusy, setRemoveBusy] = useState(false);
+  // 加/删之后就地重读名册：不等人推 data.changed，也不等刷新。
+  const [contactsTicket, setContactsTicket] = useState(0);
 
   const showInfo = useIsWide(1180);
   const showList = useIsWide(880);
+  // 角标系在存档上（SaveGate）：没进存档就没有「她给我发了消息」这回事，一条都不画。
+  const run = useRun(bridge);
+  const inSave = run.known && run.active;
+  const unread = useUnread(bridge, inSave);
 
   useEffect(() => {
     let dropped = false;
@@ -303,7 +362,11 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
             last: '',
             time: '',
             unread: false,
+            unreadCount: 0,
             shells: [],
+            note: '',
+            source: 'roster',
+            removable: false,
           })),
         );
         setLive(false);
@@ -322,7 +385,7 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
       dropped = true;
       off();
     };
-  }, [bridge]);
+  }, [bridge, contactsTicket]);
 
   const people = contacts ?? [];
   const active = people.find((item) => item.id === activeId) ?? people[0] ?? null;
@@ -341,6 +404,12 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     setDraft((prev) => (prev ? `${prev}${heard}` : heard));
   };
   const mode = modeLabels[activeShell] ?? '本地微信 · TA 还在';
+
+  // 正在看的这一格会话：她刚发来的那一条不算未读（打开会话就算读过），提示条也让开。
+  useEffect(() => {
+    setOpenConversation(active?.id ?? null);
+    return () => setOpenConversation(null);
+  }, [active?.id]);
 
   useEffect(() => {
     if (!active?.id || !live) {
@@ -369,12 +438,23 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     };
   }, [bridge, live, active?.id, activeShell, roster, historyTicket]);
 
+  // 全屏大图：Esc 关掉（点背景也关）。
+  useEffect(() => {
+    if (!viewer) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setViewer('');
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [viewer]);
+
   const query = search.trim();
   const rows = query
     ? people.filter((item) => item.name.includes(query) || item.last.includes(query))
     : people;
   const members = memberQuery.trim() ? people.filter((item) => item.name.includes(memberQuery.trim())) : people;
-  const newCount = people.filter((item) => item.unread).length;
+  // 角标上的数是「几条消息」，不是「几个会话」：一个人连发三条就是 3。
+  const unreadTotal = inSave ? unread.total : 0;
 
   const pick = (id: string) => {
     setActiveId(id);
@@ -399,6 +479,93 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     }
   };
 
+  // 图片 / 文件：走宿主的 chat.attach（它弹系统的选图/选文件框，再把文件拷进素材夹落盘）。
+  // 用户在框里点了取消时宿主回 canceled，这里什么都不加 —— 不该冒出一条空消息。
+  const attach = async (kind: 'image' | 'file') => {
+    if (!active || !live || attaching) return;
+    setAttaching(true);
+    setSendError('');
+    try {
+      const result = await bridge.request('chat.attach', { shell: activeShell, characterId: active.id, kind });
+      if (result.canceled) return;
+      setLines((prev) => [
+        ...prev,
+        ...toLines(
+          [
+            {
+              id: result.id,
+              text: '',
+              mine: true,
+              sender: '我',
+              at: new Date().toISOString(),
+              kind: result.kind,
+              mediaUrl: result.url,
+              thumbUrl: result.url,
+              fileName: result.fileName,
+              size: result.size,
+            },
+          ],
+          roster,
+        ),
+      ]);
+      setHistoryState('ready');
+    } catch (error) {
+      setSendError(toErrorBody(error).message);
+    } finally {
+      setAttaching(false);
+    }
+  };
+
+  // 文件卡片上的「打开」：宿主用系统默认程序递出去，接不住就回一条错误，这里原样摆出来。
+  const openMedia = async (id: string) => {
+    if (!active || !live) return;
+    setSendError('');
+    try {
+      await bridge.request('chat.openMedia', { shell: activeShell, characterId: active.id, id });
+    } catch (error) {
+      setSendError(toErrorBody(error).message);
+    }
+  };
+
+  const addFriend = async () => {
+    const name = friendName.trim();
+    if (!name || friendBusy) return;
+    setFriendBusy(true);
+    setFriendError('');
+    try {
+      const note = friendNote.trim();
+      const result = await bridge.request('chat.contact.add', note ? { name, note } : { name });
+      setContactsTicket((n) => n + 1);
+      if (result.added) {
+        setFriendOpen(false);
+        setFriendName('');
+        setFriendNote('');
+      } else {
+        // 已经在好友表里：源码那句「「X」已经是你的微信好友了」留在面板里，不关窗、不覆盖备注。
+        setFriendError(result.message);
+      }
+    } catch (error) {
+      setFriendError(toErrorBody(error).message);
+    } finally {
+      setFriendBusy(false);
+    }
+  };
+
+  const confirmRemove = async () => {
+    if (!removing || removeBusy) return;
+    setRemoveBusy(true);
+    setRemoveError('');
+    try {
+      await bridge.request('chat.contact.remove', { id: removing.id });
+      setRemoving(null);
+      setContactsTicket((n) => n + 1);
+    } catch (error) {
+      setRemoveError(toErrorBody(error).message);
+    } finally {
+      setRemoveBusy(false);
+    }
+  };
+
   const railTabs: { id: string; label: string; icon: IconName; ready: boolean }[] = [
     { id: 'chat', label: '消息', icon: 'chat', ready: true },
     { id: 'people', label: '联系人', icon: 'people', ready: true },
@@ -418,7 +585,17 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
             onChange={(event) => setSearch(event.target.value)}
           />
         </span>
-        <button type="button" className="qw-list__plus" aria-label="加好友" title="加好友走 AI 的 add_wechat，Web 端没有入口" disabled>
+        <button
+          type="button"
+          className="qw-list__plus"
+          aria-label="加好友"
+          title="加好友"
+          onClick={() => {
+            setFriendError('');
+            setFriendOpen(true);
+            setDrawer(false);
+          }}
+        >
           <Icon name="plus" />
         </button>
       </div>
@@ -442,31 +619,57 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           rows.map((contact) => {
             const person = roster.find((item) => item.id === contact.id) ?? null;
             const last = tab === 'people' && person?.signature ? person.signature : contact.last || '还没有聊过';
+            // 未读以宿主那份摘要为准：打开会话标读之后 contacts 不会重读，摘要会。
+            const unreadOf = inSave ? (unread.byContact[contact.id] ?? 0) : 0;
             return (
-              <button
-                key={contact.id}
-                type="button"
-                className="qw-row"
-                aria-pressed={contact.id === active?.id}
-                onClick={() => pick(contact.id)}
-              >
-                <Avatar person={contact} className="qw-row__av" />
-                <span className="qw-row__mid">
-                  <span className="qw-row__name">
-                    <span className="qw-row__who">{contact.name}</span>
-                    {contact.shells.map((shell) => (
-                      <em key={shell} className="qw-src" title={`这条会话在${wordOf(shell)}的名册里`}>
-                        {wordOf(shell)}
-                      </em>
-                    ))}
+              <div key={contact.id} style={{ display: 'flex', alignItems: 'center' }}>
+                <button
+                  type="button"
+                  className="qw-row"
+                  style={{ flex: '1 1 auto', minWidth: 0 }}
+                  aria-pressed={contact.id === active?.id}
+                  onClick={() => pick(contact.id)}
+                >
+                  <Avatar person={contact} className="qw-row__av" />
+                  <span className="qw-row__mid">
+                    <span className="qw-row__name">
+                      <span className="qw-row__who">{contact.name}</span>
+                      {contact.shells.map((shell) => (
+                        <em key={shell} className="qw-src" title={`这条会话在${wordOf(shell)}的名册里`}>
+                          {wordOf(shell)}
+                        </em>
+                      ))}
+                      {contact.note ? (
+                        <em className="qw-src" title="备注">
+                          {contact.note}
+                        </em>
+                      ) : null}
+                    </span>
+                    <span className="qw-row__last">{previewParts(last)}</span>
                   </span>
-                  <span className="qw-row__last">{previewParts(last)}</span>
-                </span>
-                <span className="qw-row__side">
-                  {contact.time ? <span className="qw-row__time">{contact.time}</span> : null}
-                  {contact.unread ? <i className="qw-row__dot" aria-label="未读" /> : null}
-                </span>
-              </button>
+                  <span className="qw-row__side">
+                    {contact.time ? <span className="qw-row__time">{contact.time}</span> : null}
+                    {unreadOf > 0 ? (
+                      <i className="qw-row__dot" aria-label={`${unreadOf} 条未读`}>
+                        {unreadLabel(unreadOf)}
+                      </i>
+                    ) : null}
+                  </span>
+                </button>
+                {contact.removable ? (
+                  <button
+                    type="button"
+                    className="k-textbtn"
+                    aria-label={`移除 ${contact.name}`}
+                    onClick={() => {
+                      setRemoveError('');
+                      setRemoving(contact);
+                    }}
+                  >
+                    移除
+                  </button>
+                ) : null}
+              </div>
             );
           })
         )}
@@ -497,10 +700,10 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
       </header>
 
       <div className="qw-msgs">
-        {newCount > 0 ? (
+        {unreadTotal > 0 ? (
           <button type="button" className="qw-newpill">
             <Icon name="chevron" className="qw-newpill__up" />
-            {newCount > 999 ? '999+' : newCount} 条新消息
+            {unreadLabel(unreadTotal)} 条新消息
           </button>
         ) : null}
 
@@ -562,8 +765,54 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
                     )}
                     <span className="qw-msg__time">{line.time}</span>
                   </div>
-                  <div className="qw-bubble">
-                    <span className="qw-bubble__text">{spoken(line.text)}</span>
+                  <div
+                    className={
+                      line.kind === 'image'
+                        ? 'qw-bubble qw-bubble--media'
+                        : line.kind === 'file'
+                          ? 'qw-bubble qw-bubble--doc'
+                          : 'qw-bubble'
+                    }
+                  >
+                    {line.kind === 'image' ? (
+                      line.mediaUrl ? (
+                        <button
+                          type="button"
+                          className="qw-shot"
+                          aria-label={line.fileName || '图片'}
+                          title={line.fileName || '图片'}
+                          onClick={() => setViewer(line.mediaUrl)}
+                        >
+                          <img
+                            className="qw-bubble__img"
+                            src={line.thumbUrl || line.mediaUrl}
+                            alt={line.fileName || ''}
+                          />
+                        </button>
+                      ) : (
+                        <span className="qw-bubble__text">[图片]</span>
+                      )
+                    ) : line.kind === 'file' ? (
+                      <span className="qw-doc">
+                        <span className="qw-doc__text">
+                          <span className="qw-doc__name">{line.fileName || '[文件]'}</span>
+                          <span className="qw-doc__size">{sizeOf(line.size)}</span>
+                        </span>
+                        <button
+                          type="button"
+                          className="qw-doc__open"
+                          title={live ? '用系统默认程序打开' : 'chat.openMedia 桥方法还没有上'}
+                          disabled={!live}
+                          onClick={() => void openMedia(line.id)}
+                        >
+                          打开
+                        </button>
+                      </span>
+                    ) : line.kind === 'sticker' ? (
+                      <span className="qw-bubble__text">[表情]</span>
+                    ) : (
+                      <span className="qw-bubble__text">{spoken(line.text)}</span>
+                    )}
                   </div>
                 </div>
               </div>
@@ -575,7 +824,16 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
       <div className="qw-input">
         <div className="qw-input__tools">
           {INPUT_TOOLS.map((tool) => (
-            <button key={tool.label} type="button" className="qw-ibtn" aria-label={tool.label} title={tool.reason} disabled>
+            <button
+              key={tool.label}
+              type="button"
+              className="qw-ibtn"
+              aria-label={tool.label}
+              aria-busy={tool.kind ? attaching : undefined}
+              title={tool.kind ? tool.label : tool.reason}
+              disabled={tool.kind ? !live || !active || attaching : true}
+              onClick={tool.kind ? () => void attach(tool.kind as 'image' | 'file') : undefined}
+            >
               <Icon name={tool.icon} />
             </button>
           ))}
@@ -694,6 +952,11 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
         <span className="qw-top__brand" aria-hidden="true">
           QV
         </span>
+        {unreadTotal > 0 ? (
+          <b className="qw-top__count" title={`${unreadTotal} 条未读`}>
+            {unreadLabel(unreadTotal)}
+          </b>
+        ) : null}
         <span className="qw-top__account">
           <span className="qw-top__av">初</span>
           <span className="qw-top__id">
@@ -722,7 +985,7 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
         <nav className="qw-rail" aria-label="QV 工具栏">
           <button type="button" className="qw-rail__me" aria-label="账号" title="本地账号">
             初
-            {newCount > 0 ? <i className="qw-rail__badge">{newCount > 99 ? '99+' : newCount}</i> : null}
+            {unreadTotal > 0 ? <i className="qw-rail__badge">{unreadLabel(unreadTotal)}</i> : null}
           </button>
 
           <div className="qw-rail__stack">
@@ -813,6 +1076,107 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           <button type="button" className="qw-scrim" aria-label="关闭会话列表" onClick={() => setDrawer(false)} />
           <div className="qw-drawer">{listColumn}</div>
         </>
+      ) : null}
+
+      {viewer ? (
+        <button type="button" className="qw-viewer" aria-label="关闭大图" onClick={() => setViewer('')}>
+          <img src={viewer} alt="" />
+        </button>
+      ) : null}
+
+      {friendOpen ? (
+        <div className="qw-set" role="dialog" aria-modal="true" aria-label="加好友">
+          <form
+            className="qw-set__win"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void addFriend();
+            }}
+          >
+            <div className="qw-set__bar">
+              <span className="qw-set__brand">
+                <Icon name="plus" />
+                加好友
+              </span>
+              <button type="button" className="qw-set__close" aria-label="关闭加好友" onClick={() => setFriendOpen(false)}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="qw-set__pane">
+              <h2 className="qw-set__title">加好友</h2>
+              <p className="qw-set__rowtext">
+                <small>只有剧情里用过的角色才能加微信。</small>
+              </p>
+              <div className="qw-set__row">
+                <label className="qw-set__rowtext" htmlFor="qw-friend-name">
+                  <b>角色名或角色 Id</b>
+                </label>
+                <input
+                  id="qw-friend-name"
+                  className="qw-members__search"
+                  style={{ flex: '1 1 120px', minWidth: 0, maxWidth: 240, margin: 0 }}
+                  value={friendName}
+                  autoFocus
+                  onChange={(event) => setFriendName(event.target.value)}
+                />
+              </div>
+              <div className="qw-set__row">
+                <label className="qw-set__rowtext" htmlFor="qw-friend-note">
+                  <b>备注（可留空）</b>
+                </label>
+                <input
+                  id="qw-friend-note"
+                  className="qw-members__search"
+                  style={{ flex: '1 1 120px', minWidth: 0, maxWidth: 240, margin: 0 }}
+                  value={friendNote}
+                  onChange={(event) => setFriendNote(event.target.value)}
+                />
+              </div>
+              {friendError ? <span className="qw-input__error">{friendError}</span> : null}
+              <div className="qw-set__row" style={{ justifyContent: 'flex-end' }}>
+                <button type="submit" className="k-textbtn k-textbtn--signal" disabled={friendBusy || !friendName.trim()}>
+                  添加角色
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      ) : null}
+
+      {removing ? (
+        <div className="qw-set" role="dialog" aria-modal="true" aria-label="删除好友">
+          <div className="qw-set__win" style={{ height: 'auto' }}>
+            <div className="qw-set__bar">
+              <span className="qw-set__brand">
+                <Icon name="people" />
+                删除好友
+              </span>
+              <button type="button" className="qw-set__close" aria-label="关闭删除好友" onClick={() => setRemoving(null)}>
+                <Icon name="close" />
+              </button>
+            </div>
+            <div className="qw-set__pane">
+              <h2 className="qw-set__title">确定删除「{removing.name}」吗？</h2>
+              <p className="qw-set__rowtext">
+                <small>这个操作不可恢复。</small>
+              </p>
+              {removeError ? <span className="qw-input__error">{removeError}</span> : null}
+              <div className="qw-set__row" style={{ justifyContent: 'flex-end' }}>
+                <button type="button" className="k-textbtn" onClick={() => setRemoving(null)}>
+                  取消
+                </button>
+                <button
+                  type="button"
+                  className="k-textbtn k-textbtn--signal"
+                  disabled={removeBusy}
+                  onClick={() => void confirmRemove()}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {settings ? <QqSettings onClose={() => setSettings(false)} onTheme={() => navigate('/settings')} /> : null}

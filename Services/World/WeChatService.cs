@@ -87,8 +87,23 @@ public sealed class WeChatService
     /// <returns>(是否成功, 提示文本, 是否新加)。</returns>
     public async Task<(bool ok, string message, bool added)> AddContactAsync(string characterIdOrName)
     {
+        var (ok, message, added, _) = await AddCoreAsync(characterIdOrName, null);
+        return (ok, message, added);
+    }
+
+    /// <summary>
+    /// 加微信（带备注）：与 <see cref="AddContactAsync(string)"/> 同一条路，另把备注写进联系人、
+    /// 把落到哪个角色 Id 交回来 —— 网页桥用它回话。已经加过的人照旧只回那句提示，不覆盖备注。
+    /// </summary>
+    public async Task<(bool ok, string message, bool added, string characterId)> AddContactAsync(
+        string characterIdOrName, string? note)
+        => await AddCoreAsync(characterIdOrName, note);
+
+    private async Task<(bool ok, string message, bool added, string characterId)> AddCoreAsync(
+        string characterIdOrName, string? note)
+    {
         var raw = (characterIdOrName ?? string.Empty).Trim();
-        if (string.IsNullOrEmpty(raw)) return (false, "请给出要加微信的角色名或 Id", false);
+        if (string.IsNullOrEmpty(raw)) return (false, "请给出要加微信的角色名或 Id", false, "");
 
         await _lock.WaitAsync();
         try
@@ -99,14 +114,14 @@ public sealed class WeChatService
                      ?? chars.FirstOrDefault(c => c.Profile.Name == raw)
                      ?? chars.FirstOrDefault(c => !string.IsNullOrEmpty(c.Profile.Nickname) && c.Profile.Nickname == raw);
             if (ch is null)
-                return (false, $"角色库里没有找到「{raw}」——只有剧情里用过的角色才能加微信", false);
+                return (false, $"角色库里没有找到「{raw}」——只有剧情里用过的角色才能加微信", false, "");
 
             var data = await _store.Load<WeChatContacts>(ContactsKey) ?? new WeChatContacts();
             var list = data.Items;
 
             // 2) 已存在则幂等返回
             if (list.Any(c => c.CharacterId == ch.Profile.Id))
-                return (true, $"「{ch.Profile.Name}」已经是你的微信好友了", false);
+                return (true, $"「{ch.Profile.Name}」已经是你的微信好友了", false, ch.Profile.Id);
 
             // 3) 新加：标记为常驻 NPC
             var contact = new WeChatContact
@@ -116,7 +131,8 @@ public sealed class WeChatService
                 LastMessageAt = DateTime.UtcNow,
                 LastMessage = "",
                 IsResident = true,
-                Unread = false
+                Note = (note ?? string.Empty).Trim(),
+                UnreadCount = 0
             };
             list.Add(contact);
             if (!await TrySaveAsync(list))
@@ -126,10 +142,10 @@ public sealed class WeChatService
                     if (!_ghost.Any(c => c.CharacterId == contact.CharacterId))
                         _ghost.Add(contact);
                 ContactsChanged?.Invoke();
-                return (true, $"已加上「{ch.Profile.Name}」的微信（本次未能写入磁盘，重开应用前仍可聊天）", true);
+                return (true, $"已加上「{ch.Profile.Name}」的微信（本次未能写入磁盘，重开应用前仍可聊天）", true, ch.Profile.Id);
             }
             ContactsChanged?.Invoke();
-            return (true, $"已加上「{ch.Profile.Name}」的微信，TA 现在是常驻好友了", true);
+            return (true, $"已加上「{ch.Profile.Name}」的微信，TA 现在是常驻好友了", true, ch.Profile.Id);
         }
         finally
         {
@@ -158,7 +174,11 @@ public sealed class WeChatService
         }
     }
 
-    /// <summary>更新联系人最近一条消息（聊天后调用，用于列表摘要与排序）。</summary>
+    /// <summary>
+    /// 更新联系人最近一条消息（聊天后调用，用于列表摘要与排序）。
+    /// <paramref name="unread"/> = true 是「她主动发来一条」：未读 +1；false 是「这一格会话我刚说过话 / 正开着」：
+    /// 未读清零 —— 与 <see cref="MarkReadAsync"/> 同一条语义（打开会话就算读过）。
+    /// </summary>
     public async Task TouchLastMessageAsync(string characterId, string lastMessage, bool unread = false)
     {
         if (string.IsNullOrEmpty(characterId)) return;
@@ -170,7 +190,7 @@ public sealed class WeChatService
             if (c is null) return;
             c.LastMessage = lastMessage ?? string.Empty;
             c.LastMessageAt = DateTime.UtcNow;
-            c.Unread = unread;
+            c.UnreadCount = unread ? c.UnreadCount + 1 : 0;
             await TrySaveAsync(items);
             ContactsChanged?.Invoke();
         }
@@ -189,8 +209,8 @@ public sealed class WeChatService
         {
             var items = await AllAsync();
             var c = items.FirstOrDefault(x => x.CharacterId == characterId);
-            if (c is null || !c.Unread) return;
-            c.Unread = false;
+            if (c is null || c.UnreadCount == 0) return;
+            c.UnreadCount = 0;
             await TrySaveAsync(items);
             ContactsChanged?.Invoke();
         }

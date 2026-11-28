@@ -3,6 +3,7 @@ import type { CharacterRow, ChatRow, SaveRow } from '../../bridge/protocol';
 import { openInWindow } from '../../lib/windows';
 import { useEscape } from '../../lib/keys';
 import { NEED_SAVE, useRun } from '../../lib/run';
+import { useUnread } from '../../lib/unread';
 import { useVoice } from '../../lib/voice';
 import { Glass } from '../../components/Glass';
 import { GlassSwitch } from '../../components/GlassSwitch';
@@ -178,6 +179,8 @@ export function Main({ bridge, navigate }: ScreenProps) {
   const [backendMode] = useState(false);
   /** 没进存档时，系在存档上的按钮灰着，不让点进去看一页空读数。 */
   const outsideSave = run.known && !run.active;
+  /** 顶栏「手机」上的小点：她给你发了消息才会有（没存档就不算，一条都不画）。 */
+  const unread = useUnread(bridge, !outsideSave);
   const [input, setInput] = useState('');
   // 对话列表 = chat.history 读回来的存档会话记录；送出去的一句由 chat.send 回给这里。
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -315,6 +318,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
                   title={b.id === 'hide' ? '隐藏信息栏与顶部（Esc）' : b.label}
                 >
                   {b.label}
+                  {b.id === 'phone' && unread.total > 0 ? <i className="m-btn__dot" aria-label="有新消息" /> : null}
                 </button>
               );
             })}

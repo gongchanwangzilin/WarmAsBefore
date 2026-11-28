@@ -274,6 +274,25 @@ export type Requests = {
       modeLabel: string;
     };
   };
+  /** 加微信好友：名字照角色库解析（Id / 名字 / 昵称都认），备注随联系人落盘。
+   *  已经加过的人 added=false 并给出源码那句提示，不覆盖备注；没有当前档整条应答失败。 */
+  'chat.contact.add': {
+    params: { name: string; note?: string };
+    result: { id: string; name: string; added: boolean; message: string };
+  };
+  /** 从好友表里删掉一位（不可撤销）。删不掉时整条应答失败，原因在 error.message。 */
+  'chat.contact.remove': {
+    params: { id: string };
+    result: { id: string; message: string };
+  };
+  /**
+   * 未读总数（顶栏「手机」的小点、手机桌面与 Dock 的 QV 角标）。
+   * byContact 只列有未读的人；total 是它们的和。没读够 0 条时就是一张空表 —— 不画角标。
+   */
+  'chat.unread.summary': {
+    params: Record<string, never>;
+    result: { total: number; byContact: { id: string; count: number }[] };
+  };
   /** 一段会话的历史，倒着分页：before 传上一次的 nextBefore，空 = 最新一页。 */
   'chat.history': {
     params: { shell?: ChatShell; characterId?: string; before?: string; limit?: number };
@@ -283,6 +302,17 @@ export type Requests = {
   'chat.send': {
     params: { shell?: ChatShell; characterId?: string; text: string };
     result: { characterId: string; user: ChatRow; reply: ChatRow };
+  };
+  /** 弹宿主的选图/选文件框，把选中的文件存成一条媒体消息（拷进 assets/chat/，与 chat.send 同一条落盘路径）。
+   *  文件存不进去整条应答失败；用户在选图框里点了取消是 canceled: true，不是失败。 */
+  'chat.attach': {
+    params: { shell?: ChatShell; characterId?: string; kind: ChatMediaKind };
+    result: { canceled: boolean; id: string; kind: ChatMediaKind; url: string; fileName: string; size: number };
+  };
+  /** 用系统默认程序打开一条文件消息里的那个文件；消息不在会话里或文件已不在素材夹里都整条失败。 */
+  'chat.openMedia': {
+    params: { shell?: ChatShell; characterId?: string; id: string };
+    result: { opened: boolean; path: string };
   };
   /** 纯色底那十颗色板：直接来自 DesignSystem 的调色板 XAML，前端不再自带一份。 */
   'palette.swatches': {
@@ -514,8 +544,20 @@ export type ChatContactRow = {
   last: string;
   /** 右上角时间（今天给时分，昨天给「昨天」）；没有最后一条就是空串 */
   time: string;
+  /** 有没有未读（等价于 unreadCount > 0，留着给只认布尔的地方） */
   unread: boolean;
+  /** 未读条数：会话行上的数字角标；超过 99 由前端收成「99+」 */
+  unreadCount: number;
+  /** 加好友时写的备注；空 = 没写 */
+  note: string;
+  /** friend = 好友表里的（能删）；roster = 只是这一档的角色，补在名册后面 */
+  source: 'friend' | 'roster';
+  /** 能不能删：只有好友表里的行能删 */
+  removable: boolean;
 };
+
+/** 一条消息的形态：文字、图片、表情、文件。老存档没有这个字段，宿主一律按 text 读。 */
+export type ChatMediaKind = 'text' | 'image' | 'sticker' | 'file';
 
 /** 会话里的一条消息（chat.history / chat.send）。 */
 export type ChatRow = {
@@ -526,6 +568,16 @@ export type ChatRow = {
   sender: string;
   /** ISO-8601 */
   at: string;
+  /** 这条消息是什么：text 画文字气泡，image 画图片，sticker 先用文字标记，file 画文件卡片 */
+  kind: ChatMediaKind;
+  /** 媒体文件的素材地址（https://wab.assets/…）；文字消息是空串 */
+  mediaUrl: string;
+  /** 气泡里先用这一张（缓存没有时宿主给的是原图地址）；空 = 没有可用图 */
+  thumbUrl: string;
+  /** 用户选中的原文件名；只有文件与图片消息有 */
+  fileName: string;
+  /** 媒体文件的字节数；文字消息是 0 */
+  size: number;
 };
 
 /** 这一档的插件/工具/角色白名单（save.rules.get）。 */
@@ -621,6 +673,13 @@ export type ServerEvents = {
   'theme.tokens': { tokens: TokenMap };
   /** 原生侧发生的事（导入成功、存档写入、警告）：条的画法归前端，宿主只给内容。 */
   'ui.toast': { title: string; body: string; code: string; kind: 'info' | 'success' | 'warn' | 'error'; glyph: string };
+  /**
+   * 她发来一条手机消息（PhoneMessageService.PublishAsync 落盘之后推）。
+   * 前端据此刷新未读角标；那一格会话没开着时再弹一条提示，正文就是 preview（消息本身的截断）。
+   */
+  'chat.arrived': { characterId: string; preview: string; name: string };
+  /** 有人把某一格会话标成已读了（打开会话 / 在里面说话）：所有窗的角标都要跟着重读。 */
+  'chat.unread.changed': { what: 'read' };
 };
 
 export type EventName = keyof ServerEvents;

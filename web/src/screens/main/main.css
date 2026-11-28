@@ -3,6 +3,7 @@
 
 /* ── 通用钮：源码里的 Button + CornerRadius，尺寸按各自 HeightRequest ── */
 .m-btn {
+  position: relative;
   appearance: none;
   border: 1px solid transparent;
   background: var(--w-tint-button);
@@ -19,6 +20,28 @@
   gap: 6px;
   white-space: nowrap;
 }
+/* 顶栏「手机」上的小点：有新消息才出，呼吸靠 opacity，不碰布局。 */
+.m-btn__dot {
+  position: absolute;
+  top: 4px;
+  right: 5px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--w-signal);
+  animation: m-dot-breathe 2.4s ease-in-out infinite;
+}
+
+@keyframes m-dot-breathe {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+
 .m-btn:hover {
   border-color: var(--w-hairline);
   color: var(--w-ink-display);
@@ -1146,6 +1169,43 @@
   border-radius: 17%;
   border: 1px solid var(--w-hairline);
   transition: transform 140ms var(--w-ease-out), filter 160ms ease;
+}
+
+.pn__icon {
+  position: relative;
+  display: block;
+  line-height: 0;
+}
+
+/* 未读角标：一分红、一行字。只动 transform/opacity —— 角标出现时弹一下，改数字时不跳。 */
+.pn__badge {
+  position: absolute;
+  top: -5px;
+  right: -7px;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--w-signal);
+  color: var(--w-ink-on-signal);
+  font-size: max(8px, calc(var(--w-size-caption) - 3px));
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+  animation: pn-badge-in 220ms var(--w-ease-out) both;
+}
+
+@keyframes pn-badge-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
 }
 
 .pn__app:hover .pn__tile {

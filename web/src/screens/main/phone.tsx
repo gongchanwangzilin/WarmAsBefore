@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { ScreenProps } from '../types';
 import { closeWindow } from '../../lib/windows';
 import { NEED_SAVE, useRun } from '../../lib/run';
+import { unreadLabel, useUnread } from '../../lib/unread';
 import './main.css';
 
 /**
@@ -88,6 +89,8 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
   const run = useRun(bridge);
   /** 问到了、而且确实没在存档里，才把存档上的入口灰掉。 */
   const outsideSave = run.known && !run.active;
+  /** QV 那一格与 Dock 上的 QV 共用同一个未读数：她发来一条，桌面上就该看得见。 */
+  const unread = useUnread(bridge, !outsideSave);
 
   const [page, setPage] = useState(0);
   const [now, setNow] = useState(() => new Date());
@@ -103,6 +106,7 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
 
   const tile = (item: Tile) => {
     const locked = item.needsSave === true && outsideSave;
+    const badge = item.key === 'qv' || item.key === 'dock-qv' ? unread.total : 0;
     return (
       <button
         key={item.key}
@@ -112,11 +116,18 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
         disabled={locked}
         title={locked ? NEED_SAVE : undefined}
       >
-        <span className="pn__tile" data-tone={item.tone} data-locked={locked || undefined}>
-          <i className="pn__gloss" aria-hidden="true" />
-          <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
-            {item.glyph}
+        <span className="pn__icon">
+          <span className="pn__tile" data-tone={item.tone} data-locked={locked || undefined}>
+            <i className="pn__gloss" aria-hidden="true" />
+            <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
+              {item.glyph}
+            </span>
           </span>
+          {badge > 0 ? (
+            <i className="pn__badge" aria-label={`${badge} 条未读`}>
+              {unreadLabel(badge)}
+            </i>
+          ) : null}
         </span>
         {item.sub ? <span className="pn__app-label">{item.sub}</span> : null}
       </button>

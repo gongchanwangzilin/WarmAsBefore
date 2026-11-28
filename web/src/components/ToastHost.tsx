@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Bridge } from '../bridge/client';
+import { openConversationId } from '../lib/unread';
 
 /**
  * 宿主提示条。
@@ -51,6 +52,22 @@ export function ToastHost({ bridge }: { bridge: Bridge }) {
 
   useEffect(() => {
     const off = bridge.onEvent('ui.toast', (payload) => push(payload));
+    return off;
+  }, [bridge]);
+
+  // 她发来一条手机消息：那一格会话没开着才弹（开着的话她已经在你眼前，条是多余的）。
+  // 标题就是她的名字、正文就是消息本身（宿主给的 preview），条上的字一个都不新编。
+  useEffect(() => {
+    const off = bridge.onEvent('chat.arrived', (payload) => {
+      if (payload.characterId === openConversationId()) return;
+      push({
+        title: payload.name || payload.characterId,
+        body: payload.preview,
+        code: 'QV',
+        kind: 'info',
+        glyph: '✦',
+      });
+    });
     return off;
   }, [bridge]);
 

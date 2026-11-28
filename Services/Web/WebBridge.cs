@@ -247,7 +247,8 @@ public sealed class WebBridge
         }
     }
 
-    private static bool BypassesGate(string? method) => method is "chat.send" or "voice.listen" or "voice.speak";
+    // chat.attach 要等用户在系统选图框里点完，与 chat.send 一样会占很久：都不占闸。
+    private static bool BypassesGate(string? method) => method is "chat.send" or "chat.attach" or "voice.listen" or "voice.speak";
 
     /// <summary>方法白名单。新增方法只在这里加一行，前端拿不到别的任何入口。</summary>
     private async Task<object?> DispatchAsync(string? method, JsonElement p) => method switch
@@ -274,8 +275,13 @@ public sealed class WebBridge
         "save.rules.get" => await SaveRulesGetAsync(p),
         "save.rules.set" => await SaveRulesSetAsync(p),
         "chat.contacts" => await ChatContactsAsync(p),
+        "chat.contact.add" => await ChatContactAddAsync(p),
+        "chat.contact.remove" => await ChatContactRemoveAsync(p),
+        "chat.unread.summary" => await ChatUnreadSummaryAsync(),
         "chat.history" => await ChatHistoryAsync(p),
         "chat.send" => await ChatSendAsync(p),
+        "chat.attach" => await ChatAttachAsync(p),
+        "chat.openMedia" => await ChatOpenMediaAsync(p),
         "characters.list" => await CharactersListAsync(),
         "characters.get" => CharactersGet(p),
         "characters.importAvatar" => await CharactersImportAvatarAsync(p),
@@ -1393,6 +1399,13 @@ public sealed class WebBridge
                 last = string.IsNullOrWhiteSpace(c?.LastMessage) ? "还没有聊过" : c!.LastMessage,
                 time = c is null ? "" : TimeLabelOf(c.LastMessageAt),
                 unread = c?.Unread ?? false,
+                // 角标上的真数字（> 99 由前端收成「99+」）；unread 留着，老前端只认布尔也不破。
+                unreadCount = c?.UnreadCount ?? 0,
+                // 加好友时写的备注（可空）：联系人行显示，删了就没有。
+                note = c?.Note ?? "",
+                // friend = 在好友表里（能删）；roster = 只是这一档的角色（补在名册后面，删不掉）。
+                source = c is null ? "roster" : "friend",
+                removable = c is not null,
             });
             if (partnerId.Length == 0) { partnerId = id; partnerName = ch.Profile.Name; }
         }
@@ -1403,6 +1416,73 @@ public sealed class WebBridge
             partner = partnerId.Length == 0 ? null : new { id = partnerId, name = partnerName },
             modeLabel = ChatModeLabel(shell),
         };
+    }
+
+    /// <summary>
+    /// <c>chat.contact.add</c>：给 <see cref="WeChatService.AddContactAsync(string, string?)"/> 加一张网页的脸。
+    /// 名字照角色库解析（Id / 名字 / 昵称都认）；已经加过的人只回源码那句
+    /// 「「X」已经是你的微信好友了」，不覆盖、不静默成功；名字在角色库里找不到也照原话回。
+    /// 备注随联系人一起落盘。加完推 <c>data.changed</c>，前端就地重读 <c>chat.contacts</c>。
+    /// 没有当前档就没有微信：这时候整条应答失败，不假装加上了。
+    /// </summary>
+    private async Task<object?> ChatContactAddAsync(JsonElement p)
+    {
+        var name = OptionalText(p, "name").Trim();
+        if (name.Length == 0)
+            throw new WebBridgeException("E_BAD_PARAMS", "chat.contact.add 需要 {name}（角色名或角色 Id）。");
+        if (string.IsNullOrEmpty(_saves.CurrentSaveId))
+            throw new WebBridgeException("E_REJECTED", "还没有进入存档：微信只在存档内成立，先读档或加一个角色。");
+
+        var note = OptionalText(p, "note").Trim();
+        var (ok, message, added, characterId) = await _wechat.AddContactAsync(name, note.Length > 0 ? note : null);
+        if (!ok) throw new WebBridgeException("E_REJECTED", message);
+
+        Emit("data.changed", new { what = "contacts" });
+        if (added) Controls.Toast.Success(message);
+        else Controls.Toast.Info(message);
+
+        var profile = (await _characters.ListAsync()).FirstOrDefault(c => c.Profile.Id == characterId)?.Profile;
+        return new
+        {
+            id = characterId,
+            name = profile?.Name ?? name,
+            added,
+            message,
+        };
+    }
+
+    /// <summary>
+    /// <c>chat.contact.remove</c>：删掉好友表里的一行（<see cref="WeChatService.RemoveAsync"/>）。
+    /// 删的是「加过好友」这件事，不是这一档的角色：她还在名册里，就照 roster 那一档留着。
+    /// 删不了（本来就不在好友表里）时整条应答失败，原因照原文给。
+    /// </summary>
+    private async Task<object?> ChatContactRemoveAsync(JsonElement p)
+    {
+        var id = ReadId(p, "chat.contact.remove");
+        if (string.IsNullOrEmpty(_saves.CurrentSaveId))
+            throw new WebBridgeException("E_REJECTED", "还没有进入存档：微信只在存档内成立，先读档或加一个角色。");
+
+        var (ok, message) = await _wechat.RemoveAsync(id);
+        if (!ok) throw new WebBridgeException("E_REJECTED", message);
+
+        Emit("data.changed", new { what = "contacts" });
+        Controls.Toast.Success(message);
+        return new { id, message };
+    }
+
+    /// <summary>
+    /// <c>chat.unread.summary</c>：未读的轻量总数，手机桌面 / Dock 上的 QV 角标与主界面顶栏「手机」上的小点用它。
+    /// byContact 只列有未读的人，total 就是它们的和 —— 两个数同一份联系人表算出来，不会一个对一个不对。
+    /// 读数仍然来自 <see cref="WeChatService.ListAsync"/>，不在这里另存一份计数：未读只有一处真相。
+    /// </summary>
+    private async Task<object?> ChatUnreadSummaryAsync()
+    {
+        var list = await _wechat.ListAsync();
+        var byContact = list
+            .Where(c => c.UnreadCount > 0 && !string.IsNullOrEmpty(c.CharacterId))
+            .Select(c => new { id = c.CharacterId, count = c.UnreadCount })
+            .ToList();
+        return new { total = byContact.Sum(c => c.count), byContact };
     }
 
     /// <summary>
@@ -1435,11 +1515,19 @@ public sealed class WebBridge
                 mine = r.Role == "user",
                 sender = r.Role == "user" ? "我" : partner,
                 at = r.At.ToUniversalTime().ToString("o"),
+                // 主界面会话只有文字：字段与手机那面同形，前端一套气泡渲染两边都能吃。
+                kind = PhoneMessage.KindText,
+                mediaUrl = "",
+                thumbUrl = "",
+                fileName = "",
+                size = 0L,
             }).ToList();
             return new { characterId = charId, messages, hasMore = log.Count > page.Count, nextBefore = (string?)null };
         }
 
         await _wechat.MarkReadAsync(charId);
+        // 打开会话就算读过：所有窗（主窗、手机窗）的未读角标都要跟着重读，不能只通知这一扇。
+        EmitAll("chat.unread.changed", new { what = "read" });
         var all = await _phone.ForAsync(charId);
         var cursor = BeforeCursor(p);
         var pool = cursor is null ? all.ToList() : all.Where(m => m.At < cursor.Value).ToList();
@@ -1454,6 +1542,11 @@ public sealed class WebBridge
                 ? (string.IsNullOrWhiteSpace(m.SenderName) ? "我" : m.SenderName)
                 : (string.IsNullOrWhiteSpace(m.SenderName) ? chatPartner : m.SenderName),
             at = m.At.ToUniversalTime().ToString("o"),
+            kind = m.EffectiveKind,
+            mediaUrl = AssetUrl(m.MediaPath),
+            thumbUrl = AssetUrl(string.IsNullOrWhiteSpace(m.ThumbPath) ? m.MediaPath : m.ThumbPath),
+            fileName = m.FileName,
+            size = _phone.MediaSizeOf(m.MediaPath),
         }).ToList();
 
         return new
@@ -1545,7 +1638,87 @@ public sealed class WebBridge
         mine = m.IsUser,
         sender = m.IsUser ? (string.IsNullOrWhiteSpace(m.SenderName) ? "我" : m.SenderName) : (string.IsNullOrWhiteSpace(m.SenderName) ? partner : m.SenderName),
         at = m.At.ToUniversalTime().ToString("o"),
+        kind = m.EffectiveKind,
+        mediaUrl = AssetUrl(m.MediaPath),
+        thumbUrl = AssetUrl(string.IsNullOrWhiteSpace(m.ThumbPath) ? m.MediaPath : m.ThumbPath),
+        fileName = m.FileName,
+        size = _phone.MediaSizeOf(m.MediaPath),
     };
+
+    // ==================== 会话里的媒体（图片 / 表情 / 文件） ====================
+
+    /// <summary>
+    /// <c>chat.attach</c>：弹系统的选图/选文件框，把选中的文件拷进 <c>assets/chat/{角色}/{yyyyMM}/</c>，
+    /// 再当作一条媒体消息落盘（与 <c>chat.send</c> 同一条 <see cref="PhoneMessageService"/> 路径）。
+    /// 不喂给模型：附件不是一句话，这里只负责「把它送进会话」，要不要接话由用户自己决定。
+    /// 用户点掉选图框返回 <c>canceled=true</c>（那不是失败）；拷不进去、写不进去一律抛。
+    /// </summary>
+    private async Task<object?> ChatAttachAsync(JsonElement p)
+    {
+        var kind = OptionalText(p, "kind").Trim().ToLowerInvariant();
+        if (kind.Length == 0) kind = PhoneMessage.KindFile;
+        if (kind is not (PhoneMessage.KindImage or PhoneMessage.KindSticker or PhoneMessage.KindFile))
+            throw new WebBridgeException("E_BAD_PARAMS", "chat.attach 的 kind 只认 image / sticker / file。");
+
+        var shell = ChatShellOf(p);
+        var charId = await ChatTargetOfAsync(p);
+        if (charId.Length == 0)
+            throw new WebBridgeException("E_REJECTED", "这一档里没有能聊的角色：微信只在存档内成立，先读档或加一个角色。");
+        if (string.IsNullOrEmpty(_saves.CurrentSaveId))
+            throw new WebBridgeException("E_REJECTED", "还没有进入存档：这个附件没有地方落盘，先读一份存档再发。");
+
+        // 选图框要拿真窗口句柄，只能在 UI 线程上开；FileTypes 只给图片，文件消息不挑类型。
+        var pick = await MainThread.InvokeOnMainThreadAsync(async () => await FilePicker.Default.PickAsync(
+            new PickOptions
+            {
+                FileTypes = kind == PhoneMessage.KindFile ? null : FilePickerFileType.Images,
+            }));
+        if (pick is null) return new { canceled = true, id = "", kind, url = "", fileName = "", size = 0L };
+
+        var rel = await _phone.ImportMediaAsync(charId, pick.FullPath, kind);
+        if (rel is null)
+            throw new WebBridgeException("E_BACKEND",
+                kind == PhoneMessage.KindFile
+                    ? "这个文件没能存进聊天素材夹：文件读不出来，或者已经不在原处了。"
+                    : "这张图没能存进聊天素材夹：它不是图片，或者已经不在原处了。");
+
+        var fileName = string.IsNullOrWhiteSpace(pick.FileName) ? Path.GetFileName(pick.FullPath) : pick.FileName;
+        var msg = await _phone.PublishMediaAsync(charId, kind, rel, fileName, "我", isUser: true);
+        await _wechat.TouchLastMessageAsync(charId, msg.Text);
+        await CommitChatAsync(shell == "qq" ? "QQ" : "微信");
+
+        return new
+        {
+            canceled = false,
+            id = msg.Id,
+            kind = msg.EffectiveKind,
+            url = AssetUrl(rel),
+            fileName,
+            size = _phone.MediaSizeOf(rel),
+        };
+    }
+
+    /// <summary>
+    /// <c>chat.openMedia</c>：点文件卡片时用系统默认程序打开。只认这条会话里真有的消息 id，
+    /// 路径从消息自己的 MediaPath 解析、且必须落在存储根内 —— 桥不做「按任意路径打开文件」的入口。
+    /// 系统没接住（这台机器上没有默认程序）就抛，不假装打开了。
+    /// </summary>
+    private async Task<object?> ChatOpenMediaAsync(JsonElement p)
+    {
+        var id = OptionalText(p, "id").Trim();
+        if (id.Length == 0) throw new WebBridgeException("E_BAD_PARAMS", "chat.openMedia 需要 {id}：要打开哪一条消息。");
+        var charId = await ChatTargetOfAsync(p);
+        var msg = (await _phone.ForAsync(charId)).FirstOrDefault(m => m.Id == id)
+            ?? throw new WebBridgeException("E_REJECTED", "这条消息不在会话里，没有可以打开的文件。");
+        var full = _phone.ResolveMediaPath(msg.MediaPath)
+            ?? throw new WebBridgeException("E_REJECTED", "这条消息的文件已经不在素材夹里了（可能被清理过）。");
+
+        var name = string.IsNullOrWhiteSpace(msg.FileName) ? Path.GetFileName(full) : msg.FileName;
+        var opened = await Launcher.Default.OpenAsync(new OpenFileRequest(name, new ReadOnlyFile(full)));
+        if (!opened)
+            throw new WebBridgeException("E_BACKEND", "系统没有接住这个文件：这台机器上没有能打开它的默认程序。");
+        return new { opened = true, path = msg.MediaPath };
+    }
 
     /// <summary>一轮模型回复；网关的失败回显（[API错误…] 等）按失败抛，不当台词回给前端。</summary>
     private async Task<string> SendToEngineAsync(string charId, string text)
