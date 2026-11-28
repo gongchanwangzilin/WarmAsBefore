@@ -33,6 +33,8 @@ type Slot = {
 
 export function Save({ bridge, navigate, back }: ScreenProps) {
   const [slots, setSlots] = useState<Slot[]>([]);
+  // 存档图标：按角色名对上花名册里的头像；没有头像就退回首字方块。
+  const [avatars, setAvatars] = useState<Record<string, string>>({});
 
   // 真的存档表：SaveManager.List() 那一份。写盘后宿主推 data.changed，这里跟着重读。
   useEffect(() => {
@@ -56,6 +58,15 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
       }
     };
     void read();
+    void bridge
+      .request('characters.list', {})
+      .then(({ characters }) => {
+        if (dropped) return;
+        setAvatars(
+          Object.fromEntries(characters.filter((c: { avatarUrl: string }) => c.avatarUrl).map((c: { name: string; avatarUrl: string }) => [c.name, c.avatarUrl])),
+        );
+      })
+      .catch(() => undefined);
     const off = bridge.onEvent('data.changed', () => void read());
     return () => {
       dropped = true;
@@ -99,7 +110,13 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
             slots.map((slot, index) => (
               <div key={slot.id}>
                 <div className="sc-slot">
-                  <span className="sc-slot__avatar">{slot.character.slice(0, 1)}</span>
+                  <span className="sc-slot__avatar">
+                    {avatars[slot.character] ? (
+                      <img src={avatars[slot.character]} alt="" />
+                    ) : (
+                      slot.character.slice(0, 1) || '档'
+                    )}
+                  </span>
                   <div className="sc-slot__text">
                     <span className="sc-slot__title">{slot.label}</span>
                     <span className="sc-slot__desc">

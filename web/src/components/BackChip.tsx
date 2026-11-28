@@ -26,10 +26,13 @@ export function BackChip({
       setNeeded(true);
       return;
     }
+    // 页面是懒加载的：80ms 时 chunk 可能还没挂上，早判一次会得出「没有回退」的错结论。
+    // 所以在 1.2 秒内反复看，直到看见页面自己的回退为止。
     let cancelled = false;
-    setNeeded(false);
-    const timer = window.setTimeout(() => {
+    let attempts = 0;
+    const decide = () => {
       if (cancelled) return;
+      attempts += 1;
       const layer = document.querySelector('.layer:not([data-leaving])');
       const own =
         !!layer?.querySelector('[data-back], .ph__back, .bar__back, [class*="back" i]') ||
@@ -38,11 +41,18 @@ export function BackChip({
           const name = `${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''}`;
           return text === '返回' || name.includes('返回') || (/^[‹<◀]/.test(text) && text.length <= 8);
         });
-      setNeeded(!own);
-    }, 80);
+      if (own) {
+        setNeeded(false);
+        return;
+      }
+      const mounted = !!layer && (layer.textContent ?? '').trim().length > 30;
+      if (mounted || attempts >= 18) setNeeded(true);
+      else window.setTimeout(decide, 70);
+    };
+    setNeeded(false);
+    window.setTimeout(decide, 70);
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
   }, [routeKey, force]);
 

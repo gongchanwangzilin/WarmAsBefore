@@ -585,3 +585,11 @@ body[data-back-chip='1'] .ph--ground .ph__inner {
   padding-top: 20px;
   padding-bottom: 48px;
 }
+
+/* 回退键同时给「顶栏页」（设置首页、主界面）让位：它们不是 PageHeader。 */
+body[data-back-chip='1'] .bar__inner {
+  padding-left: 92px;
+}
+body[data-back-chip='1'] .mg__top {
+  padding-left: 92px;
+}

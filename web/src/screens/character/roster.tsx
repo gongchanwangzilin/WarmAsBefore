@@ -27,6 +27,8 @@ type RosterItem = {
   affection: number;
   /** 头像地址（宿主素材主机）；空 = 没有头像 */
   avatarUrl?: string;
+  /** 当前该显示的那张立绘（后端按服装+情绪解析）；空 = 没有立绘 */
+  spriteUrl?: string;
 };
 
 /** Helpers.AffectionScale：每 100 点一级，共 10 级，0 点也算第 1 级。 */
@@ -54,6 +56,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
             cellCount: c.spriteCount ?? 0,
             affection: c.affection,
             avatarUrl: c.avatarUrl || '',
+            spriteUrl: c.currentSpriteUrl || '',
           })),
         );
         setSelectedId((prev) => (characters.some((c: CharacterRow) => c.id === prev) ? prev : characters[0]?.id ?? ''));
@@ -248,10 +251,18 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                   <span style={{ position: 'absolute', left: 16, top: 16 }}>
                     <Eyebrow>// SUBJECT</Eyebrow>
                   </span>
-                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)' }}>
-                    <BodySm>还没有立绘</BodySm>
-                    <Caption>进 TA 的工作室生成一套，或从 zip 补进来</Caption>
-                  </div>
+                  {selected.spriteUrl ? (
+                    <img
+                      src={selected.spriteUrl}
+                      alt={selected.name}
+                      style={{ maxHeight: 'min(100%, 420px)', maxWidth: 'min(100%, 46vw)', objectFit: 'contain', objectPosition: 'bottom center', display: 'block' }}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)' }}>
+                      <BodySm>还没有立绘</BodySm>
+                      <Caption>进 TA 的工作室生成一套，或从 zip 补进来</Caption>
+                    </div>
+                  )}
                 </div>
 
                 <div style={{ padding: 'var(--w-pad-card)' }}>

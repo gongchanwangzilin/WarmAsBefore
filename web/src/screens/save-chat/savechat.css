@@ -933,3 +933,12 @@
   flex-direction: column;
   gap: var(--w-space-1);
 }
+
+/* 存档图标：有头像就用头像填满方块，没有就留首字。 */
+.sc-slot__avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: inherit;
+  display: block;
+}

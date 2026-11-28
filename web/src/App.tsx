@@ -163,7 +163,7 @@ export function App({ bridge, tokens }: Props) {
         <BackChip
           routeKey={route.path}
           onBack={goBack}
-          force={route.id === 'main' || route.id === 'phone' || route.id === 'settings'}
+          force={route.id === 'main' || route.id === 'phone'}
         />
       ) : null}
 
