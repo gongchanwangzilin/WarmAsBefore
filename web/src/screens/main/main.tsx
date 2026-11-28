@@ -7,6 +7,7 @@ import { useUnread } from '../../lib/unread';
 import { useVoice } from '../../lib/voice';
 import { Glass } from '../../components/Glass';
 import { GlassSwitch } from '../../components/GlassSwitch';
+import { Segmented } from '../../components/Segmented';
 import type { ScreenProps } from '../types';
 import './main.css';
 
@@ -23,6 +24,11 @@ import './main.css';
  */
 
 type Slot = 'top' | 'left';
+
+const MODE_OPTIONS = [
+  { value: 'gal', label: 'Galgame' },
+  { value: 'chat', label: '聊天' },
+] as const;
 
 type WidgetRow = {
   id: string;
@@ -189,7 +195,6 @@ export function Main({ bridge, navigate }: ScreenProps) {
   // 自定义状态条：按场景 / 楼层由流程规则长出来，这一局没有规则时整排不出现。
   const stateButtons: string[] = [];
 
-  const modeLabel = chatMode ? '切回 Galgame' : '切到聊天模式';
   const topWidgets = widgets.filter((w) => w.slot === 'top' && w.visible);
   const leftWidgets = widgets.filter((w) => w.slot === 'left' && w.visible && w.id !== 'brain');
   const last = messages.length > 0 ? messages[messages.length - 1] : null;
@@ -429,9 +434,12 @@ export function Main({ bridge, navigate }: ScreenProps) {
             <Glass as="section" tone="bar" radius={20} className="mg__gal">
               <div className="mg__gal-title">
                 <span className="mg__gal-chip">{live.who}</span>
-                <button type="button" className="m-btn m-btn--sm" onClick={() => setChatMode(true)}>
-                  {modeLabel}
-                </button>
+                <Segmented
+                  label="界面模式"
+                  value={chatMode ? 'chat' : 'gal'}
+                  options={MODE_OPTIONS}
+                  onChange={(next) => setChatMode(next === 'chat')}
+                />
                 {lastReply ? (
                   <button
                     type="button"
@@ -539,9 +547,12 @@ export function Main({ bridge, navigate }: ScreenProps) {
                     朗读
                   </button>
                 ) : null}
-                <button type="button" className="m-btn m-btn--mode" onClick={() => setChatMode(false)}>
-                  {chatMode ? '切回 Galgame' : '切到聊天模式'}
-                </button>
+                <Segmented
+                  label="界面模式"
+                  value={chatMode ? 'chat' : 'gal'}
+                  options={MODE_OPTIONS}
+                  onChange={(next) => setChatMode(next === 'chat')}
+                />
               </div>
             </div>
             <div className="mg__chat-list">

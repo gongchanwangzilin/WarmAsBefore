@@ -938,3 +938,188 @@ body[data-back-chip='1'] .mg__top {
   background: var(--w-tint-card);
   color: var(--w-ink-display);
 }
+
+/* ── 分段开关（Segmented）：一条胶囊 + 一个滑块 + 原生 radio ──────────────
+   滑块只有 transform 在动：格子宽 = (100% - 2*内距) / n，位移 = 格子号 * 100%。
+   选中态由 `input:checked + label` 上色，React 不参与。 */
+
+.k-seg {
+  --k-seg-pad: 3px;
+  --k-seg-h: 24px;
+  --k-seg-fs: var(--w-size-caption);
+  --k-seg-px: 10px;
+  --k-seg-track: var(--w-surface-tint);
+  --k-seg-ink: var(--w-ink-display);
+  --k-seg-on: var(--w-bg);
+  position: relative;
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  width: fit-content;
+  max-width: 100%;
+  padding: var(--k-seg-pad);
+  border-radius: 999px;
+  background: var(--k-seg-track);
+  box-shadow: inset 0 0 0 1px var(--w-hairline);
+  isolation: isolate;
+  font-size: var(--k-seg-fs);
+  vertical-align: middle;
+}
+.k-seg[data-size='md'] {
+  --k-seg-h: 28px;
+  --k-seg-fs: var(--w-size-small);
+  --k-seg-px: 14px;
+}
+.k-seg[data-tone='ghost'] {
+  --k-seg-track: transparent;
+  --k-seg-ink: color-mix(in srgb, var(--w-ink-display) 15%, transparent);
+  --k-seg-on: var(--w-ink-display);
+}
+
+/* 滑块：宽度是一格，位移按格数。按下时只缩 transform，不碰宽度。 */
+.k-seg__thumb {
+  position: absolute;
+  z-index: 0;
+  top: var(--k-seg-pad);
+  bottom: var(--k-seg-pad);
+  left: var(--k-seg-pad);
+  width: calc((100% - var(--k-seg-pad) * 2) / var(--k-seg-n));
+  border-radius: 999px;
+  background: var(--k-seg-ink);
+  transform: translateX(calc(var(--k-seg-i) * 100%));
+  transform-origin: center;
+  transition: transform 280ms cubic-bezier(0.22, 1, 0.36, 1);
+  pointer-events: none;
+}
+.k-seg:active > .k-seg__thumb {
+  transform: translateX(calc(var(--k-seg-i) * 100%)) scaleX(0.96);
+  transition-duration: var(--w-dur-press);
+}
+
+/* radio 藏起来但仍可聚焦：方向键与读屏都靠它。 */
+.k-seg__in {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  pointer-events: none;
+  clip-path: inset(50%);
+}
+
+.k-seg__seg {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-areas: 'seg';
+  align-items: center;
+  justify-items: center;
+  min-height: var(--k-seg-h);
+  padding: 0 var(--k-seg-px);
+  border-radius: 999px;
+  color: var(--w-ink-body);
+  font-size: var(--k-seg-fs);
+  line-height: 1.1;
+  cursor: pointer;
+  user-select: none;
+  -webkit-user-select: none;
+  transition: color 160ms ease;
+}
+.k-seg__seg > * {
+  grid-area: seg;
+  white-space: nowrap;
+}
+/* 量尺：同一份全部标签，隐形占位 —— 每格因此一样宽，滑块才量得准。 */
+.k-seg__fit {
+  display: grid;
+  grid-template-areas: 'seg';
+  visibility: hidden;
+}
+.k-seg__fit > span {
+  grid-area: seg;
+}
+
+.k-seg__in:checked + .k-seg__seg,
+.k-seg__in:checked + .k-seg__host .k-seg__seg--host {
+  color: var(--k-seg-on);
+}
+.k-seg__seg:hover {
+  color: var(--w-ink-display);
+}
+.k-seg__in:checked + .k-seg__seg:hover,
+.k-seg__in:checked + .k-seg__host .k-seg__seg--host:hover {
+  color: var(--k-seg-on);
+}
+.k-seg__in:focus-visible + .k-seg__seg,
+.k-seg__in:focus-visible + .k-seg__host .k-seg__seg--host {
+  outline: 2px solid var(--w-focus-ring);
+  outline-offset: -1px;
+}
+
+/* 窄窗换行：滑块收起，选中的那一格自己填墨。 */
+.k-seg[data-wrap='1'] {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--k-seg-pad);
+  width: 100%;
+}
+.k-seg[data-wrap='1'] > .k-seg__thumb {
+  display: none;
+}
+.k-seg[data-wrap='1'] .k-seg__fit {
+  display: none;
+}
+.k-seg[data-wrap='1'] .k-seg__seg {
+  flex: 1 1 auto;
+}
+.k-seg[data-wrap='1'] .k-seg__in:checked + .k-seg__seg {
+  background: var(--k-seg-ink);
+  color: var(--k-seg-on);
+}
+
+/* 二级：外层一格是宿主，里面再嵌一条小胶囊；宿主选中时小胶囊才出现。 */
+.k-seg__host {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-areas: 'seg';
+  align-items: center;
+}
+.k-seg__host > * {
+  grid-area: seg;
+}
+.k-seg .k-seg--sub {
+  --k-seg-pad: 2px;
+  --k-seg-fs: var(--w-size-caption);
+  --k-seg-px: 6px;
+  --k-seg-track: color-mix(in srgb, var(--w-bg) 26%, transparent);
+  --k-seg-ink: var(--w-bg);
+  --k-seg-on: var(--w-ink-display);
+  display: none;
+  width: 100%;
+  min-width: 0;
+  box-shadow: none;
+}
+.k-seg--sub .k-seg__seg {
+  min-height: 0;
+  padding-block: 3px;
+}
+.k-seg[data-tone='ghost'] .k-seg--sub {
+  --k-seg-track: color-mix(in srgb, var(--w-ink-display) 14%, transparent);
+  --k-seg-ink: var(--w-ink-display);
+  --k-seg-on: var(--w-bg);
+}
+.k-seg__in:checked + .k-seg__host .k-seg__seg--host {
+  display: none;
+}
+.k-seg__in:checked + .k-seg__host .k-seg--sub {
+  display: inline-grid;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .k-seg__thumb,
+  .k-seg__seg {
+    transition: none;
+  }
+}

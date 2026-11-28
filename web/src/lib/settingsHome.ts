@@ -137,7 +137,8 @@ function summaryOf(key: string, desc: string, values: SettingsValues): string {
           : appearance.frost
             ? '磨砂'
             : '纯色';
-      return `${tier} · ${THEME_DISPLAY[appearance.theme] ?? '经典'}`;
+      // 配色那一段现在是预设配色的短名（赭石 / 墨青 / 樱灰 / 苔绿 / 夜珀）；theme 只留旧值兜底。
+      return `${tier} · ${appearance.palette || THEME_DISPLAY[appearance.theme] || '赭石'}`;
     }
     case 'sound':
       return `BGM ${percent(sound.bgm)} · 音效 ${percent(sound.sfx)}`;

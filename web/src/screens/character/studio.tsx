@@ -3,6 +3,7 @@ import { Glass } from '../../components/Glass';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { Field, PageHeader, TextBtn } from '../../components/kit';
+import { Segmented } from '../../components/Segmented';
 import { useIsWide } from '../../lib/useIsWide';
 import { importAvatar } from '../../lib/avatar';
 import type { CharacterFields, Result } from '../../bridge/protocol';
@@ -761,36 +762,15 @@ function Pane({
 }) {
   return (
     <Glass as="section" tone="card" radius={12} style={{ padding: 0 }}>
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(82px, 1fr))',
-          gap: 6,
-          padding: 'var(--w-space-2) var(--w-pad-card)',
-        }}
-      >
-        {tabs.map((item) => (
-          <button
-            key={item.key}
-            type="button"
-            aria-pressed={tab === item.key}
-            onClick={() => setTab(item.key)}
-            style={{
-              height: 30,
-              borderRadius: 99,
-              border: tab === item.key ? '1px solid transparent' : '1px solid var(--w-hairline)',
-              background: tab === item.key ? 'var(--w-ink-display)' : 'var(--w-tint-button)',
-              color: tab === item.key ? 'var(--w-bg)' : 'var(--w-ink-body)',
-              font: 'inherit',
-              fontSize: 'var(--w-size-caption)',
-              cursor: 'pointer',
-              whiteSpace: 'nowrap',
-              padding: 0,
-            }}
-          >
-            {item.label}
-          </button>
-        ))}
+      <div style={{ padding: 'var(--w-space-2) var(--w-pad-card)' }}>
+        <Segmented
+          label="资料页签"
+          size="md"
+          wrap
+          value={tab}
+          options={tabs.map((item) => ({ value: item.key, label: item.label }))}
+          onChange={setTab}
+        />
       </div>
       <div style={{ height: 2, background: 'var(--w-signal)' }} />
       <div style={{ padding: 'var(--w-space-3) var(--w-pad-card) var(--w-pad-card)' }}>

@@ -12,7 +12,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
 
 /** 假后端的示例设置；摘要文案的样子全由这几个数决定（见 lib/settingsHome.ts）。 */
 export const DEFAULT_SETTINGS: SettingsValues = {
-  appearance: { liquid: true, glass: true, frost: true, theme: 'endfield' },
+  appearance: { liquid: true, glass: true, frost: true, theme: 'endfield', palette: '赭石' },
   sound: { bgm: 0.7, sfx: 0.8 },
   text: { scale: 1 },
   story: { autoSave: true },

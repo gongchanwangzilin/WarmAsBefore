@@ -108,7 +108,7 @@ public partial class WebShellPage : ContentPage
     protected override void OnDisappearing()
     {
         base.OnDisappearing();
-        if (ThemeManager.Current is { } tm) tm.Changed -= OnThemeChanged;
+        if (ThemeManager.Current is { } tm) tm.Applied -= OnThemeChanged;
     }
 
     // ==================== 地址解析 ====================
@@ -245,7 +245,7 @@ public partial class WebShellPage : ContentPage
             core.WebMessageReceived += OnWebMessageReceived;
             core.NavigationCompleted += OnNavigationCompleted;
 
-            if (ThemeManager.Current is { } tm) tm.Changed += OnThemeChanged;
+            if (ThemeManager.Current is { } tm) tm.Applied += OnThemeChanged;
 
             if (_source.Kind == WebSourceKind.Probe) core.NavigateToString(ProbeHtml);
             else Browser.Source = _source.Url;
@@ -255,7 +255,7 @@ public partial class WebShellPage : ContentPage
             view.Settings.JavaScriptEnabled = true;
             view.AddJavascriptInterface(new AndroidHostInterface(this), "WabBridge");
             view.SetWebViewClient(new AndroidLoadClient(this));
-            if (ThemeManager.Current is { } tm) tm.Changed += OnThemeChanged;
+            if (ThemeManager.Current is { } tm) tm.Applied += OnThemeChanged;
 
             if (_source.Kind == WebSourceKind.Probe)
                 view.LoadDataWithBaseURL(null, ProbeHtml, "text/html", "utf-8", null);

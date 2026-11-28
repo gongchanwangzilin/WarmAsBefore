@@ -260,4 +260,77 @@ public sealed class StickerLibrary
         var suffix = string.Join("", stickers.Select(n => $"（表情：{n}）"));
         return text.Trim() + suffix;
     }
+
+    // ==================== QV 表情面板要的那几样（相对路径 / 最近使用 / 图片判定） ====================
+
+    /// <summary>库目录（存储根下的 <c>stickers/</c>）：<see cref="ImportAsync"/> 的图片都复制到这里。</summary>
+    public string Dir => _dir;
+
+    /// <summary>
+    /// 存储根下的相对路径（正斜杠）。WebView 的素材主机只挂了存储根，
+    /// 落在根外的条目（被登记进来的外部文件）没有能用的 URL，返回空串 —— 调用方据此跳过，不画裂图。
+    /// </summary>
+    public string RelativePathOf(StickerItem item)
+    {
+        if (item is null || string.IsNullOrWhiteSpace(item.Path)) return "";
+        try
+        {
+            var rel = Path.GetRelativePath(_store.Root, item.Path).Replace('\\', '/');
+            return rel.StartsWith("..", StringComparison.Ordinal) ? "" : rel;
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("StickerLibrary.RelativePathOf -> " + ex.Message);
+            return "";
+        }
+    }
+
+    /// <summary>表情图片的扩展名（与 <see cref="PhoneMessageService.ImportMediaAsync"/> 收的那一组同一份）。</summary>
+    public static bool IsImageFile(string? path) =>
+        Path.GetExtension(path ?? "").ToLowerInvariant() is ".png" or ".jpg" or ".jpeg" or ".gif" or ".webp" or ".bmp";
+
+    private const string RecentKey = "sticker_recent";
+    private const int MaxRecent = 12;
+    private List<string> _recent = new();
+    private bool _recentLoaded;
+
+    /// <summary>最近用过的表情 Id，最近的在最前；面板的「最近使用」那一排按它排。</summary>
+    public IReadOnlyList<string> Recent
+    {
+        get { lock (_lock) return _recent.ToList(); }
+    }
+
+    public async Task EnsureRecentLoadedAsync()
+    {
+        if (_recentLoaded) return;
+        try
+        {
+            var list = await _store.Load<List<string>>(RecentKey);
+            lock (_lock)
+            {
+                _recent = list ?? new List<string>();
+                _recentLoaded = true;
+            }
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("StickerLibrary.Recent.Load -> " + ex.Message);
+            lock (_lock) _recentLoaded = true;
+        }
+    }
+
+    /// <summary>记一次「发过这张」：同一个 Id 只留一条，队头是刚发的那张。落盘失败只记日志（顺序不是数据）。</summary>
+    public async Task TouchRecentAsync(string id)
+    {
+        if (string.IsNullOrWhiteSpace(id)) return;
+        await EnsureRecentLoadedAsync();
+        lock (_lock)
+        {
+            _recent.RemoveAll(seen => seen == id);
+            _recent.Insert(0, id);
+            if (_recent.Count > MaxRecent) _recent.RemoveRange(MaxRecent, _recent.Count - MaxRecent);
+        }
+        try { await _store.Save(RecentKey, _recent); }
+        catch (Exception ex) { App.WriteLog("StickerLibrary.Recent.Save -> " + ex.Message); }
+    }
 }

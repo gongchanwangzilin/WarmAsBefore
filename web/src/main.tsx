@@ -42,8 +42,15 @@ function Root() {
       applyTokens(dampingTokens(real, prefersReducedMotion()));
       setTokens(real);
     });
+    // 宿主换了配色（设置里点预设换那一套种子，或原生侧改了外观）：令牌整份重发一条。
+    // 换上去之后 App 里的地面与六级墨都从这份 tokens 现算，所以整屏跟着一起变。
+    const off = bridge.onEvent('theme.tokens', ({ tokens: next }) => {
+      applyTokens(dampingTokens(next, prefersReducedMotion()));
+      setTokens(next);
+    });
     return () => {
       live = false;
+      off();
     };
   }, []);
 

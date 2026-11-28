@@ -467,6 +467,12 @@ public sealed record UserSettings
     public bool ExperimentalSceneFxEnabled { get; init; }
     // 配色主题：色板轴锁定终末地（2026-11-27），旧存档里的 classic/sakura/bamboo/mist 会被改写。
     public string ThemeName { get; init; } = DesignSystem.Theme.ThemeManager.LockedPalette;
+    /// <summary>
+    /// 预设配色 id（<c>ochre</c>/<c>slate</c>/<c>sakura</c>/<c>moss</c>/<c>amber</c>，见 <see cref="DesignSystem.Theme.PalettePresets"/>）。
+    /// 一套预设只给种子：主色、状态色与底色档；其余颜色仍由 Lock() 按对比度现算。
+    /// 老存档没有这个键 → 反序列化后是默认值 <c>ochre</c>，也就是本仓库一直以来的那套。
+    /// </summary>
+    public string PalettePresetId { get; init; } = DesignSystem.Theme.PalettePresets.DefaultId;
     public string KeySfx { get; init; } = "default";
     public string MenuSide { get; init; } = "left";
     public bool AutoSaveEnabled { get; init; } = true;

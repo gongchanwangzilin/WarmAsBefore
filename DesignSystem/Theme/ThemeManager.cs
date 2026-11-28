@@ -389,6 +389,25 @@ public class ThemeManager
 
     public event Action? Changed;
 
+    /// <summary>
+    /// 「这一轮已经真的重发完了」：在 <see cref="Flush"/> 的最后、令牌与画刷都写进资源之后触发。
+    ///
+    /// 与 <see cref="Changed"/> 的区别是时机 —— Changed 在属性 setter 里立刻发，那时
+    /// StyleWorldTokens.Publish 还没跑，此刻去读 <c>Application.Current.Resources</c>
+    /// 拿到的是**上一档**的颜色。要往下发令牌（Web 桥的 theme.tokens）必须等这一条。
+    /// </summary>
+    public event Action? Applied;
+
+    /// <summary>
+    /// 立刻重发，不等防抖窗口（设色板预设要从这条路过：调用方要拿重发**之后**的令牌当应答）。
+    /// 由桥在 UI 线程上调用，所以 Flush 里的 Ui.Post 会同步执行，返回时资源已经是新的一套。
+    /// </summary>
+    public void ApplyNow()
+    {
+        lock (_applyLock) _applyTimer?.Change(Timeout.Infinite, Timeout.Infinite);
+        Flush();
+    }
+
     // ── 应用调度（防抖） ────────────────────────────────────────────────
     // 换主题要整体替换调色板字典，改档位/透明度要重写 GlassTokens —— 两者都会让
     // 整棵可视树里的 {DynamicResource} 重新解析。连续点击主题选择器时若每次都立刻执行，
@@ -468,6 +487,8 @@ public class ThemeManager
                 // 换完自己就重绘了，不需要再叠一层「换好了」的暗示。
             }
             catch (Exception ex) { App.WriteLog("ThemeManager.Flush -> " + ex); }
+            // 到这一步资源才是新的一套：往下发令牌的人都等这一条，不订 Changed（那是「打算换」）。
+            Applied?.Invoke();
         });
     }
 

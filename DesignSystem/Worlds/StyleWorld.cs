@@ -1,4 +1,5 @@
 using Microsoft.Maui.Controls.Shapes;
+using WarmAsBefore.DesignSystem.Theme;
 
 namespace WarmAsBefore.DesignSystem.Worlds;
 
@@ -368,21 +369,17 @@ public static class StyleWorldTokens
     // ── 下发 ────────────────────────────────────────────────────────────
 
     /// <summary>
-    /// 色板种子。C* 是**彩度差**（该色 max-min 的通道跨度），不是 HSL 的 S：
-    /// 近白的高明度色在 HSL 里 S 能冲到 0.76 而肉眼几乎看不出色偏，
-    /// 拿它当强度用会把四个色板算成同一个颜色。彩度差才线性对应「看得出来 tint」。
+    /// 当前这套预设配色。种子全在 <see cref="PalettePresets"/> 那张表里，
+    /// 这里只记住「现在用的是哪一套」—— 五套预设之外没有第二条配色来源。
     /// </summary>
-    private readonly record struct Seed(
-        double GroundH, double GroundC, double AccentH, double AccentC,
-        double GreenH, double GreenC, double RedH, double RedC, double BlueH, double BlueC);
+    public static PalettePreset Preset { get; set; } = PalettePresets.Resolve(null);
 
-    private static Seed _seed;
+    private static PaletteSeed _seed;
     private static string _seedTheme = "";
 
     /// <summary>
-    /// themeKey 决定种子要不要重取：只有色板真的重新落盘时才重读。
-    /// 世界会把算好的颜色写回同一批资源键，若下一轮从资源读就是读自己的输出，
-    /// 每轮再乘一次彩度系数，连切几次世界颜色就漂向灰了。
+    /// 种子只在「色板 + 预设」真的变了时重取：世界会把算好的颜色写回同一批资源键，
+    /// 若下一轮从资源读就是读自己的输出，每轮再乘一次彩度系数，连切几次就漂向灰了。
     /// </summary>
     public static void Publish(StyleWorld world, bool dark, string themeKey)
     {
@@ -395,10 +392,11 @@ public static class StyleWorldTokens
         // 也可能在 ThemeManager 的防抖回调里跑，绝不能让非法 Scale 乘出 NaN 字号/圆角。
         var r = Scaled(Recipe.Of(world), SafeScale);
 
-        if (_seedTheme != themeKey)
+        var seedKey = themeKey + "|" + Preset.Id;
+        if (_seedTheme != seedKey)
         {
-            _seed = ReadSeed(res);
-            _seedTheme = themeKey;
+            _seed = Preset.Seed;
+            _seedTheme = seedKey;
         }
         var hue = _seed.GroundH;
         // 深色档染色要更重：同量彩度差压在暗底上几乎读不出来（明度低了 tint 的相对可见度掉得很快）。
@@ -412,7 +410,7 @@ public static class StyleWorldTokens
 
         // 页面色（设置 → 背景 → 页面色）：只借它的色相与彩度差，明度台阶仍由明暗与 Depth 算出 ——
         // 用户挑的是「一块什么颜色的纸」，不是「一块亮度随意的纸」。
-        // 空串（跟色板走）与手输的错字都退回色板种子，这条轴永远有兜底。
+        // 空串（跟预设走）与手输的错字都退回预设种子，这条轴永远有兜底。
         var customPage = Color.TryParse((PageTintHex ?? "").Trim(), out var pickedPage);
         if (customPage)
         {
@@ -420,19 +418,9 @@ public static class StyleWorldTokens
             tint = Chroma(pickedPage) * (dark ? 1.7 : 1.0);
         }
 
-        // 三档地：页面 / 卡面 / 井。台阶宽度由 Depth 决定，方向由明暗决定。
-        // 浅档的页面钉在 0.968：参考窗实测地面 #F3F3F3（L 0.953）、卡纯白。
-        // 地面一旦沉到 0.90，白卡就变成「灰纸上贴一块糖」，整屏开始发脏 —— 这是「丑」的主因之一。
-        // 卡面给到近纯白并把彩度压到最低（白卡带黄会读成旧纸），井单独沉一档。
-        var d = r.Depth - 0.55;
-        var surfaceL = dark ? 0.175 + 0.020 * d : 0.995;
-        // 自选页面色时给卡面明度加一道护栏：深档卡面沉过 0.12 就落到页面地（≈0.113）下面，
-        // 卡与页面再也分不出层次；浅档亮过 0.99 则和 0.966 的页面地融成一整块白。
-        // 夹在两端之内，三档地才还读得出高低，五档墨也才挂得住。
-        if (customPage) surfaceL = Math.Clamp(surfaceL, 0.12, 0.99);
-        var page = Tint(hue, tint, dark ? 0.115 - 0.030 * d : 0.968 - 0.032 * d);
-        var surface = Tint(hue, tint * 0.55, surfaceL);
-        var well = Tint(hue, tint * 1.3, dark ? 0.082 - 0.015 * d : 0.930 - 0.028 * d);
+        // 三档地：页面 / 卡面 / 井。台阶宽度由 Depth 决定，方向由明暗决定，
+        // 整档的深浅再由预设的底色档推一档（五套预设靠它排出「纸白 → 最暗」）。
+        var (page, surface, well) = Grounds(dark, hue, tint, r.Depth, _seed.Level, customPage);
         _surface = surface;
         _well = well;
 
@@ -455,22 +443,21 @@ public static class StyleWorldTokens
         var seam = SinkOrLift(surface, dark, 0.16, 0.13);
         var edge = SinkOrLift(surface, dark, 0.21, 0.18);
 
-        // 印墨（赭）：色相跟着色板自己的 AccentWarm，彩度从它的彩度差推、明度当场钉住。
+        // 印墨（主色）：色相跟着预设的主色，彩度从它的彩度差推、明度当场钉住。
         // 它与旧版「强调色」的唯一区别是**职责**：这颗色既当填充（按钮、选中块），也当墨
         // （小字、图形笔画、当前项），所以它对卡面必须过 4.5 —— 旧版钉在 L 0.66 的浅档只有
         // 2:1，等于把「警告」「当前」「可点」全写成看不见。浅档沉到 0.44、深档提到 0.60，
         // 方向永远跟着纸走：亮纸上用深墨，暗纸上用亮墨。
-        var accent = Lock(Hsl(_seed.AccentH, Math.Clamp(_seed.AccentC * (dark ? 1.6 : 1.5), 0.34, 0.58),
-            dark ? 0.60 : 0.44), surface, dark ? 4.8 : 4.95);
-        // 印墨面上的字：方向与纸相反（浅档的赭是深色 → 字提白；深档的赭是亮色 → 字压黑）。
+        var accent = AccentOf(_seed, surface, dark);
+        // 印墨面上的字：方向与纸相反（浅档的印墨是深色 → 字提白；深档的印墨是亮色 → 字压黑）。
         // 方向写反时 Lock 会一路饱和到纯白或纯黑，结果就是「看得见但脏」。
         var accentInk = Lock(dark ? Sink(accent, 0.78) : Lift(accent, 0.90), accent, 5.0);
 
-        // 信号色（铜绿，色相钉死 168°）：与印墨**正交**的那一颗。
-        // 印墨是纸上的字，信号是仪表上的读数 —— 它只出现在状态、进度、HUD 读数与图表活性值上，
+        // 读数色：与印墨**正交**的那一颗，色相跟着预设（默认是铜绿）。
+        // 印墨是纸上的字，读数是仪表上的读数 —— 它只出现在状态、进度、HUD 读数与图表活性值上，
         // 不做装饰、不做卡片底色。全站唯一允许拿来当小字颜色的饱和色，
         // 所以它对卡面的目标是 4.95 而不是状态色那一档的 3.2：读数是给人读的，不是给人看的。
-        var signal = Lock(Hsl(168, dark ? 0.32 : 0.44, dark ? 0.66 : 0.34), surface, dark ? 4.8 : 4.95);
+        var signal = SignalOf(_seed, surface, dark);
 
         PublishColors(res, page, surface, well, inkDisplay, inkBody, inkLabel, inkMuted, inkFaint,
             seam, edge, line, accent, accentInk, signal, dark);
@@ -890,30 +877,73 @@ public static class StyleWorldTokens
     public static string PageTintHex { get; set; } = "";
 
     // ── 色算 ────────────────────────────────────────────────────────────
-    private static Color FromHex(string hex) => Color.FromArgb(hex);
 
     /// <summary>通道跨度 max−min：这一个世界用来表示「看得出有色偏」的程度。</summary>
     private static double Chroma(Color c) =>
         Math.Max(c.Red, Math.Max(c.Green, c.Blue)) - Math.Min(c.Red, Math.Min(c.Green, c.Blue));
 
-    /// <summary>色相种子：地/强调/三个状态色各取色相与彩度差，全部从色板原始值读一次。</summary>
-    private static Seed ReadSeed(ResourceDictionary res)
+    /// <summary>
+    /// 三档地：页面 / 卡面 / 井。台阶宽度由 Depth 决定，方向由明暗决定，
+    /// 整档的深浅再由 <see cref="PaletteSeed.Level"/>（这套预设的底色档）推一档。
+    ///
+    /// 浅档的页面钉在 0.968：参考窗实测地面 #F3F3F3（L 0.953）、卡纯白。
+    /// 地面一旦沉到 0.90，白卡就变成「灰纸上贴一块糖」，整屏开始发脏 —— 这是「丑」的主因之一。
+    /// 卡面给到近纯白并把彩度压到最低（白卡带黄会读成旧纸），井单独沉一档。
+    ///
+    /// 卡面只吃半个底色档：它是「同一张纸上更亮的那一层」，跟着页面一起沉到底就不再分层了。
+    /// </summary>
+    private static (Color Page, Color Surface, Color Well) Grounds(
+        bool dark, double hue, double tint, double depth, double level, bool clampSurface)
     {
-        var ground = Get(res, "SurfaceBg", "#FDF8F0");
-        var accent = Get(res, "AccentWarm", "#F5D8B8");
-        var green = Get(res, "GreenSoft", "#A5D6A7");
-        var red = Get(res, "RedSoft", "#EF9A9A");
-        var blue = Get(res, "BlueSoft", "#90CAF9");
-        var gh = RgbToHsl(ground).H;
-        // 页面底几乎无彩时（纯灰阶色板），退到强调色的色相，否则 tint 会整条消失。
-        if (Chroma(ground) < 0.006) gh = RgbToHsl(accent).H;
-        return new Seed(gh, Chroma(ground), RgbToHsl(accent).H, Chroma(accent),
-            RgbToHsl(green).H, Chroma(green), RgbToHsl(red).H, Chroma(red),
-            RgbToHsl(blue).H, Chroma(blue));
+        var d = depth - 0.55;
+        var surfaceL = (dark ? 0.175 + 0.020 * d : 0.995) + level * 0.5;
+        // 自选页面色时给卡面明度加一道护栏：深档卡面沉过 0.12 就落到页面地（≈0.113）下面，
+        // 卡与页面再也分不出层次；浅档亮过 0.99 则和 0.966 的页面地融成一整块白。
+        // 夹在两端之内，三档地才还读得出高低，五档墨也才挂得住。
+        if (clampSurface) surfaceL = Math.Clamp(surfaceL, 0.12, 0.99);
+        return (
+            Tint(hue, tint, (dark ? 0.115 - 0.030 * d : 0.968 - 0.032 * d) + level),
+            Tint(hue, tint * 0.55, surfaceL),
+            Tint(hue, tint * 1.3, (dark ? 0.082 - 0.015 * d : 0.930 - 0.028 * d) + level));
     }
 
-    private static Color Get(ResourceDictionary res, string key, string fallback) =>
-        res.TryGetValue(key, out var v) && v is Color c ? c : FromHex(fallback);
+    /// <summary>印墨（主色）：色相与彩度差来自预设，明度当场钉到对卡面 4.8（深档）/ 4.95（纸档）。</summary>
+    private static Color AccentOf(PaletteSeed seed, Color surface, bool dark) =>
+        Lock(Hsl(seed.AccentH, Math.Clamp(seed.AccentC * (dark ? 1.6 : 1.5), 0.34, 0.58),
+            dark ? 0.60 : 0.44), surface, dark ? 4.8 : 4.95);
+
+    /// <summary>读数色：与印墨正交的那一颗，色相与饱和度来自预设，明度钉在中调并锁到 4.8 / 4.95。</summary>
+    private static Color SignalOf(PaletteSeed seed, Color surface, bool dark) =>
+        Lock(Hsl(seed.SignalH, seed.SignalS, dark ? 0.66 : 0.34), surface, dark ? 4.8 : 4.95);
+
+    /// <summary>一套预设的预览色：id / 短名 / 那气质说明 / 主色 / 卡面（都是算出来的最终值）。</summary>
+    public readonly record struct PaletteSwatch(string Id, string Name, string Note, string Accent, string Surface);
+
+    /// <summary>
+    /// 五套预设的预览色块，给设置页那排卡片与 <c>palette.swatches</c> 用。
+    ///
+    /// 走的是 <see cref="Publish"/> 的同一套 <see cref="Grounds"/> / <see cref="AccentOf"/>：
+    /// 卡片上那块色与切过去之后界面上那颗色是同一个计算的结果，不是另抄一份十六进制。
+    /// 预览按预设**自己的**底色档算，不掺用户的「页面色」—— 那一格说的是「这套配色本身长什么样」。
+    /// </summary>
+    public static IReadOnlyList<PaletteSwatch> Swatches(StyleWorld world)
+    {
+        var depth = Recipe.Of(world).Depth;
+        var list = new List<PaletteSwatch>(PalettePresets.All.Count);
+        foreach (var preset in PalettePresets.All)
+        {
+            var seed = preset.Seed;
+            var tint = seed.GroundC * (seed.Dark ? 1.0 : 0.5);
+            var (_, surface, _) = Grounds(seed.Dark, seed.GroundH, tint, depth, seed.Level, clampSurface: false);
+            list.Add(new PaletteSwatch(preset.Id, preset.Name, preset.Note,
+                Hex(AccentOf(seed, surface, seed.Dark)), Hex(surface)));
+        }
+        return list;
+    }
+
+    /// <summary>Color → <c>#rrggbb</c>：预览色块要的是纯色值，不带 alpha。</summary>
+    private static string Hex(Color c)
+        => $"#{(int)Math.Round(c.Red * 255):x2}{(int)Math.Round(c.Green * 255):x2}{(int)Math.Round(c.Blue * 255):x2}";
 
     /// <summary>
     /// 有彩的中性阶：先取目标明度的纯灰，再往这个色相的纯色按比例混一点。

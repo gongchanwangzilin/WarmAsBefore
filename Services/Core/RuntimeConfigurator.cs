@@ -1045,6 +1045,10 @@ public sealed class RuntimeConfigurator
         // 因为 Publish 只在这个分支被请求重算。单独先算出来，后面判定「要不要重发」时复用。
         var pageTintChanged = prev is null
             || !string.Equals(prev.PageTintHex, s.PageTintHex, StringComparison.OrdinalIgnoreCase);
+        // 预设配色只给种子，但换一套就整屏换色 —— 与页面色一样，必须显式要一次重发
+        // （ThemeName 锁死终末地之后不会变，等不到它的 setter 来触发）。
+        var presetChanged = prev is null
+            || !string.Equals(prev.PalettePresetId, s.PalettePresetId, StringComparison.Ordinal);
         var themeChanged = prev is null
             || prev.FrostEnabled != s.FrostEnabled || prev.GlassEnabled != s.GlassEnabled
             || prev.LiquidEnabled != s.LiquidEnabled || Math.Abs(prev.GlassTranslucency - s.GlassTranslucency) > 1e-6
@@ -1055,6 +1059,7 @@ public sealed class RuntimeConfigurator
             || prev.LightMode != s.LightMode
             || !string.Equals(prev.ThemeName, s.ThemeName, StringComparison.Ordinal)
             || pageTintChanged
+            || presetChanged
             || !string.Equals(prev.StyleWorldName, s.StyleWorldName, StringComparison.Ordinal);
         if (themeChanged)
         {
@@ -1065,6 +1070,10 @@ public sealed class RuntimeConfigurator
             _theme.Liquid = s.LiquidEnabled;
             _theme.GlassTranslucency = s.GlassTranslucency;
             _theme.ReducedTransparency = s.GlassReducedTransparency;
+            // 预设配色：种子（主色 / 状态色 / 底色档）只在 PalettePresets 那一张表里，
+            // 这里只把「现在用哪一套」交给世界。世界读到新 id 才重取种子，否则沿用上一轮的。
+            var preset = WarmAsBefore.DesignSystem.Theme.PalettePresets.Resolve(s.PalettePresetId);
+            WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.Preset = preset;
             // 色板轴锁定终末地：旧存档里的 classic / sakura / bamboo / mist 一律按终末地渲染。
             _theme.ThemeName = WarmAsBefore.DesignSystem.Theme.ThemeManager.LockedPalette;
             // 材质由世界决定，三个玻璃布尔只留下「这一档该多透」的调制量。
@@ -1073,20 +1082,22 @@ public sealed class RuntimeConfigurator
             // 再请求重发一遍令牌。改的是种子而不是色板，所以必须显式要一次重算 ——
             // ThemeName 那条路锁死终末地之后不会再变，等不到它的 setter 来触发。
             WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.PageTintHex = (s.PageTintHex ?? "").Trim();
-            if (pageTintChanged) _theme.Republish();
-            // 终末地配色是「暗色 HUD」：强制暗色令牌（原生标题栏/控件也跟着走）。
-            // 色板锁死之后这条一直成立（不再有「离开终末地」的分支）；强制的是界面明暗，不改系统设置。
+            if (pageTintChanged || presetChanged) _theme.Republish();
+            // 底色档由预设自己定（纸白 / 深底 / 最暗各是一套配色的一部分，不跟系统深浅走）：
+            // 强制的是界面明暗，不改系统设置。
             try
             {
+                var wantDark = preset.Seed.Dark;
                 if (Application.Current is { } app)
                 {
-                    if (app.UserAppTheme != AppTheme.Dark) app.UserAppTheme = AppTheme.Dark;
-                    // 部分平台上 UserAppTheme 的变更不一定同步到 ThemeManager.Dark：这里显式对齐一次，
-                    // 保证 StyleWorld 用暗色地面/墨阶重算，而不是等下一次系统主题事件。
-                    if (!_theme.Dark) _theme.Dark = true;
+                    var want = wantDark ? AppTheme.Dark : AppTheme.Light;
+                    if (app.UserAppTheme != want) app.UserAppTheme = want;
                 }
+                // 部分平台上 UserAppTheme 的变更不一定同步到 ThemeManager.Dark：这里显式对齐一次，
+                // 保证 StyleWorld 用这一档的地面/墨阶重算，而不是等下一次系统主题事件。
+                if (_theme.Dark != wantDark) _theme.Dark = wantDark;
             }
-            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.EndfieldDark -> " + ex.Message); }
+            catch (Exception ex) { App.WriteLog("RuntimeConfigurator.PresetRamp -> " + ex.Message); }
         }
 
         // 置顶：开启 AlwaysOnTop 时持续强制常驻顶层（3 秒重断言防被抢占）；关闭则回落。

@@ -141,6 +141,12 @@ function previewParts(text: string) {
   });
 }
 
+/** 表情面板里的一张：id 认得出是库里的哪一个，url 是素材主机能打开的那张图。 */
+type Sticker = { id: string; url: string; name: string };
+
+/** stickers.list 给的分组。库本身没有分组这个概念，所以现在只有「我的表情包」这一个。 */
+type StickerGroup = { id: string; name: string; items: Sticker[] };
+
 /** 消息流里的一行：日期分隔 / 系统提示 / 一条聊天（文字、图片、表情、文件）。 */
 type ChatLine =
   | { id: string; kind: 'day'; text: string }
@@ -233,9 +239,9 @@ const CHAT_TOOLS: { icon: IconName; label: string; reason: string }[] = [
   { icon: 'more', label: '更多', reason: '更多菜单还没有桥' },
 ];
 
-/** 输入条那排键：kind 有值的走 chat.attach（弹宿主的选图/选文件框），其余的仍停在「还没有桥」。 */
-const INPUT_TOOLS: { icon: IconName; label: string; reason: string; kind?: 'image' | 'file' }[] = [
-  { icon: 'smile', label: '表情', reason: '表情面板要读表情库' },
+/** 输入条那排键：kind 有值的走 chat.attach（弹宿主的选图/选文件框），panel 的那个开表情面板，其余的仍停在「还没有桥」。 */
+const INPUT_TOOLS: { icon: IconName; label: string; reason: string; kind?: 'image' | 'file'; panel?: 'stickers' }[] = [
+  { icon: 'smile', label: '表情', reason: '表情', panel: 'stickers' },
   { icon: 'scissors', label: '截图', reason: '截图要接真机的截屏通道' },
   { icon: 'folder', label: '文件', reason: '发文件', kind: 'file' },
   { icon: 'image', label: '图片', reason: '发图片', kind: 'image' },
@@ -289,6 +295,16 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
   const [attaching, setAttaching] = useState(false);
   /** 点开的大图地址；空 = 没有那层全屏覆盖 */
   const [viewer, setViewer] = useState('');
+  // 表情面板：打开时读一次 stickers.list，点一张就发（发出去关面板），导入结果按条数报在面板底下。
+  const [stickerOpen, setStickerOpen] = useState(false);
+  const [stickerGroups, setStickerGroups] = useState<StickerGroup[] | null>(null);
+  const [stickerRecent, setStickerRecent] = useState<string[]>([]);
+  const [stickerGroupId, setStickerGroupId] = useState('');
+  const [stickerQuery, setStickerQuery] = useState('');
+  const [stickerError, setStickerError] = useState('');
+  const [stickerNote, setStickerNote] = useState('');
+  const [stickerBusy, setStickerBusy] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const [tab, setTab] = useState<'chat' | 'people'>('chat');
   const [activeId, setActiveId] = useState('');
@@ -527,6 +543,77 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     }
   };
 
+  // 表情面板：每次打开都重读一遍库（别处导入、删掉的都能看到），读不到就说读不到，不画昨天的列表。
+  const loadStickers = async () => {
+    setStickerError('');
+    try {
+      const result = await bridge.request('stickers.list', {});
+      setStickerGroups(result.groups);
+      setStickerRecent(result.recent);
+      setStickerGroupId((prev) => (result.groups.some((group) => group.id === prev) ? prev : result.groups[0]?.id ?? ''));
+    } catch (error) {
+      setStickerGroups([]);
+      setStickerError(toErrorBody(error).message);
+    }
+  };
+
+  const toggleStickers = () => {
+    setStickerNote('');
+    setStickerError('');
+    if (stickerOpen) {
+      setStickerOpen(false);
+      return;
+    }
+    setStickerQuery('');
+    setStickerOpen(true);
+    void loadStickers();
+  };
+
+  // 点一张就发：走 chat.sendSticker（与 chat.attach 同一条落盘路），发出去关面板，刚发的这张排到最近最前。
+  const sendSticker = async (sticker: Sticker) => {
+    if (!active || !live || stickerBusy) return;
+    setStickerBusy(true);
+    setStickerError('');
+    setSendError('');
+    try {
+      const result = await bridge.request('chat.sendSticker', {
+        shell: activeShell,
+        characterId: active.id,
+        stickerId: sticker.id,
+      });
+      setLines((prev) => [...prev, ...toLines([result.message], roster)]);
+      setHistoryState('ready');
+      setStickerRecent((prev) => [sticker.id, ...prev.filter((id) => id !== sticker.id)].slice(0, 12));
+      setStickerOpen(false);
+    } catch (error) {
+      setStickerError(toErrorBody(error).message);
+    } finally {
+      setStickerBusy(false);
+    }
+  };
+
+  // 导入：宿主弹选择框（文件夹 / 压缩包），入库走 StickerLibrary 原来那条路；条数原样报，0 张也说 0。
+  const importStickers = async (kind: 'folder' | 'zip') => {
+    if (importing) return;
+    setImporting(true);
+    setStickerError('');
+    setStickerNote('');
+    try {
+      const result = await bridge.request('stickers.import', { kind });
+      if (result.canceled) return;
+      setStickerNote(
+        result.skipped > 0
+          ? `导入了 ${result.added} 个表情，跳过 ${result.skipped} 张（不是图片，或者没存进来）`
+          : `导入了 ${result.added} 个表情`,
+      );
+      await loadStickers();
+    } catch (error) {
+      setStickerError(toErrorBody(error).message);
+    } finally {
+      setImporting(false);
+    }
+  };
+
   const addFriend = async () => {
     const name = friendName.trim();
     if (!name || friendBusy) return;
@@ -572,6 +659,31 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     { id: 'star', label: '收藏', icon: 'star', ready: false },
     { id: 'files', label: '文件', icon: 'folder', ready: false },
   ];
+
+  // 表情面板要画的那几摞：搜索命中跨组，最近使用按 recent 的顺序排在最前，组内保持宿主给的顺序。
+  const stickerAll = (stickerGroups ?? []).flatMap((group) => group.items);
+  const stickerWord = stickerQuery.trim();
+  const stickerHit = stickerWord ? stickerAll.filter((item) => item.name.includes(stickerWord)) : null;
+  const recentStickers = stickerHit
+    ? []
+    : stickerRecent
+        .map((id) => stickerAll.find((item) => item.id === id))
+        .filter((item): item is Sticker => !!item);
+  const shownGroup = (stickerGroups ?? []).find((group) => group.id === stickerGroupId) ?? (stickerGroups ?? [])[0] ?? null;
+
+  const stickerCell = (sticker: Sticker) => (
+    <button
+      key={sticker.id}
+      type="button"
+      className="qw-sticker"
+      title={sticker.name}
+      aria-label={sticker.name}
+      disabled={stickerBusy}
+      onClick={() => void sendSticker(sticker)}
+    >
+      <img src={sticker.url} alt="" loading="lazy" />
+    </button>
+  );
 
   const listColumn = (
     <div className="qw-list">
@@ -769,9 +881,11 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
                     className={
                       line.kind === 'image'
                         ? 'qw-bubble qw-bubble--media'
-                        : line.kind === 'file'
-                          ? 'qw-bubble qw-bubble--doc'
-                          : 'qw-bubble'
+                        : line.kind === 'sticker'
+                          ? 'qw-bubble qw-bubble--sticker'
+                          : line.kind === 'file'
+                            ? 'qw-bubble qw-bubble--doc'
+                            : 'qw-bubble'
                     }
                   >
                     {line.kind === 'image' ? (
@@ -809,7 +923,23 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
                         </button>
                       </span>
                     ) : line.kind === 'sticker' ? (
-                      <span className="qw-bubble__text">[表情]</span>
+                      line.mediaUrl ? (
+                        <button
+                          type="button"
+                          className="qw-sticker-shot"
+                          aria-label={line.fileName || '表情'}
+                          title={line.fileName || '表情'}
+                          onClick={() => setViewer(line.mediaUrl)}
+                        >
+                          <img
+                            className="qw-bubble__sticker"
+                            src={line.thumbUrl || line.mediaUrl}
+                            alt={line.fileName || ''}
+                          />
+                        </button>
+                      ) : (
+                        <span className="qw-bubble__text">[表情]</span>
+                      )
                     ) : (
                       <span className="qw-bubble__text">{spoken(line.text)}</span>
                     )}
@@ -822,21 +952,127 @@ export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
       </div>
 
       <div className="qw-input">
+        {stickerOpen ? (
+          <div className="qw-stickers" role="group" aria-label="表情">
+            <div className="qw-stickers__head">
+              <span className="qw-stickers__title">我的表情包</span>
+              <input
+                className="qw-members__search"
+                style={{ margin: 0, width: 'min(180px, 100%)' }}
+                value={stickerQuery}
+                placeholder="搜索表情"
+                aria-label="搜索表情"
+                onChange={(event) => setStickerQuery(event.target.value)}
+              />
+              <span className="qw-stickers__acts">
+                <button
+                  type="button"
+                  className="qw-stickers__act"
+                  title="整个文件夹导入（含子目录里的图片）"
+                  aria-busy={importing}
+                  disabled={importing}
+                  onClick={() => void importStickers('folder')}
+                >
+                  导入文件夹
+                </button>
+                <button
+                  type="button"
+                  className="qw-stickers__act"
+                  title="把一个表情压缩包里的图片全部导入"
+                  aria-busy={importing}
+                  disabled={importing}
+                  onClick={() => void importStickers('zip')}
+                >
+                  导入压缩包
+                </button>
+                <button
+                  type="button"
+                  className="qw-ibtn"
+                  aria-label="关闭表情面板"
+                  onClick={() => setStickerOpen(false)}
+                >
+                  <Icon name="close" />
+                </button>
+              </span>
+            </div>
+
+            {(stickerGroups ?? []).length > 1 ? (
+              <div className="qw-stickers__groups">
+                {(stickerGroups ?? []).map((group) => (
+                  <button
+                    key={group.id}
+                    type="button"
+                    className="qw-stickers__group"
+                    aria-pressed={group.id === shownGroup?.id}
+                    onClick={() => setStickerGroupId(group.id)}
+                  >
+                    {group.name}
+                  </button>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="qw-stickers__body">
+              {stickerGroups === null ? (
+                <div className="qw-skel" aria-hidden="true">
+                  <i />
+                  <i />
+                </div>
+              ) : stickerHit ? (
+                stickerHit.length === 0 ? (
+                  <span className="qw-stickers__empty">没有匹配「{stickerWord}」的表情</span>
+                ) : (
+                  <div className="qw-stickers__block">
+                    <div className="qw-stickers__row">{stickerHit.map(stickerCell)}</div>
+                  </div>
+                )
+              ) : stickerAll.length === 0 ? (
+                <span className="qw-stickers__empty">
+                  还没有表情，点右上角的「导入文件夹」或「导入压缩包」添加
+                </span>
+              ) : (
+                <>
+                  {recentStickers.length > 0 ? (
+                    <div className="qw-stickers__block">
+                      <span className="qw-stickers__label">最近使用</span>
+                      <div className="qw-stickers__row">{recentStickers.map(stickerCell)}</div>
+                    </div>
+                  ) : null}
+                  {shownGroup ? (
+                    <div className="qw-stickers__block">
+                      <span className="qw-stickers__label">{shownGroup.name}</span>
+                      <div className="qw-stickers__row">{shownGroup.items.map(stickerCell)}</div>
+                    </div>
+                  ) : null}
+                </>
+              )}
+            </div>
+
+            {stickerNote ? <span className="qw-stickers__note">{stickerNote}</span> : null}
+            {stickerError ? <span className="qw-input__error">{stickerError}</span> : null}
+          </div>
+        ) : null}
+
         <div className="qw-input__tools">
-          {INPUT_TOOLS.map((tool) => (
-            <button
-              key={tool.label}
-              type="button"
-              className="qw-ibtn"
-              aria-label={tool.label}
-              aria-busy={tool.kind ? attaching : undefined}
-              title={tool.kind ? tool.label : tool.reason}
-              disabled={tool.kind ? !live || !active || attaching : true}
-              onClick={tool.kind ? () => void attach(tool.kind as 'image' | 'file') : undefined}
-            >
-              <Icon name={tool.icon} />
-            </button>
-          ))}
+          {INPUT_TOOLS.map((tool) => {
+            const panel = tool.panel === 'stickers';
+            const gated = !live || !active;
+            return (
+              <button
+                key={tool.label}
+                type="button"
+                className="qw-ibtn"
+                aria-label={tool.label}
+                aria-pressed={panel ? stickerOpen : undefined}
+                aria-busy={tool.kind ? attaching : undefined}
+                title={panel || tool.kind ? tool.label : tool.reason}
+                disabled={panel ? gated : tool.kind ? gated || attaching : true}
+                onClick={panel ? toggleStickers : tool.kind ? () => void attach(tool.kind as 'image' | 'file') : undefined}
+              >
+                <Icon name={tool.icon} />
+              </button>
+            );
+          })}
         </div>
         <div className="qw-input__box">
           <button

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { Segmented, type SegmentedOption } from '../../components/Segmented';
 import { Icon, type IconName } from './qqicons';
 
 /**
@@ -29,6 +30,12 @@ const SECTIONS: Section[] = [
 type UiMode = 'efficiency' | 'classic';
 /** 外观：白天 / 夜间 / 跟随系统。 */
 type Look = 'day' | 'night' | 'system';
+
+const LOOKS: SegmentedOption<Look>[] = [
+  { value: 'day', label: '白天' },
+  { value: 'night', label: '夜间' },
+  { value: 'system', label: '跟随系统' },
+];
 
 const SELECT_CLOSED = 'settings 桥还没有接上，下拉框停在原地';
 
@@ -104,33 +111,7 @@ export function QqSettings({ onClose, onTheme }: { onClose: () => void; onTheme:
             </div>
 
             <h3 className="qw-set__sect">外观设置</h3>
-            <div className="qw-set__cards qw-set__cards--look">
-              {(
-                [
-                  { id: 'day', label: '白天' },
-                  { id: 'night', label: '夜间' },
-                  { id: 'system', label: '跟随系统' },
-                ] as const
-              ).map((item) => (
-                <button
-                  key={item.id}
-                  type="button"
-                  className="qw-set__card"
-                  aria-pressed={look === item.id}
-                  onClick={() => setLook(item.id)}
-                >
-                  <span className="qw-thumb qw-thumb--look" data-look={item.id} aria-hidden="true">
-                    <i className="qw-thumb__rail" />
-                    <i className="qw-thumb__list">
-                      <b />
-                      <b />
-                    </i>
-                    <i className="qw-thumb__chat" />
-                  </span>
-                  <span className="qw-set__cardlabel">{item.label}</span>
-                </button>
-              ))}
-            </div>
+            <Segmented label="外观" size="md" value={look} options={LOOKS} onChange={setLook} />
 
             <button type="button" className="qw-set__link" onClick={onTheme}>
               切换色彩主题

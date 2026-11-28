@@ -1792,6 +1792,9 @@ public sealed partial class SettingsViewModel : ObservableObject
     GlassLightZ = GlassLightZ,
     GlassLightWidth = GlassLightWidth,
                     ThemeName = DesignSystem.Theme.ThemeManager.LockedPalette,
+                    // 预设配色这一格不归设置页管（设置页没有它的入口）：原样带回去，
+                    // 否则在这儿存一次设置就把用户在网页里挑的那套配色抹掉了。
+                    PalettePresetId = DesignSystem.Theme.PalettePresets.Resolve(_settings.Current.PalettePresetId).Id,
                     MenuSide = MenuRight ? "right" : "left",
                     Lang = Lang,
                     TextSpeed = TextSpeed,

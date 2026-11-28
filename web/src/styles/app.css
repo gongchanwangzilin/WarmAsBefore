@@ -624,6 +624,75 @@ ol {
   border-radius: 10px;
 }
 
+/* 预设配色那一排：一套一张卡，卡里是它的卡面 + 主色一圆点，下面短名与那句说明。 */
+.presets {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
+  gap: var(--w-space-2);
+  margin: 4px 0 2px;
+}
+
+.preset {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 5px;
+  padding: 8px;
+  border: 1px solid var(--w-hairline);
+  border-radius: var(--w-radius-card);
+  background: var(--w-tint-button);
+  font: inherit;
+  text-align: left;
+  color: var(--w-ink-body);
+  cursor: pointer;
+}
+
+.preset:hover {
+  border-color: var(--w-edge);
+}
+
+.preset:focus-visible {
+  outline: 2px solid var(--w-focus-ring);
+  outline-offset: 2px;
+}
+
+/* 选中：一圈光边（描边 + 一层柔光），不靠整块换成彩色 */
+.preset--on {
+  border-color: var(--w-signal);
+  box-shadow:
+    0 0 0 1px var(--w-signal),
+    0 0 10px var(--w-signal-glow);
+}
+
+.preset__chip {
+  position: relative;
+  display: block;
+  height: 34px;
+  border: 1px solid var(--w-hairline);
+  border-radius: var(--w-radius-well);
+  overflow: hidden;
+}
+
+.preset__ink {
+  position: absolute;
+  left: 8px;
+  bottom: 8px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+}
+
+.preset__name {
+  font-size: var(--w-size-small);
+  color: var(--w-ink-display);
+}
+
+.preset__note {
+  font-size: var(--w-size-caption);
+  line-height: 1.3;
+  color: var(--w-ink-muted);
+}
+
 .btnrow {
   display: grid;
   grid-template-columns: auto 1fr auto;

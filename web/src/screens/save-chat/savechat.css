@@ -1927,6 +1927,34 @@
   cursor: zoom-in;
 }
 
+/* 表情气泡：一张小图（约 120px，窗口窄了跟着缩），不加气泡底 —— 表情本来就是贴在会话里的图 */
+.qw-bubble--sticker,
+.qw-msg--mine .qw-bubble--sticker {
+  padding: 0;
+  border: 0;
+  background: transparent;
+  line-height: 0;
+}
+
+.qw-sticker-shot {
+  display: block;
+  max-width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  cursor: zoom-in;
+}
+
+.qw-bubble__sticker {
+  display: block;
+  width: auto;
+  height: auto;
+  max-width: min(120px, 100%);
+  max-height: min(120px, 30vh);
+  object-fit: contain;
+}
+
 /* 文件气泡：名字 + 大小 + 打开 */
 .qw-bubble--doc {
   min-width: min(240px, 100%);
@@ -2082,6 +2110,151 @@
 .qw-input__error {
   font-size: calc(var(--w-size-caption) - 1px);
   color: var(--w-signal-lo);
+}
+
+/* 表情面板：贴在输入条上方；分组 + 搜索 + 「最近使用」排最前，点一张就发 */
+.qw-stickers {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: min(46vh, 360px);
+  margin-bottom: 4px;
+  padding: 8px;
+  border: 1px solid var(--w-hairline);
+  border-radius: 12px;
+  background: var(--w-bg);
+  animation: qw-rise 160ms var(--w-ease-out);
+}
+
+.qw-stickers__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  flex-wrap: wrap;
+}
+
+.qw-stickers__title {
+  font-size: var(--w-size-caption);
+  color: var(--w-ink-muted);
+}
+
+.qw-stickers__acts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.qw-stickers__act {
+  padding: 2px 9px;
+  border-radius: 8px;
+  border: 1px solid var(--w-hairline);
+  background: var(--w-tint-card);
+  color: var(--w-ink-body);
+  font: inherit;
+  font-size: calc(var(--w-size-caption) - 1px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qw-stickers__act:hover:enabled {
+  border-color: var(--w-signal-edge);
+  color: var(--w-signal);
+}
+
+.qw-stickers__act:disabled {
+  color: var(--w-ink-faint);
+  cursor: default;
+}
+
+.qw-stickers__groups {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.qw-stickers__group {
+  flex: none;
+  padding: 1px 9px;
+  border-radius: 999px;
+  border: 1px solid var(--w-hairline);
+  background: transparent;
+  color: var(--w-ink-muted);
+  font: inherit;
+  font-size: calc(var(--w-size-caption) - 1px);
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.qw-stickers__group[aria-pressed='true'] {
+  border-color: var(--w-signal-edge);
+  background: var(--w-tint-card);
+  color: var(--w-signal);
+}
+
+.qw-stickers__body {
+  display: flex;
+  min-height: 0;
+  flex-direction: column;
+  gap: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--w-hairline) transparent;
+}
+
+.qw-stickers__block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.qw-stickers__label {
+  font-size: calc(var(--w-size-caption) - 1px);
+  color: var(--w-ink-faint);
+}
+
+.qw-stickers__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.qw-sticker {
+  width: clamp(44px, 5vw, 56px);
+  height: clamp(44px, 5vw, 56px);
+  padding: 2px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: var(--w-tint-card);
+  cursor: pointer;
+}
+
+.qw-sticker:hover:enabled {
+  border-color: var(--w-signal-edge);
+}
+
+.qw-sticker:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+.qw-sticker img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.qw-stickers__empty {
+  font-size: var(--w-size-caption);
+  color: var(--w-ink-faint);
+}
+
+.qw-stickers__note {
+  font-size: calc(var(--w-size-caption) - 1px);
+  color: var(--w-ink-muted);
 }
 
 .qw-send__caret {

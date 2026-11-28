@@ -72,6 +72,24 @@ export type Appearance = {
   };
 };
 
+/**
+ * 一套预设配色（C# 的 DesignSystem/Theme/PalettePresets.cs）。
+ * 后端只给种子（主色 + 状态色 + 底色档），这里拿到的是它按对比度锁出来的两颗最终颜色 ——
+ * 所以预览色块不必在页面里写死任何十六进制。
+ */
+export type PalettePreset = {
+  /** 落盘用的 id：ochre / slate / sakura / moss / amber */
+  id: string;
+  /** 两到三字的中文短名 */
+  name: string;
+  /** 一句气质说明 */
+  note: string;
+  /** 主色：对卡面已锁到 ≥4.5:1（主行动、当前项、图形笔画） */
+  accent: string;
+  /** 这套预设自己底色档上的卡面 */
+  surface: string;
+};
+
 /** 标题页「上次的存档」卡。 */
 export type SaveSummary = {
   /** 存档 id：「继续」拿它去 save.load */
@@ -94,7 +112,8 @@ export type ThinkMode = 'auto' | 'on' | 'off';
  * 拼法在 lib/settingsHome.ts，这里只放后端给的原值。
  */
 export type SettingsValues = {
-  appearance: { liquid: boolean; glass: boolean; frost: boolean; theme: ThemeName };
+  /** theme 是旧色板轴的残余值（永远 endfield）；palette 才是现在真正生效的那套预设配色的短名。 */
+  appearance: { liquid: boolean; glass: boolean; frost: boolean; theme: ThemeName; palette: string };
   sound: { bgm: number; sfx: number };
   text: { scale: number };
   story: { autoSave: boolean };
@@ -314,10 +333,50 @@ export type Requests = {
     params: { shell?: ChatShell; characterId?: string; id: string };
     result: { opened: boolean; path: string };
   };
+  /** 把表情库里的一张图发进这一格会话（落盘与 chat.attach 同一条路：拷进素材夹 → 按 sticker 落一条消息）。
+   *  表情库里没有这张、文件不在了整条失败；发出去的那条消息 Text 仍是「[表情]」，只认文字的老读法照旧。 */
+  'chat.sendSticker': {
+    params: { shell?: ChatShell; characterId?: string; stickerId: string };
+    result: { stickerId: string; message: ChatRow };
+  };
+  /** 表情面板要的分组 + 最近用过的表情 Id（最近的在前）。库是空的时候 groups 是空数组。
+   *  分组只有 StickerLibrary 现有的那一个「我的表情包」——库本身没有分组概念，桥不造组。 */
+  'stickers.list': {
+    params: Record<string, never>;
+    result: {
+      groups: { id: string; name: string; items: { id: string; url: string; name: string }[] }[];
+      recent: string[];
+    };
+  };
+  /** 弹宿主的选择框按 kind 收表情：folder = 整个文件夹（含子目录）、zip = 一个压缩包、file = 若干图片。
+   *  去重 / 格式校验沿用 StickerLibrary.ImportAsync；added + skipped 就是这次碰到的张数。点了取消是 canceled: true。 */
+  'stickers.import': {
+    params: { kind: 'folder' | 'file' | 'zip' };
+    result: { canceled: boolean; added: number; skipped: number; groupId: string };
+  };
   /** 纯色底那十颗色板：直接来自 DesignSystem 的调色板 XAML，前端不再自带一份。 */
   'palette.swatches': {
     params: Record<string, never>;
-    result: { swatches: { hex: string; name: string }[] };
+    result: {
+      /** 五套预设配色（presets），预览色块用它们的两颗算好的颜色 */
+      presets: PalettePreset[];
+      /** 纯色底那十颗（swatches） */
+      swatches: { hex: string; name: string }[];
+    };
+  };
+  /** 现在用着的是哪一套预设配色（前端载入时对一次选中态）。 */
+  'palette.get': {
+    params: Record<string, never>;
+    result: { preset: string };
+  };
+  /**
+   * 换一套预设配色：后端换种子 → Publish 重算 → 落盘。
+   * 应答里的 tokens 是**重发之后**的那一份，前端拿它当场刷 :root；
+   * 写不进盘时整条应答失败（error.message 就是可以上屏的原因），后端已退回原来那套。
+   */
+  'palette.set': {
+    params: { id: string };
+    result: { id: string; name: string; note: string; tokens: TokenMap };
   };
   /** 一个角色的全部细节：档案 + 状态 + 立绘清单。null = 没有这个角色。 */
   'characters.get': {
@@ -568,7 +627,7 @@ export type ChatRow = {
   sender: string;
   /** ISO-8601 */
   at: string;
-  /** 这条消息是什么：text 画文字气泡，image 画图片，sticker 先用文字标记，file 画文件卡片 */
+  /** 这条消息是什么：text 画文字气泡，image 画大图，sticker 画小图（120px，无气泡底），file 画文件卡片 */
   kind: ChatMediaKind;
   /** 媒体文件的素材地址（https://wab.assets/…）；文字消息是空串 */
   mediaUrl: string;

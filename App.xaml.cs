@@ -381,13 +381,13 @@ public partial class App : Application
                 // 语言也必须在建界面之前落定，否则首帧先按 zh-CN 排一遍、再被 PropertyChanged 重排；
                 // 启动卡的名牌是逐字建出来的，中途重排会出现错字（繁体 溫 与简体 温 不是同一个字）。
                 LocalizationService.Current.SetCulture(sm?.Current.Lang ?? "zh-CN");
-                // 终末地是暗色 HUD 主题：不管系统是深是浅，整窗按暗色渲染；离开它再恢复跟随系统。
-                // 必须在建 AppShell 之前设，否则首帧会先按浅色排一遍、再整体重绘成暗色（一次明显闪白）。
+                // 底色的深浅属于预设配色（赭石/墨青/夜珀是暗档，樱灰/苔绿是纸档），不跟系统深浅走。
+                // 必须在建 AppShell 之前设，否则首帧会先按系统那一套排一遍、再整体重绘（一次明显闪）。
                 try
                 {
-                    var endfield = string.Equals(sm?.Current.ThemeName, "endfield", StringComparison.OrdinalIgnoreCase);
+                    var preset = DesignSystem.Theme.PalettePresets.Resolve(sm?.Current.PalettePresetId);
                     if (Application.Current is { } appTheme)
-                        appTheme.UserAppTheme = endfield ? AppTheme.Dark : AppTheme.Unspecified;
+                        appTheme.UserAppTheme = preset.Seed.Dark ? AppTheme.Dark : AppTheme.Light;
                 }
                 catch (Exception ex) { WriteLog("CreateWindow.AppTheme: " + ex.Message); }
             }

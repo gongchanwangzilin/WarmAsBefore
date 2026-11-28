@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Card, PageHeader, TextBtn } from '../../components/kit';
+import { Segmented, type SegmentedOption } from '../../components/Segmented';
 import { Glass } from '../../components/Glass';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
@@ -11,6 +12,17 @@ type Scale = 'dualLine' | 'spheres';
 
 const LANDING_NAME: Record<Landing, string> = { point: '点选', full: '整图可站', linear: '线性' };
 const SCALE_NAME: Record<Scale, string> = { dualLine: '双线', spheres: '圆球' };
+
+const LANDING_OPTIONS: SegmentedOption<Landing>[] = [
+  { value: 'point', label: LANDING_NAME.point },
+  { value: 'full', label: LANDING_NAME.full },
+  { value: 'linear', label: LANDING_NAME.linear },
+];
+
+const SCALE_OPTIONS: SegmentedOption<Scale>[] = [
+  { value: 'dualLine', label: SCALE_NAME.dualLine },
+  { value: 'spheres', label: SCALE_NAME.spheres },
+];
 
 /**
  * 背景标定：SceneCalibrationPage.xaml。
@@ -36,8 +48,6 @@ export function SceneCalibrationPage({ back }: ScreenProps) {
   if (scale === 'dualLine') missing.push('缩放标定未完成：双线方式需要恰好 2 条线，当前 0 条');
   if (scale === 'spheres') missing.push('缩放标定未完成：圆球方式至少需要 2 个圆球（近处一个、远处一个），当前 0 个');
 
-  const chip = (active: boolean, label: string) => (active ? `● ${label}` : label);
-
   return (
     <PageShell>
       <PageHeader
@@ -56,25 +66,30 @@ export function SceneCalibrationPage({ back }: ScreenProps) {
         <Stack gap={2} style={{ padding: 'var(--w-space-2) var(--w-pad-page)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)', flexWrap: 'wrap' }}>
             <span className="cap" style={{ width: 60 }}>落脚点</span>
-            <TextBtn onClick={() => { if (landing !== 'point') { setLanding('point'); setStatus('落脚点类型：点选'); } }}>
-              {chip(landing === 'point', LANDING_NAME.point)}
-            </TextBtn>
-            <TextBtn onClick={() => { if (landing !== 'full') { setLanding('full'); setStatus('落脚点类型：整图可站'); } }}>
-              {chip(landing === 'full', LANDING_NAME.full)}
-            </TextBtn>
-            <TextBtn onClick={() => { if (landing !== 'linear') { setLanding('linear'); setStatus('落脚点类型：线性'); } }}>
-              {chip(landing === 'linear', LANDING_NAME.linear)}
-            </TextBtn>
+            <Segmented
+              label="落脚点类型"
+              tone="ghost"
+              value={landing}
+              options={LANDING_OPTIONS}
+              onChange={(next) => {
+                setLanding(next);
+                setStatus(`落脚点类型：${LANDING_NAME[next]}`);
+              }}
+            />
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)', flexWrap: 'wrap' }}>
             <span className="cap" style={{ width: 60 }}>缩放</span>
-            <TextBtn onClick={() => { if (scale !== 'dualLine') { setScale('dualLine'); setStatus('缩放标定方式：双线'); } }}>
-              {chip(scale === 'dualLine', SCALE_NAME.dualLine)}
-            </TextBtn>
-            <TextBtn onClick={() => { if (scale !== 'spheres') { setScale('spheres'); setStatus('缩放标定方式：圆球'); } }}>
-              {chip(scale === 'spheres', SCALE_NAME.spheres)}
-            </TextBtn>
+            <Segmented
+              label="缩放标定方式"
+              tone="ghost"
+              value={scale}
+              options={SCALE_OPTIONS}
+              onChange={(next) => {
+                setScale(next);
+                setStatus(`缩放标定方式：${SCALE_NAME[next]}`);
+              }}
+            />
             <TextBtn onClick={() => setStatus('需要恰好两条缩放线才能翻转')}>⇄ 翻转第二条线</TextBtn>
             <Inert>
               <TextBtn>↻ 适应窗口</TextBtn>

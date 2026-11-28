@@ -1,4 +1,5 @@
 import { DEFAULT_APPEARANCE, DEFAULT_SETTINGS } from '../lib/defaults';
+import { SOLID_SWATCHES } from '../lib/appearance';
 import { MOCK_TOKENS } from './tokens';
 import type {
   Appearance,
@@ -39,11 +40,25 @@ const SAMPLE_SAVE: SaveSummary = {
   minutes: 147,
 };
 
-const store: { appearance: Appearance; values: SettingsValues; save: SaveSummary } = {
+const store: { appearance: Appearance; values: SettingsValues; save: SaveSummary; preset: string } = {
   appearance: structuredClone(DEFAULT_APPEARANCE),
   values: structuredClone(DEFAULT_SETTINGS),
   save: SAMPLE_SAVE,
+  preset: 'ochre',
 };
+
+/**
+ * 五套预设配色（与 C# 的 DesignSystem/Theme/PalettePresets.cs 同一批种子）。
+ * 两颗预览色是真机上 palette.swatches 现算出来的值 —— 浏览器这边没有 Lock()，
+ * 所以 palette.set 只换选中态，整屏配色仍按 MOCK_TOKENS 那一份：不假装重算了一整套。
+ */
+const MOCK_PRESETS = [
+  { id: 'ochre', name: '赭石', note: '暖赭印在纸白上', accent: '#d48f5e', surface: '#32302c' },
+  { id: 'slate', name: '墨青', note: '青灰底压一点砖红', accent: '#72aac0', surface: '#2b2d2f' },
+  { id: 'sakura', name: '樱灰', note: '淡樱挨着石墨', accent: '#964a5e', surface: '#fdfdfe' },
+  { id: 'moss', name: '苔绿', note: '苔绿长在暖砂上', accent: '#4c793c', surface: '#fdfcf9' },
+  { id: 'amber', name: '夜珀', note: '最暗处一点琥珀', accent: '#d4ad5e', surface: '#2c2a29' },
+];
 
 const ok = (id: number, result: unknown): ResponseEnvelope =>
   ({ id, ok: true, result }) as ResponseEnvelope;
@@ -66,6 +81,19 @@ function editSettings(edit: Params<'settings.set'>): void {
 
 const handlers = {
   'ui.tokens': () => ({ tokens: MOCK_TOKENS, theme: 'light' as const }),
+  'palette.swatches': () => ({
+    presets: MOCK_PRESETS,
+    swatches: SOLID_SWATCHES.map((swatch) => ({ hex: swatch.hex, name: swatch.name })),
+  }),
+  'palette.get': () => ({ preset: store.preset }),
+  'palette.set': (params: Params<'palette.set'>) => {
+    const preset = MOCK_PRESETS.find((row) => row.id === params.id);
+    if (!preset) {
+      throw { code: 'E_BAD_PARAMS' as const, message: `没有这套配色：${params.id}。` };
+    }
+    store.preset = preset.id;
+    return { id: preset.id, name: preset.name, note: preset.note, tokens: MOCK_TOKENS };
+  },
   'settings.get': () => ({
     values: mockFaults.empty ? null : store.values,
     save: mockFaults.empty ? null : store.save,

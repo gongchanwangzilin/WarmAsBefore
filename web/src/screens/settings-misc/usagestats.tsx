@@ -2,6 +2,7 @@ import { useState, type CSSProperties, type ReactNode } from 'react';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { Card, Field, PageHeader, Sep, TextBtn } from '../../components/kit';
+import { Segmented, type SegmentedOption } from '../../components/Segmented';
 import { useIsWide } from '../../lib/useIsWide';
 import type { ScreenProps } from '../types';
 import { Inert } from './parts';
@@ -60,28 +61,17 @@ function lastDays(n: number): Date[] {
 
 const mmdd = (d: Date) => `${`${d.getMonth() + 1}`.padStart(2, '0')}-${`${d.getDate()}`.padStart(2, '0')}`;
 
-function SmallBtn({ label, active, onClick }: { label: string; active?: boolean; onClick?: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      style={{
-        padding: '6px 12px',
-        borderRadius: 'var(--w-radius-button)',
-        border: '1px solid',
-        borderColor: active ? 'transparent' : 'var(--w-hairline)',
-        background: active ? 'color-mix(in srgb, var(--w-signal) 30%, transparent)' : 'transparent',
-        color: active ? 'var(--w-ink-display)' : 'var(--w-ink-body)',
-        font: 'inherit',
-        fontSize: 'var(--w-size-small)',
-        cursor: 'pointer',
-        whiteSpace: 'nowrap',
-      }}
-    >
-      {label}
-    </button>
-  );
-}
+const TREND_OPTIONS: SegmentedOption<'7' | '14' | '30'>[] = [
+  { value: '7', label: '7 天' },
+  { value: '14', label: '14 天' },
+  { value: '30', label: '30 天' },
+];
+
+const GROUP_OPTIONS: SegmentedOption<'model' | 'day' | 'character'>[] = [
+  { value: 'model', label: '按模型' },
+  { value: 'day', label: '按天' },
+  { value: 'character', label: '按角色' },
+];
 
 export function Usagestats({ back }: ScreenProps) {
   const wide = useIsWide(820);
@@ -118,11 +108,13 @@ export function Usagestats({ back }: ScreenProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
         <p style={section}>时间序列（按天）</p>
         <Card>
-          <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
-            {[7, 14, 30].map((n) => (
-              <SmallBtn key={n} label={`${n} 天`} active={trendDays === n} onClick={() => setTrendDays(n)} />
-            ))}
-          </div>
+          <Segmented
+            label="时间序列范围"
+            tone="ghost"
+            value={String(trendDays) as '7' | '14' | '30'}
+            options={TREND_OPTIONS}
+            onChange={(next) => setTrendDays(Number(next))}
+          />
           <div
             style={{
               height: 116,
@@ -161,11 +153,13 @@ export function Usagestats({ back }: ScreenProps) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 'var(--w-space-2)' }}>
           <p style={{ ...section, marginLeft: 4 }}>分组明细</p>
-          <div style={{ display: 'flex', gap: 'var(--w-space-1)' }}>
-            <SmallBtn label="按模型" active={detailGroup === 'model'} onClick={() => setDetailGroup('model')} />
-            <SmallBtn label="按天" active={detailGroup === 'day'} onClick={() => setDetailGroup('day')} />
-            <SmallBtn label="按角色" active={detailGroup === 'character'} onClick={() => setDetailGroup('character')} />
-          </div>
+          <Segmented
+            label="分组明细维度"
+            tone="ghost"
+            value={detailGroup}
+            options={GROUP_OPTIONS}
+            onChange={setDetailGroup}
+          />
         </div>
         <div style={{ overflowX: 'auto', scrollbarWidth: 'none' }}>
           <Card>

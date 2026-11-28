@@ -247,8 +247,9 @@ public sealed class WebBridge
         }
     }
 
-    // chat.attach 要等用户在系统选图框里点完，与 chat.send 一样会占很久：都不占闸。
-    private static bool BypassesGate(string? method) => method is "chat.send" or "chat.attach" or "voice.listen" or "voice.speak";
+    // chat.attach / stickers.import 要等用户在系统选择框里点完，与 chat.send 一样会占很久：都不占闸。
+    private static bool BypassesGate(string? method)
+        => method is "chat.send" or "chat.attach" or "stickers.import" or "voice.listen" or "voice.speak";
 
     /// <summary>方法白名单。新增方法只在这里加一行，前端拿不到别的任何入口。</summary>
     private async Task<object?> DispatchAsync(string? method, JsonElement p) => method switch
@@ -281,6 +282,9 @@ public sealed class WebBridge
         "chat.history" => await ChatHistoryAsync(p),
         "chat.send" => await ChatSendAsync(p),
         "chat.attach" => await ChatAttachAsync(p),
+        "chat.sendSticker" => await ChatSendStickerAsync(p),
+        "stickers.list" => await StickersListAsync(),
+        "stickers.import" => await StickersImportAsync(p),
         "chat.openMedia" => await ChatOpenMediaAsync(p),
         "characters.list" => await CharactersListAsync(),
         "characters.get" => CharactersGet(p),
@@ -396,6 +400,8 @@ public sealed class WebBridge
                 glass = s.GlassEnabled,
                 frost = s.FrostEnabled,
                 theme = string.IsNullOrWhiteSpace(s.ThemeName) ? "endfield" : s.ThemeName,
+                // 配色轴已经不是 ThemeName（那条锁死终末地），用户真正挑的是预设配色。
+                palette = PalettePresets.Resolve(s.PalettePresetId).Name,
             },
             sound = new { bgm = s.BgmLevel, sfx = s.SfxLevel },
             text = new { scale = s.TextSpeed },
@@ -1720,6 +1726,194 @@ public sealed class WebBridge
         return new { opened = true, path = msg.MediaPath };
     }
 
+    // ==================== 表情包（QV 的表情面板） ====================
+
+    /// <summary>
+    /// 「我的表情包」这一个组的 Id。<c>stickers.list</c> 给的分组与 <c>stickers.import</c> 回填的 groupId 都是它。
+    /// 表情库本身没有分组这个概念（一份扁平索引），这一层不凭空造组：库长什么样，面板就只有一个组。
+    /// </summary>
+    private const string StickerGroupId = "library";
+
+    /// <summary>一次导入最多收几张（文件夹 / 压缩包可能整包几百张）：超出部分算 skipped，不静默吞掉。</summary>
+    private const int MaxStickerImport = 500;
+
+    /// <summary>
+    /// <c>stickers.list</c>：面板要的分组 + 「最近使用」。
+    /// 数据全部来自 <see cref="StickerLibrary"/> 现有那份索引（存储键 <c>stickers</c>，图片在 <c>stickers/</c>），
+    /// 不另建存储；素材主机只挂存储根，所以路径落在根外或文件已经不在的表情直接跳过，不给打不开的裂图。
+    /// 空库给空分组数组（不是「一个空组」），面板据此画空态。
+    /// </summary>
+    private async Task<object?> StickersListAsync()
+    {
+        await _stickers.EnsureLoadedAsync();
+        await _stickers.EnsureRecentLoadedAsync();
+
+        var items = _stickers.Items
+            .Select(s => new { item = s, url = AssetUrl(_stickers.RelativePathOf(s)) })
+            .Where(pair => pair.url.Length > 0 && File.Exists(pair.item.Path))
+            .OrderByDescending(pair => pair.item.ImportedAt)
+            .Select(pair => new { id = pair.item.Id, url = pair.url, name = pair.item.Name })
+            .ToList();
+
+        var groups = items.Count == 0
+            ? Array.Empty<object>()
+            : new object[] { new { id = StickerGroupId, name = "我的表情包", items } };
+
+        return new { groups, recent = _stickers.Recent.ToArray() };
+    }
+
+    /// <summary>
+    /// <c>stickers.import</c>：宿主弹选择框（kind 决定弹哪一种），图片照 <see cref="StickerLibrary.ImportAsync"/>
+    /// 原来那条路入库（复制进 <c>stickers/</c>、登记、落盘），不在桥里另写一份导入逻辑。
+    /// 认不出格式的、拷不进去的算 skipped；用户点掉选择框回 <c>canceled=true</c>，那不是失败。
+    /// </summary>
+    private async Task<object?> StickersImportAsync(JsonElement p)
+    {
+        var kind = OptionalText(p, "kind").Trim().ToLowerInvariant();
+        if (kind.Length == 0) kind = "file";
+        if (kind is not ("folder" or "file" or "zip"))
+            throw new WebBridgeException("E_BAD_PARAMS", "stickers.import 的 kind 只认 folder / file / zip。");
+
+        (List<string> Files, string? Temp)? picked;
+        try
+        {
+            // 选择框要真窗口句柄，只能在 UI 线程上开（与 chat.attach 同理）。
+            picked = await MainThread.InvokeOnMainThreadAsync(() => PickStickerSourcesAsync(kind));
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.stickers.import pick -> " + ex);
+            throw new WebBridgeException("E_BACKEND", "选择框没能打开：" + ex.Message);
+        }
+        if (picked is null) return new { canceled = true, added = 0, skipped = 0, groupId = StickerGroupId };
+
+        var added = 0;
+        var skipped = 0;
+        try
+        {
+            foreach (var file in picked.Value.Files)
+            {
+                if (!Services.StickerLibrary.IsImageFile(file)) { skipped++; continue; }
+                var item = await _stickers.ImportAsync(file);
+                if (item is null) skipped++;
+                else added++;
+            }
+        }
+        finally
+        {
+            if (picked.Value.Temp is { } temp) TryDeleteStickerTemp(temp);
+        }
+
+        return new { canceled = false, added, skipped, groupId = StickerGroupId };
+    }
+
+    /// <summary>
+    /// 选择框那一半：三种 kind 收敛成「一批图片文件的路径」。压缩包解到缓存临时目录，
+    /// 临时目录随结果一起交回去（导入完调用方删掉）；取消返回 null。
+    /// </summary>
+    private static async Task<(List<string> Files, string? Temp)?> PickStickerSourcesAsync(string kind)
+    {
+        if (kind == "folder")
+        {
+            var folder = await CommunityToolkit.Maui.Storage.FolderPicker.Default.PickAsync(CancellationToken.None);
+            if (!folder.IsSuccessful || folder.Folder is null) return null;
+            var files = Directory.EnumerateFiles(folder.Folder.Path, "*", SearchOption.AllDirectories)
+                .Where(Services.StickerLibrary.IsImageFile)
+                .Take(MaxStickerImport)
+                .ToList();
+            return (files, null);
+        }
+
+        if (kind == "zip")
+        {
+            var zip = await FilePicker.Default.PickAsync(new PickOptions
+            {
+                PickerTitle = "导入表情压缩包",
+                FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+                {
+                    { DevicePlatform.WinUI, new[] { ".zip" } },
+                    { DevicePlatform.Android, new[] { "application/zip", "application/x-zip-compressed" } },
+                    { DevicePlatform.iOS, new[] { "public.zip-archive" } }
+                })
+            });
+            if (zip is null) return null;
+
+            var temp = Path.Combine(FileSystem.CacheDirectory, "sticker-import-" + Guid.NewGuid().ToString("N")[..8]);
+            try
+            {
+                System.IO.Compression.ZipFile.ExtractToDirectory(zip.FullPath, temp, overwriteFiles: true);
+            }
+            catch (Exception ex)
+            {
+                TryDeleteStickerTemp(temp);
+                App.WriteLog("WebBridge.stickers.import unzip -> " + ex.Message);
+                throw new WebBridgeException("E_BACKEND", "这个压缩包解不开：" + ex.Message);
+            }
+            var files = Directory.EnumerateFiles(temp, "*", SearchOption.AllDirectories)
+                .Where(Services.StickerLibrary.IsImageFile)
+                .Take(MaxStickerImport)
+                .ToList();
+            return (files, temp);
+        }
+
+        var picks = await FilePicker.Default.PickMultipleAsync(new PickOptions
+        {
+            PickerTitle = "导入表情包图片",
+            FileTypes = new FilePickerFileType(new Dictionary<DevicePlatform, IEnumerable<string>>
+            {
+                { DevicePlatform.WinUI, new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".bmp" } },
+                { DevicePlatform.Android, new[] { "image/*" } },
+                { DevicePlatform.iOS, new[] { "public.image" } }
+            })
+        });
+        var list = picks?.Select(x => x.FullPath).ToList() ?? new List<string>();
+        return list.Count == 0 ? null : (list, null);
+    }
+
+    /// <summary>删掉解压出来的那个临时目录；删不掉只是残留，不往上抛。</summary>
+    private static void TryDeleteStickerTemp(string dir)
+    {
+        try { if (Directory.Exists(dir)) Directory.Delete(dir, recursive: true); }
+        catch (Exception ex) { App.WriteLog("WebBridge.stickers.import cleanup -> " + ex.Message); }
+    }
+
+    /// <summary>
+    /// <c>chat.sendSticker</c>：把表情库里那一张发进这一格会话，落盘走 <c>chat.attach</c> 同一条路 ——
+    /// 先按内容哈希拷进聊天素材夹（<see cref="PhoneMessageService.ImportMediaAsync"/>），再按 sticker 落一条消息
+    /// （<see cref="PhoneMessageService.PublishMediaAsync"/>；Text 仍是 <c>[表情]</c> 这个标记，只认文字的老读法照旧读得懂）。
+    /// 表情库只认已有的那张图，这里不复制索引、不改库。
+    /// </summary>
+    private async Task<object?> ChatSendStickerAsync(JsonElement p)
+    {
+        var id = OptionalText(p, "stickerId").Trim();
+        if (id.Length == 0)
+            throw new WebBridgeException("E_BAD_PARAMS", "chat.sendSticker 需要 {stickerId}：要发哪一个表情。");
+
+        var shell = ChatShellOf(p);
+        var charId = await ChatTargetOfAsync(p);
+        if (charId.Length == 0)
+            throw new WebBridgeException("E_REJECTED", "这一档里没有能聊的角色：微信只在存档内成立，先读档或加一个角色。");
+        if (string.IsNullOrEmpty(_saves.CurrentSaveId))
+            throw new WebBridgeException("E_REJECTED", "还没有进入存档：这条表情没有地方落盘，先读一份存档再发。");
+
+        await _stickers.EnsureLoadedAsync();
+        var item = _stickers.Find(id);
+        if (item is null || !File.Exists(item.Path))
+            throw new WebBridgeException("E_REJECTED", "表情库里没有这张表情了（可能已经删掉、或者文件搬走了）。");
+
+        var rel = await _phone.ImportMediaAsync(charId, item.Path, PhoneMessage.KindSticker);
+        if (rel is null)
+            throw new WebBridgeException("E_BACKEND", "这张表情没能存进聊天素材夹：文件读不出来，或者已经不是图片了。");
+
+        var fileName = item.Name + Path.GetExtension(item.Path);
+        var msg = await _phone.PublishMediaAsync(charId, PhoneMessage.KindSticker, rel, fileName, "我", isUser: true);
+        await _stickers.TouchRecentAsync(item.Id);
+        await _wechat.TouchLastMessageAsync(charId, msg.Text);
+        await CommitChatAsync(shell == "qq" ? "QQ" : "微信");
+
+        return new { stickerId = item.Id, message = MessageRow(msg, await PartnerNameOfAsync(charId)) };
+    }
+
     /// <summary>一轮模型回复；网关的失败回显（[API错误…] 等）按失败抛，不当台词回给前端。</summary>
     private async Task<string> SendToEngineAsync(string charId, string text)
     {
@@ -1921,12 +2115,23 @@ public sealed class WebBridge
     }
 
     /// <summary>
-    /// <c>palette.swatches</c>：纯色底那十颗色板，直接取 <c>DesignSystem/Theme/ColorPaletteEndfield.xaml</c>
-    /// 里已经有的色阶（Cream/OffWhite/Beige/BeigeAccent…）。前端不再自带一份十六进制 ——
-    /// 色板只有一处定义，改 XAML 前端自动跟着变。
+    /// <c>palette.swatches</c>：两组色块，一次拿全。
+    ///
+    /// <c>presets</c> —— 五套预设配色（<see cref="PalettePresets"/>）。每套给 <c>id/name/note</c>
+    /// 与两颗**算出来的**颜色：主色（accent）与卡面（surface）。前端不写死任何十六进制，
+    /// 预览色块就用这两颗；它们与切过去之后界面上的色是同一个计算的结果
+    /// （<see cref="WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.Swatches"/>）。
+    ///
+    /// <c>swatches</c> —— 纯色底那十颗底色，直接取 <c>DesignSystem/Theme/ColorPaletteEndfield.xaml</c>
+    /// 里已经有的色阶（Cream/OffWhite/Beige/BeigeAccent…），色板只有一处定义。
     /// </summary>
     private static object PaletteSwatches()
     {
+        var presets = WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens
+            .Swatches(WarmAsBefore.DesignSystem.Worlds.StyleWorldTokens.World)
+            .Select(s => new { id = s.Id, name = s.Name, note = s.Note, accent = s.Accent, surface = s.Surface })
+            .ToList();
+
         var picks = new (string Key, string Name)[]
         {
             ("Cream50", "奶油纸"), ("OffWhite100", "素灰"), ("BlueSoft", "晨雾蓝"), ("GreenSoft", "青瓷"),
@@ -1940,7 +2145,7 @@ public sealed class WebBridge
             var hex = ResourceHex(key);
             if (hex is not null) list.Add(new { hex, name });
         }
-        return new { swatches = list };
+        return new { presets, swatches = list };
     }
 
     /// <summary>把资源里的颜色读成 #RRGGBB（Color / SolidColorBrush / 字符串三种都认）。</summary>
@@ -2200,26 +2405,61 @@ public sealed class WebBridge
         return (Math.Clamp(alpha, 0, 1), Math.Clamp(frost, 0, 1), Math.Clamp(liquid, 0, 1), lightweight);
     }
 
-    private object PaletteGet() => new { palette = GlassPalette() };
+    /// <summary>
+    /// <c>palette.get</c>：现在用着的是哪一套预设配色（另附玻璃那一份，载入时可一次对齐）。
+    /// 玻璃的写入走 <c>appearance.set</c> —— 它和「外观与主题」页其余几项本来就是同一份存档。
+    /// </summary>
+    private object PaletteGet() => new
+    {
+        palette = GlassPalette(),
+        preset = PalettePresets.Resolve(_settings.Current.PalettePresetId).Id,
+    };
 
+    /// <summary>
+    /// <c>palette.set { id }</c>：换一套预设配色（id 见 <c>palette.swatches</c>）。
+    ///
+    /// 顺序是「先换界面，再确认盘上真的写住了」：写不进去就把设置与界面一起退回原来那套，
+    /// 再把原因交给前端（它回滚令牌并把这句话显示出来）—— 界面停在一套没存住的配色上，
+    /// 下次启动又变回原样，那是假成功。
+    ///
+    /// 应答里带 <c>tokens</c>：前端拿它当场刷 <c>:root</c>，不必等下一帧的 <c>theme.tokens</c>。
+    /// </summary>
     private async Task<object?> PaletteSetAsync(JsonElement p)
     {
-        if (p.ValueKind != JsonValueKind.Object || !p.TryGetProperty("palette", out var paletteEl))
-            throw new WebBridgeException("E_BAD_PARAMS", "palette.set 需要 {palette}。");
+        if (p.ValueKind != JsonValueKind.Object
+            || !p.TryGetProperty("id", out var idEl) || idEl.ValueKind != JsonValueKind.String)
+            throw new WebBridgeException("E_BAD_PARAMS", "palette.set 需要 {id}：要换的那套配色的 id。");
 
-        var g = ReadGlass(paletteEl);
-        _settings.Apply(_settings.Current with
+        var wanted = (idEl.GetString() ?? "").Trim();
+        var preset = PalettePresets.All
+            .FirstOrDefault(x => string.Equals(x.Id, wanted, StringComparison.OrdinalIgnoreCase))
+            ?? throw new WebBridgeException("E_BAD_PARAMS", $"没有这套配色：{wanted}。");
+
+        var before = _settings.Current;
+        var changed = !string.Equals(PalettePresets.Resolve(before.PalettePresetId).Id, preset.Id, StringComparison.Ordinal);
+        if (changed)
         {
-            GlassTranslucency = g.Alpha,
-            GlassFrost = g.Frost,
-            GlassHeight = g.Liquid,
-            PerformanceMode = g.Lightweight,
-        });
-        await _settings.Persist();
+            // Apply 会把整条主题链路跑一遍（种子 → Publish → 令牌）；之后 ApplyNow 立刻重发。
+            // 防抖窗口是留给连续拖动滑杆的，这里必须同步拿到「重发之后」的令牌当应答。
+            _settings.Apply(before with { PalettePresetId = preset.Id });
+            try { await _settings.Persist(); }
+            catch (Exception ex)
+            {
+                _settings.Apply(before);
+                ThemeManager.Current?.ApplyNow();
+                throw new WebBridgeException("E_BACKEND", $"这套配色没写进存档，已退回原来那套：{ex.Message}");
+            }
+        }
+        ThemeManager.Current?.ApplyNow();
 
-        var result = new { palette = GlassPalette() };
-        Emit("palette.changed", result);
-        return result;
+        return new
+        {
+            id = preset.Id,
+            name = preset.Name,
+            note = preset.Note,
+            palette = GlassPalette(),
+            tokens = Tokens(),
+        };
     }
 
     // ==================== nav ====================

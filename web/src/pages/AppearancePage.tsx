@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Bridge } from '../bridge/client';
-import type { Appearance } from '../bridge/protocol';
+import type { Appearance, PalettePreset } from '../bridge/protocol';
 import { Glass } from '../components/Glass';
 import { GlassSlider } from '../components/GlassSlider';
 import { GlassButton } from '../components/GlassButton';
@@ -18,10 +18,12 @@ import {
   solidHint,
   solidVisible,
 } from '../lib/appearance';
+import { prefersReducedMotion } from '../lib/motion';
+import { applyTokens, dampingTokens, restoreTokens, snapshotTokens } from '../lib/tokens';
 
 /** 分类页的标题与说明取自 SettingsCatalog（key=appearance）。 */
 const SECTION_TITLE = '外观与主题';
-const SECTION_DESC = '玻璃效果、光源方向、页面背景与天气叠加';
+const SECTION_DESC = '配色预设、玻璃效果、页面背景与天气叠加';
 
 type Props = {
   bridge: Bridge;
@@ -97,6 +99,8 @@ export function AppearancePage({ bridge, store, onBack }: Props) {
 
           {store.status === 'ready' ? (
             <>
+              <PresetCard bridge={bridge} />
+
               <SettingCard title="玻璃效果">
                 <SettingRow
                   title="轻量模式（关阴影，低配更流畅）"
@@ -400,6 +404,93 @@ function BackgroundCard({
           ) : null}
         </>
       ) : null}
+    </SettingCard>
+  );
+}
+
+/**
+ * 五套预设配色（C# 侧 PalettePresets 那张表）：色块 + 短名 + 一句说明，点一下当场换。
+ *
+ * 预览色块用的两颗色是 `palette.swatches` 从后端拿的**算好的**值（主色 + 该套的卡面），
+ * 所以这里一个十六进制都不写。换色成功就套用应答里那一份重发之后的令牌；
+ * 写不进盘时桥已经把那套退回去了，这里把抄下来的令牌写回 :root 并把原因摆出来。
+ */
+function PresetCard({ bridge }: { bridge: Bridge }) {
+  const [presets, setPresets] = useState<PalettePreset[]>([]);
+  const [active, setActive] = useState('');
+  const [failure, setFailure] = useState('');
+  const [pending, setPending] = useState('');
+
+  useEffect(() => {
+    let dropped = false;
+    void bridge
+      .request('palette.swatches', {})
+      .then(({ presets: rows }) => {
+        if (!dropped) setPresets(rows);
+      })
+      .catch(() => undefined);
+    void bridge
+      .request('palette.get', {})
+      .then(({ preset }) => {
+        if (!dropped) setActive(preset);
+      })
+      .catch(() => undefined);
+    return () => {
+      dropped = true;
+    };
+  }, [bridge]);
+
+  // 宿主没给预设（老桥、空表）：不摆一排空格子。
+  if (presets.length === 0) return null;
+
+  const choose = async (id: string) => {
+    if (pending) return;
+    const before = active;
+    const rollback = snapshotTokens();
+    setActive(id);
+    setFailure('');
+    setPending(id);
+    try {
+      const { tokens } = await bridge.request('palette.set', { id });
+      applyTokens(dampingTokens(tokens, prefersReducedMotion()));
+    } catch (error) {
+      restoreTokens(rollback);
+      setActive(before);
+      setFailure(error instanceof Error ? error.message : '这套配色没能换上。');
+    } finally {
+      setPending('');
+    }
+  };
+
+  return (
+    <SettingCard
+      title="配色"
+      note="五套预设只换种子：主色、状态色与底色档。明度台阶、墨阶与强调色仍按对比度现算。"
+    >
+      <SettingBlock>
+        <div className="presets">
+          {presets.map((preset) => {
+            const selected = preset.id === active;
+            return (
+              <button
+                key={preset.id}
+                type="button"
+                className={selected ? 'preset preset--on' : 'preset'}
+                aria-pressed={selected}
+                disabled={pending !== ''}
+                onClick={() => void choose(preset.id)}
+              >
+                <span className="preset__chip" style={{ background: preset.surface }}>
+                  <span className="preset__ink" style={{ background: preset.accent }} />
+                </span>
+                <span className="preset__name">{preset.name}</span>
+                <span className="preset__note">{preset.note}</span>
+              </button>
+            );
+          })}
+        </div>
+        {failure ? <p className="cap cap--warn">{failure}</p> : null}
+      </SettingBlock>
     </SettingCard>
   );
 }
