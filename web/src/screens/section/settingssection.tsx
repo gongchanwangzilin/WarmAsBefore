@@ -8,7 +8,7 @@ import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import { SettingCard, SettingRow, SettingBlock, Sep } from '../../components/SettingCard';
-import { Card, Empty, Field, GroupLabel, PageHeader, Select } from '../../components/kit';
+import { Card, Chip, Empty, Field, GroupLabel, PageHeader, Select } from '../../components/kit';
 import {
   BACKGROUND_MODE_CHOICES,
   SOLID_SWATCHES,
@@ -369,7 +369,7 @@ export function SettingsSection({ bridge, query, back }: ScreenProps) {
   ) : section.key === 'sound' ? (
     <SoundSection writer={writer} />
   ) : section.key === 'ai' ? (
-    <AiSection writer={writer} />
+    <AiSection writer={writer} bridge={bridge} />
   ) : section.key === 'memory' ? (
     <MemorySection writer={writer} />
   ) : section.key === 'persona' ? (
@@ -379,7 +379,7 @@ export function SettingsSection({ bridge, query, back }: ScreenProps) {
   ) : section.key === 'platform' ? (
     <PlatformSection writer={writer} />
   ) : section.key === 'integrations' ? (
-    <IntegrationsSection writer={writer} />
+    <IntegrationsSection writer={writer} bridge={bridge} />
   ) : section.key === 'life' ? (
     <LifeSection writer={writer} />
   ) : section.key === 'data' ? (
@@ -926,7 +926,135 @@ const AI_PRESETS = [
   '自定义',
 ];
 
-function AiSection({ writer }: { writer: SettingsWriter }) {
+/* 厂商与模型：ai.providers 的真表。读不到就落回源码那句空态。 */
+
+type ProviderModel = { model: string; label: string; enabled: boolean };
+
+type Provider = {
+  name: string;
+  endpoint: string;
+  enabled: boolean;
+  timeoutSeconds: number;
+  keyCount: number;
+  models: ProviderModel[];
+};
+
+/** AiProviderRow.Title / DisplayName / Summary 的同一套写法。 */
+const providerTitle = (provider: Provider) => (provider.name.trim() ? provider.name : '（未命名厂商）');
+
+const modelName = (model: ProviderModel) =>
+  model.label.trim() ? model.label : model.model.trim() ? model.model : '（未填模型）';
+
+const providerSummary = (provider: Provider) => {
+  const on = provider.models.filter((model) => model.enabled).length;
+  const timeout = provider.timeoutSeconds > 0 ? ` · 超时 ${provider.timeoutSeconds}s` : '';
+  return `${on}/${provider.models.length} 款模型 · ${provider.keyCount} 枚密钥${timeout}`;
+};
+
+/** 一家厂商先摊这几款模型，再多就只用一句「共 N 款」收尾。 */
+const MODEL_CHIPS = 4;
+
+function ProviderList({ bridge }: { bridge: ScreenProps['bridge'] }) {
+  const [providers, setProviders] = useState<Provider[] | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    bridge.request('ai.providers', {}).then(
+      ({ providers: rows }) => {
+        if (live) setProviders(rows);
+      },
+      () => {
+        if (live) setProviders([]);
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [bridge]);
+
+  if (!providers || providers.length === 0) {
+    return <p className="cap">还没有接入厂商。填端点与密钥后点「＋添加厂商」，再往里加模型。</p>;
+  }
+
+  const total = providers.reduce((sum, provider) => sum + provider.models.length, 0);
+
+  return (
+    <>
+      {providers.map((provider, index) => (
+        <div
+          key={`${index}·${provider.name}·${provider.endpoint}`}
+          style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 'var(--w-space-2)',
+            padding: '10px 12px',
+            marginTop: 'var(--w-space-1)',
+            borderRadius: 'var(--w-radius-well)',
+            background: 'var(--w-surface-tint)',
+          }}
+        >
+          <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <span
+              style={{
+                fontSize: 'var(--w-size-small)',
+                fontWeight: 700,
+                color: 'var(--w-ink-body)',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              {providerTitle(provider)}
+            </span>
+            <span className="cap" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+              {provider.endpoint}
+            </span>
+            <span className="cap">{providerSummary(provider)}</span>
+            <div
+              style={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                gap: 'var(--w-space-1)',
+                marginTop: 2,
+              }}
+            >
+              {provider.models.length === 0 ? (
+                <span className="cap">还没有模型：到「模型管理」里加一款。</span>
+              ) : (
+                <>
+                  {provider.models.slice(0, MODEL_CHIPS).map((model) => (
+                    <span
+                      key={model.model}
+                      style={{
+                        padding: '1px 7px',
+                        borderRadius: 9,
+                        border: '1px solid var(--w-hairline)',
+                        fontSize: 'var(--w-size-caption)',
+                        color: model.enabled ? 'var(--w-ink-body)' : 'var(--w-ink-muted)',
+                      }}
+                    >
+                      {modelName(model)}
+                    </span>
+                  ))}
+                  {provider.models.length > MODEL_CHIPS ? (
+                    <span className="cap">共 {provider.models.length} 款</span>
+                  ) : null}
+                </>
+              )}
+            </div>
+          </div>
+          <Chip tone={provider.enabled ? 'signal' : 'quiet'}>{provider.enabled ? '已启用' : '已停用'}</Chip>
+        </div>
+      ))}
+      <p className="cap">
+        {`已接入 ${providers.length} 家厂商，共 ${total} 款模型。按列表顺序使用：靠前的先用，失灵自动换下一家/下一款（可用 ↑↓ 调整）。`}
+      </p>
+    </>
+  );
+}
+
+function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenProps['bridge'] }) {
   const { values, set: write } = writer;
   const [preset, setPreset] = useStr('自定义');
   const [aiUrl, setAiUrl] = useStr('https://api.openai.com/v1/chat/completions');
@@ -1174,7 +1302,7 @@ function AiSection({ writer }: { writer: SettingsWriter }) {
           <Btn>AI 模型管理页面 →</Btn>
           <Btn>模型部署向导 →</Btn>
         </div>
-        <p className="cap">还没有接入厂商。填端点与密钥后点「＋添加厂商」，再往里加模型。</p>
+        <ProviderList bridge={bridge} />
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)' }}>
           <Field value={newProviderName} onChange={setNewProviderName} placeholder="厂商名（如：硅基流动）" label="厂商名" />
@@ -2260,7 +2388,29 @@ function PlatformSection({ writer }: { writer: SettingsWriter }) {
 
 /* ── 外部接入：Card15 + Card16 + Card04 + Card33 ──────── */
 
-function IntegrationsSection({ writer }: { writer: SettingsWriter }) {
+/** PluginRow：一行插件。StateLabel 与源码同义（跑不起来 / 不能运行 / 生效中 / 已停用）。 */
+type Plugin = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  enabled: boolean;
+  permissions: string[];
+  settingsIssue: string;
+  missing: string[];
+};
+
+const pluginState = (plugin: Plugin) =>
+  plugin.missing.length > 0
+    ? '跑不起来'
+    : plugin.settingsIssue
+      ? '不能运行'
+      : plugin.enabled
+        ? '生效中'
+        : '已停用';
+
+function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenProps['bridge'] }) {
   const { values, set: write } = writer;
   const [qqAppId, setQqAppId] = useStr('');
   const [qqAppSecret, setQqAppSecret] = useStr('');
@@ -2282,6 +2432,28 @@ function IntegrationsSection({ writer }: { writer: SettingsWriter }) {
   const [pluginHooks, setPluginHooks] = useBool(true);
   const [bundlePlugins, setBundlePlugins] = useBool(true);
   const [crashLogs, setCrashLogs] = useBool(true);
+
+  // 已安装的插件：plugins.list 的真表。读不到就落回源码那句「还没有安装插件…」。
+  const [plugins, setPlugins] = useState<Plugin[] | null>(null);
+  const [pluginsLoading, setPluginsLoading] = useState(true);
+
+  const loadPlugins = useCallback(() => {
+    setPluginsLoading(true);
+    bridge.request('plugins.list', {}).then(
+      ({ plugins: rows }) => {
+        setPlugins(rows);
+        setPluginsLoading(false);
+      },
+      () => {
+        setPlugins([]);
+        setPluginsLoading(false);
+      },
+    );
+  }, [bridge]);
+
+  useEffect(() => {
+    loadPlugins();
+  }, [loadPlugins]);
 
   return (
     <>
@@ -2497,11 +2669,51 @@ function IntegrationsSection({ writer }: { writer: SettingsWriter }) {
             已安装的插件
           </span>
           <span style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
-            <Btn>刷新</Btn>
+            <Btn onClick={loadPlugins}>刷新</Btn>
             <Btn>打开插件中心</Btn>
           </span>
         </div>
-        <p className="cap">还没有安装插件。插件中心能装 zip / 文件夹，也能让 AI 按你的想法现场写一个。</p>
+        {pluginsLoading ? <p className="cap">正在读取已安装的插件…</p> : null}
+        {plugins && plugins.length > 0
+          ? plugins.map((plugin) => (
+              <div
+                key={plugin.id}
+                style={{
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  gap: 'var(--w-space-2)',
+                  padding: '10px 12px',
+                  marginTop: 'var(--w-space-1)',
+                  borderRadius: 'var(--w-radius-well)',
+                  background: 'var(--w-surface-tint)',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  <span style={{ display: 'flex', alignItems: 'baseline', gap: 'var(--w-space-1)', minWidth: 0 }}>
+                    <span
+                      style={{
+                        fontSize: 'var(--w-size-small)',
+                        fontWeight: 700,
+                        color: 'var(--w-ink-body)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
+                      {plugin.name}
+                    </span>
+                    <span className="cap">{pluginState(plugin)}</span>
+                  </span>
+                  <span className="cap">v{plugin.version}</span>
+                  {plugin.description ? <span className="cap">{plugin.description}</span> : null}
+                  {plugin.settingsIssue ? <span className="cap cap--warn">{plugin.settingsIssue}</span> : null}
+                </div>
+              </div>
+            ))
+          : null}
+        {!pluginsLoading && (!plugins || plugins.length === 0) ? (
+          <p className="cap">还没有安装插件。插件中心能装 zip / 文件夹，也能让 AI 按你的想法现场写一个。</p>
+        ) : null}
         <p className="cap">
           插件是应用内的全栈扩展：改人设与回复、加设置页、加页面、调工具；MCP 是外部服务工具（本机进程或网络地址）。两套系统分开安装，插件不会出现在 MCP 列表里，MCP 也不会占用插件目录。
         </p>

@@ -151,6 +151,105 @@ export type Requests = {
     params: Record<string, never>;
     result: { swatches: { hex: string; name: string }[] };
   };
+  /** 一个角色的全部细节：档案 + 状态 + 立绘清单。null = 没有这个角色。 */
+  'characters.get': {
+    params: { id: string };
+    result: {
+      id: string;
+      name: string;
+      nickname: string;
+      gender: string;
+      age: number | null;
+      catchphrase: string;
+      avatarUrl: string;
+      outfit: string;
+      emotion: string;
+      affection: number;
+      trust: number;
+      energy: number;
+      emotions: { outfit: string; emotion: string; url: string }[];
+    } | null;
+  };
+  /** 设置里的 AI 厂商与模型（绝不含密钥）。 */
+  'ai.providers': {
+    params: Record<string, never>;
+    result: {
+      providers: {
+        name: string;
+        endpoint: string;
+        enabled: boolean;
+        timeoutSeconds: number;
+        keyCount: number;
+        models: {
+          model: string;
+          label: string;
+          enabled: boolean;
+          vision: boolean;
+          tools: boolean;
+          json: boolean;
+          contextWindow: number;
+        }[];
+      }[];
+    };
+  };
+  /** 已装插件。 */
+  'plugins.list': {
+    params: Record<string, never>;
+    result: {
+      plugins: {
+        id: string;
+        name: string;
+        version: string;
+        description: string;
+        author: string;
+        enabled: boolean;
+        permissions: string[];
+        settingsIssue: string;
+        missing: string[];
+      }[];
+    };
+  };
+  /** 开发者展示案。 */
+  'showcases.list': {
+    params: Record<string, never>;
+    result: {
+      showcases: {
+        id: string;
+        name: string;
+        description: string;
+        characterName: string;
+        steps: number;
+        backgroundUrl: string;
+        updatedAt: string;
+      }[];
+    };
+  };
+  /** 平行宇宙（导入的小说世界）。 */
+  'novels.list': {
+    params: Record<string, never>;
+    result: {
+      novels: {
+        id: string;
+        title: string;
+        summary: string;
+        characters: string[];
+        branches: number;
+        importedAt: string;
+      }[];
+    };
+  };
+  /** 世界书（世界树）。 */
+  'worldbook.list': {
+    params: Record<string, never>;
+    result: {
+      worlds: { id: string; title: string; description: string; mode: string; characters: number; createdAt: string }[];
+    };
+  };
+  /** 某个角色身上的记忆标签。 */
+  'memory.tags': {
+    params: { charId: string };
+    result: { tags: { name: string; subject: string; count: number }[] };
+  };
   /** 角色库真表。 */
   'characters.list': {
     params: Record<string, never>;

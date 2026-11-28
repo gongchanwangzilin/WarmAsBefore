@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Field, PageHeader, Row, Sep, Select, TextBtn } from '../../components/kit';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
@@ -14,6 +14,10 @@ type WorldEntry = {
   idea: string;
   mode: '纯文字' | '带立绘';
   characters: WorldCharacter[];
+  /** 库里的真实角色数（worldbook.list 只给数量，编辑器另行计数）。 */
+  characterCount?: number;
+  /** ISO-8601 创建时间 */
+  createdAt?: string;
 };
 
 function summaryOf(entry: WorldEntry): string {
@@ -21,17 +25,59 @@ function summaryOf(entry: WorldEntry): string {
   return text.length <= 80 ? text : `${text.slice(0, 80)}…`;
 }
 
+/** worldbook.list 的 mode 是枚举名（TextOnly / WithSprites），卡片上用源码那两张标签。 */
+function modeOf(mode: string): '纯文字' | '带立绘' {
+  return mode === 'WithSprites' ? '带立绘' : '纯文字';
+}
+
+/** 创建时间只读到日子：`2026-11-20`。 */
+function dayOf(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${at.getFullYear()}-${pad(at.getMonth() + 1)}-${pad(at.getDate())}`;
+}
+
 /**
  * 世界书：WorldbookPage.xaml 的库（WORLDS）与编辑（EDIT WORLD）两态。
- * 没有世界树后端，库从空开始；新建/编辑保存在页内状态，刷新即失。
+ * 库读 worldbook.list；新建/编辑保存在页内状态，刷新即失。
  */
-export function Worldbook({ back }: ScreenProps) {
+export function Worldbook({ bridge, back }: ScreenProps) {
   const [entries, setEntries] = useState<WorldEntry[]>([]);
+  const [loaded, setLoaded] = useState(false);
   const [draft, setDraft] = useState<WorldEntry | null>(null);
   const [aiPrompt, setAiPrompt] = useState('');
   const [mode, setMode] = useState<'纯文字' | '带立绘'>('纯文字');
   const [status, setStatus] = useState('');
   const [editStatus, setEditStatus] = useState('');
+
+  useEffect(() => {
+    let alive = true;
+    bridge
+      .request('worldbook.list', {})
+      .then((result) => {
+        if (!alive) return;
+        setEntries(
+          result.worlds.map((world) => ({
+            id: world.id,
+            title: world.title,
+            description: world.description,
+            idea: '',
+            mode: modeOf(world.mode),
+            characters: [],
+            characterCount: world.characters,
+            createdAt: world.createdAt,
+          })),
+        );
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (alive) setLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [bridge]);
 
   const openEditor = (entry: WorldEntry, message = '') => {
     setDraft({ ...entry, characters: entry.characters.map((c) => ({ ...c })) });
@@ -51,12 +97,14 @@ export function Worldbook({ back }: ScreenProps) {
       setEditStatus('标题不能空着——存档列表要靠它认出这一份世界。');
       return;
     }
+    const characters = draft.characters.filter((c) => c.name.trim().length > 0);
     const saved: WorldEntry = {
       ...draft,
       title,
       description: draft.description.trim(),
       idea: draft.idea.trim(),
-      characters: draft.characters.filter((c) => c.name.trim().length > 0),
+      characters,
+      characterCount: characters.length,
     };
     setEntries((list) => {
       const hit = list.findIndex((e) => e.id === saved.id);
@@ -132,7 +180,10 @@ export function Worldbook({ back }: ScreenProps) {
 
             <Card>
               {entries.map((entry) => {
-                const bits = [entry.characters.length > 0 ? `${entry.characters.length} 位角色` : '没有角色', entry.mode];
+                const count = entry.characterCount ?? entry.characters.length;
+                const day = entry.createdAt ? dayOf(entry.createdAt) : '';
+                const bits = [count > 0 ? `${count} 位角色` : '没有角色', entry.mode];
+                if (day) bits.push(day);
                 return (
                   <div key={entry.id}>
                     <Row
@@ -154,7 +205,7 @@ export function Worldbook({ back }: ScreenProps) {
                   </div>
                 );
               })}
-              {entries.length === 0 ? (
+              {loaded && entries.length === 0 ? (
                 <Stack gap={1}>
                   <SectionTitle>还没有世界书</SectionTitle>
                   <Note>上面写一句，让 AI 造第一个；或者点右上角「新建」自己写。</Note>

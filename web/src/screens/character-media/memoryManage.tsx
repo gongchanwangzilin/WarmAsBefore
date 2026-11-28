@@ -1,3 +1,4 @@
+import { useEffect, useState } from 'react';
 import { PageShell } from '../../components/PageShell';
 import { PageHeader, Card, Sep } from '../../components/kit';
 import type { ScreenProps } from '../types';
@@ -6,15 +7,54 @@ import { Cap, GhostSm, Muted, RowLine, SectionTitle, TextSm } from './parts';
 /** 人类记忆层的五个分类色名（MemoryHighlight.Legend 的顺序与文案）。 */
 const LEGEND = ['人', '话题', '事', '地点', '物'];
 
+/** 标签分类：MemoryHighlight.SubjectText 的键与话，顺序同 Legend。 */
+const SUBJECTS = [
+  { key: 'person', label: '人' },
+  { key: 'talk', label: '话题' },
+  { key: 'event', label: '事' },
+  { key: 'place', label: '地点' },
+  { key: 'thing', label: '物' },
+];
+
+type MemoryTag = { name: string; subject: string; count: number };
+
 /**
  * 记忆管理（MemoryManagePage.xaml，189 行）：页头 + 三个入口 + 人类记忆层说明 + 记忆条目。
- * 标签、记得的事与副设定都要后端（这里没有），所以按源码「还没有标签 / 还没有记得的事」的空态渲染。
+ * 标签段读第一个角色的 memory.tags，按分类分组；记得的事按源码空态渲染。
  */
-export function MemoryManage({ navigate, back }: ScreenProps) {
+export function MemoryManage({ bridge, navigate, back }: ScreenProps) {
+  const [charName, setCharName] = useState('');
+  const [tags, setTags] = useState<MemoryTag[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    const load = async () => {
+      try {
+        const roster = await bridge.request('characters.list', {});
+        const first = roster.characters[0];
+        if (!first) return;
+        if (alive) setCharName(first.name);
+        const result = await bridge.request('memory.tags', { charId: first.id });
+        if (alive) setTags(result.tags);
+      } catch {
+        /* 读不到就落回空态 */
+      }
+    };
+    void load();
+    return () => {
+      alive = false;
+    };
+  }, [bridge]);
+
+  const groups = SUBJECTS.map((subject) => ({
+    ...subject,
+    tags: tags.filter((tag) => (tag.subject || 'event') === subject.key),
+  })).filter((group) => group.tags.length > 0);
+
   return (
     <PageShell>
       <PageHeader
-        title="记忆管理"
+        title={charName ? `记忆管理 · ${charName}` : '记忆管理'}
         subtitle="这里能看到并修改 TA 的记忆：关系网、标签、TA 记得的事，以及主设定 × 副设定。"
         onBack={back}
       />
@@ -45,7 +85,36 @@ export function MemoryManage({ navigate, back }: ScreenProps) {
           <Sep />
           <RowLine
             title="标签（TA 怎么记人和事）"
-            desc="还没有标签。可以在这里手工加，AI 在对话里也会自己打。"
+            desc={
+              groups.length === 0 ? (
+                '还没有标签。可以在这里手工加，AI 在对话里也会自己打。'
+              ) : (
+                <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
+                  {groups.map((group) => (
+                    <span key={group.key} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-label)', lineHeight: 1.6 }}>
+                        {group.label}
+                      </span>
+                      {group.tags.map((tag) => (
+                        <span
+                          key={tag.name}
+                          style={{
+                            fontSize: 'var(--w-size-caption)',
+                            color: 'var(--w-ink-display)',
+                            lineHeight: 1.6,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                          }}
+                        >
+                          {`${tag.name}（用过 ${tag.count} 次）`}
+                        </span>
+                      ))}
+                    </span>
+                  ))}
+                </span>
+              )
+            }
             right={
               <span style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)', alignItems: 'flex-end' }}>
                 <GhostSm>加标签</GhostSm>

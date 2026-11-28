@@ -1,19 +1,67 @@
-import { useState } from 'react';
-import { Card, Empty, PageHeader } from '../../components/kit';
+import { useEffect, useState } from 'react';
+import { Card, Empty, PageHeader, Row, Sep, TextBtn } from '../../components/kit';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import type { ScreenProps } from '../types';
 import { Stack } from './parts';
 
-type NovelRow = { id: string; title: string; summary: string; importedAt: string; charactersLabel: string };
+/** novels.list 的一行。 */
+type NovelRow = {
+  id: string;
+  title: string;
+  summary: string;
+  characters: string[];
+  branches: number;
+  importedAt: string;
+};
+
+/** 导入时间只要月日，与源码的 `{0:MM/dd}` 同档。 */
+function monthDayOf(iso: string): string {
+  const at = new Date(iso);
+  if (Number.isNaN(at.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${pad(at.getMonth() + 1)}/${pad(at.getDate())}`;
+}
+
+/** 摘要一行两行封顶：源码是 MaxLines=2 + TailTruncation。 */
+function summaryOf(summary: string): string {
+  const text = summary.trim().replace(/\n/g, ' ');
+  return text.length <= 90 ? text : `${text.slice(0, 90)}…`;
+}
 
 /**
  * 平行宇宙：NovelSelectPage.xaml。
- * 小说库要读目录并经 AI 解析，前端没有对应 method；从空库开始，
- * 导入按钮保留源码文案，导入本身停在原地。
+ * 一部小说一行，列表读 novels.list；进入世界带走它的 id。
  */
-export function NovelSelect({ back }: ScreenProps) {
-  const [novels] = useState<NovelRow[]>([]);
+export function NovelSelect({ bridge, navigate, back }: ScreenProps) {
+  const [novels, setNovels] = useState<NovelRow[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  useEffect(() => {
+    let alive = true;
+    bridge
+      .request('novels.list', {})
+      .then((result) => {
+        if (!alive) return;
+        setNovels(
+          result.novels.map((novel) => ({
+            id: novel.id,
+            title: novel.title,
+            summary: novel.summary,
+            characters: novel.characters,
+            branches: novel.branches,
+            importedAt: novel.importedAt,
+          })),
+        );
+        setLoaded(true);
+      })
+      .catch(() => {
+        if (alive) setLoaded(true);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [bridge]);
 
   return (
     <PageShell>
@@ -21,19 +69,44 @@ export function NovelSelect({ back }: ScreenProps) {
 
       <div className="screen" style={{ minHeight: 360 }}>
         <Card>
-          {novels.length === 0 ? (
+          {novels.map((novel) => {
+            const summary = summaryOf(novel.summary);
+            return (
+              <div key={novel.id}>
+                <Row
+                  title={
+                    <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
+                      <span>{novel.title}</span>
+                      <span className="cap">{monthDayOf(novel.importedAt)}</span>
+                    </span>
+                  }
+                  desc={
+                    <span style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      {summary ? <span>{summary}</span> : null}
+                      <span className="cap">
+                        {novel.characters.length > 0 ? `角色：${novel.characters.join('、')}` : '角色：—'}
+                      </span>
+                      <span className="cap">{`分支：${novel.branches}`}</span>
+                    </span>
+                  }
+                  right={
+                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--w-space-2)' }}>
+                      <GlassButton size="sm" onClick={() => navigate(`/novelworld?id=${encodeURIComponent(novel.id)}`)}>
+                        进入世界
+                      </GlassButton>
+                      <TextBtn>删除</TextBtn>
+                    </div>
+                  }
+                />
+                <Sep />
+              </div>
+            );
+          })}
+          {loaded && novels.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 260 }}>
               <Empty title="还没有平行宇宙" reason="导入一部小说，它就会变成一个可以进入的世界" />
             </div>
-          ) : (
-            novels.map((novel) => (
-              <div key={novel.id} style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <span style={{ fontSize: 'var(--w-size-body)', color: 'var(--w-ink-display)' }}>{novel.title}</span>
-                <span className="cap">{novel.summary}</span>
-                <span className="cap">{novel.charactersLabel}</span>
-              </div>
-            ))
-          )}
+          ) : null}
         </Card>
 
         <Stack>

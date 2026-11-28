@@ -1,26 +1,64 @@
-import { useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
-import { Card, Field, PageHeader, Sep } from '../../components/kit';
+import { Card, Chip, Field, PageHeader, Sep } from '../../components/kit';
 import type { ScreenProps } from '../types';
 
 /**
  * 插件中心：Views/Settings/PluginCenterPage.xaml（314 行）+ ViewModels/Settings/PluginCenterViewModel.cs。
- * 插件列表、工坊与 MCP 数据包都要宿主扫盘与装包，这里保留原样的空态与入口。
+ * 已装插件列表来自 plugins.list（WebBridge.PluginsListAsync）：清单、启停、权限声明与缺依赖。
  */
 
 /** PluginHost.PluginsDir 在 Windows 上是应用数据目录下的 plugins；Web 端拿不到这条路径，留成占位。 */
 const PLUGINS_DIR_LABEL = '<应用数据目录>\\plugins';
 
 const CAPTION = { fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)' } as const;
+const SIGNAL = { ...CAPTION, color: 'var(--w-signal)' } as const;
 
-export function PluginCenter({ back }: ScreenProps) {
+type PluginRow = {
+  id: string;
+  name: string;
+  version: string;
+  description: string;
+  author: string;
+  enabled: boolean;
+  permissions: string[];
+  settingsIssue: string;
+  missing: string[];
+};
+
+/** PluginRow.StateLabel：有设置问题就「不能运行」，否则按启停。 */
+const stateOf = (plugin: PluginRow) =>
+  plugin.settingsIssue.length > 0 ? '不能运行' : plugin.enabled ? '生效中' : '已停用';
+
+/** PluginRow.PermissionLabel：声明了几项、都是哪几项。 */
+const permissionTextOf = (plugin: PluginRow) =>
+  `权限：声明 ${plugin.permissions.length} 项` +
+  (plugin.permissions.length > 0 ? ` · ${plugin.permissions.join('、')}` : '');
+
+export function PluginCenter({ bridge, navigate, back }: ScreenProps) {
+  const [plugins, setPlugins] = useState<PluginRow[]>([]);
   const [workshopPrompt, setWorkshopPrompt] = useState('');
   const [mcpPrompt, setMcpPrompt] = useState('');
-  const [status, setStatus] = useState('还没有插件。');
+  const [status, setStatus] = useState('');
 
-  const hostOnly = () => setStatus('装包与工坊由宿主处理：这一层没有接上插件服务。');
+  const load = useCallback(async () => {
+    try {
+      const { plugins: rows } = await bridge.request('plugins.list', {});
+      setPlugins(rows);
+      const running = rows.filter((row) => row.enabled && row.settingsIssue.length === 0).length;
+      setStatus(rows.length === 0 ? '还没有插件。' : `共 ${rows.length} 个插件，${running} 个正在生效。`);
+    } catch {
+      /* 老宿主没有这个方法：列表留空，走源码的空态 */
+    }
+  }, [bridge]);
+
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  const notWired = () => setStatus('安装与工坊还没有接通写入：这一页只显示已经装好的插件。');
 
   return (
     <PageShell>
@@ -28,12 +66,16 @@ export function PluginCenter({ back }: ScreenProps) {
         title="插件中心"
         onBack={back}
         backText="< 返回"
-        right={<GlassButton size="sm" onClick={() => setStatus('还没有插件。')}>刷新</GlassButton>}
+        right={
+          <GlassButton size="sm" onClick={() => void load()}>
+            刷新
+          </GlassButton>
+        }
       />
 
       <div className="screen" style={{ maxWidth: '1000px' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
-          <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-signal)' }}>{status}</span>
+          {status ? <span style={SIGNAL}>{status}</span> : null}
           <span style={{ ...CAPTION, lineHeight: 1.6 }}>
             插件可以改人设、改写发送前/回复后的文本、读取上下文、按轮次记账，也能带自己的设置页与页面。钩子运行在受限 JS
             沙箱里（语句数与内存有硬上限，等授权的时间不计入预算）；设置页三选一是硬性要求，没声明就不能运行。每项能力都要两边点头才生效：插件在
@@ -44,11 +86,11 @@ export function PluginCenter({ back }: ScreenProps) {
         <Card title="安装插件">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-3)' }}>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--w-space-3)' }}>
-              <SignalButton onClick={hostOnly}>从 zip 安装</SignalButton>
-              <GlassButton size="md" onClick={hostOnly}>
+              <SignalButton onClick={notWired}>从 zip 安装</SignalButton>
+              <GlassButton size="md" onClick={notWired}>
                 从文件夹安装
               </GlassButton>
-              <GlassButton size="md" onClick={hostOnly}>
+              <GlassButton size="md" onClick={notWired}>
                 打开插件目录
               </GlassButton>
             </div>
@@ -62,9 +104,71 @@ export function PluginCenter({ back }: ScreenProps) {
           </div>
         </Card>
 
-        <span style={{ ...CAPTION, lineHeight: 1.6 }}>
-          还没有插件。可以用下面的工坊生成一个，或用上面那两颗按钮装现成的。
-        </span>
+        {plugins.length === 0 ? (
+          <span style={{ ...CAPTION, lineHeight: 1.6 }}>
+            还没有插件。可以用下面的工坊生成一个，或用上面那两颗按钮装现成的。
+          </span>
+        ) : null}
+
+        {plugins.map((plugin) => (
+          <Card key={plugin.id}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
+              <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--w-space-3)' }}>
+                <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                  <span
+                    style={{
+                      fontSize: 'var(--w-size-subhead)',
+                      color: 'var(--w-ink-display)',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                      whiteSpace: 'nowrap',
+                    }}
+                  >
+                    {plugin.name}
+                  </span>
+                  <span style={{ ...CAPTION, lineHeight: 1.6 }}>{plugin.description}</span>
+                </div>
+                <Chip>{stateOf(plugin)}</Chip>
+              </div>
+
+              <span style={CAPTION}>
+                v{plugin.version}
+                {plugin.author ? ` · ${plugin.author}` : ''}
+              </span>
+
+              {plugin.missing.length > 0 ? (
+                <span style={SIGNAL}>缺少依赖：{plugin.missing.join('、')}</span>
+              ) : null}
+
+              {plugin.settingsIssue.length > 0 ? <span style={SIGNAL}>{plugin.settingsIssue}</span> : null}
+
+              <span style={CAPTION}>{permissionTextOf(plugin)}</span>
+
+              <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--w-space-2)' }}>
+                <GlassButton
+                  size="sm"
+                  onClick={() =>
+                    navigate(
+                      `/pluginSettings?id=${encodeURIComponent(plugin.id)}&desc=${encodeURIComponent(plugin.description)}`,
+                    )
+                  }
+                >
+                  设置
+                </GlassButton>
+                <GlassButton
+                  size="sm"
+                  onClick={() =>
+                    navigate(
+                      `/pluginPerms?name=${encodeURIComponent(plugin.name)}&version=${encodeURIComponent(plugin.version)}`,
+                    )
+                  }
+                >
+                  权限
+                </GlassButton>
+              </div>
+            </div>
+          </Card>
+        ))}
 
         <Card title="插件工坊">
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-3)' }}>
@@ -79,7 +183,7 @@ export function PluginCenter({ back }: ScreenProps) {
               placeholder="例：让 TA 在回复末尾偶尔加一句极简的环境描写；给一个「克制程度」滑杆"
             />
             <div>
-              <SignalButton onClick={hostOnly}>生成并安装</SignalButton>
+              <SignalButton onClick={notWired}>生成并安装</SignalButton>
             </div>
             <span style={{ ...CAPTION, lineHeight: 1.6, opacity: 0.8 }}>
               插件能做什么：README 里的
@@ -102,7 +206,7 @@ export function PluginCenter({ back }: ScreenProps) {
               placeholder="例：做一个「情绪色彩」工具，把一句话映射成一种颜色和一句环境描写；再做「随机小剧场」给三个开场"
             />
             <div>
-              <SignalButton onClick={hostOnly}>生成并注册</SignalButton>
+              <SignalButton onClick={notWired}>生成并注册</SignalButton>
             </div>
 
             <Sep bleed />
@@ -114,13 +218,13 @@ export function PluginCenter({ back }: ScreenProps) {
               服务（本机启动进程或连一个地址），去设置 → 外部与接入 → MCP。
             </span>
             <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--w-space-3)' }}>
-              <GlassButton size="sm" onClick={hostOnly}>
+              <GlassButton size="sm" onClick={notWired}>
                 导入数据包 zip
               </GlassButton>
-              <GlassButton size="sm" onClick={hostOnly}>
+              <GlassButton size="sm" onClick={notWired}>
                 从文件夹导入
               </GlassButton>
-              <GlassButton size="sm" onClick={hostOnly}>
+              <GlassButton size="sm" onClick={notWired}>
                 从 GitHub 导入
               </GlassButton>
             </div>

@@ -1,47 +1,47 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GlassButton } from '../../components/GlassButton';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
-import { Card, Empty, Field, PageHeader, TextBtn } from '../../components/kit';
+import { Card, Empty, Field, PageHeader } from '../../components/kit';
 import type { ScreenProps } from '../types';
 
 /**
  * AI 厂商管理：Views/Settings/AiProvidersPage.xaml（111 行）+ 同名 code-behind。
- * 一家厂商 = 一个端点 + 一组密钥 + 多款模型；顺序即优先级。
+ * 一家厂商 = 一个端点 + 一组密钥 + 多款模型；顺序即优先级，失灵自动换下一家。
+ * 列表来自 ai.providers（WebBridge.AiProviders）：只读已经存下的厂商与模型，不含密钥本身。
  */
 
-type ProviderModel = { model: string; label: string; enabled: boolean };
+type ProviderModel = {
+  model: string;
+  label: string;
+  enabled: boolean;
+  vision: boolean;
+  tools: boolean;
+  json: boolean;
+  contextWindow: number;
+};
 
 type Provider = {
-  id: string;
   name: string;
-  url: string;
-  keys: string[];
+  endpoint: string;
   enabled: boolean;
-  timeout: string;
+  timeoutSeconds: number;
+  keyCount: number;
   models: ProviderModel[];
 };
 
-/** AiProviderRow.SplitKeys：换行、英文/中文逗号、分号都算分隔符。 */
-const splitKeys = (text: string) =>
-  text
-    .split(/[\n\r,，;；]/)
-    .map((part) => part.trim())
-    .filter((part) => part.length > 0);
+const CAPTION = { fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)' } as const;
 
 const titleOf = (provider: Provider) => (provider.name.trim() ? provider.name : '（未命名厂商）');
 
-const parseTimeout = (text: string) => {
-  const value = Number.parseInt(text.trim(), 10);
-  return Number.isFinite(value) && value > 0 ? Math.min(600, Math.max(3, value)) : null;
-};
-
+/** AiProviderRow.Summary：启用几款 / 共几款 · 几枚密钥 · 超时。 */
 const summaryOf = (provider: Provider) => {
   const on = provider.models.filter((model) => model.enabled).length;
-  const timeout = parseTimeout(provider.timeout);
-  return `${on}/${provider.models.length} 款模型 · ${provider.keys.length} 枚密钥${timeout ? ` · 超时 ${timeout}s` : ''}`;
+  const timeout = provider.timeoutSeconds > 0 ? ` · 超时 ${provider.timeoutSeconds}s` : '';
+  return `${on}/${provider.models.length} 款模型 · ${provider.keyCount} 枚密钥${timeout}`;
 };
 
+/** AiProviderRow.ModelsHint：这家挂了哪些模型、谁被停用。 */
 const modelsHintOf = (provider: Provider) =>
   provider.models.length === 0
     ? '还没有模型：到「模型管理」里加一款。'
@@ -50,9 +50,7 @@ const modelsHintOf = (provider: Provider) =>
         .map((model) => (model.label.trim() ? model.label : model.model) + (model.enabled ? '' : '（停用）'))
         .join('、');
 
-const rowAction = { marginRight: 'var(--w-space-2)' } as const;
-
-export function AiProviders({ navigate, back }: ScreenProps) {
+export function AiProviders({ bridge, navigate, back }: ScreenProps) {
   const [providers, setProviders] = useState<Provider[]>([]);
   const [newName, setNewName] = useState('');
   const [newModel, setNewModel] = useState('');
@@ -61,78 +59,25 @@ export function AiProviders({ navigate, back }: ScreenProps) {
   const [newTimeout, setNewTimeout] = useState('');
   const [status, setStatus] = useState('');
 
-  const patch = (id: string, next: Partial<Provider>) =>
-    setProviders((list) => list.map((item) => (item.id === id ? { ...item, ...next } : item)));
-
-  const move = (id: string, delta: number) =>
-    setProviders((list) => {
-      const index = list.findIndex((item) => item.id === id);
-      const target = index + delta;
-      if (index < 0 || target < 0 || target >= list.length) return list;
-      const copy = list.slice();
-      const [row] = copy.splice(index, 1);
-      copy.splice(target, 0, row);
-      return copy;
-    });
-
-  const editBasics = (provider: Provider) => {
-    const name = window.prompt('厂商名称\n好认的名字，如「硅基流动」「DeepSeek 官方」。', provider.name);
-    if (name === null) return;
-    const url = window.prompt('端点地址\nOpenAI 兼容的 chat/completions 地址。', provider.url);
-    if (url === null) return;
-    patch(provider.id, { name: name.trim(), url: url.trim() });
-    setStatus('厂商信息已保存。');
-  };
-
-  const editKeys = (provider: Provider) => {
-    const keys = window.prompt(
-      `「${titleOf(provider)}」的密钥\n一行一枚，可多枚轮流用（也可用逗号分隔）。`,
-      provider.keys.join('\n'),
-    );
-    if (keys === null) return;
-    patch(provider.id, { keys: splitKeys(keys) });
-    setStatus('密钥已保存。');
-  };
-
-  const editTimeout = (provider: Provider) => {
-    const timeout = window.prompt(
-      `「${titleOf(provider)}」的超时\n秒数（3~600），留空 = 用全局超时。`,
-      provider.timeout,
-    );
-    if (timeout === null) return;
-    patch(provider.id, { timeout: timeout.trim() });
-    setStatus('超时已保存。');
-  };
-
-  const remove = (provider: Provider) => {
-    if (!window.confirm(`删除厂商\n删掉「${titleOf(provider)}」？它下面的模型也一起没了。`)) return;
-    setProviders((list) => list.filter((item) => item.id !== provider.id));
-    setStatus('已删除。');
-  };
+  useEffect(() => {
+    let dropped = false;
+    bridge
+      .request('ai.providers', {})
+      .then(({ providers: rows }) => {
+        if (!dropped) setProviders(rows);
+      })
+      .catch(() => undefined);
+    return () => {
+      dropped = true;
+    };
+  }, [bridge]);
 
   const addProvider = () => {
-    const url = newUrl.trim();
-    if (url.length === 0) {
+    if (newUrl.trim().length === 0) {
       setStatus('先填端点地址（OpenAI 兼容），再点「添加厂商」。');
       return;
     }
-    const model = newModel.trim();
-    const row: Provider = {
-      id: String(Math.random()).slice(2, 10),
-      name: newName.trim(),
-      url,
-      keys: splitKeys(newKeys),
-      enabled: true,
-      timeout: newTimeout.trim(),
-      models: model.length > 0 ? [{ model, label: '', enabled: true }] : [],
-    };
-    setProviders((list) => [...list, row]);
-    setNewName('');
-    setNewUrl('');
-    setNewKeys('');
-    setNewModel('');
-    setNewTimeout('');
-    setStatus('已添加厂商。到「模型管理」里补上下文窗口和能力。');
+    setStatus('新增厂商还没有接通写入：这一页只显示已经存下的厂商与模型。');
   };
 
   return (
@@ -150,8 +95,8 @@ export function AiProviders({ navigate, back }: ScreenProps) {
       />
 
       <div className="screen">
-        {providers.map((provider) => (
-          <Card key={provider.id}>
+        {providers.map((provider, index) => (
+          <Card key={`${provider.endpoint}-${index}`}>
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--w-space-3)' }}>
               <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px' }}>
                 <span
@@ -167,80 +112,29 @@ export function AiProviders({ navigate, back }: ScreenProps) {
                   {titleOf(provider)}
                 </span>
                 <span
-                  style={{
-                    fontSize: 'var(--w-size-caption)',
-                    color: 'var(--w-ink-muted)',
-                    overflow: 'hidden',
-                    textOverflow: 'ellipsis',
-                    whiteSpace: 'nowrap',
-                  }}
+                  style={{ ...CAPTION, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
                 >
-                  {provider.url}
+                  {provider.endpoint}
                 </span>
-                <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)' }}>
-                  {summaryOf(provider)}
-                </span>
+                <span style={CAPTION}>{summaryOf(provider)}</span>
               </div>
               <GlassSwitch
                 label={`${titleOf(provider)} 启用`}
                 checked={provider.enabled}
-                onChange={(enabled) => {
-                  patch(provider.id, { enabled });
-                  setStatus(enabled ? '已启用这家厂商。' : '已停用这家厂商：轮换池里不再用它。');
-                }}
+                onChange={() => undefined}
+                disabled
               />
             </div>
 
-            <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', marginTop: 'var(--w-space-2)' }}>
-              <span style={rowAction}>
-                <TextBtn onClick={() => editBasics(provider)}>名称/端点</TextBtn>
-              </span>
-              <span style={rowAction}>
-                <TextBtn onClick={() => editKeys(provider)}>密钥</TextBtn>
-              </span>
-              <span style={rowAction}>
-                <TextBtn onClick={() => editTimeout(provider)}>超时</TextBtn>
-              </span>
-              <span style={rowAction}>
-                <TextBtn
-                  onClick={() => {
-                    move(provider.id, -1);
-                    setStatus('顺序已调整：靠前的先用。');
-                  }}
-                >
-                  上移
-                </TextBtn>
-              </span>
-              <span style={rowAction}>
-                <TextBtn
-                  onClick={() => {
-                    move(provider.id, 1);
-                    setStatus('顺序已调整。');
-                  }}
-                >
-                  下移
-                </TextBtn>
-              </span>
-              <TextBtn onClick={() => remove(provider)}>删除</TextBtn>
-            </div>
-
-            <p
-              style={{
-                margin: 'var(--w-space-2) 0 0',
-                fontSize: 'var(--w-size-caption)',
-                color: 'var(--w-ink-muted)',
-              }}
-            >
-              {modelsHintOf(provider)}
-            </p>
+            <p style={{ margin: 'var(--w-space-2) 0 0', ...CAPTION }}>{modelsHintOf(provider)}</p>
           </Card>
         ))}
 
         {providers.length === 0 ? (
           <Empty
             title="还没有厂商"
-            reason="轮换池里一家都没有：对话端点还没接上。"
-            hint="在下面「新增厂商」里填端点、密钥和首款模型，点「＋ 添加厂商」就会出现在上面。"
+            reason="还没有接入厂商。"
+            hint="填端点与密钥后点「＋添加厂商」，再往里加模型。"
           />
         ) : null}
 
@@ -278,9 +172,7 @@ export function AiProviders({ navigate, back }: ScreenProps) {
           </div>
         </Card>
 
-        {status ? (
-          <p style={{ margin: 0, fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)' }}>{status}</p>
-        ) : null}
+        {status ? <p style={{ margin: 0, ...CAPTION }}>{status}</p> : null}
       </div>
     </PageShell>
   );

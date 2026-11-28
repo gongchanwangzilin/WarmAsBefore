@@ -1,9 +1,10 @@
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import { Glass } from '../../components/Glass';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { Field, PageHeader, TextBtn } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
+import type { Result } from '../../bridge/protocol';
 import type { ScreenProps } from '../types';
 import {
   Actions,
@@ -26,9 +27,11 @@ import {
  * 角色工作室：Views/Character/CharacterStudioPage.xaml（16 行壳）+ CharacterStudioPanel.xaml（1604 行）
  * 加 CharacterStudioViewModel*.cs。左边立绘舞台，右边七个页签的资料；窄窗上下排（源码断点 820）。
  *
- * 后端只有 appearance / settings / palette / nav 这几个 method，角色资料读不到，
- * 所以整页从 BlankDraft 那张空白卡起步：姓名与性别等人来填，其余各栏先落 CreateDefault 的出厂值。
+ * 带 ?id= 进来时按 characters.get 读真实档案；没有 id 或读不到，就从 BlankDraft 那张空白卡起步：
+ * 姓名与性别等人来填，其余各栏先落 CreateDefault 的出厂值。
  */
+
+type Detail = NonNullable<Result<'characters.get'>>;
 
 type Tab = 'set' | 'state' | 'art' | 'mem' | 'link' | 'talk' | 'cg';
 
@@ -58,6 +61,13 @@ const MOODS: { key: string; label: string }[] = [
 
 const OUTFITS = [{ key: 'default', label: '默认装扮' }];
 const EMOTIONS = [{ key: 'normal', label: 'normal' }];
+
+/** StudioCopy.OutfitName：default 有名字，其余直接用盘上的键。 */
+function outfitLabel(key: string): string {
+  if (key === 'default') return '默认装扮';
+  if (key === '') return '（没有服装）';
+  return key;
+}
 
 /** 记忆五层（MemoryLayers.Name / Describe）。 */
 const LAYERS = [
@@ -135,7 +145,7 @@ type Fields = {
 /**
  * 一份草案：CharacterLibrary.CreateDefault 的出厂值（性别「未知」、性格「温柔可爱」、
  * 背景那句「刚刚诞生的伙伴…」都是源码给的默认值）。姓名与称呼以外的四栏留空，等填。
- * 角色资料要从角色库里读，Web 端没有对应 method，所以这里从草案起步，读不到就不假装盘上有人。
+ * 没有 ?id= 或 characters.get 取不到人时，就从草案起步，不假装盘上有人。
  */
 const DRAFT: Fields = {
   name: '',
@@ -202,9 +212,18 @@ type Ctx = {
   talkHint: string;
   talkSend: () => void;
   talkClear: () => void;
+  outfits: { key: string; label: string }[];
+  emotions: { key: string; label: string }[];
+  outfit: string;
+  emotion: string;
+  setOutfit: (key: string) => void;
+  setEmotion: (key: string) => void;
+  previewUrl: string;
+  avatarUrl: string;
+  spriteOf: (emotion: string) => string;
 };
 
-export function Studio({ navigate, back }: ScreenProps) {
+export function Studio({ bridge, query, navigate, back }: ScreenProps) {
   const wide = useIsWide(820);
   const [isNew, setIsNew] = useState(true);
   const [f, setT] = useState<Fields>(DRAFT);
@@ -218,14 +237,68 @@ export function Studio({ navigate, back }: ScreenProps) {
   const [talkLines, setTalkLines] = useState<TalkLine[]>([]);
   const [talkHint, setTalkHint] = useState('');
   const [nextLineId, setNextLineId] = useState(1);
+  const [subject, setSubject] = useState<Detail | null>(null);
+  const [outfit, setOutfit] = useState('default');
+  const [emotion, setEmotion] = useState('normal');
+
+  const charId = query.get('id')?.trim() ?? '';
+
+  useEffect(() => {
+    if (!charId) return;
+    let alive = true;
+    bridge
+      .request('characters.get', { id: charId })
+      .then((found) => {
+        if (!alive || !found) return;
+        const filled: Fields = {
+          ...DRAFT,
+          name: found.name,
+          nickname: found.nickname,
+          gender: found.gender,
+          age: found.age === null ? '' : String(found.age),
+          affection: found.affection,
+          trust: found.trust,
+          energy: found.energy,
+        };
+        setSubject(found);
+        setIsNew(false);
+        setT(filled);
+        setSaved(filled);
+        setChanged([]);
+        setStatus('');
+        setOutfit(found.outfit || 'default');
+        setEmotion(found.emotion || 'normal');
+      })
+      .catch(() => {
+        if (alive) setStatus('这个角色的资料读不出来了。');
+      });
+    return () => {
+      alive = false;
+    };
+  }, [bridge, charId]);
+
+  const outfits = subject
+    ? Array.from(new Set([subject.outfit, ...subject.emotions.map((item) => item.outfit)]))
+        .filter((key) => key.length > 0)
+        .map((key) => ({ key, label: outfitLabel(key) }))
+    : OUTFITS;
+  const emotions = subject
+    ? Array.from(new Set(subject.emotions.filter((item) => item.outfit === outfit).map((item) => item.emotion)))
+        .map((key) => ({ key, label: key }))
+    : EMOTIONS;
+  const avatarUrl = subject?.avatarUrl ?? '';
+  const previewUrl =
+    subject?.emotions.find((item) => item.outfit === outfit && item.emotion === emotion)?.url || avatarUrl;
 
   const dirty = changed.length > 0;
   const saveLabel = isNew ? '建好角色' : '保存';
   const headline = isNew ? '新建角色' : f.nickname.trim() ? `${f.name}·${f.nickname}` : f.name;
   const metaLine = isNew
     ? '先起个名字、选个性别，其余都能之后补'
-    : `${f.gender} · 叫对方「${f.userAddress}」 · ${f.romance ? '恋爱对象' : '不恋爱'}`;
-  const previewCaption = `${OUTFITS[0].label} · normal · ${facingLeft ? '朝左' : '朝右'}`;
+    : subject
+      ? subject.gender
+      : `${f.gender} · 叫对方「${f.userAddress}」 · ${f.romance ? '恋爱对象' : '不恋爱'}`;
+  const previewCaption = `${outfitLabel(outfit)} · ${emotion} · ${facingLeft ? '朝左' : '朝右'}`;
 
   const set = <K extends keyof Fields>(key: K, value: Fields[K], label: string) => {
     setT((prev) => ({ ...prev, [key]: value }));
@@ -304,6 +377,14 @@ export function Studio({ navigate, back }: ScreenProps) {
     setTalkHint('这几句擦掉了——本来也没写进 TA 的记忆。');
   };
 
+  const chooseOutfit = (key: string) => {
+    setOutfit(key);
+    const available = (subject?.emotions ?? []).filter((item) => item.outfit === key);
+    if (available.length > 0 && !available.some((item) => item.emotion === emotion)) {
+      setEmotion(available[0].emotion);
+    }
+  };
+
   const ctx: Ctx = {
     f,
     set,
@@ -323,6 +404,15 @@ export function Studio({ navigate, back }: ScreenProps) {
     talkHint,
     talkSend,
     talkClear,
+    outfits,
+    emotions,
+    outfit,
+    emotion,
+    setOutfit: chooseOutfit,
+    setEmotion,
+    previewUrl,
+    avatarUrl,
+    spriteOf: (key) => subject?.emotions.find((item) => item.outfit === outfit && item.emotion === key)?.url ?? '',
   };
 
   const visibleTabs = isNew ? TABS.filter((item) => item.key !== 'link') : TABS;
@@ -381,7 +471,7 @@ export function Studio({ navigate, back }: ScreenProps) {
 
 /** 左栏：立绘舞台（立绘 + 名字牌 + 读数条 + 服装/表情 + 共用记忆开关）。 */
 function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption: string }) {
-  const { f, set, navigate, setFacing, facingLeft } = ctx;
+  const { f, set, navigate, setFacing, facingLeft, outfits, emotions, outfit, emotion, setOutfit, setEmotion, previewUrl, avatarUrl } = ctx;
   return (
     <Glass as="section" tone="card" radius={12} style={{ padding: 'var(--w-pad-card)' }}>
       <Stack gap={2}>
@@ -395,10 +485,14 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
             overflow: 'hidden',
           }}
         >
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)', textAlign: 'center' }}>
-            <BodySm>还没有立绘</BodySm>
-            <Caption>在下面「素材」里用一句话生成一套，或从 zip 补进来</Caption>
-          </div>
+          {previewUrl ? (
+            <img src={previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)', textAlign: 'center' }}>
+              <BodySm>还没有立绘</BodySm>
+              <Caption>在下面「素材」里用一句话生成一套，或从 zip 补进来</Caption>
+            </div>
+          )}
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 64px', columnGap: 'var(--w-space-3)' }}>
@@ -435,8 +529,18 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
             }}
           >
             <div style={{ display: 'flex', flexDirection: 'column' }}>
-              <span style={{ fontSize: 20, color: 'var(--w-ink-muted)' }}>＋</span>
-              <Caption>头像</Caption>
+              {avatarUrl ? (
+                <img
+                  src={avatarUrl}
+                  alt=""
+                  style={{ width: 62, height: 62, borderRadius: 4, objectFit: 'cover' }}
+                />
+              ) : (
+                <>
+                  <span style={{ fontSize: 20, color: 'var(--w-ink-muted)' }}>＋</span>
+                  <Caption>头像</Caption>
+                </>
+              )}
             </div>
           </div>
         </div>
@@ -454,12 +558,15 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
           <div style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr)', columnGap: 'var(--w-space-1)', alignItems: 'center' }}>
             <Caption>服装</Caption>
             <Chips>
-              {OUTFITS.map((item) => (
+              {outfits.map((item) => (
                 <ChipBtn
                   key={item.key}
                   label={item.label}
-                  on
-                  onClick={() => ctx.say(`已换上「${item.label}」——还没保存，按「保存」才落到角色身上。`)}
+                  on={item.key === outfit}
+                  onClick={() => {
+                    setOutfit(item.key);
+                    ctx.say(`已换上「${item.label}」——还没保存，按「保存」才落到角色身上。`);
+                  }}
                 />
               ))}
             </Chips>
@@ -467,8 +574,13 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
           <div style={{ display: 'grid', gridTemplateColumns: '34px minmax(0,1fr)', columnGap: 'var(--w-space-1)', alignItems: 'center' }}>
             <Caption>表情</Caption>
             <Chips>
-              {EMOTIONS.map((item) => (
-                <ChipBtn key={item.key} label={item.label} on onClick={() => undefined} />
+              {emotions.map((item) => (
+                <ChipBtn
+                  key={item.key}
+                  label={item.label}
+                  on={item.key === emotion}
+                  onClick={() => setEmotion(item.key)}
+                />
               ))}
             </Chips>
           </div>
@@ -935,7 +1047,9 @@ function StateTab({ ctx }: { ctx: Ctx }) {
 
 /** ══ 03 素材 ══ */
 function ArtTab({ ctx }: { ctx: Ctx }) {
-  const { navigate } = ctx;
+  const { navigate, outfits, emotions, outfit, spriteOf } = ctx;
+  const filled = emotions.filter((item) => spriteOf(item.key)).length;
+  const outfitName = outfits.find((item) => item.key === outfit)?.label ?? outfitLabel(outfit);
   return (
     <Stack gap={4}>
       <SectionHead no="03" eyebrow="// PORTRAIT" title="服装 × 表情" />
@@ -943,28 +1057,36 @@ function ArtTab({ ctx }: { ctx: Ctx }) {
 
       <Stack gap={1}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
-          <BodySm>{OUTFITS[0].label}</BodySm>
-          <Caption>0/1 格有图</Caption>
+          <BodySm>{outfitName}</BodySm>
+          <Caption>{`${filled}/${emotions.length} 格有图`}</Caption>
         </div>
         <Chips>
-          {EMOTIONS.map((item) => (
-            <span
-              key={item.key}
-              style={{
-                width: 76,
-                height: 86,
-                borderRadius: 4,
-                border: '1px solid var(--w-hairline)',
-                background: 'var(--w-tint-card)',
-                display: 'flex',
-                alignItems: 'flex-start',
-                justifyContent: 'flex-end',
-                padding: 4,
-              }}
-            >
-              <Caption>缺</Caption>
-            </span>
-          ))}
+          {emotions.map((item) => {
+            const url = spriteOf(item.key);
+            return (
+              <span
+                key={item.key}
+                style={{
+                  width: 76,
+                  height: 86,
+                  borderRadius: 4,
+                  border: '1px solid var(--w-hairline)',
+                  background: 'var(--w-tint-card)',
+                  display: 'flex',
+                  alignItems: 'flex-start',
+                  justifyContent: 'flex-end',
+                  padding: 4,
+                  overflow: 'hidden',
+                }}
+              >
+                {url ? (
+                  <img src={url} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 2 }} />
+                ) : (
+                  <Caption>缺</Caption>
+                )}
+              </span>
+            );
+          })}
         </Chips>
       </Stack>
 

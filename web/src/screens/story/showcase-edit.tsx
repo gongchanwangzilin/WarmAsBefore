@@ -1,27 +1,48 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Card, Field, PageHeader, Row, Sep, TextBtn } from '../../components/kit';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import type { ScreenProps } from '../types';
 import { Actions, Note, SectionTitle, Stack } from './parts';
 
+type ShowcaseRow = { id: string; name: string; characterName: string; steps: number };
+
 /**
  * 编辑展示案：ShowcaseEditPage.xaml。
- * 展示案数据在 ShowcaseStore 里，前端只留名称与页内步骤；
- * 选角色、插 CG、加立绘都要读角色库与素材库，这里保留按钮与空态。
+ * 从 ?id= 取一案，回显名称、主角与步骤数；名称改动只留在这一页。
+ * 这一页没有返回钮（退出靠底部的「返回」），源码如此。
  */
-export function ShowcaseEdit({ query, back }: ScreenProps) {
-  const [name, setName] = useState(query.get('name') ?? '');
-  const [steps] = useState<string[]>([]);
+export function ShowcaseEdit({ bridge, query, back }: ScreenProps) {
+  const [script, setScript] = useState<ShowcaseRow | null>(null);
+  const [name, setName] = useState('');
+  const id = query.get('id');
 
-  const save = () => window.alert('展示案已保存');
+  useEffect(() => {
+    let alive = true;
+    bridge
+      .request('showcases.list', {})
+      .then((result) => {
+        if (!alive) return;
+        const hit = id ? result.showcases.find((showcase) => showcase.id === id) ?? null : null;
+        setScript(
+          hit ? { id: hit.id, name: hit.name, characterName: hit.characterName, steps: hit.steps } : null,
+        );
+        if (hit) setName(hit.name);
+      })
+      .catch(() => undefined);
+    return () => {
+      alive = false;
+    };
+  }, [bridge, id]);
+
+  const steps = script?.steps ?? 0;
+  const characterName = script?.characterName.trim() ? script.characterName : '（未选择）';
 
   return (
     <PageShell>
       <PageHeader
-        onBack={back}
         title="编辑展示案"
-        right={<TextBtn onClick={save}>保存</TextBtn>}
+        right={<TextBtn>保存</TextBtn>}
       />
 
       <div className="screen" style={{ maxWidth: 760 }}>
@@ -30,23 +51,17 @@ export function ShowcaseEdit({ query, back }: ScreenProps) {
           <Card>
             <Row title="名称" right={<div style={{ width: 280 }}><Field label="名称" value={name} onChange={setName} /></div>} />
             <Sep />
-            <Row
-              title="主角"
-              desc="（未选择）"
-              right={<TextBtn>选择角色</TextBtn>}
-            />
+            <Row title="主角" desc={characterName} right={<TextBtn>选择角色</TextBtn>} />
           </Card>
 
           <SectionTitle>步骤列表</SectionTitle>
           <Card>
             <div style={{ maxHeight: 260, overflowY: 'auto' }}>
-              {steps.map((step) => (
-                <div key={step}>
-                  <Row title={step} right={<Actions><TextBtn>↑</TextBtn><TextBtn>↓</TextBtn><TextBtn>×</TextBtn></Actions>} />
-                  <Sep />
-                </div>
-              ))}
-              {steps.length === 0 ? <Note>暂无步骤，点击下方按钮添加</Note> : null}
+              {steps > 0 ? (
+                <Row title={`步骤 ${steps}`} />
+              ) : (
+                <Note>暂无步骤，点击下方按钮添加</Note>
+              )}
             </div>
           </Card>
 

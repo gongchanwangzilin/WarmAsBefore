@@ -25,6 +25,8 @@ type RosterItem = {
   cellCount: number;
   /** 好感点数（0–1000，角色库只给一瞥：等级用大字） */
   affection: number;
+  /** 头像地址（宿主素材主机）；空 = 没有头像 */
+  avatarUrl?: string;
 };
 
 /** Helpers.AffectionScale：每 100 点一级，共 10 级，0 点也算第 1 级。 */
@@ -49,8 +51,9 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
             personality: c.catchphrase || c.gender || '',
             description: '',
             saveCount: 0,
-            cellCount: 0,
+            cellCount: c.spriteCount ?? 0,
             affection: c.affection,
+            avatarUrl: c.avatarUrl || '',
           })),
         );
         setSelectedId((prev) => (characters.some((c: CharacterRow) => c.id === prev) ? prev : characters[0]?.id ?? ''));
@@ -268,6 +271,20 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                         >
                           {selected.name}
                         </h2>
+                        {selected.avatarUrl ? (
+                          <img
+                            src={selected.avatarUrl}
+                            alt={selected.name}
+                            style={{
+                              width: 56,
+                              height: 56,
+                              borderRadius: 12,
+                              objectFit: 'cover',
+                              border: '1px solid var(--w-hairline)',
+                              flex: 'none',
+                            }}
+                          />
+                        ) : null}
                       </div>
                       <span
                         style={{

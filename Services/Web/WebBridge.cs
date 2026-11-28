@@ -37,16 +37,28 @@ public sealed class WebBridge
     private readonly SaveManager _saves;
     private readonly CharacterLibrary _characters;
     private readonly PageWindowService _windows;
+    private readonly PluginHost _plugins;
+    private readonly WorldTreeService _worlds;
+    private readonly MemoryTagService _tags;
+    private readonly Modules.Showcase.ShowcaseStore _showcases;
+    private readonly NovelLibrary _novels;
 
     /// <summary>串行闸：settings.set 是「读→改→落盘」，两条消息挤在一起会互相覆盖。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
 
-    public WebBridge(SettingsManager settings, SaveManager saves, CharacterLibrary characters, PageWindowService windows)
+    public WebBridge(SettingsManager settings, SaveManager saves, CharacterLibrary characters, PageWindowService windows,
+        PluginHost plugins, WorldTreeService worlds, MemoryTagService tags,
+        Modules.Showcase.ShowcaseStore showcases, NovelLibrary novels)
     {
         _settings = settings;
         _saves = saves;
         _characters = characters;
         _windows = windows;
+        _plugins = plugins;
+        _worlds = worlds;
+        _tags = tags;
+        _showcases = showcases;
+        _novels = novels;
     }
 
     /// <summary>宿主 → 前端的发送通道；页面拿到 WebView 后挂上（见 WebShellPage）。</summary>
@@ -160,6 +172,13 @@ public sealed class WebBridge
         "window.close" => WindowClose(),
         "saves.list" => await SavesListAsync(),
         "characters.list" => await CharactersListAsync(),
+        "characters.get" => CharactersGet(p),
+        "ai.providers" => AiProviders(),
+        "plugins.list" => await PluginsListAsync(),
+        "worldbook.list" => await WorldbookListAsync(),
+        "memory.tags" => await MemoryTagsAsync(p),
+        "showcases.list" => await ShowcasesListAsync(),
+        "novels.list" => await NovelsListAsync(),
         "app.info" => AppInfoPayload(),
         _ => throw new WebBridgeException("E_UNKNOWN_METHOD", "unknown method"),
     };
@@ -361,6 +380,196 @@ public sealed class WebBridge
 
     private static string LocaleOf(string? lang)
         => string.Equals(lang, "en-US", StringComparison.OrdinalIgnoreCase) ? "en-US" : "zh-CN";
+
+    /// <summary><c>characters.get?id</c>：一页角色卡要的全部东西（档案 + 状态 + 立绘清单）。</summary>
+    private object? CharactersGet(JsonElement p)
+    {
+        var id = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("id", out var el) ? el.GetString() ?? "" : "";
+        if (string.IsNullOrWhiteSpace(id)) throw new WebBridgeException("E_BAD_PARAMS", "characters.get 需要 {id}。");
+
+        var all = _characters.ListAsync().GetAwaiter().GetResult();
+        var c = all.FirstOrDefault(x => x.Profile.Id == id);
+        if (c is null) return null;
+
+        return new
+        {
+            id = c.Profile.Id,
+            name = c.Profile.Name,
+            nickname = c.Profile.Nickname,
+            gender = c.Profile.Gender,
+            age = c.Profile.Age,
+            catchphrase = c.Profile.Catchphrase,
+            avatarUrl = AssetUrl(c.Avatar),
+            outfit = c.State.CurrentOutfit,
+            emotion = c.State.CurrentEmotion,
+            affection = c.State.Affection,
+            trust = c.State.Trust,
+            energy = c.State.Energy,
+            emotions = c.SpriteMap.Keys
+                .Select(k => k.Split('/'))
+                .Where(parts => parts.Length > 1)
+                .Select(parts => new { outfit = parts[0], emotion = parts[1], url = AssetUrl(c.SpriteMap[string.Join('/', parts)]) })
+                .ToList(),
+        };
+    }
+
+    /// <summary><c>ai.providers</c>：设置里的厂商与模型（不含任何密钥）。</summary>
+    private object AiProviders()
+    {
+        var s = _settings.Current;
+        return new
+        {
+            providers = s.AiProviders.Select(p => new
+            {
+                name = p.Name,
+                endpoint = p.Url,
+                enabled = p.Enabled,
+                timeoutSeconds = p.TimeoutSeconds ?? s.AiTimeoutSeconds,
+                keyCount = p.Keys?.Count ?? 0,
+                models = p.Models.Select(m => new
+                {
+                    model = m.Model,
+                    label = string.IsNullOrWhiteSpace(m.Label) ? m.Model : m.Label,
+                    enabled = m.Enabled,
+                    vision = m.SupportsVision,
+                    tools = m.SupportsTools,
+                    json = m.SupportsJson,
+                    contextWindow = m.ContextWindow,
+                }).ToList(),
+            }).ToList(),
+        };
+    }
+
+    /// <summary><c>plugins.list</c>：已装插件（清单 + 启停 + 缺依赖）。</summary>
+    private async Task<object?> PluginsListAsync()
+    {
+        try
+        {
+            var all = await _plugins.AllAsync();
+            return new
+            {
+                plugins = all.Select(e => new
+                {
+                    id = e.Manifest.Id,
+                    name = e.Manifest.Name,
+                    version = e.Manifest.Version,
+                    description = e.Manifest.Description,
+                    author = e.Manifest.Author,
+                    enabled = e.Enabled,
+                    permissions = e.Manifest.Permissions,
+                    settingsIssue = e.SettingsIssue,
+                    missing = e.MissingDependencies.Select(d => d.Id).ToList(),
+                }).ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.PluginsList -> " + ex.Message);
+            return new { plugins = Array.Empty<object>() };
+        }
+    }
+
+    /// <summary><c>worldbook.list</c>：世界书（世界树）列表。</summary>
+    private async Task<object?> WorldbookListAsync()
+    {
+        try
+        {
+            var worlds = await _worlds.ListAsync();
+            return new
+            {
+                worlds = worlds.Select(w => new
+                {
+                    id = w.Id,
+                    title = w.Title,
+                    description = w.Description,
+                    mode = w.Mode.ToString(),
+                    characters = w.Characters.Count,
+                    createdAt = w.CreatedAt.ToUniversalTime().ToString("o"),
+                }).ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.WorldbookList -> " + ex.Message);
+            return new { worlds = Array.Empty<object>() };
+        }
+    }
+
+    /// <summary><c>memory.tags?charId</c>：某个角色身上的记忆标签（人/话题/事/地点/物）。</summary>
+    private async Task<object?> MemoryTagsAsync(JsonElement p)
+    {
+        var charId = p.ValueKind == JsonValueKind.Object && p.TryGetProperty("charId", out var el) ? el.GetString() ?? "" : "";
+        if (string.IsNullOrWhiteSpace(charId)) return new { tags = Array.Empty<object>() };
+        try
+        {
+            var tags = await _tags.ListAsync(charId!);
+            return new
+            {
+                tags = tags.Select(t => new { name = t.Name, subject = t.Subject, count = t.Count }).ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.MemoryTags -> " + ex.Message);
+            return new { tags = Array.Empty<object>() };
+        }
+    }
+
+    /// <summary><c>showcases.list</c>：开发者展示案。</summary>
+    private async Task<object?> ShowcasesListAsync()
+    {
+        try
+        {
+            var all = await _showcases.LoadAsync();
+            return new
+            {
+                showcases = all
+                    .OrderByDescending(s => s.UpdatedAt)
+                    .Select(s => new
+                    {
+                        id = s.Id,
+                        name = s.Name,
+                        description = s.Description,
+                        characterName = s.CharacterName,
+                        steps = s.Steps.Count,
+                        backgroundUrl = AssetUrl(s.BackgroundPath),
+                        updatedAt = s.UpdatedAt.ToUniversalTime().ToString("o"),
+                    })
+                    .ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.ShowcasesList -> " + ex.Message);
+            return new { showcases = Array.Empty<object>() };
+        }
+    }
+
+    /// <summary><c>novels.list</c>：平行宇宙（导入的小说世界）。</summary>
+    private async Task<object?> NovelsListAsync()
+    {
+        try
+        {
+            var all = await _novels.ListAsync();
+            return new
+            {
+                novels = all.Select(n => new
+                {
+                    id = n.Id,
+                    title = n.Title,
+                    summary = n.Summary,
+                    characters = n.Characters,
+                    branches = n.Branches.Count,
+                    importedAt = n.ImportedAt.ToUniversalTime().ToString("o"),
+                }).ToList(),
+            };
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("WebBridge.NovelsList -> " + ex.Message);
+            return new { novels = Array.Empty<object>() };
+        }
+    }
 
     /// <summary>素材 URL：存储根挂在 wab.assets 上，相对路径直接拼过来。空路径 = 没有素材。</summary>
     private static string AssetUrl(string? rel)
