@@ -44,6 +44,31 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     [ObservableProperty] private bool _showHeatSlider = true;
     [ObservableProperty] private bool _showThinkToggle = true;
 
+    /// <summary>
+    /// 思考由谁决定：auto=跟随 AI / on=总是开 / off=总是关（与设置项 UserSettings.ThinkMode 同一组值）。
+    /// auto 下界面不再摆手动开关 —— 开关摆在那儿却不能决定这一次想不想，就是假控件。
+    /// </summary>
+    [ObservableProperty] private string _mode = "auto";
+
+    /// <summary>跟随 AI：这一次要不要深入思考由模型自己给，界面不摆手动开关。</summary>
+    public bool IsAiDecided => IsAutoMode(Mode);
+
+    partial void OnModeChanged(string value)
+    {
+        OnPropertyChanged(nameof(IsAiDecided));
+        SyncActive();
+    }
+
+    /// <summary>把设置里的思考模式收成三档里的一个；认不出的值按「跟随 AI」。</summary>
+    public static string NormalizeMode(string? mode) => (mode ?? "").Trim().ToLowerInvariant() switch
+    {
+        "on" => "on",
+        "off" => "off",
+        _ => "auto",
+    };
+
+    public static bool IsAutoMode(string? mode) => NormalizeMode(mode) == "auto";
+
     /// <summary>F23：热度滑条改动回传宿主（写设置 + 即时改端点温度）。
     /// 名字避开 CommunityToolkit 为 Heat 自动生成的 OnHeatChanged 钩子。</summary>
     public Action<double>? HeatChangedCallback { get; set; }
@@ -74,16 +99,18 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     /// </summary>
     public void Configure(bool barVisible, bool buttonsVisible, int tierCount, string labels,
         int activeTier, string paramKey, string paramValues,
-        ModelCapabilitySet? caps = null, double? heat = null)
+        ModelCapabilitySet? caps = null, double? heat = null, string? mode = null)
     {
         var c = caps ?? ModelCapabilitySet.All;
+        Mode = NormalizeMode(mode);
         TierCount = Math.Clamp(tierCount, 1, 5);
         ParamKey = string.IsNullOrWhiteSpace(paramKey) ? "reasoning_effort" : paramKey;
         ParamValues = string.IsNullOrWhiteSpace(paramValues) ? "low,medium,high" : paramValues;
         IsBarVisible = barVisible && c.ThinkTierBar;
-        IsButtonsVisible = buttonsVisible && c.QuickButtons;
+        // 跟随 AI 时档位不由人拨：切换档位的按钮与思考开关都收起来，免得留下点了不生效的开关。
+        IsButtonsVisible = buttonsVisible && c.QuickButtons && !IsAiDecided;
         ShowHeatSlider = c.HeatSlider;
-        ShowThinkToggle = c.ThinkToggle;
+        ShowThinkToggle = c.ThinkToggle && !IsAiDecided;
         if (heat is { } h && Math.Abs(Heat - h) > 0.0001)
         {
             // 配置加载不该反过来写设置：临时摘掉回调再赋值。
@@ -135,6 +162,8 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     private void SyncActive()
     {
         foreach (var it in TierItems) it.IsActive = it.Index == ActiveTier;
+        // 跟随 AI 且 AI 还没指定本轮档位时，思考条如实写「由 AI 决定」，不把 0 档说成「关闭」。
+        if (IsAiDecided && AiTierOverride < 0) { CurrentTierLabel = "由 AI 决定"; return; }
         CurrentTierLabel = ActiveTier >= 0 && ActiveTier < TierItems.Count ? TierItems[ActiveTier].Label : "关闭";
     }
 
@@ -155,9 +184,16 @@ public sealed partial class ThinkTierRuntime : ObservableObject
     public int AiTierOverride { get; set; } = -1;
     /// <summary>F21：AI 通过 wab_set_reasoning 工具指定的档位（tier&lt;0 清除覆盖）。钳到 0..TierCount。</summary>
     public void SetAiTierOverride(int tier)
-        => AiTierOverride = tier < 0 ? -1 : Math.Clamp(tier, 0, Math.Max(1, TierCount));
+    {
+        AiTierOverride = tier < 0 ? -1 : Math.Clamp(tier, 0, Math.Max(1, TierCount));
+        SyncActive();
+    }
     /// <summary>F21：清除 AI 临时覆盖，回到用户/热度决定的档位。</summary>
-    public void ClearAiTierOverride() => AiTierOverride = -1;
+    public void ClearAiTierOverride()
+    {
+        AiTierOverride = -1;
+        SyncActive();
+    }
 
     /// <summary>给定档位，算出要注入请求体的参数值（档位≤0 返回 null）。</summary>
     public static string? ParamValueFor(int tier, string paramValues)

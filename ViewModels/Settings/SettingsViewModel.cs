@@ -200,6 +200,8 @@ public sealed partial class SettingsViewModel : ObservableObject
         _smallAiModel = s.SmallAiModel;
         _customParamsJson = s.CustomParamsJson;
         _customParamsFormat = s.CustomParamsFormat;
+        _thinkMode = Services.Core.ThinkTierRuntime.NormalizeMode(s.ThinkMode);
+        _thinkModeDisplay = ThinkPolicyDisplayOf(_thinkMode);
         _thinkBarEnabled = s.ThinkBarEnabled;
         _quickButtonsEnabled = s.QuickButtonsEnabled;
         _thinkTierCount = Math.Clamp(s.ThinkTierCount, 1, 5);
@@ -1057,6 +1059,13 @@ public sealed partial class SettingsViewModel : ObservableObject
     };
 
     // 第十四项：思考档位（思考条 + 快速按钮）
+    /// <summary>思考由谁决定：auto=跟随 AI / on=总是开 / off=总是关。</summary>
+    [ObservableProperty] private string _thinkMode = "auto";
+    partial void OnThinkModeChanged(string value) => PersistSettings();
+    /// <summary>设置页下拉里显示的那三档（值仍是 auto/on/off，界面只换说法）。</summary>
+    [ObservableProperty] private string _thinkModeDisplay = "跟随 AI";
+    partial void OnThinkModeDisplayChanged(string value) => ThinkMode = ThinkPolicyKeyOf(value);
+    public List<string> ThinkModeChoices { get; } = new() { "跟随 AI", "总是开", "总是关" };
     /// <summary>是否显示「正在思考 / 深度思考中」进度条。</summary>
     [ObservableProperty] private bool _thinkBarEnabled;
     partial void OnThinkBarEnabledChanged(bool value) => PersistSettings();
@@ -1629,6 +1638,20 @@ public sealed partial class SettingsViewModel : ObservableObject
     partial void OnMcpEnabledChanged(bool value) { _mcp.Enabled = value; PersistSettings(); }
     partial void OnMcpAutoApproveChanged(bool value) { _mcp.AutoApprove = value; PersistSettings(); }
 
+    private static string ThinkPolicyDisplayOf(string key) => key switch
+    {
+        "on" => "总是开",
+        "off" => "总是关",
+        _ => "跟随 AI",
+    };
+
+    private static string ThinkPolicyKeyOf(string display) => display switch
+    {
+        "总是开" => "on",
+        "总是关" => "off",
+        _ => "auto",
+    };
+
     private static string ChatStyleDisplayOf(string key) => key switch
     {
         "bubble" => "气泡式",
@@ -1782,6 +1805,7 @@ public sealed partial class SettingsViewModel : ObservableObject
                     AiModel = string.IsNullOrWhiteSpace(AiModel) ? "gpt-4o" : AiModel.Trim(),
                     CustomParamsJson = (CustomParamsJson ?? "").Trim(),
                     CustomParamsFormat = CustomParamsFormatChoices.Contains(CustomParamsFormat) ? CustomParamsFormat : "openai_flat",
+                    ThinkMode = Services.Core.ThinkTierRuntime.NormalizeMode(ThinkMode),
                     ThinkBarEnabled = ThinkBarEnabled,
                     QuickButtonsEnabled = QuickButtonsEnabled,
                     ThinkTierCount = Math.Clamp(ThinkTierCount, 1, 5),

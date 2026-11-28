@@ -120,7 +120,11 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
   };
 
   const remove = async (slot: Slot) => {
-    if (!window.confirm(`删除「${slot.label}」？删除后不可恢复。`)) return;
+    const loaded = slot.id === run.saveId;
+    const warn = loaded
+      ? ' 这一档就是你正在跑的那一份：删掉之后主界面会回到没有存档的状态，进度再也回不来。'
+      : '';
+    if (!window.confirm(`删除「${slot.label}」？删除后不可恢复。${warn}`)) return;
     try {
       await bridge.request('save.delete', { id: slot.id });
       setNote(`已删除：${slot.label}`);
@@ -186,7 +190,14 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
                     )}
                   </span>
                   <div className="sc-slot__text">
-                    <span className="sc-slot__title">{slot.label}</span>
+                    <span className="sc-slot__title">
+                      {slot.label}
+                      {slot.id === run.saveId ? (
+                        <span className="cap" style={{ marginLeft: 8, color: 'var(--w-signal)' }}>
+                          当前这一档
+                        </span>
+                      ) : null}
+                    </span>
                     <span className="sc-slot__desc">
                       <b style={{ fontWeight: 600, color: 'var(--w-ink-body)' }}>{slot.character}</b>
                       {' · '}

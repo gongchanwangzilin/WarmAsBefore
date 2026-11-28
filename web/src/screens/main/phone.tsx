@@ -34,11 +34,11 @@ type Tile = {
 };
 
 const PAGE_ONE_HOME: Tile[] = [
-  { key: 'wechat', glyph: '微信', sub: '微信 · 本地', tone: 'warm', to: '/chat' },
+  // 微信与 QQ 合成一个 QV：桌面上只留这一格，点进去是那一个应用。
+  { key: 'qv', glyph: 'QV', sub: '消息 · 好友', tone: 'warm', to: '/qv', needsSave: true },
   { key: 'roster', glyph: '角色库', sub: '人设 · 改写', tone: 'sand', to: '/roster' },
   { key: 'map', glyph: '地图', sub: '去处 · 位置', tone: 'sand', to: '/map' },
   { key: 'outfit', glyph: '换装', sub: '立绘 · 服饰', tone: 'rose', to: '/outfit' },
-  { key: 'qq', glyph: 'QQ', sub: 'QQ · 论坛', tone: 'cool', to: '/qqchat', needsSave: true },
   { key: 'gallery', glyph: '回忆录', sub: '相册 · 日记', tone: 'deep', to: '/gallery' },
 ];
 
@@ -64,7 +64,7 @@ const PAGE_TWO_GAMES: Tile[] = [
 ];
 
 const DOCK: Tile[] = [
-  { key: 'dock-wechat', glyph: '微信', sub: '', tone: 'warm', to: '/chat', dock: true },
+  { key: 'dock-qv', glyph: 'QV', sub: '', tone: 'warm', to: '/qv', dock: true },
   { key: 'dock-roster', glyph: '角色库', sub: '', tone: 'sand', to: '/roster', dock: true },
   { key: 'dock-gallery', glyph: '回忆录', sub: '', tone: 'deep', to: '/gallery', dock: true },
   { key: 'dock-materials', glyph: '素材库', sub: '', tone: 'jade', to: '/materials', dock: true },
@@ -186,7 +186,7 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
 
                 <h3 className="pn__sect">TA 的世界</h3>
                 <div className="pn__grid">{PAGE_ONE_HOME.map(tile)}</div>
-                {outsideSave ? <p className="pn__gate">{NEED_SAVE}：QQ 与论坛系在这一局的存档上。</p> : null}
+                {outsideSave ? <p className="pn__gate">{NEED_SAVE}：QV 与论坛系在这一局的存档上。</p> : null}
 
                 <h3 className="pn__sect">内容与设定</h3>
                 <div className="pn__grid">{PAGE_ONE_SETTING.map(tile)}</div>

@@ -1430,11 +1430,31 @@
 }
 
 .qw-row__name {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
   font-size: var(--w-size-small);
   color: var(--w-ink-display);
+}
+
+.qw-row__who {
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+/* 来源标记：这条会话在哪个壳的名册里（微信 / QQ，词取自源码）。 */
+.qw-src {
+  flex: none;
+  padding: 0 4px;
+  border-radius: 4px;
+  border: 1px solid var(--w-hairline);
+  color: var(--w-ink-faint);
+  font-style: normal;
+  font-size: calc(var(--w-size-caption) - 2px);
+  line-height: 1.5;
 }
 
 .qw-row__last {

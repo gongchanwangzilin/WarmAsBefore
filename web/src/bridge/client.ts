@@ -141,15 +141,19 @@ export class Bridge {
     this.transport.listen((raw) => this.receive(raw));
   }
 
-  request<M extends Method>(method: M, params: Params<M>): Promise<Result<M>> {
+  /**
+   * 发一条请求。`timeoutMs` 只给「宿主要等一段真实时间」的方法用（voice.listen 开麦等一句话，
+   * 上限 20 秒，8 秒默认值会先把它判死）；其余请求走同一个默认值。
+   */
+  request<M extends Method>(method: M, params: Params<M>, timeoutMs: number = REQUEST_TIMEOUT_MS): Promise<Result<M>> {
     const id = this.seq++;
     const raw = JSON.stringify({ id, method, params });
 
     return new Promise<Result<M>>((resolve, reject) => {
       const timer = window.setTimeout(() => {
         this.pending.delete(id);
-        reject(new BridgeFailure('E_TIMEOUT', '后端 8 秒没有回应。', method));
-      }, REQUEST_TIMEOUT_MS);
+        reject(new BridgeFailure('E_TIMEOUT', `后端 ${Math.round(timeoutMs / 1000)} 秒没有回应。`, method));
+      }, timeoutMs);
 
       this.pending.set(id, {
         resolve: resolve as (value: unknown) => void,

@@ -593,12 +593,15 @@ public sealed partial class ChatEngine
     {
         var session = Session(charId);
         var cfg = CfgFor(charId);
-        // F21：AI 自主选择思考档位（开启 AiAutonomousThink 时，模型可用 wab_set_reasoning 工具临时覆盖本轮档位）
+        // F21：AI 自主选择思考档位（模型可用 wab_set_reasoning 工具临时覆盖本轮档位）。
+        // 第十四项起，「跟随 AI」本身就是授权；「总是开 / 总是关」是用户强制，不许模型改口。
         try
         {
             var smF21 = Modules.Tools.ServicesHelper.GetServices()?.GetService(typeof(SettingsManager)) as SettingsManager;
             var ttr = ThinkTierState;
-            if (smF21 is not null && smF21.Current.AiAutonomousThink && ttr is not null && ttr.AiTierOverride >= 0)
+            var mode = Services.Core.ThinkTierRuntime.NormalizeMode(smF21?.Current.ThinkMode);
+            var aiMayPick = mode == "auto" || (mode != "off" && smF21 is { Current.AiAutonomousThink: true });
+            if (aiMayPick && ttr is not null && ttr.AiTierOverride >= 0)
                 cfg = cfg with { ThinkTier = Math.Clamp(ttr.AiTierOverride, 0, Math.Max(1, cfg.ThinkTierCount)) };
         }
         catch (Exception ex) { App.WriteLog("ChatEngine.AiTierOverride -> " + ex.Message); }

@@ -22,7 +22,7 @@ const SECTIONS: Section[] = [
   { id: 'login', label: '登录设置', icon: 'key', ready: false },
   { id: 'binding', label: '账号绑定与授权', icon: 'link', ready: false },
   { id: 'palette', label: '超级调色盘', icon: 'palette', ready: false },
-  { id: 'about', label: '关于QQ', icon: 'info', ready: false },
+  { id: 'about', label: '关于QV', icon: 'info', ready: false },
 ];
 
 /** 界面模式：真机里「效率模式」是左列表右会话的三栏，「经典模式」只有会话。 */

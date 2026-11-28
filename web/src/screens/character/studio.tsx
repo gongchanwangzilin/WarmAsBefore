@@ -580,6 +580,17 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
         }}
       >
         <span style={{ fontSize: 'var(--w-size-small)', color: 'var(--w-ink-body)', lineHeight: 1.5 }}>{status}</span>
+        {/* 建好之后这里就是下一步：跟这个人开一局。没有它，用户只能自己猜接下来去哪。 */}
+        {createdId ? (
+          <button
+            type="button"
+            className="m-btn m-btn--accent m-btn--sm"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => navigate(`/newrun?character=${encodeURIComponent(createdId)}`)}
+          >
+            和 TA 开一局 →
+          </button>
+        ) : null}
       </div>
     </PageShell>
   );

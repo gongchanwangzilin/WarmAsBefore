@@ -2,21 +2,27 @@ import { useEffect, useState } from 'react';
 import { toErrorBody, type Bridge } from '../../bridge/client';
 import type { CharacterRow, ChatContactRow, ChatRow } from '../../bridge/protocol';
 import { useIsWide } from '../../lib/useIsWide';
+import { useVoice } from '../../lib/voice';
 import { Icon, type IconName } from './qqicons';
 import { QqSettings } from './qqsettings';
 import './savechat.css';
 
 /**
- * QQ 那一面：真机客户端（Windows 新版）的三栏壳。
+ * QV：QQ 与假微信合成的那一个应用。壳是 QqPage.xaml 的四栏（真机客户端三张参照截图），
+ * 会话名册把两个壳的名单并成一条。
  *
- * 左窄条工具栏 / 会话列表 / 会话区 / 右侧信息栏，四块都是从 QqPage.xaml 的结构长出来的，
- * 视觉刻度照三张真机截图。内容只认仓库里已有的数据与源码原话：
- *   · 会话名册与模式：chat.contacts（shell: qq；显式好友在前）—— 老宿主没有这个方法时，
+ * 左窄条工具栏 / 会话列表 / 会话区 / 右侧信息栏。内容只认仓库里已有的数据与源码原话：
+ *   · 会话名册与模式：chat.contacts（shell: wechat 与 qq 各读一次）—— 老宿主没有这个方法时，
  *     退回角色库真表 characters.list，那时预览停在源码那句「还没有聊过」；
- *   · 会话内容与发送：chat.history / chat.send；
+ *   · 会话内容与发送：chat.history / chat.send，shell 跟着这条会话的来源走；
  *   · 等级：Helpers/AffectionScale（每 100 点一级，0 点也算第 1 级，短标「Lv.N」），来自 characters.list；
  *   · 空态：「还没有好友」「让 AI 用「add_wechat」把剧情里的角色加为好友」（QqPage.xaml），
  *     预览「还没有聊过」（WeChatViewModel.LoadContactsAsync），输入框占位「输入…」。
+ *
+ * 两个来源：宿主 WebBridge.ChatContactsAsync 对 wechat / qq 给的是同一份名册（好友表 ∪ 这一档角色，
+ * 只有 modeLabel 不同），所以合并按角色 id 去重，一行记下它在哪几个壳的名单里，标记就照这两个
+ * 源码里的词写「微信」「QQ」；打开会话时用它的第一个来源去读历史、去发送。
+ * 名册里没有跨壳的时间戳，合并顺序照宿主给的名单顺序（显式好友在前），不臆造按时间重排。
  *
  * 未读数、群公告、群主/管理员角色这几样桥里没有：各自停在空态，结构照真机留着。
  */
@@ -32,6 +38,8 @@ type Person = {
   level: number;
 };
 
+type Source = 'wechat' | 'qq';
+
 type Contact = {
   id: string;
   name: string;
@@ -41,7 +49,41 @@ type Contact = {
   /** 右上角相对时间；没有最后一条就是空串 */
   time: string;
   unread: boolean;
+  /** 这条会话出现在哪几个壳的名册里，第一个就是打开它时用的壳 */
+  shells: Source[];
 };
+
+/** 两个来源，词都取自源码（ChatShellOf 的 wechat / qq，路由名「微信」「QQ」）。 */
+const SOURCES: { shell: Source; word: string }[] = [
+  { shell: 'wechat', word: '微信' },
+  { shell: 'qq', word: 'QQ' },
+];
+
+const wordOf = (shell: Source) => SOURCES.find((item) => item.shell === shell)?.word ?? shell;
+
+/** 两个壳的名单并成一条：同一个人只留一行，来源按读到的顺序记下来。 */
+function mergeContacts(groups: { shell: Source; rows: ChatContactRow[] }[]): Contact[] {
+  const byId = new Map<string, Contact>();
+  for (const group of groups) {
+    for (const row of group.rows) {
+      const known = byId.get(row.id);
+      if (known) {
+        if (!known.shells.includes(group.shell)) known.shells.push(group.shell);
+        continue;
+      }
+      byId.set(row.id, {
+        id: row.id,
+        name: row.name,
+        avatarUrl: row.avatarUrl,
+        last: row.last,
+        time: row.time,
+        unread: row.unread,
+        shells: [group.shell],
+      });
+    }
+  }
+  return [...byId.values()];
+}
 
 const PER_LEVEL = 100;
 const levelOf = (points: number) => (points <= 0 ? 1 : Math.min(10, Math.floor((points - 1) / PER_LEVEL) + 1));
@@ -165,7 +207,6 @@ const INPUT_TOOLS: { icon: IconName; label: string; reason: string }[] = [
   { icon: 'scissors', label: '截图', reason: '截图要接真机的截屏通道' },
   { icon: 'folder', label: '文件', reason: '发文件要接存储桥' },
   { icon: 'image', label: '图片', reason: 'chat.history 的行里只有文字，没有图片字段' },
-  { icon: 'mic', label: '语音', reason: '语音输入要接录音通道' },
   { icon: 'gift', label: '礼物', reason: 'QQ 壳没有礼物面板（QqPage.xaml 注释）' },
   { icon: 'clock', label: '定时消息', reason: '定时消息还没有桥' },
 ];
@@ -193,13 +234,16 @@ function Avatar({
   );
 }
 
-export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate: (path: string) => void; back: () => void }) {
+export function QvClient({ bridge, navigate, back }: { bridge: Bridge; navigate: (path: string) => void; back: () => void }) {
   const [roster, setRoster] = useState<Person[]>([]);
   const [contacts, setContacts] = useState<Contact[] | null>(null);
-  const [mode, setMode] = useState('本地 QQ · TA 还在');
+  const [modeLabels, setModeLabels] = useState<Partial<Record<Source, string>>>({});
   const [live, setLive] = useState(false);
   const [lines, setLines] = useState<ChatLine[]>([]);
   const [historyState, setHistoryState] = useState<'idle' | 'loading' | 'ready'>('idle');
+  // 读会话失败和「还没聊过」是两回事：失败要说出来，并给一次重试。
+  const [historyError, setHistoryError] = useState('');
+  const [historyTicket, setHistoryTicket] = useState(0);
   const [sendError, setSendError] = useState('');
   const [sending, setSending] = useState(false);
 
@@ -230,17 +274,27 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
       if (dropped) return;
       setRoster(people);
 
-      try {
-        // 真名册：显式好友在前，这一档其余角色补在后面（WebBridge 的 chat.contacts）。
-        const result = await bridge.request('chat.contacts', { shell: 'qq' });
-        if (dropped) return;
-        setContacts(result.contacts.map((row: ChatContactRow) => ({ ...row })));
-        setMode(result.modeLabel || '本地 QQ · TA 还在');
-        setLive(true);
-        setActiveId((prev) => (result.contacts.some((row) => row.id === prev) ? prev : result.contacts[0]?.id ?? ''));
-      } catch {
+      // 两个壳各读一次名册（WebBridge 的 chat.contacts 照 WeChatViewModel.LoadContactsAsync 组表：
+      // 显式好友在前，这一档其余角色补在后面）。一个壳失败不拖累另一个。
+      const answered = await Promise.allSettled(
+        SOURCES.map(async (source) => ({
+          shell: source.shell,
+          result: await bridge.request('chat.contacts', { shell: source.shell }),
+        })),
+      );
+      if (dropped) return;
+
+      const groups: { shell: Source; rows: ChatContactRow[] }[] = [];
+      const labels: Partial<Record<Source, string>> = {};
+      for (const outcome of answered) {
+        if (outcome.status !== 'fulfilled') continue;
+        groups.push({ shell: outcome.value.shell, rows: outcome.value.result.contacts });
+        if (outcome.value.result.modeLabel) labels[outcome.value.shell] = outcome.value.result.modeLabel;
+      }
+      setModeLabels(labels);
+
+      if (groups.length === 0) {
         // 老宿主没有 chat.contacts：拿角色库当名单，预览停在源码空态。
-        if (dropped) return;
         setContacts(
           people.map((person) => ({
             id: person.id,
@@ -249,11 +303,18 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
             last: '',
             time: '',
             unread: false,
+            shells: [],
           })),
         );
         setLive(false);
         setActiveId((prev) => (people.some((person) => person.id === prev) ? prev : people[0]?.id ?? ''));
+        return;
       }
+
+      const merged = mergeContacts(groups);
+      setContacts(merged);
+      setLive(true);
+      setActiveId((prev) => (merged.some((row) => row.id === prev) ? prev : merged[0]?.id ?? ''));
     };
     void read();
     const off = bridge.onEvent('data.changed', () => void read());
@@ -266,6 +327,20 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
   const people = contacts ?? [];
   const active = people.find((item) => item.id === activeId) ?? people[0] ?? null;
   const activePerson = roster.find((item) => item.id === active?.id) ?? null;
+  /** 打开这条会话用的壳：它名册里的第一个来源（名册退回角色库时没有来源，按宿主默认的 wechat）。 */
+  const activeShell: Source = active?.shells[0] ?? 'wechat';
+  // 麦克风走宿主的 voice.listen（同一句听写链路），先把文字填进输入框，不替用户发送。
+  const voice = useVoice(bridge, activeShell);
+  const toggleMic = async () => {
+    if (voice.listening) {
+      await voice.stop();
+      return;
+    }
+    const heard = await voice.listen(active?.id);
+    if (!heard) return;
+    setDraft((prev) => (prev ? `${prev}${heard}` : heard));
+  };
+  const mode = modeLabels[activeShell] ?? '本地微信 · TA 还在';
 
   useEffect(() => {
     if (!active?.id || !live) {
@@ -275,22 +350,24 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     }
     let dropped = false;
     setHistoryState('loading');
+    setHistoryError('');
     bridge
-      .request('chat.history', { shell: 'qq', characterId: active.id, limit: 50 })
+      .request('chat.history', { shell: activeShell, characterId: active.id, limit: 50 })
       .then((result) => {
         if (dropped) return;
         setLines(toLines(result.messages, roster));
         setHistoryState('ready');
       })
-      .catch(() => {
+      .catch((cause: unknown) => {
         if (dropped) return;
         setLines([]);
+        setHistoryError(cause instanceof Error ? cause.message : '会话记录没有应答。');
         setHistoryState('ready');
       });
     return () => {
       dropped = true;
     };
-  }, [bridge, live, active?.id, roster]);
+  }, [bridge, live, active?.id, activeShell, roster, historyTicket]);
 
   const query = search.trim();
   const rows = query
@@ -311,7 +388,7 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     setSending(true);
     setSendError('');
     try {
-      const result = await bridge.request('chat.send', { shell: 'qq', characterId: active.id, text });
+      const result = await bridge.request('chat.send', { shell: activeShell, characterId: active.id, text });
       setDraft('');
       setLines((prev) => [...prev, ...toLines([result.user, result.reply], roster)]);
       setHistoryState('ready');
@@ -375,7 +452,14 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
               >
                 <Avatar person={contact} className="qw-row__av" />
                 <span className="qw-row__mid">
-                  <span className="qw-row__name">{contact.name}</span>
+                  <span className="qw-row__name">
+                    <span className="qw-row__who">{contact.name}</span>
+                    {contact.shells.map((shell) => (
+                      <em key={shell} className="qw-src" title={`这条会话在${wordOf(shell)}的名册里`}>
+                        {wordOf(shell)}
+                      </em>
+                    ))}
+                  </span>
                   <span className="qw-row__last">{previewParts(last)}</span>
                 </span>
                 <span className="qw-row__side">
@@ -399,10 +483,10 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           </button>
         )}
         <div className="qw-chat__title">
-          <h2>{active ? active.name : 'QQ'}</h2>
+          <h2>{active ? active.name : 'QV'}</h2>
           <small>{mode}</small>
         </div>
-        <span className="qw-chip">QQ</span>
+        <span className="qw-chip">QV</span>
         <div className="qw-chat__tools">
           {CHAT_TOOLS.map((tool) => (
             <button key={tool.label} type="button" className="qw-ibtn" aria-label={tool.label} title={tool.reason} disabled>
@@ -427,6 +511,14 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
               <i />
               <i />
             </div>
+          ) : historyError ? (
+            <div className="qw-hello">
+              <span className="qw-hello__line">这段会话读不出来</span>
+              <small className="qw-hello__hint">{historyError}</small>
+              <button type="button" className="k-textbtn" onClick={() => setHistoryTicket((n) => n + 1)}>
+                重试
+              </button>
+            </div>
           ) : active ? (
             <div className="qw-hello">
               <Avatar person={active} className="qw-hello__av" />
@@ -438,7 +530,7 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           ) : (
             <div className="qw-hello">
               <span className="qw-hello__line">还没有好友</span>
-              <small className="qw-hello__hint">让 AI 用「add_wechat」把剧情里的角色加为好友</small>
+              <small className="qw-hello__hint">先在角色库建一个人，TA 就会出现在联系人里</small>
             </div>
           )
         ) : (
@@ -489,6 +581,17 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           ))}
         </div>
         <div className="qw-input__box">
+          <button
+            type="button"
+            className="qw-ibtn"
+            aria-label={voice.listening ? '停止听' : '语音'}
+            aria-pressed={voice.listening}
+            title={voice.canListen ? (voice.listening ? '停止听' : '语音输入') : voice.statusReason}
+            disabled={!voice.canListen || !active}
+            onClick={() => void toggleMic()}
+          >
+            <Icon name="mic" />
+          </button>
           <textarea
             rows={1}
             value={draft}
@@ -514,6 +617,8 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           </button>
         </div>
         {sendError ? <span className="qw-input__error">{sendError}</span> : null}
+        {voice.canListen || !voice.statusReason ? null : <span className="qw-input__error">{voice.statusReason}</span>}
+        {voice.note ? <span className="qw-input__error">{voice.note}</span> : null}
       </div>
     </section>
   );
@@ -587,7 +692,7 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
     <div className="qw">
       <header className="qw-top">
         <span className="qw-top__brand" aria-hidden="true">
-          QQ
+          QV
         </span>
         <span className="qw-top__account">
           <span className="qw-top__av">初</span>
@@ -614,7 +719,7 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
       </header>
 
       <div className="qw__main" data-info={showInfo ? 'on' : 'off'} data-list={showList ? 'on' : 'off'}>
-        <nav className="qw-rail" aria-label="QQ 工具栏">
+        <nav className="qw-rail" aria-label="QV 工具栏">
           <button type="button" className="qw-rail__me" aria-label="账号" title="本地账号">
             初
             {newCount > 0 ? <i className="qw-rail__badge">{newCount > 99 ? '99+' : newCount}</i> : null}
@@ -659,7 +764,7 @@ export function QqClient({ bridge, navigate, back }: { bridge: Bridge; navigate:
           </div>
 
           {menu ? (
-            <div className="qw-menu" role="menu" aria-label="QQ 菜单">
+            <div className="qw-menu" role="menu" aria-label="QV 菜单">
               <div className="qw-menu__quick">
                 {(
                   [

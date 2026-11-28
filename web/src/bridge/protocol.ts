@@ -86,6 +86,9 @@ export type SaveSummary = {
 
 export type ThemeName = 'classic' | 'sakura' | 'bamboo' | 'mist' | 'endfield';
 
+/** 思考由谁决定（UserSettings.ThinkMode）：auto=跟随 AI / on=总是开 / off=总是关。 */
+export type ThinkMode = 'auto' | 'on' | 'off';
+
 /**
  * 设置首页每一行的右侧摘要就是这几个数拼出来的（对应 SettingsViewModel.RefreshSectionSummaries）。
  * 拼法在 lib/settingsHome.ts，这里只放后端给的原值。
@@ -96,7 +99,25 @@ export type SettingsValues = {
   text: { scale: number };
   story: { autoSave: boolean };
   language: { locale: 'zh-CN' | 'en-US' };
-  ai: { providers: number; smartSaving: boolean; timeoutSeconds: number };
+  ai: {
+    providers: number;
+    smartSaving: boolean;
+    timeoutSeconds: number;
+    /**
+     * 思考档位（对应 UserSettings.ThinkMode / ThinkBarEnabled / …）。
+     * mode：auto=跟随 AI（默认，不摆手动开关，这一轮要不要深入想由那次模型调用自己给）、
+     * on=总是开（按 tiers 与 paramValues 里当前档位强制注入）、off=总是关（一律不注入，AI 也不能抬档）。
+     */
+    think: {
+      mode: ThinkMode;
+      bar: boolean;
+      quick: boolean;
+      tiers: number;
+      labels: string;
+      paramKey: string;
+      paramValues: string;
+    };
+  };
   memory: { windowDays: number; contextLimit: string };
   ui: {
     orientation: 'auto' | 'landscape' | 'portrait';
@@ -149,6 +170,27 @@ export type Requests = {
    * 应用与宿主信息。`run` 回答「现在有没有在跑一份存档」——
    * 系在存档上的入口（QQ、论坛、监测）靠它决定出不出现，没存档就没有 TA 的状态可看。
    */
+  /**
+   * 语音：能不能听、听一句、停掉这一句、念一段。
+   * status 决定按钮可不可点（不能点就把 note 原样摆出来），listen 等一句话再回文字，
+   * 没听出字时 text 为空、note 说原因（没麦、没授权、没说话）。speak 交给宿主的朗读引擎。
+   */
+  'voice.status': {
+    params: { shell?: ChatShell };
+    result: { sttEnabled: boolean; sttEngine: string; ttsEnabled: boolean; ttsEngine: string; canListen: boolean; note: string };
+  };
+  'voice.listen': {
+    params: { shell?: ChatShell; characterId?: string };
+    result: { characterId: string; text: string; note: string };
+  };
+  'voice.cancel': {
+    params: Record<string, never>;
+    result: { stopped: boolean };
+  };
+  'voice.speak': {
+    params: { text: string; characterId?: string };
+    result: { ok: boolean };
+  };
   'app.info': {
     params: Record<string, never>;
     result: {
@@ -551,7 +593,11 @@ export type ErrorCode =
   | 'E_BAD_PARAMS'
   | 'E_REJECTED'
   | 'E_TIMEOUT'
-  | 'E_TRANSPORT';
+  | 'E_TRANSPORT'
+  /** 这台设备没有这条通路（没麦克风、没配识别模型、朗读关着）：不是错误代码的问题，是能力不在。 */
+  | 'E_UNAVAILABLE'
+  /** 上一条还占着同一条通路（比如已经在听上一句）。 */
+  | 'E_BUSY';
 
 export type ErrorBody = {
   code: ErrorCode;

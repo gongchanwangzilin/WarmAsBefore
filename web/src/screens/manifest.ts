@@ -74,8 +74,7 @@ export const ROUTE_GROUP: Record<string, GroupName> = {
 
   save: 'save-chat',
   saveTree: 'save-chat',
-  chat: 'save-chat',
-  qqchat: 'save-chat',
+  qv: 'save-chat',
   qqforum: 'save-chat',
   bindwizard: 'save-chat',
 };

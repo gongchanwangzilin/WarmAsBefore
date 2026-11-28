@@ -95,9 +95,8 @@ export const ROUTES: RouteDef[] = [
   route('affection-level-up', 3, '好感提升'),
   route('cg-view', 3, 'CG'),
 
-  // 聊天
-  route('chat', 2, '微信'),
-  route('qqchat', 2, 'QQ'),
+  // 聊天：QQ 面与假微信合成一个应用 QV；论坛是它里面的独立一页
+  route('qv', 2, 'QV'),
   route('qqforum', 3, '论坛'),
   route('bindwizard', 2, '绑定向导'),
 
@@ -108,6 +107,15 @@ export const ROUTES: RouteDef[] = [
 
 /** 页面已经实现的那几条（原有的三页仍在 pages/ 下，其余在 screens/ 下）。 */
 export const BY_PATH = new Map<string, RouteDef>(ROUTES.map((r) => [r.path, r]));
+
+/**
+ * 旧地址：/chat（假微信）与 /qqchat（QQ）合成 QV 之后，这两条老地址仍要能打开 ——
+ * 手机桌面与外面的链接都还指着它们，所以统一落到同一个页面，不留第二套壳。
+ */
+const LEGACY: Record<string, string> = {
+  '/chat': '/qv',
+  '/qqchat': '/qv',
+};
 
 export const FALLBACK = ROUTES[0];
 
@@ -120,5 +128,5 @@ export function parsePath(raw: string): { path: string; query: URLSearchParams }
 
 export function matchRoute(raw: string): { route: RouteDef; query: URLSearchParams } {
   const { path, query } = parsePath(raw);
-  return { route: BY_PATH.get(path) ?? FALLBACK, query };
+  return { route: BY_PATH.get(LEGACY[path] ?? path) ?? FALLBACK, query };
 }

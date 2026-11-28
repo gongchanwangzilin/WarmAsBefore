@@ -50,6 +50,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
   const [mode, setMode] = useState<'纯文字' | '带立绘'>('纯文字');
   const [status, setStatus] = useState('');
   const [editStatus, setEditStatus] = useState('');
+  const [dirty, setDirty] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -83,6 +84,19 @@ export function Worldbook({ bridge, back }: ScreenProps) {
     setDraft({ ...entry, characters: entry.characters.map((c) => ({ ...c })) });
     setEditStatus(message);
     setStatus('');
+    setDirty(false);
+  };
+
+  /** 编辑里动过什么就记下来：离开时得先问一句，别让这一屏的改动无声消失。 */
+  const edit = (next: WorldEntry) => {
+    setDraft(next);
+    setDirty(true);
+  };
+
+  const closeEditor = () => {
+    if (dirty && !window.confirm('这一页的改动没有写进盘（宿主还没有保存世界书的方法）。现在离开会丢掉它们。')) return;
+    setDraft(null);
+    setDirty(false);
   };
 
   const newManual = () => openEditor(
@@ -116,7 +130,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
   };
 
   const remove = (entry: WorldEntry) => {
-    const text = `「${entry.title}」会从世界书库里删掉。已经绑定它的其它存档将失去世界设定。`;
+    const text = `把「${entry.title}」从这一页的列表里拿掉？盘上那份这一版还删不掉，刷新之后它会再出现。`;
     if (!window.confirm(text)) return;
     setEntries((list) => list.filter((e) => e.id !== entry.id));
     setStatus('只是从这一页的列表里拿掉了：宿主还没有删除世界书的方法（worldbook.remove），盘上那份还在。');
@@ -124,7 +138,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
 
   const setChar = (index: number, patch: Partial<WorldCharacter>) => {
     if (!draft) return;
-    setDraft({
+    edit({
       ...draft,
       characters: draft.characters.map((c, i) => (i === index ? { ...c, ...patch } : c)),
     });
@@ -135,7 +149,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
       <PageHeader
         title="世界书"
         subtitle={status || undefined}
-        onBack={draft ? () => setDraft(null) : back}
+        onBack={draft ? closeEditor : back}
         right={
           draft ? null : (
             <TextBtn onClick={newManual}>新建</TextBtn>
@@ -222,18 +236,21 @@ export function Worldbook({ bridge, back }: ScreenProps) {
               <p style={{ margin: 0, fontSize: 'var(--w-size-small)', color: 'var(--w-ink-body)' }}>
                 改哪一条都行。保存之后，绑定它的存档在下一次整理记忆时生效。
               </p>
+              <Note warn>
+                世界书的写入还没接通：这里的改动只留在这一页的列表里，刷新或重开就回到盘上那一版。
+              </Note>
             </Stack>
 
             <Card>
               <span className="cap">标题</span>
-              <Field label="标题" value={draft.title} onChange={(title) => setDraft({ ...draft, title })} placeholder="给这个世界一个名字" />
+              <Field label="标题" value={draft.title} onChange={(title) => edit({ ...draft, title })} placeholder="给这个世界一个名字" />
 
               <span className="cap">世界设定</span>
               <Field
                 multiline
                 label="世界设定"
                 value={draft.description}
-                onChange={(description) => setDraft({ ...draft, description })}
+                onChange={(description) => edit({ ...draft, description })}
                 placeholder="这个世界一直成立的事：地理、规则、气氛、势力、日常。不要写具体剧情。"
               />
 
@@ -242,7 +259,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
                 multiline
                 label="最初的想法"
                 value={draft.idea}
-                onChange={(idea) => setDraft({ ...draft, idea })}
+                onChange={(idea) => edit({ ...draft, idea })}
                 placeholder="你当初用来生成它的那句话。留着自己看，也方便以后让 AI 重写。"
               />
             </Card>
@@ -252,7 +269,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
                 <SectionTitle>世界里的人</SectionTitle>
                 <TextBtn
                   onClick={() =>
-                    setDraft({
+                    edit({
                       ...draft,
                       characters: [...draft.characters, { name: '', gender: '女', personality: '', description: '' }],
                     })
@@ -286,7 +303,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
                       <Actions>
                         <TextBtn
                           onClick={() =>
-                            setDraft({ ...draft, characters: draft.characters.filter((_, i) => i !== index) })
+                            edit({ ...draft, characters: draft.characters.filter((_, i) => i !== index) })
                           }
                         >
                           移除这个角色
@@ -305,12 +322,12 @@ export function Worldbook({ bridge, back }: ScreenProps) {
             {editStatus ? <Note warn>{editStatus}</Note> : null}
 
             <Actions>
-              <SignalButton onClick={saveEdit}>保存</SignalButton>
+              <SignalButton onClick={saveEdit}>保存到列表</SignalButton>
               <Inert>
                 <TextBtn>AI 润色</TextBtn>
               </Inert>
               <span style={{ flex: 1 }} />
-              <TextBtn onClick={() => setDraft(null)}>取消编辑</TextBtn>
+              <TextBtn onClick={closeEditor}>取消编辑</TextBtn>
             </Actions>
           </Stack>
         )}

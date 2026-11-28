@@ -106,7 +106,11 @@ export function NovelSelect({ bridge, navigate, back }: ScreenProps) {
           })}
           {loaded && novels.length === 0 ? (
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'clamp(140px, 28vh, 260px)' }}>
-              <Empty title="还没有平行宇宙" reason="导入一部小说，它就会变成一个可以进入的世界" />
+              <Empty
+                title="还没有平行宇宙"
+                reason="这一版还导不进小说：写入要宿主给方法。"
+                hint="先在桌面端导入，导入过的作品会出现在这里。"
+              />
             </div>
           ) : null}
         </Card>

@@ -54,6 +54,11 @@ public sealed class WebBridge
     private readonly PersonaMemoryService _persona;
     /// <summary>统一背景服务：天气场景（Kind + 强度）是它的运行时值，前端天气层只认这一份。</summary>
     private readonly BackgroundService _background;
+    /// <summary>语音：识别走这台设备已有的引擎与麦克风（与主界面语音按钮同一条路），朗读同理。</summary>
+    private readonly SpeechService _speech;
+
+    /// <summary>一次 <c>voice.listen</c> 的取消令牌：<c>voice.cancel</c> 与它接的正是引擎自己的 StopListening。</summary>
+    private CancellationTokenSource? _voiceCts;
 
     /// <summary>串行闸：settings.set 是「读→改→落盘」，两条消息挤在一起会互相覆盖。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -90,7 +95,7 @@ public sealed class WebBridge
         GameEngine engine, Modules.AiChat.ChatEngine chat, Modules.RealChat.OfficialChatBridge official,
         PhoneMessageService phone, WeChatService wechat, StickerLibrary stickers,
         Modules.Tools.ToolManager tools, Modules.MinecraftBridge.MaidBridgeService maid,
-        PersonaMemoryService persona, BackgroundService background) : this()
+        PersonaMemoryService persona, BackgroundService background, SpeechService speech) : this()
     {
         _settings = settings;
         _saves = saves;
@@ -111,6 +116,7 @@ public sealed class WebBridge
         _maid = maid;
         _persona = persona;
         _background = background;
+        _speech = speech;
 
         // 天气轮询改的是背景服务里的场景：它一变，整份外观就重新推一次，
         // 前端天气层（web/src/lib/atmosphere.ts）据此换雨/雪/尘，不用自己猜。
@@ -241,7 +247,7 @@ public sealed class WebBridge
         }
     }
 
-    private static bool BypassesGate(string? method) => method == "chat.send";
+    private static bool BypassesGate(string? method) => method is "chat.send" or "voice.listen" or "voice.speak";
 
     /// <summary>方法白名单。新增方法只在这里加一行，前端拿不到别的任何入口。</summary>
     private async Task<object?> DispatchAsync(string? method, JsonElement p) => method switch
@@ -284,6 +290,10 @@ public sealed class WebBridge
         "showcases.list" => await ShowcasesListAsync(),
         "novels.list" => await NovelsListAsync(),
         "app.info" => AppInfoJson(),
+        "voice.status" => VoiceStatusOf(),
+        "voice.listen" => await VoiceListenAsync(p),
+        "voice.cancel" => VoiceCancel(),
+        "voice.speak" => await VoiceSpeakAsync(p),
         _ => throw new WebBridgeException("E_UNKNOWN_METHOD", "unknown method"),
     };
 
@@ -390,6 +400,16 @@ public sealed class WebBridge
                 providers,
                 smartSaving = s.SmartSavingEnabled,
                 timeoutSeconds = s.AiTimeoutSeconds,
+                think = new
+                {
+                    mode = Services.Core.ThinkTierRuntime.NormalizeMode(s.ThinkMode),
+                    bar = s.ThinkBarEnabled,
+                    quick = s.QuickButtonsEnabled,
+                    tiers = Math.Clamp(s.ThinkTierCount, 1, 5),
+                    labels = s.ThinkTierLabels,
+                    paramKey = s.ThinkParamKey,
+                    paramValues = s.ThinkParamValues,
+                },
             },
             memory = new
             {
@@ -1578,6 +1598,80 @@ public sealed class WebBridge
         return contacts.FirstOrDefault()?.CharacterId ?? "";
     }
 
+    // ==================== 语音 ====================
+
+    /// <summary>
+    /// <c>voice.status</c>：这台设备现在能不能听、能不能说。
+    /// 前端据此把麦克风按钮画成可点或禁用，并把「为什么不能点」原样摆出来 —— 灰着不说原因，等于假装没这功能。
+    /// </summary>
+    private object VoiceStatusOf()
+    {
+        var availability = _speech.ListenAvailability();
+        return new
+        {
+            sttEnabled = _speech.SttEnabled,
+            sttEngine = _speech.SttEngine,
+            ttsEnabled = _speech.TtsEnabled,
+            ttsEngine = _speech.TtsEngine,
+            canListen = availability.CanListen,
+            note = availability.Reason,
+        };
+    }
+
+    /// <summary>
+    /// <c>voice.listen</c>：开一次麦，等一句话，把识别出的文字交回来。
+    /// 引擎与时限全用 <see cref="SpeechService.ListenOnceAsync"/> 那一条（与主界面语音按钮同一个 SAPI/WinRT/API 链路），
+    /// 桥只负责「把结果原样回给前端」这一层，不重写识别。没听出字时 text 为空、note 说原因。
+    /// </summary>
+    private async Task<object?> VoiceListenAsync(JsonElement p)
+    {
+        var availability = _speech.ListenAvailability();
+        if (!availability.CanListen)
+            throw new WebBridgeException("E_UNAVAILABLE", availability.Reason);
+        if (_voiceCts is not null)
+            throw new WebBridgeException("E_BUSY", "上一句还在听：先说完，或者按停止。");
+
+        var charId = await ChatTargetOfAsync(p);
+        var lang = LocaleOf(_settings.Current.Lang) == "en-US" ? "en-US" : "zh-CN";
+        _voiceCts = new CancellationTokenSource();
+        try
+        {
+            var heard = await _speech.ListenOnceAsync(lang, _voiceCts.Token);
+            return new { characterId = charId, text = heard.Text, note = heard.Note };
+        }
+        finally
+        {
+            _voiceCts.Dispose();
+            _voiceCts = null;
+        }
+    }
+
+    /// <summary><c>voice.cancel</c>：停掉正在进行的这一句。走引擎自己的 StopListening，与界面上「停止」是同一条路。</summary>
+    private object VoiceCancel()
+    {
+        try { _voiceCts?.Cancel(); }
+        catch (ObjectDisposedException) { /* 故意忽略：这一句刚好自己结束了，没什么可停的 */ }
+        _speech.StopListening();
+        return new { stopped = true };
+    }
+
+    /// <summary>
+    /// <c>voice.speak</c>：用配置好的朗读引擎念出这段文字（TTS 只接这一处：朗读最后一条回复）。
+    /// Speak 自己吞异常只为不崩界面，所以这里看 LastSpeakNote 判断是不是真读出来了；没读出来就抛，不谎报成功。
+    /// </summary>
+    private async Task<object?> VoiceSpeakAsync(JsonElement p)
+    {
+        var text = OptionalText(p, "text").Trim();
+        if (text.Length == 0) throw new WebBridgeException("E_BAD_PARAMS", "voice.speak 需要一段不为空的 {text}。");
+        if (!_speech.TtsEnabled) throw new WebBridgeException("E_UNAVAILABLE", "朗读已在设置里关闭（设置 → 声音与语音）。");
+        var charId = OptionalText(p, "characterId");
+        var lang = LocaleOf(_settings.Current.Lang) == "en-US" ? "en-US" : "zh-CN";
+        await _speech.Speak(text, lang, charId.Length > 0 ? charId : null);
+        if (!string.IsNullOrWhiteSpace(_speech.LastSpeakNote))
+            throw new WebBridgeException("E_BACKEND", _speech.LastSpeakNote);
+        return new { ok = true };
+    }
+
     /// <summary>壳：main（主界面会话）/ wechat / qq。认不出的壳一律按微信（默认那一面）。</summary>
     private static string ChatShellOf(JsonElement p) => OptionalText(p, "shell") switch
     {
@@ -1861,6 +1955,13 @@ public sealed class WebBridge
                 case "memory.windowDays": s = s with { MemoryWindowDays = Math.Clamp(Number(value, path), 0, 3650) }; break;
                 case "ai.smartSaving": s = s with { SmartSavingEnabled = Boolean(value, path) }; break;
                 case "ai.timeoutSeconds": s = s with { AiTimeoutSeconds = Math.Clamp((int)Number(value, path), 3, 600) }; break;
+                case "ai.thinkMode": s = s with { ThinkMode = Services.Core.ThinkTierRuntime.NormalizeMode(Text(value, path)) }; break;
+                case "ai.thinkBar": s = s with { ThinkBarEnabled = Boolean(value, path) }; break;
+                case "ai.quickButtons": s = s with { QuickButtonsEnabled = Boolean(value, path) }; break;
+                case "ai.thinkTierCount": s = s with { ThinkTierCount = Math.Clamp((int)Number(value, path), 1, 5) }; break;
+                case "ai.thinkTierLabels": s = s with { ThinkTierLabels = Text(value, path).Trim() }; break;
+                case "ai.thinkParamKey": s = s with { ThinkParamKey = Text(value, path).Trim() }; break;
+                case "ai.thinkParamValues": s = s with { ThinkParamValues = Text(value, path).Trim() }; break;
                 case "appearance.liquid": s = s with { LiquidEnabled = Boolean(value, path) }; break;
                 case "appearance.glass": s = s with { GlassEnabled = Boolean(value, path) }; break;
                 case "appearance.frost": s = s with { FrostEnabled = Boolean(value, path) }; break;

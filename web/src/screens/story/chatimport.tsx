@@ -44,6 +44,11 @@ export function Chatimport({ navigate, back }: ScreenProps) {
             sub="可一次选多个文件，也可以直接粘一大段。格式靠内容认，不靠扩展名：微信/QQ 导出的 txt/mht、通用 txt、md、json、csv 都行。"
           />
 
+          <Note warn>
+            这一页的解析还没接通：选文件与解析都要宿主的方法，现在粘进来的记录读不出角色、事件与关系。
+            先照常用「新的一局」开始，接上之后这段历史可以再导进来。
+          </Note>
+
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-2)' }}>
               <Stack gap={1}>

@@ -37,6 +37,9 @@ public sealed class SpeechService
     /// <summary>引擎特有扩展参数（SoVITS：spk_id 说话人编号，"0" 表示默认角色）。</summary>
     public string VoiceExtra { get; set; } = "";
 
+    /// <summary>最近一次朗读失败的原因（成功时为空）。Speak 自身吞异常只为不让界面崩，桥要拿它判断有没有真读出来。</summary>
+    public string LastSpeakNote { get; private set; } = "";
+
     public event Action<string>? OnRecognized;
     public event Action<string>? OnSynthesized;
     public bool IsListening => _listenCts is not null;
@@ -98,6 +101,7 @@ public sealed class SpeechService
             (VoiceName, TtsEngine, VoiceExtra, TtsRate,
              VoiceApiUrl, VoiceApiKey, VoiceApiMode, VoiceTtsModel);
         var effPitch = Math.Clamp(pitch ?? 1.0, 0.5, 2.0);
+        LastSpeakNote = "";
         try
         {
             if (!string.IsNullOrWhiteSpace(voice?.VoiceName)) VoiceName = voice.VoiceName;
@@ -134,6 +138,7 @@ public sealed class SpeechService
         }
         catch (Exception ex)
         {
+            LastSpeakNote = "朗读失败：" + ex.Message;
             System.Diagnostics.Debug.WriteLine($"[TTS] {ex.Message}");
         }
         finally
@@ -203,6 +208,70 @@ public sealed class SpeechService
     {
         _listenCts?.Cancel();
         _listenCts = null;
+    }
+
+    /// <summary>这台设备的识别能不能开（桥/桌宠按它决定麦克风按钮是否可点，以及不可点时该说什么）。</summary>
+    public sealed record VoiceAvailability(bool CanListen, string Reason);
+
+    /// <summary>
+    /// 识别通道是否可用。只做「有没有引擎/密钥/开关」的前置判断，不去开麦：
+    /// 麦克风被拔掉、隐私未授权这类问题只有真正录音时才会露出，那时由 LastRecognitionNote 说原因。
+    /// </summary>
+    public VoiceAvailability ListenAvailability()
+    {
+        if (!SttEnabled) return new VoiceAvailability(false, "语音识别已在设置里关闭");
+        if (string.Equals(SttEngine, "api", StringComparison.OrdinalIgnoreCase))
+            return string.IsNullOrWhiteSpace(VoiceApiKey)
+                ? new VoiceAvailability(false, "外部语音识别还没有填密钥（设置 → 声音与语音）")
+                : new VoiceAvailability(true, "");
+#if WINDOWS
+        if (string.Equals(SttEngine, "local", StringComparison.OrdinalIgnoreCase) && !HasLocalModel)
+            return new VoiceAvailability(false, "本地识别模型还没有下载（设置 → 声音与语音）");
+        try
+        {
+            var installed = System.Speech.Recognition.SpeechRecognitionEngine.InstalledRecognizers();
+            if (installed is { Count: > 0 }) return new VoiceAvailability(true, "");
+        }
+        catch (Exception ex)
+        {
+            App.WriteLog("SpeechService.ListenAvailability -> " + ex.Message);
+            return new VoiceAvailability(false, "系统语音识别不可用：" + ex.Message);
+        }
+        return new VoiceAvailability(false, "系统里没有装语音识别语言（Windows 设置 → 时间和语言 → 语音）");
+#else
+        return new VoiceAvailability(true, "");
+#endif
+    }
+
+    /// <summary>
+    /// 听一次并把文字直接交回来（桥这类「等一句话」的调用方用）。
+    /// 只是给 <see cref="StartListening"/> 套一层结果收集：引擎选择、20 秒上限、各种失败话术
+    /// 全沿用原有那套，不另写第二个识别引擎；取消走 StopListening，与按钮「停止」同一条路。
+    /// </summary>
+    public async Task<SpeechText> ListenOnceAsync(string lang = "zh-CN", CancellationToken ct = default)
+    {
+        var availability = ListenAvailability();
+        if (!availability.CanListen) return new SpeechText("", availability.Reason);
+        if (IsListening) return new SpeechText("", "已经在听上一句了");
+
+        string? heard = null;
+        void Capture(string text) => heard = text;
+        OnRecognized += Capture;
+        using var cancel = ct.Register(StopListening);
+        try { await StartListening(lang); }
+        catch (Exception ex)
+        {
+            App.WriteLog($"SpeechService.ListenOnce -> {ex.GetType().Name}: {ex.Message}");
+            return new SpeechText("", "识别失败：" + ex.Message);
+        }
+        finally { OnRecognized -= Capture; }
+
+        var text = (heard ?? "").Trim();
+        if (text.Length > 0) return new SpeechText(text, "");
+        var note = ct.IsCancellationRequested
+            ? "识别已取消"
+            : (string.IsNullOrWhiteSpace(LastRecognitionNote) ? "没听到说话" : LastRecognitionNote);
+        return new SpeechText("", note);
     }
 
     // ============ Android ============

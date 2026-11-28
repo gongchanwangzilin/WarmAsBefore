@@ -17,7 +17,12 @@ export const DEFAULT_SETTINGS: SettingsValues = {
   text: { scale: 1 },
   story: { autoSave: true },
   language: { locale: 'zh-CN' },
-  ai: { providers: 2, smartSaving: false, timeoutSeconds: 60 },
+  ai: {
+    providers: 2,
+    smartSaving: false,
+    timeoutSeconds: 60,
+    think: { mode: 'auto', bar: false, quick: false, tiers: 3, labels: '轻度,标准,深度', paramKey: 'reasoning_effort', paramValues: 'low,medium,high' },
+  },
   memory: { windowDays: 7, contextLimit: '32K' },
   ui: { orientation: 'auto', chatStyle: 'galgame', difficulty: 'normal' },
   platform: { petIdleMinutes: 10, preferDiscreteGpu: false },

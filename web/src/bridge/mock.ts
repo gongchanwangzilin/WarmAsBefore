@@ -84,6 +84,22 @@ const handlers = {
   },
   'nav.open': (params: Params<'nav.open'>) => ({ accepted: KNOWN_ROUTES.has(params.route) }),
   'nav.back': () => ({ accepted: true }),
+  // 假后端没有麦克风也没有朗读引擎：照实说不能听，按钮就停在禁用态，而不是假装录了一段。
+  'voice.status': () => ({
+    sttEnabled: true,
+    sttEngine: 'system',
+    ttsEnabled: true,
+    ttsEngine: 'system',
+    canListen: false,
+    note: '浏览器里的假后端没有录音通道',
+  }),
+  'voice.listen': () => {
+    throw { code: 'E_UNAVAILABLE', message: '浏览器里的假后端没有录音通道' } satisfies ErrorBody;
+  },
+  'voice.cancel': () => ({ stopped: true }),
+  'voice.speak': () => {
+    throw { code: 'E_UNAVAILABLE', message: '浏览器里的假后端没有朗读引擎' } satisfies ErrorBody;
+  },
 };
 
 const sleep = (ms: number) => new Promise<void>((r) => window.setTimeout(r, ms));

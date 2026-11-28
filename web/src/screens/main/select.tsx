@@ -12,7 +12,7 @@ import './main.css';
  * 存档表把「谁有档」摆成一行（一份档一行），读不到就落回源码的空态。
  */
 
-type Card = { id: string; name: string; subtitle: string; savesLabel: string };
+type Card = { id: string; name: string; subtitle: string; savesLabel: string; characterId: string };
 
 function pad(value: number): string {
   return String(value).padStart(2, '0');
@@ -28,37 +28,51 @@ function savesLabel(count: number, savedAt: string): string {
 export function Select({ bridge, navigate, back }: ScreenProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [ticket, setTicket] = useState(0);
   useEscape(addOpen, () => setAddOpen(false));
 
   useEffect(() => {
     let alive = true;
-    // 一份存档一行：同一角色有几份档就写几个数，最新那份的时间上屏。
-    void bridge
-      .request('saves.list', {})
-      .then(({ slots }: { slots: SaveRow[] }) => {
+    setLoadError('');
+    // 一个人一行：同一个人有几份档就写几个数，最新那份的时间上屏。
+    // 行上带的是角色 id —— 下一站「新的一局」要拿 id 建存档，名字不是身份。
+    void Promise.all([bridge.request('saves.list', {}), bridge.request('characters.list', {})])
+      .then(([{ slots }, { characters }]) => {
         if (!alive) return;
-        const byName = new Map<string, { count: number; latest: string }>();
-        for (const row of slots) {
-          const name = row.character || row.label;
-          if (!name) continue;
-          const seen = byName.get(name);
-          if (!seen) byName.set(name, { count: 1, latest: row.savedAt });
+        const byId = new Map<string, { count: number; latest: string }>();
+        for (const row of slots as SaveRow[]) {
+          const id = row.character;
+          if (!id) continue;
+          const seen = byId.get(id);
+          if (!seen) byId.set(id, { count: 1, latest: row.savedAt });
           else seen.count += 1;
         }
         setCards(
-          [...byName.entries()].map(([name, info]) => ({
-            id: name,
-            name,
-            subtitle: '点击开始聊天',
-            savesLabel: savesLabel(info.count, info.latest),
-          })),
+          characters
+            .map((row) => {
+              const info = byId.get(row.id);
+              return {
+                id: row.id,
+                characterId: row.id,
+                name: row.nickname || row.name,
+                subtitle: info ? '点击继续这段经历' : '还没有一局：点进去开新局',
+                savesLabel: info ? savesLabel(info.count, info.latest) : '还没有存档',
+              };
+            })
+            .sort((a, b) => (byId.get(b.id)?.count ?? 0) - (byId.get(a.id)?.count ?? 0)),
         );
       })
-      .catch(() => undefined);
+      .catch((cause: unknown) => {
+        if (!alive) return;
+        // 读失败不是「没有好友」：分开说，并给一次重试。
+        setLoadError(cause instanceof Error ? cause.message : '角色表没有应答。');
+        setCards([]);
+      });
     return () => {
       alive = false;
     };
-  }, [bridge]);
+  }, [bridge, ticket]);
 
   return (
     <div className="mc">
@@ -91,13 +105,20 @@ export function Select({ bridge, navigate, back }: ScreenProps) {
       <div className="mc__sep" />
 
       <div className="mc__list">
-        {cards.length === 0 ? (
+        {loadError ? (
+          <div className="mc__empty">
+            <span className="mc__empty-mark">微信</span>
+            <span className="mc__empty-title">好友列表读不出来</span>
+            <span className="mc__empty-hint">{loadError}</span>
+            <button type="button" className="m-btn m-btn--soft" onClick={() => setTicket((n) => n + 1)}>
+              重试
+            </button>
+          </div>
+        ) : cards.length === 0 ? (
           <div className="mc__empty">
             <span className="mc__empty-mark">微信</span>
             <span className="mc__empty-title">还没有微信好友</span>
-            <span className="mc__empty-hint">
-              让 AI 用「add_wechat」把剧情里的角色加为好友，或下方新建/导入
-            </span>
+            <span className="mc__empty-hint">先新建一个角色，TA 就会出现在这份名单里</span>
           </div>
         ) : (
           cards.map((card) => (
@@ -105,7 +126,7 @@ export function Select({ bridge, navigate, back }: ScreenProps) {
               <button
                 type="button"
                 className="mc__row"
-                onClick={() => navigate(`/newrun?character=${encodeURIComponent(card.id)}`)}
+                onClick={() => navigate(`/newrun?character=${encodeURIComponent(card.characterId)}`)}
               >
                 <span className="mc__avatar">{card.name.slice(0, 1)}</span>
                 <span className="mc__row-text">

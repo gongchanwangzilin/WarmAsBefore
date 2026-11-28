@@ -29,9 +29,12 @@ function dayOf(iso: string): string {
 export function ShowcaseList({ bridge, navigate, back }: ScreenProps) {
   const [scripts, setScripts] = useState<ShowcaseRow[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [loadError, setLoadError] = useState('');
+  const [ticket, setTicket] = useState(0);
 
   useEffect(() => {
     let alive = true;
+    setLoadError('');
     bridge
       .request('showcases.list', {})
       .then((result) => {
@@ -47,13 +50,16 @@ export function ShowcaseList({ bridge, navigate, back }: ScreenProps) {
         );
         setLoaded(true);
       })
-      .catch(() => {
-        if (alive) setLoaded(true);
+      .catch((cause: unknown) => {
+        // 读失败不是「一个展示案都没有」：分开说，并给一次重试。
+        if (!alive) return;
+        setLoadError(cause instanceof Error ? cause.message : '展示案列表没有应答。');
+        setLoaded(true);
       });
     return () => {
       alive = false;
     };
-  }, [bridge]);
+  }, [bridge, ticket]);
 
   const edit = (script: ShowcaseRow) => navigate(`/showcase-edit?id=${encodeURIComponent(script.id)}`);
 
@@ -98,14 +104,28 @@ export function ShowcaseList({ bridge, navigate, back }: ScreenProps) {
               </div>
             );
           })}
-          {loaded && scripts.length === 0 ? (
-            <Empty title="还没有展示案" reason="新建一段演出，它会出现在这个列表里" />
+          {loadError ? (
+            <Empty title="展示案读不出来" reason={loadError} hint="确认后台还在跑，再点下面这颗重试。" />
+          ) : loaded && scripts.length === 0 ? (
+            <Empty
+              title="还没有展示案"
+              reason="这一版还建不了新的演出：写入要宿主给方法。"
+              hint="在桌面端建好的展示案会出现在这里。"
+            />
           ) : null}
         </Card>
 
         <Stack>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
-            <GlassButton size="md" onClick={() => navigate('/showcase-edit')}>＋ 新建展示案</GlassButton>
+            {loadError ? (
+              <GlassButton size="md" onClick={() => setTicket((n) => n + 1)}>
+                重试
+              </GlassButton>
+            ) : (
+              <Inert>
+                <GlassButton size="md">＋ 新建展示案</GlassButton>
+              </Inert>
+            )}
           </div>
         </Stack>
       </div>

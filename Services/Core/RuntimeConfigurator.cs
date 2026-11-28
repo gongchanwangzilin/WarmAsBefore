@@ -506,6 +506,19 @@ public sealed class RuntimeConfigurator
     }
 
     /// <summary>
+    /// 第十四项：给本轮端点定「思考档位」。跟随 AI 时返回 0 —— 不是「关掉思考」，而是不往请求体里塞
+    /// 推理强度，把这一次要不要深入想留给这次调用本身（推理模型按自己的默认走，需要时 AI 可调
+    /// wab_set_reasoning 抬档）；总是开取用户当前档位，总是关则一律 0。
+    /// </summary>
+    private static int ResolveThinkTier(UserSettings s, int tierCount)
+    {
+        var mode = ThinkTierRuntime.NormalizeMode(s.ThinkMode);
+        if (mode == "off") return 0;
+        if (mode == "on") return Math.Clamp(s.ActiveThinkTier <= 0 ? 1 : s.ActiveThinkTier, 1, tierCount);
+        return 0;
+    }
+
+    /// <summary>
     /// 第十五项修正「配置通道」：把 WAB 插件（wab_minecraft）的当前设置过一遍 ConfigSyncService.Resolve，
     /// 得到「目录键 → 生效值」的映射并缓存到 <see cref="_effective"/>。
     /// 这样宿主侧对 think_mode / model_package / small_model_* 等键的读取就会跟随用户在插件设置页的改动，
@@ -689,6 +702,7 @@ public sealed class RuntimeConfigurator
             }
         }
 
+        var thinkTierCount = Math.Clamp(s.ThinkTierCount, 1, 5);
         // 第十三项：模型套餐。仅覆盖端点/模型/推荐参数，绝不预置密钥（密钥始终由用户自填）。
         // 默认 custom = 不动已填配置；需同时开启「套餐选择」与「一键套用」才生效。
         AiEndpoint mainEndpoint = new AiEndpoint
@@ -706,9 +720,11 @@ public sealed class RuntimeConfigurator
             // 第十二项：自定义 AI 参数（四格式）从宿主设置接入，空串时请求体不变。
             CustomParamsJson = s.CustomParamsJson ?? "",
             ParamFormat = s.CustomParamsFormat ?? "openai_flat",
-            // 第十四项：思考档位（思考条 + 快速按钮）。当前档位取用户设置，档位数/参数键名/每档值一并下发。
-            ThinkTier = Math.Clamp(s.ActiveThinkTier, 0, Math.Clamp(s.ThinkTierCount, 1, 5)),
-            ThinkTierCount = Math.Clamp(s.ThinkTierCount, 1, 5),
+            // 第十四项：思考档位（思考条 + 快速按钮）。档位由「思考模式」定：
+            // 跟随 AI = 不替模型决定（不注入推理强度，这一次要不要深入想由这一次调用自己给，
+            // 需要时 AI 可用 wab_set_reasoning 抬档）；总是开/总是关 = 按当前档位强制。
+            ThinkTier = ResolveThinkTier(s, thinkTierCount),
+            ThinkTierCount = thinkTierCount,
             ThinkParamKey = string.IsNullOrWhiteSpace(s.ThinkParamKey) ? "reasoning_effort" : s.ThinkParamKey,
             ThinkParamValues = string.IsNullOrWhiteSpace(s.ThinkParamValues) ? "low,medium,high" : s.ThinkParamValues
         };
@@ -756,7 +772,8 @@ public sealed class RuntimeConfigurator
             paramKey: s.ThinkParamKey,
             paramValues: s.ThinkParamValues,
             caps: caps,
-            heat: s.AiTemperature);
+            heat: s.AiTemperature,
+            mode: s.ThinkMode);
         // F23：对话页热度滑条即时改端点温度并持久化（不重走 Configure，避免重建会话）。
         _thinkTier.HeatChangedCallback = heat =>
         {

@@ -141,9 +141,12 @@ export function Bindwizard({ back }: ScreenProps) {
       </div>
 
       <div className="sc-wiz__footer">
-        <span className="cap">{hint}</span>
-        <span style={hasMaid && hasChar ? undefined : { opacity: 0.5, pointerEvents: 'none' }} aria-disabled={!(hasMaid && hasChar)}>
-          <GlassButton size="sm">{newSave ? '新建存档并绑定' : '开始绑定'}</GlassButton>
+        <span className="cap">{hint || '绑定要等游戏那边推来世界与女仆：这一页现在只摆文档骨架'}</span>
+        {/* 绑定这条动作还没有桥方法：灰着，别让它演成一颗点了没反应的钮。 */}
+        <span style={{ opacity: 0.45, pointerEvents: 'none' }} aria-disabled="true">
+          <GlassButton size="sm" disabled title="宿主还没有绑定的方法">
+            {newSave ? '新建存档并绑定' : '开始绑定'}
+          </GlassButton>
         </span>
       </div>
     </PageShell>

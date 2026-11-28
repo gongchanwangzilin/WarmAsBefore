@@ -506,6 +506,11 @@ public sealed record UserSettings
     public string CustomParamsFormat { get; init; } = "openai_flat";
 
     // 第十四项：思考档位（思考条 + 快速按钮）
+    /// <summary>
+    /// 第十四项：思考由谁决定 —— auto=跟随 AI（默认：不替模型注入推理强度，这一次调用要不要深入想由模型自己给）、
+    /// on=总是开（按 <see cref="ActiveThinkTier"/> 强制注入）、off=总是关（不注入，AI 也不能临时抬档）。
+    /// </summary>
+    public string ThinkMode { get; init; } = "auto";
     /// <summary>第十四项：思考条总开关 —— 是否显示「正在思考 / 深度思考中」进度条。</summary>
     public bool ThinkBarEnabled { get; init; }
     /// <summary>第十四项：快速按钮开关 —— 是否在输入条上方显示切换思考档位的按钮组。</summary>

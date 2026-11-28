@@ -698,18 +698,22 @@ public sealed partial class ToolManager : IDisposable
 
     private void RegisterSystemTools()
     {
-        // F21：AI 自主选择思考档位（仅当用户在设置中开启「AI 自主深度思考」时生效；否则返回拒绝）
+        // F21：AI 自主选择思考档位（跟随 AI 时默认允许；用户改成「总是开 / 总是关」是强制，返回拒绝）
         RegisterBuiltin("wab_set_reasoning",
             "设置本轮及后续的思考档位。参数 tier：off=关闭、fast=快速、deep=深度思考，或直接给数字 0~5。" +
-            "仅当用户在设置中开启「AI 自主深度思考」时才被允许，否则返回拒绝。",
+            "思考设为跟随 AI 时（默认）由你决定这一轮要不要深入想，复杂问题先抬档再答；" +
+            "用户设成「总是开 / 总是关」时档位由用户说了算，本工具返回拒绝。",
             async args =>
             {
                 try
                 {
                     var svc = ServicesHelper.GetServices();
                     var sm = svc?.GetService(typeof(SettingsManager)) as SettingsManager;
-                    if (sm is null || !sm.Current.AiAutonomousThink)
-                        return JsonSerializer.Serialize(new { ok = false, error = "未开启「AI 自主深度思考」，无法由 AI 设置档位。" });
+                    var mode = WarmAsBefore.Services.Core.ThinkTierRuntime.NormalizeMode(sm?.Current.ThinkMode);
+                    if (sm is null || mode == "off")
+                        return JsonSerializer.Serialize(new { ok = false, error = "用户把思考设成了「总是关」，这一轮不深入思考。" });
+                    if (mode != "auto" && !sm.Current.AiAutonomousThink)
+                        return JsonSerializer.Serialize(new { ok = false, error = "用户把思考设成了「总是开」，档位由用户决定，无需你来设置。" });
                     var ttr = svc?.GetService(typeof(WarmAsBefore.Services.Core.ThinkTierRuntime)) as WarmAsBefore.Services.Core.ThinkTierRuntime;
                     if (ttr is null) return JsonSerializer.Serialize(new { ok = false, error = "思考运行时不可用。" });
                     var doc = JsonNode.Parse(string.IsNullOrWhiteSpace(args) ? "{}" : args);

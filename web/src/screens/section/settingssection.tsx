@@ -340,9 +340,12 @@ function Btn({
   onClick?: () => void;
   disabled?: boolean;
 }) {
+  // 没有 onClick 的钮（宿主还没给这条动作）画成禁用态：看得见、按不下，
+  // 别让它演成一颗点得动却什么都不发生的钮。
+  const off = disabled || !onClick;
   return (
-    <span style={{ opacity: disabled ? 0.5 : undefined, pointerEvents: disabled ? 'none' : undefined }}>
-      <GlassButton size="md" className="gbtn--tight" onClick={onClick}>
+    <span style={{ opacity: off ? 0.5 : undefined, pointerEvents: off ? 'none' : undefined }}>
+      <GlassButton size="md" className="gbtn--tight" onClick={onClick} disabled={off}>
         {children}
       </GlassButton>
     </span>
@@ -445,6 +448,11 @@ export function SettingsSection({ bridge, query, back, navigate }: ScreenProps) 
       <main className="section">
         <div className="section__body">
           <WriteStatus writer={writer} />
+          <p className="cap">
+            这一页只有接到写回通道的项会真存下来：声音与文字速度、AI 超时与思考档、记忆天数、自动存档、
+            界面方向 / 聊天风格 / 难度、桌宠与显卡偏好、QQ 与微信与 MCP 接入、通知与天气城市、语言。
+            其余开关与钮改了只在本页生效，重开就回默认；顶上的「已保存」只在真的写进盘之后才出现。
+          </p>
           {body}
         </div>
       </main>
@@ -972,6 +980,14 @@ function SoundSection({ writer }: { writer: SettingsWriter }) {
 
 const TIMEOUT_CHOICES = ['10', '15', '25', '40', '60', '120', '180'];
 
+/**
+ * 思考由谁决定的三档。与宿主 SettingsSectionPage 的「思考由谁决定」下拉同一组说法，
+ * 值仍是 UserSettings.ThinkMode 的 auto / on / off。
+ */
+const THINK_MODE_CHOICES = ['跟随 AI', '总是开', '总是关'] as const;
+const THINK_MODE_KEY: Record<string, 'auto' | 'on' | 'off'> = { '跟随 AI': 'auto', '总是开': 'on', '总是关': 'off' };
+const THINK_MODE_LABEL: Record<'auto' | 'on' | 'off', string> = { auto: '跟随 AI', on: '总是开', off: '总是关' };
+
 const AI_PRESETS = [
   '通用（OpenAI兼容）',
   'DeepSeek',
@@ -1134,7 +1150,6 @@ function AiSection({
   const [smallUrl, setSmallUrl] = useStr('');
   const [smallKey, setSmallKey] = useStr('');
   const [smallModel, setSmallModel] = useStr('');
-  const [autoThink, setAutoThink] = useBool(false);
   const [planFlow, setPlanFlow] = useBool(false);
   const [planMaxSteps, setPlanMaxSteps] = useNum(8);
   const [advisor, setAdvisor] = useBool(false);
@@ -1167,12 +1182,6 @@ function AiSection({
   const [paramsFormat, setParamsFormat] = useStr('openai_flat');
   const [paramsJson, setParamsJson] = useStr('');
 
-  const [thinkBar, setThinkBar] = useBool(false);
-  const [quickButtons, setQuickButtons] = useBool(false);
-  const [thinkTiers, setThinkTiers] = useNum(3);
-  const [thinkLabels, setThinkLabels] = useStr('轻度,标准,深度');
-  const [thinkKey, setThinkKey] = useStr('reasoning_effort');
-  const [thinkValues, setThinkValues] = useStr('low,medium,high');
 
   // TimeoutChoices：10, 15, 25, 40, 60, 120, 180；存档里是别的值就把它自己补进下拉，别显示成第一档。
   const timeoutNow = String(values.ai.timeoutSeconds);
@@ -1260,12 +1269,8 @@ function AiSection({
         <Divider />
         <span className="s-row__title">AI 自主能力（实验）</span>
         <p className="s-row__desc">
-          让 AI 在对话中自行决定思考深度、或发起多步复合任务。两类能力默认关闭；开启后 AI 可通过工具临时提升思考档位、或自主编排「探测→采集→建造→验证」多步流程。多步上限用于防止失控。
+          让 AI 在对话中自行决定思考深度、或发起多步复合任务。思考深度归「思考由谁决定」统管：跟随 AI 时由那次模型调用自己给、需要时 AI 可临时提升档位；设成「总是开 / 总是关」则档位由你强制。多步流程默认关闭，开启后 AI 可自主编排「探测→采集→建造→验证」多步流程，多步上限用于防止失控。
         </p>
-        <SettingRow
-          title="AI 自主选择思考档位（含深度思考）"
-          control={<Sw label="AI 自主选择思考档位" checked={autoThink} onChange={setAutoThink} />}
-        />
         <SettingRow
           title="AI 自主发起多步计划"
           control={<Sw label="AI 自主发起多步计划" checked={planFlow} onChange={setPlanFlow} />}
@@ -1520,27 +1525,37 @@ function AiSection({
         <p className="s-row__desc">
           为模型自配若干档推理强度，对话中输入条上方会出现切换按钮、并在思考时显示进度条。第 0 档永远为「关闭」。当前档位可在对话里即时切换并自动保存。
         </p>
+        <PickRow
+          title="思考由谁决定"
+          value={THINK_MODE_LABEL[values.ai.think.mode]}
+          options={THINK_MODE_CHOICES}
+          onChange={(next) => write('ai.thinkMode', THINK_MODE_KEY[next] ?? 'auto')}
+          width={130}
+        />
+        <p className="s-row__desc">
+          跟随 AI：不摆手动开关，这一轮要不要深入想由那次模型调用自己给，需要时 AI 可自行抬档。总是开：按当前档位强制注入，AI 不能改低。总是关：一律不注入，AI 也不能抬档。
+        </p>
         <SettingRow
           title="显示思考条（正在思考 / 深度思考中）"
-          control={<Sw label="显示思考条" checked={thinkBar} onChange={setThinkBar} />}
+          control={<Sw label="显示思考条" checked={values.ai.think.bar} onChange={(value) => write('ai.thinkBar', value)} />}
         />
         <SettingRow
           title="显示快速按钮（切换思考档位）"
-          control={<Sw label="显示快速按钮" checked={quickButtons} onChange={setQuickButtons} />}
+          control={<Sw label="显示快速按钮" checked={values.ai.think.quick} onChange={(value) => write('ai.quickButtons', value)} />}
         />
         <SettingRow
           title="思考档位数（1~5）"
           control={
             <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)' }}>
-              <Btn onClick={() => setThinkTiers(Math.max(1, thinkTiers - 1))}>−</Btn>
-              <span className="s-row__title">{thinkTiers}</span>
-              <Btn onClick={() => setThinkTiers(Math.min(5, thinkTiers + 1))}>＋</Btn>
+              <Btn onClick={() => write('ai.thinkTierCount', Math.max(1, values.ai.think.tiers - 1))}>−</Btn>
+              <span className="s-row__title">{values.ai.think.tiers}</span>
+              <Btn onClick={() => write('ai.thinkTierCount', Math.min(5, values.ai.think.tiers + 1))}>＋</Btn>
             </span>
           }
         />
-        <FieldRow title="每档标签" value={thinkLabels} onChange={setThinkLabels} placeholder="逗号分隔，如 轻度,标准,深度" width={340} />
-        <FieldRow title="推理强度参数键名" value={thinkKey} onChange={setThinkKey} placeholder="如 reasoning_effort" width={260} />
-        <FieldRow title="每档参数值" value={thinkValues} onChange={setThinkValues} placeholder="逗号分隔，如 low,medium,high" width={300} />
+        <FieldRow title="每档标签" value={values.ai.think.labels} onChange={(next) => write('ai.thinkTierLabels', next)} placeholder="逗号分隔，如 轻度,标准,深度" width={340} />
+        <FieldRow title="推理强度参数键名" value={values.ai.think.paramKey} onChange={(next) => write('ai.thinkParamKey', next)} placeholder="如 reasoning_effort" width={260} />
+        <FieldRow title="每档参数值" value={values.ai.think.paramValues} onChange={(next) => write('ai.thinkParamValues', next)} placeholder="逗号分隔，如 low,medium,high" width={300} />
         <p className="cap">
           提示：参数键名与每档值需与你所选模型的推理强度接口对应（例如 OpenAI 推理模型用 reasoning_effort=low/medium/high）。不匹配时该模型会忽略或报错，属正常配置差异。
         </p>

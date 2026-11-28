@@ -2190,6 +2190,16 @@
                         <Label Text="思考档位（思考条 + 快速按钮）" Style="{StaticResource TxtSubhead}" />
                         <Label Text="为模型自配若干档推理强度，对话中输入条上方会出现切换按钮、并在思考时显示进度条。第 0 档永远为「关闭」。当前档位可在对话里即时切换并自动保存。"
                                Style="{StaticResource TxtCaption}" />
+                        <Grid ColumnDefinitions="160,*">
+                            <Label Text="思考由谁决定" VerticalOptions="Center" FontSize="13" />
+                            <VerticalStackLayout Grid.Column="1" Spacing="2">
+                                <Picker HorizontalOptions="Start" WidthRequest="130" FontSize="13"
+                                        ItemsSource="{Binding ThinkModeChoices}"
+                                        SelectedItem="{Binding ThinkModeDisplay}" />
+                                <Label Text="跟随 AI：不开手动开关，这一轮要不要深入想由那次模型调用自己给，需要时 AI 可自行抬档。总是开：按下面的当前档位强制注入，AI 不能改低。总是关：一律不注入，AI 也不能抬档。"
+                                       Style="{StaticResource TxtCaption}" FontSize="11" />
+                            </VerticalStackLayout>
+                        </Grid>
                         <Grid ColumnDefinitions="*,Auto">
                             <Label Text="显示思考条（正在思考 / 深度思考中）" VerticalOptions="Center" FontSize="13" />
                             <controls:GlassSwitch Grid.Column="1" IsToggled="{Binding ThinkBarEnabled}" />

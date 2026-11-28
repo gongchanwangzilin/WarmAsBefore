@@ -14,10 +14,11 @@ import './main.css';
 
 type Step = 0 | 1 | 2 | 3;
 
-const LANGS: { value: string; label: string }[] = [
-  { value: 'zh-CN', label: '简体中文' },
+const LANGS: { value: string; label: string; available?: boolean }[] = [
+  { value: 'zh-CN', label: '简体中文', available: true },
+  { value: 'en-US', label: 'English', available: true },
+  // 宿主 settings.patch 的 language.locale 只收这两种；另外两种选项还写不进去，先明说。
   { value: 'zh-TW', label: '繁體中文' },
-  { value: 'en-US', label: 'English' },
   { value: 'ja-JP', label: '日本語' },
 ];
 
@@ -30,33 +31,58 @@ const PETS: { value: string; label: string }[] = [
 
 const STEP_COUNT = 4;
 
-export function Setup({ navigate }: ScreenProps) {
+export function Setup({ bridge, navigate }: ScreenProps) {
   const [step, setStep] = useState<Step>(0);
   const [lang, setLang] = useState('zh-CN');
   const [topmost, setTopmost] = useState(false);
   const [pet, setPet] = useState('0');
-  const [aiUrl, setAiUrl] = useState('');
-  const [aiKey, setAiKey] = useState('');
-  const [aiModel, setAiModel] = useState('');
+  const [status, setStatus] = useState('');
+  const [busy, setBusy] = useState(false);
 
-  const leave = () => navigate('/');
-  const next = () => {
-    if (step < 3) setStep((step + 1) as Step);
-    else navigate('/select');
+  /**
+   * 离开向导：把这一页真能写的那两项交给 settings.patch（语言、桌宠自现间隔），
+   * 写成功才走；写失败留在原地把那句话上屏，别让「下一步」变成一个假动作。
+   * 窗口置顶与 AI 端点在这条桥上没有写入路径，页面上已经分别说明。
+   */
+  const persist = async (next: string): Promise<void> => {
+    if (busy) return;
+    setBusy(true);
+    setStatus('');
+    try {
+      await bridge.request('settings.patch', {
+        patch: {
+          'language.locale': lang,
+          'platform.petIdleMinutes': Number(pet),
+        },
+      });
+      navigate(next);
+    } catch (cause) {
+      setStatus(cause instanceof Error ? cause.message : '设置没有写进盘，先留在这一页。');
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const option = (key: string, label: string, selected: boolean, pick: () => void) => (
+  const next = () => {
+    if (step < 3) setStep((step + 1) as Step);
+    else void persist('/select');
+  };
+
+  const option = (key: string, label: string, selected: boolean, pick: () => void, unavailable?: boolean) => (
     <button
       type="button"
       className="msu__opt"
       key={key}
       role="radio"
       aria-checked={selected}
+      aria-disabled={unavailable || undefined}
+      disabled={unavailable}
+      title={unavailable ? '这条路还写不进去：宿主的语言设置目前只认简体中文与 English' : undefined}
       onClick={pick}
     >
       <span className="msu__opt-bar" aria-hidden="true" />
       <span className="msu__opt-label">{label}</span>
-      <span />
+      <span className="cap">{unavailable ? '暂不支持' : ''}</span>
     </button>
   );
 
@@ -81,9 +107,17 @@ export function Setup({ navigate }: ScreenProps) {
           {step === 0 ? (
             <>
               <h2 className="msu__title">先选一种语言</h2>
-              <p className="msu__sub">点了立刻换，整个软件跟着变，不用重启。</p>
+              <p className="msu__sub">选好之后存进设置；宿主重新载入这一页时生效。</p>
               <div className="msu__opts">
-                {LANGS.map((item) => option(item.value, item.label, item.value === lang, () => setLang(item.value)))}
+                {LANGS.map((item) =>
+                  option(
+                    item.value,
+                    item.label,
+                    item.value === lang,
+                    () => setLang(item.value),
+                    !item.available,
+                  ),
+                )}
               </div>
             </>
           ) : null}
@@ -91,13 +125,13 @@ export function Setup({ navigate }: ScreenProps) {
           {step === 1 ? (
             <>
               <h2 className="msu__title">让它常在</h2>
-              <p className="msu__sub">这两项只管 Windows 上的它，之后在设置里随时改回来。</p>
+              <p className="msu__sub">桌宠这一项会跟着你选的就存下来；窗口置顶要等宿主给出写法，先摆着不能改。</p>
               <div className="msu__toggle-row">
                 <span className="msu__toggle-text">
                   <b>窗口置顶</b>
                   <span>留在最前面，不被别的窗口盖住</span>
                 </span>
-                <GlassSwitch label="窗口置顶" checked={topmost} onChange={setTopmost} />
+                <GlassSwitch label="窗口置顶" checked={topmost} onChange={setTopmost} disabled />
               </div>
               <div className="mc__sep" />
               <span className="msu__field-label">桌宠自己出现的间隔</span>
@@ -110,36 +144,23 @@ export function Setup({ navigate }: ScreenProps) {
           {step === 2 ? (
             <>
               <h2 className="msu__title">接上会说话的那部分</h2>
-              <p className="msu__sub">填了才有真实回复。先跳过也行，人物和页面照常用。</p>
-              <span className="msu__field-label">API 地址</span>
-              <input
-                className="msu__entry"
-                value={aiUrl}
-                placeholder="https://api.example.com/v1/chat/completions"
-                aria-label="API 地址"
-                onChange={(event) => setAiUrl(event.target.value)}
-              />
-              <span className="msu__line" />
-              <span className="msu__field-label">API 密钥</span>
-              <input
-                className="msu__entry"
-                type="password"
-                value={aiKey}
-                placeholder="sk-…"
-                aria-label="API 密钥"
-                onChange={(event) => setAiKey(event.target.value)}
-              />
-              <span className="msu__line" />
-              <span className="msu__field-label">模型</span>
-              <input
-                className="msu__entry"
-                value={aiModel}
-                placeholder="gpt-4o"
-                aria-label="模型"
-                onChange={(event) => setAiModel(event.target.value)}
-              />
-              <span className="msu__line" />
-              <p className="msu__hint">密钥只发给你填的这个地址，不进日志，也不走别处。</p>
+              <p className="msu__sub">AI 地址、密钥与模型只能从设置页写进盘，这一页填了也存不下，所以不在这里收。</p>
+              <div className="msu__teach">
+                <span className="msu__teach-dot" aria-hidden="true" />
+                <span>
+                  <b>设置 →「AI 与模型」→「AI 厂商」</b>
+                  <span>填端点（OpenAI 兼容）、密钥与首款模型；密钥只留在本机，不进日志。</span>
+                </span>
+              </div>
+              <button
+                type="button"
+                className="m-btn m-btn--primary msu__jump"
+                onClick={() => void persist('/settingssection?key=ai')}
+                disabled={busy}
+              >
+                现在去填
+              </button>
+              <p className="msu__hint">先跳过也行：人物、立绘与页面照常用，只是说话会走本地的兜底回复。</p>
             </>
           ) : null}
 
@@ -185,24 +206,25 @@ export function Setup({ navigate }: ScreenProps) {
             </button>
           ) : null}
           {step === 3 ? (
-            <button type="button" className="m-btn" onClick={leave}>
+            <button type="button" className="m-btn" onClick={() => void persist('/')} disabled={busy}>
               以后再说
             </button>
           ) : null}
           {step === 3 ? (
-            <button type="button" className="m-btn m-btn--primary" onClick={() => navigate('/select')}>
-              去创建角色
+            <button type="button" className="m-btn m-btn--primary" onClick={() => void persist('/select')} disabled={busy}>
+              {busy ? '正在保存…' : '去创建角色'}
             </button>
           ) : (
-            <button type="button" className="m-btn m-btn--primary" onClick={next}>
+            <button type="button" className="m-btn m-btn--primary" onClick={next} disabled={busy}>
               下一步
             </button>
           )}
         </div>
+        {status ? <p className="msu__hint msu__hint--warn">{status}</p> : null}
       </Glass>
 
       {step === 3 ? null : (
-        <button type="button" className="m-btn msu__skip" onClick={leave}>
+        <button type="button" className="m-btn msu__skip" onClick={() => void persist('/')} disabled={busy}>
           跳过配置
         </button>
       )}

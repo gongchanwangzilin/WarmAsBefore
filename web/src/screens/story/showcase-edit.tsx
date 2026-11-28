@@ -42,6 +42,7 @@ export function ShowcaseEdit({ bridge, query, back }: ScreenProps) {
     <PageShell>
       <PageHeader
         title="编辑展示案"
+        onBack={back}
         right={
           <Inert>
             <TextBtn>保存</TextBtn>
@@ -52,6 +53,7 @@ export function ShowcaseEdit({ bridge, query, back }: ScreenProps) {
       <div className="screen" style={{ maxWidth: 760 }}>
         <Stack gap={3}>
           <SectionTitle>基本信息</SectionTitle>
+          <Note warn>改名与保存还没接通：这里改的只在这一屏，离开就回到盘上那一版。</Note>
           <Card>
             <Row title="名称" right={<div style={{ width: 'min(280px, 52vw)' }}><Field label="名称" value={name} onChange={setName} /></div>} />
             <Sep />
@@ -72,7 +74,7 @@ export function ShowcaseEdit({ bridge, query, back }: ScreenProps) {
               {steps > 0 ? (
                 <Row title={`步骤 ${steps}`} />
               ) : (
-                <Note>暂无步骤，点击下方按钮添加</Note>
+                <Note>暂无步骤。添加步骤要等宿主给出写法，这一段先只有骨架。</Note>
               )}
             </div>
           </Card>

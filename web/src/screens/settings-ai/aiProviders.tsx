@@ -58,19 +58,27 @@ export function AiProviders({ bridge, navigate, back }: ScreenProps) {
   const [newKeys, setNewKeys] = useState('');
   const [newTimeout, setNewTimeout] = useState('');
   const [status, setStatus] = useState('');
+  const [loadError, setLoadError] = useState('');
+  const [ticket, setTicket] = useState(0);
 
   useEffect(() => {
     let dropped = false;
+    setLoadError('');
     bridge
       .request('ai.providers', {})
       .then(({ providers: rows }) => {
         if (!dropped) setProviders(rows);
       })
-      .catch(() => undefined);
+      .catch((cause: unknown) => {
+        // 读失败不是「一家厂商都没接」：分开说，并给一次重试。
+        if (dropped) return;
+        setProviders([]);
+        setLoadError(cause instanceof Error ? cause.message : '厂商表没有应答。');
+      });
     return () => {
       dropped = true;
     };
-  }, [bridge]);
+  }, [bridge, ticket]);
 
   const addProvider = () => {
     if (newUrl.trim().length === 0) {
@@ -130,11 +138,17 @@ export function AiProviders({ bridge, navigate, back }: ScreenProps) {
           </Card>
         ))}
 
-        {providers.length === 0 ? (
+        {loadError ? (
+          <Card title="厂商表读不出来" note={loadError}>
+            <GlassButton size="sm" onClick={() => setTicket((n) => n + 1)}>
+              重试
+            </GlassButton>
+          </Card>
+        ) : providers.length === 0 ? (
           <Empty
             title="还没有厂商"
-            reason="还没有接入厂商。"
-            hint="填端点与密钥后点「＋添加厂商」，再往里加模型。"
+            reason="还没有接入厂商，这一页现在只读。"
+            hint="新增与改密钥要等宿主给出写入方法；在那之前请到桌面端设置里接一家厂商。"
           />
         ) : null}
 

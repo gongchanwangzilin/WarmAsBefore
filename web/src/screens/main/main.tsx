@@ -3,6 +3,7 @@ import type { CharacterRow, ChatRow, SaveRow } from '../../bridge/protocol';
 import { openInWindow } from '../../lib/windows';
 import { useEscape } from '../../lib/keys';
 import { NEED_SAVE, useRun } from '../../lib/run';
+import { useVoice } from '../../lib/voice';
 import { Glass } from '../../components/Glass';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import type { ScreenProps } from '../types';
@@ -173,7 +174,7 @@ export function Main({ bridge, navigate }: ScreenProps) {
   const [blackout, setBlackout] = useState(false);
   // 未标定闸门与「后端模式」由标定服务 / 存档模式决定；Web 端拿不到这两份状态，
   // 默认都是源码里的默认值（不拦、不盖）。
-  const [calibrationBlocked] = useState(false);
+  const [calibrationBlocked, setCalibrationBlocked] = useState(false);
   const [backendMode] = useState(false);
   /** 没进存档时，系在存档上的按钮灰着，不让点进去看一页空读数。 */
   const outsideSave = run.known && !run.active;
@@ -189,6 +190,9 @@ export function Main({ bridge, navigate }: ScreenProps) {
   const topWidgets = widgets.filter((w) => w.slot === 'top' && w.visible);
   const leftWidgets = widgets.filter((w) => w.slot === 'left' && w.visible && w.id !== 'brain');
   const last = messages.length > 0 ? messages[messages.length - 1] : null;
+  /** 「朗读最后一条回复」只念她说的那句；自己刚发的那条不念。 */
+  const lastReply = [...messages].reverse().find((message) => !message.mine) ?? null;
+  const voice = useVoice(bridge, 'main');
 
   // 主界面会话：读存档里的会话记录（最近 80 条一次给完，主界面的记录本来就只留这么多）。
   useEffect(() => {
@@ -227,6 +231,17 @@ export function Main({ bridge, navigate }: ScreenProps) {
     } finally {
       setSending(false);
     }
+  };
+
+  // 语音输入：等一句话再填进输入框，不替用户发送；再按一次停掉正在听的那句。
+  const toggleMic = async () => {
+    if (voice.listening) {
+      await voice.stop();
+      return;
+    }
+    const heard = await voice.listen();
+    if (!heard) return;
+    setInput((prev) => (prev ? `${prev}${heard}` : heard));
   };
 
   // Esc 关最上面那一层：礼物箱 → 组件 → 菜单，一次只关一层。
@@ -398,6 +413,11 @@ export function Main({ bridge, navigate }: ScreenProps) {
               <span className="mg__nosprite-note">
                 {live.who ? `这个角色还没有立绘（共 ${live.spriteCount} 张）` : '从标题页读一份存档，这里就是你们的那一幕'}
               </span>
+              {outsideSave ? (
+                <button type="button" className="m-btn m-btn--accent" onClick={() => navigate('/save')}>
+                  去读一份存档
+                </button>
+              ) : null}
             </div>
           )}
 
@@ -408,12 +428,24 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 <button type="button" className="m-btn m-btn--sm" onClick={() => setChatMode(true)}>
                   {modeLabel}
                 </button>
+                {lastReply ? (
+                  <button
+                    type="button"
+                    className="m-btn m-btn--sm"
+                    onClick={() => void voice.speak(lastReply.text)}
+                    title="朗读最后一条回复"
+                  >
+                    朗读
+                  </button>
+                ) : null}
                 <span className="mg__gal-speaker">{last ? (last.mine ? '你' : live.who) : ''}</span>
               </div>
               <div className={`mg__gal-history${last ? '' : ' mg__gal-history--empty'}`}>
                 {last ? last.text : '这一局还没有说过话。'}
               </div>
               {sendHint ? <p className="mg__send-hint">{sendHint}</p> : null}
+              {voice.canListen || !voice.statusReason ? null : <p className="mg__send-hint">{voice.statusReason}</p>}
+              {voice.note ? <p className="mg__send-hint">{voice.note}</p> : null}
               <div className="mg__input">
                 <input
                   value={input}
@@ -430,8 +462,15 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 <button type="button" className="m-ibtn" onClick={() => setGiftOpen(true)}>
                   礼物
                 </button>
-                <button type="button" className="m-ibtn" disabled>
-                  语音
+                <button
+                  type="button"
+                  className="m-ibtn"
+                  onClick={() => void toggleMic()}
+                  disabled={!voice.canListen}
+                  aria-pressed={voice.listening}
+                  title={voice.canListen ? (voice.listening ? '停止听' : '语音输入') : voice.statusReason}
+                >
+                  {voice.listening ? '停止' : '语音'}
                 </button>
                 <button
                   type="button"
@@ -486,6 +525,16 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 <button type="button" className="m-btn" disabled>
                   亲吻
                 </button>
+                {lastReply ? (
+                  <button
+                    type="button"
+                    className="m-btn"
+                    onClick={() => void voice.speak(lastReply.text)}
+                    title="朗读最后一条回复"
+                  >
+                    朗读
+                  </button>
+                ) : null}
                 <button type="button" className="m-btn m-btn--mode" onClick={() => setChatMode(false)}>
                   {chatMode ? '切回 Galgame' : '切到聊天模式'}
                 </button>
@@ -521,8 +570,15 @@ export function Main({ bridge, navigate }: ScreenProps) {
               <button type="button" className="m-ibtn" onClick={() => setGiftOpen(true)}>
                 礼物
               </button>
-              <button type="button" className="m-ibtn" disabled>
-                语音
+              <button
+                type="button"
+                className="m-ibtn"
+                onClick={() => void toggleMic()}
+                disabled={!voice.canListen}
+                aria-pressed={voice.listening}
+                title={voice.canListen ? (voice.listening ? '停止听' : '语音输入') : voice.statusReason}
+              >
+                {voice.listening ? '停止' : '语音'}
               </button>
               <button
                 type="button"
@@ -535,6 +591,8 @@ export function Main({ bridge, navigate }: ScreenProps) {
               </button>
             </div>
             {sendHint ? <p className="mg__send-hint">{sendHint}</p> : null}
+            {voice.canListen || !voice.statusReason ? null : <p className="mg__send-hint">{voice.statusReason}</p>}
+            {voice.note ? <p className="mg__send-hint">{voice.note}</p> : null}
           </Glass>
         ) : null}
       </div>
@@ -701,13 +759,29 @@ export function Main({ bridge, navigate }: ScreenProps) {
             <p className="mg__calib-body">
               标定确定两件事：角色能站在哪里（落脚点），以及近处远处该怎么缩放（缩放标定）。
             </p>
-            <button type="button" className="m-btn m-btn--block m-btn--accent">
+            <button
+              type="button"
+              className="m-btn m-btn--block m-btn--accent"
+              onClick={() => {
+                setCalibrationBlocked(false);
+                navigate('/SceneCalibrationPage');
+              }}
+            >
               现在去标定
             </button>
-            <button type="button" className="m-btn m-btn--block">
+            <button
+              type="button"
+              className="m-btn m-btn--block"
+              disabled
+              title="还没有「把这张背景换成纯色」的写法：这条要等后端给方法"
+            >
               移除这张背景（改用纯色）
             </button>
-            <button type="button" className="m-btn m-btn--block m-btn--ghost">
+            <button
+              type="button"
+              className="m-btn m-btn--block m-btn--ghost"
+              onClick={() => setCalibrationBlocked(false)}
+            >
               暂时用居中显示继续
             </button>
           </Glass>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { Bridge } from '../bridge/client';
 
 /**
@@ -33,8 +33,16 @@ let seq = 0;
 
 export function ToastHost({ bridge }: { bridge: Bridge }) {
   const [items, setItems] = useState<Item[]>([]);
+  const recent = useRef<Record<string, number>>({});
 
   const push = (payload: Omit<Item, 'id'>) => {
+    // 同一条提示可能从两条路各来一次（宿主推一遍、前端自检一遍）：
+    // 内容一样且 9 秒内已经出现过，就不再叠第二张。
+    const stamp = `${payload.code}|${payload.title}|${payload.body}`;
+    const now = performance.now();
+    if (recent.current[stamp] && now - recent.current[stamp] < 9000) return;
+    recent.current[stamp] = now;
+
     const id = ++seq;
     const kind = (payload.kind || 'info') as Kind;
     setItems((prev) => [...prev.slice(-2), { ...payload, kind, id }]);
