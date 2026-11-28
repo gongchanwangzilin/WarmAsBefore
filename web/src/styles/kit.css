@@ -885,3 +885,56 @@ body[data-back-chip='1'] .mg__top {
   width: 10px;
   height: 10px;
 }
+
+/* 下拉：自绘列表（原生 <select> 的弹层在 WebView 里会跑到窗口外面）。
+   列表压在控件下方、卡片内部滚动，永不越出视口。 */
+.k-select { position: relative; display: inline-flex; }
+.k-select__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--w-space-2);
+  padding: 6px var(--w-space-3);
+  border: 1px solid var(--w-hairline);
+  border-radius: 8px;
+  background: var(--w-surface-tint);
+  color: var(--w-ink-body);
+  font: inherit;
+  font-size: var(--w-size-small);
+  cursor: pointer;
+}
+.k-select__label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 22em; }
+.k-select__list {
+  position: absolute;
+  z-index: 40;
+  top: calc(100% + 4px);
+  right: 0;
+  margin: 0;
+  padding: 4px;
+  min-width: 100%;
+  max-height: min(280px, 38vh);
+  overflow: auto;
+  list-style: none;
+  border: 1px solid var(--w-hairline);
+  border-radius: 10px;
+  background: var(--w-surface, var(--w-bg));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--w-ink-display) 22%, transparent);
+}
+.k-select__list--up { top: auto; bottom: calc(100% + 4px); }
+
+.k-select__list button {
+  width: 100%;
+  text-align: left;
+  padding: 5px var(--w-space-2);
+  border: 0;
+  border-radius: 6px;
+  background: none;
+  color: var(--w-ink-body);
+  font: inherit;
+  font-size: var(--w-size-small);
+  cursor: pointer;
+}
+.k-select__list button:hover,
+.k-select__list button[aria-selected='true'] {
+  background: var(--w-tint-card);
+  color: var(--w-ink-display);
+}

@@ -194,7 +194,7 @@ export function MentalHealth({ bridge, back }: ScreenProps) {
       <main className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)', width: '100%', maxWidth: 900, margin: '0 auto' }}>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-1)' }}>
-            <h1 style={{ ...title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>还没有进入存档 · 心理状况</h1>
+            <h1 style={{ ...title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{security ? `${security.who} · 心理状况` : '还没有进入存档 · 心理状况'}</h1>
             <p style={caption}>{NOTE}</p>
             <p style={{ ...caption, ...accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               进入一局游戏后，才能给当前角色设置心理状况。

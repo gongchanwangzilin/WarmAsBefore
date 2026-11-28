@@ -1,4 +1,4 @@
-import { useId, type ReactNode } from 'react';
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react';
 import { Glass } from './Glass';
 
 /**
@@ -314,16 +314,69 @@ export function Select<T extends string>({
   onChange: (next: T) => void;
   label?: string;
 }) {
+  /**
+   * 自绘列表，不用原生 <select>。
+   * WebView2 里原生下拉的弹出层是系统窗口，不受页面布局约束：选项多时它会甩到
+   * 应用窗口外面（心理状况那 116 条就是这么「发」到屏幕右下角的）。
+   */
+  const [open, setOpen] = useState(false);
+  const [flip, setFlip] = useState(false);
+  const box = useRef<HTMLSpanElement | null>(null);
+  const current = options.find((option) => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (event: MouseEvent) => {
+      if (!box.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const esc = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', away);
+    document.addEventListener('keydown', esc);
+    return () => {
+      document.removeEventListener('mousedown', away);
+      document.removeEventListener('keydown', esc);
+    };
+  }, [open]);
+
   return (
-    <span className="k-select">
-      <select value={value} aria-label={label} onChange={(event) => onChange(event.target.value as T)}>
-        {options.map((option) => (
-          <option key={option.value} value={option.value}>
-            {option.label}
-          </option>
-        ))}
-      </select>
-      <i aria-hidden="true" />
+    <span className="k-select" ref={box}>
+      <button
+        type="button"
+        className="k-select__btn"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={label}
+        onClick={() => {
+          const rect = box.current?.getBoundingClientRect();
+          // 下面放不下就往上翻 —— 下拉永远不出视口。
+          setFlip(!!rect && window.innerHeight - rect.bottom < 300 && rect.top > 320);
+          setOpen((prev) => !prev);
+        }}
+      >
+        <span className="k-select__label">{current?.label ?? value}</span>
+        <i aria-hidden="true" />
+      </button>
+      {open ? (
+        <ul className={flip ? 'k-select__list k-select__list--up' : 'k-select__list'} role="listbox">
+          {options.map((option) => (
+            <li key={option.value}>
+              <button
+                type="button"
+                role="option"
+                aria-selected={option.value === value}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+              >
+                {option.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </span>
   );
 }

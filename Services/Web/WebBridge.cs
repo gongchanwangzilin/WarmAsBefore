@@ -309,6 +309,14 @@ public sealed class WebBridge
     /// <summary>宿主 → 前端事件。发不出去只记日志：事件是通知，不是合同。</summary>
     public void Emit(string name, object? payload)
     {
+        // 前端还没挂好就别发：那条 WebView 里的消息通道此时是空的，
+        // 发出去等于丢（启动提示就是这么丢的）。攒着，等 ui.ready 一起补发。
+        if (!WebFrontendReady)
+        {
+            lock (Pending) Pending.Add((name, payload));
+            return;
+        }
+
         var envelope = new JsonObject
         {
             ["event"] = name,
