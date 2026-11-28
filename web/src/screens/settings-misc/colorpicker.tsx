@@ -116,8 +116,8 @@ export function Colorpicker({ query, back }: ScreenProps) {
         onBack={back}
       />
 
-      <main className="screen" style={{ paddingBottom: 88 }}>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)', width: '100%', maxWidth: 760, margin: '0 auto' }}>
+      <main className="screen">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-step-3)', width: '100%', maxWidth: 760 }}>
           <Card>
             <p style={rowTitle}>预览</p>
             <p style={desc}>{PREVIEW_HINT}</p>

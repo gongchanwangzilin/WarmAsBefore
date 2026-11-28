@@ -2956,7 +2956,7 @@ function LifeSection({ writer }: { writer: SettingsWriter }) {
         >
           <div className="s-row__text" style={{ gap: 2 }}>
             <span className="s-row__title">所在城市</span>
-            <span style={{ fontSize: 15, color: 'var(--w-ink-body)' }}>
+            <span style={{ fontSize: 'var(--w-size-body)', lineHeight: 'var(--w-lh-body)', color: 'var(--w-ramp-2)' }}>
               {values.life.weatherCity || '未设置（默认北京）'}
             </span>
           </div>

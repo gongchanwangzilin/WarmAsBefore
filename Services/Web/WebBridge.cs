@@ -1377,12 +1377,18 @@ public sealed class WebBridge
     /// <c>chat.contacts</c>：微信 / QQ 的会话名册。组成照 <c>WeChatViewModel.LoadContactsAsync</c>：
     /// 显式加过好友的在前，这一档其余角色补在后面；名字、头像与「最后一条」都取盘上的真数据。
     /// 一条都没有时返回空表 —— 前端照源码说「这一档还没有角色」，不编会话。
+    ///
+    /// 进档之后「最后一条 / 时间 / 未读」只认这一档自己的那一池（<see cref="SaveManager.WeChatLog"/>）：
+    /// 好友表是全局的一份，里面攒着别的档和存盘前的最后一条，照抄过来就成了「在这一档里看见另一局的会话」。
+    /// 这一档没有一条消息的人，行上照源码的空态说「还没有聊过」，角标一个都不画。
+    /// 这里全是读：不 Boot 引擎、不 NewRun、不写盘 —— 看一眼名册不改变当前存档的状态。
     /// </summary>
     private async Task<object?> ChatContactsAsync(JsonElement p)
     {
         var shell = ChatShellOf(p);
         var friends = await _wechat.ListAsync();
         var all = await _characters.ListAsync();
+        var inSave = !string.IsNullOrEmpty(_saves.CurrentSaveId);
 
         var ids = new List<string>();
         foreach (var c in friends)
@@ -1397,16 +1403,27 @@ public sealed class WebBridge
             var ch = all.FirstOrDefault(x => x.Profile.Id == id);
             if (ch is null) continue;   // 好友表里指着一个角色库里没有的人：不摆一行空壳
             var c = friends.FirstOrDefault(x => x.CharacterId == id);
+            // 这一档的那一池（只读）。没进档时退回全局好友表那一条，与源码页外一致。
+            var tail = inSave && _saves.WeChatLog.TryGetValue(id, out var pool) && pool.Count > 0
+                ? pool[^1]
+                : null;
+            var talked = !inSave || tail is not null;
+            var last = inSave
+                ? (tail is null || string.IsNullOrWhiteSpace(tail.Text)
+                    ? PhoneMessageService.PreviewOf(tail?.EffectiveKind ?? PhoneMessage.KindText, tail?.FileName)
+                    : tail.Text)
+                : c?.LastMessage ?? "";
+            if (string.IsNullOrWhiteSpace(last)) last = "还没有聊过";
             rows.Add(new
             {
                 id,
                 name = ch.Profile.Name,
                 avatarUrl = AssetUrl(ch.Avatar),
-                last = string.IsNullOrWhiteSpace(c?.LastMessage) ? "还没有聊过" : c!.LastMessage,
-                time = c is null ? "" : TimeLabelOf(c.LastMessageAt),
-                unread = c?.Unread ?? false,
+                last,
+                time = !talked ? "" : TimeLabelOf(inSave ? tail!.At : c?.LastMessageAt ?? default),
+                unread = talked && (c?.Unread ?? false),
                 // 角标上的真数字（> 99 由前端收成「99+」）；unread 留着，老前端只认布尔也不破。
-                unreadCount = c?.UnreadCount ?? 0,
+                unreadCount = talked ? c?.UnreadCount ?? 0 : 0,
                 // 加好友时写的备注（可空）：联系人行显示，删了就没有。
                 note = c?.Note ?? "",
                 // friend = 在好友表里（能删）；roster = 只是这一档的角色（补在名册后面，删不掉）。
@@ -1480,12 +1497,17 @@ public sealed class WebBridge
     /// <c>chat.unread.summary</c>：未读的轻量总数，手机桌面 / Dock 上的 QV 角标与主界面顶栏「手机」上的小点用它。
     /// byContact 只列有未读的人，total 就是它们的和 —— 两个数同一份联系人表算出来，不会一个对一个不对。
     /// 读数仍然来自 <see cref="WeChatService.ListAsync"/>，不在这里另存一份计数：未读只有一处真相。
+    /// 进档之后只算这一档有消息的人：别的档攒下的未读不该挂在当前档的角标上。
+    /// 这里也是纯读：不 Boot、不 NewRun、不写盘。
     /// </summary>
     private async Task<object?> ChatUnreadSummaryAsync()
     {
         var list = await _wechat.ListAsync();
+        var inSave = !string.IsNullOrEmpty(_saves.CurrentSaveId);
         var byContact = list
             .Where(c => c.UnreadCount > 0 && !string.IsNullOrEmpty(c.CharacterId))
+            .Where(c => !inSave
+                || _saves.WeChatLog.TryGetValue(c.CharacterId, out var pool) && pool.Count > 0)
             .Select(c => new { id = c.CharacterId, count = c.UnreadCount })
             .ToList();
         return new { total = byContact.Sum(c => c.count), byContact };

@@ -336,7 +336,7 @@ export function Petsettings({ navigate, back }: ScreenProps) {
                   borderRadius: 9,
                   background: 'var(--w-surface-tint)',
                   color: 'var(--w-ink-label)',
-                  fontSize: 11,
+                  fontSize: 'var(--w-size-caption)',
                 }}
               >
                 发送
@@ -375,7 +375,16 @@ export function Petsettings({ navigate, back }: ScreenProps) {
               justifyContent: 'center',
             }}
           >
-            <span style={{ fontSize: 15, color: 'var(--w-ink-label)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span
+              style={{
+                fontSize: 'var(--w-size-body)',
+                lineHeight: 'var(--w-lh-body)',
+                color: 'var(--w-ramp-3)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
               (˶ᵔ ᵕ ᔔ˶)
             </span>
           </div>
@@ -397,7 +406,7 @@ export function Petsettings({ navigate, back }: ScreenProps) {
                     borderRadius: 11,
                     background: 'var(--w-tint-track)',
                     color: 'var(--w-ink-body)',
-                    fontSize: 13,
+                    fontSize: 'var(--w-size-small)',
                     whiteSpace: 'nowrap',
                   }}
                 >

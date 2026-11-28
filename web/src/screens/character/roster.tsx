@@ -306,7 +306,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                                 {busyId === item.id ? '导出中…' : '导出'}
                               </TextBtn>
                             </span>
-                            <span style={{ color: 'var(--w-ink-faint)', fontSize: 18 }}>›</span>
+                            <span className="k-row__chev" aria-hidden="true" />
                           </span>
                         </div>
                         <Hair />
@@ -508,8 +508,10 @@ function Reading({ eyebrow, value, note }: { eyebrow: string; value: string; not
         <span
           style={{
             fontFamily: 'var(--w-font-num)',
-            fontSize: 24,
-            color: 'var(--w-ink-display)',
+            fontSize: 'var(--w-size-title)',
+            lineHeight: 'var(--w-lh-title)',
+            letterSpacing: '-0.015em',
+            color: 'var(--w-ramp-1)',
             fontVariantNumeric: 'tabular-nums',
           }}
         >

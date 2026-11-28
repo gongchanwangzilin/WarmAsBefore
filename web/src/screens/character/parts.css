@@ -34,7 +34,8 @@
 }
 
 .cr-avatar__plus { font-size: var(--w-size-subhead); line-height: 1; }
-.cr-avatar__hint { font-size: var(--w-size-caption); }
+.cr-avatar__hint { font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption); }
 
 /* 舞台：卡自己滚（源码里立绘栏是一列 ScrollView），立绘与读数不跟着右边的长表单跑掉。 */
 .cs-stage > .glass__content {

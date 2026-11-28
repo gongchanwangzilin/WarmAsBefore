@@ -102,18 +102,11 @@ public sealed class PhoneMessageService
         if (InSave)
         {
             // 存档内的分角色池：这一档里这个角色的全部消息。
-            if (_save.WeChatLog.TryGetValue(characterId, out var mine) && mine.Count > 0)
+            // 「读」就是读：这一档还没聊过的人，不把老的全局列表搬进来、也不排一次落盘 ——
+            // 打开一页会话不该改写当前档，更不该把别的档（或存盘前的全局池）的东西塞进这一档。
+            if (_save.WeChatLog.TryGetValue(characterId, out var mine))
                 return WithoutFailures(mine).OrderBy(m => m.At).ToList();
-
-            // 老数据（全局 phone_messages）只在第一次遇到这一档时搬进来一次，之后不再读它，
-            // 否则同一个角色在两个档里会看到同一份历史。
-            var legacy = WithoutFailures(await LegacyForAsync(characterId)).ToList();
-            if (legacy.Count > 0)
-            {
-                _save.WeChatLog[characterId] = legacy.TakeLast(MaxPerCharacter).ToList();
-                SchedulePersist();
-            }
-            return legacy;
+            return Array.Empty<PhoneMessage>();
         }
         // 没有档时（首页/角色库）读的是老的全局列表，同样要滤掉失败回显。
         return WithoutFailures(await LegacyForAsync(characterId)).ToList();

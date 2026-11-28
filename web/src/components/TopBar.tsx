@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react';
 import { Glass } from './Glass';
-import { MotifScan, Rail } from './kit';
+import { HeadBlock, MotifScan } from './kit';
 
 type Props = {
   title: string;
@@ -9,7 +9,7 @@ type Props = {
   right?: ReactNode;
   /**
    * plain：设置首页那一档 —— 页名压在页面底色上，下面一根发丝线（SettingsPage.xaml 的 0/1 行）；
-   * bar：分类子页那一档 —— 整条玻璃页头，内距 16,12（SettingsSectionPage.xaml 的 Header）。
+   * bar：分类子页那一档 —— 整条玻璃页头。
    */
   variant?: 'plain' | 'bar';
   /** 标签轨上的标签；缺省不摆（标题本身已经说了这是哪一页） */
@@ -18,25 +18,9 @@ type Props = {
   index?: string;
 };
 
+/** 顶栏：与 PageHeader 共用同一份页头骨架（.hd），只有底材一档不同。 */
 export function TopBar({ title, onBack, right, variant = 'plain', tag, index }: Props) {
-  const inner = (
-    <div className="bar__body">
-      <div className="bar__inner">
-        {onBack ? (
-          <button type="button" className="bar__back" onClick={onBack}>
-            &lt; 返回
-          </button>
-        ) : (
-          <span />
-        )}
-        <h1 className="bar__title" data-page-title tabIndex={-1}>
-          {title}
-        </h1>
-        <span className="bar__right">{right}</span>
-      </div>
-      <Rail num={index ?? (onBack ? '02' : '01')} tag={tag} />
-    </div>
-  );
+  const inner = <HeadBlock title={title} onBack={onBack} right={right} eyebrow={tag} index={index} />;
 
   if (variant === 'bar') {
     return (

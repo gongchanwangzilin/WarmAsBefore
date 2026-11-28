@@ -77,8 +77,9 @@ export function SectionHead({ no, eyebrow, title }: { no: string; eyebrow: strin
         <span
           style={{
             fontFamily: 'var(--w-font-num)',
-            fontSize: '26px',
-            color: 'var(--w-ink-faint)',
+            fontSize: 'var(--w-size-title)',
+            lineHeight: 'var(--w-lh-title)',
+            color: 'var(--w-ramp-5)',
             alignSelf: 'center',
           }}
         >

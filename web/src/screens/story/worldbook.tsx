@@ -157,7 +157,7 @@ export function Worldbook({ bridge, back }: ScreenProps) {
         }
       />
 
-      <div className="screen" style={{ maxWidth: 960 }}>
+      <div className="screen">
         {!draft ? (
           <Stack gap={4}>
             <Stack gap={1}>

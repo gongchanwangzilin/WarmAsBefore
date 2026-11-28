@@ -190,7 +190,7 @@ export function Usagestats({ back }: ScreenProps) {
               <span style={caption}>时</span>
               <div style={{ display: 'flex', gap: 2 }}>
                 {Array.from({ length: 24 }, (_, h) => (
-                  <span key={h} style={{ width: 11, fontSize: 8, textAlign: 'center', color: 'var(--w-ink-muted)' }}>
+                  <span key={h} style={{ width: 12, fontSize: 'var(--w-size-caption)', lineHeight: 'var(--w-lh-caption)', textAlign: 'center', color: 'var(--w-ramp-4)' }}>
                     {h % 6 === 0 ? h : ''}
                   </span>
                 ))}

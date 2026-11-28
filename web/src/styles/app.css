@@ -14,6 +14,7 @@ body {
   margin: 0;
   font-family: var(--w-font-ui);
   font-size: var(--w-size-body);
+  line-height: var(--w-lh-body);
   background: var(--w-bg);
   color: var(--w-ink-body);
   -webkit-font-smoothing: antialiased;
@@ -55,7 +56,8 @@ ol {
   background: var(--w-bg);
   color: var(--w-ink-body);
   font-size: var(--w-size-body);
-  line-height: 1.45;
+  /* 兜底行高 = body 档的配对值：没写行高的文字按正文排，不按浏览器的 1.45 随机值。 */
+  line-height: var(--w-lh-body);
 
   /* 材质推导必须在这层算：它的 --w-alpha 是 React 写进来的滑杆值 */
   --w-face-k: calc(1.3 - var(--w-alpha) * 0.55);
@@ -205,7 +207,8 @@ ol {
   animation: item-settle 180ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
 }
 
-/* ── 页头：两档（SettingsPage 的页面底色档 / SettingsSectionPage 的玻璃带档） ── */
+/* ── 页头：两档（SettingsPage 的页面底色档 / SettingsSectionPage 的玻璃带档） ──
+   内部版式（.hd）在 kit.css：两行导航 + 标题 + 标签轨，压在栅格线上。这里只管底材。 */
 
 .bar {
   position: sticky;
@@ -215,75 +218,45 @@ ol {
 }
 
 .bar--plain {
-  padding: 16px 24px 12px;
   border-bottom: 1px solid var(--w-hairline);
 }
 
 .bar--glass {
-  padding: 12px 16px;
-}
-
-.bar__inner {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: 14px;
-}
-
-.bar__back {
-  appearance: none;
-  border: 0;
-  background: none;
-  padding: 0;
-  margin: 0;
-  font: inherit;
-  font-size: var(--w-size-small);
-  color: var(--w-ink-label);
-  cursor: pointer;
-  border-radius: var(--w-radius-well);
-}
-
-.bar__back:hover {
-  color: var(--w-ink-display);
-}
-
-.bar__title {
-  font-size: var(--w-size-title);
-  font-weight: 700;
-  color: var(--w-ink-display);
-}
-
-.bar__right {
-  min-width: 1px;
+  border-radius: 0;
 }
 
 /* ── 设置首页（SettingsPage.xaml） ─────────────────────── */
 
 .home {
-  padding: 20px 24px 32px;
+  padding: var(--w-step-5) 0 var(--w-step-7);
 }
 
+/* 与页头同一个栅格：内容列 1080、两侧页边距，左边界与标题对齐。 */
 .home__body {
   display: flex;
   flex-direction: column;
-  gap: var(--w-space-3);
-  width: min(90vw, 1600px);
-  max-width: 100%;
+  gap: 0;
+  width: 100%;
+  max-width: var(--w-rail-outer);
+  padding-inline: var(--w-pad-page);
   margin-inline: auto;
+  box-sizing: border-box;
 }
 
 /* iPhone 的 large title：只有窄屏摆，电脑上顶栏已有页名 */
 .home__title {
-  margin-left: 2px;
   font-size: var(--w-size-display);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--w-ramp-1);
 }
 
 .home__sub {
-  margin: -8px 0 4px 2px;
-  font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  margin-top: var(--w-step-1);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-4);
 }
 
 @media (min-width: 901px) {
@@ -303,54 +276,28 @@ ol {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: var(--w-space-2);
+  gap: var(--w-step-2);
 }
 
 .search__input {
   width: 100%;
-  height: 28px;
-  padding: 0 8px;
+  height: 32px;
+  padding: 0 var(--w-step-2);
   border: 0;
   border-radius: var(--w-radius-well);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--w-tint-button);
   font: inherit;
-  font-size: 13px;
-  color: var(--w-ink-body);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-2);
 }
 
 .search__input::placeholder {
   color: var(--w-ink-muted);
 }
 
-/* 组标题 = 编号 + 标题 + 发丝线（「常驻」「全部设置」）：
-   编号由 CSS 计数器自动给，线补满整行 —— 分组在这套语言里是「一条蚀刻刻度」，
-   不是一行飘在卡片上方的灰字。 */
-.group {
-  counter-increment: k-group;
-  display: grid;
-  grid-template-columns: auto auto 1fr;
-  align-items: center;
-  gap: 10px;
-  margin: 18px 0 2px;
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-  color: var(--w-ramp-3);
-}
-.group::before {
-  content: counter(k-group, decimal-leading-zero);
-  font-family: var(--w-font-num);
-  font-size: 9px;
-  letter-spacing: 0.12em;
-  font-variant-numeric: tabular-nums;
-  color: var(--w-ramp-4);
-}
-.group::after {
-  content: '';
-  height: 1px;
-  background: var(--w-ramp-6);
-}
+/* 组标题（「常驻」「全部设置」）的几何在 kit.css —— 与 GroupLabel 共用同一份，
+   编号、标题、发丝线三段的宽度和字阶不会在两处各走各的。 */
 
 .list {
   padding: 0;
@@ -381,10 +328,10 @@ ol {
   display: grid;
   grid-template-columns: 1fr auto auto;
   align-items: center;
-  gap: 12px;
+  gap: var(--w-step-3);
   width: 100%;
-  height: 54px;
-  padding: 0 16px;
+  min-height: 52px;
+  padding: var(--w-step-3) var(--w-step-4);
   border: 0;
   border-radius: 0;
   background: none;
@@ -408,8 +355,9 @@ ol {
 
 .l-row__title {
   font-size: var(--w-size-body);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-body);
+  font-weight: 600;
+  color: var(--w-ramp-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -418,15 +366,16 @@ ol {
 .l-row__summary {
   max-width: min(52vw, 460px);
   font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ramp-4);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .l-row__chev {
-  font-size: 18px;
-  color: var(--w-ink-faint);
+  font-size: 0;
+  color: transparent;
 }
 
 /* 窄屏让出摘要那一位给标题 */
@@ -443,28 +392,30 @@ ol {
 /* ── 分类子页（SettingsSectionPage.xaml） ─────────────── */
 
 .section {
-  padding: 16px 24px 24px;
+  padding: var(--w-step-5) 0 var(--w-step-7);
 }
 
 .section__body {
   display: flex;
   flex-direction: column;
-  gap: var(--w-space-3);
-  width: min(90vw, 1600px);
-  max-width: 100%;
+  gap: 0;
+  width: 100%;
+  max-width: var(--w-rail-outer);
+  padding-inline: var(--w-pad-page);
   margin-inline: auto;
+  box-sizing: border-box;
 }
 
 .section__head {
   display: flex;
   flex-direction: column;
-  gap: var(--w-space-1);
+  gap: var(--w-step-1);
 }
 
 .section__title-row {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: var(--w-step-2);
 }
 
 .section__mark {
@@ -476,29 +427,35 @@ ol {
 
 .section__title {
   font-size: var(--w-size-title);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-title);
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  color: var(--w-ramp-1);
 }
 
 .section__desc {
-  font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-4);
 }
 
 .s-card {
-  padding: var(--w-pad-card);
+  padding: var(--w-step-4);
 }
 
 .s-card__title {
   font-size: var(--w-size-subhead);
-  font-weight: 700;
-  color: var(--w-ink-body);
+  line-height: var(--w-lh-subhead);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--w-ramp-1);
 }
 
 .s-card__note {
-  margin-top: 6px;
-  font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  margin-top: var(--w-step-1);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-4);
 }
 
 .s-rows {
@@ -511,11 +468,11 @@ ol {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  padding: 13px 0;
+  padding: var(--w-step-3) 0;
 }
 
 .s-row--gap {
-  gap: var(--w-space-3);
+  gap: var(--w-step-3);
 }
 
 .s-row__text {
@@ -526,44 +483,47 @@ ol {
 
 .s-row__title {
   font-size: var(--w-size-small);
-  color: var(--w-ink-body);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-2);
 }
 
 .s-row__desc {
   font-size: var(--w-size-caption);
-  line-height: 1.35;
-  color: var(--w-ink-muted);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ramp-4);
 }
 
 .s-row__control {
   display: flex;
   align-items: center;
-  gap: var(--w-space-2);
+  gap: var(--w-step-2);
 }
 
 /* 发丝线通到卡边：靠负的横向 Margin 抵消卡内距 */
 .s-sep {
   height: 1px;
-  margin: 0 calc(-1 * var(--w-pad-card));
+  margin: 0 calc(-1 * var(--w-step-4));
   background: var(--w-hairline);
 }
 
 .s-block {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  padding: 13px 0;
+  gap: var(--w-step-2);
+  padding: var(--w-step-3) 0;
 }
 
 .s-warn {
-  margin-top: -6px;
+  margin-top: 0;
   font-size: var(--w-size-caption);
-  color: var(--w-signal);
+  line-height: var(--w-lh-caption);
+  color: var(--w-status);
 }
 
 .cap {
   font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ramp-4);
 }
 
 .cap--warn {
@@ -573,15 +533,16 @@ ol {
 /* ── 控件 ─────────────────────────────────────────────── */
 
 .picker {
-  width: 190px;
-  height: 30px;
-  padding: 0 8px;
+  width: 192px;
+  height: 32px;
+  padding: 0 var(--w-step-2);
   border: 1px solid var(--w-hairline);
   border-radius: var(--w-radius-button);
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--w-tint-button);
   font: inherit;
-  font-size: 13px;
-  color: var(--w-ink-body);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-2);
   cursor: pointer;
 }
 
@@ -594,14 +555,14 @@ ol {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  margin: 4px 0;
+  margin: var(--w-step-1) 0;
 }
 
 .swatch {
   position: relative;
   width: 34px;
   height: 34px;
-  margin: 4px 10px 4px 0;
+  margin: var(--w-step-1) var(--w-step-3) var(--w-step-1) 0;
   padding: 0;
   border: 0;
   border-radius: 10px;
@@ -627,17 +588,17 @@ ol {
 /* 预设配色那一排：一套一张卡，卡里是它的卡面 + 主色一圆点，下面短名与那句说明。 */
 .presets {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(108px, 1fr));
-  gap: var(--w-space-2);
-  margin: 4px 0 2px;
+  grid-template-columns: repeat(auto-fill, minmax(112px, 1fr));
+  gap: var(--w-step-2);
+  margin: var(--w-step-1) 0;
 }
 
 .preset {
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 5px;
-  padding: 8px;
+  gap: var(--w-step-1);
+  padding: var(--w-step-2);
   border: 1px solid var(--w-hairline);
   border-radius: var(--w-radius-card);
   background: var(--w-tint-button);
@@ -684,6 +645,7 @@ ol {
 
 .preset__name {
   font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
   color: var(--w-ink-display);
 }
 
@@ -697,8 +659,8 @@ ol {
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: var(--w-space-2);
-  margin-top: 4px;
+  gap: var(--w-step-2);
+  margin-top: var(--w-step-1);
 }
 
 .colorpick {
@@ -712,12 +674,13 @@ ol {
 /* 只有文字的动作（BtnText）：跟主题、清空 */
 .textbtn {
   appearance: none;
-  padding: 6px 12px;
+  padding: var(--w-step-1) var(--w-step-3);
   border: 0;
   border-radius: var(--w-radius-button);
   background: none;
   font: inherit;
   font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
   color: var(--w-ink-display);
   cursor: pointer;
 }
@@ -731,6 +694,7 @@ ol {
   display: inline-flex;
   align-items: center;
   justify-content: center;
+  gap: var(--w-step-2);
   border: 0;
   font-family: var(--w-font-ui);
   color: var(--w-ink-display);
@@ -739,27 +703,31 @@ ol {
 }
 
 .gbtn--sm {
-  height: 34px;
-  padding: 0 12px;
-  font-size: 11.5px;
+  height: 32px;
+  padding: 0 var(--w-step-3);
+  font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
+  letter-spacing: 0.04em;
 }
 
 .gbtn--md {
   height: 40px;
-  padding: 0 18px;
-  font-size: 13px;
+  padding: 0 var(--w-step-4);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
 }
 
 .gbtn--lg {
-  height: 46px;
+  height: 48px;
   min-width: 200px;
-  padding: 0 30px;
+  padding: 0 var(--w-step-6);
   font-size: var(--w-size-body);
-  font-weight: 700;
+  line-height: var(--w-lh-body);
+  font-weight: 600;
 }
 
 .gbtn--tight {
-  padding: 0 14px;
+  padding: 0 var(--w-step-3);
 }
 
 .link {
@@ -770,6 +738,7 @@ ol {
   margin-left: 6px;
   font: inherit;
   font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
   color: var(--w-ink-label);
   text-decoration: underline;
   text-decoration-color: var(--w-hairline);
@@ -787,6 +756,7 @@ ol {
   background: rgba(255, 255, 255, 0.04);
   font: inherit;
   font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
   color: var(--w-ink-label);
   cursor: pointer;
 }
@@ -805,13 +775,14 @@ ol {
 .signal {
   appearance: none;
   border: 0;
-  height: 46px;
+  height: 48px;
   min-width: 200px;
-  padding: 0 30px;
+  padding: 0 var(--w-step-6);
   border-radius: var(--w-radius-button);
   font-family: var(--w-font-ui);
   font-size: var(--w-size-body);
-  font-weight: 700;
+  line-height: var(--w-lh-body);
+  font-weight: 600;
   color: var(--w-ink-on-signal);
   cursor: pointer;
 }
@@ -829,7 +800,7 @@ ol {
 
 .title {
   height: 100%;
-  padding: 24px;
+  padding: var(--w-step-5);
   display: flex;
 }
 
@@ -859,8 +830,8 @@ ol {
 .brand {
   display: flex;
   align-items: center;
-  gap: var(--w-space-2);
-  padding: var(--w-pad-card);
+  gap: var(--w-step-3);
+  padding: var(--w-step-4);
 }
 
 .brand__mark {
@@ -883,19 +854,22 @@ ol {
 .brand__text {
   display: flex;
   flex-direction: column;
-  gap: 1px;
+  gap: var(--w-step-1);
 }
 
 .brand__name {
   font-size: var(--w-size-title);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-title);
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  color: var(--w-ramp-1);
 }
 
 .brand__latin {
   font-size: var(--w-size-caption);
-  letter-spacing: 2.2px;
-  color: var(--w-ink-faint);
+  line-height: var(--w-lh-caption);
+  letter-spacing: 0.16em;
+  color: var(--w-ramp-5);
 }
 
 .hr {
@@ -911,10 +885,10 @@ ol {
 .menu__row {
   appearance: none;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 2.4ch 1fr auto;
   align-items: center;
-  gap: var(--w-space-2);
-  padding: 9.92px var(--w-pad-card);
+  gap: var(--w-step-2);
+  padding: var(--w-step-3) var(--w-step-4);
   border: 0;
   background: none;
   font: inherit;
@@ -934,43 +908,50 @@ ol {
 .menu__num {
   font-family: var(--w-font-num);
   font-size: var(--w-size-caption);
-  letter-spacing: 3px;
-  color: var(--w-ink-faint);
+  line-height: var(--w-lh-caption);
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--w-ramp-5);
 }
 
 .menu__label {
   font-size: var(--w-size-body);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-body);
+  font-weight: 600;
+  color: var(--w-ramp-1);
 }
 
 .menu__chev {
   font-size: var(--w-size-subhead);
-  color: var(--w-ink-faint);
+  line-height: var(--w-lh-subhead);
+  color: var(--w-ramp-5);
 }
 
 .foot {
   display: flex;
   flex-direction: column;
-  gap: var(--w-space-3);
-  padding: var(--w-pad-card);
+  gap: var(--w-step-2);
+  padding: var(--w-step-4);
 }
 
 .foot__name {
   font-size: var(--w-size-small);
-  color: var(--w-ink-label);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-2);
 }
 
 .foot__desc {
-  margin-top: 3px;
+  margin: 0;
   font-size: var(--w-size-caption);
-  line-height: 1.25;
-  color: var(--w-ink-muted);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ramp-4);
 }
 
 .foot__btns {
   display: flex;
-  gap: var(--w-space-2);
+  gap: var(--w-step-2);
+  margin-top: var(--w-step-2);
 }
 
 .hero {
@@ -983,10 +964,11 @@ ol {
 .hero__legend {
   align-self: flex-end;
   display: flex;
-  gap: 6px;
-  margin: var(--w-pad-card);
+  gap: var(--w-step-2);
+  margin: var(--w-step-4);
   font-size: var(--w-size-caption);
-  color: var(--w-ink-muted);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ramp-4);
 }
 
 .hero__band {
@@ -995,62 +977,68 @@ ol {
   flex-direction: column;
   justify-content: center;
   align-items: flex-start;
-  gap: var(--w-space-2);
+  gap: var(--w-step-5);
   max-width: 640px;
-  padding: 25px 23px 27px;
+  padding: var(--w-step-7) var(--w-step-5);
 }
 
 .hero__tagline {
   font-size: var(--w-size-display);
-  line-height: 1.25;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-display);
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--w-ramp-1);
 }
 
 .hero .state {
-  margin: 0 var(--w-pad-card) var(--w-pad-card);
+  margin: 0 var(--w-step-4) var(--w-step-4);
 }
 
 .recent {
   align-self: flex-start;
   max-width: 520px;
-  margin: 0 var(--w-pad-card) var(--w-pad-card);
-  padding: var(--w-pad-card);
+  margin: 0 var(--w-step-4) var(--w-step-4);
+  padding: var(--w-step-4);
 }
 
 .recent > .glass__content {
   display: grid;
   grid-template-columns: 1fr auto;
   align-items: center;
-  gap: var(--w-space-3);
+  gap: var(--w-step-4);
 }
 
 .recent__text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--w-step-1);
   min-width: 0;
 }
 
 .eyebrow {
   font-family: var(--w-font-num);
   font-size: var(--w-size-caption);
-  letter-spacing: 3px;
-  color: var(--w-ink-faint);
+  line-height: var(--w-lh-caption);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--w-ramp-5);
 }
 
 .recent__name {
   font-size: var(--w-size-title);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-title);
+  font-weight: 620;
+  letter-spacing: -0.015em;
+  color: var(--w-ramp-1);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .recent__scene {
-  font-size: var(--w-size-caption);
-  line-height: 1.25;
-  color: var(--w-ink-muted);
+  font-size: var(--w-size-small);
+  line-height: var(--w-lh-small);
+  color: var(--w-ramp-4);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1059,7 +1047,7 @@ ol {
 /* 窄屏：同一批控件上下叠（TitlePage 的 CompactScroll 那一档） */
 @media (max-width: 819px) {
   .title {
-    padding: 12px;
+    padding: var(--w-step-3);
   }
 
   .shell > .glass__content {
@@ -1071,7 +1059,7 @@ ol {
   }
 
   .hero__band {
-    padding: 16px;
+    padding: var(--w-step-4);
   }
 }
 
@@ -1215,34 +1203,39 @@ ol {
 /* ── 空 / 错 ──────────────────────────────────────────── */
 
 .state {
-  padding: var(--w-pad-card);
+  padding: var(--w-step-6) var(--w-step-4);
+  width: 100%;
 }
 
 .state__title {
   font-size: var(--w-size-subhead);
-  font-weight: 700;
-  color: var(--w-ink-display);
+  line-height: var(--w-lh-subhead);
+  font-weight: 600;
+  letter-spacing: -0.005em;
+  color: var(--w-ramp-1);
 }
 
 .state__body {
-  margin-top: var(--w-space-2);
+  margin-top: var(--w-step-2);
   font-size: var(--w-size-body);
-  line-height: 1.65;
-  color: var(--w-ink-label);
+  line-height: var(--w-lh-body);
+  color: var(--w-ramp-2);
 }
 
 .state__detail {
-  margin-top: var(--w-space-2);
+  margin-top: var(--w-step-2);
   font-family: var(--w-font-num);
   font-size: var(--w-size-caption);
-  line-height: 1.5;
-  color: var(--w-ink-muted);
+  line-height: var(--w-lh-caption);
+  color: var(--w-ramp-5);
 }
 
+/* 出路与正文同一条左轴：状态块的三个部分（为什么、细节、下一步）读起来是一段话。 */
 .state__actions {
   display: flex;
-  justify-content: flex-end;
-  margin-top: var(--w-space-3);
+  justify-content: flex-start;
+  gap: var(--w-step-2);
+  margin-top: var(--w-step-5);
 }
 
 /* ── 骨架屏 ───────────────────────────────────────────── */
@@ -1272,16 +1265,16 @@ ol {
 }
 
 .sk-rows {
-  padding: var(--w-pad-card) 0;
+  padding: var(--w-step-3) 0;
 }
 
 .sk-row {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: var(--w-space-3);
-  height: 54px;
-  padding: 0 var(--w-pad-card);
+  gap: var(--w-step-3);
+  height: 52px;
+  padding: 0 var(--w-step-4);
 }
 
 .sk-row + .sk-row {
@@ -1289,7 +1282,7 @@ ol {
 }
 
 .sk-gap {
-  height: var(--w-space-2);
+  height: var(--w-step-2);
 }
 
 /* 减少动态：时长归零（令牌侧已改），骨架屏的流光直接停住，状态变化照常落定。
@@ -1316,8 +1309,7 @@ ol {
   .l-row,
   .k-row--tap,
   .k-textbtn,
-  .ph__back,
-  .bar__back,
+  .hd__back,
   .backchip__btn,
   .swatch,
   .link {
@@ -1330,8 +1322,7 @@ ol {
   .ghost:active,
   .textbtn:active,
   .k-textbtn:active,
-  .ph__back:active,
-  .bar__back:active,
+  .hd__back:active,
   .backchip__btn:active,
   .swatch:active,
   .link:active,
@@ -1356,25 +1347,11 @@ body {
 }
 
 /* ───────── 设计基线（按 Apple HIG 那套翻译过来的四条） ─────────
-   1. 字的疏密：大字号收一点、小字号放一点，视觉字号才等宽；
+   1. 字的疏密：大字号收一点、小字号放一点，视觉字号才等宽
+      —— 六档的字距与行高配对表在 kit.css 顶部，这里不再各写一份；
    2. 浮层靠「渐变收边」而不是一条硬线；
    3. 按压在按下那一刻就有反馈，不等抬起；
    4. 键盘焦点始终看得见。 */
-
-.ph__title {
-  letter-spacing: -0.012em;
-  line-height: 1.15;
-}
-.ph__sub {
-  letter-spacing: 0.004em;
-}
-.k-card__title,
-.k-stat__value {
-  letter-spacing: -0.008em;
-}
-.k-group {
-  letter-spacing: 0.12em;
-}
 
 /* 页头下沿：一条 1px 发丝线（扫描线在它上面，见 .ph__scan）。
    旧版那条 10px 的渐隐灰带在深纸上会亮成一条雾，纸上没有这种过渡 —— 这条语言里分区只靠线。 */
@@ -1382,6 +1359,9 @@ body {
   height: 1px;
   background: var(--w-ramp-6);
   opacity: 1;
+}
+.bar--plain {
+  border-bottom: 1px solid var(--w-ramp-6);
 }
 .ph--ground::after {
   display: none;
@@ -1396,8 +1376,7 @@ body {
     .ghost,
     .textbtn,
     .k-textbtn,
-    .ph__back,
-    .bar__back,
+    .hd__back,
     .backchip__btn,
     .swatch,
     .link,
@@ -1426,8 +1405,7 @@ body {
     .ghost,
     .textbtn,
     .k-textbtn,
-    .ph__back,
-    .bar__back,
+    .hd__back,
     .backchip__btn,
     .swatch,
     .link,
@@ -1509,29 +1487,30 @@ a {
   border-left: 0;
 }
 .world .mg__top .mg__w-title {
-  font-size: 8px;
-  line-height: 12px;
-  letter-spacing: 0.18em;
+  font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--w-ramp-4);
+  color: var(--w-ramp-5);
 }
 .world .mg__top .mg__w-value {
   font-family: var(--w-font-num);
-  font-size: 15px;
-  line-height: 19px;
+  font-size: var(--w-size-subhead);
+  line-height: var(--w-lh-subhead);
   font-weight: 600;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--w-ramp-1);
 }
+/* 时钟是这条带上唯一的重心：用 title 档，其余读数一律 subhead。 */
 .world .mg__top .mg__w-value--clock {
-  font-size: 21px;
-  line-height: 22px;
-  letter-spacing: -0.03em;
+  font-size: var(--w-size-title);
+  line-height: var(--w-lh-title);
+  letter-spacing: -0.02em;
 }
 .world .mg__top-actions {
-  gap: 4px;
-  padding-left: 14px;
+  gap: var(--w-step-1);
+  padding-left: var(--w-step-4);
   border-left: 1px solid var(--w-ramp-6);
 }
 /* 读数带底边：扫描线。它替代了旧版那条 16px 的圆角收边，也替掉了一条硬分隔线。 */
@@ -1573,6 +1552,7 @@ a {
 .l-row__summary {
   font-family: var(--w-font-num);
   font-size: var(--w-size-caption);
+  line-height: var(--w-lh-caption);
   letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--w-ramp-4);
@@ -1622,16 +1602,7 @@ a {
   color: var(--w-status);
 }
 
-/* ── 页头两档：标题压到一级墨，发丝线只留一根 ───────────────── */
-.bar--plain {
-  padding: 16px var(--w-pad-page) 10px;
-}
-.bar__title {
-  color: var(--w-ramp-1);
-}
-.bar__back {
-  color: var(--w-ramp-4);
-}
+/* ── 页头两档：底材由 .bar--plain / .bar--glass 给，内部版式在 kit 的 .hd ── */
 .menu__label {
   color: var(--w-ramp-1);
 }
@@ -1639,16 +1610,14 @@ a {
   color: var(--w-ramp-5);
 }
 
-/* ── 页头的骨架：标题与标签轨同列 ─────────────────────────────── */
-.bar__body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  min-width: 0;
-}
+/* 页头下沿的扫描线：压在发丝线之上，两端各留页边距。 */
 .ph__scan,
 .bar__scan {
-  margin-top: 6px;
+  width: 100%;
+  max-width: var(--w-rail-outer);
+  margin: 0 auto;
+  padding: 0 var(--w-pad-page);
+  box-sizing: border-box;
   height: 4px;
   opacity: 0.8;
 }

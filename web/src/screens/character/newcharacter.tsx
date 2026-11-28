@@ -161,9 +161,11 @@ export function NewCharacter({ bridge, navigate, back }: ScreenProps) {
               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <span
                   style={{
-                    fontSize: 26,
-                    fontWeight: 600,
-                    color: 'var(--w-ink-display)',
+                    fontSize: 'var(--w-size-title)',
+                    lineHeight: 'var(--w-lh-title)',
+                    fontWeight: 620,
+                    letterSpacing: '-0.015em',
+                    color: 'var(--w-ramp-1)',
                     overflow: 'hidden',
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',

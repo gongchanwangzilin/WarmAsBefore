@@ -43,7 +43,7 @@ export function Outfit({ back }: ScreenProps) {
             placeholder="想给 TA 穿什么？"
             aria-label="想给 TA 穿什么？"
             onChange={(event) => setPrompt(event.target.value)}
-            style={{ fontSize: 13 }}
+            style={{ fontSize: 'var(--w-size-small)', lineHeight: 'var(--w-lh-small)' }}
           />
           <div>
             <PrimarySm disabled>生成并穿上</PrimarySm>

@@ -12,7 +12,17 @@ import './savechat.css';
  */
 export function Qv({ bridge, navigate, back }: ScreenProps) {
   const run = useRun(bridge);
-  if (run.known && !run.active) {
+  // 还没问到「现在有没有在跑一份存档」之前，一个壳都不挂：
+  // 壳一挂上就去读名册与历史，而那份名册是全局的 —— 没有当前档时读出来的东西
+  // 不属于任何一局，看着就像「打开 QV 就进了某一档」。先问清楚，再决定挂壳还是挂存档闸。
+  if (!run.known) {
+    return (
+      <PageShell>
+        <div className="screen" aria-busy="true" />
+      </PageShell>
+    );
+  }
+  if (!run.active) {
     return <SaveGate title="QV" eyebrow="// QV" onBack={back} onGoSave={() => navigate('/save')} />;
   }
   return (

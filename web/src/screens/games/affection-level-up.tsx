@@ -79,10 +79,13 @@ export function AffectionLevelUp({ back, query }: ScreenProps) {
             gap: 2,
           }}
         >
-          <span style={{ fontSize: 30, fontWeight: 700 }}>好感等级提升！</span>
+          <span style={{ fontSize: 'var(--w-size-display)', lineHeight: 'var(--w-lh-display)', fontWeight: 600, letterSpacing: '-0.025em' }}>
+            好感等级提升！
+          </span>
           <span
             style={{
-              fontSize: 17,
+              fontSize: 'var(--w-size-subhead)',
+              lineHeight: 'var(--w-lh-subhead)',
               color: 'color-mix(in oklab, var(--w-ink-on-signal) 82%, var(--w-signal))',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
@@ -117,13 +120,21 @@ export function AffectionLevelUp({ back, query }: ScreenProps) {
                 opacity: 0.7,
               }}
             />
-            <span style={{ fontSize: 44, fontWeight: 700, lineHeight: 1.1 }}>
+            <span style={{ fontSize: 'var(--w-size-display)', fontWeight: 600, lineHeight: 'var(--w-lh-display)', letterSpacing: '-0.025em' }}>
               Lv.{safeLevel}
             </span>
-            <span style={{ fontSize: 16, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <span
+              style={{
+                fontSize: 'var(--w-size-subhead)',
+                lineHeight: 'var(--w-lh-subhead)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {name}
             </span>
-            <span style={{ fontSize: 12, opacity: 0.85 }}>
+            <span style={{ fontSize: 'var(--w-size-caption)', lineHeight: 'var(--w-lh-caption)', opacity: 0.85 }}>
               {Number.isFinite(points) ? Math.min(1000, Math.max(0, Math.floor(points))) : 0}/1000 · 跨过了 {safeLevel * 100} 点
             </span>
           </div>
@@ -153,7 +164,7 @@ export function AffectionLevelUp({ back, query }: ScreenProps) {
           left: 0,
           right: 0,
           bottom: 22,
-          fontSize: 13,
+          fontSize: 'var(--w-size-small)',
           color: 'var(--w-ink-on-signal)',
           opacity: 0.75,
         }}

@@ -140,21 +140,16 @@ const AI_NOTE =
 const CATALOG_NOTE =
   '目录按类别分：情绪、焦虑、创伤、强迫、进食、睡眠、精神病性、人格、神经发育、神经、躯体、冲动、特质与安全类。轻度不等于没事，重度也不等于随时失控——严重度决定的是波动幅度与恢复速度。';
 
-const title: CSSProperties = {
-  margin: 0,
-  fontSize: 'var(--w-size-title)',
-  fontWeight: 600,
-  color: 'var(--w-ink-display)',
-};
 const subhead: CSSProperties = {
   margin: 0,
   fontSize: 'var(--w-size-subhead)',
+  lineHeight: 'var(--w-lh-subhead)',
   fontWeight: 600,
-  color: 'var(--w-ink-display)',
+  color: 'var(--w-ramp-1)',
 };
-const caption: CSSProperties = { margin: 0, fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)', lineHeight: 1.6 };
-const bodyText: CSSProperties = { margin: 0, fontSize: 'var(--w-size-body)', color: 'var(--w-ink-body)' };
-const accent: CSSProperties = { color: 'var(--w-ink-label)' };
+const caption: CSSProperties = { margin: 0, fontSize: 'var(--w-size-caption)', color: 'var(--w-ramp-4)', lineHeight: 'var(--w-lh-caption)' };
+const bodyText: CSSProperties = { margin: 0, fontSize: 'var(--w-size-body)', color: 'var(--w-ramp-2)', lineHeight: 'var(--w-lh-body)' };
+const accent: CSSProperties = { color: 'var(--w-ramp-3)' };
 
 const SEVERITIES = [
   { value: '轻度', label: '轻度' },
@@ -189,12 +184,17 @@ export function MentalHealth({ bridge, back }: ScreenProps) {
 
   return (
     <PageShell>
-      <PageHeader title="心理状况" backText="< 返回" onBack={back} />
+      {/* 页名只出一处：谁的状况放副标题，版面上只剩一个重心。 */}
+      <PageHeader
+        title="心理状况"
+        subtitle={security ? `${security.who} · 心理状况` : '还没有进入存档 · 心理状况'}
+        backText="< 返回"
+        onBack={back}
+      />
 
       <main className="screen">
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)', width: '100%', maxWidth: 900, margin: '0 auto' }}>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-1)' }}>
-            <h1 style={{ ...title, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{security ? `${security.who} · 心理状况` : '还没有进入存档 · 心理状况'}</h1>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-step-3)', width: '100%' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-step-1)' }}>
             <p style={caption}>{NOTE}</p>
             <p style={{ ...caption, ...accent, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
               进入一局游戏后，才能给当前角色设置心理状况。

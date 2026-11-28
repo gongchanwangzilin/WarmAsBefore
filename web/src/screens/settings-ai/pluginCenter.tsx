@@ -73,7 +73,7 @@ export function PluginCenter({ bridge, navigate, back }: ScreenProps) {
         }
       />
 
-      <div className="screen" style={{ maxWidth: '1000px' }}>
+      <div className="screen">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
           {status ? <span style={SIGNAL}>{status}</span> : null}
           <span style={{ ...CAPTION, lineHeight: 1.6 }}>

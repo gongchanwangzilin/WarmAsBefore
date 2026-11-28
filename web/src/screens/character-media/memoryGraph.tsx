@@ -324,7 +324,7 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
                   <text
                     y={radius + 13}
                     textAnchor="middle"
-                    style={{ fontSize: 11, fill: 'var(--w-ink-body)', fontFamily: 'var(--w-font-ui)' }}
+                    style={{ fontSize: 'var(--w-size-caption)', fill: 'var(--w-ramp-2)', fontFamily: 'var(--w-font-ui)' }}
                   >
                     {truncate(node.label, 12)}
                   </text>
@@ -436,10 +436,21 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
                       cursor: 'pointer',
                     }}
                   >
-                    <span style={{ fontSize: 12, color: 'var(--w-ink-display)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                    <span
+                      style={{
+                        fontSize: 'var(--w-size-small)',
+                        lineHeight: 'var(--w-lh-small)',
+                        color: 'var(--w-ramp-1)',
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }}
+                    >
                       {truncate(row.label, 16)}
                     </span>
-                    <span style={{ fontSize: 11, color: 'var(--w-ink-muted)', whiteSpace: 'nowrap' }}>{row.meta}</span>
+                    <span style={{ fontSize: 'var(--w-size-caption)', lineHeight: 'var(--w-lh-caption)', color: 'var(--w-ramp-4)', whiteSpace: 'nowrap' }}>
+                      {row.meta}
+                    </span>
                   </button>
                 ))}
               </div>
@@ -518,8 +529,8 @@ export function MemoryGraph({ navigate, back }: ScreenProps) {
                   border: '1px solid var(--w-hairline)',
                   background: 'var(--w-bg)',
                   color: 'var(--w-ink-body)',
-                  fontSize: 11,
-                  lineHeight: 1.5,
+                  fontSize: 'var(--w-size-caption)',
+                  lineHeight: 'var(--w-lh-caption)',
                   maxHeight: 360,
                   overflow: 'auto',
                   whiteSpace: 'pre-wrap',

@@ -22,6 +22,55 @@ export function Rail({ num, tag }: { num: string; tag?: string }) {
   );
 }
 
+/**
+ * 页头骨架：回退/动作一行、标题一行、标签轨一行 —— 三层压在同一个 .hd 上，
+ * 标题因此从栅格线（与正文左边界同一条）起步，而不是被回退键顶到右边。
+ * TopBar 与 PageHeader 共用它，两处页头不再是两套版式。
+ */
+export function HeadBlock({
+  title,
+  subtitle,
+  eyebrow,
+  onBack,
+  backText = '返回',
+  right,
+  index,
+}: {
+  title: string;
+  subtitle?: string;
+  eyebrow?: string;
+  onBack?: () => void;
+  backText?: string;
+  right?: ReactNode;
+  index?: string;
+}) {
+  return (
+    <div className="hd">
+      <div className="hd__nav">
+        {onBack ? (
+          <button type="button" className="hd__back" data-back="1" onClick={onBack}>
+            {/* 页面传进来的「< 返回」里的尖括号换成同一枚栏杆箭头：全站回退只用一个字形。 */}
+            <span className="hd__back-glyph" aria-hidden="true">
+              ‹
+            </span>
+            {backText.replace(/^[<‹\s]+/, '')}
+          </button>
+        ) : null}
+        <div className="hd__act">{right}</div>
+      </div>
+      <h1 className="hd__title" data-page-title tabIndex={-1}>
+        {title}
+      </h1>
+      {subtitle ? (
+        <p className="hd__sub" title={subtitle}>
+          {subtitle}
+        </p>
+      ) : null}
+      <Rail num={index ?? (onBack ? '02' : '01')} tag={eyebrow} />
+    </div>
+  );
+}
+
 /** 页头：返回 · 标题/副标题 · 标签轨 · 右侧动作，下面一条发丝线（PageHeader.xaml）。 */
 export function PageHeader({
   title,
@@ -45,27 +94,15 @@ export function PageHeader({
   index?: string;
 }) {
   const inner = (
-    <div className="ph__inner">
-      {onBack ? (
-        <button type="button" className="ph__back" data-back="1" onClick={onBack}>
-          {backText}
-        </button>
-      ) : (
-        <span />
-      )}
-      <div className="ph__mid">
-        <h1 className="ph__title" data-page-title tabIndex={-1}>
-          {title}
-        </h1>
-        {subtitle ? (
-          <span className="ph__sub" title={subtitle}>
-            {subtitle}
-          </span>
-        ) : null}
-        <Rail num={index ?? (onBack ? '02' : '01')} tag={eyebrow} />
-      </div>
-      <div className="ph__right">{right}</div>
-    </div>
+    <HeadBlock
+      title={title}
+      subtitle={subtitle}
+      eyebrow={eyebrow}
+      onBack={onBack}
+      backText={backText}
+      right={right}
+      index={index}
+    />
   );
 
   if (variant === 'ground') {

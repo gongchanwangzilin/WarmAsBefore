@@ -646,9 +646,11 @@ function Stage({ ctx, headline, caption, wide }: { ctx: Ctx; headline: string; c
             </span>
             <span
               style={{
-                fontSize: 27,
-                fontWeight: 700,
-                color: 'var(--w-ink-display)',
+                fontSize: 'var(--w-size-title)',
+                lineHeight: 'var(--w-lh-title)',
+                fontWeight: 620,
+                letterSpacing: '-0.015em',
+                color: 'var(--w-ramp-1)',
                 overflow: 'hidden',
                 textOverflow: 'ellipsis',
                 whiteSpace: 'nowrap',
@@ -669,7 +671,7 @@ function Stage({ ctx, headline, caption, wide }: { ctx: Ctx; headline: string; c
               <img src={avatarUrl} alt="" />
             ) : (
               <>
-                <span style={{ fontSize: 20, color: 'var(--w-ink-muted)' }}>＋</span>
+                <span style={{ fontSize: 'var(--w-size-title)', lineHeight: 'var(--w-lh-title)', color: 'var(--w-ramp-4)' }}>＋</span>
                 <Caption>头像</Caption>
               </>
             )}
@@ -741,7 +743,18 @@ function Reading({ eyebrow, value, note }: { eyebrow: string; value: string; not
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Eyebrow>{eyebrow}</Eyebrow>
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
-        <span style={{ fontFamily: 'var(--w-font-num)', fontSize: 24, color: 'var(--w-ink-display)' }}>{value}</span>
+        <span
+          style={{
+            fontFamily: 'var(--w-font-num)',
+            fontSize: 'var(--w-size-title)',
+            lineHeight: 'var(--w-lh-title)',
+            letterSpacing: '-0.015em',
+            color: 'var(--w-ramp-1)',
+            fontVariantNumeric: 'tabular-nums',
+          }}
+        >
+          {value}
+        </span>
         <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)', paddingBottom: 4 }}>{note}</span>
       </div>
     </div>
@@ -1562,7 +1575,7 @@ function TalkTab({ ctx }: { ctx: Ctx }) {
           <Caption>回车送出</Caption>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-3)' }}>
-          <span style={{ fontFamily: 'var(--w-font-num)', fontSize: 18, color: 'var(--w-ink-faint)' }}>›</span>
+          <span className="k-row__chev" aria-hidden="true" />
           <div style={{ flex: 1, minWidth: 0 }}>
             <Field
               value={talkInput}

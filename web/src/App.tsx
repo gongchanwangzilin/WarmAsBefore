@@ -251,13 +251,12 @@ function PageSkeleton() {
   return (
     <PageShell>
       <div className="ph ph--plain ph--skeleton" aria-busy="true">
-        <div className="ph__inner">
-          <span />
-          <div className="ph__mid">
-            <span className="sk-line sk-line--title" />
-            <span className="sk-line sk-line--sub" />
+        <div className="hd">
+          <div className="hd__nav">
+            <span className="sk-line sk-line--nav" />
           </div>
-          <span />
+          <span className="sk-line sk-line--title" />
+          <span className="sk-line sk-line--sub" />
         </div>
       </div>
       <div className="screen">

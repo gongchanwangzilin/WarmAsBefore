@@ -46,10 +46,9 @@ export function Cloudsaves({ back }: ScreenProps) {
           style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: 'var(--w-space-2)',
+            gap: 'var(--w-step-3)',
             width: '100%',
             maxWidth: 880,
-            margin: '0 auto',
           }}
         >
           <Card>
