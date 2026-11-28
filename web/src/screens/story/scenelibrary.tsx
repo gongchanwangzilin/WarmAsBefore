@@ -3,7 +3,7 @@ import { Card, PageHeader, Row, Sep, TextBtn } from '../../components/kit';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import type { ScreenProps } from '../types';
-import { Actions, Note, Stack } from './parts';
+import { Actions, Inert, Note, Stack } from './parts';
 
 type ModeRow = { id: string; name: string; detail: string };
 type LibraryEntry = { id: string; name: string; mapSceneRef: string; modes: ModeRow[] };
@@ -114,8 +114,12 @@ export function Scenelibrary({ back }: ScreenProps) {
             <Card>
               <Actions>
                 <TextBtn onClick={renameEntry}>重命名</TextBtn>
-                <TextBtn>引用地图场景</TextBtn>
-                <TextBtn>变换规则</TextBtn>
+                <Inert>
+                  <TextBtn>引用地图场景</TextBtn>
+                </Inert>
+                <Inert>
+                  <TextBtn>变换规则</TextBtn>
+                </Inert>
               </Actions>
               <Actions>
                 <TextBtn onClick={addMode}>＋ 加模式</TextBtn>

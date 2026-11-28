@@ -23,7 +23,6 @@ const MENU: ReadonlyArray<{ index: string; label: string; to: string | null }> =
 ];
 
 /** 右上角读数：「配色 · 风格」。色板锁定 endfield（ThemeManager.LockedPalette），风格恒为档案室。 */
-const THEME_LEGEND = { color: '终末地', effect: '档案室' };
 
 /**
  * 标题页：一整页铺满窗口的卡，左边导航带、右边主行动区，中间一根发丝线（TitlePage.xaml）。
@@ -88,12 +87,6 @@ export function TitlePage({ bridge, onNavigate }: Props) {
           <div className="shell__sep" aria-hidden="true" />
 
           <div className="hero">
-            <p className="hero__legend">
-              <span>{THEME_LEGEND.color}</span>
-              <span>·</span>
-              <span>{THEME_LEGEND.effect}</span>
-            </p>
-
             {state.status === 'loading' ? <TitleSkeleton /> : null}
 
             {state.status === 'error' ? (

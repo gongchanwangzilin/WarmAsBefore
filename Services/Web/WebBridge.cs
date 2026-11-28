@@ -94,9 +94,35 @@ public sealed class WebBridge
     /// </summary>
     private readonly List<Func<string, Task>> _sinks = new();
 
+    /// <summary>还没挂上前端时攒下的事件（启动期的提示就是这样丢的：宿主比 WebView 起得早）。</summary>
+    private static readonly List<(string name, object? payload)> Pending = new();
+
     public void AttachSink(Func<string, Task> sink)
     {
         lock (_sinks) if (!_sinks.Contains(sink)) _sinks.Add(sink);
+    }
+
+    /// <summary>
+    /// 前端挂好了（React 挂载后才发 `ui.ready`）：这时补发启动期攒下的事件。
+    /// 不能在 AttachSink 里补 —— 那时 WebView 还没加载，发出去就丢了，
+    /// 启动提示于是「原生那条被让位、前端那条也没来」。
+    /// </summary>
+    public static void FlushPending()
+    {
+        (string name, object? payload)[] backlog;
+        lock (Pending) { backlog = Pending.ToArray(); Pending.Clear(); }
+        foreach (var (name, payload) in backlog)
+        {
+            try { EmitAll(name, payload); }
+            catch (Exception ex) { App.WriteLog("WebBridge.flush -> " + ex.Message); }
+        }
+    }
+
+    /// <summary>有窗就广播，没窗就先攒着（第一个窗挂上时补发）。</summary>
+    public static void EmitOrQueue(string name, object? payload)
+    {
+        if (AnyLive) { EmitAll(name, payload); return; }
+        lock (Pending) Pending.Add((name, payload));
     }
 
     public void DetachSink(Func<string, Task> sink)
@@ -184,6 +210,7 @@ public sealed class WebBridge
     private async Task<object?> DispatchAsync(string? method, JsonElement p) => method switch
     {
         "ui.tokens" => TokensPayload(),
+        "ui.ready" => WebReady(),
         "settings.get" => await SettingsGetAsync(),
         "settings.set" => await SettingsSetAsync(p),
         "settings.patch" => await SettingsPatchAsync(p),
@@ -458,6 +485,13 @@ public sealed class WebBridge
         if (rel is null) throw new WebBridgeException("E_BACKEND", "这张图没能写成头像（角色不存在或格式不支持）。");
         Emit("data.changed", new { what = "characters" });
         return new { canceled = false, avatarUrl = AssetUrl(rel) };
+    }
+
+    /// <summary><c>ui.ready</c>：前端事件通道已挂好，把启动期攒下的提示补发出去。</summary>
+    private object WebReady()
+    {
+        FlushPending();
+        return new { ok = true };
     }
 
     /// <summary><c>ai.providers</c>：设置里的厂商与模型（不含任何密钥）。</summary>

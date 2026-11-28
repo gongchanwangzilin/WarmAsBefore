@@ -145,7 +145,7 @@ export function PortraitCalibration({ back }: ScreenProps) {
           <RowLine
             title="方向"
             right={
-              <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--w-space-2)' }}>
                 <GhostSm onClick={() => setFlipH((v) => !v)}>水平翻转</GhostSm>
                 <GhostSm onClick={() => setFlipV((v) => !v)}>垂直翻转</GhostSm>
                 <GhostSm onClick={() => setRotation((v) => (v + 90) % 360)}>旋转 90°</GhostSm>
@@ -158,7 +158,7 @@ export function PortraitCalibration({ back }: ScreenProps) {
           <RowLine
             title="大小（>100% 即溢出画布）"
             right={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', alignItems: 'center', gap: 'var(--w-space-2)' }}>
                 <GhostSm width={80} onClick={() => setScale((v) => Math.max(0.1, Math.round((v - 0.05) * 100) / 100))}>
                   缩小
                 </GhostSm>
@@ -185,7 +185,7 @@ export function PortraitCalibration({ back }: ScreenProps) {
           <RowLine
             title="位置与脚底线"
             right={
-              <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--w-space-2)' }}>
                 <GhostSm width={52} onClick={() => setOffsetX((v) => round(v - 0.01))}>
                   ←
                 </GhostSm>
@@ -205,7 +205,7 @@ export function PortraitCalibration({ back }: ScreenProps) {
           <RowLine
             title="脚底线"
             right={
-              <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
+              <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'flex-end', gap: 'var(--w-space-2)' }}>
                 <GhostSm width={96} onClick={() => setFootLine((v) => round(Math.max(0.5, v - 0.01)))}>
                   抬脚线上移
                 </GhostSm>
@@ -219,7 +219,7 @@ export function PortraitCalibration({ back }: ScreenProps) {
 
         <div style={{ display: 'flex', gap: 'var(--w-space-2)', justifyContent: 'center' }}>
           <GhostSm onClick={reset}>重置</GhostSm>
-          <GhostSm onClick={reset} style={{ color: 'var(--w-signal)' }}>
+          <GhostSm disabled style={{ color: 'var(--w-signal)' }}>
             清除标定
           </GhostSm>
           <PrimarySm disabled>保存</PrimarySm>
@@ -239,7 +239,7 @@ export function PortraitCalibration({ back }: ScreenProps) {
                 </span>
               </span>
             }
-            right={<GhostSm>生成 1080×1920 标准画布文件</GhostSm>}
+            right={<GhostSm disabled>生成 1080×1920 标准画布文件</GhostSm>}
           />
           <Sep />
         </Card>

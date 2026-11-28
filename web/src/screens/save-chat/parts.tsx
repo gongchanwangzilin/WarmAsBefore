@@ -82,7 +82,7 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
             onChange={(event) => setSearch(event.target.value)}
           />
         </span>
-        <button type="button" className="sc-plus" aria-label="刷新联系人">
+        <button type="button" className="sc-plus" aria-label="刷新联系人" disabled>
           ＋
         </button>
       </div>
@@ -233,7 +233,7 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
         </div>
 
         <div className={isWeChat ? 'sc-inputrow' : 'sc-inputrow sc-inputrow--qq'}>
-          <button type="button" className="sc-ibtn">
+          <button type="button" className="sc-ibtn" disabled>
             语音
           </button>
           {isWeChat ? (
@@ -252,10 +252,11 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
           <button type="button" className="sc-ibtn" onClick={() => setStickersOpen((value) => !value)}>
             表情
           </button>
-          <button type="button" className="sc-ibtn">
+          <button type="button" className="sc-ibtn" disabled>
             文件
           </button>
-          <button type="button" className="sc-send">
+          {/* 会话内容要有后端才送得出去；桥里没有 chat.send，这一颗就停在禁用态。 */}
+          <button type="button" className="sc-send" disabled>
             发送
           </button>
         </div>
@@ -271,19 +272,21 @@ export function ChatShell({ skin, contacts, partner, modeLabel, messages, onBack
         {isWeChat && showListColumn ? (
           <div className="sc-rail">
             <span className="sc-rail__logo">初</span>
-            <button type="button" className="sc-rail__item">
+            {/* 竖栏四档（好友/收藏/表情/设置）在源码里各是一页列表，Web 端没有数据源，
+                只留「消息」这一档为当前项，其余灰着，不做点了没动静的钮。 */}
+            <span className="sc-rail__item sc-rail__item--on">
               <span style={{ fontSize: 'var(--w-size-body)' }}>{railLabel}</span>
-            </button>
-            <button type="button" className="sc-rail__item">
+            </span>
+            <button type="button" className="sc-rail__item" disabled>
               <span>好友</span>
             </button>
-            <button type="button" className="sc-rail__item">
+            <button type="button" className="sc-rail__item" disabled>
               <span>收藏</span>
             </button>
-            <button type="button" className="sc-rail__item">
+            <button type="button" className="sc-rail__item" disabled>
               <span>表情</span>
             </button>
-            <button type="button" className="sc-rail__item">
+            <button type="button" className="sc-rail__item" disabled>
               <span>设置</span>
             </button>
           </div>

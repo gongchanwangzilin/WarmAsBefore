@@ -23,11 +23,10 @@ export function CgView({ back, query }: ScreenProps) {
         aria-label="CG"
         style={{
           position: 'absolute',
-          left: '50%',
-          top: '50%',
-          transform: 'translate(-50%, -50%)',
-          width: 'calc(100% - 96px)',
-          height: 'calc(100% - 140px)',
+          left: 24,
+          right: 24,
+          top: 24,
+          bottom: 56,
           border: '1px dashed color-mix(in oklab, var(--w-ink-on-signal) 45%, transparent)',
           borderRadius: 10,
         }}

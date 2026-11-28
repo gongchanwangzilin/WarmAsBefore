@@ -234,21 +234,28 @@ export function Main({ bridge, navigate }: ScreenProps) {
             ))}
           </div>
           <div className="mg__top-actions">
-            {TOP_BUTTONS.filter((b) => buttons[b.id]).map((b) => (
-              <button
-                type="button"
-                key={b.id}
-                className="m-btn"
-                onClick={() => {
-                  if (b.id === 'menu') setMenuOpen(true);
-                  if (b.id === 'phone') openPhone();
-                  if (b.id === 'hide') setHiddenPanels(true);
-                }}
-                title={b.id === 'hide' ? '隐藏信息栏与顶部（Esc）' : b.label}
-              >
-                {b.label}
-              </button>
-            ))}
+            {TOP_BUTTONS.filter((b) => buttons[b.id]).map((b) => {
+              // 存档（QuickSave）与 AI（PickAnswerAi）在后端都没有通路：
+              // 灰着比「点得动但什么都不发生」诚实。
+              const dead = b.id === 'save' || b.id === 'ai';
+              return (
+                <button
+                  type="button"
+                  key={b.id}
+                  className="m-btn"
+                  disabled={dead}
+                  onClick={() => {
+                    if (b.id === 'menu') setMenuOpen(true);
+                    if (b.id === 'phone') openPhone();
+                    if (b.id === 'map') navigate('/map');
+                    if (b.id === 'hide') setHiddenPanels(true);
+                  }}
+                  title={b.id === 'hide' ? '隐藏信息栏与顶部（Esc）' : b.label}
+                >
+                  {b.label}
+                </button>
+              );
+            })}
             <button type="button" className="m-btn" onClick={() => navigate('/superMonitor')} title="查看当前存档的超级监测">
               监测
             </button>
@@ -363,13 +370,13 @@ export function Main({ bridge, navigate }: ScreenProps) {
                     if (event.key === 'Enter') send();
                   }}
                 />
-                <button type="button" className="m-ibtn">
+                <button type="button" className="m-ibtn" disabled>
                   文件
                 </button>
                 <button type="button" className="m-ibtn" onClick={() => setGiftOpen(true)}>
                   礼物
                 </button>
-                <button type="button" className="m-ibtn">
+                <button type="button" className="m-ibtn" disabled>
                   语音
                 </button>
                 <button type="button" className="mg__send" onClick={send}>
@@ -410,13 +417,13 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 </div>
               ) : null}
               <div className="mg__quick">
-                <button type="button" className="m-btn">
+                <button type="button" className="m-btn" disabled>
                   摸摸头
                 </button>
-                <button type="button" className="m-btn">
+                <button type="button" className="m-btn" disabled>
                   抱抱
                 </button>
-                <button type="button" className="m-btn">
+                <button type="button" className="m-btn" disabled>
                   亲吻
                 </button>
                 <button type="button" className="m-btn m-btn--mode" onClick={() => setChatMode(false)}>
@@ -449,16 +456,16 @@ export function Main({ bridge, navigate }: ScreenProps) {
                   if (event.key === 'Enter') send();
                 }}
               />
-              <button type="button" className="m-ibtn">
+              <button type="button" className="m-ibtn" disabled>
                 文件
               </button>
-              <button type="button" className="m-ibtn">
+              <button type="button" className="m-ibtn" disabled>
                 表情
               </button>
               <button type="button" className="m-ibtn" onClick={() => setGiftOpen(true)}>
                 礼物
               </button>
-              <button type="button" className="m-ibtn">
+              <button type="button" className="m-ibtn" disabled>
                 语音
               </button>
               <button type="button" className="mg__send" onClick={send}>
@@ -479,13 +486,13 @@ export function Main({ bridge, navigate }: ScreenProps) {
             <button type="button" className="m-btn m-btn--block" onClick={openPhone}>
               手机
             </button>
-            <button type="button" className="m-btn m-btn--block">
+            <button type="button" className="m-btn m-btn--block" disabled>
               本局设定
             </button>
             <button type="button" className="m-btn m-btn--block" onClick={() => navigate('/save')}>
               存档管理
             </button>
-            <button type="button" className="m-btn m-btn--block">
+            <button type="button" className="m-btn m-btn--block" onClick={() => navigate('/pet')}>
               桌宠模式
             </button>
             <button type="button" className="m-btn m-btn--block m-btn--danger" onClick={() => navigate('/')}>

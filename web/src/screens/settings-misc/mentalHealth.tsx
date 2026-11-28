@@ -4,6 +4,7 @@ import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import { Card, Field, PageHeader, Select } from '../../components/kit';
 import type { ScreenProps } from '../types';
+import { Inert } from './parts';
 
 /**
  * 心理状况（Views/Settings/MentalHealthPage.xaml）：一句「这不是诊断」，安全感读数与小模型整理开关，
@@ -233,7 +234,9 @@ export function MentalHealth({ bridge, back }: ScreenProps) {
               label="备注"
             />
             <div>
-              <SignalButton>加到当前角色</SignalButton>
+              <Inert>
+                <SignalButton>加到当前角色</SignalButton>
+              </Inert>
             </div>
             <p style={caption}>{CATALOG_NOTE}</p>
           </Card>

@@ -35,3 +35,43 @@
 
 .cr-avatar__plus { font-size: var(--w-size-subhead); line-height: 1; }
 .cr-avatar__hint { font-size: var(--w-size-caption); }
+
+/* 舞台：卡自己滚（源码里立绘栏是一列 ScrollView），立绘与读数不跟着右边的长表单跑掉。 */
+.cs-stage > .glass__content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 预览：舞台吃掉卡片剩下的高度（源码里是 Grid 的 * 行），信息栏自然高度贴底。 */
+.cr-preview > .glass__content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+/* 名册：卡自己滚（源码里 CollectionView 占 Grid 的 * 行），段头与脚注钉住不动。 */
+.cr-roster > .glass__content {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.cr-roster__list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* 宿主那边还没有这条动作：看得见、按不下，别让它演成一颗能用的钮。 */
+.is-off,
+.glass.is-off,
+.is-off:hover,
+.is-off:active {
+  opacity: 0.45;
+  cursor: default;
+  pointer-events: none;
+}

@@ -35,6 +35,12 @@ public partial class WebShellPage : ContentPage
     /// <c>WARM_WEB_SHELL=1</c> 仍然有效，等于默认值。
     /// 找不到 web/dist 时 <see cref="App.CreateWindow"/> 会自动落回原生界面，所以默认开不会开出一个空窗。
     /// </summary>
+    /// <summary>
+    /// 正在用 Web 宿主接管界面。原生提示控件照这个让位：条子该由前端画，
+    /// 但原生 Shell 还在用时不能把提示静默吞掉（那才是真的少了东西）。
+    /// </summary>
+    public static bool Enabled { get; private set; }
+
     public static bool ShellRequested
         => !string.Equals(Environment.GetEnvironmentVariable("WARM_NATIVE_SHELL")?.Trim(), "1", StringComparison.Ordinal);
 
@@ -69,6 +75,7 @@ public partial class WebShellPage : ContentPage
     {
         InitializeComponent();
         _bridge = bridge;
+        Enabled = true;
         _bridge.AttachSink(SendAsync);
         _source = ResolveSource();
         App.WriteLogNow($"WebShellPage: 加载 {(_source.Kind == WebSourceKind.Missing ? "(无)" : _source.Url)}"

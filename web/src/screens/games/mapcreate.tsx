@@ -5,7 +5,7 @@ import { GlassSlider } from '../../components/GlassSlider';
 import { PageShell } from '../../components/PageShell';
 import { PageHeader, Select } from '../../components/kit';
 import type { ScreenProps } from '../types';
-import { Cap, FormRow, InlineField, Section, ToolRow, Well } from './parts';
+import { Cap, FormRow, Inert, InlineField, Section, ToolRow, Well } from './parts';
 
 /**
  * 创建地图：Views/Games/MapCreatePage.xaml（343 行）+ 同名 code-behind。
@@ -66,7 +66,9 @@ export function MapCreate({ back }: ScreenProps) {
               fontSize="var(--w-size-small)"
               style={{ flex: 1 }}
             />
-            <GlassButton size="md">检索</GlassButton>
+            <Inert>
+              <GlassButton size="md">检索</GlassButton>
+            </Inert>
           </div>
           <Cap>还没填高德 Key，检索退回开放街道图 —— 国内的中文店名与小路会少一些。填上 Key 自动改用高德。</Cap>
         </div>
@@ -93,7 +95,7 @@ export function MapCreate({ back }: ScreenProps) {
                 label="半径"
                 value={(radius - 100) / 2900}
                 onChange={(next) => setRadius(Math.round((100 + next * 2900) / 10) * 10)}
-                width={280}
+                width={220}
                 format={(value) => `${Math.round(100 + value * 2900)} 米`}
               />
             </div>
@@ -107,10 +109,14 @@ export function MapCreate({ back }: ScreenProps) {
         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--w-space-2)' }}>
           <Section>③ 预览与导入</Section>
           <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 'var(--w-space-2)' }}>
-            <GlassButton size="md">预览：先数一数</GlassButton>
+            <Inert>
+              <GlassButton size="md">预览：先数一数</GlassButton>
+            </Inert>
             <Cap>预览不写进存档，只算一次给你看拿到多少东西</Cap>
             <span style={{ flex: 1 }} />
-            <GlassButton size="md">导入到游戏</GlassButton>
+            <Inert>
+              <GlassButton size="md">导入到游戏</GlassButton>
+            </Inert>
           </div>
         </div>
 
@@ -123,9 +129,13 @@ export function MapCreate({ back }: ScreenProps) {
           </Cap>
           <ToolRow>
             <Select value={batch} options={BATCHES} onChange={setBatch} label="一次几张" />
-            <GlassButton size="sm">让 AI 补背景</GlassButton>
+            <Inert>
+              <GlassButton size="sm">让 AI 补背景</GlassButton>
+            </Inert>
             <span style={{ flex: 1 }} />
-            <GlassButton size="sm">生成大地图底图</GlassButton>
+            <Inert>
+              <GlassButton size="sm">生成大地图底图</GlassButton>
+            </Inert>
           </ToolRow>
           <Cap>
             出图走「设置 → AI → 画面生成」那一套；这里只放 AI 现生成的图与你自己导入的文件，不用任何游戏自带或受版权保护的素材。
@@ -144,11 +154,15 @@ export function MapCreate({ back }: ScreenProps) {
                   placeholder="Google Maps API Key（需启用 Places API）"
                   style={{ flex: 1 }}
                 />
-                <GlassButton size="sm">存 Key</GlassButton>
+                <Inert>
+                  <GlassButton size="sm">存 Key</GlassButton>
+                </Inert>
               </div>
               <ToolRow>
                 <Select value={batch} options={BATCHES} onChange={setBatch} label="一次几张" />
-                <GlassButton size="sm">从谷歌地图取照片</GlassButton>
+                <Inert>
+                  <GlassButton size="sm">从谷歌地图取照片</GlassButton>
+                </Inert>
               </ToolRow>
               <Cap>
                 高德没有地点照片接口，谷歌 Places 有：按店名 / 门牌搜到地点后取它的照片，没有照片的地点回退街景（街景还要另启用 Street View Static API）。下载的照片只落在本机地图目录。
@@ -176,7 +190,9 @@ export function MapCreate({ back }: ScreenProps) {
               <Cap>自定义地点</Cap>
               <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
                 <InlineField value={city} onChange={setCity} placeholder="城市名，例如：杭州市" style={{ flex: 1 }} />
-                <GlassButton size="sm">保存地点</GlassButton>
+                <Inert>
+                  <GlassButton size="sm">保存地点</GlassButton>
+                </Inert>
               </div>
               <Cap>填城市名就够：第一次查天气时会自动地理编码出坐标。</Cap>
             </div>
@@ -198,7 +214,9 @@ export function MapCreate({ back }: ScreenProps) {
             <Cap>没填 Key 也能用：检索退回开放街道图，只是国内的中文店名与小马路会少一些。</Cap>
             <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
               <InlineField value={amapKey} onChange={setAmapKey} placeholder="高德 Web 服务的 key" style={{ flex: 1 }} />
-              <GlassButton size="sm">存 Key</GlassButton>
+              <Inert>
+                <GlassButton size="sm">存 Key</GlassButton>
+              </Inert>
             </div>
           </div>
           <div className="k-sep" role="presentation" />

@@ -1,9 +1,26 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState, type ReactNode } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type CSSProperties,
+  type ReactNode,
+} from 'react';
 import type { Direction, Route } from '../lib/router';
-import { ENTER_X, EXIT_X, bindLayerMotion, type LayerMotion } from '../lib/transition';
+import { bindLayerMotion, type LayerMotion } from '../lib/transition';
 
 /** 同一页换了查询串（/settingssection?key=ai → ?key=sound）也算换页。 */
 const keyOf = (route: Route) => route.path + '?' + route.query.toString();
+
+/**
+ * 位移只到一行的零头：外框 12 / 退出 10，内容层再由 CSS 走 6 —— 两层错开，
+ * 读起来是「页在后面推、内容在前面跟上」，而不是整块板子平移。
+ */
+const ENTER_X = 12;
+const EXIT_X = 10;
+/** 过场时长落在 120–280ms 这一档：令牌给的 320 太慢，一次点击要等三分之一秒才落定。 */
+const PAGE_MS = '260ms';
 
 type Frame = {
   id: number;
@@ -121,6 +138,15 @@ function PageLayer({
       ref={ref}
       className="layer"
       data-leaving={frame.leaving ? '1' : undefined}
+      data-enter={frame.fresh ? '1' : undefined}
+      style={
+        {
+          // 内容层往哪一侧偏，由这一层的方向决定；过场时长也在这一层覆盖，
+          // 免得改全局令牌影响别的动效。
+          '--dir': frame.direction,
+          '--w-dur-page': PAGE_MS,
+        } as CSSProperties
+      }
       inert={frame.leaving}
       aria-hidden={frame.leaving || undefined}
     >

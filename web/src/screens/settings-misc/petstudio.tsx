@@ -4,6 +4,7 @@ import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import { Card, PageHeader, Sep } from '../../components/kit';
 import type { ScreenProps } from '../types';
+import { Inert } from './parts';
 
 /**
  * AI 制作桌宠（Views/Games/PetStudioPage.xaml）：① 挑角色 → ② 一键生成 → ③ 逐状态出图与预览。
@@ -91,8 +92,12 @@ export function Petstudio({ back }: ScreenProps) {
                 {IMAGE_HINT}
               </p>
               <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
-                <SignalButton>一键生成桌宠动画</SignalButton>
-                <GlassButton size="md">取消生成</GlassButton>
+                <Inert>
+                  <SignalButton>一键生成桌宠动画</SignalButton>
+                </Inert>
+                <Inert>
+                  <GlassButton size="md">取消生成</GlassButton>
+                </Inert>
               </div>
             </Card>
           </div>

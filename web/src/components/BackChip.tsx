@@ -6,8 +6,11 @@ import { Glass } from './Glass';
  *
  * 原生 MAUI 的返回是 Shell 画在标题栏里的；换成 WebView 之后那一颗没了，得自己画。
  * 但页面大多已经有自己的回退（页头的 `.ph__back`、顶栏的 `‹`、行尾的「返回」），
- * 所以这一颗是补位，不是重复：只要同一层里已经有任何回退控件，它就不出现；
- * 出现时会给页面头留出同样的左侧空间，绝不像之前那样压住标题。
+ * 所以这一颗是补位，不是重复：同一层里只要出现任何回退控件，它就让位。
+ *
+ * 这里不停在「第一次判断」上：页面是懒加载的，页头往往比正文晚挂上，
+ * 判一次就定死会出现「页头画了返回、补位的也还在」两条。所以整个路由存续期间
+ * 都盯着 DOM（rAF 合并，一次只查一个选择器），页头一出现就自己收起来。
  */
 export function BackChip({
   onBack,
@@ -26,33 +29,52 @@ export function BackChip({
       setNeeded(true);
       return;
     }
-    // 页面是懒加载的：80ms 时 chunk 可能还没挂上，早判一次会得出「没有回退」的错结论。
-    // 所以在 1.2 秒内反复看，直到看见页面自己的回退为止。
+
     let cancelled = false;
-    let attempts = 0;
+    let frame = 0;
+    let observer: MutationObserver | null = null;
+    const startedAt = performance.now();
+
     const decide = () => {
+      frame = 0;
       if (cancelled) return;
-      attempts += 1;
       const layer = document.querySelector('.layer:not([data-leaving])');
-      const own =
-        !!layer?.querySelector('[data-back], .ph__back, .bar__back, [class*="back" i]') ||
-        [...(layer?.querySelectorAll('button, [role="button"]') ?? [])].some((el) => {
-          const text = (el.textContent ?? '').trim();
-          const name = `${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''}`;
-          return text === '返回' || name.includes('返回') || (/^[‹<◀]/.test(text) && text.length <= 8);
-        });
+      if (!layer) {
+        setNeeded(false);
+        return;
+      }
+      const own = !!layer.querySelector(
+        '[data-back], .ph__back, .bar__back, .backchip__btn:not(.backchip__btn--self), [class*="back" i]',
+      ) || [...layer.querySelectorAll('button, [role="button"]')].some((el) => {
+        const text = (el.textContent ?? '').trim();
+        const name = `${el.getAttribute('aria-label') ?? ''} ${el.getAttribute('title') ?? ''}`;
+        return text === '返回' || name.includes('返回') || (/^[‹<◀]/.test(text) && text.length <= 8);
+      });
       if (own) {
         setNeeded(false);
         return;
       }
-      const mounted = !!layer && (layer.textContent ?? '').trim().length > 30;
-      if (mounted || attempts >= 18) setNeeded(true);
-      else window.setTimeout(decide, 70);
+      // 页头还没来：先别摆键，等这一层真的有内容（250ms 之后仍空就直接摆，免得整页无从退出）
+      const settledIn = performance.now() - startedAt > 250;
+      const hasContent = (layer.textContent ?? '').trim().length > 30;
+      setNeeded(settledIn && hasContent);
     };
-    setNeeded(false);
-    window.setTimeout(decide, 70);
+
+    const ping = () => {
+      if (frame) return;
+      frame = requestAnimationFrame(decide);
+    };
+
+    decide();
+    observer = new MutationObserver(ping);
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    const settle = window.setTimeout(ping, 260);
+
     return () => {
       cancelled = true;
+      observer?.disconnect();
+      window.clearTimeout(settle);
+      if (frame) cancelAnimationFrame(frame);
     };
   }, [routeKey, force]);
 
@@ -73,8 +95,7 @@ export function BackChip({
         type="button"
         tone="button"
         radius={9}
-        className="backchip__btn"
-        data-back="1"
+        className="backchip__btn backchip__btn--self"
         aria-label="返回上一页"
         onClick={onBack}
       >

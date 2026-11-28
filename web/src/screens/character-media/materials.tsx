@@ -45,7 +45,7 @@ export function Materials({ back }: ScreenProps) {
         }
       />
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)', padding: '16px var(--w-pad-card)' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)', padding: '16px var(--w-pad-page) 0' }}>
         <button
           type="button"
           aria-pressed={!isMusic}
@@ -102,9 +102,9 @@ export function Materials({ back }: ScreenProps) {
         </div>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-3)', padding: 'var(--w-pad-card)' }}>
-        {isMusic ? <span /> : <PrimarySm>导入背景</PrimarySm>}
-        {isMusic ? <PrimarySm>导入音乐</PrimarySm> : <span />}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-3)', padding: '0 var(--w-pad-page) var(--w-space-4)' }}>
+        {isMusic ? <span /> : <PrimarySm disabled>导入背景</PrimarySm>}
+        {isMusic ? <PrimarySm disabled>导入音乐</PrimarySm> : <span />}
       </div>
     </PageShell>
   );

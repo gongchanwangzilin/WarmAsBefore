@@ -98,9 +98,10 @@ export function Well({
     color: active ? 'var(--w-ink-on-signal)' : 'var(--w-ink-body)',
     background: active ? 'var(--w-signal)' : 'var(--w-surface-tint)',
     cursor: onClick ? 'pointer' : 'default',
+    opacity: onClick ? undefined : 0.45,
     ...style,
   };
-  if (!onClick) return <span style={base}>{children}</span>;
+  if (!onClick) return <span style={base} aria-disabled="true">{children}</span>;
   return (
     <button type="button" style={base} aria-pressed={active} onClick={onClick}>
       {children}
@@ -127,6 +128,7 @@ export function Fab({
       type="button"
       aria-label={title ?? label}
       onClick={onClick}
+      aria-disabled={onClick ? undefined : true}
       style={{
         width: size,
         height: size,
@@ -139,7 +141,8 @@ export function Fab({
         color: 'var(--w-ink-body)',
         font: 'inherit',
         fontSize,
-        cursor: 'pointer',
+        cursor: onClick ? 'pointer' : 'default',
+        opacity: onClick ? undefined : 0.45,
       }}
     >
       {label}
@@ -182,6 +185,18 @@ export function FormRow({
       {right ? <div style={{ display: 'inline-flex', alignItems: 'center', gap: 'var(--w-space-1)' }}>{right}</div> : null}
       {children}
     </div>
+  );
+}
+
+/**
+ * 源码里有、Web 端却没有对应桥方法的那颗钮：当场画成禁用态，点了不会有假动作。
+ * 只包一层，不代填文案 —— 恢复它需要 bridge/protocol.ts 里加方法（见体检报告）。
+ */
+export function Inert({ children }: { children: ReactNode }) {
+  return (
+    <span inert aria-disabled="true" style={{ display: 'inline-grid', opacity: 0.45 }}>
+      {children}
+    </span>
   );
 }
 

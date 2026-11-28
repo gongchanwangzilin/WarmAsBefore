@@ -4,6 +4,7 @@ import { PageShell } from '../../components/PageShell';
 import { Card, Field, PageHeader, Sep, TextBtn } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
 import type { ScreenProps } from '../types';
+import { Inert } from './parts';
 
 /**
  * 用量统计（Views/Settings/UsageStatsPage.xaml）：总览 / 成本构成 / 时间序列 / 分组明细
@@ -301,8 +302,12 @@ export function Usagestats({ back }: ScreenProps) {
         subtitle="每次请求的真实 token 记在本地账上：缓存命中的输入按缓存价重算，思考/缓存输出另计一笔。"
         right={
           <>
-            <GlassButton size="sm">刷新</GlassButton>
-            <GlassButton size="sm">导出 CSV</GlassButton>
+            <Inert>
+              <GlassButton size="sm">刷新</GlassButton>
+            </Inert>
+            <Inert>
+              <GlassButton size="sm">导出 CSV</GlassButton>
+            </Inert>
             <TextBtn onClick={back}>返回</TextBtn>
           </>
         }

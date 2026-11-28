@@ -1,4 +1,5 @@
 import type { CSSProperties, ReactNode } from 'react';
+import './parts.css';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import { Field } from '../../components/kit';
 

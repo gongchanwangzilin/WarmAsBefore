@@ -100,9 +100,9 @@ export function startAtmosphere(canvas: HTMLCanvasElement, enabled: boolean, red
   function frame() {
     raf = 0;
     if (!on) return;
-    const rect = canvas.getBoundingClientRect();
-    const cx = rect.width / 2;
-    const cy = rect.height / 2;
+    // 尺寸在 resize 里已经量过：每帧再问一次布局，是这个层最没必要的一笔。
+    const cx = w / 2;
+    const cy = h / 2;
 
     pointer.sx += (pointer.x - pointer.sx) * 0.06;
     pointer.sy += (pointer.y - pointer.sy) * 0.06;

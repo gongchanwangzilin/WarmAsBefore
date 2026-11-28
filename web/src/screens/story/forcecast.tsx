@@ -17,7 +17,7 @@ export function Forcecast({ back }: ScreenProps) {
     <PageShell>
       <PageHeader title="点名 · 进入剧情" onBack={back} right={<span className="cap">{status}</span>} />
 
-      <div className="screen" style={{ minHeight: 360, justifyContent: 'center' }}>
+      <div className="screen" style={{ minHeight: 'clamp(200px, 44vh, 420px)', justifyContent: 'center' }}>
         <Empty title="角色库还是空的" reason="先创建几个角色，再来点名吧" />
       </div>
 

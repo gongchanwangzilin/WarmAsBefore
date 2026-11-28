@@ -25,6 +25,23 @@ type Props = {
   tokens: TokenMap;
 };
 
+/**
+ * 首屏画完之后再做视觉层的挂载：requestIdleCallback 有就等空闲，没有就退到 120ms。
+ * 返回一个取消函数，卸载或依赖变化时不会留下半挂的监听。
+ */
+function afterFirstPaint(run: () => void): () => void {
+  const scope = window as Window & {
+    requestIdleCallback?: (cb: () => void, options?: { timeout: number }) => number;
+    cancelIdleCallback?: (handle: number) => void;
+  };
+  if (typeof scope.requestIdleCallback === 'function') {
+    const handle = scope.requestIdleCallback(run, { timeout: 400 });
+    return () => scope.cancelIdleCallback?.(handle);
+  }
+  const timer = window.setTimeout(run, 120);
+  return () => window.clearTimeout(timer);
+}
+
 export function App({ bridge, tokens }: Props) {
   const { route, direction, navigate, back } = useRouter();
   const appearance = useAppearance(bridge);
@@ -42,16 +59,28 @@ export function App({ bridge, tokens }: Props) {
 
   useEffect(() => {
     registerGround(groundRef.current);
-    startLighting();
+    // 指针光要挂 window 的 pointermove、并在注册时量一遍所有玻璃；首帧没人动鼠标，
+    // 这两件事挪到首屏画完之后，可交互时间不被它占住。
+    return afterFirstPaint(startLighting);
   }, []);
 
   // 气氛层（雾 + 浮尘）：轻量模式与减少动效时整层不画。
   const lightweight = appearance.value.lightweight;
+  const lightweightRef = useRef(lightweight);
+  lightweightRef.current = lightweight;
   useEffect(() => {
-    if (!skyRef.current) return;
-    if (!sky.current) sky.current = startAtmosphere(skyRef.current, !lightweight, prefersReducedMotion());
-    else sky.current.setEnabled(!lightweight);
+    const canvas = skyRef.current;
+    if (!canvas) return;
+    if (sky.current) {
+      sky.current.setEnabled(!lightweight);
+      return;
+    }
+    // 这是持续帧成本（雾 7 团 + 尘 ≤96 粒），等首屏落定再起。
+    const cancel = afterFirstPaint(() => {
+      sky.current = startAtmosphere(canvas, !lightweightRef.current, prefersReducedMotion());
+    });
     return () => {
+      cancel();
       sky.current?.dispose();
       sky.current = null;
     };

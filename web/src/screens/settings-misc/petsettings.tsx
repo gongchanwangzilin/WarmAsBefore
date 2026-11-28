@@ -7,6 +7,7 @@ import { PageShell } from '../../components/PageShell';
 import { Card, PageHeader, Select, Sep } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
 import type { ScreenProps } from '../types';
+import { Inert } from './parts';
 
 /**
  * 桌宠设置（Views/Games/PetSettingsPage.xaml）：左实时预览、右七段设置。
@@ -278,8 +279,7 @@ export function Petsettings({ navigate, back }: ScreenProps) {
           position: 'relative',
           display: 'grid',
           gridTemplateRows: 'auto 1fr auto',
-          minHeight: wide ? 420 : 400,
-          height: wide ? undefined : 400,
+          minHeight: 'clamp(240px, 42vh, 420px)',
         }}
       >
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, background: 'var(--w-bg)' }} />
@@ -587,7 +587,9 @@ export function Petsettings({ navigate, back }: ScreenProps) {
               <span style={bodySm}>打字音</span>
               <span style={rowDesc}>气泡逐字浮现时的那串小键盘声</span>
             </div>
-            <GlassButton size="sm">试听</GlassButton>
+            <Inert>
+              <GlassButton size="sm">试听</GlassButton>
+            </Inert>
             <GlassSwitch checked={typingSound} onChange={setTypingSound} label="打字音" />
           </div>
         </Card>
@@ -602,7 +604,9 @@ export function Petsettings({ navigate, back }: ScreenProps) {
             </div>
             <GlassSlider label="单击音效" width={150} value={tapLevel} onChange={setTapLevel} format={() => `${Math.round(tapLevel * 100)}%`} />
             <span style={{ ...caption, textAlign: 'right' }}>{Math.round(tapLevel * 100)}%</span>
-            <GlassButton size="sm">试听</GlassButton>
+            <Inert>
+              <GlassButton size="sm">试听</GlassButton>
+            </Inert>
           </div>
           <Sep bleed />
           <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0,1fr) 150px 72px 44px', gap: 'var(--w-space-2)', alignItems: 'center', padding: '10px 0' }}>
@@ -612,7 +616,9 @@ export function Petsettings({ navigate, back }: ScreenProps) {
             </div>
             <GlassSlider label="打字音音量" width={150} value={typingLevel} onChange={setTypingLevel} format={() => `${Math.round(typingLevel * 100)}%`} />
             <span style={{ ...caption, textAlign: 'right' }}>{Math.round(typingLevel * 100)}%</span>
-            <GlassButton size="sm">试听</GlassButton>
+            <Inert>
+              <GlassButton size="sm">试听</GlassButton>
+            </Inert>
           </div>
           <Sep bleed />
           <SliderRow
@@ -675,8 +681,12 @@ export function Petsettings({ navigate, back }: ScreenProps) {
               <span style={bodySm}>当前锚点</span>
               <span style={rowDesc}>还没记过位置——拖到喜欢的地方再点「记住当前位置」。</span>
             </div>
-            <GlassButton size="sm">记住当前位置</GlassButton>
-            <GlassButton size="sm">清除</GlassButton>
+            <Inert>
+              <GlassButton size="sm">记住当前位置</GlassButton>
+            </Inert>
+            <Inert>
+              <GlassButton size="sm">清除</GlassButton>
+            </Inert>
           </div>
           <Sep bleed />
           <SwitchRow

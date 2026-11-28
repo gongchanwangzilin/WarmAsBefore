@@ -24,6 +24,7 @@ export function Pet({ back }: ScreenProps) {
       <button
         type="button"
         aria-label="TA"
+        data-back="1"
         onClick={back}
         style={{
           position: 'absolute',
@@ -40,11 +41,14 @@ export function Pet({ back }: ScreenProps) {
           justifyContent: 'center',
         }}
       >
+        {/* 立绘占位框：按立绘区的高度定高、宽随之（AspectFit 的同一条规矩），不写死 220×300 */}
         <span
           aria-hidden="true"
           style={{
-            width: 220,
-            height: 300,
+            height: '92%',
+            maxHeight: '100%',
+            aspectRatio: '3 / 4',
+            maxWidth: '86%',
             border: '1px dashed color-mix(in oklab, var(--w-ink-on-signal) 45%, transparent)',
             borderRadius: 14,
           }}
@@ -71,6 +75,7 @@ export function Pet({ back }: ScreenProps) {
       {/* 返回：挪到左下角 */}
       <button
         type="button"
+        data-back="1"
         onClick={back}
         style={{
           position: 'absolute',

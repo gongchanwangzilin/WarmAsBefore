@@ -114,7 +114,7 @@ export function Select({ bridge, navigate, back }: ScreenProps) {
         <button type="button" className="m-btn m-btn--accent" onClick={() => navigate('/studio?new=1&start=1')}>
           ＋ 新建角色
         </button>
-        <button type="button" className="m-btn m-btn--soft">
+        <button type="button" className="m-btn m-btn--soft" disabled>
           导入角色包
         </button>
       </div>

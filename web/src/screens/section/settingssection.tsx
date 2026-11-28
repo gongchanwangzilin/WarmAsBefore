@@ -8,7 +8,7 @@ import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import { SettingCard, SettingRow, SettingBlock, Sep } from '../../components/SettingCard';
-import { Card, Chip, Empty, Field, GroupLabel, PageHeader, Select } from '../../components/kit';
+import { Card, Chip, Empty, Field, PageHeader, Select } from '../../components/kit';
 import {
   BACKGROUND_MODE_CHOICES,
   SOLID_SWATCHES,
@@ -234,7 +234,10 @@ function PickRow({
         <span
           style={{
             display: 'inline-flex',
+            /* 定宽是源码的 Picker WidthRequest；内容靠右，右侧边才和开关、滑杆落在同一条线 */
+            justifyContent: 'flex-end',
             width,
+            maxWidth: '100%',
             opacity: disabled ? 0.5 : undefined,
             pointerEvents: disabled ? 'none' : undefined,
           }}
@@ -271,7 +274,7 @@ function FieldRow({
     <SettingRow
       title={title}
       control={
-        <span style={{ display: 'inline-block', width: `min(${width}px, 44vw)` }}>
+        <span style={{ display: 'inline-block', width: `min(${width}px, 44vw)`, maxWidth: '100%' }}>
           <Field value={value} onChange={onChange} placeholder={placeholder} type={type} label={title} />
         </span>
       }
@@ -342,6 +345,50 @@ function Btn({
       <GlassButton size="md" className="gbtn--tight" onClick={onClick}>
         {children}
       </GlassButton>
+    </span>
+  );
+}
+
+/**
+ * 卡片内的二级小标题：源码里是 TxtSubhead（与卡标题同档），不是页级分组。
+ * 之前在卡里用 GroupLabel（大写字距 + 26px 上边距），节奏比源码大了一档。
+ */
+function SubHead({ children }: { children: ReactNode }) {
+  return (
+    <span
+      style={{
+        marginTop: 14,
+        fontSize: 'var(--w-size-subhead)',
+        fontWeight: 700,
+        color: 'var(--w-ink-body)',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** 卡片内的一行粗体小标题（源码 TxtBodySm + FontAttributes=Bold，如「QQ 官方机器人」）。 */
+function RowHead({ children }: { children: ReactNode }) {
+  return (
+    <span
+      style={{
+        marginTop: 13,
+        fontSize: 'var(--w-size-small)',
+        fontWeight: 700,
+        color: 'var(--w-ink-body)',
+      }}
+    >
+      {children}
+    </span>
+  );
+}
+
+/** 源码里有、Web 端没有对应桥方法的那颗钮：画成禁用态，不假装成功。 */
+function Inert({ children }: { children: ReactNode }) {
+  return (
+    <span inert aria-disabled="true" style={{ display: 'inline-grid', opacity: 0.45 }}>
+      {children}
     </span>
   );
 }
@@ -855,8 +902,12 @@ function SoundSection({ writer }: { writer: SettingsWriter }) {
             />
             <p className="cap">未选择本地模型</p>
             <div style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
-              <Btn>下载模型</Btn>
-              <Btn>删除模型</Btn>
+              <Inert>
+                <Btn>下载模型</Btn>
+              </Inert>
+              <Inert>
+                <Btn>删除模型</Btn>
+              </Inert>
             </div>
             <p className="cap">local=离线识别（需先下载模型）；api=外部服务（电脑端录音 8 秒后识别）</p>
           </SettingBlock>
@@ -872,7 +923,9 @@ function SoundSection({ writer }: { writer: SettingsWriter }) {
           <Field value={previewText} onChange={setPreviewText} placeholder="输入一段话试听，如：你好，我是温暖如初。" label="试听文本" />
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-2)' }}>
             <span className="cap">按当前设置合成试听：系统引擎走系统语音；API 引擎走外部服务</span>
-            <Btn>试听</Btn>
+            <Inert>
+              <Btn>试听</Btn>
+            </Inert>
           </div>
         </SettingBlock>
 
@@ -901,7 +954,9 @@ function SoundSection({ writer }: { writer: SettingsWriter }) {
               <FieldRow title="说话人编号" value={voiceExtra} onChange={setVoiceExtra} placeholder="0=默认角色" />
             ) : null}
             <div>
-              <Btn>测试连接</Btn>
+              <Inert>
+                <Btn>测试连接</Btn>
+              </Inert>
             </div>
           </SettingBlock>
         ) : null}
@@ -1131,7 +1186,9 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           control={
             <span style={{ display: 'flex', gap: 'var(--w-space-2)', alignItems: 'center' }}>
               <Select value={aiModel} options={[{ value: aiModel, label: aiModel }]} onChange={setAiModel} label="模型" />
-              <Btn>检测</Btn>
+              <Inert>
+                <Btn>检测</Btn>
+              </Inert>
             </span>
           }
         />
@@ -1220,7 +1277,9 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           width={190}
         />
         <BtnRow>
-          <Btn>立即分析</Btn>
+          <Inert>
+            <Btn>立即分析</Btn>
+          </Inert>
         </BtnRow>
 
         <Divider />
@@ -1298,9 +1357,15 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           width={90}
         />
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 'var(--w-space-2)' }}>
-          <Btn>厂商管理页面 →</Btn>
-          <Btn>AI 模型管理页面 →</Btn>
-          <Btn>模型部署向导 →</Btn>
+          <Inert>
+            <Btn>厂商管理页面 →</Btn>
+          </Inert>
+          <Inert>
+            <Btn>AI 模型管理页面 →</Btn>
+          </Inert>
+          <Inert>
+            <Btn>模型部署向导 →</Btn>
+          </Inert>
         </div>
         <ProviderList bridge={bridge} />
 
@@ -1324,8 +1389,12 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           <Field value={newProviderTimeout} onChange={setNewProviderTimeout} placeholder="超时秒" label="超时秒" />
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)' }}>
-          <Btn>＋添加厂商</Btn>
-          <Btn>用当前配置预填</Btn>
+          <Inert>
+            <Btn>＋添加厂商</Btn>
+          </Inert>
+          <Inert>
+            <Btn>用当前配置预填</Btn>
+          </Inert>
         </div>
 
         <Divider />
@@ -1341,13 +1410,21 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
           <Field value={priceModel} onChange={setPriceModel} placeholder="模型名" label="模型名" />
           <Field value={priceIn} onChange={setPriceIn} placeholder="输入价/百万" label="输入价" />
           <Field value={priceOut} onChange={setPriceOut} placeholder="输出价/百万" label="输出价" />
-          <Btn>保存单价</Btn>
+          <Inert>
+            <Btn>保存单价</Btn>
+          </Inert>
         </div>
         <p className="cap">单价可以只填一侧（另一侧按 0 计），不必每个模型都填。</p>
         <BtnRow>
-          <Btn>刷新用量 / 花费</Btn>
-          <Btn>按当前上限试算</Btn>
-          <Btn>用量统计…</Btn>
+          <Inert>
+            <Btn>刷新用量 / 花费</Btn>
+          </Inert>
+          <Inert>
+            <Btn>按当前上限试算</Btn>
+          </Inert>
+          <Inert>
+            <Btn>用量统计…</Btn>
+          </Inert>
         </BtnRow>
         <div
           style={{
@@ -1365,7 +1442,9 @@ function AiSection({ writer, bridge }: { writer: SettingsWriter; bridge: ScreenP
         </div>
         <BtnRow>
           <Btn onClick={() => setChartMode(chartMode === '条形图' ? '折线图' : '条形图')}>{chartMode}</Btn>
-          <Btn>导出 CSV</Btn>
+          <Inert>
+            <Btn>导出 CSV</Btn>
+          </Inert>
         </BtnRow>
         <span className="s-row__title" style={{ fontWeight: 700 }}>
           价钱表（每百万 token）
@@ -1653,7 +1732,7 @@ function PersonaSection() {
             </span>
           }
         />
-        <GroupLabel>自定义性别</GroupLabel>
+        <SubHead>自定义性别</SubHead>
         <p className="s-row__desc">
           名字 + 称呼 + 一段说明即可；还可以挂一段脚本（JS/Python/Java），让性别决定周期、称呼或随经历变化的描述。脚本输入 JSON、输出文字，超时与语句数都有硬上限。
         </p>
@@ -1674,8 +1753,12 @@ function PersonaSection() {
           label="脚本代码"
         />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--w-space-2)' }}>
-          <SignalButton>保存自定义性别</SignalButton>
-          <Btn>从 JSON 导入</Btn>
+          <Inert>
+            <SignalButton>保存自定义性别</SignalButton>
+          </Inert>
+          <Inert>
+            <Btn>从 JSON 导入</Btn>
+          </Inert>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--w-space-2)' }}>
           <Select
@@ -1684,7 +1767,9 @@ function PersonaSection() {
             onChange={() => undefined}
             label="选择要删除的自定义性别"
           />
-          <Btn>删除</Btn>
+          <Inert>
+            <Btn>删除</Btn>
+          </Inert>
         </div>
       </SettingCard>
 
@@ -1706,7 +1791,9 @@ function PersonaSection() {
           <span className="s-row__desc">
             打开后可逐角色设定；涉及自伤/自杀/伤人的条目有硬边界：不提供方法、不美化，只做陪伴与转向求助。
           </span>
-          <Btn>管理心理状况</Btn>
+          <Inert>
+            <Btn>管理心理状况</Btn>
+          </Inert>
         </div>
         <Sep />
         <SettingRow
@@ -1762,7 +1849,7 @@ function PersonaSection() {
           control={<Sw label="数值由 AI 控制" checked={statAi} onChange={setStatAi} />}
         />
         <Sep />
-        <GroupLabel>大脑预判</GroupLabel>
+        <SubHead>大脑预判</SubHead>
         <SettingRow
           title="开启大脑预判"
           desc="TA 会下意识预估你这次会有多热：超预期就受用、好感涨得快些，低于预期就把热情收着。关掉后一切照旧（好感恒定 +1）。"
@@ -1779,7 +1866,7 @@ function PersonaSection() {
           desc="偶尔不完全顺着最顺的走向：停半拍、换个角度、提一件好奇的小事。只微微制造一点预测不到的心动，情绪低落时自动停用。"
           control={<Sw label="意料之外" checked={surprise} onChange={setSurprise} disabled={!brain} />}
         />
-        <GroupLabel>免费小模型辅助预判（可选）</GroupLabel>
+        <SubHead>免费小模型辅助预判（可选）</SubHead>
         <p className="s-row__desc">
           默认完全本地跑、不花钱。想更准可指定一枚便宜/免费的模型，每 N 轮补一次「预判下一条多热」，结果缓存进存档；不开就用本地启发式。
         </p>
@@ -1939,7 +2026,9 @@ function InterfaceSection({ writer }: { writer: SettingsWriter }) {
           <span className="s-row__title">MBTiles 离线包</span>
           <p className="cap">还没有选择离线包，地图只用联网瓦片与缓存。</p>
           <div>
-            <SignalButton>选择 .mbtiles 文件</SignalButton>
+            <Inert>
+              <SignalButton>选择 .mbtiles 文件</SignalButton>
+            </Inert>
           </div>
           <p className="cap">
             选中的文件会复制进应用目录，原文件可以删。包里没有的档位或区域会在画面上用父级瓦片顶着，不会一直空白。
@@ -1959,7 +2048,9 @@ function InterfaceSection({ writer }: { writer: SettingsWriter }) {
             <span className="s-row__title">瓦片缓存</span>
             <span className="s-row__desc">还没有缓存，联网看过地图之后这里会显示占用量。</span>
           </div>
-          <Btn>清空瓦片缓存</Btn>
+          <Inert>
+            <Btn>清空瓦片缓存</Btn>
+          </Inert>
         </div>
       </SettingCard>
 
@@ -2006,8 +2097,12 @@ function InterfaceSection({ writer }: { writer: SettingsWriter }) {
         {money ? null : <p className="cap">金钱系统已关闭</p>}
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', gap: 'var(--w-space-2)', padding: '10px 0' }}>
           <Field value={moneyInput} onChange={setMoneyInput} placeholder="金额（可负数）" type="number" label="金额" />
-          <SignalButton>增加</SignalButton>
-          <Btn>设为余额</Btn>
+          <Inert>
+            <SignalButton>增加</SignalButton>
+          </Inert>
+          <Inert>
+            <Btn>设为余额</Btn>
+          </Inert>
         </div>
       </SettingCard>
 
@@ -2216,8 +2311,12 @@ function PlatformSection({ writer }: { writer: SettingsWriter }) {
         />
         <Sep />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)' }}>
-          <Btn>桌宠设置…</Btn>
-          <Btn>AI 制作桌宠…</Btn>
+          <Inert>
+            <Btn>桌宠设置…</Btn>
+          </Inert>
+          <Inert>
+            <Btn>AI 制作桌宠…</Btn>
+          </Inert>
         </div>
       </SettingCard>
 
@@ -2232,7 +2331,9 @@ function PlatformSection({ writer }: { writer: SettingsWriter }) {
             </span>
             <span className="cap">未检测（点击下方「检测运行时」）</span>
           </div>
-          <Btn>检测</Btn>
+          <Inert>
+            <Btn>检测</Btn>
+          </Inert>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
           <div className="s-row__text">
@@ -2241,11 +2342,17 @@ function PlatformSection({ writer }: { writer: SettingsWriter }) {
             </span>
             <span className="cap">未检测（点击下方「检测运行时」）</span>
           </div>
-          <Btn>检测</Btn>
+          <Inert>
+            <Btn>检测</Btn>
+          </Inert>
         </div>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)' }}>
-          <Btn>下载 Python 便携版</Btn>
-          <Btn>下载 Java 便携版</Btn>
+          <Inert>
+            <Btn>下载 Python 便携版</Btn>
+          </Inert>
+          <Inert>
+            <Btn>下载 Java 便携版</Btn>
+          </Inert>
         </div>
 
         <Divider />
@@ -2256,17 +2363,23 @@ function PlatformSection({ writer }: { writer: SettingsWriter }) {
             </span>
             <span className="s-row__desc">未检测：接 MCP 服务或装带网页的插件之前点一次。</span>
           </div>
-          <Btn>检测</Btn>
+          <Inert>
+            <Btn>检测</Btn>
+          </Inert>
         </div>
 
         <Divider />
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
           <span className="cap">Python 路径：还没有手动指定</span>
-          <Btn>设置路径</Btn>
+          <Inert>
+            <Btn>设置路径</Btn>
+          </Inert>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
           <span className="cap">Java 路径：还没有手动指定</span>
-          <Btn>设置路径</Btn>
+          <Inert>
+            <Btn>设置路径</Btn>
+          </Inert>
         </div>
       </SettingCard>
 
@@ -2461,7 +2574,7 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
         title="官方接入（真微信 / QQ）"
         note="配置后，游戏里的微信 / QQ 将接入你的真实账号：好友发给你的消息会由 TA 亲自回复。官方方案仅支持单聊，不占用鼠标键盘，也无需额外安装任何程序。"
       >
-        <GroupLabel>QQ 官方机器人</GroupLabel>
+        <RowHead>QQ 官方机器人</RowHead>
         <SettingRow
           title="启用 QQ 接入"
           desc="前往 q.qq.com 开放平台创建机器人"
@@ -2531,7 +2644,7 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
           width={110}
         />
 
-        <GroupLabel>微信公众号</GroupLabel>
+        <RowHead>微信公众号</RowHead>
         <SettingRow
           title="启用微信接入"
           desc="需在公众号后台配置服务器 URL（可用内网穿透）指向本机"
@@ -2575,7 +2688,9 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
             <span className="s-row__title">连接状态</span>
             <span className="cap">未启用</span>
           </div>
-          <Btn>测试连接</Btn>
+          <Inert>
+            <Btn>测试连接</Btn>
+          </Inert>
         </div>
         <p className="cap">
           注意：官方方案不支持群聊；如需要群聊，请自行接入 MCP 服务器，与本应用无关。
@@ -2604,8 +2719,12 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
             已接入的服务
           </span>
           <span style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
-            <Btn>刷新</Btn>
-            <Btn>＋ 接入服务</Btn>
+            <Inert>
+              <Btn>刷新</Btn>
+            </Inert>
+            <Inert>
+              <Btn>＋ 接入服务</Btn>
+            </Inert>
           </span>
         </div>
         <p className="cap">
@@ -2623,20 +2742,26 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
           hint="点下面的「＋ 信任一个工具目录」挑一个目录，加进来才会放行。"
         />
         <BtnRow>
-          <Btn>＋ 信任一个工具目录</Btn>
+          <Inert>
+            <Btn>＋ 信任一个工具目录</Btn>
+          </Inert>
         </BtnRow>
         <p className="cap">默认外部工具无法读取模型数据（API Key / 对话历史）；加入信任后放行。</p>
         <Divider />
         <span className="s-row__title">完整性检查</span>
         <p className="cap">核对该有的工具是否齐全、描述与参数 schema 是否完整、聊天可用工具集能否正常构建。</p>
         <BtnRow>
-          <Btn>检查工具完整性</Btn>
+          <Inert>
+            <Btn>检查工具完整性</Btn>
+          </Inert>
         </BtnRow>
         <Divider />
         <span className="s-row__title">表情包库</span>
         <p className="cap">导入的表情可以在对话里发送；写上描述，AI 也能按场合挑表情发。</p>
         <BtnRow>
-          <Btn>＋ 导入表情</Btn>
+          <Inert>
+            <Btn>＋ 导入表情</Btn>
+          </Inert>
         </BtnRow>
         <Empty
           title="表情包库是空的"
@@ -2670,7 +2795,9 @@ function IntegrationsSection({ writer, bridge }: { writer: SettingsWriter; bridg
           </span>
           <span style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
             <Btn onClick={loadPlugins}>刷新</Btn>
-            <Btn>打开插件中心</Btn>
+            <Inert>
+              <Btn>打开插件中心</Btn>
+            </Inert>
           </span>
         </div>
         {pluginsLoading ? <p className="cap">正在读取已安装的插件…</p> : null}
@@ -2807,7 +2934,9 @@ function LifeSection({ writer }: { writer: SettingsWriter }) {
             </span>
           </div>
           <span style={{ display: 'flex', gap: 'var(--w-space-2)' }}>
-            <Btn>定位</Btn>
+            <Inert>
+              <Btn>定位</Btn>
+            </Inert>
             <Btn onClick={() => setChooserOpen(!chooserOpen)}>选择城市</Btn>
           </span>
         </div>
@@ -2853,7 +2982,9 @@ function LifeSection({ writer }: { writer: SettingsWriter }) {
           </SettingBlock>
         ) : null}
         <BtnRow>
-          <Btn>测试取一次天气</Btn>
+          <Inert>
+            <Btn>测试取一次天气</Btn>
+          </Inert>
         </BtnRow>
         <PickRow
           title="适用性别"
@@ -2897,7 +3028,9 @@ function LifeSection({ writer }: { writer: SettingsWriter }) {
         {cycleAdvanced ? (
           <SettingBlock>
             <div>
-              <Btn>添加性别规则…</Btn>
+              <Inert>
+                <Btn>添加性别规则…</Btn>
+              </Inert>
             </div>
             <p className="cap">新加的规则默认「无周期」，选中它再打开上面的开关</p>
           </SettingBlock>
@@ -3000,7 +3133,9 @@ function LifeSection({ writer }: { writer: SettingsWriter }) {
             <span className="s-row__title">角色此刻在做什么</span>
             <span className="cap">还没有角色动起来，进存档待一会儿再来看看。</span>
           </div>
-          <Btn>刷新</Btn>
+          <Inert>
+            <Btn>刷新</Btn>
+          </Inert>
         </div>
       </SettingCard>
     </>
@@ -3028,8 +3163,12 @@ function DataSection() {
         note="导出 / 导入整个应用数据（立绘、存档、角色、背景等）。默认不含 API 密钥与机器人密钥，可在下方勾选。"
       >
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-2)' }}>
-          <SignalButton>导出数据包</SignalButton>
-          <Btn>导入数据包</Btn>
+          <Inert>
+            <SignalButton>导出数据包</SignalButton>
+          </Inert>
+          <Inert>
+            <Btn>导入数据包</Btn>
+          </Inert>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-2)' }}>
           <span className="cap">包含 API 密钥与机器人密钥</span>
@@ -3075,8 +3214,12 @@ function DataSection() {
         />
         <Sep />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--w-space-2)', padding: '13px 0' }}>
-          <SignalButton>立即同步</SignalButton>
-          <Btn>测试连接</Btn>
+          <Inert>
+            <SignalButton>立即同步</SignalButton>
+          </Inert>
+          <Inert>
+            <Btn>测试连接</Btn>
+          </Inert>
         </div>
         <p className="cap">
           令牌只保存在这台设备的设置里，settings.json 不会上传；仓库里只有存档与数据文件，立绘/背景等图片素材不上传。
@@ -3090,8 +3233,12 @@ function DataSection() {
           control={<Sw label="测试计划（Beta 渠道）" checked={beta} onChange={setBeta} />}
         />
         <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: 'var(--w-space-2)' }}>
-          <SignalButton>检查更新</SignalButton>
-          <Btn>下载</Btn>
+          <Inert>
+            <SignalButton>检查更新</SignalButton>
+          </Inert>
+          <Inert>
+            <Btn>下载</Btn>
+          </Inert>
         </div>
       </SettingCard>
 
@@ -3100,7 +3247,9 @@ function DataSection() {
           导入 / 管理背景图与音乐，并把音乐设为左键音、右键音、按键音或背景音轮播
         </p>
         <BtnRow>
-          <Btn>进入素材库</Btn>
+          <Inert>
+            <Btn>进入素材库</Btn>
+          </Inert>
         </BtnRow>
       </SettingCard>
 
@@ -3112,8 +3261,12 @@ function DataSection() {
           一个能力包 = 一个目录，可含 SKILL.md（写给 AI 的说明书，按需加载）和 tool.json（可执行入口，复用 Python/Java 运行时）。装上后 AI 会先读说明书再动手。
         </p>
         <BtnRow>
-          <Btn>导入 zip / 目录</Btn>
-          <Btn>管理</Btn>
+          <Inert>
+            <Btn>导入 zip / 目录</Btn>
+          </Inert>
+          <Inert>
+            <Btn>管理</Btn>
+          </Inert>
         </BtnRow>
       </SettingCard>
     </>
@@ -3132,8 +3285,12 @@ function AdvancedSection() {
           如果您喜欢这个项目，欢迎赞助作者支持 continued development
         </p>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 'var(--w-space-3)' }}>
-          <SignalButton>爱发电赞助</SignalButton>
-          <Btn>B站主页</Btn>
+          <Inert>
+            <SignalButton>爱发电赞助</SignalButton>
+          </Inert>
+          <Inert>
+            <Btn>B站主页</Btn>
+          </Inert>
         </div>
       </SettingCard>
 

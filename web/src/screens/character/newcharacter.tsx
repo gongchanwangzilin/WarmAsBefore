@@ -178,7 +178,7 @@ export function NewCharacter({ back }: ScreenProps) {
           <Glass as="section" tone="card" radius={12} style={{ padding: 'var(--w-pad-card)' }}>
             <Stack gap={4}>
               {step === 0 ? (
-                <Stack gap={4}>
+                <Stack gap={3}>
                   <Lead eyebrow="01 · BASICS" title="先认识一下" sub="名字与性别是必填的；其余留空也能创建，之后在工作室里随时补。" />
 
                   <Stack gap={1}>
@@ -213,7 +213,7 @@ export function NewCharacter({ back }: ScreenProps) {
               ) : null}
 
               {step === 1 ? (
-                <Stack gap={4}>
+                <Stack gap={3}>
                   <Lead eyebrow="02 · PERSONA" title="TA 是什么样的人" sub="这三段直接进提示词。写具体一点，TA 回话时才有东西可抓。" />
 
                   <Stack gap={1}>
@@ -244,7 +244,7 @@ export function NewCharacter({ back }: ScreenProps) {
               ) : null}
 
               {step === 2 ? (
-                <Stack gap={4}>
+                <Stack gap={3}>
                   <Lead
                     eyebrow="03 · IMAGE"
                     title="让 TA 站到光里"
@@ -257,7 +257,9 @@ export function NewCharacter({ back }: ScreenProps) {
                       <Caption>还没有选立绘</Caption>
                     </div>
                     <Actions>
-                      <GlassButton size="sm">选一张立绘</GlassButton>
+                      <GlassButton size="sm" className="is-off">
+                        选一张立绘
+                      </GlassButton>
                     </Actions>
                     <Caption>这张会记成 default/normal；要更多表情，创建后去工作室补。</Caption>
                   </Well>
@@ -268,8 +270,10 @@ export function NewCharacter({ back }: ScreenProps) {
                       <Caption>还没有头像（创建时会先用立绘）</Caption>
                     </div>
                     <Actions>
-                      <PrimaryBtn>选头像并裁剪</PrimaryBtn>
-                      <GlassButton size="sm">直接用这张图</GlassButton>
+                      <PrimaryBtn disabled>选头像并裁剪</PrimaryBtn>
+                      <GlassButton size="sm" className="is-off">
+                        直接用这张图
+                      </GlassButton>
                     </Actions>
                     <Caption>裁剪会框成方脸，存成 512×512；直接用原图会保留原尺寸。</Caption>
                   </Well>
@@ -279,7 +283,7 @@ export function NewCharacter({ back }: ScreenProps) {
               ) : null}
 
               {step === 3 ? (
-                <Stack gap={4}>
+                <Stack gap={3}>
                   <Lead eyebrow="04 · WORLD" title="TA 从哪个世界来" sub="这一步可以整步跳过：不绑世界书也能创建，之后在工作室里补。" />
 
                   <Stack gap={2}>

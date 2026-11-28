@@ -96,6 +96,7 @@ export type SettingEdit =
 
 /** 一行一个方法：params 是请求的载荷，result 是 ok 时的载荷。 */
 export type Requests = {
+  'ui.ready': { params: Record<string, never>; result: { ok: boolean } };
   'ui.tokens': {
     params: Record<string, never>;
     result: { tokens: TokenMap; theme: 'dark' };

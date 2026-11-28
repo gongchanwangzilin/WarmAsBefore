@@ -3,7 +3,7 @@ import { Card, Field, PageHeader, TextBtn } from '../../components/kit';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import type { ScreenProps } from '../types';
-import { Actions, FootBar, Lead, Note, Stack } from './parts';
+import { Actions, FootBar, Inert, Lead, Note, Stack } from './parts';
 
 type SourceRow = { name: string; detail: string };
 
@@ -49,7 +49,9 @@ export function Chatimport({ navigate, back }: ScreenProps) {
                 <span style={{ fontSize: 'var(--w-size-subhead)', color: 'var(--w-ink-display)' }}>从文件导入</span>
                 <span className="cap">.txt / .mht / .md / .json / .csv，可多选；读不出的文件会单独说原因，不影响别的文件。</span>
               </Stack>
-              <TextBtn>选择文件…</TextBtn>
+              <Inert>
+                <TextBtn>选择文件…</TextBtn>
+              </Inert>
             </div>
             {sources.map((row) => (
               <div key={row.name} style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>

@@ -136,7 +136,7 @@ export function FigurePack({ back }: ScreenProps) {
               />
             </div>
             <div style={{ marginLeft: 'auto' }}>
-              <PrimarySm>生成并切图</PrimarySm>
+              <PrimarySm disabled>生成并切图</PrimarySm>
             </div>
           </div>
 
@@ -168,8 +168,8 @@ export function FigurePack({ back }: ScreenProps) {
           </div>
           <Cap>把透明背景视频或按顺序排好的 PNG 帧录成动作。视频抽帧需要本机 ffmpeg；没有时请改用帧序列。</Cap>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
-            <GhostSm>导入帧序列…</GhostSm>
-            <GhostSm>导入透明视频…</GhostSm>
+            <GhostSm disabled>导入帧序列…</GhostSm>
+            <GhostSm disabled>导入透明视频…</GhostSm>
           </div>
         </Card>
 
@@ -179,7 +179,7 @@ export function FigurePack({ back }: ScreenProps) {
             选一个 zip。压缩包根目录（或唯一的一层文件夹）里要有 figure.json，贴图路径按包内相对路径解析。
           </Cap>
           <div>
-            <PrimarySm>选择 zip 导入</PrimarySm>
+            <PrimarySm disabled>选择 zip 导入</PrimarySm>
           </div>
         </Card>
 

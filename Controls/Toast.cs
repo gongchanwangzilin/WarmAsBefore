@@ -52,9 +52,10 @@ public static class Toast
             App.WriteLog($"Toast[{code}] {title} | {body}");
             // Web 宿主在前台时，条由前端自己画：原生那层盖在 WebView 上是另一套视觉，
             // 也不受前端排版约束。这里只把内容推过去（所有窗都收），不再自己贴一条。
-            if (Services.Web.WebBridge.AnyLive)
+            // 启动期的提示比 WebView 早：那时没有窗，先攒着，等前端挂上来补发（EmitOrQueue 自己处理）。
+            if (Views.Web.WebShellPage.Enabled)
             {
-                Services.Web.WebBridge.EmitAll("ui.toast", new
+                Services.Web.WebBridge.EmitOrQueue("ui.toast", new
                 {
                     title,
                     body,

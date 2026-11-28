@@ -62,6 +62,16 @@
   border-radius: 8px;
   justify-content: center;
 }
+/* 后端还没有这条通路时，按钮停在禁用态：点得动却什么都不发生比灰着更糟。 */
+.m-btn:disabled,
+.m-ibtn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.m-btn:disabled:hover {
+  border-color: transparent;
+  color: var(--w-ink-body);
+}
 
 /* ═══════════════ 主界面（MainGamePage.xaml） ═══════════════ */
 
@@ -320,6 +330,8 @@
   left: 50%;
   width: 280px;
   height: 360px;
+  max-width: calc(100% - 24px);
+  max-height: calc(100% - 24px);
   transform: translate(-50%, -50%);
   border-radius: 20px;
   border: 1px solid var(--w-hairline);
@@ -397,6 +409,7 @@
 .mg__gal-title {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
 }
 .mg__gal-chip {
@@ -765,6 +778,21 @@
   .mg {
     overflow-y: auto;
   }
+  /* 顶栏叠两排：组件一排、按键一排。八颗键在 500px 宽的 WebView 里排不下，
+     不换行就会被窗口裁掉最右边那颗「组件」。 */
+  .mg__top > .glass__content {
+    height: auto;
+    flex-wrap: wrap;
+    row-gap: 6px;
+    padding: 8px 12px 10px;
+  }
+  .mg__top-widgets {
+    flex: 1 1 100%;
+  }
+  .mg__top-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+  }
   .mg__body[data-chat='1'],
   .mg__body[data-left='0'][data-chat='1'] {
     grid-template-columns: minmax(0, 1fr);
@@ -788,7 +816,9 @@
     overflow: visible;
   }
   .mg__stage {
-    min-height: 420px;
+    /* 窄屏整页改成可滚的一列，舞台不能再钉死 420：窗口矮的时候要跟着矮，
+       Galgame 面板与立绘才会一起缩，而不是把输入条顶到屏幕外。 */
+    min-height: clamp(300px, 58vh, 520px);
   }
   .mg__chat.glass {
     border-radius: 0;
@@ -1599,19 +1629,22 @@
   color: var(--w-ink-muted);
 }
 
-/* 舞台上的立绘：真素材按高度铺，不裁不变形。 */
+/* 舞台上的立绘：定高不定宽 —— 高度取舞台的 92%，宽度按原图比例自己长。
+   之前写的是 max-height，图小就按原图像素铺（同一套素材换张图就忽大忽小）；
+   高度给定后 max-width 只在极宽的图（多人立绘）上兜一刀，比例仍不被压扁。 */
 .mg__sprite {
   position: absolute;
-  inset: auto 0 0 0;
-  margin: 0 auto;
-  max-height: 92%;
-  max-width: 100%;
+  left: 50%;
+  bottom: 0;
+  transform: translateX(-50%);
+  height: 92%;
   width: auto;
+  max-width: 100%;
   object-fit: contain;
   object-position: bottom center;
   pointer-events: none;
   user-select: none;
-  filter: drop-shadow(0 18px 36px rgba(0, 0, 0, 0.35));
+  filter: drop-shadow(0 18px 36px var(--w-vignette));
 }
 .mg__nosprite-note {
   font-size: var(--w-size-caption);

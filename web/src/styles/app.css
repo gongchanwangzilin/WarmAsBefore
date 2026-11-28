@@ -119,6 +119,90 @@ ol {
   scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
 }
 
+/* ── 进出场：两层错位 ─────────────────────────────────────
+   外框由 PageDeck 的时钟走 12px（退出 10px），内容层再晚 30ms、只走 6px 并轻微
+   缩放 0.995 → 1：读起来是「页在后面推，内容在前面跟上」，而不是整块板子平移。
+   通道只有 transform 与 opacity，时长都在 120–280ms 之间。 */
+
+/* 内容层只做位移与缩放，不再自己淡一次：淡是外层的事，
+   两层都淡会让开场读起来发闷。 */
+@keyframes page-layer-in {
+  from {
+    transform: translate3d(calc(6px * var(--dir, 1)), 0, 0) scale(0.995);
+  }
+  to {
+    transform: none;
+  }
+}
+
+/* 卡片与行：抬 9px 上来；同层每项再晚 18ms，最多错 8 项 */
+@keyframes item-in {
+  from {
+    opacity: 0;
+    transform: translate3d(0, 9px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* 收下：旧页的内容整体沉 7px，跟着外框的反向位移一起退场 */
+@keyframes item-settle {
+  to {
+    transform: translate3d(0, 7px, 0);
+  }
+}
+
+.layer[data-enter='1'] .page {
+  animation: page-layer-in 240ms cubic-bezier(0.2, 0.9, 0.2, 1) 30ms backwards;
+}
+
+/* 两个入口：挂在 .page 上的页头，和内容列里的第一层子项。
+   内容列本身（.screen 等）不参与，否则它和它的子项会叠成两层位移。 */
+.layer[data-enter='1'] .page > *:not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > * {
+  animation: item-in 190ms cubic-bezier(0.2, 0.9, 0.2, 1) 156ms backwards;
+}
+
+.layer[data-enter='1'] .page > *:nth-child(1):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(1) {
+  animation-delay: 30ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(2):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(2) {
+  animation-delay: 48ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(3):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(3) {
+  animation-delay: 66ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(4):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(4) {
+  animation-delay: 84ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(5):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(5) {
+  animation-delay: 102ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(6):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(6) {
+  animation-delay: 120ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(7):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(7) {
+  animation-delay: 138ms;
+}
+.layer[data-enter='1'] .page > *:nth-child(n + 8):not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > :nth-child(n + 8) {
+  animation-delay: 156ms;
+}
+
+.layer[data-leaving='1'] .page > *:not(:is(.screen, .home__body, .section__body, .menu)),
+.layer[data-leaving='1'] .page :is(.screen, .home__body, .section__body, .menu) > * {
+  animation: item-settle 180ms cubic-bezier(0.2, 0.9, 0.2, 1) forwards;
+}
+
 /* ── 页头：两档（SettingsPage 的页面底色档 / SettingsSectionPage 的玻璃带档） ── */
 
 .bar {
@@ -1114,9 +1198,18 @@ ol {
   height: var(--w-space-2);
 }
 
-/* 减少动态：时长归零（令牌侧已改），骨架屏的流光直接停住，状态变化照常落定 */
+/* 减少动态：时长归零（令牌侧已改），骨架屏的流光直接停住，状态变化照常落定。
+   页面进出场连位移都不做 —— 内容直接在场，位置、颜色、状态照旧落定。 */
 @media (prefers-reduced-motion: reduce) {
   .skeleton {
+    animation: none;
+  }
+
+  .layer[data-enter='1'] .page,
+  .layer[data-enter='1'] .page > *,
+  .layer[data-enter='1'] .page :is(.screen, .home__body, .section__body, .menu) > *,
+  .layer[data-leaving='1'] .page > *,
+  .layer[data-leaving='1'] .page :is(.screen, .home__body, .section__body, .menu) > * {
     animation: none;
   }
 
@@ -1125,8 +1218,33 @@ ol {
   .textbtn,
   .ghost,
   .switch__liquid,
-  .switch__knob {
+  .switch__knob,
+  .l-row,
+  .k-row--tap,
+  .k-textbtn,
+  .ph__back,
+  .bar__back,
+  .backchip__btn,
+  .swatch,
+  .link {
     transition: none;
+  }
+
+  .l-row:active,
+  .menu__row:active,
+  .k-row--tap:active,
+  .ghost:active,
+  .textbtn:active,
+  .k-textbtn:active,
+  .ph__back:active,
+  .bar__back:active,
+  .backchip__btn:active,
+  .swatch:active,
+  .link:active,
+  .ghost:hover,
+  .backchip__btn:hover,
+  .link:hover {
+    transform: none;
   }
 }
 
@@ -1174,18 +1292,56 @@ body {
   display: none;
 }
 
-/* 按下即反馈（不等 click）。 */
-.k-row--tap:active,
-.k-textbtn:active,
-.backchip__btn:active {
-  transform: translateY(0.5px);
-  transition: transform 90ms ease-out;
+/* 按压：按下那一刻就形变（不等 click），松手 140ms 回弹。
+   只有 transform，不碰布局；缓动与进出场同一条曲线。 */
+:is(
+    .l-row,
+    .menu__row,
+    .k-row--tap,
+    .ghost,
+    .textbtn,
+    .k-textbtn,
+    .ph__back,
+    .bar__back,
+    .backchip__btn,
+    .swatch,
+    .link,
+    .k-chip[role='button']
+  ) {
+  transition:
+    transform 140ms cubic-bezier(0.2, 0.9, 0.2, 1),
+    color 140ms var(--w-ease-out),
+    background-color 140ms var(--w-ease-out);
 }
-.k-row--tap,
-.k-textbtn,
-.backchip__btn {
-  transition: color 140ms ease-out, transform 90ms ease-out;
+
+/* 浮起只给独立控件：行与行贴在一起时抬 1px 会互相打架 */
+@media (hover: hover) and (pointer: fine) {
+  :is(.ghost, .backchip__btn, .link, .k-chip[role='button']):hover {
+    transform: translate3d(0, -1px, 0);
+  }
 }
+
+/* 整行只收 0.6%：宽行再缩就看出两边的空；小控件可以收得更狠一点 */
+:is(.l-row, .menu__row, .k-row--tap):active {
+  transform: scale(0.994);
+  transition-duration: 90ms;
+}
+
+:is(
+    .ghost,
+    .textbtn,
+    .k-textbtn,
+    .ph__back,
+    .bar__back,
+    .backchip__btn,
+    .swatch,
+    .link,
+    .k-chip[role='button']
+  ):active {
+  transform: scale(0.96);
+  transition-duration: 90ms;
+}
+
 
 /* 键盘焦点：一个环，不用颜色变化去猜。 */
 :focus-visible {
@@ -1224,5 +1380,6 @@ a {
 .k-card,
 .s-card {
   content-visibility: auto;
-  contain-intrinsic-size: 220px;
+  /* auto 关键字：量过的高度记住，滚动条不会因为「跳过 → 量到」来回跳 */
+  contain-intrinsic-size: auto 220px;
 }

@@ -87,7 +87,9 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
         onBack={back}
         right={
           <>
-            <GlassButton size="sm">监测</GlassButton>
+            <GlassButton size="sm" onClick={() => navigate('/superMonitor')}>
+              监测
+            </GlassButton>
             <span
               className="cap"
               style={{
@@ -114,8 +116,19 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
           }}
         >
           {/* ── 名册 ─────────────────────────────────────────── */}
-          <Glass as="section" tone="card" radius={12} style={{ padding: 0, minHeight: wide ? 0 : 300 }}>
-            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+          <Glass
+            as="section"
+            tone="card"
+            radius={12}
+            className="cr-roster"
+            style={{
+              padding: 0,
+              minHeight: wide ? 0 : 300,
+              height: wide ? '100%' : undefined,
+              maxHeight: wide ? 'calc(100vh - 96px)' : undefined,
+            }}
+          >
+            <div style={{ display: 'flex', flexDirection: 'column', minHeight: 0, height: '100%' }}>
               <div
                 style={{
                   display: 'flex',
@@ -133,7 +146,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
               </div>
               <Hair />
 
-              <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
+              <div className="cr-roster__list">
                 {items.length === 0 ? (
                   <Empty
                     title="角色库还是空的"
@@ -189,9 +202,18 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                               background: 'var(--w-surface-tint)',
                               color: 'var(--w-ink-display)',
                               fontSize: 'var(--w-size-body)',
+                              overflow: 'hidden',
                             }}
                           >
-                            {item.name.slice(0, 1) || '?'}
+                            {item.avatarUrl ? (
+                              <img
+                                src={item.avatarUrl}
+                                alt=""
+                                style={{ width: '100%', height: '100%', objectFit: 'cover', display: 'block' }}
+                              />
+                            ) : (
+                              item.name.slice(0, 1) || '?'
+                            )}
                           </span>
                           <span style={{ display: 'flex', flexDirection: 'column', gap: 1, minWidth: 0, flex: 1 }}>
                             <span
@@ -219,7 +241,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                           </span>
                           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-1)' }}>
                             <span onClick={(event) => event.stopPropagation()}>
-                              <TextBtn>导出</TextBtn>
+                              <TextBtn disabled>导出</TextBtn>
                             </span>
                             <span style={{ color: 'var(--w-ink-faint)', fontSize: 18 }}>›</span>
                           </span>
@@ -230,18 +252,22 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                   })
                 )}
               </div>
+
+              <div style={{ flex: 'none', background: 'var(--w-surface-tint)', padding: 'var(--w-space-2) var(--w-pad-card)' }}>
+                <Caption>点一行看右边的预览；改设定再进 TA 的工作室。</Caption>
+              </div>
             </div>
           </Glass>
 
           {/* ── 预览 ─────────────────────────────────────────── */}
-          <Glass as="section" tone="card" radius={12} style={{ padding: 0 }}>
+          <Glass as="section" tone="card" radius={12} className="cr-preview" style={{ padding: 0 }}>
             {selected ? (
-              <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100%' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%', minHeight: 0 }}>
                 <div
                   style={{
                     position: 'relative',
-                    height: 'clamp(260px, 48vh, 520px)',
-                    flex: 'none',
+                    flex: '1 1 auto',
+                    minHeight: 'clamp(260px, 46vh, 520px)',
                     borderRadius: '12px 12px 0 0',
                     background: 'var(--w-surface-tint)',
                     display: 'grid',
@@ -320,7 +346,9 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
 
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
                       <Caption>还没有专属背景：点「换背景」选一张图 / GIF / 视频。</Caption>
-                      <GlassButton size="sm">换背景</GlassButton>
+                      <GlassButton size="sm" className="is-off">
+                        换背景
+                      </GlassButton>
                     </div>
 
                     <Hair />
@@ -341,7 +369,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                       <PrimaryBtn block onClick={enter}>
                         进入 TA 的工作室  →
                       </PrimaryBtn>
-                      <TextBtn>删除</TextBtn>
+                      <TextBtn disabled>删除</TextBtn>
                     </div>
                   </Stack>
                 </div>
@@ -376,7 +404,7 @@ function Reading({ eyebrow, value, note }: { eyebrow: string; value: string; not
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
         <span
           style={{
             fontFamily: 'var(--w-font-num)',

@@ -4,7 +4,7 @@ import { Glass } from '../../components/Glass';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import type { ScreenProps } from '../types';
-import { Actions, Stack } from './parts';
+import { Actions, Inert, Stack } from './parts';
 
 type Landing = 'point' | 'full' | 'linear';
 type Scale = 'dualLine' | 'spheres';
@@ -76,7 +76,9 @@ export function SceneCalibrationPage({ back }: ScreenProps) {
               {chip(scale === 'spheres', SCALE_NAME.spheres)}
             </TextBtn>
             <TextBtn onClick={() => setStatus('需要恰好两条缩放线才能翻转')}>⇄ 翻转第二条线</TextBtn>
-            <TextBtn>↻ 适应窗口</TextBtn>
+            <Inert>
+              <TextBtn>↻ 适应窗口</TextBtn>
+            </Inert>
           </div>
 
           <span className="cap">
@@ -87,7 +89,7 @@ export function SceneCalibrationPage({ back }: ScreenProps) {
 
       <div
         style={{
-          height: 380,
+          height: 'clamp(220px, 44vh, 560px)',
           margin: '0 var(--w-pad-page)',
           borderRadius: 'var(--w-radius-well)',
           background: 'var(--w-ink-display)',

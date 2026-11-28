@@ -8,7 +8,13 @@ export const LIGHT_R = 520;
 export const LIGHT_EXP = 1.35;
 
 type Rect = { left: number; top: number; width: number; height: number };
-type Sample = { el: HTMLElement; rect: Rect; observer: ResizeObserver };
+type Sample = {
+  el: HTMLElement;
+  rect: Rect;
+  observer: ResizeObserver;
+  /** 上一次写进样式的值：没变到看得出来的程度就不再写，省掉整场重绘 */
+  lit: { x: number; y: number; i: number };
+};
 
 const samples = new Set<Sample>();
 const pointer = { x: 0, y: 0, tx: 0, ty: 0, known: false };
@@ -21,6 +27,37 @@ function measure(sample: Sample) {
   sample.rect = { left: r.left, top: r.top, width: r.width, height: r.height };
 }
 
+/* ── 一帧一次：量、画都并到同一个 rAF 里 ────────────────────
+   注册一块玻璃时量一次是必须的；但二十块玻璃同时挂载时，如果每块量完就写样式，
+   后面的量就全变成强制重排。滚动同理：一次手势是几十个 scroll 事件，
+   每个事件里量一遍全部矩形，滚动就只剩读布局了。 */
+
+let paintQueued = 0;
+let reflowQueued = 0;
+let pendingAt: { x: number; y: number } | null = null;
+
+function queuePaint(px?: number, py?: number) {
+  if (px !== undefined && py !== undefined) pendingAt = { x: px, y: py };
+  if (paintQueued) return;
+  paintQueued = requestAnimationFrame(() => {
+    paintQueued = 0;
+    const at = pendingAt;
+    pendingAt = null;
+    if (at) paint(at.x, at.y);
+    else if (pointer.known) paint(pointer.x, pointer.y);
+  });
+}
+
+/** 位置变了（挂载 / 滚动 / 改尺寸）才需要重新量：合并到一帧里，量完整片再画。 */
+function queueRemeasure() {
+  if (reflowQueued) return;
+  reflowQueued = requestAnimationFrame(() => {
+    reflowQueued = 0;
+    for (const sample of samples) measure(sample);
+    if (pointer.known) paint(pointer.x, pointer.y, true);
+  });
+}
+
 export function registerGlass(el: HTMLElement, lit = true) {
   // 控件（开关、滑杆、小按钮）不挂指针光：一块玻璃一次 reflow×3 个变量，几百个控件每动一下鼠标就是几百次样式写入。
   // 光要落在「面」上才看得出材质，落在每一颗开关上是纯开销。
@@ -28,15 +65,16 @@ export function registerGlass(el: HTMLElement, lit = true) {
   const sample: Sample = {
     el,
     rect: { left: 0, top: 0, width: 0, height: 0 },
+    lit: { x: 0, y: 0, i: -1 },
     observer: new ResizeObserver(() => {
       measure(sample);
-      paint(pointer.x, pointer.y);
+      queuePaint();
     }),
   };
   measure(sample);
   sample.observer.observe(el);
   samples.add(sample);
-  if (pointer.known) paint(pointer.x, pointer.y);
+  queuePaint();
   return () => {
     sample.observer.disconnect();
     samples.delete(sample);
@@ -55,9 +93,21 @@ export function lightAt(px: number, py: number, rect: Rect) {
   return { x: cx - rect.left, y: cy - rect.top, d, intensity };
 }
 
-function paint(px: number, py: number) {
+function paint(px: number, py: number, force = false) {
   for (const sample of samples) {
     const { x, y, intensity } = lightAt(px, py, sample.rect);
+    const lit = sample.lit;
+    if (
+      !force &&
+      Math.abs(lit.x - x) < 0.4 &&
+      Math.abs(lit.y - y) < 0.4 &&
+      Math.abs(lit.i - intensity) < 0.004
+    ) {
+      continue;
+    }
+    lit.x = x;
+    lit.y = y;
+    lit.i = intensity;
     const style = sample.el.style;
     style.setProperty('--lx', `${x.toFixed(1)}px`);
     style.setProperty('--ly', `${y.toFixed(1)}px`);
@@ -95,7 +145,6 @@ export function startLighting() {
 
   // 指针移动只记坐标，真正写样式合并到下一帧：一次 pointermove 里画几百块玻璃，
   // 输入事件就被样式写入淹了 —— 这就是「卡」的主要来源之一。
-  let queued = 0;
   const onMove = (event: PointerEvent) => {
     pointer.tx = event.clientX;
     pointer.ty = event.clientY;
@@ -104,26 +153,19 @@ export function startLighting() {
       pointer.y = event.clientY;
       pointer.known = true;
     }
-    if (queued) return;
-    queued = requestAnimationFrame(() => {
-      queued = 0;
-      paint(pointer.tx, pointer.ty);
-    });
+    queuePaint(event.clientX, event.clientY);
     kick();
   };
 
-  const remeasure = () => {
-    for (const sample of samples) measure(sample);
-    paint(pointer.x, pointer.y);
-  };
-
   window.addEventListener('pointermove', onMove, { passive: true });
-  window.addEventListener('resize', remeasure);
-  window.addEventListener('scroll', remeasure, true);
+  window.addEventListener('resize', queueRemeasure);
+  // 玻璃的矩形是相对视口的：里面任何一层滚动都要重排，捕获阶段一次就够，
+  // 但每个事件只记一个「待量」标记，真正量发生在下一帧。
+  window.addEventListener('scroll', queueRemeasure, true);
 
   pointer.x = pointer.tx = window.innerWidth * 0.3;
   pointer.y = pointer.ty = window.innerHeight * 0.22;
   pointer.known = true;
   onFrame(easeBackground);
-  remeasure();
+  queueRemeasure();
 }

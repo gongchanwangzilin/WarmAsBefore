@@ -88,7 +88,9 @@ export function SubProfile({ back }: ScreenProps) {
           </Glass>
 
           <div style={{ display: 'flex', justifyContent: 'center', gap: 'var(--w-space-3)', alignItems: 'center' }}>
-            <GlassButton size="sm">刷新</GlassButton>
+            <GlassButton size="sm" className="is-off">
+              刷新
+            </GlassButton>
             <DangerBtn onClick={reset}>副设定回正</DangerBtn>
           </div>
 

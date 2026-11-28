@@ -4,7 +4,7 @@ import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { Empty, PageHeader } from '../../components/kit';
 import type { ScreenProps } from '../types';
-import { Cap, InlineField, Section, ToolRow, Well } from './parts';
+import { Cap, Inert, InlineField, Section, ToolRow, Well } from './parts';
 
 /**
  * 商店「美了么」：Views/Games/ShopPage.xaml（304 行）+ 同名 code-behind。
@@ -131,7 +131,9 @@ export function Shop({ back }: ScreenProps) {
                 fontSize="var(--w-size-caption)"
                 style={{ flex: 1 }}
               />
-              <GlassButton size="sm">生成</GlassButton>
+              <Inert>
+                <GlassButton size="sm">生成</GlassButton>
+              </Inert>
             </div>
           </div>
         </Glass>
@@ -152,7 +154,9 @@ export function Shop({ back }: ScreenProps) {
                 fontSize="var(--w-size-caption)"
                 style={{ flex: 1 }}
               />
-              <GlassButton size="sm">同步</GlassButton>
+              <Inert>
+                <GlassButton size="sm">同步</GlassButton>
+              </Inert>
             </div>
           </div>
         </Glass>
@@ -193,6 +197,7 @@ export function Shop({ back }: ScreenProps) {
                   <div
                     style={{
                       display: 'flex',
+                      flexWrap: 'wrap',
                       alignItems: 'center',
                       gap: 'var(--w-space-3)',
                       minHeight: 'var(--w-row-h)',
@@ -236,12 +241,26 @@ export function Shop({ back }: ScreenProps) {
                         <Cap style={{ whiteSpace: 'nowrap' }}>{item.cat}</Cap>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
+                    <div
+                      style={{
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'flex-end',
+                        gap: 'var(--w-space-1)',
+                        flex: '0 0 auto',
+                      }}
+                    >
                       <span style={{ fontSize: 'var(--w-size-body)', color: 'var(--w-ink-display)' }}>{priceText(item.price)}</span>
-                      <GlassButton size="sm">{item.ticket ? '解锁' : '购买'}</GlassButton>
+                      <Inert>
+                        <GlassButton size="sm">{item.ticket ? '解锁' : '购买'}</GlassButton>
+                      </Inert>
                       <div style={{ display: 'flex', gap: 'var(--w-space-1)' }}>
-                        <GlassButton size="sm">送礼</GlassButton>
-                        <GlassButton size="sm">使用</GlassButton>
+                        <Inert>
+                          <GlassButton size="sm">送礼</GlassButton>
+                        </Inert>
+                        <Inert>
+                          <GlassButton size="sm">使用</GlassButton>
+                        </Inert>
                       </div>
                     </div>
                   </div>

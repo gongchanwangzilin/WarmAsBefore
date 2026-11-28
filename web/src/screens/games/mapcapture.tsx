@@ -5,7 +5,7 @@ import { GlassSlider } from '../../components/GlassSlider';
 import { PageShell } from '../../components/PageShell';
 import { PageHeader, Select } from '../../components/kit';
 import type { ScreenProps } from '../types';
-import { Cap, Section, Well } from './parts';
+import { Cap, Inert, Section, Well } from './parts';
 
 /**
  * 取景与导入：Views/Games/MapCapturePage.xaml（160 行）+ 同名 code-behind。
@@ -30,9 +30,15 @@ export function MapCapture({ back }: ScreenProps) {
             <Section>照片进出</Section>
             <Cap>电脑端不能取景：照片传过来在这里导入。图上会先落成「未绑」，选中一张再记绑定。</Cap>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--w-space-2)' }}>
-              <GlassButton size="sm">导入照片…</GlassButton>
-              <GlassButton size="sm">打开取景包…</GlassButton>
-              <GlassButton size="sm">导出取景包…</GlassButton>
+              <Inert>
+                <GlassButton size="sm">导入照片…</GlassButton>
+              </Inert>
+              <Inert>
+                <GlassButton size="sm">打开取景包…</GlassButton>
+              </Inert>
+              <Inert>
+                <GlassButton size="sm">导出取景包…</GlassButton>
+              </Inert>
             </div>
           </div>
         </Glass>
@@ -58,7 +64,9 @@ export function MapCapture({ back }: ScreenProps) {
             </div>
             <Cap>这组绑定给谁：新拍的那张</Cap>
             <div>
-              <GlassButton size="md">记上这组绑定</GlassButton>
+              <Inert>
+                <GlassButton size="md">记上这组绑定</GlassButton>
+              </Inert>
             </div>
 
             {street ? (
@@ -71,7 +79,7 @@ export function MapCapture({ back }: ScreenProps) {
                       label="位置"
                       value={streetT}
                       onChange={setStreetT}
-                      width={260}
+                      width={220}
                       format={(value) => `位置 ${Math.round(value * 100)}%`}
                     />
                   </div>

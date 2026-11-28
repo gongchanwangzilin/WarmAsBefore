@@ -3,7 +3,7 @@ import { Card, Field, PageHeader, Row, Sep, Select, TextBtn } from '../../compon
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
 import type { ScreenProps } from '../types';
-import { Actions, Note, SectionTitle, Stack } from './parts';
+import { Actions, Inert, Note, SectionTitle, Stack } from './parts';
 
 type WorldCharacter = { name: string; gender: string; personality: string; description: string };
 
@@ -172,9 +172,9 @@ export function Worldbook({ bridge, back }: ScreenProps) {
                   ]}
                   onChange={setMode}
                 />
-                <SignalButton onClick={() => { if (!aiPrompt.trim()) setStatus('先写一句你想要的世界。'); }}>
-                  生成并编辑
-                </SignalButton>
+                <Inert>
+                  <SignalButton>生成并编辑</SignalButton>
+                </Inert>
               </div>
             </Card>
 
@@ -306,7 +306,9 @@ export function Worldbook({ bridge, back }: ScreenProps) {
 
             <Actions>
               <SignalButton onClick={saveEdit}>保存</SignalButton>
-              <TextBtn>AI 润色</TextBtn>
+              <Inert>
+                <TextBtn>AI 润色</TextBtn>
+              </Inert>
               <span style={{ flex: 1 }} />
               <TextBtn onClick={() => setDraft(null)}>取消编辑</TextBtn>
             </Actions>

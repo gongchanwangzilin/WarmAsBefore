@@ -128,18 +128,22 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
                     </span>
                     {slot.historyNote ? <span className="sc-slot__note">{slot.historyNote}</span> : null}
                     <div className="sc-slot__acts">
-                      <TextBtn>重命名</TextBtn>
-                      <TextBtn>分支</TextBtn>
-                      <TextBtn>导出</TextBtn>
-                      <TextBtn>权限</TextBtn>
-                      <TextBtn>删除</TextBtn>
+                      <TextBtn disabled>重命名</TextBtn>
+                      <TextBtn disabled>分支</TextBtn>
+                      <TextBtn disabled>导出</TextBtn>
+                      <TextBtn disabled>权限</TextBtn>
+                      <TextBtn disabled>删除</TextBtn>
                     </div>
                   </div>
                   <GlassButton size="sm" className="sc-load" onClick={() => navigate('/main')}>
                     读取
                   </GlassButton>
                 </div>
-                {index < slots.length - 1 ? <Sep /> : null}
+                {index < slots.length - 1 ? (
+                  <div className="sc-slotsep">
+                    <Sep />
+                  </div>
+                ) : null}
               </div>
             ))
           )}
@@ -149,9 +153,14 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
           <GlassButton size="lg" className="sc-wide" onClick={() => navigate('/select')}>
             新建存档
           </GlassButton>
+          {/* 导入 / 备份要落盘，桥里没有这两个 method：停在禁用态，不做假成功。 */}
           <div className="sc-bottom__pair">
-            <GlassButton size="md">导入存档</GlassButton>
-            <GlassButton size="md">备份全部</GlassButton>
+            <span className="sc-off" aria-disabled="true">
+              <GlassButton size="md">导入存档</GlassButton>
+            </span>
+            <span className="sc-off" aria-disabled="true">
+              <GlassButton size="md">备份全部</GlassButton>
+            </span>
           </div>
         </div>
       </div>

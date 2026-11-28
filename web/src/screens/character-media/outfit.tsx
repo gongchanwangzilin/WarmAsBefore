@@ -46,7 +46,7 @@ export function Outfit({ back }: ScreenProps) {
             style={{ fontSize: 13 }}
           />
           <div>
-            <PrimarySm>生成并穿上</PrimarySm>
+            <PrimarySm disabled>生成并穿上</PrimarySm>
           </div>
           <Muted>没有开启画面生成？去设置 → AI → 画面生成填接口与密钥。</Muted>
         </Card>

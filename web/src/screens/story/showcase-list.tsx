@@ -3,7 +3,7 @@ import { Card, Empty, PageHeader, Row, Sep, TextBtn } from '../../components/kit
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import type { ScreenProps } from '../types';
-import { Actions, Stack } from './parts';
+import { Actions, Inert, Stack } from './parts';
 
 /** showcases.list 的一行（后端已按 UpdatedAt 倒序）。 */
 type ShowcaseRow = {
@@ -88,7 +88,9 @@ export function ShowcaseList({ bridge, navigate, back }: ScreenProps) {
                     <Actions>
                       <TextBtn onClick={() => edit(script)}>编辑</TextBtn>
                       <TextBtn tone="signal" onClick={() => play(script)}>▶</TextBtn>
-                      <TextBtn>×</TextBtn>
+                      <Inert>
+                        <TextBtn>×</TextBtn>
+                      </Inert>
                     </Actions>
                   }
                 />

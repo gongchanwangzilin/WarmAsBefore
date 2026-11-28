@@ -96,7 +96,7 @@ export function Novelworld({ bridge, query, back }: ScreenProps) {
             <div key={index} style={{ display: 'flex', justifyContent: message.mine ? 'flex-end' : 'flex-start' }}>
               <div
                 style={{
-                  maxWidth: 480,
+                  maxWidth: 'min(480px, 86%)',
                   padding: 'var(--w-space-2) var(--w-space-3)',
                   borderRadius: 'var(--w-radius-well)',
                   background: message.mine ? 'var(--w-tint-button)' : 'var(--w-tint-card)',

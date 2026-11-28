@@ -170,6 +170,7 @@ export function GhostSm({
         padding: '0 12px',
         fontSize: 'var(--w-size-caption)',
         width,
+        ...(disabled ? { cursor: 'default', opacity: 0.45 } : null),
         ...style,
       }}
     >
@@ -279,7 +280,11 @@ export function RowLine({
         <span className="k-row__title">{title}</span>
         {desc ? <span className="k-row__desc">{desc}</span> : null}
       </div>
-      {right ? <div className="k-row__right">{right}</div> : null}
+      {right ? (
+        <div className="k-row__right" style={{ flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          {right}
+        </div>
+      ) : null}
       {chevron ? (
         <span className="k-row__chev" aria-hidden="true">
           ›
@@ -287,9 +292,9 @@ export function RowLine({
       ) : null}
     </>
   );
-  if (!onClick) return <div className="k-row">{body}</div>;
+  if (!onClick) return <div className="k-row" style={{ flexWrap: 'wrap', rowGap: 6 }}>{body}</div>;
   return (
-    <button type="button" className="k-row k-row--tap" onClick={onClick}>
+    <button type="button" className="k-row k-row--tap" style={{ flexWrap: 'wrap', rowGap: 6 }} onClick={onClick}>
       {body}
     </button>
   );

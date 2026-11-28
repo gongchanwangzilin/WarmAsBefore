@@ -3,7 +3,7 @@ import { Card, Field, PageHeader, Row, Sep, TextBtn } from '../../components/kit
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import type { ScreenProps } from '../types';
-import { Actions, Note, SectionTitle, Stack } from './parts';
+import { Actions, Inert, Note, SectionTitle, Stack } from './parts';
 
 type ShowcaseRow = { id: string; name: string; characterName: string; steps: number };
 
@@ -42,16 +42,28 @@ export function ShowcaseEdit({ bridge, query, back }: ScreenProps) {
     <PageShell>
       <PageHeader
         title="编辑展示案"
-        right={<TextBtn>保存</TextBtn>}
+        right={
+          <Inert>
+            <TextBtn>保存</TextBtn>
+          </Inert>
+        }
       />
 
       <div className="screen" style={{ maxWidth: 760 }}>
         <Stack gap={3}>
           <SectionTitle>基本信息</SectionTitle>
           <Card>
-            <Row title="名称" right={<div style={{ width: 280 }}><Field label="名称" value={name} onChange={setName} /></div>} />
+            <Row title="名称" right={<div style={{ width: 'min(280px, 52vw)' }}><Field label="名称" value={name} onChange={setName} /></div>} />
             <Sep />
-            <Row title="主角" desc={characterName} right={<TextBtn>选择角色</TextBtn>} />
+            <Row
+              title="主角"
+              desc={characterName}
+              right={
+                <Inert>
+                  <TextBtn>选择角色</TextBtn>
+                </Inert>
+              }
+            />
           </Card>
 
           <SectionTitle>步骤列表</SectionTitle>
@@ -68,17 +80,27 @@ export function ShowcaseEdit({ bridge, query, back }: ScreenProps) {
           <SectionTitle>添加步骤</SectionTitle>
           <Card>
             <Actions>
-              <TextBtn>添加对话</TextBtn>
-              <TextBtn>插入CG</TextBtn>
+              <Inert>
+                <TextBtn>添加对话</TextBtn>
+              </Inert>
+              <Inert>
+                <TextBtn>插入CG</TextBtn>
+              </Inert>
             </Actions>
             <Sep />
             <Actions>
-              <TextBtn>添加立绘</TextBtn>
-              <TextBtn>清空立绘</TextBtn>
+              <Inert>
+                <TextBtn>添加立绘</TextBtn>
+              </Inert>
+              <Inert>
+                <TextBtn>清空立绘</TextBtn>
+              </Inert>
             </Actions>
             <Sep />
             <Actions>
-              <TextBtn>导入临时素材</TextBtn>
+              <Inert>
+                <TextBtn>导入临时素材</TextBtn>
+              </Inert>
             </Actions>
           </Card>
 

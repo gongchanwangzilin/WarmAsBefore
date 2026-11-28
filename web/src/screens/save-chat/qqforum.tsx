@@ -80,7 +80,8 @@ export function Qqforum({ back }: ScreenProps) {
             aria-label="在论坛上说点什么…"
             onChange={(event) => setInput(event.target.value)}
           />
-          <button type="button" className="sc-send">
+          {/* 发帖要落盘到 storage，桥里没有这条通路：停在禁用态。 */}
+          <button type="button" className="sc-send" disabled>
             发帖
           </button>
         </div>

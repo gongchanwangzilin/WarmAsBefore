@@ -38,6 +38,13 @@
   gap: var(--w-space-2);
   align-items: center;
   padding: 10px 0;
+  /* 与 SettingRow 的 MinimumHeightRequest 同一条线：窗口放大时行跟着长，不钉死。 */
+  min-height: var(--w-row-h);
+}
+
+/* 行首有 44px 头像：发丝线从文字起，不从卡边起（源码 HSepInset）。 */
+.sc-slotsep {
+  margin-left: 52px;
 }
 
 .sc-slot__avatar {
@@ -115,6 +122,16 @@
   width: 100%;
 }
 
+/* 桥里还没有 method 的钮：玻璃钮没有 disabled 属性，外层用它压住指针并压暗。 */
+.sc-off {
+  display: block;
+  opacity: 0.45;
+  pointer-events: none;
+}
+.sc-off > .gbtn {
+  width: 100%;
+}
+
 /* ── 分支树（SaveTreePage.xaml + SaveTreeDrawable） ──── */
 
 .sc-tree {
@@ -174,7 +191,8 @@
 
 .sc-chat {
   height: 100%;
-  min-height: 420px;
+  /* 420 是源码给对话区的地板；窗口比它还矮时按窗口走，别把输入条推到屏幕外。 */
+  min-height: min(420px, 100%);
   display: grid;
   grid-template-columns: var(--sc-cols, 64px 300px minmax(0, 1fr));
   grid-template-rows: 56px minmax(0, 1fr);
@@ -217,6 +235,15 @@
   padding: 0;
   font-family: inherit;
   cursor: pointer;
+}
+.sc-rail__item:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* 当前档（消息）：不点也读得出「现在就在这一档」。 */
+.sc-rail__item--on {
+  color: var(--w-ink-display);
 }
 
 .sc-listwrap {
@@ -620,6 +647,13 @@
   font-size: var(--w-size-small);
   font-weight: 700;
   cursor: pointer;
+}
+
+.sc-send:disabled,
+.sc-ibtn:disabled,
+.sc-plus:disabled {
+  opacity: 0.45;
+  cursor: default;
 }
 
 .sc-scrim {

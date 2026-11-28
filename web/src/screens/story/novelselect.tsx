@@ -3,7 +3,7 @@ import { Card, Empty, PageHeader, Row, Sep, TextBtn } from '../../components/kit
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import type { ScreenProps } from '../types';
-import { Stack } from './parts';
+import { Inert, Stack } from './parts';
 
 /** novels.list 的一行。 */
 type NovelRow = {
@@ -67,7 +67,7 @@ export function NovelSelect({ bridge, navigate, back }: ScreenProps) {
     <PageShell>
       <PageHeader title="平行宇宙" onBack={back} />
 
-      <div className="screen" style={{ minHeight: 360 }}>
+      <div className="screen" style={{ minHeight: 'clamp(200px, 44vh, 420px)' }}>
         <Card>
           {novels.map((novel) => {
             const summary = summaryOf(novel.summary);
@@ -94,7 +94,9 @@ export function NovelSelect({ bridge, navigate, back }: ScreenProps) {
                       <GlassButton size="sm" onClick={() => navigate(`/novelworld?id=${encodeURIComponent(novel.id)}`)}>
                         进入世界
                       </GlassButton>
-                      <TextBtn>删除</TextBtn>
+                      <Inert>
+                        <TextBtn>删除</TextBtn>
+                      </Inert>
                     </div>
                   }
                 />
@@ -103,7 +105,7 @@ export function NovelSelect({ bridge, navigate, back }: ScreenProps) {
             );
           })}
           {loaded && novels.length === 0 ? (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 260 }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: 'clamp(140px, 28vh, 260px)' }}>
               <Empty title="还没有平行宇宙" reason="导入一部小说，它就会变成一个可以进入的世界" />
             </div>
           ) : null}
@@ -111,7 +113,9 @@ export function NovelSelect({ bridge, navigate, back }: ScreenProps) {
 
         <Stack>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr' }}>
-            <GlassButton size="lg">导入小说，创建新世界</GlassButton>
+            <Inert>
+              <GlassButton size="lg">导入小说，创建新世界</GlassButton>
+            </Inert>
           </div>
         </Stack>
       </div>

@@ -28,11 +28,11 @@ export function PluginWeb({ query, back }: ScreenProps) {
         }
       />
 
-      <div className="screen screen--full" style={{ minHeight: '60vh' }}>
+      <div className="screen screen--full" style={{ minHeight: 'min(60vh, 520px)' }}>
         <div
           style={{
             flex: 1,
-            minHeight: '320px',
+            minHeight: 'clamp(180px, 34vh, 420px)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',

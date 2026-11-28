@@ -67,14 +67,24 @@ export function Minimal3D({ back }: ScreenProps) {
         title="3D 灰度视图"
         backText="返回"
         onBack={back}
-        right={<GlassButton size="sm">回鸟瞰</GlassButton>}
+        right={
+          <GlassButton
+            size="sm"
+            onClick={() => {
+              setYaw(0);
+              setWalk(0);
+            }}
+          >
+            回鸟瞰
+          </GlassButton>
+        }
       />
 
       <div
         style={{
           position: 'relative',
           flex: 1,
-          minHeight: 320,
+          minHeight: 'clamp(160px, 38vh, 520px)',
           overflow: 'hidden',
           background: GRAY.sky,
         }}
@@ -153,12 +163,12 @@ export function Minimal3D({ back }: ScreenProps) {
           <Cap>拖动画面转向 · 电脑可用方向键走动 · 手机可选陀螺仪环视</Cap>
           <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)' }}>
             <Cap>全景</Cap>
-            <div style={{ flex: 1 }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
               <GlassSlider
                 label="全景"
                 value={((yaw % 360) + 360) % 360 / 360}
                 onChange={(next) => setYaw(next * 360)}
-                width={280}
+                width={220}
                 format={(value) => `${Math.round(value * 360)}°`}
               />
             </div>

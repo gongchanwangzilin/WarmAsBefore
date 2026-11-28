@@ -454,7 +454,7 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
             alignItems: 'start',
           }}
         >
-          <Stage ctx={ctx} headline={headline} caption={previewCaption} />
+          <Stage ctx={ctx} headline={headline} caption={previewCaption} wide={wide} />
           <Pane ctx={ctx} tab={tab} setTab={setTab} tabs={visibleTabs} />
         </div>
       </div>
@@ -480,11 +480,22 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
 }
 
 /** 左栏：立绘舞台（立绘 + 名字牌 + 读数条 + 服装/表情 + 共用记忆开关）。 */
-function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption: string }) {
+function Stage({ ctx, headline, caption, wide }: { ctx: Ctx; headline: string; caption: string; wide: boolean }) {
   const { f, set, setFacing, facingLeft, outfits, emotions, outfit, emotion, setOutfit, setEmotion, previewUrl, avatarUrl } = ctx;
   return (
-    <Glass as="section" tone="card" radius={12} style={{ padding: 'var(--w-pad-card)' }}>
-      <Stack gap={2}>
+    <Glass
+      as="section"
+      tone="card"
+      radius={12}
+      className="cs-stage"
+      style={{
+        padding: 'var(--w-pad-card)',
+        position: wide ? 'sticky' : undefined,
+        top: wide ? 72 : undefined,
+        maxHeight: wide ? 'calc(100vh - 96px)' : undefined,
+      }}
+    >
+      <Stack gap={2} style={{ overflowY: wide ? 'auto' : undefined, minHeight: 0 }}>
         <div
           style={{
             height: 300,
@@ -496,7 +507,11 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
           }}
         >
           {previewUrl ? (
-            <img src={previewUrl} alt="" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            <img
+              src={previewUrl}
+              alt=""
+              style={{ height: '92%', width: 'auto', maxWidth: '100%', objectFit: 'contain', display: 'block' }}
+            />
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--w-space-3)', textAlign: 'center' }}>
               <BodySm>还没有立绘</BodySm>
@@ -525,35 +540,22 @@ function Stage({ ctx, headline, caption }: { ctx: Ctx; headline: string; caption
             </span>
             <Caption>{caption}</Caption>
           </Stack>
-          <div
-            style={{
-              width: 64,
-              height: 64,
-              alignSelf: 'end',
-              borderRadius: 4,
-              border: '1px solid var(--w-hairline)',
-              background: 'var(--w-surface-tint)',
-              display: 'grid',
-              placeItems: 'center',
-              textAlign: 'center',
-            }}
+          <button
+            type="button"
+            className="cs-avatar"
+            style={{ width: 64, height: 64, alignSelf: 'end', justifySelf: 'end', textAlign: 'center' }}
+            title={avatarUrl ? '点头像换一张' : '点头像导入头像'}
+            onClick={() => ctx.changeAvatar()}
           >
-            <button
-              type="button"
-              className="cs-avatar"
-              title={avatarUrl ? '点头像换一张' : '点头像导入头像'}
-              onClick={() => ctx.changeAvatar()}
-            >
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="" />
-              ) : (
-                <>
-                  <span style={{ fontSize: 20, color: 'var(--w-ink-muted)' }}>＋</span>
-                  <Caption>头像</Caption>
-                </>
-              )}
-            </button>
-          </div>
+            {avatarUrl ? (
+              <img src={avatarUrl} alt="" />
+            ) : (
+              <>
+                <span style={{ fontSize: 20, color: 'var(--w-ink-muted)' }}>＋</span>
+                <Caption>头像</Caption>
+              </>
+            )}
+          </button>
         </div>
 
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1px 1fr 1px 1fr', columnGap: 'var(--w-space-2)', marginTop: 'var(--w-space-2)' }}>
@@ -620,7 +622,7 @@ function Reading({ eyebrow, value, note }: { eyebrow: string; value: string; not
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'flex-end', gap: 'var(--w-space-1)' }}>
         <span style={{ fontFamily: 'var(--w-font-num)', fontSize: 24, color: 'var(--w-ink-display)' }}>{value}</span>
         <span style={{ fontSize: 'var(--w-size-caption)', color: 'var(--w-ink-muted)', paddingBottom: 4 }}>{note}</span>
       </div>
@@ -645,7 +647,7 @@ function Pane({
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: `repeat(${tabs.length}, minmax(0, 1fr))`,
+          gridTemplateColumns: 'repeat(auto-fit, minmax(82px, 1fr))',
           gap: 6,
           padding: 'var(--w-space-2) var(--w-pad-card)',
         }}
@@ -692,7 +694,7 @@ function SettingTab({ ctx }: { ctx: Ctx }) {
   const { f, set, say } = ctx;
   const aiRewrite = () => say('AI 没有回应：检查设置 → AI 里的接口与密钥。');
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="01" eyebrow="// WHO" title="TA 是谁" />
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', columnGap: 'var(--w-space-3)' }}>
@@ -865,7 +867,7 @@ function SettingTab({ ctx }: { ctx: Ctx }) {
             <BodySm>角色世界观</BodySm>
             <Caption>现在启用：没有角色世界观</Caption>
           </div>
-          <GlassButton size="sm">新建一套</GlassButton>
+          <GlassButton size="sm" className="is-off">新建一套</GlassButton>
         </div>
         <Caption>一套 = 几本世界书 + 一段描述。点一行就是指定 TA 默认用哪一套（单选）。</Caption>
         <Caption>还没有角色世界观：TA 就用上面勾的世界书，或者沿用这一档的世界树。</Caption>
@@ -940,7 +942,7 @@ function StateTab({ ctx }: { ctx: Ctx }) {
     ? `第 ${f.cycleDay || 0} 天 · 阶段 ${f.cyclePhase}`
     : '没有开周期记录：TA 的提示词里不会出现身体周期。';
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="02" eyebrow="// STATUS" title="TA 此刻的状态" />
       <Caption>拖动就改，但和设定一样：按「保存」才写进角色。这几项直接进 AI 的提示词。</Caption>
 
@@ -1058,11 +1060,11 @@ function StateTab({ ctx }: { ctx: Ctx }) {
 
 /** ══ 03 素材 ══ */
 function ArtTab({ ctx }: { ctx: Ctx }) {
-  const { navigate, outfits, emotions, outfit, spriteOf } = ctx;
+  const { navigate, outfits, emotions, outfit, setEmotion, spriteOf } = ctx;
   const filled = emotions.filter((item) => spriteOf(item.key)).length;
   const outfitName = outfits.find((item) => item.key === outfit)?.label ?? outfitLabel(outfit);
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="03" eyebrow="// PORTRAIT" title="服装 × 表情" />
       <Caption>一格就是一张立绘。点有图的格子换成那张，点空的格子直接去生成它。</Caption>
 
@@ -1075,8 +1077,11 @@ function ArtTab({ ctx }: { ctx: Ctx }) {
           {emotions.map((item) => {
             const url = spriteOf(item.key);
             return (
-              <span
+              <button
                 key={item.key}
+                type="button"
+                disabled={!url}
+                onClick={url ? () => setEmotion(item.key) : undefined}
                 style={{
                   width: 76,
                   height: 86,
@@ -1088,6 +1093,8 @@ function ArtTab({ ctx }: { ctx: Ctx }) {
                   justifyContent: 'flex-end',
                   padding: 4,
                   overflow: 'hidden',
+                  font: 'inherit',
+                  cursor: url ? 'pointer' : 'default',
                 }}
               >
                 {url ? (
@@ -1095,7 +1102,7 @@ function ArtTab({ ctx }: { ctx: Ctx }) {
                 ) : (
                   <Caption>缺</Caption>
                 )}
-              </span>
+              </button>
             );
           })}
         </Chips>
@@ -1110,7 +1117,7 @@ function ArtTab({ ctx }: { ctx: Ctx }) {
       </Stack>
 
       <Actions>
-        <GlassButton size="sm">导入素材包（zip）</GlassButton>
+        <GlassButton size="sm" className="is-off">导入素材包（zip）</GlassButton>
         <GlassButton size="sm" onClick={() => navigate('/figurePack')}>
           形象包…
         </GlassButton>
@@ -1164,7 +1171,7 @@ function MemoryTab({ ctx }: { ctx: Ctx }) {
     : '这个角色不出声：朗读与配音都会跳过 TA。';
 
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="04" eyebrow="// MEMORY" title="TA 记得什么" />
 
       <Stack gap={0}>
@@ -1276,7 +1283,7 @@ function MemoryTab({ ctx }: { ctx: Ctx }) {
           placeholder="留空跟随全局（如 tts-1 / tts-1-hd）"
         />
         <div>
-          <GlassButton size="sm" onClick={() => ctx.say('这个角色的语音设置已保存。')}>
+          <GlassButton size="sm" className="is-off">
             保存这一档语音
           </GlassButton>
         </div>
@@ -1300,8 +1307,8 @@ function MemoryTab({ ctx }: { ctx: Ctx }) {
           灵枢（Lingshu）导出的记忆 JSON 可以直接读进来：追加是并进来，替换是先清掉 TA 现在记得的。
         </Caption>
         <Actions>
-          <GlassButton size="sm">追加记忆</GlassButton>
-          <GlassButton size="sm">替换记忆</GlassButton>
+          <GlassButton size="sm" className="is-off">追加记忆</GlassButton>
+          <GlassButton size="sm" className="is-off">替换记忆</GlassButton>
         </Actions>
       </Stack>
 
@@ -1335,7 +1342,7 @@ function LinkTab({ ctx }: { ctx: Ctx }) {
     ? 'TA 在这份存档的可用配角里，聊天时 AI 能找到 TA。当前名单是空的 = 不限制，角色库里所有人都能被 AI 调用。'
     : 'TA 已被移出这份存档：AI 不会再随手把 TA 拉进对话。当前名单是空的 = 不限制，角色库里所有人都能被 AI 调用。';
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="05" eyebrow="// THIS SAVE" title="TA 在这份存档里" />
 
       <SwitchLine
@@ -1357,8 +1364,8 @@ function LinkTab({ ctx }: { ctx: Ctx }) {
         <Caption>副本共用同一批立绘文件，不占双份磁盘。记忆可以一起带走，也可以从零开始。</Caption>
         <FieldLine label="副本名字" value={f.duplicateName} onChange={(next) => set('duplicateName', next, '副本名字')} />
         <Actions>
-          <GlassButton size="sm">只要资料</GlassButton>
-          <PrimaryBtn>连记忆一起复制</PrimaryBtn>
+          <GlassButton size="sm" className="is-off">只要资料</GlassButton>
+          <PrimaryBtn disabled>连记忆一起复制</PrimaryBtn>
         </Actions>
       </Stack>
 
@@ -1374,12 +1381,12 @@ function LinkTab({ ctx }: { ctx: Ctx }) {
 /** ══ 07 CG ══ */
 function CgTab() {
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="07" eyebrow="// GALLERY" title="TA 的画面收藏" />
 
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-3)' }}>
         <Caption>剧情里触发过才算解锁；解锁前只看得到条件，看不到画面。</Caption>
-        <GlassButton size="sm">刷新</GlassButton>
+        <GlassButton size="sm" className="is-off">刷新</GlassButton>
       </div>
 
       <Stack gap={3}>
@@ -1394,7 +1401,7 @@ function CgTab() {
 function TalkTab({ ctx }: { ctx: Ctx }) {
   const { talkLines, talkInput, talkHint, setTalkInput, talkSend, talkClear } = ctx;
   return (
-    <Stack gap={4}>
+    <Stack gap={3}>
       <SectionHead no="06" eyebrow="// REPLY" title="先听听 TA 怎么接话" />
       <Caption>这几句只按你现在填的设定回答（还没保存的也算），不写进 TA 的记忆、不进存档。</Caption>
 

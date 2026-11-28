@@ -69,8 +69,7 @@ export function Map({ navigate, back }: ScreenProps) {
           position: 'absolute',
           left: 16,
           top: 14,
-          width: 360,
-          maxWidth: 420,
+          width: 'min(360px, calc(100vw - 32px))',
           display: 'flex',
           flexDirection: 'column',
           gap: 'var(--w-space-2)',
@@ -178,7 +177,7 @@ export function Map({ navigate, back }: ScreenProps) {
             right: 10,
             top: 10,
             bottom: 10,
-            width: 336,
+            width: 'min(336px, calc(100vw - 20px))',
             display: 'flex',
             flexDirection: 'column',
             gap: 10,
@@ -368,9 +367,7 @@ export function Map({ navigate, back }: ScreenProps) {
             </button>
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap' }}>
-            <Well onClick={() => undefined} style={CHIP}>
-              导入地图
-            </Well>
+            <Well style={CHIP}>导入地图</Well>
             <Well onClick={() => navigate('/mapcapture')} style={CHIP}>
               取景（拍照钉在地图上）
             </Well>
@@ -385,7 +382,8 @@ export function Map({ navigate, back }: ScreenProps) {
 
           <Section muted>其他</Section>
           <ToolRow>
-            <Well onClick={back} style={CHIP}>
+            <Well data-back="1"
+        onClick={back} style={CHIP}>
               返回
             </Well>
             <Well style={CHIP}>ℹ 帮助</Well>

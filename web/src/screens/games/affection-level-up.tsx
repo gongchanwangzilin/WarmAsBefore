@@ -130,7 +130,7 @@ export function AffectionLevelUp({ back, query }: ScreenProps) {
         </Glass>
       </div>
 
-      {/* 立绘：图像资源，空框占位 */}
+      {/* 立绘：图像资源，空框占位；按舞台高度定高（源码 AspectFit + MaximumWidthRequest=460） */}
       <div
         aria-hidden="true"
         style={{
@@ -138,9 +138,9 @@ export function AffectionLevelUp({ back, query }: ScreenProps) {
           bottom: 0,
           left: '50%',
           transform: 'translateX(-50%)',
-          width: 260,
-          maxWidth: '70%',
-          height: 300,
+          height: '42%',
+          aspectRatio: '3 / 4',
+          maxWidth: '80%',
           border: '1px dashed color-mix(in oklab, var(--w-ink-on-signal) 55%, transparent)',
           borderRadius: 12,
           opacity: 0.5,

@@ -3,6 +3,7 @@ import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
 import { Card, PageHeader } from '../../components/kit';
 import type { ScreenProps } from '../types';
+import { Inert } from './parts';
 
 /**
  * 云存档（Views/Settings/CloudSavesPage.xaml）：私人仓库门禁的三种外观、两段存档列表
@@ -33,7 +34,11 @@ export function Cloudsaves({ back }: ScreenProps) {
         title="云存档"
         subtitle={SYNC_LINE}
         onBack={back}
-        right={<GlassButton size="sm">刷新</GlassButton>}
+        right={
+          <Inert>
+            <GlassButton size="sm">刷新</GlassButton>
+          </Inert>
+        }
       />
 
       <main className="screen">
@@ -50,7 +55,9 @@ export function Cloudsaves({ back }: ScreenProps) {
           <Card>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--w-space-2)' }}>
               <span style={subhead}>云存档只写私人仓库</span>
-              <GlassButton size="sm">验证私人仓库</GlassButton>
+              <Inert>
+                <GlassButton size="sm">验证私人仓库</GlassButton>
+              </Inert>
             </div>
             <p style={muted}>尚未验证仓库私有性</p>
             <p style={caption}>
