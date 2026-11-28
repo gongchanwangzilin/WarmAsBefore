@@ -9,7 +9,7 @@ import { ToastHost } from './components/ToastHost';
 import { PageShell } from './components/PageShell';
 import { averageGround, groundCss, groundLayers } from './lib/ground';
 import { computeInk } from './lib/ink';
-import { registerGround, startLighting } from './lib/light';
+import { startLighting } from './lib/light';
 import { startAtmosphere, type Atmosphere } from './lib/atmosphere';
 import { prefersReducedMotion } from './lib/motion';
 import { useRouter, type Route } from './lib/router';
@@ -69,33 +69,40 @@ export function App({ bridge, tokens }: Props) {
   );
 
   useEffect(() => {
-    registerGround(groundRef.current);
     // 指针光要挂 window 的 pointermove、并在注册时量一遍所有玻璃；首帧没人动鼠标，
     // 这两件事挪到首屏画完之后，可交互时间不被它占住。
     return afterFirstPaint(startLighting);
   }, []);
 
-  // 气氛层（雾 + 浮尘）：轻量模式与减少动效时整层不画。
+  // 天气层：类型与强度由宿主下发（WeatherSceneKind + 场景强度），这里只负责画。
+  // 轻量模式与「天气场景叠加」关掉时整层不画。
   const lightweight = appearance.value.lightweight;
   const lightweightRef = useRef(lightweight);
   lightweightRef.current = lightweight;
+  const weatherOn = appearance.value.scene.weather;
+  const weatherKind = appearance.value.scene.weatherKind;
+  const weatherIntensity = appearance.value.scene.weatherIntensity;
   useEffect(() => {
     const canvas = skyRef.current;
     if (!canvas) return;
     if (sky.current) {
-      sky.current.setEnabled(!lightweight);
+      sky.current.setEnabled(weatherOn && !lightweight);
       return;
     }
-    // 这是持续帧成本（雾 7 团 + 尘 ≤96 粒），等首屏落定再起。
+    // 这是持续帧成本，等首屏落定再起。
     const cancel = afterFirstPaint(() => {
-      sky.current = startAtmosphere(canvas, !lightweightRef.current, prefersReducedMotion());
+      sky.current = startAtmosphere(canvas, weatherOn && !lightweightRef.current, prefersReducedMotion(), weatherKind, weatherIntensity);
     });
     return () => {
       cancel();
       sky.current?.dispose();
       sky.current = null;
     };
-  }, [lightweight]);
+  }, [lightweight, weatherOn]);
+
+  useEffect(() => {
+    sky.current?.setWeather(weatherKind, weatherIntensity);
+  }, [weatherKind, weatherIntensity]);
 
   // 导航变化告诉宿主：它自己的返回栈、任务栏、硬件返回键才有东西可对。
   useEffect(() => {
@@ -194,9 +201,7 @@ export function App({ bridge, tokens }: Props) {
       data-reduced={appearance.value.reducedTransparency ? '1' : undefined}
       style={worldVars}
     >
-      <div className="ground" ref={groundRef} style={{ backgroundImage: groundCss(layers) }}>
-        <span className="ground__light" aria-hidden="true" />
-      </div>
+      <div className="ground" ref={groundRef} style={{ backgroundImage: groundCss(layers) }} />
 
       <canvas className="sky" ref={skyRef} aria-hidden="true" />
 

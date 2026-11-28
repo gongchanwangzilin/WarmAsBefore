@@ -28,6 +28,19 @@ export function SettingsPage({ bridge, onBack, onNavigate }: Props) {
   useEffect(() => bridge.onEvent('settings.changed', () => reload()), [bridge, reload]);
   const [query, setQuery] = useState('');
 
+  const values =
+    state.status === 'ready' && state.data.values
+      ? ((fillSettings(state.data.values) ?? DEFAULT_SETTINGS) as SettingsValues)
+      : null;
+
+  /** 回车 = 进搜到的第一条：搜索条旁边没有「搜索」钮，回车就是那一下。 */
+  const openFirstMatch = () => {
+    if (!values) return;
+    const { primary, rest } = homeGroups(values);
+    const hit = [...primary, ...rest].find((row) => row.to !== '' && matchesQuery(row, query));
+    if (hit?.to) onNavigate(hit.to);
+  };
+
   return (
     <PageShell>
       <TopBar title="设置" onBack={onBack} />
@@ -45,6 +58,11 @@ export function SettingsPage({ bridge, onBack, onNavigate }: Props) {
               placeholder="搜设置（如：记忆 / 模型 / 语音 / 群聊）"
               aria-label="搜设置"
               onChange={(event) => setQuery(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key !== 'Enter') return;
+                event.preventDefault();
+                openFirstMatch();
+              }}
             />
             <button type="button" className="textbtn" onClick={() => setQuery('')}>
               清空
@@ -86,9 +104,7 @@ export function SettingsPage({ bridge, onBack, onNavigate }: Props) {
             />
           ) : null}
 
-          {state.status === 'ready' && state.data.values ? (
-            <Groups values={(fillSettings(state.data.values) ?? DEFAULT_SETTINGS) as SettingsValues} query={query} onOpen={onNavigate} />
-          ) : null}
+          {values ? <Groups values={values} query={query} onOpen={onNavigate} /> : null}
         </div>
       </main>
     </PageShell>

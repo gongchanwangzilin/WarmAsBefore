@@ -18,9 +18,12 @@ export type GroundChoice = {
  * 形状写在这里，颜色全部从令牌拿 —— 同一份定义同时喂 CSS（页面底）与 canvas（求平均色），
  * 所以换配色时墨阶不会和背景漂移。
  *
+ * 只画「纸」：一条明度台阶（面 → 页 → 井）加一条同色系的斜向薄雾。
+ * 不画径向光斑 —— 卡片后面一团来路不明的亮斑，读起来是发光特效，不是纸。
+ * 层次交给细渐变的台阶数与 .ground::after 的暗角、.ground::before 的噪点。
+ *
  * 用户在「背景」里选了纯色底时，地面改由那一颗颜色现算：
- * 主光取自它的提亮档、背光取自它的压暗档，三层结构与令牌版一致，
- * 所以玻璃、指针光、墨阶全都跟着这颗颜色走，而不是只换一张纸。
+ * 同一条台阶从这颗颜色的提亮档走到压暗档，玻璃、墨阶全都跟着它走，而不是只换一张纸。
  */
 export function groundLayers(tokens: TokenMap, choice?: GroundChoice): GroundLayer[] {
   if (choice && choice.mode === 'solid' && choice.solidHex.trim()) {
@@ -30,39 +33,7 @@ export function groundLayers(tokens: TokenMap, choice?: GroundChoice): GroundLay
       /* 颜色解析失败就退回令牌地面 */
     }
   }
-  return [
-    {
-      kind: 'radial',
-      x: 0.8,
-      y: -0.12,
-      radius: 790,
-      stops: [
-        [0, tokens['--w-ground-warm']],
-        [0.42, tokens['--w-ground-warm-mid']],
-        [1, tokens['--w-ground-warm-end']],
-      ],
-    },
-    {
-      kind: 'radial',
-      x: 0.02,
-      y: 1.05,
-      radius: 720,
-      stops: [
-        [0, tokens['--w-ground-cool']],
-        [0.5, tokens['--w-ground-cool-mid']],
-        [1, tokens['--w-ground-cool-end']],
-      ],
-    },
-    {
-      kind: 'linear',
-      angle: 165,
-      stops: [
-        [0, tokens['--w-ground-a']],
-        [0.44, tokens['--w-ground-b']],
-        [1, tokens['--w-ground-c']],
-      ],
-    },
-  ];
+  return groundFromTokens(tokens);
 }
 
 const WHITE: RGB = { r: 255, g: 255, b: 255 };
@@ -71,43 +42,62 @@ const BLACK: RGB = { r: 0, g: 0, b: 0 };
 const alpha = (c: RGB, a: number) =>
   `rgba(${Math.round(c.r)}, ${Math.round(c.g)}, ${Math.round(c.b)}, ${a})`;
 
-/** 一颗颜色 → 同一套三层地面：主光在上、背光在下、主色铺中间那道竖直明暗。 */
-function groundFrom(base: RGB): GroundLayer[] {
-  const key = mix(base, WHITE, 0.34);
-  const rim = mix(base, WHITE, 0.1);
-  const shade = mix(base, BLACK, 0.34);
-  const deep = mix(base, BLACK, 0.56);
+/**
+ * 令牌地面：面 / 页 / 井三档本身就是一个明度台阶（都由同一颗地色推出来），
+ * 这里只把台阶铺开，再叠一层极淡的同色斜雾给竖直方向一点错位。
+ */
+function groundFromTokens(tokens: TokenMap): GroundLayer[] {
+  const a = parse(tokens['--w-ground-a'] || '#fdf8f0');
+  const b = parse(tokens['--w-ground-b'] || '#f6efe4');
+  const c = parse(tokens['--w-ground-c'] || '#efe6d8');
 
   return [
     {
-      kind: 'radial',
-      x: 0.82,
-      y: -0.1,
-      radius: 820,
+      kind: 'linear',
+      angle: 166,
       stops: [
-        [0, alpha(key, 0.42)],
-        [0.44, alpha(rim, 0.18)],
-        [1, alpha(rim, 0)],
-      ],
-    },
-    {
-      kind: 'radial',
-      x: 0.04,
-      y: 1.04,
-      radius: 760,
-      stops: [
-        [0, alpha(shade, 0.38)],
-        [0.52, alpha(shade, 0.14)],
-        [1, alpha(shade, 0)],
+        [0, toHex(mix(a, b, 0.18))],
+        [0.22, toHex(a)],
+        [0.48, toHex(b)],
+        [0.78, toHex(mix(b, c, 0.62))],
+        [1, toHex(c)],
       ],
     },
     {
       kind: 'linear',
-      angle: 165,
+      angle: 208,
+      stops: [
+        [0, alpha(mix(c, b, 0.5), 0.5)],
+        [0.46, alpha(b, 0.16)],
+        [1, alpha(a, 0)],
+      ],
+    },
+  ];
+}
+
+/** 一颗颜色 → 同一条台阶：提亮档在上、本色居中、压暗档在底。 */
+function groundFrom(base: RGB): GroundLayer[] {
+  const rim = mix(base, WHITE, 0.1);
+  const deep = mix(base, BLACK, 0.3);
+  const well = mix(base, BLACK, 0.46);
+
+  return [
+    {
+      kind: 'linear',
+      angle: 166,
       stops: [
         [0, toHex(rim)],
-        [0.5, toHex(base)],
-        [1, toHex(deep)],
+        [0.26, toHex(base)],
+        [0.72, toHex(mix(base, deep, 0.7))],
+        [1, toHex(well)],
+      ],
+    },
+    {
+      kind: 'linear',
+      angle: 208,
+      stops: [
+        [0, alpha(mix(deep, base, 0.5), 0.34)],
+        [1, alpha(rim, 0)],
       ],
     },
   ];

@@ -3,6 +3,7 @@ import type { SaveRow } from '../../bridge/protocol';
 import { Card, PageHeader, Sep, TextBtn } from '../../components/kit';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
+import { NEED_SAVE, useRun } from '../../lib/run';
 import type { ScreenProps } from '../types';
 import './savechat.css';
 
@@ -32,6 +33,9 @@ type Slot = {
 };
 
 export function Save({ bridge, navigate, back }: ScreenProps) {
+  const run = useRun(bridge);
+  /** 监测画的是「这一局」的状态：没进存档就灰着，进了再亮。 */
+  const outsideSave = run.known && !run.active;
   const [slots, setSlots] = useState<Slot[]>([]);
   const [loadError, setLoadError] = useState('');
   const [ticket, setTicket] = useState(0);
@@ -133,7 +137,11 @@ export function Save({ bridge, navigate, back }: ScreenProps) {
         onBack={back}
         right={
           <>
-            <TextBtn onClick={() => navigate('/superMonitor')}>监测</TextBtn>
+            <span title={outsideSave ? NEED_SAVE : undefined}>
+              <TextBtn onClick={() => navigate('/superMonitor')} disabled={outsideSave}>
+                监测
+              </TextBtn>
+            </span>
             <TextBtn onClick={() => navigate('/saveTree')}>分支树</TextBtn>
           </>
         }

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useEscape } from '../../lib/keys';
 import { useIsWide } from '../../lib/useIsWide';
 import './savechat.css';
 
@@ -69,6 +70,11 @@ export function ChatShell({
   const [input, setInput] = useState('');
   const [stickersOpen, setStickersOpen] = useState(false);
   const [giftOpen, setGiftOpen] = useState(false);
+  // Esc 先关礼物，再关表情。
+  useEscape(stickersOpen || giftOpen, () => {
+    if (giftOpen) setGiftOpen(false);
+    else setStickersOpen(false);
+  });
   const [giftMode, setGiftMode] = useState<'gift' | 'use'>('gift');
   const [thinkOn, setThinkOn] = useState(false);
   const [tier, setTier] = useState(0);
@@ -320,8 +326,9 @@ export function ChatShell({
             className="sc-send"
             onClick={() => void submit()}
             disabled={!onSend || sending}
+            aria-busy={sending || undefined}
           >
-            发送
+            {sending ? '发送中…' : '发送'}
           </button>
         </div>
       </div>

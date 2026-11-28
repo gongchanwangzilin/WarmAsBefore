@@ -52,6 +52,8 @@ public sealed class WebBridge
     private readonly Modules.Tools.ToolManager _tools;
     private readonly Modules.MinecraftBridge.MaidBridgeService _maid;
     private readonly PersonaMemoryService _persona;
+    /// <summary>统一背景服务：天气场景（Kind + 强度）是它的运行时值，前端天气层只认这一份。</summary>
+    private readonly BackgroundService _background;
 
     /// <summary>串行闸：settings.set 是「读→改→落盘」，两条消息挤在一起会互相覆盖。</summary>
     private readonly SemaphoreSlim _gate = new(1, 1);
@@ -88,7 +90,7 @@ public sealed class WebBridge
         GameEngine engine, Modules.AiChat.ChatEngine chat, Modules.RealChat.OfficialChatBridge official,
         PhoneMessageService phone, WeChatService wechat, StickerLibrary stickers,
         Modules.Tools.ToolManager tools, Modules.MinecraftBridge.MaidBridgeService maid,
-        PersonaMemoryService persona) : this()
+        PersonaMemoryService persona, BackgroundService background) : this()
     {
         _settings = settings;
         _saves = saves;
@@ -108,6 +110,11 @@ public sealed class WebBridge
         _tools = tools;
         _maid = maid;
         _persona = persona;
+        _background = background;
+
+        // 天气轮询改的是背景服务里的场景：它一变，整份外观就重新推一次，
+        // 前端天气层（web/src/lib/atmosphere.ts）据此换雨/雪/尘，不用自己猜。
+        _background.Changed += _ => EmitAll("appearance.changed", new { appearance = AppearanceOf(_settings.Current) });
     }
 
     /// <summary>宿主 → 前端的发送通道；页面拿到 WebView 后挂上（见 WebShellPage）。</summary>
@@ -1698,31 +1705,43 @@ public sealed class WebBridge
     // 前端要的是 { appearance }；直接给裸对象会让它以为后端没下发（走「没有可调的外观」空态）。
     private object AppearanceGet() => new { appearance = AppearanceOf(_settings.Current) };
 
-    private static object AppearanceOf(UserSettings s) => new
+    /// <summary>
+    /// 天气场景从 <see cref="BackgroundService.CurrentScene"/> 现取，不从设置里翻旧字段：
+    /// 场景是实时天气轮询解析出来的（<see cref="BackgroundService.ApplyWeatherDescription"/>），
+    /// 只有这份运行时值才和原生背景层画的是同一档。
+    /// </summary>
+    private object AppearanceOf(UserSettings s)
     {
-        alpha = Math.Clamp(s.GlassTranslucency, 0, 1),
-        frost = Math.Clamp(s.GlassFrost, 0, 1),
-        liquid = Math.Clamp(s.GlassHeight, 0, 1),
-        lightweight = s.PerformanceMode,
-        reducedTransparency = s.GlassReducedTransparency,
-        background = new
+        var scene = _background.CurrentScene;
+        return new
         {
-            mode = BackgroundModeOf(s.BackgroundMode),
-            solidHex = s.BackgroundSolidHex,
-            pageTintHex = s.PageTintHex,
-            imageLabel = string.IsNullOrWhiteSpace(s.BackgroundImagePath)
-                ? "尚未选择图片"
-                : System.IO.Path.GetFileName(s.BackgroundImagePath),
-        },
-        scene = new
-        {
-            experimental = s.ExperimentalSceneFxEnabled,
-            weather = s.WeatherSceneOverlayEnabled,
-            light = s.SceneLightEnabled,
-            audio = s.WeatherSceneAudioEnabled,
-            audioLevel = Math.Clamp(s.WeatherSceneAudioLevel, 0, 1),
-        },
-    };
+            alpha = Math.Clamp(s.GlassTranslucency, 0, 1),
+            frost = Math.Clamp(s.GlassFrost, 0, 1),
+            liquid = Math.Clamp(s.GlassHeight, 0, 1),
+            lightweight = s.PerformanceMode,
+            reducedTransparency = s.GlassReducedTransparency,
+            background = new
+            {
+                mode = BackgroundModeOf(s.BackgroundMode),
+                solidHex = s.BackgroundSolidHex,
+                pageTintHex = s.PageTintHex,
+                imageLabel = string.IsNullOrWhiteSpace(s.BackgroundImagePath)
+                    ? "尚未选择图片"
+                    : System.IO.Path.GetFileName(s.BackgroundImagePath),
+            },
+            scene = new
+            {
+                experimental = s.ExperimentalSceneFxEnabled,
+                weather = s.WeatherSceneOverlayEnabled,
+                light = s.SceneLightEnabled,
+                audio = s.WeatherSceneAudioEnabled,
+                audioLevel = Math.Clamp(s.WeatherSceneAudioLevel, 0, 1),
+                // 名字就是 WeatherSceneKind 的枚举名：前端那份 WeatherKind 与它逐字对齐。
+                weatherKind = scene.Kind.ToString(),
+                weatherIntensity = Math.Round(Math.Clamp(scene.Intensity, 0, 1), 3),
+            },
+        };
+    }
 
     /// <summary>存档里存的是 none/image/clear（纯色/图片/透视），前端叫 solid/image/clear。</summary>
     private static string BackgroundModeOf(string? mode) => mode switch

@@ -1,0 +1,125 @@
+/* 角色观察页：一屏一块，只有立绘在中间变大，其余都不滚。 */
+
+.cv {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  /* 页头是 sticky 的 57px，这一页剩下的高度就是立绘的舞台 */
+  height: calc(100vh - 57px);
+  min-height: 320px;
+  overflow: hidden;
+  background: var(--w-surface-tint);
+}
+
+/* 立绘按屏幕高度铺满：高度吃满舞台，宽度按比例收，贴底居中 */
+.cv__stage {
+  display: block;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  object-fit: contain;
+  object-position: bottom center;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.cv__nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 46px;
+  min-width: 46px;
+  padding: 0;
+  font-size: 22px;
+  line-height: 1;
+}
+
+.cv__nav--prev {
+  left: var(--w-space-3);
+}
+
+.cv__nav--next {
+  right: var(--w-space-3);
+}
+
+.cv__count {
+  font-family: var(--w-font-num);
+  font-size: var(--w-size-caption);
+  color: var(--w-ink-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.cv__note {
+  margin: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--w-space-2);
+  padding: var(--w-space-5) var(--w-pad-card);
+  text-align: center;
+}
+
+.cv__note-title {
+  font-size: var(--w-size-body);
+  color: var(--w-ink-display);
+}
+
+.cv__note-body {
+  font-size: var(--w-size-caption);
+  color: var(--w-ink-muted);
+  line-height: 1.6;
+  max-width: 42ch;
+}
+
+/* 底部读数条：固定在页面底部，不跟立绘一起滚 */
+.cv__bar.glass {
+  flex: none;
+  border-radius: 0;
+}
+
+.cv__bar > .glass__content {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: var(--w-space-3);
+  padding: var(--w-space-2) var(--w-pad-page);
+}
+
+.cv__read {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.cv__read-label {
+  font-size: var(--w-size-caption);
+  color: var(--w-ink-muted);
+}
+
+.cv__read-value {
+  font-family: var(--w-font-num);
+  font-size: 20px;
+  color: var(--w-ink-display);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.cv__read-value small {
+  margin-left: 4px;
+  font-family: var(--w-font-ui);
+  font-size: var(--w-size-caption);
+  color: var(--w-ink-faint);
+  font-weight: 400;
+}
+
+@media (max-width: 560px) {
+  .cv__bar > .glass__content {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--w-space-1) var(--w-space-3);
+  }
+  .cv__read-value {
+    font-size: 16px;
+  }
+}

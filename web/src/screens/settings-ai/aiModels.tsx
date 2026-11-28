@@ -241,11 +241,16 @@ export function AiModels({ bridge, navigate, back }: ScreenProps) {
         ))}
 
         {providers.length === 0 ? (
-          <Empty
-            title="还没有厂商"
-            reason="模型都挂在厂商下面，厂商列表是空的，所以这里也没有模型可配。"
-            hint="到「厂商管理」补端点与密钥。"
-          />
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--w-space-2)' }}>
+            <Empty
+              title="还没有厂商"
+              reason="模型都挂在厂商下面，厂商列表是空的，所以这里也没有模型可配。"
+              hint="到「厂商管理」补端点与密钥。"
+            />
+            <GlassButton size="sm" onClick={() => navigate('/aiProviders')}>
+              去厂商管理
+            </GlassButton>
+          </div>
         ) : null}
 
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--w-space-2)' }}>

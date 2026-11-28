@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { GlassButton } from '../../components/GlassButton';
 import { Empty, PageHeader } from '../../components/kit';
 import { PageShell } from '../../components/PageShell';
 import { SignalButton } from '../../components/SignalButton';
@@ -10,7 +11,7 @@ import { Actions, FootBar } from './parts';
  * 角色库与地图都来自后端，前端拿不到任何角色，所以这里停在源码的空状态；
  * 勾选、选场景、点名的提交同样需要那两份数据。
  */
-export function Forcecast({ back }: ScreenProps) {
+export function Forcecast({ navigate, back }: ScreenProps) {
   const [status, setStatus] = useState('勾选要点名的角色，并为 TA 指定初始位置');
 
   return (
@@ -19,6 +20,11 @@ export function Forcecast({ back }: ScreenProps) {
 
       <div className="screen" style={{ minHeight: 'clamp(200px, 44vh, 420px)', justifyContent: 'center' }}>
         <Empty title="角色库还是空的" reason="先创建几个角色，再来点名吧" />
+        <span style={{ alignSelf: 'center' }}>
+          <GlassButton size="sm" onClick={() => navigate('/newcharacter')}>
+            ＋ 新建角色
+          </GlassButton>
+        </span>
       </div>
 
       <FootBar>

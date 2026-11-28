@@ -37,6 +37,7 @@ export const ROUTES: RouteDef[] = [
   route('pet', 1, '桌宠'),
   route('gallery', 1, '回忆录'),
   route('roster', 1, '角色库'),
+  route('characterView', 2, '仔细看'),
   route('novelselect', 1, '平行宇宙'),
   route('showcase-list', 1, '开发者展示模式'),
 

@@ -1,5 +1,7 @@
 import { useState } from 'react';
 import { PageShell } from '../../components/PageShell';
+import { SaveGate } from '../../components/SaveGate';
+import { useRun } from '../../lib/run';
 import type { ScreenProps } from '../types';
 import { Icon } from './qqicons';
 import './savechat.css';
@@ -33,11 +35,16 @@ const SEEDS: Seed[] = [
   { topic: 'today', author: '小林', text: '今天想做点什么？我都可以，泡茶也行，陪你说说话也行。' },
 ];
 
-export function Qqforum({ back }: ScreenProps) {
+export function Qqforum({ bridge, navigate, back }: ScreenProps) {
+  const run = useRun(bridge);
   const [topic, setTopic] = useState('daily');
   const [input, setInput] = useState('');
 
   const posts = SEEDS.filter((post) => post.topic === topic);
+
+  if (run.known && !run.active) {
+    return <SaveGate title="QQ 论坛" eyebrow="// FORUM" onBack={back} onGoSave={() => navigate('/save')} />;
+  }
 
   return (
     <PageShell>

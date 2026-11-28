@@ -1,0 +1,13 @@
+/* 角色库名册：可点的那一行浮起 1px、按下去收一点点（列表自己在框里滚，见 parts.css）。 */
+
+.cr-who {
+  transition: transform 140ms var(--w-ease-out);
+}
+
+.cr-who:hover {
+  transform: translateY(-1px);
+}
+
+.cr-who:active {
+  transform: scale(0.994);
+}

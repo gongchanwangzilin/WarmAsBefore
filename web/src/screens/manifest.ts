@@ -34,6 +34,7 @@ export const ROUTE_GROUP: Record<string, GroupName> = {
   studio: 'character',
   newcharacter: 'character',
   roster: 'character',
+  characterView: 'character',
   subProfile: 'character',
 
   gallery: 'character-media',

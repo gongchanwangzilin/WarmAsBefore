@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useEscape } from '../../lib/keys';
 import type { ScreenProps } from '../types';
 import { Cap, Fab, Section, ToolRow, Well } from './parts';
 
@@ -36,6 +37,11 @@ export function Map({ navigate, back }: ScreenProps) {
   const [panelOpen, setPanelOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchText, setSearchText] = useState('');
+  // Esc 收面板：先收图层面板，再收搜索胶囊 —— 一次退一层。
+  useEscape(panelOpen || searchOpen, () => {
+    if (panelOpen) setPanelOpen(false);
+    else setSearchOpen(false);
+  });
   const [mode, setMode] = useState<Mode>('view');
   const [regionEdit, setRegionEdit] = useState(false);
   const [weather, setWeather] = useState('跟随用户天气');

@@ -16,6 +16,20 @@ export type TokenMap = Record<`--w-${string}`, string>;
 export type BackgroundMode = 'solid' | 'image' | 'clear';
 
 /**
+ * 天气场景：一份枚举名，就是 C# 的 <c>WeatherSceneKind</c>（Models/Background/BackgroundModels.cs）。
+ * 不让前端自己编档 —— 用户能得到的天气只有这八种，宿主按实时天气解析出来的也是这八种。
+ */
+export type WeatherKind =
+  | 'Sunny'
+  | 'Cloudy'
+  | 'Drizzle'
+  | 'LightRain'
+  | 'HeavyRain'
+  | 'Storm'
+  | 'Snow'
+  | 'Fog';
+
+/**
  * 「外观与主题」这一页的全部可调项。
  * 玻璃三项 + 轻量模式驱动整屏材质（App 把它们写进 --w-alpha / --w-frost / --w-liquid），
  * 背景与场景特效只决定玻璃背后透出什么。
@@ -51,6 +65,10 @@ export type Appearance = {
     audio: boolean;
     /** 场景音量 0..1 */
     audioLevel: number;
+    /** 当前天气场景（BackgroundService.CurrentScene.Kind，随天气轮询变化） */
+    weatherKind: WeatherKind;
+    /** 当前场景强度 0..1（BackgroundCatalog 里该场景的 Intensity，随场景固定） */
+    weatherIntensity: number;
   };
 };
 
@@ -126,6 +144,25 @@ export type Requests = {
   'appearance.set': {
     params: { appearance: Appearance };
     result: { appearance: Appearance };
+  };
+  /**
+   * 应用与宿主信息。`run` 回答「现在有没有在跑一份存档」——
+   * 系在存档上的入口（QQ、论坛、监测）靠它决定出不出现，没存档就没有 TA 的状态可看。
+   */
+  'app.info': {
+    params: Record<string, never>;
+    result: {
+      name: string;
+      version: string;
+      build: string;
+      platform: string;
+      kind: string;
+      webView: { engine: string; version: string };
+      dev: string;
+      debug: boolean;
+      /** active=false 时 saveId 与 character 都是空串 */
+      run: { active: boolean; saveId: string; character: string };
+    };
   };
   'nav.open': {
     params: { route: string };

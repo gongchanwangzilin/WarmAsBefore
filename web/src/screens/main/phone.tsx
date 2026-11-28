@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import type { ScreenProps } from '../types';
 import { closeWindow } from '../../lib/windows';
+import { NEED_SAVE, useRun } from '../../lib/run';
 import './main.css';
 
 /**
@@ -28,6 +29,8 @@ type Tile = {
   to: string;
   /** 格子尺寸：Dock 比桌面小一圈 */
   dock?: boolean;
+  /** 系在存档上的入口：没进存档时灰掉，不让点进去撞一页空壳 */
+  needsSave?: boolean;
 };
 
 const PAGE_ONE_HOME: Tile[] = [
@@ -35,7 +38,7 @@ const PAGE_ONE_HOME: Tile[] = [
   { key: 'roster', glyph: '角色库', sub: '人设 · 改写', tone: 'sand', to: '/roster' },
   { key: 'map', glyph: '地图', sub: '去处 · 位置', tone: 'sand', to: '/map' },
   { key: 'outfit', glyph: '换装', sub: '立绘 · 服饰', tone: 'rose', to: '/outfit' },
-  { key: 'qq', glyph: 'QQ', sub: 'QQ · 论坛', tone: 'cool', to: '/qqchat' },
+  { key: 'qq', glyph: 'QQ', sub: 'QQ · 论坛', tone: 'cool', to: '/qqchat', needsSave: true },
   { key: 'gallery', glyph: '回忆录', sub: '相册 · 日记', tone: 'deep', to: '/gallery' },
 ];
 
@@ -82,6 +85,10 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
   // 这一页在桌面上是自己那扇窗：窗里的「‹」关窗，窗外的「‹」照旧返回上一页。
   const leave = () => void closeWindow(bridge, back);
 
+  const run = useRun(bridge);
+  /** 问到了、而且确实没在存档里，才把存档上的入口灰掉。 */
+  const outsideSave = run.known && !run.active;
+
   const [page, setPage] = useState(0);
   const [now, setNow] = useState(() => new Date());
   const drag = useRef<{ x: number; tracking: boolean }>({ x: 0, tracking: false });
@@ -94,22 +101,27 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
   const clock = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
   const statusTime = `${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${periodLabel(now.getHours())}`;
 
-  const tile = (item: Tile) => (
-    <button
-      key={item.key}
-      type="button"
-      className={item.dock ? 'pn__app pn__app--dock' : 'pn__app'}
-      onClick={() => navigate(item.to)}
-    >
-      <span className="pn__tile" data-tone={item.tone}>
-        <i className="pn__gloss" aria-hidden="true" />
-        <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
-          {item.glyph}
+  const tile = (item: Tile) => {
+    const locked = item.needsSave === true && outsideSave;
+    return (
+      <button
+        key={item.key}
+        type="button"
+        className={item.dock ? 'pn__app pn__app--dock' : 'pn__app'}
+        onClick={() => navigate(item.to)}
+        disabled={locked}
+        title={locked ? NEED_SAVE : undefined}
+      >
+        <span className="pn__tile" data-tone={item.tone} data-locked={locked || undefined}>
+          <i className="pn__gloss" aria-hidden="true" />
+          <span className="pn__glyph" data-len={Math.min(item.glyph.length, 4)}>
+            {item.glyph}
+          </span>
         </span>
-      </span>
-      {item.sub ? <span className="pn__app-label">{item.sub}</span> : null}
-    </button>
-  );
+        {item.sub ? <span className="pn__app-label">{item.sub}</span> : null}
+      </button>
+    );
+  };
 
   const onPointerDown = (event: PointerEvent<HTMLDivElement>) => {
     drag.current = { x: event.clientX, tracking: true };
@@ -129,9 +141,6 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
 
       <div className="pn__body">
         <div className="pn__screen">
-          <span className="pn__glow pn__glow--a" aria-hidden="true" />
-          <span className="pn__glow pn__glow--b" aria-hidden="true" />
-
           <div className="pn__status">
             <button type="button" className="pn__back" onClick={leave}>
               <span>‹</span>
@@ -177,6 +186,7 @@ export function Phone({ bridge, navigate, back }: ScreenProps) {
 
                 <h3 className="pn__sect">TA 的世界</h3>
                 <div className="pn__grid">{PAGE_ONE_HOME.map(tile)}</div>
+                {outsideSave ? <p className="pn__gate">{NEED_SAVE}：QQ 与论坛系在这一局的存档上。</p> : null}
 
                 <h3 className="pn__sect">内容与设定</h3>
                 <div className="pn__grid">{PAGE_ONE_SETTING.map(tile)}</div>

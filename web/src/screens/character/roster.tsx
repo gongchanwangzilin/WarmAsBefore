@@ -6,8 +6,10 @@ import { PageShell } from '../../components/PageShell';
 import { Empty, PageHeader, TextBtn } from '../../components/kit';
 import { useIsWide } from '../../lib/useIsWide';
 import { importAvatar } from '../../lib/avatar';
+import { NEED_SAVE, useRun } from '../../lib/run';
 import type { ScreenProps } from '../types';
 import { BodySm, Caption, Eyebrow, Hair, PaneTitle, PrimaryBtn, Stack } from './parts';
+import './roster.css';
 
 /**
  * 角色库：Views/Character/CharacterLibraryPage.xaml（309 行）+ CharacterLibraryViewModel.cs。
@@ -37,6 +39,9 @@ const levelOf = (points: number) => (points <= 0 ? 1 : Math.min(10, Math.floor((
 
 export function Roster({ bridge, navigate, back }: ScreenProps) {
   const wide = useIsWide(720);
+  const run = useRun(bridge);
+  /** 监测画的是这一局的状态：没进存档就灰着。 */
+  const outsideSave = run.known && !run.active;
   const [items, setItems] = useState<RosterItem[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [status, setStatus] = useState('');
@@ -134,7 +139,12 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
         onBack={back}
         right={
           <>
-            <GlassButton size="sm" onClick={() => navigate('/superMonitor')}>
+            <GlassButton
+              size="sm"
+              onClick={() => navigate('/superMonitor')}
+              disabled={outsideSave}
+              title={outsideSave ? NEED_SAVE : '这一局的监测图'}
+            >
               监测
             </GlassButton>
             <span
@@ -195,11 +205,14 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
 
               <div className="cr-roster__list">
                 {items.length === 0 ? (
-                  <Empty
-                    title="角色库还是空的"
-                    reason="名册里还没有任何人"
-                    hint="在角色选择页新建或导入角色，新角色会出现在这里"
-                  />
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--w-space-2)', padding: 'var(--w-pad-card)' }}>
+                    <Empty
+                      title="角色库还是空的"
+                      reason="名册里还没有任何人"
+                      hint="在角色选择页新建或导入角色，新角色会出现在这里"
+                    />
+                    <PrimaryBtn onClick={() => navigate('/newcharacter')}>＋ 新建角色</PrimaryBtn>
+                  </div>
                 ) : (
                   items.map((item) => {
                     const on = item.id === selectedId;
@@ -219,6 +232,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                           />
                         ) : null}
                         <div
+                          className="cr-who"
                           role="button"
                           tabIndex={0}
                           onClick={() => setSelectedId(item.id)}
@@ -289,7 +303,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                           <span style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-1)' }}>
                             <span onClick={(event) => event.stopPropagation()}>
                               <TextBtn onClick={() => exportOne(item)} disabled={busyId === item.id}>
-                                导出
+                                {busyId === item.id ? '导出中…' : '导出'}
                               </TextBtn>
                             </span>
                             <span style={{ color: 'var(--w-ink-faint)', fontSize: 18 }}>›</span>
@@ -340,6 +354,17 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                   <span style={{ position: 'absolute', left: 16, top: 16 }}>
                     <Eyebrow>// SUBJECT</Eyebrow>
                   </span>
+                  {selected.spriteUrl ? (
+                    <span style={{ position: 'absolute', right: 12, top: 12 }}>
+                      <GlassButton
+                        size="sm"
+                        onClick={() => navigate(`/characterView?id=${encodeURIComponent(selected.id)}`)}
+                        title="整屏看 TA 的立绘、换服装与表情"
+                      >
+                        仔细看
+                      </GlassButton>
+                    </span>
+                  ) : null}
                   {selected.spriteUrl ? (
                     <img
                       src={selected.spriteUrl}
@@ -439,7 +464,7 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                         进入 TA 的工作室  →
                       </PrimaryBtn>
                       <TextBtn onClick={() => remove(selected)} disabled={busyId === selected.id}>
-                        删除
+                        {busyId === selected.id ? '删除中…' : '删除'}
                       </TextBtn>
                     </div>
                   </Stack>
@@ -461,6 +486,10 @@ export function Roster({ bridge, navigate, back }: ScreenProps) {
                 <Eyebrow>// NO SUBJECTS</Eyebrow>
                 <PaneTitle>还没有人可以站上这块舞台</PaneTitle>
                 <Caption>去角色选择页新建或导入一个角色，回来就能在这里看见 TA。</Caption>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--w-space-2)', marginTop: 'var(--w-space-2)' }}>
+                  <PrimaryBtn onClick={() => navigate('/newcharacter')}>＋ 新建角色</PrimaryBtn>
+                  <TextBtn onClick={() => navigate('/select')}>去角色选择</TextBtn>
+                </div>
               </div>
             )}
           </Glass>

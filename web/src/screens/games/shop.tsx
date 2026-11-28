@@ -186,11 +186,24 @@ export function Shop({ back }: ScreenProps) {
         <Glass tone="card" radius={12}>
           <div style={{ padding: '0 var(--w-space-2)' }}>
             {items.length === 0 ? (
-              <Empty
-                title="货架上是空的"
-                reason="搜索词或分类把商品全过滤掉了，也可能是还没同步过仓库"
-                hint="清空搜索、点「全部」，或者用上面的 AI 选品现生成一件"
-              />
+              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 'var(--w-space-2)', padding: 'var(--w-space-3) 0' }}>
+                <Empty
+                  title="货架上是空的"
+                  reason="搜索词或分类把商品全过滤掉了，也可能是还没同步过仓库"
+                  hint="清空搜索、点「全部」，或者用上面的 AI 选品现生成一件"
+                />
+                {query.trim() !== '' || category !== '全部' ? (
+                  <GlassButton
+                    size="sm"
+                    onClick={() => {
+                      setQuery('');
+                      setCategory('全部');
+                    }}
+                  >
+                    清空筛选
+                  </GlassButton>
+                ) : null}
+              </div>
             ) : (
               items.map((item) => (
                 <div key={`${item.cat}-${item.name}`} style={{ display: 'flex', flexDirection: 'column' }}>

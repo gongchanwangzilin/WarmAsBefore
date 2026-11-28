@@ -1,6 +1,8 @@
 import { useEffect, useState, type MouseEvent } from 'react';
 import type { CharacterRow, ChatRow, SaveRow } from '../../bridge/protocol';
 import { openInWindow } from '../../lib/windows';
+import { useEscape } from '../../lib/keys';
+import { NEED_SAVE, useRun } from '../../lib/run';
 import { Glass } from '../../components/Glass';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import type { ScreenProps } from '../types';
@@ -151,6 +153,7 @@ type ChatMsg = { id: string; mine: boolean; text: string };
 
 export function Main({ bridge, navigate }: ScreenProps) {
   const live = useLive(bridge);
+  const run = useRun(bridge);
   const openPhone = () => void openInWindow(bridge, '/phone', '手机', { width: 420, height: 860 }, () => navigate('/phone'));
   const now = new Date();
   const day = dateLabel(now);
@@ -172,6 +175,8 @@ export function Main({ bridge, navigate }: ScreenProps) {
   // 默认都是源码里的默认值（不拦、不盖）。
   const [calibrationBlocked] = useState(false);
   const [backendMode] = useState(false);
+  /** 没进存档时，系在存档上的按钮灰着，不让点进去看一页空读数。 */
+  const outsideSave = run.known && !run.active;
   const [input, setInput] = useState('');
   // 对话列表 = chat.history 读回来的存档会话记录；送出去的一句由 chat.send 回给这里。
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -223,6 +228,13 @@ export function Main({ bridge, navigate }: ScreenProps) {
       setSending(false);
     }
   };
+
+  // Esc 关最上面那一层：礼物箱 → 组件 → 菜单，一次只关一层。
+  useEscape(menuOpen || widgetPanel || giftOpen, () => {
+    if (giftOpen) setGiftOpen(false);
+    else if (widgetPanel) setWidgetPanel(false);
+    else setMenuOpen(false);
+  });
 
   const toggleButton = (id: string) => setButtons((prev) => ({ ...prev, [id]: !prev[id] }));
 
@@ -291,7 +303,13 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 </button>
               );
             })}
-            <button type="button" className="m-btn" onClick={() => navigate('/superMonitor')} title="查看当前存档的超级监测">
+            <button
+              type="button"
+              className="m-btn"
+              onClick={() => navigate('/superMonitor')}
+              disabled={outsideSave}
+              title={outsideSave ? NEED_SAVE : '查看当前存档的超级监测'}
+            >
               监测
             </button>
             <button type="button" className="m-btn m-btn--accent" onClick={() => setWidgetPanel(true)} title="选择顶栏与左栏显示什么">
@@ -415,8 +433,14 @@ export function Main({ bridge, navigate }: ScreenProps) {
                 <button type="button" className="m-ibtn" disabled>
                   语音
                 </button>
-                <button type="button" className="mg__send" onClick={() => void send()} disabled={sending}>
-                  发送
+                <button
+                  type="button"
+                  className="mg__send"
+                  onClick={() => void send()}
+                  disabled={sending}
+                  aria-busy={sending || undefined}
+                >
+                  {sending ? '发送中…' : '发送'}
                 </button>
               </div>
             </Glass>
@@ -500,8 +524,14 @@ export function Main({ bridge, navigate }: ScreenProps) {
               <button type="button" className="m-ibtn" disabled>
                 语音
               </button>
-              <button type="button" className="mg__send" onClick={() => void send()} disabled={sending}>
-                发送
+              <button
+                type="button"
+                className="mg__send"
+                onClick={() => void send()}
+                disabled={sending}
+                aria-busy={sending || undefined}
+              >
+                {sending ? '发送中…' : '发送'}
               </button>
             </div>
             {sendHint ? <p className="mg__send-hint">{sendHint}</p> : null}
@@ -647,6 +677,16 @@ export function Main({ bridge, navigate }: ScreenProps) {
             <div className="mg__gift-body">
               <span>还没有已购商品，先去商店逛逛吧～</span>
             </div>
+            <button
+              type="button"
+              className="m-btn m-btn--block m-btn--accent"
+              onClick={() => {
+                setGiftOpen(false);
+                navigate('/shop');
+              }}
+            >
+              去商店
+            </button>
             <button type="button" className="m-btn m-btn--block m-btn--ghost" onClick={() => setGiftOpen(false)}>
               关闭
             </button>

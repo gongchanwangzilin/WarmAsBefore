@@ -1,6 +1,8 @@
 import { useState, type CSSProperties } from 'react';
 import { GlassButton } from '../../components/GlassButton';
 import { PageShell } from '../../components/PageShell';
+import { SaveGate } from '../../components/SaveGate';
+import { useRun } from '../../lib/run';
 import { Card, PageHeader, Sep } from '../../components/kit';
 import type { ScreenProps } from '../types';
 import { FacePane } from './superMonitor';
@@ -493,7 +495,8 @@ function pad2(value: number) {
  * 从超级监测的图上点一枚节点进来，只回答三件事：这是谁、它此刻是多少、它最近怎么变的。
  * 后端没有读数接口，每一行都停在源码那句「该模块暂无独立读数」，不猜数。
  */
-export function ModuleInspector({ query, back }: ScreenProps) {
+export function ModuleInspector({ bridge, query, navigate, back }: ScreenProps) {
+  const run = useRun(bridge);
   const id = (query.get('id') ?? '').trim();
   const [readAt, setReadAt] = useState(() => new Date());
 
@@ -511,6 +514,10 @@ export function ModuleInspector({ query, back }: ScreenProps) {
   const statusText = missing
     ? '缺少节点 id'
     : `读数 ${readings.length} 行 · 变化 0 条 · 取数于 ${pad2(readAt.getHours())}:${pad2(readAt.getMinutes())}:${pad2(readAt.getSeconds())}`;
+
+  if (run.known && !run.active) {
+    return <SaveGate title="模块详情" eyebrow="// MODULE INSPECTOR" onBack={back} onGoSave={() => navigate('/save')} />;
+  }
 
   return (
     <PageShell>

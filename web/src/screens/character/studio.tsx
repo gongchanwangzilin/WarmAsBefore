@@ -545,7 +545,7 @@ export function Studio({ bridge, query, navigate, back }: ScreenProps) {
             {dirty ? <span className="cap">{`有 ${changed.length} 处没保存`}</span> : null}
             {dirty ? <GlassButton size="sm" onClick={revert}>放弃</GlassButton> : null}
             <PrimaryBtn onClick={save} disabled={!dirty || busy}>
-              {saveLabel}
+              {busy ? `${saveLabel}中…` : saveLabel}
             </PrimaryBtn>
           </>
         }

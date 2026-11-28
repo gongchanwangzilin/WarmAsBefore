@@ -2,6 +2,8 @@ import { useState, type CSSProperties } from 'react';
 import { GlassButton } from '../../components/GlassButton';
 import { GlassSwitch } from '../../components/GlassSwitch';
 import { PageShell } from '../../components/PageShell';
+import { SaveGate } from '../../components/SaveGate';
+import { useRun } from '../../lib/run';
 import { Card, PageHeader, Sep } from '../../components/kit';
 import type { ScreenProps } from '../types';
 
@@ -463,13 +465,18 @@ export function FacePane() {
  * （选中节点详情 / 日程 / 器官 / 记忆层 / 人脸）。后端没有监测接口，读数停在源码的空态：
  * 关系数值读不到就整栏不出现，页头退回这一页自己的标题。
  */
-export function SuperMonitor({ navigate, back }: ScreenProps) {
+export function SuperMonitor({ bridge, navigate, back }: ScreenProps) {
+  const run = useRun(bridge);
   const [selected, setSelected] = useState<string | null>(null);
   const node = selected ? NODES.find((item) => item.id === selected) ?? null : null;
 
   const now = new Date();
   const dateText = `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
   const statusText = NO_SAVE;
+
+  if (run.known && !run.active) {
+    return <SaveGate title={PAGE_TITLE} eyebrow="// VITALS" onBack={back} onGoSave={() => navigate('/save')} />;
+  }
 
   return (
     <PageShell>

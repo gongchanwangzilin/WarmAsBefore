@@ -63,11 +63,26 @@ ol {
   --w-wall-k: calc(0.62 + var(--w-liquid) * 0.82);
 }
 
-/* 地面：不是纯色。有明暗，玻璃才透得出东西。 */
+/* 地面：不是纯色。有明暗，玻璃才透得出东西。
+   只有「纸」：一条明度台阶 + 一条同色斜雾（lib/ground.ts），再叠一粒噪点与一层暗角。
+   这里不放任何径向光斑 —— 卡片背后一团亮斑读起来是发光特效，不是材质。 */
 .ground {
   position: absolute;
   inset: 0;
   background-repeat: no-repeat;
+}
+
+/* 噪点：纸的颗粒。SVG feTurbulence 烘成一张 160×160 的瓦片，只做灰度、
+   只给 3.5% 的强度 —— 目标是把大面渐变上的色带打断，不是让人看见噪点。 */
+.ground::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3C/filter%3E%3Crect width='160' height='160' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  pointer-events: none;
 }
 
 .ground::after {
@@ -75,24 +90,6 @@ ol {
   position: absolute;
   inset: 0;
   background: radial-gradient(120% 90% at 50% 30%, transparent 40%, var(--w-vignette) 100%);
-}
-
-.ground__light {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  width: 1100px;
-  height: 900px;
-  margin: -450px 0 0 -550px;
-  border-radius: 50%;
-  background: radial-gradient(closest-side, var(--w-ground-light), var(--w-ground-light-end));
-  transform: translate3d(var(--gx, 0px), var(--gy, 0px), 0);
-  opacity: var(--gi, 0.5);
-  will-change: transform, opacity;
-}
-
-.world[data-lightweight='1'] .ground__light {
-  opacity: 0;
 }
 
 /* ── 页面栈与过场 ─────────────────────────────────────── */
@@ -135,13 +132,18 @@ ol {
   }
 }
 
-/* 卡片与行：抬 9px 上来；同层每项再晚 18ms，最多错 8 项 */
+/* 卡片与行：抬 9px 上来，末端一点点「落定」的过冲（1.004 → 1）——
+   读完是一块面被放稳了，而不是弹一下。同层每项再晚 18ms，最多错 8 项。 */
 @keyframes item-in {
-  from {
+  0% {
     opacity: 0;
-    transform: translate3d(0, 9px, 0);
+    transform: translate3d(0, 9px, 0) scale(0.997);
   }
-  to {
+  62% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1.004);
+  }
+  100% {
     opacity: 1;
     transform: none;
   }
@@ -1114,7 +1116,7 @@ ol {
   width: 32px;
   height: 16px;
   border-radius: 50%;
-  background: radial-gradient(closest-side, rgba(255, 240, 180, 0.3), rgba(255, 240, 180, 0));
+  background: radial-gradient(closest-side, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0));
   pointer-events: none;
 }
 

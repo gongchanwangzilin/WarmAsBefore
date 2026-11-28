@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useEscape } from '../../lib/keys';
 import type { SaveRow } from '../../bridge/protocol';
 import type { ScreenProps } from '../types';
 import './main.css';
@@ -27,6 +28,7 @@ function savesLabel(count: number, savedAt: string): string {
 export function Select({ bridge, navigate, back }: ScreenProps) {
   const [cards, setCards] = useState<Card[]>([]);
   const [addOpen, setAddOpen] = useState(false);
+  useEscape(addOpen, () => setAddOpen(false));
 
   useEffect(() => {
     let alive = true;

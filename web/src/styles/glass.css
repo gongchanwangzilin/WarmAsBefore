@@ -42,34 +42,18 @@
   --cyl-h: 0px;
   --tint: var(--w-tint-page, var(--w-tint-card));
   border-radius: var(--w-radius-card, 12px);
+}
+
+/* 色散与边光都用 box-shadow 画：不叠伪元素、不用 mask ——
+   蒙版写法一旦不被支持就会在卡面蒙一层灰，宁可少一层也不冒这个险。
+   内圈只留中性光：亮边、压边、一圈发丝线。这里不放强调色内辉光 ——
+   卡片边上一圈彩色的光，就是「背后有来路不明的灯」。 */
+.glass--card {
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--w-tint-page, #ffffff) 62%, transparent),
     inset 0 -1px 0 color-mix(in srgb, var(--w-ink-display) 12%, transparent),
     inset 0 0 0 1px var(--w-hairline),
     0 1px 2px color-mix(in srgb, var(--w-ink-display) 10%, transparent);
-  isolation: isolate;
-}
-
-/* 色散：只有沿边一圈、极淡——玻璃把身后的颜色掰开一点点，不是发光。 */
-.glass--card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  padding: 1px;
-  background: linear-gradient(
-    140deg,
-    color-mix(in srgb, var(--w-accent, var(--w-signal)) 14%, transparent),
-    transparent 38%,
-    transparent 62%,
-    color-mix(in srgb, var(--w-ink-display) 10%, transparent)
-  );
-  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  -webkit-mask-composite: xor;
-  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
-  mask-composite: exclude;
-  pointer-events: none;
-  z-index: 2;
 }
 
 .glass--button {
@@ -182,13 +166,16 @@
   opacity: calc(0.55 + 0.45 * var(--w-wall-k, 1));
 }
 
-/* 4 · 柱面：上下两条带，把糊底竖向压到 0.6 倍 */
+/* 4 · 柱面：上下两条带，把糊底竖向压到 0.6 倍。
+   高度是「液态」：底色上按 --w-liquid 给一个基准，悬停时慢慢长高、离开时慢慢收回。
+   只改 height（一个长度，能被插值），不碰滤镜与颜色 —— 所以它不闪、也不发亮。 */
 .glass__cyl {
   position: absolute;
   left: 0;
   right: 0;
-  height: var(--cyl-h, 7px);
+  height: calc(var(--cyl-h, 7px) * (0.72 + var(--w-liquid, 0.5) * 0.56));
   overflow: hidden;
+  transition: height 420ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 .glass__cyl--top {
   top: 0;
@@ -246,20 +233,22 @@
   );
 }
 
-/* 6 · 材料柔光：左上偏内一枚无边界径向光（不被指针驱动，属于材质） */
+/* 6 · 材料柔光：左上偏内一枚无边界径向光（不被指针驱动，属于材质）。
+   极淡：它是「面上有一点受光」，不是卡背后的一盏灯。 */
 .glass__soft {
   position: absolute;
   inset: 0;
   border-radius: inherit;
   background: radial-gradient(
     52% 42% at 24% 14%,
-    rgba(255, 255, 255, calc(0.1 * var(--tier))),
+    rgba(255, 255, 255, calc(0.07 * var(--tier))),
     rgba(255, 255, 255, 0) 72%
   );
   mix-blend-mode: screen;
 }
 
-/* 指针即光源：只改 transform 与 opacity，渐变本身烘一次不再重画 */
+/* 指针即光源：只改 transform 与 opacity，渐变本身烘一次不再重画。
+   光是「湿」的：位置跟着指针，--ls 由指针速度推（lib/light.ts），快速划过时摊开 ~1.18 倍。 */
 .glass__sheen {
   position: absolute;
   left: 0;
@@ -270,15 +259,26 @@
   border-radius: 50%;
   background: radial-gradient(
     closest-side,
-    rgba(255, 249, 232, 0.5),
-    rgba(255, 243, 208, 0.16) 38%,
+    rgba(255, 255, 255, 0.44),
+    rgba(255, 255, 255, 0.1) 38%,
     rgba(255, 255, 255, 0) 74%
   );
-  transform: translate3d(var(--lx, 24%), var(--ly, 14%), 0);
+  transform: translate3d(var(--lx, 24%), var(--ly, 14%), 0) scale(var(--ls, 1));
   /* 面上这层只给一点柔光：真正会亮起来的是侧壁（.glass__wall 跟着 --lx/--ly 走） */
-  opacity: calc(var(--li, 0.5) * 0.2);
+  opacity: calc(var(--li, 0.5) * 0.16);
   mix-blend-mode: screen;
   will-change: transform, opacity;
+}
+
+/* 液态 × 悬停：柱面带长高一点，回得比去得慢（280ms 去 / 420ms 回）。
+   只给有柱面带的档（条、按钮、信号）；卡片本来就没有这两条带，不去给它加。 */
+@media (hover: hover) and (pointer: fine) {
+  .glass--bar:hover .glass__cyl,
+  .glass--button:hover .glass__cyl,
+  .glass--signal:hover .glass__cyl {
+    height: calc(var(--cyl-h, 6px) * (1.08 + var(--w-liquid, 0.5) * 1.24));
+    transition-duration: 280ms;
+  }
 }
 
 .glass__content {
@@ -324,4 +324,11 @@
    影子和六层玻璃叠在一起，读出来是塑料而不是玻璃。 */
 .world .glass--card {
   box-shadow: inset 0 0 0 1px var(--w-hairline);
+}
+
+/* 减少动效：柱面高度不再随悬停变化，其余材质照旧。 */
+@media (prefers-reduced-motion: reduce) {
+  .glass__cyl {
+    transition: none;
+  }
 }

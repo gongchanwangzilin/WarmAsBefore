@@ -7,7 +7,7 @@ export const DEFAULT_APPEARANCE: Appearance = {
   lightweight: false,
   reducedTransparency: false,
   background: { mode: 'solid', solidHex: '', pageTintHex: '', imageLabel: '尚未选择图片' },
-  scene: { experimental: false, weather: true, light: true, audio: true, audioLevel: 0.6 },
+  scene: { experimental: false, weather: true, light: true, audio: true, audioLevel: 0.6, weatherKind: 'Sunny', weatherIntensity: 0.15 },
 };
 
 /** 假后端的示例设置；摘要文案的样子全由这几个数决定（见 lib/settingsHome.ts）。 */

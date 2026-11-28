@@ -892,34 +892,9 @@
   grid-template-rows: auto minmax(0, 1fr) auto auto auto auto;
   border-radius: clamp(28px, 8vh, 44px);
   overflow: hidden;
-  background:
-    radial-gradient(115% 72% at 10% -6%, var(--w-ground-warm) 0%, var(--w-ground-warm-end) 58%),
-    radial-gradient(90% 62% at 104% 106%, var(--w-ground-cool) 0%, var(--w-ground-cool-end) 56%),
-    linear-gradient(160deg, var(--w-surface-tint) 0%, var(--w-bg) 40%, var(--w-tint-bar) 76%, var(--w-surface-tint) 100%);
-}
-
-.pn__glow {
-  position: absolute;
-  border-radius: 50%;
-  filter: blur(26px);
-  opacity: 0.55;
-  pointer-events: none;
-}
-
-.pn__glow--a {
-  top: -14%;
-  left: -20%;
-  width: 62%;
-  aspect-ratio: 1;
-  background: var(--w-ground-warm);
-}
-
-.pn__glow--b {
-  right: -18%;
-  bottom: -18%;
-  width: 56%;
-  aspect-ratio: 1;
-  background: var(--w-ground-cool);
+  /* 屏底只留一条明度台阶：上亮下暗，够读出「这是一块玻璃」。
+     不再给屏底堆两块彩色的光斑 —— 那是灯池，不是玻璃。 */
+  background: linear-gradient(160deg, var(--w-surface-tint) 0%, var(--w-bg) 42%, var(--w-tint-bar) 78%, var(--w-bg) 100%);
 }
 
 /* ── 状态栏 ── */
@@ -1401,4 +1376,25 @@
   object-position: bottom center;
   pointer-events: none;
   user-select: none;
+}
+
+/* 系在存档上的应用：没进存档时灰着，但还留在原位 ——
+   入口忽然消失会让人以为功能没了，灰着加一句「进一份存档」才是可读的。 */
+.pn__app:disabled {
+  cursor: default;
+}
+.pn__app:disabled .pn__tile {
+  opacity: 0.4;
+  filter: saturate(0.35);
+}
+.pn__app:disabled:hover .pn__tile,
+.pn__app:disabled:active .pn__tile {
+  transform: none;
+  filter: saturate(0.35);
+}
+.pn__gate {
+  margin: var(--w-space-2) 0 0;
+  font-size: clamp(8px, 2.4vw, 10px);
+  color: var(--w-ink-muted);
+  line-height: 1.5;
 }
